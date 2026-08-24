@@ -1078,6 +1078,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\UI\RecordedCursorPresentationPolicy.h">
       <Filter>Header Files\Runtime\UI</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\RecordedCursorDrawing.h">
+      <Filter>Header Files\Runtime\UI</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h">
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>

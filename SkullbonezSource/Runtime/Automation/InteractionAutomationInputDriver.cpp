@@ -157,9 +157,8 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishFrame()
     }
 }
 
-SkullbonezCore::Runtime::RecordedCursorFrame SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishRecordedFrame(
-    const RecordedInputFrame& frame, int targetWidth, int targetHeight, bool publishedRealTurn,
-    const POINT* semanticPosition )
+SkullbonezCore::Runtime::RecordedCursorFrame SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishRecordedFrame( const RecordedInputFrame& frame, int targetWidth, int targetHeight, bool publishedRealTurn,
+                                                                                                                              const POINT* semanticPosition )
 {
     Input::AutomationState inputState;
     const RecordedCursorFrame cursor = BuildRecordedFramePublication( frame, inputState, targetWidth, targetHeight,

@@ -415,6 +415,7 @@
           "Runtime/Tools/RuntimeTools.h",
           "Runtime/UI/OperatorUiPhase.h",
           "Runtime/UI/OperatorUiProjection.h",
+          "Runtime/UI/RecordedCursorDrawing.h",
           "Runtime/UI/RecordedCursorPresentationPolicy.h",
           "Runtime/UI/RenderDiagnosticsProjection.h",
           "Runtime/UI/RuntimeViewModel.h",

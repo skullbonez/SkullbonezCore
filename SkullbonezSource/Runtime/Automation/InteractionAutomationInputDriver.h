@@ -61,10 +61,8 @@ inline RecordedCursorFrame BuildRecordedFramePublication( const RecordedInputFra
     {
         const int targetMaxX = (std::max)( 0, targetWidth - 1 );
         const int targetMaxY = (std::max)( 0, targetHeight - 1 );
-        inputState.mouseClientPosition.x = static_cast<LONG>(
-            std::lround( std::clamp( frame.normalizedX, 0.0f, 1.0f ) * static_cast<float>( targetMaxX ) ) );
-        inputState.mouseClientPosition.y = static_cast<LONG>(
-            std::lround( std::clamp( frame.normalizedY, 0.0f, 1.0f ) * static_cast<float>( targetMaxY ) ) );
+        inputState.mouseClientPosition.x = static_cast<LONG>( std::lround( std::clamp( frame.normalizedX, 0.0f, 1.0f ) * static_cast<float>( targetMaxX ) ) );
+        inputState.mouseClientPosition.y = static_cast<LONG>( std::lround( std::clamp( frame.normalizedY, 0.0f, 1.0f ) * static_cast<float>( targetMaxY ) ) );
     }
 
     inputState.leftMouseDown = frame.leftDown;

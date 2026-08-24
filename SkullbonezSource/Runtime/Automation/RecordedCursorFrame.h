@@ -6,6 +6,7 @@ Purpose:
 Summary:
   Automation constructs one detached value from the same resolved client point
   sent through normal synthetic input. App and Runtime/UI may filter the copy
+
   for presentation, but no owner retains it beyond the current frame.
 
 Invariants:

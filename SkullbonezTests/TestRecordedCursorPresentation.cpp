@@ -7,8 +7,9 @@ Purpose:
 Summary:
   The visibility cases freeze every approved playback and interaction
   disposition. Separate InputRouter observations prove that evaluating the pure
-  product policy cannot change desired or committed native capture/visibility,
-  and deliberate local mutations prove both observation channels can fail.
+  product policy and bounded arrow composition cannot change desired or
+  committed native capture/visibility. Draw-command cases freeze the shared hot
+  point, edge placement, operator-surface independence, and two-command ceiling.
 
 Glossary:
   False-pass control: Deliberate mutation that proves a negative assertion can
@@ -21,6 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/UI/RecordedCursorPresentationPolicy.h
+  - SkullbonezSource/Runtime/UI/RecordedCursorDrawing.h
   - SkullbonezSource/Runtime/Input/InputRouter.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -30,6 +32,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.h"
 #include "../SkullbonezSource/Runtime/Input/Input.h"
 #include "../SkullbonezSource/Runtime/Input/InputRouter.h"
+#include "../SkullbonezSource/Runtime/UI/RecordedCursorDrawing.h"
 #include "../SkullbonezSource/Runtime/UI/RecordedCursorPresentationPolicy.h"
 
 #include <cstring>
@@ -39,6 +42,7 @@ using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Runtime::BuildRecordedFramePublication;
 using SkullbonezCore::Runtime::ClassifyRecordedCursorPlaybackPhase;
 using SkullbonezCore::Runtime::ClassifyRecordedCursorPointerDisposition;
+using SkullbonezCore::Runtime::ComposeRecordedCursorDrawList;
 using SkullbonezCore::Runtime::FilterRecordedCursorFrame;
 using SkullbonezCore::Runtime::InputRouter;
 using SkullbonezCore::Runtime::PointerPresentationState;
@@ -47,6 +51,7 @@ using SkullbonezCore::Runtime::RecordedCursorPlaybackPhase;
 using SkullbonezCore::Runtime::RecordedCursorPointerDisposition;
 using SkullbonezCore::Runtime::RecordedInputFrame;
 using SkullbonezCore::Runtime::ShouldPresentRecordedCursor;
+using SkullbonezCore::UI::UIDrawList;
 
 namespace
 {
@@ -55,7 +60,142 @@ bool IsCleared( const RecordedCursorFrame& frame )
     return frame.clientX == 0 && frame.clientY == 0 && !frame.publishedRealTurn && !frame.pointerResolved &&
            !frame.recordedAppFocused;
 }
+
+RecordedCursorFrame VisibleCursorAt( int x, int y )
+{
+    RecordedCursorFrame frame;
+    frame.clientX = x;
+    frame.clientY = y;
+    frame.publishedRealTurn = true;
+    frame.pointerResolved = true;
+    frame.recordedAppFocused = true;
+    return frame;
+}
+
+void CheckPoint( const UIDrawList::Command& command, int index, float x, float y )
+{
+    const float xs[] = { command.x0, command.x1, command.x2 };
+    const float ys[] = { command.y0, command.y1, command.y2 };
+    CHECK( xs[index] == doctest::Approx( x ) );
+    CHECK( ys[index] == doctest::Approx( y ) );
+}
 } // namespace
+
+TEST_CASE( "Recorded cursor presentation: arrow commands preserve hot point and fingerprint" )
+{
+    UIDrawList drawList;
+    ComposeRecordedCursorDrawList( drawList, VisibleCursorAt( 50, 40 ), 100, 80 );
+
+    const UIDrawList::Stats stats = drawList.GetStats();
+    CHECK( stats.commandCount == SkullbonezCore::Runtime::RECORDED_CURSOR_DRAW_COMMAND_HIGH_WATER );
+    CHECK( stats.textBytes == 0 );
+    CHECK_FALSE( stats.commandOverflow );
+    CHECK_FALSE( stats.textOverflow );
+    CHECK_FALSE( stats.clipOverflow );
+
+    const auto commands = drawList.Commands();
+    REQUIRE( commands.size() == 2 );
+    CHECK( commands[0].type == UIDrawList::CommandType::Triangle );
+    CHECK( commands[1].type == UIDrawList::CommandType::Triangle );
+    CheckPoint( commands[0], 0, 50.0f, 40.0f );
+    CheckPoint( commands[0], 1, 54.0f, 61.0f );
+    CheckPoint( commands[0], 2, 64.0f, 54.0f );
+    CheckPoint( commands[1], 0, 50.0f, 40.0f );
+    CheckPoint( commands[1], 1, 54.0f, 56.0f );
+    CheckPoint( commands[1], 2, 60.0f, 51.0f );
+    CHECK( commands[0].r == doctest::Approx( 0.03f ) );
+    CHECK( commands[0].g == doctest::Approx( 0.04f ) );
+    CHECK( commands[0].b == doctest::Approx( 0.05f ) );
+    CHECK( commands[0].a == doctest::Approx( 1.0f ) );
+    CHECK( commands[1].r == doctest::Approx( 0.96f ) );
+    CHECK( commands[1].g == doctest::Approx( 0.98f ) );
+    CHECK( commands[1].b == doctest::Approx( 1.0f ) );
+    CHECK( commands[1].a == doctest::Approx( 1.0f ) );
+    CHECK( drawList.Fingerprint() == UINT64_C( 0x5DA1E2565D540004 ) );
+}
+
+TEST_CASE( "Recorded cursor presentation: arrow flips without moving the hot point" )
+{
+    UIDrawList drawList;
+    ComposeRecordedCursorDrawList( drawList, VisibleCursorAt( 99, 40 ), 100, 80 );
+    REQUIRE( drawList.Commands().size() == 2 );
+    CheckPoint( drawList.Commands()[0], 0, 99.0f, 40.0f );
+    CheckPoint( drawList.Commands()[0], 1, 95.0f, 61.0f );
+    CheckPoint( drawList.Commands()[0], 2, 85.0f, 54.0f );
+
+    ComposeRecordedCursorDrawList( drawList, VisibleCursorAt( 50, 79 ), 100, 80 );
+    REQUIRE( drawList.Commands().size() == 2 );
+    CheckPoint( drawList.Commands()[0], 0, 50.0f, 79.0f );
+    CheckPoint( drawList.Commands()[0], 1, 54.0f, 58.0f );
+    CheckPoint( drawList.Commands()[0], 2, 64.0f, 65.0f );
+
+    ComposeRecordedCursorDrawList( drawList, VisibleCursorAt( 99, 79 ), 100, 80 );
+    const auto commands = drawList.Commands();
+    REQUIRE( commands.size() == 2 );
+    CheckPoint( commands[0], 0, 99.0f, 79.0f );
+    CheckPoint( commands[0], 1, 95.0f, 58.0f );
+    CheckPoint( commands[0], 2, 85.0f, 65.0f );
+    CheckPoint( commands[1], 0, 99.0f, 79.0f );
+
+    ComposeRecordedCursorDrawList( drawList, VisibleCursorAt( 2, 2 ), 5, 5 );
+    for ( const auto& command : drawList.Commands() )
+    {
+        CHECK( command.x0 >= 0.0f );
+        CHECK( command.x0 <= 4.0f );
+        CHECK( command.x1 >= 0.0f );
+        CHECK( command.x1 <= 4.0f );
+        CHECK( command.x2 >= 0.0f );
+        CHECK( command.x2 <= 4.0f );
+        CHECK( command.y0 >= 0.0f );
+        CHECK( command.y0 <= 4.0f );
+        CHECK( command.y1 >= 0.0f );
+        CHECK( command.y1 <= 4.0f );
+        CHECK( command.y2 >= 0.0f );
+        CHECK( command.y2 <= 4.0f );
+    }
+    CheckPoint( drawList.Commands()[0], 0, 2.0f, 2.0f );
+    CheckPoint( drawList.Commands()[1], 0, 2.0f, 2.0f );
+}
+
+TEST_CASE( "Recorded cursor presentation: hidden frames clear and operator surfaces do not gate drawing" )
+{
+    UIDrawList drawList;
+    const RecordedCursorFrame visible = VisibleCursorAt( 32, 24 );
+    uint64_t fingerprint = 0;
+
+    // The product compositor deliberately accepts no GameUI visibility,
+    // minimization, or selected-development-surface fact.
+    for ( int surface = 0; surface < 3; ++surface )
+    {
+        for ( bool gameUiVisible : { false, true } )
+        {
+            for ( bool gameUiMinimized : { false, true } )
+            {
+                (void)surface;
+                (void)gameUiVisible;
+                (void)gameUiMinimized;
+                ComposeRecordedCursorDrawList( drawList, visible, 64, 48 );
+                CHECK( drawList.GetStats().commandCount == 2 );
+                if ( fingerprint == 0 )
+                {
+                    fingerprint = drawList.Fingerprint();
+                }
+                CHECK( drawList.Fingerprint() == fingerprint );
+            }
+        }
+    }
+
+    RecordedCursorFrame hiddenFrames[] = { {}, visible, visible, visible };
+    hiddenFrames[1].publishedRealTurn = false;
+    hiddenFrames[2].pointerResolved = false;
+    hiddenFrames[3].recordedAppFocused = false;
+    for ( const RecordedCursorFrame& hidden : hiddenFrames )
+    {
+        ComposeRecordedCursorDrawList( drawList, hidden, 64, 48 );
+        CHECK( drawList.Empty() );
+        CHECK( drawList.GetStats().textBytes == 0 );
+    }
+}
 
 TEST_CASE( "Recorded cursor presentation: visibility follows replayed logical facts" )
 {
@@ -250,6 +390,9 @@ TEST_CASE( "Recorded cursor presentation: pure policy leaves native pointer stat
     CHECK_FALSE(
         IsCleared( FilterRecordedCursorFrame( visible, RecordedCursorPlaybackPhase::PublishedRealTurn,
                                               RecordedCursorPointerDisposition::CursorBearing, 64, 64, false, false ) ) );
+    UIDrawList drawList;
+    ComposeRecordedCursorDrawList( drawList, visible, 64, 64 );
+    REQUIRE( drawList.GetStats().commandCount == 2 );
     CHECK( router.NativeCaptureRequested() == captureBefore );
     CHECK( router.CursorVisibleRequested() == cursorBefore );
     CHECK_FALSE( router.ConsumePointerPresentationChange( committed ) );

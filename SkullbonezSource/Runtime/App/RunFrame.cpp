@@ -58,6 +58,7 @@ Related:
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
 #include "../UI/OperatorUiPhase.h"
+#include "../UI/RecordedCursorDrawing.h"
 #include "../UI/RecordedCursorPresentationPolicy.h"
 #include "../UI/RuntimeViewModel.h"
 #include "RenderModelFramePublisher.h"
@@ -1083,10 +1084,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
         RecordedCursorFrame recordedCursor;
         const SceneFrameProceedPolicy proceedPolicy = RunAutomationAndInputPhase( gameUiActive, recordedCursor );
 
-        // Phase: RIC1 intentionally terminates at this stack-local value. RIC2
-        // consumes this exact copy in the final post-development-UI draw pass,
-        // before screenshots and Present, then removes this non-consumption cast.
-        (void)recordedCursor;
 #else
         const SceneFrameProceedPolicy proceedPolicy = RunInputPhase( nullptr, gameUiActive );
 #endif
@@ -1138,6 +1135,22 @@ SkullbonezCore::Core::SbResult Run::Execute()
         // App applies process effects only after every presenter has released
         // the phase owner's detached values and returned its typed commands.
         ApplyOperatorUiProcessCommands( operatorUiCommands );
+
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+        {
+            UI::UIDrawList recordedCursorDrawList;
+            ComposeRecordedCursorDrawList( recordedCursorDrawList, recordedCursor, m_window.ClientWidth(),
+                                           m_window.ClientHeight() );
+
+            // Invariant: RenderOperatorUiPhase has already submitted GameUI,
+            // overlays, UI finalization, and ImGui. This unconditional App seam
+            // stays ahead of diagnostics, every screenshot path, and Present.
+            if ( !recordedCursorDrawList.Empty() )
+            {
+                Renderer().SubmitUiDrawList( recordedCursorDrawList, { m_window.ClientWidth(), m_window.ClientHeight() } );
+            }
+        }
+#endif
 
         RunPostDrawDiagnosticsPhase( gameUiActive );
 

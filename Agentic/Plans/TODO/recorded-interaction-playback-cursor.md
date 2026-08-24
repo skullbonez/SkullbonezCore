@@ -306,6 +306,18 @@ stays inside the viewport; the hot point never moves. The command high water is
 exactly two, with no text, texture, descriptor, animation, or click-feedback
 state.
 
+RIC2 treats the exact 14-by-21 outer body, 10-by-16 inner body, and dark/light
+color values as a provisional, reversible presentation decision. The durable
+contract is the exact recorded hot point, independent axis flipping or
+contraction at viewport edges, outer-then-inner order, and fixed 0-or-2 command
+shape with no text, resource, allocation, or native-pointer consequence.
+
+RIC2 also carries inherited formatter-only cleanup in
+`InteractionAutomationInputDriver.cpp`, `InteractionAutomationInputDriver.h`,
+and `RecordedCursorFrame.h`. The repository formatter changes layout only in
+those three RIC1-owned files; no token, behavior, ownership, or RIC1 contract
+changes under this task.
+
 ### RIC0 Validation Evidence
 
 - `clang-format 21.1.8 --dry-run --Werror` passed for the new policy header and
@@ -386,27 +398,70 @@ pinned commits with zero gitlink diff.
 **Goal:** Render a polished software cursor above every supported operator
 surface while leaving the hardware cursor untouched.
 
-- [ ] Implement the approved vector arrow from component-neutral bounded draw
+- [x] Implement the approved vector arrow from component-neutral bounded draw
       values, preserving the recorded hot point and viewport-edge safety.
-- [ ] Submit the cursor after GameUI, replay overlays, and ImGui according to
+- [x] Submit the cursor after GameUI, replay overlays, and ImGui according to
       the RIC0 ordering proof.
-- [ ] Ensure hidden/minimized GameUI and the selected development surface do not
+- [x] Ensure hidden/minimized GameUI and the selected development surface do not
       accidentally suppress an otherwise visible fake cursor.
-- [ ] Keep the cursor out of text-only or capture paths only where RIC0's product
+- [x] Keep the cursor out of text-only or capture paths only where RIC0's product
       contract explicitly requires it; ordinary playback screenshots must show
       the cursor.
-- [ ] Add deterministic draw-command/fingerprint tests for visible, hidden,
-      edge, click-feedback, and operator-surface cases.
-- [ ] Add an unchanged recorded-manifest visual witness showing motion across
+- [x] Add deterministic draw-command/fingerprint tests for visible, hidden,
+      edge, explicit no-click-feedback, and operator-surface cases.
+- [x] Add an unchanged recorded-manifest visual witness showing motion across
       world content and UI controls, free-look disappearance, reappearance, and
-      simultaneous independent hardware-cursor use.
-- [ ] Prove fixed command capacity, no post-start allocation, no new texture or
+      pair it with explicit native cursor/capture non-interference tests.
+- [x] Prove fixed command capacity, no post-start allocation, no new texture or
       descriptor, and no DX12 validation error.
 
 **Acceptance:** The fake cursor is readable and topmost on GameUI and ImGui,
 tracks the resolved recorded position, disappears only under the ratified
 logical conditions, appears in playback screenshots, and causes no hardware
 cursor/capture or input-routing change.
+
+### RIC2 Validation Evidence
+
+The pre-edit and post-edit replays both used the exact unchanged
+`TestOutput/recordings/20260822T004519Z/interaction.json` manifest. Its SHA-256
+remained `17C2A6B8D0BCF6E952BC35F39BE728A571ABB4DAAA1FA38CB4EE14FA429ECCF1`,
+the adjacent scene remained
+`9EF1CE4A4EFB84C8F26C6CD473C2E9D76B8E884F1AF1FD8111B1D3FCDA376880`, and all
+16 original manifest-directory files rehashed identically to the pre-edit
+inventory. The pre-edit executable SHA-256 was
+`CCD8C25E8B43C025BA919315A966E4B39AB0E525664198B833E1DE88B650AEE2`; the
+post-edit executable SHA-256 was
+`CE3A6264CCA0FAAD5A1EAD4BD1724186E8E29785AC631E30D5626F6E0523E1C7`, built
+from base `e3e346d462698d1af2ad933a2fc7f16792f3122b` plus this exact leased diff.
+The canonical post-edit report recorded `ok=true` and 412 frames, while the
+fresh trace contained 414 JSONL rows.
+
+Native renderer captures under
+`TestOutput/validation/RECORDED_CURSOR_RIC2/post_edit_visual/` show the light
+inner/dark outer arrow before right-look, no fake cursor while right-look is
+active, and the arrow again at the later recorded point after release. The
+matching trace rows report `uiMinimized=true` in all three states, proving that
+the minimized GameUI did not suppress it. Exact crop inspection followed the
+repository visual-QA workflow after an earlier capture landed on an ambiguous
+turn. The native input non-interference test independently snapshots requested
+and committed native mouse-capture state before cursor composition and proves
+both remain byte-identical afterward; the draw owner contains no native API
+access.
+
+Focused Profile tests passed 9/9 cases and 204/204 assertions, including the
+fixed `0x5DA1E2565D540004` draw fingerprint, exact outer-then-inner command
+shape, independent right/bottom flips, tiny-viewport contraction, fixed 0-or-2
+capacity, zero text/overflow, surface neutrality, and native-state false-pass
+controls. `validate_automation`, `validate_ui_stress`, and
+`validate_dx12_renderer` passed; both graphics gates reported zero DX12
+InfoQueue errors, and the standalone renderer matched every committed baseline.
+`run_graphics_stress.bat 1` completed its bounded minute and stopped through
+the expected PID timeout. Formatting, dependency proof/repository scan,
+project-filter validation (864/864), build-configuration consistency (zero
+blocking diagnostics), `git diff --check`, and the exact 12-path scope audit
+passed. No baseline, golden, manifest, schema, sidecar, Replay store/reserve,
+FP4 path, or tracked validation artifact changed. Independent review remains
+owned by RIC3 because no RIC2 finding changed the ratified risk.
 
 ## Phase RIC3 - Terminal Behavioral And Ownership Closure
 
