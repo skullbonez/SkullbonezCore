@@ -47,8 +47,11 @@ manually transcribe ledger values into markup.
 The generator owns:
 
 - current-run selection and open-task handling;
-- exact task timing and proportional clock placement;
+- exact task timing, interval-graph worker lanes, proportional clock placement,
+  overlap duration, and peak concurrency;
 - goal and completed-task token/cost totals;
+- a bounded task-cost pie that labels the six most expensive tasks and groups
+  the inexpensive tail into one honest aggregate;
 - cached-input ratio;
 - validation versus other task time;
 - rubber-duck passes, findings, and fix cycles;
