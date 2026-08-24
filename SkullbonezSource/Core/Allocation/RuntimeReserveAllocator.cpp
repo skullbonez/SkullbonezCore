@@ -23,8 +23,8 @@ Glossary:
 Invariants:
   - The registry uses fixed arrays and atomics only; no STL containers or heap
     allocation are allowed here.
-  - Owner registration is expected before steady gameplay. Duplicate owner names
-    reuse the first handle so repeated scene warmups stay stable.
+  - Registration serializes duplicate lookup and publishes only initialized
+    bounded rows; same-name scene warmups reuse the first handle.
   - RequestGrowth grants capacity only for replay owners during replay phases.
   - Capacity rows mutate on the owning scene thread; borrowed spans do not
     survive a scene mutation.
@@ -117,6 +117,7 @@ std::atomic<uint64_t> s_policyViolations { 0 };
 std::atomic<uint64_t> s_growthEventCount { 0 };
 std::atomic<uint64_t> s_capacitySessionGeneration { 1 };
 std::atomic<uint32_t> s_nextCapacityPublisher { 1 };
+std::atomic_flag s_ownerRegistrationLock = ATOMIC_FLAG_INIT;
 std::atomic_flag s_growthEventLock = ATOMIC_FLAG_INIT;
 OwnerRecord s_owners[MAX_RUNTIME_RESERVE_OWNERS] = {};
 RuntimeReserveCapacityView s_capacityRows[MAX_RUNTIME_RESERVE_OWNERS] = {};
@@ -126,6 +127,25 @@ thread_local RuntimeReserveOwnerHandle s_currentOwner = UNREGISTERED_OWNER;
 thread_local RuntimeReserveOwnerHandle s_approvedReplayGrowthOwner = UNREGISTERED_OWNER;
 thread_local RuntimeReservePhase s_approvedReplayGrowthPhase = RuntimeReservePhase::SteadyGameplay;
 thread_local int s_approvedReplayGrowthDepth = 0;
+
+class OwnerRegistrationLock
+{
+  public:
+    OwnerRegistrationLock() noexcept
+    {
+        while ( s_ownerRegistrationLock.test_and_set( std::memory_order_acquire ) )
+        {
+        }
+    }
+
+    ~OwnerRegistrationLock() noexcept
+    {
+        s_ownerRegistrationLock.clear( std::memory_order_release );
+    }
+
+    OwnerRegistrationLock( const OwnerRegistrationLock& ) = delete;
+    OwnerRegistrationLock& operator=( const OwnerRegistrationLock& ) = delete;
+};
 
 class GrowthEventLock
 {
@@ -385,9 +405,14 @@ RuntimeReserveOwnerScope::~RuntimeReserveOwnerScope() noexcept
 
 RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeReserveOwnerDesc& desc ) noexcept
 {
+    // Invariant: registration is a cold, process-lifetime transaction. Holding
+    // this lock through activation prevents concurrent same-name callers from
+    // claiming duplicate slots and keeps the published count within the array.
+    OwnerRegistrationLock registrationLock;
     const char* ownerName = desc.ownerName && desc.ownerName[0] != '\0' ? desc.ownerName : "unnamed_runtime_reserve_owner";
+    const int registeredOwnerCount = s_registeredOwnerCount.load( std::memory_order_relaxed );
 
-    for ( int index = 1; index < s_registeredOwnerCount.load( std::memory_order_acquire ); ++index )
+    for ( int index = 1; index < registeredOwnerCount; ++index )
     {
         OwnerRecord& existing = s_owners[index];
 
@@ -397,7 +422,7 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
         }
     }
 
-    const int index = s_registeredOwnerCount.fetch_add( 1, std::memory_order_acq_rel );
+    const int index = registeredOwnerCount;
 
     if ( index <= 0 || index >= MAX_RUNTIME_RESERVE_OWNERS )
     {
@@ -447,6 +472,7 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
     }
 
     owner.active.store( 1u, std::memory_order_release );
+    s_registeredOwnerCount.store( index + 1, std::memory_order_release );
     return static_cast<RuntimeReserveOwnerHandle>( index );
 }
 
