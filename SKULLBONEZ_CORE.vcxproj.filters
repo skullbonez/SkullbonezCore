@@ -887,6 +887,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\App\InputFrame.h">
       <Filter>Header Files\Runtime\Input</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\App\OperatorCommandBoundaryPolicy.h">
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\App\SceneLoadApplication.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>

@@ -31,6 +31,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "../Interaction/OperatorCommandTransaction.h"
+#include "OperatorCommandBoundaryPolicy.h"
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../Diagnostics/OverlayDebugState.h"
@@ -425,18 +426,16 @@ void OperatorCommandTransaction::ApplySimulationPolicy( SceneSessionState& scene
 
     if ( m_commands.sceneOptions.requestedTimeScale > 0.0f )
     {
-        uiOverrides.timeScaleOverride = std::clamp( m_commands.sceneOptions.requestedTimeScale,
-                                                    UI::OperatorControlPolicy::UI_TIME_SCALE_MIN,
-                                                    UI::OperatorControlPolicy::UI_TIME_SCALE_MAX );
+        uiOverrides.timeScaleOverride =
+            OperatorCommandBoundaryPolicy::ClampTimeScale( m_commands.sceneOptions.requestedTimeScale );
         scene.timeScale = uiOverrides.timeScaleOverride;
         m_acceptance.setTimeScale = true;
     }
 
     if ( m_commands.run.requestedSeed > 0 )
     {
-        scene.rngSeed = static_cast<unsigned int>( std::clamp( m_commands.run.requestedSeed,
-                                                               UI::OperatorControlPolicy::UI_SEED_MIN,
-                                                               UI::OperatorControlPolicy::UI_SEED_MAX ) );
+        scene.rngSeed = static_cast<unsigned int>(
+            OperatorCommandBoundaryPolicy::ClampSeed( m_commands.run.requestedSeed ) );
         scene.rngState = scene.rngSeed;
         m_acceptance.setRunSeed = true;
     }
@@ -519,16 +518,10 @@ void OperatorCommandTransaction::ApplyWorldPolicy( WorldEnvironment& world )
     const float fluidDensity = commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity
                                                                  : world.GetFluidDensity();
 
-    // Gravity is stored as a signed world-Y acceleration while the operator
-    // policy exposes a positive strength interval. Negating max/min preserves
-    // ascending clamp bounds without duplicating the domain range.
-    m_acceptance.worldOverride =
-        world.ApplyOverride( std::clamp( gravity, -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MAX,
-                                        -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MIN ),
-                             std::clamp( fluidHeight, UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MIN,
-                                         UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MAX ),
-                             std::clamp( fluidDensity, UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MIN,
-                                         UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MAX ) );
+    m_acceptance.worldOverride = world.ApplyOverride(
+        OperatorCommandBoundaryPolicy::ClampWorldGravity( gravity ),
+        OperatorCommandBoundaryPolicy::ClampWorldFluidHeight( fluidHeight ),
+        OperatorCommandBoundaryPolicy::ClampWorldFluidDensity( fluidDensity ) );
 
     m_acceptance.worldOverrideAccepted = true;
 }

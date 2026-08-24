@@ -34,7 +34,9 @@ Related:
 #include "../SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.h"
 #include "../SkullbonezSource/UI/UIStyle.h"
 #include "../SkullbonezSource/Runtime/UI/GameUI/UI.h"
+#include "../SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.h"
 #include "../SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h"
+#include "../SkullbonezSource/UI/UIDrawWidgets.h"
 
 #include <array>
 #include <cstdio>
@@ -430,6 +432,29 @@ TEST_CASE( "GameUI projects focused tab views from the root frame" )
     CHECK( memory.reserveGrowthEventTotalCount == 19u );
     CHECK( &scene.operatorEditor == &data->operatorEditor );
     CHECK( scene.currentFrame == 42 );
+}
+
+TEST_CASE( "GameUI gravity slider endpoints emit signed world acceleration from shared policy" )
+{
+    namespace PhysicsTab = SkullbonezCore::UI::PhysicsTab;
+    namespace Policy = SkullbonezCore::UI::OperatorControlPolicy;
+    namespace Widgets = SkullbonezCore::UI::Widgets;
+
+    PhysicsTab::UIPhysicsTabState state;
+    state.worldGravitySlider.SetBounds( 20.0f, 30.0f, 320.0f, 34.0f );
+    const SkullbonezCore::UI::UIRect track = Widgets::SliderTrackBounds( state.worldGravitySlider.Bounds() );
+
+    SkullbonezCore::UI::InGameUIInputResult minimumResult;
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY,
+                                             static_cast<int>( track.x ), minimumResult ) );
+    CHECK( minimumResult.commands.water.requestWorldGravity );
+    CHECK( minimumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MIN ) );
+
+    SkullbonezCore::UI::InGameUIInputResult maximumResult;
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY,
+                                             static_cast<int>( track.x + track.w ), maximumResult ) );
+    CHECK( maximumResult.commands.water.requestWorldGravity );
+    CHECK( maximumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MAX ) );
 }
 
 TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes without draw overflow" )

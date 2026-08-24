@@ -567,6 +567,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Input\InputController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input\InputRouter.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\InputFrame.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\OperatorCommandBoundaryPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LiveStyleController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsController.h" />
     <ClInclude Include="SkullbonezSource\Core\LockOrderValidator.h" />
