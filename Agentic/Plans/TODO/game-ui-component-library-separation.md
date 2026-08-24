@@ -753,6 +753,18 @@ build-enforced.
       validation, review fixes, baseline disposition, and the empty exception
       table.
 
+### UI6 terminal-audit findings
+
+- [ ] Reconcile the Replay popup controls in
+      `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp` with
+      their owning Replay policies. `SetRevealSpeed` currently exposes the
+      literal interval `0.25..4.0` while GameUI emits `1.0..1000.0`, and
+      `SetPredictionHorizon` exposes `1.0..20.0` while
+      `Runtime/Replay/ReplayCaptureLimits.h` owns the `1.0..120.0` horizon.
+      Replay/Capture retains policy ownership; UI6 must project those values
+      through the post-RBS7 package graph rather than adding a DevelopmentTools
+      shortcut or copying the limits into `OperatorControlPolicy`.
+
 **Terminal acceptance:** `SKULLBONEZ_UI` is the sole reusable component
 foundation project; it contains no product workflow or Runtime/Rendering
 authority; product presenters use the shared components without losing their

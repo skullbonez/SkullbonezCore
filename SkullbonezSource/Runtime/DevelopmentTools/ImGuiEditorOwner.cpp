@@ -38,12 +38,14 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
+  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorControlPolicy.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - ThirdPtySource/imgui
   - Agentic/Reference/engine-glossary.md
 */
 #include "ImGuiEditorOwner.h"
+#include "ImGuiEditorControlPolicy.h"
 #include "ImGuiEditorCausalityProjection.h"
 
 #include "../../Core/Allocation/DevelopmentToolAllocation.h"
@@ -2532,27 +2534,25 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     const char* label;
                     UI::OperatorEditorDiagnosticsCommandType type;
                     float value;
-                    float minValue;
-                    float maxValue;
-                    float step;
                     const char* format;
                 } diagnosticScalars[] = {
                     { "Volume alpha", UI::OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha,
-                      diagnostics.physicsDebugAlpha, 0.0f, 1.0f, 0.01f, "%.2f" },
+                      diagnostics.physicsDebugAlpha, "%.2f" },
                     { "Contact linger", UI::OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger,
-                      diagnostics.physicsDebugContactLinger, 0.0f, 4.0f, 0.05f, "%.2fs" },
+                      diagnostics.physicsDebugContactLinger, "%.2fs" },
                     { "Ray impulse", UI::OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength,
-                      diagnostics.rayCastImpulseStrength, 0.0f, 500.0f, 1.0f, "%.0f" },
+                      diagnostics.rayCastImpulseStrength, "%.0f" },
                     { "Projectile speed", UI::OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed,
-                      diagnostics.launcherProjectileSpeed, 1.0f, 500.0f, 1.0f, "%.0f" },
+                      diagnostics.launcherProjectileSpeed, "%.0f" },
                 };
 
                 for ( const DiagnosticScalar& scalar : diagnosticScalars )
                 {
+                    const ImGuiEditorScalarControlPolicy policy = ResolveImGuiEditorDiagnosticsControlPolicy( scalar.type );
                     const int action = static_cast<int>( scalar.type );
                     ImGui::PushID( action );
-                    editParameterized( m_diagnosticsEdit, scalar.label, action, -1, -1, -1, scalar.value, scalar.step,
-                                       scalar.minValue, scalar.maxValue, scalar.format,
+                    editParameterized( m_diagnosticsEdit, scalar.label, action, -1, -1, -1, scalar.value, policy.step,
+                                       policy.minValue, policy.maxValue, scalar.format,
                                        [&]( float value, UI::OperatorEditorEditPhase phase )
                                        { submitDiagnostics( scalar.type, 0u, 0, value, phase ); } );
 

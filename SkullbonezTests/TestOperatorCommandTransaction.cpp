@@ -84,5 +84,21 @@ TEST_CASE( "App command boundary clamps out-of-range operator values to shared p
     CHECK( Boundary::ClampWorldFluidDensity( Policy::UI_WORLD_FLUID_DENSITY_MAX +
                                              Policy::UI_WORLD_FLUID_DENSITY_STEP ) ==
            doctest::Approx( Policy::UI_WORLD_FLUID_DENSITY_MAX ) );
+
+    for ( const SkullbonezCore::UI::RenderSliderSpec& policy : SkullbonezCore::UI::kRenderSliderSpecs )
+    {
+        CHECK( Boundary::ClampOrdinaryRenderParameter( policy.param, policy.minValue - policy.step ) ==
+               doctest::Approx( policy.minValue ) );
+        CHECK( Boundary::ClampOrdinaryRenderParameter( policy.param, policy.maxValue + policy.step ) ==
+               doctest::Approx( policy.maxValue ) );
+    }
+
+    for ( const SkullbonezCore::UI::CinematicSliderSpec& policy : SkullbonezCore::UI::kCinematicSliderSpecs )
+    {
+        CHECK( Boundary::ClampCinematicParameter( policy.param, policy.minValue - policy.step ) ==
+               doctest::Approx( policy.minValue ) );
+        CHECK( Boundary::ClampCinematicParameter( policy.param, policy.maxValue + policy.step ) ==
+               doctest::Approx( policy.maxValue ) );
+    }
 }
 } // namespace

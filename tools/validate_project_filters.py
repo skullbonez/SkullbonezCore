@@ -475,6 +475,7 @@ RUNTIME_APP_PREFIXES = (
     "CameraFrameApplication",
     "InteractionAutomationApplication",
     "InteractionAutomationReportApplication",
+    "OperatorCommandBoundaryPolicy",
     "ReplayAuthoringCauseTree",
     "ReplayCauseFocusSubmission",
     "ReplayPredictionComposition",
@@ -486,6 +487,10 @@ RUNTIME_APP_PREFIXES = (
     "ReplayRuntime",
     "ReplayScrubberTools",
     "ReplayValidation",
+)
+
+RUNTIME_DEVELOPMENT_TOOLS_PREFIXES = (
+    "ImGuiEditorControlPolicy",
 )
 
 RUNTIME_REPLAY_PREFIXES = (
@@ -647,6 +652,7 @@ AREA_PREFIXES = (
     ("Runtime\\Prediction", RUNTIME_PREDICTION_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
+    ("Runtime\\DevelopmentTools", RUNTIME_DEVELOPMENT_TOOLS_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
     ("Runtime\\Tools", RUNTIME_TOOLS_PREFIXES),
     ("Runtime\\Diagnostics", RUNTIME_DIAGNOSTICS_PREFIXES),

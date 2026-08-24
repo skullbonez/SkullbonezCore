@@ -1,12 +1,13 @@
 /*
-File: SkullbonezSource/UI/UIRenderAuthoringCatalog.h
+File: SkullbonezSource/Runtime/Render/UIRenderAuthoringCatalog.h
 Purpose:
   Defines the canonical metadata for ordinary and cinematic render controls.
 
 Summary:
   GameUI and Dear ImGui operator surfaces share these enum-indexed labels,
-  groups, ranges, steps, and formats. Runtime configuration values and owner
-  commands remain outside this catalog.
+  groups, ranges, steps, and formats. App validates typed render commands
+  against the same rows while concrete configuration values remain outside
+  this catalog.
 
 Glossary:
   Section: Canonical right-rail grouping used to merge former Render, Sky, and
@@ -20,6 +21,7 @@ Related:
   - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
   - SkullbonezSource/Runtime/UI/GameUI/UIFrameComposition.h
   - SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.cpp
+  - SkullbonezSource/Runtime/App/OperatorCommandBoundaryPolicy.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -137,6 +139,20 @@ inline constexpr RenderSliderSpec kRenderSliderSpecs[] = {
 };
 static_assert( sizeof( kRenderSliderSpecs ) / sizeof( kRenderSliderSpecs[0] ) == static_cast<int>( UIRenderParam::Count ) );
 
+inline constexpr bool RenderSliderCatalogIsEnumIndexed()
+{
+    for ( int index = 0; index < static_cast<int>( UIRenderParam::Count ); ++index )
+    {
+        if ( static_cast<int>( kRenderSliderSpecs[index].param ) != index )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+static_assert( RenderSliderCatalogIsEnumIndexed() );
+
 inline constexpr bool RenderSliderStartsSection( int index )
 {
     return index == 0 || kRenderSliderSpecs[index - 1].section != kRenderSliderSpecs[index].section;
@@ -236,6 +252,20 @@ inline constexpr CinematicSliderSpec kCinematicSliderSpecs[] = {
 };
 static_assert( sizeof( kCinematicSliderSpecs ) / sizeof( kCinematicSliderSpecs[0] ) ==
                static_cast<int>( UICinematicParam::Count ) );
+
+inline constexpr bool CinematicSliderCatalogIsEnumIndexed()
+{
+    for ( int index = 0; index < static_cast<int>( UICinematicParam::Count ); ++index )
+    {
+        if ( static_cast<int>( kCinematicSliderSpecs[index].param ) != index )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+static_assert( CinematicSliderCatalogIsEnumIndexed() );
 
 inline constexpr bool CinematicSliderStartsSection( int index )
 {

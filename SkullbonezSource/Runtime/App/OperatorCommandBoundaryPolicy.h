@@ -10,7 +10,8 @@ Summary:
   cannot hide behind duplicated literals.
 
 Invariants:
-  - Every endpoint comes from OperatorControlPolicy; App owns no duplicate range.
+  - Domain endpoints come from OperatorControlPolicy and render endpoints come
+    from UIRenderAuthoringCatalog; App owns no duplicate range.
   - World gravity is a signed Y acceleration while the operator range is a
     positive strength, so its ascending interval is negative max through
     negative min.
@@ -18,11 +19,13 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/OperatorCommandApplication.cpp
   - SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h
+  - SkullbonezSource/Runtime/Render/UIRenderAuthoringCatalog.h
   - SkullbonezTests/TestOperatorCommandTransaction.cpp
 */
 #pragma once
 
 #include "../Interaction/OperatorEditorExchange.h"
+#include "../Render/UIRenderAuthoringCatalog.h"
 
 #include <algorithm>
 
@@ -30,8 +33,7 @@ namespace SkullbonezCore::Runtime::OperatorCommandBoundaryPolicy
 {
 inline constexpr float ClampTimeScale( float value )
 {
-    return std::clamp( value, UI::OperatorControlPolicy::UI_TIME_SCALE_MIN,
-                       UI::OperatorControlPolicy::UI_TIME_SCALE_MAX );
+    return std::clamp( value, UI::OperatorControlPolicy::UI_TIME_SCALE_MIN, UI::OperatorControlPolicy::UI_TIME_SCALE_MAX );
 }
 
 inline constexpr int ClampSeed( int value )
@@ -55,5 +57,31 @@ inline constexpr float ClampWorldFluidDensity( float density )
 {
     return std::clamp( density, UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MIN,
                        UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MAX );
+}
+
+inline constexpr float ClampOrdinaryRenderParameter( UI::UIRenderParam param, float value )
+{
+    const int index = static_cast<int>( param );
+
+    if ( index < 0 || index >= static_cast<int>( UI::UIRenderParam::Count ) )
+    {
+        return value;
+    }
+
+    const UI::RenderSliderSpec& policy = UI::kRenderSliderSpecs[index];
+    return std::clamp( value, policy.minValue, policy.maxValue );
+}
+
+inline constexpr float ClampCinematicParameter( UI::UICinematicParam param, float value )
+{
+    const int index = static_cast<int>( param );
+
+    if ( index < 0 || index >= static_cast<int>( UI::UICinematicParam::Count ) )
+    {
+        return value;
+    }
+
+    const UI::CinematicSliderSpec& policy = UI::kCinematicSliderSpecs[index];
+    return std::clamp( value, policy.minValue, policy.maxValue );
 }
 } // namespace SkullbonezCore::Runtime::OperatorCommandBoundaryPolicy

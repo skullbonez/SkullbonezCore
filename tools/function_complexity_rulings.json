@@ -5,10 +5,10 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "31f2ef642af764b5f04eeca561211eb24eace5db5ee3f6f7f8e6d86e79d4bca3",
+      "body_sha256": "4a5e1caed760c87ca63770f5c0af5d6288db63d8ed5a616e791e5463b41d3746",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
-      "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab and continuous-forecast status, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return. UI4 replaced duplicated scalar limits with the same OperatorControlPolicy read by GameUI and command application, without adding retained state or a second phase.",
+      "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab and continuous-forecast status, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return. UI4 projects diagnostics through OperatorControlPolicy and render controls through UIRenderAuthoringCatalog, without adding retained state or a second phase.",
       "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01); ORBIT_FORECAST OF4 shared operator-surface review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22); SIM_PACING capture-lockstep label-only review (2026-08-23); GAME_UI_COMPONENTS UI4 shared-control-policy review (2026-08-24)",
       "plan": ""
     },

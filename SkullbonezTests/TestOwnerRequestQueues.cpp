@@ -57,6 +57,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
   - SkullbonezSource/Runtime/Render/RenderDefaultsStore.h
   - SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h
+  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorControlPolicy.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -68,6 +69,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Render/RenderDefaultsStore.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorControlPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h"
@@ -1922,6 +1924,46 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
     changed.lookLab.hasCandidate = true;
     strcpy_s( changed.lookLab.detail.data(), changed.lookLab.detail.size(), "style saved; screenshot pending" );
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+}
+
+TEST_CASE( "ImGui diagnostics scalar controls project the shared operator policy" )
+{
+    using SkullbonezCore::Runtime::DevelopmentTools::ResolveImGuiEditorDiagnosticsControlPolicy;
+    using namespace SkullbonezCore::UI;
+    namespace Policy = OperatorControlPolicy;
+
+    struct ExpectedPolicy
+    {
+        OperatorEditorDiagnosticsCommandType type;
+        float minValue;
+        float maxValue;
+        float step;
+    };
+
+    const ExpectedPolicy expected[] = {
+        { OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha, Policy::UI_PHYSICS_ALPHA_MIN,
+          Policy::UI_PHYSICS_ALPHA_MAX, Policy::UI_PHYSICS_ALPHA_STEP },
+        { OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger, Policy::UI_CONTACT_LINGER_MIN,
+          Policy::UI_CONTACT_LINGER_MAX, Policy::UI_CONTACT_LINGER_STEP },
+        { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, Policy::UI_RAY_IMPULSE_MIN,
+          Policy::UI_RAY_IMPULSE_MAX, Policy::UI_RAY_IMPULSE_STEP },
+        { OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed,
+          Policy::UI_LAUNCHER_PROJECTILE_SPEED_MIN, Policy::UI_LAUNCHER_PROJECTILE_SPEED_MAX,
+          Policy::UI_LAUNCHER_PROJECTILE_SPEED_STEP },
+    };
+
+    for ( const ExpectedPolicy& row : expected )
+    {
+        const auto policy = ResolveImGuiEditorDiagnosticsControlPolicy( row.type );
+        REQUIRE( policy.valid );
+        CHECK( policy.minValue == doctest::Approx( row.minValue ) );
+        CHECK( policy.maxValue == doctest::Approx( row.maxValue ) );
+        CHECK( policy.step == doctest::Approx( row.step ) );
+    }
+
+    CHECK_FALSE( ResolveImGuiEditorDiagnosticsControlPolicy(
+                     OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag )
+                     .valid );
 }
 
 TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner projection" )
