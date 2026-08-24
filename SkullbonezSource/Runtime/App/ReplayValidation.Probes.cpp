@@ -487,8 +487,8 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( SkullbonezCore::
     // separate recorder borrows would let a probe serialize unrelated capture
     // generations. The path names one cold artifact identity used for both the
     // write and the reload validation below.
-    if ( !ReplayV2Artifact::SavePresentationWithSolverHashes( timeline.Presentation(), timeline.Solver(),
-                                                              timeline.Events(), path, &result ) )
+    if ( !ReplayV2Artifact::SavePresentationWithSolverHashes( timeline.Presentation(), timeline.Solver(), timeline.Events(),
+                                                              path, &result ) )
     {
         return ReplayProbeFailure( "replay save probe failed to write v2 presentation artifact" );
     }
