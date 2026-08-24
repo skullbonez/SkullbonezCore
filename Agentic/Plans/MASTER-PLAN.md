@@ -292,7 +292,7 @@ Completed plan files were deleted; git history is the archive.
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 4 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 8 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 7 | `TODO/game-ui-component-library-separation.md` |
-| Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 2 | `TODO/recorded-interaction-playback-cursor.md` |
+| Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 3 | `TODO/recorded-interaction-playback-cursor.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -366,7 +366,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-110/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
+111/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
 first, Runtime Boundary Separation And Project Topology second, Game UI Component
 Library Separation third, and Recorded Interaction Playback Cursor fourth.
 Causal C0-C8, Determinism T0-T8,
@@ -402,11 +402,13 @@ baselines; independent reviewer `01a03529-b219-7d82-9550-fef25af0fe31`
 returned CLEAN. The inherited causal-depth oracle and historical Physics
 performance baseline remain external recorded failures, not UI6 passes or
 refresh authority.
-Recorded Interaction Playback Cursor RIC0-RIC3 is active at 2/4. RIC1 publishes
-one Automation-owned, trivially copyable pointer value from the exact recorded
-input mapping, filters one RunFrame stack copy through replayed logical facts,
-and clears every terminal/cursorless transition without retained state, native
-cursor reads or writes, schema/storage change, or allocation. Focused RIC0/RIC1
-tests pass 6/6 cases and 91/91 assertions; RIC2 topmost drawing is next.
+Recorded Interaction Playback Cursor RIC0-RIC3 is active at 3/4. RIC2 consumes
+the Automation-owned frame value through one Runtime/UI bounded compositor and
+one honest App submission edge after GameUI, replay overlays, UI finalization,
+and ImGui but before screenshots and Present. The exact unchanged recording and
+native captures prove the two-triangle marker appears before right-look,
+disappears during captured look, and returns afterward while GameUI remains
+minimized; focused RIC0-RIC2 tests pass 9/9 cases and 204/204 assertions. RIC3
+terminal audit, independent review, and final validation are next.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

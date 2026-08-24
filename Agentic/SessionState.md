@@ -2,7 +2,7 @@
 
 Date: 2026-08-25
 Branch: `nightrunner-24th-aug`
-Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 110/118 tasks complete
+Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 111/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -54,12 +54,14 @@ their Prediction and Replay/Planning owners. Its exactly-once plan-completion
 gate passed 760/760 cases and 2,685,294 assertions with unchanged baselines;
 the inherited causal-depth oracle and historical Physics performance baseline
 remain external recorded failures without refresh authority.
-Recorded Interaction Playback Cursor RIC0-RIC3 is active at 2/4. RIC1 publishes
-one Automation-owned, trivially copyable pointer value from the exact recorded
-input mapping, filters one RunFrame stack copy through replayed logical facts,
-and clears terminal/cursorless transitions without retained state, native
-cursor reads or writes, schema/storage change, or allocation. Focused RIC0/RIC1
-tests pass 6/6 cases and 91/91 assertions.
+Recorded Interaction Playback Cursor RIC0-RIC3 is active at 3/4. RIC2 draws the
+Automation-owned frame value through one bounded Runtime/UI compositor and one
+honest App submission edge after GameUI, replay overlays, UI finalization, and
+ImGui but before screenshots and Present. The exact unchanged recording and
+native captures prove the marker appears before right-look, disappears during
+captured look, and returns afterward while GameUI remains minimized. Focused
+RIC0-RIC2 tests pass 9/9 cases and 204/204 assertions; RIC3 terminal closure is
+next.
 
 Real-Time Physics Pacing SP0-SP2 is complete. Live and unlimited scenes now
 schedule fixed-frequency Physics from elapsed wall time, while explicit startup
@@ -497,7 +499,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 ## Next Work
 
 Continue the recorded `RAGDOLL_PHYSICS` FP4 OPEN/HOLD disposition while running
-`RECORDED_CURSOR` RIC2 topmost drawing on the published RIC1 value. FP2
+`RECORDED_CURSOR` RIC3 terminal audit on the integrated RIC0-RIC2 value and draw
+path. FP2
 retains motion policy version 2: `0.1`
 metres of absolute per-tick travel promotes and `0.075` metres demotes,
 independent of collider thickness.
