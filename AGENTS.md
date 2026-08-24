@@ -21,6 +21,15 @@ Before editing, all agents must read:
 5. Run `git status --short --branch` and treat any pre-existing dirty files as
    user-owned.
 
+For Codex sessions, verify before delegation that native multi-agent V2 exposes
+17 total session slots: one root coordinator plus 16 worker slots. Persist this
+as `features.multi_agent_v2.enabled = true` and
+`features.multi_agent_v2.max_concurrent_threads_per_session = 17` in the user
+Codex config. If the active host reports fewer slots, report the host/runtime
+clamp explicitly instead of treating four workers as repository policy. This is
+a capacity target, not an instruction to spawn workers when the task does not
+benefit from parallel execution.
+
 If this is a fresh machine or a required tool lookup fails, read
 `FIRST_TIME_SETUP.md`. Load deeper skills, plans, audits, reports, or reference
 files only when the current task calls for them.
