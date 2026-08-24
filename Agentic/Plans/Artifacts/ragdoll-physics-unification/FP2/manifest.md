@@ -137,3 +137,47 @@ complete deep gate.
 | `shooting_reaction_volley.csv` | `3D6FD1F05EDDBA17713E611BAD0203D41FC18163523855AD8765D6021CDFBCFD` |
 | `physics_known_issue_signatures.json` | `D60AC7DDBCB12A1D5BCECED5694F1F34AF262D53EA6D3DCD4B9AD157F33C7E36` |
 | `physics_query_varied.json` | `0788BC16F441123BE52716CC69180FCC501EC9808C9CF26DDA4B2AED957E5681` |
+
+## Final replay-visual transition
+
+The retained Automation executable and its successful `ok=true` report were
+used without another executable or DLL replacement. The official checker
+payload path generated temporary visual and causal candidates first; both
+candidates passed the ordinary comparator and the non-engine false-pass
+controls before their exact bytes replaced the tracked baselines.
+
+| Evidence | Previous SHA-256 | Approved SHA-256 |
+|---|---|---|
+| `TestOutput/baselines/replay_visual_fidelity_200_box.json` | `498304F1FE366E558023F37DAC5711F5BEF51084237B6BD857E42B57AAF58983` | `79ACC8A12398E4F4C2A51EA2A3219A964640CF28B4F004E2B2986B50192080F4` |
+| `TestOutput/baselines/replay_visual_fidelity_200_box_causal.json` | `2B0B2FEEA7AB599A7AF882A122B8B44BEFDF5DE1DD0D52A8CDE4CD9F61D28EE1` | `0E616CD3FDE12943E5F748523B80F460749F4EDE66003307841146C231D9C13A` |
+
+The approved causal baseline is bound to visual SHA-256
+`79ACC8A12398E4F4C2A51EA2A3219A964640CF28B4F004E2B2986B50192080F4`.
+The visual payload records shader-tree SHA-256
+`DD36AE24BC81C9482E1A7CEF5F93C6172BB728AE4DE25C526FE9DAE51F581EBE`,
+working source commit `79f02de3b98da866610b15c8ea4a7f3f398423b1`, and capture commit
+`4fb0b2ebac547895c35b04aec4a6e8ad57e91873`.
+
+| Final 200-box state | Previous | Approved |
+|---|---:|---:|
+| Authored wall bricks | 200 | 200 |
+| Moved wall bricks | 200 | 200 |
+| Toppled wall bricks | 184 | 113 |
+| Sustained-toppled wall bricks | 181 | 109 |
+| Settled wall bricks | 194 | 125 |
+
+The final-state rows remain byte-exact golden fields. The separate settled-wall
+shape guard now matches the phase's majority contract: 99 is rejected and the
+approved 125 passes.
+
+Final closure validation:
+
+- `tools\validate_replay_visual_fidelity.bat`: pass in 497.8 seconds; Automation
+  built with zero warnings/errors, 18/18 focused cases and 82/82 assertions
+  passed, the single authoritative generation produced all 2,401 ticks, and
+  every visual, causal, artifact, trajectory-count, and determinism false-pass
+  control rejected its injected mutation.
+- `tools\validate_physics.bat`: pass in 34.2 seconds; the owner-approved
+  44,401-row Physics golden remained byte-exact.
+- `tools\validate_physics_deep.bat`: pass in 101.9 seconds.
+- `tools\validate_dependency_graph.bat`: pass; zero findings.

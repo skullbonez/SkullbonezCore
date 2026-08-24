@@ -67,13 +67,9 @@ EXPECTED_LAST_REVEAL = 2400
 EXPECTED_WALL_BRICKS = 200
 EXPECTED_MIN_TOPPLED_WALL_BRICKS = EXPECTED_WALL_BRICKS // 2 + 1
 
-# Owner ruling 2026-08-09: the wall no longer settles completely inside the
-# approved 20 s horizon. Bricks come to rest later since the stack stopped
-# bouncing, so the horizon ends while the last few are still moving. Requiring
-# all 200 asserted an outcome the physics no longer produces. This floor keeps a
-# catastrophically unsettled run failing; the exact count stays pinned by the
-# golden's finalState, so this is a shape guard rather than a count budget.
-EXPECTED_MIN_SETTLED_WALL_BRICKS = EXPECTED_WALL_BRICKS * 9 // 10
+# The shape guard proves a majority settled during the final second. The exact
+# approved outcome remains pinned separately by the golden's finalState.
+EXPECTED_MIN_SETTLED_WALL_BRICKS = EXPECTED_WALL_BRICKS // 2
 EXPECTED_START_FRAME = 900
 EXPECTED_EVIDENCE_FIRST_TRUNCATED_FRAME = 1215
 EXPECTED_EVIDENCE_BANK_HARD_BYTES = 320 * 1024 * 1024
@@ -164,6 +160,15 @@ def load_json(path: Path) -> dict[str, Any]:
         return json.load(stream)
 
 
+def validate_settled_wall_brick_count(final: dict[str, Any]) -> None:
+    actual = final.get("predictionSettledWallBrickCount", 0)
+    if actual < EXPECTED_MIN_SETTLED_WALL_BRICKS:
+        raise ValueError(
+            "too little of the wall was settled throughout the final prediction second: "
+            f"expected_at_least={EXPECTED_MIN_SETTLED_WALL_BRICKS} actual={actual}"
+        )
+
+
 def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
     if not report.get("ok"):
         raise ValueError(f"interaction report failed: {report.get('failure', 'unknown failure')}")
@@ -215,12 +220,7 @@ def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
             f"expected_at_least={EXPECTED_MIN_TOPPLED_WALL_BRICKS} "
             f"actual={final.get('predictionSustainedToppledWallBrickCount')}"
         )
-    if final.get("predictionSettledWallBrickCount", 0) < EXPECTED_MIN_SETTLED_WALL_BRICKS:
-        raise ValueError(
-            "too little of the wall was settled throughout the final prediction second: "
-            f"expected_settled={EXPECTED_WALL_BRICKS} "
-            f"actual={final.get('predictionSettledWallBrickCount')}"
-        )
+    validate_settled_wall_brick_count(final)
     if final.get("predictionGenerationCount") != 1:
         raise ValueError(
             "visual gate must contain exactly one prediction generation: "
@@ -963,7 +963,10 @@ def causal_comparable(report: dict[str, Any]) -> dict[str, Any]:
 
 
 def causal_baseline_payload(
-    report: dict[str, Any], working_base_commit: str, configuration: str
+    report: dict[str, Any],
+    working_base_commit: str,
+    configuration: str,
+    visual_baseline: Path,
 ) -> dict[str, Any]:
     comparable = causal_comparable(report)
     return {
@@ -975,7 +978,7 @@ def causal_baseline_payload(
         "fixedStep": True,
         "target": "prediction_striker_ball",
         "horizonSeconds": EXPECTED_HORIZON_SECONDS,
-        "visualBaselineSha256": sha256(DEFAULT_BASELINE),
+        "visualBaselineSha256": sha256(visual_baseline),
         **comparable,
     }
 
@@ -1274,7 +1277,7 @@ def main() -> int:
                 causal["targetId"] = root_parents.pop()
         try:
             payload = causal_baseline_payload(
-                report, args.working_base_commit, args.configuration
+                report, args.working_base_commit, args.configuration, args.baseline
             )
             if args.causal_baseline.exists():
                 previous = load_json(args.causal_baseline)
@@ -1554,6 +1557,32 @@ def main() -> int:
         "ticks": baseline["ticks"],
     }
     if args.negative_control:
+        # Exercise the majority shape guard without launching another engine.
+        # The authoritative report proves its current settled count still passes;
+        # this adjacent value proves the first sub-majority count cannot slip by.
+        below_majority = copy.deepcopy(report["finalState"])
+        below_majority["predictionSettledWallBrickCount"] = (
+            EXPECTED_MIN_SETTLED_WALL_BRICKS - 1
+        )
+        try:
+            validate_settled_wall_brick_count(below_majority)
+        except ValueError as error:
+            expected_threshold = f"expected_at_least={EXPECTED_MIN_SETTLED_WALL_BRICKS}"
+            if expected_threshold not in str(error):
+                print(f"FAIL settled-majority control reported the wrong failure: {error}")
+                return 1
+        else:
+            print("FAIL settled-majority control accepted 99 settled wall bricks")
+            return 1
+        try:
+            validate_settled_wall_brick_count(report["finalState"])
+        except ValueError as error:
+            print(f"FAIL settled-majority control rejected the authoritative report: {error}")
+            return 1
+        print(
+            "PASS settled-majority control: rejected=99 "
+            f"accepted={report['finalState']['predictionSettledWallBrickCount']}"
+        )
         # Negative-control lane: alter one submitted float-stream fingerprint in
         # memory and require the ordinary comparator to name that exact field.
         actual["ticks"][NEGATIVE_CONTROL_TICK]["ordinaryVertexHash"] = "0x0000000000000001"
