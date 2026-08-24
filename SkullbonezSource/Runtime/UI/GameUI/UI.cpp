@@ -77,10 +77,20 @@ UICinematicTabFrameView InGameUIFrameData::CinematicTabFrame() const
 
 UIOptionsTabFrameView InGameUIFrameData::OptionsTabFrame() const
 {
-    return { ordinaryRender,     cinematic,          timeScale,        presentationAlpha,
-             modelCount,         modelCapacity,      fixedStep,        presentationInterpolation,
-             presentationPinned, cinematicRendering, waterFreezeDebug, waterFlatDebug,
-             terrainHidden,      waterHidden };
+    return { ordinaryRender.shadow.enabled,
+             cinematic.shadow.enabled,
+             timeScale,
+             presentationAlpha,
+             modelCount,
+             modelCapacity,
+             fixedStep,
+             presentationInterpolation,
+             presentationPinned,
+             cinematicRendering,
+             waterFreezeDebug,
+             waterFlatDebug,
+             terrainHidden,
+             waterHidden };
 }
 
 UIPhysicsTabFrameView InGameUIFrameData::PhysicsTabFrame() const
@@ -140,7 +150,30 @@ UIMemoryTabFrameView InGameUIFrameData::MemoryTabFrame() const
 
 UISceneTabFrameView InGameUIFrameData::SceneTabFrame() const
 {
-    return { operatorEditor,
+    const OperatorEditorForecastView& source = operatorEditor.forecast;
+    const UISceneForecastFrameView forecast = { source.simulatedSeconds,
+                                                source.simulatedSecondsPerRealSecond,
+                                                source.rollingWindowAgeSeconds,
+                                                source.energyDrift,
+                                                source.angularMomentumDrift,
+                                                source.maximumAbsoluteEnergyDrift,
+                                                source.maximumAngularMomentumDrift,
+                                                source.firstFailureSeconds,
+                                                source.firstFailureSubject,
+                                                source.firstFailureOther,
+                                                source.firstFailureCause,
+                                                source.available,
+                                                source.active,
+                                                source.workerInFlight,
+                                                source.failed,
+                                                source.configured,
+                                                source.numericalHealthy,
+                                                source.systemOrbitalHealthy,
+                                                source.auxiliaryOrbitalHealthy,
+                                                source.energyDriftAvailable,
+                                                source.angularMomentumDriftAvailable };
+
+    return { forecast,
              rendererName,
              sceneOptions,
              interactionRecordingOptions,

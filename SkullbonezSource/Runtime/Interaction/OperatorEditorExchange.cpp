@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/OperatorEditorExchange.cpp
+File: SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.cpp
 Purpose:
   Implements bounded operator-editor command validation and arbitration.
 

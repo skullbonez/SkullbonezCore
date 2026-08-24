@@ -170,12 +170,12 @@ struct UICinematicTabFrameView
     int selectedCineModeSceneOption = -1;
 };
 
-// Invariant: the Options presenter receives only general presentation/config
-// facts and cannot observe Physics, diagnostics, or scene-navigation values.
+// Invariant: the Options presenter receives only the scalar presentation facts
+// it draws; shadow state crosses as two booleans rather than full render configs.
 struct UIOptionsTabFrameView
 {
-    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender;
-    const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
+    bool ordinaryShadowsEnabled = true;
+    bool cinematicShadowsEnabled = true;
     float timeScale = 1.0f;
     float presentationAlpha = 1.0f;
     int modelCount = 0;
@@ -251,11 +251,38 @@ struct UIMemoryTabFrameView
     bool replayMemorySolverWindowReduced = false;
 };
 
-// Invariant: scene and recording label arrays share the root frame lifetime;
-// the Scene presenter may read them only during its synchronous draw.
+// Concept: the Scene tab owns this exact display slice. Planning's publication
+// carries additional bookkeeping that must not leak through presentation.
+struct UISceneForecastFrameView
+{
+    double simulatedSeconds = 0.0;
+    double simulatedSecondsPerRealSecond = 0.0;
+    double rollingWindowAgeSeconds = 0.0;
+    double energyDrift = 0.0;
+    double angularMomentumDrift = 0.0;
+    double maximumAbsoluteEnergyDrift = 0.0;
+    double maximumAngularMomentumDrift = 0.0;
+    double firstFailureSeconds = 0.0;
+    uint32_t firstFailureSubject = 0u;
+    uint32_t firstFailureOther = 0u;
+    OperatorEditorForecastCause firstFailureCause = OperatorEditorForecastCause::None;
+    bool available = false;
+    bool active = false;
+    bool workerInFlight = false;
+    bool failed = false;
+    bool configured = false;
+    bool numericalHealthy = false;
+    bool systemOrbitalHealthy = false;
+    bool auxiliaryOrbitalHealthy = false;
+    bool energyDriftAvailable = false;
+    bool angularMomentumDriftAvailable = false;
+};
+
+// Invariant: label arrays share the root frame lifetime; forecast display facts
+// cross by value, and the Scene presenter retains neither after its draw.
 struct UISceneTabFrameView
 {
-    const OperatorEditorFrameView& operatorEditor;
+    UISceneForecastFrameView forecast;
     const char* rendererName = "";
     const char* const* sceneOptions = nullptr;
     const char* const* interactionRecordingOptions = nullptr;
@@ -328,7 +355,7 @@ struct InGameUIFrameData
     bool replayMemorySolverWindowReduced = false;
 
     // Predicted seconds revealed per real second by the causal-unfold cursor.
-    // Presentation pacing only; the Physics tab shows and edits it.
+    // Presentation pacing only; the Scene tab shows and edits it.
     float predictionRevealRate = 1.0f;
     int modelCount = 0;
     int modelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECT_CAPACITY;

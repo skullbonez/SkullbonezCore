@@ -5,10 +5,10 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "4a5e1caed760c87ca63770f5c0af5d6288db63d8ed5a616e791e5463b41d3746",
+      "body_sha256": "355f7c1e81b4de458b74ee3442480b43b20327cdd59788884dd8e53a3cfb9257",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
-      "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab and continuous-forecast status, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return. UI4 projects diagnostics through OperatorControlPolicy and render controls through UIRenderAuthoringCatalog, without adding retained state or a second phase.",
+      "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab and continuous-forecast status, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return. UI4 projects shared diagnostic ranges and drag speeds through OperatorControlPolicy and render controls through UIRenderAuthoringCatalog; App owns authoritative grid normalization, so this body adds neither retained state nor a second phase.",
       "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01); ORBIT_FORECAST OF4 shared operator-surface review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22); SIM_PACING capture-lockstep label-only review (2026-08-23); GAME_UI_COMPONENTS UI4 shared-control-policy review (2026-08-24)",
       "plan": ""
     },
@@ -127,11 +127,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
       "signature": "RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts )",
-      "body_sha256": "33e6f5ae2db0e7f15c3b68cc7020ab2e2e620f5656726675c68ab340758523f4",
+      "body_sha256": "dd5e7ab2d3688c735a030d79b62c55aee3afa7b0785f7c930c73765841939738",
       "owner": "Runtime input-command application phase",
       "disposition": "retain-owner",
-      "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. App resolves bounded-PREDICT/continuous-forecast mutual exclusion here because it composes the Replay and Planning owners, and both visible and automation-originated forecast commands enter that same queue. Extracting the added branch would split one atomic mode transition without moving authority.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled for C1 causal-row transport (2026-08-17); ORBIT_FORECAST OF4 mutual-exclusion review and OF5 typed command review (2026-08-19); RUNTIME_BOUNDARIES RBS7 command-owner re-review (2026-08-24)",
+      "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. App normalizes the covered OperatorControlPolicy and render/cinematic catalog floats once here before their owner dispatch, while separately owned Replay reveal/horizon values remain outside that pass. App also resolves bounded-PREDICT/continuous-forecast mutual exclusion here because it composes the Replay and Planning owners. Extracting either step would split one atomic command transition without moving authority.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled for C1 causal-row transport (2026-08-17); ORBIT_FORECAST OF4 mutual-exclusion review and OF5 typed command review (2026-08-19); RUNTIME_BOUNDARIES RBS7 command-owner re-review (2026-08-24); GAME_UI_COMPONENTS UI4 shared-policy normalization review (2026-08-24)",
       "plan": "",
       "body_lines": 699,
       "max_brace_depth": 4,

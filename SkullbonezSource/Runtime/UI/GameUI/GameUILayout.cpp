@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/UI/GameUI/GameUILayout.cpp
 Purpose:
-  Implements product-specific GameUI geometry and value conversions.
+  Implements product-specific GameUI geometry and small display policy.
 
 Summary:
-  Scene selectors, Physics controls, pipeline buttons, and footer controls use
-  one Runtime-owned geometry vocabulary while the reusable UI library remains
-  domain-neutral.
+  Scene selectors, Physics pipeline buttons, and footer controls use one
+  Runtime-owned geometry vocabulary; reflection availability remains a small
+  product policy while the reusable UI library stays domain-neutral.
 
 Invariants:
   - Bounds returned here are consumed unchanged by drawing and hit testing.

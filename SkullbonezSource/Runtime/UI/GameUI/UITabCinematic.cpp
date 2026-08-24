@@ -56,7 +56,7 @@ struct GameCinematicSliderSpec
     SkullbonezCore::UI::UICinematicParam param;
 };
 
-struct CinematicFeatureSpec
+struct GameCinematicFeatureSpec
 {
     // One toggle in the Cine tab, such as Bloom or Fog.
     const char* label;
@@ -147,7 +147,7 @@ constexpr bool CinematicTabSpecsAreEnumIndexed()
 }
 static_assert( CinematicTabSpecsAreEnumIndexed(), "Cinematic tab rows must remain enum-indexed." );
 
-constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
+constexpr GameCinematicFeatureSpec kGameCinematicFeatureSpecs[] = {
     { "Sky", SkullbonezCore::UI::UICinematicFeature::Sky },
     { "Clouds", SkullbonezCore::UI::UICinematicFeature::Clouds },
     { "God rays", SkullbonezCore::UI::UICinematicFeature::GodRays },
@@ -157,7 +157,7 @@ constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
     { "Relief", SkullbonezCore::UI::UICinematicFeature::TerrainRelief },
     { "Shadows", SkullbonezCore::UI::UICinematicFeature::Shadows },
 };
-static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) ==
+static_assert( sizeof( kGameCinematicFeatureSpecs ) / sizeof( kGameCinematicFeatureSpecs[0] ) ==
                    static_cast<int>( SkullbonezCore::UI::UICinematicFeature::Count ),
                "Cinematic feature specs must match UICinematicFeature." );
 
@@ -540,7 +540,7 @@ bool HandleContentClick( UICinematicTabState& state, InGameUIInputResult& result
 
         if ( state.featureToggles[i].HitTest( mouseX, mouseY ) )
         {
-            result.commands.cinematic.requestedFeature = kCinematicFeatureSpecs[i].feature;
+            result.commands.cinematic.requestedFeature = kGameCinematicFeatureSpecs[i].feature;
             return false;
         }
     }
@@ -640,8 +640,8 @@ void Draw( UICinematicTabState& state, const UIDrawContext& draw, const UICinema
         const float tx = CinematicFeatureX( i, contentX, colW );
         const float toggleY = CinematicFeatureY( i, featureBaseY );
         DrawContentToggle( draw, contentY, contentH, state.featureToggles[i], tx, toggleY, colW,
-                           kCinematicFeatureSpecs[i].label,
-                           CinematicFeatureEnabled( data.cinematic, kCinematicFeatureSpecs[i].feature ) );
+                           kGameCinematicFeatureSpecs[i].label,
+                           CinematicFeatureEnabled( data.cinematic, kGameCinematicFeatureSpecs[i].feature ) );
     }
 
     const float baseY = scrolledY + UI_CINEMATIC_START_Y;

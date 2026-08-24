@@ -265,45 +265,50 @@ void OperatorCommandTransaction::ApplyPhysicsControl( SceneWorld& world )
 
     if ( commands.requestTornadoRadius )
     {
-        tornado.SetFieldRadius( std::clamp( commands.requestedTornadoRadius,
-                                            UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MIN,
-                                            UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MAX ) );
+        tornado.SetFieldRadius( OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTornadoRadius,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MIN,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MAX,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_RADIUS_STEP ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoHeight )
     {
-        tornado.SetFieldHeight( std::clamp( commands.requestedTornadoHeight,
-                                            UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MIN,
-                                            UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MAX ) );
+        tornado.SetFieldHeight( OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTornadoHeight,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MIN,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MAX,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_STEP ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoInward )
     {
-        tornado.SetFieldInwardAcceleration( std::clamp( commands.requestedTornadoInward,
-                                                        UI::OperatorControlPolicy::UI_TORNADO_INWARD_MIN,
-                                                        UI::OperatorControlPolicy::UI_TORNADO_INWARD_MAX ) );
+        tornado.SetFieldInwardAcceleration( OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTornadoInward,
+                                                                                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_MIN,
+                                                                                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_MAX,
+                                                                                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_STEP ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoSwirl )
     {
-        tornado.SetFieldSwirlAcceleration( std::clamp( commands.requestedTornadoSwirl,
-                                                       UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MIN,
-                                                       UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MAX ) );
+        tornado.SetFieldSwirlAcceleration( OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTornadoSwirl,
+                                                                                          UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MIN,
+                                                                                          UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MAX,
+                                                                                          UI::OperatorControlPolicy::UI_TORNADO_SWIRL_STEP ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoLift )
     {
-        tornado.SetFieldLiftAcceleration( std::clamp( commands.requestedTornadoLift,
-                                                      UI::OperatorControlPolicy::UI_TORNADO_LIFT_MIN,
-                                                      UI::OperatorControlPolicy::UI_TORNADO_LIFT_MAX ) );
+        tornado.SetFieldLiftAcceleration( OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTornadoLift,
+                                                                                         UI::OperatorControlPolicy::UI_TORNADO_LIFT_MIN,
+                                                                                         UI::OperatorControlPolicy::UI_TORNADO_LIFT_MAX,
+                                                                                         UI::OperatorControlPolicy::UI_TORNADO_LIFT_STEP ) );
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 }
@@ -428,7 +433,7 @@ void OperatorCommandTransaction::ApplySimulationPolicy( SceneSessionState& scene
 
     if ( m_commands.sceneOptions.requestedTimeScale > 0.0f )
     {
-        uiOverrides.timeScaleOverride = OperatorCommandBoundaryPolicy::ClampTimeScale( m_commands.sceneOptions.requestedTimeScale );
+        uiOverrides.timeScaleOverride = OperatorCommandBoundaryPolicy::NormalizeTimeScale( m_commands.sceneOptions.requestedTimeScale );
         scene.timeScale = uiOverrides.timeScaleOverride;
         m_acceptance.setTimeScale = true;
     }
@@ -467,9 +472,10 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
 
     if ( commands.requestTerrainFrictionCoeff )
     {
-        config.physicsMaterial.frictionCoeff = std::clamp( commands.requestedTerrainFrictionCoeff,
-                                                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
-                                                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX );
+        config.physicsMaterial.frictionCoeff = OperatorCommandBoundaryPolicy::
+            NormalizeFloat( commands.requestedTerrainFrictionCoeff, UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX,
+                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -477,9 +483,10 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
 
     if ( commands.requestObjectFrictionCoeff )
     {
-        config.physicsMaterial.objectFrictionCoeff = std::clamp( commands.requestedObjectFrictionCoeff,
-                                                                 UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
-                                                                 UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX );
+        config.physicsMaterial.objectFrictionCoeff = OperatorCommandBoundaryPolicy::
+            NormalizeFloat( commands.requestedObjectFrictionCoeff, UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX,
+                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -487,9 +494,10 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
 
     if ( commands.requestRollingFrictionCoeff )
     {
-        config.physicsMaterial.rollingFrictionCoeff = std::clamp( commands.requestedRollingFrictionCoeff,
-                                                                  UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MIN,
-                                                                  UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MAX );
+        config.physicsMaterial.rollingFrictionCoeff = OperatorCommandBoundaryPolicy::
+            NormalizeFloat( commands.requestedRollingFrictionCoeff, UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MIN,
+                            UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MAX,
+                            UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_STEP );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -518,9 +526,10 @@ void OperatorCommandTransaction::ApplyWorldPolicy( WorldEnvironment& world )
     const float fluidDensity = commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity
                                                                  : world.GetFluidDensity();
 
-    m_acceptance.worldOverride = world.ApplyOverride( OperatorCommandBoundaryPolicy::ClampWorldGravity( gravity ),
-                                                      OperatorCommandBoundaryPolicy::ClampWorldFluidHeight( fluidHeight ),
-                                                      OperatorCommandBoundaryPolicy::ClampWorldFluidDensity( fluidDensity ) );
+    m_acceptance
+        .worldOverride = world.ApplyOverride( OperatorCommandBoundaryPolicy::NormalizeWorldGravity( gravity ),
+                                              OperatorCommandBoundaryPolicy::NormalizeWorldFluidHeight( fluidHeight ),
+                                              OperatorCommandBoundaryPolicy::NormalizeWorldFluidDensity( fluidDensity ) );
 
     m_acceptance.worldOverrideAccepted = true;
 }
@@ -591,7 +600,7 @@ void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinemat
 {
     // The catalog row is the shared presentation and validation vocabulary;
     // this App boundary owns only application to concrete config fields.
-    const float boundedValue = OperatorCommandBoundaryPolicy::ClampCinematicParameter( param, rawValue );
+    const float boundedValue = OperatorCommandBoundaryPolicy::NormalizeCinematicParameter( param, rawValue );
     const int boundedIntValue = static_cast<int>( std::round( boundedValue ) );
 
     switch ( param )
@@ -885,7 +894,7 @@ void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConf
 void OperatorCommandTransaction::ApplyOrdinaryRenderParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
                                                            UIRenderParam param, float rawValue )
 {
-    const float boundedValue = OperatorCommandBoundaryPolicy::ClampOrdinaryRenderParameter( param, rawValue );
+    const float boundedValue = OperatorCommandBoundaryPolicy::NormalizeOrdinaryRenderParameter( param, rawValue );
 
     switch ( param )
     {

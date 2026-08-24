@@ -683,13 +683,23 @@ the existing product interaction tests retain behavior coverage. The new
 Runtime product layout sources are listed exactly once in Core/Test projects
 and filters.
 
+Review-driven exception: UI4 also repaired the DevelopmentTools ImGui scalar
+controls because the new shared-policy truth claim explicitly included that
+surface. ImGui remains a development-only, non-acceptance UI; this exception
+does not make its layout or interaction behavior part of GameUI acceptance.
+
 The renderer-free UI boundary passed in 0.70 seconds. The focused build-
 configuration report passed in 0.51 seconds with zero blocking or topology
-diagnostics. `validate_fast.bat` passed in 348.3 seconds: formatting,
-859 project/filter items, dependency ownership, size policy, Profile and all
-required configuration builds, 751 tests with 2,682,825 assertions, and symbol
-reachability were green. The deterministic Physics hook retained accepted SHA-
-256 `19698d3c37bcf1e0199b539e99b2de0d0ec33ceb7fc5db2e2eee36bcc434b038`;
+diagnostics. The committed production UI fingerprint passed twice at 51/51
+assertions after an owner-local feature-catalog name collision was corrected;
+the accepted Cinematic fingerprint stayed unchanged. `validate_tests.bat`
+passed 755/755 cases and 2,684,646/2,684,646 assertions in 45.3 seconds.
+`validate_fast.bat` passed in 224.0 seconds: formatting, 861/861 project/filter
+items, dependency ownership with zero findings or repair debt, size policy,
+Profile and all required configuration builds with zero warnings or errors,
+the same complete test count, and symbol reachability were green. The
+deterministic Physics golden retained accepted SHA-256
+`19698d3c37bcf1e0199b539e99b2de0d0ec33ceb7fc5db2e2eee36bcc434b038`;
 no Physics baseline or golden was refreshed.
 
 ## Phase UI5 - Enforce Project, Dependency, And Test Boundaries
@@ -756,14 +766,18 @@ build-enforced.
 ### UI6 terminal-audit findings
 
 - [ ] Reconcile the Replay popup controls in
-      `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp` with
-      their owning Replay policies. `SetRevealSpeed` currently exposes the
-      literal interval `0.25..4.0` while GameUI emits `1.0..1000.0`, and
-      `SetPredictionHorizon` exposes `1.0..20.0` while
-      `Runtime/Replay/ReplayCaptureLimits.h` owns the `1.0..120.0` horizon.
-      Replay/Capture retains policy ownership; UI6 must project those values
-      through the post-RBS7 package graph rather than adding a DevelopmentTools
-      shortcut or copying the limits into `OperatorControlPolicy`.
+      `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp` and the
+      matching live validators in
+      `SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.cpp` with
+      their actual owners. Both `SetRevealSpeed` sites currently enforce
+      `0.25..4.0` while GameUI emits `1.0..1000.0`;
+      `Runtime/Prediction/ReplayPrediction.cpp` owns reveal state and positive-
+      rate normalization. Both `SetPredictionHorizon` sites enforce `1.0..20.0`
+      while ReplayOverlay/Capture owns horizon presentation and the canonical
+      `1.0..120.0` interval in `Runtime/Replay/ReplayCaptureLimits.h`. UI6 must
+      project both owners' values through the post-RBS7 package graph so widget
+      and live validator agree, rather than adding a DevelopmentTools shortcut
+      or copying either policy into `OperatorControlPolicy`.
 
 **Terminal acceptance:** `SKULLBONEZ_UI` is the sole reusable component
 foundation project; it contains no product workflow or Runtime/Rendering

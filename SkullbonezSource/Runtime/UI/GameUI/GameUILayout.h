@@ -1,12 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/UI/GameUI/GameUILayout.h
 Purpose:
-  Declares product-specific GameUI geometry and value conversions.
+  Declares product-specific GameUI geometry and small display policy.
 
 Summary:
   The component foundation supplies generic rectangles and interpolation. This
-  Runtime-owned layer decides how scene, Physics, pipeline, and footer product
-  controls are arranged without teaching those domains to SKULLBONEZ_UI.
+  Runtime-owned layer arranges the scene combo, Physics pipeline buttons, and
+  footer controls, and describes when reflection choices are disabled, without
+  teaching those product rules to SKULLBONEZ_UI.
 
 Invariants:
   - Drawing and hit testing call the same bounds helpers.

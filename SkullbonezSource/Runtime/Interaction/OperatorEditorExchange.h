@@ -49,11 +49,10 @@ namespace SkullbonezCore::UI
 {
 struct InGameUICommands;
 
-// OperatorControlPolicy is the shared product contract for both operator
-// front ends and the Runtime owners that validate their typed commands.
-// Invariant: GameUI, ImGui, and command application use one range and
-// quantization vocabulary; the component foundation owns none of these domain
-// decisions.
+// OperatorControlPolicy is the shared product contract for the scalar rows
+// declared below. GameUI uses each step for pointer quantization; ImGui uses it
+// as DragFloat input speed only. App deterministically clamp-snaps these rows,
+// while Replay reveal and horizon retain their separate owner semantics.
 namespace OperatorControlPolicy
 {
 inline constexpr float UI_TIME_SCALE_MIN = 0.10f;

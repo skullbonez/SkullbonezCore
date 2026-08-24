@@ -210,7 +210,7 @@ void Draw( UIOptionsTabState& state, const UIDrawContext& draw, const UIOptionsT
                        data.waterFlatDebug );
 
     DrawContentToggle( draw, contentY, contentH, state.toggles[5], col2, scrolledY + 102.0f, colW, "Shadows",
-                       data.cinematicRendering ? data.cinematic.shadow.enabled : data.ordinaryRender.shadow.enabled );
+                       data.cinematicRendering ? data.cinematicShadowsEnabled : data.ordinaryShadowsEnabled );
 
     snprintf( buf, sizeof( buf ), "%s alpha %.3f%s", data.presentationInterpolation ? "on" : "off", data.presentationAlpha,
               data.presentationPinned ? " (capture pin)" : "" );

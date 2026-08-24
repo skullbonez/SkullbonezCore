@@ -1009,7 +1009,7 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
                                                NormalizedFromPredictionRevealRate( displayRevealRate ), 0.0f, 1.0f );
         }
 
-        const OperatorEditorForecastView& forecast = data.operatorEditor.forecast;
+        const UISceneForecastFrameView& forecast = data.forecast;
         DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + UI_SCENE_FORECAST_TITLE_Y, 12.0f,
                           "Continuous orbital forecast" );
         SetForecastBounds( state, contentX, scrolledY + 42.0f, contentW );

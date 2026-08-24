@@ -4,12 +4,13 @@ Purpose:
   Projects shared operator-control ranges into Dear ImGui diagnostics controls.
 
 Summary:
-  A stateless command-type lookup gives ImGui the same minimum, maximum, and
-  quantization step used by GameUI and Runtime command validation without
-  importing either presentation owner's retained state.
+  A stateless command-type lookup gives ImGui the canonical minimum, maximum,
+  and step without importing either presentation owner's retained state. ImGui
+  consumes step as DragFloat speed; App remains the clamp-and-snap authority.
 
 Invariants:
-  - Every valid row is derived from OperatorControlPolicy constants.
+  - Every valid row is derived from OperatorControlPolicy constants; the row's
+    step is input ergonomics here, not proof that ImGui emitted an on-grid value.
   - Unknown diagnostics commands do not silently acquire a scalar range.
 
 Related:

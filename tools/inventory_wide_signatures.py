@@ -763,13 +763,16 @@ def csv_text(rows: list[dict[str, object]]) -> str:
 
 W1_DEFECT_RULES = (
     {
-        "files": ("SkullbonezSource/UI/UI.cpp", "SkullbonezSource/UI/UIWindowInteractionOwner.cpp"),
+        "files": (
+            "SkullbonezSource/Runtime/UI/GameUI/UI.cpp",
+            "SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.cpp",
+        ),
         "names": ("InGameUI::UpdateInput", "UIWindowInteractionOwner::UpdateInput"),
         "category": "missing-domain-value-record",
         "wave": "W2/UI-input",
         "reason": (
             "The same immutable device, viewport, editor, camera, and scene-selection snapshot crosses the UI facade "
-            "and interaction owner; one UI-owned input-frame value has a real per-frame lifetime and one writer."
+            "and interaction owner; one GameUI-owned input-frame value has a real per-frame lifetime and one writer."
         ),
     },
     {

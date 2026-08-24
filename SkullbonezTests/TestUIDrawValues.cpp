@@ -51,6 +51,27 @@ using SkullbonezCore::UI::UIFontMetrics;
 
 namespace
 {
+template <typename T>
+concept HasOrdinaryRenderCapability = requires( const T& value ) { value.ordinaryRender; };
+
+template <typename T>
+concept HasCinematicConfigCapability = requires( const T& value ) { value.cinematic; };
+
+template <typename T>
+concept HasOperatorEditorCapability = requires( const T& value ) { value.operatorEditor; };
+
+template <typename T>
+concept HasForecastTickCapability = requires( const T& value ) { value.newestAbsoluteTick; };
+
+template <typename T>
+concept HasForecastRetainedBytesCapability = requires( const T& value ) { value.retainedBytes; };
+
+static_assert( !HasOrdinaryRenderCapability<SkullbonezCore::UI::UIOptionsTabFrameView> );
+static_assert( !HasCinematicConfigCapability<SkullbonezCore::UI::UIOptionsTabFrameView> );
+static_assert( !HasOperatorEditorCapability<SkullbonezCore::UI::UISceneTabFrameView> );
+static_assert( !HasForecastTickCapability<SkullbonezCore::UI::UISceneForecastFrameView> );
+static_assert( !HasForecastRetainedBytesCapability<SkullbonezCore::UI::UISceneForecastFrameView> );
+
 int FindDrawTextIndex( const UIDrawList& list, const char* expected )
 {
     const std::span<const UIDrawList::Command> commands = list.Commands();
@@ -402,6 +423,10 @@ TEST_CASE( "GameUI projects focused tab views from the root frame" )
     data->rngSeed = 77u;
     data->editorObjectType = 9;
     data->selectedCineModeSceneOption = 3;
+    data->ordinaryRender.shadow.enabled = false;
+    data->cinematic.shadow.enabled = true;
+    data->operatorEditor.forecast.available = true;
+    data->operatorEditor.forecast.simulatedSeconds = 12.5;
     data->timeScale = 2.5f;
     data->worldGravity = -12.0f;
     data->profilerMarkerOptionCount = 4;
@@ -423,14 +448,16 @@ TEST_CASE( "GameUI projects focused tab views from the root frame" )
     CHECK( cinematic.selectedCineModeSceneOption == 3 );
     CHECK( &cinematic.cinematic == &data->cinematic );
     CHECK( options.timeScale == doctest::Approx( 2.5f ) );
-    CHECK( &options.ordinaryRender == &data->ordinaryRender );
+    CHECK_FALSE( options.ordinaryShadowsEnabled );
+    CHECK( options.cinematicShadowsEnabled );
     CHECK( physics.worldGravity == doctest::Approx( -12.0f ) );
     CHECK( &physics.physicsDebug == &data->physicsDebug );
     CHECK( profiler.markerOptions == data->profilerMarkerOptions );
     CHECK( profiler.markerOptionCount == 4 );
     CHECK( &memory.mainMemory == &data->mainMemory );
     CHECK( memory.reserveGrowthEventTotalCount == 19u );
-    CHECK( &scene.operatorEditor == &data->operatorEditor );
+    CHECK( scene.forecast.available );
+    CHECK( scene.forecast.simulatedSeconds == doctest::Approx( 12.5 ) );
     CHECK( scene.currentFrame == 42 );
 }
 

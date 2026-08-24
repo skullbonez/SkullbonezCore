@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UIRenderDiagnostics.h
+File: SkullbonezSource/Runtime/UI/GameUI/UIRenderDiagnostics.h
 Purpose:
   Defines renderer-independent diagnostic values displayed by UI surfaces.
 

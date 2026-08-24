@@ -5,9 +5,10 @@ Purpose:
 
 Summary:
   GameUI and Dear ImGui operator surfaces share these enum-indexed labels,
-  groups, ranges, steps, and formats. App validates typed render commands
-  against the same rows while concrete configuration values remain outside
-  this catalog.
+  groups, ranges, steps, and formats. GameUI quantizes pointer input with each
+  step, ImGui treats it as drag speed, and App authoritatively clamp-snaps typed
+  render commands against the same rows. Concrete configuration values remain
+  outside this catalog.
 
 Glossary:
   Section: Canonical right-rail grouping used to merge former Render, Sky, and

@@ -2551,6 +2551,9 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     const ImGuiEditorScalarControlPolicy policy = ResolveImGuiEditorDiagnosticsControlPolicy( scalar.type );
                     const int action = static_cast<int>( scalar.type );
                     ImGui::PushID( action );
+
+                    // Why: DragFloat speed controls pointer ergonomics, not
+                    // canonicalization; App snaps the submitted typed command.
                     editParameterized( m_diagnosticsEdit, scalar.label, action, -1, -1, -1, scalar.value, policy.step,
                                        policy.minValue, policy.maxValue, scalar.format,
                                        [&]( float value, UI::OperatorEditorEditPhase phase )
