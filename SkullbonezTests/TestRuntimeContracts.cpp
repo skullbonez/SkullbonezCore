@@ -47,6 +47,8 @@
 //     device boundaries, and reports release/fence facts at exhaustion.
 //   - The texture table admits its exact final slot and terminates before an
 //     exhausted fixed table can produce an index.
+//   - DX12 texture upload keeps one- and four-channel inputs direct, expands
+//     luminance-alpha and RGB inputs to RGBA, and does not cross caller spans.
 //   - Tornado visual frame borrows remain valid until release; missing and
 //     release-cleared borrows terminate before capacity or draw dereference.
 //   - Lock-order invalid-id, cycle, and held-stack tripwires are classified by
@@ -139,6 +141,7 @@
 #include <initializer_list>
 #include <limits>
 #include <memory>
+#include <span>
 #include <string>
 #include <thread>
 #include <vector>
@@ -156,6 +159,19 @@ struct Dx12DeferredReleaseOwnerTestAccess
 
 struct Dx12TextureOwnerTestAccess
 {
+    static int UploadBytesPerPixel( int channels )
+    {
+        return Dx12TextureOwner::TextureUploadBytesPerPixel( channels );
+    }
+    static bool RequiresRgbaExpansion( int channels )
+    {
+        return Dx12TextureOwner::TextureUploadRequiresRgbaExpansion( channels );
+    }
+    static bool ExpandToRgba( std::span<const uint8_t> source, int channels, std::span<uint8_t> destination )
+    {
+        return Dx12TextureOwner::ExpandTextureUploadToRgba( source, channels, destination );
+    }
+
     class EpochProbe
     {
       public:
@@ -535,6 +551,48 @@ TEST_CASE( "TextureCollection fixed capacity admits its exact final slot" )
     CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
                SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1u ) ==
            SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1 );
+}
+
+
+TEST_CASE( "DX12 texture upload preserves direct channels and expands two and three channel pixels within bounds" )
+{
+    using SkullbonezCore::Rendering::Dx12TextureOwnerTestAccess;
+
+    CHECK( Dx12TextureOwnerTestAccess::UploadBytesPerPixel( 1 ) == 1 );
+    CHECK_FALSE( Dx12TextureOwnerTestAccess::RequiresRgbaExpansion( 1 ) );
+    CHECK( Dx12TextureOwnerTestAccess::UploadBytesPerPixel( 2 ) == 4 );
+    CHECK( Dx12TextureOwnerTestAccess::RequiresRgbaExpansion( 2 ) );
+    CHECK( Dx12TextureOwnerTestAccess::UploadBytesPerPixel( 3 ) == 4 );
+    CHECK( Dx12TextureOwnerTestAccess::RequiresRgbaExpansion( 3 ) );
+    CHECK( Dx12TextureOwnerTestAccess::UploadBytesPerPixel( 4 ) == 4 );
+    CHECK_FALSE( Dx12TextureOwnerTestAccess::RequiresRgbaExpansion( 4 ) );
+
+    constexpr uint8_t sourceGuard = 0xD1;
+    constexpr uint8_t destinationGuard = 0xE2;
+    std::array<uint8_t, 6> twoChannelSource = { sourceGuard, 10, 20, 30, 40, sourceGuard };
+    std::array<uint8_t, 10> twoChannelDestination;
+    twoChannelDestination.fill( destinationGuard );
+    const std::array<uint8_t, 6> expectedTwoChannelSource = twoChannelSource;
+    const std::array<uint8_t, 10> expectedTwoChannelDestination = { destinationGuard, 10, 10, 10, 20, 30, 30, 30, 40,
+                                                                    destinationGuard };
+
+    const bool
+        twoChannelExpanded = Dx12TextureOwnerTestAccess::ExpandToRgba( std::span( twoChannelSource ).subspan( 1, 4 ), 2,
+                                                                       std::span( twoChannelDestination ).subspan( 1, 8 ) );
+    const bool twoChannelResultMatches = twoChannelExpanded && twoChannelDestination == expectedTwoChannelDestination;
+    CHECK( twoChannelResultMatches );
+    CHECK( twoChannelSource == expectedTwoChannelSource );
+
+    std::array<uint8_t, 5> threeChannelSource = { sourceGuard, 50, 60, 70, sourceGuard };
+    std::array<uint8_t, 6> threeChannelDestination;
+    threeChannelDestination.fill( destinationGuard );
+    const std::array<uint8_t, 5> expectedThreeChannelSource = threeChannelSource;
+    const std::array<uint8_t, 6> expectedThreeChannelDestination = { destinationGuard, 50, 60, 70, 255, destinationGuard };
+
+    CHECK( Dx12TextureOwnerTestAccess::ExpandToRgba( std::span( threeChannelSource ).subspan( 1, 3 ), 3,
+                                                     std::span( threeChannelDestination ).subspan( 1, 4 ) ) );
+    CHECK( threeChannelDestination == expectedThreeChannelDestination );
+    CHECK( threeChannelSource == expectedThreeChannelSource );
 }
 
 

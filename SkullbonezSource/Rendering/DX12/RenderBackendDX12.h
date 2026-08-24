@@ -75,6 +75,7 @@ Related:
 #include <dxgi1_5.h>
 #include <array>
 #include <cstddef>
+#include <span>
 #include <vector>
 
 
@@ -386,6 +387,60 @@ class Dx12TextureOwner
     const TextureEntryDX12* ResolveEntry( uint32_t handle ) const;
     uint32_t ReuseOrAppend( const TextureEntryDX12& entry );
     void ReportStaleHandle( uint32_t handle ) const;
+
+    // Concept: decoded texture bytes keep their source channel count until the
+    // backend chooses a native upload format. One- and four-channel inputs map
+    // directly to R8 and RGBA8; other supported inputs need an explicit RGBA8
+    // expansion before row pitches are calculated.
+    static int TextureUploadBytesPerPixel( int channels ) noexcept
+    {
+        return channels == 1 ? 1 : 4;
+    }
+    static bool TextureUploadRequiresRgbaExpansion( int channels ) noexcept
+    {
+        return channels == 2 || channels == 3;
+    }
+    static bool ExpandTextureUploadToRgba( std::span<const uint8_t> source, int channels,
+                                           std::span<uint8_t> destination ) noexcept
+    {
+        if ( ( channels != 2 && channels != 3 ) || source.size() % static_cast<size_t>( channels ) != 0 )
+        {
+            return false;
+        }
+
+        const size_t pixelCount = source.size() / static_cast<size_t>( channels );
+
+        if ( destination.size() % 4 != 0 || destination.size() / 4 != pixelCount )
+        {
+            return false;
+        }
+
+        for ( size_t pixel = 0; pixel < pixelCount; ++pixel )
+        {
+            const size_t sourceOffset = pixel * static_cast<size_t>( channels );
+            const size_t destinationOffset = pixel * 4;
+
+            if ( channels == 2 )
+            {
+                // Invariant: stb's two-channel output is luminance followed by
+                // alpha. Replicate luminance before the RGBA8 row copy so the
+                // backend never reads a nonexistent blue or alpha source byte.
+                destination[destinationOffset + 0] = source[sourceOffset + 0];
+                destination[destinationOffset + 1] = source[sourceOffset + 0];
+                destination[destinationOffset + 2] = source[sourceOffset + 0];
+                destination[destinationOffset + 3] = source[sourceOffset + 1];
+            }
+            else
+            {
+                destination[destinationOffset + 0] = source[sourceOffset + 0];
+                destination[destinationOffset + 1] = source[sourceOffset + 1];
+                destination[destinationOffset + 2] = source[sourceOffset + 2];
+                destination[destinationOffset + 3] = 255;
+            }
+        }
+
+        return true;
+    }
     bool GenerateMips( Dx12TextureCommands& commands, ID3D12Resource* texture, DXGI_FORMAT format, UINT width, UINT height,
                        UINT mipCount, bool& graphicsStateInvalidated );
 

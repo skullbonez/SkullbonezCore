@@ -11,7 +11,9 @@ Summary:
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
-  must stay explicit.
+    must stay explicit.
+  - One- and four-channel source rows upload directly; two- and three-channel
+    rows expand to RGBA before the backend calculates copy pitches.
   - Texture graph state advances only after its transition barrier was recorded;
     upload failure returns before row copies dereference the staging pointer.
   - Shutdown closes the active resource epoch before releasing texture state;
@@ -548,37 +550,35 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
     (void)filterPolicy;
 
     DXGI_FORMAT fmt;
-    int bytesPerPixel;
+    int bytesPerPixel = TextureUploadBytesPerPixel( channels );
 
     if ( channels == 1 )
     {
         fmt = DXGI_FORMAT_R8_UNORM;
-        bytesPerPixel = 1;
     }
     else
     {
         fmt = DXGI_FORMAT_R8G8B8A8_UNORM;
-        bytesPerPixel = 4;
     }
 
-    // Convert RGB to RGBA if needed; srcData always has bytesPerPixel channels after this.
+    // Why: one- and four-channel sources already match their native upload
+    // formats and remain borrowed without a conversion allocation. Only the
+    // two- and three-channel layouts allocate a cold RGBA staging vector.
     std::vector<uint8_t> rgba;
     const uint8_t* srcData = data;
 
-    if ( channels == 3 )
+    if ( TextureUploadRequiresRgbaExpansion( channels ) )
     {
-        rgba.resize( static_cast<size_t>( w ) * h * 4 );
+        const size_t pixelCount = static_cast<size_t>( w ) * static_cast<size_t>( h );
+        rgba.resize( pixelCount * 4 );
 
-        for ( int i = 0; i < w * h; ++i )
+        if ( !ExpandTextureUploadToRgba( std::span<const uint8_t>( data, pixelCount * static_cast<size_t>( channels ) ),
+                                         channels, rgba ) )
         {
-            rgba[i * 4 + 0] = data[i * 3 + 0];
-            rgba[i * 4 + 1] = data[i * 3 + 1];
-            rgba[i * 4 + 2] = data[i * 3 + 2];
-            rgba[i * 4 + 3] = 255;
+            return 0;
         }
 
         srcData = rgba.data();
-        bytesPerPixel = 4;
     }
 
     // Compute full mip count (log2 of the larger dimension + 1)
