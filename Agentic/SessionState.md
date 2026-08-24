@@ -2,7 +2,7 @@
 
 Date: 2026-08-25
 Branch: `nightrunner-24th-aug`
-Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 108/118 tasks complete
+Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 109/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -54,9 +54,11 @@ their Prediction and Replay/Planning owners. Its exactly-once plan-completion
 gate passed 760/760 cases and 2,685,294 assertions with unchanged baselines;
 the inherited causal-depth oracle and historical Physics performance baseline
 remain external recorded failures without refresh authority.
-Recorded Interaction Playback Cursor RIC0-RIC3 is now dependency-ready; it adds
-only a fake recorded-playback overlay and explicitly forbids any hardware cursor
-or native capture change.
+Recorded Interaction Playback Cursor RIC0-RIC3 is active at 1/4. RIC0 ratified
+the replayed-logical visibility matrix, screenshot-inclusive topmost draw point,
+Automation-owned detached-value shape, and two-triangle geometry. Its pure
+policy and native non-interference controls pass 3/3 cases and 27/27 assertions
+without adding publication, drawing, or a native cursor/capture dependency.
 
 Real-Time Physics Pacing SP0-SP2 is complete. Live and unlimited scenes now
 schedule fixed-frequency Physics from elapsed wall time, while explicit startup
@@ -494,7 +496,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 ## Next Work
 
 Continue the recorded `RAGDOLL_PHYSICS` FP4 OPEN/HOLD disposition while running
-`RECORDED_CURSOR` RIC0-RIC3 on the closed UI6 presentation boundary. FP2
+`RECORDED_CURSOR` RIC1 publication on the ratified RIC0 contract. FP2
 retains motion policy version 2: `0.1`
 metres of absolute per-tick travel promotes and `0.075` metres demotes,
 independent of collider thickness.
