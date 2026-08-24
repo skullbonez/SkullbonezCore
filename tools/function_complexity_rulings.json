@@ -66,6 +66,16 @@
       "plan": ""
     },
     {
+      "file": "SkullbonezSource/Runtime/App/OperatorEditorFramePhase.cpp",
+      "signature": "OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha, bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive, const RuntimeFrameMetricsSnapshot& frameMetrics )",
+      "body_sha256": "2ea344f21ef70a44a4dfc75d414c31a0a908c1ff49e85225c5ad3302e1817ecd",
+      "owner": "Runtime App operator-frame composition phase",
+      "disposition": "retain-owner",
+      "reason": "One ordered frame samples per-domain detached facts, delegates all domain UI-row mapping to Runtime/UI, sequences GameUI and secondary presentation with renderer submission, then emits typed process commands. No owner borrow survives return, and extraction would create relay helpers without an independent invariant. This current-body ruling does not permit App to regain UI-row mapping or retained sibling authority.",
+      "evidence": "RUNTIME_BOUNDARIES RBS7 terminal composition-root review (2026-08-25)",
+      "plan": ""
+    },
+    {
       "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
       "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
       "body_sha256": "d3df366bc4b69806576deb9fbb0d3cc3c08337712fd771f50a126dd990cd24ee",

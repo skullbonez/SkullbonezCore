@@ -1,7 +1,7 @@
 # Runtime Boundary Separation And Project Topology Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 7/8 phases complete; RBS7 ready.
+Status: Active by owner direction. 7/8 phases complete; RBS7 in progress.
 Impact area: `SkullbonezSource/Runtime/`, Runtime-facing Rendering/UI seams,
 Visual Studio project topology, dependency enforcement, tests, and documentation
 Owner: Runtime architecture, with each moved value or behavior retained by its
@@ -928,20 +928,119 @@ Runtime renderer include, and passes its full build plus 1/1 CTest target.
 
 **Goal:** Prove the separation is behavioral, physical, and build-enforced.
 
-- [ ] Re-run package/SCC inventory and reconcile the ratified DAG.
-- [ ] Review Run.h, every Run definition, internal headers, transactions, and
+- [x] Re-run package/SCC inventory and reconcile the ratified DAG.
+- [x] Review Run.h, every Run definition, internal headers, transactions, and
       forwarding surfaces as one logical owner.
-- [ ] Answer the five ownership questions for every touched aggregate/slice set.
-- [ ] Run all seven governance inventories and adjudicate current findings.
-- [ ] Run dependency, project/filter, allocation, determinism, related-path, and
+- [x] Answer the five ownership questions for every touched aggregate/slice set.
+- [x] Run all seven governance inventories and adjudicate current findings.
+- [x] Run dependency, project/filter, allocation, determinism, related-path, and
       portable-build checks.
-- [ ] Run focused Startup, Window/Input, interaction, Scene, UI/UI-stress,
+- [x] Run focused Startup, Window/Input, interaction, Scene, UI/UI-stress,
       Capture/Automation, Replay family, renderer, and build tests.
-- [ ] Run fast, CPU umbrella, Automation, DX12, one-minute graphics stress,
-      replay visual, and relevant performance gates.
-- [ ] Obtain independent ownership and project-topology reviews after fixes.
+- [x] Run fast, CPU umbrella, Automation, DX12, one-minute graphics stress, and
+      replay visual gates.
+- [ ] Close the relevant performance gate. Matched same-machine evidence clears
+      RBS7 as the cause, but the unchanged historical Physics golden remains an
+      external FP4 `OPEN/HOLD` dependency and must not be refreshed here.
+- [x] Obtain independent ownership and project-topology reviews after fixes.
 - [ ] Run `tools\agent_validate.bat --plan-completion` once at terminal closure.
 - [ ] Record commands, timings, results, project/package graphs, and baselines.
+
+**RBS7 evidence in progress (2026-08-25, frozen base `f7a27bb0`):**
+
+- The current-tree Runtime graph contains 358 source files, 20 registered
+  packages, 71 package edges, 541 include sites, 20 singleton SCCs, and zero
+  cycles, bidirectional pairs, reverse-to-App edges, unregistered packages,
+  forbidden edges, or sealed repair debt. All 52 `Run::` definitions remain in
+  `Runtime/App`; `RuntimeFrameViews.h` remains the only source-bearing file at
+  the Runtime package root, and the exception table remains empty.
+- The terminal aggregate audit removed the two capability-shaped App contexts.
+  Replay path rendering now receives nine explicit operands for one workflow;
+  startup probing uses a Replay-owned, finite-state, value-only continuation and
+  one typed pending application action at a time. App services concrete effects
+  synchronously and retains no capability bag. The reviewed 12-operand startup
+  advance operation participates in one probe invariant and does not fan its
+  operands into unrelated workflows. Runtime/UI now owns operator row mapping
+  from detached per-domain facts, including a UI-owned detached gizmo mode;
+  App samples concrete sibling state but constructs no domain UI rows.
+- The first independent RBS7 review rejected five courier-style operator facts,
+  stale Lifecycle filter ownership for `OperatorUiProjection`, and insufficient
+  fatal/handle-exclusion witnesses. The repair replaced the five records with
+  explicit projection operands (maximum arity eight), made Runtime/UI own the
+  bounded render-target append API so App cannot pass or recover backend
+  handles, exhaustively checked startup phase/action/restore coherence, and
+  added child-process fatal witnesses. The follow-up review found that a failed
+  presentation activation could retain its pending action after entering
+  `Failed`; the repaired continuation now clears that action before the
+  terminal edge, post-validates coherence, and has a focused production-path
+  witness. Both the project filters and the exact
+  `validate_project_filters.py` classifier now place `OperatorUiProjection` in
+  Runtime/UI. A standalone-test link failure then exposed fatal helpers defined
+  only in the production probe translation unit; their single Debug-only inline
+  definitions now live beside the continuation predicates in `ReplayRuntime.h`.
+- All seven governance inventories are current and adjudicated: wide signatures
+  have zero unruled findings; aggregate ownership reports 1,381 candidates,
+  77/77 gated rows ruled; extraction scars report 1/1 ruled; complexity reports
+  7,149 functions and 41/41 triggered rows ruled; build configuration reports
+  1,976 compile rows, 353 sources, 96 shared sources, five projects, 11 project
+  edges, zero cycles/topology findings, and zero blockers; reachability reports
+  84/84 rows ruled with zero diagnostics from fresh Debug/Profile symbols; and
+  glossary inventory reports 644 files, 975 definitions, and zero multi-file,
+  drift, or unruled findings.
+- Completed validation is green: dependency self-test (24 negative, 32 project,
+  five Runtime-graph cases), generated proof, repository scan, build-config
+  self-test/repository scan, project filters (861/861), all gate-required build
+  configurations, Release (92.71 seconds), Profile-WPO (99.96 seconds), operator
+  UI projection (2/2 cases, 29/29 assertions), and startup continuation (1/1
+  case, 88/88 assertions, including illegal-transition, missing-restore fatal,
+  and failed-activation coherence probes). Builds completed with zero warnings
+  and zero errors.
+  The VS-bundled portable CMake path also configures and builds from an absent
+  task-specific Temp directory, and CTest passes its 1/1 target with 314/314
+  cases and 2,553,880/2,553,880 assertions. Runtime interaction policy passes
+  all 26 cases in both Debug and Release, UI stress passes its deterministic
+  GameUI/ImGui matrix with DX12 validation available and zero validation
+  errors, and the CPU umbrella passes 757/757 cases with
+  2,685,679/2,685,679 assertions. The final current-tree `validate_fast`
+  rerun passes all ten stages through a disposable relative index, after which
+  the real staging area is confirmed empty and no disposable-index artifact
+  remains. Automation, DX12, one-minute graphics stress, and replay visual
+  fidelity also pass with no baseline or golden writes. The bounded follow-up
+  reviewer returned `CLEAN within RBS7 authority`, with no blocking,
+  non-blocking, or missing-evidence findings, under reviewer CODEX_THREAD_ID
+  `01a034aa-05f5-70a1-9a81-dc446e4b89bb`. The repaired final tree still
+  requires `agent_validate --plan-completion`.
+- `tools\validate_perf.bat` reaches its comparison phase but rejects four
+  unchanged historical `Frame/Physics` and `Frame/Physics/Step` average/p50
+  rows. The coordinator and Physics owner accepted a same-machine alternating
+  A/B attribution using frozen base `f7a27bb0` and the exact dirty RBS7 tree:
+  A1(base), B1(RBS7), A2(base), B2(RBS7), 2,340 frames each. Both pairwise
+  `perf_compare.py` runs pass. Pair means for `Frame/Physics` are
+  0.09920/0.09440 ms average/p50 at base and 0.09940/0.09510 ms at RBS7
+  (+0.20%/+0.74%); `Frame/Physics/Step` is
+  0.09910/0.09435 ms at base and 0.09930/0.09500 ms at RBS7
+  (+0.20%/+0.69%). All five Physics counter average/p50/min/max tuples are
+  identical across all four captures. By contrast, frozen-base Physics versus
+  the unchanged accepted golden is already +52.15% average and +47.04% p50,
+  with awake-body p50 26 versus 21 and persistent-contact average/p50
+  18.1752/18 versus 14.2128/14. This proves the red golden predates and is
+  independent of RBS7; FP4 retains the `OPEN/HOLD` obligation to recover enough
+  same-behavior performance or record its blocking disposition. RBS7 has no
+  authority to refresh that golden.
+- The matched evidence remains preserved under
+  `C:/Users/sesch/AppData/Local/Temp/SkullbonezCore-rbs7-perf-evidence-20260825-032618`
+  with manifest SHA-256
+  `c50c9e3038a46433d2ece2817b3fd7d627e6c80e6cc6a4e28a8b63082b4415bf`;
+  the exact dirty binary patch SHA-256 is
+  `d762366cd6eac598fca9ac458b5e669c970e6e5aed81a50382a9b65b50b1ecf4`.
+  The frozen-base worktree and evidence are intentionally retained pending
+  disposition. Baseline/golden disposition remains no writes, and the real
+  staging area remains empty.
+- ASSET-001 integrated independently at coordinator commit `4e9ed2b74`
+  and also touched `SkullbonezTests/TestRuntimeContracts.cpp`; this is recorded
+  as a wave-definition correction. The frozen RBS7 lane has not imported those
+  changes, and the coordinator must reconcile the disjoint test hunks and rerun
+  cumulative focused evidence on the integrated tree before terminal closure.
 
 **Terminal acceptance:** App is the sole composition root; package/project graphs
 are acyclic; the project topology contains no unapproved production split; no Run

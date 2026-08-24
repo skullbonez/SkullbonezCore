@@ -413,6 +413,7 @@
           "Runtime/Tools/RuntimeFileWriter.h",
           "Runtime/Tools/RuntimeTools.h",
           "Runtime/UI/OperatorUiPhase.h",
+          "Runtime/UI/OperatorUiProjection.h",
           "Runtime/UI/RenderDiagnosticsProjection.h",
           "Runtime/UI/RuntimeViewModel.h",
           "Runtime/UI/GameUI/UI.h",

@@ -1534,6 +1534,17 @@
       "reason": "RunReplayPredictionState is 792,936 bytes and the round-trip verifier needs three live at once for restored High, legacy migration, and active-Low projection. Matching evidence banks prove retained-capacity behavior for those three states. Keeping these owners on the stack faulted in __chkstk before report output. One mutation vector is reused sequentially for bounded corrupt-artifact cases. This translation unit links only in Automation, runs once after the sole live capture, and never touches steady gameplay or presentation.",
       "cap": "Exactly three RunReplayPredictionState allocations and three ReplayPredictionSolverEvidenceBanks allocations per VerifyReplayPredictionArchiveRoundTrip call. One mutation vector is repeatedly reassigned from the already capped input artifact; failure cases run serially.",
       "removal_or_wrapper_plan": "Delete when the verifier can compare decodes one at a time against a streamed encoder, or when prediction state moves behind a handle whose value type is small enough to keep on the frame."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
+      "patterns": [
+        "m_restore.emplace("
+      ],
+      "owner": "ReplayStartupProbeContinuation fixed restore transaction slot",
+      "phase": "debug_startup_probe",
+      "reason": "std::optional::emplace reconstructs the single embedded non-copyable/non-movable ReplayRestoreTransaction at a stable address across one App-serviced typed action and performs no heap allocation.",
+      "cap": "Exactly one sizeof(ReplayRestoreTransaction) slot embedded in ReplayStartupProbeContinuation.",
+      "removal_or_wrapper_plan": "Delete when the checker distinguishes optional/variant emplacement from container growth."
     }
   ]
 }

@@ -2345,11 +2345,14 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
 }
 
 
-ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )
+ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPredictionPresentationView& prediction,
+                                                             const RunReplayPathVisualizerState& pathVisualizer,
+                                                             PhysicsEngine& physics, const SceneEntityStore& entities,
+                                                             EditorTracer& tracer, Core::Profiler* profiler,
+                                                             ReplayFrameIndex presentFrame, bool hasPresentSample,
+                                                             bool drawPredictionOverlay )
 {
     ReplayPathVisualizerRenderResult result;
-    const ReplayPredictionPresentationView& prediction = context.prediction;
-    const RunReplayPathVisualizerState& pathVisualizer = context.pathVisualizer;
     PROFILE_SCOPED( "Frame/Replay/PathVisualizer" );
 
     // Concept: this marker owns replay presentation budgeting.
@@ -2358,12 +2361,11 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
     // drawing spends a fixed ribbon quota here so completed segments do not
     // flicker under transient render load.
     const auto visualizerStart = std::chrono::steady_clock::now();
-    ReplayRibbonDrawQuota ribbonQuota = BeginReplayRibbonDrawQuota( context.tracer );
+    ReplayRibbonDrawQuota ribbonQuota = BeginReplayRibbonDrawQuota( tracer );
 
-    if ( context.drawPredictionOverlay )
+    if ( drawPredictionOverlay )
     {
-        DrawReplayPredictionVisualizer( pathVisualizer, prediction, context.profiler, context.physics, context.entities,
-                                        context.tracer, ribbonQuota );
+        DrawReplayPredictionVisualizer( pathVisualizer, prediction, profiler, physics, entities, tracer, ribbonQuota );
     }
 
     if ( !pathVisualizer.hasTarget || !pathVisualizer.pastPathVisible )
@@ -2385,13 +2387,13 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
         return result;
     }
 
-    if ( !context.hasPresentSample )
+    if ( !hasPresentSample )
     {
         return result;
     }
 
-    const PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( context.physics );
-    const ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( context.physics );
+    const PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
+    const ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( physics );
 
     for ( const RunReplayPathTarget& target : pathVisualizer.targets )
     {
@@ -2405,8 +2407,8 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
         if ( target.id.value == pathVisualizer.targetId.value )
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawRoot" );
-            DrawReplayPastRootTrajectoryFromStore( prediction, target.id, pathVisualizer.colorMode, context.presentFrame,
-                                                   context.tracer, ribbonQuota );
+            DrawReplayPastRootTrajectoryFromStore( prediction, target.id, pathVisualizer.colorMode, presentFrame, tracer,
+                                                   ribbonQuota );
         }
 
         {
@@ -2419,7 +2421,7 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
 
             if ( markerResolved )
             {
-                TryAddReplayTargetMarkerFromStores( context.tracer, bodyStore, colliderStore, markerIndex );
+                TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, markerIndex );
             }
         }
     }
@@ -2437,12 +2439,11 @@ void ReplayPredictionPresentation::RenderPathVisualizer( const ReplayPredictionP
     const ReplayFrameIndex presentFrame = prediction.generationPermitted && presentSample ? presentSample->frameIndex
                                                                                           : prediction.sourceFrame;
 
-    const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderContext
-        context { prediction,           m_profiler, path, physics, entities, tracer, presentFrame, presentSample != nullptr,
-                  drawPredictionOverlay };
-
     const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderResult
-        result = SkullbonezCore::Runtime::ReplayOverlay::RenderReplayPathVisualizer( context );
+        result = SkullbonezCore::Runtime::ReplayOverlay::RenderReplayPathVisualizer( prediction, path, physics, entities,
+                                                                                     tracer, m_profiler, presentFrame,
+                                                                                     presentSample != nullptr,
+                                                                                     drawPredictionOverlay );
 
     if ( result.retainedRefreshBudgetExpired )
     {

@@ -59,11 +59,11 @@
     },
     {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
-      "signature": "ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartupLoadInput& loadInput, SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )",
+      "signature": "ReplayStartupResult ReplayRuntime::AdvanceStartupProbeWorkflows( ReplayStartupProbeContinuation& continuation, SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )",
       "owner": "Replay startup-probe phase",
       "disposition": "retain-owner",
-      "reason": "Startup probe execution is one Replay phase; startup/load values and concrete composition owners are used synchronously and not repackaged.",
-      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
+      "reason": "The Replay startup-probe continuation and all concrete composition participants belong to one synchronous probe phase; the continuation is finite-state, value-only, and cannot recover an owner, every owner borrow expires before return, and grouping the operands would recreate the retired capability context.",
+      "evidence": "RUNTIME_BOUNDARIES RBS7 terminal qualitative owner review (2026-08-25)"
     },
     {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",

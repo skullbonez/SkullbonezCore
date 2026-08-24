@@ -416,7 +416,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIWindowInteractionOwner.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\RenderDiagnosticsProjection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\OperatorEditorFramePhase.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\App\OperatorUiProjection.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\OperatorUiProjection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\Init.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp" />
@@ -634,7 +634,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimePickService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderFrameValues.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\App\OperatorUiProjection.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorUiProjection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\RenderModelFramePublisher.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\UiDrawSubmission.h" />

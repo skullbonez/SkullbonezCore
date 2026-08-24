@@ -1525,7 +1525,7 @@ void ReplayRuntime::ConfigureStartupWorkflows( const ReplayStartupRequest& reque
 }
 
 
-ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadInput& loadInput )
+ReplayStartupResult ReplayRuntime::RunStartupWorkflows( double applicationTimeSeconds )
 {
     ReplayStartupResult result;
     const ReplayStartupWorkflowState& startup = m_probeRunner.Startup();
@@ -1548,17 +1548,8 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
 
     if ( startup.loadPath[0] != '\0' )
     {
-        if ( BeginLoadedPresentationActivationScrubber( HasLoadedPresentation(), loadInput.inputRouter,
-                                                        loadInput.interaction ) )
-        {
-            ExitInspectionCamera( loadInput.cameras, loadInput.terrain, loadInput.camera, loadInput.normalizedRestoreMode,
-                                  loadInput.attachedFollow, loadInput.directorGrabbed, loadInput.interaction,
-                                  loadInput.inputRouter );
-
-            ArmLoadedPresentationScrubber( 0.25f, loadInput.now, loadInput.interaction );
-            EnterInspectionCamera( loadInput.cameras, loadInput.camera, loadInput.normalizedCurrentMode,
-                                   loadInput.interaction, loadInput.inputRouter, loadInput.mousePickup );
-        }
+        result.applicationAction = ReplayStartupApplicationAction::ActivateLoadedPresentation;
+        result.applicationTimeSeconds = applicationTimeSeconds;
     }
 
 #ifndef _DEBUG
@@ -1569,6 +1560,35 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
     }
 #endif
     return result;
+}
+
+
+bool ReplayRuntime::ApplyStartupApplicationAction( const ReplayStartupResult& result, SceneController& sceneController,
+                                                   CameraControlState& camera, RunCameraMode normalizedCurrentMode,
+                                                   RunCameraMode normalizedRestoreMode, bool attachedFollow,
+                                                   bool directorGrabbed, RuntimeInteractionController& interaction,
+                                                   InputRouter& inputRouter, RunMousePickupState& mousePickup )
+{
+    if ( result.applicationAction == ReplayStartupApplicationAction::None )
+    {
+        return true;
+    }
+
+    SceneWorld& world = sceneController.Scene();
+    const bool armed = BeginLoadedPresentationActivationScrubber( HasLoadedPresentation(), inputRouter, interaction );
+
+    if ( !armed )
+    {
+        return false;
+    }
+
+    // Invariant: the old inspection camera releases before the loaded Replay
+    // position is armed, and the new inspection camera enters last.
+    ExitInspectionCamera( &world.Cameras(), world.Terrain().Get(), camera, normalizedRestoreMode, attachedFollow,
+                          directorGrabbed, interaction, inputRouter );
+    ArmLoadedPresentationScrubber( result.presentationTrackPosition, result.applicationTimeSeconds, interaction );
+    EnterInspectionCamera( &world.Cameras(), camera, normalizedCurrentMode, interaction, inputRouter, mousePickup );
+    return true;
 }
 
 

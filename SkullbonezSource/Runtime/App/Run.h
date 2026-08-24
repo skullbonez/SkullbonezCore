@@ -128,6 +128,7 @@ struct ReplayPathPickInput;
 struct RuntimeRenderModelFrameView;
 struct RuntimeUiTextFrameFacts;
 struct OperatorUiProcessCommands;
+struct OperatorUiSecondaryDiagnosticsFacts;
 class SceneLoadTransaction;
 namespace ReplayOverlay
 {
@@ -257,10 +258,14 @@ class Run
                                                      float presentationAlpha, bool capturePresentationPinned,
                                                      double secondsPerFrame, bool gameUiActive,
                                                      const RuntimeFrameMetricsSnapshot& frameMetrics );
-    void ProjectSecondaryOperatorDiagnostics( UI::OperatorEditorFrameView& view, const RuntimeFrameMetricsSnapshot& frameMetrics,
-                                              const RuntimeUiTextFrameFacts& uiTextFacts, const OverlayDebugState& debug, bool shadowsEnabled,
-                                              bool cinematicRendering, const Core::CinematicRenderConfig& cinematic, RuntimeViewModel& runtimeViewModel,
-                                              RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, RenderDiagnosticsReadout& renderDiagnosticsReadout );
+    void SampleSecondaryOperatorDiagnostics( const RuntimeFrameMetricsSnapshot& frameMetrics,
+                                             const RuntimeUiTextFrameFacts& uiTextFacts, const OverlayDebugState& debug,
+                                             bool shadowsEnabled, bool cinematicRendering,
+                                             const Core::CinematicRenderConfig& cinematic,
+                                             RuntimeViewModel& runtimeViewModel,
+                                             RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
+                                             RenderDiagnosticsReadout& renderDiagnosticsReadout,
+                                             OperatorUiSecondaryDiagnosticsFacts& facts );
     void ApplyOperatorUiProcessCommands( const OperatorUiProcessCommands& commands );
     void RunPostDrawDiagnosticsPhase( bool gameUiActive );
     void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );
