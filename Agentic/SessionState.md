@@ -1,8 +1,8 @@
 # Session State
 
 Date: 2026-08-24
-Branch: `nightrunner-22nd-AUG-26`
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 103/118 tasks complete
+Branch: `nightrunner-24th-aug`
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 106/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -22,10 +22,15 @@ Third-party runtime DLLs are intentionally omitted from tracked artifacts and
 must be restored from the pinned setup/build inputs before an isolated launch. The
 replay witness runs one 2,401-tick generation, moves all 200 wall bricks,
 publishes 200 causal nodes, and rejects every registered false-pass control.
-FP3 is active.
+FP3 is complete; FP4 is active with canonical authored-wall A/B evidence and an
+unresolved same-machine Physics performance-baseline failure. Invalid
+reconstructed-producer golden transitions were withdrawn rather than refreshed.
 FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
 Boundary Separation And Project Topology
-RBS0-RBS7 remains active behind it; RBS0-RBS6 are complete and RBS7 is ready.
+RBS0-RBS7 remains active behind it; RBS0-RBS6 are complete and RBS7 terminal
+closure is active. RBS7 has repaired the allocation rulings, removed the Replay
+save-probe context bag, and moved submission/command protocol ownership into
+`OperatorUiPhaseOwner`; its cumulative terminal audit remains.
 Strict Runtime enforcement now passes with zero forbidden sites, zero repair
 debt, zero reverse-App edges, and no multi-package SCC. Runtime/App alone
 composes cross-owner effects; native host, frame metrics, operator UI projection,
@@ -37,14 +42,15 @@ behavioral and ownership validation. Completed plan files remain deleted under t
 Git history retains their phase evidence.
 
 Game UI Component Library Separation UI0-UI6 has phase-local RBS prerequisites
-and no Physics predecessor. UI0-UI3 are complete: all 70 tracked UI files have
+and no Physics predecessor. UI0-UI5 are complete: all 70 tracked UI files have
 binding dispositions; explicit stateless geometry/state contracts cover the
 proved shared component families; and the seven retained wrappers now route
 through those contracts without changing product fingerprints, command values,
 or interaction geometry. Repeated Replay/Planning controls and fitting Runtime
-badges now use shared components without moving semantic owners. UI4's RBS5 and
-UI5's RBS6 prerequisites are satisfied; phase order requires UI4 next. UI6
-consumes RBS7.
+badges now use shared components without moving semantic owners. Product
+composition sits above the reusable foundation, project/test boundaries retain
+all 31 portable determinism cases, and UI6 consumes the still-open RBS7 terminal
+evidence.
 Recorded Interaction Playback Cursor RIC0-RIC3 is registered after UI6; it adds
 only a fake recorded-playback overlay and explicitly forbids any hardware cursor
 or native capture change.
@@ -484,25 +490,21 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Continue `RAGDOLL_PHYSICS` with FP3 on a fresh worker. Other slots may continue
-`RUNTIME_BOUNDARIES` RBS7
-when their current canonical subsystem, path-owner, worktree, and mutable
-resource leases are disjoint. UI4 is ready after RBS5. FP2 retains motion policy version 2: `0.1` metres
-of absolute per-tick travel promotes and `0.075` metres demotes, independent of
-collider thickness.
+Continue `RAGDOLL_PHYSICS` FP4 and `RUNTIME_BOUNDARIES` RBS7 terminal closure
+in parallel while their Physics and Runtime ownership/resource leases are
+disjoint. After RBS7 closes, run `GAME_UI_COMPONENTS` UI6; after UI6 closes,
+run `RECORDED_CURSOR` RIC0-RIC3. FP2 retains motion policy version 2: `0.1`
+metres of absolute per-tick travel promotes and `0.075` metres demotes,
+independent of collider thickness.
 
 ## Blockers
 
-- FP0 pre-change `tools\validate_perf.bat` stops on 33 existing non-Physics
-  allocation-policy findings before performance measurement. Preserve this as
-  inherited evidence; do not weaken the policy or attribute the rows to FP0.
-- At the FP2 version-2 threshold checkpoint, `tools\validate_perf.bat` stops on
-  the same 40 rows as clean base `07c065f65`: seven pre-existing
-  PhysicsFixedList mutation spellings in `PhysicsMotionEligibilityStage.cpp`
-  plus 33 inherited non-Physics/tooling rows, one of which is a stale allowlist
-  diagnostic. Direct 520/2,000-body measurements were run without changing the
-  checker, an allowlist, or a performance baseline; the registered FP4 A/B owner
-  ruling remains the place to adjudicate the intended Discrete transition.
+- FP4's canonical current-tree A/B evidence is reproducible and allocation-
+  clean, but `tools\validate_perf.bat` still rejects four historical
+  Physics/Step relative rows. The exact historical performance-golden producer
+  is unavailable, so repository policy forbids a baseline replacement. FP4
+  must recover enough same-behavior performance or record a truthful blocking
+  disposition; it must not refresh that golden.
 - FP0 pre-change `tools\validate_replay_visual_fidelity.bat` builds and passes
   its 18 typed/false-pass controls, then the authoritative run stops at reveal 0
   on `header.futureNodeCount`. Preserve the oracle until the Physics phase
