@@ -42,7 +42,6 @@ Related:
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../Interaction/OperatorUiCommands.h"
-#include "../../UI/UILayout.h"
 #include "../Camera/CameraCollection.h"
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
@@ -181,8 +180,9 @@ RuntimeTools::ApplyRayCastLauncherTuningUICommands( const UI::UIPhysicsCommands&
     if ( commands.requestRayCastImpulseStrength )
     {
         const float previousImpulseStrength = m_rayCastTest.impulseStrength;
-        m_rayCastTest.impulseStrength = std::clamp( commands.requestedRayCastImpulseStrength, UI::Layout::UI_RAY_IMPULSE_MIN,
-                                                    UI::Layout::UI_RAY_IMPULSE_MAX );
+        m_rayCastTest.impulseStrength = std::clamp( commands.requestedRayCastImpulseStrength,
+                                                    UI::OperatorControlPolicy::UI_RAY_IMPULSE_MIN,
+                                                    UI::OperatorControlPolicy::UI_RAY_IMPULSE_MAX );
 
         result.setImpulseStrength = true;
         result.impulseConfigChangedFlags = previousImpulseStrength != m_rayCastTest.impulseStrength ? 1u : 0u;
@@ -194,8 +194,8 @@ RuntimeTools::ApplyRayCastLauncherTuningUICommands( const UI::UIPhysicsCommands&
     {
         const float previousProjectileSpeed = m_rayCastTest.projectileSpeed;
         m_rayCastTest.projectileSpeed = std::clamp( commands.requestedLauncherProjectileSpeed,
-                                                    UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN,
-                                                    UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MAX );
+                                                    UI::OperatorControlPolicy::UI_LAUNCHER_PROJECTILE_SPEED_MIN,
+                                                    UI::OperatorControlPolicy::UI_LAUNCHER_PROJECTILE_SPEED_MAX );
 
         result.setProjectileSpeed = true;
         result.projectileConfigChangedFlags = previousProjectileSpeed != m_rayCastTest.projectileSpeed ? 2u : 0u;

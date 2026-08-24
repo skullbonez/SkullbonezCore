@@ -1,7 +1,7 @@
 # Game UI Component Library Separation Plan
 
 Date: 2026-08-22
-Status: Active by owner direction. 4/7 phases complete; phase-local Runtime
+Status: Active by owner direction. 5/7 phases complete; phase-local Runtime
 Boundary Separation prerequisites apply.
 Impact area: `SkullbonezSource/UI/`, game-facing composition under
 `SkullbonezSource/Runtime/`, `SKULLBONEZ_UI.vcxproj`, focused UI tests,
@@ -645,24 +645,52 @@ overlap RBS6 project-topology edits.
 **Goal:** Make physical source/project ownership match the component/product
 boundary.
 
-- [ ] Move the GameUI shell, window interaction owner, frame composition, tabs,
+- [x] Move the GameUI shell, window interaction owner, frame composition, tabs,
       product presenters, and product commands/views according to UI0 and RBS4.
-- [ ] Replace broad product frame-data access with focused per-surface detached
+- [x] Replace broad product frame-data access with focused per-surface detached
       views where the move would otherwise preserve a parameter bag.
-- [ ] Keep typed commands with the product/domain owner that interprets them;
+- [x] Keep typed commands with the product/domain owner that interprets them;
       foundation controls emit only generic interaction facts.
-- [ ] Preserve one scene-navigation, popup, pointer-capture, tab-selection, and
+- [x] Preserve one scene-navigation, popup, pointer-capture, tab-selection, and
       window-placement owner; do not duplicate state during migration.
-- [ ] Delete old UI-project files, forwarding headers, aliases, compatibility
+- [x] Delete old UI-project files, forwarding headers, aliases, compatibility
       namespaces, duplicate project items, and stale ownership comments in the
       same batch that removes their last caller.
-- [ ] Keep domain-specific owner-local presenters in their existing packages
+- [x] Keep domain-specific owner-local presenters in their existing packages
       when moving them centrally would weaken the RBS DAG.
 
 **Acceptance:** `SKULLBONEZ_UI` contains only component-foundation
 responsibilities; game-specific composition and command semantics live above
 it; every source compiles once; the UI project still links independently
 without Runtime, Rendering, or backend objects.
+
+### UI4 Closure Evidence - 2026-08-24
+
+Commit `691a775ac` placed the GameUI shell, frame composition, interaction
+owner, tabs, and product presenters under `Runtime/UI/GameUI`. UI4 closes the
+remaining boundary leaks: `GameUILayout` now owns scene, pipeline, footer, and
+product geometry; shared operator control ranges live with the existing typed
+operator exchange; and the reusable `UILayout` and `UIState` retain only
+generic geometry, interpolation, placement, drag, and resize values. Camera-
+mouse blocking remains single-owned by `UIWindowInteractionOwner`.
+
+Each moved tab consumes a focused synchronous projection from
+`InGameUIFrameData`; no `UITab*` presenter accepts the root parameter bag.
+Controls and Physics conversions remain owner-local, Sky borrows the cinematic
+configuration directly, and command application continues to interpret typed
+product commands. `TestUIDrawValues` proves the root-to-tab projections while
+the existing product interaction tests retain behavior coverage. The new
+Runtime product layout sources are listed exactly once in Core/Test projects
+and filters.
+
+The renderer-free UI boundary passed in 0.70 seconds. The focused build-
+configuration report passed in 0.51 seconds with zero blocking or topology
+diagnostics. `validate_fast.bat` passed in 348.3 seconds: formatting,
+859 project/filter items, dependency ownership, size policy, Profile and all
+required configuration builds, 751 tests with 2,682,825 assertions, and symbol
+reachability were green. The deterministic Physics hook retained accepted SHA-
+256 `19698d3c37bcf1e0199b539e99b2de0d0ec33ceb7fc5db2e2eee36bcc434b038`;
+no Physics baseline or golden was refreshed.
 
 ## Phase UI5 - Enforce Project, Dependency, And Test Boundaries
 

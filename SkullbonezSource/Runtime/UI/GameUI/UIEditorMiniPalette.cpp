@@ -1,5 +1,5 @@
 /*
-File: UIEditorMiniPalette.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UIEditorMiniPalette.cpp
 Purpose:
   Owns editor mini-palette mapping, layout, hit testing, and shared fitted-text policy.
 
@@ -333,11 +333,11 @@ void DrawTabHitboxes( const UIDrawContext& draw, const UITabBar& tabBar, int tab
     }
 }
 
-int SceneDropdownHitboxOptionCount( const SceneTab::UISceneTabState& state, const InGameUIFrameData& data )
+int SceneDropdownHitboxOptionCount( const SceneTab::UISceneTabState& state, const UISceneTabFrameView& data )
 {
     const int filteredSceneCount = SceneTab::CountFilteredOptions( data.sceneOptions, data.sceneOptionCount, state.filter );
 
-    const int sceneVisibleCount = Layout::SceneComboVisibleCount( filteredSceneCount );
+    const int sceneVisibleCount = GameLayout::SceneComboVisibleCount( filteredSceneCount );
     return sceneVisibleCount == 0 && state.filter[0] != '\0' ? 1 : sceneVisibleCount;
 }
 
@@ -518,14 +518,14 @@ EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& mini
 }
 
 
-EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, const InGameUIFrameData& data )
+EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, const UIEditorTabFrameView& data )
 {
     return BuildEditorMinimizedStatusLayout( minimized, data.editorPlacementMode, data.editorPlaceStatic,
                                              data.editorTerrainAlign );
 }
 
 
-float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW )
+float EditorMinimizedWidth( const UIEditorTabFrameView& data, int screenW )
 {
     constexpr float margin = 14.0f;
     const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );

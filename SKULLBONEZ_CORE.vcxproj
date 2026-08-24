@@ -398,6 +398,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorEditorExchange.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp" />
@@ -610,6 +611,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\UIRenderAuthoringCatalog.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UI.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIFrameComposition.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIRenderDiagnostics.h" />

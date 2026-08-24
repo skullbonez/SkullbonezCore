@@ -1,6 +1,6 @@
 
 /*
-File: UIFrameComposition.h
+File: SkullbonezSource/Runtime/UI/GameUI/UIFrameComposition.h
 Purpose:
   Shares UI frame layout/value helpers and editor mini-palette contracts across
   the main UI owner and its palette translation units.
@@ -31,6 +31,7 @@ Related:
 #include "../../../UI/UIDrawWidgets.h"
 #include "../../../UI/UIInput.h"
 #include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 #include "UITabControls.h"
 #include "UITabEditor.h"
 #include "UITabMemory.h"
@@ -225,7 +226,7 @@ void DrawHitboxRect( const UIDrawContext& draw, const UIRect& bounds, float r, f
                      float outlineA = 0.94f );
 void DrawComboHitboxes( const UIDrawContext& draw, const UIComboBox& combo, int optionCount, float r, float g, float b );
 void DrawTabHitboxes( const UIDrawContext& draw, const UITabBar& tabBar, int tabCount );
-int SceneDropdownHitboxOptionCount( const SceneTab::UISceneTabState& state, const InGameUIFrameData& data );
+int SceneDropdownHitboxOptionCount( const SceneTab::UISceneTabState& state, const UISceneTabFrameView& data );
 int RenderSliderIndexFromActiveSlider( int activeSlider );
 float RenderSliderY( int index, float baseY );
 int RenderContentHeight();
@@ -235,8 +236,8 @@ void SetRenderSliderResult( InGameUIInputResult& result, const UISlider& slider,
 float EditorMiniChipWidth( const char* label );
 EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, bool editorPlacementMode,
                                                               bool editorPlaceStatic, bool editorTerrainAlign );
-EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, const InGameUIFrameData& data );
-float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW );
+EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, const UIEditorTabFrameView& data );
+float EditorMinimizedWidth( const UIEditorTabFrameView& data, int screenW );
 void DrawEditorMiniChip( const UIDrawContext& draw, float x, float y, const char* label, const Style::UIColor& fill,
                          const Style::UIColor& text, bool hot );
 bool IsEditorMiniRootType( int objectType );
@@ -265,6 +266,6 @@ bool EditorMiniSelectionRequestsStatic( int holdMode, int treePlacement, bool& o
 void DrawEditorMiniPalette( const UIDrawContext& draw, const EditorMiniPaletteLayout& layout, int editorObjectType,
                             bool editorPlaceStatic, int mouseX, int mouseY, int flyoutTreePlacement, int flyoutHoldMode,
                             int pressedEntry, int screenW, int screenH );
-void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, const InGameUIFrameData& data,
+void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, const UIEditorTabFrameView& data,
                                 int mouseX, int mouseY );
 } // namespace SkullbonezCore::UI::FrameComposition

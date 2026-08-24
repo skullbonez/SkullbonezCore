@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabSky.h
+File: SkullbonezSource/Runtime/UI/GameUI/UITabSky.h
 Purpose:
   Owns the Sky tab widgets, layout, and input handling for in-engine sky tuning.
 
@@ -23,6 +23,7 @@ Related:
 */
 #pragma once
 
+#include "../../../Core/Config.h"
 #include "../../../UI/UIButton.h"
 #include "../../../UI/UICheckBox.h"
 #include "../../Interaction/OperatorUiCommands.h"
@@ -35,7 +36,6 @@ namespace UI
 {
 
 class UIDrawContext;
-struct InGameUIFrameData;
 struct InGameUIInputResult;
 
 namespace SkyTab
@@ -58,8 +58,8 @@ bool UpdateActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InG
 bool CommitActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 
 void DrawHitboxes( const UISkyTabState& state, const UIDrawContext& draw, float contentR, float contentG, float contentB );
-void Draw( UISkyTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY,
-           float contentW, float contentH, float scrolledY, int mouseX, int mouseY );
+void Draw( UISkyTabState& state, const UIDrawContext& draw, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+           float contentX, float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY );
 
 } // namespace SkyTab
 } // namespace UI

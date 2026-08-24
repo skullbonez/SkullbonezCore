@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabOptions.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UITabOptions.cpp
 Purpose:
   Implements runtime option toggles plus time-scale and model-count preview and
   commit controls.
@@ -20,12 +20,13 @@ Related:
 
 #include "UI.h"
 #include "../../../UI/UIDrawWidgets.h"
-#include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 
 #include <algorithm>
 #include <cstdio>
 
-using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::GameLayout;
+using namespace SkullbonezCore::UI::OperatorControlPolicy;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace
@@ -175,7 +176,7 @@ bool CommitActiveSlider( UIOptionsTabState& state, int activeSlider, InGameUIInp
 }
 
 
-void Draw( UIOptionsTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX,
+void Draw( UIOptionsTabState& state, const UIDrawContext& draw, const UIOptionsTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrolledY, int activeSlider )
 {
     char buf[128];

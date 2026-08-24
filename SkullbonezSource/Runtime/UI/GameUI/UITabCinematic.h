@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabCinematic.h
+File: SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.h
 Purpose:
   Owns the Cinematic tab widgets, layout, and input handling for the in-engine controls.
 
@@ -30,7 +30,7 @@ namespace UI
 {
 
 class UIDrawContext;
-struct InGameUIFrameData;
+struct UICinematicTabFrameView;
 struct InGameUIInputResult;
 
 namespace CinematicTab
@@ -53,9 +53,9 @@ bool HandleContentClick( UICinematicTabState& state, InGameUIInputResult& result
 bool UpdateActiveSlider( UICinematicTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UICinematicTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 
-void DrawHitboxes( const UICinematicTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data,
+void DrawHitboxes( const UICinematicTabState& state, const UIDrawContext& draw, const UICinematicTabFrameView& data,
                    float contentR, float contentG, float contentB );
-void Draw( UICinematicTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX,
+void Draw( UICinematicTabState& state, const UIDrawContext& draw, const UICinematicTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY );
 
 } // namespace CinematicTab

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabEditor.h
+File: SkullbonezSource/Runtime/UI/GameUI/UITabEditor.h
 Purpose:
   Implements object placement and selection controls for the in-engine editor tab.
 
@@ -33,7 +33,7 @@ namespace SkullbonezCore
 namespace UI
 {
 
-struct InGameUIFrameData;
+struct UIEditorTabFrameView;
 
 namespace EditorTab
 {
@@ -51,8 +51,8 @@ int ContentHeight();
 bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
                          float rowBase, float contentW );
 
-void Draw( UIEditorTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY,
-           float contentW, float contentH, float scrolledY, int mouseX, int mouseY );
+void Draw( UIEditorTabState& state, const UIDrawContext& draw, const UIEditorTabFrameView& data, float contentX,
+           float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY );
 
 } // namespace EditorTab
 } // namespace UI

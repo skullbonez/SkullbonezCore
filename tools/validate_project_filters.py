@@ -574,9 +574,11 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "UIStressPolicy",
 )
 
-# Why: shared runtime UI values have their own physical owner and Solution
-# Explorer filter; keeping this explicit prevents them drifting into Runtime.
+# Why: Runtime UI values and GameUI product composition have their own physical
+# owner and Solution Explorer filter; keeping this explicit prevents them
+# drifting into another Runtime package or the reusable UI foundation.
 RUNTIME_UI_PREFIXES = (
+    "GameUILayout",
     "UI",
     "UIEditorMiniPalette",
     "UIEditorMiniPaletteDraw",

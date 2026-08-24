@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabMemory.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp
 Purpose:
   Draws the in-engine memory diagnostics tab.
 
@@ -173,7 +173,7 @@ void SetReplayPolicyControlBounds( SkullbonezCore::UI::MemoryTab::UIMemoryOverla
 }
 
 void RefreshReplayPolicySnapshot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                                  const SkullbonezCore::UI::InGameUIFrameData& data )
+                                  const SkullbonezCore::UI::UIMemoryTabFrameView& data )
 {
     state.lastReplayPreset = std::clamp( data.replayMemoryPreset, 0,
                                          SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT - 1 );
@@ -378,7 +378,7 @@ void ClearOverlayPinnedEvents( SkullbonezCore::UI::MemoryTab::UIMemoryOverlaySta
 }
 
 void RefreshOverlayEvents( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                           const SkullbonezCore::UI::InGameUIFrameData& data, uint64_t levelBytes )
+                           const SkullbonezCore::UI::UIMemoryTabFrameView& data, uint64_t levelBytes )
 {
     if ( data.reserveGrowthEventTotalCount < state.lastObservedEventTotal )
     {
@@ -397,7 +397,7 @@ void RefreshOverlayEvents( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& 
 }
 
 void PushOverlaySample( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                        const SkullbonezCore::UI::InGameUIFrameData& data )
+                        const SkullbonezCore::UI::UIMemoryTabFrameView& data )
 {
     SkullbonezCore::UI::MemoryTab::MemoryOverlaySample& sample = state.samples[state.sampleHead];
     sample.totalBytes = CurrentTotalMemoryBytes( data.mainMemory );
@@ -412,7 +412,7 @@ void PushOverlaySample( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& sta
 }
 
 void RefreshOverlayAxis( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                         const SkullbonezCore::UI::InGameUIFrameData& data )
+                         const SkullbonezCore::UI::UIMemoryTabFrameView& data )
 {
     uint64_t minBytes = CurrentTotalMemoryBytes( data.mainMemory );
     uint64_t maxBytes = minBytes;
@@ -632,7 +632,7 @@ void DrawReplayPresetButton( const SkullbonezCore::UI::UIDrawContext& draw, cons
 
 void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                                   SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                                  const SkullbonezCore::UI::InGameUIFrameData& data, float contentX, float contentY,
+                                  const SkullbonezCore::UI::UIMemoryTabFrameView& data, float contentX, float contentY,
                                   float contentW, float contentH, float panelY, int activeSlider, int mouseX, int mouseY )
 {
     if ( !IsMemoryRowVisible( contentY, contentH, panelY, MEMORY_REPLAY_POLICY_BLOCK_H ) )
@@ -688,8 +688,9 @@ void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     }
 }
 
-void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::InGameUIFrameData& data,
-                          float contentX, float contentY, float contentW, float contentH, float scrolledY )
+void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
+                          const SkullbonezCore::UI::UIMemoryTabFrameView& data, float contentX, float contentY,
+                          float contentW, float contentH, float scrolledY )
 {
     const SkullbonezCore::Core::MainMemoryStats& memory = data.mainMemory;
     const float panelX = contentX;
@@ -1012,7 +1013,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw, const S
     draw.Text( x, row0 + 270.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
 }
 
-float CapacityTableHeight( const SkullbonezCore::UI::InGameUIFrameData& data )
+float CapacityTableHeight( const SkullbonezCore::UI::UIMemoryTabFrameView& data )
 {
     const int rowCount = data.reserveCapacityRows ? std::clamp( data.reserveCapacityRowCount, 0,
                                                                 SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX )
@@ -1022,7 +1023,7 @@ float CapacityTableHeight( const SkullbonezCore::UI::InGameUIFrameData& data )
 }
 
 void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
-                              const SkullbonezCore::UI::InGameUIFrameData& data, float contentX, float contentY,
+                              const SkullbonezCore::UI::UIMemoryTabFrameView& data, float contentX, float contentY,
                               float contentW, float contentH, float tableY )
 {
     const float tableX = contentX;
@@ -1147,7 +1148,7 @@ void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
 }
 
 void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
-                              const SkullbonezCore::UI::InGameUIFrameData& data, float contentX, float contentY,
+                              const SkullbonezCore::UI::UIMemoryTabFrameView& data, float contentX, float contentY,
                               float contentW, float contentH, float tableY )
 {
     const float tableX = contentX;
@@ -1249,7 +1250,7 @@ void SetOverlayEnabled( UIMemoryOverlayState& state, bool enabled )
     state.overlayEnabled = enabled;
 }
 
-void PushOverlayFrame( UIMemoryOverlayState& state, const InGameUIFrameData& data )
+void PushOverlayFrame( UIMemoryOverlayState& state, const UIMemoryTabFrameView& data )
 {
     if ( !state.overlayEnabled )
     {
@@ -1262,7 +1263,7 @@ void PushOverlayFrame( UIMemoryOverlayState& state, const InGameUIFrameData& dat
     RefreshOverlayAxis( state, data );
 }
 
-void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float preferredX,
+void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const UIMemoryTabFrameView& data, float preferredX,
                   float preferredY )
 {
     if ( !state.overlayEnabled )
@@ -1440,7 +1441,7 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     }
 }
 
-void Draw( const UIDrawContext& draw, UIMemoryOverlayState& state, const InGameUIFrameData& data, float contentX,
+void Draw( const UIDrawContext& draw, UIMemoryOverlayState& state, const UIMemoryTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrolledY, int activeSlider, int mouseX, int mouseY )
 {
     DrawReplayMemoryPolicyPanel( draw, state, data, contentX, contentY, contentW, contentH, scrolledY, activeSlider, mouseX,

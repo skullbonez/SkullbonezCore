@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabScene.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UITabScene.cpp
 Purpose:
   Implements filtered scene navigation, time controls, and detached forecast
   presentation.
@@ -27,7 +27,7 @@ Related:
 #include "../../../UI/UIComboBox.h"
 #include "../../../UI/UIDrawWidgets.h"
 #include "../../../UI/UIInput.h"
-#include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 #include "../../../UI/UIStyle.h"
 
 #include <algorithm>
@@ -35,7 +35,8 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::GameLayout;
+using namespace SkullbonezCore::UI::OperatorControlPolicy;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace
@@ -850,8 +851,8 @@ bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInput
 }
 
 
-void Draw( UISceneTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY,
-           float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
+void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFrameView& data, float contentX,
+           float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
 {
     UIComboBox& combo = state.combo;
     UIButton& resetSceneButton = state.resetSceneButton;

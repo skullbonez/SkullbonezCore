@@ -1,33 +1,42 @@
 /*
-File : SkullbonezSource / UI / UITabControls.cpp Purpose : Implements the seed, scene - population,
-    and fluid control surface and its typed commands.
+File: SkullbonezSource/Runtime/UI/GameUI/UITabControls.cpp
+Purpose:
+  Implements the seed, scene-population, and fluid control surface.
 
-        Summary : Previews and commits scene -
-        population,
-    seed,
-    and fluid sliders as typed UI commands
-                .
+Summary:
+  Previews and commits bounded population, seed, and fluid values as typed
+  one-frame commands while retaining no scene or Physics authority.
 
-            Invariants : -Draw geometry and hit testing must be derived from the same layout constants.
+Invariants:
+  - Draw geometry and hit testing derive from the same tab-owned bounds.
+  - Ball and box previews share the active model-capacity ceiling.
 
-                         Related : -SkullbonezSource /
-            UI / UITabControls.h -
-        Agentic / Reference / engine -
-        glossary.md*/
+Related:
+  - SkullbonezSource/Runtime/UI/GameUI/UITabControls.h
+  - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
+*/
 #include "UITabControls.h"
 
 #include "UI.h"
 #include "../../../UI/UIDrawWidgets.h"
-#include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 
 #include <algorithm>
 #include <cstdio>
 
-using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::GameLayout;
+using namespace SkullbonezCore::UI::OperatorControlPolicy;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace
 {
+
+int RemainingSceneObjectSlots( int modelCapacity, int otherCount )
+{
+    modelCapacity = (std::max)( UI_SOLVER_COUNT_MIN, modelCapacity );
+    otherCount = std::clamp( otherCount, UI_SOLVER_COUNT_MIN, modelCapacity );
+    return modelCapacity - otherCount;
+}
 
 void SetContentBounds( SkullbonezCore::UI::ControlsTab::UIControlsTabState& state, float contentX, float rowBase,
                        float contentW )
@@ -215,7 +224,7 @@ bool CommitActiveSlider( UIControlsTabState& state, int activeSlider, InGameUIIn
 }
 
 
-void Draw( UIControlsTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX,
+void Draw( UIControlsTabState& state, const UIDrawContext& draw, const UIControlsTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrolledY )
 {
     char buf[128];

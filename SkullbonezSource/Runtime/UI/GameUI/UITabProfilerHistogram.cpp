@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabProfilerHistogram.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UITabProfilerHistogram.cpp
 Purpose:
   Owns the profiler tab's detachable performance-histogram interaction, sampling, and drawing transaction.
 
@@ -312,7 +312,7 @@ void RemapHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
 }
 
 void CacheHistogramOptions( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
-                            const SkullbonezCore::UI::InGameUIFrameData& data )
+                            const SkullbonezCore::UI::UIProfilerTabFrameView& data )
 {
     uint32_t oldHashes[HISTOGRAM_OPTION_CAPACITY] = {};
     bool oldFrameTotals[HISTOGRAM_OPTION_CAPACITY] = {};
@@ -329,13 +329,13 @@ void CacheHistogramOptions( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
     }
 
     const bool defaultSelection = !state.histogramSelectionInitialized || oldCount <= 0;
-    state.histogramOptionCount = std::clamp( data.profilerMarkerOptionCount, 0, HISTOGRAM_OPTION_CAPACITY );
+    state.histogramOptionCount = std::clamp( data.markerOptionCount, 0, HISTOGRAM_OPTION_CAPACITY );
     bool cacheChanged = oldCount != state.histogramOptionCount;
     bool selectedAny = false;
 
     for ( int i = 0; i < state.histogramOptionCount; ++i )
     {
-        const SkullbonezCore::UI::UIProfilerMarkerOption& option = data.profilerMarkerOptions[i];
+        const SkullbonezCore::UI::UIProfilerMarkerOption& option = data.markerOptions[i];
 
         if ( !cacheChanged &&
              !HistogramOptionKeyMatches( state.histogramOptionHashes[i], state.histogramOptionFrameTotals[i], option.hash,
@@ -550,14 +550,14 @@ void HistogramOptionColor( const SkullbonezCore::UI::UIProfilerMarkerOption& opt
 }
 
 void FormatHistogramSelectionText( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
-                                   const SkullbonezCore::UI::InGameUIFrameData& data, char* out, std::size_t outSize )
+                                   const SkullbonezCore::UI::UIProfilerTabFrameView& data, char* out, std::size_t outSize )
 {
     if ( !out || outSize == 0 )
     {
         return;
     }
 
-    const int optionCount = (std::min)( state.histogramOptionCount, data.profilerMarkerOptionCount );
+    const int optionCount = (std::min)( state.histogramOptionCount, data.markerOptionCount );
     int selectedCount = 0;
     bool mainSelected = false;
     const char* firstSelectedName = nullptr;
@@ -569,7 +569,7 @@ void FormatHistogramSelectionText( const SkullbonezCore::UI::ProfilerTab::UIProf
             continue;
         }
 
-        const SkullbonezCore::UI::UIProfilerMarkerOption& option = data.profilerMarkerOptions[optionIndex];
+        const SkullbonezCore::UI::UIProfilerMarkerOption& option = data.markerOptions[optionIndex];
 
         if ( !firstSelectedName )
         {
@@ -796,7 +796,7 @@ bool HandlePerformanceHistogramInput( UIProfilerTabState& state, InGameUIInputRe
     return handled;
 }
 
-void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFrameData& data )
+void PushPerformanceHistogramSample( UIProfilerTabState& state, const UIProfilerTabFrameView& data )
 {
     CacheHistogramOptions( state, data );
 
@@ -824,7 +824,7 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
     }
 
     const bool mainSelected = HistogramMainSelected( state );
-    const int optionCount = (std::min)( state.histogramOptionCount, data.profilerMarkerOptionCount );
+    const int optionCount = (std::min)( state.histogramOptionCount, data.markerOptionCount );
 
     // Invariant: a slot closes on elapsed wall time, so the visible window is a
     // constant duration instead of a constant frame count. A backwards clock
@@ -860,7 +860,7 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
             continue;
         }
 
-        const UIProfilerMarkerOption& option = data.profilerMarkerOptions[optionIndex];
+        const UIProfilerMarkerOption& option = data.markerOptions[optionIndex];
 
         if ( !option.sampleValid )
         {
@@ -945,7 +945,7 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
     }
 }
 
-void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data )
+void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data )
 {
     ClampHistogramPanelToScreen( state, data.screenW, data.screenH );
     CacheHistogramOptions( state, data );
@@ -959,7 +959,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     const bool mainSelected = HistogramMainSelected( state );
     const bool anySelection = HistogramAnyOptionSelected( state );
     const int selectedCount = HistogramSelectedOptionCount( state );
-    const int optionCount = (std::min)( state.histogramOptionCount, data.profilerMarkerOptionCount );
+    const int optionCount = (std::min)( state.histogramOptionCount, data.markerOptionCount );
 
     // Why: text rendering is batched separately from filled panels. While the
     // dropdown is open, hide chart-side labels that would otherwise draw above it.
@@ -1055,7 +1055,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
             continue;
         }
 
-        const UIProfilerMarkerOption& seriesOption = data.profilerMarkerOptions[optionIndex];
+        const UIProfilerMarkerOption& seriesOption = data.markerOptions[optionIndex];
         float seriesR = 0.0f;
         float seriesG = 0.0f;
         float seriesB = 0.0f;
@@ -1259,7 +1259,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                 continue;
             }
 
-            const UIProfilerMarkerOption& rowOption = data.profilerMarkerOptions[optionIndex];
+            const UIProfilerMarkerOption& rowOption = data.markerOptions[optionIndex];
             const float rowY = dropdown.y + 2.0f + static_cast<float>( row ) * HISTOGRAM_DROPDOWN_ROW_H;
             const bool selected = state.histogramOptionSelected[optionIndex];
             float rowR = 0.0f;

@@ -1,5 +1,5 @@
 /*
-File: TestPhysicsApi.cpp
+File: SkullbonezTests/TestPhysicsApi.cpp
 Purpose:
   Pins the public Physics descriptor and query coordinate-frame contract.
 
@@ -30,7 +30,6 @@ Related:
   - SkullbonezSource/Physics/PhysicsMotionEligibility.h
   - SkullbonezSource/Physics/Ragdoll.cpp
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
-  - SkullbonezSource/UI/UILayout.h
 */
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -54,7 +53,6 @@ Related:
 #include "../SkullbonezSource/Physics/Ragdoll.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
-#include "../SkullbonezSource/UI/UILayout.h"
 #include "../SkullbonezSource/World/Terrain.h"
 #include "TestColliderStoreFixtures.h"
 
@@ -96,25 +94,22 @@ using SkullbonezCore::Physics::Ragdoll;
 namespace
 {
 constexpr float HALF_PI_RADIANS = 1.57079632679489661923f;
-constexpr float FIRST_FP2_LAUNCHER_SPEED = SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN;
-constexpr int FIRST_FP2_LAUNCHER_SPEED_STEP = static_cast<int>(
-    ( FIRST_FP2_LAUNCHER_SPEED - SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN ) /
-    SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP );
-constexpr int LAST_LAUNCHER_SPEED_STEP = static_cast<int>( ( SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MAX -
-                                                             SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN ) /
-                                                           SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP );
+constexpr float FP2_LAUNCHER_SPEED_MIN = 20.0f;
+constexpr float FP2_LAUNCHER_SPEED_MAX = 360.0f;
+constexpr float FP2_LAUNCHER_SPEED_STEP = 5.0f;
+constexpr float FIRST_FP2_LAUNCHER_SPEED = FP2_LAUNCHER_SPEED_MIN;
+constexpr int FIRST_FP2_LAUNCHER_SPEED_STEP = static_cast<int>( ( FIRST_FP2_LAUNCHER_SPEED - FP2_LAUNCHER_SPEED_MIN ) /
+                                                                FP2_LAUNCHER_SPEED_STEP );
+constexpr int LAST_LAUNCHER_SPEED_STEP = static_cast<int>( ( FP2_LAUNCHER_SPEED_MAX - FP2_LAUNCHER_SPEED_MIN ) /
+                                                           FP2_LAUNCHER_SPEED_STEP );
 constexpr int FP2_LAUNCHER_SPEED_COUNT = LAST_LAUNCHER_SPEED_STEP - FIRST_FP2_LAUNCHER_SPEED_STEP + 1;
 constexpr int FP2_LAUNCHER_BODY_COUNT = FP2_LAUNCHER_SPEED_COUNT * 2;
 
-static_assert( SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
-                       static_cast<float>( FIRST_FP2_LAUNCHER_SPEED_STEP ) *
-                           SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP ==
+static_assert( FP2_LAUNCHER_SPEED_MIN + static_cast<float>( FIRST_FP2_LAUNCHER_SPEED_STEP ) * FP2_LAUNCHER_SPEED_STEP ==
                    FIRST_FP2_LAUNCHER_SPEED,
                "The FP2 matrix must begin on a supported launcher slider step." );
-static_assert( SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
-                       static_cast<float>( LAST_LAUNCHER_SPEED_STEP ) *
-                           SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP ==
-                   SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MAX,
+static_assert( FP2_LAUNCHER_SPEED_MIN + static_cast<float>( LAST_LAUNCHER_SPEED_STEP ) * FP2_LAUNCHER_SPEED_STEP ==
+                   FP2_LAUNCHER_SPEED_MAX,
                "The FP2 matrix must include the supported launcher maximum." );
 static_assert( FP2_LAUNCHER_SPEED_COUNT == 69 );
 
@@ -295,9 +290,7 @@ TEST_CASE( "Physics launcher classification: every supported fast speed promotes
         {
             const int speedOffset = speedStep - FIRST_FP2_LAUNCHER_SPEED_STEP;
             const int firstBodyRow = speedOffset * 2;
-            const float speed = SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
-                                static_cast<float>( speedStep ) *
-                                    SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP;
+            const float speed = FP2_LAUNCHER_SPEED_MIN + static_cast<float>( speedStep ) * FP2_LAUNCHER_SPEED_STEP;
             AddLauncherClassificationBody( engine, 12000u + static_cast<uint32_t>( firstBodyRow ), speed,
                                            static_cast<float>( firstBodyRow ) * 4.0f, "launcher_projectile" );
             AddLauncherClassificationBody( engine, 12001u + static_cast<uint32_t>( firstBodyRow ), speed,
@@ -325,8 +318,7 @@ TEST_CASE( "Physics launcher classification: every supported fast speed promotes
         const int speedOffset = speedStep - FIRST_FP2_LAUNCHER_SPEED_STEP;
         const std::size_t launcherRow = static_cast<std::size_t>( speedOffset * 2 );
         const std::size_t genericRow = launcherRow + 1u;
-        const float speed = SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
-                            static_cast<float>( speedStep ) * SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP;
+        const float speed = FP2_LAUNCHER_SPEED_MIN + static_cast<float>( speedStep ) * FP2_LAUNCHER_SPEED_STEP;
         const float expectedTravel = speed * PHYSICS_FIXED_DT;
         CAPTURE( speed );
 
@@ -355,7 +347,7 @@ TEST_CASE( "Physics launcher collision path: generic and launcher names produce 
 
     constexpr float laneSeparation = 8.0f;
     constexpr float wallCenterX = 1.05f;
-    constexpr float speed = SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN;
+    constexpr float speed = FP2_LAUNCHER_SPEED_MIN;
     constexpr int launcherBodyRow = 0;
     constexpr int launcherWallRow = 1;
     constexpr int genericBodyRow = 2;

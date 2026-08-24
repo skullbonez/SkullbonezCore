@@ -615,6 +615,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
@@ -1024,6 +1025,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.h"><Filter>Header Files\Runtime\Render</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\UIRenderAuthoringCatalog.h"><Filter>Header Files\Runtime\Render</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.h"><Filter>Header Files\Runtime\Scene</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UI.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIFrameComposition.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIRenderDiagnostics.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>

@@ -1,5 +1,5 @@
 /*
-File: TestUIDrawValues.cpp
+File: SkullbonezTests/TestUIDrawValues.cpp
 Purpose:
   Locks the backend-neutral UI draw-stream and font-metric contracts.
 
@@ -139,8 +139,8 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
     input.leftPressed = true;
     ui->SceneNavigation().browser.names.emplace_back( sceneOptions[0] );
     ui->SceneNavigation().browser.namePtrs.push_back( ui->SceneNavigation().browser.names[0].c_str() );
-    const InGameUIInputResult result =
-        ui->UpdateInput( input, data->screenW, data->screenH, 1.0, false, false, true, false, 0, 0xffffffffu );
+    const InGameUIInputResult result = ui->UpdateInput( input, data->screenW, data->screenH, 1.0, false, false, true, false,
+                                                        0, 0xffffffffu );
 
     CHECK( result.commands.forecast.type == UIForecastCommandType::ToggleContinuous );
     CHECK( result.commands.ui.userInteracted );
@@ -393,6 +393,45 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     }
 }
 
+TEST_CASE( "GameUI projects focused tab views from the root frame" )
+{
+    auto data = std::make_unique<SkullbonezCore::UI::InGameUIFrameData>();
+    data->modelCapacity = 321;
+    data->rngSeed = 77u;
+    data->editorObjectType = 9;
+    data->selectedCineModeSceneOption = 3;
+    data->timeScale = 2.5f;
+    data->worldGravity = -12.0f;
+    data->profilerMarkerOptionCount = 4;
+    data->reserveGrowthEventTotalCount = 19u;
+    data->currentFrame = 42;
+
+    const auto controls = data->ControlsTabFrame();
+    const auto editor = data->EditorTabFrame();
+    const auto cinematic = data->CinematicTabFrame();
+    const auto options = data->OptionsTabFrame();
+    const auto physics = data->PhysicsTabFrame();
+    const auto profiler = data->ProfilerTabFrame();
+    const auto memory = data->MemoryTabFrame();
+    const auto scene = data->SceneTabFrame();
+
+    CHECK( controls.modelCapacity == 321 );
+    CHECK( controls.rngSeed == 77u );
+    CHECK( editor.editorObjectType == 9 );
+    CHECK( cinematic.selectedCineModeSceneOption == 3 );
+    CHECK( &cinematic.cinematic == &data->cinematic );
+    CHECK( options.timeScale == doctest::Approx( 2.5f ) );
+    CHECK( &options.ordinaryRender == &data->ordinaryRender );
+    CHECK( physics.worldGravity == doctest::Approx( -12.0f ) );
+    CHECK( &physics.physicsDebug == &data->physicsDebug );
+    CHECK( profiler.markerOptions == data->profilerMarkerOptions );
+    CHECK( profiler.markerOptionCount == 4 );
+    CHECK( &memory.mainMemory == &data->mainMemory );
+    CHECK( memory.reserveGrowthEventTotalCount == 19u );
+    CHECK( &scene.operatorEditor == &data->operatorEditor );
+    CHECK( scene.currentFrame == 42 );
+}
+
 TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes without draw overflow" )
 {
     using SkullbonezCore::UI::InGameUIFrameData;
@@ -418,11 +457,12 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
     capacityRows[1].liveCount = 80;
     capacityRows[1].sessionHighWater = 125;
     capacityRows[1].residentBytes = 16000;
+    const SkullbonezCore::UI::UIMemoryTabFrameView memoryFrame = data->MemoryTabFrame();
 
     UIDrawList list;
     UIDrawContext draw( 1920, 1080, list );
     UIMemoryOverlayState state;
-    SkullbonezCore::UI::MemoryTab::Draw( draw, state, *data, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0, 0 );
+    SkullbonezCore::UI::MemoryTab::Draw( draw, state, memoryFrame, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0, 0 );
 
     UIDrawList measuredList;
     UIDrawContext measuredDraw( 1920, 1080, measuredList );
@@ -433,8 +473,8 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope renderScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render );
-        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, *data, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0,
-                                             0 );
+        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, memoryFrame, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f,
+                                             0, 0, 0 );
     }
     const uint64_t memoryDrawAllocationViolations = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
     SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(

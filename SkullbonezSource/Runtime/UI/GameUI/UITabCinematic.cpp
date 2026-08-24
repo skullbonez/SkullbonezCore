@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabCinematic.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.cpp
 Purpose:
   Owns the Cinematic tab widgets, layout, and input handling for the in-engine controls.
 
@@ -20,7 +20,7 @@ Related:
 
 #include "UI.h"
 #include "../../../UI/UIDrawWidgets.h"
-#include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 #include "../../../UI/UIStyle.h"
 #include "UITabScene.h"
 
@@ -28,7 +28,8 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::GameLayout;
+using namespace SkullbonezCore::UI::OperatorControlPolicy;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace
@@ -565,7 +566,7 @@ bool CommitActiveSlider( UICinematicTabState& state, int activeSlider, int mouse
     return UpdateActiveSlider( state, activeSlider, mouseX, result );
 }
 
-void DrawHitboxes( const UICinematicTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data,
+void DrawHitboxes( const UICinematicTabState& state, const UIDrawContext& draw, const UICinematicTabFrameView& data,
                    float contentR, float contentG, float contentB )
 {
     const char* labels[UI_CINE_SCENE_MAX_OPTIONS] = {};
@@ -586,7 +587,7 @@ void DrawHitboxes( const UICinematicTabState& state, const UIDrawContext& draw, 
     }
 }
 
-void Draw( UICinematicTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX,
+void Draw( UICinematicTabState& state, const UIDrawContext& draw, const UICinematicTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
 {
     char buf[128];

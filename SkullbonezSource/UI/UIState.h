@@ -5,14 +5,16 @@ Purpose:
   values.
 
 Summary:
-  Separates persistent window placement from
-  frame-local input capture, dragging, and resize state.
+  Separates persistent component placement from frame-local drag and resize
+  gestures. Product pointer-blocking policy stays with the Runtime window
+  interaction owner rather than crossing into the component foundation.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
   constants.
 
 Related:
+  - SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -54,7 +56,6 @@ struct UIInteractionState
 {
     bool isDragging = false;
     bool isResizing = false;
-    bool blocksCameraMouse = false;
 
     int dragOffsetX = 0;
     int dragOffsetY = 0;

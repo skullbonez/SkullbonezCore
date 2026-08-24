@@ -323,6 +323,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIFrameComposition.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabCinematic.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabControls.cpp" />

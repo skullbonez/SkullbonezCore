@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabScene.h
+File: SkullbonezSource/Runtime/UI/GameUI/UITabScene.h
 Purpose:
   Declares filtered scene navigation, time controls, and detached forecast
   presentation.
@@ -34,7 +34,7 @@ namespace UI
 {
 
 class UIDrawContext;
-struct InGameUIFrameData;
+struct UISceneTabFrameView;
 
 namespace SceneTab
 {
@@ -121,8 +121,8 @@ bool HandleForecastClick( UISceneTabState& state, InGameUIInputResult& result, i
 bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInputResult& result );
 
-void Draw( UISceneTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY,
-           float contentW, float contentH, float scrolledY, int mouseX, int mouseY );
+void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFrameView& data, float contentX,
+           float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY );
 
 } // namespace SceneTab
 } // namespace UI

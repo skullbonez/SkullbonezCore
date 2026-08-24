@@ -39,7 +39,6 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../Scene/SceneWorld.h"
 #include "../../Rendering/DX12/RenderDeviceDX12.h"
-#include "../../UI/UILayout.h"
 #include "../../World/WorldEnvironment.h"
 #include "../../Scene/AuthoredScene.h"
 
@@ -262,39 +261,45 @@ void OperatorCommandTransaction::ApplyPhysicsControl( SceneWorld& world )
 
     if ( commands.requestTornadoRadius )
     {
-        tornado.SetFieldRadius( std::clamp( commands.requestedTornadoRadius, UI::Layout::UI_TORNADO_RADIUS_MIN,
-                                            UI::Layout::UI_TORNADO_RADIUS_MAX ) );
+        tornado.SetFieldRadius( std::clamp( commands.requestedTornadoRadius,
+                                            UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MIN,
+                                            UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MAX ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoHeight )
     {
-        tornado.SetFieldHeight( std::clamp( commands.requestedTornadoHeight, UI::Layout::UI_TORNADO_HEIGHT_MIN,
-                                            UI::Layout::UI_TORNADO_HEIGHT_MAX ) );
+        tornado.SetFieldHeight( std::clamp( commands.requestedTornadoHeight,
+                                            UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MIN,
+                                            UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MAX ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoInward )
     {
-        tornado.SetFieldInwardAcceleration( std::clamp( commands.requestedTornadoInward, UI::Layout::UI_TORNADO_INWARD_MIN,
-                                                        UI::Layout::UI_TORNADO_INWARD_MAX ) );
+        tornado.SetFieldInwardAcceleration( std::clamp( commands.requestedTornadoInward,
+                                                        UI::OperatorControlPolicy::UI_TORNADO_INWARD_MIN,
+                                                        UI::OperatorControlPolicy::UI_TORNADO_INWARD_MAX ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoSwirl )
     {
-        tornado.SetFieldSwirlAcceleration( std::clamp( commands.requestedTornadoSwirl, UI::Layout::UI_TORNADO_SWIRL_MIN,
-                                                       UI::Layout::UI_TORNADO_SWIRL_MAX ) );
+        tornado.SetFieldSwirlAcceleration( std::clamp( commands.requestedTornadoSwirl,
+                                                       UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MIN,
+                                                       UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MAX ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoLift )
     {
-        tornado.SetFieldLiftAcceleration( std::clamp( commands.requestedTornadoLift, UI::Layout::UI_TORNADO_LIFT_MIN, UI::Layout::UI_TORNADO_LIFT_MAX ) );
+        tornado.SetFieldLiftAcceleration( std::clamp( commands.requestedTornadoLift,
+                                                      UI::OperatorControlPolicy::UI_TORNADO_LIFT_MIN,
+                                                      UI::OperatorControlPolicy::UI_TORNADO_LIFT_MAX ) );
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 }
@@ -459,8 +464,8 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
     if ( commands.requestTerrainFrictionCoeff )
     {
         config.physicsMaterial.frictionCoeff = std::clamp( commands.requestedTerrainFrictionCoeff,
-                                                           UI::Layout::UI_FRICTION_COEFF_MIN,
-                                                           UI::Layout::UI_FRICTION_COEFF_MAX );
+                                                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                                                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -469,8 +474,8 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
     if ( commands.requestObjectFrictionCoeff )
     {
         config.physicsMaterial.objectFrictionCoeff = std::clamp( commands.requestedObjectFrictionCoeff,
-                                                                 UI::Layout::UI_FRICTION_COEFF_MIN,
-                                                                 UI::Layout::UI_FRICTION_COEFF_MAX );
+                                                                 UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                                                                 UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -479,8 +484,8 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
     if ( commands.requestRollingFrictionCoeff )
     {
         config.physicsMaterial.rollingFrictionCoeff = std::clamp( commands.requestedRollingFrictionCoeff,
-                                                                  UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
-                                                                  UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX );
+                                                                  UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MIN,
+                                                                  UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MAX );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;

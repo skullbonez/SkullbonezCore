@@ -1,5 +1,5 @@
 /*
-File: UIEditorMiniPaletteDraw.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UIEditorMiniPaletteDraw.cpp
 Purpose:
   Owns editor mini-palette glyphs, flyouts, tooltips, and minimized-window drawing.
 
@@ -610,7 +610,7 @@ void DrawEditorMiniPalette( const UIDrawContext& draw, const EditorMiniPaletteLa
 }
 
 
-void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, const InGameUIFrameData& data,
+void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, const UIEditorTabFrameView& data,
                                 int mouseX, int mouseY )
 {
     const Style::UIPalette& palette = Style::Palette();

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UI.h
+File: SkullbonezSource/Runtime/UI/GameUI/UI.h
 Purpose:
   Declares the in-engine UI draw composer and its stable public command surface.
 
@@ -8,7 +8,8 @@ Summary:
   UIWindowInteractionOwner. Callers keep the stable InGameUI API while window,
   widget, tab-input, gesture, and cache authority live in that owner. Detached
   Look Lab status is republished only at authoring transitions and read from a
-  UI-owned cache during idle composition.
+  UI-owned cache during idle composition. Tab projections narrow the root frame
+  to the exact product facts each moved presenter consumes.
 
 Glossary:
   Scene navigation model: UI-owned browser rows and generated-scene overrides
@@ -131,6 +132,148 @@ struct UIProfilerMarkerOption
     bool hasGpu = false;
     bool sampleValid = false;
     bool isFrameTotal = false;
+};
+
+// Invariant: the Controls presenter receives only generated-scene population
+// and fluid values for its synchronous draw.
+struct UIControlsTabFrameView
+{
+    int modelCapacity = 0;
+    unsigned int rngSeed = 0;
+    int solverBallCount = 0;
+    int solverBoxCount = 0;
+    float worldFluidHeight = 0.0f;
+    float worldFluidDensity = 0.0f;
+};
+
+// Invariant: the Editor presenter receives only widget-facing editor state;
+// scene mutation remains behind typed commands.
+struct UIEditorTabFrameView
+{
+    bool editorModeEnabled = false;
+    bool editorPlacementMode = false;
+    bool editorPlaceStatic = true;
+    bool editorTerrainAlign = false;
+    bool editorViewportLookActive = false;
+    int editorObjectType = 0;
+    int editorUndoDepth = 0;
+    int editorRedoDepth = 0;
+};
+
+// Invariant: the Cinematic presenter borrows one immutable config and the
+// bounded scene-option catalog only for the current draw.
+struct UICinematicTabFrameView
+{
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
+    const char* const* sceneOptions = nullptr;
+    int sceneOptionCount = 0;
+    int selectedCineModeSceneOption = -1;
+};
+
+// Invariant: the Options presenter receives only general presentation/config
+// facts and cannot observe Physics, diagnostics, or scene-navigation values.
+struct UIOptionsTabFrameView
+{
+    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender;
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
+    float timeScale = 1.0f;
+    float presentationAlpha = 1.0f;
+    int modelCount = 0;
+    int modelCapacity = 0;
+    bool fixedStep = false;
+    bool presentationInterpolation = true;
+    bool presentationPinned = false;
+    bool cinematicRendering = false;
+    bool waterFreezeDebug = false;
+    bool waterFlatDebug = false;
+    bool terrainHidden = false;
+    bool waterHidden = false;
+};
+
+// Invariant: the Physics presenter borrows diagnostics and value snapshots
+// only; it has no Physics owner, body store, or mutation capability.
+struct UIPhysicsTabFrameView
+{
+    const UIPhysicsDebugStatus& physicsDebug;
+    float worldGravity = 0.0f;
+    float rayCastImpulseStrength = 0.0f;
+    float launcherProjectileSpeed = 0.0f;
+    float terrainFrictionCoeff = 0.0f;
+    float objectFrictionCoeff = 0.0f;
+    float rollingFrictionCoeff = 0.0f;
+    float tornadoRadius = 0.0f;
+    float tornadoHeight = 0.0f;
+    float tornadoInwardAcceleration = 0.0f;
+    float tornadoSwirlAcceleration = 0.0f;
+    float tornadoLiftAcceleration = 0.0f;
+    bool physicsSleepEnabled = true;
+    bool tornadoEnabled = false;
+    bool tornadoVisualShell = false;
+    bool tornadoFieldVectors = false;
+    bool rayCastVisualization = false;
+};
+
+// Invariant: markerOptions points to the root frame's fixed marker array and
+// expires when the synchronous profiler draw returns.
+struct UIProfilerTabFrameView
+{
+    const UIProfilerMarkerOption* markerOptions = nullptr;
+    int markerOptionCount = 0;
+    int workerThreadCount = 0;
+    int maxWorkerThreadCount = 1;
+    int screenW = 1;
+    int screenH = 1;
+    float workerCoreTotalMs = 0.0f;
+    double now = 0.0;
+};
+
+// Invariant: capacity/event pointers borrow fixed Runtime snapshots for one
+// synchronous memory draw and are never retained by the tab.
+struct UIMemoryTabFrameView
+{
+    const SkullbonezCore::Core::MainMemoryStats& mainMemory;
+    const UIRenderMemoryStats& renderMemory;
+    const UIRuntimeReserveCapacityRow* reserveCapacityRows = nullptr;
+    const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView* reserveGrowthEvents = nullptr;
+    int reserveCapacityRowCount = 0;
+    int reserveGrowthEventCount = 0;
+    int screenW = 1;
+    int screenH = 1;
+    int replayMemoryPreset = 0;
+    int replayMemoryRequestedRetentionSeconds = 0;
+    int replayMemoryRequestedBudgetMiB = 0;
+    int replayMemoryPresentationRetentionSeconds = 0;
+    int replayMemorySolverRetentionSeconds = 0;
+    uint64_t reserveGrowthEventTotalCount = 0;
+    uint64_t reserveGrowthEventDroppedCount = 0;
+    double now = 0.0;
+    bool replayMemoryBudgetClamped = false;
+    bool replayMemorySolverWindowReduced = false;
+};
+
+// Invariant: scene and recording label arrays share the root frame lifetime;
+// the Scene presenter may read them only during its synchronous draw.
+struct UISceneTabFrameView
+{
+    const OperatorEditorFrameView& operatorEditor;
+    const char* rendererName = "";
+    const char* const* sceneOptions = nullptr;
+    const char* const* interactionRecordingOptions = nullptr;
+    int sceneOptionCount = 0;
+    int selectedSceneOption = -1;
+    int interactionRecordingOptionCount = 0;
+    int selectedInteractionRecordingOption = -1;
+    int currentFrame = 0;
+    int targetFrameCount = -1;
+    int modelCount = 0;
+    int currentSceneIndex = -1;
+    int sceneCount = 0;
+    float fps = 0.0f;
+    float sceneEnergy = 0.0f;
+    float timeScale = 1.0f;
+    float predictionRevealRate = 1.0f;
+    bool fixedStep = false;
+    bool testComplete = false;
 };
 
 // Snapshot of engine state needed to draw the UI for one frame.  The UI reads
@@ -259,6 +402,15 @@ struct InGameUIFrameData
     SkullbonezCore::Core::CinematicRenderConfig cinematic;
     UIRenderTargetPreviewResource renderTargetPreviews[UI_RENDER_TARGET_PREVIEW_MAX];
     int renderTargetPreviewCount = 0;
+
+    UIControlsTabFrameView ControlsTabFrame() const;
+    UIEditorTabFrameView EditorTabFrame() const;
+    UICinematicTabFrameView CinematicTabFrame() const;
+    UIOptionsTabFrameView OptionsTabFrame() const;
+    UIPhysicsTabFrameView PhysicsTabFrame() const;
+    UIProfilerTabFrameView ProfilerTabFrame() const;
+    UIMemoryTabFrameView MemoryTabFrame() const;
+    UISceneTabFrameView SceneTabFrame() const;
 };
 
 class InGameUI

@@ -461,6 +461,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIFrameComposition.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabCinematic.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UITabControls.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>

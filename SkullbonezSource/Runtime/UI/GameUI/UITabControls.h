@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabControls.h
+File: SkullbonezSource/Runtime/UI/GameUI/UITabControls.h
 Purpose:
   Declares the seed, scene-population, and fluid control surface and its
   typed commands.
@@ -27,7 +27,7 @@ namespace UI
 {
 
 class UIDrawContext;
-struct InGameUIFrameData;
+struct UIControlsTabFrameView;
 
 namespace ControlsTab
 {
@@ -61,7 +61,7 @@ bool UpdateActiveSlider( UIControlsTabState& state, int activeSlider, int mouseX
 
 bool CommitActiveSlider( UIControlsTabState& state, int activeSlider, InGameUIInputResult& result );
 
-void Draw( UIControlsTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX,
+void Draw( UIControlsTabState& state, const UIDrawContext& draw, const UIControlsTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrolledY );
 
 } // namespace ControlsTab

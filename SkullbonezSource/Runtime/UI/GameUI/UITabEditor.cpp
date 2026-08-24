@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabEditor.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UITabEditor.cpp
 Purpose:
   Implements object placement and selection controls for the in-engine editor tab.
 
@@ -24,13 +24,14 @@ Related:
 
 #include "UI.h"
 #include "../../../UI/UIDrawWidgets.h"
-#include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 #include "../../../UI/UIStyle.h"
 
 #include <algorithm>
 #include <cstdio>
 
-using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::GameLayout;
+using namespace SkullbonezCore::UI::OperatorControlPolicy;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace
@@ -126,8 +127,8 @@ bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, i
 }
 
 
-void Draw( UIEditorTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY,
-           float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
+void Draw( UIEditorTabState& state, const UIDrawContext& draw, const UIEditorTabFrameView& data, float contentX,
+           float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
 {
     const Style::UIPalette& palette = Style::Palette();
     const float colW = (std::max)( 148.0f, contentW * 0.46f );

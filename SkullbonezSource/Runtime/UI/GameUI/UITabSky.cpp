@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabSky.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UITabSky.cpp
 Purpose:
   Owns the Sky tab widgets, layout, and input handling for in-engine sky tuning.
 
@@ -24,13 +24,14 @@ Related:
 
 #include "UI.h"
 #include "../../../UI/UIDrawWidgets.h"
-#include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 #include "../../../UI/UIStyle.h"
 
 #include <algorithm>
 #include <cstdio>
 
-using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::GameLayout;
+using namespace SkullbonezCore::UI::OperatorControlPolicy;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace
@@ -355,8 +356,8 @@ void DrawHitboxes( const UISkyTabState& state, const UIDrawContext& draw, float 
     }
 }
 
-void Draw( UISkyTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY,
-           float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
+void Draw( UISkyTabState& state, const UIDrawContext& draw, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+           float contentX, float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
 {
     char buf[128];
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
@@ -382,7 +383,7 @@ void Draw( UISkyTabState& state, const UIDrawContext& draw, const InGameUIFrameD
         const float tx = SkyFeatureX( i, contentX, colW );
         const float toggleY = SkyFeatureY( i, featureBaseY );
         DrawContentToggle( draw, contentY, contentH, state.featureToggles[i], tx, toggleY, colW, kSkyFeatureSpecs[i].label,
-                           SkyFeatureEnabled( data.cinematic, kSkyFeatureSpecs[i].feature ) );
+                           SkyFeatureEnabled( cinematic, kSkyFeatureSpecs[i].feature ) );
     }
 
     const float baseY = scrolledY + UI_SKY_START_Y;
@@ -397,7 +398,7 @@ void Draw( UISkyTabState& state, const UIDrawContext& draw, const InGameUIFrameD
             DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_SKY_SECTION_H + 4.0f, 12.0f, spec.section );
         }
 
-        const float value = std::clamp( SkyValueForParam( data.cinematic, spec.param ), spec.minValue, spec.maxValue );
+        const float value = std::clamp( SkyValueForParam( cinematic, spec.param ), spec.minValue, spec.maxValue );
         snprintf( buf, sizeof( buf ), spec.valueFormat, value );
         state.sliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
 

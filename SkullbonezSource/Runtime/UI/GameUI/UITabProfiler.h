@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabProfiler.h
+File: SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.h
 Purpose:
   Declares bounded profiler snapshots, expansion state, timeline, histogram,
   and worker controls.
@@ -35,7 +35,7 @@ namespace UI
 {
 
 class UIDrawContext;
-struct InGameUIFrameData;
+struct UIProfilerTabFrameView;
 struct InGameUIInputResult;
 
 namespace ProfilerTab
@@ -218,10 +218,10 @@ bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIIn
 bool HandlePerformanceHistogramInput( UIProfilerTabState& state, InGameUIInputResult& result, int screenW, int screenH,
                                       int mouseX, int mouseY, bool leftDown, bool leftPressed, bool leftReleased,
                                       int wheelDelta );
-void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFrameData& data );
-void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data );
+void PushPerformanceHistogramSample( UIProfilerTabState& state, const UIProfilerTabFrameView& data );
+void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data );
 
-void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX,
+void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrollY, int activeSlider );
 
 } // namespace ProfilerTab
