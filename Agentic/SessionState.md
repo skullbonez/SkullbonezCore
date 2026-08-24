@@ -17,7 +17,9 @@ two reachability repair rows are gone, both live orders retain the exact sweep
 owner, and focused/all-config evidence is green. FP2 is closed through the
 standing archive-bound automated Physics override: core, deep, and replay-
 visual gates pass, and the artifact manifest retains the prior and new
-executables, launch DLLs, hashes, and the 6,800-frame 200-box comparison. The
+first-party game executables, hashes, and the 6,800-frame 200-box comparison.
+Third-party runtime DLLs are intentionally omitted from tracked artifacts and
+must be restored from the pinned setup/build inputs before an isolated launch. The
 replay witness runs one 2,401-tick generation, moves all 200 wall bricks,
 publishes 200 causal nodes, and rejects every registered false-pass control.
 FP3 is active.

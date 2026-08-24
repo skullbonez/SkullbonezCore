@@ -4,9 +4,11 @@ Purpose:
   Owns Discrete/promoted terrain-detection scratch, contact manifolds, and rest-policy rows.
 
 Summary:
-  PhysicsTerrainStage detects current contact for Discrete bodies and the full
-  remaining-time path for linearly promoted bodies, then converts hits into
-  terrain manifolds. A typed two-phase commit lets PhysicsWorld preserve
+  PhysicsTerrainStage detects a quiet downward speculative boundary for
+  Discrete bodies and the full remaining-time path for linearly promoted bodies,
+  then converts hits into terrain manifolds. The Discrete look-ahead remains a
+  zero-time contact so pose clamping cannot erase support or consume a swept
+  time of impact. A typed two-phase commit lets PhysicsWorld preserve
   the exact diagnostics and visual-emission point while the stage owns terrain
   storage and writes borrowed sleep-support outputs. Detection dispatch borrows
   the sleep owner's ascending awake index list.

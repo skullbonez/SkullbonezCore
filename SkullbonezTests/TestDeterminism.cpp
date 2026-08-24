@@ -1516,6 +1516,66 @@ TEST_CASE( "Physics motion promotion: resting static-friction pair stays Discret
 }
 
 
+TEST_CASE( "Physics motion promotion: tilted terrain box keeps support long enough to sleep while Discrete" )
+{
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& engine = fixture.Engine();
+    EngineConfig config = MakeDeterministicConfig();
+    config.worldForces.gravity = -32.0f;
+    config.physicsSleep.frames = 30;
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    ReserveTestPhysicsCapacity( engine, 1u );
+
+    const Vector3 halfExtents( 1.15f, 1.45f, 2.45f );
+    const CollisionShape shape = CollisionShape( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    const SkullbonezCore::Math::Orientation::Quaternion orientation( -0.010159f, -0.006545f, -0.000461f,
+                                                                     0.999927f );
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId { 3031u }, shape,
+                                               Vector3( 592.0f, 1.5004f, 472.5f ), orientation,
+                                               Vector3( 0.0f, -0.0001f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
+                                               Vector3( 32.42f, 29.3f, 13.7f ), 12.0f, 0.08f,
+                                               PhysicsBodyMotionKind::Dynamic, "tilted-discrete-terrain-box" );
+    auto colliderDesc = MakeColliderCreateDesc( shape, 0.08f, 0u, "unit" );
+    colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
+    }
+
+    bool observedSupport = false;
+    int supportDropouts = 0;
+
+    for ( int tick = 0; tick < config.physicsSleep.frames + 30; ++tick )
+    {
+        StepMicroWorldWith( engine, 1, DeterministicForces() );
+        const auto diagnostics = engine.GetDiagnosticsView();
+        REQUIRE( diagnostics.motionEligibilityState.size() == 1u );
+        CHECK( diagnostics.motionEligibilityState[0] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+
+        if ( !DiagnosticsSleepStateAt( engine, 0 ) )
+        {
+            if ( diagnostics.sleepSupportedThisFrame[0] != 0u )
+            {
+                observedSupport = true;
+            }
+            else if ( observedSupport )
+            {
+                ++supportDropouts;
+            }
+        }
+    }
+
+    // Invariant: a clamp to terrain is a collision consequence, not a support
+    // substitute. A quiet Discrete body must retain solver support continuously
+    // enough for the 30-frame sleep policy to complete.
+    CHECK( observedSupport );
+    CHECK( supportDropouts == 0 );
+    CHECK( DiagnosticsSleepStateAt( engine, 0 ) );
+}
+
+
 TEST_CASE( "Physics motion promotion: collision-promoted target uses Swept TOI against thin wall next tick" )
 {
     DeterminismTerrainFixture fixture( kDeepSpaceTerrainBaseY );

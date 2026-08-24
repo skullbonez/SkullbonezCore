@@ -72,8 +72,9 @@ Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Compon
   Each transition remains exact-digest and must explain the behavior change,
   land with source and tests, and create a new immutable old/new launch bundle
   under the owning Physics plan artifacts. The schema in
-  `Agentic/Plans/Artifacts/README.md` binds golden hashes, executable/DLL paths,
-  sizes, hashes, source commits, dependency scan, and launch command. Blind
+  `Agentic/Plans/Artifacts/README.md` binds golden hashes, first-party game
+  executable/DLL paths, sizes, hashes, source commits, dependency scan, and
+  launch command. System and third-party binaries are never committed. Blind
   refreshes merely to clear a gate remain forbidden.
 
 - Determinism Envelope Tier-2 Hardening is complete. Physics-visible rotation

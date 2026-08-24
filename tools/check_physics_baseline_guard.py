@@ -7,8 +7,8 @@
 #   Ordinary validation checks the committed golden without writing it. A Physics
 #   plan may replace a golden noninteractively when the caller supplies the exact
 #   candidate SHA-256 and an append-only transition manifest that retains both the
-#   old and new launchable executables. The Git-index check binds that manifest and
-#   every declared executable/DLL to the staged golden bytes.
+#   old and new launchable first-party game binaries. The Git-index check binds
+#   that manifest and every declared game executable/DLL to the staged golden bytes.
 #
 # Glossary:
 #   Acceptance record: Tracked compatibility JSON binding the core Physics golden
@@ -25,7 +25,9 @@
 #   - Every automated write is content-bound and noninteractive.
 #   - Staged content is read from the Git index, not the working tree.
 #   - A transition bundle is new for one transition and can never be overwritten.
-#   - Every declared executable and DLL is verified by path, byte size, and SHA-256.
+#   - Artifact binaries are limited to SKULLBONEZ_*.exe and SKULLBONEZ_*.dll;
+#     third-party and system runtime binaries are never committed.
+#   - Every declared game executable and DLL is verified by path, byte size, and SHA-256.
 #
 # Related:
 #   - AGENTS.md
@@ -53,6 +55,8 @@ ACCEPTANCE_RECORD = "tools/physics_baseline_approval.json"
 BASELINE_PATH = "TestOutput/baselines/physics_regression_varied.csv"
 ARTIFACT_ROOT = "Agentic/Plans/Artifacts"
 TRANSITION_DIRECTORY = "golden-transitions"
+FIRST_PARTY_BINARY_PREFIX = "SKULLBONEZ_"
+KNOWN_BINARY_SUFFIXES = {".dll", ".exe", ".exp", ".ilk", ".lib", ".pdb"}
 ALWAYS_ARCHIVED_PHYSICS_GOLDENS = {
     BASELINE_PATH,
     "TestOutput/baselines/bullet_sweep_object.csv",
@@ -258,6 +262,14 @@ def parse_file_record(
     return record, data
 
 
+def require_first_party_game_binary(path: str, label: str, expected_suffix: str) -> None:
+    name = PurePosixPath(path).name
+    if not name.startswith(FIRST_PARTY_BINARY_PREFIX) or not name.lower().endswith(expected_suffix):
+        raise GuardFailure(
+            f"{label}.path must name a first-party {FIRST_PARTY_BINARY_PREFIX}*{expected_suffix} game binary: {path}"
+        )
+
+
 def parse_behavior(
     repo: Path,
     value: object,
@@ -291,7 +303,7 @@ def parse_behavior(
                 "sha256",
                 "launch_command",
                 "dependency_scan_command",
-                "required_dlls",
+                "first_party_dlls",
             },
             executable_label,
         )
@@ -308,6 +320,7 @@ def parse_behavior(
             ".exe",
         )
         executable_path = str(executable_record["path"])
+        require_first_party_game_binary(executable_path, executable_label, ".exe")
         if executable_path in paths:
             raise GuardFailure(f"duplicate retained artifact path: {executable_path}")
         paths.add(executable_path)
@@ -319,16 +332,17 @@ def parse_behavior(
                 raise GuardFailure(
                     f"{executable_label}.{field} must name {PurePosixPath(executable_path).name}"
                 )
-        required_dlls = executable["required_dlls"]
-        if not isinstance(required_dlls, list):
-            raise GuardFailure(f"{executable_label}.required_dlls must be a JSON array")
+        first_party_dlls = executable["first_party_dlls"]
+        if not isinstance(first_party_dlls, list):
+            raise GuardFailure(f"{executable_label}.first_party_dlls must be a JSON array")
         parsed_dlls: list[dict[str, object]] = []
-        for dll_index, raw_dll in enumerate(required_dlls):
-            dll_label = f"{executable_label}.required_dlls[{dll_index}]"
+        for dll_index, raw_dll in enumerate(first_party_dlls):
+            dll_label = f"{executable_label}.first_party_dlls[{dll_index}]"
             dll_record, _ = parse_file_record(
                 repo, raw_dll, dll_label, bundle_side, staged, ".dll"
             )
             dll_path = str(dll_record["path"])
+            require_first_party_game_binary(dll_path, dll_label, ".dll")
             if dll_path in paths:
                 raise GuardFailure(f"duplicate retained artifact path: {dll_path}")
             paths.add(dll_path)
@@ -338,7 +352,7 @@ def parse_behavior(
                 **executable,
                 "path": executable_path,
                 "data": executable_data,
-                "required_dlls": parsed_dlls,
+                "first_party_dlls": parsed_dlls,
             }
         )
     return parsed
@@ -368,7 +382,7 @@ def parse_transition_manifest(
         },
         "artifact manifest",
     )
-    if manifest["schema_version"] != 1:
+    if manifest["schema_version"] != 2:
         raise GuardFailure("artifact manifest has unsupported schema_version")
     bundle_root, transition_id = bundle_root_from_manifest(relative_path)
     if manifest["transition_id"] != transition_id:
@@ -476,16 +490,32 @@ def validate_physics_plan_transition(
         raise GuardFailure(
             f"retained {configuration} executable does not byte-match producing executable {producer}"
         )
-    for dll in retained_record["required_dlls"]:
+    for dll in retained_record["first_party_dlls"]:
         source_dll = producer.parent / PurePosixPath(str(dll["path"])).name
         if not source_dll.is_file():
-            raise GuardFailure(f"required producing DLL is missing beside executable: {source_dll}")
+            raise GuardFailure(f"first-party producing DLL is missing beside executable: {source_dll}")
         source_data = source_dll.read_bytes()
         if len(source_data) != dll["size"] or sha256_bytes(source_data) != dll["sha256"]:
             raise GuardFailure(
-                f"retained DLL does not byte-match producing runtime dependency: {source_dll.name}"
+                f"retained first-party DLL does not byte-match producing game binary: {source_dll.name}"
             )
     return relative_path, sha256_bytes(data)
+
+
+def verify_artifact_binaries_are_first_party(repo: Path) -> None:
+    # Invariant: dependency scans may name system or third-party DLLs, but the
+    # repository archive contains only binaries produced by this game solution.
+    tracked = run_git(repo, "ls-files", "-z", "--", ARTIFACT_ROOT).stdout
+    for raw_path in tracked.decode(errors="replace").split("\0"):
+        if not raw_path:
+            continue
+        path = PurePosixPath(raw_path)
+        suffix = path.suffix.lower()
+        if suffix not in KNOWN_BINARY_SUFFIXES:
+            continue
+        if suffix not in {".dll", ".exe"}:
+            raise GuardFailure(f"Physics artifact bundle contains forbidden binary artifact: {raw_path}")
+        require_first_party_game_binary(raw_path, "Physics artifact binary", suffix)
 
 
 def verify_existing_transition_bundles_immutable(repo: Path, staged: bool) -> None:
@@ -612,6 +642,7 @@ def verify_receipt(
 
 
 def check_worktree(repo: Path) -> str:
+    verify_artifact_binaries_are_first_party(repo)
     verify_existing_transition_bundles_immutable(repo, staged=False)
     record_path = repo / ACCEPTANCE_RECORD
     baseline_path = repo / BASELINE_PATH
@@ -624,6 +655,7 @@ def check_worktree(repo: Path) -> str:
 
 
 def check_staged(repo: Path) -> str:
+    verify_artifact_binaries_are_first_party(repo)
     verify_existing_transition_bundles_immutable(repo, staged=True)
     covered_goldens = verify_added_transition_manifests(repo)
     verify_physics_goldens_have_transition_manifests(repo, covered_goldens)
@@ -875,9 +907,9 @@ def self_test_manifest(
     )
     payloads = {
         f"{root}/old/SKULLBONEZ_CORE-Debug.exe": b"old self-test executable",
-        f"{root}/old/runtime.dll": b"old self-test dll",
+        f"{root}/old/SKULLBONEZ_RUNTIME.dll": b"old self-test dll",
         f"{root}/new/SKULLBONEZ_CORE-Debug.exe": b"new self-test executable",
-        f"{root}/new/runtime.dll": b"new self-test dll",
+        f"{root}/new/SKULLBONEZ_RUNTIME.dll": b"new self-test dll",
     }
     for path, data in payloads.items():
         target = repo / path
@@ -886,7 +918,7 @@ def self_test_manifest(
     old_exe = f"{root}/old/SKULLBONEZ_CORE-Debug.exe"
     new_exe = f"{root}/new/SKULLBONEZ_CORE-Debug.exe"
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "physics_plan": "Agentic/Plans/TODO/self-test-physics.md",
         "phase": phase,
         "transition_id": f"{old_digest[:12]}-to-{new_digest[:12]}",
@@ -903,7 +935,12 @@ def self_test_manifest(
                     **file_record(old_exe, payloads[old_exe]),
                     "launch_command": "old/SKULLBONEZ_CORE-Debug.exe --physics-standalone-smoke",
                     "dependency_scan_command": "dumpbin /DEPENDENTS old/SKULLBONEZ_CORE-Debug.exe",
-                    "required_dlls": [file_record(f"{root}/old/runtime.dll", payloads[f"{root}/old/runtime.dll"])],
+                    "first_party_dlls": [
+                        file_record(
+                            f"{root}/old/SKULLBONEZ_RUNTIME.dll",
+                            payloads[f"{root}/old/SKULLBONEZ_RUNTIME.dll"],
+                        )
+                    ],
                 }
             ],
         },
@@ -916,7 +953,12 @@ def self_test_manifest(
                     **file_record(new_exe, payloads[new_exe]),
                     "launch_command": "new/SKULLBONEZ_CORE-Debug.exe --physics-standalone-smoke",
                     "dependency_scan_command": "dumpbin /DEPENDENTS new/SKULLBONEZ_CORE-Debug.exe",
-                    "required_dlls": [file_record(f"{root}/new/runtime.dll", payloads[f"{root}/new/runtime.dll"])],
+                    "first_party_dlls": [
+                        file_record(
+                            f"{root}/new/SKULLBONEZ_RUNTIME.dll",
+                            payloads[f"{root}/new/SKULLBONEZ_RUNTIME.dll"],
+                        )
+                    ],
                 }
             ],
         },
@@ -978,7 +1020,7 @@ def self_test(source_repo: Path) -> None:
         changed_digest = sha256_bytes(changed)
         output_path = repo / "Debug" / "physics_regression_varied.csv"
         executable_path = repo / "Debug" / "SKULLBONEZ_CORE.exe"
-        runtime_dll_path = repo / "Debug" / "runtime.dll"
+        runtime_dll_path = repo / "Debug" / "SKULLBONEZ_RUNTIME.dll"
         output_path.parent.mkdir(parents=True)
         executable_path.write_bytes(b"new self-test executable")
         runtime_dll_path.write_bytes(b"new self-test dll")
@@ -1034,7 +1076,7 @@ def self_test(source_repo: Path) -> None:
         manifest_path, payloads = self_test_manifest(
             repo, BOOTSTRAP_ACCEPTED_SHA256, changed_digest, source_commit
         )
-        new_dll = next(path for path in payloads if path.endswith("new/runtime.dll"))
+        new_dll = next(path for path in payloads if path.endswith("new/SKULLBONEZ_RUNTIME.dll"))
         (repo / new_dll).write_bytes(b"NEW self-test dll")
         expect_failure(
             lambda: automated_override_output(repo, output_path, changed_digest, manifest_path),
@@ -1095,7 +1137,7 @@ def self_test(source_repo: Path) -> None:
         check_staged(repo)
         run_git(repo, "commit", "-m", "accept generic archived transition")
 
-        retained_new_dll = next(path for path in payloads if path.endswith("new/runtime.dll"))
+        retained_new_dll = next(path for path in payloads if path.endswith("new/SKULLBONEZ_RUNTIME.dll"))
         (repo / retained_new_dll).write_bytes(b"later overwrite")
         run_git(repo, "add", retained_new_dll)
         expect_failure(lambda: check_staged(repo), "immutable and changed")

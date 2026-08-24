@@ -76,6 +76,13 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const BuoyancyB
     body.isFixed = hotFields.fixed[bodyIndex] != 0u;
     return body;
 }
+
+bool IsQuietDownwardDiscreteTerrainCandidate( const TerrainContactBodyView& body, const PhysicsRuntimeSettings& settings )
+{
+    const float speedSquared = SkullbonezCore::Math::Vector::VectorMagSquared( body.linearVelocity );
+    const float quietSpeedSquared = settings.sleep.linearSpeed * settings.sleep.linearSpeed;
+    return speedSquared < quietSpeedSquared && body.linearVelocity.y < 0.0f;
+}
 } // namespace
 
 PhysicsTerrainStage::PhysicsTerrainStage() = default;
@@ -129,11 +136,27 @@ void PhysicsTerrainStage::DetectTerrainAt( std::span<const PhysicsBodyRecord> bo
     const bool linearPromoted = bodyIndex >= static_cast<int>( motionEligibilityState.size() ) ||
                                 ( motionEligibilityState[static_cast<std::size_t>( bodyIndex )] &
                                   PhysicsMotionEligibilityLinearPromoted ) != 0u;
+    const TerrainContactBodyView body = TerrainContactBodyViewForIndex( buoyancyFacts, hotFields, terrain, settings,
+                                                                        bodyIndex );
     const float detectionHorizon = linearPromoted ? candidate.availableTime : 0.0f;
-    candidate.sweep = SweepTerrainContact( profiler,
-                                           TerrainContactBodyViewForIndex( buoyancyFacts, hotFields, terrain, settings,
-                                                                           bodyIndex ),
-                                           colliderRecords[static_cast<size_t>( bodyIndex )].shape, detectionHorizon );
+    candidate.sweep = SweepTerrainContact( profiler, body, colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+                                           detectionHorizon );
+
+    if ( !linearPromoted && !candidate.sweep.hit && IsQuietDownwardDiscreteTerrainCandidate( body, settings ) )
+    {
+        TerrainContactSweepResult speculative = SweepTerrainContact( profiler, body,
+                                                                     colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+                                                                     candidate.availableTime );
+
+        if ( speculative.hit )
+        {
+            // Invariant: the look-ahead proves that integration would reach the
+            // terrain, but Discrete policy publishes a current zero-time row.
+            // Only motion-eligibility promotion may consume time at a swept TOI.
+            speculative.collisionTime = 0.0f;
+            candidate.sweep = speculative;
+        }
+    }
 
     candidate.tested = 1;
 }

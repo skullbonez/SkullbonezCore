@@ -1195,8 +1195,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
     // Terrain phase ownership:
-    //   1. Detect only the current boundary for Discrete bodies; linearly
-    //      promoted bodies inspect their full remaining path and stop at TOI.
+    //   1. Detect the current boundary plus quiet downward speculative contact
+    //      for Discrete bodies; linearly promoted bodies inspect their full
+    //      remaining path and stop at TOI. Discrete look-ahead commits at zero.
     //   2. Convert the hit into a terrain manifold only. Do not apply impulses
     //      or terrain-only velocity response in this phase.
     //   3. Leave remaining-time integration and all normal/friction response to

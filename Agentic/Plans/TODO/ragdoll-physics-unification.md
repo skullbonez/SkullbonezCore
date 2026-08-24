@@ -32,18 +32,24 @@ refresh merely to close a gate.
 Every changed golden uses an exact candidate digest and a new append-only bundle
 at `Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/golden-transitions/<transition-id>/`.
 Before replacement, preserve both the exact prior behavior and the new producer:
-all executables needed for comparison, their non-system runtime DLLs, and a
-schema-1 `manifest.json` binding the owning phase, source commits, old/new golden
-hashes, artifact paths/sizes/hashes, dependency-scan commands, and launch
-commands. Never overwrite an older bundle. The new producer becomes the prior
-behavior executable for the next transition. Source, tests, golden changes, and
-the complete bundle land atomically through the automated writer documented in
+all first-party game executables needed for comparison, any first-party
+`SKULLBONEZ_*.dll` outputs they require, and a schema-2 `manifest.json` binding
+the owning phase, source commits, old/new golden hashes, artifact
+paths/sizes/hashes, dependency-scan commands, and launch commands. Never commit
+system or third-party runtime DLLs, SDK redistributables, compiler payloads,
+symbols, import libraries, or other derived binary artifacts. Dependency scans
+still record the complete runtime dependency set; omitted dependencies are
+restored from the repository's pinned setup/build inputs for an isolated launch.
+The new producer becomes the prior behavior executable for the next transition.
+Source, tests, golden changes, and the complete first-party bundle land
+atomically through the automated writer documented in
 `Agentic/Plans/Artifacts/README.md`.
 
-The 2026-08-23 FP1 launch audit proved why this is required: a lone retained
-executable is not a runnable artifact. FP0/FP1 import `WinPixEventRuntime.dll`,
-but their original artifact directories do not contain it. Future transitions
-therefore fail closed if any declared executable/DLL hash is missing or differs.
+The 2026-08-24 owner correction supersedes FP2's copied dependency payload.
+`WinPixEventRuntime.dll`, `dxcompiler.dll`, and `dxil.dll` are third-party
+binaries and are not repository evidence. The retained game executables and
+their exact dependency-scan commands remain sufficient to identify behavior;
+reproduction restores those pinned dependencies outside Git.
 
 This is a major Physics-system transition, not only a ragdoll feature. Its
 non-negotiable order is:
@@ -482,7 +488,7 @@ comment-truth correction.
 
 FP2 is closed. The standing Physics-plan automated override accepted the exact
 archived transitions, while the artifact manifest retains the prior and new
-producer executables, launch DLLs, hashes, and FP1-versus-FP2 200-box evidence.
+producer game executables, hashes, dependency scans, and FP1-versus-FP2 200-box evidence.
 The core, deep, and replay-visual gates pass. The replay witness completes one
 2,401-tick prediction generation, moves all 200 wall bricks, publishes all 200
 causal nodes, and rejects the visual, causal, artifact, trajectory-count,
