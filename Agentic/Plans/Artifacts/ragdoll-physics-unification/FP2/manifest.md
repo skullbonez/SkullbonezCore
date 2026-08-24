@@ -17,16 +17,48 @@ Configuration: `Debug|x64`
 | `SKULLBONEZ_CORE-Debug.exe` | 14,052,352 | `193CB011908957B353E4A97D707C7A4E03217E8ABB93B77F38D2F01713C855E1` |
 | `SKULLBONEZ_CORE-Debug-approved.exe` | 14,019,072 | `12DD17945B512E285B73E7DD6C833069AF8119BC880780F9BEC211134E0B945A` |
 | `SKULLBONEZ_CORE-Profile-approved.exe` | 4,694,528 | `E78AA5799102786A3C5C6D43ECBFCCF9345D56EE1728362A47F1C61C9BD2241A` |
+| `SKULLBONEZ_CORE-Automation-approved.exe` | 4,986,880 | `9D4EE221C3DA2C07FE795A7FFCCCD12E822422907BD5FA591B01F71664B9DA24` |
 | `WinPixEventRuntime.dll` | 58,368 | `81ADCFD8253C3489BE720DA7E30F16004DC9A1F02A8B418C6C3AEF4993032E6D` |
 | `dxcompiler.dll` | 14,317,000 | `A5AA1D9A95BF9EA68EFF4502EB687161464BB5A505E817782B7A770A2A312044` |
 | `dxil.dll` | 1,509,800 | `95AC1BB413178C4596F49498E912C270F8F343282B63840F174CBF5154AD1557` |
-| `fp1_wall200_impact.json` | 7,129 | `EA5ED2A85D68CBE297DC26E16F5C9B1734ADD2E7B8574DE3FCBDB06989C4C82B` |
-| `fp2_wall200_impact.json` | 5,967 | `99F7393AA9D2B3B61AF8B38D5C33B19B3E63B957F88E1D621F05CEE228A65B8E` |
+| `fp1_wall200_impact.json` | 7,128 | `A3674BFF82332A71409BE592C8E33349657FD8E687A2FA3BB4BE14F4335A9C53` |
+| `fp2_wall200_impact.json` | 5,966 | `93DDB28FAA57A5F902A4AF5B2834C0B4D9D5A2CA6D72FFA01D93B1423F40C619` |
 
 `dumpbin /DEPENDENTS` reports the two direct non-system runtime imports
 `WinPixEventRuntime.dll` and `dxcompiler.dll`; `dxil.dll` is staged beside
 `dxcompiler.dll` as its runtime support library. All remaining direct imports
 are Windows system libraries.
+
+## Approved replay-visual closure
+
+Source and capture commit:
+`79f02de3b98da866610b15c8ea4a7f3f398423b1`.
+
+The retained Automation executable above produced
+`TestOutput/validation/replay_visual_fidelity/full_reveal_probe_profile.json`
+and its saved replay. The approved content transition is:
+
+| Evidence | SHA-256 |
+|---|---|
+| Previous causal baseline | `CBE0F6CF5EDEB796CAACE6FE384948ACCDD3BA51BCE4F6D5A95888962749B46E` |
+| Approved causal baseline | `2B0B2FEEA7AB599A7AF882A122B8B44BEFDF5DE1DD0D52A8CDE4CD9F61D28EE1` |
+| Unchanged visual baseline | `498304F1FE366E558023F37DAC5711F5BEF51084237B6BD857E42B57AAF58983` |
+| Saved replay | `D0CF8D19EE029A4AA0FA9F72719E3B9D83348F50A2C1FBEB4435C485A9A7BC79` |
+
+The exact isolated Automation smoke used the artifact directory as its working
+directory, disabled critical-error dialogs, and set `PATH` to exactly
+`C:\WINDOWS\System32;C:\WINDOWS` before running:
+
+```text
+SKULLBONEZ_CORE-Automation-approved.exe --physics-standalone-smoke
+```
+
+Result: exit `0`, stdout `163362` bytes, stderr `0` bytes. The exact replay
+validation command after installing the approved baseline is:
+
+```text
+tools\validate_replay_visual_fidelity.bat
+```
 
 ## Isolated launch proof
 
@@ -83,9 +115,13 @@ detects that forward contact at frame 75. The exact wall-contact frame and the
 - `tools\validate_physics_deep.bat`: pass; all CSV, known-issue signature,
   shooting-reaction, SkullScope query, and contact-energy controls pass.
 - `tools\validate_replay_visual_fidelity.bat`: launcher-shape proof, Automation
-  build, and 18/18 typed packet/false-pass controls pass. The authoritative
-  run stops on the existing `replay visual fidelity attempted a duplicate
-  prediction generation` oracle; no replay or visual baseline was changed.
+  build, 18/18 typed packet cases, 82/82 assertions, the authoritative
+  2,401-tick run, offline projection, artifact save, and the approved causal
+  comparison pass. This old-base worktree then stops only on inherited shader
+  provenance: expected
+  `E49896266DCC2BF4B63133AE4B680FA23454AF00375B0AA515EB1E8231E374E3`,
+  actual `DD36AE24BC81C9482E1A7CEF5F93C6172BB728AE4DE25C526FE9DAE51F581EBE`.
+  The visual baseline remains unchanged.
 
 ## Owner-approved golden set
 
