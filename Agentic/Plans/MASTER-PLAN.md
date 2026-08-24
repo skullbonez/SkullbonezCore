@@ -1,7 +1,7 @@
 # MASTER PLAN
 
-Date: 2026-08-24
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 106/118 tasks complete
+Date: 2026-08-25
+Status: Ragdoll Physics Unification, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 107/118 tasks complete
 
 ## Owner Direction
 
@@ -290,7 +290,7 @@ Completed plan files were deleted; git history is the archive.
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 4 | `TODO/ragdoll-physics-unification.md` |
-| Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 7 | `TODO/runtime-boundary-separation.md` |
+| Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 8 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 6 | `TODO/game-ui-component-library-separation.md` |
 | Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 0 | `TODO/recorded-interaction-playback-cursor.md` |
 
@@ -366,7 +366,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-106/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
+107/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
 first, Runtime Boundary Separation And Project Topology second, Game UI Component
 Library Separation third, and Recorded Interaction Playback Cursor fourth.
 Causal C0-C8, Determinism T0-T8,
@@ -383,18 +383,18 @@ FP0-FP3 are complete and FP4 is active. FP2's archived automated transition
 retains the prior and new producers, its core/deep Physics gates pass, and its
 2,401-tick replay-visual gate passes with one prediction generation, all 200
 wall bricks moved, 200 causal nodes, and every registered false-pass control.
-Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 7/8;
-RBS0-RBS6 are complete, and RBS7 has closed its allocation rulings, Replay
-save-probe context, and Operator UI phase-owner gaps. Exact Runtime package
-direction is enforced with zero
-forbidden sites, zero repair debt, zero reverse-App edges, and no multi-package
-SCC; Startup/native-host, frame-metrics, operator projection, GPU submission,
-and cross-owner command application have distinct owners. The approved
+Runtime Boundary Separation And Project Topology RBS0-RBS7 is complete at 8/8.
+RBS7 closed its allocation rulings, Replay startup continuation, Operator UI
+projection ownership, GPU submission, and cross-owner command application.
+Exact Runtime package direction is enforced with zero forbidden sites, zero
+repair debt, zero reverse-App edges, and no multi-package SCC; the approved
 Rendering project owns the exact Rendering closure in an acyclic five-project
-production graph; the cumulative RBS7 terminal audit and plan-completion gate
-remain.
+production graph. Integration commit `7a3e952d2` passed cumulative
+`validate_fast`, the ASSET-001 texture regression at 13/13 assertions, Operator
+UI projection at 29/29, and the Debug startup continuation at 88/88 before it
+was pushed to `origin/nightrunner-24th-aug`.
 Game UI Component Library Separation UI0-UI6 is active at 6/7; UI0-UI5 are
-complete. UI6 is ready only after RBS7 terminal closure;
+complete and UI6 is now in progress after RBS7 terminal closure;
 UI3/UI4/UI5/UI6 consume RBS4/RBS5/RBS6/RBS7 respectively and no UI phase has a
 Physics predecessor.
 Recorded Interaction Playback Cursor RIC0-RIC3 is active at 0/4 and binding
