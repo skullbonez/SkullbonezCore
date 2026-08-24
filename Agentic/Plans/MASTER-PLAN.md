@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-25
-Status: Ragdoll Physics Unification, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 107/118 tasks complete
+Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 108/118 tasks complete
 
 ## Owner Direction
 
@@ -291,7 +291,7 @@ Completed plan files were deleted; git history is the archive.
 |---|---|---|---|---|
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 4 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 8 | `TODO/runtime-boundary-separation.md` |
-| Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 6 | `TODO/game-ui-component-library-separation.md` |
+| Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 7 | `TODO/game-ui-component-library-separation.md` |
 | Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 0 | `TODO/recorded-interaction-playback-cursor.md` |
 
 ## Parked, Backlog, And Completed Plans
@@ -366,7 +366,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-107/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
+108/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
 first, Runtime Boundary Separation And Project Topology second, Game UI Component
 Library Separation third, and Recorded Interaction Playback Cursor fourth.
 Causal C0-C8, Determinism T0-T8,
@@ -393,11 +393,16 @@ production graph. Integration commit `7a3e952d2` passed cumulative
 `validate_fast`, the ASSET-001 texture regression at 13/13 assertions, Operator
 UI projection at 29/29, and the Debug startup continuation at 88/88 before it
 was pushed to `origin/nightrunner-24th-aug`.
-Game UI Component Library Separation UI0-UI6 is active at 6/7; UI0-UI5 are
-complete and UI6 is now in progress after RBS7 terminal closure;
-UI3/UI4/UI5/UI6 consume RBS4/RBS5/RBS6/RBS7 respectively and no UI phase has a
-Physics predecessor.
-Recorded Interaction Playback Cursor RIC0-RIC3 is active at 0/4 and binding
-after UI6.
+Game UI Component Library Separation UI0-UI6 is complete at 7/7. UI6 projects
+Prediction-owned reveal bounds and Replay/Planning-owned horizon bounds through
+the post-RBS App composition seam without moving policy into Interaction or
+DevelopmentTools. Its exactly-once plan-completion gate passed 760/760 cases,
+2,685,294 assertions, all coverage floors, Automation, and DX12 with unchanged
+baselines; independent reviewer `01a03529-b219-7d82-9550-fef25af0fe31`
+returned CLEAN. The inherited causal-depth oracle and historical Physics
+performance baseline remain external recorded failures, not UI6 passes or
+refresh authority.
+Recorded Interaction Playback Cursor RIC0-RIC3 is active at 0/4 and is now the
+next dependency-ready product-UI plan.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

@@ -2,7 +2,7 @@
 
 Date: 2026-08-25
 Branch: `nightrunner-24th-aug`
-Status: Ragdoll Physics Unification, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 107/118 tasks complete
+Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 108/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -41,17 +41,20 @@ five configurations and the portable CPU build pass. Pushed integration commit
 tests. Completed plan files remain deleted under the repository convention;
 Git history retains their phase evidence.
 
-Game UI Component Library Separation UI0-UI6 has phase-local RBS prerequisites
-and no Physics predecessor. UI0-UI5 are complete: all 70 tracked UI files have
+Game UI Component Library Separation UI0-UI6 is complete at 7/7: all tracked
+UI files have
 binding dispositions; explicit stateless geometry/state contracts cover the
 proved shared component families; and the seven retained wrappers now route
 through those contracts without changing product fingerprints, command values,
 or interaction geometry. Repeated Replay/Planning controls and fitting Runtime
 badges now use shared components without moving semantic owners. Product
 composition sits above the reusable foundation, project/test boundaries retain
-all 31 portable determinism cases, and UI6 is now active on the closed RBS7
-boundary.
-Recorded Interaction Playback Cursor RIC0-RIC3 is registered after UI6; it adds
+all 31 portable determinism cases, and UI6 closed Replay popup bounds through
+their Prediction and Replay/Planning owners. Its exactly-once plan-completion
+gate passed 760/760 cases and 2,685,294 assertions with unchanged baselines;
+the inherited causal-depth oracle and historical Physics performance baseline
+remain external recorded failures without refresh authority.
+Recorded Interaction Playback Cursor RIC0-RIC3 is now dependency-ready; it adds
 only a fake recorded-playback overlay and explicitly forbids any hardware cursor
 or native capture change.
 
@@ -491,8 +494,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 ## Next Work
 
 Continue the recorded `RAGDOLL_PHYSICS` FP4 OPEN/HOLD disposition while running
-`GAME_UI_COMPONENTS` UI6 on the closed RBS7 boundary. After UI6 closes, run
-`RECORDED_CURSOR` RIC0-RIC3. FP2 retains motion policy version 2: `0.1`
+`RECORDED_CURSOR` RIC0-RIC3 on the closed UI6 presentation boundary. FP2
+retains motion policy version 2: `0.1`
 metres of absolute per-tick travel promotes and `0.075` metres demotes,
 independent of collider thickness.
 
