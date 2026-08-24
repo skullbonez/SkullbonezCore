@@ -501,17 +501,21 @@ collider thickness.
   ruling remains the place to adjudicate the intended Discrete transition.
 - FP0 pre-change `tools\validate_replay_visual_fidelity.bat` builds and passes
   its 18 typed/false-pass controls, then the authoritative run stops at reveal 0
-  on `header.futureNodeCount`. Preserve the owner-controlled oracle.
+  on `header.futureNodeCount`. Preserve the oracle until the Physics phase
+  explains the transition, retains both launch payloads, and applies the exact
+  candidate through the archived automated lane.
 - The stale Physics CSV, noisy relative Physics performance sample, and
-  corrected-topology visual oracle remain validation findings. On 2026-08-22
-  the owner explicitly authorized required Physics-baseline transitions for
-  FP0-FP9 without another pause, subject to the exact-digest baseline guard and
-  atomic source/test/evidence commits. Replay, visual, SkullScope, and
-  performance oracles remain separately owner-controlled.
-- Every accepted FP phase preserves its final Debug executable and digest
-  manifest under
-  `Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/`; the first
-  artifact was produced when FP0 passed terminal review.
+  corrected-topology visual oracle remain validation findings. Active Physics
+  plans now have standing authority for every golden they govern, including
+  Physics, replay, visual, causal, SkullScope, and performance transitions,
+  without another pause or interactive phrase. Every write remains exact-digest
+  and requires a new append-only old/new executable-and-DLL bundle plus atomic
+  source/test/evidence commits. Non-Physics golden policy is unchanged.
+- Every changed FP golden uses the manifest schema under
+  `Agentic/Plans/Artifacts/README.md`; the final new producer is retained for
+  the next old-versus-new comparison. Existing FP0/FP1 phase executables remain
+  historical evidence, while future transition bundles fail closed unless both
+  launch payloads are complete.
 
 ## FP0 Closure - 2026-08-22
 

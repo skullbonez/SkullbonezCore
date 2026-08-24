@@ -58,8 +58,9 @@ every time.
 Byte-exactness is the validation contract, not an aspiration.
 
 - Physics regression output is compared **byte-for-byte** against committed CSV
-  baselines. Baselines are owner-controlled; an agent may never refresh one to make
-  a diff go away.
+  baselines. An agent may never refresh one merely to make a diff go away. Active
+  Physics plans may accept an explained transition automatically only after the
+  exact old and new launchable executables are archived with content hashes.
 - `#pragma fp_contract(off)` is force-included into every translation unit, so the
   compiler cannot fuse a multiply-add and silently change rounding.
 - Parallel physics stages are **worker-count invariant** — workers build local
@@ -231,8 +232,10 @@ smallest script that covers what changed:
 | Entire implementation plan is complete | `tools\agent_validate.bat --plan-completion` |
 
 The complete file-to-gate mapping is in `AGENTS.md`; per-script detail is in
-`tools/README.md`. Physics baseline changes are behaviour changes and require explicit
-owner approval before the corresponding gate is rerun.
+`tools/README.md`. Physics golden changes are behaviour changes. Active Physics
+plans have standing automated-transition authority when the exact candidate hash
+and append-only old/new executable bundle pass the guard; no separate interactive
+approval is required. Every corresponding gate is rerun after the update.
 
 ## Repository Map
 

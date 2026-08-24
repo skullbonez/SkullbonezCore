@@ -44,7 +44,9 @@ It does not authorize any of the following:
 - starting a plan or phase before its direct prerequisites or acceptance
   boundary permit it;
 - changing a baseline, golden, rule, exception, dependency direction, or owner
-  decision without the approval required by the repository;
+  decision without the authorization required by the repository; active Physics
+  plans already have standing authorization for governed goldens only through
+  the exact-candidate, append-only retained-runtime lane;
 - committing or pushing directly on `main` without explicit confirmation;
 - merging a pull request, rebasing, force-pushing, or rewriting history; or
 - weakening validation, review, comment, allocation, determinism, or handoff
@@ -309,7 +311,7 @@ lane exclusive ownership:
 - `Agentic/Plans/MASTER-PLAN.md`, `Agentic/SessionState.md`, and every active
   plan's progress or closure evidence;
 - `Agentic/Plans/WORK_LEDGER.csv` and goal/task lifecycle commands;
-- baseline approvals, golden files, phase artifact manifests, and final
+- baseline transitions, golden files, phase artifact manifests, and final
   acceptance evidence;
 - shared solution/project membership and generated dependency proof;
 - common public contracts consumed by multiple active lanes;
@@ -388,9 +390,11 @@ worktree with unrelated changes. Before dispatch, verify:
 - enough disk and build capacity remain for the planned validation.
 
 Never rebase a worker. A worker may make bounded local commits on its feature
-branch. It does not push, edit progress ledgers, close tasks, approve baselines,
-or integrate another lane unless the coordinator explicitly assigns that exact
-action and the base orchestrator permits it.
+branch. It does not push, edit progress ledgers, close tasks, write goldens, or
+integrate another lane unless the coordinator explicitly assigns that exact
+action and the base orchestrator permits it. A Physics plan's standing authority
+removes the owner-prompt blocker; it does not remove the coordinator's
+single-writer lease over the golden and immutable artifact bundle.
 
 ## Dispatch Contract
 
@@ -484,7 +488,9 @@ when the following applies; keep every unrelated ready plan running:
 
 - the contract is still changing;
 - write scopes overlap or an undeclared shared file appears;
-- a worker needs a new owner decision, baseline approval, or scope expansion;
+- a worker needs a new owner decision, a non-Physics baseline approval, or scope
+  expansion; a governed Physics golden transition is not a pause condition when
+  its exact candidate and complete append-only bundle are ready;
 - a lane exposes a dependency on a later phase;
 - validation artifacts or runtime resources cannot be isolated;
 - ledger accounting cannot remain exact; or

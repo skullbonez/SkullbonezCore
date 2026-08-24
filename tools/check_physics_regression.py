@@ -17,8 +17,8 @@
 # Invariants:
 #   - Tool output should be bounded and readable because agents and humans use
 #   it for decisions.
-#   - This comparator is read-only; only the owner-interactive baseline guard
-#   may replace the committed core golden.
+#   - This comparator is read-only; only the content-bound, artifact-retaining
+#     Physics baseline guard may replace the committed core golden.
 #
 # Related:
 #   - AGENTS.md
@@ -89,9 +89,10 @@ def main():
             print("usage: check_physics_regression.py [--deep]")
             if arg == "--update":
                 print(
-                    "baseline updates require repository-owner approval: "
-                    "python tools/check_physics_baseline_guard.py --approve-output "
-                    "Debug/physics_regression_varied.csv"
+                    "Physics-plan baseline updates require the archived automated lane: "
+                    "python tools/check_physics_baseline_guard.py --automated-override-output "
+                    "Debug/physics_regression_varied.csv --candidate-sha256 <sha256> "
+                    "--artifact-manifest <manifest.json>"
                 )
             return 2
 

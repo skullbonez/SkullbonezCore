@@ -4,7 +4,7 @@
 @rem   Documents and runs the validate_physics.bat developer/validation helper script.
 @rem
 @rem Summary:
-@rem   The owner-approved golden digest is checked before any build. The gate
+@rem   The accepted golden digest is checked before any build. The gate
 @rem   then builds or reuses Debug, proves the PhysicsEngine lifecycle, runs the
 @rem   authored deterministic scene, and performs a byte-exact comparison.
 @rem
@@ -18,7 +18,7 @@
 @rem
 @rem Invariants:
 @rem   - A modified golden fails before build or launch unless its exact bytes
-@rem   have an owner approval record.
+@rem   have a content-bound transition receipt and immutable runtime archive.
 @rem   - The engine lifecycle smoke must run before the scene regression so
 @rem   owner-lifecycle failures are visible apart from scene loading or rendering.
 @rem   - Commit-gate and parent full-gate calls defer ready-build restoration;
@@ -61,10 +61,10 @@ echo   VALIDATE_PHYSICS - Determinism Check
 echo ========================================
 echo.
 
-echo [1/6] Verifying owner-approved golden digest...
+echo [1/6] Verifying accepted golden digest and retained transitions...
 "%PYTHON_EXE%" "%~dp0check_physics_baseline_guard.py" --repo "%REPO%"
 if errorlevel 1 (
-    echo FAIL: Physics golden is missing owner approval or was modified.
+    echo FAIL: Physics golden acceptance or retained transition integrity failed.
     popd
     exit /b 3
 )

@@ -9,7 +9,12 @@ visual, physics, query, and perf baselines.
   documentation-only elsewhere.
 - Physics CSV and SkullScope query baselines must come from the final Debug
   executable, scene files, and config that will be committed, followed by
-  `tools\validate_physics.bat`.
+  the mapped Physics gate.
+- An active Physics plan may update every golden it governs without a separate
+  owner prompt only through the content-bound automated lane. Before writing,
+  retain exact old/new executables and required DLLs in a new append-only
+  transition bundle described by `../../Agentic/Plans/Artifacts/README.md`.
+- Never refresh a golden merely to hide a failing gate or unexplained behavior.
 - `tools\update_baselines.bat` is visual/perf only. Do not use it for physics
   CSV or SkullScope baselines.
 - Visual baseline updates require the DX12 renderer gate and intentional review

@@ -238,7 +238,8 @@ tools\physics_query.bat Debug\scene.physicsdiag.ndjson solver --include-converge
 
 Those optional diagnostics are deliberately excluded from the default
 validated `solver` packet: changing an engineering projection is not authority
-to redefine an owner-controlled physics query oracle.
+to redefine the byte-exact physics query oracle. A governed Physics-plan update
+still needs the exact candidate and append-only old/new runtime bundle.
 
 ### Which bodies are moving fastest?
 

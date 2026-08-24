@@ -364,7 +364,7 @@ with safe load attempts for malformed copies. Never overwrite an authored scene.
   and after High-detail release, scene reset, and forecast exit.
 - [ ] Evidence/notes:
 
-## N. Known Owner-Controlled Stops — Do Not Refresh
+## N. Known Comparison Stops — Manual Pass Is Read-Only
 
 These are expected comparison stops in the completed evidence, not permission
 to update baselines during this manual pass.
@@ -384,7 +384,8 @@ to update baselines during this manual pass.
 IH0-IH7 automated implementation and review are complete. That closure does not
 pre-check any operator box in this document: perform every applicable manual
 observation against the final branch tip and record failures without refreshing
-an owner-controlled golden.
+a committed golden. The Physics-plan automated transition lane belongs to the
+implementing phase and its retained-runtime bundle, not to this manual checklist.
 
 ## Final Sign-Off
 

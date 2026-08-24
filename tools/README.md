@@ -268,26 +268,52 @@ Physics CSV and SkullScope JSON baselines are byte-exact behavior artifacts.
 The normal physics gate uses the authored 37-body, 1,200-frame varied scene as
 its full CSV contract. The deep gate retains the older seeded solver distribution
 as an exact SHA-256 signature in `physics_known_issue_signatures.json`.
-The normal core golden is bound to `tools/physics_baseline_approval.json` by
-SHA-256. Do not copy over it directly. After reviewing an intentional behavior
-change, the repository owner approves the final Debug artifact interactively:
+The normal core golden is bound to the compatibility record
+`tools/physics_baseline_approval.json` by SHA-256. Do not copy over it directly.
+An active Physics plan has standing authority to accept an explained golden
+transition without a per-update owner prompt. First create the append-only
+old/new runtime bundle and schema-1 `manifest.json` described by
+`Agentic/Plans/Artifacts/README.md`, then invoke the content-bound writer:
 
 ```bat
-python tools\check_physics_baseline_guard.py --repo . --approve-output Debug\physics_regression_varied.csv
+python tools\check_physics_baseline_guard.py --repo . ^
+  --automated-override-output Debug\physics_regression_varied.csv ^
+  --candidate-sha256 <exact-candidate-sha256> ^
+  --artifact-manifest <transition-manifest.json>
 ```
 
-That command replaces the golden, updates the tracked approval record, and
-creates a local receipt for the exact staged pair. Stage both tracked files
-together, then rerun the matching gate:
+That command verifies the candidate SHA-256, both golden hashes, every retained
+executable/DLL hash and size, and the byte-identical copy of the new producing
+Debug executable before it writes. It replaces the golden, updates the tracked
+acceptance record, and creates a local receipt for the exact staged set. Stage
+the golden, record, and complete transition bundle together, then rerun the
+matching gate:
 
 ```bat
 tools\validate_physics.bat
 tools\validate_physics_deep.bat
 ```
 
-The commit should include both the baseline file and the validation output. A
-copied physics artifact is not considered verified until the matching physics
-gate passes against the committed baseline.
+The known-issue and SkullScope writers use
+`--automated-override-sha256 <sha256> --artifact-manifest <manifest.json>`.
+Replay visual and causal writers use
+`--physics-automated-override-sha256 <sha256> --physics-artifact-manifest
+<manifest.json>` with their existing explicit write action. These flags apply
+when an active Physics phase governs those goldens; non-Physics golden policy is
+unchanged.
+
+Deep CSV or performance goldens without a domain-specific writer use
+`check_physics_baseline_guard.py --automated-override-file <candidate>
+--golden-path <tracked-golden> --candidate-sha256 <sha256>
+--artifact-manifest <manifest.json> --producing-executable <exe>
+--configuration "Debug|x64"`. The candidate must be a separate final artifact;
+the guard writes it atomically only after the same archive checks pass.
+
+The commit includes source, tests, every changed golden, and the complete
+append-only transition bundle. The staged guard rejects missing/mismatched files
+and any later edit or deletion of an older bundle. A copied Physics artifact is
+not verified until the mapped gate passes against the committed baseline. Never
+use this lane merely to make a failing gate green.
 
 ## Exit Codes
 

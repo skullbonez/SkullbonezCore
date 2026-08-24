@@ -164,14 +164,16 @@ pinned. New chunked floating-point sums or averages require per-item staging
 and stable serial reduction, or an explicit owner decision to pin the
 validation worker count.
 
-When a determinism input changes, stop at the mismatch and report it. Physics
-CSV and SkullScope baselines are owner-controlled and must not be regenerated,
-replaced, or accepted unless the owner explicitly approves that exact oracle
-transition. After an approved refresh from the final Debug executable and
-committed scene/config state, rerun `tools\validate_physics.bat` for the core
-varied baseline or `tools\validate_physics_deep.bat` for the broader set;
+When a determinism input changes, stop at the mismatch and explain it; a passing
+determinism run alone is never permission to hide drift. An active Physics plan
+may accept a governed Physics, SkullScope, replay, visual, causal, or performance
+transition without a separate owner prompt only through the exact-candidate archived lane.
+Before replacement, preserve complete old/new executables and required DLLs in
+a new immutable bundle using `Agentic/Plans/Artifacts/README.md`. Then rerun
+`tools\validate_physics.bat` for the core varied baseline,
+`tools\validate_physics_deep.bat` for the broader set, or the owning replay gate;
 copied artifacts are not evidence until the matching gate compares them
-byte-exactly.
+byte-exactly. Non-Physics golden controls are unchanged.
 
 ## Debugging
 
@@ -198,7 +200,7 @@ The importer retains the contact stage's fixed-capacity convergence trace in
 its local SQLite cache. Request it explicitly with `solver
 --include-convergence`; the default validated `solver` packet intentionally
 omits that optional projection so adding diagnostic fields cannot silently
-redefine an owner-controlled physics query oracle.
+redefine the byte-exact physics query oracle.
 
 ## Useful Code Areas
 

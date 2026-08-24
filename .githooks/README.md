@@ -22,7 +22,7 @@ python -m pip install pre-commit
 
 | Hook | Purpose |
 |------|---------|
-| `physics-baseline-approval` | Reject a changed golden or approval record without an exact owner approval receipt |
+| `physics-baseline-transition` | Reject a changed Physics golden or retained bundle without exact content-bound transition evidence |
 | `physics-runtime-commit-gate` | Run byte-exact physics validation for the exact staged simulation inputs |
 | `trim-trailing-whitespace` | Remove trailing spaces |
 | `fix-crlf` | Normalize touched C++ files to the repository line endings |
@@ -39,7 +39,7 @@ python -m pre_commit run --all-files
 # Check specific file
 python -m pre_commit run --files SkullbonezSource/SkullbonezRun.cpp
 
-# Inspect the owner-approved golden without launching the engine
+# Inspect the accepted golden and immutable transition bundles without launching the engine
 python tools/check_physics_baseline_guard.py --repo .
 ```
 
@@ -60,10 +60,13 @@ python tools/check_physics_baseline_guard.py --repo .
 - Re-stage: `git add .`
 - Retry commit
 
-**"owner approval is required"**
-- Do not copy the generated CSV over the golden directly. The repository owner
-  reviews the generated result and runs this command in an interactive terminal:
-  `python tools/check_physics_baseline_guard.py --repo . --approve-output Debug/physics_regression_varied.csv`
+**"physics baseline transition receipt is missing"**
+- Do not copy the generated CSV over the golden directly. For an active Physics
+  plan, retain the exact old/new launch bundles and invoke the noninteractive,
+  content-bound writer:
+  `python tools/check_physics_baseline_guard.py --repo . --automated-override-output Debug/physics_regression_varied.csv --candidate-sha256 <sha256> --artifact-manifest <manifest.json>`
+- A per-transition owner phrase is not required. Missing or mismatched candidate,
+  manifest, executable, DLL, or golden hashes fail closed.
 
 **"pre-commit module is not installed"**
 - Physics enforcement still runs through the native hook. Install the optional

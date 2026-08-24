@@ -18,7 +18,9 @@ Glossary:
 
 Invariants:
   - Ordinary validation never updates the baseline; only an explicit cold
-    approval command may replace it.
+    write command may replace it.
+  - A Physics-plan replacement additionally requires the exact candidate hash
+    and an append-only retained-runtime transition manifest.
   - Config provenance prefers the approved raw hash; line-ending drift passes
     only when normalized bytes equal the config in the recorded capture commit.
   - Reveal rows are contiguous ReplayFrameIndex values 0 through 2400.
@@ -29,8 +31,9 @@ Invariants:
   - The first differing field is reported, not merely a whole-file hash.
   - This checker is read-only and cannot start a second prediction generation.
 
-The explicit --approve-baseline lane is a cold owner action used only while
-freezing a user-approved working base. The validation batch never supplies it.
+The explicit --approve-baseline lane remains the cold non-Physics owner action.
+Physics plans add --physics-automated-override-sha256 and
+--physics-artifact-manifest; the validation batch never supplies write flags.
 
 Related:
   - tools/validate_replay_visual_fidelity.bat
@@ -43,12 +46,18 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import struct
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from replay_query import ReplayQueryError, ReplayV2, VISUAL_PACKET_RECORD
+from check_physics_baseline_guard import (
+    GuardFailure,
+    sha256_bytes,
+    validate_physics_plan_transition,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -80,6 +89,55 @@ REPLAY_VISUAL_FNV_PRIME = 1099511628211
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def serialized_baseline(payload: dict[str, Any]) -> bytes:
+    return (json.dumps(payload, indent=2) + "\n").encode("utf-8")
+
+
+def validate_physics_automated_override(
+    args: argparse.Namespace,
+    baseline_path: Path,
+    payload: dict[str, Any],
+) -> bytes:
+    data = serialized_baseline(payload)
+    supplied = args.physics_automated_override_sha256
+    if supplied is None:
+        return data
+    actual = sha256_bytes(data)
+    if supplied.lower() != actual:
+        raise ValueError(
+            "Physics automated-override SHA-256 does not match the exact serialized candidate: "
+            f"expected={actual} supplied={supplied.lower()}"
+        )
+    resolved_baseline = baseline_path.resolve()
+    try:
+        relative_baseline = resolved_baseline.relative_to(ROOT.resolve()).as_posix()
+    except ValueError as exc:
+        raise ValueError("Physics automated override baseline must stay inside the repository") from exc
+    if not resolved_baseline.is_file():
+        raise ValueError("Physics automated override requires a tracked predecessor baseline")
+    producing_executable = ROOT / args.configuration / "SKULLBONEZ_CORE.exe"
+    try:
+        validate_physics_plan_transition(
+            ROOT,
+            args.physics_artifact_manifest,
+            relative_baseline,
+            sha256(resolved_baseline),
+            actual,
+            producing_executable,
+            f"{args.configuration}|x64",
+        )
+    except GuardFailure as exc:
+        raise ValueError(str(exc)) from exc
+    return data
+
+
+def write_baseline_atomic(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_bytes(data)
+    os.replace(temporary, path)
 
 
 def normalized_text_bytes(data: bytes) -> bytes:
@@ -1198,6 +1256,15 @@ def main() -> int:
     parser.add_argument("--causal-baseline", type=Path, default=DEFAULT_CAUSAL_BASELINE)
     parser.add_argument("--approve-baseline", action="store_true")
     parser.add_argument("--approve-causal-baseline", action="store_true")
+    parser.add_argument(
+        "--physics-automated-override-sha256",
+        help="exact serialized candidate SHA-256 for a Physics-plan golden transition",
+    )
+    parser.add_argument(
+        "--physics-artifact-manifest",
+        type=Path,
+        help="append-only Physics-plan golden-transition manifest.json",
+    )
     parser.add_argument("--working-base-commit", default="6a6ab4c65")
     parser.add_argument("--configuration", choices=("Debug", "Profile", "Automation"), default="Debug")
     parser.add_argument("--negative-control", action="store_true")
@@ -1213,6 +1280,16 @@ def main() -> int:
     parser.add_argument("--run-determinism-controls", action="store_true")
     parser.add_argument("--launcher-control", action="store_true")
     args = parser.parse_args()
+    if (args.physics_automated_override_sha256 is None) != (
+        args.physics_artifact_manifest is None
+    ):
+        parser.error(
+            "--physics-automated-override-sha256 and --physics-artifact-manifest are required together"
+        )
+    if args.physics_automated_override_sha256 is not None and not (
+        args.approve_baseline or args.approve_causal_baseline
+    ):
+        parser.error("Physics automated-override arguments require a baseline write action")
 
     if args.launcher_control:
         return 0 if validate_launcher_shape() else 1
@@ -1248,10 +1325,12 @@ def main() -> int:
         except ValueError as error:
             print(f"FAIL replay visual fidelity report: {error}")
             return 1
-        args.baseline.parent.mkdir(parents=True, exist_ok=True)
-        with args.baseline.open("w", encoding="utf-8", newline="\n") as stream:
-            json.dump(payload, stream, indent=2)
-            stream.write("\n")
+        try:
+            candidate_data = validate_physics_automated_override(args, args.baseline, payload)
+        except ValueError as error:
+            print(f"FAIL replay visual fidelity report: {error}")
+            return 1
+        write_baseline_atomic(args.baseline, candidate_data)
         print(
             f"APPROVED replay visual baseline: ticks={payload['tickCount']} "
             f"moved_wall_bricks={payload['finalState']['predictionMovedWallBrickCount']} "
@@ -1306,10 +1385,14 @@ def main() -> int:
         except ValueError as error:
             print(f"FAIL replay causal proof report: {error}")
             return 1
-        args.causal_baseline.parent.mkdir(parents=True, exist_ok=True)
-        with args.causal_baseline.open("w", encoding="utf-8", newline="\n") as stream:
-            json.dump(payload, stream, indent=2)
-            stream.write("\n")
+        try:
+            candidate_data = validate_physics_automated_override(
+                args, args.causal_baseline, payload
+            )
+        except ValueError as error:
+            print(f"FAIL replay causal proof report: {error}")
+            return 1
+        write_baseline_atomic(args.causal_baseline, candidate_data)
         print(
             f"APPROVED replay causal baseline: ticks={payload['tickCount']} "
             f"topology_nodes={payload['topologyCount']} path={args.causal_baseline}"

@@ -134,9 +134,17 @@ choice is an orchestration failure.
 Still stop for choices that require authority the run does not have: destructive
 or externally visible actions, security or data-loss risk, irreversible
 migrations, dependency/schema/rule changes that require owner approval,
-owner-controlled baseline or golden transitions, or a user instruction that
-explicitly says to wait. Block only the affected path and continue every
-independent safe item under Blocker Continuation.
+non-Physics baseline or golden transitions whose governing rule requires owner
+approval, or a user instruction that explicitly says to wait. Block only the
+affected path and continue every independent safe item under Blocker
+Continuation.
+
+An active Physics plan's governed goldens are not an approval blocker. Apply the
+standing archived automated lane from `AGENTS.md`: explain the behavior change,
+bind the exact candidate SHA-256, preserve complete old/new launch payloads in a
+new immutable transition bundle, rerun the mapped gate, and continue without an
+interactive phrase or per-update pre-approval. Never use that authority to
+refresh an unexplained failure.
 
 ## Live Work Ledger
 

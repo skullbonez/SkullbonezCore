@@ -22,29 +22,28 @@ and `0.075` metres demotes. Promotion equality still promotes, demotion equality
 still demotes, and neither decision depends on collider thickness. This owner
 direction activates FP2 without changing the authoritative 200-box workload.
 
-On 2026-08-22 the owner also authorized any Physics-baseline updates required
-by the accepted FP0-FP9 behavior transitions and directed the orchestrator not
-to pause for another approval. A required Physics golden change still goes
-through `tools/check_physics_baseline_guard.py --approve-output` with the exact
-candidate digest and lands atomically with the source, regression tests, and
-phase evidence. This authorization does not extend to replay, visual,
-SkullScope, or performance goldens.
+Active Physics phases have standing authority to update every golden they
+govern without a per-transition prompt, exact phrase, or separate pre-approval.
+For this plan that includes Physics, SkullScope, replay, visual, causal, and
+performance goldens whose changes derive from the FP behavior. It does not
+extend Physics authority to a non-Physics change or permit an unexplained
+refresh merely to close a gate.
 
-Every accepted phase preserves the final Debug runtime executable at
-`Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/SKULLBONEZ_CORE-Debug.exe`.
-The adjacent `manifest.md` records the phase, source commit parent, build
-configuration, executable SHA-256 and byte size, Physics-baseline SHA-256, and
-validation result. The executable is force-added because the repository's
-global `*.exe` ignore rule otherwise hides this explicitly requested evidence.
-If a phase changes the Physics baseline, the manifest records both the prior
-and accepted digests; an unchanged phase records that no golden transition was
-needed.
+Every changed golden uses an exact candidate digest and a new append-only bundle
+at `Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/golden-transitions/<transition-id>/`.
+Before replacement, preserve both the exact prior behavior and the new producer:
+all executables needed for comparison, their non-system runtime DLLs, and a
+schema-1 `manifest.json` binding the owning phase, source commits, old/new golden
+hashes, artifact paths/sizes/hashes, dependency-scan commands, and launch
+commands. Never overwrite an older bundle. The new producer becomes the prior
+behavior executable for the next transition. Source, tests, golden changes, and
+the complete bundle land atomically through the automated writer documented in
+`Agentic/Plans/Artifacts/README.md`.
 
-The 2026-08-23 FP1 launch audit proved that a lone retained executable is not a
-runnable artifact: FP0/FP1 import `WinPixEventRuntime.dll`, but their artifact
-directories do not contain it. Each Physics phase now copies the executable and
-its non-system runtime DLLs into its artifact directory, records their hashes,
-and launches that directory with a sanitized `PATH` before closure.
+The 2026-08-23 FP1 launch audit proved why this is required: a lone retained
+executable is not a runnable artifact. FP0/FP1 import `WinPixEventRuntime.dll`,
+but their original artifact directories do not contain it. Future transitions
+therefore fail closed if any declared executable/DLL hash is missing or differs.
 
 This is a major Physics-system transition, not only a ragdoll feature. Its
 non-negotiable order is:
@@ -512,8 +511,9 @@ closed independently.
    size changes and worker partition changes.
 5. Run the varied 211-body Physics regression, the 200-box wall cascade,
    projectile fixtures, dense contacts, terrain, and jointed bodies.
-6. Treat every byte difference as a behavior transition requiring owner review.
-   Do not refresh a golden merely to close this phase.
+6. Treat every byte difference as a behavior transition requiring explanation,
+   focused evidence, and the archived automated lane. Do not refresh a golden
+   merely to close this phase.
 
 ### FP3 Acceptance
 
@@ -553,8 +553,8 @@ same-workload A/B comparison.
 5. Include slow-body-heavy, mixed-speed, launcher-projectile, 200-box wall,
    dense-contact, and supported scale-matrix workloads.
 6. Require behavioral equivalence where the resolved collision path is intended
-   to be equivalent. Separately identify owner-approved differences caused by
-   removing unnecessary swept work.
+   to be equivalent. Separately identify accepted, evidence-backed differences
+   caused by removing unnecessary swept work.
 
 ### FP4 Acceptance
 
@@ -615,8 +615,8 @@ linear dimensions while still allowing the bodies to rotate around the joint.
   cases have focused tests.
 - Ragdoll sag, jitter, energy, and iteration cost are measured against both the
   pre-stage-(a) solver and the completed stage-(a) state.
-- The owner reviews the exact Physics and replay baseline transition before any
-  replacement golden is committed.
+- Every Physics or replay golden transition is exact-digest, behavior-explained,
+  and bound to an append-only old/new launch bundle before commit.
 
 ---
 
@@ -659,8 +659,8 @@ predictable across the supported fixed-step envelope.
   diagnostics.
 - Ragdoll load, free swing, impact recovery, and long-rest tests distinguish the
   new model from the removed ad-hoc multiplier.
-- Any authored-data migration and exact baseline transition receive separate
-  owner approval.
+- Any authored-data migration retains its separate schema ruling; an exact
+  golden transition uses the archived automated Physics lane.
 
 ---
 
@@ -713,7 +713,7 @@ so one convergence process owns the coupled constrained system.
 - Hot-path storage remains fixed or pre-reserved with no new runtime allocation
   privilege.
 - Physics, replay visual fidelity, and performance gates pass after any
-  owner-approved exact baseline transition.
+  archived exact golden transition.
 
 ---
 
@@ -815,7 +815,7 @@ solver changes.
 - The A/B evidence reports both cost and the correctness benefit; a cheaper
   tunnelling variant is not treated as a valid performance win.
 - Physics, replay visual fidelity, allocation, performance, and full validation
-  pass after separately approved behavior and baseline rulings.
+  pass after behavior evidence and any archived exact golden transition.
 - The owner accepts the final balance of Discrete gain, predictive cost,
   deterministic behavior, and ragdoll stability.
 

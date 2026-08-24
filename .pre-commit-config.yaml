@@ -2,8 +2,8 @@ repos:
   # Custom header/linting check
   - repo: local
     hooks:
-      - id: physics-baseline-approval
-        name: Physics Golden Owner Approval
+      - id: physics-baseline-transition
+        name: Physics Golden Transition Integrity
         entry: python tools/check_physics_baseline_guard.py --repo . --staged
         language: system
         always_run: true

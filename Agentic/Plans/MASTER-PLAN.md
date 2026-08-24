@@ -64,14 +64,17 @@ Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Compon
   and an independent ownership review finding no second retained transport,
   camera, pivot, input, or diagnostics owner.
 
-- On 2026-08-22 the owner explicitly authorized this orchestration run to make
-  required Physics-baseline transitions without pausing for another ruling.
-  Each transition must still use the repository's exact-digest approval guard,
-  describe the accepted behavior change, and land with its generating source
-  and tests. Preserve the accepted Debug executable for every FP phase under
-  `Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/` with a manifest
-  recording executable and Physics-baseline SHA-256 values. Replay, visual, and
-  performance goldens retain their separate owner controls.
+- Active Physics plans have standing authority to make their governed golden
+  transitions without a per-update prompt or another owner ruling. This covers
+  Physics, SkullScope, replay, visual, causal, and performance goldens when the
+  Physics phase owns the behavior change; non-Physics work keeps its separate
+  owner controls.
+  Each transition remains exact-digest and must explain the behavior change,
+  land with source and tests, and create a new immutable old/new launch bundle
+  under the owning Physics plan artifacts. The schema in
+  `Agentic/Plans/Artifacts/README.md` binds golden hashes, executable/DLL paths,
+  sizes, hashes, source commits, dependency scan, and launch command. Blind
+  refreshes merely to clear a gate remain forbidden.
 
 - Determinism Envelope Tier-2 Hardening is complete. Physics-visible rotation
   and vector-angle construction now use the repository-owned deterministic math
@@ -376,7 +379,7 @@ Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 2/10;
 FP0-FP1 are complete and FP2 is active under the owner-directed absolute-travel
-threshold. Its owner-approved Physics golden set, retained Debug/Profile
+threshold. Its accepted Physics golden set, retained Debug/Profile
 executables, and core/deep Physics gates are complete; the replay-visual
 terminal gate remains before FP2 closure.
 Runtime Boundary Separation And Project Topology RBS0-RBS7 is active at 7/8;

@@ -19,8 +19,10 @@
 # Invariants:
 #   - Tool output should be bounded and readable because agents and humans use
 #     it for decisions.
-#   - The default solver packet remains the owner-controlled oracle; convergence
-#     diagnostics are exercised separately through their explicit opt-in flag.
+#   - The default solver packet remains byte-exact; convergence diagnostics are
+#     exercised separately through their explicit opt-in flag.
+#   - A Physics-plan update requires an exact candidate hash and retained-runtime
+#     transition manifest before this tool writes the committed oracle.
 #
 # Related:
 #   - AGENTS.md
@@ -42,6 +44,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+
+from check_physics_baseline_guard import sha256_bytes, validate_physics_plan_transition
 
 
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
@@ -187,12 +191,32 @@ def canonical_json(packet):
     return json.dumps(packet, indent=2, sort_keys=True) + "\n"
 
 
-def compare_or_update(current_text, update):
-    if update or not BASELINE.exists():
+def compare_or_update(current_text, candidate_sha256, artifact_manifest):
+    if candidate_sha256 is not None:
+        if not BASELINE.exists():
+            raise RuntimeError("automated override requires a tracked predecessor baseline")
+        current_bytes = current_text.encode("utf-8")
+        current_digest = sha256_bytes(current_bytes)
+        if candidate_sha256.lower() != current_digest:
+            raise RuntimeError(
+                f"candidate SHA-256 does not match generated SkullScope baseline: "
+                f"expected={current_digest} supplied={candidate_sha256.lower()}"
+            )
+        previous_digest = sha256_bytes(BASELINE.read_bytes())
+        validate_physics_plan_transition(
+            REPO,
+            artifact_manifest,
+            BASELINE.relative_to(REPO).as_posix(),
+            previous_digest,
+            current_digest,
+            EXE,
+            "Debug|x64",
+        )
         BASELINE.parent.mkdir(parents=True, exist_ok=True)
-        BASELINE.write_text(current_text, encoding="utf-8")
-        action = "UPDATED" if update else "CREATED"
-        print(f"  {action}: {BASELINE.relative_to(REPO)}")
+        temporary = BASELINE.with_suffix(BASELINE.suffix + ".tmp")
+        temporary.write_bytes(current_bytes)
+        os.replace(temporary, BASELINE)
+        print(f"  AUTOMATED OVERRIDE: {BASELINE.relative_to(REPO)} ({current_digest})")
         return 0
 
     expected_text = canonical_json(normalize(json.loads(BASELINE.read_text(encoding="utf-8"))))
@@ -218,8 +242,20 @@ def compare_or_update(current_text, update):
 
 def main():
     parser = argparse.ArgumentParser(description="Check SkullScope physics query output against baseline.")
-    parser.add_argument("--update", action="store_true", help="Update the committed baseline.")
+    parser.add_argument(
+        "--automated-override-sha256",
+        help="exact candidate SHA-256 for an archived Physics-plan baseline transition",
+    )
+    parser.add_argument("--artifact-manifest", type=Path)
+    parser.add_argument("--update", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.update:
+        parser.error(
+            "--update now requires the archived automated lane; use "
+            "--automated-override-sha256 and --artifact-manifest"
+        )
+    if (args.automated_override_sha256 is None) != (args.artifact_manifest is None):
+        parser.error("--automated-override-sha256 and --artifact-manifest are required together")
 
     try:
         print("  Generating SkullScope trace from physics_bench_varied.scene.json...")
@@ -228,7 +264,9 @@ def main():
         verify_convergence_projection()
         print("  Running SkullScope query packet...")
         current_text = canonical_json(run_queries())
-        return compare_or_update(current_text, args.update)
+        return compare_or_update(
+            current_text, args.automated_override_sha256, args.artifact_manifest
+        )
     except Exception as exc:
         print(f"  FAIL: {exc}")
         return 1
