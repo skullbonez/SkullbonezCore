@@ -1,7 +1,7 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 3/10 phases complete; FP3 active after FP2 closed under motion-eligibility policy version 2.
+Status: Active by explicit owner direction. 4/10 phases complete; FP4 active after FP3 closed Discrete correctness and determinism.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
 Priority: Binding first plan; execute FP2-FP9 in strict internal order. This position allocates scarce slots
@@ -536,6 +536,42 @@ closed independently.
 - The owner explicitly records that Discrete determinism is closed before FP4
   or any later predictive phase proceeds.
 
+### FP3 Closure - 2026-08-24
+
+FP3 is closed. Commits `65fda5e94` and `cbba89a2f` made the determinism oracle
+compare exact body, pair, persistent-contact, terrain-manifold, solver,
+sleep/promotion, replay, and point-joint state, then moved the varied-scene
+worker proof into four fresh processes. This closure also requires those
+families to be non-empty and compares every ordered point-joint field directly,
+so a missing diagnostic family or hash-only joint comparison cannot create a
+false pass.
+
+`tools\validate_physics.bat --commit-gate` passed the fresh-process matrix for
+workers 0 primary, 0 repeat, 1, and 4: each produced 44,401 lines with SHA-256
+`19698d3c37bcf1e0199b539e99b2de0d0ec33ceb7fc5db2e2eee36bcc434b038`.
+The same digest remains the accepted core Physics golden; FP3 did not refresh
+it. Focused Profile witnesses pass for the multithreaded determinism,
+eligibility, promotion, replay-restore, and replay-sample families, and the full
+test executable passes 750/750 cases and 2,683,265/2,683,265 assertions.
+
+The Discrete terrain support-continuity correction in `730fc8382` closes the
+tilted terrain box sleep regression without restoring predictive behavior.
+Commit `9733cd586` archives the governed known-issue and replay-fidelity
+transitions using first-party executables only. The corresponding manifests are
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/golden-transitions/discrete-terrain-sleep-continuity-20260824/manifest.json`
+and
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/golden-transitions/discrete-terrain-replay-fidelity-20260824/manifest.json`.
+No speculative ragdoll row, predictive contact path, or predictive
+classification exists in Physics source.
+
+The direct allocation-policy checker reports 126 current repository findings.
+They are RBS7 path/allowlist fan-in debt plus the seven previously recorded
+`PhysicsMotionEligibilityStage` fixed-list mutation spellings; they are neither
+a byte-exact FP3 behavior failure nor authority to weaken the checker. RBS7 owns
+the path reconciliation, while FP4 retains the registered Physics allocation
+and performance ruling. With that explicit ownership, the Physics owner closes
+Discrete correctness and determinism and makes FP4 the active phase.
+
 ---
 
 ## FP4 — Discrete Performance A/B & Owner Ruling
@@ -838,7 +874,7 @@ solver changes.
   angular broadphase eligibility.
 - [x] **FP2 — Discrete default and automatic Swept TOI promotion.** No projectile
   tags or scene-specific continuous modes.
-- [ ] **FP3 — Discrete correctness and determinism closure.** Mandatory blocker
+- [x] **FP3 — Discrete correctness and determinism closure.** Mandatory blocker
   before any predictive implementation.
 - [ ] **FP4 — Discrete performance A/B and owner ruling.** Isolate and record the
   performance improvement.

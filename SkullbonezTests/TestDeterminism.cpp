@@ -1012,6 +1012,31 @@ void CheckTerrainManifoldOrderEqual( const PhysicsEngine& lhs, const PhysicsEngi
     }
 }
 
+void CheckPointJointOrderEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
+{
+    const auto& left = PhysicsEngine::ReadPointJointConstraints( lhs );
+    const auto& right = PhysicsEngine::ReadPointJointConstraints( rhs );
+    REQUIRE( left.size() == right.size() );
+
+    for ( std::size_t index = 0; index < left.size(); ++index )
+    {
+        const auto& leftJoint = left[index];
+        const auto& rightJoint = right[index];
+        CHECK( leftJoint.handle == rightJoint.handle );
+        CHECK( leftJoint.bodyA == rightJoint.bodyA );
+        CHECK( leftJoint.bodyB == rightJoint.bodyB );
+        CheckVectorBytesEqual( leftJoint.localAnchorA, rightJoint.localAnchorA );
+        CheckVectorBytesEqual( leftJoint.localAnchorB, rightJoint.localAnchorB );
+        CHECK( std::memcmp( &leftJoint.slack, &rightJoint.slack, sizeof( leftJoint.slack ) ) == 0 );
+        CHECK( std::memcmp( &leftJoint.stiffness, &rightJoint.stiffness, sizeof( leftJoint.stiffness ) ) == 0 );
+        CHECK( std::memcmp( &leftJoint.damping, &rightJoint.damping, sizeof( leftJoint.damping ) ) == 0 );
+        CHECK( std::memcmp( &leftJoint.accumulatedImpulse, &rightJoint.accumulatedImpulse,
+                            sizeof( leftJoint.accumulatedImpulse ) ) == 0 );
+        CHECK( leftJoint.groupId == rightJoint.groupId );
+        CHECK( leftJoint.flags == rightJoint.flags );
+    }
+}
+
 void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
 {
     CheckEngineKinematicsEqual( lhs, rhs );
@@ -1063,6 +1088,7 @@ void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const P
     // Replay-restorable solver record, not only poses and summary counters.
     CheckContactIdentityOrderEqual( lhs, rhs );
     CheckTerrainManifoldOrderEqual( lhs, rhs );
+    CheckPointJointOrderEqual( lhs, rhs );
     CheckPhysicsPipelineTraceBytesEqual( lhs, rhs );
     CHECK( CaptureSolverReplayHash( lhs ) == CaptureSolverReplayHash( rhs ) );
 }
@@ -1275,11 +1301,15 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
     // Invariant: the fixture must keep the parallel-narrowphase threshold
     // active. A geometry/filter drift to 255 pairs would otherwise let every
     // worker-count comparison pass through the serial fallback.
+    const auto serialDiagnostics = serial.GetDiagnosticsView();
     CHECK( oneWorker.GetDiagnosticsView().candidatePairs.size() == 256u );
     CHECK( fourWorkers.GetDiagnosticsView().candidatePairs.size() == 256u );
+    CHECK_FALSE( serialDiagnostics.persistentContacts.empty() );
+    CHECK_FALSE( serialDiagnostics.terrainContactManifolds.empty() );
+    CHECK_FALSE( serialDiagnostics.physicsPipelineTrace.empty() );
     CHECK( PhysicsEngine::ReadPointJointConstraints( serial ).size() == 2u );
-    CHECK( serial.GetDiagnosticsView().motionEligibilityStats.promotedBodies >= 1 );
-    CHECK( ( serial.GetDiagnosticsView().motionEligibilityState[0] &
+    CHECK( serialDiagnostics.motionEligibilityStats.promotedBodies >= 1 );
+    CHECK( ( serialDiagnostics.motionEligibilityState[0] &
              SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
     CheckEngineWorkerDeterministicStateEqual( serial, oneWorker );
     CheckEngineWorkerDeterministicStateEqual( serial, fourWorkers );
