@@ -474,30 +474,20 @@ void InjectReplaySaveProbeLauncherCoverage( RuntimeTools& runtimeTools, SceneWor
 }
 
 
-struct ReplaySaveProbeArtifactContext
-{
-    const char* path = nullptr;
-    const ReplayRecorder& presentation;
-    const ReplaySolverRecorder& solver;
-    const ReplayEventRecorder& events;
-
-    // Lifetime: the artifact probe borrows world stores only; scene lifecycle
-    // requests remain with the surrounding restore transaction.
-    SceneWorld& world;
-};
-
-
 SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                ReplaySaveProbeArtifactContext& context,
-                                                                ReplayPresentation& presentation )
+                                                                const ReplayTimeline& timeline, SceneWorld& world,
+                                                                ReplayPresentation& presentation, const char* path )
 {
     const auto ReplayProbeFailure = [&diagnostics]( const char* message )
     { return diagnostics.Failure( REPLAY_PROBE_OWNER, "%s", message ); };
 
     ReplayV2SaveResult result;
 
-    if ( !ReplayV2Artifact::SavePresentationWithSolverHashes( context.presentation, context.solver, context.events,
-                                                              context.path, &result ) )
+    // Invariant: one ReplayTimeline supplies all three recorded tracks. Taking
+    // separate recorder borrows would let a probe serialize unrelated capture
+    // generations; path is only the cold output destination.
+    if ( !ReplayV2Artifact::SavePresentationWithSolverHashes( timeline.Presentation(), timeline.Solver(),
+                                                              timeline.Events(), path, &result ) )
     {
         return ReplayProbeFailure( "replay save probe failed to write v2 presentation artifact" );
     }
@@ -525,7 +515,7 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( SkullbonezCore::
     std::vector<ReplayPresentationSample> loadedSamples;
     ReplayV2LoadResult loadResult;
 
-    if ( !ReplayV2Artifact::LoadPresentation( context.path, loadedSamples, &loadResult ) )
+    if ( !ReplayV2Artifact::LoadPresentation( path, loadedSamples, &loadResult ) )
     {
         return ReplayProbeFailure( "replay save probe failed to reload v2 presentation artifact" );
     }
@@ -577,10 +567,10 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( SkullbonezCore::
     }
 
     const int probedModelIndex = liveBody->modelRow.value;
-    const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( context.world, probedModelIndex );
+    const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( world, probedModelIndex );
     PhysicsBodyHotState probedHotState;
 
-    if ( !probedBody || !TryGetReplayProbeBodyHotState( context.world, probedModelIndex, probedHotState ) )
+    if ( !probedBody || !TryGetReplayProbeBodyHotState( world, probedModelIndex, probedHotState ) )
     {
         return ReplayProbeFailure( "replay save probe loaded an invalid live body index" );
     }
@@ -593,19 +583,19 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( SkullbonezCore::
         return ReplayProbeFailure( "replay save probe live body did not match the loaded v2 live sample" );
     }
 
-    const bool applied = ApplyReplayProbePresentationSampleForRender( context.world, presentation, selected );
+    const bool applied = ApplyReplayProbePresentationSampleForRender( world, presentation, selected );
 
     if ( !applied )
     {
         return ReplayProbeFailure( "replay save probe failed to apply the loaded v2 presentation sample" );
     }
 
-    const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( context.world, probedModelIndex );
+    const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( world, probedModelIndex );
     PhysicsBodyHotState appliedHotState;
 
-    if ( !appliedBody || !TryGetReplayProbeBodyHotState( context.world, probedModelIndex, appliedHotState ) )
+    if ( !appliedBody || !TryGetReplayProbeBodyHotState( world, probedModelIndex, appliedHotState ) )
     {
-        RestoreReplayProbeRenderInstances( context.world );
+        RestoreReplayProbeRenderInstances( world );
         return ReplayProbeFailure( "replay save probe lost the selected live body after applying the v2 sample" );
     }
 
@@ -614,15 +604,15 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( SkullbonezCore::
 
     if ( livePreservedDeltaSquared > 0.0001f )
     {
-        RestoreReplayProbeRenderInstances( context.world );
+        RestoreReplayProbeRenderInstances( world );
         return ReplayProbeFailure( "replay save probe mutated the live body while applying the v2 sample" );
     }
 
     Vector3 appliedRenderPosition;
 
-    if ( !TryPrepareReplayProbeRenderPosition( context.world, probedModelIndex, appliedRenderPosition ) )
+    if ( !TryPrepareReplayProbeRenderPosition( world, probedModelIndex, appliedRenderPosition ) )
     {
-        RestoreReplayProbeRenderInstances( context.world );
+        RestoreReplayProbeRenderInstances( world );
         return ReplayProbeFailure( "replay save probe lost the selected render instance after applying the v2 sample" );
     }
 
@@ -630,15 +620,15 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( SkullbonezCore::
 
     if ( appliedDeltaSquared > 0.0001f )
     {
-        RestoreReplayProbeRenderInstances( context.world );
+        RestoreReplayProbeRenderInstances( world );
         return ReplayProbeFailure( "replay save probe did not move the render instance to the loaded v2 sample" );
     }
 
-    RestoreReplayProbeRenderInstances( context.world );
-    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( context.world, probedModelIndex );
+    RestoreReplayProbeRenderInstances( world );
+    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( world, probedModelIndex );
     PhysicsBodyHotState restoredHotState;
 
-    if ( !restoredBody || !TryGetReplayProbeBodyHotState( context.world, probedModelIndex, restoredHotState ) )
+    if ( !restoredBody || !TryGetReplayProbeBodyHotState( world, probedModelIndex, restoredHotState ) )
     {
         return ReplayProbeFailure( "replay save probe lost the selected live body after restoring the v2 sample" );
     }
@@ -653,7 +643,7 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( SkullbonezCore::
 
     printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu solver_hashes=%llu "
             "solver_checkpoints=%llu events=%llu event_cursors=%llu bytes=%llu\n",
-            context.path, static_cast<unsigned long long>( result.sampleCount ),
+            path, static_cast<unsigned long long>( result.sampleCount ),
             static_cast<unsigned long long>( result.bodyDictionaryCount ),
             static_cast<unsigned long long>( result.solverHashCount ),
             static_cast<unsigned long long>( result.solverCheckpointCount ),
@@ -811,10 +801,8 @@ ReplayProbeTickResult ReplayRuntime::TickProbes( SceneController& sceneControlle
         }
         case ReplayProbeSaveAction::ValidateArtifact:
         {
-            ReplaySaveProbeArtifactContext artifactContext { saveRequest.path, m_timeline.Presentation(),
-                                                             m_timeline.Solver(), m_timeline.Events(), world };
-
-            result.status = ValidateReplaySaveProbeArtifact( m_resultDiagnostics, artifactContext, m_visualPresentation );
+            result.status = ValidateReplaySaveProbeArtifact( m_resultDiagnostics, m_timeline, world, m_visualPresentation,
+                                                             saveRequest.path );
             break;
         }
         case ReplayProbeSaveAction::None:

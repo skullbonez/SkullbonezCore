@@ -423,15 +423,6 @@
       "destructures_at_entry": "no"
     },
     {
-      "key": "ReplaySaveProbeArtifactContext",
-      "site": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:477",
-      "members": 5,
-      "verdict": "retain",
-      "owner": "CA0 / Runtime/App",
-      "reason": "Artifact path plus presentation, solver, event, and world snapshots are captured at one save boundary so serialization cannot combine state from different replay generations.",
-      "destructures_at_entry": "no"
-    },
-    {
       "key": "ReplaySceneTimelineResetInput",
       "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:257",
       "members": 13,
