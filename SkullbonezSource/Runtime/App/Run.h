@@ -127,6 +127,7 @@ struct InteractionAutomationFrameResult;
 struct ReplayPathPickInput;
 struct RuntimeRenderModelFrameView;
 struct RuntimeUiTextFrameFacts;
+struct OperatorUiProcessCommands;
 class SceneLoadTransaction;
 namespace ReplayOverlay
 {
@@ -255,6 +256,11 @@ class Run
     void RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha,
                                 bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive,
                                 const RuntimeFrameMetricsSnapshot& frameMetrics );
+    void ProjectSecondaryOperatorDiagnostics( UI::OperatorEditorFrameView& view, const RuntimeFrameMetricsSnapshot& frameMetrics,
+                                              const RuntimeUiTextFrameFacts& uiTextFacts, const OverlayDebugState& debug, bool shadowsEnabled,
+                                              bool cinematicRendering, const Core::CinematicRenderConfig& cinematic, RuntimeViewModel& runtimeViewModel,
+                                              RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, RenderDiagnosticsReadout& renderDiagnosticsReadout );
+    void ApplyOperatorUiProcessCommands( const OperatorUiProcessCommands& commands );
     void RunPostDrawDiagnosticsPhase( bool gameUiActive );
     void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );
     void PresentFramePhase();

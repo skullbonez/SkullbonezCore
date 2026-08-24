@@ -113,6 +113,119 @@ UiOverlayMode ProjectUiOverlayMode( OverlayMode mode )
 }
 } // namespace
 
+void Run::ProjectSecondaryOperatorDiagnostics( UI::OperatorEditorFrameView& view, const RuntimeFrameMetricsSnapshot& frameMetrics,
+                                               const RuntimeUiTextFrameFacts& uiTextFacts, const OverlayDebugState& debug, bool shadowsEnabled, bool cinematicRendering,
+                                               const Core::CinematicRenderConfig& cinematic, RuntimeViewModel& runtimeViewModel,
+                                               RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, RenderDiagnosticsReadout& renderDiagnosticsReadout )
+{
+    // Why: the secondary surface can be visible while GameUI is hidden. This
+    // cold projection samples its bounded diagnostics independently of the GPU
+    // submission decision made by RenderOperatorUiPhase.
+    runtimeViewModel = BuildOperatorRuntimeViewModel( m_sceneController.State(), m_sceneController.Scene(),
+                                                      m_sceneController.QueueSize(), m_capture.Screenshot(),
+                                                      m_config.runtimeRender.presentationInterpolation,
+                                                      uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
+
+    renderTargetPreviews = Renderer()
+                               .ResourceLifecycle()
+                               .BuildRenderTargetPreviewSnapshot( shadowsEnabled, cinematicRendering,
+                                                                  cinematicRendering &&
+                                                                      cinematic.volumetricLightingEnabled );
+
+    UI::OperatorEditorDiagnosticsView& diagnostics = view.diagnostics;
+    const Core::MainMemoryStats& mainMemory = m_diagnosticsRuntime.MainMemoryStatsSnapshot();
+    renderDiagnosticsReadout = Renderer().BuildDiagnosticsReadout();
+    diagnostics.rendererName = renderDiagnosticsReadout.rendererName.data();
+    diagnostics.drawCalls = renderDiagnosticsReadout.drawCalls;
+    diagnostics.uiDrawCalls = frameMetrics.uiDrawCalls;
+    diagnostics.workerThreadCount = m_workerPool.GetThreadCount();
+    diagnostics.maxWorkerThreadCount = Threading::WorkerPool::MaxThreadCount();
+    diagnostics.fps = frameMetrics.rollingFrameSeconds > 0.0f
+                          ? 1.0f / frameMetrics.rollingFrameSeconds
+                          : ( frameMetrics.secondsPerFrame > 0.0 ? static_cast<float>( 1.0 / frameMetrics.secondsPerFrame )
+                                                                 : 0.0f );
+    diagnostics.renderMs = ( frameMetrics.rollingRenderSeconds > 0.0f ? frameMetrics.rollingRenderSeconds
+                                                                      : frameMetrics.renderSeconds ) *
+                           1000.0f;
+    diagnostics.physicsMs = ( frameMetrics.rollingPhysicsSeconds > 0.0f ? frameMetrics.rollingPhysicsSeconds
+                                                                        : frameMetrics.physicsSeconds ) *
+                            1000.0f;
+    diagnostics.cpuFrameMs = frameMetrics.cpuFrameWorkMs;
+    diagnostics.gpuFrameMs = frameMetrics.gpuFrameWorkMs;
+
+    diagnostics.physicsDebugFlags = debug.physicsDebugFlags;
+    const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
+    int stageIndex = stageCount > 0 ? debug.physicsDebugPipelineStageCursor % stageCount : 0;
+
+    if ( stageIndex < 0 )
+    {
+        stageIndex += stageCount;
+    }
+
+    diagnostics.physicsPipelineStageIndex = stageIndex;
+    diagnostics.physicsPipelineStageCount = stageCount;
+    diagnostics.physicsPipelineStageName = PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
+    diagnostics.physicsDebugAlpha = debug.physicsDebugAlpha;
+    diagnostics.physicsDebugContactLinger = debug.physicsDebugContactLinger;
+    diagnostics.rayCastImpulseStrength = m_runtimeTools.RayCastTest().impulseStrength;
+    diagnostics.launcherProjectileSpeed = m_runtimeTools.RayCastTest().projectileSpeed;
+    diagnostics.collisionVisualizer = debug.isCollisionVisualizer;
+    diagnostics.physicsDebugTransparent = debug.isPhysicsDebugTransparent;
+    diagnostics.broadphaseOverlay = debug.isBroadphaseOverlay;
+    diagnostics.tornadoVisualShell = m_sceneController.Scene().Tornado().VisualSettings().enabled;
+    diagnostics.tornadoFieldVectors = m_sceneController.Scene().Tornado().GetFieldConfig().visualizeVelocityField;
+    diagnostics.rayCastVisualization = m_runtimeTools.RayCastTest().visualizeRays;
+    diagnostics.trackedEngineBytes = mainMemory.trackedEngineBytes;
+    diagnostics.reconciledTotalBytes = mainMemory.reconciledTotalBytes;
+    diagnostics.uploadUsedBytes = renderDiagnosticsReadout.memory.uploadUsedBytes;
+    diagnostics.uploadCapacityBytes = renderDiagnosticsReadout.memory.uploadCapacityBytes;
+    diagnostics.replayReserveGrowthEvents = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
+    diagnostics.renderTargetCount = (std::min)( renderTargetPreviews.count, UI::OPERATOR_EDITOR_RENDER_TARGET_CAPACITY );
+
+    for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
+    {
+        const RuntimeRenderTargetPreview& source = renderTargetPreviews.targets[static_cast<size_t>( index )];
+        diagnostics.renderTargets[index] = { source.label,  source.width,
+                                             source.height, source.available && source.textureHandle != 0u,
+                                             source.depth,  source.hdr };
+    }
+}
+
+void Run::ApplyOperatorUiProcessCommands( const OperatorUiProcessCommands& commands )
+{
+    // App applies native-surface and process effects only after both presenters
+    // have released their borrows of the immutable operator snapshot.
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
+    if ( commands.surface == OperatorUiSurfaceCommand::ShowGameUi )
+    {
+        SelectDevelopmentUiSurface( DevelopmentUiMode::GameUI );
+    }
+
+    if ( commands.requestTracyStandardCapture )
+    {
+        bool tracyStarted = false;
+#if defined( TRACY_ENABLE )
+
+        if ( m_tracyClientOwner )
+        {
+            CoreAllocation::RuntimeAllocationScope tracyStartScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+            tracyStarted = m_tracyClientOwner->StartStandardCapture();
+
+            if ( tracyStarted )
+            {
+                m_workerPool.Initialise( m_config.runtimeCapacity.workerThreads );
+                m_workerPool.BindProfiler( m_profiler );
+            }
+        }
+#endif
+        m_imguiEditor.ReportTracyClientStartResult( tracyStarted );
+    }
+#else
+    (void)commands;
+#endif
+}
+
 void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha,
                                  bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive,
                                  const RuntimeFrameMetricsSnapshot& frameMetrics )
@@ -245,84 +358,9 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     if ( operatorEditorView.surfaces.secondaryVisible )
     {
-        // Why: the secondary surface can be visible while GameUI is
-        // hidden. Sample its bounded authoring/diagnostic values here instead
-        // of making ImGui depend on whether the GameUI text pass happens to run.
-        runtimeViewModel = BuildOperatorRuntimeViewModel( sceneController.State(), sceneController.Scene(),
-                                                          sceneController.QueueSize(), m_capture.Screenshot(),
-                                                          config.runtimeRender.presentationInterpolation,
-                                                          uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
-
-        renderTargetPreviews = renderer.ResourceLifecycle()
-                                   .BuildRenderTargetPreviewSnapshot( sharedShadows, sharedCinematicRendering,
-                                                                      sharedCinematicRendering &&
-                                                                          sharedCinematic.volumetricLightingEnabled );
-
-        SkullbonezCore::UI::OperatorEditorDiagnosticsView& diagnostics = operatorEditorView.diagnostics;
-
-        // Invariant: the right rail reads fixed snapshots and cached counters;
-        // opening Diagnostics must not trigger an allocation scan or grow data.
-        const SkullbonezCore::Core::MainMemoryStats& mainMemory = diagnosticsRuntime.MainMemoryStatsSnapshot();
-        renderDiagnosticsReadout = renderer.BuildDiagnosticsReadout();
-        diagnostics.rendererName = renderDiagnosticsReadout.rendererName.data();
-        diagnostics.drawCalls = renderDiagnosticsReadout.drawCalls;
-        diagnostics.uiDrawCalls = frameMetrics.uiDrawCalls;
-        diagnostics.workerThreadCount = workerPool.GetThreadCount();
-        diagnostics.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
-        diagnostics.fps = frameMetrics.rollingFrameSeconds > 0.0f
-                              ? 1.0f / frameMetrics.rollingFrameSeconds
-                              : ( frameMetrics.secondsPerFrame > 0.0
-                                      ? static_cast<float>( 1.0 / frameMetrics.secondsPerFrame )
-                                      : 0.0f );
-        diagnostics.renderMs = ( frameMetrics.rollingRenderSeconds > 0.0f ? frameMetrics.rollingRenderSeconds
-                                                                          : frameMetrics.renderSeconds ) *
-                               1000.0f;
-
-        diagnostics.physicsMs = ( frameMetrics.rollingPhysicsSeconds > 0.0f ? frameMetrics.rollingPhysicsSeconds
-                                                                            : frameMetrics.physicsSeconds ) *
-                                1000.0f;
-
-        diagnostics.cpuFrameMs = frameMetrics.cpuFrameWorkMs;
-        diagnostics.gpuFrameMs = frameMetrics.gpuFrameWorkMs;
-        diagnostics.physicsDebugFlags = debug.physicsDebugFlags;
-        const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
-        int stageIndex = stageCount > 0 ? debug.physicsDebugPipelineStageCursor % stageCount : 0;
-
-        if ( stageIndex < 0 )
-        {
-            stageIndex += stageCount;
-        }
-
-        diagnostics.physicsPipelineStageIndex = stageIndex;
-        diagnostics.physicsPipelineStageCount = stageCount;
-        diagnostics.physicsPipelineStageName = PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
-
-        diagnostics.physicsDebugAlpha = debug.physicsDebugAlpha;
-        diagnostics.physicsDebugContactLinger = debug.physicsDebugContactLinger;
-        diagnostics.rayCastImpulseStrength = runtimeTools.RayCastTest().impulseStrength;
-        diagnostics.launcherProjectileSpeed = runtimeTools.RayCastTest().projectileSpeed;
-        diagnostics.collisionVisualizer = debug.isCollisionVisualizer;
-        diagnostics.physicsDebugTransparent = debug.isPhysicsDebugTransparent;
-        diagnostics.broadphaseOverlay = debug.isBroadphaseOverlay;
-        diagnostics.tornadoVisualShell = sceneController.Scene().Tornado().VisualSettings().enabled;
-        diagnostics.tornadoFieldVectors = sceneController.Scene().Tornado().GetFieldConfig().visualizeVelocityField;
-        diagnostics.rayCastVisualization = runtimeTools.RayCastTest().visualizeRays;
-        diagnostics.trackedEngineBytes = mainMemory.trackedEngineBytes;
-        diagnostics.reconciledTotalBytes = mainMemory.reconciledTotalBytes;
-        diagnostics.uploadUsedBytes = renderDiagnosticsReadout.memory.uploadUsedBytes;
-        diagnostics.uploadCapacityBytes = renderDiagnosticsReadout.memory.uploadCapacityBytes;
-        diagnostics
-            .replayReserveGrowthEvents = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventCount();
-        diagnostics.renderTargetCount = (std::min)( renderTargetPreviews.count,
-                                                    SkullbonezCore::UI::OPERATOR_EDITOR_RENDER_TARGET_CAPACITY );
-
-        for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
-        {
-            const RuntimeRenderTargetPreview& source = renderTargetPreviews.targets[static_cast<size_t>( index )];
-            diagnostics.renderTargets[index] = { source.label,  source.width,
-                                                 source.height, source.available && source.textureHandle != 0u,
-                                                 source.depth,  source.hdr };
-        }
+        ProjectSecondaryOperatorDiagnostics( operatorEditorView, frameMetrics, uiTextFacts, debug, sharedShadows,
+                                             sharedCinematicRendering, sharedCinematic, runtimeViewModel,
+                                             renderTargetPreviews, renderDiagnosticsReadout );
     }
 
     const bool replayPathVisualizerHasTarget = replayRuntime.BuildInputView().hasPathTarget;
@@ -565,38 +603,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
         SB_FATAL( "OperatorUI", "Operator UI phase failed to complete after command emission." );
     }
 
-    // App alone applies process and native-surface effects after both UI
-    // presenters have finished consuming the immutable phase snapshot.
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
-    if ( operatorUiPhase.Commands().surface == OperatorUiSurfaceCommand::ShowGameUi )
-    {
-        SelectDevelopmentUiSurface( DevelopmentUiMode::GameUI );
-    }
-#endif
-
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
-    if ( operatorUiPhase.Commands().requestTracyStandardCapture )
-    {
-        bool tracyStarted = false;
-#if defined( TRACY_ENABLE )
-
-        if ( m_tracyClientOwner )
-        {
-            CoreAllocation::RuntimeAllocationScope tracyStartScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
-            tracyStarted = m_tracyClientOwner->StartStandardCapture();
-
-            if ( tracyStarted )
-            {
-                m_workerPool.Initialise( m_config.runtimeCapacity.workerThreads );
-                m_workerPool.BindProfiler( m_profiler );
-            }
-        }
-#endif
-        m_imguiEditor.ReportTracyClientStartResult( tracyStarted );
-    }
-#endif
+    ApplyOperatorUiProcessCommands( operatorUiPhase.Commands() );
 }
 
 
