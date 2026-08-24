@@ -485,7 +485,8 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( SkullbonezCore::
 
     // Invariant: one ReplayTimeline supplies all three recorded tracks. Taking
     // separate recorder borrows would let a probe serialize unrelated capture
-    // generations; path is only the cold output destination.
+    // generations. The path names one cold artifact identity used for both the
+    // write and the reload validation below.
     if ( !ReplayV2Artifact::SavePresentationWithSolverHashes( timeline.Presentation(), timeline.Solver(),
                                                               timeline.Events(), path, &result ) )
     {
