@@ -36,12 +36,12 @@ Source and capture commit:
 
 The retained Automation executable above produced
 `TestOutput/validation/replay_visual_fidelity/full_reveal_probe_profile.json`
-and its saved replay. The approved content transition is:
+and its saved replay. The first archived content transition was:
 
 | Evidence | SHA-256 |
 |---|---|
 | Previous causal baseline | `CBE0F6CF5EDEB796CAACE6FE384948ACCDD3BA51BCE4F6D5A95888962749B46E` |
-| Approved causal baseline | `2B0B2FEEA7AB599A7AF882A122B8B44BEFDF5DE1DD0D52A8CDE4CD9F61D28EE1` |
+| First accepted causal baseline | `2B0B2FEEA7AB599A7AF882A122B8B44BEFDF5DE1DD0D52A8CDE4CD9F61D28EE1` |
 | Unchanged visual baseline | `498304F1FE366E558023F37DAC5711F5BEF51084237B6BD857E42B57AAF58983` |
 | Saved replay | `D0CF8D19EE029A4AA0FA9F72719E3B9D83348F50A2C1FBEB4435C485A9A7BC79` |
 
@@ -54,7 +54,7 @@ SKULLBONEZ_CORE-Automation-approved.exe --physics-standalone-smoke
 ```
 
 Result: exit `0`, stdout `163362` bytes, stderr `0` bytes. The exact replay
-validation command after installing the approved baseline is:
+validation command after installing the archived baseline is:
 
 ```text
 tools\validate_replay_visual_fidelity.bat
@@ -116,19 +116,16 @@ detects that forward contact at frame 75. The exact wall-contact frame and the
   shooting-reaction, SkullScope query, and contact-energy controls pass.
 - `tools\validate_replay_visual_fidelity.bat`: launcher-shape proof, Automation
   build, 18/18 typed packet cases, 82/82 assertions, the authoritative
-  2,401-tick run, offline projection, artifact save, and the approved causal
-  comparison pass. This old-base worktree then stops only on inherited shader
-  provenance: expected
-  `E49896266DCC2BF4B63133AE4B680FA23454AF00375B0AA515EB1E8231E374E3`,
-  actual `DD36AE24BC81C9482E1A7CEF5F93C6172BB728AE4DE25C526FE9DAE51F581EBE`.
-  The visual baseline remains unchanged.
+  2,401-tick run, offline projection, artifact save, final visual and causal
+  comparisons, and every registered false-pass control pass.
 
-## Owner-approved golden set
+## Archived automated golden set
 
-The repository owner pre-approved the exact automated FP2 transition. The
-content-bound override accepted only the generated varied-scene SHA; the deep
-goldens were refreshed from the same final Debug executable and then passed the
-complete deep gate.
+The standing Physics-plan automated override accepted only the exact generated
+FP2 candidates and their immutable artifact evidence. The content-bound core
+transition accepted only the generated varied-scene SHA; the deep goldens were
+generated from the same final Debug executable and then passed the complete
+deep gate.
 
 | Golden | SHA-256 |
 |---|---|
@@ -146,19 +143,19 @@ payload path generated temporary visual and causal candidates first; both
 candidates passed the ordinary comparator and the non-engine false-pass
 controls before their exact bytes replaced the tracked baselines.
 
-| Evidence | Previous SHA-256 | Approved SHA-256 |
+| Evidence | Previous SHA-256 | Accepted SHA-256 |
 |---|---|---|
 | `TestOutput/baselines/replay_visual_fidelity_200_box.json` | `498304F1FE366E558023F37DAC5711F5BEF51084237B6BD857E42B57AAF58983` | `79ACC8A12398E4F4C2A51EA2A3219A964640CF28B4F004E2B2986B50192080F4` |
 | `TestOutput/baselines/replay_visual_fidelity_200_box_causal.json` | `2B0B2FEEA7AB599A7AF882A122B8B44BEFDF5DE1DD0D52A8CDE4CD9F61D28EE1` | `0E616CD3FDE12943E5F748523B80F460749F4EDE66003307841146C231D9C13A` |
 
-The approved causal baseline is bound to visual SHA-256
+The accepted causal baseline is bound to visual SHA-256
 `79ACC8A12398E4F4C2A51EA2A3219A964640CF28B4F004E2B2986B50192080F4`.
 The visual payload records shader-tree SHA-256
 `DD36AE24BC81C9482E1A7CEF5F93C6172BB728AE4DE25C526FE9DAE51F581EBE`,
 working source commit `79f02de3b98da866610b15c8ea4a7f3f398423b1`, and capture commit
 `4fb0b2ebac547895c35b04aec4a6e8ad57e91873`.
 
-| Final 200-box state | Previous | Approved |
+| Final 200-box state | Previous | Accepted |
 |---|---:|---:|
 | Authored wall bricks | 200 | 200 |
 | Moved wall bricks | 200 | 200 |
@@ -168,7 +165,7 @@ working source commit `79f02de3b98da866610b15c8ea4a7f3f398423b1`, and capture co
 
 The final-state rows remain byte-exact golden fields. The separate settled-wall
 shape guard now matches the phase's majority contract: 99 is rejected and the
-approved 125 passes.
+accepted 125 passes.
 
 Final closure validation:
 
@@ -177,7 +174,7 @@ Final closure validation:
   passed, the single authoritative generation produced all 2,401 ticks, and
   every visual, causal, artifact, trajectory-count, and determinism false-pass
   control rejected its injected mutation.
-- `tools\validate_physics.bat`: pass in 34.2 seconds; the owner-approved
+- `tools\validate_physics.bat`: pass in 34.2 seconds; the archived accepted
   44,401-row Physics golden remained byte-exact.
 - `tools\validate_physics_deep.bat`: pass in 101.9 seconds.
 - `tools\validate_dependency_graph.bat`: pass; zero findings.

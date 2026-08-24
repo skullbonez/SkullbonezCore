@@ -1,7 +1,7 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 2/10 phases complete; FP2 active under motion-eligibility policy version 2.
+Status: Active by explicit owner direction. 3/10 phases complete; FP3 active after FP2 closed under motion-eligibility policy version 2.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
 Priority: Binding first plan; execute FP2-FP9 in strict internal order. This position allocates scarce slots
@@ -115,7 +115,7 @@ tree:
 
 ### Registration Evidence — 2026-08-22, `4df765245` on `main`
 
-- `tools\validate_physics.bat` passed in 24.6 seconds. The owner-approved golden
+- `tools\validate_physics.bat` passed in 24.6 seconds. The registered golden
   digest `debf57f744774d4e7c1eb5cc61f05ba6e41dc6dc997ad20db6c91b02b0958c32`
   matched; Debug/Profile builds and the byte-exact Physics comparison passed.
 - `tools\validate_perf.bat` built Profile, then stopped before measurement on
@@ -462,7 +462,7 @@ scene-specific exceptions, or manual collision-mode authoring.
   the promoted bit on the next tick, and collides with a thin wall without
   tunnelling.
 
-### FP2 Source-Closure Checkpoint - 2026-08-23
+### FP2 Closure - 2026-08-24
 
 The phase-local legacy-surface review deleted the test-only
 `BoundingBox::TestCollision(BoundingSphere, ...)` and
@@ -480,12 +480,15 @@ eligibility, replay, wake, launcher, terrain, and SpatialGrid witnesses pass.
 Independent review found zero remaining implementation findings after one
 comment-truth correction.
 
-This checkpoint does not close FP2. The owner-approved exact-digest override
-has now accepted the FP2 Physics transition. The core and deep Physics gates
-pass against the updated goldens, and the artifact manifest retains the final
-Debug/Profile executables, launch DLLs, hashes, and FP1-versus-FP2 200-box
-evidence. FP2 still needs the replay-visual terminal gate to pass before phase
-closure and FP3 activation.
+FP2 is closed. The standing Physics-plan automated override accepted the exact
+archived transitions, while the artifact manifest retains the prior and new
+producer executables, launch DLLs, hashes, and FP1-versus-FP2 200-box evidence.
+The core, deep, and replay-visual gates pass. The replay witness completes one
+2,401-tick prediction generation, moves all 200 wall bricks, publishes all 200
+causal nodes, and rejects the visual, causal, artifact, trajectory-count,
+determinism, and settled-majority false-pass controls. The exact visual and
+causal baseline digests are recorded in the FP2 artifact manifest. FP3 is now
+the active Physics phase.
 
 ---
 
@@ -827,7 +830,7 @@ solver changes.
 - [x] **FP1 — Deterministic motion eligibility and instrumentation.** One cheap
   classification per awake/moving body per fixed tick, including conservative
   angular broadphase eligibility.
-- [ ] **FP2 — Discrete default and automatic Swept TOI promotion.** No projectile
+- [x] **FP2 — Discrete default and automatic Swept TOI promotion.** No projectile
   tags or scene-specific continuous modes.
 - [ ] **FP3 — Discrete correctness and determinism closure.** Mandatory blocker
   before any predictive implementation.

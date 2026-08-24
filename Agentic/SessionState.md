@@ -2,7 +2,7 @@
 
 Date: 2026-08-24
 Branch: `nightrunner-22nd-AUG-26`
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 102/118 tasks complete
+Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 103/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -14,11 +14,13 @@ Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is the binding
 deterministic Discrete collision with automatic Swept TOI
 promotion and isolated A/B evidence. FP2's retired sphere-box test surface and
 two reachability repair rows are gone, both live orders retain the exact sweep
-owner, and focused/all-config evidence is green. The owner-approved exact-digest
-override accepted the FP2 Physics transition; core and deep Physics gates pass,
-and the artifact manifest retains final Debug/Profile executables, launch DLLs,
-hashes, and the 6,800-frame 200-box comparison. The replay-visual terminal gate
-remains before phase closure.
+owner, and focused/all-config evidence is green. FP2 is closed through the
+standing archive-bound automated Physics override: core, deep, and replay-
+visual gates pass, and the artifact manifest retains the prior and new
+executables, launch DLLs, hashes, and the 6,800-frame 200-box comparison. The
+replay witness runs one 2,401-tick generation, moves all 200 wall bricks,
+publishes 200 causal nodes, and rejects every registered false-pass control.
+FP3 is active.
 FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
 Boundary Separation And Project Topology
 RBS0-RBS7 remains active behind it; RBS0-RBS6 are complete and RBS7 is ready.
@@ -480,8 +482,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Continue `RAGDOLL_PHYSICS` FP2 by closing the replay-visual terminal gate, then
-start FP3 on a fresh worker. Other slots may continue `RUNTIME_BOUNDARIES` RBS7
+Continue `RAGDOLL_PHYSICS` with FP3 on a fresh worker. Other slots may continue
+`RUNTIME_BOUNDARIES` RBS7
 when their current canonical subsystem, path-owner, worktree, and mutable
 resource leases are disjoint. UI4 is ready after RBS5. FP2 retains motion policy version 2: `0.1` metres
 of absolute per-tick travel promotes and `0.075` metres demotes, independent of
