@@ -497,7 +497,7 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp",
+      "file": "SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp",
       "signature": "ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )",
       "owner": "Replay prediction path presentation",
       "disposition": "retain-owner",
@@ -602,15 +602,6 @@
       "disposition": "retain-owner",
       "reason": "Deliberate compatibility seam for presentation-only artifacts.",
       "evidence": "TestReplayArtifact creates deterministic, legacy, and adversarial presentation-only artifacts. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=2/3; symbols=?SavePresentation@ReplayV2Artifact@Runtime@SkullbonezCore@@SA_NAEBVReplayRecorder@23@PEBDPEAUReplayV2SaveResult@23@@Z",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
-      "signature": "SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer, SceneLoadTransaction& transaction )",
-      "owner": "SceneLoadTransaction load phase",
-      "disposition": "retain-owner",
-      "reason": "Concrete load implementation borrowed by the invariant-owning transaction.",
-      "evidence": "SceneLoadTransaction::Load advances phase then calls this exact overload with itself. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=8; required_arity=12/12; symbols=?Load@SceneController@Runtime@SkullbonezCore@@AEAA?AVSbResult@Core@3@AEBUSceneLoadRequest@23@AEAVEngineConfig@53@AEAURunLaunchOptions@23@AEBUCinematicRenderConfig@53@AEBURunStartupState@23@AEAVAssetSystem@Assets@3@AEAVWorkerPool@Threading@3@AEAVDiagnosticsRuntime@23@PEAVDx12FrameOwner@Rendering@3@PEAVDx12ResourceBuilder@Rendering@3@AEAVRuntimeRenderer@23@AEAVSceneLoadTransaction@23@@Z",
       "plan": ""
     },
     {

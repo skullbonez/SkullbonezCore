@@ -106,25 +106,6 @@ void Window::UpdateProjectionForCurrentClient()
 }
 
 
-void Window::PushEvent( const NativeHostEvent& event )
-{
-    if ( m_eventCount >= m_events.size() )
-    {
-        SB_FATAL( "Runtime/Startup/Window", "Native event queue exhausted capacity=%zu", m_events.size() );
-    }
-
-    const std::size_t write = ( m_eventRead + m_eventCount ) % m_events.size();
-    m_events[write] = event;
-    ++m_eventCount;
-}
-
-
-NativeHostMessageRoute Window::ActiveRoute() const noexcept
-{
-    return m_dispatchActive ? m_activeRoute : NativeHostMessageRoute {};
-}
-
-
 bool Window::PeekNativeMessage( NativeHostMessage& message )
 {
     MSG native = {};
@@ -223,7 +204,19 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
     // this WndProc ABI seam; the window object retains lifetime authority.
     Window* window = reinterpret_cast<Window*>( GetWindowLongPtr( windowHandle, GWLP_USERDATA ) );
 
-    const NativeHostMessageRoute route = window ? window->ActiveRoute() : NativeHostMessageRoute {};
+    const NativeHostMessageRoute route = window && window->m_dispatchActive ? window->m_activeRoute
+                                                                            : NativeHostMessageRoute {};
+    const auto pushEvent = []( Window& owner, const NativeHostEvent& event )
+    {
+        if ( owner.m_eventCount >= owner.m_events.size() )
+        {
+            SB_FATAL( "Runtime/Startup/Window", "Native event queue exhausted capacity=%zu", owner.m_events.size() );
+        }
+
+        const std::size_t write = ( owner.m_eventRead + owner.m_eventCount ) % owner.m_events.size();
+        owner.m_events[write] = event;
+        ++owner.m_eventCount;
+    };
 
     // Window callbacks cannot propagate failures through Win32. Engine-owned
     // operations invoked here use explicit result/fatal lanes.
@@ -249,7 +242,7 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
             const int height = HIWORD( lParam );
             window->m_sWindowDimensions.x = width;
             window->m_sWindowDimensions.y = height;
-            window->PushEvent( NativeHostEvent { NativeHostEventType::Resize, windowHandle, width, height } );
+            pushEvent( *window, NativeHostEvent { NativeHostEventType::Resize, windowHandle, width, height } );
         }
 
         break;
@@ -269,7 +262,8 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
 
         if ( window && GetForegroundWindow() == windowHandle )
         {
-            window->PushEvent( NativeHostEvent { NativeHostEventType::MouseWheel, windowHandle, GET_WHEEL_DELTA_WPARAM( wParam ) } );
+            pushEvent( *window,
+                       NativeHostEvent { NativeHostEventType::MouseWheel, windowHandle, GET_WHEEL_DELTA_WPARAM( wParam ) } );
         }
 
         break;
@@ -291,10 +285,10 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
              raw.header.dwType == RIM_TYPEMOUSE )
         {
             const RAWMOUSE& mouse = raw.data.mouse;
-            window->PushEvent( NativeHostEvent { NativeHostEventType::RawMouse, windowHandle,
-                                                 static_cast<int>( mouse.lLastX ), static_cast<int>( mouse.lLastY ),
-                                                 ( mouse.usFlags & MOUSE_MOVE_ABSOLUTE ) != 0,
-                                                 ( mouse.usFlags & MOUSE_VIRTUAL_DESKTOP ) != 0 } );
+            pushEvent( *window,
+                       NativeHostEvent { NativeHostEventType::RawMouse, windowHandle, static_cast<int>( mouse.lLastX ),
+                                         static_cast<int>( mouse.lLastY ), ( mouse.usFlags & MOUSE_MOVE_ABSOLUTE ) != 0,
+                                         ( mouse.usFlags & MOUSE_VIRTUAL_DESKTOP ) != 0 } );
         }
 
         break;

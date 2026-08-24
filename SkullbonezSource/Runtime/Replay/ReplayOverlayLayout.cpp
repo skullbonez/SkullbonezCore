@@ -70,19 +70,6 @@ ReplayOverlayControl* ReplayOverlaySurface::Find( ReplayOverlayControlId id ) no
     return nullptr;
 }
 
-const ReplayOverlayControl* ReplayOverlaySurface::Find( ReplayOverlayControlId id ) const noexcept
-{
-    for ( std::size_t index = 0; index < controlCount; ++index )
-    {
-        if ( controls[index].id == id )
-        {
-            return &controls[index];
-        }
-    }
-
-    return nullptr;
-}
-
 void ReplayOverlaySurface::ResolvePointer( int pointerX, int pointerY, bool pointerBlocked ) noexcept
 {
     hotControl = {};

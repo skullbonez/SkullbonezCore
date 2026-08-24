@@ -94,7 +94,6 @@ class CaptureController
   public:
     explicit CaptureController( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept;
     RunScreenshotState& Screenshot();
-    const RunScreenshotState& Screenshot() const;
 
     void ResetScreenshot();
     void DisableAutomationExit();

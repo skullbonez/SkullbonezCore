@@ -48,13 +48,6 @@ RunScreenshotState& CaptureController::Screenshot()
     return m_screenshot;
 }
 
-
-const RunScreenshotState& CaptureController::Screenshot() const
-{
-    return m_screenshot;
-}
-
-
 void CaptureController::ResetScreenshot()
 {
     m_screenshot = {};

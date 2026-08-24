@@ -102,9 +102,6 @@ class Window
     NativeHostMessageRoute m_activeRoute;
     bool m_dispatchActive = false;
 
-    void PushEvent( const NativeHostEvent& event );
-    NativeHostMessageRoute ActiveRoute() const noexcept;
-
   public:
     explicit Window( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );                                         // Startup constructs the single runtime window owner.
     ~Window();                                                                                                             // Native teardown is explicit in Runtime/App/Init.cpp cleanup.

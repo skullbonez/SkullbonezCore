@@ -102,7 +102,6 @@ struct ReplayOverlaySurface
     void Reset() noexcept;
     bool TryAdd( const ReplayOverlayControl& control ) noexcept;
     ReplayOverlayControl* Find( ReplayOverlayControlId id ) noexcept;
-    const ReplayOverlayControl* Find( ReplayOverlayControlId id ) const noexcept;
     void ResolvePointer( int pointerX, int pointerY, bool pointerBlocked = false ) noexcept;
 };
 
