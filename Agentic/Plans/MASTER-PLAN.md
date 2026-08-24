@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-25
-Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 109/118 tasks complete
+Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 110/118 tasks complete
 
 ## Owner Direction
 
@@ -292,7 +292,7 @@ Completed plan files were deleted; git history is the archive.
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 4 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 8 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 7 | `TODO/game-ui-component-library-separation.md` |
-| Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 1 | `TODO/recorded-interaction-playback-cursor.md` |
+| Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 2 | `TODO/recorded-interaction-playback-cursor.md` |
 
 ## Parked, Backlog, And Completed Plans
 
@@ -366,7 +366,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-109/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
+110/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
 first, Runtime Boundary Separation And Project Topology second, Game UI Component
 Library Separation third, and Recorded Interaction Playback Cursor fourth.
 Causal C0-C8, Determinism T0-T8,
@@ -402,11 +402,11 @@ baselines; independent reviewer `01a03529-b219-7d82-9550-fef25af0fe31`
 returned CLEAN. The inherited causal-depth oracle and historical Physics
 performance baseline remain external recorded failures, not UI6 passes or
 refresh authority.
-Recorded Interaction Playback Cursor RIC0-RIC3 is active at 1/4. RIC0 ratified
-the full replayed-logical visibility matrix, screenshot-inclusive topmost draw
-point, Automation-owned detached-value shape, and two-triangle geometry without
-adding publication, drawing, retained state, or a native cursor dependency.
-Its focused policy and native non-interference tests pass 3/3 cases and 27/27
-assertions; RIC1 publication is next.
+Recorded Interaction Playback Cursor RIC0-RIC3 is active at 2/4. RIC1 publishes
+one Automation-owned, trivially copyable pointer value from the exact recorded
+input mapping, filters one RunFrame stack copy through replayed logical facts,
+and clears every terminal/cursorless transition without retained state, native
+cursor reads or writes, schema/storage change, or allocation. Focused RIC0/RIC1
+tests pass 6/6 cases and 91/91 assertions; RIC2 topmost drawing is next.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.
