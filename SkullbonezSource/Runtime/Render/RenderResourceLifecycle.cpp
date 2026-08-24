@@ -69,6 +69,8 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
     {
         RecreateHelperOwner,
         RegisterBuiltInSources,
+        PrepareInitialRasterShaderBytecode,
+        PrepareInitialPrimitiveVisibleShader,
         RebuildTextures
     };
     struct RebuildPhase
@@ -79,6 +81,8 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
     const RebuildPhase rebuildSteps[] = {
         { "recreate_helper_owner", RebuildStep::RecreateHelperOwner },
         { "register_builtin_source_records", RebuildStep::RegisterBuiltInSources },
+        { "prepare_initial_raster_shader_bytecode", RebuildStep::PrepareInitialRasterShaderBytecode },
+        { "prepare_initial_primitive_visible_shader", RebuildStep::PrepareInitialPrimitiveVisibleShader },
         { "rebuild_textures_from_source_assets", RebuildStep::RebuildTextures },
     };
 
@@ -94,6 +98,24 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
         case RebuildStep::RegisterBuiltInSources:
             m_assets.RegisterBuiltInSourceAssets( m_config );
             break;
+        case RebuildStep::PrepareInitialRasterShaderBytecode:
+        {
+            // Why: all first-frame shader variants are a finite backend
+            // contract even though their pass owners remain lazy. Manifest IO
+            // and verification belong to this explicit cold rebuild step.
+            CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
+            renderResources.PrepareInitialRasterShaderBytecode();
+            break;
+        }
+        case RebuildStep::PrepareInitialPrimitiveVisibleShader:
+        {
+            // Why: the primitive owner retains the one visible shader shared by
+            // its first sphere, box, and pine batches. Keep only its shader-object
+            // construction in cold backend setup; all other resources stay lazy.
+            CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
+            m_primitiveBatches->PrepareInitialVisibleShader( m_config.ordinaryRender );
+            break;
+        }
         case RebuildStep::RebuildTextures:
         {
             const SkullbonezCore::Core::SbResult textureResult = m_textures.RebuildTexturesFromSourceAssets();

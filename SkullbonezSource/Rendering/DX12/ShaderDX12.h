@@ -6,7 +6,8 @@ Purpose:
 Summary:
   A shader owns verified vertex/pixel bytecode plus a reflected constant layout.
   Draw code writes named values into its CPU byte copy, then flushes that copy
-  through the frame upload owner before binding the pipeline.
+  through the frame upload owner before binding the pipeline. Ordinary creation
+  borrows backend-cached bytecode; explicit reload verifies a fresh generation.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -100,6 +101,7 @@ class ShaderDX12
 #endif
 
     bool ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName );
+    bool CompileInternal( const char* hlslPath, const char* contractBaseName, bool useManifestCache );
     bool ValidateReflectedContract( std::string& outError ) const;
     const UniformInfo* FindUniformInfo( const char* name ) const;
 #ifdef _DEBUG
