@@ -939,6 +939,8 @@ void AddFramebufferReads( Rendering::RenderGraph& graph, uint32_t pass, const Gr
     graph.AddRead( pass, resources.depth, Rendering::RenderGraphResourceAccess::PixelShaderResource );
 }
 
+// Invariant: one complete value replaces the prior snapshot atomically; absent
+// pass outputs are published as false or zero and never leak from an older frame.
 struct FrameGraphPublicationFacts
 {
     bool cinematicRender = false;
@@ -959,32 +961,32 @@ struct FrameGraphPublicationFacts
     uint32_t volumetricTextureHandle = 0;
     uint32_t volumetricWidth = 0;
     uint32_t volumetricHeight = 0;
-};
 
-void PublishFrameGraphSnapshot( Rendering::RenderSceneSnapshot& snapshot, const FrameGraphPublicationFacts& facts )
-{
-    // Invariant: publication replaces the whole prior snapshot so optional
-    // pass outputs cannot survive a frame in which their producer was absent.
-    snapshot = {};
-    snapshot.cinematicRender = facts.cinematicRender;
-    snapshot.useCinematicTarget = facts.useCinematicTarget;
-    snapshot.terrainShadowValid = facts.terrainShadowValid;
-    snapshot.objectShadowValid = facts.objectShadowValid;
-    snapshot.shadowPassExecuted = facts.shadowPassExecuted;
-    snapshot.reflectionPassExecuted = facts.reflectionPassExecuted;
-    snapshot.reflectionUsedDxr = facts.reflectionUsedDxr;
-    snapshot.objectOpaquePass = facts.objectOpaquePass;
-    snapshot.objectTransparentPass = facts.objectTransparentPass;
-    snapshot.terrainPassRendered = facts.terrainPassRendered;
-    snapshot.waterPassRendered = facts.waterPassRendered;
-    snapshot.waterSamplesReflection = facts.waterSamplesReflection;
-    snapshot.worldExtensionRendered = facts.worldExtensionRendered;
-    snapshot.volumetricPassExecuted = facts.volumetricPassExecuted;
-    snapshot.volumetricReady = facts.volumetricReady;
-    snapshot.volumetricTextureHandle = facts.volumetricTextureHandle;
-    snapshot.volumetricWidth = facts.volumetricWidth;
-    snapshot.volumetricHeight = facts.volumetricHeight;
-}
+    void PublishTo( Rendering::RenderSceneSnapshot& snapshot ) const
+    {
+        // Invariant: publication replaces the whole prior snapshot so optional
+        // pass outputs cannot survive a frame in which their producer was absent.
+        snapshot = {};
+        snapshot.cinematicRender = cinematicRender;
+        snapshot.useCinematicTarget = useCinematicTarget;
+        snapshot.terrainShadowValid = terrainShadowValid;
+        snapshot.objectShadowValid = objectShadowValid;
+        snapshot.shadowPassExecuted = shadowPassExecuted;
+        snapshot.reflectionPassExecuted = reflectionPassExecuted;
+        snapshot.reflectionUsedDxr = reflectionUsedDxr;
+        snapshot.objectOpaquePass = objectOpaquePass;
+        snapshot.objectTransparentPass = objectTransparentPass;
+        snapshot.terrainPassRendered = terrainPassRendered;
+        snapshot.waterPassRendered = waterPassRendered;
+        snapshot.waterSamplesReflection = waterSamplesReflection;
+        snapshot.worldExtensionRendered = worldExtensionRendered;
+        snapshot.volumetricPassExecuted = volumetricPassExecuted;
+        snapshot.volumetricReady = volumetricReady;
+        snapshot.volumetricTextureHandle = volumetricTextureHandle;
+        snapshot.volumetricWidth = volumetricWidth;
+        snapshot.volumetricHeight = volumetricHeight;
+    }
+};
 
 } // namespace
 
@@ -2343,15 +2345,25 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     }
 
     const WaterPassDebugInfo& waterDebug = m_waterPass.LastDebugInfo();
-    PublishFrameGraphSnapshot( m_frameGraphSnapshot,
-                               { cinematicRender, useCinematicTarget, terrainShadowFrame && terrainShadowFrame->valid,
-                                 objectShadowFrame && objectShadowFrame->valid, shadowPassExecuted, reflectionPassNeeded,
-                                 reflection.usedDxr, !debugTransparentBodyPass, transparentBodyPass, !policy.terrainHidden,
+    FrameGraphPublicationFacts { cinematicRender,
+                                 useCinematicTarget,
+                                 terrainShadowFrame && terrainShadowFrame->valid,
+                                 objectShadowFrame && objectShadowFrame->valid,
+                                 shadowPassExecuted,
+                                 reflectionPassNeeded,
+                                 reflection.usedDxr,
+                                 !debugTransparentBodyPass,
+                                 transparentBodyPass,
+                                 !policy.terrainHidden,
                                  waterDebug.rendered,
                                  waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid,
-                                 worldExtensionRendered, cinematicPostOutput.volumetricPassExecuted,
-                                 cinematicPostOutput.volumetricReady, cinematicPostOutput.volumetricTextureHandle,
-                                 cinematicPostOutput.volumetricWidth, cinematicPostOutput.volumetricHeight } );
+                                 worldExtensionRendered,
+                                 cinematicPostOutput.volumetricPassExecuted,
+                                 cinematicPostOutput.volumetricReady,
+                                 cinematicPostOutput.volumetricTextureHandle,
+                                 cinematicPostOutput.volumetricWidth,
+                                 cinematicPostOutput.volumetricHeight }
+        .PublishTo( m_frameGraphSnapshot );
 
     return debugOverlayRendered;
 }
