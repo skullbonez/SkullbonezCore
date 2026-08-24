@@ -28,6 +28,7 @@ Related:
 
 #include "../../Core/Common.h"
 #include "../../Core/Config.h"
+#include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Core/Profiler.h"
@@ -42,6 +43,22 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+RuntimeSceneDiagnosticFacts::RuntimeSceneDiagnosticFacts( int currentSceneIndex, int loadCount, int manualResetCount,
+                                                          int currentFrame, int targetFrameCount, int modelCount,
+                                                          uint32_t rngSeed, bool fixedStep, bool testComplete,
+                                                          bool finishLogged )
+    : m_currentSceneIndex( currentSceneIndex ), m_loadCount( loadCount ), m_manualResetCount( manualResetCount ),
+      m_currentFrame( currentFrame ), m_targetFrameCount( targetFrameCount ), m_modelCount( modelCount ),
+      m_rngSeed( rngSeed ), m_fixedStep( fixedStep ), m_testComplete( testComplete ), m_finishLogged( finishLogged )
+{
+    if ( !ValuesAreValid( currentSceneIndex, loadCount, manualResetCount, currentFrame, targetFrameCount, modelCount ) )
+    {
+        SB_FATAL( "Runtime/Diagnostics",
+                  "Invalid scene diagnostic facts: scene=%d loads=%d resets=%d frame=%d target=%d models=%d.",
+                  currentSceneIndex, loadCount, manualResetCount, currentFrame, targetFrameCount, modelCount );
+    }
+}
+
 namespace
 {
 void FlushPerfLogIfNeeded( RunPerfLogState& perfLog )

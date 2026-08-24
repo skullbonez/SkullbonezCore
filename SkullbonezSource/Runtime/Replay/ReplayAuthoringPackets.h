@@ -72,18 +72,100 @@ enum class ReplayWorldOwnerRequest : uint8_t
     CauseTree
 };
 
-struct ReplayInteractionRequest
+// Invariant: native capture begins and ends with the matching replay gesture.
+// A request can begin or end a gesture, never both.
+class ReplayInteractionRequest
 {
-    ReplayWorldOwnerRequest worldOwner = ReplayWorldOwnerRequest::None;
-    ReplayToolGestureKind beginGesture = ReplayToolGestureKind::None;
-    int gestureStartX = 0;
-    int gestureStartY = 0;
-    int gestureAxis = -1;
-    Physics::PhysicsBodyHandle gestureBody;
-    bool gestureAngular = false;
-    bool endGesture = false;
-    bool requestNativeCapture = false;
-    bool releaseNativeCapture = false;
+  public:
+    void RequestWorldOwner( ReplayWorldOwnerRequest owner )
+    {
+        m_worldOwner = owner;
+    }
+
+    void BeginCauseTreeDrag( int startX, int startY, int axis )
+    {
+        BeginGesture( ReplayToolGestureKind::CauseTreeDrag, startX, startY, {}, axis, false );
+    }
+
+    void BeginVelocityDrag( int startX, int startY, Physics::PhysicsBodyHandle body, int axis, bool angular )
+    {
+        BeginGesture( ReplayToolGestureKind::VelocityDrag, startX, startY, body, axis, angular );
+    }
+
+    void EndGesture()
+    {
+        m_beginGesture = ReplayToolGestureKind::None;
+        m_endGesture = true;
+        m_requestNativeCapture = false;
+        m_releaseNativeCapture = true;
+    }
+
+    ReplayWorldOwnerRequest WorldOwner() const
+    {
+        return m_worldOwner;
+    }
+    ReplayToolGestureKind BeginGestureKind() const
+    {
+        return m_beginGesture;
+    }
+    int GestureStartX() const
+    {
+        return m_gestureStartX;
+    }
+    int GestureStartY() const
+    {
+        return m_gestureStartY;
+    }
+    int GestureAxis() const
+    {
+        return m_gestureAxis;
+    }
+    Physics::PhysicsBodyHandle GestureBody() const
+    {
+        return m_gestureBody;
+    }
+    bool GestureAngular() const
+    {
+        return m_gestureAngular;
+    }
+    bool EndsGesture() const
+    {
+        return m_endGesture;
+    }
+    bool RequestsNativeCapture() const
+    {
+        return m_requestNativeCapture;
+    }
+    bool ReleasesNativeCapture() const
+    {
+        return m_releaseNativeCapture;
+    }
+
+  private:
+    void BeginGesture( ReplayToolGestureKind kind, int startX, int startY, Physics::PhysicsBodyHandle body, int axis,
+                       bool angular )
+    {
+        m_beginGesture = kind;
+        m_gestureStartX = startX;
+        m_gestureStartY = startY;
+        m_gestureAxis = axis;
+        m_gestureBody = body;
+        m_gestureAngular = angular;
+        m_endGesture = false;
+        m_requestNativeCapture = true;
+        m_releaseNativeCapture = false;
+    }
+
+    ReplayWorldOwnerRequest m_worldOwner = ReplayWorldOwnerRequest::None;
+    ReplayToolGestureKind m_beginGesture = ReplayToolGestureKind::None;
+    int m_gestureStartX = 0;
+    int m_gestureStartY = 0;
+    int m_gestureAxis = -1;
+    Physics::PhysicsBodyHandle m_gestureBody;
+    bool m_gestureAngular = false;
+    bool m_endGesture = false;
+    bool m_requestNativeCapture = false;
+    bool m_releaseNativeCapture = false;
 };
 
 struct ReplayCauseTreeInputFrame

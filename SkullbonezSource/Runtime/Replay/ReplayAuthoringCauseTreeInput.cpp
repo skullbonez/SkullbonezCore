@@ -136,8 +136,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
     {
         if ( leftReleased && causeTreeDragMode() >= 0 )
         {
-            result.interaction.releaseNativeCapture = true;
-            result.interaction.endGesture = true;
+            result.interaction.EndGesture();
         }
     };
 
@@ -262,8 +261,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
 
         if ( leftReleased )
         {
-            result.interaction.releaseNativeCapture = true;
-            result.interaction.endGesture = true;
+            result.interaction.EndGesture();
         }
 
         result.consumesMouse = true;
@@ -276,8 +274,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
 
         if ( leftReleased )
         {
-            result.interaction.releaseNativeCapture = true;
-            result.interaction.endGesture = true;
+            result.interaction.EndGesture();
         }
 
         result.consumesMouse = true;
@@ -297,7 +294,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
     if ( leftPressed && isHotControl( ReplayOverlay::ReplayCauseWindowControl::FilterField ) )
     {
         m_causeTree.filterFocused = true;
-        result.interaction.worldOwner = ReplayWorldOwnerRequest::CauseTree;
+        result.interaction.RequestWorldOwner( ReplayWorldOwnerRequest::CauseTree );
         result.consumesMouse = true;
         return result;
     }
@@ -333,7 +330,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
 
     if ( frame.wheelDelta != 0 )
     {
-        result.interaction.worldOwner = ReplayWorldOwnerRequest::CauseTree;
+        result.interaction.RequestWorldOwner( ReplayWorldOwnerRequest::CauseTree );
         const float wheelRows = static_cast<float>( frame.wheelDelta ) / 120.0f;
         ScrollCauseTreeWindow( -wheelRows * ReplayOverlay::REPLAY_CAUSE_WINDOW_ROW_HEIGHT * 3.0f, screenW, screenH );
         result.consumesMouse = true;
@@ -343,11 +340,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
     if ( leftPressed && isHotControl( ReplayOverlay::ReplayCauseWindowControl::Resize ) )
     {
         BeginCauseTreeResize( mouseX, mouseY );
-        result.interaction.beginGesture = ReplayToolGestureKind::CauseTreeDrag;
-        result.interaction.gestureStartX = mouseX;
-        result.interaction.gestureStartY = mouseY;
-        result.interaction.gestureAxis = 1;
-        result.interaction.requestNativeCapture = true;
+        result.interaction.BeginCauseTreeDrag( mouseX, mouseY, 1 );
         result.consumesMouse = true;
         return result;
     }
@@ -355,11 +348,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
     if ( leftPressed && isHotControl( ReplayOverlay::ReplayCauseWindowControl::Title ) )
     {
         BeginCauseTreeMove( mouseX, mouseY );
-        result.interaction.beginGesture = ReplayToolGestureKind::CauseTreeDrag;
-        result.interaction.gestureStartX = mouseX;
-        result.interaction.gestureStartY = mouseY;
-        result.interaction.gestureAxis = 0;
-        result.interaction.requestNativeCapture = true;
+        result.interaction.BeginCauseTreeDrag( mouseX, mouseY, 0 );
         result.consumesMouse = true;
         return result;
     }
@@ -382,7 +371,7 @@ ReplayCauseTreeInputResult ReplayAuthoring::TickCauseTreeInput( ReplayPresentati
         {
             if ( leftPressed )
             {
-                result.interaction.worldOwner = ReplayWorldOwnerRequest::CauseTree;
+                result.interaction.RequestWorldOwner( ReplayWorldOwnerRequest::CauseTree );
                 result.focusRow = rowIndex;
             }
         }

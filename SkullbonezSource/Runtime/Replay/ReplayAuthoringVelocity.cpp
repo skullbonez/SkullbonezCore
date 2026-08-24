@@ -509,8 +509,7 @@ bool ReplayAuthoring::PrepareVelocityEditInput( bool editorModeEnabled, bool sce
 
         if ( endDragGesture )
         {
-            outInteraction.endGesture = true;
-            outInteraction.releaseNativeCapture = true;
+            outInteraction.EndGesture();
         }
 
         return false;
@@ -538,8 +537,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
     {
         (void)FinishVelocityEditDrag();
 
-        outResult.interaction.endGesture = true;
-        outResult.interaction.releaseNativeCapture = true;
+        outResult.interaction.EndGesture();
     };
 
     const auto shouldUseInspectionCamera = [&]()
@@ -719,7 +717,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
                     if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !frame.replayToolOwnsWorld )
                     {
-                        outResult.interaction.worldOwner = ReplayWorldOwnerRequest::Scrub;
+                        outResult.interaction.RequestWorldOwner( ReplayWorldOwnerRequest::Scrub );
                     }
 
                     if ( shouldUseInspectionCamera() )
@@ -738,13 +736,8 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                     dragStart.angularVelocity = body.angularVelocity;
                     armBaselineComparisonForDrag();
                     BeginVelocityEditDrag( dragStart );
-                    outResult.interaction.beginGesture = ReplayToolGestureKind::VelocityDrag;
-                    outResult.interaction.gestureStartX = mouse.x;
-                    outResult.interaction.gestureStartY = mouse.y;
-                    outResult.interaction.gestureBody = body.body;
-                    outResult.interaction.gestureAxis = VelocityEdit().hotAngularAxis;
-                    outResult.interaction.gestureAngular = true;
-                    outResult.interaction.requestNativeCapture = true;
+                    outResult.interaction.BeginVelocityDrag( mouse.x, mouse.y, body.body, VelocityEdit().hotAngularAxis,
+                                                             true );
                     outResult.consumesMouse = true;
                     return true;
                 }
@@ -760,7 +753,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
                     if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !frame.replayToolOwnsWorld )
                     {
-                        outResult.interaction.worldOwner = ReplayWorldOwnerRequest::Scrub;
+                        outResult.interaction.RequestWorldOwner( ReplayWorldOwnerRequest::Scrub );
                     }
 
                     if ( shouldUseInspectionCamera() )
@@ -779,13 +772,8 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                     dragStart.angularVelocity = body.angularVelocity;
                     armBaselineComparisonForDrag();
                     BeginVelocityEditDrag( dragStart );
-                    outResult.interaction.beginGesture = ReplayToolGestureKind::VelocityDrag;
-                    outResult.interaction.gestureStartX = mouse.x;
-                    outResult.interaction.gestureStartY = mouse.y;
-                    outResult.interaction.gestureBody = body.body;
-                    outResult.interaction.gestureAxis = VelocityEdit().hotLinearAxis;
-                    outResult.interaction.gestureAngular = false;
-                    outResult.interaction.requestNativeCapture = true;
+                    outResult.interaction.BeginVelocityDrag( mouse.x, mouse.y, body.body, VelocityEdit().hotLinearAxis,
+                                                             false );
                     outResult.consumesMouse = true;
                     return true;
                 }
@@ -841,7 +829,7 @@ bool ReplayAuthoring::ApplyVelocityEditTargetPick( ReplayPresentation& presentat
             outInspectionCameraAction = ReplayInspectionCameraAction::Enter;
         }
 
-        outResult.interaction.worldOwner = ReplayWorldOwnerRequest::VelocityEdit;
+        outResult.interaction.RequestWorldOwner( ReplayWorldOwnerRequest::VelocityEdit );
 
         QueuePredictionRefresh( true );
         scrubberOwner.SetVisible( true, now, REPLAY_SCRUBBER_VISIBLE_SECONDS );

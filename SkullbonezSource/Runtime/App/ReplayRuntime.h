@@ -173,7 +173,7 @@ struct ReplayRestoreStepView
 struct ReplayScrubProbeDiagnostic;
 #endif
 
-// Lifetime: startup presentation activation borrows lower owners only for the
+// Invariant: startup presentation activation borrows lower owners only for one
 // synchronous App workflow. Replay receives no retained host-owner bundle.
 struct ReplayStartupLoadInput
 {

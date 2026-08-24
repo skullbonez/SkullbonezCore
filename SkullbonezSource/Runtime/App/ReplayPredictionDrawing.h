@@ -189,6 +189,8 @@ constexpr bool ReplayPredictionUsesAuthoredBodyColor( ReplayPredictionPathPresen
     return ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) && lane == ReplayTrajectoryLane::FutureRoot;
 }
 
+// Invariant: every participant and present-sample flag belongs to the same
+// published Prediction generation and one synchronous visualization submission.
 struct ReplayPathVisualizerRenderContext
 {
     // Lifetime: every reference is a frame-local borrow after Prediction has

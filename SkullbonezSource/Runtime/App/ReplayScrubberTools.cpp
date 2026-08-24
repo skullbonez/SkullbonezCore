@@ -201,12 +201,12 @@ void PublishReplayLoadResult( ReplayScrubber& scrubber, const char* path, bool l
 void ApplyReplayInteractionRequest( const ReplayInteractionRequest& request, InputRouter& inputRouter,
                                     RuntimeInteractionController& interaction )
 {
-    if ( request.releaseNativeCapture )
+    if ( request.ReleasesNativeCapture() )
     {
         inputRouter.ReleaseNativeCapture();
     }
 
-    if ( request.endGesture )
+    if ( request.EndsGesture() )
     {
         const RuntimeInteractionGestureKind active = interaction.Gesture().kind;
 
@@ -217,11 +217,11 @@ void ApplyReplayInteractionRequest( const ReplayInteractionRequest& request, Inp
         }
     }
 
-    const WorldInteractionOwner requestedOwner = request.worldOwner == ReplayWorldOwnerRequest::CauseTree
+    const WorldInteractionOwner requestedOwner = request.WorldOwner() == ReplayWorldOwnerRequest::CauseTree
                                                      ? WorldInteractionOwner::ReplayCauseTree
-                                                 : request.worldOwner == ReplayWorldOwnerRequest::VelocityEdit
+                                                 : request.WorldOwner() == ReplayWorldOwnerRequest::VelocityEdit
                                                      ? WorldInteractionOwner::ReplayVelocityEdit
-                                                 : request.worldOwner == ReplayWorldOwnerRequest::Scrub
+                                                 : request.WorldOwner() == ReplayWorldOwnerRequest::Scrub
                                                      ? WorldInteractionOwner::ReplayScrub
                                                      : WorldInteractionOwner::None;
 
@@ -231,27 +231,27 @@ void ApplyReplayInteractionRequest( const ReplayInteractionRequest& request, Inp
                                                          InteractionExitReason::EnterReplay );
     }
 
-    if ( request.beginGesture == ReplayToolGestureKind::None )
+    if ( request.BeginGestureKind() == ReplayToolGestureKind::None )
     {
         return;
     }
 
     RuntimeInteractionGesture gesture;
-    gesture.kind = request.beginGesture == ReplayToolGestureKind::CauseTreeDrag
+    gesture.kind = request.BeginGestureKind() == ReplayToolGestureKind::CauseTreeDrag
                        ? RuntimeInteractionGestureKind::ReplayCauseTreeDrag
                        : RuntimeInteractionGestureKind::ReplayVelocityDrag;
     gesture.button = RuntimePointerButton::Left;
-    gesture.startX = request.gestureStartX;
-    gesture.startY = request.gestureStartY;
-    gesture.body = request.gestureBody;
-    gesture.axis = request.gestureAxis;
-    gesture.angular = request.gestureAngular;
-    const WorldInteractionOwner gestureOwner = request.beginGesture == ReplayToolGestureKind::CauseTreeDrag
+    gesture.startX = request.GestureStartX();
+    gesture.startY = request.GestureStartY();
+    gesture.body = request.GestureBody();
+    gesture.axis = request.GestureAxis();
+    gesture.angular = request.GestureAngular();
+    const WorldInteractionOwner gestureOwner = request.BeginGestureKind() == ReplayToolGestureKind::CauseTreeDrag
                                                    ? WorldInteractionOwner::ReplayCauseTree
                                                    : WorldInteractionOwner::ReplayVelocityEdit;
 
     if ( interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay, gestureOwner, gesture ) &&
-         request.requestNativeCapture )
+         request.RequestsNativeCapture() )
     {
         inputRouter.RequestNativeCapture();
     }

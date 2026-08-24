@@ -48,6 +48,8 @@ Invariants:
     bounded friend access; they do not duplicate those decisions in test code.
   - Taking editor frame status releases the editor-held lease while the
     returned Runtime copy retains the exact failure bytes.
+  - Replay interaction requests pair native capture with exactly one gesture
+    transition, and scene diagnostic snapshots reject invalid count domains.
 
 Related:
   - Agentic/Reference/engine-glossary.md
@@ -194,6 +196,52 @@ struct SceneGeneratedControlTransactionTestAccess
 };
 } // namespace Runtime
 } // namespace SkullbonezCore
+
+
+TEST_CASE( "Replay interaction requests own gesture and native-capture pairing" )
+{
+    ReplayInteractionRequest request;
+    CHECK( request.WorldOwner() == ReplayWorldOwnerRequest::None );
+    CHECK( request.BeginGestureKind() == ReplayToolGestureKind::None );
+    CHECK_FALSE( request.EndsGesture() );
+    CHECK_FALSE( request.RequestsNativeCapture() );
+    CHECK_FALSE( request.ReleasesNativeCapture() );
+
+    const SkullbonezCore::Physics::PhysicsBodyHandle body{17u, 2u};
+    request.RequestWorldOwner( ReplayWorldOwnerRequest::VelocityEdit );
+    request.BeginVelocityDrag( 31, 47, body, 2, true );
+    CHECK( request.WorldOwner() == ReplayWorldOwnerRequest::VelocityEdit );
+    CHECK( request.BeginGestureKind() == ReplayToolGestureKind::VelocityDrag );
+    CHECK( request.GestureStartX() == 31 );
+    CHECK( request.GestureStartY() == 47 );
+    CHECK( request.GestureBody().index == body.index );
+    CHECK( request.GestureBody().generation == body.generation );
+    CHECK( request.GestureAxis() == 2 );
+    CHECK( request.GestureAngular() );
+    CHECK( request.RequestsNativeCapture() );
+    CHECK_FALSE( request.EndsGesture() );
+    CHECK_FALSE( request.ReleasesNativeCapture() );
+
+    request.EndGesture();
+    CHECK( request.BeginGestureKind() == ReplayToolGestureKind::None );
+    CHECK_FALSE( request.RequestsNativeCapture() );
+    CHECK( request.EndsGesture() );
+    CHECK( request.ReleasesNativeCapture() );
+}
+
+
+TEST_CASE( "Runtime scene diagnostic facts reject invalid sentinel and count domains" )
+{
+    CHECK( RuntimeSceneDiagnosticFacts::ValuesAreValid( -1, 0, 0, 0, -1, 0 ) );
+    CHECK( RuntimeSceneDiagnosticFacts::ValuesAreValid( 3, 4, 5, 6, 7, 8 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( -2, 0, 0, 0, 0, 0 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, -1, 0, 0, 0, 0 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, -1, 0, 0, 0 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, 0, -1, 0, 0 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, 0, 0, -2, 0 ) );
+    CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, 0, 0, 0, -1 ) );
+
+}
 
 
 TEST_CASE( "Operator editor frame status keeps its lease through owner reset" )

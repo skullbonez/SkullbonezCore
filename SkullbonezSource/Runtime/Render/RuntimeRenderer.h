@@ -89,6 +89,9 @@ struct RenderDiagnosticsReadout
 class RuntimeRenderer
 {
   public:
+
+    // Invariant: the terrain participant is released under the same named
+    // backend lifecycle phase as the remaining renderer-owned resources.
     struct BackendResourceReleaseContext
     {
         const char* phaseName = nullptr;

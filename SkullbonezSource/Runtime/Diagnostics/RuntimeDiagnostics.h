@@ -41,16 +41,20 @@ class PhysicsEngine;
 }
 namespace Runtime
 {
+// Invariant: -1 is the only unloaded/unbounded sentinel. Counts, frame indices,
+// and model totals are otherwise non-negative in every immutable snapshot.
 class RuntimeSceneDiagnosticFacts
 {
   public:
     RuntimeSceneDiagnosticFacts( int currentSceneIndex = 0, int loadCount = 0, int manualResetCount = 0,
                                  int currentFrame = 0, int targetFrameCount = 0, int modelCount = 0, uint32_t rngSeed = 0,
-                                 bool fixedStep = false, bool testComplete = false, bool finishLogged = false )
-        : m_currentSceneIndex( currentSceneIndex ), m_loadCount( loadCount ), m_manualResetCount( manualResetCount ),
-          m_currentFrame( currentFrame ), m_targetFrameCount( targetFrameCount ), m_modelCount( modelCount ),
-          m_rngSeed( rngSeed ), m_fixedStep( fixedStep ), m_testComplete( testComplete ), m_finishLogged( finishLogged )
+                                 bool fixedStep = false, bool testComplete = false, bool finishLogged = false );
+
+    static constexpr bool ValuesAreValid( int currentSceneIndex, int loadCount, int manualResetCount, int currentFrame,
+                                          int targetFrameCount, int modelCount ) noexcept
     {
+        return currentSceneIndex >= -1 && loadCount >= 0 && manualResetCount >= 0 && currentFrame >= 0 &&
+               targetFrameCount >= -1 && modelCount >= 0;
     }
 
     int CurrentSceneIndex() const

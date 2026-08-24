@@ -91,6 +91,8 @@ class SceneEntityStore;
 class SceneWorld;
 struct SceneSessionState;
 
+// Invariant: pointer-ray validity and arbitration flags are sampled from one
+// frame so the preview never combines a ray with another turn's UI decision.
 struct EditorPointerPreviewInput
 {
     bool blocksCameraMouse = false;
@@ -101,6 +103,8 @@ struct EditorPointerPreviewInput
     Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
 };
 
+// Invariant: selection consumes ray validity, origin, direction, and gizmo
+// ownership from the same routed pointer turn.
 struct EditorPointerSelectionInput
 {
     bool inspectGizmoActive = false;
@@ -118,6 +122,8 @@ struct EditorPlacementScalePointerResult
     bool recordReplayEvent = false;
 };
 
+// Invariant: drag buttons, selection, and world ray describe one routed pointer
+// turn; mixing them can apply a gesture to the wrong body.
 struct EditorGizmoDragPointerInput
 {
     bool leftDown = false;
@@ -195,6 +201,8 @@ struct EditorPlacementScaleStartResult
     bool beganGesture = false;
 };
 
+// Invariant: buttons, modifiers, client position, wheel delta, and capture mode
+// are one sampled viewport event consumed atomically by placement routing.
 struct EditorViewportPlacementInput
 {
     int unhandledWheelDelta = 0;
