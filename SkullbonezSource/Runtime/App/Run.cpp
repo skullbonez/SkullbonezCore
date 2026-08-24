@@ -592,8 +592,8 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     if ( !result.Ok() )
     {
         const ReplayAutomationView replay = m_replayRuntime.BuildAutomationView();
-        (void)m_interactionAutomation.reportWriter.Write( m_interactionAutomation.status, m_interactionAutomation.scriptPath,
-                                                          m_sceneController.Scene(), m_sceneController.State(),
+        (void)m_interactionAutomation.reportWriter.Write( m_interactionAutomation.status, m_sceneController.Scene(),
+                                                          m_sceneController.State(),
                                                           m_sceneController.CurrentPath()
                                                               ? m_sceneController.CurrentPath()->c_str()
                                                               : nullptr,
