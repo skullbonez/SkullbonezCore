@@ -132,8 +132,15 @@ the destination atomically. Focused write, flush, close, and replace regression
 cases cover prior-scene byte preservation and sibling cleanup. Two serial
 read-only reviews closed the initial false-pass and cleanup-evidence findings;
 the final pass is clean. Validation was deferred by explicit owner direction;
-no build, test, scanner, or validation command ran. SCENE-007 is the next
-selected high-impact, low-complexity candidate.
+no build, test, scanner, or validation command ran. SCENE-007 is now closed:
+snapshot material rows retain every exact nonzero emissive-color component even
+when the material is Textured and strength is zero. An otherwise-default
+sub-epsilon color case covers both the outer override-save decision and the
+inner emissive-field decision through save, parse, and fresh-owner recreation.
+Two serial read-only reviews closed the initial epsilon-boundary finding; the
+final pass is clean. Validation was deferred by explicit owner direction; no
+build, test, scanner, or validation command ran. CORE-008 is the next selected
+high-impact, low-complexity candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

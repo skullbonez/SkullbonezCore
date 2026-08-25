@@ -25,6 +25,7 @@ Invariants:
   - Direct entities remain in objects[] and retain explicit schema-v4 ids.
   - Reparse uses live state rather than recomposing the asset recipe transform.
   - Contact-material text survives save/reparse through the cold authoring row.
+  - Dormant emissive color survives while strength is zero and mode is not emissive.
   - Resolved orbital membership round-trips through current entity names.
   - Every runtime save entry serializes all three owner publications.
   - A failed atomic publication preserves the complete prior scene file.
@@ -758,6 +759,15 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
         AppendEntity( entities, bodies, colliders, 99u, "direct_sphere", BoundingSphere( 0.75f, ZERO_VECTOR ),
                       Vector3( 40.0f, 41.0f, 42.0f ), ZERO_VECTOR, ZERO_VECTOR, Vector3( 1.0f, 1.0f, 1.0f ), 2.0f, 0.15f,
                       "default", false, false, nullptr, 0u );
+
+        // Regression: this otherwise-default material carries only a sub-epsilon
+        // color edit, which remains durable intent for a later strength change.
+        const int dormantEmissiveIndex = entities.FindByDisplayName( "direct_sphere" );
+        REQUIRE( dormantEmissiveIndex >= 0 );
+        Rendering::RenderMaterial dormantEmissive = {};
+        dormantEmissive.emissiveColor[0] = 1.0e-6f;
+        dormantEmissive.emissiveStrength = 0.0f;
+        entities.MutableAt( dormantEmissiveIndex ).renderMaterial = dormantEmissive;
 
         AppendEntity( entities, bodies, colliders, 1001u, "tree_root", hull, Vector3( 50.0f, 51.0f, 52.0f ), ZERO_VECTOR,
                       ZERO_VECTOR, Vector3( 3.0f, 4.0f, 5.0f ), 5.0f, 0.2f, "wood", true, false, nullptr, 0u,

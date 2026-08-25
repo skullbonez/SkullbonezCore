@@ -126,9 +126,9 @@ bool ShouldSaveRenderMaterial( const SkullbonezCore::Rendering::RenderMaterial& 
            SceneMaterialFloatDiffers( material.specular, defaults.specular ) ||
            SceneMaterialFloatDiffers( material.transmission, defaults.transmission ) ||
            SceneMaterialFloatDiffers( material.stylization, defaults.stylization ) ||
-           SceneMaterialFloatDiffers( material.emissiveColor[0], defaults.emissiveColor[0] ) ||
-           SceneMaterialFloatDiffers( material.emissiveColor[1], defaults.emissiveColor[1] ) ||
-           SceneMaterialFloatDiffers( material.emissiveColor[2], defaults.emissiveColor[2] ) ||
+           material.emissiveColor[0] != defaults.emissiveColor[0] ||
+           material.emissiveColor[1] != defaults.emissiveColor[1] ||
+           material.emissiveColor[2] != defaults.emissiveColor[2] ||
            SceneMaterialFloatDiffers( material.emissiveStrength, defaults.emissiveStrength ) ||
            SceneMaterialFloatDiffers( material.textureMode, defaults.textureMode ) || material.flags != defaults.flags;
 }
@@ -159,7 +159,16 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
         materialJson["mode"] = SkullbonezCore::Rendering::RenderMaterialKindName( material.kind );
     }
 
-    if ( material.kind == SkullbonezCore::Rendering::RenderMaterialKind::Emissive || material.emissiveStrength > 0.0f )
+    const SkullbonezCore::Rendering::RenderMaterial defaults = {};
+    const bool hasDurableEmissiveState =
+        material.kind == SkullbonezCore::Rendering::RenderMaterialKind::Emissive || material.emissiveStrength > 0.0f ||
+        material.emissiveColor[0] != defaults.emissiveColor[0] ||
+        material.emissiveColor[1] != defaults.emissiveColor[1] ||
+        material.emissiveColor[2] != defaults.emissiveColor[2];
+
+    // Invariant: zero strength disables emission without erasing the color an
+    // editor will reveal if strength is raised again after snapshot reload.
+    if ( hasDurableEmissiveState )
     {
         materialJson["emissive"] = Vec3Json( material.emissiveColor[0], material.emissiveColor[1],
                                              material.emissiveColor[2] );
