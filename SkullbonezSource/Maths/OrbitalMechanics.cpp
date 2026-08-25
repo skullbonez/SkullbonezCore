@@ -88,6 +88,14 @@ float SignedAngle( const Vector3& from, const Vector3& to, const Vector3& unitNo
     return std::atan2( Dot( CrossProduct( from, to ), unitNormal ), Dot( from, to ) );
 }
 
+float EquatorialPerifocalAngle( const Vector3& direction, const Vector3& unitAngularMomentum )
+{
+    // Invariant: inclination pi reflects perifocal Y, so retrograde equatorial
+    // directions use the opposite world-space Y sign when recovering an angle.
+    const float orientedY = unitAngularMomentum.z < 0.0f ? -direction.y : direction.y;
+    return std::atan2( orientedY, direction.x );
+}
+
 Vector3 RotatePerifocal( const OrbitalElements& elements, float x, float y )
 {
     const float cosAscending = std::cos( elements.longitudeAscendingNode );
@@ -272,7 +280,7 @@ OrbitalStatus ElementsFromState( const Vector3& relativePosition, const Vector3&
         }
         else
         {
-            argumentPeriapsis = std::atan2( eccentricityVector.y, eccentricityVector.x );
+            argumentPeriapsis = EquatorialPerifocalAngle( eccentricityVector, unitAngularMomentum );
         }
 
         trueAnomaly = SignedAngle( unitEccentricity, relativePosition * ( 1.0f / radius ), unitAngularMomentum );
@@ -284,7 +292,7 @@ OrbitalStatus ElementsFromState( const Vector3& relativePosition, const Vector3&
     }
     else
     {
-        trueAnomaly = std::atan2( relativePosition.y, relativePosition.x );
+        trueAnomaly = EquatorialPerifocalAngle( relativePosition, unitAngularMomentum );
     }
 
     const float eccentricAnomaly = 2.0f * std::atan2( std::sqrt( 1.0f - eccentricity ) * std::sin( 0.5f * trueAnomaly ),

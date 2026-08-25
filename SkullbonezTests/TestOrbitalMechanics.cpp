@@ -96,6 +96,74 @@ TEST_CASE( "Orbital mechanics: element round-trip preserves the epoch state" )
 }
 
 
+TEST_CASE( "Orbital mechanics: prograde equatorial elements preserve the epoch state" )
+{
+    const Vector3 circularPosition( 0.0f, 1.0f, 0.0f );
+    const Vector3 circularVelocity( -1.0f, 0.0f, 0.0f );
+    OrbitalElements circularElements;
+    REQUIRE( ElementsFromState( circularPosition, circularVelocity, 1.0f, circularElements ) == OrbitalStatus::Ok );
+
+    Vector3 propagatedPosition( 0.0f, 0.0f, 0.0f );
+    Vector3 propagatedVelocity( 0.0f, 0.0f, 0.0f );
+    REQUIRE( PropagateToTime( circularElements, 0.0f, propagatedPosition, propagatedVelocity ) == OrbitalStatus::Ok );
+    CheckVectorNear( propagatedPosition, circularPosition );
+    CheckVectorNear( propagatedVelocity, circularVelocity );
+
+    OrbitalElements authoredElements;
+    authoredElements.semiMajorAxis = 2.0f;
+    authoredElements.eccentricity = 0.25f;
+    authoredElements.inclination = 0.0f;
+    authoredElements.longitudeAscendingNode = 0.0f;
+    authoredElements.argumentPeriapsis = 0.7f;
+    authoredElements.meanAnomalyAtEpoch = 0.4f;
+    authoredElements.mu = 1.0f;
+
+    Vector3 eccentricPosition( 0.0f, 0.0f, 0.0f );
+    Vector3 eccentricVelocity( 0.0f, 0.0f, 0.0f );
+    REQUIRE( PropagateToTime( authoredElements, 0.0f, eccentricPosition, eccentricVelocity ) == OrbitalStatus::Ok );
+
+    OrbitalElements recoveredElements;
+    REQUIRE( ElementsFromState( eccentricPosition, eccentricVelocity, 1.0f, recoveredElements ) == OrbitalStatus::Ok );
+    REQUIRE( PropagateToTime( recoveredElements, 0.0f, propagatedPosition, propagatedVelocity ) == OrbitalStatus::Ok );
+    CheckVectorNear( propagatedPosition, eccentricPosition );
+    CheckVectorNear( propagatedVelocity, eccentricVelocity );
+}
+
+
+TEST_CASE( "Orbital mechanics: retrograde equatorial elements preserve the epoch state" )
+{
+    const Vector3 circularPosition( 0.0f, 1.0f, 0.0f );
+    const Vector3 circularVelocity( 1.0f, 0.0f, 0.0f );
+    OrbitalElements circularElements;
+    REQUIRE( ElementsFromState( circularPosition, circularVelocity, 1.0f, circularElements ) == OrbitalStatus::Ok );
+
+    Vector3 propagatedPosition( 0.0f, 0.0f, 0.0f );
+    Vector3 propagatedVelocity( 0.0f, 0.0f, 0.0f );
+    REQUIRE( PropagateToTime( circularElements, 0.0f, propagatedPosition, propagatedVelocity ) == OrbitalStatus::Ok );
+    CheckVectorNear( propagatedPosition, circularPosition );
+    CheckVectorNear( propagatedVelocity, circularVelocity );
+
+    OrbitalElements authoredElements;
+    authoredElements.semiMajorAxis = 2.0f;
+    authoredElements.eccentricity = 0.25f;
+    authoredElements.inclination = PI;
+    authoredElements.longitudeAscendingNode = 0.0f;
+    authoredElements.argumentPeriapsis = 0.7f;
+    authoredElements.meanAnomalyAtEpoch = 0.4f;
+    authoredElements.mu = 1.0f;
+
+    Vector3 eccentricPosition( 0.0f, 0.0f, 0.0f );
+    Vector3 eccentricVelocity( 0.0f, 0.0f, 0.0f );
+    REQUIRE( PropagateToTime( authoredElements, 0.0f, eccentricPosition, eccentricVelocity ) == OrbitalStatus::Ok );
+
+    OrbitalElements recoveredElements;
+    REQUIRE( ElementsFromState( eccentricPosition, eccentricVelocity, 1.0f, recoveredElements ) == OrbitalStatus::Ok );
+    REQUIRE( PropagateToTime( recoveredElements, 0.0f, propagatedPosition, propagatedVelocity ) == OrbitalStatus::Ok );
+    CheckVectorNear( propagatedPosition, eccentricPosition );
+    CheckVectorNear( propagatedVelocity, eccentricVelocity );
+}
+
+
 TEST_CASE( "Orbital mechanics: one circular period returns to the start" )
 {
     const float circularSpeed = std::sqrt( MU / EARTH_RADIUS );

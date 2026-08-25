@@ -217,9 +217,15 @@ one positive angle around the captured pivot. Cardinal and non-cardinal parity
 fixtures cover all six corrected Rodrigues sine terms. One serial read-only
 review found no blocking or non-blocking issue. Validation was deferred by
 explicit owner direction; no build, test, scanner, inventory, or validation
-command ran. MATH-002 is the next selected candidate: it is the next unresolved
-medium-severity Maths entry and its retrograde-equatorial sign seam is bounded
-to orbital state conversion and propagation.
+command ran. MATH-002 is now closed: equatorial element recovery selects its
+perifocal Y convention from the angular-momentum direction, preserving both
+prograde and retrograde circular and eccentric epoch states. Two serial
+read-only reviews closed a prograde-compatibility false-pass; the final pass is
+clean. The unchanged node-magnitude threshold remains optional boundary
+coverage. Validation was deferred by explicit owner direction; no build, test,
+scanner, inventory, or validation command ran. MATH-004 is the next selected
+candidate: it is the remaining unresolved medium-severity Maths entry and its
+finite-overflow seams share the orbital propagation and sampling owner.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
