@@ -1,8 +1,8 @@
 # Session State
 
 Date: 2026-08-25
-Branch: `nightrunner-24th-aug`
-Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 112/118 tasks complete
+Branch: `main`
+Status: Governance De-Bureaucratization and Jargon Removal active; 112/120 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -10,7 +10,9 @@ Truth Replacement CT0-CT5, Full Validation Time And Value Audit VTA0-VTA5, and R
 Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
-Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is the binding
+Governance De-Bureaucratization and Jargon Removal DB0-DB7 is the sole active
+plan. Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
+its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
 promotion and isolated A/B evidence. FP2's retired sphere-box test surface and
 two reachability repair rows are gone, both live orders retain the exact sweep
@@ -31,8 +33,8 @@ threshold and runtime selector, and authorized the governed baseline refresh.
 Sphere radius-squared, oriented-box local-axis half-extent checks, and cached
 centered-difference hull face and edge-cross-edge SAT axes keep elongated shapes Discrete unless travel
 exceeds a valid shape width. SkullScope records per-frame and per-object policy state and
-`physics_query motion` reconstructs promotions and demotions. FP5-FP9 complete
-the ragdoll joint and late speculative-contact path. Runtime
+`physics_query motion` reconstructs promotions and demotions. FP5-FP9 remain
+parked in `WNF/`. Runtime
 Boundary Separation And Project Topology RBS0-RBS7 is complete at 8/8. RBS7
 repaired the allocation rulings, replaced the Replay startup context with a
 finite-state continuation, moved Operator UI projection into Runtime/UI, and
@@ -61,14 +63,13 @@ their Prediction and Replay/Planning owners. Its exactly-once plan-completion
 gate passed 760/760 cases and 2,685,294 assertions with unchanged baselines;
 the inherited causal-depth oracle and historical Physics performance baseline
 remain external recorded failures without refresh authority.
-Recorded Interaction Playback Cursor RIC0-RIC3 is active at 3/4. RIC2 draws the
+Recorded Interaction Playback Cursor is parked at 3/4. RIC2 draws the
 Automation-owned frame value through one bounded Runtime/UI compositor and one
 honest App submission edge after GameUI, replay overlays, UI finalization, and
 ImGui but before screenshots and Present. The exact unchanged recording and
 native captures prove the marker appears before right-look, disappears during
 captured look, and returns afterward while GameUI remains minimized. Focused
-RIC0-RIC2 tests pass 9/9 cases and 204/204 assertions; RIC3 terminal closure is
-next.
+RIC0-RIC2 tests pass 9/9 cases and 204/204 assertions; RIC3 remains parked.
 
 Real-Time Physics Pacing SP0-SP2 is complete. Live and unlimited scenes now
 schedule fixed-frequency Physics from elapsed wall time, while explicit startup
@@ -505,10 +506,10 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Begin `RAGDOLL_PHYSICS` FP5's three-degree-of-freedom point-joint phase while
-running `RECORDED_CURSOR` RIC3 terminal audit on the integrated RIC0-RIC2 value
-and draw path. FP4's direction-valid radius policy is the only motion-eligibility
-path; the FP2 absolute policy and its selector are retired.
+Begin `DE_BUREAUCRATIZE` DB0: inventory the current governance scripts and rule
+data, freeze the invariants each protects, and build the negative-test catalog
+before deleting or weakening any check. `RAGDOLL_PHYSICS` FP5-FP9 and
+`RECORDED_CURSOR` RIC3 remain parked and are not selectable.
 
 ## Blockers
 

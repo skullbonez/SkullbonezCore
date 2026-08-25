@@ -1,9 +1,18 @@
 # MASTER PLAN
 
 Date: 2026-08-25
-Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 112/118 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal active; 112/120 tasks complete
 
 ## Owner Direction
+
+- Governance De-Bureaucratization and Jargon Removal was activated by explicit
+  owner direction on 2026-08-25 as the sole active plan. `DE_BUREAUCRATIZE`
+  DB0-DB7 execute in strict order: inventory the contract, remove brittle
+  bookkeeping without weakening rules, close enforcement holes, streamline the
+  golden workflow, replace repository jargon in source and documentation, then
+  install a validation scan that prevents the removed terms from returning.
+  Determinism, warnings-as-errors, dependency direction, no-throw handling, and
+  the zero-allocation rule remain mandatory.
 
 - Real-Time Physics Pacing is complete. `SIM_PACING` SP0-SP2 separate live
   wall-clock scheduling from deterministic render-frame lockstep, preserve the
@@ -16,10 +25,10 @@ Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor act
   of the corrected 201-node/806-record topology against the retired
   200-node/802-record oracle. No Physics, Replay, or visual golden was refreshed.
 
-- Deterministic Collision Modes And Ragdoll Unification was activated by
-  explicit owner direction on 2026-08-22 and placed ahead of every existing
-  master-plan item for scarce-slot priority and fan-in order, not as a Runtime
-  or UI predecessor. `RAGDOLL_PHYSICS` executes FP0 through FP9 in strict
+- Deterministic Collision Modes And Ragdoll Unification was parked by explicit
+  owner direction on 2026-08-25 after completing FP0-FP4. Its prior activation
+  on 2026-08-22 placed it ahead of the former four-plan wave. If reactivated,
+  `RAGDOLL_PHYSICS` executes FP5 through FP9 in strict
   internal order: correctness bugs first, then deterministic Discrete collision
   and automatic Swept TOI promotion, then the completed ragdoll constraint/
   speculative path. No later Physics phase may bypass an earlier acceptance
@@ -30,7 +39,8 @@ Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor act
   On 2026-08-25 the owner signed off FP4's same-executable performance result,
   made direction-valid radius eligibility the sole shipping policy, retired the
   absolute threshold and runtime selector, and authorized the resulting governed
-  baseline transition. FP5 is now the active Physics phase.
+  baseline transition. FP5-FP9 are not selectable while the plan remains in
+  `WNF/`.
 
 - Runtime Boundary Separation And Project Topology is complete by owner
   direction at 8/8 phases. RBS0-RBS7 make Runtime/App a true composition root,
@@ -55,13 +65,15 @@ Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor act
   creates no new production project and does not modify an active RBS-owned
   package before that phase's named output exists.
 
-- Recorded Interaction Playback Cursor was activated by owner direction on
-  2026-08-22 and is binding after UI6. RIC0-RIC3 publish and draw a detached
+- Recorded Interaction Playback Cursor was parked by owner direction on
+  2026-08-25 after completing RIC0-RIC2. The plan was activated on 2026-08-22
+  after UI6. RIC0-RIC3 publish and draw a detached
   fake cursor for complete recorded interaction-manifest playback, hide only
   that fake cursor in replayed cursorless states, and prove that the live
   hardware cursor is never hidden, moved, captured, released, restyled, or
   otherwise changed by the feature. The plan does not add pointer history to
-  `.skreplay` or change interaction-manifest schema.
+  `.skreplay` or change interaction-manifest schema. RIC3 is not selectable
+  while the plan remains in `WNF/`.
 
 - Causal Event Inspection is complete. Its synchronized exact-frame transport,
   dedicated camera follow, bounded manifold presentation, and four-row solver
@@ -294,8 +306,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 5 | `TODO/ragdoll-physics-unification.md` |
-| Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 3 | `TODO/recorded-interaction-playback-cursor.md` |
+| Governance De-Bureaucratization and Jargon Removal | `DE_BUREAUCRATIZE` | 8 | 0 | `TODO/governance-debureaucratization-and-jargon-removal.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -312,6 +323,8 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
+| Deterministic Collision Modes And Ragdoll Unification | Owner-parked 2026-08-25 | 5/10 | `WNF/ragdoll-physics-unification.md` |
+| Recorded Interaction Playback Cursor | Owner-parked 2026-08-25 | 3/4 | `WNF/recorded-interaction-playback-cursor.md` |
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
@@ -323,36 +336,15 @@ One detail in that table is recorded:
   Parked and backlog are different dispositions, so the file and this row
   disagree with the directory. An owner ruling should settle which it is.
 
-## Portfolio Binding Order
+## Binding Order
 
-The four-plan wave used the following binding order. Completed plans in this
-sequence are historical fan-in boundaries, not selectable active work.
+1. `DE_BUREAUCRATIZE` DB0 through DB7 is the sole selectable plan. Its phases
+   execute in strict order and may not retire a check before its replacement and
+   negative test exist.
 
-1. `RAGDOLL_PHYSICS` FP0 through FP9 - close verified Physics correctness bugs,
-   make Discrete the deterministic default with automatic Swept TOI promotion,
-   prove its correctness and isolated performance, then complete the ragdoll
-   joint and late speculative-contact path with independent determinism and cost
-   evidence.
-2. `RUNTIME_BOUNDARIES` RBS0 through RBS7 - ratify and enforce an acyclic Runtime
-   package/project graph, remove every reverse Runtime/App dependency, separate
-   native host and frame-metrics ownership, split operator projection/commands
-   from GPU submission and process command application, close the logical `Run`
-   surface, and adopt only VC project boundaries that strengthen ownership.
-3. `GAME_UI_COMPONENTS` UI0 through UI6 - close the component foundation in
-   UI0-UI2 while RBS/Physics may continue, then consume RBS4/RBS5/RBS6/RBS7 at
-   UI3/UI4/UI5/UI6 respectively; migrate GameUI and owner-local Runtime surfaces
-   without adding another production project.
-4. `RECORDED_CURSOR` RIC0 through RIC3 - consume the final product-UI and
-   submission boundary, publish one detached recorded-pointer presentation
-   value, draw a topmost fake cursor across GameUI and ImGui, and prove the
-   hardware cursor and native capture path remain completely untouched.
-
-This order allocates scarce slots and orders coordinator fan-in; it is not an
-implicit dependency chain. Named phase prerequisites are the edges. In
-particular, ready `RAGDOLL_PHYSICS`, `RUNTIME_BOUNDARIES`, and
-`GAME_UI_COMPONENTS` phases may occupy separate
-worktrees concurrently when their canonical subsystem, unmatched path-owner,
-and mutable resource leases are pairwise disjoint.
+The former `RAGDOLL_PHYSICS` and `RECORDED_CURSOR` plans are parked, while
+`RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` are complete. None participates in
+the active order.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
 it does not consume the tier-2 determinism guarantee and has no ordering
@@ -376,9 +368,10 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-112/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
-first, Runtime Boundary Separation And Project Topology second, Game UI Component
-Library Separation third, and Recorded Interaction Playback Cursor fourth.
+112/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
+the sole active plan at 0/8. The five unfinished Ragdoll Physics phases and RIC3
+are parked and excluded from the denominator; their eight completed phases
+remain part of the historical completed count.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -388,8 +381,8 @@ Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
-Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 5/10;
-FP0-FP4 are complete and FP5 is active. FP4 makes its direction-valid radius
+Deterministic Collision Modes And Ragdoll Unification is owner-parked at 5/10;
+FP0-FP4 are complete and FP5-FP9 are not selectable. FP4 makes its direction-valid radius
 policy the sole shipping path and retains the SkullScope policy timeline,
 same-executable A/B artifacts, and exact historical/current performance producers. FP2's archived automated transition
 retains the prior and new producers, its core/deep Physics gates pass, and its
@@ -414,13 +407,13 @@ baselines; independent reviewer `01a03529-b219-7d82-9550-fef25af0fe31`
 returned CLEAN. The inherited causal-depth oracle and historical Physics
 performance baseline remain external recorded failures, not UI6 passes or
 refresh authority.
-Recorded Interaction Playback Cursor RIC0-RIC3 is active at 3/4. RIC2 consumes
+Recorded Interaction Playback Cursor is owner-parked at 3/4. RIC2 consumes
 the Automation-owned frame value through one Runtime/UI bounded compositor and
 one honest App submission edge after GameUI, replay overlays, UI finalization,
 and ImGui but before screenshots and Present. The exact unchanged recording and
 native captures prove the two-triangle marker appears before right-look,
 disappears during captured look, and returns afterward while GameUI remains
 minimized; focused RIC0-RIC2 tests pass 9/9 cases and 204/204 assertions. RIC3
-terminal audit, independent review, and final validation are next.
+remains parked.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.

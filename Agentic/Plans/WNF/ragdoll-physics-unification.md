@@ -1,11 +1,12 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 5/10 phases complete; FP5 active after FP4 closed the Discrete performance A/B and owner ruling.
+Status: Owner-parked by explicit owner direction on 2026-08-25. 5/10 phases
+complete; FP5-FP9 are not selectable until the owner reactivates this plan.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
-Priority: Binding first plan; execute FP2-FP9 in strict internal order. This position allocates scarce slots
-and orders fan-in; it is not a Runtime or UI predecessor.
+Priority: Parked and excluded from active master-plan ordering. If reactivated,
+execute FP5-FP9 in strict internal order.
 Commit name: `RAGDOLL_PHYSICS`
 
 ## Owner Direction
@@ -679,7 +680,8 @@ and the SkullScope query golden
 Their retained transition directories are `19698d3c-to-1b984310`,
 `d58e0489-to-e50f5672`, and `2ed8eebb-to-2a5eef89` under the FP4
 `golden-transitions` directory.
-FP4 is closed; FP5 is the next Physics phase.
+FP4 is closed; FP5 is the next Physics phase only if the owner reactivates this
+parked plan.
 
 ---
 

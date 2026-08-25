@@ -28,17 +28,20 @@ and `SKULLBONEZ_*.dll` files hidden by global artifact ignore rules.
 
 ## Manifest Schema
 
-Each transition directory contains `manifest.json`. `physics_plan` names the
-active tracked plan under `Agentic/Plans/TODO/`. Paths are repository relative,
-hashes are lowercase SHA-256, sizes are exact bytes, and commit hashes are full
-40-character source-parent revisions. `golden_sha256` repeats the
+Each transition directory contains `manifest.json`. For a new transition,
+`physics_plan` names the active tracked plan under `Agentic/Plans/TODO/`. A
+historical manifest retains the plan path that was active when the transition
+was captured; moving that plan to `WNF/` intentionally prevents the manifest
+from authorizing another transition. Paths are repository relative, hashes are
+lowercase SHA-256, sizes are exact bytes, and commit hashes are full 40-character
+source-parent revisions. `golden_sha256` repeats the
 complete golden map for each behavior so no retained executable can be
 mistakenly associated with a different transition.
 
 ```json
 {
   "schema_version": 2,
-  "physics_plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md",
+  "physics_plan": "Agentic/Plans/TODO/<active-physics-plan>.md",
   "phase": "FP3",
   "transition_id": "<old-prefix>-to-<new-prefix>",
   "source_commit": "<source-parent-commit>",

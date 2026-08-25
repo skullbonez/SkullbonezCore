@@ -1,14 +1,15 @@
 # Recorded Interaction Playback Cursor Plan
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 3/4 phases complete; RIC3 terminal
-audit, independent review, and final validation are pending.
+Status: Owner-parked by explicit owner direction on 2026-08-25. 3/4 phases
+complete; RIC3 is not selectable until the owner reactivates this plan.
 Impact area: recorded interaction-manifest playback, detached Runtime/Automation
 presentation values, GameUI/ImGui draw ordering, DX12 UI submission, tests, and
 documentation
 Owner: Runtime/Automation owns recorded-turn evidence; the post-RBS product UI
 owner composes the fake cursor; Runtime/Render submits backend-neutral draw values
-Priority: Binding after `GAME_UI_COMPONENTS`; RIC0 through RIC3 execute in order
+Priority: Parked and excluded from active master-plan ordering. If reactivated,
+RIC3 consumes the completed RIC0-RIC2 path.
 Commit name: `RECORDED_CURSOR`
 
 ## Owner Direction

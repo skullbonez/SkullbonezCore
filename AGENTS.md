@@ -387,6 +387,17 @@ Comment quality is part of completion, not a follow-up nicety.
   validation, provided the diff is strictly comments/docs. If code behavior
   changes accidentally, stop and switch to the validation map below.
 
+## Plain Language Rule
+
+Never add audit-campaign jargon or pseudo-legal labels to source code, comments,
+tests, plans, or documentation when direct C++ or systems-programming language
+says the same thing. Use concrete words such as `struct`, review decision,
+negative test, borrowed reference, and required rule. Existing occurrences are
+migration work owned by
+`Agentic/Plans/TODO/governance-debureaucratization-and-jargon-removal.md`; do not
+copy or extend them. That plan must install a tracked-file validation scan before
+it closes so the removed wording cannot return.
+
 ## Governance Review Model
 
 The deleted runtime-boundary regex checker is not part of repository
