@@ -27,6 +27,7 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 
 using SkullbonezCore::Math::Orbital::ElementsFromState;
 using SkullbonezCore::Math::Orbital::LambertSolution;
@@ -281,4 +282,57 @@ TEST_CASE( "Orbital mechanics: invalid inputs fail without NaN output" )
                          solution ) == OrbitalStatus::Degenerate );
     CHECK( IsFinite( solution.v1 ) );
     CHECK( IsFinite( solution.v2 ) );
+}
+
+
+TEST_CASE( "Orbital mechanics: large finite elements recover or fail without nonfinite output" )
+{
+    OrbitalElements recoverable;
+    recoverable.semiMajorAxis = 1.0e13f;
+    recoverable.eccentricity = 0.0f;
+    recoverable.mu = 1.0f;
+    const float recoverableDelta = 1.0e20f;
+
+    Vector3 position( 9.0f, 9.0f, 9.0f );
+    Vector3 velocity( 9.0f, 9.0f, 9.0f );
+    REQUIRE( PropagateToTime( recoverable, recoverableDelta, position, velocity ) == OrbitalStatus::Ok );
+
+    const double semiMajorAxis = static_cast<double>( recoverable.semiMajorAxis );
+    const double expectedMeanMotion = std::sqrt( static_cast<double>( recoverable.mu ) / semiMajorAxis ) / semiMajorAxis;
+    const double expectedPhase = expectedMeanMotion * static_cast<double>( recoverableDelta );
+    const double expectedSpeed = std::sqrt( static_cast<double>( recoverable.mu ) / semiMajorAxis );
+    CHECK( static_cast<double>( position.x ) / semiMajorAxis ==
+           doctest::Approx( std::cos( expectedPhase ) ).epsilon( 1.0e-5 ) );
+    CHECK( static_cast<double>( position.y ) / semiMajorAxis ==
+           doctest::Approx( std::sin( expectedPhase ) ).epsilon( 1.0e-5 ) );
+    CHECK( static_cast<double>( velocity.x ) / expectedSpeed ==
+           doctest::Approx( -std::sin( expectedPhase ) ).epsilon( 1.0e-5 ) );
+    CHECK( static_cast<double>( velocity.y ) / expectedSpeed ==
+           doctest::Approx( std::cos( expectedPhase ) ).epsilon( 1.0e-5 ) );
+    CHECK( IsFinite( position ) );
+    CHECK( IsFinite( velocity ) );
+
+    OrbitalElements unrepresentable;
+    unrepresentable.semiMajorAxis = ( std::numeric_limits<float>::max )();
+    unrepresentable.eccentricity = 0.5f;
+    unrepresentable.mu = 1.0f;
+
+    position = Vector3( 9.0f, 9.0f, 9.0f );
+    velocity = Vector3( 9.0f, 9.0f, 9.0f );
+    CHECK( PropagateToTime( unrepresentable, 1.0f, position, velocity ) == OrbitalStatus::NotConverged );
+    CheckVectorNear( position, Vector3( 0.0f, 0.0f, 0.0f ) );
+    CheckVectorNear( velocity, Vector3( 0.0f, 0.0f, 0.0f ) );
+
+    std::array<Vector3, 4> points = {
+        Vector3( 9.0f, 9.0f, 9.0f ),
+        Vector3( 9.0f, 9.0f, 9.0f ),
+        Vector3( 9.0f, 9.0f, 9.0f ),
+        Vector3( 9.0f, 9.0f, 9.0f ),
+    };
+    CHECK( SampleOrbitPolyline( unrepresentable, points ) == 0 );
+
+    for ( const Vector3& point : points )
+    {
+        CheckVectorNear( point, Vector3( 0.0f, 0.0f, 0.0f ) );
+    }
 }

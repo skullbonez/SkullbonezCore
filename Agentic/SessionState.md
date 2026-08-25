@@ -223,9 +223,16 @@ prograde and retrograde circular and eccentric epoch states. Two serial
 read-only reviews closed a prograde-compatibility false-pass; the final pass is
 clean. The unchanged node-magnitude threshold remains optional boundary
 coverage. Validation was deferred by explicit owner direction; no build, test,
-scanner, inventory, or validation command ran. MATH-004 is the next selected
-candidate: it is the remaining unresolved medium-severity Maths entry and its
-finite-overflow seams share the orbital propagation and sampling owner.
+scanner, inventory, or validation command ran. MATH-004 is now closed: ordinary
+orbital propagation retains its established float arithmetic, overflowed or
+underflowed mean motion falls back to the equivalent double-range formula, and
+unrepresentable propagation or sampling fails without publishing nonfinite or
+partial output. Two serial read-only reviews closed the recovery-oracle and
+comment-truth findings; the final pass is clean. Validation was deferred by
+explicit owner direction; no build, test, scanner, inventory, or validation
+command ran. APP-001 is the next selected candidate: it is high severity and
+its false-success seam is bounded to automated scene-queue error propagation
+and process-exit ownership.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

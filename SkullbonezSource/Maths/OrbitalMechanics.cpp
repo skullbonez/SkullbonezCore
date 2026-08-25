@@ -320,10 +320,26 @@ OrbitalStatus PropagateToTime( const OrbitalElements& elements, float deltaSecon
         return elements.eccentricity >= 1.0f ? OrbitalStatus::NotElliptic : OrbitalStatus::Degenerate;
     }
 
-    const float meanMotion = std::sqrt( elements.mu /
-                                        ( elements.semiMajorAxis * elements.semiMajorAxis * elements.semiMajorAxis ) );
+    const float semiMajorAxisCubed = elements.semiMajorAxis * elements.semiMajorAxis * elements.semiMajorAxis;
+    float meanMotion = std::sqrt( elements.mu / semiMajorAxisCubed );
 
-    const float meanAnomaly = WrapRadians( elements.meanAnomalyAtEpoch + meanMotion * deltaSeconds );
+    if ( !std::isfinite( meanMotion ) || meanMotion <= 0.0f )
+    {
+        // Why: large but usable float axes can overflow a^3 before the final
+        // square root. Dividing before the root keeps the equivalent fallback
+        // inside double range while leaving ordinary float arithmetic intact.
+        const double semiMajorAxis = static_cast<double>( elements.semiMajorAxis );
+        meanMotion = static_cast<float>( std::sqrt( static_cast<double>( elements.mu ) / semiMajorAxis ) / semiMajorAxis );
+    }
+
+    const float meanAdvance = meanMotion * deltaSeconds;
+
+    if ( !std::isfinite( meanMotion ) || meanMotion <= 0.0f || !std::isfinite( meanAdvance ) )
+    {
+        return OrbitalStatus::NotConverged;
+    }
+
+    const float meanAnomaly = WrapRadians( elements.meanAnomalyAtEpoch + meanAdvance );
     float eccentricAnomaly = 0.0f;
     const OrbitalStatus solveStatus = SolveEccentricAnomaly( meanAnomaly, elements.eccentricity, eccentricAnomaly );
 
@@ -347,10 +363,17 @@ OrbitalStatus PropagateToTime( const OrbitalElements& elements, float deltaSecon
     const float velocityScale = elements.semiMajorAxis * meanMotion / denominator;
     const float velocityX = -velocityScale * sinEccentric;
     const float velocityY = velocityScale * ellipseMinorScale * cosEccentric;
-    outRelativePosition = RotatePerifocal( elements, x, y );
-    outRelativeVelocity = RotatePerifocal( elements, velocityX, velocityY );
-    return IsFinite( outRelativePosition ) && IsFinite( outRelativeVelocity ) ? OrbitalStatus::Ok
-                                                                              : OrbitalStatus::NotConverged;
+    const Vector3 candidatePosition = RotatePerifocal( elements, x, y );
+    const Vector3 candidateVelocity = RotatePerifocal( elements, velocityX, velocityY );
+
+    if ( !IsFinite( candidatePosition ) || !IsFinite( candidateVelocity ) )
+    {
+        return OrbitalStatus::NotConverged;
+    }
+
+    outRelativePosition = candidatePosition;
+    outRelativeVelocity = candidateVelocity;
+    return OrbitalStatus::Ok;
 }
 
 
@@ -369,7 +392,17 @@ std::size_t SampleOrbitPolyline( const OrbitalElements& elements, std::span<Vect
         const float eccentricAnomaly = TWO_PI * static_cast<float>( index ) * inverseCount;
         const float x = elements.semiMajorAxis * ( std::cos( eccentricAnomaly ) - elements.eccentricity );
         const float y = elements.semiMajorAxis * ellipseMinorScale * std::sin( eccentricAnomaly );
-        outPoints[index] = RotatePerifocal( elements, x, y );
+        const Vector3 candidate = RotatePerifocal( elements, x, y );
+
+        if ( !IsFinite( candidate ) )
+        {
+            // Invariant: a zero count clears both partial results from this
+            // attempt and stale points supplied by the caller.
+            std::fill( outPoints.begin(), outPoints.end(), Vector3( 0.0f, 0.0f, 0.0f ) );
+            return 0;
+        }
+
+        outPoints[index] = candidate;
     }
 
     return outPoints.size();
