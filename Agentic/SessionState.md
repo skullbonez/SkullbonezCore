@@ -58,7 +58,14 @@ and the mandatory hosted CPU workflow both invoke it. The completed TODO plan
 is deleted under repository convention. Five serial read-only review passes
 closed nine matcher, scope, fixture, and metadata findings; the final pass is
 clean. No scanner, fixture, build, test, or validation command ran by explicit
-owner direction. The bug ledger is the next live queue.
+owner direction. CORE-001 is now closed: worker profiler samples enter a
+frame-tokened fixed staging store, and the main thread closes admission and
+merges them before finalizing marker history. Token-aware worker nesting prevents
+a stale cross-frame scope from suppressing valid next-frame core occupancy, and
+enabled-only state remains behind the stable common `Profiler` layout. Two
+serial read-only reviews closed the nesting and mixed-definition layout findings;
+the final pass is clean. No build, test, scanner, or validation command ran by
+explicit owner direction. CORE-003 is the next unresolved Core bug.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

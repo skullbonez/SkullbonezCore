@@ -21,6 +21,8 @@ Invariants:
     literal for each logical interval.
   - Marker arrays are fixed-capacity runtime storage, so adding broad marker
     families must account for MAX_MARKERS and MAX_DEPTH.
+  - Worker spans enter a frame-tokened staging store; only FrameEnd merges them
+    into the main-thread-owned marker registry and finalized history.
   - Tracy mirrors owner intervals; it does not become a second marker taxonomy.
   - Core stores profiler values only. Rendering owns timestamp queries, GPU
     events, and overlay presentation and submits completed samples here.
@@ -203,7 +205,7 @@ class Profiler
     // time, so counting them all would report several times the core's real
     // occupancy.
     void RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks,
-                             bool outermostOnThread );
+                             bool outermostOnThread, uint64_t frameToken );
     void RecordCounter( const char* fullPath, uint32_t hash, double value );
 
     // Rendering calls these around command recording. Core owns the nested CPU
@@ -255,6 +257,8 @@ class Profiler
 
   private:
 
+    friend class WorkerProfilerScope;
+
     // Non-owning process marker target; the sole startup owner clears it on destruction.
     static Profiler* s_active;
     Profiler( const Profiler& ) = delete;
@@ -268,6 +272,10 @@ class Profiler
     void AbortMismatch( const char* msg, const char* details ) const;
     void AdvanceGpuWriteCursors();
     void RestartWarmup();
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    uint64_t CaptureWorkerFrameToken() const;
+    void CloseWorkerFrameAndMergeSamples();
+#endif
 
     struct WorkerCoreAccumulator
     {
@@ -283,6 +291,19 @@ class Profiler
         double accumulatedCoreMs;
         int frameCount;
         float avgCoreMs;
+    };
+
+    struct WorkerMarkerAccumulator
+    {
+        // Workers publish only into this frame-local staging record. FrameEnd
+        // drains it into the main-thread-owned marker registry after admission
+        // closes, avoiding concurrent registry and history mutation.
+        const char* name;
+        uint32_t hash;
+        double accumSeconds;
+        double firstStartSeconds;
+        double lastEndSeconds;
+        bool spanWritten;
     };
 
     Marker m_markers[MAX_MARKERS];
@@ -313,6 +334,9 @@ class Profiler
     uint32_t m_markerEpoch;                                  // Advances when marker identities are cleared at a frame boundary.
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     mutable std::mutex m_workerSampleMutex;
+    WorkerMarkerAccumulator m_workerMarkerAccumulators[MAX_MARKERS];
+    int m_workerMarkerAccumulatorCount;
+    uint64_t m_workerFrameToken;
 #endif
 };
 
@@ -373,6 +397,7 @@ class WorkerProfilerScope
     uint32_t m_hash;
     int m_workerIndex;
     int64_t m_startTicks;
+    uint64_t m_frameToken;
 
     // Set when this scope opened at worker nesting depth zero; see
     // Profiler::RecordWorkerSample for why only that level feeds core occupancy.

@@ -67,13 +67,19 @@ struct WorkerBeginEndStack
     int top = 0;
 };
 
-int& CurrentWorkerScopeDepth()
+struct WorkerScopeNestingState
 {
-    // Invariant: live WorkerProfilerScope nesting on this worker thread. Zero
-    // means the next scope opened is the one whose span equals the core's real
-    // occupancy for that job.
-    thread_local int depth = 0;
-    return depth;
+    uint64_t frameToken = 0u;
+    int depth = 0;
+};
+
+WorkerScopeNestingState& CurrentWorkerScopeNesting()
+{
+    // One worker executes scopes serially, so a newer frame token supersedes
+    // the prior nesting generation. A late older scope then closes without
+    // changing the newer generation's depth.
+    thread_local WorkerScopeNestingState state;
+    return state;
 }
 
 WorkerBeginEndStack& CurrentWorkerBeginEndStack()
@@ -116,9 +122,10 @@ const char* FindLeafName( const char* fullPath )
 } // namespace
 
 Profiler::Profiler()
-    : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ),
-      m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
-      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ), m_markerEpoch( 1 )
+    : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ),
+      m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
+      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ), m_markerEpoch( 1 ),
+      m_workerMarkerAccumulatorCount( 0 ), m_workerFrameToken( 0 )
 {
     s_active = this;
     LARGE_INTEGER f;
@@ -137,6 +144,7 @@ Profiler::Profiler()
     std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
     std::memset( m_workerCoreAverageWindows, 0, sizeof( m_workerCoreAverageWindows ) );
     std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
+    std::memset( m_workerMarkerAccumulators, 0, sizeof( m_workerMarkerAccumulators ) );
     std::memset( m_stackIndices, 0, sizeof( m_stackIndices ) );
     std::memset( m_platformProfilerCpuOpen, 0, sizeof( m_platformProfilerCpuOpen ) );
     std::memset( m_platformProfilerRenderRecordOpen, 0, sizeof( m_platformProfilerRenderRecordOpen ) );
@@ -384,9 +392,9 @@ void Profiler::End( const char* fullPath, uint32_t hash )
 
 
 void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks,
-                                   int64_t endTicks, bool outermostOnThread )
+                                   int64_t endTicks, bool outermostOnThread, uint64_t frameToken )
 {
-    if ( !m_inFrame || workerIndex < 0 || workerIndex >= MAX_WORKER_CORES )
+    if ( workerIndex < 0 || workerIndex >= MAX_WORKER_CORES )
     {
         return;
     }
@@ -397,8 +405,16 @@ void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int work
     }
 
     std::lock_guard<std::mutex> lock( m_workerSampleMutex );
-    int idx = FindOrRegister( fullPath, hash );
-    Marker& marker = m_markers[idx];
+
+    // Hazard: a worker may close after FrameEnd or during a later frame. The
+    // token binds the sample to the frame in which its scope opened; checking it
+    // under the admission mutex prevents both stale attribution and a data race
+    // with the main thread closing the frame.
+    if ( !m_inFrame || frameToken == 0 || frameToken != m_workerFrameToken )
+    {
+        return;
+    }
+
     const double startSeconds = static_cast<double>( startTicks - m_frameStartTicks ) /
                                 static_cast<double>( m_qpcFrequency );
 
@@ -406,22 +422,59 @@ void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int work
 
     const double durationSeconds = static_cast<double>( endTicks - startTicks ) / static_cast<double>( m_qpcFrequency );
 
-    // Invariant: worker duration never enters accumSecondsThisFrame. Self-time
-    // accounting subtracts child totals from that field, so mixing threads there
-    // would make a parent's self time meaningless as well as its total.
-    marker.workerAccumSecondsThisFrame += durationSeconds;
-    marker.hasWorker = true;
+    int markerIndex = -1;
 
-    if ( !marker.spanWrittenThisFrame )
+    for ( int index = 0; index < m_workerMarkerAccumulatorCount; ++index )
     {
-        marker.firstStartSecondsThisFrame = startSeconds;
-        marker.lastEndSecondsThisFrame = endSeconds;
-        marker.spanWrittenThisFrame = true;
+        WorkerMarkerAccumulator& candidate = m_workerMarkerAccumulators[index];
+
+        if ( candidate.hash != hash )
+        {
+            continue;
+        }
+
+        if ( !candidate.name || std::strcmp( candidate.name, fullPath ) != 0 )
+        {
+            AbortMismatch( "FNV-1a hash collision between worker markers", fullPath );
+        }
+
+        markerIndex = index;
+        break;
+    }
+
+    if ( markerIndex < 0 )
+    {
+        if ( m_workerMarkerAccumulatorCount >= MAX_MARKERS )
+        {
+            AbortMismatch( "MAX_MARKERS exceeded by worker samples", fullPath );
+        }
+
+        markerIndex = m_workerMarkerAccumulatorCount++;
+        WorkerMarkerAccumulator& created = m_workerMarkerAccumulators[markerIndex];
+        created.name = fullPath;
+        created.hash = hash;
+        created.accumSeconds = 0.0;
+        created.firstStartSeconds = 0.0;
+        created.lastEndSeconds = 0.0;
+        created.spanWritten = false;
+    }
+
+    // Invariant: workers write only this pending accumulator. The main thread
+    // merges it into marker history after closing frame admission, so workers
+    // never mutate marker registry or finalized history state.
+    WorkerMarkerAccumulator& marker = m_workerMarkerAccumulators[markerIndex];
+    marker.accumSeconds += durationSeconds;
+
+    if ( !marker.spanWritten )
+    {
+        marker.firstStartSeconds = startSeconds;
+        marker.lastEndSeconds = endSeconds;
+        marker.spanWritten = true;
     }
     else
     {
-        marker.firstStartSecondsThisFrame = (std::min)( marker.firstStartSecondsThisFrame, startSeconds );
-        marker.lastEndSecondsThisFrame = (std::max)( marker.lastEndSecondsThisFrame, endSeconds );
+        marker.firstStartSeconds = (std::min)( marker.firstStartSeconds, startSeconds );
+        marker.lastEndSeconds = (std::max)( marker.lastEndSeconds, endSeconds );
     }
 
     if ( !outermostOnThread )
@@ -450,6 +503,50 @@ void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int work
 }
 
 
+uint64_t Profiler::CaptureWorkerFrameToken() const
+{
+    std::lock_guard<std::mutex> lock( m_workerSampleMutex );
+    return m_inFrame ? m_workerFrameToken : 0u;
+}
+
+
+void Profiler::CloseWorkerFrameAndMergeSamples()
+{
+    std::lock_guard<std::mutex> lock( m_workerSampleMutex );
+
+    // Invariant: closing admission and merging happen under one lock. A worker
+    // either publishes before this point and is included, or observes a closed
+    // frame and drops its sample; it cannot write while marker history commits.
+    m_inFrame = false;
+
+    for ( int pendingIndex = 0; pendingIndex < m_workerMarkerAccumulatorCount; ++pendingIndex )
+    {
+        const WorkerMarkerAccumulator& pending = m_workerMarkerAccumulators[pendingIndex];
+        Marker& marker = m_markers[FindOrRegister( pending.name, pending.hash )];
+        marker.workerAccumSecondsThisFrame += pending.accumSeconds;
+        marker.hasWorker = true;
+
+        if ( !pending.spanWritten )
+        {
+            continue;
+        }
+
+        if ( !marker.spanWrittenThisFrame )
+        {
+            marker.firstStartSecondsThisFrame = pending.firstStartSeconds;
+            marker.lastEndSecondsThisFrame = pending.lastEndSeconds;
+            marker.spanWrittenThisFrame = true;
+        }
+        else
+        {
+            marker.firstStartSecondsThisFrame = (std::min)( marker.firstStartSecondsThisFrame,
+                                                            pending.firstStartSeconds );
+            marker.lastEndSecondsThisFrame = (std::max)( marker.lastEndSecondsThisFrame, pending.lastEndSeconds );
+        }
+    }
+}
+
+
 void Profiler::RecordCounter( const char* fullPath, uint32_t hash, double value )
 {
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
@@ -470,8 +567,8 @@ void Profiler::RecordCounter( const char* fullPath, uint32_t hash, double value 
 
 WorkerProfilerScope::WorkerProfilerScope() noexcept
     : m_profiler( nullptr ), m_fullPath( nullptr ), m_hash( 0u ), m_workerIndex( -1 ), m_startTicks( 0 ),
-      m_outermostOnThread( false ), m_platformProfilerOpen( false ), m_tracySourceLocationHandle( 0u ), m_tracyZoneId( 0u ),
-      m_tracyZoneActive( 0 ), m_tracyZoneConnectionId( 0u )
+      m_frameToken( 0u ), m_outermostOnThread( false ), m_platformProfilerOpen( false ),
+      m_tracySourceLocationHandle( 0u ), m_tracyZoneId( 0u ), m_tracyZoneActive( 0 ), m_tracyZoneConnectionId( 0u )
 {
 }
 
@@ -494,12 +591,21 @@ void WorkerProfilerScope::Open( Profiler* profiler, const char* fullPath, uint32
         return;
     }
 
-    // Lifetime: the depth counter is thread-local and balanced by Close, so it
-    // tracks live nesting on one worker without any shared state. It covers
-    // ambient PROFILE_SCOPED and explicit PROFILE_WORKER_SCOPED alike, because
-    // both arrive here.
-    m_outermostOnThread = CurrentWorkerScopeDepth() == 0;
-    ++CurrentWorkerScopeDepth();
+    m_frameToken = m_profiler ? m_profiler->CaptureWorkerFrameToken() : 0u;
+
+    // A scope from an older frame may still be live when this one opens. Begin
+    // a fresh nesting generation so the new frame still records its outermost
+    // core occupancy instead of inheriting stale depth.
+    WorkerScopeNestingState& nesting = CurrentWorkerScopeNesting();
+
+    if ( nesting.frameToken != m_frameToken )
+    {
+        nesting.frameToken = m_frameToken;
+        nesting.depth = 0;
+    }
+
+    m_outermostOnThread = nesting.depth == 0;
+    ++nesting.depth;
 
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
@@ -542,7 +648,17 @@ void WorkerProfilerScope::Close()
     // double-record the sample nor unbalance the nesting depth.
     const int workerIndex = m_workerIndex;
     m_workerIndex = -1;
-    --CurrentWorkerScopeDepth();
+    const uint64_t frameToken = m_frameToken;
+    m_frameToken = 0u;
+    WorkerScopeNestingState& nesting = CurrentWorkerScopeNesting();
+
+    // A late scope belongs to an older generation and must not decrement the
+    // depth accumulated by scopes that opened in a newer frame.
+    if ( nesting.frameToken == frameToken && nesting.depth > 0 )
+    {
+        --nesting.depth;
+    }
+
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
 #if defined( TRACY_ENABLE )
@@ -563,7 +679,8 @@ void WorkerProfilerScope::Close()
 
     if ( m_profiler )
     {
-        m_profiler->RecordWorkerSample( m_fullPath, m_hash, workerIndex, m_startTicks, t.QuadPart, m_outermostOnThread );
+        m_profiler->RecordWorkerSample( m_fullPath, m_hash, workerIndex, m_startTicks, t.QuadPart, m_outermostOnThread,
+                                        frameToken );
     }
 }
 
@@ -851,7 +968,9 @@ void Profiler::FrameBegin()
             std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
             std::memset( m_workerCoreAverageWindows, 0, sizeof( m_workerCoreAverageWindows ) );
             std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
+            std::memset( m_workerMarkerAccumulators, 0, sizeof( m_workerMarkerAccumulators ) );
             m_workerCoreSampleCount = 0;
+            m_workerMarkerAccumulatorCount = 0;
         }
     }
 
@@ -865,8 +984,6 @@ void Profiler::FrameBegin()
         AbortMismatch( "FrameBegin with non-empty stack", nullptr );
     }
 
-    m_inFrame = true;
-
     LARGE_INTEGER frameStart;
     QueryPerformanceCounter( &frameStart );
     m_frameStartTicks = frameStart.QuadPart;
@@ -877,21 +994,13 @@ void Profiler::FrameBegin()
         --m_warmupFrames;
     }
 
+    for ( int i = 0; i < m_markerCount; ++i )
     {
-        // Hazard: a worker slice can outlive the frame that submitted it, so a
-        // RecordWorkerSample can land while this reset runs. Clearing the worker
-        // accumulator under the same mutex that guards it keeps the reset from
-        // racing a concurrent worker span.
-        std::lock_guard<std::mutex> lock( m_workerSampleMutex );
-
-        for ( int i = 0; i < m_markerCount; ++i )
-        {
-            m_markers[i].accumSecondsThisFrame = 0.0;
-            m_markers[i].workerAccumSecondsThisFrame = 0.0;
-            m_markers[i].firstStartSecondsThisFrame = 0.0;
-            m_markers[i].lastEndSecondsThisFrame = 0.0;
-            m_markers[i].spanWrittenThisFrame = false;
-        }
+        m_markers[i].accumSecondsThisFrame = 0.0;
+        m_markers[i].workerAccumSecondsThisFrame = 0.0;
+        m_markers[i].firstStartSecondsThisFrame = 0.0;
+        m_markers[i].lastEndSecondsThisFrame = 0.0;
+        m_markers[i].spanWrittenThisFrame = false;
     }
 
     for ( int i = 0; i < m_counterCount; ++i )
@@ -903,6 +1012,20 @@ void Profiler::FrameBegin()
     {
         std::lock_guard<std::mutex> lock( m_workerSampleMutex );
         std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
+        std::memset( m_workerMarkerAccumulators, 0, sizeof( m_workerMarkerAccumulators ) );
+        m_workerMarkerAccumulatorCount = 0;
+
+        // A token belongs to exactly one open frame. Incrementing while worker
+        // admission is closed ensures late scopes from a previous frame cannot
+        // publish into the new frame even if their marker names are identical.
+        ++m_workerFrameToken;
+
+        if ( m_workerFrameToken == 0 )
+        {
+            ++m_workerFrameToken;
+        }
+
+        m_inFrame = true;
     }
 
     // Implicit top-level "Frame" marker captures the entire frame total.
@@ -933,6 +1056,10 @@ void Profiler::FrameEnd()
     {
         AbortMismatch( "FrameEnd with open markers (missing PROFILE_END)", m_markers[m_stackIndices[m_stackTop - 1]].name );
     }
+
+    // Close worker admission and move every accepted worker sample into the
+    // main-thread marker registry before any finalized marker state is read.
+    CloseWorkerFrameAndMergeSamples();
 
     // Advance GPU write cursors for markers that recorded timestamps this frame
     AdvanceGpuWriteCursors();
@@ -1255,7 +1382,6 @@ void Profiler::FrameEnd()
         }
     }
 
-    m_inFrame = false;
 }
 
 
@@ -1458,7 +1584,7 @@ void Profiler::End( const char*, uint32_t )
 }
 
 
-void Profiler::RecordWorkerSample( const char*, uint32_t, int, int64_t, int64_t, bool )
+void Profiler::RecordWorkerSample( const char*, uint32_t, int, int64_t, int64_t, bool, uint64_t )
 {
 }
 
@@ -1539,14 +1665,14 @@ void Profiler::WritePerfCSVRow( FILE*, int, int ) const
 
 WorkerProfilerScope::WorkerProfilerScope() noexcept
     : m_profiler( nullptr ), m_fullPath( nullptr ), m_hash( 0u ), m_workerIndex( -1 ), m_startTicks( 0 ),
-      m_outermostOnThread( false ), m_platformProfilerOpen( false )
+      m_frameToken( 0u ), m_outermostOnThread( false ), m_platformProfilerOpen( false )
 {
 }
 
 
 WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
     : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash ), m_workerIndex( -1 ), m_startTicks( 0 ),
-      m_outermostOnThread( false ), m_platformProfilerOpen( false )
+      m_frameToken( 0u ), m_outermostOnThread( false ), m_platformProfilerOpen( false )
 {
 }
 
