@@ -29,6 +29,7 @@ Related:
 #include "Quaternion.h"
 #include <cmath>
 #include <immintrin.h> // SSE intrinsics (_mm_loadu_ps, _mm_set1_ps, _mm_mul_ps, _mm_add_ps, _mm_storeu_ps)
+#include <limits>
 
 
 using namespace SkullbonezCore::Math::Transformation;
@@ -409,7 +410,18 @@ Matrix4 Matrix4::Inverse() const
 
     det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
 
-    if ( fabsf( det ) < 1e-10f )
+    const double determinantScale = static_cast<double>( fabsf( m[0] * inv[0] ) ) +
+                                    static_cast<double>( fabsf( m[1] * inv[4] ) ) +
+                                    static_cast<double>( fabsf( m[2] * inv[8] ) ) +
+                                    static_cast<double>( fabsf( m[3] * inv[12] ) );
+    constexpr double relativeDeterminantTolerance =
+        16.0 * static_cast<double>( std::numeric_limits<float>::epsilon() );
+
+    // Invariant: for finite, representable cofactor terms, singularity measures
+    // cancellation inside this determinant rather than world-unit scale. A
+    // small diagonal transform has a tiny determinant but no cancellation.
+    if ( determinantScale == 0.0 ||
+         static_cast<double>( fabsf( det ) ) < determinantScale * relativeDeterminantTolerance )
     {
         return Matrix4(); // Identity fallback keeps singular transforms finite.
     }

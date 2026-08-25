@@ -30,6 +30,7 @@
 #include "../SkullbonezSource/Maths/Quaternion.h"
 
 #include <cmath>
+#include <limits>
 
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
@@ -160,4 +161,42 @@ TEST_CASE( "Matrix4: vector overloads and uniform scale preserve TRS composition
 TEST_CASE( "Matrix4: singular inverse returns the documented identity fallback" )
 {
     CheckIdentity( Matrix4::Scale( 1.0f, 0.0f, 1.0f ).Inverse() );
+
+    const float dependentRows[16] = { 1.0f, 1.0f, 0.0f, 0.0f, 2.0f, 2.0f, 0.0f, 0.0f,
+                                      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
+    CheckIdentity( Matrix4( dependentRows ).Inverse() );
+}
+
+
+TEST_CASE( "Matrix4: inverse distinguishes rounding-scale cancellation from a resolvable determinant" )
+{
+    const float justInsideDiagonal = std::nextafter( 1.0f, 2.0f );
+    const float justInside[16] = { 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, justInsideDiagonal, 0.0f, 0.0f,
+                                   0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
+    CheckIdentity( Matrix4( justInside ).Inverse() );
+
+    constexpr float kOutsideOffset = 64.0f * std::numeric_limits<float>::epsilon();
+    const float justOutside[16] = { 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f + kOutsideOffset, 0.0f, 0.0f,
+                                    0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
+    const Matrix4 justOutsideInverse = Matrix4( justOutside ).Inverse();
+
+    CHECK( std::isfinite( justOutsideInverse.m[1] ) );
+    CHECK( std::fabs( justOutsideInverse.m[1] ) > 1000.0f );
+}
+
+
+TEST_CASE( "Matrix4: small affine scales remain invertible" )
+{
+    constexpr float kSmallScale = 1.0e-4f;
+    constexpr float kReciprocalScale = 1.0e4f;
+    const Matrix4 inverseScale = Matrix4::Scale( kSmallScale ).Inverse();
+
+    CheckNear( inverseScale.m[0], kReciprocalScale, 0.01f );
+    CheckNear( inverseScale.m[5], kReciprocalScale, 0.01f );
+    CheckNear( inverseScale.m[10], kReciprocalScale, 0.01f );
+    CheckIdentity( inverseScale * Matrix4::Scale( kSmallScale ) );
+
+    const Matrix4 translatedScale =
+        Matrix4::Translate( 16.0f, -32.0f, 64.0f ) * Matrix4::Scale( kSmallScale );
+    CheckIdentity( translatedScale.Inverse() * translatedScale, 0.001f );
 }

@@ -180,7 +180,15 @@ test findings; the final pass is clean. Dedicated historical sectioned-v4
 prediction and solver-v2-v4 byte fixtures remain deferred coverage; static
 review found their layout discrimination coherent. Validation was deferred by
 explicit owner direction; no build, test, scanner, or validation command ran.
-MATH-005 is the next selected low-complexity bug candidate.
+MATH-005 is now closed: `Matrix4::Inverse` measures singularity against the
+four determinant expansion terms instead of an absolute world-unit cutoff.
+Finite small and translated scales therefore retain their reciprocal transform,
+while cancellation inside sixteen float epsilons and exact dependent rows keep
+the documented identity fallback. Two serial read-only reviews closed a
+false-pass gap with paired inside/outside cancellation fixtures; the final pass
+is clean. Validation was deferred by explicit owner direction; no build, test,
+scanner, or validation command ran. MATH-003 is the next selected candidate:
+it is medium severity with a narrow finite-vector normalization surface.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

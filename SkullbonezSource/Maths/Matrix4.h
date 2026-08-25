@@ -70,6 +70,7 @@ class Matrix4
 
     Matrix4 operator*( const Matrix4& rhs ) const;                                                                      // Transform composition in engine matrix order.
     Matrix4& operator*=( const Matrix4& rhs );                                                                          // In-place transform composition in engine matrix order.
+    // Returns identity when determinant terms cancel within relative tolerance.
     Matrix4 Inverse() const;
     const float* Data() const;                                                                                          // Column-major memory pointer for shader constant uploads.
 };
