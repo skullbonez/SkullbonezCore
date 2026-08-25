@@ -44,6 +44,7 @@ namespace SkullbonezCore::Core::Platform
 using NativeError = int;
 using NativeFileHandle = int;
 using NativePathCharacter = char;
+using NativeWindowHandle = void*;
 
 inline NativeFileHandle InvalidFileHandle() noexcept
 {
@@ -162,7 +163,7 @@ inline uintptr_t ProcessImageBase() noexcept
     return 0u;
 }
 
-inline bool CopyTextToClipboard( const char* ) noexcept
+inline bool CopyTextToClipboard( NativeWindowHandle, const char* ) noexcept
 {
     return false;
 }

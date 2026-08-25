@@ -227,6 +227,7 @@
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneAutomationGates.cpp" />
     <ClCompile Include="SkullbonezTests\TestInteractionAutomationRecorder.cpp" />
+    <ClCompile Include="SkullbonezTests\TestPlatformWin32.cpp" />
     <ClCompile Include="SkullbonezTests\TestRecordedCursorPresentation.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />

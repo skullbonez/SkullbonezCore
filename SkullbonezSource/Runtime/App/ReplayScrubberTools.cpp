@@ -1017,7 +1017,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
         if ( inspectorCommand.kind == ReplayCauseInspectorCommandKind::CopyRecord )
         {
-            SkullbonezCore::Core::Platform::CopyTextToClipboard( inspectorCommand.text );
+            SkullbonezCore::Core::Platform::CopyTextToClipboard( input.window, inspectorCommand.text );
         }
 
         if ( solverDetailOwnsMouse && input.wheelDelta != 0 )

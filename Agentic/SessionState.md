@@ -97,7 +97,15 @@ continuation, Ctrl-Z, settings-pass rollback, and raw-NUL fixtures cover the
 truncation paths. Three serial read-only reviews closed off-by-one, text-mode
 EOF, settings-path, and embedded-NUL findings; the final pass is clean. No
 build, test, scanner, or validation command ran by explicit owner direction.
-CORE-007 is the next unresolved Core bug.
+CORE-007 is now closed: clipboard publication requires the live application
+window, checks open, empty, allocation, lock, publish, and close failure, and
+releases the movable allocation exactly until Windows accepts ownership.
+Detached Windows fault operations cover every failure without touching the
+machine clipboard, including exact terminating-NUL and unlock-before-publish
+ordering. Two serial read-only reviews closed the null owner, portable CMake
+inventory, and false-pass terminator findings; the final pass is clean.
+Validation was deferred by explicit owner direction; no build, test, scanner,
+or validation command ran.
 RENDER-001 is reconciled as already fixed by the current render boundary:
 `BeginConvexHullBatch` short-circuits before dereferencing a missing shader,
 overwrites readiness with false, and `DrawConvexHullModel` skips the batch;
@@ -124,8 +132,8 @@ the destination atomically. Focused write, flush, close, and replace regression
 cases cover prior-scene byte preservation and sibling cleanup. Two serial
 read-only reviews closed the initial false-pass and cleanup-evidence findings;
 the final pass is clean. Validation was deferred by explicit owner direction;
-no build, test, scanner, or validation command ran. CORE-007 remains the next selected high-impact,
-low-complexity candidate.
+no build, test, scanner, or validation command ran. SCENE-007 is the next
+selected high-impact, low-complexity candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

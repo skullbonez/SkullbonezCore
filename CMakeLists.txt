@@ -138,6 +138,10 @@ set(SKULLBONEZ_PORTABLE_TEST_SOURCES
     SkullbonezTests/TestVector3.cpp
 )
 
+set(SKULLBONEZ_WINDOWS_TEST_SOURCES
+    SkullbonezTests/TestPlatformWin32.cpp
+)
+
 function(skullbonez_require_complete_domain domain)
     file(
         GLOB_RECURSE domain_sources
@@ -188,7 +192,8 @@ file(
 foreach(test_source IN LISTS all_test_sources)
     file(READ "${CMAKE_CURRENT_SOURCE_DIR}/${test_source}" test_text)
     if(NOT test_text MATCHES "#[ \t]*include[ \t]*[<\"][^>\"]*SkullbonezSource/(Runtime|Rendering)/" AND
-       NOT test_source IN_LIST SKULLBONEZ_PORTABLE_TEST_SOURCES)
+       NOT test_source IN_LIST SKULLBONEZ_PORTABLE_TEST_SOURCES AND
+       NOT test_source IN_LIST SKULLBONEZ_WINDOWS_TEST_SOURCES)
         message(FATAL_ERROR "Renderer-free test source is missing from the portable target: ${test_source}")
     endif()
 endforeach()
@@ -227,7 +232,12 @@ target_compile_definitions(
     PUBLIC SKULLBONEZ_RENDER_FREE_TESTS)
 skullbonez_apply_portable_compile_contract(skullbonez_portable_cpu)
 
-add_executable(skullbonez_portable_tests ${SKULLBONEZ_PORTABLE_TEST_SOURCES})
+set(SKULLBONEZ_TEST_EXECUTABLE_SOURCES ${SKULLBONEZ_PORTABLE_TEST_SOURCES})
+if(WIN32)
+    list(APPEND SKULLBONEZ_TEST_EXECUTABLE_SOURCES ${SKULLBONEZ_WINDOWS_TEST_SOURCES})
+endif()
+
+add_executable(skullbonez_portable_tests ${SKULLBONEZ_TEST_EXECUTABLE_SOURCES})
 target_include_directories(skullbonez_portable_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ThirdPtySource)
 target_compile_definitions(
     skullbonez_portable_tests

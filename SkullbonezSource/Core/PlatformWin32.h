@@ -21,6 +21,8 @@ Invariants:
   - Physics, maths, scene-schema, and UI-layout headers must not include it.
   - Platform adapters preserve the atomic writer's exclusive-create, flush,
     and replace ordering across both implementations.
+  - Clipboard memory transfers to Windows only after SetClipboardData succeeds;
+    every earlier failure releases the allocation locally.
 
 Related:
   - SkullbonezSource/Core/Common.h owns the platform-free legacy prelude.
@@ -47,6 +49,7 @@ Related:
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <intrin.h>
 
 namespace SkullbonezCore::Core::Platform
@@ -54,6 +57,7 @@ namespace SkullbonezCore::Core::Platform
 using NativeError = DWORD;
 using NativeFileHandle = HANDLE;
 using NativePathCharacter = wchar_t;
+using NativeWindowHandle = HWND;
 
 inline NativeFileHandle InvalidFileHandle() noexcept
 {
@@ -154,42 +158,74 @@ inline uintptr_t ProcessImageBase() noexcept
     return reinterpret_cast<uintptr_t>( GetModuleHandleW( nullptr ) );
 }
 
-inline bool CopyTextToClipboard( const char* text ) noexcept
+namespace Detail
 {
-    if ( !text )
+class NativeClipboardOperations
+{
+  public:
+    bool Open( NativeWindowHandle owner ) const noexcept { return OpenClipboard( owner ) != FALSE; }
+    bool Empty() const noexcept { return EmptyClipboard() != FALSE; }
+    HGLOBAL Allocate( std::size_t length ) const noexcept { return GlobalAlloc( GMEM_MOVEABLE, length ); }
+    void* Lock( HGLOBAL memory ) const noexcept { return GlobalLock( memory ); }
+    void Unlock( HGLOBAL memory ) const noexcept { GlobalUnlock( memory ); }
+    void Release( HGLOBAL memory ) const noexcept { GlobalFree( memory ); }
+    bool Publish( HGLOBAL memory ) const noexcept { return SetClipboardData( CF_TEXT, memory ) != nullptr; }
+    bool Close() const noexcept { return CloseClipboard() != FALSE; }
+};
+
+template <typename ClipboardOperations>
+bool CopyTextToClipboardWithOperations( NativeWindowHandle owner, const char* text,
+                                        ClipboardOperations& operations ) noexcept
+{
+    if ( !owner || !text || !operations.Open( owner ) )
     {
         return false;
     }
 
-    if ( OpenClipboard( nullptr ) == FALSE )
+    if ( !operations.Empty() )
     {
+        operations.Close();
         return false;
     }
 
-    EmptyClipboard();
     const std::size_t length = std::strlen( text ) + 1u;
-    HGLOBAL memory = GlobalAlloc( GMEM_MOVEABLE, length );
+    auto memory = operations.Allocate( length );
 
     if ( !memory )
     {
-        CloseClipboard();
+        operations.Close();
         return false;
     }
 
-    void* destination = GlobalLock( memory );
+    void* destination = operations.Lock( memory );
 
     if ( !destination )
     {
-        GlobalFree( memory );
-        CloseClipboard();
+        operations.Release( memory );
+        operations.Close();
         return false;
     }
 
     std::memcpy( destination, text, length );
-    GlobalUnlock( memory );
-    SetClipboardData( CF_TEXT, memory );
-    CloseClipboard();
-    return true;
+    operations.Unlock( memory );
+
+    // Lifetime: a successful SetClipboardData transfers memory ownership to
+    // Windows. Before that exact point, every failure must free it here.
+    if ( !operations.Publish( memory ) )
+    {
+        operations.Release( memory );
+        operations.Close();
+        return false;
+    }
+
+    return operations.Close();
+}
+} // namespace Detail
+
+inline bool CopyTextToClipboard( NativeWindowHandle owner, const char* text ) noexcept
+{
+    Detail::NativeClipboardOperations operations;
+    return Detail::CopyTextToClipboardWithOperations( owner, text, operations );
 }
 
 inline void DebugBreak() noexcept
