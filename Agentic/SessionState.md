@@ -98,6 +98,13 @@ truncation paths. Three serial read-only reviews closed off-by-one, text-mode
 EOF, settings-path, and embedded-NUL findings; the final pass is clean. No
 build, test, scanner, or validation command ran by explicit owner direction.
 CORE-007 is the next unresolved Core bug.
+RENDER-001 is reconciled as already fixed by the current render boundary:
+`BeginConvexHullBatch` short-circuits before dereferencing a missing shader,
+overwrites readiness with false, and `DrawConvexHullModel` skips the batch;
+failed shader or dynamic-buffer creation retries at the next Begin. One serial
+read-only review confirmed the visible and shadow paths are clean. No build,
+test, scanner, or validation command ran by explicit owner direction.
+RENDER-002 is the next selected high-impact, low-complexity candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
