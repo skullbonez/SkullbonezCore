@@ -92,7 +92,7 @@ void ReservePhysicsSceneVector( std::vector<T>& values, std::size_t requestedCap
 
     const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { ownerName, RuntimeReserveSubsystem::Physics, RuntimeReservePhase::SceneLoad, 0, static_cast<int>( hardCapacity ),
                                                                                       0, false, capacityReason } );
-    const RuntimeReserveGrowthResult
+    RuntimeReserveGrowthResult
         growth = RuntimeReserveAllocator::RequestGrowth( owner, { ownerName, ownerName, phase, -1,
                                                                   static_cast<int>( values.capacity() ),
                                                                   static_cast<int>( requestedCapacity ),

@@ -65,7 +65,16 @@ a stale cross-frame scope from suppressing valid next-frame core occupancy, and
 enabled-only state remains behind the stable common `Profiler` layout. Two
 serial read-only reviews closed the nesting and mixed-definition layout findings;
 the final pass is clean. No build, test, scanner, or validation command ran by
-explicit owner direction. CORE-003 is the next unresolved Core bug.
+explicit owner direction. CORE-003 is now closed: replay growth results carry a
+private one-use owner/phase identity and an exact allocation-byte reservation.
+Pending grant bytes are serialized with live owner bytes, converted atomically
+by the real allocation hook, and released when unused; diagnostic-off mode still
+accounts valid owners without charging unowned allocations. Aggregate snapshot,
+prediction-engine, and archive staging callers now grant only the backing they
+actually allocate. Two serial read-only reviews closed live-cap, caller-budget,
+guard-mode, pending-grant, and archive-constructor findings; the final pass is
+clean. No build, test, scanner, or validation command ran by explicit owner
+direction. CORE-004 is the next unresolved Core bug.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

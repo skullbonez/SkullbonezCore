@@ -347,7 +347,7 @@ bool ReplayPredictionSolverEvidenceStore::EnsureFrameSegments( std::size_t requi
 
         if ( !RequestReplayPredictionReserveGrowth( "ReplayPredictionSolverEvidenceStore::frames", frameNumber,
                                                     static_cast<int>( oldBytes ), static_cast<int>( requestedBytes ), 1,
-                                                    result ) )
+                                                    result, sizeof( FrameSegment ) ) )
         {
             return false;
         }
@@ -383,7 +383,7 @@ bool ReplayPredictionSolverEvidenceStore::EnsureContactSegments( std::size_t req
 
         if ( !RequestReplayPredictionReserveGrowth( "ReplayPredictionSolverEvidenceStore::contacts", frameNumber,
                                                     static_cast<int>( oldBytes ), static_cast<int>( requestedBytes ), 1,
-                                                    result ) )
+                                                    result, sizeof( ContactSegment ) ) )
         {
             return false;
         }
@@ -419,7 +419,7 @@ bool ReplayPredictionSolverEvidenceStore::EnsurePipelineSegments( std::size_t re
 
         if ( !RequestReplayPredictionReserveGrowth( "ReplayPredictionSolverEvidenceStore::pipeline", frameNumber,
                                                     static_cast<int>( oldBytes ), static_cast<int>( requestedBytes ), 1,
-                                                    result ) )
+                                                    result, sizeof( PipelineSegment ) ) )
         {
             return false;
         }

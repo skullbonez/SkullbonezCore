@@ -245,7 +245,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
             FailReserveDenied( requested, phase );
         }
 
-        const RuntimeReserveGrowthResult
+        RuntimeReserveGrowthResult
             growth = RuntimeReserveAllocator::RequestGrowth( m_ownerHandle, { m_ownerName, m_ownerName, phase, -1,
                                                                               static_cast<int>( m_runtimeCapacity ),
                                                                               static_cast<int>( requested ),

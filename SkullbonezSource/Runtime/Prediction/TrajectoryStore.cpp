@@ -358,7 +358,7 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
 
     if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryStore::records", frameNumber,
                                                 static_cast<int>( oldStoreBytes ), static_cast<int>( requestedStoreBytes ),
-                                                1, result ) )
+                                                1, result, requestedRecordBytes ) )
     {
         return false;
     }
@@ -410,7 +410,7 @@ bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
 
     if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryRecord::points", frameNumber,
                                                 static_cast<int>( oldStoreBytes ), static_cast<int>( requestedStoreBytes ),
-                                                1, result ) )
+                                                1, result, requestedPointBytes ) )
     {
         return false;
     }

@@ -80,6 +80,7 @@ struct CallsiteCounters
 
 constexpr uint32_t ALLOCATION_HEADER_MAGIC = 0xA110CA7Eu;
 constexpr uint32_t ALLOCATION_HEADER_RECORDED = 0x1u;
+constexpr uint32_t ALLOCATION_HEADER_OWNER_RECORDED = 0x2u;
 constexpr int MAX_ALLOCATION_CALLSITES = 1024;
 constexpr int MAX_PRINTED_CALLSITES = 24;
 constexpr std::size_t DEFAULT_ALIGNMENT = alignof( std::max_align_t );
@@ -290,12 +291,23 @@ void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle own
 bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReserveOwnerHandle owner,
                        uintptr_t callsite ) noexcept
 {
+    const int phaseIndex = static_cast<int>( phase );
+    // The replay grant is an allocation-safety contract, not diagnostic state.
+    // Consume its exact byte allowance even when measurement is disabled so an
+    // earlier allocation cannot leave approval behind for a later allocation.
+    const bool approvedReplayGrowth =
+        RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( owner, phaseIndex, size );
+
+    if ( owner != INVALID_RUNTIME_RESERVE_OWNER && !approvedReplayGrowth )
+    {
+        RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
+    }
+
     if ( CurrentMode() == RuntimeAllocationGuardMode::Off )
     {
         return false;
     }
 
-    const int phaseIndex = static_cast<int>( phase );
     PhaseCounters& counters = s_phaseCounters[phaseIndex];
     counters.allocations.fetch_add( 1u, std::memory_order_relaxed );
     counters.allocatedBytes.fetch_add( size, std::memory_order_relaxed );
@@ -303,7 +315,13 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
     UpdateHighWater( counters.highWaterBytes, activeAfter );
     s_totalAllocations.fetch_add( 1u, std::memory_order_relaxed );
     s_totalBytes.fetch_add( size, std::memory_order_relaxed );
-    RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
+
+    if ( owner == INVALID_RUNTIME_RESERVE_OWNER )
+    {
+        // Measured unowned allocations retain the existing sentinel-row
+        // diagnostics without making that row an always-on accounting owner.
+        RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
+    }
 
     uintptr_t stackFrames[8] = {};
 #if defined( _WIN32 )
@@ -319,7 +337,6 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
         stackFrames[index] = reinterpret_cast<uintptr_t>( capturedFrames[index] );
     }
 #endif
-    const bool approvedReplayGrowth = RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, phaseIndex );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const bool
         approvedDevelopmentToolAllocation = RuntimeReserveAllocator::IsApprovedDevelopmentToolAllocation( owner,
@@ -348,6 +365,13 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
 
 void RecordFree( const AllocationHeader& header ) noexcept
 {
+    if ( ( header.flags & ALLOCATION_HEADER_OWNER_RECORDED ) != 0u )
+    {
+        // Owner live-byte accounting enforces replay caps independently of
+        // whether diagnostic allocation counters are currently enabled.
+        RuntimeReserveAllocator::RecordFree( header.owner, header.size );
+    }
+
     // Invariant: a delete only subtracts bytes that were counted while the
     // guard was enabled. Startup allocations freed during gameplay shutdown
     // still carry tracker headers, but they must not underflow phase counters.
@@ -369,7 +393,6 @@ void RecordFree( const AllocationHeader& header ) noexcept
     counters.frees.fetch_add( 1u, std::memory_order_relaxed );
     counters.freedBytes.fetch_add( header.size, std::memory_order_relaxed );
     SubtractActiveBytes( counters.activeBytes, header.size );
-    SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RecordFree( header.owner, header.size );
 }
 
 void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAlignment, void* callsite,
@@ -433,6 +456,11 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
                                reinterpret_cast<uintptr_t>( callsite ) ) )
         {
             header->flags |= ALLOCATION_HEADER_RECORDED;
+        }
+
+        if ( owner != INVALID_RUNTIME_RESERVE_OWNER )
+        {
+            header->flags |= ALLOCATION_HEADER_OWNER_RECORDED;
         }
 
 #if defined( TRACY_ENABLE )

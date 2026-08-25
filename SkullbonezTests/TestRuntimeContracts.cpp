@@ -1699,7 +1699,7 @@ bool RunRuntimeFatalCase( const char* caseName )
               RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
               "Fatal probe for unrelated Replay growth authority" } );
 
-        const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::
+        RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::
             RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, "PhysicsEngine seed",
                                     RuntimeReservePhase::Replay, 0, 0, wrongOwnerHardCapacity, 1 } );
 

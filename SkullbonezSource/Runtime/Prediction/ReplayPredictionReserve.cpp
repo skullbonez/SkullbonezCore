@@ -71,7 +71,8 @@ SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionRese
 
 bool RequestReplayPredictionReserveGrowth( const char* targetName, int frameNumber, int oldCapacityBytes,
                                            int requestedCapacityBytes, int elementSizeBytes,
-                                           SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept
+                                           SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult,
+                                           uint64_t allocationBytes ) noexcept
 {
     outResult = {};
 
@@ -88,7 +89,8 @@ bool RequestReplayPredictionReserveGrowth( const char* targetName, int frameNumb
           frameNumber,
           oldCapacityBytes,
           requestedCapacityBytes,
-          elementSizeBytes };
+          elementSizeBytes,
+          allocationBytes };
 
     outResult = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     return outResult.granted;
@@ -207,14 +209,18 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
     }
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
+    const bool replaceDestination = !destination || requestedBytes > currentReservedBytes;
 
-    if ( requestedBytes > currentReservedBytes )
+    if ( replaceDestination )
     {
-        // Why: the private engine is retained across prediction rebuilds. Only
-        // real capacity increases should consume replay growth events; same-size
-        // reseeds just reuse the previous bounded reservation.
+        // Why: a growth rebuild uses a fresh engine so its allocation grant is
+        // exact: one PhysicsEngine object plus every requested backing owned by
+        // that object. Reusing a partially reserved destination would require a
+        // broad aggregate allowance that unrelated allocations could consume.
+        const int oldCapacityBytes = destination ? currentReservedBytes : 0;
         if ( !RequestReplayPredictionReserveGrowth( "RunReplayPredictionSimulationState::predictionEngine", 0,
-                                                    currentReservedBytes, requestedBytes, 1, result ) )
+                                                    oldCapacityBytes, requestedBytes, 1, result,
+                                                    static_cast<uint64_t>( requestedBytes ) ) )
         {
             return false;
         }
@@ -226,12 +232,17 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope
         growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
 
-    if ( !destination )
+    if ( replaceDestination )
     {
-        destination = std::make_unique<Physics::PhysicsEngine>();
+        std::unique_ptr<Physics::PhysicsEngine> replacement = std::make_unique<Physics::PhysicsEngine>();
+        replacement->SeedReplayPredictionStorageFrom( source );
+        destination = std::move( replacement );
+    }
+    else
+    {
+        destination->SeedReplayPredictionStorageFrom( source );
     }
 
-    destination->SeedReplayPredictionStorageFrom( source );
     outReservedBytes = (std::max)( currentReservedBytes, requestedBytes );
     return true;
 }

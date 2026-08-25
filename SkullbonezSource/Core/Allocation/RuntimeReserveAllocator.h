@@ -14,6 +14,8 @@ Invariants:
   - Gameplay owners receive growth approval only during their declared init phase.
   - Replay byte-budget owners share one active-allocation cap across all of
     their vector/object targets.
+  - Each replay result carries one private owner/phase token and one exact byte
+    budget; opening its scope consumes the token and allocations consume bytes.
   - Development tool permission does not exist in Release or Profile-WPO, and
     cannot exempt allocations on another thread.
 */
@@ -89,13 +91,30 @@ struct RuntimeReserveGrowthRequest
     int oldCapacity;
     int requestedCapacity;
     int elementSizeBytes;
+    uint64_t allocationBytes = 0u; // Zero derives one new backing allocation from requested capacity.
 };
 
 struct RuntimeReserveGrowthResult
 {
-    bool granted;
-    int grantedCapacity;
-    int growthCount;
+    bool granted = false;
+    int grantedCapacity = 0;
+    int growthCount = 0;
+
+    RuntimeReserveGrowthResult() noexcept = default;
+    ~RuntimeReserveGrowthResult() noexcept;
+    RuntimeReserveGrowthResult( RuntimeReserveGrowthResult&& other ) noexcept;
+    RuntimeReserveGrowthResult& operator=( RuntimeReserveGrowthResult&& other ) noexcept;
+    RuntimeReserveGrowthResult( const RuntimeReserveGrowthResult& ) = delete;
+    RuntimeReserveGrowthResult& operator=( const RuntimeReserveGrowthResult& ) = delete;
+
+  private:
+    friend class RuntimeReserveAllocator;
+    friend class RuntimeReserveGrowthScope;
+
+    RuntimeReserveOwnerHandle m_grantOwner = INVALID_RUNTIME_RESERVE_OWNER;
+    RuntimeReservePhase m_grantPhase = RuntimeReservePhase::SteadyGameplay;
+    uint64_t m_grantId = 0u;
+    uint64_t m_allocationBytes = 0u;
 };
 
 struct RuntimeReserveGrowthEventView
@@ -125,6 +144,7 @@ struct RuntimeReserveOwnerStatsView
     uint64_t allocations;
     uint64_t activeBytes;     // Currently live allocation bytes attributed to this owner.
     uint64_t highWaterBytes;  // Largest transient active-byte total since counters reset.
+    uint64_t pendingReplayGrantBytes; // Issued replay bytes not yet allocated or released.
     uint64_t replayGrowths;
     uint64_t failedGrowths;
     int currentCapacity;
@@ -153,7 +173,7 @@ class RuntimeReserveGrowthScope
 {
   public:
     RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase,
-                               const RuntimeReserveGrowthResult& result ) noexcept;
+                               RuntimeReserveGrowthResult& result ) noexcept;
     ~RuntimeReserveGrowthScope() noexcept;
 
     RuntimeReserveGrowthScope( const RuntimeReserveGrowthScope& ) = delete;
@@ -163,6 +183,8 @@ class RuntimeReserveGrowthScope
     RuntimeReserveOwnerHandle m_previousOwner;
     RuntimeReservePhase m_previousPhase;
     int m_previousDepth;
+    uint64_t m_previousGrantId;
+    uint64_t m_previousRemainingBytes;
     bool m_active;
 };
 
@@ -188,7 +210,12 @@ class RuntimeReserveAllocator
 
     static RuntimeReserveOwnerHandle CurrentOwner() noexcept;
     static void SetCurrentOwner( RuntimeReserveOwnerHandle owner ) noexcept;
+
+    // IsApproved is a non-consuming preflight for fixed containers. The global
+    // allocation hook must use TryConsume with its exact requested byte count.
     static bool IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
+    static bool TryConsumeApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex,
+                                                          uint64_t bytes ) noexcept;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     static bool IsApprovedDevelopmentToolAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
 

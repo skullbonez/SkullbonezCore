@@ -438,13 +438,22 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
     // vectors inside that owner scope so replay diagnostics stay readable.
     uint64_t oldSnapshotBytes = 0;
     uint64_t requestedSnapshotBytes = 0;
+    uint64_t allocationBytes = 0;
     bool snapshotNeedsGrowth = false;
     const auto includeSnapshotReserve = [&]( const auto& values, std::size_t requestedCapacity )
     {
         oldSnapshotBytes += ListCapacityBytes( values );
+        const uint64_t requestedBytes = ReplaySolverSnapshotRequestedBytes( values, requestedCapacity );
+        requestedSnapshotBytes += requestedBytes;
 
-        requestedSnapshotBytes += ReplaySolverSnapshotRequestedBytes( values, requestedCapacity );
-        snapshotNeedsGrowth = snapshotNeedsGrowth || requestedCapacity > values.capacity();
+        if ( requestedCapacity > values.capacity() )
+        {
+            // std::vector::reserve allocates the full requested backing while
+            // its old backing is still live. Unchanged vectors contribute no
+            // bytes to this one-use allocation grant.
+            allocationBytes += requestedBytes;
+            snapshotNeedsGrowth = true;
+        }
     };
 
 #define INCLUDE_REPLAY_SOLVER_VECTOR_RESERVE( snapshotField, worldValues, label )                                           \
@@ -479,9 +488,10 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
                                                                       modelCount,
                                                                       static_cast<int>( oldSnapshotBytes ),
                                                                       static_cast<int>( requestedSnapshotBytes ),
-                                                                      1 };
+                                                                      1,
+                                                                      allocationBytes };
 
-        const CoreAllocation::RuntimeReserveGrowthResult
+        CoreAllocation::RuntimeReserveGrowthResult
             result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
 
         if ( !result.granted )

@@ -64,7 +64,8 @@ namespace ReplayPredictionReserveOperations
 {
 SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept;
 bool RequestReplayPredictionReserveGrowth( const char* targetName, int frameNumber, int oldCapacityBytes, int requestedCapacityBytes, int elementSizeBytes,
-                                           SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept;
+                                           SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult,
+                                           uint64_t allocationBytes = 0u ) noexcept;
 
 template <typename T> bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
 {
@@ -129,6 +130,8 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
 // in that order only after the working-set owner approves the request.
 // Runtime allocation policy: requests use byte units (`elementSizeBytes == 1`)
 // because one 960 MiB cap is shared across vectors with different element types.
+// The optional allocation byte value narrows aggregate working-set requests to
+// the exact backing allocations performed inside the resulting scope.
 template <typename T>
 bool ReserveReplayPredictionVector( std::vector<T>& values, std::size_t requestedCapacity, int frameNumber,
                                     const char* targetName )
@@ -151,7 +154,7 @@ bool ReserveReplayPredictionVector( std::vector<T>& values, std::size_t requeste
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
 
     if ( !RequestReplayPredictionReserveGrowth( targetName, frameNumber, static_cast<int>( oldBytes ),
-                                                static_cast<int>( requestedBytes ), 1, result ) )
+                                                static_cast<int>( requestedBytes ), 1, result, requestedBytes ) )
     {
         return false;
     }
@@ -179,6 +182,7 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames, std
     }
 
     uint64_t oldBytes = 0;
+    uint64_t allocationBytes = 0;
 
     for ( std::size_t i = 0; i < requestedFrameCount; ++i )
     {
@@ -191,6 +195,21 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames, std
         }
 
         oldBytes += frameBytes;
+
+        // The working-set request uses total desired capacity, while the grant
+        // budget counts only vectors that will actually allocate in this scope.
+        if ( ( frames[i].*member ).capacity() < requestedCapacityPerFrame )
+        {
+            uint64_t requestedFrameBytes = 0;
+
+            if ( !ReplayPredictionCapacityBytes<T>( requestedCapacityPerFrame, requestedFrameBytes ) ||
+                 allocationBytes > ( std::numeric_limits<uint64_t>::max )() - requestedFrameBytes )
+            {
+                return false;
+            }
+
+            allocationBytes += requestedFrameBytes;
+        }
     }
 
     uint64_t requestedBytes = 0;
@@ -213,7 +232,7 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames, std
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
 
     if ( !RequestReplayPredictionReserveGrowth( targetName, frameNumber, static_cast<int>( oldBytes ),
-                                                static_cast<int>( requestedBytes ), 1, result ) )
+                                                static_cast<int>( requestedBytes ), 1, result, allocationBytes ) )
     {
         return false;
     }

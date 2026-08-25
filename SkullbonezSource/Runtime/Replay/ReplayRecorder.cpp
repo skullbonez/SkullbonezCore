@@ -222,7 +222,7 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
                                                                   static_cast<int>( requestedBytes ),
                                                                   1 };
 
-    const CoreAllocation::RuntimeReserveGrowthResult
+    CoreAllocation::RuntimeReserveGrowthResult
         result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
 
     if ( !result.granted )
@@ -273,7 +273,7 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
                                                                   static_cast<int>( requestedBytes ),
                                                                   1 };
 
-    const CoreAllocation::RuntimeReserveGrowthResult
+    CoreAllocation::RuntimeReserveGrowthResult
         result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
 
     if ( !result.granted )

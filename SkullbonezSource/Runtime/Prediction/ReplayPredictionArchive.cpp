@@ -1416,13 +1416,19 @@ void CommitArchivePayload( RunReplayPathVisualizerState& destinationPath, RunRep
 bool AllocateArchiveCandidates( std::unique_ptr<RunReplayPredictionState>& prediction,
                                 std::unique_ptr<ReplayPredictionSolverEvidenceBanks>& evidence )
 {
-    const uint64_t requestedBytes = sizeof( RunReplayPredictionState ) + sizeof( ReplayPredictionSolverEvidenceBanks );
+    // RunReplayPredictionState's constructor reserves these three retained
+    // vectors. Budget the complete constructor footprint so the one-use grant
+    // cannot be order-dependently borrowed between object and vector backing.
+    const uint64_t requestedBytes = sizeof( RunReplayPredictionState ) + sizeof( ReplayPredictionSolverEvidenceBanks ) +
+                                    Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS *
+                                        sizeof( Gameplay::TornadoVortexConfig ) +
+                                    2u * SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * sizeof( float );
     Core::Allocation::RuntimeReserveGrowthResult result = {};
 
     if ( requestedBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
          !ReplayPredictionReserveOperations::
              RequestReplayPredictionReserveGrowth( "ReplayPredictionArchive.transactionStaging", -1, 0,
-                                                   static_cast<int>( requestedBytes ), 1, result ) )
+                                                   static_cast<int>( requestedBytes ), 1, result, requestedBytes ) )
     {
         return false;
     }
