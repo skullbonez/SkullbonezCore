@@ -429,7 +429,7 @@
     "repair_plan_policy": {
       "owner": "Runtime architecture",
       "plan": "RUNTIME_BOUNDARIES RBS2-RBS5",
-      "reason": "The source-confirmed pre-separation edge remains forbidden by strict evaluation and is sealed only so the ordinary gate rejects new, changed, shifted, or stale debt while the owning removal phase executes.",
+      "reason": "The source-confirmed pre-separation edge remains forbidden by strict evaluation and is sealed only so the ordinary gate rejects new, changed, or stale debt while ignoring comment and line movement during the owning removal phase.",
       "rulings": [
       ]
     }

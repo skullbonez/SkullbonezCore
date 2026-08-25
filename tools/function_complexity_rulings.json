@@ -5,7 +5,7 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "2e2e99f8dc8a06fc466ffa29b82eb5e3a52fe70fe1fa406cb2f043268547e057",
+      "body_sha256": "79f6889858649afbee13df4fc1433363f08d632e016720b2d372432bd152e393",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
       "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab, continuous-forecast status, Prediction-owned reveal presentation bounds, and Replay-owned horizon presentation bounds, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return. UI4 projects shared diagnostic ranges and drag speeds through OperatorControlPolicy and render controls through UIRenderAuthoringCatalog; App composes authoritative grid and Replay popup bounds, so this body adds neither retained state nor a second phase.",
@@ -15,7 +15,7 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges, int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler )",
-      "body_sha256": "fe0c01c9e00417c2d4b9beb6ea6139352b194edd709726a43927d9f60c163d16",
+      "body_sha256": "85742c9346d21c9d700befd5b8f6479b8c16f8ee301b9ba9fcfb35d381518ffa",
       "owner": "Persistent contact manifold-construction phase",
       "disposition": "retain-owner",
       "reason": "One guarded phase converts deterministic candidate pairs into shape-owned object contact rows, rejects exact non-penetrating sphere pairs that are already separating, then publishes support edges, contact counts, and optional trace values; compile-time trace retention does not split its manifold-construction invariant, and all borrowed participants expire at return.",
@@ -25,7 +25,7 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState, std::span<const float> timeRemaining, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )",
-      "body_sha256": "4578fbc505b81d60a94b13fdb77bee8cfd908c26edd3b5af03b2afe8f29cd16d",
+      "body_sha256": "c605c4abc74c87b30b2e0c89674a9cd8ed92f15a446e9bdfccbb80918dc7a15d",
       "owner": "Persistent contact row-precompute phase",
       "disposition": "retain-owner",
       "reason": "One guarded phase transforms constructed rows, solver-static sleep classification, per-body remaining-time values, and the previous cache into linear and angular effective masses, contact-interval-scaled bias and friction bounds, sub-impact stable-support rolling/spin eligibility, exact-feature restitution lifetime, warm-start impulses, and optional trace values; these calculations establish one coherent pre-solve row invariant, and no owner borrow survives return.",
@@ -35,7 +35,7 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput, bool& gameUiActive )",
-      "body_sha256": "bae4acd6f948bb5ac3fc8d0d63fcb77509c4651441ec00f3b4c871bf07670795",
+      "body_sha256": "b04c3acff437699d84bba14d5d6e6e6eb5a1fa80ea91d3b3ad292be7830fa5f3",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
       "reason": "One ordered input turn runs from automation sampling through device routing, typed command production, scene-scoped owner retirement, and terminal restore publication. The added GameUI-active output publishes the surface selection resolved inside that same turn; it does not introduce a second phase or retained authority. Every participant remains a synchronous Run-owned borrow, and splitting the coordinator would only move frame ordering into one-call relays without an independent invariant.",
@@ -45,20 +45,17 @@
     {
       "file": "SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.cpp",
       "signature": "InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight, double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask, const SceneNavigationModel& sceneNavigation )",
-      "body_sha256": "f40cd1fdaf5998c3c2da89a7785e94bbdc90c5a204947a4f9214f193d07d7f09",
+      "body_sha256": "63b988fc55d7f952a58a43e94ca342d613679b2074a78134eb551e29015e301c",
       "owner": "UIWindowInteractionOwner input turn",
       "disposition": "retain-owner",
       "reason": "One UI interaction owner resolves a detached input snapshot against viewport, editor, camera, Scene-tab catalog, and forecast-control hit-test policy for a single turn; both scene and recording combos share this owner's open-state and click-order invariant, all model access is synchronous, and extraction would leave one-call hit-test helpers sharing the same widget state. UI4 moved camera-pointer blocking from the generic UIInteractionState into this existing product owner, preserving one authority.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); ORBIT_FORECAST OF4 GameUI control review (2026-08-19); interaction recording picker review (2026-08-22); GAME_UI_COMPONENTS UI4 pointer-policy ownership review (2026-08-24)",
-      "plan": "",
-      "body_lines": 1042,
-      "max_brace_depth": 8,
-      "closure_count": 1
+      "plan": ""
     },
     {
       "file": "SkullbonezSource/Physics/Diagnostics/SkullScope.cpp",
       "signature": "void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameInput )",
-      "body_sha256": "00be36409faf41e066acf780141c67f7d0f585da550e8507717abbe9ae1dacea",
+      "body_sha256": "4f2ae17794e9aa732b3b72aa11acfdc44c35f651f4126bcb8a9b980c49b541c7",
       "owner": "SkullScope frame emission transaction",
       "disposition": "retain-owner",
       "reason": "One bounded diagnostics transaction serializes a complete physics frame schema in deterministic field order, including separation-only bias attribution, motion-policy totals, and each body's direction-valid eligibility boundary and policy state; splitting field families would fragment the format invariant and byte-exact validation contract.",
@@ -68,7 +65,7 @@
     {
       "file": "SkullbonezSource/Runtime/App/OperatorEditorFramePhase.cpp",
       "signature": "OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha, bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive, const RuntimeFrameMetricsSnapshot& frameMetrics )",
-      "body_sha256": "2ea344f21ef70a44a4dfc75d414c31a0a908c1ff49e85225c5ad3302e1817ecd",
+      "body_sha256": "91b6eae4e746640977aad390234c4518a38a416671333505475d27934bd63365",
       "owner": "Runtime App operator-frame composition phase",
       "disposition": "retain-owner",
       "reason": "One ordered frame samples per-domain detached facts, delegates all domain UI-row mapping to Runtime/UI, sequences GameUI and secondary presentation with renderer submission, then emits typed process commands. No owner borrow survives return, and extraction would create relay helpers without an independent invariant. This current-body ruling does not permit App to regain UI-row mapping or retained sibling authority.",
@@ -78,56 +75,37 @@
     {
       "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
       "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
-      "body_sha256": "d3df366bc4b69806576deb9fbb0d3cc3c08337712fd771f50a126dd990cd24ee",
+      "body_sha256": "289ef4346dbf22baa578f9f07b874150b82d5b6a6176229c332f99189e22e104",
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
       "reason": "One exhaustive App assertion phase reads one selected action against detached snapshots and the separately owned Editor and Runtime tool surfaces, then emits one evaluation. Category extraction would preserve one flat dispatcher and relay the same evaluation authority without creating an independent algorithm or lifetime.",
       "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow assertion review; ORBIT_FORECAST OF5 rolling-window evidence review (2026-08-19); RUNTIME_BOUNDARIES RBS7 EditorTools ownership re-review (2026-08-24)",
-      "plan": "",
-      "body_lines": 853,
-      "max_brace_depth": 7,
-      "closure_count": 2
+      "plan": ""
     },
     {
       "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
       "signature": "bool WriteInteractionTraceTurn( InteractionAutomationController& state, InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene )",
-      "body_sha256": "f231966aad17164a98d433ca3a587632419d4e86677014749dd6282edabba0cb",
+      "body_sha256": "c32341b36eb28ca4a4126d17b9a0f95a82edc4526e5d600b01bf1339112264ad",
       "owner": "Interaction automation turn-trace transaction",
       "disposition": "retain-owner",
       "reason": "One bounded after-render transaction pairs the injected device frame and ordered router receipts with the same turn's detached scene, camera, input-mode, and UI observations, then flushes one JSONL row. The depth comes from fixed key/action iteration and JSON field construction rather than unrelated policy; splitting those sections into one-call helpers would fragment the one-row evidence invariant without moving ownership or creating an independently useful algorithm.",
       "evidence": "interaction replay observable trace review (2026-08-22)",
-      "plan": "",
-      "body_lines": 65,
-      "max_brace_depth": 6,
-      "closure_count": 0
-    },
-    {
-      "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
-      "signature": "AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& expected, RunInteractionAutomationAction& outAction, std::string& )",
-      "body_sha256": "59b5db64a5ca3b15d3a39301a046dac803602602560cd73d67061d2cf7af1b42",
-      "owner": "Replay interaction-assertion parser",
-      "disposition": "retain-owner",
-      "reason": "One flat depth-two dispatcher maps the closed replay and prediction assertion namespace into one typed action value; every branch writes only that output and returns immediately, so extracting category helpers would relay the same parse authority without creating an independent invariant or lifetime.",
-      "evidence": "PREDICT_SOLVER_DETAIL PSD7 combined-workflow parser review (2026-08-19)",
       "plan": ""
     },
     {
       "file": "SkullbonezSource/Runtime/App/InteractionAutomationReportApplication.cpp",
       "signature": "SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const SceneWorld& world, const SceneSessionState& scene, const char* scenePath, const EditorToolsOwner& editorTools, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay, const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "17562dca9c8189c4cd3fec38c0ed862a6d9ae4ffd335afcaeb9c98d5be21a869",
+      "body_sha256": "088e29840ad7983ed96f3438df510d47c54a7edf9ff338ba55c0afda4279497d",
       "owner": "InteractionAutomationReportWriter report transaction",
       "disposition": "retain-owner",
       "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report. The configured writer epoch now owns the script path, while the App composition call supplies the separate EditorTools snapshot; both changes preserve the same field-order, single-write, and failure-cleanup invariant.",
       "evidence": "PREDICT_SOLVER_DETAIL PSD7 and ORBIT_FORECAST OF6 report-schema reviews (2026-08-19); PR159 writer-epoch and EditorTools ownership re-review (2026-08-24)",
-      "plan": "",
-      "body_lines": 871,
-      "max_brace_depth": 5,
-      "closure_count": 5
+      "plan": ""
     },
     {
       "file": "SkullbonezSource/Runtime/UI/GameUI/UI.cpp",
       "signature": "const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )",
-      "body_sha256": "1e8bf1a96006ae40f98fa343d8169daf5cb2b9cc2ad59e4037ec048ffe242108",
+      "body_sha256": "7c0caf50525814a4bde20c51b97b20ebb332c1e1e99885a1198931274b066d40",
       "owner": "InGameUI immediate draw pass",
       "disposition": "retain-owner",
       "reason": "One immediate-mode UI pass transforms a detached root frame into one ordered draw list; UI4 projects focused per-tab borrows once at the composition root, while layout, hitbox, and widget branches still share the same frame lifetime and draw-order invariant.",
@@ -137,20 +115,17 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
       "signature": "RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts )",
-      "body_sha256": "dd5e7ab2d3688c735a030d79b62c55aee3afa7b0785f7c930c73765841939738",
+      "body_sha256": "9e8e7d8a7f1affd313bbc7937c66af78f2033af195f09322deaf0cfc401b9754",
       "owner": "Runtime input-command application phase",
       "disposition": "retain-owner",
       "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. App normalizes the covered OperatorControlPolicy and render/cinematic catalog floats once here before their owner dispatch, while separately owned Replay reveal/horizon values remain outside that pass. App also resolves bounded-PREDICT/continuous-forecast mutual exclusion here because it composes the Replay and Planning owners. Extracting either step would split one atomic command transition without moving authority.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled for C1 causal-row transport (2026-08-17); ORBIT_FORECAST OF4 mutual-exclusion review and OF5 typed command review (2026-08-19); RUNTIME_BOUNDARIES RBS7 command-owner re-review (2026-08-24); GAME_UI_COMPONENTS UI4 shared-policy normalization review (2026-08-24)",
-      "plan": "",
-      "body_lines": 699,
-      "max_brace_depth": 4,
-      "closure_count": 6
+      "plan": ""
     },
     {
       "file": "SkullbonezSource/Physics/ConvexHullShape.cpp",
       "signature": "SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, ConvexHullShape& outHull )",
-      "body_sha256": "d4dd1e2386c53ac83c2d1898cf4b4d1d193d8fbba4524c50c97c50946503e60f",
+      "body_sha256": "4fb80512b342dd50ecf433126d47bc3046ed7f42a8440819ea42cfef2efad7be",
       "owner": "ConvexHullShape decode transaction",
       "disposition": "retain-owner",
       "reason": "One cold hull decode validates and canonicalizes a complete authored shape before publishing the output value; parse branches share one diagnostic path and no partial shape escapes.",
@@ -160,7 +135,7 @@
     {
       "file": "SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp",
       "signature": "bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RunEditorPlacementState& editor, SceneWorld& world, SceneSessionState& scene, const Assets::AssetSystem& assets, int activeModelCapacity, EditorObjectPlacementRequest request, EditorObjectPlacementResult& outResult )",
-      "body_sha256": "570b8bf65733a5753495030ee5cb6423d6062184efb5cd8cd017291026b1f6fa",
+      "body_sha256": "a26ed4eeaa4e682f419dc4b01a3b148531b9a8d6fe60ffb0c1e146566760f960",
       "owner": "Editor object placement transaction",
       "disposition": "retain-owner",
       "reason": "One editor placement command resolves terrain pose, asset bounds, scene capacity, and history publication atomically; the output is committed only after the shared placement invariant succeeds.",
@@ -170,7 +145,7 @@
     {
       "file": "SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp",
       "signature": "const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive, bool scenePhysicsEnabled, ReplayOverlayGestureView gesture, ReplayOverlayViewport viewport, double nowSeconds )",
-      "body_sha256": "869a19855f245ce3c95ec130110f37461595d3b421b052982adc9ad1d3d60df6",
+      "body_sha256": "2baeb80f72378f38955fa9522ecc19a227015f7b6e0783d21b2b8f38e42e0f31",
       "owner": "ReplayOverlayDrawOwner composition pass",
       "disposition": "retain-owner",
       "reason": "One Planning presentation owner converts a detached replay overlay snapshot into its ordered draw list for one viewport and time. The owner retains only its bounded draw buffer; renderer submission moved out of this phase, so no backend authority or borrowed overlay state survives composition.",
@@ -180,7 +155,7 @@
     {
       "file": "SkullbonezSource/Runtime/App/ReplayAuthoringCauseTree.cpp",
       "signature": "bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path, const ReplaySolverFrameSample* solverSample, std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore, const RunReplayCameraState& camera, int& outCameraFocusedRow )",
-      "body_sha256": "bba2f153675a440e92e6792b959844ce3240e6af660a08f991ea8869771a0c4f",
+      "body_sha256": "e92390d3eab80662bedc999b380be18f1d706705052aef18e3221c1ee625159f",
       "owner": "App replay cause-tree projection transaction",
       "disposition": "retain-owner",
       "reason": "One App composition transaction projects an exact recorded or High-detail predicted event frame, retained presentation rows, body identities, and camera focus into one coherent ReplayAuthoring row set. Prediction remains a read-only evidence owner; the Low-mode early exit preserves the publication invariant that prevents an unsupported cause surface from becoming interactive.",
@@ -188,42 +163,19 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp",
-      "signature": "ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& prediction, const RunReplayPathVisualizerState& pathVisualizer, const SceneEntityStore& entities, const ColliderStore& colliderStore, ReplayPredictionRetainedGeometry& retainedGeometry, EditorTracer& retainedMarkers, ReplayPredictionDrawListState& state )",
-      "body_sha256": "a3f82483151d4db4f9f484ca6114f2fc8b379c05e01a5d2d5399df1dc5b6847b",
-      "owner": "Replay prediction draw-list update transaction",
-      "disposition": "retain-owner",
-      "reason": "One update reconciles a detached prediction view with retained geometry, markers, and draw-list state for the current generation; generation identity and replacement ordering are one transaction.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
-      "plan": ""
-    },
-    {
-      "file": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
-      "signature": "SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneSessionState& sceneState, SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene )",
-      "body_sha256": "129aa6b023e4ca49abbfaf4c0243757d53096962fa4e5a866efd136c14705eee",
-      "owner": "SceneAuthoredSetup entity transaction",
-      "disposition": "retain-owner",
-      "reason": "One authored-scene setup transaction creates the complete entity topology, resolves orbital-stability and named dynamic-sleep requirements to newly assigned stable IDs, and establishes automation gates before publication; partial setup is diagnosed and cannot become the active scene.",
-      "evidence": "git history: vector-frame-contract-closure-vf2-authored-impulse-offset (2026-07-31); ORBIT_FORECAST OF3 resolved stability-contract transfer (2026-08-19); REST_STABILITY RS0 named dynamic-body sleep gate (2026-08-19)",
-      "plan": ""
-    },
-    {
       "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
       "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "edfae93f62a2f95316fe3cd4a7acdbcc61073023ed6e74414b03dce2400fbc07",
+      "body_sha256": "78a8354d4c4ee6e331bd7a90880b6d470f4eb9e29bd8a6faba5a4bdf4ef5bc8c",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
       "reason": "One pre-input automation phase interprets either the next legacy scene-frame action or one recorded full-device turn across the exact App-composed owners before normal device routing. Frame timing crosses as a detached metrics snapshot and EditorTools is now explicit; both paths remain one mutually exclusive automation state machine, and extraction would preserve caller-ordered dispatch rather than create a separate owner.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); recorded-manifest full-device playback review (2026-08-22); RUNTIME_BOUNDARIES RBS7 snapshot and EditorTools ownership re-review (2026-08-24); RECORDED_CURSOR RIC1 frame-local recorded-cursor publication (2026-08-25)",
-      "plan": "",
-      "body_lines": 650,
-      "max_brace_depth": 7,
-      "closure_count": 3
+      "plan": ""
     },
     {
       "file": "SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.cpp",
       "signature": "void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data, float contentX, float contentY, float contentW, float contentH, float scrollY, int activeSlider )",
-      "body_sha256": "7cbccbf0cd729a870b87e155dacaa93d16083598d760622d398e6faaf16d1f86",
+      "body_sha256": "223aad2a7df3d96df5a4b826cf9846afb4a68cd23180ae93eb76f09d22e934be",
       "owner": "Profiler tab immediate draw pass",
       "disposition": "retain-owner",
       "reason": "One profiler-tab draw pass lays out its focused detached profiler view and active controls in draw and hit-test order; all geometry and widget state expires with the frame. UI4 narrowed the input packet without changing the pass or its depth-six presentation invariant.",
@@ -233,7 +185,7 @@
     {
       "file": "SkullbonezSource/Runtime/UI/GameUI/UITabProfilerHistogram.cpp",
       "signature": "void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data )",
-      "body_sha256": "fdaad9b3f9ad9e5b42ea30e8ef32875f630e1ddb1b348b471543326d219bf36b",
+      "body_sha256": "e32de7a50e706ebcfd7a7bad5d3ccc7d17163d00b01cc99ee45b969d05052545",
       "owner": "Profiler histogram immediate draw pass",
       "disposition": "retain-owner",
       "reason": "One histogram pass maps the focused profiler sample window into axes, buckets, labels, and hit regions; scale selection and geometry share one frame-local presentation invariant. UI4 narrowed the borrowed marker packet without changing histogram ownership or depth.",
@@ -243,20 +195,17 @@
     {
       "file": "SkullbonezSource/Core/Profiler.cpp",
       "signature": "void Profiler::FrameEnd()",
-      "body_sha256": "b23da82b276701fc8a4115b8a46427ce0609e095f12c9552eaaabd8431f60815",
+      "body_sha256": "f88055b146ade07dd541fd2bbab8b66b4291bf25ce4eaa7b135071e55919ac6a",
       "owner": "Profiler frame-boundary aggregation",
       "disposition": "retain-owner",
       "reason": "One profiler owner closes the current frame, aggregates all marker and timing lanes, advances histories, and publishes the next immutable view; those steps share one frame-boundary invariant. The worker lane is one more such lane, committed and averaged on the same cadence and under the worker mutex the core samples already hold; depth 6 is unchanged.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled when per-marker worker time became its own lane",
-      "plan": "",
-      "body_lines": 2,
-      "max_brace_depth": 1,
-      "closure_count": 0
+      "plan": ""
     },
     {
       "file": "SkullbonezSource/Rendering/RenderGraph.cpp",
       "signature": "void RenderGraph::Compile( RenderGraphCompileResult& result )",
-      "body_sha256": "b5024f829ca841eee5c7d2f26da6f02217300da43c3a7296983103ebeab8631f",
+      "body_sha256": "1d4bdf229887132be9a3b088ca92b97ebc0a2b252cf4414ddb4d3d604706c230",
       "owner": "RenderGraph compile transaction",
       "disposition": "retain-owner",
       "reason": "One graph owner validates dependencies, orders passes, derives resource lifetimes, and publishes one compile result; splitting the traversal would expose partially compiled graph state.",
@@ -266,7 +215,7 @@
     {
       "file": "SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp",
       "signature": "bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, const ReplayPathPickInput& pointerRay, bool uiBlocksMouse, double now, const ReplayVelocityInputFrame& frame, PhysicsEngine& velocityPhysics, std::size_t entityCount, ReplayVelocityInputResult& outResult, ReplayInspectionCameraAction& outInspectionCameraAction )",
-      "body_sha256": "9f93feedb4977984e51daccfd2464980f0e03eea54c5dbd7523849156a36aeff",
+      "body_sha256": "807cd8323771e0ba1ebf2bee9ac3a529f465de7cdd4b066b9d8b1ced54048acf",
       "owner": "Replay velocity-edit interaction turn",
       "disposition": "retain-owner",
       "reason": "One replay-authoring turn consumes a detached velocity input frame, arbitrates scrubber state and velocity preview physics, and publishes one typed result plus camera action. InputRouter and gesture mutation moved to the App caller, so every remaining borrow is synchronous and ReplayAuthoring owns only the velocity-edit transition.",
@@ -276,7 +225,7 @@
     {
       "file": "SkullbonezSource/Scene/SceneSnapshotWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const SceneSaveRequest& request )",
-      "body_sha256": "a09eb279d925d7f52ac8ef5d80577dddf4d9cf6bb7278a6257421fe2a4be9f29",
+      "body_sha256": "093734789b2f65569c2e1123e905062a7299efdf67e20ffff5b06f8b1b747e73",
       "owner": "SceneSnapshotWriter save transaction",
       "disposition": "retain-owner",
       "reason": "One scene writer validates the request, resolves retained orbital-stability stable IDs back to the same entity names, and emits the complete snapshot schema through a single diagnostic and cleanup path; no partial file is accepted as a saved scene.",
@@ -286,7 +235,7 @@
     {
       "file": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
       "signature": "bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& frame )",
-      "body_sha256": "262c7e5437221778371c5f3ce3b1c5e178c73b5040934a8993064aa30362ccd4",
+      "body_sha256": "e71998c2f5ac7136ebbc5dbbda3b5f029e8852134a268d1857838ba74445f064",
       "owner": "TornadoVisualPass frame render",
       "disposition": "retain-owner",
       "reason": "One gameplay visual pass projects the tornado frame view into its complete ordered render extension; all generated geometry and style decisions share the current frame lifetime.",
@@ -296,7 +245,7 @@
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
       "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
-      "body_sha256": "9bd49ddff01fa332330857b7492ee455a2eafcfb320c1b59307e7e40bc61ea41",
+      "body_sha256": "49ef8739c869592e11e2e61a337685c2f2fcf9315be1d3ff542cdf91dccc968e",
       "owner": "Physics narrowphase pair kernel",
       "disposition": "retain-owner",
       "reason": "One hot pair kernel resolves the sleep-state branch, direction-valid promotion-aware Swept TOI policy, wake evidence, time advancement, collision publication, and optional trace payload for exactly one candidate pair. Its nesting is one pair state machine; extraction would leave once-called helpers sharing the same ephemeral pair scratch and output authority.",
@@ -306,33 +255,27 @@
     {
       "file": "SkullbonezSource/Rendering/Text.cpp",
       "signature": "bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPath )",
-      "body_sha256": "4698dc588d40d77f7875c1b5bf67cdd234918e1573e798971999c1fdfc69b458",
+      "body_sha256": "3ac7e3de9d26f2a8d096b4406b250ca3738b00944ef8ea5f0708946522817827",
       "owner": "Text2d atlas generation transaction",
       "disposition": "retain-owner",
       "reason": "One cold atlas-generation transaction rasterizes the configured glyph set, packs the image, and writes its matching metadata; image and metadata layout must succeed or fail together.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
-      "plan": "",
-      "body_lines": 243,
-      "max_brace_depth": 6,
-      "closure_count": 0
+      "plan": ""
     },
     {
       "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",
       "signature": "void RenderBackendDX12::Shutdown()",
-      "body_sha256": "deae1c93d776b32ac3cfdf5f04a6aaa98913efc6e0ab57e2212d517e57267aee",
+      "body_sha256": "a585133bc0a20a66bab2e0039ab29a57a3d15811728f743c8c9ad483b360dc4e",
       "owner": "RenderBackendDX12 shutdown transaction",
       "disposition": "retain-owner",
       "reason": "One backend owner tears down GPU work, frame resources, diagnostics, and device objects in lifetime order; the nested guards encode optional-resource ownership and cannot be reordered independently.",
       "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
-      "plan": "",
-      "body_lines": 229,
-      "max_brace_depth": 7,
-      "closure_count": 0
+      "plan": ""
     },
     {
       "file": "SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp",
       "signature": "bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out, SkullbonezCore::Core::EngineConfig& config )",
-      "body_sha256": "c8c0bacc711867f29459395317190a8d452b9b4e99b156df4ba5ab62d83851c9",
+      "body_sha256": "3b5fa73952e77be99aba2c5f6b95c7aa5f6c5ee8e9462455640074a28c5c06dd",
       "owner": "Startup command-line value application",
       "disposition": "retain-owner",
       "reason": "One startup transaction applies the closed command-line value schema to launch arguments and engine configuration before runtime owners exist; validation and precedence share one initialization invariant.",
@@ -342,7 +285,7 @@
     {
       "file": "SkullbonezSource/Runtime/App/ReplayCauseFocusSubmission.cpp",
       "signature": "void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCameraState& camera, const RunReplayCauseTreeState& causeTree, const ReplayPredictionPresentationView& prediction, const ReplaySolverFrameSample* currentSolverSample, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const SceneEntityStore& entities, EditorTracer& tracer )",
-      "body_sha256": "a91ffd71d8fe253473d01df03d5dc90523ac0309bb63eeea2a7ed94c87754bf3",
+      "body_sha256": "2aa5fd812d4ddaf240fcfb44e7e81a27493a42d09cb577082363f6700a20d1b2",
       "owner": "App-composed replay cause-focus overlay pass",
       "disposition": "retain-owner",
       "reason": "One App-composed prediction presentation pass projects the selected cause row and current solver sample into transient world markers; Prediction, Physics, Scene, and camera inputs are read-only while the tracer is a synchronous sink.",
@@ -352,7 +295,7 @@
     {
       "file": "SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp",
       "signature": "void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const RuntimeRenderTargetPreviewSnapshot* previewData, Text::TextBatch& textBatch, Rendering::RenderGpuTimingOwner* gpuTiming, Assets::AssetSystem* assets, Rendering::Dx12ResourceBuilder* renderResources, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH )",
-      "body_sha256": "c47aa0ab608f51c429c988187fab97b5713b58eb1303a7f1dedca6feed60cae7",
+      "body_sha256": "731a93cbdf40762443a030a4cd915f1a273fed4af32f4854ba35baf5880e1d42",
       "owner": "UiDrawSubmission command transaction",
       "disposition": "retain-owner",
       "reason": "One render submission owner translates an ordered UI draw list into text, preview, texture, geometry, and diagnostic commands for one target; clip and draw order are one submission invariant.",
@@ -362,7 +305,7 @@
     {
       "file": "SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp",
       "signature": "EditorGizmoDragPointerResult EditorToolsOwner::RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input, SceneWorld& world, RuntimeInteractionController& interaction )",
-      "body_sha256": "33578c4b221387da25f4f17d963df89129d8cc89cb5af4a75d09e72dc7a4642b",
+      "body_sha256": "fa63671cce5cf437aba8b470a7946b2b1bb4ab90e05ba5e044958373f1a2f9dd",
       "owner": "EditorToolsOwner gizmo drag interaction",
       "disposition": "retain-owner",
       "reason": "One editor interaction turn arbitrates pointer capture, gizmo axis projection, scene mutation, and typed result emission; gesture ownership and mutation occur atomically for the sampled pointer.",
@@ -372,7 +315,7 @@
     {
       "file": "SkullbonezSource/Gameplay/TornadoGameplay.cpp",
       "signature": "std::span<const float> TornadoGameplay::BuildDebugLineVertices()",
-      "body_sha256": "7b018f51801d31a3229054d8a37d0e71c98e2bcb8cf32281f782b49b268a4039",
+      "body_sha256": "5b054d673b67957cae95d7f3054f0b2d46c95a5f301c58279d51772acaff3774",
       "owner": "TornadoGameplay debug geometry build",
       "disposition": "retain-owner",
       "reason": "One gameplay owner rebuilds the complete transient debug-line span from its current simulation state; every branch contributes to one ordered vertex buffer returned with owner lifetime.",
@@ -382,7 +325,7 @@
     {
       "file": "SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp",
       "signature": "bool TryComputeEditorBuildingWorldBounds( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType, const Vector3& terrainPoint, const Quaternion& placementOrientation, const SkullbonezCore::Assets::AssetSystem& assets, Vector3& outMin, Vector3& outMax )",
-      "body_sha256": "8d5b6fbfbf4184dd0178a86c0c1f4b2be386a66ee759c2c2d41a21d405c7c551",
+      "body_sha256": "93c0b2c76c9e8947c62bd3615aaaee62f8d93a397e2895f3ee2ef638f78c7af0",
       "owner": "Editor building bounds query",
       "disposition": "retain-owner",
       "reason": "One editor query resolves asset identity, placement orientation, and model bounds into a single world-space box; both outputs are published only when the full geometric transform succeeds.",
@@ -392,7 +335,7 @@
     {
       "file": "SkullbonezSource/Runtime/Scene/AttachedCameraController.cpp",
       "signature": "bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& collection, AttachedCameraTarget& target, int& outModelIndex )",
-      "body_sha256": "106a54a90864576cd0e715e5b779141d525b2512981ca62acea990e285cc1467",
+      "body_sha256": "072cb20216df3b8fbe13e38f28e5bd1159a3af67b2b6238adb5e3e6b646ffc3a",
       "owner": "Attached camera target-resolution query",
       "disposition": "retain-owner",
       "reason": "One camera owner resolves the retained target identity against current scene topology and updates the target plus output model index consistently; failure leaves no mismatched identity pair.",
@@ -402,7 +345,7 @@
     {
       "file": "SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp",
       "signature": "float EditorBuildingVerticalSize( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType, const SkullbonezCore::Assets::AssetSystem& assets )",
-      "body_sha256": "6ec1e010772f890dbdd3473736f734ac9e9e5074c250ee7ddba47bfe8d225fee",
+      "body_sha256": "dd6d869e84560d6d781e6d30e8d3d2b310295a7f5725b0cd8ac1325ee289fdbb",
       "owner": "Editor building vertical-size query",
       "disposition": "retain-owner",
       "reason": "One cold editor query resolves the selected asset and derives its placement height under the authored bounds convention; all fallback and diagnostic branches return one scalar contract.",
@@ -412,7 +355,7 @@
     {
       "file": "SkullbonezSource/Physics/ObjectContactManifold.cpp",
       "signature": "PolytopeWorld MakeBoxPolytope( const ObjectContactBodyView& body, const BoundingBox& box )",
-      "body_sha256": "c57bf2cb616826596ac0c6d511bfbd20b05f63d892eb45af990cc375e28e0225",
+      "body_sha256": "c1197846981b2eb5bf09d6f3c79851bbaeb5701986e5dcac6073f1c31b55218e",
       "owner": "Box contact polytope construction kernel",
       "disposition": "retain-owner",
       "reason": "One narrowphase geometry kernel emits the fixed vertices, faces, and edge topology for a transformed box; the local arrays jointly encode one polytope invariant and escape only as the complete value.",
@@ -422,7 +365,7 @@
     {
       "file": "SkullbonezSource/Runtime/Scene/SceneNavigationModel.cpp",
       "signature": "SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction, int currentSceneBrowserIndex, SceneSession& scene )",
-      "body_sha256": "27c5287e5200c0f245a9a0f8274deeb60f07ade1efba7fa7bf3fe188d58d23f9",
+      "body_sha256": "fb9aee38efc909349fd89574632b993b467de93100f747c42921471510b185a2",
       "owner": "Scene navigation request projection",
       "disposition": "retain-owner",
       "reason": "One navigation operation resolves direction, browser index, and session history into the next typed scene-load request; wrap and fallback branches share one navigation invariant.",
@@ -432,7 +375,7 @@
     {
       "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
       "signature": "bool TryProjectInteractionAutomationModel( const SceneWorld& world, InputRouter& inputRouter, Window* window, const char* name, POINT& outMouse )",
-      "body_sha256": "955873230e3ef6f85b99a91722b070aa64d0da846e572ac3b10300e3b1b113b4",
+      "body_sha256": "ec372cb3096b87e08b502303c060bf168f31c30e807f81dca92da099b5d5f5dd",
       "owner": "Interaction automation model projection query",
       "disposition": "retain-owner",
       "reason": "One automation query resolves a named scene model through camera and window projection into one pointer coordinate; all nested rejection paths protect the single success output.",

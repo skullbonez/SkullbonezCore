@@ -663,6 +663,12 @@ def self_test() -> int:
         failures.append("an unruled finding must fail the gate")
     if report(scars, {scars[0].key(): {"verdict": "repair"}}, verbose=False) != 0:
         failures.append("a ruled finding must pass the gate")
+    shifted_scars = scan_text(
+        "fixture.cpp",
+        "\n// Location-only edits are not policy identity.\n" + POSITIVE_MEMBER_LOCAL,
+    )
+    if shifted_scars[0].key() != scars[0].key():
+        failures.append("comment and line movement must not invalidate an extraction ruling")
 
     for failure in failures:
         print(f"FAIL: {failure}")

@@ -52,8 +52,8 @@ Invariants:
     AGENTS.md review question remains authoritative for deliberately renamed
     bags.
   - The migration verdict `pre-existing-unreviewed` is retired and rejected.
-  - Recorded site/member counts are source-drift checks, never an allowance or
-    budget.
+  - Recorded file/member identity is a source-drift check, never an allowance
+    or budget; physical line numbers are diagnostics only.
   - The source scan is read-only; an explicit `--output` path may receive the
     deterministic JSON or Markdown report.
 
@@ -381,6 +381,8 @@ def load_rulings(repo: Path) -> dict[str, dict]:
     if not path.exists():
         return {}
     data = json.loads(path.read_text(encoding="utf-8"))
+    if data.get("schema") != 3:
+        raise ValueError("aggregate rulings must use line-independent schema 3")
     return {row["key"]: row for row in data.get("aggregates", [])}
 
 
@@ -407,9 +409,10 @@ def report(
         ruling = rulings.get(name)
         if ruling is None:
             continue
-        expected_site = f"{item.path}:{item.line}"
-        if ruling.get("site") != expected_site:
-            invalid.append(f"{name}: site is {ruling.get('site')!r}, expected {expected_site!r}")
+        if ruling.get("path") != item.path:
+            invalid.append(f"{name}: path is {ruling.get('path')!r}, expected {item.path!r}")
+        if "site" in ruling:
+            invalid.append(f"{name}: physical source sites are not valid ruling identity")
         if ruling.get("members") != item.member_count:
             invalid.append(
                 f"{name}: members is {ruling.get('members')!r}, expected {item.member_count}"
@@ -863,7 +866,7 @@ def self_test() -> int:
     gate = _parse(FIXTURE_SINGLE_MEMBER)
     gate_item = gate["TornadoUICommandContext"]
     valid_ruling = {
-        "site": "fixture.h:2",
+        "path": "fixture.h",
         "members": gate_item.member_count,
         "verdict": "remove",
         "owner": "fixture owner",
@@ -880,9 +883,17 @@ def self_test() -> int:
         verbose=False,
     ) != 0:
         failures.append("a ruled aggregate must pass the gate")
+    shifted_gate = _parse("\n// Location-only edits are not policy identity.\n" + FIXTURE_SINGLE_MEMBER)
+    if report(
+        shifted_gate,
+        {"TornadoUICommandContext": valid_ruling},
+        strict=True,
+        verbose=False,
+    ) != 0:
+        failures.append("comment and line movement must not invalidate an aggregate ruling")
     legacy_item = legacy_request["WidgetRequest"]
     valid_legacy_ruling = {
-        "site": "fixture.h:2",
+        "path": "fixture.h",
         "members": legacy_item.member_count,
         "verdict": "retain",
         "owner": "fixture owner",
@@ -953,14 +964,14 @@ def self_test() -> int:
         verbose=False,
     ) == 0:
         failures.append("the retired transitional verdict must be unusable")
-    wrong_site_ruling = dict(transitional_ruling, site="fixture.h:999")
+    wrong_path_ruling = dict(transitional_ruling, path="moved/fixture.h")
     if report(
         legacy_request,
-        {"WidgetRequest": wrong_site_ruling},
+        {"WidgetRequest": wrong_path_ruling},
         strict=True,
         verbose=False,
     ) == 0:
-        failures.append("a retired transitional ruling whose declaration site moved must fail")
+        failures.append("a retired transitional ruling whose declaration file moved must fail")
     if report(legacy_request, {}, strict=False, verbose=False) != 0:
         failures.append("report-only mode must not enforce missing bounded rulings")
 

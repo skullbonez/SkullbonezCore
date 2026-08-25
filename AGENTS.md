@@ -242,12 +242,13 @@ Every cross-package target must have a lower rank; rank alone never grants permi
 
 #### Runtime Repair-Plan Debt
 
-Current pre-separation debt is sealed in rule data by source, line, resolved
-target, include spelling, and policy fingerprint. The ordinary repository
+Current pre-separation debt is sealed in rule data by source, resolved target,
+include spelling, stable occurrence, and policy fingerprint. The ordinary repository
 gate accepts only an exact current seal and reports it as repair-plan debt;
-a new, changed, shifted, or deleted site fails. `--check-runtime-graph`
+a new, changed, or deleted edge fails while line movement is ignored.
+`--check-runtime-graph`
 ignores every repair row and fails every forbidden site and multi-package SCC.
-Canonical repair-policy SHA-256: `cecfc27976a237027863893b7a612a727d0d59729399a37eb148463ddb8971d1`.
+Canonical repair-policy SHA-256: `9aea89b4e2df0d0943d9c79f2f92fdf12d25a758857a7238509ac59cb83c95d4`.
 
 #### Content Rules
 

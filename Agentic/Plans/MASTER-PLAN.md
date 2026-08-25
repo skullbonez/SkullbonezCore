@@ -1,7 +1,7 @@
 # MASTER PLAN
 
-Date: 2026-08-25
-Status: Governance De-Bureaucratization and Jargon Removal active; 113/120 tasks complete
+Date: 2026-08-26
+Status: Governance De-Bureaucratization and Jargon Removal active; 114/120 tasks complete
 
 ## Owner Direction
 
@@ -306,7 +306,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Governance De-Bureaucratization and Jargon Removal | `DE_BUREAUCRATIZE` | 8 | 1 | `TODO/governance-debureaucratization-and-jargon-removal.md` |
+| Governance De-Bureaucratization and Jargon Removal | `DE_BUREAUCRATIZE` | 8 | 2 | `TODO/governance-debureaucratization-and-jargon-removal.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -368,13 +368,15 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-113/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
-the sole active plan at 1/8; DB0 is complete and DB1 is next. DB0 classifies all
-13 tracked JSON files and 56 tracked Python tools, freezes sixteen negative-test
-seeds, and ratifies a 20-file governance-administration cohort with 15 planned
-deletions. It also corrects the reproduced wide-signature seed to the omitted
-12-parameter `PhysicsBroadphaseStage::Run` and records that the earlier 33-
-finding allocation claim no longer reproduces. The five unfinished Ragdoll Physics phases and RIC3
+114/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
+the sole active plan at 2/8; DB0 and DB1 are complete and DB2 is next. DB0
+classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen
+negative-test seeds, and ratifies a 20-file governance-administration cohort
+with 15 planned deletions. DB1 replaces source-coordinate policy identity in
+deterministic math, Runtime repair debt, aggregate review, and function-
+complexity review with stable content identity. Focused live scans are clean,
+including 29/29 math rulings, 78/78 aggregate rulings, 38/38 complexity rulings,
+the sole extraction ruling, and zero dependency findings. The five unfinished Ragdoll Physics phases and RIC3
 are parked and excluded from the denominator; their eight completed phases
 remain part of the historical completed count.
 Causal C0-C8, Determinism T0-T8,

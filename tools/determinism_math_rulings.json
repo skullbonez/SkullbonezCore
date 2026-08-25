@@ -1,295 +1,266 @@
 {
-  "version": 1,
+  "version": 2,
   "rulings": [
     {
       "path": "SkullbonezSource/Maths/Matrix4.cpp",
-      "line": 73,
-      "column": 20,
       "call": "tanf",
       "source_fingerprint": "71707ef270537a3efa99d3e42ff8fe6619b11f0c65af5dfd04836f0f716222bc",
       "disposition": "retain-owner",
       "owner": "Rendering perspective projection",
-      "reason": "PerspectiveZeroToOne builds a render projection matrix and is not reachable from Physics."
+      "reason": "PerspectiveZeroToOne builds a render projection matrix and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 88,
-      "column": 16,
       "call": "atan2",
       "source_fingerprint": "f0fa4eec1868b2cf77c4b63be2f52db7c3b5258ec43087cbf419da5632d984aa",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Directed orbital-angle construction serves Planning guide, trip, and porkchop products and is not reachable from Physics."
+      "reason": "Directed orbital-angle construction serves Planning guide, trip, and porkchop products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 93,
-      "column": 36,
       "call": "cos",
       "source_fingerprint": "4b7eee26846f7183dd403edf2d073f337684821bbbdd972b4fa49a74d1beb630",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
+      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 94,
-      "column": 36,
       "call": "sin",
       "source_fingerprint": "30a1e8b3bb95de1272a2fa6cea3665ed14639c20cc085c3e9c5af25ba3b2680c",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
+      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 95,
-      "column": 35,
       "call": "cos",
       "source_fingerprint": "37eb3a365dcd9e6ca634b5bb7100f46bf0e944317d20a7dc80dc95f6b147b763",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
+      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 96,
-      "column": 35,
       "call": "sin",
       "source_fingerprint": "b52f0e4c506e66ac1a79c2a9f51f7116ca5ef89b5ace4d0e639e34db2cedbe39",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
+      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 97,
-      "column": 38,
       "call": "cos",
       "source_fingerprint": "8db91295591039095442fe4735187e9f2bfcf23be78b7a4de808b37c05782134",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
+      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 98,
-      "column": 38,
       "call": "sin",
       "source_fingerprint": "85fce455f42fd0e642839158fd6016db74cf2812efc79072d71e06ba107d345f",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics."
+      "reason": "Perifocal presentation rotation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 120,
-      "column": 63,
       "call": "sin",
       "source_fingerprint": "7a7388f1e9ecbd1a36c82abae355a5d75583443eeab39f658e6b8990f9cbc321",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Kepler iteration serves Planning products and is not reachable from Physics."
+      "reason": "Kepler iteration serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 124,
-      "column": 70,
       "call": "sin",
       "source_fingerprint": "4961a65ca72778a6e78761601d7e50b5280358b36807eda71cbb933dfc891328",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Kepler iteration serves Planning products and is not reachable from Physics."
+      "reason": "Kepler iteration serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 125,
-      "column": 60,
       "call": "cos",
       "source_fingerprint": "c995abbf84b14e2f1af91aa683b58ff74299df5c54bc17e65638b513a884fe05",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Kepler iteration serves Planning products and is not reachable from Physics."
+      "reason": "Kepler iteration serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 157,
-      "column": 28,
       "call": "cos",
       "source_fingerprint": "368fd0160964cd64d9c6e466149d5a5488563448c054356587609ec9a3a35385",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics."
+      "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 158,
-      "column": 29,
       "call": "sin",
       "source_fingerprint": "79488e02ce57c35fc2de61692635653450a2a3b83970909b821dba1620f47505",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics."
+      "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 163,
-      "column": 18,
       "call": "cosh",
       "source_fingerprint": "0e62eeb8644c3c14e4f27381e05ec09f872829599078fda2fb358f3c420c23d2",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics."
+      "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 164,
-      "column": 18,
       "call": "sinh",
       "source_fingerprint": "4bef7344f3bb3d96efbc6695962b054ecb8f8b6135d675582b07f9265d04d603",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics."
+      "reason": "Lambert Stumpff evaluation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 259,
-      "column": 38,
       "call": "atan2",
       "source_fingerprint": "91980e51b674a42af66e4e402549d9d26311a6ca5d526f951a00b59a1212d9ba",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 275,
-      "column": 37,
       "call": "atan2",
       "source_fingerprint": "686716ab84b5430588d54b54011536a27b8934794f652598bddbbdbf102fc354",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 287,
-      "column": 27,
       "call": "atan2",
       "source_fingerprint": "cb8fdc7d494417e982b0caf1351d7852f411b03970c88446bb30300024c1bfdf",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 290,
-      "column": 47,
       "call": "atan2",
-      "source_fingerprint": "630633ceb0a258bdbcb8421418fd41b1dddbc6ce67bf0c7cc0481991f5a9c7c8",
+      "source_fingerprint": "e84833e1de252c7eaf944f161f4c3af9acee9f8c6746684dccd6c9853ccc3753",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 290,
-      "column": 94,
       "call": "sin",
-      "source_fingerprint": "630633ceb0a258bdbcb8421418fd41b1dddbc6ce67bf0c7cc0481991f5a9c7c8",
+      "source_fingerprint": "e84833e1de252c7eaf944f161f4c3af9acee9f8c6746684dccd6c9853ccc3753",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 291,
-      "column": 94,
       "call": "cos",
-      "source_fingerprint": "8a255c37e3e50cc6677801b87f221e23bd6493c3ee7f41d4a71e0577db9f3665",
+      "source_fingerprint": "e84833e1de252c7eaf944f161f4c3af9acee9f8c6746684dccd6c9853ccc3753",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 295,
-      "column": 27,
       "call": "acos",
       "source_fingerprint": "98e132a8b1a11b5a1a28470effc00447b64976344a7d618218165c869c870b06",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 298,
-      "column": 81,
       "call": "sin",
       "source_fingerprint": "c280ecb63bbec2f2e6179d792fc26742be27fc1a53b0bf851512f4e3788674bb",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics."
+      "reason": "Orbital-element reconstruction serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 327,
-      "column": 36,
       "call": "cos",
       "source_fingerprint": "95ad88b67e5a4fe924c350aa99e7279a941016806e5fe93338fdd8fbece053dd",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbit propagation serves Planning products and is not reachable from Physics."
+      "reason": "Orbit propagation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 328,
-      "column": 36,
       "call": "sin",
       "source_fingerprint": "37733c859bdd884e6d86c424af38fac4bc55a5b2337ff7c1d78bdbeb0f166085",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbit propagation serves Planning products and is not reachable from Physics."
+      "reason": "Orbit propagation serves Planning products and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 362,
-      "column": 56,
       "call": "cos",
       "source_fingerprint": "30796aec8bee4fda84980b45439a3e3bf7e0858c5abdfbc6bd56080cb60115ee",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbit-polyline sampling serves Planning presentation and is not reachable from Physics."
+      "reason": "Orbit-polyline sampling serves Planning presentation and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/OrbitalMechanics.cpp",
-      "line": 363,
-      "column": 74,
       "call": "sin",
       "source_fingerprint": "846dc801ec05595f7422632a80fec62f9a2678e7b6bc37c7630054bcc05bcd5c",
       "disposition": "retain-owner",
       "owner": "Runtime Planning orbital mechanics value library",
-      "reason": "Orbit-polyline sampling serves Planning presentation and is not reachable from Physics."
+      "reason": "Orbit-polyline sampling serves Planning presentation and is not reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/RotationMatrix.h",
-      "line": 87,
-      "column": 21,
       "call": "sinf",
       "source_fingerprint": "c94d9d10cbcac1811ad448b888483e161888b65e57f7a05988493b4aff97472a",
       "disposition": "retain-owner",
       "owner": "Runtime camera and editor arbitrary-axis transforms",
-      "reason": "RotatePointAboutArbitrary serves Camera orbit/follow movement and EditorGizmoTools manipulation; neither path is reachable from Physics."
+      "reason": "RotatePointAboutArbitrary serves Camera orbit/follow movement and EditorGizmoTools manipulation; neither path is reachable from Physics.",
+      "occurrence": 1
     },
     {
       "path": "SkullbonezSource/Maths/RotationMatrix.h",
-      "line": 88,
-      "column": 21,
       "call": "cosf",
       "source_fingerprint": "d8fd1c4f2f967633c6f49f1728c723b970f9117ba101580069131191b3545b03",
       "disposition": "retain-owner",
       "owner": "Runtime camera and editor arbitrary-axis transforms",
-      "reason": "RotatePointAboutArbitrary serves Camera orbit/follow movement and EditorGizmoTools manipulation; neither path is reachable from Physics."
+      "reason": "RotatePointAboutArbitrary serves Camera orbit/follow movement and EditorGizmoTools manipulation; neither path is reachable from Physics.",
+      "occurrence": 1
     }
   ]
 }

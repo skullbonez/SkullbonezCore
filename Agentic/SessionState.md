@@ -1,8 +1,8 @@
 # Session State
 
-Date: 2026-08-25
-Branch: `main`
-Status: Governance De-Bureaucratization and Jargon Removal active; 113/120 tasks complete
+Date: 2026-08-26
+Branch: `nightrunner-25th-AUG-26`
+Status: Governance De-Bureaucratization and Jargon Removal active; 114/120 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -11,10 +11,13 @@ Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
 Governance De-Bureaucratization and Jargon Removal DB0-DB7 is the sole active
-plan at 1/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
+plan at 2/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
 tools, records sixteen replacement negative tests, and corrects the current
 wide-signature seed to the omitted 12-parameter
-`PhysicsBroadphaseStage::Run`. DB1 line-number decoupling is next.
+`PhysicsBroadphaseStage::Run`. DB1 removes physical-coordinate policy identity
+from deterministic math, Runtime repair debt, aggregate review, and function-
+complexity review. Their location-movement mutations and live focused scans are
+green; DB2 ceremony retirement is next.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
@@ -510,9 +513,10 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Begin `DE_BUREAUCRATIZE` DB1: remove physical line-number coupling from every
-retained checker while preserving content-identity enforcement and negative
-tests for real violations. `RAGDOLL_PHYSICS` FP5-FP9 and
+Begin `DE_BUREAUCRATIZE` DB2: move Related-path checking off the blocking fast
+gate, make it advisory, and retire the redundant formatters, glossary registry,
+glossary inventory, and governance meta-runner while clang-format and direct
+replacement checks retain their rules. `RAGDOLL_PHYSICS` FP5-FP9 and
 `RECORDED_CURSOR` RIC3 remain parked and are not selectable.
 
 ## Blockers
@@ -630,7 +634,8 @@ Still current; read before your first commit.
   `validate_fast` calls it, because the compiled-symbol reachability scan reads
   three object roots.
 
-Ownership rulings pin exact line numbers. Removing or adding a comment line
-above a ruled aggregate shifts its recorded `site` and fails `validate_fast`;
-re-derive sites from `inventory_authority_free_aggregates.py --format json`
-rather than editing them by hand.
+Ownership rulings no longer use physical source coordinates. Deterministic-math
+calls use normalized statement identity, Runtime repair debt uses exact edge
+content plus stable occurrence, aggregates use declaration paths, and function
+complexity uses comment-free code lines and normalized body digests. Line
+numbers remain diagnostics only; do not reintroduce them in ruling data.

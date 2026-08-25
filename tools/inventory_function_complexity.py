@@ -18,15 +18,15 @@ Summary:
   distribution plus the rows selected by proposed review triggers.
 
 Glossary:
-  Body line: An inclusive source line from a function's opening brace through
-    its matching closing brace.
+  Body line: A non-empty code line from a function's opening brace through its
+    matching closing brace; comments and blank lines do not contribute.
   Brace depth: Maximum simultaneously open curly braces inside the body,
     including the function body's outer brace.
   Closure: A lexically recognized C++ lambda expression inside the body.
   Review trigger: A signal that requires owner judgement; it is neither a
     maximum nor evidence that a lower measurement is automatically acceptable.
   Current-body ruling: Owner judgement keyed by file, normalized signature, and
-    a digest of the complete body text.
+    a digest of comment-free, whitespace-normalized body tokens.
 
 Invariants:
   - Tracked-file enumeration and non-code masking come from cpp_source_scan.
@@ -215,20 +215,22 @@ def scan_repository(
                 continue
             opening, closing = body
             start_line = line_of_offset(text, opening)
-            end_line = line_of_offset(text, closing)
+            masked_body = masked[opening : closing + 1]
             max_depth, closures = _body_metrics(masked, opening, closing)
-            body_sha256 = hashlib.sha256(text[opening : closing + 1].encode("utf-8")).hexdigest()
+            body_lines = sum(bool(line.strip()) for line in masked_body.splitlines())
+            normalized_body = " ".join(masked_body.split())
+            body_sha256 = hashlib.sha256(normalized_body.encode("utf-8")).hexdigest()
             rows.append(
                 FunctionExtent(
                     file=candidate.file,
                     identity=candidate.signature,
                     name=candidate.qualified_name,
                     start_line=start_line,
-                    body_lines=end_line - start_line + 1,
+                    body_lines=body_lines,
                     max_brace_depth=max_depth,
                     closure_count=closures,
                     body_sha256=body_sha256,
-                    body_triggered=end_line - start_line + 1 >= body_trigger,
+                    body_triggered=body_lines >= body_trigger,
                     depth_triggered=max_depth >= depth_trigger,
                 )
             )
@@ -638,6 +640,19 @@ private:
             for row in rows
         }
         assert not apply_owner_rulings(rows, complete_rulings)
+
+        shifted_flat = flat.replace(
+            "    int result = value;",
+            "    // Location-only edits do not change function identity.\n\n    int result = value;",
+        )
+        source.write_text(
+            shifted_flat + "\n" + nested + "\n" + constructor,
+            encoding="utf-8",
+            newline="\n",
+        )
+        shifted_rows, shifted_scan_diagnostics = scan_repository(repo, body_trigger=4, depth_trigger=2)
+        assert not shifted_scan_diagnostics
+        assert not apply_owner_rulings(shifted_rows, complete_rulings)
 
         # Planted drift: a new trigger row has no inherited judgement.
         source.write_text(

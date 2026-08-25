@@ -13,8 +13,8 @@ Summary:
 Glossary:
   Certified call: Exact or correctly-rounded operation admitted directly by the
     tier-2 determinism envelope.
-  Source fingerprint: SHA-256 of the stripped source line containing a call;
-    edits invalidate the ruling even when a spelling remains nearby.
+  Source fingerprint: SHA-256 of the normalized statement containing a call;
+    comment, whitespace, and physical line movement do not change it.
 
 Invariants:
   - Scan roots are both SkullbonezSource/Physics and SkullbonezSource/Maths.
@@ -46,7 +46,15 @@ from typing import Iterable
 SOURCE_ROOTS = ("SkullbonezSource/Physics", "SkullbonezSource/Maths")
 SOURCE_SUFFIXES = {".cpp", ".h", ".hpp", ".inl"}
 RULING_DISPOSITIONS = {"retain-owner", "repair-plan"}
-REQUIRED_RULING_FIELDS = ("path", "line", "column", "call", "source_fingerprint", "disposition", "owner", "reason")
+REQUIRED_RULING_FIELDS = (
+    "path",
+    "call",
+    "source_fingerprint",
+    "occurrence",
+    "disposition",
+    "owner",
+    "reason",
+)
 
 # IEEE/basic operations and exact classification are certified directly. Both
 # suffixed C spellings and overloaded std spellings represent the same operation
@@ -191,10 +199,11 @@ class Finding:
     kind: str
     source: str
     source_fingerprint: str
+    occurrence: int
 
     @property
-    def identity(self) -> tuple[str, int, int, str, str]:
-        return (self.path, self.line, self.column, self.call, self.source_fingerprint)
+    def identity(self) -> tuple[str, str, str, int]:
+        return (self.path, self.call, self.source_fingerprint, self.occurrence)
 
 
 def normalize_path(path: Path | str) -> str:
@@ -266,10 +275,19 @@ def strip_comments_and_literals(source: str) -> str:
     return "".join(result)
 
 
-def source_fingerprint(stripped_line: str) -> str:
-    # Why: whitespace-only formatting may move a call without changing its
-    # reviewed arithmetic expression; any semantic line edit still goes stale.
-    normalized = " ".join(stripped_line.split())
+def source_fingerprint(stripped_source: str, offset: int) -> str:
+    # Why: source coordinates are useful diagnostics but unstable policy keys.
+    # The nearest statement/block delimiters retain enough semantic context to
+    # invalidate edited arithmetic while ignoring comments and physical layout.
+    previous_delimiters = [stripped_source.rfind(delimiter, 0, offset) for delimiter in ";{}"]
+    start = max(previous_delimiters) + 1
+    following_delimiters = [
+        position
+        for delimiter in ";{}"
+        if (position := stripped_source.find(delimiter, offset)) >= 0
+    ]
+    end = min(following_delimiters) + 1 if following_delimiters else len(stripped_source)
+    normalized = " ".join(stripped_source[start:end].split())
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
@@ -297,6 +315,7 @@ def findings_in_text(relative_path: str, source: str) -> list[Finding]:
             candidates.add((macro_match.start() + token_match.start("call"), token_match.group("call")))
 
     findings: list[Finding] = []
+    occurrence_counts: dict[tuple[str, str], int] = {}
     for offset, call in sorted(candidates):
         if call not in KNOWN_MATH_CALLS or call in CERTIFIED_CALLS:
             continue
@@ -306,6 +325,10 @@ def findings_in_text(relative_path: str, source: str) -> list[Finding]:
         stripped_line = stripped_lines[line_number - 1]
         original = original_lines[line_number - 1] if line_number <= len(original_lines) else stripped_line
         kind = "explicit-fma" if call in EXPLICIT_FMA_CALLS else "implementation-defined"
+        fingerprint = source_fingerprint(stripped, offset)
+        occurrence_key = (call, fingerprint)
+        occurrence = occurrence_counts.get(occurrence_key, 0) + 1
+        occurrence_counts[occurrence_key] = occurrence
         findings.append(
             Finding(
                 relative_path,
@@ -314,7 +337,8 @@ def findings_in_text(relative_path: str, source: str) -> list[Finding]:
                 call,
                 kind,
                 original.strip(),
-                source_fingerprint(stripped_line),
+                fingerprint,
+                occurrence,
             )
         )
     return findings
@@ -348,8 +372,8 @@ def load_rulings(path: Path) -> tuple[list[dict[str, object]], list[str]]:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         return [], [f"failed to read rulings: {error}"]
-    if not isinstance(data, dict) or data.get("version") != 1 or not isinstance(data.get("rulings"), list):
-        return [], ["rulings file must contain version 1 and a rulings array"]
+    if not isinstance(data, dict) or data.get("version") != 2 or not isinstance(data.get("rulings"), list):
+        return [], ["rulings file must contain version 2 and a rulings array"]
     return data["rulings"], []
 
 
@@ -357,10 +381,13 @@ def validate_ruling(row: object, index: int, repo: Path) -> list[str]:
     if not isinstance(row, dict):
         return [f"ruling {index} must be an object"]
     errors: list[str] = []
+    for retired_field in ("line", "column"):
+        if retired_field in row:
+            errors.append(f"ruling {index} must not pin physical source {retired_field}")
     for field in REQUIRED_RULING_FIELDS:
         value = row.get(field)
-        if field in {"line", "column"}:
-            if not isinstance(value, int) or value < (1 if field == "line" else 0):
+        if field == "occurrence":
+            if not isinstance(value, int) or isinstance(value, bool) or value < 1:
                 errors.append(f"ruling {index} has invalid {field}")
         elif not isinstance(value, str) or not value.strip():
             errors.append(f"ruling {index} missing {field}")
@@ -382,8 +409,8 @@ def validate_ruling(row: object, index: int, repo: Path) -> list[str]:
     return errors
 
 
-def ruling_identity(row: dict[str, object]) -> tuple[object, object, object, object, object]:
-    return (row.get("path"), row.get("line"), row.get("column"), row.get("call"), row.get("source_fingerprint"))
+def ruling_identity(row: dict[str, object]) -> tuple[object, object, object, object]:
+    return (row.get("path"), row.get("call"), row.get("source_fingerprint"), row.get("occurrence"))
 
 
 def reconcile(
@@ -414,7 +441,7 @@ def reconcile(
         errors.append(f"{finding.path}:{finding.line}:{finding.column + 1}: unruled {finding.kind} call {finding.call}")
     for row in stale:
         errors.append(
-            f"{row['path']}:{row['line']}:{int(row['column']) + 1}: stale ruling for {row['call']}"
+            f"{row['path']}: stale ruling for {row['call']} occurrence={row['occurrence']}"
         )
     return errors, unruled, stale
 
@@ -467,10 +494,9 @@ float member_call(auto& value) { return value.remainder(); }
             disposition = "repair-plan" if finding.call == "acosf" else "retain-owner"
             row: dict[str, object] = {
                 "path": finding.path,
-                "line": finding.line,
-                "column": finding.column,
                 "call": finding.call,
                 "source_fingerprint": finding.source_fingerprint,
+                "occurrence": finding.occurrence,
                 "disposition": disposition,
                 "owner": "synthetic owner",
                 "reason": "synthetic current-source review",
@@ -482,6 +508,22 @@ float member_call(auto& value) { return value.remainder(); }
         errors, unruled, stale = reconcile(findings, rulings, repo)
         if errors or unruled or stale:
             print("SELF_TEST_FAIL: exact current rulings did not pass", file=sys.stderr)
+            return 1
+
+        shifted_findings = findings_in_text(
+            "SkullbonezSource/Maths/Synthetic.cpp",
+            "\n// A location-only edit must not invalidate reviewed calls.\n" + synthetic,
+        )
+        errors, unruled, stale = reconcile(shifted_findings, rulings, repo)
+        if errors or unruled or stale:
+            print("SELF_TEST_FAIL: comment and line movement invalidated content rulings", file=sys.stderr)
+            return 1
+
+        pinned = list(rulings)
+        pinned[0] = dict(pinned[0], line=findings[0].line)
+        errors, _, _ = reconcile(findings, pinned, repo)
+        if not any("must not pin physical source line" in error for error in errors):
+            print("SELF_TEST_FAIL: a physical source line was accepted as ruling data", file=sys.stderr)
             return 1
 
         errors, unruled, _ = reconcile(findings, rulings[:-1], repo)

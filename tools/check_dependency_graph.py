@@ -29,8 +29,8 @@
 #     cases that exercise the same evaluators used by the repository scan.
 #   Runtime package policy: Total owner rank plus a closed exact target-header
 #     projection. Rank constrains direction but never grants an edge by itself.
-#   Repair-plan ruling: Temporary source/line/target/spelling-sealed evidence
-#     for a current forbidden site. Strict evaluation always ignores it.
+#   Repair-plan ruling: Temporary source/target/spelling/occurrence evidence
+#     for a current forbidden edge. Strict evaluation always ignores it.
 #   Runtime package report: Current adjacency, strongly connected components,
 #     cycle traces, forbidden sites, and reverse composition-root sites. Counts
 #     are live evidence, never frozen allowances.
@@ -50,7 +50,8 @@
 #   - Strict Runtime evaluation rejects every multi-package cycle and every
 #     forbidden exact edge regardless of current repair-plan rulings.
 #   - Ordinary repository evaluation accepts only exact current repair rows;
-#     new, changed, shifted, and deleted sites fail closed.
+#     new, semantically changed, and deleted edges fail closed while comments
+#     and physical line movement leave the content identity unchanged.
 #   - Runtime graph counts are current measurements, never policy budgets.
 #
 # Related:
@@ -136,11 +137,12 @@ class RuntimePolicyViolation:
     target: str
     line: int
     spelling: str
+    occurrence: int
     reasons: tuple[str, ...]
 
     @property
-    def key(self) -> tuple[str, int, str]:
-        return self.source, self.line, self.target
+    def key(self) -> tuple[str, str, str, int]:
+        return self.source, self.target, self.spelling, self.occurrence
 
 
 @dataclass(frozen=True)
@@ -152,14 +154,15 @@ class RuntimeCycleTrace:
 @dataclass(frozen=True)
 class RuntimeRepairRuling:
     source: str
-    line: int
     target: str
+    spelling: str
+    occurrence: int
     fingerprint: str
     repair_phase: str
 
     @property
-    def key(self) -> tuple[str, int, str]:
-        return self.source, self.line, self.target
+    def key(self) -> tuple[str, str, str, int]:
+        return self.source, self.target, self.spelling, self.occurrence
 
 
 @dataclass(frozen=True)
@@ -340,10 +343,11 @@ def render_dependency_proof(config: dict) -> str:
         "",
         "#### Runtime Repair-Plan Debt",
         "",
-        "Current pre-separation debt is sealed in rule data by source, line, resolved",
-        "target, include spelling, and policy fingerprint. The ordinary repository",
+        "Current pre-separation debt is sealed in rule data by source, resolved target,",
+        "include spelling, stable occurrence, and policy fingerprint. The ordinary repository",
         "gate accepts only an exact current seal and reports it as repair-plan debt;",
-        "a new, changed, shifted, or deleted site fails. `--check-runtime-graph`",
+        "a new, changed, or deleted edge fails while line movement is ignored.",
+        "`--check-runtime-graph`",
         "ignores every repair row and fails every forbidden site and multi-package SCC.",
         f"Canonical repair-policy SHA-256: `{repair_digest}`.",
         "",
@@ -896,26 +900,34 @@ def validate_runtime_policy(policy: dict) -> list[str]:
     if not isinstance(rulings, list):
         errors.append("Runtime repair_plan_policy rulings must be a list")
         return errors
-    ruling_keys: set[tuple[str, int, str]] = set()
+    ruling_keys: set[tuple[str, str, str, int]] = set()
     for row in rulings:
         if not isinstance(row, dict):
             errors.append("Runtime repair-plan ruling must be an object")
             continue
         source = row.get("source")
-        line = row.get("line")
         target = row.get("target")
+        spelling = row.get("include_spelling")
+        occurrence = row.get("occurrence")
         fingerprint = row.get("fingerprint")
         phase = row.get("repair_phase")
+        if "line" in row:
+            errors.append("Runtime repair-plan rulings must not pin physical source lines")
         if not isinstance(source, str) or not source.strip():
             errors.append("Runtime repair-plan source must be a non-empty string")
             continue
-        if not isinstance(line, int) or isinstance(line, bool) or line <= 0:
-            errors.append(f"Runtime repair-plan line must be positive for {source}")
-            continue
         if not isinstance(target, str) or not target.strip():
-            errors.append(f"Runtime repair-plan target must be non-empty for {source}:{line}")
+            errors.append(f"Runtime repair-plan target must be non-empty for {source}")
             continue
-        key = (normalize(source), line, normalize(target))
+        if not isinstance(spelling, str) or not spelling.strip():
+            errors.append(f"Runtime repair-plan include_spelling must be non-empty for {source}")
+            continue
+        if not isinstance(occurrence, int) or isinstance(occurrence, bool) or occurrence < 1:
+            errors.append(f"Runtime repair-plan occurrence must be positive for {source}")
+            continue
+        normalized_source = normalize(source)
+        normalized_target = normalize(target)
+        key = (normalized_source, normalized_target, spelling, occurrence)
         if key in ruling_keys:
             errors.append(f"duplicate Runtime repair-plan ruling: {key}")
         ruling_keys.add(key)
@@ -985,6 +997,7 @@ def evaluate_runtime_policy(
     }
     unregistered = tuple(sorted(set(report.packages) - set(packages)))
     violations: list[RuntimePolicyViolation] = []
+    occurrence_counts: dict[tuple[str, str, str], int] = {}
     for site in report.include_sites:
         reasons: list[str] = []
         source_row = packages.get(site.source_package)
@@ -1006,6 +1019,9 @@ def evaluate_runtime_policy(
             ):
                 reasons.append("edge is absent from the closed exact-file projection")
         if reasons:
+            occurrence_key = (site.source, site.target, site.spelling)
+            occurrence = occurrence_counts.get(occurrence_key, 0) + 1
+            occurrence_counts[occurrence_key] = occurrence
             violations.append(
                 RuntimePolicyViolation(
                     source_package=site.source_package,
@@ -1014,6 +1030,7 @@ def evaluate_runtime_policy(
                     target=site.target,
                     line=site.line,
                     spelling=site.spelling,
+                    occurrence=occurrence,
                     reasons=tuple(reasons),
                 )
             )
@@ -1033,21 +1050,22 @@ def runtime_violation_fingerprint(violation: RuntimePolicyViolation) -> str:
             "source_package": violation.source_package,
             "target_package": violation.target_package,
             "source": violation.source,
-            "line": violation.line,
             "target": violation.target,
             "spelling": violation.spelling,
+            "occurrence": violation.occurrence,
             "reasons": list(violation.reasons),
         }
     )
 
 
-def runtime_repair_rulings(policy: dict) -> dict[tuple[str, int, str], RuntimeRepairRuling]:
-    rulings: dict[tuple[str, int, str], RuntimeRepairRuling] = {}
+def runtime_repair_rulings(policy: dict) -> dict[tuple[str, str, str, int], RuntimeRepairRuling]:
+    rulings: dict[tuple[str, str, str, int], RuntimeRepairRuling] = {}
     for row in policy["repair_plan_policy"]["rulings"]:
         ruling = RuntimeRepairRuling(
             source=normalize(row["source"]),
-            line=int(row["line"]),
             target=normalize(row["target"]),
+            spelling=row["include_spelling"],
+            occurrence=int(row["occurrence"]),
             fingerprint=row["fingerprint"],
             repair_phase=row["repair_phase"].strip(),
         )
@@ -1094,7 +1112,7 @@ def reconcile_runtime_repairs(
         diagnostics.append(
             Finding(
                 "runtime_package_policy",
-                f"{ruling.source}:{ruling.line}",
+                ruling.source,
                 ruling.target,
                 "stale Runtime repair-plan ruling",
             )
@@ -1200,6 +1218,7 @@ def runtime_package_graph_document(
                 "line": violation.line,
                 "target": violation.target,
                 "include_spelling": violation.spelling,
+                "occurrence": violation.occurrence,
                 "reasons": list(violation.reasons),
                 "fingerprint": runtime_violation_fingerprint(violation),
             }
@@ -1208,8 +1227,9 @@ def runtime_package_graph_document(
         "current_repair_plan_debt": [
             {
                 "source": ruling.source,
-                "line": ruling.line,
                 "target": ruling.target,
+                "include_spelling": ruling.spelling,
+                "occurrence": ruling.occurrence,
                 "fingerprint": ruling.fingerprint,
                 "repair_phase": ruling.repair_phase,
             }
@@ -1637,8 +1657,9 @@ def runtime_package_policy_self_test(config: dict) -> list[str]:
         sealed_policy["repair_plan_policy"]["rulings"] = [
             {
                 "source": violation.source,
-                "line": violation.line,
                 "target": violation.target,
+                "include_spelling": violation.spelling,
+                "occurrence": violation.occurrence,
                 "fingerprint": runtime_violation_fingerprint(violation),
                 "repair_phase": "fixture",
             }
@@ -1646,6 +1667,14 @@ def runtime_package_policy_self_test(config: dict) -> list[str]:
         repairs = reconcile_runtime_repairs(unlisted, sealed_policy)
         if len(repairs.current) != 1 or repairs.diagnostics:
             errors.append("exact current Runtime repair-plan ruling did not pass default policy")
+
+        line_pinned_policy = json.loads(json.dumps(sealed_policy))
+        line_pinned_policy["repair_plan_policy"]["rulings"][0]["line"] = violation.line
+        if not any(
+            "must not pin physical source lines" in error
+            for error in validate_runtime_policy(line_pinned_policy)
+        ):
+            errors.append("Runtime repair policy accepted a physical source line")
 
         sibling_report = runtime_package_graph_fixture(
             source_root,
@@ -1679,13 +1708,34 @@ def runtime_package_policy_self_test(config: dict) -> list[str]:
             )
             spelling = evaluate_runtime_policy(spelling_report, sealed_policy)
             spelling_repairs = reconcile_runtime_repairs(spelling, sealed_policy)
-            if len(spelling.violations) != 1 or not any(
-                "changed Runtime repair-plan fingerprint" in finding.detail
-                for finding in spelling_repairs.diagnostics
+            spelling_details = [finding.detail for finding in spelling_repairs.diagnostics]
+            if (
+                len(spelling.violations) != 1
+                or not any("unruled forbidden Runtime edge" in detail for detail in spelling_details)
+                or not any("stale Runtime repair-plan ruling" in detail for detail in spelling_details)
             ):
                 errors.append(
                     f"{spelling_name}-only Runtime debt drift did not fail closed"
                 )
+
+        duplicate_report = runtime_package_graph_fixture(
+            source_root,
+            scope,
+            synthetic["composition_root"],
+            {
+                f"{scope}/Feature/Feature.cpp": (
+                    '#include "../Leaf/Other.h"\n#include "../Leaf/Other.h"\n'
+                ),
+                f"{scope}/Leaf/Other.h": "",
+            },
+        )
+        duplicate = evaluate_runtime_policy(duplicate_report, sealed_policy)
+        duplicate_repairs = reconcile_runtime_repairs(duplicate, sealed_policy)
+        if len(duplicate_repairs.current) != 1 or not any(
+            "unruled forbidden Runtime edge" in finding.detail
+            for finding in duplicate_repairs.diagnostics
+        ):
+            errors.append("a duplicate Runtime debt include reused an existing occurrence ruling")
 
         shifted_report = runtime_package_graph_fixture(
             source_root,
@@ -1698,11 +1748,8 @@ def runtime_package_policy_self_test(config: dict) -> list[str]:
         )
         shifted = evaluate_runtime_policy(shifted_report, sealed_policy)
         shifted_repairs = reconcile_runtime_repairs(shifted, sealed_policy)
-        shifted_details = [finding.detail for finding in shifted_repairs.diagnostics]
-        if not any("unruled forbidden Runtime edge" in detail for detail in shifted_details) or not any(
-            "stale Runtime repair-plan ruling" in detail for detail in shifted_details
-        ):
-            errors.append("shifted Runtime debt site did not produce unruled plus stale diagnostics")
+        if len(shifted_repairs.current) != 1 or shifted_repairs.diagnostics:
+            errors.append("line movement invalidated a content-identified Runtime repair ruling")
 
         deleted = reconcile_runtime_repairs(legal, sealed_policy)
         if not any("stale Runtime repair-plan ruling" in finding.detail for finding in deleted.diagnostics):

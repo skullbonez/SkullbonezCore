@@ -1,7 +1,7 @@
 # Governance De-Bureaucratization and Jargon Removal
 
 Date: 2026-08-25
-Status: Active by owner direction 2026-08-25. 1/8 phases complete; DB1 next.
+Status: Active by owner direction 2026-08-25. 2/8 phases complete; DB2 next.
 Owner: Engine owner
 Priority: Sole active master-plan item. DB0-DB7 execute in strict order.
 Commit name: `DE_BUREAUCRATIZE`
@@ -65,9 +65,9 @@ wrong move.
   growth findings with zero allowlist errors; the earlier ~97-site and 33-
   finding estimates no longer reproduce and are not closure evidence. DB4 must
   inventory the omitted roots directly before changing the policy.
-- **Brittle by admission.** `AGENTS.md` states that "removing or adding a comment
-  line above a ruled aggregate shifts its recorded `site` and fails
-  `validate_fast`." Comment edits break CI. That is the line-pinning to remove.
+- **Brittleness reproduced before DB1.** The pre-DB1 repository contract stated
+  that moving a comment above a ruled aggregate shifted its recorded `site` and
+  failed `validate_fast`. DB1 removes that physical-coordinate identity.
 - **Heavy golden ritual.** Each physics golden transition requires manual
   multi-step staging of archived old/new `.exe` producers plus a schema-2
   `manifest.json`.
@@ -253,6 +253,33 @@ current checker or subsystem owner.
   a line number, so comment and whitespace edits cannot fail CI.
 - Acceptance: inserting a blank line or comment anywhere in `SkullbonezSource/`
   produces zero CI failures; every retained gate still passes.
+
+#### DB1 closure evidence — 2026-08-26
+
+Physical source coordinates are now diagnostics only in every blocking checker
+that still used them as policy identity at the start of DB1:
+
+- Deterministic-math rulings use path, call, normalized statement digest, and a
+  stable same-statement occurrence. Schema 2 rejects `line` and `column` fields.
+- Runtime repair-debt rulings use source, resolved target, exact include
+  spelling, stable same-edge occurrence, and a line-free policy fingerprint.
+  A duplicate identical include receives a new occurrence and fails unruled.
+- Aggregate rulings use type key, declaration path, and member count under
+  schema 3; the extraction inventory already used path plus local name, and its
+  obsolete recorded site was removed.
+- Function-complexity body length counts non-empty masked code lines and its
+  body digest uses comment-free, whitespace-normalized text. Thirty-eight
+  current review rows remain ruled; three rows selected only by physical prose
+  lines are no longer trigger rows.
+
+Negative fixtures prove that blank lines and ordinary comments leave each join
+current, while semantic body edits, math-statement edits, include-spelling
+changes, duplicate forbidden includes, deleted debt, moved declaration files,
+and reintroduced physical-coordinate fields fail. Focused results: deterministic
+math 29/29 current; aggregate gate 78/78 ruled; extraction gate 1/1 ruled;
+function complexity 38/38 ruled; dependency graph zero findings. The generated
+dependency proof was refreshed from rule data. No engine source, runtime
+behavior, Physics output, baseline, or subsystem authority changed.
 
 ### DB2 — Retire the ceremony (pure win)
 - `check_related_paths.py` → advisory, off the blocking fast-gate. Keep the
