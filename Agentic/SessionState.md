@@ -176,9 +176,11 @@ prediction raw-v5/sectioned-v6 preserve the double clock while their historical
 read, write, and hash branches retain the legacy float layouts. Four serial
 read-only reviews closed replay/prediction propagation, visual compatibility,
 exact-float restore, archive-probe isolation, schema-negative, and false-pass
-test findings; the final pass is clean. Validation was deferred by explicit
-owner direction; no build, test, scanner, or validation command ran. MATH-005
-is the next selected low-complexity bug candidate.
+test findings; the final pass is clean. Dedicated historical sectioned-v4
+prediction and solver-v2-v4 byte fixtures remain deferred coverage; static
+review found their layout discrimination coherent. Validation was deferred by
+explicit owner direction; no build, test, scanner, or validation command ran.
+MATH-005 is the next selected low-complexity bug candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
