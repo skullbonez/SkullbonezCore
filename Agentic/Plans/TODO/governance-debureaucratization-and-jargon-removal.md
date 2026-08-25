@@ -244,6 +244,9 @@ signature has 12 parameters, not 13, and the allocation check no longer reports
 the earlier 33 unreviewed findings. No tool, rule data, source, or validation
 behavior changes in DB0.
 
+Authority did not move. DB0 records future replacement ownership but changes no
+current checker or subsystem owner.
+
 ### DB1 — Line-number decoupling (pure win)
 - Remove physical line-number pinning from every retained checker. Key rulings
   on content identity (symbol + normalized signature, or a body hash), never on
