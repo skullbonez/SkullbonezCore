@@ -31,6 +31,21 @@ namespace SkullbonezCore::Core
 {
 class SbDiagnosticStore;
 
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+enum class AtomicTextFileTestFailure
+{
+    None,
+    Write,
+    Flush,
+    Close,
+    Replace,
+};
+
+// Test-only fault selection is thread-local so one publication probe cannot
+// perturb another test worker.
+void SetAtomicTextFileTestFailure( AtomicTextFileTestFailure failure ) noexcept;
+#endif
+
 // Publishes bytes only after the temporary sibling is durable. Parent
 // directories may be created; an existing destination is replaced at rename.
 [[nodiscard]] SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner, const char* path,

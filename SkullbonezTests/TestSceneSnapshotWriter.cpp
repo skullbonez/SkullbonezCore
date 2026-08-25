@@ -27,6 +27,7 @@ Invariants:
   - Contact-material text survives save/reparse through the cold authoring row.
   - Resolved orbital membership round-trips through current entity names.
   - Every runtime save entry serializes all three owner publications.
+  - A failed atomic publication preserves the complete prior scene file.
 
 Related:
   - Agentic/Reference/engine-glossary.md
@@ -38,6 +39,7 @@ Related:
 #include "TestColliderStoreFixtures.h"
 #include "TestResultLoadFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/AtomicTextFileWriter.h"
 
 #include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
@@ -54,6 +56,7 @@ Related:
 
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -106,6 +109,28 @@ void WriteAssetLibrary()
   ]}]
 })";
     REQUIRE( output.good() );
+}
+
+bool HasAtomicTemporarySibling( const char* path, std::error_code& error )
+{
+    error.clear();
+    const std::filesystem::path destination( path );
+    const std::filesystem::path parent = destination.parent_path().empty() ? "." : destination.parent_path();
+    const std::string prefix = destination.filename().string() + ".tmp.";
+    std::filesystem::directory_iterator entry( parent, error );
+    const std::filesystem::directory_iterator end;
+
+    while ( !error && entry != end )
+    {
+        if ( entry->path().filename().string().rfind( prefix, 0u ) == 0u )
+        {
+            return true;
+        }
+
+        entry.increment( error );
+    }
+
+    return false;
 }
 
 TEST_CASE( "Scene save owners publish every session and presentation field" )
@@ -254,10 +279,63 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
 
     SUBCASE( "editable replacement policy overwrites the active scene with every owner value" )
     {
+        {
+            std::ofstream priorOutput( kEditableSnapshotPath, std::ios::binary | std::ios::trunc );
+            REQUIRE( priorOutput.good() );
+            priorOutput << "{\"format\":\"prior.scene\",\"version\":17}\n";
+            priorOutput.close();
+            REQUIRE( priorOutput.good() );
+        }
+
         REQUIRE(
             SaveEditableSceneBeforeReplacement( diagnostics, kEditableSnapshotPath, world, session, presentation ).Ok() );
 
         CheckCompleteOwnerPublication( kEditableSnapshotPath, world, session, presentation );
+    }
+
+    SUBCASE( "editable replacement preserves its prior bytes when atomic publication fails" )
+    {
+        constexpr const char* priorScene = "{\"format\":\"prior.scene\",\"version\":17}\n";
+        struct FailureCase
+        {
+            Core::AtomicTextFileTestFailure stage;
+            const char* diagnosticAction;
+        };
+        constexpr FailureCase failureCases[] = {
+            { Core::AtomicTextFileTestFailure::Write, "Write temporary sibling" },
+            { Core::AtomicTextFileTestFailure::Flush, "Flush temporary sibling" },
+            { Core::AtomicTextFileTestFailure::Close, "Close temporary sibling" },
+            { Core::AtomicTextFileTestFailure::Replace, "Replace destination" },
+        };
+
+        for ( const FailureCase& failureCase : failureCases )
+        {
+            {
+                std::ofstream priorOutput( kEditableSnapshotPath, std::ios::binary | std::ios::trunc );
+                REQUIRE( priorOutput.good() );
+                priorOutput << priorScene;
+                priorOutput.close();
+                REQUIRE( priorOutput.good() );
+            }
+
+            Core::SetAtomicTextFileTestFailure( failureCase.stage );
+            const Core::SbResult result =
+                SaveEditableSceneBeforeReplacement( diagnostics, kEditableSnapshotPath, world, session, presentation );
+            Core::SetAtomicTextFileTestFailure( Core::AtomicTextFileTestFailure::None );
+            REQUIRE_FALSE( result.Ok() );
+            CHECK( std::string( result.ErrorOwner() ) == "Scene/SceneSnapshotWriter" );
+            CHECK( std::string( result.ErrorMessage() ).find( failureCase.diagnosticAction ) != std::string::npos );
+
+            std::ifstream preservedInput( kEditableSnapshotPath, std::ios::binary );
+            REQUIRE( preservedInput.good() );
+            const std::string preserved( ( std::istreambuf_iterator<char>( preservedInput ) ),
+                                         std::istreambuf_iterator<char>() );
+            CHECK( preserved == priorScene );
+
+            std::error_code directoryError;
+            CHECK_FALSE( HasAtomicTemporarySibling( kEditableSnapshotPath, directoryError ) );
+            CHECK_FALSE( directoryError );
+        }
     }
 }
 

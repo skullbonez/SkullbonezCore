@@ -108,9 +108,11 @@ inline bool FlushFile( NativeFileHandle file, NativeError& error ) noexcept
     return succeeded;
 }
 
-inline void CloseFile( NativeFileHandle file ) noexcept
+inline bool CloseFile( NativeFileHandle file, NativeError& error ) noexcept
 {
-    ::close( file );
+    const bool succeeded = ::close( file ) == 0;
+    error = succeeded ? 0 : errno;
+    return succeeded;
 }
 
 inline void DeleteFileIfPresent( const NativePathCharacter* path ) noexcept

@@ -118,7 +118,14 @@ describe per-segment rather than false per-frame draw totals. Two serial
 read-only reviews closed the comment-truth finding and confirmed text, quad,
 triangle, capacity, and synchronous-copy behavior is clean. No build, test,
 scanner, or validation command ran by explicit owner direction. SCENE-002 is
-the next selected high-impact candidate.
+now closed: scene snapshots publish through a unique sibling only after the
+complete JSON has been written, flushed, and successfully closed, then replace
+the destination atomically. Write, flush, close, and replace fault probes prove
+the prior scene remains byte-identical and no sibling leaks. Two serial
+read-only reviews closed the initial false-pass and cleanup-evidence findings;
+the final pass is clean. No build, test, scanner, or validation command ran by
+explicit owner direction. CORE-007 remains the next selected high-impact,
+low-complexity candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

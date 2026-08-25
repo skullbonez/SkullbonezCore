@@ -20,7 +20,7 @@ Invariants:
     so a saved scene reparses to the same stable identities.
   - The writer retains no borrowed store or request value after Save returns.
   - Owner count or identity disagreement is fatal topology drift; file failure
-    is a recoverable recoverable result.
+    is a recoverable result that leaves the previous destination unchanged.
 
 Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp

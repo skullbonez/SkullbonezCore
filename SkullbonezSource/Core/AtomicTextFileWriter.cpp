@@ -36,6 +36,21 @@ namespace
 {
 std::atomic<uint32_t> s_temporarySequence { 1 };
 
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+thread_local AtomicTextFileTestFailure s_testFailure = AtomicTextFileTestFailure::None;
+
+bool ConsumeTestFailure( AtomicTextFileTestFailure failure ) noexcept
+{
+    if ( s_testFailure != failure )
+    {
+        return false;
+    }
+
+    s_testFailure = AtomicTextFileTestFailure::None;
+    return true;
+}
+#endif
+
 SbResult Failure( SbDiagnosticStore& diagnostics, const char* owner, const char* action, const char* path,
                   Platform::NativeError error ) noexcept
 {
@@ -43,6 +58,13 @@ SbResult Failure( SbDiagnosticStore& diagnostics, const char* owner, const char*
                                 path ? path : "", Platform::ErrorDomainName(), static_cast<unsigned long long>( error ) );
 }
 } // namespace
+
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+void SetAtomicTextFileTestFailure( AtomicTextFileTestFailure failure ) noexcept
+{
+    s_testFailure = failure;
+}
+#endif
 
 SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner, const char* path, std::string_view bytes )
 {
@@ -96,8 +118,17 @@ SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner,
     bool wrote = true;
     size_t offset = 0;
     Platform::NativeError writeError = {};
+    const char* failureAction = "Write temporary sibling for";
 
-    while ( offset < bytes.size() )
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+    if ( ConsumeTestFailure( AtomicTextFileTestFailure::Write ) )
+    {
+        wrote = false;
+        writeError = Platform::ShortWriteError();
+    }
+#endif
+
+    while ( wrote && offset < bytes.size() )
     {
         const size_t remaining = bytes.size() - offset;
         size_t written = 0;
@@ -116,20 +147,59 @@ SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner,
 
     if ( wrote )
     {
-        wrote = Platform::FlushFile( file, writeError );
+        failureAction = "Flush temporary sibling for";
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+        if ( ConsumeTestFailure( AtomicTextFileTestFailure::Flush ) )
+        {
+            wrote = false;
+            writeError = Platform::ShortWriteError();
+        }
+        else
+#endif
+        {
+            wrote = Platform::FlushFile( file, writeError );
+        }
     }
 
-    Platform::CloseFile( file );
+    Platform::NativeError closeError = {};
+    bool closed = Platform::CloseFile( file, closeError );
+
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+    if ( ConsumeTestFailure( AtomicTextFileTestFailure::Close ) )
+    {
+        closed = false;
+        closeError = Platform::ShortWriteError();
+    }
+#endif
+
+    if ( wrote && !closed )
+    {
+        wrote = false;
+        writeError = closeError;
+        failureAction = "Close temporary sibling for";
+    }
 
     if ( !wrote )
     {
         Platform::DeleteFileIfPresent( temporary.c_str() );
-        return Failure( diagnostics, owner, "Write temporary sibling for", path, writeError );
+        return Failure( diagnostics, owner, failureAction, path, writeError );
     }
 
     Platform::NativeError renameError = {};
+    bool replaced = false;
 
-    if ( !Platform::ReplaceFile( temporary.c_str(), destination.c_str(), renameError ) )
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+    if ( ConsumeTestFailure( AtomicTextFileTestFailure::Replace ) )
+    {
+        renameError = Platform::ShortWriteError();
+    }
+    else
+#endif
+    {
+        replaced = Platform::ReplaceFile( temporary.c_str(), destination.c_str(), renameError );
+    }
+
+    if ( !replaced )
     {
         Platform::DeleteFileIfPresent( temporary.c_str() );
         return Failure( diagnostics, owner, "Replace destination", path, renameError );

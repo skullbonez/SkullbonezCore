@@ -24,6 +24,8 @@ Invariants:
     is an engine invariant failure.
   - Resolved orbital membership must map back to one live display name before
     the scene can be saved.
+  - The destination remains unchanged until a complete, flushed, closed
+    temporary sibling can replace it.
 
 Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.h
@@ -31,6 +33,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "SceneSnapshotWriter.h"
+#include "../Core/AtomicTextFileWriter.h"
 #include "../Core/SbDiagnosticStore.h"
 #include "../Runtime/Scene/SceneEntityStore.h"
 
@@ -43,13 +46,11 @@ Related:
 #include "../Physics/Ragdoll.h"
 #include "../Assets/EditorHullAssets.h"
 #include "../Rendering/RenderMaterial.h"
-#include "../Runtime/Tools/RuntimeFileWriter.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
 #include <string>
 #include <variant>
 #include <vector>
@@ -609,23 +610,10 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::
         }
     }
 
-    // Why: validate and serialize every owner row before opening the target so
-    // a fatal topology finding cannot truncate the previous editable scene.
-    const std::string serializedScene = scene.dump( 2 );
-    std::ofstream output;
-
-    if ( !request.path || request.path[0] == '\0' || !RuntimeFileWriter::OpenTextFile( request.path, output ) )
-    {
-        return diagnostics.Failure( "Scene/SceneSnapshotWriter", "Failed to open scene snapshot path '%s' for writing.",
-                                    request.path ? request.path : "" );
-    }
-
-    output << serializedScene << '\n';
-
-    if ( !output.good() )
-    {
-        return diagnostics.Failure( "Scene/SceneSnapshotWriter", "Failed while writing scene snapshot '%s'.", request.path );
-    }
-
-    return SkullbonezCore::Core::SbResult::Success();
+    // Why: validate and serialize every owner row before publication, then
+    // replace the active scene only after the complete sibling is durable.
+    std::string serializedScene = scene.dump( 2 );
+    serializedScene.push_back( '\n' );
+    return SkullbonezCore::Core::WriteTextFileAtomic( diagnostics, "Scene/SceneSnapshotWriter", request.path,
+                                                      serializedScene );
 }
