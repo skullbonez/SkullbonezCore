@@ -39,6 +39,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 using SkullbonezCore::Math::Orientation::ConjugateQuaternionVectorPart;
 using SkullbonezCore::Math::Orientation::Quaternion;
@@ -78,6 +79,16 @@ void CheckQuaternionNear( const Quaternion& value, const QuaternionComponents& e
     CHECK( actual.w == doctest::Approx( expected.w ).epsilon( epsilon ) );
 }
 
+void CheckQuaternionExactly( const Quaternion& value, const QuaternionComponents& expected )
+{
+    const QuaternionComponents actual = ComponentsOf( value );
+    CHECK( std::bit_cast<uint32_t>( actual.x ) == std::bit_cast<uint32_t>( expected.x ) );
+    CHECK( std::bit_cast<uint32_t>( actual.y ) == std::bit_cast<uint32_t>( expected.y ) );
+    CHECK( std::bit_cast<uint32_t>( actual.z ) == std::bit_cast<uint32_t>( expected.z ) );
+    CHECK( std::bit_cast<uint32_t>( actual.w ) == std::bit_cast<uint32_t>( expected.w ) );
+}
+
+
 void CheckVectorNear( const Vector3& value, const Vector3& expected, float epsilon = kEpsilon )
 {
     CHECK( value.x == doctest::Approx( expected.x ).epsilon( epsilon ) );
@@ -107,9 +118,30 @@ TEST_CASE( "Quaternion migration: double conjugation is bitwise lossless" )
 
 TEST_CASE( "Quaternion: Normalise is idempotent for a non-zero quaternion" )
 {
-    Quaternion value( 0.2f, -0.3f, 0.4f, 0.5f );
+    const QuaternionComponents original { 0.2f, -0.3f, 0.4f, 0.7f };
+    Quaternion value( original.x, original.y, original.z, original.w );
+
+    const float magnitudeSquared = original.w * original.w + original.x * original.x + original.y * original.y +
+                                   original.z * original.z;
+    const float oneOverMagnitude = 1.0f / sqrtf( magnitudeSquared );
+    const QuaternionComponents establishedResult { original.x * oneOverMagnitude, original.y * oneOverMagnitude,
+                                                   original.z * oneOverMagnitude, original.w * oneOverMagnitude };
+    const float scaledX = original.x / original.w;
+    const float scaledY = original.y / original.w;
+    const float scaledZ = original.z / original.w;
+    const float oneOverScaledMagnitude =
+        1.0f / sqrtf( 1.0f + scaledX * scaledX + scaledY * scaledY + scaledZ * scaledZ );
+    const QuaternionComponents allPathScaledResult { scaledX * oneOverScaledMagnitude, scaledY * oneOverScaledMagnitude,
+                                                     scaledZ * oneOverScaledMagnitude, oneOverScaledMagnitude };
+    const bool scaledPathDiffers =
+        std::bit_cast<uint32_t>( establishedResult.x ) != std::bit_cast<uint32_t>( allPathScaledResult.x ) ||
+        std::bit_cast<uint32_t>( establishedResult.y ) != std::bit_cast<uint32_t>( allPathScaledResult.y ) ||
+        std::bit_cast<uint32_t>( establishedResult.z ) != std::bit_cast<uint32_t>( allPathScaledResult.z ) ||
+        std::bit_cast<uint32_t>( establishedResult.w ) != std::bit_cast<uint32_t>( allPathScaledResult.w );
+    REQUIRE( scaledPathDiffers );
 
     value.Normalise();
+    CheckQuaternionExactly( value, establishedResult );
     const QuaternionComponents once = ComponentsOf( value );
     value.Normalise();
 
@@ -124,7 +156,41 @@ TEST_CASE( "Quaternion: Normalise resets a zero quaternion to identity" )
 
     value.Normalise();
 
-    CheckQuaternionNear( value, QuaternionComponents {} );
+    CheckQuaternionExactly( value, QuaternionComponents {} );
+
+    const float thresholdMagnitude = sqrtf( 1.0e-12f );
+    Quaternion belowThreshold( std::nextafter( thresholdMagnitude, 0.0f ), 0.0f, 0.0f, 0.0f );
+    belowThreshold.Normalise();
+    CheckQuaternionExactly( belowThreshold, QuaternionComponents {} );
+
+    Quaternion aboveThreshold( std::nextafter( thresholdMagnitude, std::numeric_limits<float>::infinity() ), 0.0f, 0.0f,
+                               0.0f );
+    aboveThreshold.Normalise();
+    CheckQuaternionExactly( aboveThreshold, QuaternionComponents { 1.0f, 0.0f, 0.0f, 0.0f } );
+}
+
+
+TEST_CASE( "Quaternion: Normalise scales large finite values and resets nonfinite values" )
+{
+    const float largestFinite = (std::numeric_limits<float>::max)();
+    Quaternion axis( -largestFinite, 0.0f, 0.0f, 0.0f );
+
+    axis.Normalise();
+    CheckQuaternionExactly( axis, QuaternionComponents { -1.0f, 0.0f, 0.0f, 0.0f } );
+    CHECK( MagnitudeSquared( axis ) == 1.0f );
+
+    Quaternion diagonal( largestFinite, -largestFinite, largestFinite, -largestFinite );
+    diagonal.Normalise();
+    CheckQuaternionExactly( diagonal, QuaternionComponents { 0.5f, -0.5f, 0.5f, -0.5f } );
+    CHECK( MagnitudeSquared( diagonal ) == 1.0f );
+
+    Quaternion infinity( 1.0f, 2.0f, 3.0f, std::numeric_limits<float>::infinity() );
+    infinity.Normalise();
+    CheckQuaternionExactly( infinity, QuaternionComponents {} );
+
+    Quaternion nan( 1.0f, std::numeric_limits<float>::quiet_NaN(), 3.0f, 4.0f );
+    nan.Normalise();
+    CheckQuaternionExactly( nan, QuaternionComponents {} );
 }
 
 

@@ -195,9 +195,15 @@ rejected before publication, and both normalization APIs preserve their source
 and output atomically on failure. Three serial read-only reviews closed the NaN
 class and byte-atomicity false-pass gaps; the final pass is clean. Validation
 was deferred by explicit owner direction; no build, test, scanner, inventory,
-or validation command ran. MATH-007 is the next selected candidate: it is the
-adjacent low-severity quaternion overflow with a similarly narrow ownership
-surface.
+or validation command ran. MATH-007 is now closed: `Quaternion::Normalise`
+keeps its exact ordinary finite arithmetic, near-zero identity cutoff, and
+component order, while large finite values are scaled by their largest absolute
+component before normalization and NaN/infinity reset to identity. Three serial
+read-only reviews closed ordinary-byte, threshold-boundary, nonfinite-component,
+and hot-path false-pass findings; the final pass is clean. Validation was
+deferred by explicit owner direction; no build, test, scanner, inventory, or
+validation command ran. MATH-006 is the next selected candidate: its finite
+half-space scaling bug is low severity with a narrow Maths surface.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

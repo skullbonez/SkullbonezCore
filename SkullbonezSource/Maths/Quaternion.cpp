@@ -32,7 +32,9 @@ Related:
 
 #include "DeterministicMath.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
 
 
 using namespace SkullbonezCore::Math::Orientation;
@@ -61,7 +63,7 @@ void Quaternion::Identity()
 
 void Quaternion::Normalise()
 {
-    float magSq = m_w * m_w + m_x * m_x + m_y * m_y + m_z * m_z;
+    const float magSq = m_w * m_w + m_x * m_x + m_y * m_y + m_z * m_z;
 
     // Guard against zero or near-zero magnitude quaternions that can arise from
     // pathological floating-point cancellation during collision impulse resolution.
@@ -74,12 +76,40 @@ void Quaternion::Normalise()
         return;
     }
 
-    float oneOverMag = 1.0f / sqrtf( magSq );
+    if ( std::isfinite( magSq ) )
+    {
+        // Compatibility: ordinary finite magnitudes retain the established
+        // component order and exact output bytes.
+        const float oneOverMag = 1.0f / sqrtf( magSq );
 
-    m_w *= oneOverMag;
-    m_x *= oneOverMag;
-    m_y *= oneOverMag;
-    m_z *= oneOverMag;
+        m_w *= oneOverMag;
+        m_x *= oneOverMag;
+        m_y *= oneOverMag;
+        m_z *= oneOverMag;
+        return;
+    }
+
+    if ( !std::isfinite( m_w ) || !std::isfinite( m_x ) || !std::isfinite( m_y ) || !std::isfinite( m_z ) )
+    {
+        Identity();
+        return;
+    }
+
+    const float largestComponent = (std::max)( (std::max)( fabsf( m_w ), fabsf( m_x ) ),
+                                                (std::max)( fabsf( m_y ), fabsf( m_z ) ) );
+    const float scaledW = m_w / largestComponent;
+    const float scaledX = m_x / largestComponent;
+    const float scaledY = m_y / largestComponent;
+    const float scaledZ = m_z / largestComponent;
+    const float oneOverScaledMagnitude =
+        1.0f / sqrtf( scaledW * scaledW + scaledX * scaledX + scaledY * scaledY + scaledZ * scaledZ );
+
+    // Hazard: squaring a large finite component can overflow to infinity.
+    // Normalize its bounded ratios so the orientation remains a unit value.
+    m_w = scaledW * oneOverScaledMagnitude;
+    m_x = scaledX * oneOverScaledMagnitude;
+    m_y = scaledY * oneOverScaledMagnitude;
+    m_z = scaledZ * oneOverScaledMagnitude;
 }
 
 
