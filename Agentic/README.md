@@ -47,8 +47,8 @@ recreate `Done`, `Failed`, `Rejected`, `To_Eval`, `In_Progress`, or
 - The boilerplate cleanup completed on 2026-07-10. Do not recreate generic
   learning headers; teach file-specific vocabulary, ownership, invariants,
   lifetime, hazards, and validation-sensitive behavior.
-- `python ../tools/check_related_paths.py --repo ..` is the live stale-reference
-  check; it replaces any committed inventory of dead links.
+- `python ../tools/check_related_paths.py --repo ..` is an advisory stale-
+  reference report for review; unresolved paths do not block validation.
 - `Skills/comment-style-audit/skill.md` is the touched-file/full-scope audit.
 
 ## Hot Paths

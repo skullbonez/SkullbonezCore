@@ -54,10 +54,9 @@ only after it has been inspected against this skill and the guide.
    - A term defined in more than one tracked source file belongs in
      `Agentic/Reference/engine-glossary.md`; remove source copies and cite that
      reference from each affected file's `Related:` block.
-   - Run `python tools/inventory_glossary_terms.py --repo . --strict` when the
-     pass changes glossary ownership. Every multi-file finding needs an exact
-     current ruling; a ruled row is migration evidence, not permission to keep
-     the copies indefinitely.
+   - When the pass changes glossary ownership, inspect every affected source
+     header and `Agentic/Reference/engine-glossary.md` directly. Consolidate
+     duplicates instead of recording a per-term exception.
    - Treat counts as current measurements, never thresholds or budgets.
 6. Replace non-assumed acronym-only comments with concept comments.
 7. Replace restatement comments with `Why:`, `Invariant:`, `Lifetime:`, or
@@ -138,7 +137,8 @@ post-change source so ownership moves cannot create the same false finding.
   plain-language orientation aliases fail the audit.
 - File glossaries contain only exact single-file terms. Multi-file definitions
   live in `Agentic/Reference/engine-glossary.md`, source headers cite it from
-  `Related:`, and the strict glossary inventory has no unruled current finding.
+  `Related:`, and direct review confirms that definitions are not duplicated or
+  allowed to drift. The Related-path report is advisory evidence for that review.
 - Never add glossary entries that merely define assumed baseline technology
   names such as HLSL, DirectX, Direct3D, DX12/D3D12, DXR, C++, CPU, GPU,
   shader, texture, compiler, or linker.

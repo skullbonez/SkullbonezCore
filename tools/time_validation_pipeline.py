@@ -78,9 +78,9 @@ STAGE_MANIFEST = [
     {
         "id": "fast.2_format",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 2/10: Format self-test & source/header formatting check",
+        "name": "Fast 2/10: clang-format source check",
         "command": "tools\\validate_format.bat",
-        "defect_class": "Mechanical formatting, paragraph separation, aligned inline comments, Related paths",
+        "defect_class": "Mechanical C++ layout differences from pinned clang-format",
         "blocking": True
     },
     {
@@ -103,8 +103,8 @@ STAGE_MANIFEST = [
         "id": "fast.5_inventories",
         "parent": "full.1_fast_preflight",
         "name": "Fast 5/10: Ownership, complexity, aggregate, and determinism inventories",
-        "command": "python tools/inventory_glossary_terms.py ...",
-        "defect_class": "Unruled aggregates, extraction scars, wide signatures, function complexity, glossary drift",
+        "command": "direct retained checker calls in tools\\validate_fast.bat",
+        "defect_class": "Unruled aggregates, extraction issues, wide signatures, function complexity, build drift, deterministic math",
         "blocking": True
     },
     {
@@ -406,7 +406,6 @@ def run_baseline_measurement(samples_count: int = 3) -> Dict[str, Any]:
         {"id": "fast_format", "command": "tools\\validate_format.bat", "desc": "Fast 2/10: Format check"},
         {"id": "fast_project_filters", "command": "python tools/check_project_filters.py --repo .", "desc": "Fast 3/10: Project filters"},
         {"id": "fast_dependency_graph", "command": "tools\\validate_dependency_graph.bat", "desc": "Fast 4/10: Dependency graph"},
-        {"id": "fast_inventories", "command": "python tools/inventory_glossary_terms.py --repo . --strict", "desc": "Fast 5/10: Glossary inventory"},
         {"id": "fast_build_profile", "command": "tools\\validate_build.bat Profile", "desc": "Fast 7/10: Profile build"},
         {"id": "phase_2_all_cpu_tests", "command": "tools\\validate_all_cpu_tests.bat", "desc": "Phase 2: All CPU tests"},
         {"id": "cpu_1_doctests_profile", "command": "tools\\validate_tests.bat Profile", "desc": "CPU 1/6: Profile doctests"},

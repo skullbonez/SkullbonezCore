@@ -2,7 +2,7 @@
 
 Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
-Status: Governance De-Bureaucratization and Jargon Removal active; 114/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal active; 115/120 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -11,13 +11,16 @@ Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
 Governance De-Bureaucratization and Jargon Removal DB0-DB7 is the sole active
-plan at 2/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
+plan at 3/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
 tools, records sixteen replacement negative tests, and corrects the current
 wide-signature seed to the omitted 12-parameter
 `PhysicsBroadphaseStage::Run`. DB1 removes physical-coordinate policy identity
 from deterministic math, Runtime repair debt, aggregate review, and function-
 complexity review. Their location-movement mutations and live focused scans are
-green; DB2 ceremony retirement is next.
+green. DB2 deletes the two custom formatters, glossary permission machinery,
+and governance meta-runner; clang-format is the sole forward layout rule,
+Related-path reporting is advisory, and the retained direct checks stay
+parallel with exact failure propagation. DB3 design-check replacement is next.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
@@ -513,10 +516,10 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Begin `DE_BUREAUCRATIZE` DB2: move Related-path checking off the blocking fast
-gate, make it advisory, and retire the redundant formatters, glossary registry,
-glossary inventory, and governance meta-runner while clang-format and direct
-replacement checks retain their rules. `RAGDOLL_PHYSICS` FP5-FP9 and
+Begin `DE_BUREAUCRATIZE` DB3: install compiler-backed negative controls for
+wide signatures, function complexity, aggregate data bags, and local refactor
+leftovers before deleting their lexical inventories and ruling ledgers.
+`RAGDOLL_PHYSICS` FP5-FP9 and
 `RECORDED_CURSOR` RIC3 remain parked and are not selectable.
 
 ## Blockers

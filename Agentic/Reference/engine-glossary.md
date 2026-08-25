@@ -11,10 +11,11 @@ defined in more than one tracked source file, this glossary owns its single
 definition and the source copies must be removed. Counts describe current
 structure; they are not thresholds, budgets, or permission to retain copies.
 
-These 341 definitions are owner adjudications. Terms are distinguished by exact
-spelling and capitalization, so case-distinct terms remain distinct until an
-owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
---repo .` to re-derive the current multi-file definition set.
+These 341 definitions are review decisions. Terms are distinguished by exact
+spelling and capitalization, so case-distinct terms remain distinct until a
+review explicitly unifies them. When touching glossary ownership, inspect the
+affected source headers and this table directly; no per-term registry grants an
+exception for duplicated or conflicting definitions.
 
 | Term | Canonical definition |
 |---|---|

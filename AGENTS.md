@@ -347,9 +347,8 @@ Comment quality is part of completion, not a follow-up nicety.
   term defined in more than one tracked `.cpp`, `.h`, `.hpp`, `.inl`, or
   `.hlsl` file belongs in `Agentic/Reference/engine-glossary.md`; source
   learning headers cite that reference from `Related:` instead of copying the
-  definition. `tools/inventory_glossary_terms.py` reports current duplicates and
-  wording drift. Exact current rulings record migration ownership; they are not
-  permission to retain copies or a count budget.
+  definition. Review touched glossary definitions directly and consolidate any
+  duplicate or conflicting wording; there is no per-term permission registry.
 - For a subsystem or full-repository comment pass, first create or update an
   explicit checklist plan under `Agentic/Plans/` that lists every tracked source
   file in scope. Use `git ls-files`, not `rg`, for the inventory because ignored
@@ -374,8 +373,8 @@ Comment quality is part of completion, not a follow-up nicety.
   durable targets: source files, `tools/` scripts, `Agentic/Reference/`
   material, or a root document. Do not cite deletion-bound
   `Agentic/Plans/TODO/` plans, and do not reintroduce a per-commit report
-  archive to link against; git history is the archive. `validate_fast`
-  enforces the mechanical path-resolution portion.
+  archive to link against; git history is the archive. The standalone
+  `tools/check_related_paths.py` report is advisory and does not block validation.
 - Before final reporting on a comment pass, rerun the scoped `git ls-files`
   inventory and reconcile it against the checklist. The final answer or handoff
   must include the checklist path, checked count, deferred count, and any files
@@ -410,7 +409,7 @@ the targeted validation gates below.
 
 **Repeatable inventories are the instrument, not budgets.** Banning frozen counts
 removed the wrong instrument but left nothing in its place, so shape rules were
-enforced only when a human happened to notice. Seven tools now report current
+enforced only when a human happened to notice. Six tools now report current
 structure without ratcheting anything:
 
 | Tool | Reports | Owning rule |
@@ -421,9 +420,8 @@ structure without ratcheting anything:
 | `tools/inventory_function_complexity.py` | function body lines, maximum brace depth, closure count, current-body owner rulings | Function Complexity Ownership Review Rule |
 | `tools/check_build_config_consistency.py` | effective C++ project metadata, shared-source divergence, dropped list inheritance | Build Configuration Consistency Rule |
 | `tools/inventory_unreachable_symbols.py` | Debug/Profile decorated-symbol reachability, test-only and unrooted same-TU definitions, exact current rulings | Symbol Reachability Ownership Review Rule |
-| `tools/inventory_glossary_terms.py` | multi-file learning-header definitions, wording drift, exact current site/wording rulings | Comment Quality Gate glossary split rule |
 
-All seven outputs are **current measurements requiring review**, never
+All six outputs are **current measurements requiring review**, never
 allowances. The aggregate and extraction-scar inventories use the shared
 unruled-fails/ruled-passes gate backed by
 `tools/aggregate_ownership_rulings.json`. The wide-signature inventory uses
@@ -431,16 +429,14 @@ unruled-fails/ruled-passes gate backed by
 review trigger must match a current ruling by file and normalized signature.
 The function-complexity inventory uses
 `tools/function_complexity_rulings.json`; a triggered body must match by file,
-normalized signature, and full-body digest. The build-configuration inventory
+normalized signature, and comment-free normalized-body digest. The build-configuration inventory
 uses `tools/build_config_rulings.json`; a shared file/setting pair must match
 the digest of every current cross-project configuration variant, while dropped
 list inheritance is always a defect and cannot be ruled away. The reachability
 inventory uses `tools/reachability_rulings.json`; its file/signature identity
 must match the current definition, and a repair ruling must name a live plan.
-The glossary inventory uses `tools/glossary_term_rulings.json`; each exact term
-must match the current definition-site file, line, and wording fingerprint, and
-every repair ruling names the live consolidation plan. Historical dispositions
-never satisfy any gate. Never convert any inventory into a count threshold, ratio,
+Historical dispositions never satisfy any gate. Never convert any inventory
+into a count threshold, ratio,
 or "no more than N" budget, and never add a ruling merely to make a number look
 better — a row records a judgement and names the plan that owns the repair.
 
@@ -945,7 +941,7 @@ render, or tool gate; it does not replace it.
 | `tools/check_determinism_math_policy.py`, `tools/determinism_math_rulings.json` | `validate_fast`, then `python tools\check_determinism_math_policy.py --self-test` and `python tools\check_determinism_math_policy.py --repo .` |
 | `tools/inventory_authority_free_aggregates.py`, `tools/inventory_extraction_scars.py`, `tools/cpp_source_scan.py`, `tools/aggregate_ownership_rulings.json` | `validate_fast`, which runs both `--self-test` invocations, the aggregate repository scan in `--strict` mode, and the extraction-scar repository scan |
 | `tools/inventory_function_complexity.py`, `tools/function_complexity_rulings.json` | `validate_fast`, which runs the complexity `--self-test` and current-tree `--strict` scan; then run the changed script directly |
-| `tools/inventory_glossary_terms.py`, `tools/glossary_term_rulings.json`, `Agentic/Reference/engine-glossary.md`, `Agentic/Reference/comment-style-guide.md`, `Agentic/Skills/comment-style-audit/skill.md`, or `Agentic/Skills/rubber-duck/SKILL.md` glossary rules | `validate_fast`, which runs the glossary `--self-test` and current-tree `--strict` scan; then run `python tools\inventory_glossary_terms.py --self-test` and `python tools\inventory_glossary_terms.py --repo . --strict` directly |
+| `Agentic/Reference/engine-glossary.md`, `Agentic/Reference/comment-style-guide.md`, `Agentic/Skills/comment-style-audit/skill.md`, or `Agentic/Skills/rubber-duck/SKILL.md` glossary rules | Documentation-only changes require no repository validation; review touched glossary ownership and wording directly |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
 | `tools/check_build_config_consistency.py`, `tools/build_config_rulings.json`, or any root first-party `*.vcxproj` | `validate_fast`, then `python tools\check_build_config_consistency.py --self-test` and `python tools\check_build_config_consistency.py --repo .` |
 | `CMakeLists.txt`, `Core/PlatformWin32.h`, `Core/PlatformPosix.h`, or `Core/FloatingPointContract.h` portable-build behavior | `validate_fast`, then configure, build, and run the `skullbonez_portable_tests` CMake target |

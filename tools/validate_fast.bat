@@ -72,12 +72,16 @@ call "%~dp0validate_dependency_graph.bat"
 if errorlevel 1 exit /b 7
 
 echo [5/10] Checking ownership rulings...
-REM Why: the build-config, shape, signature, complexity, reachability, glossary,
-REM and determinism-math inventories report current structure and fail on
-REM missing/stale owner judgements. Their triggers start qualitative review;
-REM none is a ceiling or count budget. Self-tests run first so a scanner
-REM regression is distinguishable from a source finding.
-python "%~dp0validate_governance_inventories.py" --repo "%~dp0.."
+REM Why: direct calls make each retained rule and failure visible without a
+REM checker that exists only to run other checkers. Review triggers report
+REM current structure; none is a ceiling or count allowance.
+REM Self-tests and live scans are two explicit phases. Independent commands in
+REM each phase run concurrently so deleting the old wrapper does not lengthen
+REM the fast gate; a failed child prints its exact direct command for replay.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$commands=@(@('%~dp0inventory_authority_free_aggregates.py','--self-test'),@('%~dp0inventory_extraction_scars.py','--self-test'),@('%~dp0inventory_wide_signatures.py','--self-test'),@('%~dp0inventory_function_complexity.py','--self-test'),@('%~dp0inventory_unreachable_symbols.py','--self-test'),@('%~dp0check_build_config_consistency.py','--self-test'),@('%~dp0check_determinism_math_policy.py','--self-test')); $processes=@(); foreach($command in $commands){$processes+=Start-Process -FilePath python -ArgumentList $command -PassThru -WindowStyle Hidden}; $failed=@(); for($index=0;$index -lt $processes.Count;++$index){$processes[$index].WaitForExit(); if($processes[$index].ExitCode -ne 0){$failed+=('python '+($commands[$index] -join ' '))}}; if($failed.Count){Write-Error ('FAILED ownership self-test(s): '+($failed -join '; ')); exit 8}"
+if errorlevel 1 exit /b 8
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$commands=@(@('%~dp0inventory_authority_free_aggregates.py','--repo','%~dp0..','--strict'),@('%~dp0inventory_extraction_scars.py','--repo','%~dp0..'),@('%~dp0inventory_wide_signatures.py','--repo','%~dp0..','--threshold','12','--format','json','--strict'),@('%~dp0inventory_function_complexity.py','--repo','%~dp0..','--format','json','--strict'),@('%~dp0check_build_config_consistency.py','--repo','%~dp0..','--format','json'),@('%~dp0check_determinism_math_policy.py','--repo','%~dp0..','--format','json')); $processes=@(); foreach($command in $commands){$processes+=Start-Process -FilePath python -ArgumentList $command -PassThru -WindowStyle Hidden}; $failed=@(); for($index=0;$index -lt $processes.Count;++$index){$processes[$index].WaitForExit(); if($processes[$index].ExitCode -ne 0){$failed+=('python '+($commands[$index] -join ' '))}}; if($failed.Count){Write-Error ('FAILED ownership scan(s): '+($failed -join '; ')); exit 8}"
 if errorlevel 1 exit /b 8
 
 echo [6/10] Checking staged file sizes...

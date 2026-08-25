@@ -1,13 +1,14 @@
 """File: tools/check_related_paths.py
 
 Purpose:
-  Verifies that repository-relative entries in source learning-header
-  `Related:` blocks resolve to existing repository paths.
+  Reports repository-relative entries in source learning-header `Related:`
+  blocks that do not resolve to existing repository paths.
 
 Summary:
-  `Related:` is navigable metadata, not prose. Bare topic names remain valid
-  hints, while path-shaped entries resolve from the repository root, the
-  declaring source directory, a source ancestor, or one unique source name.
+  `Related:` is useful navigation metadata, so this advisory report resolves
+  path-shaped entries from the repository root, declaring source directory, a
+  source ancestor, or one unique source name. It is intentionally absent from
+  blocking validation because documentation moves are review work.
 
 Glossary:
   Related block: A learning-header section introduced by `Related:`.
@@ -22,7 +23,8 @@ Invariants:
     then ignores deleted worktree paths so in-progress moves remain checkable.
 
 Related:
-  - tools/validate_format.bat
+  - Agentic/Reference/comment-style-guide.md
+  - tools/README.md
 """
 
 from __future__ import annotations

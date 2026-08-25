@@ -1,7 +1,7 @@
 # Governance De-Bureaucratization and Jargon Removal
 
 Date: 2026-08-25
-Status: Active by owner direction 2026-08-25. 2/8 phases complete; DB2 next.
+Status: Active by owner direction 2026-08-25. 3/8 phases complete; DB3 next.
 Owner: Engine owner
 Priority: Sole active master-plan item. DB0-DB7 execute in strict order.
 Commit name: `DE_BUREAUCRATIZE`
@@ -288,6 +288,33 @@ behavior, Physics output, baseline, or subsystem authority changed.
   the glossary registry + inventory, and `validate_governance_inventories.py`.
 - Acceptance: fast-gate is faster; clang-format still owns layout; no invariant
   lost (glossary and link resolution are advisory-grade).
+
+#### DB2 closure evidence — 2026-08-26
+
+The two custom source-layout formatters, glossary inventory and permission
+registry, and governance meta-runner are deleted. `validate_format.bat` now
+checks changed first-party C++ files directly with the pinned clang-format
+binary, and `format_fix.bat` applies that same sole layout authority. Untouched
+legacy layout is not rewritten repository-wide. A planted spacing defect in a
+changed source file failed with exit 1; the restored tree passed. The changed-
+file format phase measured 0.274 seconds with no C++ diff, compared with the
+tracked prior 51.104-second format-stage measurement.
+
+`validate_fast.bat` names every retained inventory command directly. Its seven
+self-tests run concurrently, followed by six concurrent live scans; the exact
+batch passed in 36.102 seconds. A planted nonzero child returned the fast gate's
+inventory exit code 8, proving failure propagation without the deleted wrapper.
+The standalone Related-path report is now explicitly advisory and absent from
+blocking validation; its self-test passed and its live scan found zero unresolved
+paths across 647 scanned files and 1,901 path entries.
+
+Mechanical layout authority moved from two repository-specific post-processors
+to pinned clang-format alone. Glossary consolidation and Related-path quality
+remain direct review responsibilities rather than per-site permission ledgers
+or CI blockers. No engine source, runtime behavior, baseline, golden, binary,
+or generated runtime artifact changed. Full `validate_fast` was not run because
+this intermediate phase changed no build or runtime input; all changed-script
+paths and their planted negative cases were exercised directly.
 
 ### DB3 — Strengthen-then-retire the design-invariant checks (load-bearing)
 For each of wide-signature, function-complexity, aggregate/authority-free, and
