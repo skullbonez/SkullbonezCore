@@ -1,7 +1,7 @@
 # Governance De-Bureaucratization and Jargon Removal
 
 Date: 2026-08-25
-Status: Active by owner direction 2026-08-25. 5/8 phases complete; DB5 next.
+Status: Active by owner direction 2026-08-25. 6/8 phases complete; DB6 next.
 Owner: Engine owner
 Priority: Sole active master-plan item. DB0-DB7 execute in strict order.
 Commit name: `DE_BUREAUCRATIZE`
@@ -417,6 +417,32 @@ direction.
   producer); remove the manual staging.
 - Acceptance: a golden transition is one command; determinism and producer
   reproducibility are unchanged; `validate_physics` passes byte-exact.
+
+#### DB5 closure evidence — 2026-08-26
+
+`tools/check_physics_regression.py` now parses the canonical single CSV run and
+reports the first differing frame, body id, name, row, and up to eight changed
+metrics with numeric deltas. Every CSV-derived label and value is escaped and
+length-bounded; truncated rows and parser-limit errors produce bounded failure
+messages instead of tracebacks or full-output dumps.
+
+`tools/update_baselines.py --physics` now performs the complete core Physics
+golden transition. It discovers the sole active plan and the exact committed
+predecessor whose new hash matches the accepted golden, validates and copies
+the predecessor producer and first-party DLL bytes from the clean Git index,
+archives the current Debug producer and DLLs, writes the schema-2 manifest,
+invokes the existing content-bound override guard, force-stages the otherwise
+ignored retained binaries, and rechecks the complete index. A late failure
+restores the prior golden, acceptance record, local receipt, and empty index and
+deletes only the newly created transition bundle.
+
+Four serial read-only reviews found and closed ignored-binary staging,
+working-tree predecessor substitution, malformed-row handling, parser-error
+handling, and unbounded CSV-cell and label output. The final review reports
+CLEAN. Python syntax checks, both isolated script self-tests, and a read-only
+lookup of the live `1b984310` predecessor pass. No golden was updated, and no
+build, unit suite, runtime test, `validate_physics`, `validate_*`, or other broad
+validation ran by explicit owner direction.
 
 ### DB6 — Remove jargon from source code and documentation
 Behavior-preserving and byte-exact. Rails: no source file deleted or renamed; no

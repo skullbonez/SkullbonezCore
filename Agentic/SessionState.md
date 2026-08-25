@@ -2,7 +2,7 @@
 
 Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
-Status: Governance De-Bureaucratization and Jargon Removal active; 117/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal active; 118/120 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -11,7 +11,7 @@ Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
 Governance De-Bureaucratization and Jargon Removal DB0-DB7 is the sole active
-plan at 5/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
+plan at 6/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
 tools, records sixteen replacement negative tests, and corrects the current
 wide-signature seed to the omitted 12-parameter
 `PhysicsBroadphaseStage::Run`. DB1 removes physical-coordinate policy identity
@@ -35,7 +35,16 @@ ASSET-003 bug dispositions. Asset registries have constructor-reserved hard
 ceilings, while terrain and water reuse cold-built CPU geometry during backend
 retries. Four serial reviews are clean after three correction cycles. Only the
 focused allocation checker and its synthetic controls ran; broad validation was
-omitted by explicit owner direction. DB5 baseline workflow streamlining is next.
+omitted by explicit owner direction. DB5 now reports bounded first-divergence
+frame/body/metric diagnostics and makes the content-bound core Physics golden
+transition one transactional command. It discovers and copies the accepted
+predecessor from the clean Git index, archives and force-stages old/new
+first-party producers, invokes the existing guard, and rechecks the staged
+transition. Four serial reviews are clean after closing ignored-binary staging,
+mutable-predecessor, malformed-CSV, and output-bound gaps. Focused script
+self-tests and the live predecessor lookup pass; no golden, build, runtime test,
+or repository validation was run by explicit owner direction. DB6 jargon
+removal is next.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

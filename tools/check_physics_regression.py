@@ -35,7 +35,9 @@ exactly deterministic. Any single differing byte is a real regression.
 
 Exit 0 = all match, Exit 1 = regression detected or files missing.
 """
+import csv
 import hashlib
+import io
 import os
 import sys
 
@@ -61,6 +63,88 @@ DEEP_TESTS = [
     (os.path.join(REPO, "Debug", "shooting_reaction_volley.csv"), "shooting_reaction_volley.csv"),
     (os.path.join(REPO, "Debug", "space_three_body_chaos.csv"), "space_three_body_chaos.csv"),
 ]
+
+
+def _first_csv_difference(baseline, current):
+    """Return the first row's frame, body, and changed fields without a full diff."""
+    baseline_rows = csv.DictReader(io.StringIO(baseline.decode("utf-8")))
+    current_rows = csv.DictReader(io.StringIO(current.decode("utf-8")))
+    if baseline_rows.fieldnames != current_rows.fieldnames or not baseline_rows.fieldnames:
+        return None
+
+    row_number = 1
+    while True:
+        baseline_row = next(baseline_rows, None)
+        current_row = next(current_rows, None)
+        if baseline_row is None or current_row is None:
+            if baseline_row == current_row:
+                return None
+            return {
+                "row": row_number,
+                "frame": (baseline_row or current_row or {}).get("frame", "missing"),
+                "body": (baseline_row or current_row or {}).get("idx", "missing"),
+                "name": (baseline_row or current_row or {}).get("name", "missing"),
+                "fields": [("row", "present" if baseline_row else "missing", "present" if current_row else "missing", None)],
+            }
+        if baseline_row != current_row:
+            fields = []
+            ordered_fields = list(baseline_rows.fieldnames)
+            if None in baseline_row or None in current_row:
+                ordered_fields.append(None)
+            for field in ordered_fields:
+                old = baseline_row.get(field, "")
+                new = current_row.get(field, "")
+                if old == new:
+                    continue
+                delta = None
+                try:
+                    delta = float(new) - float(old)
+                except (TypeError, ValueError):
+                    pass
+                fields.append((field or "extra_columns", old, new, delta))
+            return {
+                "row": row_number,
+                "frame": current_row.get("frame", baseline_row.get("frame", "unknown")),
+                "body": current_row.get("idx", baseline_row.get("idx", "unknown")),
+                "name": current_row.get("name", baseline_row.get("name", "unknown")),
+                "fields": fields,
+            }
+        row_number += 1
+
+
+def first_csv_difference(baseline, current):
+    try:
+        return _first_csv_difference(baseline, current)
+    except (UnicodeDecodeError, csv.Error) as exc:
+        return {"parse_error": bounded_value(str(exc))}
+
+
+def bounded_value(value, limit=120):
+    escaped = repr(value)
+    if len(escaped) <= limit:
+        return escaped
+    return f"{escaped[: limit - 18]}...<{len(escaped)} chars>"
+
+
+def print_first_csv_difference(baseline_name, baseline, current):
+    difference = first_csv_difference(baseline, current)
+    if difference is None:
+        print(f"  FAIL: {baseline_name} byte mismatch outside parsed CSV rows; check header or newline encoding.")
+        return
+    if "parse_error" in difference:
+        print(f"  FAIL: {baseline_name} CSV parse error: {difference['parse_error']}")
+        return
+    print(
+        f"  FAIL: {baseline_name} first difference: frame={bounded_value(difference['frame'])} "
+        f"body_id={bounded_value(difference['body'])} name={bounded_value(difference['name'])} "
+        f"csv_row={difference['row']}"
+    )
+    for field, old, new, delta in difference["fields"][:8]:
+        delta_text = f" delta={delta:+.9g}" if delta is not None else ""
+        print(
+            f"    {bounded_value(field)}: baseline={bounded_value(old)} "
+            f"current={bounded_value(new)}{delta_text}"
+        )
 
 
 def canonical_complete_run(data, artifact_name):
@@ -183,6 +267,35 @@ def run_self_test():
     if not any("emitted 2 complete CSV runs that are not byte-identical" in failure for failure in failures):
         raise RuntimeError("self-test accepted divergent appended runs")
 
+    baseline_csv = b"frame,idx,name,posX,sleeping\n7,12,ball,1.25,0\n"
+    current_csv = b"frame,idx,name,posX,sleeping\n7,12,ball,1.50,1\n"
+    difference = first_csv_difference(baseline_csv, current_csv)
+    if not difference or difference["frame"] != "7" or difference["body"] != "12":
+        raise RuntimeError("self-test did not identify the first differing frame and body")
+    fields = {field: (old, new, delta) for field, old, new, delta in difference["fields"]}
+    if fields.get("posX") != ("1.25", "1.50", 0.25) or fields.get("sleeping") != ("0", "1", 1.0):
+        raise RuntimeError("self-test did not report exact metric deltas")
+
+    malformed_csv = b"frame,idx,name,posX,sleeping\n7,12,ball,1.50\n"
+    malformed_difference = first_csv_difference(baseline_csv, malformed_csv)
+    if not malformed_difference or not any(
+        field == "sleeping" and new is None
+        for field, _, new, _ in malformed_difference["fields"]
+    ):
+        raise RuntimeError("self-test did not bound a truncated CSV row")
+
+    oversized = "x" * 10_000
+    if len(bounded_value(oversized)) > 120:
+        raise RuntimeError("self-test emitted an unbounded CSV cell")
+    original_limit = csv.field_size_limit()
+    try:
+        csv.field_size_limit(3)
+        parse_failure = first_csv_difference(baseline_csv, current_csv)
+    finally:
+        csv.field_size_limit(original_limit)
+    if not parse_failure or "parse_error" not in parse_failure:
+        raise RuntimeError("self-test did not bound a CSV parser failure")
+
     print("PASS: physics regression comparator self-tests")
     return 0
 
@@ -255,19 +368,7 @@ def main():
             baseline_line_count = baseline.count(b"\n")
             if current_line_count != baseline_line_count:
                 print(f"  FAIL: {baseline_name} row count {current_line_count} vs baseline {baseline_line_count}")
-            else:
-                baseline_lines = baseline.splitlines()
-                current_lines = current.splitlines()
-                diffs = [(i + 1, b, c) for i, (b, c) in enumerate(zip(baseline_lines, current_lines)) if b != c]
-                if not diffs:
-                    print(f"  FAIL: {baseline_name} byte mismatch with identical text lines; check newline encoding.")
-                    continue
-
-                print(f"  FAIL: {baseline_name} - {len(diffs)} lines differ (first at line {diffs[0][0]}):")
-                for lineno, b, c in diffs[:5]:
-                    print(f"    line {lineno}:")
-                    print(f"      baseline: {b.decode(errors='replace')}")
-                    print(f"      current:  {c.decode(errors='replace')}")
+            print_first_csv_difference(baseline_name, baseline, current)
 
     return 0 if all_pass else 1
 

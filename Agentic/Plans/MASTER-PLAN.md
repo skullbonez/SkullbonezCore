@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-26
-Status: Governance De-Bureaucratization and Jargon Removal active; 117/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal active; 118/120 tasks complete
 
 ## Owner Direction
 
@@ -368,8 +368,8 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-117/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
-the sole active plan at 5/8; DB0-DB4 are complete and DB5 is next. DB0
+118/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
+the sole active plan at 6/8; DB0-DB5 are complete and DB6 is next. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen
 negative-test seeds, and ratifies a 20-file governance-administration cohort
 with 15 planned deletions. DB1 replaces source-coordinate policy identity in
@@ -390,7 +390,15 @@ adds hard AssetSystem registry ceilings, keeps terrain/water CPU rebuild data
 out of Render-phase growth, and reconciles the FP0, TOOL-002, TOOL-003, and
 ASSET-003 ledger rows. Four serial reviews are clean. An automatic commit hook was stopped during its Debug build
 before tests or runtime evidence; broad validation remains deferred by explicit
-owner direction.
+owner direction. DB5 replaces full Physics CSV differences with bounded
+frame/body/metric diagnostics and makes the guarded core-golden transition one
+transactional command. The updater reads the accepted predecessor and retained
+producer bytes from the clean Git index, writes and force-stages the complete
+old/new producer bundle, invokes the existing content-bound guard, and rechecks
+the staged transition. Four serial reviews are clean after closing staging,
+predecessor-integrity, malformed-CSV, and output-bound gaps. Only focused script
+self-tests and a read-only live-predecessor lookup ran; repository validation
+remains omitted by explicit owner direction.
 The five unfinished Ragdoll Physics phases and RIC3
 are parked and excluded from the denominator; their eight completed phases
 remain part of the historical completed count.

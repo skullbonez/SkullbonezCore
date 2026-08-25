@@ -37,8 +37,10 @@ if errorlevel 1 exit /b 99
 exit /b %ERRORLEVEL%
 
 :help
-echo Usage: tools\update_baselines.bat [--visuals] [--perf] [--require]
+echo Usage: tools\update_baselines.bat [--visuals] [--perf] [--physics] [--require] [--self-test]
 echo.
 echo Updates TestOutput\baselines from current Profile artifacts.
 echo With no flags, updates both visual PNG baselines and perf JSON baselines.
+echo --physics archives old/new Debug producers, writes the Physics transition,
+echo updates the core golden, stages the complete evidence, and checks the index.
 exit /b 0
