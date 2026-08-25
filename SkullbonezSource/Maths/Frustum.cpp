@@ -101,10 +101,40 @@ bool Frustum::IntersectsHalfSpace( const Vector::Vector3& center, float radius, 
         return true;
     }
 
-    const float expandedRadius = ( (std::max)( 0.0f, radius ) + (std::max)( 0.0f, conservativeEpsilon ) ) *
-                                 std::sqrt( normalLengthSquared );
+    if ( !std::isfinite( plane[0] ) || !std::isfinite( plane[1] ) || !std::isfinite( plane[2] ) ||
+         !std::isfinite( plane[3] ) )
+    {
+        return true;
+    }
 
-    const float signedDistance = plane[0] * center.x + plane[1] * center.y + plane[2] * center.z + plane[3];
+    const float radiusWithEpsilon = (std::max)( 0.0f, radius ) + (std::max)( 0.0f, conservativeEpsilon );
+
+    if ( std::isfinite( normalLengthSquared ) )
+    {
+        const float expandedRadius = radiusWithEpsilon * std::sqrt( normalLengthSquared );
+        const float signedDistance = plane[0] * center.x + plane[1] * center.y + plane[2] * center.z + plane[3];
+
+        if ( std::isfinite( expandedRadius ) && std::isfinite( signedDistance ) )
+        {
+            return signedDistance >= -expandedRadius;
+        }
+    }
+
+    const float largestNormalComponent =
+        (std::max)( (std::max)( fabsf( plane[0] ), fabsf( plane[1] ) ), fabsf( plane[2] ) );
+    const double scaledX = static_cast<double>( plane[0] ) / largestNormalComponent;
+    const double scaledY = static_cast<double>( plane[1] ) / largestNormalComponent;
+    const double scaledZ = static_cast<double>( plane[2] ) / largestNormalComponent;
+    const double scaledDistance = static_cast<double>( plane[3] ) / largestNormalComponent;
+    const double scaledNormalLength = std::sqrt( scaledX * scaledX + scaledY * scaledY + scaledZ * scaledZ );
+    const double robustRadiusWithEpsilon = (std::max)( 0.0, static_cast<double>( radius ) ) +
+                                           (std::max)( 0.0, static_cast<double>( conservativeEpsilon ) );
+    const double expandedRadius = robustRadiusWithEpsilon * scaledNormalLength;
+    const double signedDistance = scaledX * center.x + scaledY * center.y + scaledZ * center.z + scaledDistance;
+
+    // Hazard: large finite plane coefficients can overflow both squared length
+    // and signed distance. Ratios preserve the half-space while double keeps
+    // every finite float center representable during the slow-path sum.
     return signedDistance >= -expandedRadius;
 }
 

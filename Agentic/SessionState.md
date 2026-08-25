@@ -202,8 +202,17 @@ component before normalization and NaN/infinity reset to identity. Three serial
 read-only reviews closed ordinary-byte, threshold-boundary, nonfinite-component,
 and hot-path false-pass findings; the final pass is clean. Validation was
 deferred by explicit owner direction; no build, test, scanner, inventory, or
-validation command ran. MATH-006 is the next selected candidate: its finite
-half-space scaling bug is low severity with a narrow Maths surface.
+validation command ran. MATH-006 is now closed: ordinary finite half-space
+classification retains its exact float operation order, while overflowed
+normal length, signed distance, or expanded radius falls through to positively
+scaled double arithmetic. Positive scaling preserves the half-space, negative
+scaling reverses it, and invalid coefficients remain conservatively visible.
+Four serial read-only reviews closed robust-routing, threshold, epsilon-unit,
+nonfinite-policy, cancellation, and test-oracle findings; the final pass is
+clean. Validation was deferred by explicit owner direction; no build, test,
+scanner, inventory, or validation command ran. MATH-001 is the next selected
+candidate: it is medium severity and its axis-rotation sign seam appears bounded
+to Maths plus the editor multi-selection caller.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

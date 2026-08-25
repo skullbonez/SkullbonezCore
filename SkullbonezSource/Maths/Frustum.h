@@ -49,6 +49,8 @@ class Frustum
 
     // Accepts normalized or unnormalized plane coefficients and returns true
     // unless the expanded sphere lies wholly outside the visible half-space.
+    // Positive coefficient scaling preserves that half-space; negative scaling
+    // reverses it with the plane orientation.
     static bool IntersectsHalfSpace( const Vector::Vector3& center, float radius, const float plane[4],
                                      float conservativeEpsilon = 0.05f );
 
