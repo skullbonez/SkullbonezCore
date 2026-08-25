@@ -15,7 +15,8 @@ Glossary:
     lookup and collision validation.
 
 Invariants:
-  - HashStr remains constexpr and preserves the exact legacy FNV-1a values.
+  - HashStr remains constexpr and mixes canonical unsigned bytes, preserving
+    legacy ASCII FNV-1a values on every compiler.
   - Callers retain the original string when collisions must be detected or
     authored identity must remain visible.
 
@@ -31,5 +32,8 @@ Related:
 
 constexpr std::uint32_t HashStr( const char* value, std::uint32_t hash = 2166136261u )
 {
-    return ( *value == '\0' ) ? hash : HashStr( value + 1, ( hash ^ static_cast<std::uint32_t>( *value ) ) * 16777619u );
+    return ( *value == '\0' )
+               ? hash
+               : HashStr( value + 1,
+                          ( hash ^ static_cast<std::uint32_t>( static_cast<std::uint8_t>( *value ) ) ) * 16777619u );
 }

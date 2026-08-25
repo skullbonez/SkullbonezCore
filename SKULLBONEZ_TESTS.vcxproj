@@ -267,6 +267,7 @@
     <ClCompile Include="SkullbonezTests\TestSceneAuthoredImpulseSetup.cpp" />
     <ClCompile Include="SkullbonezTests\TestSolverBroadphaseStage.cpp" />
     <ClCompile Include="SkullbonezTests\TestSpatialGrid.cpp" />
+    <ClCompile Include="SkullbonezTests\TestStringHash.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />
     <ClCompile Include="SkullbonezTests\TestStartup.cpp" />
     <ClCompile Include="SkullbonezTests\TestSimulationSystem.cpp" />

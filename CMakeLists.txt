@@ -134,6 +134,7 @@ set(SKULLBONEZ_PORTABLE_TEST_SOURCES
     SkullbonezTests/TestSmoke.cpp
     SkullbonezTests/TestSolverBroadphaseStage.cpp
     SkullbonezTests/TestSpatialGrid.cpp
+    SkullbonezTests/TestStringHash.cpp
     SkullbonezTests/TestTerrain.cpp
     SkullbonezTests/TestVector3.cpp
 )

@@ -300,6 +300,9 @@
     <ClCompile Include="SkullbonezTests\TestInteractionAutomationRecorder.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestStringHash.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestPlatformWin32.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

@@ -139,8 +139,15 @@ sub-epsilon color case covers both the outer override-save decision and the
 inner emissive-field decision through save, parse, and fresh-owner recreation.
 Two serial read-only reviews closed the initial epsilon-boundary finding; the
 final pass is clean. Validation was deferred by explicit owner direction; no
-build, test, scanner, or validation command ran. CORE-008 is the next selected
-high-impact, low-complexity candidate.
+build, test, scanner, or validation command ran. CORE-008 is now closed:
+`HashStr` converts each source character through `uint8_t` before the FNV-1a
+mix, so high-bit UTF-8 bytes have one identity on signed- and unsigned-char
+targets while ASCII hashes remain unchanged. Portable compile-time and runtime
+fixtures bind ASCII, byte `0x80`, and UTF-8 `C3 A9` identities. One serial
+read-only review confirmed constants, escapes, modulo arithmetic, recursion,
+ODR behavior, and build-source wiring are clean. Validation was deferred by
+explicit owner direction; no build, test, scanner, or validation command ran.
+WORLD-004 is the next selected high-impact, low-complexity candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
