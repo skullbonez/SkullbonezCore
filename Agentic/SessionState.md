@@ -210,9 +210,16 @@ scaling reverses it, and invalid coefficients remain conservatively visible.
 Four serial read-only reviews closed robust-routing, threshold, epsilon-unit,
 nonfinite-policy, cancellation, and test-oracle findings; the final pass is
 clean. Validation was deferred by explicit owner direction; no build, test,
-scanner, inventory, or validation command ran. MATH-001 is the next selected
-candidate: it is medium severity and its axis-rotation sign seam appears bounded
-to Maths plus the editor multi-selection caller.
+scanner, inventory, or validation command ran. MATH-001 is now closed:
+`RotatePointAboutArbitrary` uses the same right-handed active convention as
+`Quaternion::RotateAboutAxis`, so editor group offsets and orientations follow
+one positive angle around the captured pivot. Cardinal and non-cardinal parity
+fixtures cover all six corrected Rodrigues sine terms. One serial read-only
+review found no blocking or non-blocking issue. Validation was deferred by
+explicit owner direction; no build, test, scanner, inventory, or validation
+command ran. MATH-002 is the next selected candidate: it is the next unresolved
+medium-severity Maths entry and its retrograde-equatorial sign seam is bounded
+to orbital state conversion and propagation.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

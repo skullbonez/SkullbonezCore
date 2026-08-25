@@ -328,8 +328,21 @@ TEST_CASE( "Quaternion: orientation matrix exposes identity support extent and a
                                                                                              Vector3( 0.0f, 0.0f, 1.0f ),
                                                                                              Vector3( 1.0f, 0.0f, 0.0f ) );
     CHECK( rotated.x == doctest::Approx( 0.0f ).epsilon( kEpsilon ) );
-    CHECK( rotated.y == doctest::Approx( -1.0f ).epsilon( kEpsilon ) );
+    CHECK( rotated.y == doctest::Approx( 1.0f ).epsilon( kEpsilon ) );
     CHECK( rotated.z == doctest::Approx( 0.0f ).epsilon( kEpsilon ) );
+}
+
+
+TEST_CASE( "Quaternion behavior: arbitrary-axis point and orientation rotations agree" )
+{
+    const Vector3 axis( 0.6f, 0.8f, 0.0f );
+    const Vector3 point( 1.25f, -0.5f, 2.0f );
+    Quaternion orientation;
+    orientation.RotateAboutAxis( axis, kHalfPi );
+
+    const Vector3 rotatedPoint =
+        SkullbonezCore::Math::Transformation::RotatePointAboutArbitrary( kHalfPi, axis, point );
+    CheckVectorNear( rotatedPoint, orientation.GetOrientationMatrix() * point );
 }
 
 

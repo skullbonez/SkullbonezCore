@@ -75,63 +75,22 @@ class RotationMatrix
 // One program-wide no-rotation matrix shared by every including translation unit.
 inline const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f );
 
-// Rotate point around normalized arbitrary axis axis by radians.
+// Rotate a point around a normalized arbitrary axis by radians.
 inline Vector::Vector3 RotatePointAboutArbitrary( float radians, const Vector::Vector3& axis, const Vector::Vector3& point )
 {
-    // Keep the intermediate named so the derivation below maps back to the old
-    // formula comments and debugger watches.
-    Vector::Vector3 vResult;
-
-    // break rotation amount into vertical and horizontal components to
-    // prepare for applying arbitrary 3d rotation matrix
     float sinTheta = sinf( radians );
     float cosTheta = cosf( radians );
 
-    /*
-        The following matrix for arbitrary axis rotation is explained in about 2.5
-        pages in the '3D Math Primer for Graphics and Game Development' by
-        Fletcher Dunn and Ian Parberry, pages 109-111.
-
-        The matrix for arbitrary axis rotation is defined as follows:
-
-            let radians = a
-            let axis	 = n
-            let point.x = x
-                point.y = y
-                point.z = z
-
-            |    n.x^2*(1-cos(a))+cos(a)		n.x*n.y*(1-cos(a))+n.z*sin(a)		n.x*n.z*(1-cos(a))-n.y*sin(a) | | x
-       | | n.x*n.y*(1-cos(a))-n.z*sin(a)		   n.y^2*(1-cos(a))+cos(a)			n.y*n.z*(1-cos*a))+n.x*sin(a) | | y
-       | | n.x*n.z*(1-cos(a))+n.y*sin(a)		n.y*n.z*(1-cos(a))-n.x*sin(a)		   n.x^2*(1-cos(a))+cos(a)	  | | z
-       |
-
-            |	 (n.x^2*(1-cos(a))+cos(a))    * x   +	(n.x*n.y*(1-cos(a))+n.z*sin(a)) * y	  +
-       (n.x*n.z*(1-cos(a))-n.y*sin(a)) * z | = | (n.x*n.y*(1-cos(a))-n.z*sin(a)) * x   +	   (n.y^2*(1-cos(a))+cos(a))
-       * y	  +	  (n.y*n.z*(1-cos*a))+n.x*sin(a)) * z | | (n.x*n.z*(1-cos(a))+n.y*sin(a)) * x   +
-       (n.y*n.z*(1-cos(a))-n.x*sin(a)) * y	  +	     (n.x^2*(1-cos(a))+cos(a))    * z |
-
-            // old code...
-            vResult.x = (axis.x * axis.x * (1 - cosTheta) + cosTheta)				* point.x +
-                        (axis.x * axis.y * (1 - cosTheta) + axis.z * sinTheta)	* point.y +
-                        (axis.x * axis.z * (1 - cosTheta) - axis.y * sinTheta)	* point.z ;
-
-            vResult.y = (axis.x * axis.y * (1 - cosTheta) - axis.z * sinTheta)	* point.x +
-                        (axis.y * axis.y * (1 - cosTheta) + cosTheta)				* point.y +
-                        (axis.y * axis.z * (1 - cosTheta) + axis.x * sinTheta)	* point.z ;
-
-            vResult.z = (axis.x * axis.z * (1 - cosTheta) + axis.y * sinTheta)	* point.x +
-                        (axis.y * axis.z * (1 - cosTheta) - axis.x * sinTheta)	* point.y +
-                        (axis.z * axis.z * (1 - cosTheta) + cosTheta)				* point.z ;
-    */
-
+    // Invariant: positive radians use the same right-handed active rotation as
+    // Quaternion::RotateAboutAxis, so group positions and orientations move together.
     RotationMatrix matrix( ( axis.x * axis.x * ( 1 - cosTheta ) + cosTheta ),
-                           ( axis.x * axis.y * ( 1 - cosTheta ) + axis.z * sinTheta ),
-                           ( axis.x * axis.z * ( 1 - cosTheta ) - axis.y * sinTheta ),
                            ( axis.x * axis.y * ( 1 - cosTheta ) - axis.z * sinTheta ),
-                           ( axis.y * axis.y * ( 1 - cosTheta ) + cosTheta ),
-                           ( axis.y * axis.z * ( 1 - cosTheta ) + axis.x * sinTheta ),
                            ( axis.x * axis.z * ( 1 - cosTheta ) + axis.y * sinTheta ),
+                           ( axis.x * axis.y * ( 1 - cosTheta ) + axis.z * sinTheta ),
+                           ( axis.y * axis.y * ( 1 - cosTheta ) + cosTheta ),
                            ( axis.y * axis.z * ( 1 - cosTheta ) - axis.x * sinTheta ),
+                           ( axis.x * axis.z * ( 1 - cosTheta ) - axis.y * sinTheta ),
+                           ( axis.y * axis.z * ( 1 - cosTheta ) + axis.x * sinTheta ),
                            ( axis.z * axis.z * ( 1 - cosTheta ) + cosTheta ) );
 
     return matrix * point;
