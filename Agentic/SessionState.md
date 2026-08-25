@@ -147,7 +147,14 @@ fixtures bind ASCII, byte `0x80`, and UTF-8 `C3 A9` identities. One serial
 read-only review confirmed constants, escapes, modulo arithmetic, recursion,
 ODR behavior, and build-source wiring are clean. Validation was deferred by
 explicit owner direction; no build, test, scanner, or validation command ran.
-WORLD-004 is the next selected high-impact, low-complexity candidate.
+WORLD-004 is now closed: height-map terrain UVs normalize post coordinates by
+the number of quads per side, so the last post reaches the authored texture-wrap
+endpoint. The exact-minimum grid regression pins every emitted UV pair and
+would fail the old posts-per-side denominator. One serial read-only review
+confirmed arbitrary-grid scaling, axis orientation, triangle order, and the
+minimum-grid denominator are clean. Validation was deferred by explicit owner
+direction; no build, test, scanner, or validation command ran. WORLD-005 is the
+next selected high-impact, low-complexity candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

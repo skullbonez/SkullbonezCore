@@ -145,6 +145,7 @@ TEST_CASE( "Terrain: exact-minimum height map publishes one checked quad" )
 {
     constexpr const char* kHeightMapPath = "TestOutput/terrain_exact_minimum.raw";
     constexpr int kMapSize = 2;
+    constexpr int kTextureWrap = 3;
     {
         std::ofstream heightMap( kHeightMapPath, std::ios::binary | std::ios::trunc );
         const char pixels[kMapSize * kMapSize] = {};
@@ -153,8 +154,8 @@ TEST_CASE( "Terrain: exact-minimum height map publishes one checked quad" )
 
     EngineConfig config;
     std::unique_ptr<Terrain> terrain;
-    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, 1, config,
-                                                                terrain );
+    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, kTextureWrap,
+                                                                config, terrain );
 
     std::remove( kHeightMapPath );
 
@@ -163,7 +164,17 @@ TEST_CASE( "Terrain: exact-minimum height map publishes one checked quad" )
     const auto view = terrain->PhysicsView();
     CHECK( view.quadsPerSide == 1 );
     CHECK( view.cells.size() == 1u );
-    CHECK( terrain->BuildRenderVertexData().size() == 48u );
+    const std::vector<float> vertexData = terrain->BuildRenderVertexData();
+    REQUIRE( vertexData.size() == 48u );
+
+    constexpr float kExpectedTextureCoordinates[] = {
+        0.0f, 0.0f, 3.0f, 0.0f, 0.0f, 3.0f, 0.0f, 3.0f, 3.0f, 0.0f, 3.0f, 3.0f,
+    };
+    for ( size_t vertexIndex = 0; vertexIndex < 6u; ++vertexIndex )
+    {
+        CHECK( vertexData[vertexIndex * 8u + 6u] == kExpectedTextureCoordinates[vertexIndex * 2u] );
+        CHECK( vertexData[vertexIndex * 8u + 7u] == kExpectedTextureCoordinates[vertexIndex * 2u + 1u] );
+    }
 }
 
 TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )

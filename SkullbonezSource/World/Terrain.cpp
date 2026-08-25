@@ -1353,12 +1353,14 @@ std::vector<float> Terrain::BuildRenderVertexData() const
     {
         for ( int worldZCell = 0; worldZCell < quadsPerSide; ++worldZCell )
         {
-            float texCoordS = ( static_cast<float>( worldZCell ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
-            float texCoordT = ( static_cast<float>( worldXCell ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
-            float texCoordSP1 = ( static_cast<float>( worldZCell + 1 ) / static_cast<float>( m_postsPerSide ) ) *
+            // Invariant: texture coordinates span cells, not posts. Normalizing by
+            // quadsPerSide makes the last post land exactly on textureWrap.
+            float texCoordS = ( static_cast<float>( worldZCell ) / static_cast<float>( quadsPerSide ) ) * m_textureWrap;
+            float texCoordT = ( static_cast<float>( worldXCell ) / static_cast<float>( quadsPerSide ) ) * m_textureWrap;
+            float texCoordSP1 = ( static_cast<float>( worldZCell + 1 ) / static_cast<float>( quadsPerSide ) ) *
                                 m_textureWrap;
 
-            float texCoordTP1 = ( static_cast<float>( worldXCell + 1 ) / static_cast<float>( m_postsPerSide ) ) *
+            float texCoordTP1 = ( static_cast<float>( worldXCell + 1 ) / static_cast<float>( quadsPerSide ) ) *
                                 m_textureWrap;
 
             const int firstPostIndex = worldXCell * m_postsPerSide + worldZCell;
