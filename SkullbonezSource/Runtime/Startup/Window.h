@@ -86,7 +86,7 @@ class Window
   private:
     static constexpr std::size_t kEventCapacity = 256;
 
-    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;                                                          // Process diagnostic lease owner borrowed for the window lifetime.
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;                                                          // Process diagnostic lease borrowed for the window lifetime.
     HWND m_sWindow;                                                                                                        // Native Win32 window handle owned by startup/window creation.
     HDC m_sDevice;                                                                                                         // Native device context paired with m_sWindow.
     POINT m_sWindowDimensions;                                                                                             // Client width/height cached for projection and recentering.

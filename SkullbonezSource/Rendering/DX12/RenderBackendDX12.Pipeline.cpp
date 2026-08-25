@@ -652,7 +652,7 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommand
         }
     }
 
-    // Owner ruling: Dx12PipelineOwner carries six native descriptor indices in
+    // Why: Dx12PipelineOwner carries six native descriptor indices in
     // b1 root constants. Engine instance rows retain material-domain values;
     // putting DX12 heap identity there would leak the backend boundary and
     // overwrite packed material flags. The matching descriptors already occupy

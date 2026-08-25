@@ -467,7 +467,7 @@ TEST_CASE( "AuthoredSceneParser: fixed-cardinality fields fail recoverably befor
 {
     // Concept: these eight fields cover both shared tuple readers and every
     // direct fixed-width UI/cinematic access. An object with the expected
-    // member count is the false-pass control for validating size without type.
+    // member count is the negative control for validating size without type.
     static constexpr FixedArrayFailureCase cases[] = {
         { "camera.position",
           R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"cameras":[{"name":"main","position":)",

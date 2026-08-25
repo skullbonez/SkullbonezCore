@@ -16,7 +16,7 @@ Glossary:
   Preview snapshot: Value-only render-target metadata safe for UI consumption.
 
 Invariants:
-  - Every stored owner borrow outlives this lifecycle owner.
+  - Every stored borrowed reference outlives this lifecycle owner.
   - Backend-owned resources are released before the concrete backend owners die.
   - Preview projection never exposes framebuffer or pass-resource ownership.
 

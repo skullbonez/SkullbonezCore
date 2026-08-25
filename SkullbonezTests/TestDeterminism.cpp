@@ -1,42 +1,6 @@
-//
-// File: SkullbonezTests/TestDeterminism.cpp
 // Purpose:
 //   Lock fast PhysicsEngine determinism and physics invariant properties.
-//
-// Summary:
-//   A minimal authored physics world can be seeded directly through
-//   PhysicsEngine without SceneController or scene-load plumbing. Fixed-step
-//   determinism means two engines with identical body/collider rows produce the
-//   same byte-level kinematic, sleep, contact, and motion-classification state
-//   at the same tick boundaries.
-//
-// Glossary:
-//   Micro-world: Tiny unit-test physics scene with a few authored bodies and
-//     colliders, deliberately below every worker-dispatch threshold.
-//   Solver snapshot: Physics-owned PhysicsWorld state captured separately from
-//     body-store poses and velocities.
-//   Body replay state: Store-owned body row fields restored through
-//     PhysicsEngine::RestoreReplayBodyState.
-//   Physics-only terrain: CPU-domain analytic slope used without renderer
-//     construction or a backend test double.
-//   Terrain fixture: Per-test owner that destroys its heap PhysicsEngine before
-//     the analytic terrain and config backing the engine's retained view.
-//   Property check: Tolerance-based unit assertion over a physics rule that
-//     should hold across implementation details, rather than a golden row match.
-//   Kinetic energy: Translational plus angular motion energy used here as a
-//     damping monotonicity signal.
-//   Sleep gate: Solver-owned optimization state that can pause integration until
-//     an explicit wake path receives motion again.
-//   Terrain manifold: Contact-point report between a body and the flat test
-//     terrain, sampled here as diagnostics rather than as the byte oracle.
-//   Parallel gravity field: Forty-body fixture above the mutual-gravity worker
-//     threshold whose exact kinematics are compared at 0, 1, and 4 workers.
-//   Parallel contact field: 520-body fixture above the ordinary physics worker
-//     threshold whose contact, terrain, joint, integration, and sleep state is
-//     compared at 0, 1, and 4 workers.
-//   Large gravity field: 520-body fixture above the pair-scratch threshold that
-//     proves the exact serial fallback ignores worker availability.
-//
+
 // Invariants:
 //   - The micro-world stays serial; worker fan-out starts far above this body count.
 //   - Snapshot losslessness needs both solver state and body replay state.
@@ -52,14 +16,6 @@
 //     for each terrain, independent of the fixture that ran immediately before.
 //   - Worker scheduling must not change kinematics, ordered collision work,
 //     point-joint rows, or replay-restorable solver state.
-//
-// Related:
-//   - SkullbonezSource/Physics/PhysicsEngine.h
-//   - SkullbonezSource/Physics/PhysicsMotionEligibility.h
-//   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
-//   - SkullbonezTests/TestReplayDeterminism.cpp
-//   - SkullbonezTests/TestReplaySolverHashWitness.cpp
-//
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestResultLoadFixtures.h"

@@ -45,13 +45,9 @@ Do not claim to be a separate model or independent process unless you actually i
    definition needs an exact current reachability ruling; distinguish dynamic
    invocation and deliberate test seams from dead surface, and require a live
    plan for every repair disposition.
-   For comment-learning-header or glossary changes, inspect the seventh
-   inventory. A term defined in exactly one tracked source file remains local;
-   a term defined in more than one belongs in
-   `Agentic/Reference/engine-glossary.md` and source files cite it rather than
-   copying it. Require every current multi-file definition set to match an exact
-   migration ruling, reject stale rulings, and reject a `Summary:` that merely
-   restates its filename. Counts are evidence, never an allowance.
+   For source-comment or shared-glossary changes, inspect the comment guide and
+   the post-change source directly. Reject false ownership, sequencing,
+   lifetime, unit, capacity, or behavior claims and oversized template preambles.
 5. Report findings by severity:
    - `Blocking`: must be fixed or answered before continuing.
    - `Non-blocking`: worth addressing, but not fatal to the task.
@@ -61,14 +57,14 @@ Do not claim to be a separate model or independent process unless you actually i
 
 ## Ownership Questions (C++ changes)
 
-`AGENTS.md` bans authority-free aggregates, nominal capability slices, and
-extraction scars, and names this review as the enforcement mechanism. Answer all
-five explicitly. A finding against any of them is `[Blocking]` and cannot be
+`AGENTS.md` bans data-only bags with no enforced invariant, nominal capability
+slices, and incomplete extractions, and names this review as the enforcement
+mechanism. Answer all five explicitly. A finding against any of them is `[Blocking]` and cannot be
 waived as follow-up debt, closed by a rename, or closed by a parameter reshuffle.
 
 1. **Aggregate ownership.** Does every aggregate the change touches or adds name a
-   rule it enforces, in an `Invariant:` block a test exercises? Two shapes are
-   authority-free: a behavior-free aggregate whose sole member is a borrowed
+   rule it enforces, in an `Invariant:` block a test exercises? Two shapes
+   enforce no rule: a behavior-free aggregate whose sole member is a borrowed
    pointer/reference, and one whose **sole consumer destructures every member at
    entry** without retaining it. A one-field behavior owner or tested strong
    value type is not the first shape. Report the replacement, not just the defect.
@@ -76,7 +72,7 @@ waived as follow-up debt, closed by a rename, or closed by a parameter reshuffle
    any single operation receive every slice? Do some operations take slices while
    others reach the same owners as members? Either answer is a finding: the first
    means the split is nominal, the second means the convention is decorative.
-3. **Extraction scars.** Does any local use the `m_` member convention, or exist
+3. **Incomplete extractions.** Does any local use the `m_` member convention, or exist
    only as a second name for a parameter? A member-prefixed local reads as owner
    state when it is a call-scoped borrow, and it is how a lifted god-class body
    avoids being rewritten for its new owner.
@@ -88,8 +84,8 @@ waived as follow-up debt, closed by a rename, or closed by a parameter reshuffle
 
 For each edited operation at or above 12 parameters, state whether
 one concrete owner owns one synchronous operation, whether participant lifetimes
-close at return, and whether shortening it would introduce a courier, nominal
-slice set, callback/context bag, pure forwarder, or reach-back. A compiler
+close at return, and whether shortening it would introduce a parameter wrapper, nominal
+slice set, callback pack, broad frame context, pure forwarder, or reach-back. A compiler
 finding from `tools/check_source_design.py` is `[Blocking]`; do not ask for or
 accept a per-site exception.
 

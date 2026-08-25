@@ -2,12 +2,12 @@
 """
 File: tools/check_at_rest_stability_analyzer.py
 Purpose:
-  Prove the semantic at-rest analyzer catches planted false-pass controls.
+  Prove the semantic at-rest analyzer catches planted negative controls.
 
 Summary:
   Synthetic detached body/contact fixtures exercise the same pure evaluator as
   real SkullScope traces. Clean body, control, and completion fixtures pass;
-  independent mutations pin every review-reopened false-pass boundary and the
+  independent mutations pin every review-reopened missed-failure boundary and the
   RS1/RS5 product controls by exact diagnostic code. RS6 additionally proves
   that motion quality begins at supported quiet progress and uses only contacts
   carrying solved normal or tangent impulse.

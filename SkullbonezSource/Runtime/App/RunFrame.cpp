@@ -1,32 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/App/RunFrame.cpp
 Purpose:
   Runs one frame of input, simulation, rendering, profiling, and presentation.
-
-Summary:
-  Run sequences frame-scoped owner borrows in a fixed order, carries only small
-  phase results between them, and performs scene-transition cleanup before any
-  load can replace the active world.
-  Execute is the visible phase schedule. Each private `Run` coordinator reaches
-  composed members directly, delegates concrete operands, performs one
-  contiguous span, and returns without retaining frame state.
-
-Glossary:
-  Simulation tick: One runtime decision about whether to advance logic, camera,
-    and zero or more fixed physics steps this frame.
-  Physics fixed-timestep edge: Runtime-owned code that repairs model/body topology
-    before PhysicsEngine::Step and applies presentation-only refresh work after
-    it; this edge is independent of render-frame pacing policy.
-  PhysicsBodyStore: Physics-owned body rows for live pose, velocity, fixed
-    state, and replay identity.
-  ColliderStore: Physics-owned hot collider rows plus per-kind shape payloads,
-    material parameters, and broadphase radius.
-  Presentation pin: Per-frame alpha override to exact current solver state for
-    scheduled and auto-cycle capture automation.
-  UI text facts: Value-only late-presentation snapshot shared by the operator
-    surfaces without exposing mutable owners.
-  Development UI apply result: One automation-owned batch outcome containing
-    only a recoverable status and an optional Run-owned surface selection.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
@@ -44,12 +18,6 @@ Invariants:
     teardown-closed renderer access terminates before phase dispatch.
   - Recording starts at a pre-input boundary, captures after routing, and commits
     only at the following boundary so F8 and scene-transition turns are excluded.
-
-Related:
-  - SkullbonezSource/Runtime/App/Run.h defines the frame-coordinator calling convention.
-  - SkullbonezSource/Runtime/App/OperatorEditorFramePhase.cpp owns operator UI projection.
-  - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/engine-glossary.md
 */
 #include "Run.h"
 #include "InteractionAutomationApplication.h"

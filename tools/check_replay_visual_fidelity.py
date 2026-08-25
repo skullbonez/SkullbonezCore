@@ -1706,7 +1706,7 @@ def main() -> int:
             return 1
         # Why: controls need an initially equal value, not a second prediction
         # run. The immutable working-base comparison above is the determinism
-        # oracle; this copy only proves each injected false pass is detected.
+        # oracle; this copy only proves each injected bad value is detected.
         actual_determinism = copy.deepcopy(expected_determinism)
         return 0 if run_determinism_negative_controls(
             expected_determinism, actual_determinism

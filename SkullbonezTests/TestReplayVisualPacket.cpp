@@ -1,33 +1,6 @@
 /*
-File: SkullbonezTests/TestReplayVisualPacket.cpp
 Purpose:
   Locks typed and ordered first-difference behavior for replay visual packets.
-
-Summary:
-  Small stack-owned typed records and float arrays model production packet
-  spans. Tests prove semantic, causal-topology, and ghost changes are reported
-  before geometry, that reordered or truncated submission buffers identify
-  their exact owner lane and float, that an in-flight worker cannot change the
-  prepared prefix halfway through one rendered frame, and that prediction draw
-  commands append without revisiting a stable publication. Prediction frame
-  bank tests also prove invalidation hides retained nested storage in O(1), and
-  committed-publication snapshots preserve generation-bound visible facts.
-  Cross-target promotion tests also lock the hidden publication to the
-  promoted source until the coherent bank flip releases the requested target.
-  Budget-schedule and fast-completion tests prove hidden prediction work cannot
-  change the retained visible bank or the final canonical trajectory output.
-  All-body tests prove each budget slice exposes one shared frame watermark and
-  that only explicit space presentation accepts independent roots. A 200-child
-  oracle also proves incremental marker scans and retained poses match the legacy
-  full scan through prefix, topology, generation, and bank changes.
-
-Glossary:
-  Packet span: Non-owning view of one ordered production submission stream.
-
-  Retained attachment: Shared packet operation that joins persistent prediction
-    geometry with frame-local moving tails without copying either span.
-  Retained chunk: Stable compact range whose continuation repairs only the
-    previous chunk's open adjacency tail.
 
 Invariants:
   - Packet comparison is bit-exact and order-sensitive.
@@ -38,11 +11,6 @@ Invariants:
   - Selected-causal presentation has exactly one selected root and every child
     trajectory agrees with its future-node ancestry; generic force flags do not
     relax that rule.
-
-Related:
-  - Agentic/Reference/engine-glossary.md
-  - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
-  - SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

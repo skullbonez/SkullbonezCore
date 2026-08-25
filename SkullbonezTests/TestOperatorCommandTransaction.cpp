@@ -4,7 +4,7 @@ Purpose:
   Locks the value-only operator-command owner and unified acceptance ledger.
 
 Summary:
-  Compile-time contracts reject a return to copyable transaction couriers or
+  Compile-time contracts reject a return to copyable transaction wrappers or
   pointer-bearing acceptance values. Runtime checks pin detached command
   capture and the default ledger before phase execution. App command-boundary
   checks drive endpoint and off-grid values through the same stateless

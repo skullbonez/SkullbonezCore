@@ -1,37 +1,9 @@
 #!/usr/bin/env python3
 """
-File: check_build_config_consistency.py
 Purpose:
   Inventory effective C++ metadata and first-party Visual Studio project
   topology, then fail configuration drift, project cycles, and production
   sources without exactly one production owner.
-
-Summary:
-  Reconciles every physical vcxproj with a data-listed topology role, resolves
-  configurations for the explicit metadata-inventory subset, joins exact
-  current-setting rulings, and derives the project-reference DAG plus declared
-  production source ownership. Text and JSON reports are read-only current
-  evidence; no project or source count is an allowance.
-
-
-  MSBuild starts each ClCompile item with project defaults, then applies
-  file-specific metadata. List metadata keeps the inherited value only when the
-  item contains its matching %(...) token. This checker evaluates that bounded
-  project shape for every declared configuration and compares a shared source
-  only with the same configuration in its other owning projects.
-
-Glossary:
-  Effective metadata: Project ClCompile defaults after matching per-file
-    overrides and list inheritance have been applied.
-  Shared source: One source path compiled by at least two first-party projects.
-  Dropped inheritance: A per-file list override that omits the matching
-    %(...) token and therefore replaces, rather than extends, project defaults.
-  Current-setting ruling: Owner judgement keyed by source path and metadata
-    name, with a digest of every current cross-project variant for that pair.
-  Production owner: The one production-role vcxproj that declares a tracked
-    first-party source. Test-role reuse does not become a second production owner.
-  Topology-only project: Explicitly registered test project whose references
-    join the project DAG but whose bespoke metadata is outside this inventory.
 
 Invariants:
   - Every tracked or unignored vcxproj is registered exactly once in rule data.
@@ -45,11 +17,6 @@ Invariants:
   - Every tracked source in the configured production scope has exactly one
     production-role project owner; test compilation remains separate evidence.
   - Unsupported MSBuild conditions fail closed instead of silently guessing.
-
-Related:
-  - SKULLBONEZ_CORE.vcxproj
-  - SKULLBONEZ_TESTS.vcxproj
-  - tools/build_config_rulings.json
 """
 
 from __future__ import annotations

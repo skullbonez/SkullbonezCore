@@ -1,28 +1,7 @@
-//
-// File: SkullbonezTests/TestPhysicsHandles.cpp
 // Purpose:
 //   Lock body/collider handle semantics, replay topology identity, and aligned
 //   buoyancy-row lifecycle.
-//
-// Summary:
-//   Physics handles are allocator identities, not dense row indices. The stores
-//   keep simulation rows compact by moving the final row into a deleted slot,
-//   while handle maps preserve live identity and reject stale generations.
-//   Replay tests prove durable scene identity survives new handle epochs and
-//   prefix trims preserve point-joint order; malformed solver snapshots are
-//   rejected before any owner mutates; and buoyancy tests prove its feature-
-//   owned facts mirror body-row operations. Focused topology tests also prove
-//   failed collider refresh is non-mutating and shape compaction preserves
-//   first, middle, and final removal boundaries.
-//
-// Glossary:
-//   Handle generation: Version counter incremented when a handle slot is
-//     retired, making old handles fail lookup after slot reuse.
-//   Dense row: Compact store array index used by hot simulation scans.
 
-//   Hot SoA fields: 32-byte-aligned component arrays that keep adjacent body
-//     values contiguous for cache-friendly stage scans.
-//
 // Invariants:
 //   - HandleForModelIndex() and ModelIndexForHandle() are inverse for live rows.
 //   - Destroying a middle row moves the final row down and updates its handle map.
@@ -51,13 +30,6 @@
 //     every prior owner snapshot remains byte-for-byte unchanged.
 //   - The exact reserve census includes every registered SpatialGrid owner and
 //     rejects any unregistered growth or capacity-reporting row.
-//
-// Related:
-//   - SkullbonezSource/Physics/PhysicsBodyStore.h
-//   - SkullbonezSource/Physics/ColliderStore.h
-//   - SkullbonezSource/Physics/BuoyancySystem.h
-//   - Agentic/Reference/engine-glossary.md
-//
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"

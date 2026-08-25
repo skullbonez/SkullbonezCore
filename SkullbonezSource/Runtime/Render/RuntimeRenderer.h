@@ -1,26 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/Render/RuntimeRenderer.h
 Purpose:
   Declares the runtime renderer owner for ordered render passes.
-
-Summary:
-  RuntimeRenderer owns pass objects and frame ordering. RenderResourceLifecycle
-  owns backend-epoch state behind one explicit surface. Established owner views
-  supply lifetime-stable dependencies; immutable per-frame records carry
-  submission facts and completed overlays.
-  UiTextPass owns its font batch and presentation capabilities; this class
-  contributes the late graph edge and supplies its backend-epoch owners.
-  A content-neutral extension scope lets higher composition append one typed
-  world pass at the renderer-owned post-water scheduling point.
-
-Glossary:
-  RuntimeRenderer: Owner of pass instances and the live frame-graph builder.
-  Pass order: The stable sequence of shadows, sky, reflection, objects, terrain,
-    water, post effects, and UI/text.
-  Backend-owned resource: GPU object that must be released before backend
-    teardown.
-  World extension: One synchronous callback-owned graphics pass registered by
-    higher composition without exposing its content owner to this renderer.
 
 Invariants:
   - RuntimeRenderer owns pass instances; Run engages one after backend binding.
@@ -32,11 +12,6 @@ Invariants:
   - UI-text callers compose product UI before submission. RuntimeRenderer sees
     only foundation draw commands and the parallel renderer-owned preview
     snapshot; graph callback ABI records and backend injection remain private.
-
-Related:
-  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
-  - SkullbonezSource/Runtime/App/RunRender.cpp
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

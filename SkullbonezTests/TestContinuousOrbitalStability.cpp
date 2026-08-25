@@ -6,7 +6,7 @@ Purpose:
 Summary:
   Planted complete tick values exercise stable motion, both envelope directions,
   sustained escape reset/latch timing, blocking and auxiliary collisions,
-  numerical false passes, conservation drift, and bounded chronological ribbon
+  missed numerical failures, conservation drift, and bounded chronological ribbon
   publication without running the private forecast worker.
 
 Invariants:

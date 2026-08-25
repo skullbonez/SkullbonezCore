@@ -5,7 +5,7 @@ Purpose:
 
 Summary:
   Editor interaction helpers apply placement, selection, gizmo, and overlay
-  commands through explicit scene, physics, asset, and tool-owner borrows while
+  commands through borrowed references to scene, physics, asset, and tool owners while
   Input retains gesture authority.
 
 Glossary:

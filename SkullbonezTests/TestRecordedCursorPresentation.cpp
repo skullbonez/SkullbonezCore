@@ -12,7 +12,7 @@ Summary:
   point, edge placement, operator-surface independence, and two-command ceiling.
 
 Glossary:
-  False-pass control: Deliberate mutation that proves a negative assertion can
+  Negative control: Deliberate mutation that proves a negative assertion can
     detect the regression it claims to guard against.
 
 Invariants:
@@ -401,7 +401,7 @@ TEST_CASE( "Recorded cursor presentation: pure policy leaves native pointer stat
     CHECK( std::memcmp( &committedBefore, &committed, sizeof( committedBefore ) ) == 0 );
 }
 
-TEST_CASE( "Recorded cursor presentation: false-pass controls detect both native mutation channels" )
+TEST_CASE( "Recorded cursor presentation: negative controls detect both native mutation channels" )
 {
     SbDiagnosticStore diagnostics;
     InputRouter router { diagnostics };

@@ -23,7 +23,7 @@ Invariants:
     filtered row store.
   - Prediction Manifold and SolverRow offsets are usable only with an exact
     generation/mode/epoch/frame/topology/publication identity match.
-  - Velocity drag state is fixed-size and carries no Prediction owner borrow.
+  - Velocity drag state is fixed-size and carries no borrowed reference to Prediction.
 
 Related:
   - ReplayAuthoring.h

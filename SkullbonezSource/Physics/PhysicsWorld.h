@@ -156,7 +156,7 @@ class PhysicsWorld
     void AdvancePointJointHandleGeneration();
 
     // Point joints are PhysicsWorld-owned solver state; the solver and sleep
-    // owner borrow the dense rows synchronously.
+    // controller borrow the dense rows only for each synchronous call.
     PhysicsBodyRowList<PointJointConstraint> m_pointJointConstraints { "PhysicsWorld.pointJointConstraints",
                                                                        PhysicsCapacityReason::PointJoints };
     std::size_t m_pointJointCapacity = 0u;

@@ -85,7 +85,7 @@ observe a partial future. Together they support trajectory display, intercept
 readouts, trip planning, and porkchop-style launch-window analysis.
 
 Its size is proportionate to what it does. Deterministic replay of a full physics
-world is not a debug convenience bolted on afterwards; it is load-bearing
+world is not a debug convenience bolted on afterwards; it is required
 infrastructure, and it is why the physics determinism contract above is enforced so
 strictly.
 
@@ -131,7 +131,7 @@ The engine is developed largely by **an automated nightly agent loop**. Each run
 selects the next task in binding order, implements it on a fresh nightly branch,
 runs the validation gates mapped to the files it touched, submits the result to an
 independent review pass, then commits under the owning plan's task counter. Plans
-carry explicit owner rulings, non-goals, acceptance criteria and per-phase evidence,
+carry explicit review decisions, non-goals, acceptance criteria and per-phase evidence,
 so the next run starts from a written state rather than an inference. Closure
 evidence lives in the commit that carried it; git history is the archive.
 
@@ -233,7 +233,7 @@ smallest script that covers what changed:
 
 The complete file-to-gate mapping is in `AGENTS.md`; per-script detail is in
 `tools/README.md`. Physics golden changes are behaviour changes. Active Physics
-plans have standing automated-transition authority when the exact candidate hash
+plans follow the approved golden-update policy when the exact candidate hash
 and append-only old/new executable bundle pass the guard; no separate interactive
 approval is required. Every corresponding gate is rerun after the update.
 

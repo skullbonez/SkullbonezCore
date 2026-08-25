@@ -1,26 +1,6 @@
 /*
-File: SkullbonezSource/Rendering/RenderCommandTypes.h
 Purpose:
   Declares value records shared by concrete DX12 render-command owners.
-
-Summary:
-  Pass code carries complete raster, clear, instancing, and transient-triangle
-  values into the narrow concrete owner that records each operation. This file
-  owns no command capability and introduces no facade across those owners.
-
-Glossary:
-  Command owner: Concrete DX12 owner responsible for one command category.
-  Viewport: Pixel rectangle that maps clip-space output into the current target.
-  Blend recipe: Rule for combining new pixel color with the target's old color.
-  Dynamic vertex buffer: Backend-owned transient buffer used for text, overlays,
-    and other per-frame geometry.
-  Transient triangle style: Shader interpretation for packed overlay triangles
-    or retained segment payloads submitted for one frame.
-  Instanced mesh: Static mesh plus per-instance data drawn many times in one
-    backend call.
-  Raster bucket: Pass-local value naming one complete fixed-function PSO recipe.
-  Retained geometry chunk: Stable compact record slice whose physical address
-    does not change when another feature-owned range grows.
 
 Invariants:
   - Callers borrow concrete command owners only while DX12 is initialized.
@@ -33,13 +13,6 @@ Invariants:
     the backend validates each populated range before reading that span.
   - Retained chunk handles name physical storage; draw order is a separate
     value so canonical presentation never requires moving compact records.
-
-Related:
-  - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
-  - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h
-  - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
-  - SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -1,31 +1,8 @@
 #!/usr/bin/env python3
-#
-# File: tools/validate_project_filters.py
+
 # Purpose:
 #   Validate Visual Studio project item filters and path casing.
-#
-# Summary:
-#   The .vcxproj controls what Visual Studio builds or displays, while the
-#   .vcxproj.filters file controls where those items appear in Solution
-#   Explorer. This check keeps source, headers, scenes, shaders, and style data
-#   in predictable semantic filters so project edits do not slowly drift or
-#   accumulate flat subsystem roots. The same source-ownership pass computes
-#   transitive local includes and fences the heavy JSON parser to ratified cold
-#   translation units. The default production gate validates the app and any
-#   extracted production libraries as a set, because library layering
-#   deliberately moves files out of the app project without removing them from
-#   the solution build.
-#
-# Glossary:
-#   Filter: A Visual Studio virtual folder stored in .vcxproj.filters.
-#   Project item: A build or content entry such as ClCompile, ClInclude, or None.
-#   Production project set: The app plus extracted static libraries that
-#     together own SkullbonezSource build/header coverage.
-#   Semantic filter: A virtual folder named for responsibility rather than the
-#     source file's physical directory alone.
-#   JSON cold boundary: Startup, authored-data, automation, replay-artifact, or
-#     explicit tool IO translation unit allowed to reach the JSON parser.
-#
+
 # Invariants:
 #   - Every project item that belongs in Solution Explorer has one expected
 #     filter entry.
@@ -37,11 +14,7 @@
 #   - Project paths use the exact casing of the file on disk.
 #   - The computed JSON-reachable translation-unit set exactly equals the
 #     ratified cold-boundary set.
-#
-# Related:
-#   - AGENTS.md
-#   - tools/README.md
-#
+
 """Validate Visual Studio project item filters."""
 
 from __future__ import annotations

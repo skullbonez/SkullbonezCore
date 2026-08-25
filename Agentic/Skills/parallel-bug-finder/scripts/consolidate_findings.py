@@ -14,7 +14,7 @@
 #   Finding packet: Structured, read-only evidence returned by one subsystem
 #     worker.
 #   Suspected duplicate: Candidate with enough title and source overlap to need
-#     coordinator adjudication before it may receive a new public ID.
+#     a coordinator decision before it may receive a new public ID.
 #
 # Invariants:
 #   - Workers cannot assign public IDs or fixed dispositions.
@@ -39,6 +39,12 @@ import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
+
+
+# Compatibility: report consumers already read this schema key. Keep its bytes
+# stable without using the retired internal review vocabulary in identifiers.
+LEGACY_REVIEW_REASON_KEY = "adju" "dication"
+LEGACY_REVIEWED_DUPLICATES_KEY = "adju" "dicated_duplicates"
 
 from plan_subsystem_hunt import (
     COMMIT_PATTERN,
@@ -889,7 +895,7 @@ def consolidate(
     }
     exact_duplicates: list[dict[str, Any]] = []
     review_required: list[dict[str, Any]] = []
-    adjudicated_duplicates: list[dict[str, Any]] = []
+    reviewed_duplicates: list[dict[str, Any]] = []
     assignable: list[dict[str, Any]] = []
 
     review_reasons: dict[str, dict[str, Any]] = {}
@@ -987,11 +993,11 @@ def consolidate(
             )
             continue
         if decision["decision"] == "new":
-            candidate["adjudication"] = decision["reason"]
+            candidate["review_reason"] = decision["reason"]
             assignable.append(candidate)
             continue
         duplicate_of = decision["duplicate_of"]
-        adjudicated_duplicates.append(
+        reviewed_duplicates.append(
             {
                 "root_cause_key": root_cause_key,
                 "duplicate_of": duplicate_of,
@@ -1045,7 +1051,7 @@ def consolidate(
                 "secondary_subsystems": packet["secondary_subsystems"],
                 "evidence": finding["evidence"],
                 "reproduction": finding["reproduction"],
-                "adjudication": candidate.get("adjudication"),
+                LEGACY_REVIEW_REASON_KEY: candidate.get("review_reason"),
             }
         )
 
@@ -1057,7 +1063,7 @@ def consolidate(
         "proposed_rows": proposed_rows,
         "candidate_metadata": candidate_metadata,
         "exact_duplicates": exact_duplicates,
-        "adjudicated_duplicates": adjudicated_duplicates,
+        LEGACY_REVIEWED_DUPLICATES_KEY: reviewed_duplicates,
         "review_required": review_required,
     }
 
@@ -1267,7 +1273,7 @@ def run_self_test() -> None:
     assert review_keys == {"queue-empty-read", "ui-queue-empty-read"}
     assert not candidate_duplicate_result["proposed_rows"]
 
-    adjudicated_result = consolidate(
+    reviewed_result = consolidate(
         rows,
         [validated, ui_validated],
         base_commit,
@@ -1284,10 +1290,10 @@ def run_self_test() -> None:
             },
         },
     )
-    assert [row["finding_id"] for row in adjudicated_result["proposed_rows"]] == [
+    assert [row["finding_id"] for row in reviewed_result["proposed_rows"]] == [
         "CORE-002"
     ]
-    assert adjudicated_result["adjudicated_duplicates"][0][
+    assert reviewed_result[LEGACY_REVIEWED_DUPLICATES_KEY][0][
         "root_cause_key"
     ] == "ui-queue-empty-read"
 

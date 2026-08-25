@@ -1,32 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/App/ReplayRuntime.h
 Purpose:
   Composes Replay, Prediction, and Planning sibling owners at the application boundary.
-
-Summary:
-  Runtime/App sequences typed work across concrete sibling owners and exposes
-  published value views to the application shell. Replay remains the lower
-  capture/timeline/scrub package; Prediction and Planning retain their own state.
-  ReplayRuntime is an App composition root, not a Replay-package owner. It
-  sequences owner-to-owner work while concrete package owners retain state and
-  implement their domain transitions. Causal inspection synchronizes Planning
-  progress, Replay transport, and Camera presentation without moving state into
-  this composition surface.
-
-Glossary:
-  Solver track: Physics-facing samples and snapshots used for deterministic
-    inspection and rollback.
-  Render pose override: One-frame draw-pose request consumed by
-    RenderInstanceStore during replay scrub or prediction preview.
-  Prediction cache: Incremental future-path data built from predicted solver
-    frames; a worker publishes build prefixes while render consumes them.
-  Published build prefix: Contiguous prediction frames whose rows are fully
-    written and safe for render, automation, or Director readers to inspect.
-  Trajectory record: Versioned polyline storage for one replay body and lane.
-  Recorder eviction: Removal of the oldest bounded-ring sample when replay
-    capture appends beyond the configured retention window.
-  Replay memory policy: Runtime-owned preset, retention, and budget request that
-    resolves to concrete presentation and solver recorder windows.
 
 Invariants:
   - Replay, Prediction, and Planning are sibling fields; none retains a
@@ -42,14 +16,6 @@ Invariants:
     or private-engine state are cleared.
   - Clear-phase observation does not borrow replacement-scene cameras or terrain;
     only activation may apply replay presentation against the populated scene.
-
-Related:
-  - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
-  - SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.h
-  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
-  - SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -183,7 +149,8 @@ struct ReplayStartupProbeContinuationTestAccess;
 #ifdef _DEBUG
 // Invariant: a Debug startup may pause only while App services one typed
 // camera/input or restored-branch action. This cursor retains detached restore
-// evidence and internally addressed values, never a process owner borrow.
+// evidence and internally addressed values, never a borrowed reference to a
+// process owner.
 class ReplayStartupProbeContinuation
 {
   public:
@@ -298,7 +265,7 @@ class ReplayStartupProbeContinuation
     void RejectPendingApplicationOrFatal( const char* operation )
     {
         // Invariant: a terminal cursor cannot retain an action that App could
-        // service after failure. Clear the courier value before closing the
+        // service after failure. Clear the returned value before closing the
         // finite-state edge, then prove the resulting state is self-consistent.
         m_pendingAction = PendingAction::None;
         RequireLegalTransitionOrFatal( m_phase, Phase::Failed, operation );

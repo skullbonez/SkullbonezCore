@@ -5,8 +5,8 @@
 #   Blocks restored legacy ASCII-art headers in C++ source files.
 #
 # Summary:
-#   This hook preserves the post-cleanup file shape. It is not a learning-header
-#   validator; it only prevents large decorative banners from coming back.
+#   This hook preserves the post-cleanup file shape. It does not require a file
+#   preamble; it only prevents large decorative banners from coming back.
 #
 # Glossary:
 #   ASCII-art header: Decorative block comment banner that used to dominate the

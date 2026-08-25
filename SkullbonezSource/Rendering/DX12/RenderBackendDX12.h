@@ -23,7 +23,7 @@ Invariants:
   must stay explicit.
   - Recording failure prevents further command emission and allocator/upload
     reuse; only successful device initialization clears it.
-  - Stable texture/geometry owner borrows may survive reset, but convenience
+  - Stable borrowed texture/geometry references may survive reset, but convenience
     operations require the separately published active device epoch.
 
 Related:
@@ -785,7 +785,7 @@ class Dx12FeatureEpochResult
         return m_result.ErrorMessage();
     }
 
-    // Lifetime: this is an owner-borrowed view. A caller that needs the
+    // Lifetime: this is a borrowed view. A caller that needs the
     // diagnostic beyond Reset or owner destruction must copy the SbResult.
     const SkullbonezCore::Core::SbResult& Current() const noexcept
     {

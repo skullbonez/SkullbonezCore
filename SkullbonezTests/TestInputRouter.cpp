@@ -1,27 +1,7 @@
 /*
-File: TestInputRouter.cpp
 Purpose:
   Verifies allocation-free input snapshots, action edges, binding predicates,
   phase order, and focus cancellation without constructing Run or polling Win32.
-
-Summary:
-  Each test supplies immutable device frames and a tiny static binding table.
-  BeginFrame advances all physical edge memory; RoutePhase then proves which
-  semantic events are eligible under current context facts. Pointer arbitration
-  tests drive the production phase cursor without constructing domain owners,
-  and device-frame tests preserve the distinction between no pointer and (0,0).
-
-Glossary:
-  UI (user interface): Interactive engine controls evaluated between routing
-    phases.
-  Win32: Windows desktop API that defines the virtual-key constants in tests.
-  Held edge: Event emitted after an accepted press remains physically down.
-  Context activation: Mode/UI fact mask that permits a binding to emit.
-  Ghost press: False press caused by activating a context while its key was
-    already held.
-
-  Pointer arbitration: Ordered production cursor that gives the first consuming
-    editor, pickup, camera, Replay, or launcher stage exclusive ownership.
 
 Invariants:
   - Tests use no hardware, window, renderer, physics, or dynamic action storage.
@@ -33,11 +13,6 @@ Invariants:
     cursor-reset request.
   - Every pointer-claim combination preserves editor-to-launcher precedence and
     suppresses owner calls after the first accepted stage.
-
-Related:
-  - Agentic/Reference/engine-glossary.md
-  - SkullbonezSource/Runtime/Input/InputRouter.h
-  - SkullbonezTests/TestRuntimeInputBindings.cpp
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

@@ -1,24 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/Render/UiTextPass.cpp
 Purpose:
   Implements the cohesive UI/Text render pass owner.
-
-Summary:
-  World rendering can be skipped, redirected, or post-processed, but UI/text is
-  a late pass over the final window. This owner holds font/text-batch lifetime,
-  profiler/timing and ray-tracing presentation capabilities, text-only output,
-  HUD overlays, and the in-game UI frame publication. RuntimeRenderer schedules
-  focused metrics, chrome, operator projection/submission, detached UI, and overlay
-  operations.
-
-Glossary:
-  Runtime mode badge: Compact top-right label that names the current camera/input
-    workspace, such as Inspect or Manipulator.
-  Scene pause badge: Compact top-right scene-flow indicator for frame progress,
-    completion, and the cross-scene pause lock.
-  Text-only mode: Validation mode that skips world rendering and renders glyphs
-    on a solid background to isolate text output.
-  UI frame data: Borrowed per-frame snapshot passed to the immediate-mode UI.
 
 Invariants:
   - Font resources are created once through EnsureGpuResources and released
@@ -35,11 +17,6 @@ Invariants:
     release closes that epoch and a successful rebuild reopens it.
   - An invalid Replay memory sample publishes a cleared unavailable value and
     never reuses or refreshes stale accounting.
-
-Related:
-  - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
-  - SkullbonezSource/Runtime/UI/GameUI/UI.h
-  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeRenderPasses.h"
 #include "RuntimeRenderFrameValues.h"

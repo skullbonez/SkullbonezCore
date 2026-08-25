@@ -7,7 +7,7 @@ Summary:
   SceneController owns queue navigation, borrows the UI-owned browser value for
   one decision, and returns a value-only load request. SceneController consumes
   that request through its cold load transaction; callers only wire explicit
-  per-call owner borrows.
+  per-call borrowed references.
 
 Glossary:
   Scene UI request: One-frame Scene-tab intent submitted to SceneController.

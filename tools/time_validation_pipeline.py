@@ -14,7 +14,7 @@
 #
 # Invariants:
 # - Child process exit code, stdout/stderr line counts, and fail-fast behavior are preserved.
-# - Instrumentation failure must never convert a failed gate into a false-pass.
+# - Instrumentation failure must never convert a failed gate into an incorrect pass.
 # - Raw timing artifacts are written to TestOutput/validation/VALIDATION_TIME_AUDIT/.
 #
 # Related:

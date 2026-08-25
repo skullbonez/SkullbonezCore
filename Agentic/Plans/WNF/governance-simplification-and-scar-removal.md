@@ -41,7 +41,7 @@ graph TD
 **Objective:** Eliminate or consolidate the 13 JSON ruling databases in `tools/` and remove all line-number pinning from CI checks.
 
 1. **Retire Fragile AST Inventories:**
-   - Delete `tools/aggregate_ownership_rulings.json` (715 lines) and `tools/inventory_authority_free_aggregates.py`. Plain structs (PODs) without internal methods should not require a JSON permission slip to exist.
+   - Delete the aggregate permission registry (715 lines) and its inventory script. Plain structs (PODs) without internal methods should not require a JSON permission slip to exist.
    - Delete `tools/wide_signature_ownership_rulings.json` and `tools/inventory_wide_signatures.py`. High-arity functions should be addressed naturally via refactoring rather than requiring written JSON exemptions.
    - Delete `tools/function_complexity_rulings.json` (433 lines) and `tools/inventory_function_complexity.py`.
    - Audit and prune `tools/reachability_rulings.json` (761 lines); replace symbol-level reachability micro-rulings with standard linker dead-code stripping or broad configuration tests.
@@ -67,7 +67,7 @@ graph TD
 1. **Remove Redundant Code-Formatting Scripts:**
    - Delete custom post-formatters like `tools/align_header_inline_comments.py` and `tools/separate_multiline_cpp_declarations.py`; rely solely on the pinned `.clang-format` configuration.
 2. **Prune Meta-Inspectors:**
-   - Delete `tools/inventory_extraction_scars.py` (which literally searches for remnants of previous AI refactors).
+   - Delete the former incomplete-extraction inventory, which searches for remnants of previous refactors.
    - Delete `tools/inventory_glossary_terms.py` and `tools/glossary_term_rulings.json`.
    - Delete `tools/validate_governance_inventories.py` (the meta-checker that polices the other inventory tools).
 3. **Preserve Essential Engine Gatekeepers:**
@@ -78,14 +78,12 @@ graph TD
 ### Phase 4: Lexicon & Prose Normalization
 **Objective:** De-obfuscate repo terminology across documentation, plan templates, and session logs.
 
-1. **Lexicon Normalization Table:**
-   - Replace *"authority-free aggregate"* / *"extraction scar"* $\rightarrow$ **Plain Struct / POD / Data Record**
-   - Replace *"courier struct"* / *"context bag"* $\rightarrow$ **Parameter Object / Frame Context**
-   - Replace *"owner borrow"* $\rightarrow$ **Borrowed Pointer / View / Parameter Reference**
-   - Replace *"authoritative witness"* $\rightarrow$ **Deterministic Test Scenario / Regression Case**
-   - Replace *"false-pass control"* $\rightarrow$ **Negative Control / Mutation Test**
-   - Replace *"standing automated-transition authority"* $\rightarrow$ **Approved Golden Update Policy**
-   - Replace *"mutable validation-resource lease"* $\rightarrow$ **Lock / Concurrency Lease**
+1. **Use direct technical terms:**
+   - Name plain structs, parameter objects, frame contexts, borrowed references,
+     regression cases, negative tests, golden-update scripts, and file locks for
+     what they are.
+   - Do not invent a repository-specific synonym when ordinary C++ or systems
+     terminology already describes the concept.
 2. **Documentation Clean-up:**
    - Simplify `Agentic/SessionState.md` and `AGENTS.md` to focus on concrete architectural state and open issues rather than high-ceremony compliance ledgers.
 

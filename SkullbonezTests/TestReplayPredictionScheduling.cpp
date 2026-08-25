@@ -1,22 +1,6 @@
 /*
-File: TestReplayPredictionScheduling.cpp
 Purpose:
   Locks replay prediction scheduling and publication protocols.
-
-Summary:
-  Worker timing is supplied as a value for build-mode and feedback decisions,
-  while publication tests exercise the release/acquire cursor owner, build-root
-  visibility, continuous rolling-row publication, and shared sample lookups
-  without starting a physics worker.
-  Pure policy tests separately pin detail-mode transition effects, archive
-  capability independence, and the explicit selected-tree versus space-path
-  presentation decision.
-
-Glossary:
-  Instant build: One worker submission for the remaining prediction horizon.
-  Supersede: Retain one pending restart without cancelling in-flight work.
-  Presented replacement: Build prefix prepared coherently by the frame thread
-    at least once, so a newer velocity may safely replace it.
 
 Invariants:
   - A zero instant budget always preserves amortized scheduling.
@@ -36,12 +20,6 @@ Invariants:
     clears only prediction inspection, and requests capacity release only when
     entering Low detail.
   - Generic physics-force values cannot select all-body path presentation.
-
-Related:
-  - Agentic/Reference/engine-glossary.md
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPackets.h
-  - SkullbonezSource/Runtime/Prediction/ContinuousPredictionSampleRing.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

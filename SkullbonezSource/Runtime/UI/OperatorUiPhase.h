@@ -12,7 +12,7 @@ Summary:
 Invariants:
   - The only phase walk is Idle -> Snapshot -> Composed -> Submitted -> CommandsEmitted -> Complete.
   - The owner terminates on every repeated, skipped, or backward phase operation.
-  - The stored snapshot and returned commands are values; no owner borrow survives a call.
+  - The stored snapshot and returned commands are values; no borrowed reference survives a call.
   - Surface visibility never changes which immutable frame facts either UI consumes.
 
 Related:

@@ -1,32 +1,6 @@
-//
-// File: SkullbonezTests/TestReplayCauseInspection.cpp
 // Purpose:
 //   Pin exact-frame eligibility for the replay planning causal inspection surface.
-//
-// Summary:
-//   Recorded and predicted cause rows use different bounded timeline banks.
-//   These tests prove each row kind either resolves its exact frame or emits the
-//   stable expired-frame refusal without consulting transient solver detail.
-//   Exact-frame detail tests then prove manifold-row grouping, stage joins, and
-//   distinct expired-versus-unavailable outcomes without retaining source data.
-//   Prediction Manifold and SolverRow cases resolve only a complete immutable
-//   evidence-bank stamp; synthetic rows and every stale or same-frame-replaced
-//   identity stay unavailable.
-//   Presentation tests pin event-frame body poses, exact ManifoldRow points,
-//   derived surviving-row points, owned packet publication, solver-row copy
-//   lifetime, the compact unavailable state, and the up-to-four-row scrolling
-//   viewport.
-//   The UI projection test pins exact solver-value text, units, and signs.
-//   The scientific-inspector projection pins the approved compound surface:
-//   exact visual states, flush drawer geometry, one-anchor motion, fixed tabs,
-//   180 ms easing, reachable compact controls, ancestor-preserving filtered
-//   source-row identity, and the grouped Raw Record projection plus serialized
-//   copy payload. Its negative control records why the retired detached
-//   placement could not satisfy the joined contract.
-//   The Planning transition tests also pin request coalescing, pause ownership,
-//   Space aftermath, total-elapsed cubic easing, symmetric discrete frame
-//   rounding, and saved-camera return policy without host owners.
-//
+
 // Invariants:
 //   - Retained-window boundaries are inclusive at the oldest frame and exclusive at the live edge.
 //   - Prediction rows require an exact published frame, including terrain-independent contact rows.
@@ -40,11 +14,6 @@
 //   - Retarget, aftermath, return, failure, and reset clear exact evidence
 //     immediately while drawer visibility completes its bounded reverse ease.
 //   - Forward and reverse transport are monotonic and land on the exact target.
-//
-// Related:
-//   - SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h
-//   - SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h
-//
 
 #include "../ThirdPtySource/doctest/doctest.h"
 

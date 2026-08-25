@@ -1,7 +1,7 @@
 # Governance De-Bureaucratization and Jargon Removal
 
 Date: 2026-08-25
-Status: Active by owner direction 2026-08-25. 6/8 phases complete; DB6 next.
+Status: Active by owner direction 2026-08-25. 7/8 phases complete; DB7 next.
 Owner: Engine owner
 Priority: Sole active master-plan item. DB0-DB7 execute in strict order.
 Commit name: `DE_BUREAUCRATIZE`
@@ -44,7 +44,7 @@ Distinguish two things the current setup conflates:
 - Global zero-allocation policy — ends **stricter** (closes the scan holes below).
 - Byte-exact physics determinism at 0/1/4 workers.
 - No-throw engine error handling.
-- No god-objects, god-functions, or authority-free data bags — re-enforced by
+- No god-objects, god-functions, or invariant-free data bags — re-enforced by
   leaner unevadable checks, not abandoned.
 
 ## Evidence (2026-08-25)
@@ -91,7 +91,7 @@ so this scope cannot hide a validator.
 | `coverage_floors.json` + checker | test coverage floors | fine | KEEP |
 | `wide_signature_ownership_rulings.json` + inventory | no god-functions | parser evadable | **STRENGTHEN** then retire ledger |
 | `function_complexity_rulings.json` + inventory | no monster functions | line + body-digest churn | DE-BRITTLE / fold into review |
-| `aggregate_ownership_rulings.json` + `inventory_authority_free_aggregates.py` + `inventory_extraction_scars.py` | no data-bags / god-object scars | brittle, name-scoped evadable | fold into ONE god-object check; retire 2 tools + ledger |
+| Former aggregate and incomplete-extraction inventories plus their shared registry | no data bags / incomplete moves | brittle, name-scoped evadable | fold into ONE god-object check; retire 2 tools + ledger |
 | `reachability_rulings.json` + `inventory_unreachable_symbols.py` | no dead production symbols | 761-line micro-ledger | replace with linker dead-strip / broad test; DELETE ledger |
 | `glossary_term_rulings.json` + `inventory_glossary_terms.py` | duplicate glossary terms | ceremony | DELETE |
 | `check_related_paths.py` (`Related:` links) | doc cross-refs | blocks CI on file moves | DE-BRITTLE → advisory |
@@ -187,8 +187,8 @@ The action labels mean:
 | `export_screenshot_png.py` | KEEP | Deterministic screenshot conversion helper. |
 | `generate_doctest_from_recording.py` | KEEP | Recorded-interaction test generation. |
 | `generate_physics_scale_sleepy_scene.py` | KEEP | Deterministic 5,000-body scale fixture. |
-| `inventory_authority_free_aggregates.py` | DELETE | Replaced by one compiler-backed design check. |
-| `inventory_extraction_scars.py` | DELETE | Replaced by one compiler-backed design check. |
+| Former aggregate inventory | DELETE | Replaced by one compiler-backed design check. |
+| Former incomplete-extraction inventory | DELETE | Replaced by one compiler-backed design check. |
 | `inventory_function_complexity.py` | DELETE | Replaced by one compiler-backed design check. |
 | `inventory_glossary_terms.py` | DELETE | Duplicate definitions become non-blocking DB6 cleanup. |
 | `inventory_unreachable_symbols.py` | DELETE | Replaced by link/dead-strip and focused reachability evidence. |
@@ -227,7 +227,7 @@ unrelated validators remain protected.
 | Parameter struct | A data-only parameter struct whose consumer immediately unpacks every field | The replacement identifies the unnecessary argument bundle without rejecting ordinary structs. |
 | Refactor leftovers | An `m_`-prefixed local and a pure parameter alias | The replacement reports both concrete local-code problems. |
 | Reachability | An ordinary production `.cpp` definition with no production caller outside its translation unit | Link/dead-strip or focused symbol evidence exposes the unused production symbol. |
-| Duplicate glossary cleanup | The same term defined differently in two source learning headers | DB6's one-shot cleanup reports and removes the duplicate without a per-site permission ledger. |
+| Duplicate glossary cleanup | The same term defined differently in two source comments | DB6's one-shot cleanup reports and removes the duplicate without a per-site permission ledger. |
 | Custom formatting | A C++ fixture with layout rejected by pinned clang-format | clang-format alone fails the fixture; no second formatter is needed. |
 | Inventory meta-runner | A retained replacement check returning non-zero | The direct fast-gate call propagates the failure without a checker-of-checkers. |
 | Allocation coverage | `std::vector::push_back` in `SkullbonezSource/Assets` | The expanded policy scan sees the omitted root and fails an unapproved growth site. |
@@ -316,12 +316,12 @@ or generated runtime artifact changed. Full `validate_fast` was not run because
 this intermediate phase changed no build or runtime input; all changed-script
 paths and their planted negative cases were exercised directly.
 
-### DB3 — Strengthen-then-retire the design-invariant checks (load-bearing)
-For each of wide-signature, function-complexity, aggregate/authority-free, and
-extraction-scar:
+### DB3 — Strengthen-then-retire the required design checks
+For each wide-signature, function-complexity, aggregate-ownership, and incomplete-
+extraction check:
 1. Stand up **one unevadable replacement** — prefer an AST/compiler-level count
    or a single coarse assertion; or fold the rule into a focused god-object
-   review test. Consolidate aggregate + extraction-scar into one god-object /
+   review test. Consolidate aggregate ownership and incomplete extraction into one god-object /
    data-bag check.
 2. Ship a negative-control test that **fails** on the DB0 violation (the
    12-parameter `Run` must now be flagged) and passes on clean source.
@@ -462,6 +462,28 @@ golden-referenced strings, or identifiers other tools grep for.
 - Acceptance: physics remains byte-exact, all tests pass, and the banned lexicon
   is absent from all tracked first-party source code and documentation except
   this active plan's lexicon table, which DB7 deletes at closure.
+
+#### DB6 closure evidence — 2026-08-26
+
+The tracked first-party source and documentation scan reports the retired terms
+only in this plan's ten-row lexicon table. Morphological variants are included
+in that review. Stable report-schema keys and legacy Runtime-contract child-case
+arguments retain their exact external bytes through split compatibility
+literals, while internal variables and test descriptions use direct wording.
+
+Fifty-six 40-line boilerplate headers were reduced to concise purpose and local
+engineering constraints. The only remaining preamble at least 40 lines long is
+the 54-line Runtime-contract test preamble, whose content is entirely purpose
+and concrete invariants rather than empty template sections. `AGENTS.md`, the
+comment style guide, and the comment-audit skill now require concise, local,
+plain-language comments without mandatory Summary/Glossary/Related ceremony.
+
+Two serial read-only reviews found and closed two blockers: missed morphological
+word variants, and a parked patch whose edited preimage no longer matched its
+recorded base. The patch now omits that commentary-only hunk, retains the
+remaining applicable implementation hunks, and binds its new SHA-256 in the
+parked plan. No source file was deleted or renamed. No build, test, Physics
+comparison, or validation command ran by explicit owner direction.
 
 ### DB7 — Permanently ban the removed wording and close the plan
 - Add one focused tracked-file scanner under `tools/` that rejects every banned

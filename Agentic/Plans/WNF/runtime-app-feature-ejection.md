@@ -12,7 +12,7 @@ Commit name: `APP_FEATURE_EJECTION`
 
 Source investigation: Runtime/App god-package review, 2026-08-24 (function
 complexity + wide-signature inventories, per-package line census, App file
-classification, learning-header ownership audit).
+classification, and source-comment ownership audit).
 
 ## Owner Direction
 
@@ -98,8 +98,9 @@ without moving design.
 - Do not move genuinely App-owned composition into a lower package to shrink a
   number.
 - Do not fake a move with a `Run::` forwarder, forwarding header, compatibility
-  alias, `*Bridge`/`*Adapter`/`*Sink`, callback pack, service/context bag, or a
-  helper called once immediately by the original body (Extraction Scar Rule).
+  alias, `*Bridge`/`*Adapter`/`*Sink`, callback pack, service object, broad frame
+  context, or a helper called once immediately by the original body (Incomplete
+  Extraction Rule).
 - Do not move Runtime feature vocabulary or state into Core, Rendering, Physics,
   or Maths to route around a package boundary.
 - Do not place operator-facing recorded/predicted-data features in
@@ -151,7 +152,7 @@ recorded as blocked with its exact reach set, not forced.
   rows) and lock the behavior-preservation controls. No source moves in this
   phase.
 - [ ] **AFE1 — Ratify destination topology and resolve Replay-family placement.**
-  Decide, with owner ruling, where the replay/prediction presentation and
+  Decide, with review decision, where the replay/prediction presentation and
   cause-tree land: `Runtime/Planning`, or a new explicitly-named product package
   above Planning (the Replay-Family Placement Rule forbids Replay/Prediction as
   their home). Split genuine future-simulation *production* (which may stay in

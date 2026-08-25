@@ -51,10 +51,10 @@ cases are settled and need no debate:
   `Foo( FooContext )` on every axis: fewer names, fewer lines, no by-value copy
   of a reference wrapper, and no reader wondering what the context owns. A
   one-field behavior owner or tested strong scalar type is a different shape.
-- **If the callee destructures it immediately, it is a courier.** When the first
+- **If the callee destructures it immediately, it owns no rule.** When the first
   lines of the body copy members into locals, the type carried nothing. Widen the
   signature instead. Reaching the 12-parameter qualitative review trigger means
-  the *operation* needs an explicit owner ruling or decomposition — never a bag
+  the *operation* needs an explicit review decision or decomposition — never a bag
   created to hide the number.
 
 Introduce a struct when it owns a rule its absence would let a caller break:
@@ -64,7 +64,7 @@ syntax tree to reject changed code that immediately copies a parameter struct
 into locals.
 
 Do not name a local after a member either. An `m_`-prefixed local claims owner
-state it does not have — see the Extraction Scar Rule in `AGENTS.md`.
+state it does not have — see the Incomplete Extraction Rule in `AGENTS.md`.
 
 `Agentic/Skills/collapse_params.py` is a **line-layout formatter only**: it joins
 a multi-line parameter list onto one line to match the width rules above. Its name

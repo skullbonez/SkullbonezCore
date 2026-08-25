@@ -1,24 +1,7 @@
 <#
-File: Agentic/Skills/orchestrator/scripts/work_ledger.ps1
 Purpose:
   Persist exact orchestrator timing, token, review, validation, and commit
   evidence beside the authoritative MASTER-PLAN.
-
-Summary:
-  A goal owns independently active task records, and each task owns a
-  contiguous sequence of steps from one primary agent session. Every command
-  captures the selected task session counter and atomically rewrites a CSV
-  ledger. The same entrypoint rejects incomplete commit messages before Git and
-  revalidates the actual committed body at task closure. Rubber-duck steps may
-  add a second session counter, keeping reviewer usage distinct while
-  preserving exact combined usage and a standard short-context API-cost
-  estimate for the step, task, and goal.
-
-Glossary:
-  Token snapshot: Monotonic cumulative counters from the latest token_count
-    event in one Codex JSON-lines session stream.
-  Transition: One ledger call that closes the active step and opens its
-    successor at the same timestamp and parent-session token snapshot.
 
 Invariants:
   - One unfinished goal may contain multiple unfinished tasks, with exactly one
@@ -33,11 +16,6 @@ Invariants:
     to the configured upstream unless self-test explicitly disables that check.
   - Every accepted plan or bug commit carries ordered rationale, ownership,
     implementation, validation, artifact, and review evidence in its body.
-
-Related:
-  - Agentic/Skills/orchestrator/scripts/work_ledger.bat is the public entrypoint.
-  - Agentic/Skills/orchestrator/SKILL.md owns the call sequence.
-  - tools/codex_usage_daily.bat documents the Codex session event source.
 #>
 [CmdletBinding()]
 param(

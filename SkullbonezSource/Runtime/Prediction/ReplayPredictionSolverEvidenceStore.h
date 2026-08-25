@@ -1,32 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.h
 Purpose:
   Owns paired immutable build/committed stores for exact predicted solver evidence.
-
-Summary:
-  High-detail prediction appends detached contact and pipeline values into
-  coarse fixed-capacity segments. A sealed frame publishes ranges into those
-  segments through one release/acquire prefix; later segment growth never moves
-  rows already visible to readers. The paired owner flips one complete build
-  bank into the committed role while retaining the old bank until the next
-  build boundary. A 20/120-second representative scene matrix selected
-  128-frame, 256-contact, and 1,024-pipeline-row segments with a 320 MiB
-  per-bank cap; the dense 120-second witness measured 317,157,376 bytes.
-  A generation that reaches the bank ceiling retains its exact sealed prefix;
-  Prediction reports that truncation and completes its authoritative trajectory
-  instead of restarting an unchanged source.
-  A frame view hides segment layout while preserving a synchronous borrow of
-  one sealed frame for cause-tree construction and Planning inspection. A
-  validated archive candidate can exchange complete bank state without copying
-  rows or allocating during commit.
-
-Glossary:
-  Evidence bank: One generation-stamped segmented store of exact contact and
-    pipeline rows plus sealed frame ranges.
-  Bank epoch: Monotonic identity assigned whenever a physical bank begins a new
-    logical generation; it prevents a retired row from resolving reused storage.
-  Sealed frame: Complete immutable range record published only after all
-    referenced contact and pipeline rows have been copied.
 
 Invariants:
   - Low detail cannot reserve or append evidence storage.
@@ -41,12 +15,6 @@ Invariants:
     source; callers copy any retained result before promotion or replacement.
   - Capacity denial is distinct from invalid identity so callers may truncate
     optional evidence without masking publication-contract defects.
-
-Related:
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h
-  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.h
-  - SkullbonezSource/Core/MainMemoryStats.h
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

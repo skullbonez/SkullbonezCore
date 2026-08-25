@@ -11,7 +11,7 @@ Commit name: `TRIG_DETERMINISM`
 The reviewed but incomplete DT0 implementation is preserved beside this plan
 at `Agentic/Plans/WNF/deterministic-trigonometry-dt0-reviewed-wip.patch`.
 Its SHA-256 is
-`D02E53C609038FC88CF03372EC744C8A37FE842C373CA9A097D43EF106DAC6E5`.
+`034A5417258346A6B56AF4AC3087677132262560B65C71ECCE367EA3314E8C11`.
 `git apply --check` passes against commit `366a9e02a`; treat the file as a
 starting point, not as accepted implementation.
 
@@ -86,7 +86,7 @@ The risk is caller-dependent:
   move screenshots, picking geometry, and interaction captures; and
 - deterministic-math tests deliberately call platform trig as an independent
   error reference. Replacing those references with the implementation under
-  test would manufacture a false pass.
+  test would incorrectly pass.
 
 ## Evidence Basis — 2026-08-17
 

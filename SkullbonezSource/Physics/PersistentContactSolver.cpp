@@ -1,31 +1,6 @@
 /*
-File: SkullbonezSource/Physics/PersistentContactSolver.cpp
 Purpose:
   Solves object/object and object/terrain persistent contact rows.
-
-Summary:
-  One guarded transaction owns row construction, precomputation, iteration,
-  publication, correction, and cache replacement. Solve remains the thin
-  ordered entry/exit sequencer, while exact contact-feature identity owns both
-  loaded-contact restitution lifetime and compatible warm-start reuse. Swept
-  contacts derive time-scaled row terms from their dynamic bodies' remaining
-  post-impact interval. Stable terrain support cancels closing velocity while
-  leaving non-energetic overlap decay to the position-correction phase. Terrain
-  rolling resistance is an angular tangent-plane row solved before sliding
-  friction, so one PGS iteration preserves their contact-point coupling. Spin
-  friction is a distinct normal-axis row and cannot be mistaken for rolling.
-  Cache publication sorts exact feature keys and collapses duplicate rows to
-  the single impulse record that next-step lower-bound lookup can observe.
-
-Glossary:
-
-  Terrain support seed: Same-tick body-weight impulse estimate used before
-    iteration when a terrain row has no sufficient cached normal impulse.
-  Friction: Tangent impulse that resists sliding along the contact plane.
-  Resting footprint: Stable multi-point support patch that can seed sleep and
-    cached support impulses.
-  Contact interval: Post-impact portion of the fixed step shared by every
-    awake dynamic body participating in one contact row.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -45,12 +20,6 @@ Invariants:
   - StoreCache publishes strictly increasing keys: after sorting, the first
     equal-key row is retained and unreachable duplicates are removed before
     live warm start or replay capture can consume them.
-
-Related:
-  - SkullbonezSource/Physics/PersistentContactSolver.h
-  - SkullbonezTests/TestPersistentContactSolver.cpp
-  - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/engine-glossary.md
 */
 #include "PersistentContactSolver.h"
 

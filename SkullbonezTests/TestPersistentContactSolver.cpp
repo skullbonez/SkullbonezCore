@@ -1,36 +1,6 @@
-// File: SkullbonezTests/TestPersistentContactSolver.cpp
 // Purpose:
 //   Lock direct behavioral coverage for persistent contact solver rows.
-//
-// Summary:
-//   Most tests feed one deterministic terrain manifold directly into
-//   PhysicsContactSolverStage. The box sleep test additionally exercises exact
-//   object narrowphase so support classification is checked on real manifold
-//   geometry without running a full PhysicsEngine frame. Convergence cases pin
-//   the diagnostic cap, replay exclusion, and a normal-row saturation cause.
-//   Complete-solve cases measure energy and momentum across sphere, box,
-//   friction, bias, local CCD contact intervals, and matching-cache matrices,
-//   including planted failures. Stable-support cases pin the boundary between
-//   non-energetic terrain overlap correction and restitution-bearing impacts;
-//   rolling/spin cases pin the coupled angular-row/tangent-friction ordering.
-//   Duplicate-feature cases pin sorted-and-unique cache publication before
-//   replay capture applies its transactional restore contract.
-//
-// Glossary:
-//   Contact row: Solver constraint row that applies one normal impulse and two
-//     tangent impulses at a contact point.
 
-//   Friction cone: Two tangent impulses clamped as one vector budget so diagonal
-//     sliding cannot exceed the authored friction limit.
-//   Restitution: Bounce response from a closing contact velocity.
-
-//   Sleep support edge: Directed relationship used later to propagate grounded
-//     sleep eligibility through an object stack.
-//   Solver step policy: Once-per-solve normalized contact limits shared by
-//     object and terrain rows.
-//   Convergence trace: Bounded per-iteration record of the maximum per-row
-//     stopping metric plus diagnostic summed attribution.
-//
 // Invariants:
 //   - The fixture always bypasses broadphase. Terrain cases own their exact row;
 //     object cases deliberately use exact narrowphase before solver ingestion.
@@ -60,13 +30,6 @@
 //     spin resistance owns the normal axis, and both precede sliding friction.
 //   - Equal contact-feature keys publish one cache row: lower-bound lookup's
 //     first observable impulse survives and unreachable duplicates do not.
-//
-// Related:
-//   - SkullbonezSource/Physics/PersistentContactSolver.cpp
-//   - SkullbonezSource/Physics/ContactEnergyOracle.h
-//   - SkullbonezSource/Physics/TerrainContactManifold.h
-//   - Agentic/Reference/engine-glossary.md
-//
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"

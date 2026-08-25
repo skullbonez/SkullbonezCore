@@ -1,28 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp
 Purpose:
   Implements replay scrubber input, inspection-camera, and live-restore policy.
-
-Summary:
-  The scrubber maps mouse/UI intent to retained solver or presentation samples.
-  ReplayScrubber owns cursor transitions; ReplayRuntime receives a frame-scoped
-  workspace view and coordinates typed transport, restore, and application
-  commands across existing replay owners. Causal inspection uses a dedicated
-  camera slot, Planning's one eased clock, and the existing attached-camera
-  follow owner while Replay remains the sole owner of the saved main-camera
-  identity and live restore transaction. Exact-frame contact presentation is
-  copied before the final restore can retire its recorded solver ring or
-  replace its exact prediction evidence bank. The
-  attached solver drawer shares one Planning compound-layout projection between
-  drawing and hit-testing. App routes its title-bar gesture into ReplayAuthoring's
-  existing anchor mutation instead of retaining another placement owner.
-
-Glossary:
-  Live restore: Applying a retained replay sample back into the current scene.
-  Branch restore: Applying a historical replay sample as the new live timeline
-
-    while preserving parent/source branch provenance.
-  Inspection camera: Temporary replay-focused camera state for selected samples.
 
 Invariants:
   - Restoring a sample must set the scrubber status message and consume restore
@@ -41,11 +19,6 @@ Invariants:
     sample or predicted frame before restore or replacement can retire its source.
   - Drawer wheel and title input are consumed only inside the visible compound
     bounds and cannot fall through to the cause-tree or scrubber surfaces.
-
-Related:
-  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
-  - SkullbonezSource/Runtime/App/ReplayRuntime.h
-  - Agentic/Reference/engine-glossary.md
 */
 #include "../Replay/ReplayScrubber.h"
 #include "ReplayRuntime.h"

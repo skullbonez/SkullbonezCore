@@ -1,7 +1,7 @@
 """File: tools/check_related_paths.py
 
 Purpose:
-  Reports repository-relative entries in source learning-header `Related:`
+  Reports repository-relative entries in existing source `Related:`
   blocks that do not resolve to existing repository paths.
 
 Summary:
@@ -11,7 +11,7 @@ Summary:
   blocking validation because documentation moves are review work.
 
 Glossary:
-  Related block: A learning-header section introduced by `Related:`.
+  Related block: A source-comment section introduced by `Related:`.
   Repository-relative entry: A path rooted at a known repository directory or
     one of the permanent root documentation files.
 

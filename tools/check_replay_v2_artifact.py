@@ -83,7 +83,7 @@ def remove_if_exists(path):
 
 def validate_snapshot_query_versions():
     # Test Probe: synthetic v1-v4 payloads pin the nested solver-snapshot tails
-    # and a v5 false-pass control without launching the runtime.
+    # and a v5 negative control without launching the runtime.
     def make_fixture(version, point_joint_count, motion_eligibility_state):
         raw = bytearray()
         raw.extend(struct.pack("<IiiBB2s", version, 0, 1, 1, 0, b"\0\0"))

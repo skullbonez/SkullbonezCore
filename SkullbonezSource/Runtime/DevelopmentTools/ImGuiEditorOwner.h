@@ -1,37 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
 Purpose:
   Declares the development-only Dear ImGui editor context and frame lifecycle.
-
-Summary:
-  ImGuiEditorOwner owns the CPU-side ImGui context, style, fonts, persisted
-  layout identity, deterministic dock shell, viewport presentation geometry,
-  visibility, and balanced frame begin/end calls. Runtime supplies immutable
-  window, shared domain facts, and a frame-local replay publication and receives
-  typed command/input values; mutable scene, replay, rendering, physics,
-  and editor owners never enter this presentation owner.
-  The editor is a presentation endpoint. It consumes immutable frame facts,
-  retains only UI-local state, and publishes complete input/command/status
-  values that runtime owners can apply without reaching back into ImGui.
-
-Glossary:
-  Editor frame input: Value-only display facts borrowed for one synchronous
-    ImGui frame.
-  Editor commands: Value-only requests emitted by ImGui presentation for the
-    runtime composition root to arbitrate later.
-  Layout version: Integer embedded in the persisted ini filename so an
-    incompatible panel topology starts from a clean deterministic namespace.
-  Surface selection: Process-lifetime choice of the built-in GameUI
-    game/level-editor presentation or optional ImGui development surface, kept
-    outside scene and replay serialization.
-  Viewport mapping: Last completed fitted image rectangle used by the next input
-    frame to map Win32 client pixels back to the captured render extent.
-  Property preview: One active ImGui scalar value kept inside presentation until
-    release commits one typed command to the established runtime owner path.
-  Causality publication: Immutable replay rows borrowed for one frame; the
-    compact and detail panels may retain only local row indices and visibility.
-  Automation command: Fixed presentation-only request used by validation to
-    reproduce panel, layout, focus, and DPI states without pixel coordinates.
 
 Invariants:
   - This source is compiled only with SKULLBONEZ_DEVELOPMENT_TOOLS.
@@ -41,11 +10,6 @@ Invariants:
   - ImGui allocations use the dedicated DearImGui development-tool owner.
   - ImGui is visible only while it is the selected development UI surface.
   - Benign preferences never enter authored scene or replay serialization.
-
-Related:
-  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
-  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
-  - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
 */
 #pragma once
 

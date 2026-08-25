@@ -1,28 +1,6 @@
 /*
-File: ReplayCauseInspection.h
 Purpose:
   Defines Planning-owned exact-frame transport and solver-detail availability.
-
-Summary:
-  Cause rows address either the retained solver ring or the active prediction
-  bank. This value contract keeps the chosen frame, source track, and refusal
-  state together so later transport cannot silently clamp to a nearby frame.
-  ReplayCauseInspection owns one selected-event transition generation, including
-  the total-elapsed 1.5-second transport progress sample, discrete request
-  coalescing, pause/return policy, exact-frame solver-detail availability, and
-  fixed-capacity copies of the feature-neutral contact packet, contact rows,
-  and pipeline records consumed synchronously by App composition. It also owns
-  the drawer scroll offset and the pure hierarchy-plus-drawer compound layout;
-  ReplayAuthoring remains the only retained anchor and resize owner.
-
-Glossary:
-  Seek source: Timeline bank that must contain the row's exact frame before
-    transport is enabled.
-  Solver-detail source: Recorded spans or a segmented prediction-frame view,
-    stamped with the exact replay frame that produced them; publication copies
-    selected values into Planning.
-  Transition generation: Monotonic token that prevents an obsolete restore
-    completion from changing a newer causal selection.
 
 Invariants:
   - Available results identify one exact frame in the selected source bank.
@@ -45,12 +23,6 @@ Invariants:
     by both replay-frame selection and CameraCollection presentation.
   - Camera identity remains in ReplayPresentation; this owner retains only the
     transition and pause policy, never a second restore-camera copy.
-
-Related:
-  - SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h
-  - SkullbonezSource/Runtime/Replay/ReplayCapturePackets.h
-  - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
-  - SkullbonezSource/Rendering/ContactManifoldPresentation.h
 */
 #pragma once
 

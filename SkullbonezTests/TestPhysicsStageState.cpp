@@ -1,20 +1,6 @@
-// File: SkullbonezTests/TestPhysicsStageState.cpp
 // Purpose:
 //   Locks sleep-owner transitions and narrowphase island determinism.
-//
-// Summary:
-//   Sleep policy is model-order state owned by PhysicsSleepController. These
-//   tests drive its public value seams and disjoint narrowphase passes without
-//   constructing PhysicsWorld or a scene owner. Collision-event fixtures also
-//   pin exact full-width spatial-cell identity at the stage publication seam.
-//   Motion fixtures independently drive cached sphere/box/hull geometry,
-//   hysteresis lifecycle, and rotation-only broadphase expansion.
-//
-// Glossary:
-//   Pair slot: Event row whose index remains identical to the broadphase candidate index.
-//   Point-joint relaxation: Anchor-distance check that prevents a stretched
-//     constraint island from sleeping before the joint settles inside slack.
-//
+
 // Invariants:
 //   - Sleep frame counts clamp to uint8 storage without wrapping.
 //   - Unsupported or nonquiet bodies reset a positive sleep counter, and
@@ -35,16 +21,6 @@
 //     stable equality and no worker scheduling dependency.
 //   - Sleep and parallel narrowphase count-only lanes preserve event identity
 //     while leaving their optional payload storage untouched.
-//
-// Related:
-//   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
-//   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h
-//   - SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h
-//   - SkullbonezSource/Physics/Stages/PhysicsMotionEligibilityStage.h
-//   - SkullbonezSource/Physics/PhysicsSpatialCellKey.h
-//   - SkullbonezSource/Physics/PhysicsRuntimeSettings.h
-//   - SkullbonezSource/Physics/SleepIslandSystem.cpp
-//
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"

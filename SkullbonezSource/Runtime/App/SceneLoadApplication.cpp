@@ -9,7 +9,7 @@ Summary:
   UI, render-device, and validation publication.
 
 Invariants:
-  - Every owner borrow expires before the application function returns.
+  - Every borrowed reference expires before the application function returns.
   - Replay observes only successfully completed Scene requests.
   - Native and UI presentation cannot run before runtime reactions.
 

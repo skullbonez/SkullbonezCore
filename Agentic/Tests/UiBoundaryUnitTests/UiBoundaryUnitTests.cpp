@@ -151,7 +151,7 @@ bool CheckComponentBaselines()
                                std::fabs( slider.ValueFromMouse( 640, 0.0f, 1.0f, 0.25f ) - 1.0f ) < 0.0001f &&
                                tabBar.HitTest( 190, 260, 3 ) == 1 && tabBar.HitTest( 400, 260, 3 ) == -1;
 
-    // False-pass control: wrappers and stateless operations must emit the same
+    // Negative control: wrappers and stateless operations must emit the same
     // interaction values, including the established strip's exact boundary
     // ownership. The two named rectangles are resolved by one layout operation:
     // adaptive geometry cannot diverge, while the established inset is pinned
@@ -307,7 +307,7 @@ bool CheckComponentEdgeContracts()
     UIComboBox comboBox;
     comboBox.SetBounds( comboBounds.x, comboBounds.y, comboBounds.w, comboBounds.h );
 
-    // False-pass control: the labelled wrapper deliberately activates its
+    // Negative control: the labelled wrapper deliberately activates its
     // label column although only fieldBounds is drawn as the control. Every
     // wrapper projection must equal the one resolved layout value.
     const bool labelColumnValid = SameRect( labelled.interactionBounds, comboBounds ) && comboBox.HitBox( 20, 100 ) &&
@@ -347,7 +347,7 @@ bool CheckComponentEdgeContracts()
     std::array<UIDrawList::Command, 4> enabledFooterCommands = {};
     std::array<UIDrawList::Command, 4> disabledFooterCommands = {};
 
-    // False-pass control: disabling a footer toggle changes all four authored
+    // Negative control: disabling a footer toggle changes all four authored
     // colors without changing its command types or geometry.
     drawList->Clear();
     Widgets::DrawToggle( draw, footerBounds, "Enabled", Style::Accent(), kEnabled | UIVisualState::Checked, kFooter );

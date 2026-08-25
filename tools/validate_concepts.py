@@ -1,28 +1,3 @@
-#
-# File: tools/validate_concepts.py
-# Purpose:
-#   Documents and runs the validate_concepts.py developer/validation helper script.
-#
-# Summary:
-#   Tools are command-line guardrails around builds, validation, screenshots,
-#   diagnostics, and artifact handling. They make the safe path repeatable and
-#   keep output bounded for humans and agents.
-#
-# Glossary:
-#   Validation gate: Repository script that proves a class of changes before
-#   commit or PR.
-#
-# Invariants:
-#   - Tool output should be bounded and readable because agents and humans use
-#   it for decisions.
-#
-# Related:
-#   - AGENTS.md
-#
-#
-#!/usr/bin/env python3
-#
-# File: tools/validate_concepts.py
 # Purpose:
 #   Documents and runs the validate_concepts.py developer/validation helper script.
 #
@@ -30,19 +5,11 @@
 #   Tools are command-line guardrails around builds, validation, screenshots,
 #   diagnostics, and artifact handling. They make the safe path repeatable and
 #   keep output bounded for humans and agents.
-#
-# Glossary:
-#   Validation gate: Repository script that proves a class of changes before
-#   commit or PR.
-#
+
 # Invariants:
 #   - Tool output should be bounded and readable because agents and humans use
 #   it for decisions.
-#
-# Related:
-#   - AGENTS.md
-#
-#
+
 """Run finite concept-scene validation tiers and write concise artifacts."""
 
 from __future__ import annotations

@@ -1,27 +1,6 @@
 /*
-File: SkullbonezSource/Physics/PhysicsApi.h
 Purpose:
   Declares the public physics command, query, and immutable-view contract.
-
-Summary:
-  This header names cold descriptors and query values shared by PhysicsEngine,
-  scene setup, runtime tools, replay, and tests. It exposes no simulation owner
-  or solver-private container.
-
-Glossary:
-  Broadphase query: Cheap spatial query that returns candidate bodies, not exact
-    narrowphase contacts.
-  Contact: Immutable collision-pair view exposed for diagnostics/replay without
-    solver-private manifold storage.
-  Constraint: Solver relationship between bodies; point joints use stable
-    typed handles at the PhysicsEngine owner boundary.
-  Deterministic order: Broadphase candidates iterate stable body-store order so
-    validation does not depend on allocator addresses or hash traversal.
-  Ray cast: Query that shoots a line segment through physics space and returns
-    the closest candidate hit.
-  Frame matrix: Public mapping that states whether each geometric value is
-    body-local, body-to-world, body-principal, or world-space.
-  View: Borrowed immutable result whose storage remains owned by PhysicsEngine.
 
 Invariants:
   - Public API structs do not include or require runtime collection owners.
@@ -36,11 +15,6 @@ Invariants:
     identity and therefore receives its own cold storage row.
   - Query views borrow PhysicsEngine fixed scratch and never expose mutable
     storage.
-
-Related:
-  - SkullbonezSource/Physics/PhysicsHandles.h
-  - SkullbonezSource/Physics/PhysicsEngine.h
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

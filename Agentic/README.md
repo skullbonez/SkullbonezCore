@@ -45,7 +45,7 @@ recreate `Done`, `Failed`, `Rejected`, `To_Eval`, `In_Progress`, or
 - Full/subsystem remediation starts with a `git ls-files` checklist as required
   by `../AGENTS.md`.
 - The boilerplate cleanup completed on 2026-07-10. Do not recreate generic
-  learning headers; teach file-specific vocabulary, ownership, invariants,
+  file-comment templates; teach file-specific vocabulary, ownership, invariants,
   lifetime, hazards, and validation-sensitive behavior.
 - `python ../tools/check_related_paths.py --repo ..` is an advisory stale-
   reference report for review; unresolved paths do not block validation.

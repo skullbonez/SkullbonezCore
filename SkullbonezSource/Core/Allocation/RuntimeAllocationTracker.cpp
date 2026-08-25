@@ -1,25 +1,6 @@
 /*
-File: SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp
 Purpose:
   Implements fixed-storage allocation tracking and the process allocation hook.
-
-Summary:
-  Every C++ heap allocation is wrapped with a tiny header so deletes can update
-  active-byte counters. The hot path only touches atomics and CRT malloc/free;
-  reporting is a bounded stdout table emitted after the runtime shuts down.
-
-Glossary:
-  Violation: An allocation recorded while the calling-thread phase is steady
-    gameplay, physics, render, or replay under the gameplay guard mode.
-  Thread phase: Calling-thread lifecycle label captured in each allocation
-    header; scopes on other threads cannot overwrite it.
-  Reentrancy guard: Thread-local flag that prevents tracker internals from
-    recursively recording their own emergency work.
-  Foreign pointer: Address passed to global delete without a readable,
-    pointer-bound tracker header produced by this hook.
-  Active bytes: Tracked bytes allocated but not freed at the time of reporting.
-  Trace connection generation: Monotonic Tracy viewer-session id stored beside
-    a heavy-mode allocation so its free cannot leak into a later capture.
 
 Invariants:
   - Allocation/deallocation hooks must not allocate, throw during delete, or use
@@ -36,12 +17,6 @@ Invariants:
   - A foreign pointer cannot fault the process while the hook copies its
     candidate header; only a fully readable, pointer-bound provenance cookie
     admits tracker-owned field access.
-
-Related:
-  - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h
-  - tools/check_allocation_policy.py
-  - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
-  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeAllocationTracker.h"
 
@@ -542,7 +517,7 @@ void HandleForeignFree( void* pointer, const char* headerState ) noexcept
     std::fputs( message, stderr );
     std::fflush( stderr );
 
-    // Invariant: the owner ruled Release foreign frees counted and reported.
+    // Invariant: the owner requires Release foreign frees to be counted and reported.
     // Hazard: fallback assumes the foreign allocator is this process's CRT;
     // s_foreignFrees is the tripwire for that intentionally shipped risk.
     std::free( pointer );

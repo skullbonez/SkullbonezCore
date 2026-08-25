@@ -1,23 +1,7 @@
 /*
-File: SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
 Purpose:
   Owns persistent-contact rows, cache, the guarded solve transaction,
   statistics, and outputs.
-
-Summary:
-  PhysicsContactSolverStage owns and executes the complete persistent-row solve
-  during one fixed step. It borrows dense body, collider, sleep, terrain,
-  remaining-time, and diagnostics rows synchronously and publishes a typed
-  consequence batch for the PhysicsWorld sequencer to commit.
-
-Glossary:
-  Consequence batch: Bounded post-solve records and body indices whose foreign
-    owner-side effects are committed after the hot solver pass.
-  Phase transaction: Non-copyable owner that admits solver work only through
-    the current fixed-step phase and retains the solver-body working set.
-  Wake access: Narrow synchronous capability that can invalidate cache rows
-    without exposing the contact-solver owner to the sleep subsystem.
-  Warm start: Reuse of last tick's accumulated contact impulses.
 
 Invariants:
   - Owned lists commit scene-derived runtime capacities before play and fail
@@ -40,12 +24,6 @@ Invariants:
     concrete contact-solver owner.
   - At most 64 convergence samples survive one solve; excess iterations are
     counted, and replay capture never copies the trace.
-
-Related:
-  - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp
-  - SkullbonezSource/Physics/PersistentContactSolver.cpp
-  - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

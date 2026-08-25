@@ -1,30 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 Purpose:
   Defines bounded replay capture records for simulation debugging.
-
-Summary:
-  Replay capture has two bounded tracks. Presentation samples feed immediate
-  visual scrubbing. Solver samples keep same-tick body constants, inertia,
-  sleep/contact summaries, retained point-joint topology and impulses, motion-
-  eligibility hysteresis, and hashes for the authoritative rollback path.
-
-Glossary:
-  Visual body metadata: Stable body identity/display fields stored once and
-    referenced by retained visual frames.
-  Visual delta frame: Per-frame body order plus changed dynamic body state; a
-    keyframe stores all active body states and ordinary frames carry forward.
-  Solver delta frame: Per-frame solver body order plus changed body/world state;
-    keyframes are self-contained so ring eviction never strands later deltas.
-  Checkpoint summary: A replay boundary marker with hashes and counts. It is
-    deliberately not an authoritative restore checkpoint yet.
-  Durable point-joint identity: Filtered topology ordinal plus endpoint scene
-    object ids; transient handles and model rows are not persisted identity.
-  Event sample: Accepted owner action, restore, or branch record that must be
-    replayed alongside solver state for authoritative rollback work.
-
-  Recorder reserve owner: Aggregate replay-only byte budget shared by retained
-    presentation, solver, world-delta, and visual sample vectors.
 
 Invariants:
   - Capture order is chronological even though storage wraps internally.
@@ -34,11 +10,6 @@ Invariants:
   - Owner-action wire values never serialize domain enum ordinals.
   - Retained vector growth shares `replay_recorder_samples`; no record or vector
     receives a private copy of the 32 MiB hard cap.
-
-Related:
-  - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
-  - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

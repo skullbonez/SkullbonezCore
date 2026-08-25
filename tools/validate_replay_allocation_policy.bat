@@ -21,7 +21,7 @@
 @rem   - Prior artifacts are removed before launch, so a missing report cannot
 @rem     inherit success from an earlier run.
 @rem   - Exit 0 requires both zero guard violations and a completed interaction
-@rem     report; a clean early exit cannot create a false pass.
+@rem     report; a clean early exit cannot create an incorrect pass.
 @rem   - Report proof is semantic JSON: at least 180 frames, a successful frame
 @rem     180 path assertion, and exactly two completed prediction generations.
 @rem

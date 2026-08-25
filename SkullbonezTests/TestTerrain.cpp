@@ -1,23 +1,6 @@
-//
-// File: SkullbonezTests/TestTerrain.cpp
 // Purpose:
 //   Locks real Terrain flat-slope collision queries used by focused physics tests.
-//
-// Summary:
-//   Terrain owns both render resources and collision lookup data. Unit tests use
-//   render-resource doubles so construction follows the production path while
-//   assertions stay on CPU-side height, plane, bounds, and shape-consistent
-//   sphere support behavior. Height-map factory cases also prove malformed
-//   dimensions fail before construction or output publication.
-//
-// Glossary:
-//   Flat slope terrain: Analytic terrain plane defined by base Y plus X/Z slope
-//     coefficients.
-//   Collision query: Terrain height/plane lookup consumed by physics and camera
-//     bounds code.
-//   Render-resource double: Test-owned no-op shader/mesh factory used only to
-//     keep backend setup out of this unit harness.
-//
+
 // Invariants:
 //   - Flat-slope height must match `baseY + slopeX*x + slopeZ*z`.
 //   - Bounds exclude the exact upper edge so quad lookup never selects a
@@ -32,11 +15,6 @@
 //     identity and resting-contact policy.
 //   - Height-map dimensions are positive, exactly divisible, and large enough
 //     for one quad before pixel/post/quad storage is constructed.
-//
-// Related:
-//   - SkullbonezSource/World/Terrain.cpp
-//   - SkullbonezSource/Physics/TerrainContactManifold.cpp
-//
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"
@@ -144,7 +122,7 @@ TEST_CASE( "Terrain: invalid height-map dimensions fail before construction" )
 {
     // Test probe: the retired floor-sized allocation reserved four posts for the
     // 5/2 shape while its ceiling-shaped translation loops wrote nine. This
-    // local fixture keeps the old false-pass mechanism observable without
+    // local fixture keeps the old missed-failure mechanism observable without
     // executing an out-of-bounds write.
     constexpr int retiredAllocatedPosts = ( 5 / 2 ) * ( 5 / 2 );
     constexpr int retiredTranslatedPosts = ( ( 5 + 2 - 1 ) / 2 ) * ( ( 5 + 2 - 1 ) / 2 );

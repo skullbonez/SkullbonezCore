@@ -1,15 +1,6 @@
 /*
-File: SkullbonezSource/Physics/SpatialGrid.h
 Purpose:
   Partitions space into broadphase cells so physics can test nearby objects cheaply.
-
-Summary:
-  Persistent current-position membership and a one-step motion overlay for
-  linear sweeps and angular reach feed one fixed hash-bucket topology. Pair
-  collection skips ineligible source cells,
-  uses a scene-reserved triangular bitset to accept each normalized identity
-  once in O(1), then emits fixed-staging results in canonical order. The bounded
-  bitset is an intentional memory-for-CPU decision at the scene ceiling.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -33,11 +24,6 @@ Invariants:
     table-home hash aliases retain separate exact-coordinate buckets.
   - Every scene-sized store is reserved under SceneLoad, retained across cold
     clears, and never grows during fixed-step work.
-
-Related:
-  - SkullbonezSource/Physics/SpatialGrid.cpp
-  - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -111,7 +97,7 @@ class SpatialGrid
     static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
                                                    PERSISTENT_ENTRIES_PER_BODY;
 
-    // Owner ruling: eight transient rows per admitted body matches the ordinary
+    // Why: eight transient rows per admitted body matches the ordinary
     // membership derivation and costs at most 1.25 MiB at the scene ceiling.
     // Sweeps that cannot fit their complete conservative coverage use the
     // fixed fallback-body lane instead of growing, aborting, or truncating.
@@ -120,7 +106,7 @@ class SpatialGrid
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
     static constexpr int MAX_SWEPT_TRAVERSED_CELLS = MAX_SWEPT_CELL_ENTRIES;
 
-    // Owner ruling: scenes through PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES
+    // Why: scenes through PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES
     // reserve their complete triangular body-pair topology. Therefore any
     // number of unstampable sweep bodies can take the all-body fallback without
     // exceeding candidate storage. Larger scenes retain the fixed candidate

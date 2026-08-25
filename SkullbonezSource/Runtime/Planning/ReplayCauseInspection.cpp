@@ -1,31 +1,6 @@
 /*
-File: ReplayCauseInspection.cpp
 Purpose:
   Resolves causal-row transport/detail eligibility and advances the inspection transition.
-
-Summary:
-  Recorded rows are valid only inside the solver recorder's current bounded
-  window. Prediction rows require an exact frame match in the published frame
-  bank; neither path guesses, clamps, or reconstructs a missing frame. The
-  solver-detail projection scans only an explicitly stamped exact-frame source,
-  groups every row in the selected manifold, and joins its retained pipeline
-  stages without allocating or retaining source borrows. Before restore can
-  retire those borrows, Planning copies the event-frame body poses and every
-  bounded contact frame into a feature-neutral Rendering value, and copies the
-  joined contact and pipeline records into fixed arrays. One shared compound
-  layout projects the fixed-height drawer and up to four complete rows from
-  Replay's anchor while Planning owns bounded wheel scrolling and tabbed Summary
-  / Raw Record projections. The transition owner derives a fixed cubic curve from
-  total wall-clock elapsed, coalesces its discrete frame requests, rejects stale
-  completion tokens, and publishes pause/return actions for App to apply through
-  concrete owners.
-
-Glossary:
-  In-flight generation: Exact transport token currently awaiting Replay restore
-    completion; a newer selected generation may wait behind it.
-  Detail join: Exact-frame association of one selected manifold's persistent
-    contact rows with its retained solver pipeline records.
-  Aftermath: Live follow mode entered from paused detail by Space.
 
 Invariants:
   - Recorder statistics describe a contiguous half-open frame range.
@@ -43,12 +18,6 @@ Invariants:
   - Forward and reverse transport round symmetrically and reach the exact target
     only at eased progress 1, independent of render cadence.
   - Planning publishes pause actions but never mutates Replay or camera owners directly.
-
-Related:
-  - SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h
-  - SkullbonezSource/Physics/PhysicsDebugData.h
-  - SkullbonezSource/Rendering/ContactManifoldPresentation.h
 */
 #include "ReplayCauseInspection.h"
 

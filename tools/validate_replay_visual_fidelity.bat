@@ -1,7 +1,7 @@
 @rem
 @rem File: tools/validate_replay_visual_fidelity.bat
 @rem Purpose:
-@rem   Runs the immutable 200-box prediction-visual oracle and its false-pass
+@rem   Runs the immutable 200-box prediction-visual oracle and its negative
 @rem   controls.
 @rem
 @rem Summary:
@@ -36,7 +36,7 @@ echo [replay-visual-fidelity] Building Automation; comparing against the approve
 call tools\validate_build.bat Automation
 if errorlevel 1 exit /b %errorlevel%
 
-echo [replay-visual-fidelity] Running typed packet and real-float false-pass controls (no engine)...
+echo [replay-visual-fidelity] Running typed packet and real-float negative controls (no engine)...
 Profile\SKULLBONEZ_TESTS.exe --test-case=Replay?visual?* --no-skip
 if errorlevel 1 exit /b %errorlevel%
 
@@ -82,5 +82,5 @@ if errorlevel 1 exit /b %errorlevel%
 python tools\check_replay_visual_fidelity.py --report %REPORT% --run-determinism-controls
 if errorlevel 1 exit /b %errorlevel%
 
-echo PASS: one-presentation 200-box visual fidelity, causal reveal proof, durable artifact, and false-pass controls.
+echo PASS: one-presentation 200-box visual fidelity, causal reveal proof, durable artifact, and negative controls.
 exit /b 0

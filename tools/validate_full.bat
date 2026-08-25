@@ -1,28 +1,7 @@
-@rem
-@rem File: tools/validate_full.bat
 @rem Purpose:
 @rem   Runs the terminal full-plan closure gate and collects the replay-prediction
 @rem   frame-spike diagnostic.
-@rem
-@rem Summary:
-@rem   Full validation is reserved for completion of an entire implementation
-@rem   plan. An explicit --plan-completion token prevents routine commits, pull
-@rem   requests, and convenience selectors from invoking this expensive fan-in.
-@rem   Cheap failures surface first. After the Debug build, deterministic
-@rem   physics runs immediately so behavior drift cannot hide behind the CPU,
-@rem   automation, or DX12 lanes. Automation and Debug then join the Profile
-@rem   build performed by validate_fast for terminal multi-configuration evidence.
-@rem   Each CPU test target runs once before automation and DX12. Automation
-@rem   launches a negative Profile boundary plus one positive replay smoke.
-@rem   After every gate passes, the informational replay spike workload records
-@rem   findings without changing validation success.
-@rem
-@rem Glossary:
-@rem   CPU preflight: Formatting, project metadata, source design, staged-size,
-@rem   and Profile build checks that do not launch a test or engine.
-@rem   Plan-completion gate: Terminal repository proof run once after every task
-@rem   in an implementation plan is complete and independently reviewed.
-@rem
+
 @rem Invariants:
 @rem   - Invocation fails unless the caller explicitly declares plan completion.
 @rem   - Physics is the first runtime launch and follows only its required Debug build.
@@ -30,15 +9,7 @@
 @rem   once through validate_all_cpu_tests.
 @rem   - Replay-prediction spike collection is full-only and non-blocking; a
 @rem   diagnostic failure is reported but never changes this script's exit code.
-@rem
-@rem Related:
-@rem   - AGENTS.md
-@rem   - tools/validate_fast.bat
-@rem   - tools/validate_all_cpu_tests.bat
-@rem   - tools/validate_automation.bat
-@rem   - tools/validate_replay_prediction_frame_spikes.bat
-@rem
-@rem
+
 @echo off
 setlocal
 

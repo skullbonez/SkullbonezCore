@@ -1,28 +1,7 @@
 /*
-File: InputRouter.h
 Purpose:
   Declares the allocation-free device snapshot, semantic action router, shared
   post-UI pointer value, and native pointer-presentation intent owner.
-
-Summary:
-  A device owner captures hardware once into DeviceInputFrame. InputRouter then
-  advances key/button memory exactly once and emits ordered semantic action
-  events in the same order as the immutable binding table. Context predicates
-  decide whether an observed edge is delivered; they never decide whether edge
-  memory advances. A separate phase cursor enforces world-pointer precedence
-  without storing the participating editor, pickup, camera, Replay, or launcher.
-
-Glossary:
-  Device snapshot: Immutable-by-contract value containing one frame's keys,
-    pointer buttons, coordinates, wheel delta, and raw mouse delta.
-  Route phase: Pre-UI, after-UI, or capture stage that owns a binding row.
-  Context predicate: All-of bit mask that must be active before an action edge
-    may be delivered.
-
-  Transition cleanup: Ordered cancellation sent to the replay/tool owners before
-    a new workspace or world-input owner begins consuming gestures.
-  Lifecycle activation: Completed scene-load phase that can publish a new
-    cursor intent and request hardware mouse-delta cleanup.
 
 Invariants:
   - BeginFrame is called once before any RoutePhase call for a device snapshot.
@@ -45,11 +24,6 @@ Invariants:
   - A scene generation publishes its activation cursor intent at most once.
   - World-pointer stages visit editor, mouse pickup, attached camera, Replay,
     and launcher exactly once in that order; later stages cannot replace a winner.
-
-Related:
-  - InputController.h defines the existing action and context vocabulary.
-  - InputController.Bindings.h publishes the current immutable binding table.
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

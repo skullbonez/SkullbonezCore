@@ -1,180 +1,64 @@
 ---
 name: comment-style-audit
-description: Audit SkullbonezCore source comments against the repository comment-style guide. Use when source-bearing files are edited, when a user asks to inspect comment quality, or when checking learning headers, invariants, hazards, lifetime notes, and comment-standard compliance.
+description: Audit SkullbonezCore source comments for accurate ownership, invariants, hazards, lifetimes, units, and caller contracts.
 ---
 
-# Comment Style Audit Skill
+# Comment Style Audit
 
-Use this skill when asked to improve, audit, or refresh SkullbonezCore comments
-against `Agentic/Reference/comment-style-guide.md`.
-
-## Goal
-
-Keep the code printable and learnable. A reader should be able to open a file
-and understand its purpose, local vocabulary, invariants, and risky concepts
-without already knowing this engine's rendering or physics architecture.
+Use this skill when asked to improve or audit SkullbonezCore comments against
+`Agentic/Reference/comment-style-guide.md`.
 
 ## Scope
 
-Default to touched files or the subsystem named by the user. Only audit the
-whole repository when the user explicitly asks for a full pass.
+Default to files touched by the current change or the subsystem named by the
+user. Audit the whole repository only when explicitly requested. For a
+subsystem or repository pass, inventory tracked source with `git ls-files` and
+record any intentionally deferred file; ignored directory names can still
+contain tracked source.
 
-Documentation/comment-only edits require no repository validation. If code
-behavior changes accidentally, stop and switch to the validation map in
-`AGENTS.md`.
-
-For subsystem or repository-wide work, completeness is mandatory. Build the file
-inventory with `git ls-files`, not `rg`, because tracked source can live under
-ignored directory names such as `Physics/Debug`. Create or update a checklist
-plan under `Agentic/Plans/` before editing, and tick each source-bearing file
-only after it has been inspected against this skill and the guide.
+Comment-only edits require no repository validation. If behavior changes, stop
+and use the validation map in `AGENTS.md`.
 
 ## Procedure
 
 1. Read `Agentic/Reference/comment-style-guide.md`.
-2. Identify the target scope:
-   - Touched-file pass: list the exact source-bearing files from `git diff` and
-     `git status`.
-   - Subsystem or full pass: generate the tracked inventory with `git ls-files`
-     and reconcile it against a checklist plan under `Agentic/Plans/`.
-3. Inspect the target files for a file learning header.
-4. Ensure each header has:
-   - `File`
-   - `Purpose`
-   - `Summary`, with ownership, a decision, or a flow the filename does not
-     already reveal
-   - `Glossary` when the file defines single-file local vocabulary
-   - `Invariants` where behavior, lifetime, determinism, or GPU state matters
-   - `Related` links where another file or reference doc helps
-   - no competing `Mental model:`, layman, or plain-language orientation
-     section; useful orientation is another paragraph under `Summary:`
-5. Apply the glossary split rule:
-   - A term defined in exactly one tracked `.cpp`, `.h`, `.hpp`, `.inl`, or
-     `.hlsl` file stays in that file's `Glossary:` block.
-   - A term defined in more than one tracked source file belongs in
-     `Agentic/Reference/engine-glossary.md`; remove source copies and cite that
-     reference from each affected file's `Related:` block.
-   - When the pass changes glossary ownership, inspect every affected source
-     header and `Agentic/Reference/engine-glossary.md` directly. Consolidate
-     duplicates instead of recording a per-term exception.
-   - Treat counts as current measurements, never thresholds or budgets.
-6. Replace non-assumed acronym-only comments with concept comments.
-7. Replace restatement comments with `Why:`, `Invariant:`, `Lifetime:`, or
-   `Hazard:` comments.
-8. Enforce the canonical reusable labels:
-   - `Summary:` owns file orientation and `Concept:` owns local plain-language
-     explanation;
-   - `Invariant:` owns rules, including plain-language rules and generic
-     contracts;
-   - runtime no-growth/phase/cap comments use
-     `Runtime allocation policy:`, never short `Allocation policy:`; and
-   - legacy `/* -- Name ---- */` file/type banners are retired. Preserve unique
-     teaching content under the learning header or a nearby structured block,
-     but do not retain a banner for visual identity.
-9. Review precise local headings qualitatively. `Pass contract:`,
-   `Caller contract:`, `Docs:`, `Compatibility:`, `Capability:`, `Units:`,
-   `Cold boundary:`, `Fallback:`, `Owner:`, `Phase:`, `Precondition:`,
-   `Release/Profile:`, and `Terminal drain:` are valid when that noun is the
-   information category or search target. They are examples, not an allowlist.
-   A heading that only means explanation, reason, rule, lifetime, or risk must
-   use the standard tag instead. `Docs:` attaches an authoritative external API
-   link locally; `Related:` owns repository navigation.
-10. Verify retained citation and error conventions:
-    - `CATTO REF` identifies the external algorithm/equation supporting adjacent
-      Physics code;
-    - `ENGINE-SPECIFIC` identifies the local policy or geometry decision, may
-      stand alone, and stays adjacent when it qualifies a CATTO REF;
-    - Error handling clearly distinguishes between recoverable external-input/environment
-      failures (`SbResult`), fatal owned invariant failures (`SB_FATAL`), and
-      bounded validation/test probe evidence; and
-    - Structured tags (`Concept:`, `Why:`, `Invariant:`, `Lifetime:`, `Hazard:`) explain
-      the reasoning, rules, and risks. Citations and error categories do not replace
-      implementation/test proof.
-11. For any type that aggregates unrelated-owner data or orchestrates
-   multi-owner sequencing, require a header `Invariant:` block that names the
-   rule the type enforces and identify the focused test that exercises it.
-   Absence of either artifact is an audit failure; a data-only aggregate that
-   merely shortens a signature remains a banned bag.
-12. Verify behavioral claims in every touched file:
-   - Identify sentences that assert ownership, sequencing, or subsystem
-     behavior and confirm each against the post-change source and call path.
-   - Correct in the same commit every claim falsified by a responsibility move.
-   - Treat `still owns`, `remains the owner`, `currently`, `for now`,
-     `temporarily`, `on this branch`, `not yet`, and embedded task codes such
-     as `C1` or `UR3` as prompts to verify, not banned words. The repository
-     audit found roughly 55 correct uses that describe runtime state.
-   - Require repository-relative `Related:` entries to resolve. Cite durable
-     targets — source, `tools/`, `Agentic/Reference/`, or a root document —
-     never deletion-bound `Agentic/Plans/TODO/` paths, and remove duplicate
-     navigation rows.
-13. Keep comments close to the concept they explain.
-14. Preserve existing useful teaching comments. Do not rewrite good comments
-   just to make them look new.
-15. Keep governance-review vocabulary in reviews, plans, and reports. Terms such
-    as extraction scar, capability slice, courier, and closure failure do not
-    teach a source-level engine concept and must not leak into source comments.
-16. Tick each checklist item only after the file was inspected. Leave deferred
-   files unchecked and record the reason beside the item.
-17. Rerun the scoped `git ls-files` inventory before reporting completion and
-    confirm every tracked source file in scope appears in the checklist exactly
-    once.
-18. Confirm the diff is comment/documentation only before reporting completion.
+2. List the exact source-bearing files in scope.
+3. Check each comment against the post-change source and call path. Correct
+   false ownership, sequencing, lifetime, unit, capacity, and behavior claims
+   in the same change.
+4. Keep an optional file preamble brief. It may state purpose and a few
+   non-obvious ownership rules, but it must not repeat the filename or create empty
+   documentation sections.
+5. Move detailed explanations beside the declarations and operations they
+   constrain. Use `Concept:`, `Why:`, `Invariant:`, `Lifetime:`, `Hazard:`, or
+   `Units:` only when the label helps.
+6. Use `Runtime allocation policy:` for a permitted allocation phase, hard cap,
+   and storage owner. Do not shorten that label.
+7. Preserve `CATTO REF` and `ENGINE-SPECIFIC` where they distinguish a published
+   Physics algorithm from a local policy.
+8. Distinguish recoverable `SbResult` failures, fatal internal invariants, and
+   bounded test probes.
+9. Replace acronym-only and syntax-restatement comments with the concrete reason
+   or delete them when the code is already clear.
+10. Keep shared engine vocabulary in
+    `Agentic/Reference/engine-glossary.md`; explain a one-off term at its first
+    dense use instead of copying a glossary into the file.
+11. Remove decorative banners, stale task codes, branch-status prose, vague
+    TODOs, and history that does not explain a current compatibility rule.
+12. Preserve useful comments. Do not rewrite accurate direct prose merely to
+    make the file look newly audited.
 
-## Why Claim Verification Exists
+## Review questions
 
-`RenderGraph.h` once retained a pre-completion claim that DX12 still owned live
-barrier derivation after `Dx12RenderGraphExecutor` had taken that responsibility.
-An architecture review trusted the stale header and nearly registered a
-six-task campaign to rebuild shipped work. Verify responsibility claims against
-post-change source so ownership moves cannot create the same false finding.
+- Does each ownership claim name the owner that exists after the change?
+- Are invalidation points and borrowed-reference lifetimes explicit?
+- Are threading, ordering, units, hard caps, and deterministic behavior visible
+  where a caller or maintainer needs them?
+- Do public APIs explain caller-visible preconditions and results?
+- Do Physics and Rendering comments identify byte-exact or GPU-state-sensitive
+  behavior?
+- Does the source use direct C++ and systems-programming language?
+- Is the diff still comments/documentation only?
 
-## Checklist
-
-- No unexplained local, ambiguous, or behavior-sensitive acronyms in comments.
-- Every `Summary:` adds ownership, decision, or flow information beyond the
-  filename; tautological summaries fail the audit.
-- File orientation appears only under `Summary:`; Mental model, layman, and
-  plain-language orientation aliases fail the audit.
-- File glossaries contain only exact single-file terms. Multi-file definitions
-  live in `Agentic/Reference/engine-glossary.md`, source headers cite it from
-  `Related:`, and direct review confirms that definitions are not duplicated or
-  allowed to drift. The Related-path report is advisory evidence for that review.
-- Never add glossary entries that merely define assumed baseline technology
-  names such as HLSL, DirectX, Direct3D, DX12/D3D12, DXR, C++, CPU, GPU,
-  shader, texture, compiler, or linker.
-- Plain-language explanations use `Concept:`, rules use `Invariant:`, and
-  runtime allocation boundaries use `Runtime allocation policy:` exactly.
-- Legacy identity banners are absent; unique teaching content is preserved in
-  the modern header or nearby structured comment.
-- Precise domain headings name a real category or search target rather than
-  aliasing Concept/Why/Invariant/Lifetime/Hazard.
-- `CATTO REF`/`ENGINE-SPECIFIC` and fatal invariant / recoverable error / test probe
-  conventions use their documented meanings.
-- Rendering files explain RTV, DSV, SRV, UAV, PSO, root signatures, resource
-  states, barriers, DRED, PIX, BLAS, TLAS, or SBT when those terms appear.
-- Physics files explain broadphase, narrowphase, manifolds, contact rows, warm
-  starting, sleep, and determinism when those terms appear.
-- Scene/runtime files call out command-line and scene-file compatibility.
-- UI files call out the request/command contract and draw/hitbox consistency.
-- Tools call out bounded output and validation purpose.
-- Aggregate/transaction types name their enforced invariant and focused test;
-  data-only parameter bags fail the audit.
-- Ownership, sequencing, and behavior claims match post-change source; every
-  rot marker was reviewed as a prompt rather than rejected mechanically.
-- Repository-relative `Related:` entries resolve and point to durable targets
-  rather than live `TODO/` plans; duplicate rows are absent.
-- Governance review vocabulary stays out of source comments.
-- No source file in the selected scope is silently skipped. The checklist has no
-  unchecked items unless each remaining item has a written deferral reason.
-
-## Report Format
-
-Summarize:
-
-- Files or subsystems audited.
-- Checklist path, checked count, deferred count, and unchecked files if any.
-- The comment/documentation changes made.
-- The convention labels, citations, and lanes reviewed or normalized.
-- The ownership, sequencing, and behavior claims verified or corrected.
-- Any terms that still need human-approved wording.
-- Validation status, usually: `No validation run; comment-only changes.`
+Report blocking inaccuracies with file and line evidence. If the review is
+clean, say so and name any validation not run.

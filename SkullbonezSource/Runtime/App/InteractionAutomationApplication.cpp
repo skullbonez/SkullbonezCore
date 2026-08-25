@@ -1,29 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp
 Purpose:
   Drives deterministic runtime interaction scripts through the normal input path.
-
-Summary:
-  App applies interaction automation through the same picking,
-  replay, continuous-forecast, camera, director-shot, and world-input code that
-  an operator would use, while concrete input/report owners publish device
-  snapshots and evidence.
-  Legacy scripts produce scene-frame-indexed actions. Recorded manifests use a
-  private turn clock, captured timing, complete device snapshots, and detached
-  owner baselines. Both paths observe copied runtime facts after rendering; the
-  controller never becomes an alternate gameplay, replay, editor, or window owner.
-
-Glossary:
-  World click: Automation request that projects a screen-space click into the
-  scene and routes it through the active runtime owner.
-  Director shot action: Automation request that loads, plays, grabs, advances,
-    or retargets a fixed camera shot list without taking ownership away from
-    the runtime camera state.
-  Prediction target: Replay body selected for future-path diagnostics.
-  Continuous forecast command: Typed toggle/reset/exit request submitted through
-    the same operator-command queue as the visible Planning controls.
-  Automation report: JSON side-channel describing what the scripted interaction
-  observed without mutating validation baselines directly.
 
 Invariants:
   - Scripts must exercise normal runtime routing, not bypass tool ownership or
@@ -44,14 +21,6 @@ Invariants:
     evidence remains a recoverable automation failure.
   - Each turn trace row is flushed after rendering; a write failure fails the
     run instead of allowing incomplete evidence to look successful.
-
-Related:
-  - SkullbonezSource/Runtime/Interaction/RuntimePickService.h
-  - SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h
-  - SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.h
-  - SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h
-  - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
-  - Agentic/Reference/engine-glossary.md
 */
 #include "../Automation/InteractionAutomationController.h"
 #include "../Automation/InteractionAutomationRecorder.h"

@@ -6,7 +6,7 @@ Purpose:
 Summary:
   Intercept, trip-planner, and porkchop presentation use one set of pixel-space
   helpers for both drawing and pointer routing. The implementation publishes
-  bounded rows only and retains no UI or Planning owner borrow.
+  bounded rows only and retains no borrowed UI or Planning references.
 
 Glossary:
   Porkchop cell: One row-major launch-delay/time-of-flight candidate.

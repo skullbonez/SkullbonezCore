@@ -1,28 +1,6 @@
 /*
-File: SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
 Purpose:
   Declares the runtime memory-owner registry and reserve-growth policy gate.
-
-Summary:
-  Runtime allocation policy is enforced by named owners, not by one anonymous
-  heap. Gameplay owners register fixed capacity so diagnostics can report their
-  budget and high-water use. Owners may commit their hard-cap-bounded initial
-  backing during their declared init phase. Scene-sized stores publish live,
-  session-high-water, and resident-byte rows into fixed registry storage.
-  Scene transitions advance an explicit capacity-session generation so a later
-  small scene never inherits an earlier large scene's peak. Replay owners may
-  additionally ask for bounded runtime reserve bumps, and every replay bump is
-  counted.
-  Development builds additionally admit explicitly scoped, hard-byte-capped
-  ImGui and Tracy owners without changing the gameplay phase.
-
-Glossary:
-
-  Owner scope: A cheap thread-local label used by the global allocation hook to
-    attribute generic C++ heap traffic to the owner currently doing work.
-
-  Development tool permission: Compile-time-only owner metadata that lets one
-    calling thread allocate for ImGui or Tracy up to a hard active-byte cap.
 
 Invariants:
   - Registry and counter storage is fixed; reporting and hook attribution must
@@ -38,12 +16,6 @@ Invariants:
     their vector/object targets.
   - Development tool permission does not exist in Release or Profile-WPO, and
     cannot exempt allocations on another thread.
-
-Related:
-  - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h
-  - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
-  - AGENTS.md (Runtime Static Allocation Policy)
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

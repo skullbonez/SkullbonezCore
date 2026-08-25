@@ -1,22 +1,6 @@
-//   - Agentic/Reference/engine-glossary.md//
-// File: SkullbonezTests/TestReserveAllocator.cpp
 // Purpose:
 //   Lock allocation-tracker phase accounting and RuntimeReserveAllocator
 //   policy contracts.
-//
-// Summary:
-//   The allocator is a fixed-storage policy ledger. Owners register their
-//   initial and hard capacity, replay owners may request bounded growth during
-//   replay, and every grant or denial becomes a compact diagnostic event.
-//   Reportable stores also publish per-scene capacity rows and unload text.
-//
-// Glossary:
-
-//   Development tool owner: Thread-local ImGui or Tracy attribution that admits
-//     bounded vendor storage without changing the process gameplay phase.
-//   Growth event: Fixed-ring diagnostic row recording one grant or denial.
-//   Capacity session: One scene's live/high-water interval, advanced after the
-//     preceding scene is cleared.
 
 // Invariants:
 //   - Gameplay-phase owners never receive replay growth approval.
@@ -33,11 +17,6 @@
 //     value-initializes only newly admitted rows.
 //   - Non-trivial fixed-list relocation moves every live element without
 //     unwinding and destroys the retired prefix exactly once.
-//
-// Related:
-//   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
-//   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp
-//
 
 #include "../ThirdPtySource/doctest/doctest.h"
 

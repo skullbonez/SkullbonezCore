@@ -1,29 +1,6 @@
 /*
-File: SkullbonezSource/Core/TracyClientOwner.cpp
 Purpose:
   Owns Tracy lifecycle, owner zones, plots, capture mode, and status.
-
-Summary:
-  The process composition root starts the manually managed on-demand client
-  before engine workers exist when profiling was requested at launch, or starts
-  Standard capture at a cold editor boundary and recreates those workers. It
-  shuts Tracy down after joining them. A fixed source-location registry maps
-  the engine profiler's established owner paths into Tracy. Standard mode
-  records zones and capacity plots; explicit heavy mode also enables the Core
-  allocation owner to emit global C++ allocation events.
-
-Glossary:
-  On-demand client: Tracy mode that records only while an external viewer is
-    connected instead of retaining an unbounded pre-connection history.
-  Connection snapshot: Direct read of Tracy's existing atomic connection flag;
-    it does not probe the network, launch a process, or allocate.
-  Capture configuration: Tracy starts disabled unless SKORE_TRACY_MODE selects
-    `standard` or `heavy`, or the ImGui action requests Standard capture;
-    standard is the comparable low-overhead mode.
-  Backing map: Page-aligned virtual-memory range from which Tracy's private
-    rpmalloc instance serves its transport queues and other client storage.
-  LZ4 owner hooks: Compile-time allocator callbacks used by Tracy's embedded
-    compression stream instead of its default direct CRT allocation path.
 
 Invariants:
   - Startup and shutdown are idempotent at the engine boundary.
@@ -38,13 +15,6 @@ Invariants:
     is no untracked system- or CRT-allocation fallback.
   - Main/render/replay/prediction/IO share one lane in the current topology;
     the main thread name states that fact rather than inventing fake threads.
-
-Related:
-  - SkullbonezSource/Core/TracyClientOwner.h
-  - SkullbonezSource/Core/PlatformWin32.h
-  - SkullbonezSource/Runtime/App/Init.cpp
-  - SkullbonezSource/Runtime/App/RunFrame.cpp
-  - SkullbonezSource/Core/WorkerPool.cpp
 */
 #include "TracyClientOwner.h"
 

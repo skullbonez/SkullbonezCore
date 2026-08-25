@@ -129,7 +129,7 @@ contained:
   and presentation state.
 - An aggregate carries data for one operation without enforcing a rule. A
   behavior-free aggregate whose sole member borrows another owner is
-  authority-free, as is one whose sole consumer destructures every member at
+  invariant-free, as is one whose sole consumer destructures every member at
   entry. A one-field behavior owner or tested strong value type is not the first
   shape. Two aggregates with identical member lists are one aggregate or none.
 - Reference-carrying view or slice structs partition an owner's member list, and
@@ -179,10 +179,10 @@ Verdict caps:
   `2 / 5`.
 - A serious ownership leak from physics/render into runtime policy caps
   encapsulation at `2 / 5`.
-- An unruled authority-free aggregate, nominal capability slice, or extraction
-  scar, or an unruled/stale wide-signature or function-complexity review, caps
-  encapsulation at `3 / 5`. A rename, parameter reshuffle, or one-call helper
-  split does not lift the cap; only an owned invariant/current operation ruling
+- A data-only struct with no enforced invariant, nominal capability slice,
+  incomplete extraction, or missing/stale wide-signature or function-complexity
+  review caps encapsulation at `3 / 5`. A rename, parameter reshuffle, or one-call
+  helper split does not lift the cap; only an owned invariant/current review
   or a real responsibility move does.
 
 ## Positive Evidence

@@ -25,7 +25,7 @@ Invariants:
     Physics commit that makes versioned hysteresis bytes authoritative.
   - Every recoverable rejection occurs before TrimForReplayRestore; rejection
     after trim is fatal because the commit boundary has already been crossed.
-  - The operation stores no owner borrow after returning.
+  - The operation stores no borrowed reference after returning.
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayValidation.cpp

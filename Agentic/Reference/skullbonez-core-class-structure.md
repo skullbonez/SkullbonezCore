@@ -84,10 +84,10 @@ legitimate only when it enforces a rule its absence would let a caller break, an
 its header says which in an `Invariant:` block. A behavior-free aggregate whose
 sole member borrows another owner, or one whose sole consumer destructures every
 member at entry, owns nothing whatever it is called. A one-field behavior owner
-or tested strong value type is not that courier shape. Reference-carrying view
+or tested strong value type is not that parameter-wrapper shape. Reference-carrying view
 structs are judged as one surface — if any
 operation receives every slice, the split is nominal. See the Invariant Ownership,
-Capability Slice Ownership, and Extraction Scar rules in `AGENTS.md`.
+Capability Slice Ownership, and Refactoring leftover rules in `AGENTS.md`.
 
 ## Frame data flow
 

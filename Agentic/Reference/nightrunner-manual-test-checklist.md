@@ -373,7 +373,7 @@ to update baselines during this manual pass.
   mapped `physics_regression_varied.csv` difference (35,303 lines in the RS7
   terminal run, first difference at line 1239).
 - [ ] Record whether replay visual fidelity still stops at the inherited
-  `header.topologyVersion` mismatch after its false-pass controls.
+  `header.topologyVersion` mismatch after its negative controls.
 - [ ] Record any relative Physics performance noise separately from the absolute
   DX12/Physics budget result.
 - [ ] Confirm no Physics, replay, performance, known-issue, or visual baseline was

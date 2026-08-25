@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-26
-Status: Governance De-Bureaucratization and Jargon Removal active; 118/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal active; 119/120 tasks complete
 
 ## Owner Direction
 
@@ -82,7 +82,7 @@ Status: Governance De-Bureaucratization and Jargon Removal active; 118/120 tasks
   camera, pivot, input, or diagnostics owner.
 
 - Active Physics plans have standing authority to make their governed golden
-  transitions without a per-update prompt or another owner ruling. This covers
+  transitions without a per-update prompt or another review decision. This covers
   Physics, SkullScope, replay, visual, causal, and performance goldens when the
   Physics phase owns the behavior change; non-Physics work keeps its separate
   owner controls.
@@ -129,7 +129,7 @@ Status: Governance De-Bureaucratization and Jargon Removal active; 118/120 tasks
 - Deterministic Trigonometry Adoption was moved to `WNF/` by owner direction on
   2026-08-18. Its exact-site platform-trig exception policy remains authored,
   but none of DT0-DT7 is selectable until the owner reactivates the plan.
-- At-Rest Ball Stability is complete. Its uncapped authoritative witness ends
+- At-Rest Ball Stability is complete. Its uncapped regression scenario ends
   only when all three named balls are Physics-asleep; the final semantic oracle
   passes vertical stability, slip, reversal, support/sleep latency, and control
   preservation with deterministic 0/1/4-worker evidence. The terminal plan-
@@ -162,7 +162,7 @@ Status: Governance De-Bureaucratization and Jargon Removal active; 118/120 tasks
   Run bag, Runtime dependency edge, or Replay growth privilege was introduced.
   IH6 completes the 45-site allocation-comment taxonomy, reclassifies the
   worker threshold as a performance reason, and brings all six substantial
-  diagnostic tools under truthful bounded-output/hazard learning headers. The
+  diagnostic tools with truthful bounded-output and hazard comments. The
   exact source/tool checklist is 94/94 with zero deferrals; Related paths and
   glossary ownership are clean, and independent post-fix review is blocker-free.
   IH7 reconciled the final 96/96 source checklist with zero deferrals and the
@@ -228,7 +228,7 @@ Status: Governance De-Bureaucratization and Jargon Removal active; 118/120 tasks
   fast, Automation, and DX12 gates pass. The 13/13 touched-source comment audit
   has zero deferred files, and the post-fix independent review is clean.
 - The immutable replay visual gate still stops at the inherited reveal-0
-  `header.topologyVersion` mismatch after its launcher and 17/17 false-pass
+  `header.topologyVersion` mismatch after its launcher and 17/17 negative
   controls pass. Physics still reproduces the inherited 20,394-line varied CSV
   mismatch beginning at frame 102, and the relative Physics performance sample
   remains noisy while absolute DX12/Physics budgets pass. No baseline was
@@ -306,7 +306,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Governance De-Bureaucratization and Jargon Removal | `DE_BUREAUCRATIZE` | 8 | 5 | `TODO/governance-debureaucratization-and-jargon-removal.md` |
+| Governance De-Bureaucratization and Jargon Removal | `DE_BUREAUCRATIZE` | 8 | 7 | `TODO/governance-debureaucratization-and-jargon-removal.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -334,7 +334,7 @@ One detail in that table is recorded:
 - `WNF/fracture-replay-feature.md` sits in `WNF/` but its own header reads
   `Status: Backlog`, not the owner-parked wording the other two WNF plans use.
   Parked and backlog are different dispositions, so the file and this row
-  disagree with the directory. An owner ruling should settle which it is.
+  disagree with the directory. A review decision should settle which it is.
 
 ## Binding Order
 
@@ -368,8 +368,8 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-118/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
-the sole active plan at 6/8; DB0-DB5 are complete and DB6 is next. DB0
+119/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
+the sole active plan at 7/8; DB0-DB6 are complete and DB7 is next. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen
 negative-test seeds, and ratifies a 20-file governance-administration cohort
 with 15 planned deletions. DB1 replaces source-coordinate policy identity in
@@ -398,7 +398,15 @@ old/new producer bundle, invokes the existing content-bound guard, and rechecks
 the staged transition. Four serial reviews are clean after closing staging,
 predecessor-integrity, malformed-CSV, and output-bound gaps. Only focused script
 self-tests and a read-only live-predecessor lookup ran; repository validation
-remains omitted by explicit owner direction.
+remains omitted by explicit owner direction. DB6 removes the retired jargon
+and its morphological variants from tracked first-party source and
+documentation except the active plan's ten-row lexicon table. Stable external
+schema and child-case strings retain their exact bytes through split literals;
+56 boilerplate headers were reduced, and the comment policy now requires
+concise local engineering explanations without mandatory template sections.
+Two serial reviews closed the missed-variant and parked-patch integrity
+findings. No build, test, Physics comparison, or validation command ran by
+explicit owner direction.
 The five unfinished Ragdoll Physics phases and RIC3
 are parked and excluded from the denominator; their eight completed phases
 remain part of the historical completed count.
@@ -417,7 +425,7 @@ policy the sole shipping path and retains the SkullScope policy timeline,
 same-executable A/B artifacts, and exact historical/current performance producers. FP2's archived automated transition
 retains the prior and new producers, its core/deep Physics gates pass, and its
 2,401-tick replay-visual gate passes with one prediction generation, all 200
-wall bricks moved, 200 causal nodes, and every registered false-pass control.
+wall bricks moved, 200 causal nodes, and every registered negative control.
 Runtime Boundary Separation And Project Topology RBS0-RBS7 is complete at 8/8.
 RBS7 closed its allocation rulings, Replay startup continuation, Operator UI
 projection ownership, GPU submission, and cross-owner command application.

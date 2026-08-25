@@ -1,30 +1,3 @@
-#
-# File: tools/check_ui_blur.py
-# Purpose:
-#   Documents and runs the check_ui_blur.py developer/validation helper script.
-#
-# Summary:
-#   Tools are command-line guardrails around builds, validation, screenshots,
-#   diagnostics, and artifact handling. They make the safe path repeatable and
-#   keep output bounded for humans and agents.
-#
-# Glossary:
-#   CSV (Comma-Separated Values): Text table format used for byte-exact physics
-#   regression output.
-#   Validation gate: Repository script that proves a class of changes before
-#   commit or PR.
-#
-# Invariants:
-#   - Tool output should be bounded and readable because agents and humans use
-#   it for decisions.
-#
-# Related:
-#   - AGENTS.md
-#
-#
-#!/usr/bin/env python3
-#
-# File: tools/check_ui_blur.py
 # Purpose:
 #   Documents and runs the check_ui_blur.py developer/validation helper script.
 #
@@ -32,21 +5,11 @@
 #   Tools are command-line guardrails around builds, validation, screenshots,
 #   diagnostics, and artifact handling. They make the safe path repeatable and
 #   keep output bounded for humans and agents.
-#
-# Glossary:
-#   CSV (Comma-Separated Values): Text table format used for byte-exact physics
-#   regression output.
-#   Validation gate: Repository script that proves a class of changes before
-#   commit or PR.
-#
+
 # Invariants:
 #   - Tool output should be bounded and readable because agents and humans use
 #   it for decisions.
-#
-# Related:
-#   - AGENTS.md
-#
-#
+
 """Validate optional UI suite screenshots and the cached blur effect."""
 
 from __future__ import annotations

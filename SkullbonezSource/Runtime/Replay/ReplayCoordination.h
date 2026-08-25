@@ -5,7 +5,7 @@ Purpose:
 
 Summary:
   Replay owners retain state; the composition root receives short-lived values
-  and publishes immutable evidence views. Explicit owner borrows remain
+  and publishes immutable evidence views. Explicit borrowed references remain
   synchronous and none of these packets is retained.
 
 Glossary:

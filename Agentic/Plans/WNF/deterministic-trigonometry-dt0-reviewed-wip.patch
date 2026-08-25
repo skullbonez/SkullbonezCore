@@ -1,43 +1,6 @@
 diff --git a/tools/check_determinism_math_policy.py b/tools/check_determinism_math_policy.py
-index b7b8e936c..ebc2cad58 100644
 --- a/tools/check_determinism_math_policy.py
 +++ b/tools/check_determinism_math_policy.py
-@@ -2,22 +2,29 @@
- """
- File: tools/check_determinism_math_policy.py
- Purpose:
--  Inventory implementation-defined math entry-point uses in Physics and Maths.
-+  Inventory implementation-defined math entry points and repository-wide CPU
-+  sine/cosine references.
-
- Summary:
--  The checker strips comments and literals, identifies C/C++ math entry-point
--  references, and reconciles every non-certified use against an exact
--  current-source owner ruling. It reports current structure; rulings document
--  review rather than creating a numerical allowance or count budget.
-+  The checker preserves the broad Physics/Maths transcendental policy while
-+  projecting sine/cosine references across every production source and first-
-+  party test root. Production and test-oracle findings are separate scopes;
-+  every live finding joins one exact current-source owner ruling.
-
- Glossary:
-   Certified call: Exact or correctly-rounded operation admitted directly by the
-     tier-2 determinism envelope.
-   Source fingerprint: SHA-256 of the stripped source line containing a call;
-     edits invalidate the ruling even when a spelling remains nearby.
-+  Test oracle: First-party test code that may retain platform trig as an
-+    independent reference but can never authorize a production call.
-
- Invariants:
--  - Scan roots are both SkullbonezSource/Physics and SkullbonezSource/Maths.
-+  - Broad math policy remains rooted in Physics and Maths; sine/cosine policy
-+    spans all SkullbonezSource CPU files plus separate first-party test roots.
-+  - A test-scoped ruling cannot satisfy a production finding.
-+  - Token-pasted synthesis is outside this raw-spelling policy; fixtures pin
-+    that boundary instead of claiming preprocessor expansion.
-   - Unruled findings, stale rulings, malformed rulings, and missing repair plans
-     fail the command.
-   - Explicit fused multiply-add calls always require a ruling even though the
 @@ -43,10 +50,33 @@ from pathlib import Path
  from typing import Iterable
 

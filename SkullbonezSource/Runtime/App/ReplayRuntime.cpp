@@ -1,26 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/App/ReplayRuntime.cpp
 Purpose:
   Sequences Replay, Prediction, and Planning owners from Runtime/App.
-
-Summary:
-  ReplayRuntime is the application composition boundary between concrete
-  Replay, Prediction, and Planning owners. It orders workspace input,
-  transactional restore, prediction, artifact, publication, and validation
-  behavior without storing sibling backpointers inside those owners. During a
-  causal transition it retains the source replay ring across intermediate
-  restores, then applies the normal reset only at the exact endpoint. Render
-  publication exposes Planning's detached contact packet and copied solver rows
-  only while detail is visible.
-
-Glossary:
-  Branch: Child replay timeline created from a restored source frame.
-  Cause tree row: UI row derived from retained solver contacts or prediction
-    future nodes.
-  Hash log: Deterministic text stream that lets saved replay output be compared.
-  Loaded presentation: Replay artifact data loaded from disk for scrub preview.
-  Prediction worker: Amortized task that fills replay-owned prediction build
-    frames outside the render thread.
 
 Invariants:
   - Full owner-state accessors are private. External render, input, UI, and
@@ -40,11 +20,6 @@ Invariants:
     ReplayRecorder borrows.
   - Tracy plots sample existing owner stats only; they never traverse retained
     payloads or influence replay state.
-
-Related:
-  - SkullbonezSource/Runtime/App/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
-  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayRuntime.h"
 #include "ReplayAuthoringCauseTree.h"

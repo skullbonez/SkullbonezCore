@@ -116,7 +116,7 @@ detects that forward contact at frame 75. The exact wall-contact frame and the
 - `tools\validate_replay_visual_fidelity.bat`: launcher-shape proof, Automation
   build, 18/18 typed packet cases, 82/82 assertions, the authoritative
   2,401-tick run, offline projection, artifact save, final visual and causal
-  comparisons, and every registered false-pass control pass.
+  comparisons, and every registered negative control pass.
 
 ## Archived automated golden set
 
@@ -139,7 +139,7 @@ deep gate.
 The retained Automation executable and its successful `ok=true` report were
 used without another executable or DLL replacement. The official checker
 payload path generated temporary visual and causal candidates first; both
-candidates passed the ordinary comparator and the non-engine false-pass
+candidates passed the ordinary comparator and the non-engine negative
 controls before their exact bytes replaced the tracked baselines.
 
 | Evidence | Previous SHA-256 | Accepted SHA-256 |
@@ -171,7 +171,7 @@ Final closure validation:
 - `tools\validate_replay_visual_fidelity.bat`: pass in 497.8 seconds; Automation
   built with zero warnings/errors, 18/18 focused cases and 82/82 assertions
   passed, the single authoritative generation produced all 2,401 ticks, and
-  every visual, causal, artifact, trajectory-count, and determinism false-pass
+  every visual, causal, artifact, trajectory-count, and determinism negative
   control rejected its injected mutation.
 - `tools\validate_physics.bat`: pass in 34.2 seconds; the archived accepted
   44,401-row Physics golden remained byte-exact.

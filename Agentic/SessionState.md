@@ -2,7 +2,7 @@
 
 Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
-Status: Governance De-Bureaucratization and Jargon Removal active; 118/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal active; 119/120 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -11,7 +11,7 @@ Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
 Governance De-Bureaucratization and Jargon Removal DB0-DB7 is the sole active
-plan at 6/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
+plan at 7/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
 tools, records sixteen replacement negative tests, and corrects the current
 wide-signature seed to the omitted 12-parameter
 `PhysicsBroadphaseStage::Run`. DB1 removes physical-coordinate policy identity
@@ -26,7 +26,7 @@ ledgers and shared scanner, and narrows the missed broadphase signature from 12
 parameters to three. Effective Debug/Profile/Automation compile contexts,
 project dead-code settings, MSVC link behavior, and exact negative fixtures are
 covered by focused checks. Three read-only reviews are clean after closing the
-reported false-pass gaps. An automatic commit hook was stopped during its Debug
+reported missed-failure gaps. An automatic commit hook was stopped during its Debug
 build before tests or runtime comparison; broad validation and Physics
 behavior/determinism evidence remain deferred by explicit owner direction. DB4
 now scans all ten engine roots with enclosing-symbol and local-code identity,
@@ -43,8 +43,16 @@ first-party producers, invokes the existing guard, and rechecks the staged
 transition. Four serial reviews are clean after closing ignored-binary staging,
 mutable-predecessor, malformed-CSV, and output-bound gaps. Focused script
 self-tests and the live predecessor lookup pass; no golden, build, runtime test,
-or repository validation was run by explicit owner direction. DB6 jargon
-removal is next.
+or repository validation was run by explicit owner direction. DB6 removes the
+retired terms and their morphological variants from tracked first-party source
+and documentation except the active plan's temporary lexicon table. Exact
+external report keys and Runtime-contract child-case arguments remain stable
+through split literals. Fifty-six boilerplate headers were reduced, and the
+comment policy now requires concise local engineering explanations without
+mandatory template sections. Two serial reviews closed missed-variant and
+parked-patch integrity findings. No build, test, Physics comparison, or
+validation command ran by explicit owner direction. DB7's permanent scanner
+and plan closure are next.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
@@ -57,7 +65,7 @@ first-party game executables, hashes, and the 6,800-frame 200-box comparison.
 Third-party runtime DLLs are intentionally omitted from tracked artifacts and
 must be restored from the pinned setup/build inputs before an isolated launch. The
 replay witness runs one 2,401-tick generation, moves all 200 wall bricks,
-publishes 200 causal nodes, and rejects every registered false-pass control.
+publishes 200 causal nodes, and rejects every registered negative control.
 FP3 and FP4 are complete. FP4's exact-final direction-valid radius comparison
 keeps 95.66%-100% of measured body ticks Discrete and reduces mean Physics time
 by 6.98%-51.30% across the mixed, 520-body, and 2,000-body retained runs. The owner
@@ -256,7 +264,7 @@ The owner parked Deterministic Trigonometry under `Agentic/Plans/WNF/` on
 plan removes the authored witness's arbitrary 1,800-frame timeout: `at_rest`
 now runs unlimited and must not auto-exit until a generic authored requirement
 proves `ball_a`, `ball_b`, and `ball_c` are all Physics-asleep. SkullScope
-diagnosis and semantic false-pass controls precede tuning, and vertical
+diagnosis and semantic negative controls precede tuning, and vertical
 vibration, excessive sliding, rolling reversals, and delayed supported sleep
 remain separate quality metrics. Friction and sleep policy remain valid
 diagnostic hypotheses, but proper contact/solver/support fixes come first and
@@ -328,7 +336,7 @@ deferred. The canonical replay visual oracle retains only the inherited 137 ->
 136 causal first-frame mismatch; no golden changed, and the exact PSD1 evidence
 plus candidate baselines live under
 `TestOutput/validation/candidates/PREDICT_SOLVER_DETAIL_PSD1/`, where the
-candidate comparison and all nine false-pass control families pass.
+candidate comparison and all nine negative control families pass.
 
 PSD2 is complete. Paired immutable segmented evidence banks now provide stable
 generation/mode/epoch/frame/topology/publication identity, release/acquire
@@ -540,16 +548,16 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Begin `DE_BUREAUCRATIZE` DB5: make Physics golden divergence concise and make a
-signed-off Physics baseline transition one command without weakening byte-exact
-integrity or producer reproducibility.
+Begin `DE_BUREAUCRATIZE` DB7: install the permanent tracked-file plain-language
+scanner in local and hosted validation, add its source/document negative tests,
+then delete the completed active plan under repository convention.
 `RAGDOLL_PHYSICS` FP5-FP9 and
 `RECORDED_CURSOR` RIC3 remain parked and are not selectable.
 
 ## Blockers
 
 - FP0 pre-change `tools\validate_replay_visual_fidelity.bat` builds and passes
-  its 18 typed/false-pass controls, then the authoritative run stops at reveal 0
+  its 18 typed/negative controls, then the authoritative run stops at reveal 0
   on `header.futureNodeCount`. Preserve the oracle until the Physics phase
   explains the transition, retains both launch payloads, and applies the exact
   candidate through the archived automated lane.
@@ -571,7 +579,7 @@ integrity or producer reproducibility.
 FP0 closes `PHYS-001` through `PHYS-006` and `PHYS-008` through `PHYS-010`.
 World-shape transforms, default descriptors, transactional solver snapshots,
 complete swept fallback, and exact spatial-cell identity now have focused
-false-pass controls. The strict two-generation replay allocation interaction
+negative controls. The strict two-generation replay allocation interaction
 passes after sorted-unique cache publication/capture was made explicit; its
 allocation guard reports no gameplay or reserve-policy violation.
 

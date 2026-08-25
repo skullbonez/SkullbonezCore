@@ -12,8 +12,8 @@ Glossary:
   Record range: CPU interval spent recording commands for one GPU marker.
 
 Invariants:
-  - The owner borrows one startup Profiler and renderer diagnostics facet for
-    the RuntimeRenderer lifetime; neither pointer is stored in Core.
+  - The owner stores borrowed references to the startup Profiler and renderer
+    diagnostics facet for the RuntimeRenderer lifetime; neither pointer is stored in Core.
   - Open ranges and completed samples use fixed arrays bounded by Profiler
     capacities, so steady render frames allocate nothing.
   - Device invalidation clears backend queries before Core timing history.

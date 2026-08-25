@@ -1,29 +1,6 @@
-//
-// File: SkullbonezTests/TestSpatialGrid.cpp
 // Purpose:
 //   Lock the first focused tests for SpatialGrid broadphase pairing.
-//
-// Summary:
-//   SpatialGrid is a fixed-capacity broadphase index. Persistent bounds occupy
-//   touched cells, while a sweep either occupies its complete overlay or joins
-//   deterministic complete-coverage fallback. Candidate pairs are emitted once
-//   across both paths. Focused fixtures also preserve traversal-first diagnostic
-//   order, eligible source-cell filtering, canonical emission, and the
-//   scene-reserved dense pair-bit owner. The capacity census pins the deliberate
-//   4 MiB scene-ceiling trade.
-//
-// Glossary:
-//   Cell: Integer grid bucket covering one cube of world space.
-//   Candidate pair: Pair of object indices admitted from a shared occupied cell
-//     or complete-coverage sweep fallback and still needing narrowphase testing.
-//   Persistent membership: Cell occupancy retained until a body's integer cell
-//     range changes or a cold clear invalidates all ranges.
-//   Swept overlay: Velocity-dependent cells that expire at the next BeginFrame.
-//   Canonical pair order: Ascending `(smaller index, larger index)` order that
-//     is independent of the order in which cells discover the pair.
-//   First-seen order: Traversal order at the first cell that discovers a pair;
-//     Debug sleep-pruned diagnostics preserve this order before later sorting.
-//
+
 // Invariants:
 //   - Output pair vectors must reserve capacity before GetCandidatePairs().
 //   - Candidate pairs are normalized and emitted in ascending canonical order.
@@ -35,11 +12,6 @@
 //   - SceneLoad reservation fixes every scene-sized backing store. BeginFrame
 //     and Clear retain backing/high-water; additional admission also preserves
 //     existing persistent membership and generation state.
-//
-// Related:
-//   - SkullbonezSource/Physics/SpatialGrid.h
-//   - SkullbonezTests/TestRuntimeContracts.cpp
-//
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"

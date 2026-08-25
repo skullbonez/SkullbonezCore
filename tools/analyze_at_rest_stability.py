@@ -1,27 +1,7 @@
 #!/usr/bin/env python3
 """
-File: tools/analyze_at_rest_stability.py
 Purpose:
   Evaluate bounded semantic at-rest stability from a SkullScope cache.
-
-Summary:
-  The analyzer reads indexed body/contact values through the existing
-  physics_query cache, derives the RS0 per-ball measures over each body's
-  supported quiet run, retains boxes as controls, and publishes a compact JSON
-  ruling without using a golden hash.
-
-Glossary:
-  Material impact: Contact whose pre-solve closing speed reaches the existing
-    2 m/s restitution boundary.
-  Significant reversal: Horizontal velocity sign change outside the Physics
-    0.5 m/s sleep-speed deadband.
-  Post-impact quiet run: The suffix beginning when the body first has support
-    and a positive quiet counter after its final material impact, through the
-    terminal sleep transition.
-  Solver-active contact: Contact carrying solved normal or tangent impulse; a
-    speculative row with no impulse has no authority over the slip-quality
-    ruling.
-  Final sleep: The first frame of the terminal uninterrupted sleeping suffix.
 
 Invariants:
   - Analysis never changes the trace, scene, SkullScope cache schema, or Physics
@@ -33,10 +13,6 @@ Invariants:
     motion or support loss.
   - Output contains summaries and first witnesses only; no raw timeline or
     unbounded contact packet is printed.
-
-Related:
-  - tools/physics_query.py
-  - tools/check_at_rest_stability_analyzer.py
 """
 
 from __future__ import annotations

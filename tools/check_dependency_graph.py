@@ -1,40 +1,10 @@
 #!/usr/bin/env python3
-#
-# File: tools/check_dependency_graph.py
+
 # Purpose:
 #   Enforce physical include direction and retired ownership vocabulary, report
 #   current Runtime package topology, check single-project source ownership,
 #   and verify the generated human proof's freshness.
-#
-# Summary:
-#   Loads data-only package and content rules, resolves live repository include
-#   edges once, and projects Runtime edges through a ranked, closed exact-file
-#   policy. A strict Runtime check ignores migration debt and fails every cycle
-#   or forbidden site; the ordinary repository gate accepts only fingerprinted
-#   repair-plan rows so existing separation work cannot admit a new site.
-#   Bounded content/project checks and the generated AGENTS proof use the same
-#   rule data, while embedded fixtures exercise every production evaluator.
-#
-# Glossary:
-#   Physical edge: Resolved quoted or angle-bracket include from one tracked or
-#     untracked live source file to another path below SkullbonezSource.
-#   Allow rule: Runtime-package row limiting only edges whose target is inside
-#     the Runtime scope.
-#   Deny rule: Source/target prefix pair that must never form an include edge.
-#   Content rule: Bounded deletion check for named retired vocabulary. It is
-#     not a general word census or frozen occurrence budget.
-#   Generated proof: Deterministic Markdown projection whose prefix and exact
-#     file columns preserve the checker's path-matching semantics.
-#   Fixture matrix: Synthetic include, content, project-file, and proof-drift
-#     cases that exercise the same evaluators used by the repository scan.
-#   Runtime package policy: Total owner rank plus a closed exact target-header
-#     projection. Rank constrains direction but never grants an edge by itself.
-#   Repair-plan ruling: Temporary source/target/spelling/occurrence evidence
-#     for a current forbidden edge. Strict evaluation always ignores it.
-#   Runtime package report: Current adjacency, strongly connected components,
-#     cycle traces, forbidden sites, and reverse composition-root sites. Counts
-#     are live evidence, never frozen allowances.
-#
+
 # Invariants:
 #   - Rules are qualitative package relationships, never frozen hit counts.
 #   - Content rules name deleted concepts exactly; broad architectural language
@@ -53,10 +23,6 @@
 #     new, semantically changed, and deleted edges fail closed while comments
 #     and physical line movement leave the content identity unchanged.
 #   - Runtime graph counts are current measurements, never policy budgets.
-#
-# Related:
-#   - tools/dependency_graph_rules.json
-#   - AGENTS.md
 
 from __future__ import annotations
 

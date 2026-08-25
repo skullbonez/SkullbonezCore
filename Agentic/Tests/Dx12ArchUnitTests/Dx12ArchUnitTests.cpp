@@ -1,32 +1,6 @@
 /*
-File: Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp
 Purpose:
   Contains DX12 architecture checks that guard renderer ownership and dependency boundaries.
-
-Summary:
-  Exercises CPU-only renderer state machines and ownership contracts without
-  creating a D3D12 device or submitting GPU work.
-
-
-  Dx12ArchUnitTests.cpp contains DX12 architecture checks that guard renderer
-  ownership and dependency boundaries. As an implementation unit, keep edits
-  anchored on the behavior under test and the regression signal and on the
-  glossary/invariants below.
-
-Glossary:
-  Recording epoch: Logical open/closed command-list interval committed only
-    after the corresponding DX12 operation succeeds.
-  Sticky failure: First command-path failure retained until device reset so a
-    later success cannot hide the unsafe earlier result.
-  GPU drain: Close, submit, fence wait, and command-list reopen sequence that
-    must complete before resource mutation is safe.
-
-  Dry run: CPU-only render-graph execution mode that records intended barriers
-    without calling a real command list.
-  Platform profiler GPU stack: Nested marker depth suspended when one command
-    list is submitted and restored on its replacement list.
-  Profiler value seam: Core-owned fixed spans consumed by the concrete
-    Rendering timing owner without an upward renderer pointer.
 
 Invariants:
   Tests stay CPU-only and must not require a real D3D12 device or renderer launch.
@@ -37,9 +11,6 @@ Invariants:
   Submission-state tests model Signal/Wait results without a DX12 queue.
   Command, device, recreation, fault, and optional-feature epoch resets release
   only owner-held diagnostic leases; already-returned copies remain valid.
-
-Related:
-  - AGENTS.md
 */
 #include "Rendering/DX12/Dx12RenderGraphExecutor.h"
 #include "Rendering/DX12/RenderBackendDX12.CommandRecordingState.h"

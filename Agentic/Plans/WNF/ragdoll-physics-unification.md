@@ -97,7 +97,7 @@ The resolved path is Physics-owned transient state. Do not add an authored
 projectile mode or a per-body hot-store field merely for classification. Prefer
 a stage-owned, fixed-capacity parallel bitset or byte array. Any proposal to add
 a field to `PhysicsBodyRecord` or its hot arrays still requires the repository's
-explicit owner ruling explaining why stage-owned storage is insufficient.
+explicit review decision explaining why stage-owned storage is insufficient.
 
 ## Evidence To Capture Before Registration
 
@@ -129,7 +129,7 @@ tree:
   33 existing allocation-policy findings outside Physics. FP0 owns no exception
   or allowlist change for those findings.
 - `tools\validate_replay_visual_fidelity.bat` built Automation and passed 18/18
-  typed-packet and false-pass controls (82 assertions), then the authoritative
+  typed-packet and negative controls (82 assertions), then the authoritative
   200-box run failed the inherited reveal-0 `header.futureNodeCount` comparison.
   No replay or Physics oracle was refreshed.
 - The authoritative run reported 212 admitted bodies, a 4,096-row fixed swept
@@ -421,7 +421,7 @@ scene-specific exceptions, or manual collision-mode authoring.
    outside this phase.
 7. Serialize configuration and stage-owned promotion state required for exact
    replay restore. Do not serialize a redundant authored projectile mode.
-8. Delete or explicitly adjudicate the test-only
+8. Delete or explicitly review the test-only
    `BoundingBox::TestCollision(BoundingSphere, ...)` and
    `BoundingSphere::TestCollision(BoundingBox, ...)` legacy overloads. The live
    object narrowphase routes both concrete orders through
@@ -447,7 +447,7 @@ scene-specific exceptions, or manual collision-mode authoring.
 - Replay capture and restore must reproduce promotion, demotion, impacts, and
   resolved paths byte-identically.
 - Strict compiled-symbol reachability must remove both temporary
-  sphere-box-overload `repair-plan` rows by deleting/adjudicating their retired
+  sphere-box-overload `repair-plan` rows by deleting or reviewing their retired
   surface and preserving focused coverage at the live specialized sweep owner.
 
 ### FP2 Acceptance
@@ -493,7 +493,7 @@ producer game executables, hashes, dependency scans, and FP1-versus-FP2 200-box 
 The core, deep, and replay-visual gates pass. The replay witness completes one
 2,401-tick prediction generation, moves all 200 wall bricks, publishes all 200
 causal nodes, and rejects the visual, causal, artifact, trajectory-count,
-determinism, and settled-majority false-pass controls. The exact visual and
+determinism, and settled-majority negative controls. The exact visual and
 causal baseline digests are recorded in the FP2 artifact manifest. FP3 is now
 the active Physics phase.
 
@@ -545,7 +545,7 @@ sleep/promotion, replay, and point-joint state, then moved the varied-scene
 worker proof into four fresh processes. This closure also requires those
 families to be non-empty and compares every ordered point-joint field directly,
 so a missing diagnostic family or hash-only joint comparison cannot create a
-false pass.
+incorrect pass.
 
 `tools\validate_physics.bat --commit-gate` passed the fresh-process matrix for
 workers 0 primary, 0 repeat, 1, and 4: each produced 44,401 lines with SHA-256
@@ -575,7 +575,7 @@ Discrete correctness and determinism and makes FP4 the active phase.
 
 ---
 
-## FP4 — Discrete Performance A/B & Owner Ruling
+## FP4 — Discrete Performance A/B And Review Decision
 
 ### What This Aims To Solve
 
@@ -609,7 +609,7 @@ same-workload A/B comparison.
 - Raw A and B artifacts and state hashes are retained for review.
 - No claimed improvement relies only on a committed baseline captured on a
   different machine or source tree.
-- The owner rules whether the measured improvement justifies the transition.
+- The owner decides whether the measured improvement justifies the transition.
 - FP8 predictive work remains unauthorized until FP3 and FP4 are both closed.
 
 ### FP4 Closure Evidence — 2026-08-25
@@ -645,7 +645,7 @@ axis cases as Swept, including the rotated-box case.
 The policies are intentionally not behavior-equivalent. The mixed A/B first
 diverges at frame 104 and the 200-box wall first differs in contact count at
 frame 75. A temporary pre-signoff negative control also passed all 18 replay
-visual typed/false-pass cases and 82 assertions but did not complete the
+visual typed/negative cases and 82 assertions but did not complete the
 6,800-frame interaction report. The owner subsequently selected the
 direction-valid radius rule as the sole shipping policy, retired the absolute
 threshold and runtime selector, and authorized the governed Physics,
@@ -798,7 +798,7 @@ so one convergence process owns the coupled constrained system.
 
 1. Introduce a concrete constraint-solve transaction that owns preparation,
    warm start, iteration order, convergence observation, writeback, and phase
-   legality. Do not introduce a solver-wide context bag, callback pack,
+   legality. Do not introduce a solver-wide broad parameter object, callback pack,
    polymorphic row hierarchy, or owner reach-back.
 2. Keep contact scalar rows and joint 3-by-3 blocks in compact typed arrays. A
    deterministic schedule may visit typed arrays through tagged indices or
@@ -826,7 +826,7 @@ so one convergence process owns the coupled constrained system.
 - Joint stiffness and contact support are stable under deterministic constraint
   ordering, supported worker counts, and ordinary scene-size changes.
 - The solve transaction enforces legal phase order and passes the repository's
-  aggregate, extraction-scar, wide-signature, complexity, and ownership review.
+  aggregate, incomplete-extraction, wide-signature, complexity, and ownership review.
 - Hot-path storage remains fixed or pre-reserved with no new runtime allocation
   privilege.
 - Physics, replay visual fidelity, and performance gates pass after any
@@ -948,7 +948,7 @@ solver changes.
   tags or scene-specific continuous modes.
 - [x] **FP3 — Discrete correctness and determinism closure.** Mandatory blocker
   before any predictive implementation.
-- [x] **FP4 — Discrete performance A/B and owner ruling.** Isolate and record the
+- [x] **FP4 — Discrete performance A/B and review decision.** Isolate and record the
   performance improvement.
 - [ ] **FP5 — Ragdoll 3-DOF point joint.** Pin linear anchor coincidence with a
   3-by-3 effective mass and vector warm start.

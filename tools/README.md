@@ -188,7 +188,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `generate_physics_scale_sleepy_scene.py --check\|--write` | Check or deterministically regenerate the 5,000-body sleeping-heavy scale fixture |
 | `validate_format.bat` | Check changed first-party C++ source directly with the pinned clang-format binary |
 | `format_fix.bat` | Apply the pinned clang-format binary to changed first-party C++ source |
-| `check_related_paths.py [--self-test]` | Advisory report for unresolved repository-relative paths in tracked source learning-header `Related:` blocks; never blocks validation |
+| `check_related_paths.py [--self-test]` | Advisory report for unresolved repository-relative paths in existing source `Related:` blocks; never blocks validation |
 | `check_build_config_consistency.py --repo . [--format text\|json] [--self-test]` | Inventory effective C++ metadata across the six first-party projects; fail on dropped per-file inheritance or shared-source divergence without an exact current-setting ruling |
 | `check_source_design.py --repo . [--self-test] [--files ...]` | Use Clang-Tidy and Clang Query on changed C++ translation units; reject wide or oversized functions, deep nesting, member-prefixed locals, pure parameter aliases, and immediate parameter-struct unpacking without a permission ledger |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
@@ -201,7 +201,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_dependency_graph.bat` | Run data-only package, planted proof-drift, malformed-marker, residual-parser, retired-vocabulary, and exact missing/duplicate project-owner XML/path fixtures; freshness-check the marked `AGENTS.md` projection; then scan live source includes, bounded deleted concepts, and dedicated project ownership such as `SkullbonezSource/UI` in `SKULLBONEZ_UI.vcxproj` |
 | `validate_runtime_interaction_policy.bat` | CPU-only checks for runtime interaction ownership, pointer capture, camera-look, and physics-step policy |
 | `validate_automation.bat` | Pre-commit boundary check plus one combined replay/prediction and development-UI command smoke in the diagnostics-only Automation build |
-| `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: one hidden engine process, one prediction generation, immutable golden comparison, offline artifact round-trip, and false-pass controls |
+| `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: one hidden engine process, one prediction generation, immutable golden comparison, offline artifact round-trip, and negative controls |
 | `validate_replay_allocation_policy.bat` | Builds Automation, runs one hidden two-generation tornado prediction process, and requires zero gameplay/reserve violations plus a complete frame-180 interaction report |
 | `validate_replay_scrub.bat` | Historical replay-scrub entry point; delegates exclusively to `validate_replay_visual_fidelity.bat` and preserves its failure status |
 | `validate_alt_velocity_visualization.bat` | Builds Automation and runs instant/amortized N-body ALT-VEL drags, requiring a live selected-path preview, zero held-drag restarts, and release-only authoritative replacement |

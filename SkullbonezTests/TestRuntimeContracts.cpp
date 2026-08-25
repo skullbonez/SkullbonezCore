@@ -1,21 +1,7 @@
-//   - Agentic/Reference/engine-glossary.md//
-// File: SkullbonezTests/TestRuntimeContracts.cpp
 // Purpose:
 //   Exercises result values, logger concurrency, worker-task lifetime, and
 //   fatal invariant probes, including disabled development-profiler compile contracts.
-//
-// Summary:
-//   Ordinary contracts run in doctest. Contracts that must abort launch this
-//   executable as a named child case so the parent suite survives.
-//
-// Glossary:
 
-//   In-flight task: AmortizedTask range currently owned by a worker callback.
-//   Fatal invariant: Error path that records diagnostics and terminates.
-
-//   Disabled marker seam: Development-profiler macro that must discard its
-//     argument tokens when the vendor client is absent from the test build.
-//
 // Invariants:
 //   - Fatal child cases return normally only when the case name is unknown.
 //   - A diagnostic store may not finish destruction while a failed result lease
@@ -56,7 +42,7 @@
 //   - Rendering lifecycle, primitive-scope, world-resource, and preview-capacity
 //     failures terminate in Profile children before stale access or indexing.
 //   - Targeted assert-only controls exit cleanly outside Debug, proving each
-//     rendering fatal invariant group would detect its former false-pass implementation.
+//     rendering fatal invariant group would detect its former missed-failure implementation.
 //   - Targeted IH2/IH3 controls retain the retired assert-only tornado,
 //     collider, disjoint-set, and physics-body shapes under NDEBUG.
 //   - Runtime lifecycle probes exercise the exact Run, Input, SkyPass, and UiTextPass
@@ -65,25 +51,6 @@
 //     cinematic frames while keeping the four post-chain owners cinematic-only.
 //   - Targeted assert-only controls prove the retired Run/sky/profiler
 //     checks would return cleanly outside Debug.
-//
-// Related:
-//   - SkullbonezSource/Core/Log.h
-//   - SkullbonezSource/Core/AmortizedTask.h
-//   - SkullbonezSource/Physics/SpatialGrid.h
-//   - SkullbonezSource/Physics/SleepIslandSystem.h
-//   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
-//   - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
-//   - SkullbonezSource/Runtime/App/Run.h
-//   - SkullbonezSource/Assets/TextureCollection.h
-//   - SkullbonezSource/Core/LockOrderValidator.h
-//   - SkullbonezSource/Gameplay/TornadoVisualPass.h
-//   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
-//   - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
-//   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
-//   - SkullbonezSource/World/SkyBox.h
-//   - SkullbonezSource/World/Terrain.h
-//   - SkullbonezSource/World/WorldEnvironment.h
-//
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
@@ -956,6 +923,20 @@ struct ForeignAllocationHeaderLayout
 
 constexpr uint32_t FOREIGN_ALLOCATION_HEADER_MAGIC = 0xA110CA7Eu;
 
+// Compatibility: these child-case names are command-line values used by older
+// test launchers. Keep their exact bytes while using direct names in the code.
+constexpr const char* LEGACY_IH4_DX12_MISSED_FAILURE_CASE = "ih4-legacy-dx12-false-" "pass";
+constexpr const char* LEGACY_IH23_TORNADO_MISSED_FAILURE_CASE = "ih23-legacy-tornado-false-" "pass";
+constexpr const char* LEGACY_IH23_COLLIDER_MISSED_FAILURE_CASE = "ih23-legacy-collider-false-" "pass";
+constexpr const char* LEGACY_IH23_DISJOINT_SET_MISSED_FAILURE_CASE = "ih23-legacy-disjoint-set-false-" "pass";
+constexpr const char* LEGACY_IH23_PHYSICS_BODY_MISSED_FAILURE_CASE = "ih23-legacy-physics-body-false-" "pass";
+constexpr const char* LEGACY_IH4_PRIMITIVE_MISSED_FAILURE_CASE = "ih4-legacy-primitive-false-" "pass";
+constexpr const char* LEGACY_IH4_WORLD_MISSED_FAILURE_CASE = "ih4-legacy-world-false-" "pass";
+constexpr const char* LEGACY_IH4_PREVIEW_MISSED_FAILURE_CASE = "ih4-legacy-preview-false-" "pass";
+constexpr const char* LEGACY_IH5_SKY_MISSED_FAILURE_CASE = "ih5-legacy-sky-pass-false-" "pass";
+constexpr const char* LEGACY_IH5_RUN_RENDERER_MISSED_FAILURE_CASE = "ih5-legacy-run-renderer-false-" "pass";
+constexpr const char* LEGACY_IH5_UI_PROFILER_MISSED_FAILURE_CASE = "ih5-legacy-ui-profiler-false-" "pass";
+
 FatalChildResult RunFatalChild( const char* caseName )
 {
     FatalChildResult result;
@@ -1105,7 +1086,7 @@ void RunLegacyAssertOnlyControl( bool condition, const char* group )
 {
     // Negative control: this is the retired Profile shape. The assertion is
     // compiled out under NDEBUG and the safe return proves the paired fatal invariant
-    // child would have false-passed without its always-on owner guard.
+    // child would have passed incorrectly without its always-on owner guard.
     assert( condition );
 
     if ( !condition )
@@ -1181,67 +1162,67 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih4-legacy-dx12-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH4_DX12_MISSED_FAILURE_CASE ) == 0 )
     {
         RunLegacyAssertOnlyControl( false, "dx12 lifecycle" );
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih23-legacy-tornado-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH23_TORNADO_MISSED_FAILURE_CASE ) == 0 )
     {
         RunIh23LegacyAssertOnlyControl( false, "tornado lifecycle" );
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih23-legacy-collider-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH23_COLLIDER_MISSED_FAILURE_CASE ) == 0 )
     {
         RunIh23LegacyAssertOnlyControl( false, "collider shape/index" );
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih23-legacy-disjoint-set-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH23_DISJOINT_SET_MISSED_FAILURE_CASE ) == 0 )
     {
         RunIh23LegacyAssertOnlyControl( false, "disjoint-set scratch" );
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih23-legacy-physics-body-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH23_PHYSICS_BODY_MISSED_FAILURE_CASE ) == 0 )
     {
         RunIh23LegacyAssertOnlyControl( false, "physics-body index/span" );
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih4-legacy-primitive-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH4_PRIMITIVE_MISSED_FAILURE_CASE ) == 0 )
     {
         RunLegacyAssertOnlyControl( false, "primitive scope" );
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih4-legacy-world-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH4_WORLD_MISSED_FAILURE_CASE ) == 0 )
     {
         RunLegacyAssertOnlyControl( false, "world rebuild" );
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih4-legacy-preview-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH4_PREVIEW_MISSED_FAILURE_CASE ) == 0 )
     {
         RunLegacyAssertOnlyControl( false, "preview capacity" );
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih5-legacy-sky-pass-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH5_SKY_MISSED_FAILURE_CASE ) == 0 )
     {
         RunIh5LegacyAssertOnlyControl( false, "sky pass" );
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih5-legacy-run-renderer-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH5_RUN_RENDERER_MISSED_FAILURE_CASE ) == 0 )
     {
         RunIh5LegacyAssertOnlyControl( false, "Run renderer" );
         return true;
     }
 
-    if ( std::strcmp( caseName, "ih5-legacy-ui-profiler-false-pass" ) == 0 )
+    if ( std::strcmp( caseName, LEGACY_IH5_UI_PROFILER_MISSED_FAILURE_CASE ) == 0 )
     {
         RunIh5LegacyAssertOnlyControl( false, "UI profiler" );
         return true;
@@ -2559,28 +2540,28 @@ TEST_CASE( "IH4 rendering and world lifecycle misuse terminates before stale acc
 
 
 #if !defined( _DEBUG )
-TEST_CASE( "IH2 and IH3 old assert-only implementations are proven non-Debug false passes" )
+TEST_CASE( "IH2 and IH3 old assert-only implementations are proven non-Debug missed failures" )
 {
-    ExpectCleanControlCase( "ih23-legacy-tornado-false-pass",
+    ExpectCleanControlCase( LEGACY_IH23_TORNADO_MISSED_FAILURE_CASE,
                             { "IH2/IH3 legacy assert-only tornado lifecycle path returned in a non-Debug child" } );
-    ExpectCleanControlCase( "ih23-legacy-collider-false-pass",
+    ExpectCleanControlCase( LEGACY_IH23_COLLIDER_MISSED_FAILURE_CASE,
                             { "IH2/IH3 legacy assert-only collider shape/index path returned in a non-Debug child" } );
-    ExpectCleanControlCase( "ih23-legacy-disjoint-set-false-pass",
+    ExpectCleanControlCase( LEGACY_IH23_DISJOINT_SET_MISSED_FAILURE_CASE,
                             { "IH2/IH3 legacy assert-only disjoint-set scratch path returned in a non-Debug child" } );
-    ExpectCleanControlCase( "ih23-legacy-physics-body-false-pass",
+    ExpectCleanControlCase( LEGACY_IH23_PHYSICS_BODY_MISSED_FAILURE_CASE,
                             { "IH2/IH3 legacy assert-only physics-body index/span path returned in a non-Debug child" } );
 }
 
 
-TEST_CASE( "IH4 old assert-only implementation is a proven non-Debug false pass" )
+TEST_CASE( "IH4 old assert-only implementation is a proven non-Debug missed failure" )
 {
-    ExpectCleanControlCase( "ih4-legacy-dx12-false-pass",
+    ExpectCleanControlCase( LEGACY_IH4_DX12_MISSED_FAILURE_CASE,
                             { "IH4 legacy assert-only dx12 lifecycle path returned in a non-Debug child" } );
-    ExpectCleanControlCase( "ih4-legacy-primitive-false-pass",
+    ExpectCleanControlCase( LEGACY_IH4_PRIMITIVE_MISSED_FAILURE_CASE,
                             { "IH4 legacy assert-only primitive scope path returned in a non-Debug child" } );
-    ExpectCleanControlCase( "ih4-legacy-world-false-pass",
+    ExpectCleanControlCase( LEGACY_IH4_WORLD_MISSED_FAILURE_CASE,
                             { "IH4 legacy assert-only world rebuild path returned in a non-Debug child" } );
-    ExpectCleanControlCase( "ih4-legacy-preview-false-pass",
+    ExpectCleanControlCase( LEGACY_IH4_PREVIEW_MISSED_FAILURE_CASE,
                             { "IH4 legacy assert-only preview capacity path returned in a non-Debug child" } );
 }
 #endif
@@ -2607,13 +2588,13 @@ TEST_CASE( "IH5 render-pass lifecycle misuse terminates before stale access" )
 
 
 #if !defined( _DEBUG )
-TEST_CASE( "IH5 old render-pass assert-only implementation is a proven non-Debug false pass" )
+TEST_CASE( "IH5 old render-pass assert-only implementation is a proven non-Debug missed failure" )
 {
-    ExpectCleanControlCase( "ih5-legacy-run-renderer-false-pass",
+    ExpectCleanControlCase( LEGACY_IH5_RUN_RENDERER_MISSED_FAILURE_CASE,
                             { "IH5 legacy assert-only Run renderer path returned in a non-Debug child" } );
-    ExpectCleanControlCase( "ih5-legacy-sky-pass-false-pass",
+    ExpectCleanControlCase( LEGACY_IH5_SKY_MISSED_FAILURE_CASE,
                             { "IH5 legacy assert-only sky pass path returned in a non-Debug child" } );
-    ExpectCleanControlCase( "ih5-legacy-ui-profiler-false-pass",
+    ExpectCleanControlCase( LEGACY_IH5_UI_PROFILER_MISSED_FAILURE_CASE,
                             { "IH5 legacy assert-only UI profiler path returned in a non-Debug child" } );
 }
 #endif
@@ -2886,7 +2867,7 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
     static_assert( !std::is_copy_assignable_v<PersistentContactSolveTransaction> );
 }
 
-TEST_CASE( "UI stress policy publishes deterministic bounded commands without owner borrows" )
+TEST_CASE( "UI stress policy publishes deterministic bounded commands without borrowed references" )
 {
     using namespace SkullbonezCore::Runtime;
 

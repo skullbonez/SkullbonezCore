@@ -1208,7 +1208,7 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentationBefore
                                                       world.Physics(), world.Entities() );
 
             // Invariant: this cold probe runs production overlay and
-            // publication phases directly. Every owner borrow is loop-local;
+            // publication phases directly. Every borrowed reference is loop-local;
             // no probe-only parameter packet can become a second owner graph.
             const ReplayPredictionPresentationView predictionView = prediction.PresentationView();
             const ReplaySolverFrameSample* currentSolver = ReplayProbeCurrentSolverSample( timeline, scrubber, prediction );

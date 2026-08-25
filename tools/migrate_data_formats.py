@@ -1,43 +1,13 @@
-# File: tools/migrate_data_formats.py
 # Purpose:
 #   Upgrade authored scenes, asset libraries, convex hulls, and engine config
 #   files.
-#
-# Summary:
-#   This cold tool owns deterministic rewrites from legacy authored inputs to
-#   each format's current native stamp; runtime compatibility remains specific
-#   to that format and version. Migration steps are sequenced by source version
-#   so an already-crossed quaternion or vocabulary boundary is never applied
-#   twice.
-#
-# Glossary:
-#   Native stamp: The integer version field/directive owned by one file format.
-#   Check mode: Read-only CI/editor probe that reports files needing migration.
-#   Legacy v0: An asset library or engine config written before version stamps.
-#   Config v2: Adds the enabled-by-default deterministic mutual-gravity worker
-#     key after the sibling apply-forces execution key.
-#   Config v3: Adds the default-off pinned SIMD-kernel key after the integration
-#     execution key; old content remains on the byte-exact scalar path.
-#   Config v4: Removes the rejected SIMD-kernel key; the retained engine path is
-#     scalar-only over the byte-certified SoA body layout.
-#   Config v5: Removes every contact-audio setting after the subsystem and its
-#     authored content were retired.
-#   Config v6: Removes the render-only terrain sampling key after rendering and
-#     collision returned to one authoritative post grid.
-#   Scene v4: Renames the authored impulse application value so the key states
-#     that its world-space vector is relative to the body's center.
-#
+
 # Invariants:
 #   - Rewriting an already-current file is byte-idempotent.
 #   - Future versions fail and are never downgraded.
 #   - Scene v1/v2 raw orientations are conjugated exactly once on the v3 step.
 #   - Scene v3 impulse offsets retain their numbers while only the key changes.
 #   - Config migrations edit only their owned rows and preserve unrelated rows.
-#
-# Related:
-#   - tools/bake_hulls.py
-#   - SkullbonezSource/Scene/AuthoredSceneParserAssets.cpp
-#   - SkullbonezSource/Core/Config.cpp
 
 from __future__ import annotations
 

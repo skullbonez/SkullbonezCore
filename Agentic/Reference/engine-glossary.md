@@ -1,15 +1,9 @@
 # Engine Glossary
 
-This reference owns the canonical meaning of vocabulary defined by more than
-one tracked Skullbonez source file. It is a documentation boundary, not a C++
-dependency: source learning headers cite this file from `Related:` instead of
-copying a shared definition.
-
-A term defined in exactly one tracked `.cpp`, `.h`, `.hpp`, `.inl`, or `.hlsl`
-file stays in that file's `Glossary:` block. Once the same exact term is
-defined in more than one tracked source file, this glossary owns its single
-definition and the source copies must be removed. Counts describe current
-structure; they are not thresholds, budgets, or permission to retain copies.
+This reference gives shared Skullbonez engine terms one concise definition. It
+is a documentation boundary, not a C++ dependency. Source comments may point
+here when a shared term needs more context; file-specific terms should be
+explained once beside their first dense use.
 
 These 341 definitions are review decisions. Terms are distinguished by exact
 spelling and capitalization, so case-distinct terms remain distinct until a
@@ -138,7 +132,7 @@ exception for duplicated or conflicting definitions.
 | Future node | Causal topology row naming the predicted body, parent, activation frame, contact evidence, and depth that make a child path visible. |
 | Generated scene | Runtime-created demo scene with deterministic cameras and model placement. |
 | Generation | Reuse identity carried with a slot or handle so stale references can be rejected. |
-| Geometry owner | Renderer owner borrowed while creating or destroying debug vertex and instance buffers. |
+| Geometry owner | Renderer borrowed while creating or destroying debug vertex and instance buffers. |
 | Gesture | Active pointer operation that owns capture until it ends. |
 | Ghost request | Typed predicted pose and material treatment consumed by the ordinary object-shape renderer. |
 | Gizmo | World-space editor axes or rotation rings used to transform selected models. |
@@ -266,7 +260,7 @@ exception for duplicated or conflicting definitions.
 | Required contact | Named body pair that must touch before automation completes. |
 | Reserve owner | Named runtime storage owner with an initial capacity, hard cap, and capacity telemetry row. |
 | Reset snapshot | Value-only copy of owner state preserved across same-scene reset. |
-| Resource builder | Cold renderer owner borrowed only while compiling the laser shader. |
+| Resource builder | Cold renderer borrowed only while compiling the laser shader. |
 | Resource context | Creation/rebuild-only render factory bundle used by EnsureGpuResources methods, not by draw methods. |
 | Resource state | DX12 usage mode for a resource, such as render target, shader read, copy source, or present. |
 | Restitution | Bounce response copied from collider material data into contact views for diagnostics and future solver inputs. |

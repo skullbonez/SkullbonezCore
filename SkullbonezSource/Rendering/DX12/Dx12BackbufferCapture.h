@@ -19,8 +19,8 @@ Invariants:
   - Pixel memory is mapped only after a successful covering-fence wait.
   - Quarantine is fixed capacity and never grows during runtime.
   - Quarantined resources release only through ReleaseAfterTerminalDrain.
-  - The owner borrows one restricted capture-frame capability and the device
-    extent owner for the complete renderer lifetime; it cannot reach uploads,
+  - The owner stores restricted references to the capture-frame capability and
+    device extent for the complete renderer lifetime; it cannot reach uploads,
     descriptors, pipelines, or unrelated frame policy.
 
 Related:

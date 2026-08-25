@@ -1,26 +1,6 @@
 /*
-File: SkullbonezTests/TestOwnerRequestQueues.cpp
 Purpose:
   Verifies fixed scene, capture, render-default, and operator-editor request contracts.
-
-Summary:
-  Each owner accepts only its domain intent, keeps FIFO order, and exposes a
-  fixed capacity. Invalid bounded text or editor payloads are rejected before
-  they consume storage, and duplicate frontend intent projects only once.
-
-Glossary:
-
-  Readback result: Recoverable capture owner/message returned by the renderer
-    after it attempts to copy the backbuffer into CPU-visible bytes.
-  Editor projection: Conversion of an arbitrated common action into the
-    established narrow runtime-owner command packet.
-  Layout envelope: Responsive pixel allocation that drives stable ImGui dock
-    splits without requiring a vendor context in this test executable.
-  Preference record: Fixed benign editor state that round-trips independently
-    of authored scenes and resets stale layout/panel identity during migration.
-
-  Velocity preview command: Newest target and delta-v used to bend only the
-    selected committed path while a pointer drag is held.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -50,15 +30,6 @@ Invariants:
     returned Runtime copy retains the exact failure bytes.
   - Replay interaction requests pair native capture with exactly one gesture
     transition, and scene diagnostic snapshots reject invalid count domains.
-
-Related:
-  - Agentic/Reference/engine-glossary.md
-  - SkullbonezSource/Runtime/Capture/CaptureController.h
-  - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
-  - SkullbonezSource/Runtime/Render/RenderDefaultsStore.h
-  - SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h
-  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorControlPolicy.h
-  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

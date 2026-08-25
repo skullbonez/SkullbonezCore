@@ -113,10 +113,9 @@ bypass it.
    revert, stage, or format user-owned changes unless explicitly requested.
 5. For any source-bearing file you edit (`.cpp`, `.h`, `.hpp`, `.inl`,
    `.hlsl`, or substantial tool scripts), apply the comment standard in
-   `Agentic/Reference/comment-style-guide.md`. A learning header alone is not
-   enough: dense or risky code also needs nearby `Concept:`, `Why:`,
-   `Invariant:`, `Lifetime:`, or `Hazard:` comments where the guide calls for
-   them.
+   `Agentic/Reference/comment-style-guide.md`. Keep file comments brief and put
+   `Concept:`, `Why:`, `Invariant:`, `Lifetime:`, or `Hazard:` explanations
+   beside the dense or risky code they clarify.
 6. Apply `Agentic/Reference/code-style-guide.md`. Formatting tools own
    mechanical layout; reviewers own assertion placement and semantic parameter
    ordering.
@@ -159,14 +158,14 @@ rg -n --ignore-case 'trajectory|porkchop|replay|prediction' SkullbonezSource/Ren
 ```
 
 `PhysicsBodyRecord` and hot physics store arrays gain a per-body field only
-with an owner ruling in the owning plan or commit body. The ruling must name the
+with a review decision in the owning plan or commit body. The decision must name the
 consuming stage and explain why a stage-owned fixed-capacity parallel store is
 insufficient. This is a review invariant rather than a frozen field-count or
 spelling-budget check.
 
 If an edge cannot be inverted in the owning task, record it in that task's
 exception table with the owner, reason, and deletion condition. An unrecorded
-edge or a compatibility spelling that hides it is a closure failure.
+edge or a compatibility spelling that hides it is a blocking defect.
 
 UI is a presentation library below Runtime and separate from Rendering. Runtime
 may include UI to compose, route, and draw the operator surface; UI must include
@@ -312,7 +311,7 @@ tools, product panels, or later operator workflows.
 
 Review placement by responsibility and dependency direction. New retained
 product state, commands, panels, or orchestration in Replay or Prediction are a
-closure failure even if their names avoid planning vocabulary. Shared immutable
+blocking defect even if their names avoid planning vocabulary. Shared immutable
 values stay in the lowest honest owner, while App may compose siblings. Do not
 add frozen type counts, line budgets, or spelling ratchets to enforce this
 rule.
@@ -338,50 +337,24 @@ Comment quality is part of completion, not a follow-up nicety.
   implementation. The terminal rubber-duck reviews implementation-level truth
   and may block materially false ownership, sequencing, lifetime, unit, or
   hazard claims; it does not perform cosmetic wording review.
-- Do not treat "file has a learning header" as full compliance. The body of the
-  file must also teach local vocabulary, non-obvious ownership/lifetime rules,
-  invariants, hazards, units, and validation-sensitive behavior.
-- Every learning-header `Summary:` must add ownership, decision, or flow
-  information beyond the filename. A filename restatement is not a summary.
-- A glossary term defined in exactly one tracked source file remains local. A
-  term defined in more than one tracked `.cpp`, `.h`, `.hpp`, `.inl`, or
-  `.hlsl` file belongs in `Agentic/Reference/engine-glossary.md`; source
-  learning headers cite that reference from `Related:` instead of copying the
-  definition. Review touched glossary definitions directly and consolidate any
-  duplicate or conflicting wording; there is no per-term permission registry.
-- For a subsystem or full-repository comment pass, first create or update an
-  explicit checklist plan under `Agentic/Plans/` that lists every tracked source
-  file in scope. Use `git ls-files`, not `rg`, for the inventory because ignored
-  directory names such as `Physics/Debug` can still contain tracked source.
-- The checklist is the source of truth for comment-pass completion. It must
-  include one checkbox per tracked source-bearing file in the scoped inventory
-  (`.cpp`, `.h`, `.hpp`, `.inl`, `.hlsl`, and substantial `.py`/`.bat`/`.ps1`
-  tools when they are in scope). Do not report a subsystem as complete from a
-  sample, directory glance, or search result alone.
-- Tick a checklist item only after the file has been inspected against the
-  guide. If a file is intentionally deferred, leave it unchecked and add a
-  reason; never silently skip a file.
-- A checked item means the file has both the required learning-header sections
-  and any nearby `Concept:`, `Why:`, `Invariant:`, `Lifetime:`, or `Hazard:`
-  comments needed by the guide for non-obvious code. Missing either part keeps
-  the item unchecked.
+- Do not add a mandatory file-comment template. When a file needs orientation,
+  use a short purpose comment and retain only facts that help a reader understand
+  ownership, flow, lifetime, threading, units, hazards, or validation-sensitive
+  behavior. Do not repeat the filename, build a local glossary, or add navigation
+  lists merely to fill headings.
+- Put explanations next to the code they support. Dense or risky code needs the
+  relevant `Concept:`, `Why:`, `Invariant:`, `Lifetime:`, or `Hazard:` comment;
+  a long file preamble is not a substitute.
+- Shared engine terminology belongs in
+  `Agentic/Reference/engine-glossary.md`. Explain a one-off term at its first
+  dense use instead of creating a per-file glossary section.
 - Comments that assert ownership, sequencing, or subsystem behavior must name
   owners and paths that exist in the post-change source. When a change moves a
   responsibility, correct every touched comment describing the previous owner
   in the same commit.
-- Repository-relative `Related:` entries must resolve, and must point at
-  durable targets: source files, `tools/` scripts, `Agentic/Reference/`
-  material, or a root document. Do not cite deletion-bound
-  `Agentic/Plans/TODO/` plans, and do not reintroduce a per-commit report
-  archive to link against; git history is the archive. The standalone
-  `tools/check_related_paths.py` report is advisory and does not block validation.
-- Before final reporting on a comment pass, rerun the scoped `git ls-files`
-  inventory and reconcile it against the checklist. The final answer or handoff
-  must include the checklist path, checked count, deferred count, and any files
-  still unchecked.
 - Trivial wrappers, link stubs, one-line forwarding files, and tiny batch or
-  PowerShell helpers do not need a full learning header when the diff is
-  self-explanatory. Add local comments only for non-obvious validation purpose,
+  PowerShell helpers need no file preamble when the diff is self-explanatory.
+  Add local comments only for non-obvious validation purpose,
   shell hazards, ownership, or runtime behavior.
 - Comment-only source edits count as documentation-only for repository
   validation, provided the diff is strictly comments/docs. If code behavior
@@ -510,7 +483,7 @@ input, scene, replay, render, UI, physics, tools, capture, defaults, or
 diagnostics business state. Those domains must have concrete owners with typed
 value boundaries.
 
-The following are closure failures, even when presented as temporary or
+The following are blocking defects, even when presented as temporary or
 compatibility architecture:
 
 - mutable multi-domain state or queues collected in `Run` or a replacement
@@ -521,7 +494,7 @@ compatibility architecture:
   business operations while authority remains in `Run`;
 - an extracted function that preserves its pre-extraction body by rebinding
   parameters to member-prefixed locals, which moves code without moving design
-  and is invisible to include and member checks (see the Extraction Scar Rule);
+  and is invisible to include and member checks (see the Incomplete Extraction Rule);
 - an extracted owner that absorbs unrelated domains and becomes the next god
   object;
 - a completion claim based only on line count, file count, or a mechanical
@@ -544,7 +517,7 @@ shape or their effect on parameter count.
   multi-owner work is legitimate only when its header names the owned rule in
   an `Invariant:` block and a focused test exercises that rule.
 - An aggregate that only carries data to shorten a signature is an
-  authority-free bag and remains banned.
+  invariant-free parameter bag and remains banned.
 - An invariant-owning transaction stores values and a phase cursor, never
   long-lived owner pointers. Borrowed owners enter phase methods and expire
   when those calls return.
@@ -559,19 +532,19 @@ shape or their effect on parameter count.
 ### The Test Is Ownership, Not Spelling
 
 Ask one question of every aggregate: **what rule does this type enforce that its
-absence would let a caller break?** A type that has no answer is authority-free
+absence would let a caller break?** A type that has no answer enforces no rule
 and is banned no matter what it is named. Renaming a banned shape has never made
 it legitimate, and the following cases are explicitly not exempt because their
 names avoid the banned nouns.
 
-- **A behavior-free aggregate whose only member borrows another owner is
-  authority-free.** It cannot narrow representation or enforce identity, so it
+- **A behavior-free aggregate whose only member borrows another owner enforces
+  no rule.** It cannot narrow representation or enforce identity, so it
   exists only to add a name. Take the pointer/reference directly. A one-field
   class that provides real behavior, or a strong value type that narrows a
   scalar into a tested domain identity, is not this shape.
 - **An aggregate whose sole consumer destructures every member at entry owns
   nothing.** If the first thing the consumer does is copy members into locals or
-  forward them onward unchanged, the type is a courier. This is the case the
+  forward them onward unchanged, the type is only a parameter wrapper. This is the case the
   `RenderModelPassInput` example below records.
 - **Two aggregates with identical member lists are one aggregate or none.** If
   they differ only by name and comment, neither is expressing an invariant.
@@ -609,10 +582,10 @@ not one struct at a time.
   is a false claim and is repaired under the Comment Quality Gate, not left as
   aspiration.
 
-## Extraction Scar Rule
+## Incomplete Extraction Rule
 
 A decomposition is judged by whether the extracted code reads as code written for
-its new owner. Two shapes prove it does not, and both are closure failures:
+its new owner. Two shapes prove it does not, and both are blocking defects:
 
 - **A member-prefixed local.** Rebinding a parameter to an `m_`-named local
   preserves a pre-extraction spelling so a lifted body needed no internal edits.
@@ -628,7 +601,7 @@ its new owner. Two shapes prove it does not, and both are closure failures:
 has no permission ledger. Range-for bindings are language-required and are not
 reported as pure aliases.
 
-**Banned example — authority-free bag:** the rejected
+**Banned example — invariant-free parameter bag:** the rejected
 `RenderModelPassInput` shape from the 2026-07-23 parameter-bag remediation
 was immediately unpacked by its consumer. Deleting it only widened the
 signature; it enforced no lifecycle, ordering, arbitration, or authority
@@ -640,7 +613,7 @@ invariant, and expose arbitration methods that replace free which-value-wins
 helpers. Its header must name the exact phase-order and arbitration invariant
 it enforces.
 
-This rule does not relax the context-bag, callback-pack, owner reach-back, or
+This rule does not relax the broad-parameter-object, callback-pack, owner reach-back, or
 forwarding bans and does not bypass the wide-signature qualitative review
 trigger. Passing a legitimate invariant owner as one parameter is not review
 evasion because the header invariant and focused test independently establish
@@ -901,7 +874,7 @@ render, or tool gate; it does not replace it.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
 ### Physics Golden Governance
 
-- **Active Physics plans have standing automated golden-transition authority.** A phase may update every golden it governs, including Physics CSV, known-issue, SkullScope, replay, visual, causal, and performance goldens, without a per-update owner phrase, interactive terminal, or separate pre-approval. Non-Physics work retains its existing golden approval rules. This authority never permits a blind refresh merely to clear a gate: the phase must explain the behavior change, carry focused false-pass controls, and treat an unexplained difference as a bug.
+- **Active Physics plans follow the approved golden-update policy.** A phase may update every golden it governs, including Physics CSV, known-issue, SkullScope, replay, visual, causal, and performance goldens, without a per-update owner phrase, interactive terminal, or separate pre-approval. Non-Physics work retains its existing golden approval rules. This policy never permits a blind refresh merely to clear a gate: the phase must explain the behavior change, carry focused negative controls, and treat an unexplained difference as a bug.
 - **Every Physics-plan transition is content-bound and archive-bound.** Before replacing any tracked golden, create a new append-only bundle under `Agentic/Plans/Artifacts/<physics-plan>/<phase>/golden-transitions/<transition-id>/`. Preserve the exact old-behavior and new-producing first-party game executable sets plus any first-party `SKULLBONEZ_*.dll` outputs required by those executables. Never commit system or third-party runtime DLLs, SDK redistributables, compiler payloads, symbols, import libraries, or other derived binary artifacts. `manifest.json` records the owning plan and phase, source commits, each golden's path and old/new SHA-256, every retained game-binary path, byte size and SHA-256, the dependency-scan command, and the exact launch command. Dependency scans may name omitted system or third-party components; reproduce them from the repository's pinned setup/build inputs. Never overwrite or delete an older transition bundle except when the owner explicitly removes a prohibited third-party binary under this policy. Retain the new producer so it becomes the old-behavior comparison executable for the next transition; if the exact prior first-party producer is unavailable, the golden cannot be replaced.
 - **Automated writers fail closed.** The core CSV lane is `tools/check_physics_baseline_guard.py --automated-override-output <output> --candidate-sha256 <sha256> --artifact-manifest <manifest.json>`. The candidate hash must match the exact serialized output, the manifest must bind both old and new golden hashes, the retained new executable must byte-match the producer, every declared first-party game-binary hash must pass, and every retained artifact binary must use a `SKULLBONEZ_*.exe` or `SKULLBONEZ_*.dll` name. The staged guard repeats verification from Git-index bytes, rejects third-party/system binary payloads, and rejects mutation of committed bundles. Physics-plan replay, visual, causal, known-issue, and SkullScope writers use their corresponding automated-override hash and manifest flags; deep CSV or performance files without a specialized writer use the guard's generic `--automated-override-file` lane. `Agentic/Plans/Artifacts/README.md` owns the exact schema and examples.
 - **A Physics golden transition requires its final mapped gate.** Regenerate CSV or SkullScope baselines only from the final Debug executable, scene files, and config that will be committed, then rerun the matching gate after the baseline files are updated: `tools\validate_physics.bat` for the core varied-scene baseline, `tools\validate_physics_deep.bat` for bullet sweep, shooting, known-issue, or SkullScope baselines, and the replay visual-fidelity gate for replay/visual/causal goldens. Source, tests, golden changes, and the complete transition bundle land atomically. A copied artifact is not trustworthy until the mapped gate compares it byte-exactly against the committed baseline.
@@ -944,7 +917,7 @@ render, or tool gate; it does not replace it.
 
 ## Provenance-Only Golden Reconciliation
 
-Standing owner ruling adopted 2026-07-17: a config-format/version bump
+A review decision adopted 2026-07-17 states that a config-format/version bump
 automatically authorizes provenance-hash-only reconciliation in committed
 replay or visual golden metadata. A separate owner approval is not required
 only when every condition below is satisfied:
@@ -987,11 +960,11 @@ that does not is incomplete rather than clean:
 
 1. **Aggregate ownership.** Does every aggregate the change touches or adds name
    a rule it enforces? A behavior-free aggregate whose sole member is a borrowed
-   owner, or one whose sole consumer destructures it at entry, is authority-free
+   owner, or one whose sole consumer destructures it at entry, enforces no rule
    — say so and name the replacement.
 2. **Capability slices.** Can any single operation reach the whole surface? Do
    some operations take slices while others reach the same owners as members?
-3. **Extraction scars.** Does any local use the `m_` member convention, or exist
+3. **Incomplete extractions.** Does any local use the `m_` member convention, or exist
    only as a second name for a parameter?
 4. **Rename evasion.** Did a shape the change deleted reappear under a different
    suffix? Deleting `FooContext` and adding `FooOperands` closes nothing.
@@ -1074,7 +1047,7 @@ run the specified targeted validation:
 | Renderer backend regression | Visual divergence from committed DX12 references | `validate_dx12_renderer` screenshot diff |
 | DX12 renderer gate | Future visual regressions after parity removal | `validate_dx12_renderer` + verify `dx12_validation.txt` = 0 |
 | Per-frame heap allocations | Performance cliff, stall spikes | `validate_perf` + manual hot path review |
-| Visual regression baselines | False passes hide real bugs | `validate_dx12_renderer` + intentional baseline update |
+| Visual regression baselines | Missed failures hide real bugs | `validate_dx12_renderer` + intentional baseline update |
 | Physics regression baselines | Stale baselines hide real behavior changes | Update only from final Debug artifacts, then rerun `validate_physics` or `validate_physics_deep` to match the baseline set |
 | Matrix conventions | Entire scene renders incorrectly | `validate_dx12_renderer` |
 | Physics determinism | Compiler, flags, inlining, SIMD, or gated-content drift can flip knife-edge branches; byte-exactness is certified per binary and pinned toolchain/content envelope | `validate_physics` byte-exact CSV diff; keep fixtures away from selection boundaries and record any motivating flip |

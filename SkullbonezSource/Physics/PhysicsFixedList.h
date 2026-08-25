@@ -1,24 +1,6 @@
 /*
-File: SkullbonezSource/Physics/PhysicsFixedList.h
 Purpose:
   Defines runtime-reserved, compile-time-bounded list storage for physics state.
-
-Summary:
-  Physics hot-path owners need vector-like dense rows sized to the active scene,
-  without steady-state reallocation. This type commits one aligned backing range
-  during scene load, or under ReplayPrediction's already-approved replay growth
-  scope, retains one allocator-registry handle and a concrete sizing reason,
-  constructs only the live prefix, and treats growth past the runtime
-  reservation or compile-time cap as a policy failure. Each direct instance
-  claims capacity-row publication only when the allocator registry has no
-  canonical publisher for that owner.
-
-Glossary:
-  Fixed-capacity list: Contiguous storage with a runtime reservation and a
-    compile-time absolute maximum.
-  Live count: Number of initialized entries currently visible to callers.
-  Capacity cap: Compile-time maximum entry count that replaces vector capacity.
-  Capacity reason: Scene quantity or fixed semantic bound that sizes one owner.
 
 Invariants:
   - Construction registers one nonzero Physics owner handle in the allocator's
@@ -38,12 +20,6 @@ Invariants:
   - Noncanonical destruction cannot clear the canonical capacity row.
   - Element relocation cannot unwind because every T is nothrow move constructible.
   - Trivially copyable rows retain the byte-exact transfer path.
-
-Related:
-  - SkullbonezSource/Physics/PhysicsBodyStore.h
-  - SkullbonezSource/Physics/ColliderStore.h
-  - AGENTS.md (Runtime Static Allocation Policy)
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -1,21 +1,6 @@
 /*
-File: SkullbonezSource/Physics/PhysicsWorld.cpp
 Purpose:
   Sequences the fixed physics step and lifecycle of concrete stage owners.
-
-Summary:
-  Composes and sequences the extracted force, broadphase, narrowphase,
-  terrain, contact, sleep, and diagnostics owners. It retains cross-stage
-  clocks, top-level sibling lanes, and handle-keyed point-joint rows whose
-  descriptor and warm-start state participate in byte-exact next-step replay.
-
-Glossary:
-  SoA (Structure of Arrays): Data layout that stores each field in a separate
-  contiguous array for cache-friendly iteration.
-  X-macro field list: Preprocessor list invoked by several tiny visitors so
-    replay capture and restore use the same ordered state inventory.
-  PhysicsEngine: Step owner that supplies stores and handles model-order
-    writeback after compact physics work finishes.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -32,12 +17,6 @@ Invariants:
   - Replay CanRestore validates dense rows, cross-owner references, committed
     capacities, and point-joint topology for every owner before Restore mutates
     any owner; rejection leaves the complete live world unchanged.
-
-Related:
-  - SkullbonezSource/Physics/PhysicsWorld.h
-  - SkullbonezTests/TestPhysicsHandles.cpp
-  - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsWorld.h"
 #include "../Core/Common.h"

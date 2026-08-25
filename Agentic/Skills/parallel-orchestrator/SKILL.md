@@ -265,7 +265,7 @@ Classify each proposed lane as one of:
 - `investigation`: read-only mapping, reproduction, measurements, or source
   analysis;
 - `implementation`: a cohesive production change with an exclusive write set;
-- `tests`: focused behavioral tests or false-pass controls in owner-specific
+- `tests`: focused behavioral tests or negative controls in owner-specific
   test files;
 - `validation`: a read-only gate against one frozen integrated commit;
 - `evidence`: bounded artifact or result collection that does not decide

@@ -7,8 +7,8 @@ Purpose:
 Summary:
   The checker strips comments and literals, identifies C/C++ math entry-point
   references, and reconciles every non-certified use against an exact
-  current-source owner ruling. It reports current structure; rulings document
-  review rather than creating a numerical allowance or count budget.
+  current-source review decision. It reports current structure; review records
+  document review rather than creating a numerical allowance or count budget.
 
 Glossary:
   Certified call: Exact or correctly-rounded operation admitted directly by the

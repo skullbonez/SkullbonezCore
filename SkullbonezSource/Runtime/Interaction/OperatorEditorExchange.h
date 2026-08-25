@@ -1,28 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h
 Purpose:
   Defines the shared value boundary used by either operator editor surface.
-
-Summary:
-  GameUI and ImGui use the same domain-grouped frame snapshot and fixed-capacity
-  typed command queues, including detached forecast status and lifecycle intent,
-  but runtime selection activates only one human surface. A deterministic
-  arbitration pass also admits optional automation/probe intent before projecting
-  one canonical packet into established owner command paths. Shared control
-  ranges live here so both front ends and command application clamp identically.
-
-Glossary:
-  Domain view: Read-only scene, property, rendering, diagnostics, authoring,
-    replay, or tool values
-    copied for one presentation frame.
-  Tool command: One-frame edit-mode, history, pause, or step intent applied by
-    the established editor and scene-flow owners after arbitration.
-  Canonical packet: The existing InGameUICommands value consumed by runtime
-    owner appliers after this exchange has resolved the active producer lane.
-  Duplicate: The same typed action and payload emitted by the active surface
-    and an injected producer during one input turn.
-  Conflict: Two commands with the same stable action identity but different
-    payloads during one input turn.
 
 Invariants:
   - Views and commands contain values or immediate-frame borrowed labels only;
@@ -31,12 +9,6 @@ Invariants:
   - GameUI commands have deterministic first priority, exact secondary duplicates
     coalesce, and conflicting duplicate payloads fail through recoverable result.
   - Projection produces at most one established owner request per action type.
-
-Related:
-  - SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
-  - SkullbonezSource/Runtime/App/InputFrame.cpp
-  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

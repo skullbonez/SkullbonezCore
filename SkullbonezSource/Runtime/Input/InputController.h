@@ -1,12 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/Input/InputController.h
 Purpose:
   Provides runtime input mode bookkeeping and camera mouse-look input policy.
-
-Summary:
-  InputRouter owns retained device, semantic-edge, mode-history, and pointer
-  state. InputController is stateless policy that updates router-owned context
-  values and camera state; it is not a second input-state owner.
 
 Package ownership:
   - Input.cpp/h is the hardware boundary: it owns callback-fed Win32 buffers
@@ -23,20 +17,11 @@ Package ownership:
   - InputController.cpp/h applies mode/context and camera policy to values owned
     by InputRouter or the camera owner; all methods remain stateless.
 
-Glossary:
-  Camera delta: Per-frame mouse movement accumulated before camera update.
-  Runtime input event: Frame-local input state consumed by Run.
-
 Invariants:
   - RuntimeInputAction order is shared by InputRouter fixed-size arrays and
     should only grow by appending before Count.
   - RuntimeInputModeState contains resolved per-frame mode facts; it must not own
     persistent subsystem state.
-
-Related:
-  - SkullbonezSource/Runtime/Input/InputController.cpp
-  - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

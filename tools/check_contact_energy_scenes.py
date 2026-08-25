@@ -1,25 +1,9 @@
 #!/usr/bin/env python3
-#
-# File: tools/check_contact_energy_scenes.py
+
 # Purpose:
 #   Enforce semantic energy, launch, support, cache, sleep, and impact outcomes
 #   for the contact-energy tower, four-brick reproduction, and 200-box topple.
-#
-# Summary:
-#   SkullScope owns trace indexing and bounded SQL answers. This checker consumes
-#   only those compact JSON answer packets. It applies workload-specific
-#   physical contracts and can compare a three-frame, named-body impact witness
-#   without freezing the wall's later chaotic poses.
-#
-# Glossary:
-#   Metric packet: Bounded JSON answer emitted by `physics_query.bat sql`; summary
-#     packets contain one row, while a final-body packet contains one row per
-#     expected dynamic body.
-#   Launch reversal: A meaningful downward-to-upward velocity crossing measured
-#     with the workload's locked dead band.
-#   Impact witness: The striker's exact state and ordered contacts for the three
-#     frames centered on its first ragdoll contact, plus semantic wall activity.
-#
+
 # Invariants:
 #   - A truncated packet is never accepted as complete evidence.
 #   - Scene energy tolerance is derived from SkullScope's six-decimal JSON precision, not observed
@@ -36,15 +20,7 @@
 #     its root support, but sleeping children need not repeat that flag forever.
 #   - `--expect-current-failure` requires the known authoritative defect codes;
 #     it cannot turn an arbitrary failure into a passing corrected gate.
-#
-# Related:
-#   - SkullbonezData/scenes/contact_energy_tower_64.scene.json
-#   - SkullbonezData/scenes/box_vibration_t0.scene.json
-#   - SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json
-#   - tools/physics_query.bat
-#   - tools/check_replay_visual_fidelity.py
-#   - Agentic/Reference/engine-glossary.md
-#
+
 """Check compact SkullScope contact-energy metric packets."""
 
 from __future__ import annotations

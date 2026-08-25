@@ -1,24 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/Automation/InteractionAutomationController.h
 Purpose:
   Defines legacy interaction-script sequencing and recorded-manifest playback.
-
-Summary:
-  Legacy scripts remain scene-frame-indexed command sequences. Recorded
-  manifests instead restore detached owner baselines and publish one complete
-  input frame per private recording turn using captured timing. Concrete runtime
-  owners still apply all requests; the controller retains progress and bounded
-  report evidence, never gameplay authority.
-
-Glossary:
-  Automation action: One scheduled command from an interaction script.
-  Assertion report: Machine-readable proof row for one expected runtime state.
-  Velocity preview assertion: Held/released-drag proof over the Prediction-owned
-    target and delta-v value, without advancing simulation.
-  Input override: Scripted mouse/key snapshot forwarded through the normal
-    runtime input bridge for a bounded frame window.
-  Forecast presentation assertion: Post-render proof over detached rolling-ring
-    metrics such as coherent heads, chronological ribbons, and wrap progress.
 
 Invariants:
   - Automation state is active only for CLI validation launches.
@@ -40,13 +22,6 @@ Invariants:
   - App applies editor and window commands synchronously; automation stores
     neither owner while retaining script progress or report evidence.
   - Process-wide development-surface selection remains a typed request for Run.
-
-Related:
-  - SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp
-  - SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.h
-  - SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h
-  - SkullbonezSource/Runtime/Input/Input.h
-  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

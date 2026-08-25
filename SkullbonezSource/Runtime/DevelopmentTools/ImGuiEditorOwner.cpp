@@ -1,31 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
 Purpose:
   Owns Dear ImGui startup, deterministic editor-shell frames, and orderly shutdown.
-
-Summary:
-  The owner installs the engine's hard-capped DearImGui allocator, creates one
-  context, selects a readable scalable font, configures single-window docking,
-  and translates immutable display facts into balanced ImGui frames. It
-  delegates DX12 device resources and draw recording to the concrete renderer
-  owner and delegates native event translation to the pinned Win32 backend.
-  One owner surrounds every Dear ImGui call with the sole current context. Each
-  completed frame leaves behind bounded presentation, input, command, and
-  status values; no runtime subsystem borrows the context or widget state.
-
-Glossary:
-  Embedded vector fallback: Dear ImGui's pinned, scalable built-in font used
-    when the optional repository font asset is absent or invalid.
-  Dock shell: Versioned single-window host with deterministic editor, viewport,
-    utility, replay, and status regions.
-  DPI (Dots Per Inch) style epoch: Fresh base style rescaled from 1.0 whenever
-    monitor scale changes, avoiding cumulative rounding drift.
-  Preview/commit edit: Scalar drag state rendered locally while active, followed
-    by one typed owner command when the item deactivates after an edit.
-  Causality detail: Dockable, virtualized view of replay-owned immutable rows;
-    local table selection never mutates replay focus or serialized state.
-  Benign preference: Panel visibility or text filter stored in a bounded
-    development-only file, never in authored scene or replay data.
 
 Invariants:
   - All vendor allocation and deallocation callbacks retain DearImGui owner
@@ -35,14 +10,6 @@ Invariants:
   - Shutdown balances an active frame before destroying the context.
   - Preference migration resets stale layout/panel identity while preserving
     only bounded text filters.
-
-Related:
-  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
-  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorControlPolicy.h
-  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
-  - SkullbonezSource/Runtime/App/RunFrame.cpp
-  - ThirdPtySource/imgui
-  - Agentic/Reference/engine-glossary.md
 */
 #include "ImGuiEditorOwner.h"
 #include "ImGuiEditorControlPolicy.h"

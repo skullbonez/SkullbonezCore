@@ -1,29 +1,7 @@
-#
-# File: tools/check_replay_prediction_determinism.py
 # Purpose:
 #   Runs the replay prediction interaction probe with inline and one-worker
 #   execution, then compares private values and rendered trajectory witnesses.
-#
-# Summary:
-#   The runtime owns prediction and trajectory generation. This tool drives the
-#   same interaction script from clean process boundaries with worker counts 0
-#   and 1, then checks that private body/contact values and submitted geometry
-#   are identical. The reveal-paced trajectory-store fingerprint is readiness
-#   evidence only because its visible prefix legitimately follows wall time.
-#
-# Glossary:
-#   Private simulation hash: FNV-1a (Fowler-Noll-Vo variant) hash of the bounded
-#     prediction's deterministic frame indices and body/contact values.
-#   Submission fingerprint: FNV-1a hash of the exact replay-ribbon vertex bytes
-#     submitted by the tracer after the reveal/build path reaches a steady
-#     window.
-#   Interaction report: JSON artifact written by --interaction-report after a
-#     scripted validation launch finishes.
-#   Steady window: Consecutive rendered frames where submitted geometry and the
-#     replay reserve-growth counter remain unchanged.
-#   Replay reserve growth: Approved runtime capacity increase for replay-owned
-#     buffers, counted by RuntimeReserveAllocator.
-#
+
 # Invariants:
 #   - Both launches use the same scene, script, fixed-step policy, and frame
 #     count; only the worker-count execution policy differs.
@@ -32,11 +10,6 @@
 #   - The submitted geometry probe must find a 120-frame steady window with no
 #     replay reserve growth, so draw-side flicker and steady-state allocation
 #     regressions fail the scrub gate.
-#
-# Related:
-#   - SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp
-#   - SkullbonezData/interaction/continuous_orbit_of0_baseline.json
-#
 
 import json
 import os

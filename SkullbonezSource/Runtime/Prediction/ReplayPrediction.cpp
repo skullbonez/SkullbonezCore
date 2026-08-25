@@ -1,26 +1,6 @@
 /*
-File: SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
 Purpose:
   Owns isolated replay simulation setup and frame-thread prediction orchestration.
-
-Summary:
-  Replay tools read two timelines. Retained solver samples describe what already
-  happened; prediction samples advance a private prediction-owned physics
-  engine.
-  Frame update prepares private-engine work, delegates worker lifetime to the
-  schedule owner, and delegates trajectory/topology publication before drawing.
-  Exact-detail readers receive only a synchronous sealed-frame view from the
-  evidence bank currently selected by the same presentation policy.
-
-Glossary:
-  Path visualizer: Overlay that draws past/future body trajectories and contact
-    handoffs.
-  Prediction slice: Bounded worker chunk that advances the private prediction
-    engine and publishes a coherent frame prefix.
-  Prediction physics tick: Prediction-owned fixed step against the private
-    prediction engine.
-  WorkerPool: Persistent engine worker threads used for fork-join loops and
-    amortized replay prediction chunks.
 
 Invariants:
   - Prediction must never write live physics stores; private engine state owns
@@ -35,15 +15,6 @@ Invariants:
     owner; this coordinator does not manipulate their atomics or task storage.
   - A presented evidence view comes from the same Build-or-Committed bank choice
     as the visible prediction frames and is never retained by this coordinator.
-
-Related:
-  - SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp
-  - SkullbonezSource/Runtime/App/ReplayAuthoringCauseTree.cpp
-  - SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.cpp
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp
-  - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPrediction.h"
 #include "../../Assets/EditorHullAssets.h"

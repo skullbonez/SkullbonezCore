@@ -95,7 +95,7 @@ ratchets.
   checkpoints, prediction archives, or replay reserve storage.
 - No synthetic pointer movement fed back from the drawn cursor into input, UI
   hit testing, camera control, or world interaction.
-- No retained fake-cursor state owner, callback pack, service/context bag,
+- No retained fake-cursor state owner, callback pack, service object, broad frame context,
   forwarding facade, or Runtime-to-Rendering feature contract.
 - No texture asset or animated cursor framework unless RIC0 proves vector draw
   values cannot meet the visibility requirement.
@@ -202,7 +202,7 @@ adding presentation code.
       failure, and playback completion.
 - [x] Identify the final draw point that is above both GameUI and ImGui and is
       included in backbuffer screenshots.
-- [x] Add focused pure-policy tests and false-pass controls for the visibility
+- [x] Add focused pure-policy tests and negative controls for the visibility
       matrix.
 - [x] Add a hardware-cursor non-interference seam or observation that proves
       fake-cursor decisions do not change native cursor visibility/capture
@@ -334,7 +334,7 @@ changes under this task.
   toolset, 0 warnings, and 0 errors.
 - `Profile\SKULLBONEZ_TESTS.exe "--test-case=Recorded cursor presentation*"
   --no-skip --no-colors` passed 3 test cases and 27 assertions, including
-  false-pass controls for both native capture and visibility observations.
+  negative controls for both native capture and visibility observations.
 - No baseline, golden, manifest/schema, Replay storage/reserve, Rendering/UI
   foundation, native cursor API, hardware capture policy, or GPU artifact was
   changed. The registered ImGui and Tracy submodules were initialized at their
@@ -453,7 +453,7 @@ access.
 Focused Profile tests passed 9/9 cases and 204/204 assertions, including the
 fixed `0x5DA1E2565D540004` draw fingerprint, exact outer-then-inner command
 shape, independent right/bottom flips, tiny-viewport contraction, fixed 0-or-2
-capacity, zero text/overflow, surface neutrality, and native-state false-pass
+capacity, zero text/overflow, surface neutrality, and native-state negative
 controls. `validate_automation`, `validate_ui_stress`, and
 `validate_dx12_renderer` passed; both graphics gates reported zero DX12
 InfoQueue errors, and the standalone renderer matched every committed baseline.
@@ -511,7 +511,7 @@ Heavy validation remains concentrated in RIC3.
 
 | Phase | Focused iteration evidence | Pre-commit/closure gates |
 |---|---|---|
-| RIC0 | visibility matrix, draw-order map, native non-interference false-pass controls | documentation and focused CPU policy tests |
+| RIC0 | visibility matrix, draw-order map, native non-interference negative controls | documentation and focused CPU policy tests |
 | RIC1 | coordinate/anchor, transitions, clearing, unchanged input/artifact tests | focused unit tests, dependency and allocation scans, Automation build |
 | RIC2 | draw fingerprints, GameUI/ImGui ordering, unchanged-manifest screenshot witness | unit tests, Automation, UI stress, DX12, bounded graphics stress |
 | RIC3 | exact manifest replay, trace/screenshot evidence, audits and independent review | all focused rows plus fast/CPU, Automation, UI stress, DX12, graphics stress, full/plan-completion |
