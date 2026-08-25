@@ -36,7 +36,9 @@ Related:
 #pragma once
 
 #include "MathsCommon.h"
+#include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <limits>
 #include <type_traits>
 
@@ -97,10 +99,36 @@ class Vector3
             return false;
         }
 
-        const float oneOverMag = 1.0f / sqrtf( magSq );
-        x *= oneOverMag;
-        y *= oneOverMag;
-        z *= oneOverMag;
+        if ( std::isfinite( magSq ) )
+        {
+            // Compatibility: ordinary finite magnitudes retain the established
+            // multiply order and exact output bytes.
+            const float oneOverMag = 1.0f / sqrtf( magSq );
+            x *= oneOverMag;
+            y *= oneOverMag;
+            z *= oneOverMag;
+            return true;
+        }
+
+        if ( !std::isfinite( x ) || !std::isfinite( y ) || !std::isfinite( z ) )
+        {
+            return false;
+        }
+
+        const float absoluteX = fabsf( x );
+        const float absoluteY = fabsf( y );
+        const float absoluteZ = fabsf( z );
+        const float largestComponent = (std::max)( absoluteX, (std::max)( absoluteY, absoluteZ ) );
+        const float scaledX = x / largestComponent;
+        const float scaledY = y / largestComponent;
+        const float scaledZ = z / largestComponent;
+        const float oneOverScaledMagnitude = 1.0f / sqrtf( scaledX * scaledX + scaledY * scaledY + scaledZ * scaledZ );
+
+        // Hazard: squaring a large finite component can overflow to infinity.
+        // Normalize its bounded ratios so success cannot publish a zero vector.
+        x = scaledX * oneOverScaledMagnitude;
+        y = scaledY * oneOverScaledMagnitude;
+        z = scaledZ * oneOverScaledMagnitude;
         return true;
     }
 

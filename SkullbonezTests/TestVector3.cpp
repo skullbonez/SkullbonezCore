@@ -29,6 +29,8 @@
 #include "../SkullbonezSource/Maths/Vector3.h"
 
 #include <cmath>
+#include <cstring>
+#include <limits>
 
 using SkullbonezCore::Math::Vector::CrossProduct;
 using SkullbonezCore::Math::Vector::Dot;
@@ -152,6 +154,46 @@ TEST_CASE( "Vector3: TryNormalise accepts a non-zero value below the engine tole
 
     REQUIRE( small.TryNormalise() );
     CHECK( small == Vector3( 1.0f, 0.0f, 0.0f ) );
+}
+
+
+TEST_CASE( "Vector3: TryNormalise scales large finite values and rejects nonfinite values atomically" )
+{
+    const float largestFinite = (std::numeric_limits<float>::max)();
+    Vector3 axis( -largestFinite, 0.0f, 0.0f );
+
+    REQUIRE( axis.TryNormalise() );
+    CHECK( axis == Vector3( -1.0f, 0.0f, 0.0f ) );
+
+    Vector3 diagonal( largestFinite, -largestFinite, largestFinite );
+    REQUIRE( diagonal.TryNormalise() );
+    CHECK( std::isfinite( diagonal.x ) );
+    CHECK( std::isfinite( diagonal.y ) );
+    CHECK( std::isfinite( diagonal.z ) );
+    CheckVectorNear( diagonal, Vector3( 0.57735026919f, -0.57735026919f, 0.57735026919f ) );
+    CHECK( VectorMag( diagonal ) == doctest::Approx( 1.0f ).epsilon( kEpsilon ) );
+
+    const float infinity = std::numeric_limits<float>::infinity();
+    Vector3 nonfinite( infinity, 1.0f, 0.0f );
+    Vector3 output( 7.0f, 8.0f, 9.0f );
+
+    CHECK_FALSE( nonfinite.TryNormalise() );
+    CHECK( nonfinite.x == infinity );
+    CHECK( nonfinite.y == 1.0f );
+    CHECK( nonfinite.z == 0.0f );
+    CHECK_FALSE( nonfinite.TryNormalised( output ) );
+    CHECK( output == Vector3( 7.0f, 8.0f, 9.0f ) );
+
+    const float quietNaN = std::numeric_limits<float>::quiet_NaN();
+    Vector3 nanInput( quietNaN, -2.0f, 3.0f );
+    const Vector3 originalNanInput = nanInput;
+    Vector3 nanOutput( 4.0f, 5.0f, 6.0f );
+
+    CHECK_FALSE( nanInput.TryNormalise() );
+    CHECK( std::memcmp( &nanInput, &originalNanInput, sizeof( nanInput ) ) == 0 );
+    CHECK_FALSE( nanInput.TryNormalised( nanOutput ) );
+    CHECK( std::memcmp( &nanInput, &originalNanInput, sizeof( nanInput ) ) == 0 );
+    CHECK( nanOutput == Vector3( 4.0f, 5.0f, 6.0f ) );
 }
 
 

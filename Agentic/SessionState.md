@@ -187,8 +187,17 @@ while cancellation inside sixteen float epsilons and exact dependent rows keep
 the documented identity fallback. Two serial read-only reviews closed a
 false-pass gap with paired inside/outside cancellation fixtures; the final pass
 is clean. Validation was deferred by explicit owner direction; no build, test,
-scanner, or validation command ran. MATH-003 is the next selected candidate:
-it is medium severity with a narrow finite-vector normalization surface.
+scanner, or validation command ran. MATH-003 is now closed: `Vector3` retains
+the established arithmetic and exact output bytes when its squared magnitude
+is finite, while large finite components whose square overflows are scaled by
+their largest absolute component before normalization. NaN and infinity are
+rejected before publication, and both normalization APIs preserve their source
+and output atomically on failure. Three serial read-only reviews closed the NaN
+class and byte-atomicity false-pass gaps; the final pass is clean. Validation
+was deferred by explicit owner direction; no build, test, scanner, inventory,
+or validation command ran. MATH-007 is the next selected candidate: it is the
+adjacent low-severity quaternion overflow with a similarly narrow ownership
+surface.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
