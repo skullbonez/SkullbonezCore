@@ -390,7 +390,7 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device, VertexF
                                                    const InstancedMeshDX12* im, const DynamicVBDX12* dvb,
                                                    const RasterStateDesc& rasterState )
 {
-    D3D12_INPUT_ELEMENT_DESC elements[16] = {};
+    D3D12_INPUT_ELEMENT_DESC elements[MAX_DX12_INPUT_ELEMENTS] = {};
     UINT numElements = 0;
 
     if ( instanced && im )

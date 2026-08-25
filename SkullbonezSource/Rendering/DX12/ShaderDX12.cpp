@@ -867,6 +867,11 @@ void ShaderDX12::SetInt( const char* name, int value ) const
         return;
     }
 
+    if ( !Dx12ReflectedUniformWriteFits( m_cbData.size(), uniform->offset, uniform->size, sizeof( value ) ) )
+    {
+        return;
+    }
+
     memcpy( m_cbData.data() + uniform->offset, &value, sizeof( int ) );
     m_cbDirty = true;
 }
@@ -884,6 +889,11 @@ void ShaderDX12::SetFloat( const char* name, float value ) const
 #ifdef _DEBUG
         ReportUniformNotReflected( name, "SetFloat" );
 #endif
+        return;
+    }
+
+    if ( !Dx12ReflectedUniformWriteFits( m_cbData.size(), uniform->offset, uniform->size, sizeof( value ) ) )
+    {
         return;
     }
 
@@ -909,6 +919,11 @@ void ShaderDX12::SetVec3( const char* name, float x, float y, float z ) const
 
     float v[3] = { x, y, z };
 
+    if ( !Dx12ReflectedUniformWriteFits( m_cbData.size(), uniform->offset, uniform->size, sizeof( v ) ) )
+    {
+        return;
+    }
+
     memcpy( m_cbData.data() + uniform->offset, v, sizeof( v ) );
     m_cbDirty = true;
 }
@@ -931,6 +946,11 @@ void ShaderDX12::SetVec4( const char* name, float x, float y, float z, float w )
 
     float v[4] = { x, y, z, w };
 
+    if ( !Dx12ReflectedUniformWriteFits( m_cbData.size(), uniform->offset, uniform->size, sizeof( v ) ) )
+    {
+        return;
+    }
+
     memcpy( m_cbData.data() + uniform->offset, v, sizeof( v ) );
     m_cbDirty = true;
 }
@@ -952,7 +972,14 @@ void ShaderDX12::SetMat4( const char* name, const Matrix4& m ) const
     }
 
     // HLSL uses #pragma pack_matrix(column_major) — send data as-is
-    memcpy( m_cbData.data() + uniform->offset, m.Data(), 64 );
+    constexpr size_t MATRIX_BYTES = sizeof( float ) * 16u;
+
+    if ( !Dx12ReflectedUniformWriteFits( m_cbData.size(), uniform->offset, uniform->size, MATRIX_BYTES ) )
+    {
+        return;
+    }
+
+    memcpy( m_cbData.data() + uniform->offset, m.Data(), MATRIX_BYTES );
     m_cbDirty = true;
 }
 

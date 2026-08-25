@@ -89,6 +89,11 @@ class Dx12PipelineOwner;
 class Dx12TextureOwner;
 class RenderBackendDX12;
 
+// Invariant: admission must reject a layout before these fixed CPU-side
+// descriptions are retained or copied into a PSO input-element array.
+inline constexpr std::size_t MAX_DYNAMIC_VERTEX_ATTRIBUTES = 12u;
+inline constexpr std::size_t MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM = 8u;
+inline constexpr std::size_t MAX_DX12_INPUT_ELEMENTS = 16u;
 
 // Dynamic vertex buffer (text, HUD)
 struct DynamicVBDX12
@@ -97,8 +102,46 @@ struct DynamicVBDX12
     int maxVertices;
     int stride;
     int numAttribs;
-    int attribComponents[12];
+    int attribComponents[MAX_DYNAMIC_VERTEX_ATTRIBUTES];
     bool perInstance = false;
+    uint32_t generation = 0;
+    bool active = false;
+};
+
+struct Dx12DynamicGeometryHandleCodec
+{
+    static constexpr uint32_t SLOT_BITS = 6u;
+    static constexpr uint32_t SLOT_MASK = ( 1u << SLOT_BITS ) - 1u;
+    static constexpr uint32_t GENERATION_MAX = ( 1u << ( 32u - SLOT_BITS ) ) - 1u;
+
+    static uint32_t Encode( size_t slot, uint32_t generation ) noexcept
+    {
+        return ( generation << SLOT_BITS ) | static_cast<uint32_t>( slot + 1u );
+    }
+    static bool Decode( uint32_t handle, size_t& slot, uint32_t& generation ) noexcept
+    {
+        const uint32_t encodedSlot = handle & SLOT_MASK;
+        generation = handle >> SLOT_BITS;
+
+        if ( encodedSlot == 0 || generation == 0 )
+        {
+            return false;
+        }
+
+        slot = static_cast<size_t>( encodedSlot - 1u );
+        return true;
+    }
+    static bool TryNextGeneration( uint32_t generation, uint32_t& nextGeneration ) noexcept
+    {
+        if ( generation >= GENERATION_MAX )
+        {
+            nextGeneration = 0;
+            return false;
+        }
+
+        nextGeneration = generation + 1u;
+        return true;
+    }
 };
 
 // Concept: these are backend physical safety budgets, not feature capacities.
@@ -150,12 +193,28 @@ struct InstancedMeshDX12
     int instanceStride;
     int instanceStartAttrib;
     int numInstanceAttribs;
-    int instanceAttribSizes[8];
+    int instanceAttribSizes[MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM];
     int numStaticAttribs;
-    int staticAttribSizes[8];
+    int staticAttribSizes[MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM];
     D3D12_GPU_VIRTUAL_ADDRESS instanceDataAddr;
     UINT instanceDataSize;
 };
+
+// Hazard: draw counts are caller values, while both vertex-buffer views expose
+// finite uploaded byte ranges. Validate by division so hostile counts cannot
+// overflow a bytes-needed multiplication.
+inline bool Dx12InstancedDrawFitsUploadedData( UINT staticBytes, int staticStride, UINT instanceBytes,
+                                               int instanceStride, int requestedStaticVertices,
+                                               int requestedInstances ) noexcept
+{
+    if ( staticStride <= 0 || instanceStride <= 0 || requestedStaticVertices <= 0 || requestedInstances <= 0 )
+    {
+        return false;
+    }
+
+    return static_cast<UINT64>( requestedStaticVertices ) <= static_cast<UINT64>( staticBytes ) / staticStride &&
+           static_cast<UINT64>( requestedInstances ) <= static_cast<UINT64>( instanceBytes ) / instanceStride;
+}
 
 
 // PSO cache key.
@@ -292,7 +351,7 @@ class Dx12TextureCommands
 };
 
 // Concept: texture lifetime is independent from frame/device orchestration.
-// This owner retains the 1-based handle table, binding rows, and mip pipeline;
+// This owner retains the generation-tagged handle table, binding rows, and mip pipeline;
 // startup binds the stable device/frame/pipeline owners used by cold convenience
 // operations. Those non-owning links share the composing backend's address
 // lifetime and intentionally survive Shutdown() so a later Initialize() can
@@ -644,6 +703,7 @@ class Dx12GeometryOwner
     size_t DynamicCount() const;
     size_t DynamicCapacity() const;
     UINT64 DynamicUploadBytes( uint32_t handle, std::span<const float> packedVertices ) const;
+    UINT64 InstanceUploadBytes( uint32_t handle, std::span<const float> packedInstances ) const;
     size_t InstancedCount() const;
     size_t InstancedCapacity() const;
     void Shutdown();
@@ -651,6 +711,22 @@ class Dx12GeometryOwner
   private:
     friend class RenderBackendDX12;
     friend struct Dx12GeometryOwnerTestAccess;
+
+    struct InstancedAttributeLayout
+    {
+        std::array<int, MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM> instanceSizes = {};
+        std::array<int, MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM> staticSizes = {};
+        std::size_t instanceCount = 0;
+        std::size_t staticCount = 0;
+        std::size_t inputElementCount = 0;
+    };
+
+    static bool AttributeLayoutFits( std::span<const int> attributeSizes, std::size_t capacity ) noexcept;
+    static bool TryBuildInstancedAttributeLayout( std::span<const int> instanceAttributeSizes,
+                                                   std::span<const int> staticAttributeSizes,
+                                                   InstancedAttributeLayout& outLayout ) noexcept;
+    DynamicVBDX12* ResolveDynamicVB( uint32_t handle ) noexcept;
+    const DynamicVBDX12* ResolveDynamicVB( uint32_t handle ) const noexcept;
 
     class SubmissionEpoch
     {
@@ -702,7 +778,7 @@ class Dx12GeometryOwner
     void RequireSubmissionEpoch( const char* operation ) const;
     uint32_t CreateInstancedMesh( const float* staticVertices, int staticVertexCount, int staticFloatsPerVertex,
                                   int instanceFloats, int instanceStartAttribute,
-                                  std::span<const int> instanceAttributeSizes, std::span<const int> staticAttributeSizes,
+                                  const InstancedAttributeLayout& attributeLayout,
                                   ID3D12Device* device, ID3D12GraphicsCommandList* commandList,
                                   ID3D12Resource* uploadResource, D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
                                   uint8_t* uploadPointer );
@@ -751,6 +827,38 @@ struct Dx12RaytracingDispatchOutcome
     SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
     bool rasterStateInvalidated = false;
 };
+
+constexpr size_t DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT = 8u;
+
+// Invariant: only a complete resolved table can cross into command recording;
+// UINT_MAX represents a missing or stale texture-registry generation.
+struct Dx12RaytracingMaterialTextureTable
+{
+    std::array<UINT, DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT> srvIndices = {};
+};
+
+inline bool TryBuildDx12RaytracingMaterialTextureTable( std::span<const UINT> resolvedSrvIndices,
+                                                        Dx12RaytracingMaterialTextureTable& outTable ) noexcept
+{
+    outTable = {};
+
+    if ( resolvedSrvIndices.size() != DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT )
+    {
+        return false;
+    }
+
+    for ( size_t i = 0; i < resolvedSrvIndices.size(); ++i )
+    {
+        if ( resolvedSrvIndices[i] == UINT_MAX )
+        {
+            return false;
+        }
+
+        outTable.srvIndices[i] = resolvedSrvIndices[i];
+    }
+
+    return true;
+}
 
 
 // Concept: optional raytracing reports one retained diagnostic for the current
@@ -864,8 +972,8 @@ class Dx12RaytracingOwner
     uint32_t m_reflectionTextureHandle = 0;
     int m_reflectionWidth = 0;
     int m_reflectionHeight = 0;
-    ID3D12Resource* m_constantBuffer = nullptr;
-    uint8_t* m_constantBufferMapped = nullptr;
+    std::array<ID3D12Resource*, Dx12FrameOwner::FRAME_COUNT> m_constantBuffers = {};
+    std::array<uint8_t*, Dx12FrameOwner::FRAME_COUNT> m_constantBufferMapped = {};
     int m_maxInstances = 0;
     std::array<D3D12_RAYTRACING_INSTANCE_DESC, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS + 1> m_instances = {};
     BLAS m_terrainBlas;

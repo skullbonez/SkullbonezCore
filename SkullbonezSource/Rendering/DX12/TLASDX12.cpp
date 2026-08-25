@@ -52,8 +52,7 @@ using SkullbonezCore::Core::SbResult;
 
 
 TLAS::TLAS( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
-    : m_resultDiagnostics( resultDiagnostics ), m_scratch( nullptr ), m_result( nullptr ), m_instanceDescs( nullptr ),
-      m_maxInstances( 0 )
+    : m_resultDiagnostics( resultDiagnostics ), m_scratch( nullptr ), m_result( nullptr ), m_maxInstances( 0 )
 {
 }
 
@@ -64,8 +63,15 @@ TLAS::~TLAS()
 }
 
 
-SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
+SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstances, UINT frameCount )
 {
+    Reset();
+
+    if ( !device || maxInstances <= 0 || frameCount == 0 )
+    {
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "TLAS: invalid instance or frame capacity" );
+    }
+
     m_maxInstances = maxInstances;
 
     // Allocate instance desc upload buffer (persistent, rewritten each frame)
@@ -87,14 +93,20 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
     // a BLAS is and how to transform it in the scene. This buffer lives in CPU-writable memory
     // (upload heap) because we rewrite instance positions every frame as balls move.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &uploadHeap, D3D12_HEAP_FLAG_NONE, &bufDesc,
-                                                  D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-                                                  IID_PPV_ARGS( &m_instanceDescs ) ) ) )
-    {
-        return m_resultDiagnostics.Failure( "Rendering/DX12", "TLAS: Failed to create instance desc buffer" );
-    }
+    m_instanceDescs.resize( frameCount, nullptr );
 
-    NameDx12Object( m_instanceDescs, L"Skullbonez DX12 TLAS Instance Descriptors" );
+    for ( UINT frameIndex = 0; frameIndex < frameCount; ++frameIndex )
+    {
+        if ( FAILED( device->CreateCommittedResource( &uploadHeap, D3D12_HEAP_FLAG_NONE, &bufDesc,
+                                                      D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                                      IID_PPV_ARGS( &m_instanceDescs[frameIndex] ) ) ) )
+        {
+            Reset();
+            return m_resultDiagnostics.Failure( "Rendering/DX12", "TLAS: Failed to create instance desc buffer" );
+        }
+
+        NameDx12ObjectIndexed( m_instanceDescs[frameIndex], L"Skullbonez DX12 TLAS Instance Descriptors", frameIndex );
+    }
 
     // Prebuild info to determine scratch/result sizes (for max instance count)
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
@@ -156,7 +168,8 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
 
 
 SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList,
-                                            const D3D12_RAYTRACING_INSTANCE_DESC* instances, int instanceCount )
+                                            const D3D12_RAYTRACING_INSTANCE_DESC* instances, int instanceCount,
+                                            UINT frameIndex )
 {
     (void)device;
 
@@ -168,13 +181,20 @@ SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device, ID3D12Graphic
         SB_FATAL( "TLAS", "Instance count exceeds max. requested=%d max=%d", instanceCount, m_maxInstances );
     }
 
-    // Map the instance descriptor buffer to CPU memory and write the new instance transforms.
+    ID3D12Resource* instanceDescs = SelectDx12FrameUploadResource( m_instanceDescs, frameIndex );
+
+    if ( !instanceDescs )
+    {
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "TLAS: frame instance descriptor slot was unavailable" );
+    }
+
+    // Map the frame-owned instance descriptor buffer and write the new transforms.
     // Map/Unmap is the DX12 way of writing CPU data to a GPU-accessible buffer.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12resource-map
     // Why: ID3D12Resource::Map is the native void-pointer ABI; validation
     // immediately narrows the result to mapped bytes for this owner.
     void* rawMapped = nullptr;
-    const HRESULT mapResult = m_instanceDescs->Map( 0, nullptr, &rawMapped );
+    const HRESULT mapResult = instanceDescs->Map( 0, nullptr, &rawMapped );
     const Dx12MappedPointerResult mappedResult = ValidateDx12MappedPointer( m_resultDiagnostics, mapResult, rawMapped,
                                                                             "TLAS instance descriptor Map" );
 
@@ -184,7 +204,7 @@ SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device, ID3D12Graphic
     }
 
     memcpy( mappedResult.bytes, instances, static_cast<size_t>( instanceCount ) * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
-    m_instanceDescs->Unmap( 0, nullptr );
+    instanceDescs->Unmap( 0, nullptr );
 
     // Build inputs tell DXR where the per-instance table lives and how many
     // rows are valid this frame. The result buffer was allocated for the
@@ -194,7 +214,7 @@ SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device, ID3D12Graphic
     inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
     inputs.NumDescs = static_cast<UINT>( instanceCount );
     inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-    inputs.InstanceDescs = m_instanceDescs->GetGPUVirtualAddress();
+    inputs.InstanceDescs = instanceDescs->GetGPUVirtualAddress();
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
     buildDesc.Inputs = inputs;
@@ -241,11 +261,16 @@ void TLAS::Reset()
         m_result = nullptr;
     }
 
-    if ( m_instanceDescs )
+    for ( ID3D12Resource*& instanceDescs : m_instanceDescs )
     {
-        m_instanceDescs->Release();
-        m_instanceDescs = nullptr;
+        if ( instanceDescs )
+        {
+            instanceDescs->Release();
+            instanceDescs = nullptr;
+        }
     }
+
+    m_instanceDescs.clear();
 
     m_maxInstances = 0;
 }

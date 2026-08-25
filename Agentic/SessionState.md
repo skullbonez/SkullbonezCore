@@ -876,3 +876,23 @@ Retained review decisions no longer use physical source coordinates.
 Deterministic-math calls use normalized statement identity and Runtime repair
 debt uses exact edge content plus stable occurrence. Source design now comes
 from Clang syntax trees without a per-site ledger.
+
+## DX12 Bug Ledger Closure (2026-08-26)
+
+DX12-001 through DX12-008 are fixed as one subsystem batch. The batch recycles
+graph-transient resources and their descriptor rows, gives every in-flight DXR
+frame private constant/TLAS upload storage, rejects oversized geometry layouts
+and incomplete raytracing material tables before command work, reconciles
+physical transient state and same-state UAV ordering across logical aliases,
+uses non-repeating reusable dynamic-geometry handles, bounds instanced uploads
+and draws to retained byte ranges, and checks every reflected uniform write
+against both its declared field and backing constant buffer.
+
+One consolidated read-only rubber-duck review covered all eight DX12 rows. It
+closed four subsystem interactions found during review: generation rollover and
+restart revival, unsupported combined color/depth transient views, illegal
+COMMON promotion into write-only states, and missing UAV ordering between
+same-state aliases. Final review counts were 0 blocking, 0 non-blocking, and 1
+missing-evidence item. Per owner direction, no build, test, scanner, inventory,
+or validation command was run; native fence, COM, and command-stream behavior
+therefore remains unexecuted evidence rather than a claimed result.

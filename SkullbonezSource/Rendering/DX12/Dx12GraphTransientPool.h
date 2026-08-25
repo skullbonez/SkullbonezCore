@@ -20,6 +20,8 @@ Invariants:
   - Target Begin/End changes bindings only; ExecuteTransitions is the sole
     transient barrier authority.
   - A target transaction restores the exact RTV, DSV, and RTV format it saved.
+  - Unused physical slots are recycled across compile/extent changes; retired
+    resources and descriptor rows remain fence-owned by Dx12FrameOwner.
   - Shutdown releases the pool only after the frame owner proves terminal drain.
 
 Related:
@@ -81,6 +83,7 @@ class Dx12GraphTransientPool
     }
 
   private:
+    void RetireSlotForReplacement( GraphTransientResourceDX12& slot );
     GraphTransientResourceDX12* FindSlot( RenderGraphResourceHandle resource );
     const GraphTransientResourceDX12* FindSlot( RenderGraphResourceHandle resource ) const;
     Dx12RenderDevice& m_device;

@@ -488,31 +488,34 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
         bufDesc.SampleDesc.Count = 1;
         bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-        if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc,
-                                                      D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-                                                      IID_PPV_ARGS( &m_constantBuffer ) ) ) )
+        for ( UINT frameIndex = 0; frameIndex < Dx12FrameOwner::FRAME_COUNT; ++frameIndex )
         {
-            outcome.result = m_resultDiagnostics.Failure( "Rendering/DX12", "Failed to create RT constant buffer" );
+            if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc,
+                                                          D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                                          IID_PPV_ARGS( &m_constantBuffers[frameIndex] ) ) ) )
+            {
+                outcome.result = m_resultDiagnostics.Failure( "Rendering/DX12", "Failed to create RT constant buffer" );
+                return outcome;
+            }
 
-            return outcome;
+            NameDx12ObjectIndexed( m_constantBuffers[frameIndex],
+                                   L"Skullbonez DX12 Raytracing Constants Upload Buffer", frameIndex );
+
+            // Why: ID3D12Resource::Map is the native void-pointer ABI; validation
+            // immediately publishes typed constant-buffer bytes to the owner.
+            void* rawMapped = nullptr;
+            const HRESULT mapResult = m_constantBuffers[frameIndex]->Map( 0, nullptr, &rawMapped );
+            const Dx12MappedPointerResult checkedMap = ValidateDx12MappedPointer(
+                m_resultDiagnostics, mapResult, rawMapped, "DXR constant buffer Map" );
+
+            if ( !checkedMap.result.Ok() )
+            {
+                outcome.result = checkedMap.result;
+                return outcome;
+            }
+
+            m_constantBufferMapped[frameIndex] = checkedMap.bytes;
         }
-
-        NameDx12Object( m_constantBuffer, L"Skullbonez DX12 Raytracing Constants Upload Buffer" );
-
-        // Why: ID3D12Resource::Map is the native void-pointer ABI; validation
-        // immediately publishes typed constant-buffer bytes to the owner.
-        void* rawMapped = nullptr;
-        const HRESULT mapResult = m_constantBuffer->Map( 0, nullptr, &rawMapped );
-        const Dx12MappedPointerResult checkedMap = ValidateDx12MappedPointer( m_resultDiagnostics, mapResult, rawMapped,
-                                                                              "DXR constant buffer Map" );
-
-        if ( !checkedMap.result.Ok() )
-        {
-            outcome.result = checkedMap.result;
-            return outcome;
-        }
-
-        m_constantBufferMapped = checkedMap.bytes;
     }
 
     // Build the static BLAS objects once. The terrain BLAS holds terrain
@@ -551,7 +554,8 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device*
     m_sphereBlas.ReleaseAfterBuild();
 
     m_maxInstances = std::clamp( maxInstances, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    SkullbonezCore::Core::SbResult setupResult = m_tlas.Init( m_device5, m_maxInstances + 1 );
+    SkullbonezCore::Core::SbResult setupResult =
+        m_tlas.Init( m_device5, m_maxInstances + 1, Dx12FrameOwner::FRAME_COUNT );
 
     if ( !setupResult.Ok() )
     {
@@ -748,7 +752,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( std::span<const 
         inst.InstanceID = static_cast<UINT>( i + 1 );
     }
 
-    return m_tlas.Build( m_device5, m_commandList4, m_instances.data(), instanceCount + 1 );
+    return m_tlas.Build( m_device5, m_commandList4, m_instances.data(), instanceCount + 1, m_frame.AllocatorIndex() );
 }
 
 
@@ -761,6 +765,31 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
 
     if ( !m_supported || !m_commandList4 || !m_pipeline )
     {
+        return outcome;
+    }
+
+    // Root parameter [3] is the material/environment texture table. Resolve
+    // every row before writing frame memory or mutating command-list state.
+    // Hazard: dispatching without a complete table can consume descriptors
+    // retained from an earlier compute pass.
+    const std::array<uint32_t, DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT> textureHandles = {
+        reflection.textures.sphere,   reflection.textures.terrain, reflection.textures.skyUp,
+        reflection.textures.skyDown, reflection.textures.skyRight, reflection.textures.skyLeft,
+        reflection.textures.skyFront, reflection.textures.skyBack
+    };
+    std::array<UINT, DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT> resolvedSrvIndices = {};
+
+    for ( size_t i = 0; i < textureHandles.size(); ++i )
+    {
+        resolvedSrvIndices[i] = textures.ResolveSrv( textureHandles[i] );
+    }
+
+    Dx12RaytracingMaterialTextureTable materialTextureTable;
+
+    if ( !TryBuildDx12RaytracingMaterialTextureTable( resolvedSrvIndices, materialTextureTable ) )
+    {
+        outcome.result =
+            m_resultDiagnostics.Failure( "Rendering/DX12", "DXR material texture table contains an invalid texture" );
         return outcome;
     }
 
@@ -795,7 +824,19 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
     cb.skyColorBottom[0] = reflection.skyColorBottom.x;
     cb.skyColorBottom[1] = reflection.skyColorBottom.y;
     cb.skyColorBottom[2] = reflection.skyColorBottom.z;
-    memcpy( m_constantBufferMapped, &cb, sizeof( cb ) );
+    const UINT frameIndex = m_frame.AllocatorIndex();
+    ID3D12Resource* constantBuffer = SelectDx12FrameUploadResource( m_constantBuffers, frameIndex );
+    uint8_t* constantBytes = frameIndex < m_constantBufferMapped.size() ? m_constantBufferMapped[frameIndex] : nullptr;
+
+    if ( !constantBuffer || !constantBytes )
+    {
+        outcome.result = m_resultDiagnostics.Failure( "Rendering/DX12", "DXR constant-buffer frame slot unavailable" );
+        return outcome;
+    }
+
+    // Lifetime: allocator-index reuse occurs only after the frame fence completes.
+    // CPU writes therefore cannot race an older DispatchRays reading this slot.
+    memcpy( constantBytes, &cb, sizeof( cb ) );
 
     // Compute root signature path for raytracing. DXR uses the compute pipeline (not graphics)
     // because ray tracing doesn't use the traditional rasterization pipeline (no vertex/pixel stages).
@@ -819,27 +860,11 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
     // [3] texture SRV table.
     m_commandList4->SetComputeRootShaderResourceView( 0, m_tlas.GetResultVA() );
     m_commandList4->SetComputeRootDescriptorTable( 1, descriptors.ShaderVisibleGpuHandle( m_reflectionUavIndex ) );
-    m_commandList4->SetComputeRootConstantBufferView( 2, m_constantBuffer->GetGPUVirtualAddress() );
+    m_commandList4->SetComputeRootConstantBufferView( 2, constantBuffer->GetGPUVirtualAddress() );
 
-    // Root parameter [3] is the material/environment texture table. The shader
-    // reads it as t0=sphere, t1=terrain, and t2..t7=sky cube faces.
-    const uint32_t textureHandles[8] = { reflection.textures.sphere,   reflection.textures.terrain,
-                                         reflection.textures.skyUp,    reflection.textures.skyDown,
-                                         reflection.textures.skyRight, reflection.textures.skyLeft,
-                                         reflection.textures.skyFront, reflection.textures.skyBack };
-
-    bool allValid = true;
-
-    for ( int i = 0; i < 8; ++i )
-    {
-        if ( textures.ResolveSrv( textureHandles[i] ) == UINT_MAX )
-        {
-            allValid = false;
-            break;
-        }
-    }
-
-    if ( allValid )
+    // Root parameter [3] reads t0=sphere, t1=terrain, and t2..t7=sky cube
+    // faces. Admission above cached one complete registry snapshot, so copying
+    // cannot observe a different handle generation midway through the table.
     {
         // Root parameter [3] is one descriptor table with eight consecutive SRV
         // rows. AllocateTransientSRVRange() checks and reserves all eight rows
@@ -848,12 +873,12 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
         // Contiguous matters because the shader sees this as t0..t7 starting at
         // one base GPU handle. It does not know about our texture registry or
         // individual C++ texture handles.
-        UINT slot0 = descriptors.AllocateTransientRange( 8 );
+        UINT slot0 = descriptors.AllocateTransientRange( DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT );
 
-        for ( int i = 0; i < 8; ++i )
+        for ( size_t i = 0; i < materialTextureTable.srvIndices.size(); ++i )
         {
             D3D12_CPU_DESCRIPTOR_HANDLE dst = descriptors.ShaderVisibleCpuHandle( slot0 + static_cast<UINT>( i ) );
-            UINT srcIdx = textures.ResolveSrv( textureHandles[i] );
+            const UINT srcIdx = materialTextureTable.srvIndices[i];
             device->CopyDescriptorsSimple( 1, dst, descriptors.StagingCpuHandle( srcIdx ),
                                            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
         }
@@ -976,12 +1001,19 @@ void Dx12RaytracingOwner::Shutdown()
     m_terrainBlas.Reset();
     m_sphereBlas.Reset();
 
-    if ( m_constantBuffer )
+    for ( size_t frameIndex = 0; frameIndex < m_constantBuffers.size(); ++frameIndex )
     {
-        m_constantBuffer->Unmap( 0, nullptr );
-        m_constantBuffer->Release();
-        m_constantBuffer = nullptr;
-        m_constantBufferMapped = nullptr;
+        if ( m_constantBuffers[frameIndex] )
+        {
+            if ( m_constantBufferMapped[frameIndex] )
+            {
+                m_constantBuffers[frameIndex]->Unmap( 0, nullptr );
+            }
+
+            m_constantBuffers[frameIndex]->Release();
+            m_constantBuffers[frameIndex] = nullptr;
+            m_constantBufferMapped[frameIndex] = nullptr;
+        }
     }
 
     if ( m_reflectionTexture )

@@ -15,6 +15,8 @@ Invariants:
   - Device, pipeline, shader-development, and upload-owner references are stable
 
     for the shader's lifetime; the shader never retains the aggregate backend.
+  - Named setters write only within both the reflected variable range and the
+    aligned constant-buffer byte image.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
@@ -55,6 +57,23 @@ struct ShaderDX12ReloadPayload
     size_t vertexHash = 0;
     size_t pixelHash = 0;
 };
+
+// Invariant: reflection describes the durable write boundary. Alignment bytes
+// at the tail of the CPU image are never permission to overrun a smaller field.
+inline bool Dx12ReflectedUniformWriteFits( size_t constantBufferSize, UINT reflectedOffset, UINT reflectedSize,
+                                           size_t writeSize ) noexcept
+{
+    const size_t offset = static_cast<size_t>( reflectedOffset );
+    const size_t declaredSize = static_cast<size_t>( reflectedSize );
+
+    if ( writeSize == 0 || writeSize > declaredSize || offset > constantBufferSize )
+    {
+        return false;
+    }
+
+    const size_t remainingBytes = constantBufferSize - offset;
+    return declaredSize <= remainingBytes && writeSize <= remainingBytes;
+}
 
 
 class ShaderDX12

@@ -307,6 +307,14 @@ RenderGraphResourceHandle RenderGraph::AddTransientResource( const char* name,
         SB_FATAL( "RenderGraph", "Transient resource requires at least one descriptor need." );
     }
 
+    if ( transient.descriptors.renderTarget && transient.descriptors.depthStencil )
+    {
+        // Invariant: the retained texture description owns one concrete native
+        // storage format. Color-target and depth-target views require different
+        // format families, so admitting both would publish an invalid view.
+        SB_FATAL( "RenderGraph", "Transient resource cannot request both render-target and depth-stencil descriptors." );
+    }
+
     if ( m_resources.size() >= RENDER_GRAPH_MAX_RESOURCES )
     {
         SB_FATAL( "RenderGraph", "Resource capacity exceeded while adding transient resource. count=%zu capacity=%zu",

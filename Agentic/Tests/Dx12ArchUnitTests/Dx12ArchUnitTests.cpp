@@ -937,6 +937,11 @@ void TestRenderGraphRejectsUnusedTransientResource()
     EXPECT_FATAL_CASE( "unused-transient" );
 }
 
+void TestRenderGraphRejectsDualColorAndDepthTransientResource()
+{
+    EXPECT_FATAL_CASE( "dual-color-depth-transient" );
+}
+
 void TestRenderGraphExecutesCallbacksInPassOrder()
 {
     RenderGraph graph;
@@ -1299,6 +1304,137 @@ void TestDx12GraphTransientPoolSlotReuseAllowsSameCompileAlias()
     EXPECT_TRUE( !GraphTransientPoolSlotCanSatisfyDX12( candidate, 3, incompatibleDesc ) );
 }
 
+void TestDx12GraphTransientPoolRecyclesUnusedSlotsAcrossExtentChanges()
+{
+    std::array<GraphTransientResourceDX12, 2> candidates;
+    RenderGraphTransientResourceDesc desc = MakeTransientColorDesc( 64u, 32u );
+    candidates[0].resource = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x7100u ) );
+    candidates[0].desc = desc;
+    candidates[0].poolSlot = 0u;
+    candidates[0].usedThisCompile = false;
+
+    GraphTransientPoolSlotSelectionDX12 selection = SelectGraphTransientPoolSlotDX12( candidates, 0u, desc );
+    EXPECT_TRUE( selection.found );
+    EXPECT_TRUE( !selection.replaceResource );
+    EXPECT_EQ( selection.index, static_cast<size_t>( 0 ) );
+
+    for ( uint32_t extent = 1u; extent <= 40u; ++extent )
+    {
+        candidates[0].usedThisCompile = false;
+        desc.width = 64u + extent;
+        selection = SelectGraphTransientPoolSlotDX12( candidates, 0u, desc );
+        EXPECT_TRUE( selection.found );
+        EXPECT_TRUE( selection.replaceResource );
+        EXPECT_EQ( selection.index, static_cast<size_t>( 0 ) );
+        candidates[0].desc = desc;
+    }
+
+    candidates[0].usedThisCompile = true;
+    candidates[1].resource = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x7200u ) );
+    candidates[1].desc = MakeTransientColorDesc( 128u, 64u );
+    candidates[1].poolSlot = 7u;
+    candidates[1].usedThisCompile = false;
+    selection = SelectGraphTransientPoolSlotDX12( candidates, 0u, candidates[1].desc );
+    EXPECT_TRUE( selection.found );
+    EXPECT_TRUE( !selection.replaceResource );
+    EXPECT_EQ( selection.index, static_cast<size_t>( 1 ) );
+
+    candidates[1].usedThisCompile = true;
+    selection = SelectGraphTransientPoolSlotDX12( candidates, 2u, desc );
+    EXPECT_TRUE( !selection.found );
+}
+
+void TestDx12GraphTransientAliasActivationReconcilesPhysicalState()
+{
+    GraphTransientAliasActivationDX12 activation = PlanGraphTransientAliasActivationDX12(
+        RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::RenderTarget,
+        RenderGraphResourceAccess::RenderTarget, true );
+    EXPECT_TRUE( activation.valid );
+    EXPECT_TRUE( activation.barrier == GraphTransientAliasBarrierDX12::Transition );
+    EXPECT_TRUE( activation.trackedAccess == RenderGraphResourceAccess::RenderTarget );
+
+    activation = PlanGraphTransientAliasActivationDX12( RenderGraphResourceAccess::PixelShaderResource,
+                                                        RenderGraphResourceAccess::Unknown,
+                                                        RenderGraphResourceAccess::RenderTarget, true );
+    EXPECT_TRUE( activation.valid );
+    EXPECT_TRUE( activation.barrier == GraphTransientAliasBarrierDX12::Transition );
+    EXPECT_TRUE( activation.trackedAccess == RenderGraphResourceAccess::RenderTarget );
+
+    activation = PlanGraphTransientAliasActivationDX12( RenderGraphResourceAccess::RenderTarget,
+                                                        RenderGraphResourceAccess::Unknown,
+                                                        RenderGraphResourceAccess::RenderTarget, false );
+    EXPECT_TRUE( activation.valid );
+    EXPECT_TRUE( activation.barrier == GraphTransientAliasBarrierDX12::None );
+    EXPECT_TRUE( activation.trackedAccess == RenderGraphResourceAccess::RenderTarget );
+
+    const std::array writeOnlyAccesses = { RenderGraphResourceAccess::RenderTarget,
+                                           RenderGraphResourceAccess::DepthWrite,
+                                           RenderGraphResourceAccess::UnorderedAccess };
+
+    for ( const RenderGraphResourceAccess writeOnlyAccess : writeOnlyAccesses )
+    {
+        EXPECT_TRUE( ResolveGraphTransientCreationAccessDX12( RenderGraphResourceAccess::Unknown, writeOnlyAccess ) ==
+                     writeOnlyAccess );
+        activation = PlanGraphTransientAliasActivationDX12( RenderGraphResourceAccess::Unknown,
+                                                            RenderGraphResourceAccess::Unknown, writeOnlyAccess, false );
+        EXPECT_TRUE( !activation.valid );
+        EXPECT_TRUE( activation.barrier == GraphTransientAliasBarrierDX12::None );
+        EXPECT_TRUE( activation.trackedAccess == writeOnlyAccess );
+    }
+
+    activation = PlanGraphTransientAliasActivationDX12( RenderGraphResourceAccess::UnorderedAccess,
+                                                        RenderGraphResourceAccess::Unknown,
+                                                        RenderGraphResourceAccess::UnorderedAccess, false );
+    EXPECT_TRUE( activation.valid );
+    EXPECT_TRUE( activation.barrier == GraphTransientAliasBarrierDX12::None );
+
+    activation = PlanGraphTransientAliasActivationDX12( RenderGraphResourceAccess::UnorderedAccess,
+                                                        RenderGraphResourceAccess::Unknown,
+                                                        RenderGraphResourceAccess::UnorderedAccess, true );
+    EXPECT_TRUE( activation.valid );
+    EXPECT_TRUE( activation.barrier == GraphTransientAliasBarrierDX12::UnorderedAccess );
+}
+
+void TestDx12FrameUploadSelectionKeepsInFlightSlotsDistinct()
+{
+    std::array<ID3D12Resource*, 3> resources = {
+        reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x8100u ) ),
+        reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x8200u ) ),
+        reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x8300u ) )
+    };
+
+    EXPECT_TRUE( SelectDx12FrameUploadResource( resources, 0u ) == resources[0] );
+    EXPECT_TRUE( SelectDx12FrameUploadResource( resources, 1u ) == resources[1] );
+    EXPECT_TRUE( SelectDx12FrameUploadResource( resources, 2u ) == resources[2] );
+    EXPECT_TRUE( SelectDx12FrameUploadResource( resources, 3u ) == nullptr );
+}
+
+void TestDx12RaytracingMaterialTableRequiresEveryResolvedTexture()
+{
+    std::array<UINT, DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT> resolved = { 1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u };
+    Dx12RaytracingMaterialTextureTable table;
+
+    EXPECT_TRUE( TryBuildDx12RaytracingMaterialTextureTable( resolved, table ) );
+    EXPECT_TRUE( table.srvIndices == resolved );
+
+    resolved[5] = UINT_MAX;
+    EXPECT_TRUE( !TryBuildDx12RaytracingMaterialTextureTable( resolved, table ) );
+    EXPECT_TRUE( table.srvIndices == decltype( table.srvIndices ){} );
+
+    const std::array<UINT, DX12_RAYTRACING_MATERIAL_TEXTURE_COUNT - 1u> incomplete = { 1u, 2u, 3u, 4u, 5u, 6u, 7u };
+    EXPECT_TRUE( !TryBuildDx12RaytracingMaterialTextureTable( incomplete, table ) );
+}
+
+void TestDx12ReflectedUniformWritesStayInsideTheirDeclaredStorage()
+{
+    EXPECT_TRUE( Dx12ReflectedUniformWriteFits( 64u, 16u, 16u, 16u ) );
+    EXPECT_TRUE( Dx12ReflectedUniformWriteFits( 64u, 16u, 16u, 4u ) );
+    EXPECT_TRUE( !Dx12ReflectedUniformWriteFits( 64u, 16u, 4u, 12u ) );
+    EXPECT_TRUE( !Dx12ReflectedUniformWriteFits( 64u, 60u, 16u, 4u ) );
+    EXPECT_TRUE( !Dx12ReflectedUniformWriteFits( 64u, 65u, 4u, 4u ) );
+    EXPECT_TRUE( !Dx12ReflectedUniformWriteFits( 64u, 0u, 4u, 0u ) );
+}
+
 bool RunFatalCase( const char* caseName )
 {
     RenderGraph graph;
@@ -1343,6 +1479,12 @@ bool RunFatalCase( const char* caseName )
         RenderGraph unusedGraph;
         unusedGraph.AddTransientResource( "Unused", MakeTransientColorDesc(), RenderGraphResourceAccess::Unknown );
         (void)unusedGraph.Compile();
+    }
+    else if ( std::strcmp( caseName, "dual-color-depth-transient" ) == 0 )
+    {
+        RenderGraphTransientResourceDesc invalid = MakeTransientColorDesc();
+        invalid.descriptors.depthStencil = true;
+        graph.AddTransientResource( "InvalidDualView", invalid, RenderGraphResourceAccess::Unknown );
     }
     else if ( std::strcmp( caseName, "callback-without-resources" ) == 0 )
     {
@@ -1553,6 +1695,8 @@ const TestCase kTests[] = {
     { "Render graph reuses compatible non-overlapping transient resources",
       TestRenderGraphReusesCompatibleNonOverlappingTransientResources },
     { "Render graph rejects unused transient resource", TestRenderGraphRejectsUnusedTransientResource },
+    { "Render graph rejects dual color/depth transient resource",
+      TestRenderGraphRejectsDualColorAndDepthTransientResource },
     { "Render graph executes callbacks in pass order", TestRenderGraphExecutesCallbacksInPassOrder },
     { "Render graph frame edges keep only Present declaration-only",
       TestRenderGraphFrameEdgesKeepOnlyPresentDeclarationOnly },
@@ -1571,6 +1715,16 @@ const TestCase kTests[] = {
     { "DX12 UAV barrier execution produces record", TestDx12UavBarrierExecutionProducesRecord },
     { "DX12 graph transient pool-slot reuse allows same-compile alias",
       TestDx12GraphTransientPoolSlotReuseAllowsSameCompileAlias },
+    { "DX12 graph transient pool recycles unused slots across extent changes",
+      TestDx12GraphTransientPoolRecyclesUnusedSlotsAcrossExtentChanges },
+    { "DX12 graph transient alias activation reconciles physical state",
+      TestDx12GraphTransientAliasActivationReconcilesPhysicalState },
+    { "DX12 frame upload selection keeps in-flight slots distinct",
+      TestDx12FrameUploadSelectionKeepsInFlightSlotsDistinct },
+    { "DX12 raytracing material table requires every resolved texture",
+      TestDx12RaytracingMaterialTableRequiresEveryResolvedTexture },
+    { "DX12 reflected uniform writes stay inside their declared storage",
+      TestDx12ReflectedUniformWritesStayInsideTheirDeclaredStorage },
 };
 
 } // namespace

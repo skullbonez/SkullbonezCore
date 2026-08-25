@@ -248,27 +248,125 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
 Dx12GeometryOwner::Dx12GeometryOwner()
 {
     // Runtime allocation policy: text, overlays, primitive batches, and tools
-    // acquire stable one-based handles from this bounded registry. Reserve the
-    // complete handle budget before any first-use render path can request one.
+    // acquire generation-tagged handles from this bounded registry. Reserve
+    // the complete slot budget before any first-use render path can request one.
     m_dynamicVBs.reserve( MAX_DYNAMIC_VERTEX_BUFFERS );
+}
+
+bool Dx12GeometryOwner::AttributeLayoutFits( std::span<const int> attributeSizes, std::size_t capacity ) noexcept
+{
+    if ( attributeSizes.size() > capacity )
+    {
+        return false;
+    }
+
+    return std::all_of( attributeSizes.begin(), attributeSizes.end(),
+                        []( int componentCount ) { return componentCount >= 1 && componentCount <= 4; } );
+}
+
+bool Dx12GeometryOwner::TryBuildInstancedAttributeLayout( std::span<const int> instanceAttributeSizes,
+                                                           std::span<const int> staticAttributeSizes,
+                                                           InstancedAttributeLayout& outLayout ) noexcept
+{
+    outLayout = {};
+
+    if ( !AttributeLayoutFits( instanceAttributeSizes, MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM ) ||
+         !AttributeLayoutFits( staticAttributeSizes, MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM ) )
+    {
+        return false;
+    }
+
+    outLayout.instanceCount = instanceAttributeSizes.size();
+    outLayout.staticCount = staticAttributeSizes.size();
+    outLayout.inputElementCount = ( staticAttributeSizes.empty() ? 1u : staticAttributeSizes.size() ) +
+                                  instanceAttributeSizes.size();
+
+    if ( outLayout.inputElementCount > MAX_DX12_INPUT_ELEMENTS )
+    {
+        outLayout = {};
+        return false;
+    }
+
+    std::copy( instanceAttributeSizes.begin(), instanceAttributeSizes.end(), outLayout.instanceSizes.begin() );
+    std::copy( staticAttributeSizes.begin(), staticAttributeSizes.end(), outLayout.staticSizes.begin() );
+    return true;
+}
+
+DynamicVBDX12* Dx12GeometryOwner::ResolveDynamicVB( uint32_t handle ) noexcept
+{
+    size_t slotIndex = 0;
+    uint32_t generation = 0;
+
+    if ( !Dx12DynamicGeometryHandleCodec::Decode( handle, slotIndex, generation ) || slotIndex >= m_dynamicVBs.size() )
+    {
+        return nullptr;
+    }
+
+    DynamicVBDX12& slot = m_dynamicVBs[slotIndex];
+    return slot.active && slot.generation == generation ? &slot : nullptr;
+}
+
+const DynamicVBDX12* Dx12GeometryOwner::ResolveDynamicVB( uint32_t handle ) const noexcept
+{
+    size_t slotIndex = 0;
+    uint32_t generation = 0;
+
+    if ( !Dx12DynamicGeometryHandleCodec::Decode( handle, slotIndex, generation ) || slotIndex >= m_dynamicVBs.size() )
+    {
+        return nullptr;
+    }
+
+    const DynamicVBDX12& slot = m_dynamicVBs[slotIndex];
+    return slot.active && slot.generation == generation ? &slot : nullptr;
 }
 
 
 uint32_t Dx12GeometryOwner::CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices )
 {
-    if ( m_dynamicVBs.size() >= MAX_DYNAMIC_VERTEX_BUFFERS )
+    if ( !attribComponents || numAttribs <= 0 ||
+         !AttributeLayoutFits( std::span( attribComponents, static_cast<std::size_t>( numAttribs ) ),
+                               MAX_DYNAMIC_VERTEX_ATTRIBUTES ) )
+    {
+        return 0;
+    }
+
+    size_t slotIndex = m_dynamicVBs.size();
+
+    for ( size_t index = 0; index < m_dynamicVBs.size(); ++index )
+    {
+        if ( !m_dynamicVBs[index].active &&
+             m_dynamicVBs[index].generation < Dx12DynamicGeometryHandleCodec::GENERATION_MAX )
+        {
+            slotIndex = index;
+            break;
+        }
+    }
+
+    if ( slotIndex == m_dynamicVBs.size() && m_dynamicVBs.size() >= MAX_DYNAMIC_VERTEX_BUFFERS )
     {
         SB_FATAL( "Rendering/Dx12GeometryOwner",
-                  "Dynamic vertex-buffer handle capacity exceeded. requested=%zu hard_capacity=%zu",
-                  m_dynamicVBs.size() + 1u, MAX_DYNAMIC_VERTEX_BUFFERS );
+                  "Dynamic vertex-buffer handle capacity exhausted. slots=%zu hard_capacity=%zu",
+                  m_dynamicVBs.size(), MAX_DYNAMIC_VERTEX_BUFFERS );
+    }
+
+    uint32_t generation = 1u;
+
+    if ( slotIndex < m_dynamicVBs.size() &&
+         !Dx12DynamicGeometryHandleCodec::TryNextGeneration( m_dynamicVBs[slotIndex].generation, generation ) )
+    {
+        SB_FATAL( "Rendering/Dx12GeometryOwner",
+                  "Dynamic vertex-buffer slot generation exhausted without retirement. slot=%zu generation=%u",
+                  slotIndex, m_dynamicVBs[slotIndex].generation );
     }
 
     DynamicVBDX12 dvb = {};
     dvb.numAttribs = numAttribs;
     dvb.maxVertices = maxVertices;
+    dvb.generation = generation;
+    dvb.active = true;
     int totalFloats = 0;
 
-    for ( int i = 0; i < numAttribs && i < 12; ++i )
+    for ( int i = 0; i < numAttribs; ++i )
     {
         dvb.attribComponents[i] = attribComponents[i];
         totalFloats += attribComponents[i];
@@ -276,8 +374,17 @@ uint32_t Dx12GeometryOwner::CreateDynamicVB( const int* attribComponents, int nu
 
     dvb.floatsPerVertex = totalFloats;
     dvb.stride = totalFloats * static_cast<int>( sizeof( float ) );
-    m_dynamicVBs.push_back( dvb );
-    return static_cast<uint32_t>( m_dynamicVBs.size() ); // 1-based
+
+    if ( slotIndex == m_dynamicVBs.size() )
+    {
+        m_dynamicVBs.push_back( dvb );
+    }
+    else
+    {
+        m_dynamicVBs[slotIndex] = dvb;
+    }
+
+    return Dx12DynamicGeometryHandleCodec::Encode( slotIndex, generation );
 }
 
 
@@ -286,19 +393,19 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
                                                 ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
                                                 Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState )
 {
-    if ( handle == 0 || handle > static_cast<uint32_t>( m_dynamicVBs.size() ) || packedVertices.empty() )
+    DynamicVBDX12* dvb = ResolveDynamicVB( handle );
+
+    if ( !dvb || packedVertices.empty() )
     {
         return;
     }
 
-    DynamicVBDX12& dvb = m_dynamicVBs[handle - 1];
-
-    if ( dvb.floatsPerVertex <= 0 || packedVertices.size() % static_cast<size_t>( dvb.floatsPerVertex ) != 0 )
+    if ( dvb->floatsPerVertex <= 0 || packedVertices.size() % static_cast<size_t>( dvb->floatsPerVertex ) != 0 )
     {
         return;
     }
 
-    const int vertexCount = static_cast<int>( packedVertices.size() / dvb.floatsPerVertex );
+    const int vertexCount = static_cast<int>( packedVertices.size() / dvb->floatsPerVertex );
 
     // The phase-aware reservation is intentionally used instead of raw arena
     // allocation. A steady UI/debug burst rejects this draw without submitting
@@ -315,12 +422,12 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
     // Determine vertex format
     VertexFormat12 fmt = VertexFormat12::Pos2_Tex2;
 
-    if ( dvb.numAttribs == 2 && dvb.attribComponents[0] == 2 && dvb.attribComponents[1] == 2 )
+    if ( dvb->numAttribs == 2 && dvb->attribComponents[0] == 2 && dvb->attribComponents[1] == 2 )
     {
         fmt = VertexFormat12::Pos2_Tex2;
     }
 
-    if ( !drawGate.PreparePipelineDraw( fmt, false, nullptr, &dvb, rasterState ) )
+    if ( !drawGate.PreparePipelineDraw( fmt, false, nullptr, dvb, rasterState ) )
     {
         return;
     }
@@ -328,7 +435,7 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
     D3D12_VERTEX_BUFFER_VIEW vbv = {};
     vbv.BufferLocation = vbAddr;
     vbv.SizeInBytes = static_cast<UINT>( dataSize );
-    vbv.StrideInBytes = static_cast<UINT>( dvb.stride );
+    vbv.StrideInBytes = static_cast<UINT>( dvb->stride );
 
     // Dynamic vertex buffers, such as text quads, change every frame and are
     // drawn from upload memory without copying to a default-heap buffer. That
@@ -346,20 +453,33 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
 bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle, Dx12DrawGate& drawGate,
                                                         const RasterStateDesc& declaredRasterState )
 {
-    if ( handle == 0 || handle > static_cast<uint32_t>( m_dynamicVBs.size() ) )
+    const DynamicVBDX12* dynamicVertexBuffer = ResolveDynamicVB( handle );
+
+    if ( !dynamicVertexBuffer )
     {
         return false;
     }
 
-    const DynamicVBDX12& dynamicVertexBuffer = m_dynamicVBs[handle - 1];
-    return drawGate.PrecompilePipelineDraw( VertexFormat12::Pos2_Tex2, false, nullptr, &dynamicVertexBuffer,
+    return drawGate.PrecompilePipelineDraw( VertexFormat12::Pos2_Tex2, false, nullptr, dynamicVertexBuffer,
                                             declaredRasterState );
 }
 
 
-void Dx12GeometryOwner::DestroyDynamicVB( uint32_t /*handle*/ )
+void Dx12GeometryOwner::DestroyDynamicVB( uint32_t handle )
 {
-    // No GPU resources to release; upload memory is shared by the frame arena.
+    DynamicVBDX12* slot = ResolveDynamicVB( handle );
+
+    if ( !slot )
+    {
+        return;
+    }
+
+    // No GPU resource is owned by a dynamic slot; upload bytes remain frame
+    // arena memory. Preserve the generation tombstone so stale handles cannot
+    // resolve after this bounded slot is reused.
+    const uint32_t generation = slot->generation;
+    *slot = {};
+    slot->generation = generation;
 }
 
 
@@ -603,8 +723,7 @@ const char* Dx12GeometryOwner::TransientShaderBaseName( TransientTriangleStyle s
 
 uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, int staticVertexCount,
                                                  int staticFloatsPerVertex, int instanceFloats, int instanceStartAttribute,
-                                                 std::span<const int> instanceAttributeSizes,
-                                                 std::span<const int> staticAttributeSizes, ID3D12Device* device,
+                                                 const InstancedAttributeLayout& attributeLayout, ID3D12Device* device,
                                                  ID3D12GraphicsCommandList* commandList, ID3D12Resource* uploadResource,
                                                  D3D12_GPU_VIRTUAL_ADDRESS uploadAddress, uint8_t* uploadPointer )
 {
@@ -619,17 +738,17 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
     im.instanceFloats = instanceFloats;
     im.instanceStride = instanceFloats * static_cast<int>( sizeof( float ) );
     im.instanceStartAttrib = instanceStartAttribute;
-    im.numInstanceAttribs = static_cast<int>( instanceAttributeSizes.size() );
-    im.numStaticAttribs = static_cast<int>( staticAttributeSizes.size() );
+    im.numInstanceAttribs = static_cast<int>( attributeLayout.instanceCount );
+    im.numStaticAttribs = static_cast<int>( attributeLayout.staticCount );
 
-    for ( int i = 0; i < im.numInstanceAttribs && i < 8; ++i )
+    for ( int i = 0; i < im.numInstanceAttribs; ++i )
     {
-        im.instanceAttribSizes[i] = instanceAttributeSizes[static_cast<std::size_t>( i )];
+        im.instanceAttribSizes[i] = attributeLayout.instanceSizes[static_cast<std::size_t>( i )];
     }
 
-    for ( int i = 0; i < im.numStaticAttribs && i < 8; ++i )
+    for ( int i = 0; i < im.numStaticAttribs; ++i )
     {
-        im.staticAttribSizes[i] = staticAttributeSizes[static_cast<std::size_t>( i )];
+        im.staticAttribSizes[i] = attributeLayout.staticSizes[static_cast<std::size_t>( i )];
     }
 
     // Create the static (shared) vertex buffer on the GPU-only default heap.
@@ -714,7 +833,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
 void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const float> packedInstances,
                                             D3D12_GPU_VIRTUAL_ADDRESS addr, uint8_t* uploadPointer )
 {
-    if ( handle == 0 || handle > static_cast<uint32_t>( m_instancedMeshes.size() ) || packedInstances.empty() )
+    if ( handle == 0 || handle > static_cast<uint32_t>( m_instancedMeshes.size() ) )
     {
         return;
     }
@@ -728,7 +847,9 @@ void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const flo
 
     const UINT64 dataSize = static_cast<UINT64>( packedInstances.size_bytes() );
 
-    if ( addr == 0 || !uploadPointer )
+    if ( !im.staticVB || packedInstances.empty() || im.instanceFloats <= 0 ||
+         packedInstances.size() % static_cast<size_t>( im.instanceFloats ) != 0 || dataSize > UINT_MAX || addr == 0 ||
+         !uploadPointer )
     {
         return;
     }
@@ -750,9 +871,11 @@ void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw, ID
 
     InstancedMeshDX12& im = m_instancedMeshes[draw.handle - 1];
 
-    if ( im.instanceDataAddr == 0 )
+    if ( !im.staticVB || im.instanceDataAddr == 0 ||
+         !Dx12InstancedDrawFitsUploadedData( im.staticVBV.SizeInBytes, im.staticStride, im.instanceDataSize,
+                                            im.instanceStride, draw.staticVertexCount, draw.instanceCount ) )
     {
-        return; // No instance data uploaded yet
+        return;
     }
 
     if ( !drawGate.PreparePipelineDraw( VertexFormat12::Pos3, true, &im, nullptr, draw.rasterState.raster ) )
@@ -816,7 +939,8 @@ int Dx12GeometryOwner::StaticVertexStride( uint32_t handle ) const
 
 size_t Dx12GeometryOwner::DynamicCount() const
 {
-    return m_dynamicVBs.size();
+    return static_cast<size_t>( std::count_if( m_dynamicVBs.begin(), m_dynamicVBs.end(),
+                                              []( const DynamicVBDX12& slot ) { return slot.active; } ) );
 }
 size_t Dx12GeometryOwner::DynamicCapacity() const
 {
@@ -824,14 +948,30 @@ size_t Dx12GeometryOwner::DynamicCapacity() const
 }
 UINT64 Dx12GeometryOwner::DynamicUploadBytes( uint32_t handle, std::span<const float> packedVertices ) const
 {
-    if ( handle == 0 || handle > m_dynamicVBs.size() || packedVertices.empty() )
+    const DynamicVBDX12* dynamicVertexBuffer = ResolveDynamicVB( handle );
+
+    if ( !dynamicVertexBuffer || packedVertices.empty() )
     {
         return 0;
     }
 
-    const int floatsPerVertex = m_dynamicVBs[handle - 1].floatsPerVertex;
+    const int floatsPerVertex = dynamicVertexBuffer->floatsPerVertex;
     return floatsPerVertex > 0 && packedVertices.size() % static_cast<size_t>( floatsPerVertex ) == 0
                ? static_cast<UINT64>( packedVertices.size_bytes() )
+               : 0;
+}
+UINT64 Dx12GeometryOwner::InstanceUploadBytes( uint32_t handle, std::span<const float> packedInstances ) const
+{
+    if ( handle == 0 || handle > m_instancedMeshes.size() || packedInstances.empty() )
+    {
+        return 0;
+    }
+
+    const InstancedMeshDX12& mesh = m_instancedMeshes[handle - 1];
+    const UINT64 bytes = static_cast<UINT64>( packedInstances.size_bytes() );
+    return mesh.staticVB && mesh.instanceFloats > 0 &&
+                   packedInstances.size() % static_cast<size_t>( mesh.instanceFloats ) == 0 && bytes <= UINT_MAX
+               ? bytes
                : 0;
 }
 size_t Dx12GeometryOwner::InstancedCount() const
@@ -884,7 +1024,17 @@ void Dx12GeometryOwner::Shutdown()
     }
 
     m_instancedMeshes.clear();
-    m_dynamicVBs.clear();
+
+    // Lifetime: callers can retain public handles across a backend device
+    // restart. Preserve each slot epoch while clearing activity so a handle
+    // emitted before shutdown can never resolve after the owner is re-opened.
+    for ( DynamicVBDX12& slot : m_dynamicVBs )
+    {
+        const uint32_t generation = slot.generation;
+        slot = {};
+        slot.generation = generation;
+    }
+
     m_retainedGeometryBuffers = {};
     m_retainedGeometryCommandSignature.Reset();
 }
@@ -1300,6 +1450,15 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
                                                  std::span<const int> staticAttributeSizes )
 {
     RequireSubmissionEpoch( "CreateInstancedMesh" );
+    InstancedAttributeLayout attributeLayout;
+
+    // Hazard: raw caller spans become a validated, fixed-capacity value before
+    // any frame owner is opened or upload space is reserved. The GPU creation
+    // layer accepts only this value and cannot retain an oversized count.
+    if ( !TryBuildInstancedAttributeLayout( instanceAttributeSizes, staticAttributeSizes, attributeLayout ) )
+    {
+        return 0;
+    }
 
     if ( !m_resourceFrame->EnsureOpen().Ok() )
     {
@@ -1311,7 +1470,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
                                                   .ReserveUpload( bytes, 4, RenderUploadCategory::DynamicVertex );
 
     return CreateInstancedMesh( staticVertices, staticVertexCount, staticFloatsPerVertex, instanceFloats,
-                                instanceStartAttribute, instanceAttributeSizes, staticAttributeSizes,
+                                instanceStartAttribute, attributeLayout,
                                 m_resourceDevice->Device(), m_resourceDevice->CommandList(),
                                 m_resourceFrame->Uploads().Resource( m_resourceFrame->AllocatorIndex() ), address,
                                 address ? m_resourceFrame->UploadReservations().UploadPointer( address ) : nullptr );
@@ -1322,13 +1481,13 @@ void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const flo
 {
     RequireSubmissionEpoch( "UploadInstanceData" );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
+    const UINT64 bytes = InstanceUploadBytes( handle, packedInstances );
 
-    if ( packedInstances.empty() || StaticVertexStride( handle ) <= 0 || !m_resourceFrame->DrawGate().PrepareDraw() )
+    if ( bytes == 0 || !m_resourceFrame->DrawGate().PrepareDraw() )
     {
+        UploadInstanceData( handle, {}, 0, nullptr );
         return;
     }
-
-    const UINT64 bytes = static_cast<UINT64>( packedInstances.size_bytes() );
 
     // Invariant: the engine command contract pairs UploadInstanceData with the
     // immediately following DrawInstancedMesh under the same active shader. The

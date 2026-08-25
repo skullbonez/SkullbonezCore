@@ -35,6 +35,7 @@
 //     exhausted fixed table can produce an index.
 //   - DX12 texture upload keeps one- and four-channel inputs direct, expands
 //     luminance-alpha and RGB inputs to RGBA, and does not cross caller spans.
+//   - DX12 geometry rejects attribute layouts before fixed backend arrays can overflow.
 //   - Tornado visual frame borrows remain valid until release; missing and
 //     release-cleared borrows terminate before capacity or draw dereference.
 //   - Lock-order invalid-id, cycle, and held-stack tripwires are classified by
@@ -181,6 +182,49 @@ struct Dx12TextureOwnerTestAccess
 
 struct Dx12GeometryOwnerTestAccess
 {
+    static uint32_t AddInstancedUploadProbe( Dx12GeometryOwner& owner, int staticVertexCount, int staticStride,
+                                             int instanceFloats )
+    {
+        InstancedMeshDX12 mesh = {};
+        mesh.staticVB = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 1u ) );
+        mesh.staticStride = staticStride;
+        mesh.staticVBV.SizeInBytes = static_cast<UINT>( staticVertexCount * staticStride );
+        mesh.instanceFloats = instanceFloats;
+        mesh.instanceStride = instanceFloats * static_cast<int>( sizeof( float ) );
+        owner.m_instancedMeshes.push_back( mesh );
+        return static_cast<uint32_t>( owner.m_instancedMeshes.size() );
+    }
+
+    static D3D12_GPU_VIRTUAL_ADDRESS InstanceDataAddress( const Dx12GeometryOwner& owner, uint32_t handle )
+    {
+        return handle > 0 && handle <= owner.m_instancedMeshes.size() ? owner.m_instancedMeshes[handle - 1].instanceDataAddr
+                                                                      : 0;
+    }
+
+    static void ClearInstancedUploadProbes( Dx12GeometryOwner& owner )
+    {
+        for ( InstancedMeshDX12& mesh : owner.m_instancedMeshes )
+        {
+            mesh.staticVB = nullptr;
+        }
+
+        owner.m_instancedMeshes.clear();
+    }
+
+    static bool TryBuildInstancedAttributeLayout( std::span<const int> instanceAttributeSizes,
+                                                   std::span<const int> staticAttributeSizes,
+                                                   std::size_t& outInstanceCount, std::size_t& outStaticCount,
+                                                   std::size_t& outInputElementCount )
+    {
+        Dx12GeometryOwner::InstancedAttributeLayout layout;
+        const bool accepted = Dx12GeometryOwner::TryBuildInstancedAttributeLayout( instanceAttributeSizes,
+                                                                                    staticAttributeSizes, layout );
+        outInstanceCount = layout.instanceCount;
+        outStaticCount = layout.staticCount;
+        outInputElementCount = layout.inputElementCount;
+        return accepted;
+    }
+
     class EpochProbe
     {
       public:
@@ -612,6 +656,130 @@ TEST_CASE( "DX12 texture upload preserves direct channels and expands two and th
                                                      std::span( threeChannelDestination ).subspan( 1, 4 ) ) );
     CHECK( threeChannelDestination == expectedThreeChannelDestination );
     CHECK( threeChannelSource == expectedThreeChannelSource );
+}
+
+TEST_CASE( "DX12 geometry admits exact attribute capacities and rejects oversized layouts" )
+{
+    using namespace SkullbonezCore::Rendering;
+
+    std::array<int, MAX_DYNAMIC_VERTEX_ATTRIBUTES> exactDynamic;
+    exactDynamic.fill( 1 );
+    std::array<int, MAX_DYNAMIC_VERTEX_ATTRIBUTES + 1u> oversizedDynamic;
+    oversizedDynamic.fill( 1 );
+    Dx12GeometryOwner geometry;
+    CHECK( geometry.CreateDynamicVB( exactDynamic.data(), static_cast<int>( exactDynamic.size() ), 1 ) != 0 );
+    CHECK( geometry.DynamicCount() == 1u );
+    CHECK( geometry.CreateDynamicVB( oversizedDynamic.data(), static_cast<int>( oversizedDynamic.size() ), 1 ) == 0 );
+    CHECK( geometry.DynamicCount() == 1u );
+    const std::array invalidDynamic = { 3, 0 };
+    CHECK( geometry.CreateDynamicVB( invalidDynamic.data(), static_cast<int>( invalidDynamic.size() ), 1 ) == 0 );
+    CHECK( geometry.DynamicCount() == 1u );
+
+    std::array<int, MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM> exactInstance;
+    std::array<int, MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM> exactStatic;
+    exactInstance.fill( 4 );
+    exactStatic.fill( 4 );
+    std::size_t instanceCount = 0;
+    std::size_t staticCount = 0;
+    std::size_t inputElementCount = 0;
+    CHECK( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout(
+        exactInstance, exactStatic, instanceCount, staticCount, inputElementCount ) );
+    CHECK( instanceCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM );
+    CHECK( staticCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM );
+    CHECK( inputElementCount == MAX_DX12_INPUT_ELEMENTS );
+
+    const std::array<int, 0> legacyStatic = {};
+    CHECK( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout(
+        exactInstance, legacyStatic, instanceCount, staticCount, inputElementCount ) );
+    CHECK( instanceCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM );
+    CHECK( staticCount == 0u );
+    CHECK( inputElementCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM + 1u );
+
+    std::array<int, MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM + 1u> oversizedInstance;
+    oversizedInstance.fill( 4 );
+    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout(
+        oversizedInstance, exactStatic, instanceCount, staticCount, inputElementCount ) );
+    CHECK( instanceCount == 0u );
+    CHECK( staticCount == 0u );
+    CHECK( inputElementCount == 0u );
+    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout(
+        exactInstance, oversizedInstance, instanceCount, staticCount, inputElementCount ) );
+    const std::array invalidInstance = { 3, 0 };
+    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout(
+        invalidInstance, exactStatic, instanceCount, staticCount, inputElementCount ) );
+}
+
+TEST_CASE( "DX12 dynamic geometry reuses destroyed slots without reviving stale handles" )
+{
+    using namespace SkullbonezCore::Rendering;
+
+    const int attributes[] = { 2, 2 };
+    const std::array<float, 4> vertex = {};
+    Dx12GeometryOwner geometry;
+    uint32_t staleHandle = geometry.CreateDynamicVB( attributes, 2, 1 );
+    REQUIRE( staleHandle != 0 );
+    const uint32_t originalHandle = staleHandle;
+    CHECK( geometry.DynamicCount() == 1u );
+    CHECK( geometry.DynamicUploadBytes( staleHandle, vertex ) == vertex.size() * sizeof( float ) );
+
+    for ( size_t reuse = 0; reuse < 300u; ++reuse )
+    {
+        geometry.DestroyDynamicVB( staleHandle );
+        CHECK( geometry.DynamicCount() == 0u );
+        CHECK( geometry.DynamicUploadBytes( staleHandle, vertex ) == 0u );
+        CHECK( geometry.DynamicUploadBytes( originalHandle, vertex ) == 0u );
+
+        const uint32_t replacementHandle = geometry.CreateDynamicVB( attributes, 2, 1 );
+        REQUIRE( replacementHandle != 0 );
+        CHECK( replacementHandle != staleHandle );
+        CHECK( replacementHandle != originalHandle );
+        CHECK( geometry.DynamicCount() == 1u );
+        CHECK( geometry.DynamicUploadBytes( replacementHandle, vertex ) == vertex.size() * sizeof( float ) );
+        staleHandle = replacementHandle;
+    }
+
+    uint32_t nextGeneration = 1u;
+    CHECK( !Dx12DynamicGeometryHandleCodec::TryNextGeneration( Dx12DynamicGeometryHandleCodec::GENERATION_MAX,
+                                                               nextGeneration ) );
+    CHECK( nextGeneration == 0u );
+
+    geometry.Shutdown();
+    CHECK( geometry.DynamicCount() == 0u );
+    CHECK( geometry.DynamicUploadBytes( originalHandle, vertex ) == 0u );
+    CHECK( geometry.DynamicUploadBytes( staleHandle, vertex ) == 0u );
+
+    const uint32_t restartedHandle = geometry.CreateDynamicVB( attributes, 2, 1 );
+    REQUIRE( restartedHandle != 0 );
+    CHECK( restartedHandle != originalHandle );
+    CHECK( restartedHandle != staleHandle );
+    CHECK( geometry.DynamicUploadBytes( restartedHandle, vertex ) == vertex.size() * sizeof( float ) );
+}
+
+TEST_CASE( "DX12 instanced geometry rejects draws beyond uploaded ranges" )
+{
+    using namespace SkullbonezCore::Rendering;
+
+    CHECK( Dx12InstancedDrawFitsUploadedData( 96u, 24, 64u, 32, 4, 2 ) );
+    CHECK_FALSE( Dx12InstancedDrawFitsUploadedData( 96u, 24, 64u, 32, 5, 2 ) );
+    CHECK_FALSE( Dx12InstancedDrawFitsUploadedData( 96u, 24, 64u, 32, 4, 3 ) );
+    CHECK_FALSE( Dx12InstancedDrawFitsUploadedData( 96u, 0, 64u, 32, 4, 2 ) );
+
+    Dx12GeometryOwner geometry;
+    const uint32_t handle = Dx12GeometryOwnerTestAccess::AddInstancedUploadProbe( geometry, 4, 24, 4 );
+    std::array<float, 8> twoInstances = {};
+    std::array<uint8_t, sizeof( twoInstances )> uploadBytes = {};
+    CHECK( geometry.InstanceUploadBytes( handle, twoInstances ) == sizeof( twoInstances ) );
+    geometry.UploadInstanceData( handle, twoInstances, 64u, uploadBytes.data() );
+    CHECK( Dx12GeometryOwnerTestAccess::InstanceDataAddress( geometry, handle ) == 64u );
+
+    const std::array<float, 5> partialInstance = {};
+    CHECK( geometry.InstanceUploadBytes( handle, partialInstance ) == 0u );
+    geometry.UploadInstanceData( handle, partialInstance, 128u, uploadBytes.data() );
+    CHECK( Dx12GeometryOwnerTestAccess::InstanceDataAddress( geometry, handle ) == 0u );
+
+    geometry.UploadInstanceData( handle, {}, 0u, nullptr );
+    CHECK( Dx12GeometryOwnerTestAccess::InstanceDataAddress( geometry, handle ) == 0u );
+    Dx12GeometryOwnerTestAccess::ClearInstancedUploadProbes( geometry );
 }
 
 
