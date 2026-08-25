@@ -161,8 +161,15 @@ proves the binary probe rejects the extra byte, checks the specific diagnostic,
 and preserves the caller's existing terrain. Two serial read-only reviews are
 clean after strengthening the initial zero-byte fixture for Windows text-mode
 regression coverage. Validation was deferred by explicit owner direction; no
-build, test, scanner, or validation command ran. ASSET-005 is the next selected
-high-impact, low-complexity candidate.
+build, test, scanner, or validation command ran. ASSET-005 is now closed: AssetSystem is
+the path-resolution owner and treats a drive prefix as absolute only when a
+root separator follows the colon. The focused regression distinguishes
+drive-relative `C:asset.jpg` from both drive-root separator forms, so resolution
+cannot consult the process's ambient per-drive directory. Two serial read-only
+reviews are clean after narrowing one test-header comment to drive-prefixed
+paths. Validation was deferred by explicit owner direction; no build, test,
+scanner, or validation command ran. GAME-003 is the next selected high-impact,
+low-complexity candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

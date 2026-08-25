@@ -102,7 +102,12 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
 
 bool IsAbsolutePath( const std::string& path )
 {
-    return ( path.size() >= 2 && path[1] == ':' ) || ( !path.empty() && ( path[0] == '/' || path[0] == '\\' ) );
+    const bool hasWindowsDriveRoot =
+        path.size() >= 3 && path[1] == ':' && ( path[2] == '/' || path[2] == '\\' );
+
+    // Invariant: "C:asset" is drive-relative, not absolute. Let it follow the
+    // data-root rule so resolution never depends on the process's per-drive directory.
+    return hasWindowsDriveRoot || ( !path.empty() && ( path[0] == '/' || path[0] == '\\' ) );
 }
 
 bool EndsWithPathSeparator( const std::string& path )

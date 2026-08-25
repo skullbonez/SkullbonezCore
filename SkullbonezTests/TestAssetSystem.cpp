@@ -16,6 +16,8 @@
 //   - Constructor-reserved registry ceilings keep returned record references
 //     stable across later successful registrations.
 //   - Built-in asset libraries must stay discoverable by their logical names.
+//   - Windows drive-relative paths follow the configured data root; among
+//     drive-prefixed paths, only a drive plus root separator bypasses it.
 //
 // Related:
 //   - SkullbonezSource/Assets/AssetSystem.cpp
@@ -33,6 +35,16 @@ using SkullbonezCore::Assets::AssetLibrarySourceAsset;
 using SkullbonezCore::Assets::AssetSystem;
 using SkullbonezCore::Assets::SourceAssetRecord;
 using SkullbonezCore::Core::EngineConfig;
+
+TEST_CASE( "AssetSystem: Windows drive-relative paths do not bypass the data root" )
+{
+    AssetSystem assets( "SkullbonezData" );
+
+    CHECK( assets.ResolvePath( "C:asset.jpg" ) == "SkullbonezData/C:asset.jpg" );
+    CHECK( assets.ResolvePath( "C:/asset.jpg" ) == "C:/asset.jpg" );
+    CHECK( assets.ResolvePath( "C:\\asset.jpg" ) == "C:\\asset.jpg" );
+}
+
 
 TEST_CASE( "AssetSystem: asset-library source lookup preserves logical names and ids" )
 {
