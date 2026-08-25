@@ -168,6 +168,10 @@ struct BodySimulationPolicyConfig
     float velocityLimit = 5.0f;
     float contactRestitutionThreshold = 2.0f;
     float contactEpsilon = 0.05f;
+
+    // Validation-only process override. Authored config never sets this field;
+    // FP4 uses the CLI selector to compare both policies in one executable.
+    bool radiusScaledMotionEligibility = false;
 };
 
 // Material response shared by authored body policy, contact solving, UI

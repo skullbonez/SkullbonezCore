@@ -1,7 +1,7 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 4/10 phases complete; FP4 active after FP3 closed Discrete correctness and determinism.
+Status: Active by explicit owner direction. 5/10 phases complete; FP5 active after FP4 closed the Discrete performance A/B and owner ruling.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
 Priority: Binding first plan; execute FP2-FP9 in strict internal order. This position allocates scarce slots
@@ -611,6 +611,62 @@ same-workload A/B comparison.
 - The owner rules whether the measured improvement justifies the transition.
 - FP8 predictive work remains unauthorized until FP3 and FP4 are both closed.
 
+### FP4 Closure Evidence — 2026-08-25
+
+The same Profile executable alternated the absolute-travel control and the
+direction-valid radius trial. Spheres compare travel squared with radius
+squared. Oriented boxes compare `travelSquared` with the dot product of local
+absolute travel and half-extents, while convex hulls use the equivalent exact
+bounded min/max vertex-support scan. Above promotes, below demotes, and exact
+non-zero equality preserves the prior bit; stationary rows demote. The hot
+classifier performs no square root and allocates no memory. Across the retained
+two-pass artifacts, the mixed scene stayed 100% Discrete and reduced mean
+Physics time by 19.50%; the 520-body scale scene stayed 96.29% Discrete and
+reduced mean Physics time by 9.34%; and the 2,000-body scene stayed 95.66%
+Discrete and reduced mean Physics time by 52.98%. The 520-body run recorded
+160 promotions and 140 demotions; the 2,000-body run recorded 796 promotions
+and 738 demotions.
+
+SkullScope now publishes per-frame policy totals and per-body policy rows, and
+`physics_query motion` reconstructs the object timeline and transition events.
+A 0.06-metre probe travelling 0.09 metres in one tick promotes, then demotes
+after stopping. Focused opposing-body coverage proves two sub-radius bodies
+remain Discrete and resolve their next-tick overlap without exchanging sides.
+Elongated-box and convex-hull coverage proves that motion along a long axis does
+not promote merely because an unrelated axis is thin. A SkullScope integration
+probe reports the 3-metre long-axis radius as Discrete and both 0.1-metre thin-
+axis cases as Swept, including the rotated-box case.
+
+The policies are intentionally not behavior-equivalent. The mixed A/B first
+diverges at frame 104 and the 200-box wall first differs in contact count at
+frame 75. A temporary default-policy negative control also passed all 18 replay
+visual typed/false-pass cases and 82 assertions but did not complete the
+6,800-frame interaction report. The radius rule therefore remains behind the
+validation-only selector; the shipping default and byte-exact Physics,
+SkullScope, replay, and visual goldens remain unchanged.
+
+The owner's signoff applies to this focused FP4 decision slice and explicitly
+accepts a narrower evidence set than the original matrix above. The retained
+same-executable A/B covers the mixed-speed workload and the 520/2,000-body scale
+matrix; slow-heavy, launcher, 200-box-wall, and dense-contact behavior remain
+covered by the unchanged-default canonical Physics gates rather than separate
+directional A/B captures. The current performance capture emits no final solver
+state hash, so FP4 retains raw local timing/count artifacts, first-divergence
+frames, the exact producing executable, and baseline SHA-256 transitions instead
+of claiming unavailable final-state hashes. The complete workload/hash matrix
+remains terminal FP7 evidence; it is not silently represented as FP4 evidence.
+
+The owner signed off on the measured result and current-tree performance
+baseline update. The exact historical producers and final current producer are
+retained in the append-only transitions
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/99e03bc1-to-bcb67b8d/`
+and
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/7ddbc9d4-to-6ef6b797/`.
+The new DX12 and physics-bench baseline SHA-256 values are respectively
+`bcb67b8d4e1bfcc4bc64f37185c2bc6f8b90e173cb25ef5bff503fbbac8643ef` and
+`6ef6b79741f713f454803f1d83907ea97e40db2b8af71e0002b64847f9dd3550`.
+FP4 is closed; FP5 is the next Physics phase.
+
 ---
 
 ## FP5 — Ragdoll Stage (b): Three-Degree-Of-Freedom Point Joint
@@ -876,7 +932,7 @@ solver changes.
   tags or scene-specific continuous modes.
 - [x] **FP3 — Discrete correctness and determinism closure.** Mandatory blocker
   before any predictive implementation.
-- [ ] **FP4 — Discrete performance A/B and owner ruling.** Isolate and record the
+- [x] **FP4 — Discrete performance A/B and owner ruling.** Isolate and record the
   performance improvement.
 - [ ] **FP5 — Ragdoll 3-DOF point joint.** Pin linear anchor coincidence with a
   3-by-3 effective mass and vector warm start.

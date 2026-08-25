@@ -45,10 +45,11 @@ class PhysicsMotionEligibilityStage
     void InvalidateBodyTopology();
     void CommitReplayRestoreState( bool hasVersionedState );
     void Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-              float dt );
+              float dt, bool radiusScaledPolicy = false );
 
     std::span<const uint8_t> State() const;
     std::span<const float> LinearTravelSquared() const;
+    std::span<const float> LinearDirectionalBoundary() const;
     std::span<const float> AngularTravelSquared() const;
     std::span<const float> AngularBroadphaseExpansion() const;
     const PhysicsMotionEligibilityStats& Stats() const;
@@ -62,6 +63,8 @@ class PhysicsMotionEligibilityStage
     PhysicsBodyRowList<uint8_t> m_state { "PhysicsMotionEligibilityStage.state", PhysicsCapacityReason::SceneBodies };
     PhysicsBodyRowList<float> m_linearTravelSquared { "PhysicsMotionEligibilityStage.linearTravelSquared",
                                                       PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<float> m_linearDirectionalBoundary { "PhysicsMotionEligibilityStage.linearDirectionalBoundary",
+                                                            PhysicsCapacityReason::SceneBodies };
     PhysicsBodyRowList<float> m_angularTravelSquared { "PhysicsMotionEligibilityStage.angularTravelSquared",
                                                        PhysicsCapacityReason::SceneBodies };
     PhysicsBodyRowList<float> m_angularBroadphaseExpansion { "PhysicsMotionEligibilityStage.angularBroadphaseExpansion",

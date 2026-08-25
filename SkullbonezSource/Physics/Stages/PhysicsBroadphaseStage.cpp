@@ -5,10 +5,10 @@ Purpose:
 
 Summary:
   The stage maintains persistent integer-range membership, adds a one-step
-  motion overlay for awake translation and angular shape reach, canonicalizes
-  solver-visible pair order, stamps cells reached by awake bodies, suppresses
-  sleep-only work at emission, prunes fixed/joint pairs, and records bounded
-  pipeline evidence.
+  motion overlay for policy-selected translation and angular shape reach,
+  canonicalizes solver-visible pair order, stamps cells reached by awake bodies,
+  suppresses sleep-only work at emission, prunes fixed/joint pairs, and records
+  bounded pipeline evidence.
 
 Glossary:
   Broadphase filter: Shape-aware cheap predicate applied while grid pairs form.
@@ -37,6 +37,7 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
+#include "../PhysicsMotionEligibility.h"
 #include "../SolverBroadphaseStage.h"
 #include "PhysicsStepDiagnostics.h"
 
@@ -434,8 +435,9 @@ void PhysicsBroadphaseStage::ResetTransientAfterReplayRestore()
 
 std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const BroadphaseSettings& broadphaseSettings,
                                                                   std::span<const PointJointConstraint> pointJointConstraints, std::span<const uint8_t> sleepState,
-                                                                  std::span<const int> awakeBodyIndices, std::span<const float> angularBroadphaseExpansion,
-                                                                  PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin, float contactEpsilon )
+                                                                  std::span<const int> awakeBodyIndices, std::span<const uint8_t> motionEligibilityState,
+                                                                  std::span<const float> angularBroadphaseExpansion, PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin,
+                                                                  float contactEpsilon, bool promotionScopedOverlay )
 {
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
@@ -507,18 +509,22 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
             const Vector3 displacement = PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyIndex ) ) * dt;
             const float displacementSq = Vector::VectorMagSquared( displacement );
             const bool hasLinearTravel = !std::isfinite( displacementSq ) || displacementSq > TOLERANCE * TOLERANCE;
+            const bool linearPromoted = bodyIndex < 0 || bodyIndex >= static_cast<int>( motionEligibilityState.size() ) ||
+                                        ( motionEligibilityState[static_cast<std::size_t>( bodyIndex )] &
+                                          PhysicsMotionEligibilityLinearPromoted ) != 0u;
+            const bool publishLinearOverlay = hasLinearTravel && ( !promotionScopedOverlay || linearPromoted );
 
-            if ( hasLinearTravel || !std::isfinite( radius ) || radius > baseRadius )
+            if ( publishLinearOverlay || !std::isfinite( radius ) || radius > baseRadius )
             {
                 const Vector3 colliderCenter = SolverColliderCenter( hotFields, colliderRecords, bodyIndex );
                 const float conservativeRadius = std::isfinite( displacementSq )
                                                      ? radius
                                                      : ( std::numeric_limits<float>::quiet_NaN )();
 
-                // Invariant: even individually Discrete bodies publish their
-                // short translational envelopes. Two opposing sub-threshold
-                // paths can therefore meet in one candidate cell before the
-                // pair-level relative-motion safety rule selects Swept TOI.
+                // Invariant: the absolute control preserves its universal
+                // translational overlay. The radius trial publishes translation
+                // only for linear-promoted or angular-expanded bodies; a fully
+                // Discrete body is detected at a later fixed-step boundary.
                 m_spatialGrid.InsertSweptOverlayAfterPersistent( bodyIndex, colliderCenter, displacement, baseRadius,
                                                                  conservativeRadius );
             }

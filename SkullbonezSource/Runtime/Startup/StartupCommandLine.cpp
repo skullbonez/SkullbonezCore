@@ -965,6 +965,32 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
 
               return true;
           } },
+        { "--physics-motion-eligibility", nullptr,
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
+          {
+              static_cast<void>( args );
+
+              if ( !value )
+              {
+                  return FailCommandLineParse( "--physics-motion-eligibility expects absolute|radius-scaled." );
+              }
+
+              if ( _stricmp( value, "absolute" ) == 0 )
+              {
+                  config.bodySimulation.radiusScaledMotionEligibility = false;
+                  fprintf( stdout, "[physics] Motion eligibility: absolute travel control.\n" );
+                  return true;
+              }
+
+              if ( _stricmp( value, "radius-scaled" ) == 0 )
+              {
+                  config.bodySimulation.radiusScaledMotionEligibility = true;
+                  fprintf( stdout, "[physics] Motion eligibility: radius-scaled FP4 trial.\n" );
+                  return true;
+              }
+
+              return FailCommandLineParse( "--physics-motion-eligibility expects absolute|radius-scaled." );
+          } },
         { "--shadow-parallel-prep", "--parallel-shadow-prep",
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {

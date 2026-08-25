@@ -49,7 +49,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -368,6 +368,42 @@ def create_schema(conn):
             primary key(run_id, frame)
         );
 
+        create table motion_policy_frames(
+            run_id text not null,
+            frame integer not null,
+            time_seconds real,
+            selector text,
+            policy_version integer,
+            evaluated_bodies integer,
+            discrete_bodies integer,
+            swept_bodies integer,
+            angular_expanded_bodies integer,
+            promotions integer,
+            demotions integer,
+            primary key(run_id, frame)
+        );
+
+        create table motion_policy_bodies(
+            run_id text not null,
+            frame integer not null,
+            time_seconds real,
+            body_id integer not null,
+            name text,
+            selector text,
+            policy_version integer,
+            collision_policy text,
+            motion_state integer,
+            evaluated integer,
+            linear_promoted integer,
+            angular_expanded integer,
+            linear_travel real,
+            angular_tip_travel real,
+            minimum_collision_thickness real,
+            promote_distance real,
+            demote_distance real,
+            primary key(run_id, frame, body_id)
+        );
+
         create table replay_scrubs(
             run_id text not null,
             frame integer not null,
@@ -459,6 +495,9 @@ def create_indexes(conn):
         create index idx_solver_iteration_summaries_frame
             on solver_iteration_summaries(run_id, frame, iteration);
         create index idx_pipeline_stages_frame on pipeline_stages(run_id, frame);
+        create index idx_motion_policy_frames on motion_policy_frames(run_id, frame);
+        create index idx_motion_policy_bodies_frame on motion_policy_bodies(run_id, body_id, frame);
+        create index idx_motion_policy_bodies_policy on motion_policy_bodies(run_id, collision_policy, frame);
         create index idx_replay_scrubs_frame on replay_scrubs(run_id, selected_replay_frame, live_replay_frame);
         create index idx_replay_restores_frame on replay_restores(run_id, target_replay_frame);
         """
@@ -578,6 +617,8 @@ def import_trace(conn, trace_path):
         "solver_stats": 0,
         "solver_iteration_summary": 0,
         "pipeline_stages": 0,
+        "motion_policy_summary": 0,
+        "motion_policy": 0,
         "replay_scrub": 0,
         "replay_restore": 0,
         "event": 0,
@@ -619,6 +660,10 @@ def import_trace(conn, trace_path):
                 insert_solver_iteration_summary(conn, item)
             elif kind == "pipeline_stages":
                 insert_pipeline_stages(conn, item)
+            elif kind == "motion_policy_summary":
+                insert_motion_policy_summary(conn, item)
+            elif kind == "motion_policy":
+                insert_motion_policy(conn, item)
             elif kind == "replay_scrub":
                 insert_replay_scrub(conn, item)
             elif kind == "replay_restore":
@@ -961,6 +1006,64 @@ def insert_pipeline_stages(conn, item):
             as_int(item.get("frame")),
             as_int(item.get("record_count")),
             as_json(stage_counts),
+        ),
+    )
+
+
+def insert_motion_policy_summary(conn, item):
+    conn.execute(
+        """
+        insert or replace into motion_policy_frames(
+            run_id, frame, time_seconds, selector, policy_version, evaluated_bodies,
+            discrete_bodies, swept_bodies, angular_expanded_bodies, promotions, demotions
+        )
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            item.get("run"),
+            as_int(item.get("frame")),
+            as_float(item.get("time_seconds")),
+            item.get("selector"),
+            as_int(item.get("policy_version")),
+            as_int(item.get("evaluated_bodies")),
+            as_int(item.get("discrete_bodies")),
+            as_int(item.get("swept_bodies")),
+            as_int(item.get("angular_expanded_bodies")),
+            as_int(item.get("promotions")),
+            as_int(item.get("demotions")),
+        ),
+    )
+
+
+def insert_motion_policy(conn, item):
+    conn.execute(
+        """
+        insert or replace into motion_policy_bodies(
+            run_id, frame, time_seconds, body_id, name, selector, policy_version,
+            collision_policy, motion_state, evaluated, linear_promoted,
+            angular_expanded, linear_travel, angular_tip_travel,
+            minimum_collision_thickness, promote_distance, demote_distance
+        )
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            item.get("run"),
+            as_int(item.get("frame")),
+            as_float(item.get("time_seconds")),
+            as_int(item.get("body_id")),
+            item.get("name"),
+            item.get("selector"),
+            as_int(item.get("policy_version")),
+            item.get("collision_policy"),
+            as_int(item.get("motion_state")),
+            as_int(item.get("evaluated")),
+            as_int(item.get("linear_promoted")),
+            as_int(item.get("angular_expanded")),
+            as_float(item.get("linear_travel")),
+            as_float(item.get("angular_tip_travel")),
+            as_float(item.get("minimum_collision_thickness")),
+            as_float(item.get("promote_distance")),
+            as_float(item.get("demote_distance")),
         ),
     )
 
@@ -1398,6 +1501,126 @@ def query_body(conn, cache, args):
         "timeline": rows_to_dicts(sampled),
         "events": rows_to_dicts(events),
         "relatedQueries": ["contacts --body %s --frame <frame>" % body_id, "frame <frame>", "island <id> --frame <frame>"],
+    }
+
+
+def annotate_motion_transitions(raw_rows):
+    timeline = []
+    previous_policy = "discrete"
+    for raw_row in raw_rows:
+        item = row_to_dict(raw_row)
+        current_policy = item.get("collision_policy") or "discrete"
+        if current_policy != previous_policy:
+            item["transition"] = "promoted" if current_policy == "swept" else "demoted"
+        else:
+            item["transition"] = None
+        previous_policy = current_policy
+        timeline.append(item)
+    return timeline
+
+
+def query_motion(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    frame_where = ["run_id=?"]
+    frame_params = [run_id]
+    apply_frame_where(frame_where, frame_params, frame_range=args.frames, frame=args.frame)
+
+    frame_rows = conn.execute(
+        f"select * from motion_policy_frames where {' and '.join(frame_where)} order by frame",
+        frame_params,
+    ).fetchall()
+    frame_stats = conn.execute(
+        f"""
+        select count(*) as frame_count, min(frame) as first_frame, max(frame) as last_frame,
+               avg(discrete_bodies) as avg_discrete_bodies,
+               avg(swept_bodies) as avg_swept_bodies,
+               max(swept_bodies) as max_swept_bodies,
+               sum(promotions) as promotion_events,
+               sum(demotions) as demotion_events
+        from motion_policy_frames where {' and '.join(frame_where)}
+        """,
+        frame_params,
+    ).fetchone()
+
+    body_where = ["run_id=?"]
+    body_params = [run_id]
+    apply_frame_where(body_where, body_params, frame_range=args.frames, frame=args.frame)
+    body_id = None
+    if args.body is not None:
+        body_id = resolve_body_id(conn, run_id, args.body)
+        body_where.append("body_id=?")
+        body_params.append(body_id)
+    if args.policy is not None:
+        body_where.append("collision_policy=?")
+        body_params.append(args.policy)
+
+    body_stats = conn.execute(
+        f"""
+        select count(*) as row_count,
+               sum(case when collision_policy='discrete' then 1 else 0 end) as discrete_rows,
+               sum(case when collision_policy='swept' then 1 else 0 end) as swept_rows,
+               sum(case when angular_expanded=1 then 1 else 0 end) as angular_expanded_rows,
+               max(linear_travel) as max_linear_travel,
+               max(angular_tip_travel) as max_angular_tip_travel
+        from motion_policy_bodies where {' and '.join(body_where)}
+        """,
+        body_params,
+    ).fetchone()
+
+    limit = args.limit or BODY_SAMPLE_LIMIT
+    truncated = False
+    promotion_events = 0
+    demotion_events = 0
+    if body_id is not None:
+        selected_rows = conn.execute(
+            f"select * from motion_policy_bodies where {' and '.join(body_where)} order by frame",
+            body_params,
+        ).fetchall()
+        selected_frames = {as_int(row["frame"]) for row in selected_rows}
+
+        # Invariant: reconstruct transitions over the complete body history
+        # before applying presentation filters. A bounded query that begins in
+        # an existing Swept interval must not invent a promotion, and a policy
+        # filter must not erase the Discrete row that separates two promotions.
+        history_rows = conn.execute(
+            "select * from motion_policy_bodies where run_id=? and body_id=? order by frame",
+            [run_id, body_id],
+        ).fetchall()
+        timeline = [
+            item
+            for item in annotate_motion_transitions(history_rows)
+            if as_int(item.get("frame")) in selected_frames
+        ]
+        promotion_events = sum(1 for item in timeline if item.get("transition") == "promoted")
+        demotion_events = sum(1 for item in timeline if item.get("transition") == "demoted")
+        sampled_rows = sample_rows(timeline, limit)
+        truncated = len(timeline) > len(sampled_rows)
+    else:
+        raw_rows = conn.execute(
+            f"select * from motion_policy_bodies where {' and '.join(body_where)} order by frame, body_id limit ?",
+            [*body_params, limit + 1],
+        ).fetchall()
+        truncated = len(raw_rows) > limit
+        sampled_rows = rows_to_dicts(raw_rows[:limit])
+
+    frame_sample = rows_to_dicts(sample_rows(frame_rows, limit))
+    return {
+        "cache": cache,
+        "run": run_id,
+        "body": body_id,
+        "frameStats": row_to_dict(frame_stats),
+        "bodyStats": row_to_dict(body_stats),
+        "bodyPromotionEvents": promotion_events if body_id is not None else None,
+        "bodyDemotionEvents": demotion_events if body_id is not None else None,
+        "frameTimeline": frame_sample,
+        "policyTimeline": sampled_rows,
+        "truncated": truncated,
+        "note": None if frame_rows else "Motion-policy rows are not present for this trace.",
+        "relatedQueries": [
+            "motion --frame <frame>",
+            "motion --body <body> --frames <start>:<end>",
+            "motion --policy swept --frames <start>:<end>",
+        ],
     }
 
 
@@ -2221,6 +2444,14 @@ def build_parser():
     body.add_argument("--frames", default=None, help="Frame range A:B.")
     body.add_argument("--frame", type=int, default=None, help="Single frame.")
     body.set_defaults(func=query_body)
+
+    motion = sub.add_parser("motion", help="Discrete/swept policy counts and per-body timelines.")
+    add_common(motion)
+    motion.add_argument("--body", default=None, help="Body id or name.")
+    motion.add_argument("--frames", default=None, help="Frame range A:B.")
+    motion.add_argument("--frame", type=int, default=None, help="Single frame.")
+    motion.add_argument("--policy", choices=["discrete", "swept"], default=None)
+    motion.set_defaults(func=query_motion)
 
     frame = sub.add_parser("frame", help="Frame aggregate plus top bodies/contacts.")
     add_common(frame)

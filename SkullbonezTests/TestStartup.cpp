@@ -115,7 +115,8 @@ TEST_CASE( "Startup command line: tokenizer and option lookup preserve compatibi
     CHECK( TokenizeCommandLine( nullptr ).tokens.empty() );
     CHECK( View( " \t " ).tokens.empty() );
 
-    const CommandLineView commandLine = View( "\t--scene \"path with spaces.scene.json\" --frames=12 loose \"unterminated tail" );
+    const CommandLineView commandLine = View(
+        "\t--scene \"path with spaces.scene.json\" --frames=12 loose \"unterminated tail" );
     REQUIRE( commandLine.tokens.size() == 5u );
     CHECK( commandLine.tokens[0] == "--scene" );
     CHECK( commandLine.tokens[1] == "path with spaces.scene.json" );
@@ -193,21 +194,22 @@ TEST_CASE( "Startup command line: primitive value parsers reject partial writes 
 
 TEST_CASE( "Startup launch values: every run directive family projects into owned state" )
 {
-    const CommandLineView commandLine = View( "--seed 17 --frames=9 --allocation_guard gameplay "
-                                              "--style-harness TestOutput/style --scene_snapshot_out TestOutput/scene.json "
-                                              "--memory_dump TestOutput/memory.json --interaction_script script.json "
-                                              "--interaction_report report.json --interaction_trace trace.jsonl "
-                                              "--interaction_record_max_minutes 3 "
-                                              "--replay off --replay_seconds 12 "
-                                              "--replay_scrub_probe 0.5 --replay_restore_probe 0.75 "
-                                              "--replay_save_probe save.skreplay --replay_load load.skreplay "
-                                              "--replay_load_probe probe.skreplay --replay_restore_file_probe restore.skreplay "
-                                              "--replay_restore_target_file_probe target.skreplay "
-                                              "--replay_restore_branch_file_probe branch.skreplay "
-                                              "--replay_restore_failure_file_probe failure.skreplay --replay_hashes hashes.csv "
-                                              "--ui_stress on --ui_stress_seed 21 --ui_stress_actions 7 "
-                                              "--graphics_stress on --graphics_stress_seed 22 --graphics_stress_actions 8 "
-                                              "--graphics_stress_scene_interval 30 --graphics_stress_memory_interval 0" );
+    const CommandLineView commandLine = View(
+        "--seed 17 --frames=9 --allocation_guard gameplay "
+        "--style-harness TestOutput/style --scene_snapshot_out TestOutput/scene.json "
+        "--memory_dump TestOutput/memory.json --interaction_script script.json "
+        "--interaction_report report.json --interaction_trace trace.jsonl "
+        "--interaction_record_max_minutes 3 "
+        "--replay off --replay_seconds 12 "
+        "--replay_scrub_probe 0.5 --replay_restore_probe 0.75 "
+        "--replay_save_probe save.skreplay --replay_load load.skreplay "
+        "--replay_load_probe probe.skreplay --replay_restore_file_probe restore.skreplay "
+        "--replay_restore_target_file_probe target.skreplay "
+        "--replay_restore_branch_file_probe branch.skreplay "
+        "--replay_restore_failure_file_probe failure.skreplay --replay_hashes hashes.csv "
+        "--ui_stress on --ui_stress_seed 21 --ui_stress_actions 7 "
+        "--graphics_stress on --graphics_stress_seed 22 --graphics_stress_actions 8 "
+        "--graphics_stress_scene_interval 30 --graphics_stress_memory_interval 0" );
 
     ParsedArgs args;
     REQUIRE( ApplyRunCliValueDirectives( commandLine, args ) );
@@ -321,8 +323,8 @@ TEST_CASE( "Startup recorded interaction rejects escaping sidecar paths" )
     ParsedArgs args;
     strcpy_s( args.interactionScriptPath, manifest.c_str() );
     CHECK_FALSE( ResolveInteractionRecordingLaunch( args ) );
-    CHECK( std::strcmp( GetCommandLineError(),
-                        "recorded --interaction-script scene path may not escape its directory." ) == 0 );
+    CHECK( std::strcmp( GetCommandLineError(), "recorded --interaction-script scene path may not escape its directory." ) ==
+           0 );
 }
 
 TEST_CASE( "Startup physics debug: component, float, and optional switches compose deterministically" )
@@ -579,7 +581,8 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
 {
     std::string text = "--renderer d3d12 --vsync off --time-scale 2 --tornado=off --tornado-vector-field on "
                        "--cinematic-rendering off --shadow-maps off --workers 0 --model-capacity 32 "
-                       "--physics-parallel off --parallel-shadow-prep on --hold=off "
+                       "--physics-parallel off --physics-motion-eligibility radius-scaled "
+                       "--parallel-shadow-prep on --hold=off "
                        "--seed 17 --frames 3 --all-boxes --physics-debug contacts --physics-debug-alpha .5 "
                        "--fixed-step --no-water --no-sleep --load-scenes-only "
                        "--demo-hero --show-profiler --no-top-text --automation-hidden-window --broadphase-overlay "
@@ -615,6 +618,7 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
     CHECK( config.runtimeCapacity.workerThreads == 0 );
     CHECK( config.runtimeCapacity.sceneObjectCapacity == 32 );
     CHECK_FALSE( config.physicsExecution.parallel );
+    CHECK( config.bodySimulation.radiusScaledMotionEligibility );
     CHECK( config.runtimeRender.shadowParallelPrep );
 #ifdef _DEBUG
     CHECK( args.physicsDiagnosticsRequested );
@@ -629,8 +633,8 @@ TEST_CASE( "Startup physics diagnostics explicitly requests render-frame lockste
 {
     EngineConfig config;
     ParsedArgs args;
-    REQUIRE( ParseCommandLine( diagnostics, View( "--physics-diag TestOutput/startup_unit/physics.ndjson" ), config,
-                               args ) );
+    REQUIRE(
+        ParseCommandLine( diagnostics, View( "--physics-diag TestOutput/startup_unit/physics.ndjson" ), config, args ) );
     CHECK( args.physicsDiagnosticsRequested );
     CHECK( args.fixedStep );
     CHECK( args.renderFrameLockstepForcedByPhysicsDiagnostics );
@@ -648,6 +652,9 @@ TEST_CASE( "Startup full parse: validation precedence publishes frozen messages"
     CheckFullParseFailure( "--time-scale 0", "--time-scale expects a positive float." );
     CheckFullParseFailure( "--model-capacity 0", "--model-capacity expects 1..8192." );
     CheckFullParseFailure( "--physics-parallel maybe", "--physics-parallel expects optional on|off." );
+    CheckFullParseFailure( "--physics-motion-eligibility maybe",
+                           "--physics-motion-eligibility expects absolute|radius-scaled." );
+    CheckFullParseFailure( "--physics-motion-eligibility", "--physics-motion-eligibility expects absolute|radius-scaled." );
     CheckFullParseFailure( "--shadow-parallel-prep maybe", "--shadow-parallel-prep expects optional on|off." );
     CheckFullParseFailure( "--interactive maybe", "--interactive expects optional on|off." );
     CheckFullParseFailure( "--all-balls --all-boxes", "--all-balls and --all-boxes are mutually exclusive." );

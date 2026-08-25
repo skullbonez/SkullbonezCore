@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-25
-Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 110/118 tasks complete
+Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 112/118 tasks complete
 
 ## Owner Direction
 
@@ -27,6 +27,11 @@ Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor act
   On 2026-08-23 the owner activated FP2 with motion policy version 2: absolute
   travel of `0.1` metres per Physics tick promotes, `0.075` metres demotes, and
   collider thickness does not participate.
+  On 2026-08-25 the owner signed off FP4's same-executable performance result
+  and the exact current-tree performance-baseline transition. The direction-
+  valid radius trial remains validation-only because its behavior differs from the absolute
+  control and a default-policy replay-visual negative control did not complete
+  the 6,800-frame interaction report. FP5 is now the active Physics phase.
 
 - Runtime Boundary Separation And Project Topology was activated by owner
   direction on 2026-08-22. RBS0-RBS7 make Runtime/App a true composition root,
@@ -289,7 +294,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 4 | `TODO/ragdoll-physics-unification.md` |
+| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 5 | `TODO/ragdoll-physics-unification.md` |
 | Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 8 | `TODO/runtime-boundary-separation.md` |
 | Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 7 | `TODO/game-ui-component-library-separation.md` |
 | Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 3 | `TODO/recorded-interaction-playback-cursor.md` |
@@ -366,7 +371,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-111/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
+112/118 tasks complete with Deterministic Collision Modes And Ragdoll Unification
 first, Runtime Boundary Separation And Project Topology second, Game UI Component
 Library Separation third, and Recorded Interaction Playback Cursor fourth.
 Causal C0-C8, Determinism T0-T8,
@@ -378,8 +383,10 @@ Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
-Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 4/10;
-FP0-FP3 are complete and FP4 is active. FP2's archived automated transition
+Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 5/10;
+FP0-FP4 are complete and FP5 is active. FP4 retains its direction-valid radius
+policy as a validation-only selector, SkullScope policy timeline, same-executable A/B
+artifacts, and exact historical/current performance producers. FP2's archived automated transition
 retains the prior and new producers, its core/deep Physics gates pass, and its
 2,401-tick replay-visual gate passes with one prediction generation, all 200
 wall bricks moved, 200 causal nodes, and every registered false-pass control.

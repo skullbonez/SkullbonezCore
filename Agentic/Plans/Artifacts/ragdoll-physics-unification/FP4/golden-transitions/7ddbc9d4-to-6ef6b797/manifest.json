@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md",
+  "phase": "FP4",
+  "transition_id": "7ddbc9d4-to-6ef6b797",
+  "source_commit": "3a4b52e94c1bf61b2f04b975a4fa2e63fe3cbf5a",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/physics_bench_perf.json",
+      "old_sha256": "7ddbc9d43b6d04d754d129497582b2436de19a75e81defd7fae59b92dc22f038",
+      "new_sha256": "6ef6b79741f713f454803f1d83907ea97e40db2b8af71e0002b64847f9dd3550"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "843f10dab15e869285e5747a69b69de5a960eed2",
+    "golden_sha256": {
+      "TestOutput/baselines/physics_bench_perf.json": "7ddbc9d43b6d04d754d129497582b2436de19a75e81defd7fae59b92dc22f038"
+    },
+    "executables": [
+      {
+        "configuration": "Profile|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/7ddbc9d4-to-6ef6b797/old/SKULLBONEZ_CORE-Profile.exe",
+        "size": 4083200,
+        "sha256": "02f9956e16ccaf4f212af68b7bad3b0ba094a6b6d2cbb2a0d0c71b3ad72b5118",
+        "launch_command": "old/SKULLBONEZ_CORE-Profile.exe --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json",
+        "dependency_scan_command": "dumpbin /DEPENDENTS old/SKULLBONEZ_CORE-Profile.exe",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "3a4b52e94c1bf61b2f04b975a4fa2e63fe3cbf5a",
+    "golden_sha256": {
+      "TestOutput/baselines/physics_bench_perf.json": "6ef6b79741f713f454803f1d83907ea97e40db2b8af71e0002b64847f9dd3550"
+    },
+    "executables": [
+      {
+        "configuration": "Profile|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/7ddbc9d4-to-6ef6b797/new/SKULLBONEZ_CORE-Profile.exe",
+        "size": 4714496,
+        "sha256": "3eacb81542b5dc0b9d5ed8d6ff8a176fd0b1f83a6bdfec4904b846d1d183593d",
+        "launch_command": "new/SKULLBONEZ_CORE-Profile.exe --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json",
+        "dependency_scan_command": "dumpbin /DEPENDENTS new/SKULLBONEZ_CORE-Profile.exe",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

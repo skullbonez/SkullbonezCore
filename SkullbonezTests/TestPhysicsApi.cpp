@@ -536,11 +536,13 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     diagnostics->BeginStep( 2 );
     const std::array<uint8_t, 2> sleepState = { 0u, 0u };
     const std::array<int, 2> awakeBodies = { 0, 1 };
+    const std::array<uint8_t, 2> motionEligibilityState = {};
     const std::array<float, 2> angularBroadphaseExpansion = { 0.0f, 0.0f };
     SkullbonezCore::Physics::BroadphaseSettings settings;
     settings.cellSize = 2.0f;
     const auto unrotatedPairs = broadphase->Run( *bodies, *colliders, settings, {}, sleepState, awakeBodies,
-                                                 angularBroadphaseExpansion, *diagnostics, 1.0f / 120.0f, 0.0f, 0.05f );
+                                                 motionEligibilityState, angularBroadphaseExpansion, *diagnostics,
+                                                 1.0f / 120.0f, 0.0f, 0.05f, false );
     CHECK( unrotatedPairs.empty() );
 
     auto offsetBody = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies->HotFields(), 0u );
@@ -548,8 +550,8 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     SkullbonezCore::Physics::StorePhysicsBodyHotState( bodies->MutableHotFields(), 0u, offsetBody );
     broadphase->InvalidateBodyTopology();
     diagnostics->BeginStep( 2 );
-    const auto pairs = broadphase->Run( *bodies, *colliders, settings, {}, sleepState, awakeBodies,
-                                        angularBroadphaseExpansion, *diagnostics, 1.0f / 120.0f, 0.0f, 0.05f );
+    const auto pairs = broadphase->Run( *bodies, *colliders, settings, {}, sleepState, awakeBodies, motionEligibilityState,
+                                        angularBroadphaseExpansion, *diagnostics, 1.0f / 120.0f, 0.0f, 0.05f, false );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );
 }

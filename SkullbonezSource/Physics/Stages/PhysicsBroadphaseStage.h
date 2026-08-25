@@ -5,10 +5,10 @@ Purpose:
 
 Summary:
   PhysicsBroadphaseStage incrementally maintains persistent spatial membership
-  during one fixed tick, overlays conservative linear sweeps and angular reach,
-  visits only cells reached by awake bodies in production, and exposes its
-  retained candidate span to later stages. Collision-cell keys share this owner
-  because they use the same coordinates.
+  during one fixed tick, overlays policy-selected linear sweeps and angular
+  reach, visits only cells reached by awake bodies in production, and exposes
+  its retained candidate span to later stages. Collision-cell keys share this
+  owner because they use the same coordinates.
 
 Glossary:
   Fast-sweep augmentation: Conservative segment check that protects tiny,
@@ -90,8 +90,9 @@ class PhysicsBroadphaseStage
     std::span<const std::pair<int, int>>
     Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const BroadphaseSettings& broadphaseSettings,
          std::span<const PointJointConstraint> pointJointConstraints, std::span<const uint8_t> sleepState,
-         std::span<const int> awakeBodyIndices, std::span<const float> angularBroadphaseExpansion,
-         PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin, float contactEpsilon );
+         std::span<const int> awakeBodyIndices, std::span<const uint8_t> motionEligibilityState,
+         std::span<const float> angularBroadphaseExpansion, PhysicsStepDiagnostics& stepDiagnostics, float dt,
+         float contactSkin, float contactEpsilon, bool promotionScopedOverlay );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     float GetCellSize() const;

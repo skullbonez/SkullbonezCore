@@ -208,7 +208,7 @@ bool BodyRequiresSweptTranslation( std::span<const uint8_t> motionEligibilitySta
 bool ObjectPairNeedsSweptCcd( SkullbonezCore::Core::Profiler* profiler, const PhysicsBodyHotFieldsConstView& hotFields,
                               std::span<const ColliderRecord> colliderRecords,
                               std::span<const uint8_t> motionEligibilityState, int bodyAIndex, int bodyBIndex,
-                              float availableTime, float contactEpsilon )
+                              float availableTime, float contactEpsilon, bool promotionOnlySweptCcd )
 {
     if ( availableTime <= TOLERANCE )
     {
@@ -219,6 +219,15 @@ bool ObjectPairNeedsSweptCcd( SkullbonezCore::Core::Profiler* profiler, const Ph
          BodyRequiresSweptTranslation( motionEligibilityState, bodyBIndex ) )
     {
         return true;
+    }
+
+    if ( promotionOnlySweptCcd )
+    {
+        // Invariant: the radius-scaled experiment pays swept narrowphase only
+        // after a body crosses its own half-thickness. Two bodies that each stay
+        // below that bound may overlap at the next boundary, but cannot cleanly
+        // exchange sides between two discrete samples.
+        return false;
     }
 
     const Vector3 relativeLinearDisplacement = ( PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyAIndex ) ) -
@@ -355,7 +364,7 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
 
             if ( timeRemaining[y] > 0.0f &&
                  ObjectPairNeedsSweptCcd( profiler, hotFields, colliderRecords, motionEligibilityState, y, x,
-                                          timeRemaining[y], policy.contactEpsilon ) )
+                                          timeRemaining[y], policy.contactEpsilon, policy.promotionOnlySweptCcd ) )
             {
                 ObjectContactSweepResult sweep = SweepObjectPair( profiler, hotFields, colliderRecords, y, x,
                                                                   timeRemaining[y] );
@@ -449,7 +458,7 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
 
             if ( timeRemaining[x] > 0.0f &&
                  ObjectPairNeedsSweptCcd( profiler, hotFields, colliderRecords, motionEligibilityState, x, y,
-                                          timeRemaining[x], policy.contactEpsilon ) )
+                                          timeRemaining[x], policy.contactEpsilon, policy.promotionOnlySweptCcd ) )
             {
                 ObjectContactSweepResult sweep = SweepObjectPair( profiler, hotFields, colliderRecords, x, y,
                                                                   timeRemaining[x] );
@@ -545,7 +554,7 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
     float availableTime = (std::min)( timeRemaining[x], timeRemaining[y] );
 
     if ( !ObjectPairNeedsSweptCcd( profiler, hotFields, colliderRecords, motionEligibilityState, x, y, availableTime,
-                                   policy.contactEpsilon ) )
+                                   policy.contactEpsilon, policy.promotionOnlySweptCcd ) )
     {
         // Invariant: a Discrete pair performs no swept query and therefore emits
         // neither a SweptObjectHit nor a misleading SweptObjectMiss event.

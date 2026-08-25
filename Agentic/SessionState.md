@@ -2,7 +2,7 @@
 
 Date: 2026-08-25
 Branch: `nightrunner-24th-aug`
-Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 111/118 tasks complete
+Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 112/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -22,10 +22,18 @@ Third-party runtime DLLs are intentionally omitted from tracked artifacts and
 must be restored from the pinned setup/build inputs before an isolated launch. The
 replay witness runs one 2,401-tick generation, moves all 200 wall bricks,
 publishes 200 causal nodes, and rejects every registered false-pass control.
-FP3 is complete; FP4 is active with canonical authored-wall A/B evidence and an
-unresolved same-machine Physics performance-baseline failure. Invalid
-reconstructed-producer golden transitions were withdrawn rather than refreshed.
-FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
+FP3 and FP4 are complete. FP4's same-executable direction-valid radius trial
+keeps 95.66%-100% of measured body ticks Discrete and reduces mean Physics time
+by 9.34%-52.98% across the mixed, 520-body, and 2,000-body retained runs. The owner
+signed off on the result and exact current-tree performance-baseline transition.
+The radius rule remains validation-only because the policies diverge and a
+temporary default-policy replay-visual negative control did not complete its
+6,800-frame report. Sphere radius-squared, oriented-box support, and exact
+bounded hull support keep elongated shapes Discrete unless travel exceeds their
+radius in the actual motion direction. SkullScope records per-frame and per-object policy state and
+`physics_query motion` reconstructs promotions and demotions. The shipping
+default and byte-exact Physics, SkullScope, replay, and visual goldens remain
+unchanged. FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
 Boundary Separation And Project Topology RBS0-RBS7 is complete at 8/8. RBS7
 repaired the allocation rulings, replaced the Replay startup context with a
 finite-state continuation, moved Operator UI projection into Runtime/UI, and
@@ -498,28 +506,20 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Continue the recorded `RAGDOLL_PHYSICS` FP4 OPEN/HOLD disposition while running
-`RECORDED_CURSOR` RIC3 terminal audit on the integrated RIC0-RIC2 value and draw
-path. FP2
-retains motion policy version 2: `0.1`
-metres of absolute per-tick travel promotes and `0.075` metres demotes,
-independent of collider thickness.
+Begin `RAGDOLL_PHYSICS` FP5's three-degree-of-freedom point-joint phase while
+running `RECORDED_CURSOR` RIC3 terminal audit on the integrated RIC0-RIC2 value
+and draw path. The FP4 direction-valid radius policy remains available only through the
+validation selector; FP2's absolute motion policy remains the shipping default.
 
 ## Blockers
 
-- FP4's canonical current-tree A/B evidence is reproducible and allocation-
-  clean, but `tools\validate_perf.bat` still rejects four historical
-  Physics/Step relative rows. The exact historical performance-golden producer
-  is unavailable, so repository policy forbids a baseline replacement. FP4
-  must recover enough same-behavior performance or record a truthful blocking
-  disposition; it must not refresh that golden.
 - FP0 pre-change `tools\validate_replay_visual_fidelity.bat` builds and passes
   its 18 typed/false-pass controls, then the authoritative run stops at reveal 0
   on `header.futureNodeCount`. Preserve the oracle until the Physics phase
   explains the transition, retains both launch payloads, and applies the exact
   candidate through the archived automated lane.
-- The stale Physics CSV, noisy relative Physics performance sample, and
-  corrected-topology visual oracle remain validation findings. Active Physics
+- The stale Physics CSV and corrected-topology visual oracle remain validation
+  findings. Active Physics
   plans now have standing authority for every golden they govern, including
   Physics, replay, visual, causal, SkullScope, and performance transitions,
   without another pause or interactive phrase. Every write remains exact-digest

@@ -110,6 +110,8 @@ tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson rolling --frames 300:70
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson broadphase --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson solver --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson pipeline --frames 0:1000
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson motion --frames 0:1000
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson motion --body <body> --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions why_not_resting
 ```
@@ -289,6 +291,18 @@ tools\physics_query.bat Debug\scene.physicsdiag.ndjson island <id> --frame <fram
 tools\physics_query.bat Debug\scene.physicsdiag.ndjson broadphase --frames 0:1000
 tools\physics_query.bat Debug\scene.physicsdiag.ndjson events --type broadphase_spike
 ```
+
+### Which bodies used Discrete or swept collision policy, and when?
+
+```bat
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson motion --frames <start>:<end>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson motion --body <body> --frames <start>:<end>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson motion --frame <frame> --policy swept
+```
+
+The frame timeline reports Discrete and swept body counts plus promotion and
+demotion events. A body timeline reports the active selector, squared-check
+thresholds, measured travel, and each transition frame.
 
 ### What changed between two runs?
 
