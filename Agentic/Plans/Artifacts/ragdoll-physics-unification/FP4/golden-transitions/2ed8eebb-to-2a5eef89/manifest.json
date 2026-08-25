@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md",
+  "phase": "FP4",
+  "transition_id": "2ed8eebb-to-2a5eef89",
+  "source_commit": "8399b254999036e1cf7e63e0bdb141f7c3632035",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/physics_query_varied.json",
+      "old_sha256": "2ed8eebb8d3c11e72451fe60d81f3639e91492de25e8c218ce5cd94e76a72595",
+      "new_sha256": "2a5eef89c17769564a6281143ae5f30fa382610d2d03950cd9ee707568870e0e"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "2806c7d70159e498c8fdd5678023e4d66a9db9d7",
+    "golden_sha256": {
+      "TestOutput/baselines/physics_query_varied.json": "2ed8eebb8d3c11e72451fe60d81f3639e91492de25e8c218ce5cd94e76a72595"
+    },
+    "executables": [
+      {
+        "configuration": "Debug|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/2ed8eebb-to-2a5eef89/old/SKULLBONEZ_CORE-Debug.exe",
+        "size": 14019072,
+        "sha256": "12dd17945b512e285b73e7dd6c833069af8119bc880780f9bec211134e0b945a",
+        "launch_command": "old/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_bench_varied.scene.json --frames 1200 --physics-diag physics_query_varied.physicsdiag.ndjson",
+        "dependency_scan_command": "dumpbin /DEPENDENTS old/SKULLBONEZ_CORE-Debug.exe",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "8399b254999036e1cf7e63e0bdb141f7c3632035",
+    "golden_sha256": {
+      "TestOutput/baselines/physics_query_varied.json": "2a5eef89c17769564a6281143ae5f30fa382610d2d03950cd9ee707568870e0e"
+    },
+    "executables": [
+      {
+        "configuration": "Debug|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/2ed8eebb-to-2a5eef89/new/SKULLBONEZ_CORE-Debug.exe",
+        "size": 14060544,
+        "sha256": "056a5c03aeb9d6a3570949ff0ddc650f76270f55a647801a80b47e8703e5993c",
+        "launch_command": "new/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_bench_varied.scene.json --frames 1200 --physics-diag physics_query_varied.physicsdiag.ndjson",
+        "dependency_scan_command": "dumpbin /DEPENDENTS new/SKULLBONEZ_CORE-Debug.exe",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

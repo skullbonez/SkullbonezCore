@@ -45,7 +45,7 @@ class PhysicsMotionEligibilityStage
     void InvalidateBodyTopology();
     void CommitReplayRestoreState( bool hasVersionedState );
     void Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-              float dt, bool radiusScaledPolicy = false );
+              float dt );
 
     std::span<const uint8_t> State() const;
     std::span<const float> LinearTravelSquared() const;

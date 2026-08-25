@@ -86,9 +86,8 @@ std::string EscapeSkullScopeJson( const char* value )
 
 const char* MotionEligibilityPolicyName( uint32_t policyVersion )
 {
-    return policyVersion == SkullbonezCore::Physics::PHYSICS_RADIUS_SCALED_MOTION_ELIGIBILITY_POLICY_VERSION
-               ? "radius_scaled"
-               : "absolute";
+    static_cast<void>( policyVersion );
+    return "radius_scaled";
 }
 
 double MotionTravelFromSquared( float travelSquared )
@@ -849,8 +848,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                                         : Physics::PhysicsMotionEligibilityNone;
         const bool linearPromoted = ( motionState & Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u;
         const bool angularExpanded = ( motionState & Physics::PhysicsMotionEligibilityAngularExpanded ) != 0u;
-        const bool radiusScaled = motionStats.policyVersion ==
-                                  Physics::PHYSICS_RADIUS_SCALED_MOTION_ELIGIBILITY_POLICY_VERSION;
         const float minimumThickness = i < static_cast<int>( colliderRecords.size() )
                                            ? (std::max)( 0.0f, colliderRecords[static_cast<std::size_t>( i )]
                                                                    .minimumCollisionThickness )
@@ -862,29 +859,16 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                                          ? MotionTravelFromSquared( angularTravelSquared[static_cast<std::size_t>( i )] )
                                          : -1.0;
         const float directionalBoundary = i < static_cast<int>( linearDirectionalBoundary.size() )
-                                              ? (std::max)( 0.0f, linearDirectionalBoundary[static_cast<std::size_t>( i )] )
-                                              : 0.0f;
-        double directionalRadius = minimumThickness * Physics::PHYSICS_RADIUS_SCALED_THRESHOLD_THICKNESS_FACTOR;
+                                              ? linearDirectionalBoundary[static_cast<std::size_t>( i )]
+                                              : -1.0f;
 
-        if ( radiusScaled && i < static_cast<int>( colliderRecords.size() ) )
-        {
-            const Physics::ColliderShapeKind kind = colliderRecords[static_cast<std::size_t>( i )].shapeKind;
+        // The hot stage stores the squared distance to the first reached SAT
+        // boundary. A stationary body has no travel direction, so the cold
+        // timeline reports -1 (unavailable) rather than inventing zero metres.
+        const double directionalRadius = MotionTravelFromSquared( directionalBoundary );
 
-            if ( kind == Physics::ColliderShapeKind::Sphere )
-            {
-                directionalRadius = std::sqrt( static_cast<double>( directionalBoundary ) );
-            }
-            else if ( linearTravel > 0.0 )
-            {
-                // The hot stage stores travel * directional radius so its exact
-                // promotion check stays square-root-free. SkullScope is a cold
-                // diagnostics sink and may divide by measured travel for display.
-                directionalRadius = static_cast<double>( directionalBoundary ) / linearTravel;
-            }
-        }
-
-        const double promoteDistance = radiusScaled ? directionalRadius : Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK;
-        const double demoteDistance = radiusScaled ? directionalRadius : Physics::PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK;
+        const double promoteDistance = directionalRadius;
+        const double demoteDistance = directionalRadius;
 
         // Why: a separate row keeps the stable body query contract untouched
         // while making policy changes queryable as a body/timeline relation.

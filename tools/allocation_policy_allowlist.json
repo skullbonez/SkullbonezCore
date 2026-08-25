@@ -2,6 +2,17 @@
   "schema": 1,
   "allowed": [
     {
+      "path": "SkullbonezSource/Physics/ConvexHullShape.cpp",
+      "patterns": [
+        "std::make_shared<MotionAxisCache>"
+      ],
+      "owner": "RAGDOLL_PHYSICS FP4 convex-hull motion-axis cache",
+      "phase": "scene_load_or_authored_copy_scale",
+      "reason": "ConvexHullShape builds one immutable, fixed-size SAT-axis cache after validating or copy-scaling hull topology. Shape copies share that cold cache so authored scene assembly stays off the bounded launcher stack and fixed Physics ticks perform no allocation.",
+      "cap": "One 512-axis fixed cache per distinct loaded or copy-scaled hull value, bounded by the existing 8192 scene-collider ceiling; no steady-state growth.",
+      "removal_or_wrapper_plan": "Move this cache into a future ColliderStore-owned cold shape arena if hull geometry adopts arena-backed immutable storage."
+    },
+    {
       "path": "SkullbonezSource/Physics/PhysicsEngine.cpp",
       "patterns": [
         "std::make_unique<PhysicsWorld>"

@@ -5,15 +5,14 @@ Purpose:
 
 Summary:
   The stage reads force-resolved velocities and collider geometry in dense model
-  order. It can run the shipping absolute threshold or FP4's direction-valid
-  radius-scaled trial without changing iteration order or replay-owned state bytes.
+  order and applies the direction-valid radius policy without changing iteration
+  order or replay-owned state bytes.
 
 Invariants:
   - Squared comparisons avoid per-body square roots.
   - Non-finite predicted travel promotes conservatively.
-  - The absolute control remains independent of collider thickness.
-  - Linear promotion uses the exact radius along tick travel: sphere radius,
-    oriented-box support, or bounded convex-hull vertex support.
+  - Linear promotion uses direct squared comparisons against sphere radius,
+    box half-extents, or the cached hull difference-body SAT axes.
   - Angular expansion remains conservative and uses half the minimum thickness.
   - Timing observes the pass but never changes classification or ordering.
 
@@ -41,80 +40,104 @@ template <typename T> uint64_t ListCapacityBytes( const T& values )
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 
-bool ResolveScalarEligibility( bool wasEligible, float travelSquared, float minimumCollisionThickness,
-                               bool radiusScaledPolicy )
+bool ResolveAngularEligibility( bool wasEligible, float travelSquared, float minimumCollisionThickness )
 {
     if ( !std::isfinite( travelSquared ) )
     {
         return true;
     }
 
-    if ( radiusScaledPolicy )
-    {
-        const float finiteThickness = std::isfinite( minimumCollisionThickness )
-                                          ? (std::max)( 0.0f, minimumCollisionThickness )
-                                          : 0.0f;
-        const float threshold = finiteThickness * PHYSICS_RADIUS_SCALED_THRESHOLD_THICKNESS_FACTOR;
-        const float thresholdSquared = threshold * threshold;
-
-        // Invariant: the hot decision is one squared radius comparison. Travel
-        // above promotes, travel below demotes, and exact equality preserves the
-        // previous state so the boundary cannot chatter on identical inputs.
-        return travelSquared == thresholdSquared ? wasEligible : travelSquared > thresholdSquared;
-    }
-
-    const float threshold = wasEligible ? PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK : PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK;
+    const float finiteThickness = std::isfinite( minimumCollisionThickness ) ? (std::max)( 0.0f, minimumCollisionThickness )
+                                                                             : 0.0f;
+    const float threshold = finiteThickness * PHYSICS_ANGULAR_EXPANSION_THRESHOLD_THICKNESS_FACTOR;
     const float thresholdSquared = threshold * threshold;
 
-    // Invariant: equality is deliberately asymmetric. A Discrete row promotes
-    // at the upper boundary, while a promoted row demotes at the lower boundary.
-    return wasEligible ? travelSquared > thresholdSquared : travelSquared >= thresholdSquared;
+    // Invariant: travel above expands, travel below contracts, and exact
+    // equality preserves the previous state so identical inputs cannot chatter.
+    return travelSquared == thresholdSquared ? wasEligible : travelSquared > thresholdSquared;
 }
 
-float DirectionalBoundary( const Math::CollisionDetection::BoundingSphere& sphere, const Math::Vector::Vector3&, float )
+struct DirectionalEligibilityFacts
+{
+    float boundarySquared = std::numeric_limits<float>::quiet_NaN();
+    bool above = false;
+    bool equal = false;
+    bool finite = true;
+};
+
+void IncludeDirectionalAxis( DirectionalEligibilityFacts& facts, float projectedTravelSquared, float axisBoundarySquared,
+                             float travelSquared )
+{
+    if ( !std::isfinite( projectedTravelSquared ) || !std::isfinite( axisBoundarySquared ) )
+    {
+        facts.finite = false;
+        return;
+    }
+
+    if ( projectedTravelSquared <= 0.0f )
+    {
+        return;
+    }
+
+    facts.above = facts.above || projectedTravelSquared > axisBoundarySquared;
+    facts.equal = facts.equal || projectedTravelSquared == axisBoundarySquared;
+
+    const float rayBoundarySquared = travelSquared * axisBoundarySquared / projectedTravelSquared;
+    facts.boundarySquared = std::isfinite( facts.boundarySquared ) ? (std::min)( facts.boundarySquared, rayBoundarySquared )
+                                                                   : rayBoundarySquared;
+}
+
+DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::BoundingSphere& sphere,
+                                              const Math::Vector::Vector3&, float travelSquared )
 {
     const float radius = (std::max)( 0.0f, sphere.GetRadius() );
-    return radius * radius;
+    DirectionalEligibilityFacts facts;
+    IncludeDirectionalAxis( facts, travelSquared, radius * radius, travelSquared );
+    return facts;
 }
 
-float DirectionalBoundary( const Math::CollisionDetection::BoundingBox& box, const Math::Vector::Vector3& localTravel,
-                           float )
+DirectionalEligibilityFacts LocalAxisFacts( const Math::Vector::Vector3& halfExtents,
+                                            const Math::Vector::Vector3& localTravel, float travelSquared )
 {
-    const Math::Vector::Vector3 half = box.GetHalfExtents();
-
-    // Concept: for non-zero travel L, this value is L times the OBB support
-    // radius in the travel direction. Comparing L^2 against it is exactly
-    // equivalent to L > radius, but needs neither normalization nor sqrt.
-    return std::fabs( localTravel.x ) * std::fabs( half.x ) + std::fabs( localTravel.y ) * std::fabs( half.y ) +
-           std::fabs( localTravel.z ) * std::fabs( half.z );
-}
-
-float DirectionalBoundary( const Math::CollisionDetection::ConvexHullShape& hull, const Math::Vector::Vector3& localTravel,
-                           float )
-{
-    if ( hull.GetVertexCount() == 0u )
+    DirectionalEligibilityFacts facts;
+    const auto includeAxis = [&]( float travel, float halfExtent )
     {
-        return 0.0f;
+        const float axisTravelSquared = travel * travel;
+        const float finiteHalfExtent = (std::max)( 0.0f, std::fabs( halfExtent ) );
+        IncludeDirectionalAxis( facts, axisTravelSquared, finiteHalfExtent * finiteHalfExtent, travelSquared );
+    };
+
+    includeAxis( localTravel.x, halfExtents.x );
+    includeAxis( localTravel.y, halfExtents.y );
+    includeAxis( localTravel.z, halfExtents.z );
+
+    return facts;
+}
+
+DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::BoundingBox& box,
+                                              const Math::Vector::Vector3& localTravel, float travelSquared )
+{
+    return LocalAxisFacts( box.GetHalfExtents(), localTravel, travelSquared );
+}
+
+DirectionalEligibilityFacts DirectionalFacts( const Math::CollisionDetection::ConvexHullShape& hull,
+                                              const Math::Vector::Vector3& localTravel, float travelSquared )
+{
+    DirectionalEligibilityFacts facts;
+
+    for ( const Math::CollisionDetection::ConvexHullMotionAxis& axis : hull.GetMotionAxes() )
+    {
+        const float projectedTravel = Math::Vector::Dot( localTravel, axis.normalLocal );
+        const float projectedTravelSquared = projectedTravel * projectedTravel;
+        IncludeDirectionalAxis( facts, projectedTravelSquared, axis.halfWidthSquared, travelSquared );
     }
 
-    float minimumProjection = ( std::numeric_limits<float>::max )();
-    float maximumProjection = ( std::numeric_limits<float>::lowest )();
-
-    // Why: an enclosing AABB can overstate hull thickness and delay promotion.
-    // The fixed-capacity hull has at most 64 vertices, so an allocation-free
-    // support scan is the exact direction-valid test and has a bounded cost.
-    for ( uint16_t vertexIndex = 0; vertexIndex < hull.GetVertexCount(); ++vertexIndex )
-    {
-        const float projection = Math::Vector::Dot( localTravel, hull.GetVertex( vertexIndex ) );
-        minimumProjection = (std::min)( minimumProjection, projection );
-        maximumProjection = (std::max)( maximumProjection, projection );
-    }
-
-    return 0.5f * ( maximumProjection - minimumProjection );
+    return facts;
 }
 
-float ComputeDirectionalBoundary( const ColliderRecord& collider, const Math::Orientation::Quaternion& orientation,
-                                  const Math::Vector::Vector3& worldTravel, float travelSquared )
+DirectionalEligibilityFacts ComputeDirectionalFacts( const ColliderRecord& collider,
+                                                     const Math::Orientation::Quaternion& orientation,
+                                                     const Math::Vector::Vector3& worldTravel, float travelSquared )
 {
     return Math::CollisionDetection::
         VisitCollisionShape( collider.shape,
@@ -124,20 +147,20 @@ float ComputeDirectionalBoundary( const ColliderRecord& collider, const Math::Or
 
                                  if constexpr ( std::is_same_v<Shape, Math::CollisionDetection::BoundingSphere> )
                                  {
-                                     return DirectionalBoundary( shape, worldTravel, travelSquared );
+                                     return DirectionalFacts( shape, worldTravel, travelSquared );
                                  }
                                  else
                                  {
                                      const Math::Vector::Vector3 localTravel = orientation.GetOrientationMatrix()
                                                                                    .TransposeMultiply( worldTravel );
-                                     return DirectionalBoundary( shape, localTravel, travelSquared );
+                                     return DirectionalFacts( shape, localTravel, travelSquared );
                                  }
                              } );
 }
 
-bool ResolveDirectionalEligibility( bool wasEligible, float travelSquared, float directionalBoundary )
+bool ResolveDirectionalEligibility( bool wasEligible, float travelSquared, const DirectionalEligibilityFacts& facts )
 {
-    if ( !std::isfinite( travelSquared ) || !std::isfinite( directionalBoundary ) )
+    if ( !std::isfinite( travelSquared ) || !facts.finite )
     {
         return true;
     }
@@ -147,12 +170,10 @@ bool ResolveDirectionalEligibility( bool wasEligible, float travelSquared, float
         return false;
     }
 
-    const float finiteBoundary = (std::max)( 0.0f, directionalBoundary );
-
-    // Invariant: above promotes, below demotes, and exact non-zero equality
-    // retains prior state. Stationary rows demote because multiplying the
-    // directional radius by zero otherwise collapses both sides to equality.
-    return travelSquared == finiteBoundary ? wasEligible : travelSquared > finiteBoundary;
+    // Invariant: classify on the original per-axis squares. The separately
+    // reconstructed ray boundary is diagnostics only; using it here would let
+    // multiply/divide rounding break exact mixed-axis equality hysteresis.
+    return facts.above ? true : ( facts.equal ? wasEligible : false );
 }
 } // namespace
 
@@ -188,7 +209,7 @@ void PhysicsMotionEligibilityStage::CommitReplayRestoreState( bool hasVersionedS
     // versioned owner explicitly makes those bytes authoritative. Legacy
     // snapshots remain cold and rebuild classification on their next step.
     m_linearTravelSquared.assign( m_state.size(), 0.0f );
-    m_linearDirectionalBoundary.assign( m_state.size(), 0.0f );
+    m_linearDirectionalBoundary.assign( m_state.size(), -1.0f );
     m_angularTravelSquared.assign( m_state.size(), 0.0f );
     m_angularBroadphaseExpansion.assign( m_state.size(), 0.0f );
     m_stats = {};
@@ -196,7 +217,7 @@ void PhysicsMotionEligibilityStage::CommitReplayRestoreState( bool hasVersionedS
 }
 
 void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                         std::span<const uint8_t> sleepState, float dt, bool radiusScaledPolicy )
+                                         std::span<const uint8_t> sleepState, float dt )
 {
     const auto begin = std::chrono::steady_clock::now();
     const int modelCount = (std::min)( { bodyStore.Count(), colliderStore.Count(), static_cast<int>( sleepState.size() ) } );
@@ -219,8 +240,7 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
     }
 
     m_stats = {};
-    m_stats.policyVersion = radiusScaledPolicy ? PHYSICS_RADIUS_SCALED_MOTION_ELIGIBILITY_POLICY_VERSION
-                                               : PHYSICS_MOTION_ELIGIBILITY_POLICY_VERSION;
+    m_stats.policyVersion = PHYSICS_MOTION_ELIGIBILITY_POLICY_VERSION;
 
     const PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
     const std::span<const ColliderRecord> colliders = colliderStore.Records();
@@ -231,7 +251,12 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
         const std::size_t row = static_cast<std::size_t>( bodyIndex );
         const uint8_t previous = m_state[row];
         m_linearTravelSquared[row] = 0.0f;
-        m_linearDirectionalBoundary[row] = 0.0f;
+
+        // SkullScope maps negative boundaries to -1 (unavailable). Fixed and
+        // sleeping rows are not evaluated and must not publish a fake 0 m
+        // promote/demote distance. The finite sentinel also remains byte-exact
+        // under the determinism lane's retained diagnostics comparison.
+        m_linearDirectionalBoundary[row] = -1.0f;
         m_angularTravelSquared[row] = 0.0f;
         m_angularBroadphaseExpansion[row] = 0.0f;
 
@@ -259,19 +284,13 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
 
         uint8_t resolved = 0u;
 
-        const float directionalBoundary = radiusScaledPolicy
-                                              ? ComputeDirectionalBoundary( collider, PhysicsBodyOrientation( hot, row ),
-                                                                            linearTravel, linearTravelSquared )
-                                              : 0.0f;
-        m_linearDirectionalBoundary[row] = directionalBoundary;
-        const bool linearEligible = radiusScaledPolicy
-                                        ? ResolveDirectionalEligibility( ( previous &
-                                                                           PhysicsMotionEligibilityLinearPromoted ) != 0u,
-                                                                         linearTravelSquared, directionalBoundary )
-                                        : ResolveScalarEligibility( ( previous & PhysicsMotionEligibilityLinearPromoted ) !=
-                                                                        0u,
-                                                                    linearTravelSquared, collider.minimumCollisionThickness,
-                                                                    false );
+        const DirectionalEligibilityFacts directionalFacts = ComputeDirectionalFacts( collider,
+                                                                                      PhysicsBodyOrientation( hot, row ),
+                                                                                      linearTravel, linearTravelSquared );
+        m_linearDirectionalBoundary[row] = directionalFacts.boundarySquared;
+        const bool linearEligible = ResolveDirectionalEligibility( ( previous & PhysicsMotionEligibilityLinearPromoted ) !=
+                                                                       0u,
+                                                                   linearTravelSquared, directionalFacts );
 
         if ( linearEligible )
         {
@@ -295,8 +314,8 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
             ++m_stats.demotionsThisStep;
         }
 
-        if ( ResolveScalarEligibility( ( previous & PhysicsMotionEligibilityAngularExpanded ) != 0u, angularTravelSquared,
-                                       collider.minimumCollisionThickness, radiusScaledPolicy ) )
+        if ( ResolveAngularEligibility( ( previous & PhysicsMotionEligibilityAngularExpanded ) != 0u, angularTravelSquared,
+                                        collider.minimumCollisionThickness ) )
         {
             resolved |= PhysicsMotionEligibilityAngularExpanded;
             ++m_stats.angularExpandedBodies;

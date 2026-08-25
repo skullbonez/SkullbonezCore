@@ -58,7 +58,7 @@
     {
       "file": "SkullbonezSource/Physics/Diagnostics/SkullScope.cpp",
       "signature": "void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameInput )",
-      "body_sha256": "9dbd2946976ac9c94b1d3a0cfedaf1d20451c45b2cbb116e1624ec37ad076bad",
+      "body_sha256": "00be36409faf41e066acf780141c67f7d0f585da550e8507717abbe9ae1dacea",
       "owner": "SkullScope frame emission transaction",
       "disposition": "retain-owner",
       "reason": "One bounded diagnostics transaction serializes a complete physics frame schema in deterministic field order, including separation-only bias attribution, motion-policy totals, and each body's direction-valid eligibility boundary and policy state; splitting field families would fragment the format invariant and byte-exact validation contract.",
@@ -150,7 +150,7 @@
     {
       "file": "SkullbonezSource/Physics/ConvexHullShape.cpp",
       "signature": "SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, ConvexHullShape& outHull )",
-      "body_sha256": "c801d466122f2c56b81b9a675fa64e9453bf0efde71a2891af6ba5d368642007",
+      "body_sha256": "d4dd1e2386c53ac83c2d1898cf4b4d1d193d8fbba4524c50c97c50946503e60f",
       "owner": "ConvexHullShape decode transaction",
       "disposition": "retain-owner",
       "reason": "One cold hull decode validates and canonicalizes a complete authored shape before publishing the output value; parse branches share one diagnostic path and no partial shape escapes.",
@@ -296,11 +296,11 @@
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
       "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
-      "body_sha256": "8c0f936bb9658b7bdd322ab4b160d372b0cba20bd09fc41d156f06ec1758feb8",
+      "body_sha256": "9bd49ddff01fa332330857b7492ee455a2eafcfb320c1b59307e7e40bc61ea41",
       "owner": "Physics narrowphase pair kernel",
       "disposition": "retain-owner",
-      "reason": "One hot pair kernel resolves the sleep-state branch, promotion-aware Swept TOI policy, wake evidence, time advancement, collision publication, and optional trace payload for exactly one candidate pair. Its nesting is one pair state machine; extraction would leave once-called helpers sharing the same ephemeral pair scratch and output authority.",
-      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31); RAGDOLL_PHYSICS FP2 geometry-aware Discrete-pair safety review (2026-08-23); FP4 radius-scaled motion eligibility review (2026-08-25)",
+      "reason": "One hot pair kernel resolves the sleep-state branch, direction-valid promotion-aware Swept TOI policy, wake evidence, time advancement, collision publication, and optional trace payload for exactly one candidate pair. Its nesting is one pair state machine; extraction would leave once-called helpers sharing the same ephemeral pair scratch and output authority.",
+      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31); RAGDOLL_PHYSICS FP2 geometry-aware Discrete-pair safety review (2026-08-23); FP4 sole shipping motion-eligibility review (2026-08-25)",
       "plan": ""
     },
     {
@@ -332,11 +332,11 @@
     {
       "file": "SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp",
       "signature": "bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out, SkullbonezCore::Core::EngineConfig& config )",
-      "body_sha256": "41b684ad9a179599a6f313720a4370aa3ce6bdd272c09ac0830f989b610f9a5e",
+      "body_sha256": "c8c0bacc711867f29459395317190a8d452b9b4e99b156df4ba5ab62d83851c9",
       "owner": "Startup command-line value application",
       "disposition": "retain-owner",
       "reason": "One startup transaction applies the closed command-line value schema to launch arguments and engine configuration before runtime owners exist; validation and precedence share one initialization invariant.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); RAGDOLL_PHYSICS FP4 validation selector review (2026-08-25)",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); RAGDOLL_PHYSICS FP4 selector-retirement review (2026-08-25)",
       "plan": ""
     },
     {

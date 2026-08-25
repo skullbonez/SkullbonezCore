@@ -27,11 +27,10 @@ Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor act
   On 2026-08-23 the owner activated FP2 with motion policy version 2: absolute
   travel of `0.1` metres per Physics tick promotes, `0.075` metres demotes, and
   collider thickness does not participate.
-  On 2026-08-25 the owner signed off FP4's same-executable performance result
-  and the exact current-tree performance-baseline transition. The direction-
-  valid radius trial remains validation-only because its behavior differs from the absolute
-  control and a default-policy replay-visual negative control did not complete
-  the 6,800-frame interaction report. FP5 is now the active Physics phase.
+  On 2026-08-25 the owner signed off FP4's same-executable performance result,
+  made direction-valid radius eligibility the sole shipping policy, retired the
+  absolute threshold and runtime selector, and authorized the resulting governed
+  baseline transition. FP5 is now the active Physics phase.
 
 - Runtime Boundary Separation And Project Topology was activated by owner
   direction on 2026-08-22. RBS0-RBS7 make Runtime/App a true composition root,
@@ -384,9 +383,9 @@ Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
 Deterministic Collision Modes And Ragdoll Unification FP0-FP9 is active at 5/10;
-FP0-FP4 are complete and FP5 is active. FP4 retains its direction-valid radius
-policy as a validation-only selector, SkullScope policy timeline, same-executable A/B
-artifacts, and exact historical/current performance producers. FP2's archived automated transition
+FP0-FP4 are complete and FP5 is active. FP4 makes its direction-valid radius
+policy the sole shipping path and retains the SkullScope policy timeline,
+same-executable A/B artifacts, and exact historical/current performance producers. FP2's archived automated transition
 retains the prior and new producers, its core/deep Physics gates pass, and its
 2,401-tick replay-visual gate passes with one prediction generation, all 200
 wall bricks moved, 200 causal nodes, and every registered false-pass control.

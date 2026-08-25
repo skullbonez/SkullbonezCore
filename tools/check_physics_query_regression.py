@@ -196,6 +196,22 @@ def verify_motion_transition_projection():
     transitions = [row for row in timeline if row.get("transition")]
     promotions = [row for row in transitions if row.get("transition") == "promoted"]
     demotions = [row for row in transitions if row.get("transition") == "demoted"]
+    if not promotions and not demotions:
+        stats = full.get("bodyStats") or {}
+        if int(stats.get("swept_rows") or 0) != 0:
+            raise RuntimeError("all-Discrete motion fixture reports Swept body rows without transitions")
+        if int(full.get("bodyPromotionEvents") or 0) != 0 or int(full.get("bodyDemotionEvents") or 0) != 0:
+            raise RuntimeError("all-Discrete motion fixture invented promotion or demotion events")
+        swept = run_query_set(
+            TRACE,
+            [("swept", ["motion", "--body", "ball_drop_a", "--policy", "swept", "--limit", "2000"])],
+        )["swept"]
+        if swept.get("policyTimeline"):
+            raise RuntimeError("Swept policy filter returned rows for an all-Discrete body")
+        if int(swept.get("bodyPromotionEvents") or 0) != 0 or int(swept.get("bodyDemotionEvents") or 0) != 0:
+            raise RuntimeError("Swept policy filter invented transitions for an all-Discrete body")
+        print("  PASS: all-Discrete motion timeline and empty Swept filter are exact")
+        return
     if len(promotions) < 2 or len(demotions) < 2:
         raise RuntimeError("motion transition fixture no longer contains two promotion/demotion cycles")
     if int(full.get("bodyPromotionEvents") or 0) != len(promotions):

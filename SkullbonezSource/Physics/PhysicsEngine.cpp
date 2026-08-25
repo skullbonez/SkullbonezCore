@@ -292,7 +292,6 @@ PhysicsRuntimeSettings PhysicsEngine::RuntimeSettingsFromConfig( const Skullbone
     settings.body.angularVelocityLimit = config.bodySimulation.velocityLimit;
     settings.body.contactRestitutionThreshold = config.bodySimulation.contactRestitutionThreshold;
     settings.body.contactEpsilon = config.bodySimulation.contactEpsilon;
-    settings.body.radiusScaledMotionEligibility = config.bodySimulation.radiusScaledMotionEligibility;
     settings.solver.slop = config.persistentContactSolver.slop;
     settings.solver.baumgarteBeta = config.persistentContactSolver.baumgarteBeta;
     settings.solver.positionCorrectionPercent = config.persistentContactSolver.positionCorrectionPercent;

@@ -44,7 +44,6 @@ struct BodySimulationSettings
     float angularVelocityLimit = 5.0f;
     float contactRestitutionThreshold = 2.0f;
     float contactEpsilon = 0.05f;
-    bool radiusScaledMotionEligibility = false;
 };
 
 struct ContactSolverSettings

@@ -54,6 +54,15 @@
       "destructures_at_entry": "no"
     },
     {
+      "key": "DirectionalEligibilityFacts",
+      "site": "SkullbonezSource/Physics/Stages/PhysicsMotionEligibilityStage.cpp:60",
+      "members": 4,
+      "verdict": "retain",
+      "owner": "RAGDOLL_PHYSICS FP4 / PhysicsMotionEligibilityStage",
+      "reason": "One shape-axis classification produces the above/equal/finite decision and its separately derived diagnostic boundary together; callers must not combine a decision from one axis set with another set's reported threshold.",
+      "destructures_at_entry": "no"
+    },
+    {
       "key": "DebugOverlayGraphInputs",
       "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:294",
       "members": 2,

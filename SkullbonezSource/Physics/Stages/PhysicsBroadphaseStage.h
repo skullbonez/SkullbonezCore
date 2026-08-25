@@ -92,7 +92,7 @@ class PhysicsBroadphaseStage
          std::span<const PointJointConstraint> pointJointConstraints, std::span<const uint8_t> sleepState,
          std::span<const int> awakeBodyIndices, std::span<const uint8_t> motionEligibilityState,
          std::span<const float> angularBroadphaseExpansion, PhysicsStepDiagnostics& stepDiagnostics, float dt,
-         float contactSkin, float contactEpsilon, bool promotionScopedOverlay );
+         float contactSkin, float contactEpsilon );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     float GetCellSize() const;

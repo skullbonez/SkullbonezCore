@@ -22,18 +22,17 @@ Third-party runtime DLLs are intentionally omitted from tracked artifacts and
 must be restored from the pinned setup/build inputs before an isolated launch. The
 replay witness runs one 2,401-tick generation, moves all 200 wall bricks,
 publishes 200 causal nodes, and rejects every registered false-pass control.
-FP3 and FP4 are complete. FP4's same-executable direction-valid radius trial
+FP3 and FP4 are complete. FP4's exact-final direction-valid radius comparison
 keeps 95.66%-100% of measured body ticks Discrete and reduces mean Physics time
-by 9.34%-52.98% across the mixed, 520-body, and 2,000-body retained runs. The owner
+by 6.98%-51.30% across the mixed, 520-body, and 2,000-body retained runs. The owner
 signed off on the result and exact current-tree performance-baseline transition.
-The radius rule remains validation-only because the policies diverge and a
-temporary default-policy replay-visual negative control did not complete its
-6,800-frame report. Sphere radius-squared, oriented-box support, and exact
-bounded hull support keep elongated shapes Discrete unless travel exceeds their
-radius in the actual motion direction. SkullScope records per-frame and per-object policy state and
-`physics_query motion` reconstructs promotions and demotions. The shipping
-default and byte-exact Physics, SkullScope, replay, and visual goldens remain
-unchanged. FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
+The owner made the radius rule the sole shipping policy, retired the absolute
+threshold and runtime selector, and authorized the governed baseline refresh.
+Sphere radius-squared, oriented-box local-axis half-extent checks, and cached
+centered-difference hull face and edge-cross-edge SAT axes keep elongated shapes Discrete unless travel
+exceeds a valid shape width. SkullScope records per-frame and per-object policy state and
+`physics_query motion` reconstructs promotions and demotions. FP5-FP9 complete
+the ragdoll joint and late speculative-contact path. Runtime
 Boundary Separation And Project Topology RBS0-RBS7 is complete at 8/8. RBS7
 repaired the allocation rulings, replaced the Replay startup context with a
 finite-state continuation, moved Operator UI projection into Runtime/UI, and
@@ -508,8 +507,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 Begin `RAGDOLL_PHYSICS` FP5's three-degree-of-freedom point-joint phase while
 running `RECORDED_CURSOR` RIC3 terminal audit on the integrated RIC0-RIC2 value
-and draw path. The FP4 direction-valid radius policy remains available only through the
-validation selector; FP2's absolute motion policy remains the shipping default.
+and draw path. FP4's direction-valid radius policy is the only motion-eligibility
+path; the FP2 absolute policy and its selector are retired.
 
 ## Blockers
 

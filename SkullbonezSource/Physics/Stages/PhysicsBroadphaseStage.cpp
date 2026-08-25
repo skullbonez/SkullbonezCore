@@ -437,7 +437,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                                                                   std::span<const PointJointConstraint> pointJointConstraints, std::span<const uint8_t> sleepState,
                                                                   std::span<const int> awakeBodyIndices, std::span<const uint8_t> motionEligibilityState,
                                                                   std::span<const float> angularBroadphaseExpansion, PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin,
-                                                                  float contactEpsilon, bool promotionScopedOverlay )
+                                                                  float contactEpsilon )
 {
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
@@ -512,7 +512,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
             const bool linearPromoted = bodyIndex < 0 || bodyIndex >= static_cast<int>( motionEligibilityState.size() ) ||
                                         ( motionEligibilityState[static_cast<std::size_t>( bodyIndex )] &
                                           PhysicsMotionEligibilityLinearPromoted ) != 0u;
-            const bool publishLinearOverlay = hasLinearTravel && ( !promotionScopedOverlay || linearPromoted );
+            const bool publishLinearOverlay = hasLinearTravel && linearPromoted;
 
             if ( publishLinearOverlay || !std::isfinite( radius ) || radius > baseRadius )
             {
@@ -521,10 +521,9 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                                                      ? radius
                                                      : ( std::numeric_limits<float>::quiet_NaN )();
 
-                // Invariant: the absolute control preserves its universal
-                // translational overlay. The radius trial publishes translation
-                // only for linear-promoted or angular-expanded bodies; a fully
-                // Discrete body is detected at a later fixed-step boundary.
+                // Invariant: translation is published only for linear-promoted
+                // or angular-expanded bodies; a fully Discrete body is detected
+                // at a later fixed-step boundary.
                 m_spatialGrid.InsertSweptOverlayAfterPersistent( bodyIndex, colliderCenter, displacement, baseRadius,
                                                                  conservativeRadius );
             }

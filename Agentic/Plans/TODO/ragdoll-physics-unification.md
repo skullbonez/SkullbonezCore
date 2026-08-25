@@ -265,7 +265,7 @@ performance comparison.
 ### What This Aims To Solve
 
 Swept TOI should be paid for only when a body's predicted fixed-tick motion
-crosses one simple absolute travel threshold. The classification must be cheap
+crosses its shape-valid directional half-width. The classification must be cheap
 enough to run once per non-sleeping body per fixed Physics tick and exact enough
 to produce the same result across repetitions and supported worker counts.
 
@@ -584,10 +584,10 @@ same-workload A/B comparison.
 
 ### Required A/B Design
 
-1. Add a validation-only runtime selector that can force the then-current
-   legacy swept eligibility behavior for variant A or enable the new automatic
-   Discrete classification for variant B. It must not become an authored scene
-   option or a shipping per-body mode.
+1. For the decision capture, use one validation executable that can run the
+   then-current eligibility behavior as variant A and the proposed automatic
+   Discrete classification as variant B. The comparison control must not become
+   an authored scene option or a shipping per-body mode.
 2. Run both variants from the same executable, fixed timestep, authored scene,
    inputs, worker count, frame range, renderer settings, and machine session.
 3. Alternate warm A/B/A/B runs and retain every raw timing artifact rather than
@@ -613,17 +613,21 @@ same-workload A/B comparison.
 
 ### FP4 Closure Evidence — 2026-08-25
 
-The same Profile executable alternated the absolute-travel control and the
-direction-valid radius trial. Spheres compare travel squared with radius
-squared. Oriented boxes compare `travelSquared` with the dot product of local
-absolute travel and half-extents, while convex hulls use the equivalent exact
-bounded min/max vertex-support scan. Above promotes, below demotes, and exact
-non-zero equality preserves the prior bit; stationary rows demote. The hot
-classifier performs no square root and allocates no memory. Across the retained
+The retained local A/B captures compare the retired absolute-travel Profile
+control (SHA-256 `445b6742...`) with the exact final shipping Profile producer
+(SHA-256 `c62bd84a...`) in alternating runs on the same machine session. Spheres
+compare travel squared with radius squared. Oriented boxes compare each local
+travel component squared with its half-extent squared. Convex hulls compare
+projected travel squared against cached centered-difference SAT half-widths:
+hull face normals plus every non-degenerate edge-cross-edge axis. Any exceeded axis promotes,
+all-below demotes, and direct exact equality on any reached axis preserves the
+prior bit; stationary rows demote. The hot classifier performs no square root
+and allocates no memory. Across the retained
 two-pass artifacts, the mixed scene stayed 100% Discrete and reduced mean
-Physics time by 19.50%; the 520-body scale scene stayed 96.29% Discrete and
-reduced mean Physics time by 9.34%; and the 2,000-body scene stayed 95.66%
-Discrete and reduced mean Physics time by 52.98%. The 520-body run recorded
+Physics time by 18.19%; the 520-body scale scene stayed 96.29% Discrete and
+reduced mean Physics time by 6.98%; and the 2,000-body scene stayed 95.66%
+Discrete and reduced mean Physics time by 51.30%. The final eligibility pass
+averaged 0.0014 ms, 0.0130 ms, and 0.0475 ms respectively. Each 520-body run recorded
 160 promotions and 140 demotions; the 2,000-body run recorded 796 promotions
 and 738 demotions.
 
@@ -639,11 +643,12 @@ axis cases as Swept, including the rotated-box case.
 
 The policies are intentionally not behavior-equivalent. The mixed A/B first
 diverges at frame 104 and the 200-box wall first differs in contact count at
-frame 75. A temporary default-policy negative control also passed all 18 replay
+frame 75. A temporary pre-signoff negative control also passed all 18 replay
 visual typed/false-pass cases and 82 assertions but did not complete the
-6,800-frame interaction report. The radius rule therefore remains behind the
-validation-only selector; the shipping default and byte-exact Physics,
-SkullScope, replay, and visual goldens remain unchanged.
+6,800-frame interaction report. The owner subsequently selected the
+direction-valid radius rule as the sole shipping policy, retired the absolute
+threshold and runtime selector, and authorized the governed Physics,
+SkullScope, replay, visual, and performance baseline transitions.
 
 The owner's signoff applies to this focused FP4 decision slice and explicitly
 accepts a narrower evidence set than the original matrix above. The retained
@@ -665,6 +670,15 @@ and
 The new DX12 and physics-bench baseline SHA-256 values are respectively
 `bcb67b8d4e1bfcc4bc64f37185c2bc6f8b90e173cb25ef5bff503fbbac8643ef` and
 `6ef6b79741f713f454803f1d83907ea97e40db2b8af71e0002b64847f9dd3550`.
+The shipping-policy follow-up accepted the deterministic core Physics golden
+`1b98431012f632d66cb18c50e3f253cea4898b57bcb8e78cdadd0de3f065e387`,
+the known-issue signature golden
+`e50f56728d1daf1d278f40e8e2a74ab835378243dfe8e9c8b8757a2350483214`,
+and the SkullScope query golden
+`2a5eef89c17769564a6281143ae5f30fa382610d2d03950cd9ee707568870e0e`.
+Their retained transition directories are `19698d3c-to-1b984310`,
+`d58e0489-to-e50f5672`, and `2ed8eebb-to-2a5eef89` under the FP4
+`golden-transitions` directory.
 FP4 is closed; FP5 is the next Physics phase.
 
 ---

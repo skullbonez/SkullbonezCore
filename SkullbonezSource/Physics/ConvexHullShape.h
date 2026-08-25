@@ -17,6 +17,8 @@ Invariants:
   - Stored hull topology is immutable after scene-load scaling and validation.
   - Face, edge, and vertex ordering is deterministic and becomes feature ID
     input for persistent contact warm starting.
+  - Hull copies share a fixed-capacity centered-difference SAT axis cache built
+    only at load or copy-scale time for cheap motion eligibility.
 
 Related:
   - SkullbonezSource/Physics/ConvexHullShape.cpp
@@ -27,6 +29,8 @@ Related:
 
 #include <array>
 #include <cstdint>
+#include <memory>
+#include <span>
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
 #include "../Maths/GeometricStructures.h"
@@ -59,6 +63,12 @@ struct ConvexHullEdge
     uint16_t faceB = 0;
 };
 
+struct ConvexHullMotionAxis
+{
+    Vector::Vector3 normalLocal = Vector::ZERO_VECTOR;
+    float halfWidthSquared = 0.0f;
+};
+
 class ConvexHullShape
 {
   public:
@@ -67,12 +77,22 @@ class ConvexHullShape
     static constexpr uint16_t MAX_EDGES = 160;
     static constexpr uint16_t MAX_FACE_VERTICES = 16;
     static constexpr uint16_t MAX_FACE_INDICES = MAX_FACES * MAX_FACE_VERTICES;
+    static constexpr uint16_t MAX_MOTION_AXES = 512;
 
   private:
+    struct MotionAxisCache
+    {
+        std::array<ConvexHullMotionAxis, MAX_MOTION_AXES> axes = {};
+        uint16_t count = 0;
+    };
+
+    bool RefreshMotionAxes();
+
     std::array<Vector::Vector3, MAX_VERTICES> m_vertices = {};
     std::array<ConvexHullFace, MAX_FACES> m_faces = {};
     std::array<ConvexHullEdge, MAX_EDGES> m_edges = {};
     std::array<uint16_t, MAX_FACE_INDICES> m_faceIndices = {};
+    std::shared_ptr<const MotionAxisCache> m_motionAxisCache;
     Vector::Vector3 m_position = Vector::ZERO_VECTOR;
     Vector::Vector3 m_authoredCenterOfMass = Vector::ZERO_VECTOR;
     Vector::Vector3 m_inertiaHalfExtents = Vector::Vector3( 1.0f, 1.0f, 1.0f );
@@ -114,6 +134,7 @@ class ConvexHullShape
     const Vector::Vector3& GetVertex( uint16_t index ) const;
     const ConvexHullFace& GetFace( uint16_t index ) const;
     const ConvexHullEdge& GetEdge( uint16_t index ) const;
+    std::span<const ConvexHullMotionAxis> GetMotionAxes() const;
     uint16_t GetFaceIndex( uint16_t index ) const;
     const char* GetName() const;
 

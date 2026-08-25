@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "baseline_path": "TestOutput/baselines/physics_regression_varied.csv",
-  "sha256": "19698d3c37bcf1e0199b539e99b2de0d0ec33ceb7fc5db2e2eee36bcc434b038",
-  "approved_by": "repository owner",
-  "approved_at_utc": "2026-08-23T21:17:47Z",
-  "source_commit": "2806c7d70159e498c8fdd5678023e4d66a9db9d7",
-  "reason": "Repository owner explicitly approved the deterministic physics behavior change by exact SHA-256 override."
+  "sha256": "1b98431012f632d66cb18c50e3f253cea4898b57bcb8e78cdadd0de3f065e387",
+  "approved_by": "automated physics-plan override",
+  "approved_at_utc": "2026-08-25T11:08:46Z",
+  "source_commit": "8399b254999036e1cf7e63e0bdb141f7c3632035",
+  "reason": "Standing Physics-plan policy accepted the exact candidate with an immutable retained-runtime bundle."
 }

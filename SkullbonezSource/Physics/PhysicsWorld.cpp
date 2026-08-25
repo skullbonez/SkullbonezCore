@@ -1069,7 +1069,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     // Narrowphase consumes linear path bits, while broadphase consumes angular
     // reach; rotational time-of-impact and response remain outside this phase.
     PROFILE_BEGIN( "Frame/Physics/MotionEligibility" );
-    m_motionEligibility.Run( bodyStore, colliderStore, sleepStates, dt, settings.body.radiusScaledMotionEligibility );
+    m_motionEligibility.Run( bodyStore, colliderStore, sleepStates, dt );
     PROFILE_END( "Frame/Physics/MotionEligibility" );
 
     // Broadphase: sleeping membership remains resident, while awake rows update
@@ -1079,8 +1079,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
         candidatePairs = m_broadphase.Run( bodyStore, colliderStore, settings.broadphase, m_pointJointConstraints,
                                            sleepStates, awakeBodyIndices, m_motionEligibility.State(),
                                            m_motionEligibility.AngularBroadphaseExpansion(), m_stepDiagnostics, dt,
-                                           contactSkin, settings.body.contactEpsilon,
-                                           settings.body.radiusScaledMotionEligibility );
+                                           contactSkin, settings.body.contactEpsilon );
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.
@@ -1104,8 +1103,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
                                                           dt,
                                                           m_stepDiagnostics.RetainsFullPipelineRecords(),
                                                           settings.execution.parallel,
-                                                          settings.execution.parallelNarrowphase,
-                                                          settings.body.radiusScaledMotionEligibility };
+                                                          settings.execution.parallelNarrowphase };
 
     const bool ranParallelNarrowphase = m_narrowphase.TryRunParallel( bodyStore, colliderStore, m_terrainView, buoyancyFacts,
                                                                       candidatePairs, narrowphaseWake, m_timeRemaining,

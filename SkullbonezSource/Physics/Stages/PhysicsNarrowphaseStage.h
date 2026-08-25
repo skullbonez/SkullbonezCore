@@ -115,7 +115,6 @@ struct ObjectNarrowphaseStepPolicy
     bool retainPipelineRecords = true;
     bool parallel = false;
     bool parallelNarrowphase = false;
-    bool promotionOnlySweptCcd = false;
 };
 
 struct ObjectNarrowphaseIsland
