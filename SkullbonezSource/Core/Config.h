@@ -587,6 +587,11 @@ class EngineConfig
     CinematicRenderConfig cinematicRender;
 };
 
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+// Test-only stream seam: fail the settings pass before reading the next line.
+void SetEngineConfigSettingsReadFailureAfterLineForTest( int completedLines ) noexcept;
+#endif
+
 inline int ActiveSceneObjectCapacity( const EngineConfig& config )
 {
     return std::clamp( config.runtimeCapacity.sceneObjectCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );

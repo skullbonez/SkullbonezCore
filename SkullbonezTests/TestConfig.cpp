@@ -6,7 +6,8 @@ Purpose:
 Summary:
   SkullbonezCore::Core::EngineConfig::Load treats engine.cfg as a tolerant cold data boundary: valid
   rows apply, while unknown or malformed rows warn and leave their destinations
-  unchanged. Dump walks the same registry in one stable compatibility order.
+  unchanged. Missing optional input keeps defaults, but other I/O failures are
+  reported. Dump walks the same registry in one stable compatibility order.
 
 Glossary:
   Registry row: One public key, value type/range, and SkullbonezCore::Core::EngineConfig destination.
@@ -18,6 +19,7 @@ Invariants:
   - The dump contains one header plus exactly 224 unique setting rows.
   - Rejected rows do not block later valid rows in the same file.
   - Unsupported format versions fail before any setting mutates the config.
+  - Only ENOENT is accepted as an absent optional file.
   - Temporary fixtures are cold test artifacts and are removed after each run.
 
 Related:
@@ -32,6 +34,7 @@ Related:
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <set>
 #include <string>
@@ -49,6 +52,7 @@ namespace
 {
 constexpr const char* kConfigInputPath = "unit_engine_config_input.cfg";
 constexpr const char* kConfigDumpPath = "unit_engine_config_dump.cfg";
+constexpr const char* kConfigDirectoryPath = "unit_engine_config_directory";
 constexpr uint64_t kStableConfigKeyOrderHash = 0x70d0f1072c9936caull;
 
 struct TemporaryConfigFiles
@@ -57,6 +61,8 @@ struct TemporaryConfigFiles
     {
         std::remove( kConfigInputPath );
         std::remove( kConfigDumpPath );
+        std::error_code error;
+        std::filesystem::remove_all( kConfigDirectoryPath, error );
     }
 };
 
@@ -191,6 +197,46 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: malformed and out-of-range value
     CHECK( config.worldForces.gravity == doctest::Approx( -30.0f ) );
     CHECK( config.physicsSleep.frames == 30 );
     CHECK( config.window.screenY == 720 );
+}
+
+TEST_CASE( "SkullbonezCore::Core::EngineConfig: only an absent optional file is ignored" )
+{
+    TemporaryConfigFiles files;
+    std::remove( kConfigInputPath );
+    EngineConfig missing;
+    CHECK( missing.Load( diagnostics, kConfigInputPath ).Ok() );
+
+    std::error_code directoryError;
+    std::filesystem::remove_all( kConfigDirectoryPath, directoryError );
+    REQUIRE_FALSE( directoryError );
+    REQUIRE( std::filesystem::create_directory( kConfigDirectoryPath, directoryError ) );
+    REQUIRE_FALSE( directoryError );
+    EngineConfig inaccessible;
+    inaccessible.window.screenX = 1234;
+    const auto result = inaccessible.Load( diagnostics, kConfigDirectoryPath );
+    CHECK_FALSE( result.Ok() );
+    CHECK( std::string( result.ErrorOwner() ) == "Core/EngineConfig" );
+    CHECK( std::string( result.ErrorMessage() ).find( kConfigDirectoryPath ) != std::string::npos );
+    CHECK( inaccessible.window.screenX == 1234 );
+}
+
+TEST_CASE( "SkullbonezCore::Core::EngineConfig: settings read failure publishes no valid prefix" )
+{
+    TemporaryConfigFiles files;
+    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 2222\nscreen_y = 777\n" ) );
+    EngineConfig config;
+    config.window.screenX = 1234;
+    config.window.screenY = 567;
+
+    SkullbonezCore::Core::SetEngineConfigSettingsReadFailureAfterLineForTest( 1 );
+    const auto result = config.Load( diagnostics, kConfigInputPath );
+    SkullbonezCore::Core::SetEngineConfigSettingsReadFailureAfterLineForTest( -1 );
+
+    CHECK_FALSE( result.Ok() );
+    CHECK( std::string( result.ErrorOwner() ) == "Core/EngineConfig" );
+    CHECK( std::string( result.ErrorMessage() ).find( "settings read" ) != std::string::npos );
+    CHECK( config.window.screenX == 1234 );
+    CHECK( config.window.screenY == 567 );
 }
 
 TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future version fails before mutation" )

@@ -83,7 +83,15 @@ tickets; foreign-header probes mirror the stable production layout. Three
 serial read-only reviews closed live/pending reset, development-tool ticket,
 foreign-header, transaction-boundary, and preserved-over-cap findings; the
 final pass is clean. No build, test, scanner, or validation command ran by
-explicit owner direction. CORE-005 is the next unresolved Core bug.
+explicit owner direction. CORE-005 is now closed: optional config absence is
+limited to `ENOENT`; every other open, seek, or read failure reports through
+`Core/EngineConfig`. One handle supplies both version and settings passes, and
+parsed rows remain in a candidate copy until the complete stream succeeds, so
+a failed read cannot publish a valid prefix. Two serial read-only reviews
+closed the missing mid-stream failure proof and a CRT-specific directory
+assertion; the final pass is clean. No build, test, scanner, or validation
+command ran by explicit owner direction. CORE-006 is the next unresolved Core
+bug.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

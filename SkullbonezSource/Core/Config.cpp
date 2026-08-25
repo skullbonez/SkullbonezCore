@@ -6,7 +6,9 @@ Purpose:
 Summary:
   The parser registers every configuration key once, layers file values and
   command-line overrides into EngineConfig, validates ranges, and preserves
-  versioned compatibility spellings.
+  versioned compatibility spellings. Optional absence keeps defaults, while
+  other open/read failures leave the prior object intact and report startup
+  failure.
 
 Glossary:
   - ConfigSetting: One typed key-to-field registry row, including the accepted
@@ -23,6 +25,7 @@ Invariants:
     the single lookup and Dump order; neither path may invent a second sequence.
   - Version-1 config files omit the mutual-gravity worker key and therefore
     retain its enabled default; the migration tool materializes the same value.
+  - Both file passes must finish before parsed settings replace caller state.
 
 Related:
   - SkullbonezSource/Core/Config.h
@@ -63,6 +66,10 @@ struct ConfigSetting
 };
 
 using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
+
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+thread_local int s_settingsReadFailureAfterLineForTest = -1;
+#endif
 
 bool IsSpaceOrTab( char c )
 {
@@ -780,25 +787,54 @@ const ConfigSetting* FindConfigSetting( const char* name )
     return found;
 }
 
-// Invariant: version validation is a separate read pass. A future file must
-// fail before even one otherwise-valid setting mutates the destination object.
-SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, const char* path, unsigned int& outVersion )
+SbResult OpenOptionalConfigFile( SbDiagnosticStore& diagnostics, const char* path, FILE*& outFile, bool& outMissing )
 {
-    outVersion = 0;
-    FILE* rawFile = nullptr;
+    outFile = nullptr;
+    outMissing = false;
+    errno = 0;
+    const errno_t openError = fopen_s( &outFile, path, "r" );
 
-    if ( fopen_s( &rawFile, path, "r" ) != 0 || !rawFile )
+    if ( openError == 0 && outFile )
     {
         return SbResult::Success();
     }
 
-    FileHandle file( rawFile, &fclose );
+    const int error = openError != 0 ? static_cast<int>( openError ) : errno;
+    if ( error == ENOENT )
+    {
+        outMissing = true;
+        return SbResult::Success();
+    }
+
+    return diagnostics.Failure( "Core/EngineConfig", "Unable to open engine config for reading: %s (error %d).", path,
+                                error );
+}
+
+SbResult RequireCompleteConfigRead( SbDiagnosticStore& diagnostics, FILE* file, const char* path, const char* pass,
+                                    bool injectedFailure = false )
+{
+    if ( !injectedFailure && !ferror( file ) )
+    {
+        return SbResult::Success();
+    }
+
+    const int error = errno;
+    return diagnostics.Failure( "Core/EngineConfig", "Unable to complete engine config %s read: %s (error %d).", pass,
+                                path, error );
+}
+
+// Invariant: version validation is a separate read pass. A future file must
+// fail before even one otherwise-valid setting mutates the destination object.
+SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, FILE* file, const char* path,
+                                  unsigned int& outVersion )
+{
+    outVersion = 0;
 
     bool sawVersion = false;
     char line[512];
     int lineNumber = 0;
 
-    while ( fgets( line, sizeof( line ), file.get() ) )
+    while ( fgets( line, sizeof( line ), file ) )
     {
         ++lineNumber;
         size_t len = strlen( line );
@@ -859,6 +895,12 @@ SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, const char* pa
         sawVersion = true;
     }
 
+    const SbResult readResult = RequireCompleteConfigRead( diagnostics, file, path, "format-version" );
+    if ( !readResult.Ok() )
+    {
+        return readResult;
+    }
+
     if ( outVersion > ENGINE_CONFIG_FORMAT_VERSION )
     {
         return diagnostics.Failure( "Core/EngineConfig",
@@ -873,34 +915,72 @@ SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, const char* pa
 }
 } // anonymous namespace
 
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+void SkullbonezCore::Core::SetEngineConfigSettingsReadFailureAfterLineForTest( int completedLines ) noexcept
+{
+    s_settingsReadFailureAfterLineForTest = completedLines;
+}
+#endif
+
 
 SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
 {
     // Concept: engine.cfg is an optional developer/runtime defaults file. Unknown or
     // malformed lines are skipped with a warning so older configs do not block
     // startup after a setting is removed.
-    unsigned int formatVersion = 0;
-    const SbResult versionResult = ReadConfigFormatVersion( diagnostics, path, formatVersion );
+    FILE* rawFile = nullptr;
+    bool missing = false;
+    const SbResult openResult = OpenOptionalConfigFile( diagnostics, path, rawFile, missing );
 
-    if ( !versionResult.Ok() )
+    if ( !openResult.Ok() )
     {
-        return versionResult;
+        return openResult;
     }
 
-    FILE* rawFile = nullptr;
-
-    if ( fopen_s( &rawFile, path, "r" ) != 0 || !rawFile )
+    if ( missing )
     {
         return SbResult::Success();
     }
 
     FileHandle file( rawFile, &fclose );
+    unsigned int formatVersion = 0;
+    const SbResult versionResult = ReadConfigFormatVersion( diagnostics, file.get(), path, formatVersion );
+    if ( !versionResult.Ok() )
+    {
+        return versionResult;
+    }
+
+    clearerr( file.get() );
+    errno = 0;
+    if ( fseek( file.get(), 0, SEEK_SET ) != 0 )
+    {
+        return diagnostics.Failure( "Core/EngineConfig", "Unable to restart engine config settings read: %s (error %d).",
+                                    path, errno );
+    }
+
+    EngineConfig candidate = *this;
 
     char line[512];
     int lineNumber = 0;
+    bool injectedReadFailure = false;
 
-    while ( fgets( line, sizeof( line ), file.get() ) )
+    for ( ;; )
     {
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+        if ( s_settingsReadFailureAfterLineForTest >= 0 && lineNumber >= s_settingsReadFailureAfterLineForTest )
+        {
+            // Test probe: leave the public object untouched after at least one
+            // candidate row, exactly as a real ferror-terminated read must.
+            errno = EIO;
+            injectedReadFailure = true;
+            break;
+        }
+#endif
+        if ( !fgets( line, sizeof( line ), file.get() ) )
+        {
+            break;
+        }
+
         ++lineNumber;
         size_t len = strlen( line );
 
@@ -955,9 +1035,19 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
             continue;
         }
 
-        setting->apply( *this, value, *setting, path, lineNumber );
+        setting->apply( candidate, value, *setting, path, lineNumber );
     }
 
+    const SbResult readResult =
+        RequireCompleteConfigRead( diagnostics, file.get(), path, "settings", injectedReadFailure );
+    if ( !readResult.Ok() )
+    {
+        // Invariant: an I/O failure cannot publish the valid prefix. Keep the
+        // caller's entire prior config until both read passes finish cleanly.
+        return readResult;
+    }
+
+    *this = candidate;
     return SbResult::Success();
 }
 
