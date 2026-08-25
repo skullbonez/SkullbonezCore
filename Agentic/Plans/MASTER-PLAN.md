@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-26
-Status: Governance De-Bureaucratization and Jargon Removal active; 116/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal active; 117/120 tasks complete
 
 ## Owner Direction
 
@@ -306,7 +306,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
-| Governance De-Bureaucratization and Jargon Removal | `DE_BUREAUCRATIZE` | 8 | 4 | `TODO/governance-debureaucratization-and-jargon-removal.md` |
+| Governance De-Bureaucratization and Jargon Removal | `DE_BUREAUCRATIZE` | 8 | 5 | `TODO/governance-debureaucratization-and-jargon-removal.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -368,8 +368,8 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-116/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
-the sole active plan at 4/8; DB0-DB3 are complete and DB4 is next. DB0
+117/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
+the sole active plan at 5/8; DB0-DB4 are complete and DB5 is next. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen
 negative-test seeds, and ratifies a 20-file governance-administration cohort
 with 15 planned deletions. DB1 replaces source-coordinate policy identity in
@@ -384,7 +384,11 @@ replaces five lexical design inventories with one compiler-backed changed-source
 gate, deletes their four permission ledgers and shared scanner, narrows the
 missed 12-parameter broadphase operation, and requires effective project compile
 and dead-code-link settings. Its focused negative controls and three independent
-reviews are clean. An automatic commit hook was stopped during its Debug build
+reviews are clean. DB4 extends allocation enforcement to all ten engine roots,
+replaces broad file permissions with unambiguous symbol-and-code identities,
+adds hard AssetSystem registry ceilings, keeps terrain/water CPU rebuild data
+out of Render-phase growth, and reconciles the FP0, TOOL-002, TOOL-003, and
+ASSET-003 ledger rows. Four serial reviews are clean. An automatic commit hook was stopped during its Debug build
 before tests or runtime evidence; broad validation remains deferred by explicit
 owner direction.
 The five unfinished Ragdoll Physics phases and RIC3

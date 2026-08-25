@@ -2,7 +2,7 @@
 
 Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
-Status: Governance De-Bureaucratization and Jargon Removal active; 116/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal active; 117/120 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -11,7 +11,7 @@ Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
 Governance De-Bureaucratization and Jargon Removal DB0-DB7 is the sole active
-plan at 4/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
+plan at 5/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
 tools, records sixteen replacement negative tests, and corrects the current
 wide-signature seed to the omitted 12-parameter
 `PhysicsBroadphaseStage::Run`. DB1 removes physical-coordinate policy identity
@@ -29,7 +29,13 @@ covered by focused checks. Three read-only reviews are clean after closing the
 reported false-pass gaps. An automatic commit hook was stopped during its Debug
 build before tests or runtime comparison; broad validation and Physics
 behavior/determinism evidence remain deferred by explicit owner direction. DB4
-allocation-policy coverage is next.
+now scans all ten engine roots with enclosing-symbol and local-code identity,
+rejects ambiguous permissions, and reconciles the FP0, TOOL-002, TOOL-003, and
+ASSET-003 bug dispositions. Asset registries have constructor-reserved hard
+ceilings, while terrain and water reuse cold-built CPU geometry during backend
+retries. Four serial reviews are clean after three correction cycles. Only the
+focused allocation checker and its synthetic controls ran; broad validation was
+omitted by explicit owner direction. DB5 baseline workflow streamlining is next.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
@@ -525,9 +531,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Begin `DE_BUREAUCRATIZE` DB4: expand the allocation-policy scan to Assets,
-Maths, Scene, UI, and World, then resolve every newly visible finding without
-weakening the zero-allocation rule.
+Begin `DE_BUREAUCRATIZE` DB5: make Physics golden divergence concise and make a
+signed-off Physics baseline transition one command without weakening byte-exact
+integrity or producer reproducibility.
 `RAGDOLL_PHYSICS` FP5-FP9 and
 `RECORDED_CURSOR` RIC3 remain parked and are not selectable.
 

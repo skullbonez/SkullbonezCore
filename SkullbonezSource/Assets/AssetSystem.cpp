@@ -125,6 +125,13 @@ ShaderProgramContract BuiltInShaderContract( bool usesTexture, bool usesLighting
 
 AssetSystem::AssetSystem( std::string dataRoot ) : m_dataRoot( std::move( dataRoot ) )
 {
+    // Why: reserving the declared ceilings during construction keeps later
+    // scene-load/editor registration from relocating records borrowed by
+    // renderer and parser owners.
+    m_sourceAssets.reserve( SOURCE_ASSET_CAPACITY );
+    m_textureAssets.reserve( TEXTURE_ASSET_CAPACITY );
+    m_shaderAssets.reserve( SHADER_ASSET_CAPACITY );
+    m_assetLibraryAssets.reserve( ASSET_LIBRARY_CAPACITY );
 }
 
 
@@ -266,6 +273,12 @@ const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const
         }
     }
 
+    if ( m_sourceAssets.size() >= SOURCE_ASSET_CAPACITY )
+    {
+        SB_FATAL( "AssetSystem", "Source asset registry exhausted. capacity=%zu high_water=%zu phase=registration",
+                  SOURCE_ASSET_CAPACITY, m_sourceAssets.size() );
+    }
+
     SourceAssetRecord record;
     record.id = m_nextAssetId++;
     record.kind = kind;
@@ -306,6 +319,12 @@ const TextureSourceAsset& AssetSystem::RegisterTextureSourceAsset( const char* l
             texture.channelsHint = channelsHint;
             return texture;
         }
+    }
+
+    if ( m_textureAssets.size() >= TEXTURE_ASSET_CAPACITY )
+    {
+        SB_FATAL( "AssetSystem", "Texture asset registry exhausted. capacity=%zu high_water=%zu phase=registration",
+                  TEXTURE_ASSET_CAPACITY, m_textureAssets.size() );
     }
 
     TextureSourceAsset texture;
@@ -363,6 +382,12 @@ const ShaderSourceAsset& AssetSystem::RegisterShaderSourceAsset( const char* log
             shader.contract = contract;
             return shader;
         }
+    }
+
+    if ( m_shaderAssets.size() >= SHADER_ASSET_CAPACITY )
+    {
+        SB_FATAL( "AssetSystem", "Shader asset registry exhausted. capacity=%zu high_water=%zu phase=registration",
+                  SHADER_ASSET_CAPACITY, m_shaderAssets.size() );
     }
 
     ShaderSourceAsset shader;
@@ -437,6 +462,12 @@ const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( con
             library.resolvedPath = source.resolvedPath;
             return library;
         }
+    }
+
+    if ( m_assetLibraryAssets.size() >= ASSET_LIBRARY_CAPACITY )
+    {
+        SB_FATAL( "AssetSystem", "Asset-library registry exhausted. capacity=%zu high_water=%zu phase=registration",
+                  ASSET_LIBRARY_CAPACITY, m_assetLibraryAssets.size() );
     }
 
     AssetLibrarySourceAsset library;

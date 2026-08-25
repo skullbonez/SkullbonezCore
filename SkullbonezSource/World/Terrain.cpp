@@ -1329,9 +1329,12 @@ void Terrain::BuildMesh()
     const int totalQuads = static_cast<int>( m_quadCount );
     int totalVerts = totalQuads * 6;
 
-    std::vector<float> vertexData = BuildRenderVertexData();
+    if ( m_renderVertexData.empty() )
+    {
+        m_renderVertexData = BuildRenderVertexData();
+    }
 
-    m_terrainMesh = m_resources->CreateMesh( vertexData.data(), totalVerts, true, true );
+    m_terrainMesh = m_resources->CreateMesh( m_renderVertexData.data(), totalVerts, true, true );
 }
 #endif
 
@@ -1417,44 +1420,46 @@ void Terrain::BuildFlatSlopeMesh()
     float nz = -m_slopeZ / nLen;
 
     int totalVerts = gridN * gridN * 6;
-    std::vector<float> vertexData;
-    vertexData.reserve( static_cast<size_t>( totalVerts ) * 8 );
-
-    auto pushVert = [&]( float x, float z )
+    if ( m_renderVertexData.empty() )
     {
-        float y = m_slopeBaseY + m_slopeX * x + m_slopeZ * z;
+        m_renderVertexData.reserve( static_cast<size_t>( totalVerts ) * 8 );
 
-        vertexData.push_back( x );
-        vertexData.push_back( y );
-        vertexData.push_back( z );
-        vertexData.push_back( nx );
-        vertexData.push_back( ny );
-        vertexData.push_back( nz );
-        vertexData.push_back( ( x / gridMax ) * textureWrap );
-        vertexData.push_back( ( z / gridMax ) * textureWrap );
-    };
-
-    for ( int worldZCell = 0; worldZCell < gridN; ++worldZCell )
-    {
-        for ( int worldXCell = 0; worldXCell < gridN; ++worldXCell )
+        auto pushVert = [&]( float x, float z )
         {
-            float x0 = worldXCell * step;
-            float x1 = x0 + step;
-            float z0 = worldZCell * step;
-            float z1 = z0 + step;
+            float y = m_slopeBaseY + m_slopeX * x + m_slopeZ * z;
 
-            // Triangle 1 — CCW from above (+Y), front face up
-            pushVert( x0, z0 );
-            pushVert( x0, z1 );
-            pushVert( x1, z0 );
+            m_renderVertexData.push_back( x );
+            m_renderVertexData.push_back( y );
+            m_renderVertexData.push_back( z );
+            m_renderVertexData.push_back( nx );
+            m_renderVertexData.push_back( ny );
+            m_renderVertexData.push_back( nz );
+            m_renderVertexData.push_back( ( x / gridMax ) * textureWrap );
+            m_renderVertexData.push_back( ( z / gridMax ) * textureWrap );
+        };
 
-            // Triangle 2 — CCW from above (+Y), front face up
-            pushVert( x0, z1 );
-            pushVert( x1, z1 );
-            pushVert( x1, z0 );
+        for ( int worldZCell = 0; worldZCell < gridN; ++worldZCell )
+        {
+            for ( int worldXCell = 0; worldXCell < gridN; ++worldXCell )
+            {
+                float x0 = worldXCell * step;
+                float x1 = x0 + step;
+                float z0 = worldZCell * step;
+                float z1 = z0 + step;
+
+                // Triangle 1 — CCW from above (+Y), front face up
+                pushVert( x0, z0 );
+                pushVert( x0, z1 );
+                pushVert( x1, z0 );
+
+                // Triangle 2 — CCW from above (+Y), front face up
+                pushVert( x0, z1 );
+                pushVert( x1, z1 );
+                pushVert( x1, z0 );
+            }
         }
     }
 
-    m_terrainMesh = m_resources->CreateMesh( vertexData.data(), totalVerts, true, true );
+    m_terrainMesh = m_resources->CreateMesh( m_renderVertexData.data(), totalVerts, true, true );
 }
 #endif

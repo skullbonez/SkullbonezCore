@@ -167,6 +167,14 @@ class AssetSystem
 
 
   private:
+    // Invariant: the constructor reserves every registry to its process-lifetime
+    // ceiling before steady gameplay. Registration fails before an append could
+    // relocate records, so references returned by this API remain stable.
+    static constexpr std::size_t SOURCE_ASSET_CAPACITY = 4096;
+    static constexpr std::size_t TEXTURE_ASSET_CAPACITY = 2048;
+    static constexpr std::size_t SHADER_ASSET_CAPACITY = 1024;
+    static constexpr std::size_t ASSET_LIBRARY_CAPACITY = 1024;
+
     std::string m_dataRoot;
     std::vector<SourceAssetRecord> m_sourceAssets;
     std::vector<TextureSourceAsset> m_textureAssets;

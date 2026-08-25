@@ -126,6 +126,7 @@ void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, flo
     m_terrainXMax = xMax;
     m_terrainZMin = zMin;
     m_terrainZMax = zMax;
+    PrepareFluidMeshData();
 }
 
 
@@ -304,9 +305,8 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 }
 
 
-void WorldEnvironment::BuildFluidMesh()
+void WorldEnvironment::PrepareFluidMeshData()
 {
-    RequireRenderBindings( "BuildFluidMesh" );
     float f = m_waterMeshBuild.frustumFar;
 
     const int N = 64;
@@ -322,11 +322,11 @@ void WorldEnvironment::BuildFluidMesh()
     float calmZMin = czMid - czHalf;
     float calmZMax = czMid + czHalf;
 
-    std::vector<float> calmVerts;
-    std::vector<float> oceanVerts;
     constexpr int CALM_N = 128;
-    calmVerts.reserve( CALM_N * CALM_N * 6 * 3 );
-    oceanVerts.reserve( N * N * 6 * 3 );
+    m_calmVertices.clear();
+    m_oceanVertices.clear();
+    m_calmVertices.reserve( CALM_N * CALM_N * 6 * 3 );
+    m_oceanVertices.reserve( N * N * 6 * 3 );
 
     const float calmStepX = ( calmXMax - calmXMin ) / static_cast<float>( CALM_N );
     const float calmStepZ = ( calmZMax - calmZMin ) / static_cast<float>( CALM_N );
@@ -340,25 +340,25 @@ void WorldEnvironment::BuildFluidMesh()
             float z0 = calmZMin + static_cast<float>( row ) * calmStepZ;
             float z1 = z0 + calmStepZ;
 
-            calmVerts.push_back( x0 );
-            calmVerts.push_back( 0.0f );
-            calmVerts.push_back( z0 );
-            calmVerts.push_back( x0 );
-            calmVerts.push_back( 0.0f );
-            calmVerts.push_back( z1 );
-            calmVerts.push_back( x1 );
-            calmVerts.push_back( 0.0f );
-            calmVerts.push_back( z1 );
+            m_calmVertices.push_back( x0 );
+            m_calmVertices.push_back( 0.0f );
+            m_calmVertices.push_back( z0 );
+            m_calmVertices.push_back( x0 );
+            m_calmVertices.push_back( 0.0f );
+            m_calmVertices.push_back( z1 );
+            m_calmVertices.push_back( x1 );
+            m_calmVertices.push_back( 0.0f );
+            m_calmVertices.push_back( z1 );
 
-            calmVerts.push_back( x0 );
-            calmVerts.push_back( 0.0f );
-            calmVerts.push_back( z0 );
-            calmVerts.push_back( x1 );
-            calmVerts.push_back( 0.0f );
-            calmVerts.push_back( z1 );
-            calmVerts.push_back( x1 );
-            calmVerts.push_back( 0.0f );
-            calmVerts.push_back( z0 );
+            m_calmVertices.push_back( x0 );
+            m_calmVertices.push_back( 0.0f );
+            m_calmVertices.push_back( z0 );
+            m_calmVertices.push_back( x1 );
+            m_calmVertices.push_back( 0.0f );
+            m_calmVertices.push_back( z1 );
+            m_calmVertices.push_back( x1 );
+            m_calmVertices.push_back( 0.0f );
+            m_calmVertices.push_back( z0 );
         }
     }
 
@@ -379,7 +379,7 @@ void WorldEnvironment::BuildFluidMesh()
                 continue;
             }
 
-            std::vector<float>& v = oceanVerts;
+            std::vector<float>& v = m_oceanVertices;
 
             v.push_back( x0 );
             v.push_back( 0.0f );
@@ -402,12 +402,25 @@ void WorldEnvironment::BuildFluidMesh()
             v.push_back( z0 );
         }
     }
+}
 
-    int calmCount = static_cast<int>( calmVerts.size() ) / 3;
-    int oceanCount = static_cast<int>( oceanVerts.size() ) / 3;
 
-    m_calmMesh = m_resources->CreateMesh( calmVerts.data(), calmCount, false, false );
-    m_oceanMesh = m_resources->CreateMesh( oceanVerts.data(), oceanCount, false, false );
+void WorldEnvironment::BuildFluidMesh()
+{
+    RequireRenderBindings( "BuildFluidMesh" );
+
+    if ( m_calmVertices.empty() || m_oceanVertices.empty() )
+    {
+        SB_FATAL( "World/WorldEnvironment",
+                  "Water mesh staging was not prepared before render-resource rebuild. calm=%zu ocean=%zu",
+                  m_calmVertices.size(), m_oceanVertices.size() );
+    }
+
+    int calmCount = static_cast<int>( m_calmVertices.size() ) / 3;
+    int oceanCount = static_cast<int>( m_oceanVertices.size() ) / 3;
+
+    m_calmMesh = m_resources->CreateMesh( m_calmVertices.data(), calmCount, false, false );
+    m_oceanMesh = m_resources->CreateMesh( m_oceanVertices.data(), oceanCount, false, false );
 
     m_calmShader = m_assets->CreateShader( *m_resources, "shader.water_calm" );
 

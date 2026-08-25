@@ -13,6 +13,8 @@
 
 // Invariants:
 //   - Asset ids are assigned by AssetSystem and remain stable for the registered row.
+//   - Constructor-reserved registry ceilings keep returned record references
+//     stable across later successful registrations.
 //   - Built-in asset libraries must stay discoverable by their logical names.
 //
 // Related:
@@ -29,6 +31,7 @@
 
 using SkullbonezCore::Assets::AssetLibrarySourceAsset;
 using SkullbonezCore::Assets::AssetSystem;
+using SkullbonezCore::Assets::SourceAssetRecord;
 using SkullbonezCore::Core::EngineConfig;
 
 TEST_CASE( "AssetSystem: asset-library source lookup preserves logical names and ids" )
@@ -44,6 +47,27 @@ TEST_CASE( "AssetSystem: asset-library source lookup preserves logical names and
     CHECK( found->relativePath == "assets/unit.assets.json" );
     CHECK( found->resolvedPath.find( "SkullbonezData" ) != std::string::npos );
     CHECK( assets.FindAssetLibrarySourceAsset( "assetlib.missing" ) == nullptr );
+}
+
+
+TEST_CASE( "AssetSystem: later registrations do not invalidate borrowed source records" )
+{
+    AssetSystem assets;
+    const SourceAssetRecord* const borrowed =
+        &assets.RegisterSourceAsset( SkullbonezCore::Assets::AssetKind::MeshSource, "mesh.borrowed", "mesh/borrowed.obj" );
+    const auto borrowedId = borrowed->id;
+
+    for ( int index = 0; index < 256; ++index )
+    {
+        const std::string logicalName = "mesh.padding." + std::to_string( index );
+        const std::string relativePath = "mesh/padding_" + std::to_string( index ) + ".obj";
+        assets.RegisterSourceAsset( SkullbonezCore::Assets::AssetKind::MeshSource, logicalName.c_str(),
+                                    relativePath.c_str() );
+    }
+
+    CHECK( borrowed->id == borrowedId );
+    CHECK( borrowed->logicalName == "mesh.borrowed" );
+    CHECK( borrowed->relativePath == "mesh/borrowed.obj" );
 }
 
 

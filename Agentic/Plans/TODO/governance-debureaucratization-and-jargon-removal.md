@@ -1,7 +1,7 @@
 # Governance De-Bureaucratization and Jargon Removal
 
 Date: 2026-08-25
-Status: Active by owner direction 2026-08-25. 4/8 phases complete; DB4 next.
+Status: Active by owner direction 2026-08-25. 5/8 phases complete; DB5 next.
 Owner: Engine owner
 Priority: Sole active master-plan item. DB0-DB7 execute in strict order.
 Commit name: `DE_BUREAUCRATIZE`
@@ -373,6 +373,40 @@ by explicit owner direction.
   and any other stale rows.
 - Acceptance: the allocation gate scans every engine root and is clean; the bug
   ledger matches reality.
+
+#### DB4 closure evidence — 2026-08-26
+
+`tools/check_allocation_policy.py` now scans all ten first-party engine roots.
+Every repository permission binds an exact source statement to its enclosing
+function or type and nearby normalized code; physical line numbers and broad
+file-wide substrings are not policy identity. The gate rejects any allowed
+identity that resolves to more than one finding. Its negative controls cover an
+allocation under Assets and two cloned full-context statements inside one
+function, proving omitted roots and duplicate-site inheritance both fail.
+
+The newly visible Assets, Scene, UI, and World findings are recorded with
+owner, phase, reason, hard cap, and removal path. AssetSystem reserves four
+published process-lifetime registry ceilings during construction and fails
+before exhaustion can relocate borrowed records. Terrain retains its cold-built
+CPU upload vertices for resource retries. WorldEnvironment prepares and retains
+its fixed-topology water vertices when scene terrain bounds are applied, so a
+Render-phase retry reads existing backing; a focused regression control records
+pointer and capacity stability across a guarded re-prepare.
+
+The bug ledger now agrees with FP0: PHYS-001 through PHYS-006 and PHYS-008
+through PHYS-010 are closed, while PHYS-007 remains open for FP5. TOOL-002 and
+TOOL-003 are closed by the clean all-root scan. ASSET-003 is also closed because
+successful registrations cannot exceed constructor-reserved backing, with a
+focused reference-stability regression case added.
+
+Four serial read-only reviews found and closed inaccurate render-phase
+classification, broad permission inheritance, missing registry caps, premature
+bug dispositions, duplicate exact statements, and 22 duplicated neighborhood
+identities. The final review reports CLEAN. Focused checker self-tests and the
+all-root scan pass at 647 files, 58 direct-heap findings, 124 dynamic-container
+members, and 823 growth calls with zero errors. No build, unit suite, runtime
+test, `validate_*` command, or other broad validation ran by explicit owner
+direction.
 
 ### DB5 — Golden and baseline workflow streamlining (de-brittle)
 - `check_physics_regression.py` output → first diverging frame, body id, and

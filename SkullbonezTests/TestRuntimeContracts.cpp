@@ -282,6 +282,29 @@ struct TerrainRenderLifecycleTestAccess
 };
 } // namespace SkullbonezCore::Geometry
 
+namespace SkullbonezCore::Environment
+{
+struct WorldEnvironmentRenderLifecycleTestAccess
+{
+    static const float* CalmData( const WorldEnvironment& world )
+    {
+        return world.m_calmVertices.data();
+    }
+    static const float* OceanData( const WorldEnvironment& world )
+    {
+        return world.m_oceanVertices.data();
+    }
+    static std::size_t CalmCapacity( const WorldEnvironment& world )
+    {
+        return world.m_calmVertices.capacity();
+    }
+    static std::size_t OceanCapacity( const WorldEnvironment& world )
+    {
+        return world.m_oceanVertices.capacity();
+    }
+};
+} // namespace SkullbonezCore::Environment
+
 namespace SkullbonezCore::Textures
 {
 struct TextureCollectionTestAccess
@@ -565,7 +588,8 @@ TEST_CASE( "Lock-order Debug probes classify invalid ids, cycles, and held-stack
 
 TEST_CASE( "TextureCollection fixed capacity admits its exact final slot" )
 {
-    CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot( SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1u ) ==
+    CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
+               SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1u ) ==
            SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1 );
 }
 
@@ -677,6 +701,40 @@ TEST_CASE( "IH4 render lifecycle owners execute valid bind move and close transi
 }
 
 
+TEST_CASE( "Water mesh staging retains its allocation across a Render-phase rebuild" )
+{
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+    using SkullbonezCore::Environment::WorldEnvironment;
+    using SkullbonezCore::Environment::WorldEnvironmentRenderLifecycleTestAccess;
+
+    SkullbonezCore::Core::EngineConfig config;
+    WorldEnvironment world;
+    world.BindRuntimeConfig( config );
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        world.SetTerrainBounds( 0.0f, 1000.0f, 0.0f, 1000.0f );
+    }
+
+    const float* const calmData = WorldEnvironmentRenderLifecycleTestAccess::CalmData( world );
+    const float* const oceanData = WorldEnvironmentRenderLifecycleTestAccess::OceanData( world );
+    const std::size_t calmCapacity = WorldEnvironmentRenderLifecycleTestAccess::CalmCapacity( world );
+    const std::size_t oceanCapacity = WorldEnvironmentRenderLifecycleTestAccess::OceanCapacity( world );
+
+    // Negative control: rebuilding the fixed topology while Render is guarded
+    // must reuse the scene-prepared backing instead of reallocating it.
+    {
+        RuntimeAllocationScope renderScope( RuntimeAllocationPhase::Render );
+        world.SetTerrainBounds( 0.0f, 1000.0f, 0.0f, 1000.0f );
+    }
+
+    CHECK( WorldEnvironmentRenderLifecycleTestAccess::CalmData( world ) == calmData );
+    CHECK( WorldEnvironmentRenderLifecycleTestAccess::OceanData( world ) == oceanData );
+    CHECK( WorldEnvironmentRenderLifecycleTestAccess::CalmCapacity( world ) == calmCapacity );
+    CHECK( WorldEnvironmentRenderLifecycleTestAccess::OceanCapacity( world ) == oceanCapacity );
+}
+
+
 TEST_CASE( "IH5 runtime lifecycle owners preserve valid and unavailable policy" )
 {
     using SkullbonezCore::Hardware::InputWindowBridgeTestAccess;
@@ -741,8 +799,10 @@ TEST_CASE( "IH5 runtime lifecycle owners preserve valid and unavailable policy" 
 
     SkullbonezCore::Core::CinematicRenderConfig cinematic;
     cinematic.skyAtmosphereEnabled = true;
-    CHECK( SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CinematicIfEnabled ) );
-    CHECK_FALSE( SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CubemapOnly ) );
+    CHECK(
+        SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CinematicIfEnabled ) );
+    CHECK_FALSE(
+        SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CubemapOnly ) );
 }
 
 
@@ -1116,7 +1176,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "texture-slot-capacity" ) == 0 )
     {
-        SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot( SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT );
+        SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
+            SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT );
         return true;
     }
 
@@ -1485,7 +1546,8 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "dx12-retirement-release-snapshot" ) == 0 )
     {
         SkullbonezCore::Rendering::Dx12RetirementDiagnosticState retirementDiagnostics;
-        retirementDiagnostics.ObservePendingCount( SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
+        retirementDiagnostics.ObservePendingCount(
+            SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
         retirementDiagnostics.ObserveRelease( 9u, 4u, true, 77u );
         retirementDiagnostics
             .FatalExhaustion( SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS,
@@ -1651,9 +1713,10 @@ bool RunRuntimeFatalCase( const char* caseName )
     {
         using namespace SkullbonezCore::Core::Allocation;
         constexpr int wrongOwnerHardCapacity = 1024;
-        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
-                                                                                          RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
-                                                                                          "Fatal probe for unrelated Replay growth authority" } );
+        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+            { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
+              RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
+              "Fatal probe for unrelated Replay growth authority" } );
 
         const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::
             RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, "PhysicsEngine seed",
@@ -1802,7 +1865,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-shaped-header" ) == 0 )
     {
-        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>( std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
+        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>(
+            std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
 
         if ( !candidate )
         {
@@ -1836,7 +1900,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-crt-release" ) == 0 )
     {
-        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
         void* foreignPointer = std::malloc( 64u );
 
@@ -2007,7 +2072,8 @@ bool RunRuntimeFatalCase( const char* caseName )
             edges { "TestRuntimeContracts.sleepSupportEdges",
                     SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             edges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
         }
         edges.clear();
@@ -2203,19 +2269,20 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
     for ( int threadIndex = 0; threadIndex < threadCount; ++threadIndex )
     {
-        threads.emplace_back( [threadIndex, path, writesPerThread]()
-                              {
-                                  for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
-                                  {
-                                      SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
+        threads.emplace_back(
+            [threadIndex, path, writesPerThread]()
+            {
+                for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
+                {
+                    SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
 
-                                      if ( writeIndex % 16 == 0 )
-                                      {
-                                          SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
-                                                                                              threadIndex, writeIndex );
-                                      }
-                                  }
-                              } );
+                    if ( writeIndex % 16 == 0 )
+                    {
+                        SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
+                                                                            threadIndex, writeIndex );
+                    }
+                }
+            } );
     }
 
     for ( std::thread& thread : threads )
