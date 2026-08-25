@@ -147,9 +147,10 @@ fixtures bind ASCII, byte `0x80`, and UTF-8 `C3 A9` identities. One serial
 read-only review confirmed constants, escapes, modulo arithmetic, recursion,
 ODR behavior, and build-source wiring are clean. Validation was deferred by
 explicit owner direction; no build, test, scanner, or validation command ran.
-WORLD-004 is now closed: height-map terrain UVs normalize post coordinates by
-the number of quads per side, so the last post reaches the authored texture-wrap
-endpoint. The exact-minimum grid regression pins every emitted UV pair and
+WORLD-004 is now closed: World Terrain is the render-vertex projection owner,
+and height-map terrain UVs normalize post coordinates by the number of quads
+per side, so the last post reaches the authored texture-wrap endpoint. The
+exact-minimum grid regression pins every emitted UV pair and
 would fail the old posts-per-side denominator. One serial read-only review
 confirmed arbitrary-grid scaling, axis orientation, triangle order, and the
 minimum-grid denominator are clean. Validation was deferred by explicit owner
