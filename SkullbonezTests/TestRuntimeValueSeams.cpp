@@ -30,12 +30,14 @@
 // Related:
 //   - SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp
 //   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp
+//   - SkullbonezSource/Runtime/App/SceneLoadApplication.h
 //   - SkullbonezSource/Runtime/UI/RuntimeUiSurface.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/App/InputFrame.h"
+#include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
 #include "../SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
@@ -248,6 +250,30 @@ TEST_CASE( "Scene controller: one proceed policy governs the complete frame" )
     CHECK( policy.stepRequested );
     CHECK( policy.crossScenePauseLocked );
     CHECK( policy.proceedAllowed );
+}
+
+TEST_CASE( "Scene advance exit policy preserves queued load failure" )
+{
+    CHECK( ResolveSceneAdvanceExitDisposition( false, true, false ) == SceneAdvanceExitDisposition::None );
+    CHECK( ResolveSceneAdvanceExitDisposition( true, true, false ) == SceneAdvanceExitDisposition::Normal );
+    CHECK( ResolveSceneAdvanceExitDisposition( false, false, true ) == SceneAdvanceExitDisposition::LoadFailure );
+    CHECK( ResolveSceneAdvanceExitDisposition( true, false, true ) == SceneAdvanceExitDisposition::LoadFailure );
+
+    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+    ApplicationExitState exitState( diagnostics );
+    const SkullbonezCore::Core::SbResult loadFailure =
+        diagnostics.Failure( "Runtime/SceneLoad", "queued scene could not be loaded" );
+    const SceneAdvanceExitDisposition failureDisposition = ResolveSceneAdvanceExitDisposition( false, false, true );
+    const SceneAdvanceExitAction failureAction =
+        ApplySceneAdvanceExitDisposition( failureDisposition, loadFailure, exitState );
+    const SkullbonezCore::Core::SbResult processResult = exitState.Resolve( failureAction.messageExitCode );
+
+    CHECK( failureAction.postQuit );
+    CHECK( failureAction.messageExitCode == 1 );
+    CHECK( exitState.ExitRequested() );
+    CHECK_FALSE( processResult.Ok() );
+    CHECK( std::strcmp( processResult.ErrorOwner(), "Runtime/SceneLoad" ) == 0 );
+    CHECK( std::strcmp( processResult.ErrorMessage(), "queued scene could not be loaded" ) == 0 );
 }
 
 TEST_CASE( "Runtime interaction: physics input matrix publishes one frame policy" )

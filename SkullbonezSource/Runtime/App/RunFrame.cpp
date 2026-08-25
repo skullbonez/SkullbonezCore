@@ -1579,6 +1579,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
         m_camera.StopAutoCycle();
     }
 
+    SkullbonezCore::Core::SbResult loadResult = SkullbonezCore::Core::SbResult::Success();
     bool loadSucceeded = true;
 
     if ( result.loadRequest.HasLoad() )
@@ -1590,7 +1591,8 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                          { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled() },
                                          Renderer().RendererName(), m_timers.SimulationTotalSeconds() );
 
-        loadSucceeded = LoadSceneRequest( sceneLoad, result.loadRequest ).Ok();
+        loadResult = LoadSceneRequest( sceneLoad, result.loadRequest );
+        loadSucceeded = loadResult.Ok();
 
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
         ApplySceneLoadRuntimeReactions( sceneLoad );
@@ -1605,9 +1607,14 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
         m_timers.RestartSceneClock();
     }
 
-    if ( result.requestQuit || ( !loadSucceeded && result.quitIfLoadFails ) )
+    const SceneAdvanceExitDisposition exitDisposition =
+        ResolveSceneAdvanceExitDisposition( result.requestQuit, loadSucceeded, result.quitIfLoadFails );
+    const SceneAdvanceExitAction exitAction =
+        ApplySceneAdvanceExitDisposition( exitDisposition, loadResult, m_applicationExit );
+
+    if ( exitAction.postQuit )
     {
-        PostQuitMessage( 0 );
+        PostQuitMessage( exitAction.messageExitCode );
     }
 
     if ( !loadSucceeded && !result.quitIfLoadFails )

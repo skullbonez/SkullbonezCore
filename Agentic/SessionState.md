@@ -230,9 +230,15 @@ unrepresentable propagation or sampling fails without publishing nonfinite or
 partial output. Two serial read-only reviews closed the recovery-oracle and
 comment-truth findings; the final pass is clean. Validation was deferred by
 explicit owner direction; no build, test, scanner, inventory, or validation
-command ran. APP-001 is the next selected candidate: it is high severity and
-its false-success seam is bounded to automated scene-queue error propagation
-and process-exit ownership.
+command ran. APP-001 is now closed: automated scene advancement retains the
+actual queued-load result, gives that failure precedence over a normal quit,
+latches its immutable diagnostic into `ApplicationExitState`, and posts a
+nonzero platform fallback. Two serial read-only reviews closed an end-to-end
+exit-wiring test gap; the final pass is clean. Validation was deferred by
+explicit owner direction; no build, test, scanner, inventory, or validation
+command ran. DIAG-001 is the next selected candidate: it is high severity and
+its false-success seam is bounded to perf-log activation, scene-control gating,
+and the existing process-failure owner.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

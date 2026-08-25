@@ -20,12 +20,15 @@ Related:
 */
 #pragma once
 
+#include "ApplicationExitState.h"
 #include "SceneCaptureApplication.h"
 #include "../Input/InputRouter.h"
 #include "../Diagnostics/RuntimeDiagnostics.h"
 #include "../Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "../Scene/SceneLifecycle.h"
 #include "../Scene/SceneSessionState.h"
+
+#include <cstdint>
 
 namespace SkullbonezCore
 {
@@ -125,6 +128,47 @@ constexpr bool SceneRenderActivationCompletesTransition( bool sceneMutationSucce
                                                          bool renderActivationSucceeded )
 {
     return sceneMutationSucceeded && ( !activationPending || renderActivationSucceeded );
+}
+
+enum class SceneAdvanceExitDisposition : uint8_t
+{
+    None,
+    Normal,
+    LoadFailure
+};
+
+constexpr SceneAdvanceExitDisposition ResolveSceneAdvanceExitDisposition( bool requestQuit, bool loadSucceeded,
+                                                                           bool quitIfLoadFails )
+{
+    // Invariant: a queued-load failure outranks a simultaneous normal quit so
+    // App cannot convert incomplete automation into a successful process exit.
+    if ( !loadSucceeded && quitIfLoadFails )
+    {
+        return SceneAdvanceExitDisposition::LoadFailure;
+    }
+
+    return requestQuit ? SceneAdvanceExitDisposition::Normal : SceneAdvanceExitDisposition::None;
+}
+
+struct SceneAdvanceExitAction
+{
+    bool postQuit = false;
+    int messageExitCode = 0;
+};
+
+inline SceneAdvanceExitAction ApplySceneAdvanceExitDisposition( SceneAdvanceExitDisposition disposition,
+                                                                 const SkullbonezCore::Core::SbResult& loadResult,
+                                                                 ApplicationExitState& applicationExit )
+{
+    if ( disposition == SceneAdvanceExitDisposition::LoadFailure )
+    {
+        // Invariant: retain the scene owner's diagnostic before the platform
+        // message can reduce this failure to an integer exit code.
+        applicationExit.RequestPhaseFailure( loadResult );
+        return { true, 1 };
+    }
+
+    return { disposition == SceneAdvanceExitDisposition::Normal, 0 };
 }
 
 ScenePresentationValues ProjectScenePresentationValues( const OverlayDebugState& presentation );
