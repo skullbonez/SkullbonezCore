@@ -17,6 +17,8 @@ Invariants:
     the one fixed-capacity TextBatch passed to every mutating draw operation.
   - Render2dText/BatchQuad enqueue CPU-side vertices into that explicit batch,
     and FlushText/FlushQuads are the draw boundaries for those queues.
+  - Every flush drains its CPU queue even when backend resources are missing;
+    capacity-triggered retries must always begin from index zero.
   - Text x/y positions remain in near-plane frustum units using the configured
     45-degree field of view and current screen aspect ratio.
 
@@ -80,8 +82,8 @@ class Text2d
   public:
     inline static uint32_t fontTexture = 0;
     inline static uint32_t dynamicVB = 0;                                                     // solid-quad VB: [x,y,u,v] — used by Render2dQuad (immediate, one draw per call)
-    inline static uint32_t textBatchVB = 0;                                                   // batch text VB: [x,y,u,v,r,g,b] — flushed once per frame
-    inline static uint32_t quadBatchVB = 0;                                                   // batch quad VB: [x,y,r,g,b,a] — flushed once per frame via FlushQuads()
+    inline static uint32_t textBatchVB = 0;                                                   // batch text VB: [x,y,u,v,r,g,b], one draw per flushed segment
+    inline static uint32_t quadBatchVB = 0;                                                   // batch quad VB: [x,y,r,g,b,a], one draw per flushed segment
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
     // The CPU unit-test lane intentionally omits backend object code. These
     // process-global shader owners exist only in renderer-bearing builds.
@@ -100,7 +102,7 @@ class Text2d
                                    ... );                                                     // Queues colored SDF text for this frame's text batch.
     static void
     FlushText( TextBatch& batch, Rendering::Dx12TextureOwner& renderTextures,
-               Rendering::Dx12GeometryOwner& renderCommands );                                // Uploads queued text once so HUD strings stay one draw call.
+               Rendering::Dx12GeometryOwner& renderCommands );                                // Uploads the current queued text segment.
     static void Render2dQuad( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands, float x0, float y0, float x1,
                               float y1, float r, float g, float b,
                               float a );                                                      // Immediate HUD quad path for legacy call sites.
@@ -110,7 +112,7 @@ class Text2d
     static void BatchTriangle( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands, float x0, float y0, float x1,
                                float y1, float x2, float y2, float r, float g, float b,
                                float a );                                                     // Queues a colored triangle in the shared HUD batch.
-    static void FlushQuads( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands ); // Uploads queued quads/triangles once for the frame.
+    static void FlushQuads( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands ); // Uploads the current queued quad/triangle segment.
     static SkullbonezCore::Core::SbResult
     BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, TextBatch& batch,
                Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,

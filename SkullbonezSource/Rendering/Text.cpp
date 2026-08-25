@@ -60,8 +60,8 @@ static constexpr int TEXT_BATCH_VERTS_PER_CHAR = TextBatch::TEXT_VERTICES_PER_CH
 // Quad batch accumulation buffers:
 // Layout per vertex: [x, y, r, g, b, a] (6 floats)
 // BatchQuad() accumulates quads here; FlushQuads() uploads and draws them all in
-// one draw call — so an entire profiler bar overlay (background + N segments +
-// legend swatches) costs exactly one draw call for all quads.
+// one draw per queued segment. Capacity boundaries and preview ordering may
+// split an overlay into multiple flushes.
 static constexpr int QUAD_BATCH_MAX_QUADS = TextBatch::QUAD_MAX_QUADS;
 static constexpr int QUAD_BATCH_FLOATS_PER_VERT = TextBatch::QUAD_FLOATS_PER_VERTEX;
 static constexpr int QUAD_BATCH_VERTS_PER_QUAD = TextBatch::QUAD_VERTICES_PER_QUAD;
@@ -563,7 +563,7 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
     // Compile the solid-colour HUD quad shader (used by Render2dQuad — immediate, one draw per call)
     Text2d::pSolidShader = renderResources.CreateShader( solidShaderBaseName );
 
-    // Compile the batched per-vertex-RGBA quad shader (used by FlushQuads — one draw for all quads)
+    // Compile the batched per-vertex-RGBA quad shader used for one draw per flushed segment.
     Text2d::pSolidBatchShader = renderResources.CreateShader( solidBatchShaderBaseName );
 
     // Recoverable error: text is required UI, not an optional effect. Returning success
@@ -812,7 +812,10 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
 
 void Text2d::FlushText( TextBatch& batch, Dx12TextureOwner& renderTextures, Dx12GeometryOwner& renderCommands )
 {
-    if ( batch.m_textVertexCount == 0 || !Text2d::pTextShader || !Text2d::textBatchVB )
+    const int vertexCount = batch.m_textVertexCount;
+    batch.m_textVertexCount = 0;
+
+    if ( vertexCount == 0 || !Text2d::pTextShader || !Text2d::textBatchVB )
     {
         return;
     }
@@ -821,13 +824,11 @@ void Text2d::FlushText( TextBatch& batch, Dx12TextureOwner& renderTextures, Dx12
     Text2d::pTextShader->SetMat4( "uProjection", batch.m_projection );
     renderTextures.BindTexture( Text2d::fontTexture, 0 );
 
-    // One GPU upload + one draw call covers the entire frame's text at all colors.
+    // One GPU upload + one draw call covers this queued text segment.
     renderCommands.UploadAndDrawDynamicVB( Text2d::textBatchVB,
                                            std::span<const float>( batch.m_textVertices.data(),
-                                                                   batch.m_textVertexCount * TEXT_BATCH_FLOATS_PER_VERT ),
+                                                                   vertexCount * TEXT_BATCH_FLOATS_PER_VERT ),
                                            TEXT_RASTER_STATE );
-
-    batch.m_textVertexCount = 0;
 }
 
 
@@ -962,9 +963,14 @@ void Text2d::BatchTriangle( TextBatch& batch, Dx12GeometryOwner& renderCommands,
 
 void Text2d::FlushQuads( TextBatch& batch, Dx12GeometryOwner& renderCommands )
 {
-    // This is the counterpart to FlushText(); together they give exactly two
-    // draw calls for an entire overlay frame (quads first, then text on top).
-    if ( batch.m_quadVertexCount == 0 || !Text2d::pSolidBatchShader || !Text2d::quadBatchVB )
+    // This is the quad counterpart to FlushText. Callers may split segments at
+    // capacity or ordering boundaries such as render-target previews.
+    // Hazard: a capacity-triggered flush must drain the CPU queue even when a
+    // backend resource is missing, or the next append writes past the array.
+    const int vertexCount = batch.m_quadVertexCount;
+    batch.m_quadVertexCount = 0;
+
+    if ( vertexCount == 0 || !Text2d::pSolidBatchShader || !Text2d::quadBatchVB )
     {
         return;
     }
@@ -972,11 +978,9 @@ void Text2d::FlushQuads( TextBatch& batch, Dx12GeometryOwner& renderCommands )
     Text2d::pSolidBatchShader->Use();
     Text2d::pSolidBatchShader->SetMat4( "uProjection", batch.m_projection );
 
-    // One GPU upload + one draw call covers every quad batched this frame.
+    // One GPU upload + one draw call covers this queued quad segment.
     renderCommands.UploadAndDrawDynamicVB( Text2d::quadBatchVB,
                                            std::span<const float>( batch.m_quadVertices.data(),
-                                                                   batch.m_quadVertexCount * QUAD_BATCH_FLOATS_PER_VERT ),
+                                                                   vertexCount * QUAD_BATCH_FLOATS_PER_VERT ),
                                            TEXT_RASTER_STATE );
-
-    batch.m_quadVertexCount = 0;
 }

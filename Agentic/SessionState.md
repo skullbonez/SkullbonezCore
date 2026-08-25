@@ -111,6 +111,13 @@ resource construction, retain capacity across frame clears, and serve both
 shadow-map submissions. One serial read-only review confirmed allocation,
 empty-scene, worker, lifecycle, and caller behavior is clean. No build, test,
 scanner, or validation command ran by explicit owner direction. RENDER-003 is
+now closed: text and quad flushes capture the bounded vertex count and reset
+their CPU queue before every missing-resource exit, so a capacity-triggered
+retry always appends from zero. Uploads use the captured count, and comments
+describe per-segment rather than false per-frame draw totals. Two serial
+read-only reviews closed the comment-truth finding and confirmed text, quad,
+triangle, capacity, and synchronous-copy behavior is clean. No build, test,
+scanner, or validation command ran by explicit owner direction. SCENE-002 is
 the next selected high-impact candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
