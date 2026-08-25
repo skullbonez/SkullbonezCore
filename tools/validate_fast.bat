@@ -50,11 +50,17 @@ echo   VALIDATE_FAST - Format + Metadata + Dependencies + Ownership + Size + Bui
 echo ========================================
 echo.
 
-echo [1/8] Checking accepted Physics golden and retained transitions...
+echo [1/9] Checking accepted Physics golden and retained transitions...
 python "%~dp0check_physics_baseline_guard.py" --repo "%~dp0.."
 if errorlevel 1 exit /b 9
 
-echo [2/8] Checking formatting...
+echo [2/9] Checking plain-language policy...
+python "%~dp0check_plain_language.py" --repo "%~dp0.." --self-test
+if errorlevel 1 exit /b 10
+python "%~dp0check_plain_language.py" --repo "%~dp0.."
+if errorlevel 1 exit /b 10
+
+echo [3/9] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 (
     echo.
@@ -62,15 +68,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [3/8] Checking Visual Studio project filters...
+echo [4/9] Checking Visual Studio project filters...
 call "%~dp0validate_project_filters.bat"
 if errorlevel 1 exit /b 2
 
-echo [4/8] Checking dependency graph...
+echo [5/9] Checking dependency graph...
 call "%~dp0validate_dependency_graph.bat"
 if errorlevel 1 exit /b 7
 
-echo [5/8] Checking source design and retained policies...
+echo [6/9] Checking source design and retained policies...
 REM Why: direct calls make each retained rule and failure visible without a
 REM checker that exists only to run other checkers. Review triggers report
 REM current structure; none is a ceiling or count allowance.
@@ -83,7 +89,7 @@ if errorlevel 1 exit /b 8
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$commands=@(@('%~dp0check_source_design.py','--repo','%~dp0..'),@('%~dp0check_build_config_consistency.py','--repo','%~dp0..','--format','json'),@('%~dp0check_determinism_math_policy.py','--repo','%~dp0..','--format','json')); $processes=@(); foreach($command in $commands){$processes+=Start-Process -FilePath python -ArgumentList $command -PassThru -WindowStyle Hidden}; $failed=@(); for($index=0;$index -lt $processes.Count;++$index){$processes[$index].WaitForExit(); if($processes[$index].ExitCode -ne 0){$failed+=('python '+($commands[$index] -join ' '))}}; if($failed.Count){Write-Error ('FAILED ownership scan(s): '+($failed -join '; ')); exit 8}"
 if errorlevel 1 exit /b 8
 
-echo [6/8] Checking staged file sizes...
+echo [7/9] Checking staged file sizes...
 REM Why: the checker reads the git index, so keep it before the expensive build
 REM steps and pass the repo root explicitly for callers outside the worktree.
 REM Hosted CI supplies a base commit because its clean index contains no pending
@@ -95,11 +101,11 @@ if defined SKORE_SIZE_DIFF_BASE (
 )
 if errorlevel 1 exit /b 3
 
-echo [7/8] Building Profile x64...
+echo [8/9] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 4
 
-echo [8/8] Running unit tests...
+echo [9/9] Running unit tests...
 if "%PREFLIGHT_ONLY%"=="1" goto :tests_deferred
 call "%~dp0validate_tests.bat"
 if errorlevel 1 exit /b 5

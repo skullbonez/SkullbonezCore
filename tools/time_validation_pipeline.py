@@ -64,21 +64,37 @@ STAGE_MANIFEST = [
         "parent": "full",
         "name": "Phase 1: Mandatory CPU Preflight (validate_fast --preflight-only)",
         "command": "tools\\validate_fast.bat --preflight-only",
-        "defect_class": "Formatting, dependency graph, source design, retained policies, and Profile build",
+        "defect_class": "Plain language, formatting, dependency graph, source design, retained policies, and Profile build",
         "blocking": True
     },
     {
         "id": "fast.1_physics_golden",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 1/8: Physics golden and retained-transition integrity",
+        "name": "Fast 1/9: Physics golden and retained-transition integrity",
         "command": "python tools/check_physics_baseline_guard.py --repo .",
         "defect_class": "Unbound or mismatched deterministic Physics golden",
         "blocking": True
     },
     {
+        "id": "fast.plain_language_self_test",
+        "parent": "full.1_fast_preflight",
+        "name": "Fast 2/9a: Plain-language negative fixtures",
+        "command": "python tools/check_plain_language.py --repo . --self-test",
+        "defect_class": "Plain-language scanner source/document detection regression",
+        "blocking": True
+    },
+    {
+        "id": "fast.plain_language_repo_scan",
+        "parent": "full.1_fast_preflight",
+        "name": "Fast 2/9b: Plain-language source and documentation scan",
+        "command": "python tools/check_plain_language.py --repo .",
+        "defect_class": "Retired wording in tracked first-party source or documentation",
+        "blocking": True
+    },
+    {
         "id": "fast.2_format",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 2/8: clang-format source check",
+        "name": "Fast 3/9: clang-format source check",
         "command": "tools\\validate_format.bat",
         "defect_class": "Mechanical C++ layout differences from pinned clang-format",
         "blocking": True
@@ -86,7 +102,7 @@ STAGE_MANIFEST = [
     {
         "id": "fast.3_project_filters",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 3/8: Project filter validation",
+        "name": "Fast 4/9: Project filter validation",
         "command": "python tools/check_project_filters.py --repo .",
         "defect_class": "Missing or redundant vcxproj.filters entries",
         "blocking": True
@@ -94,7 +110,7 @@ STAGE_MANIFEST = [
     {
         "id": "fast.4_dependency_graph",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 4/8: Dependency graph & proof block check",
+        "name": "Fast 5/9: Dependency graph & proof block check",
         "command": "tools\\validate_dependency_graph.bat",
         "defect_class": "Physical layer direction violations, proof block desynchronization",
         "blocking": True
@@ -102,7 +118,7 @@ STAGE_MANIFEST = [
     {
         "id": "fast.5_inventories",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 5/8: Source design, build consistency, and determinism checks",
+        "name": "Fast 6/9: Source design, build consistency, and determinism checks",
         "command": "direct retained checker calls in tools\\validate_fast.bat",
         "defect_class": "Changed-source design findings, build drift, deterministic math",
         "blocking": True
@@ -110,7 +126,7 @@ STAGE_MANIFEST = [
     {
         "id": "fast.6_staged_file_sizes",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 6/8: Staged file size check",
+        "name": "Fast 7/9: Staged file size check",
         "command": "python tools/check_staged_file_sizes.py --repo .",
         "defect_class": "Accidental large binary or dataset check-ins",
         "blocking": True
@@ -118,7 +134,7 @@ STAGE_MANIFEST = [
     {
         "id": "fast.7_build_profile",
         "parent": "full.1_fast_preflight",
-        "name": "Fast 7/8: Build Profile Configuration",
+        "name": "Fast 8/9: Build Profile Configuration",
         "command": "tools\\validate_build.bat Profile",
         "defect_class": "Profile configuration compilation",
         "blocking": True
@@ -394,11 +410,13 @@ def run_baseline_measurement(samples_count: int = 3) -> Dict[str, Any]:
         {"id": "phase_0b_physics", "command": "tools\\validate_physics.bat", "desc": "Phase 0B: Physics validation"},
         {"id": "phase_0c_build_automation", "command": "tools\\validate_build.bat Automation", "desc": "Phase 0C: Automation build"},
         {"id": "phase_1_fast_preflight", "command": "tools\\validate_fast.bat --preflight-only", "desc": "Phase 1: CPU Preflight"},
-        {"id": "fast_physics_golden", "command": "python tools/check_physics_baseline_guard.py --repo .", "desc": "Fast 1/8: Physics golden"},
-        {"id": "fast_format", "command": "tools\\validate_format.bat", "desc": "Fast 2/8: Format check"},
-        {"id": "fast_project_filters", "command": "python tools/check_project_filters.py --repo .", "desc": "Fast 3/8: Project filters"},
-        {"id": "fast_dependency_graph", "command": "tools\\validate_dependency_graph.bat", "desc": "Fast 4/8: Dependency graph"},
-        {"id": "fast_build_profile", "command": "tools\\validate_build.bat Profile", "desc": "Fast 7/8: Profile build"},
+        {"id": "fast_physics_golden", "command": "python tools/check_physics_baseline_guard.py --repo .", "desc": "Fast 1/9: Physics golden"},
+        {"id": "fast_plain_language_self_test", "command": "python tools/check_plain_language.py --repo . --self-test", "desc": "Fast 2/9a: Plain-language fixtures"},
+        {"id": "fast_plain_language_repo_scan", "command": "python tools/check_plain_language.py --repo .", "desc": "Fast 2/9b: Plain-language repository scan"},
+        {"id": "fast_format", "command": "tools\\validate_format.bat", "desc": "Fast 3/9: Format check"},
+        {"id": "fast_project_filters", "command": "python tools/check_project_filters.py --repo .", "desc": "Fast 4/9: Project filters"},
+        {"id": "fast_dependency_graph", "command": "tools\\validate_dependency_graph.bat", "desc": "Fast 5/9: Dependency graph"},
+        {"id": "fast_build_profile", "command": "tools\\validate_build.bat Profile", "desc": "Fast 8/9: Profile build"},
         {"id": "phase_2_all_cpu_tests", "command": "tools\\validate_all_cpu_tests.bat", "desc": "Phase 2: All CPU tests"},
         {"id": "cpu_1_doctests_profile", "command": "tools\\validate_tests.bat Profile", "desc": "CPU 1/6: Profile doctests"},
         {"id": "phase_3_automation", "command": "tools\\validate_automation.bat", "desc": "Phase 3: Automation lane"},

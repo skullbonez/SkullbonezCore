@@ -2,7 +2,7 @@
 
 Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
-Status: Governance De-Bureaucratization and Jargon Removal active; 119/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -10,8 +10,8 @@ Truth Replacement CT0-CT5, Full Validation Time And Value Audit VTA0-VTA5, and R
 Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
-Governance De-Bureaucratization and Jargon Removal DB0-DB7 is the sole active
-plan at 7/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
+Governance De-Bureaucratization and Jargon Removal DB0-DB7 is complete at 8/8.
+DB0 inventories all 13 tracked JSON files and 56 tracked Python
 tools, records sixteen replacement negative tests, and corrects the current
 wide-signature seed to the omitted 12-parameter
 `PhysicsBroadphaseStage::Run`. DB1 removes physical-coordinate policy identity
@@ -51,8 +51,14 @@ through split literals. Fifty-six boilerplate headers were reduced, and the
 comment policy now requires concise local engineering explanations without
 mandatory template sections. Two serial reviews closed missed-variant and
 parked-patch integrity findings. No build, test, Physics comparison, or
-validation command ran by explicit owner direction. DB7's permanent scanner
-and plan closure are next.
+validation command ran by explicit owner direction. DB7 adds the Git-derived
+`tools/check_plain_language.py` scan with zero source/document path or site
+exceptions, source and documentation negative fixtures, and a clean fixture. `validate_fast.bat`
+and the mandatory hosted CPU workflow both invoke it. The completed TODO plan
+is deleted under repository convention. Five serial read-only review passes
+closed nine matcher, scope, fixture, and metadata findings; the final pass is
+clean. No scanner, fixture, build, test, or validation command ran by explicit
+owner direction. The bug ledger is the next live queue.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
@@ -548,9 +554,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Begin `DE_BUREAUCRATIZE` DB7: install the permanent tracked-file plain-language
-scanner in local and hosted validation, add its source/document negative tests,
-then delete the completed active plan under repository convention.
+Begin the highest-priority unresolved entry in `Agentic/Bugs/master_bug_report.csv`.
 `RAGDOLL_PHYSICS` FP5-FP9 and
 `RECORDED_CURSOR` RIC3 remain parked and are not selectable.
 

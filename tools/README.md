@@ -188,6 +188,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `generate_physics_scale_sleepy_scene.py --check\|--write` | Check or deterministically regenerate the 5,000-body sleeping-heavy scale fixture |
 | `validate_format.bat` | Check changed first-party C++ source directly with the pinned clang-format binary |
 | `format_fix.bat` | Apply the pinned clang-format binary to changed first-party C++ source |
+| `check_plain_language.py --repo . [--self-test]` | Scan Git-tracked first-party source and documentation for retired wording; the self-test carries one failing source fixture, one failing documentation fixture, and a clean fixture |
 | `check_related_paths.py [--self-test]` | Advisory report for unresolved repository-relative paths in existing source `Related:` blocks; never blocks validation |
 | `check_build_config_consistency.py --repo . [--format text\|json] [--self-test]` | Inventory effective C++ metadata across the six first-party projects; fail on dropped per-file inheritance or shared-source divergence without an exact current-setting ruling |
 | `check_source_design.py --repo . [--self-test] [--files ...]` | Use Clang-Tidy and Clang Query on changed C++ translation units; reject wide or oversized functions, deep nesting, member-prefixed locals, pure parameter aliases, and immediate parameter-struct unpacking without a permission ledger |

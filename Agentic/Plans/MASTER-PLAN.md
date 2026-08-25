@@ -1,13 +1,13 @@
 # MASTER PLAN
 
 Date: 2026-08-26
-Status: Governance De-Bureaucratization and Jargon Removal active; 119/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
 
 ## Owner Direction
 
-- Governance De-Bureaucratization and Jargon Removal was activated by explicit
-  owner direction on 2026-08-25 as the sole active plan. `DE_BUREAUCRATIZE`
-  DB0-DB7 execute in strict order: inventory the contract, remove brittle
+- Governance De-Bureaucratization and Jargon Removal completed by explicit
+  owner direction at 8/8 phases. `DE_BUREAUCRATIZE` DB0-DB7 inventory the
+  contract, remove brittle
   bookkeeping without weakening rules, close enforcement holes, streamline the
   golden workflow, replace repository jargon in source and documentation, then
   install a validation scan that prevents the removed terms from returning.
@@ -304,9 +304,9 @@ Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
-| Plan | Commit name | Tasks | Done | File |
-|---|---|---|---|---|
-| Governance De-Bureaucratization and Jargon Removal | `DE_BUREAUCRATIZE` | 8 | 7 | `TODO/governance-debureaucratization-and-jargon-removal.md` |
+No implementation plan is active. Completed plan files are deleted under the
+repository convention; Git history and the progress ledger below retain their
+evidence.
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -338,9 +338,8 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-1. `DE_BUREAUCRATIZE` DB0 through DB7 is the sole selectable plan. Its phases
-   execute in strict order and may not retire a check before its replacement and
-   negative test exist.
+No `TODO/` implementation plan is selectable. The bug ledger is the next live
+queue unless the owner activates a parked plan.
 
 The former `RAGDOLL_PHYSICS` and `RECORDED_CURSOR` plans are parked, while
 `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` are complete. None participates in
@@ -368,8 +367,8 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-119/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
-the sole active plan at 7/8; DB0-DB6 are complete and DB7 is next. DB0
+120/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
+complete at 8/8. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen
 negative-test seeds, and ratifies a 20-file governance-administration cohort
 with 15 planned deletions. DB1 replaces source-coordinate policy identity in
@@ -406,7 +405,15 @@ schema and child-case strings retain their exact bytes through split literals;
 concise local engineering explanations without mandatory template sections.
 Two serial reviews closed the missed-variant and parked-patch integrity
 findings. No build, test, Physics comparison, or validation command ran by
-explicit owner direction.
+explicit owner direction. DB7 adds `tools/check_plain_language.py`, whose
+Git-derived inventory scans tracked first-party source and documentation with
+zero source/document path or site exceptions. Its self-test contains failing
+source and documentation fixtures plus a clean fixture. Both `validate_fast.bat` and the
+mandatory hosted CPU workflow invoke the self-test and repository scan. The
+completed TODO plan is deleted under repository convention. Five serial
+read-only review passes closed nine matcher, scope, fixture, and metadata
+findings; the final pass is clean. No scanner, fixture, build, test, or
+validation command ran by explicit owner direction.
 The five unfinished Ragdoll Physics phases and RIC3
 are parked and excluded from the denominator; their eight completed phases
 remain part of the historical completed count.

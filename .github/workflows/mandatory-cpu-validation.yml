@@ -159,6 +159,14 @@ jobs:
           $log = Join-Path $artifactDir "mandatory-cpu-lane.log"
           $gates = @(
             [pscustomobject]@{
+              Name = "plain-language scanner self-test"
+              Command = "python tools\check_plain_language.py --repo . --self-test"
+            }
+            [pscustomobject]@{
+              Name = "plain-language scanner repository scan"
+              Command = "python tools\check_plain_language.py --repo ."
+            }
+            [pscustomobject]@{
               Name = "validate_fast.bat --preflight-only"
               Command = "tools\validate_fast.bat --preflight-only"
             }
