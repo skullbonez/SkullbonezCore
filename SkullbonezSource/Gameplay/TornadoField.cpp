@@ -33,6 +33,10 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 namespace Vector = SkullbonezCore::Math::Vector;
 
+// Invariant: times above this first fixed-step stall boundary always use the
+// precise lifecycle path, even when a restored double lands on the float lattice.
+static constexpr double TORNADO_FLOAT_FIXED_STEP_BOUNDARY_SECONDS = 262144.0;
+
 
 static float SmoothStep01( float edge0, float edge1, float value )
 {
@@ -203,26 +207,58 @@ std::size_t TornadoSystem::DynamicMemoryBytes() const
 
 void TornadoSystem::ResetElapsedSeconds()
 {
-    m_elapsedSeconds = 0.0f;
+    m_elapsedSeconds = 0.0;
+    m_preciseElapsedContinuation = false;
     RebuildActiveVortices();
 }
 
 
-void TornadoSystem::SetElapsedSeconds( float seconds )
+void TornadoSystem::SetElapsedSeconds( double seconds )
 {
-    m_elapsedSeconds = (std::max)( 0.0f, seconds );
+    m_elapsedSeconds = (std::max)( 0.0, seconds );
+    m_preciseElapsedContinuation =
+        m_elapsedSeconds > TORNADO_FLOAT_FIXED_STEP_BOUNDARY_SECONDS ||
+        static_cast<double>( static_cast<float>( m_elapsedSeconds ) ) != m_elapsedSeconds;
     RebuildActiveVortices();
 }
 
 
 void TornadoSystem::Tick( float dt )
 {
-    m_elapsedSeconds += (std::max)( 0.0f, dt );
+    const float elapsedDelta = (std::max)( 0.0f, dt );
+
+    if ( elapsedDelta > 0.0f )
+    {
+        if ( !m_preciseElapsedContinuation )
+        {
+            const float currentElapsed = static_cast<float>( m_elapsedSeconds );
+            const float nextElapsed = currentElapsed + elapsedDelta;
+
+            if ( nextElapsed != currentElapsed )
+            {
+                // Compatibility: retain the original float addition while it
+                // can represent progress, preserving existing deterministic bytes.
+                m_elapsedSeconds = static_cast<double>( nextElapsed );
+            }
+            else
+            {
+                // Hazard: at long runtimes a fixed-step delta becomes smaller
+                // than half a float ULP. Continue from that exact boundary in double.
+                m_preciseElapsedContinuation = true;
+                m_elapsedSeconds += static_cast<double>( elapsedDelta );
+            }
+        }
+        else
+        {
+            m_elapsedSeconds += static_cast<double>( elapsedDelta );
+        }
+    }
+
     RebuildActiveVortices();
 }
 
 
-void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, float elapsedSeconds,
+void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, double elapsedSeconds,
                                          std::vector<TornadoActiveVortex>& outVortices )
 {
     outVortices.clear();
@@ -232,7 +268,11 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, floa
         return;
     }
 
-    elapsedSeconds = (std::max)( 0.0f, elapsedSeconds );
+    elapsedSeconds = (std::max)( 0.0, elapsedSeconds );
+    const float compatibleElapsedSeconds = static_cast<float>( elapsedSeconds );
+    const bool requiresPreciseLifecycle =
+        elapsedSeconds > TORNADO_FLOAT_FIXED_STEP_BOUNDARY_SECONDS ||
+        static_cast<double>( compatibleElapsedSeconds ) != elapsedSeconds;
     const float twoPi = 6.28318530718f;
 
     // Invariant: append order is authored source order. Physics consumes this
@@ -241,25 +281,50 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, floa
     {
         const TornadoVortexConfig& source = config.vortices[static_cast<size_t>( i )];
 
-        if ( !source.field.enabled || elapsedSeconds < source.spawnSeconds )
+        if ( !source.field.enabled || elapsedSeconds < static_cast<double>( source.spawnSeconds ) )
         {
             continue;
         }
 
-        const float age = elapsedSeconds - source.spawnSeconds;
+        const float compatibleAge = compatibleElapsedSeconds - source.spawnSeconds;
+        const double preciseAge = elapsedSeconds - static_cast<double>( source.spawnSeconds );
 
-        if ( source.timeToLiveSeconds > 0.0f && age > source.timeToLiveSeconds + (std::max)( source.shrinkSeconds, 0.001f ) )
+        if ( source.timeToLiveSeconds > 0.0f &&
+             ( requiresPreciseLifecycle
+                   ? preciseAge > static_cast<double>( source.timeToLiveSeconds ) +
+                                      static_cast<double>( (std::max)( source.shrinkSeconds, 0.001f ) )
+                   : compatibleAge > source.timeToLiveSeconds + (std::max)( source.shrinkSeconds, 0.001f ) ) )
         {
             continue;
         }
 
-        const float grow = source.growSeconds > 0.0f ? std::clamp( age / source.growSeconds, 0.0f, 1.0f ) : 1.0f;
+        const float grow = source.growSeconds > 0.0f
+                               ? ( requiresPreciseLifecycle
+                                       ? static_cast<float>( std::clamp( preciseAge / static_cast<double>( source.growSeconds ),
+                                                                        0.0, 1.0 ) )
+                                       : std::clamp( compatibleAge / source.growSeconds, 0.0f, 1.0f ) )
+                               : 1.0f;
         float shrink = 1.0f;
 
-        if ( source.timeToLiveSeconds > 0.0f && age > source.timeToLiveSeconds )
+        if ( source.timeToLiveSeconds > 0.0f &&
+             ( requiresPreciseLifecycle ? preciseAge > static_cast<double>( source.timeToLiveSeconds )
+                                        : compatibleAge > source.timeToLiveSeconds ) )
         {
-            const float shrinkAge = age - source.timeToLiveSeconds;
-            shrink = source.shrinkSeconds > 0.0f ? std::clamp( 1.0f - shrinkAge / source.shrinkSeconds, 0.0f, 1.0f ) : 0.0f;
+            if ( requiresPreciseLifecycle )
+            {
+                const double shrinkAge = preciseAge - static_cast<double>( source.timeToLiveSeconds );
+                shrink = source.shrinkSeconds > 0.0f
+                             ? static_cast<float>( std::clamp( 1.0 - shrinkAge / static_cast<double>( source.shrinkSeconds ),
+                                                              0.0, 1.0 ) )
+                             : 0.0f;
+            }
+            else
+            {
+                const float shrinkAge = compatibleAge - source.timeToLiveSeconds;
+                shrink = source.shrinkSeconds > 0.0f
+                             ? std::clamp( 1.0f - shrinkAge / source.shrinkSeconds, 0.0f, 1.0f )
+                             : 0.0f;
+            }
         }
 
         const float strength = grow * shrink;
@@ -280,15 +345,29 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, floa
         active.field.ejectAcceleration = source.field.ejectAcceleration * strength;
         active.field.ejectUpAcceleration = source.field.ejectUpAcceleration * strength;
         active.strength = strength;
-        active.ageSeconds = age;
+        active.ageSeconds = requiresPreciseLifecycle ? preciseAge : static_cast<double>( compatibleAge );
         active.sourceIndex = i;
 
         if ( source.driftRadius > 0.0f && source.driftSpeed > 0.0f )
         {
-            const float phase = source.driftPhase + age * source.driftSpeed;
-            const float wobble = source.driftPhase * 0.73f + age * source.driftSpeed * 0.67f + twoPi * 0.19f;
-            active.field.center.x += cosf( phase ) * source.driftRadius + cosf( wobble ) * source.driftRadius * 0.34f;
-            active.field.center.z += sinf( phase ) * source.driftRadius + sinf( wobble ) * source.driftRadius * 0.34f;
+            if ( requiresPreciseLifecycle )
+            {
+                const double phase = static_cast<double>( source.driftPhase ) + preciseAge * source.driftSpeed;
+                const double wobble = static_cast<double>( source.driftPhase ) * 0.73 +
+                                      preciseAge * static_cast<double>( source.driftSpeed ) * 0.67 +
+                                      static_cast<double>( twoPi ) * 0.19;
+                active.field.center.x += static_cast<float>( std::cos( phase ) * source.driftRadius +
+                                                             std::cos( wobble ) * source.driftRadius * 0.34 );
+                active.field.center.z += static_cast<float>( std::sin( phase ) * source.driftRadius +
+                                                             std::sin( wobble ) * source.driftRadius * 0.34 );
+            }
+            else
+            {
+                const float phase = source.driftPhase + compatibleAge * source.driftSpeed;
+                const float wobble = source.driftPhase * 0.73f + compatibleAge * source.driftSpeed * 0.67f + twoPi * 0.19f;
+                active.field.center.x += cosf( phase ) * source.driftRadius + cosf( wobble ) * source.driftRadius * 0.34f;
+                active.field.center.z += sinf( phase ) * source.driftRadius + sinf( wobble ) * source.driftRadius * 0.34f;
+            }
         }
 
         outVortices.push_back( active );
@@ -330,9 +409,19 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, floa
             }
             else
             {
-                const float fallbackPhase = static_cast<float>( a * 41 + b * 97 ) * 0.61803398875f + elapsedSeconds * 0.17f;
-
-                direction = Vector3( cosf( fallbackPhase ), 0.0f, sinf( fallbackPhase ) );
+                if ( requiresPreciseLifecycle )
+                {
+                    const double fallbackPhase = static_cast<double>( a * 41 + b * 97 ) * 0.61803398875 +
+                                                 elapsedSeconds * 0.17;
+                    direction = Vector3( static_cast<float>( std::cos( fallbackPhase ) ), 0.0f,
+                                         static_cast<float>( std::sin( fallbackPhase ) ) );
+                }
+                else
+                {
+                    const float fallbackPhase = static_cast<float>( a * 41 + b * 97 ) * 0.61803398875f +
+                                                compatibleElapsedSeconds * 0.17f;
+                    direction = Vector3( cosf( fallbackPhase ), 0.0f, sinf( fallbackPhase ) );
+                }
             }
 
             const float push = ( repulsionRadius - distance ) * repulsionStrength * 0.5f;

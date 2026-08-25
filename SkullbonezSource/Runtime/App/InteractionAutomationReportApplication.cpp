@@ -170,6 +170,13 @@ void HashPredictionFloat( uint64_t& hash, float value )
     HashPredictionScalar( hash, bits );
 }
 
+void HashPredictionDouble( uint64_t& hash, double value )
+{
+    uint64_t bits = 0;
+    std::memcpy( &bits, &value, sizeof( bits ) );
+    HashPredictionScalar( hash, bits );
+}
+
 void HashPredictionVector( uint64_t& hash, const Vector3& value )
 {
     HashPredictionFloat( hash, value.x );
@@ -223,7 +230,7 @@ class PredictionSimulationHashes
         for ( const RunReplayPredictionFrame& frame : frames )
         {
             HashPredictionScalar( hashes.m_all, frame.frameIndex );
-            HashPredictionFloat( hashes.m_all, frame.tornadoSystemElapsedSeconds );
+            HashPredictionDouble( hashes.m_all, frame.tornadoSystemElapsedSeconds );
             HashPredictionScalar( hashes.m_all, frame.bodies.size() );
             HashPredictionScalar( hashes.m_frameIndex, frame.frameIndex );
             HashPredictionScalar( hashes.m_pose, frame.frameIndex );

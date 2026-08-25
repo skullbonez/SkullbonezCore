@@ -251,7 +251,7 @@ struct ReplaySolverWorldScalarState
     bool collisionVisualFrameActive = false;
     Gameplay::TornadoFieldConfig tornadoConfig;
     Gameplay::TornadoSystemConfig tornadoSystemConfig;
-    float tornadoSystemElapsedSeconds = 0.0f;
+    double tornadoSystemElapsedSeconds = 0.0;
     Physics::PhysicsSolverStatsSample solverStats;
 };
 
@@ -266,7 +266,7 @@ struct ReplaySolverWorldSnapshot
     Physics::PhysicsSolverSnapshot physics;
     Gameplay::TornadoFieldConfig tornadoConfig;
     Gameplay::TornadoSystemConfig tornadoSystemConfig;
-    float tornadoSystemElapsedSeconds = 0.0f;
+    double tornadoSystemElapsedSeconds = 0.0;
     std::vector<float> tornadoCaptureSeconds;
     std::vector<float> tornadoEjectCooldownSeconds;
 
@@ -279,7 +279,7 @@ struct ReplaySolverWorldSnapshot
         tornadoSystemConfig.enabled = false;
         tornadoSystemConfig.visualizeVelocityField = false;
         tornadoSystemConfig.vortices.clear();
-        tornadoSystemElapsedSeconds = 0.0f;
+        tornadoSystemElapsedSeconds = 0.0;
         tornadoCaptureSeconds.clear();
         tornadoEjectCooldownSeconds.clear();
     }

@@ -168,7 +168,7 @@ bool TornadoVisualPass::AutoEnableWithTornado() const
 
 Rendering::WorldRenderExtensionRegistration TornadoVisualPass::PrepareFrame( const TornadoFieldConfig& field,
                                                                              const TornadoSystemConfig& system,
-                                                                             float systemElapsedSeconds,
+                                                                             double systemElapsedSeconds,
                                                                              const TornadoVisualTimeCandidates& time )
 {
     m_frame.field = &field;
@@ -193,6 +193,24 @@ bool TornadoVisualPass::RegisterGraphPass( TornadoVisualPass& pass, Rendering::W
     pass.m_frame = {};
 
     return rendered;
+}
+
+float TornadoVisualPass::ResolveRotationPhase( double time, float rotationSpeed, int sourceIndex )
+{
+    constexpr float twoPi = 6.28318530718f;
+    constexpr double floatFixedStepBoundary = 262144.0;
+    const float compatibleTime = static_cast<float>( time );
+
+    if ( std::fabs( time ) <= floatFixedStepBoundary )
+    {
+        return compatibleTime * rotationSpeed + static_cast<float>( sourceIndex ) * 1.73f;
+    }
+
+    // Hazard: a large absolute phase loses fixed-step changes when narrowed to
+    // float. Reduce the precise phase before conversion so visual drift advances.
+    return static_cast<float>( std::fmod( time * static_cast<double>( rotationSpeed ) +
+                                              static_cast<double>( sourceIndex ) * 1.73,
+                                          static_cast<double>( twoPi ) ) );
 }
 
 void TornadoVisualPass::ExecuteGraphPass( const Rendering::RenderGraphPassContext& /*context*/, GraphCallbackData& data )
@@ -267,23 +285,30 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
 
     m_lastLiveVisualSourceSeconds = sourceSeconds;
 
-    float time = m_liveVisualTimeSeconds;
+    double time = m_liveVisualTimeSeconds;
 
     if ( candidates.hasPresentation )
     {
-        time = static_cast<float>( candidates.presentationSeconds );
+        time = candidates.presentationSeconds;
     }
     else if ( candidates.hasSolver )
     {
-        time = useTornadoSystem ? candidates.solverSystemSeconds : static_cast<float>( candidates.solverSeconds );
+        time = useTornadoSystem ? candidates.solverSystemSeconds : candidates.solverSeconds;
     }
     else if ( candidates.hasPrediction )
     {
-        time = useTornadoSystem ? candidates.predictionSystemSeconds : static_cast<float>( candidates.predictionSeconds );
+        time = useTornadoSystem ? candidates.predictionSystemSeconds : candidates.predictionSeconds;
     }
     else if ( useTornadoSystem )
     {
         time = m_frame.systemElapsedSeconds;
+    }
+
+    // Compatibility: all ordinary-time visuals retain their prior float input
+    // bytes. Only the long-runtime range that can lose fixed steps stays double.
+    if ( std::fabs( time ) < 262144.0 )
+    {
+        time = static_cast<double>( static_cast<float>( time ) );
     }
 
     m_activeVisualVortices.clear();
@@ -320,7 +345,7 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
     for ( const TornadoActiveVortex& activeVortex : m_activeVisualVortices )
     {
         const TornadoFieldConfig& field = activeVortex.field;
-        const float rotation = time * visual.rotationSpeed + static_cast<float>( activeVortex.sourceIndex ) * 1.73f;
+        const float rotation = ResolveRotationPhase( time, visual.rotationSpeed, activeVortex.sourceIndex );
         const float radius = field.radius;
         const float height = field.height;
 

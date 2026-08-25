@@ -903,7 +903,7 @@
     {
       "path": "SkullbonezSource/Gameplay/TornadoField.cpp",
       "patterns": [
-        "{\"symbol\":\"TornadoSystem::BuildActiveVortices\",\"before\":[\"active.field.center.z += sinf( phase ) * source.driftRadius + sinf( wobble ) * source.driftRadius * 0.34f;\",\"}\"],\"statement\":\"outVortices.push_back( active );\",\"after\":[\"}\",\"for ( int a = 0; a < static_cast<int>( outVortices.size() ); ++a )\"]}",
+        "{\"symbol\":\"TornadoSystem::BuildActiveVortices\",\"before\":[\"active.field.center.z += sinf( phase ) * source.driftRadius + sinf( wobble ) * source.driftRadius * 0.34f;\",\"}\",\"}\"],\"statement\":\"outVortices.push_back( active );\",\"after\":[\"}\",\"for ( int a = 0; a < static_cast<int>( outVortices.size() ); ++a )\"]}",
         "{\"symbol\":\"TornadoSystem::TornadoSystem\",\"before\":[\"TornadoSystem::TornadoSystem()\",\"{\"],\"statement\":\"m_config.vortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );\",\"after\":[\"m_activeVortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );\",\"}\"]}",
         "{\"symbol\":\"TornadoSystem::TornadoSystem\",\"before\":[\"{\",\"m_config.vortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );\"],\"statement\":\"m_activeVortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );\",\"after\":[\"}\",\"void TornadoSystem::SetConfig( const TornadoSystemConfig& config )\"]}"
       ],
@@ -917,7 +917,7 @@
     {
       "path": "SkullbonezSource/Gameplay/TornadoField.h",
       "patterns": [
-        "{\"symbol\":\"ActiveVortices\",\"before\":[\"TornadoSystemConfig m_config;\",\"float m_elapsedSeconds = 0.0f;\"],\"statement\":\"std::vector<TornadoActiveVortex> m_activeVortices;\",\"after\":[\"void RebuildActiveVortices();\",\"};\"]}"
+        "{\"symbol\":\"ActiveVortices\",\"before\":[\"double m_elapsedSeconds = 0.0;\",\"bool m_preciseElapsedContinuation = false;\"],\"statement\":\"std::vector<TornadoActiveVortex> m_activeVortices;\",\"after\":[\"void RebuildActiveVortices();\",\"};\"]}"
       ],
       "owner": "Gameplay tornado authored-content and preallocated state surface",
       "phase": "startup_preallocation_scene_load_replay",

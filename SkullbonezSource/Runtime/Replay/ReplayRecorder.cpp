@@ -1022,6 +1022,13 @@ uint64_t HashFloat( uint64_t hash, float value )
     return HashUint32( hash, packed );
 }
 
+uint64_t HashDouble( uint64_t hash, double value )
+{
+    uint64_t packed = 0;
+    std::memcpy( &packed, &value, sizeof( packed ) );
+    return HashUint64( hash, packed );
+}
+
 uint64_t HashVector( uint64_t hash, const Vector3& value )
 {
     hash = HashFloat( hash, value.x );
@@ -1514,7 +1521,8 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
     if ( physics.version >= 2 )
     {
         hash = HashTornadoSystemConfig( hash, snapshot.tornadoSystemConfig );
-        hash = HashFloat( hash, snapshot.tornadoSystemElapsedSeconds );
+        hash = physics.version >= 5u ? HashDouble( hash, snapshot.tornadoSystemElapsedSeconds )
+                                    : HashFloat( hash, static_cast<float>( snapshot.tornadoSystemElapsedSeconds ) );
     }
 
     hash = HashFloatVector( hash, physics.timeRemaining );

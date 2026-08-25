@@ -43,6 +43,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -410,6 +411,93 @@ TEST_CASE( "Tornado execution config is published by the Gameplay force frame" )
     predictionGameplay.SetParallelForceEvaluation( gameplay.ParallelForceEvaluation() );
     CHECK( predictionGameplay.BuildForceFrame( PHYSICS_FIXED_DT, 0 ).parallelEvaluation );
 }
+
+TEST_CASE( "Tornado lifecycle clock advances beyond the float fixed-step boundary" )
+{
+    constexpr double kFloatFixedStepBoundary = 262144.0;
+
+    SkullbonezCore::Gameplay::TornadoSystemConfig systemConfig;
+    systemConfig.enabled = true;
+    systemConfig.vortices.resize( 1u );
+    systemConfig.vortices[0].field.enabled = true;
+    systemConfig.vortices[0].spawnSeconds = static_cast<float>( kFloatFixedStepBoundary );
+    systemConfig.vortices[0].timeToLiveSeconds = 0.01f;
+    systemConfig.vortices[0].growSeconds = 1.0f;
+    systemConfig.vortices[0].shrinkSeconds = 0.01f;
+
+    SkullbonezCore::Gameplay::TornadoSystem system;
+    system.SetConfig( systemConfig );
+    system.SetElapsedSeconds( kFloatFixedStepBoundary );
+    CHECK( system.ActiveVortices().empty() );
+
+    system.Tick( PHYSICS_FIXED_DT );
+
+    CHECK( system.GetElapsedSeconds() > kFloatFixedStepBoundary );
+    REQUIRE( system.ActiveVortices().size() == 1u );
+    CHECK( system.ActiveVortices()[0].ageSeconds > 0.0 );
+    CHECK( system.ActiveVortices()[0].strength > 0.001f );
+
+    const double firstAdvancedSeconds = system.GetElapsedSeconds();
+    system.Tick( PHYSICS_FIXED_DT );
+    CHECK( system.GetElapsedSeconds() > firstAdvancedSeconds );
+    REQUIRE( system.ActiveVortices().size() == 1u );
+    CHECK( system.ActiveVortices()[0].ageSeconds > static_cast<double>( PHYSICS_FIXED_DT ) );
+
+    system.Tick( PHYSICS_FIXED_DT );
+    CHECK( system.ActiveVortices().empty() );
+
+    SkullbonezCore::Gameplay::TornadoSystemConfig driftConfig;
+    driftConfig.enabled = true;
+    driftConfig.vortices.resize( 1u );
+    driftConfig.vortices[0].field.enabled = true;
+    driftConfig.vortices[0].growSeconds = 0.0f;
+    driftConfig.vortices[0].driftRadius = 100.0f;
+    driftConfig.vortices[0].driftSpeed = 1.0f;
+
+    SkullbonezCore::Gameplay::TornadoSystem driftSystem;
+    driftSystem.SetConfig( driftConfig );
+    driftSystem.SetElapsedSeconds( kFloatFixedStepBoundary );
+    REQUIRE( driftSystem.ActiveVortices().size() == 1u );
+    const auto centerBeforeTick = driftSystem.ActiveVortices()[0].field.center;
+    driftSystem.Tick( PHYSICS_FIXED_DT );
+    REQUIRE( driftSystem.ActiveVortices().size() == 1u );
+    const auto centerAfterTick = driftSystem.ActiveVortices()[0].field.center;
+    CHECK( centerAfterTick != centerBeforeTick );
+
+    // Regression: an exact float-valued restore above the boundary must not
+    // re-enter coarse lifecycle math for its restored frame or later ticks.
+    constexpr double kExactFloatRestoreSeconds = kFloatFixedStepBoundary * 2.0;
+    driftSystem.SetElapsedSeconds( kExactFloatRestoreSeconds );
+    REQUIRE( driftSystem.ActiveVortices().size() == 1u );
+    const auto centerAtExactRestore = driftSystem.ActiveVortices()[0].field.center;
+    constexpr float kTwoPi = 6.28318530718f;
+    const double expectedRestorePhase = kExactFloatRestoreSeconds * driftConfig.vortices[0].driftSpeed;
+    const double expectedRestoreWobble =
+        kExactFloatRestoreSeconds * static_cast<double>( driftConfig.vortices[0].driftSpeed ) * 0.67 +
+        static_cast<double>( kTwoPi ) * 0.19;
+    const float expectedRestoreX = static_cast<float>(
+        std::cos( expectedRestorePhase ) * driftConfig.vortices[0].driftRadius +
+        std::cos( expectedRestoreWobble ) * driftConfig.vortices[0].driftRadius * 0.34 );
+    const float expectedRestoreZ = static_cast<float>(
+        std::sin( expectedRestorePhase ) * driftConfig.vortices[0].driftRadius +
+        std::sin( expectedRestoreWobble ) * driftConfig.vortices[0].driftRadius * 0.34 );
+    CHECK( centerAtExactRestore.x == expectedRestoreX );
+    CHECK( centerAtExactRestore.z == expectedRestoreZ );
+    driftSystem.Tick( PHYSICS_FIXED_DT );
+    REQUIRE( driftSystem.ActiveVortices().size() == 1u );
+    const auto centerAfterExactRestoreTick = driftSystem.ActiveVortices()[0].field.center;
+    CHECK( driftSystem.GetElapsedSeconds() > kExactFloatRestoreSeconds );
+    CHECK( centerAfterExactRestoreTick != centerAtExactRestore );
+    const double exactRestoreFirstAdvance = driftSystem.GetElapsedSeconds();
+    driftSystem.Tick( PHYSICS_FIXED_DT );
+    CHECK( driftSystem.GetElapsedSeconds() > exactRestoreFirstAdvance );
+    REQUIRE( driftSystem.ActiveVortices().size() == 1u );
+    CHECK( driftSystem.ActiveVortices()[0].field.center != centerAfterExactRestoreTick );
+
+    driftSystem.ResetElapsedSeconds();
+    CHECK( driftSystem.GetElapsedSeconds() == 0.0 );
+}
+
 
 TEST_CASE( "Tornado owner edits and replay restore reuse bounded vortex storage" )
 {

@@ -630,7 +630,15 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const SkullbonezCore::Runt
     if ( physics.version >= 2 )
     {
         AppendTornadoSystemConfig( out, snapshot.tornadoSystemConfig );
-        AppendPod( out, snapshot.tornadoSystemElapsedSeconds );
+
+        if ( physics.version >= 5u )
+        {
+            AppendPod( out, snapshot.tornadoSystemElapsedSeconds );
+        }
+        else
+        {
+            AppendPod( out, static_cast<float>( snapshot.tornadoSystemElapsedSeconds ) );
+        }
     }
 
     AppendCountedPodVector( out, physics.timeRemaining );
@@ -1746,10 +1754,28 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
 
     if ( physics.version >= 2 )
     {
-        if ( !ReadTornadoSystemConfig( cursor, outSnapshot.tornadoSystemConfig ) ||
-             !ReadPod( cursor, outSnapshot.tornadoSystemElapsedSeconds ) )
+        if ( !ReadTornadoSystemConfig( cursor, outSnapshot.tornadoSystemConfig ) )
         {
             return false;
+        }
+
+        if ( physics.version >= 5u )
+        {
+            if ( !ReadPod( cursor, outSnapshot.tornadoSystemElapsedSeconds ) )
+            {
+                return false;
+            }
+        }
+        else
+        {
+            float legacyElapsedSeconds = 0.0f;
+
+            if ( !ReadPod( cursor, legacyElapsedSeconds ) )
+            {
+                return false;
+            }
+
+            outSnapshot.tornadoSystemElapsedSeconds = static_cast<double>( legacyElapsedSeconds );
         }
     }
 

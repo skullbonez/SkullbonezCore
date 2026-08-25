@@ -4,7 +4,7 @@ Purpose:
   Serializes and restores the presentation-bearing state of one completed prediction.
 
 Summary:
-  Schema v4 wraps the canonical lightweight prediction payload in an ordered
+  Schema v6 wraps the precise v5 lightweight prediction payload in an ordered
   section table and adds only the unique root/contact-event solver frames when
   the captured capability is High. The reader validates byte closure, counts,
   references, and path policy into replay-reserve-accounted candidate owners,
@@ -22,8 +22,8 @@ Invariants:
   - The complete payload fails closed above 128 MiB.
   - High evidence contains frame zero plus each unique contact-derived node's
     first frame in ascending order; Low archives have no evidence section.
-  - Schema v4 and v3 use canonical Hamilton quaternion components; the reader
-    conjugates schema v2 vector parts exactly once.
+  - Schemas v3-v6 use canonical Hamilton quaternion components; the reader
+    conjugates schema v2 vector parts exactly once. Sectioned v4 remains readable.
   - Active Low validates a High evidence section but commits zero evidence
     capacity; v2/v3 artifacts always load with Low captured capability.
   - A failed load leaves prior lightweight state, evidence rows, capacity, and
@@ -56,8 +56,13 @@ namespace
 {
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAGIC = 0x44505652u; // "RVPD"
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA = 2u;
-constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA = 3u;
-constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 4u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_QUATERNION_SCHEMA = 3u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_HISTORICAL_LIGHTWEIGHT_SCHEMA = 3u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA = 4u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA = 5u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 6u;
+bool IsLightweightPredictionArchiveSchema( uint32_t schema );
+bool IsSectionedPredictionArchiveSchema( uint32_t schema );
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0u;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES = 7201u;
@@ -100,7 +105,7 @@ void WriteReason( char* destination, std::size_t size, const char* message )
 class ArchiveWriter
 {
   public:
-    explicit ArchiveWriter( uint32_t schema = REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA ) : m_schema( schema )
+    explicit ArchiveWriter( uint32_t schema = REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA ) : m_schema( schema )
     {
     }
 
@@ -149,7 +154,7 @@ class ArchiveWriter
         float w = 1.0f;
         value.GetComponents( x, y, z, w );
 
-        if ( m_schema < REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA )
+        if ( m_schema < REPLAY_PREDICTION_ARCHIVE_QUATERNION_SCHEMA )
         {
             // Compatibility: schema v2 stored the conjugate representation.
             // This validation writer produces authentic historical bytes so the
@@ -272,7 +277,7 @@ class ArchiveReader
             return false;
         }
 
-        if ( schema < REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA )
+        if ( schema < REPLAY_PREDICTION_ARCHIVE_QUATERNION_SCHEMA )
         {
             // Compatibility: schema v2 stored the conjugate representation.
             // Negating xyz changes only their sign bits and preserves w.
@@ -422,7 +427,7 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
                                                                                    .visibleTrajectoryBuild
                                                                              : prediction.trajectoryBuild;
 
-    if ( schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA ||
+    if ( !IsLightweightPredictionArchiveSchema( schema ) ||
          prediction.build.building || !prediction.build.complete || committedFrames.size() < 2u ||
          committedFrames.size() > REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES ||
          presentation.retainedMarkers.size() > REPLAY_PREDICTION_MARKER_CAPACITY ||
@@ -474,7 +479,16 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
 
         writer.Scalar( frame.frameIndex );
         writer.Double( frame.simulationSeconds );
-        writer.Float( frame.tornadoSystemElapsedSeconds );
+
+        if ( schema >= REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA )
+        {
+            writer.Double( frame.tornadoSystemElapsedSeconds );
+        }
+        else
+        {
+            writer.Float( static_cast<float>( frame.tornadoSystemElapsedSeconds ) );
+        }
+
         writer.Boolean( frame.contactsIncomplete );
         writer.Scalar( static_cast<uint32_t>( frame.bodies.size() ) );
 
@@ -608,8 +622,8 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
 static bool BuildLegacyReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
                                                 const RunReplayPredictionState& prediction, std::vector<uint8_t>& outBytes )
 {
-    return BuildReplayPredictionArchiveForSchemaValidation( pathVisualizer, prediction,
-                                                            REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA, outBytes );
+    return BuildReplayPredictionArchiveForSchemaValidation(
+        pathVisualizer, prediction, REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA, outBytes );
 }
 
 static bool LoadLegacyReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathVisualizerState& pathVisualizer,
@@ -632,7 +646,7 @@ static bool LoadLegacyReplayPredictionArchive( std::span<const uint8_t> bytes, R
     pathVisualizer.targetName[0] = '\0';
 
     if ( !reader.Scalar( magic ) || !reader.Scalar( schema ) || magic != REPLAY_PREDICTION_ARCHIVE_MAGIC ||
-         schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA ||
+         !IsLightweightPredictionArchiveSchema( schema ) ||
          !reader.Boolean( archivedHasTarget ) || !reader.Boolean( archivedPastPathVisible ) ||
          !reader.Scalar( pathVisualizer.targetId.value ) || !reader.Scalar( pathVisualizer.targetModelRow.value ) ||
          !reader.Scalar( targetNameLength ) || targetNameLength >= sizeof( pathVisualizer.targetName ) )
@@ -699,8 +713,34 @@ static bool LoadLegacyReplayPredictionArchive( std::span<const uint8_t> bytes, R
         RunReplayPredictionFrame frame;
         uint32_t bodyCount = 0;
 
-        if ( !reader.Scalar( frame.frameIndex ) || !reader.Double( frame.simulationSeconds ) ||
-             !reader.Float( frame.tornadoSystemElapsedSeconds ) || !reader.Boolean( frame.contactsIncomplete ) ||
+        if ( !reader.Scalar( frame.frameIndex ) || !reader.Double( frame.simulationSeconds ) )
+        {
+            WriteReason( outReason, reasonSize, "truncated prediction frame" );
+            return false;
+        }
+
+        if ( schema >= REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA )
+        {
+            if ( !reader.Double( frame.tornadoSystemElapsedSeconds ) )
+            {
+                WriteReason( outReason, reasonSize, "truncated prediction frame" );
+                return false;
+            }
+        }
+        else
+        {
+            float legacyElapsedSeconds = 0.0f;
+
+            if ( !reader.Float( legacyElapsedSeconds ) )
+            {
+                WriteReason( outReason, reasonSize, "truncated prediction frame" );
+                return false;
+            }
+
+            frame.tornadoSystemElapsedSeconds = static_cast<double>( legacyElapsedSeconds );
+        }
+
+        if ( !reader.Boolean( frame.contactsIncomplete ) ||
              !ReadBoundedCount( reader, REPLAY_PREDICTION_ARCHIVE_MAX_BODIES, bodyCount ) )
         {
             WriteReason( outReason, reasonSize, "truncated prediction frame" );
@@ -951,6 +991,19 @@ enum class ReplayPredictionArchiveSection : uint32_t
 
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_LOW = 1u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_HIGH = 2u;
+
+bool IsLightweightPredictionArchiveSchema( uint32_t schema )
+{
+    return ( schema >= REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA &&
+             schema <= REPLAY_PREDICTION_ARCHIVE_HISTORICAL_LIGHTWEIGHT_SCHEMA ) ||
+           schema == REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA;
+}
+
+bool IsSectionedPredictionArchiveSchema( uint32_t schema )
+{
+    return schema == REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA ||
+           schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA;
+}
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES = REPLAY_PREDICTION_MARKER_CAPACITY;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_CONTACTS = 1000000u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_PIPELINE_ROWS = 4000000u;
@@ -1457,7 +1510,7 @@ bool ParseCurrentArchiveHeader( std::span<const uint8_t> bytes, ReplayPrediction
     uint64_t totalBytes = 0;
 
     if ( !reader.Scalar( magic ) || !reader.Scalar( schema ) || magic != REPLAY_PREDICTION_ARCHIVE_MAGIC ||
-         schema != REPLAY_PREDICTION_ARCHIVE_SCHEMA || !reader.Scalar( encodedCapability ) ||
+         !IsSectionedPredictionArchiveSchema( schema ) || !reader.Scalar( encodedCapability ) ||
          encodedCapability > static_cast<uint8_t>( ReplayPredictionArchiveDetailCapability::High ) ||
          !reader.Scalar( encodedPresentation ) ||
          encodedPresentation > static_cast<uint8_t>( ReplayPredictionPathPresentation::AllBodiesSpace ) ||
@@ -1617,7 +1670,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     std::span<const uint8_t> evidenceBytes;
     std::vector<uint8_t> reconstructedLegacy;
 
-    if ( schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA )
+    if ( IsSectionedPredictionArchiveSchema( schema ) )
     {
         if ( !ParseCurrentArchiveHeader( bytes, capability, pathPresentation, sections, sectionCount, outReason,
                                          reasonSize ) )
@@ -1625,9 +1678,12 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
             return false;
         }
 
-        ArchiveWriter legacyWriter( REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA );
+        const uint32_t lightweightSchema = schema == REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA
+                                               ? REPLAY_PREDICTION_ARCHIVE_HISTORICAL_LIGHTWEIGHT_SCHEMA
+                                               : REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA;
+        ArchiveWriter legacyWriter( lightweightSchema );
         legacyWriter.Scalar( REPLAY_PREDICTION_ARCHIVE_MAGIC );
-        legacyWriter.Scalar( REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA );
+        legacyWriter.Scalar( lightweightSchema );
         legacyWriter.Bytes( bytes.subspan( static_cast<std::size_t>( sections[0].offset ), static_cast<std::size_t>( sections[0].size ) ) );
         reconstructedLegacy = legacyWriter.Finish();
         lightweightBytes = reconstructedLegacy;
@@ -1638,7 +1694,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
                                            static_cast<std::size_t>( sections[1].size ) );
         }
     }
-    else if ( schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_LEGACY_SCHEMA )
+    else if ( !IsLightweightPredictionArchiveSchema( schema ) )
     {
         WriteReason( outReason, reasonSize, "invalid prediction archive header" );
         return false;
@@ -1660,7 +1716,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
         return false;
     }
 
-    if ( schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA )
+    if ( IsSectionedPredictionArchiveSchema( schema ) )
     {
         if ( candidatePrediction->trajectoryBuild.pathPresentation != pathPresentation )
         {

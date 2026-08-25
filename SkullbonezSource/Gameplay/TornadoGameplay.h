@@ -51,7 +51,7 @@ struct TornadoGameplayReplayState
 {
     TornadoFieldConfig field;
     TornadoSystemConfig system;
-    float systemElapsedSeconds = 0.0f;
+    double systemElapsedSeconds = 0.0;
     std::vector<float> captureSeconds;
     std::vector<float> ejectCooldownSeconds;
 };
@@ -75,7 +75,7 @@ class TornadoGameplay
     const TornadoFieldConfig& GetFieldConfig() const;
     void SetSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetSystemConfig() const;
-    float GetSystemElapsedSeconds() const;
+    double GetSystemElapsedSeconds() const;
 
     // Applies operator-facing content edits directly to owner storage. These
     // calls never copy or grow the authored vortex vector during input frames.
@@ -89,7 +89,7 @@ class TornadoGameplay
     void SetFieldLiftAcceleration( float value );
     void SetReplayState( const std::vector<float>& captureSeconds, const std::vector<float>& ejectCooldownSeconds,
                          const TornadoFieldConfig& fieldConfig, const TornadoSystemConfig& systemConfig,
-                         float systemElapsedSeconds );
+                         double systemElapsedSeconds );
 
     const std::vector<float>& CaptureSeconds() const;
     const std::vector<float>& EjectCooldownSeconds() const;

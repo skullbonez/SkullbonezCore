@@ -172,7 +172,7 @@ struct RunReplayPredictionFrame
     // reserve failed, so UI/reporting can label the tree as partial.
     ReplayFrameIndex frameIndex = 0;
     double simulationSeconds = 0.0;
-    float tornadoSystemElapsedSeconds = 0.0f;
+    double tornadoSystemElapsedSeconds = 0.0;
     std::vector<RunReplayPredictionBodySample> bodies;
     std::vector<Physics::PhysicsDebugContact> debugContacts;
     bool contactsIncomplete = false;

@@ -554,6 +554,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     launcher.laserShots.push_back( shot );
 
     SkullbonezCore::Gameplay::TornadoGameplay tornadoGameplay;
+    constexpr double kPreciseTornadoSeconds = 262144.0 + static_cast<double>( 1.0f / 120.0f );
+    tornadoGameplay.SetReplayState( {}, {}, {}, {}, kPreciseTornadoSeconds );
     ReplayBranchInfo captureBranch;
     captureBranch.branchId = 9u;
     captureBranch.parentBranchId = 4u;
@@ -567,6 +569,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
 
     const ReplaySolverFrameSample* sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
+    CHECK( sample->worldSnapshot.tornadoSystemElapsedSeconds == kPreciseTornadoSeconds );
     REQUIRE( sample->worldSnapshot.physics.pointJoints.size() == 1u );
     REQUIRE( sample->worldSnapshot.physics.motionEligibilityState.size() == 2u );
     const std::vector<uint8_t> capturedMotionEligibilityState = sample->worldSnapshot.physics.motionEligibilityState;
@@ -678,6 +681,15 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( checkpoints[0].bodies.size() == 2u );
     CHECK( checkpoints[0].launcherVisual.rayLines.size() == 1u );
     CHECK( checkpoints[0].launcherVisual.laserShots.size() == 1u );
+    CHECK( checkpoints[0].worldSnapshot.tornadoSystemElapsedSeconds == kPreciseTornadoSeconds );
+    SkullbonezCore::Gameplay::TornadoGameplay restoredTornadoGameplay;
+    restoredTornadoGameplay.SetReplayState(
+        checkpoints[0].worldSnapshot.tornadoCaptureSeconds,
+        checkpoints[0].worldSnapshot.tornadoEjectCooldownSeconds,
+        checkpoints[0].worldSnapshot.tornadoConfig,
+        checkpoints[0].worldSnapshot.tornadoSystemConfig,
+        checkpoints[0].worldSnapshot.tornadoSystemElapsedSeconds );
+    CHECK( restoredTornadoGameplay.GetSystemElapsedSeconds() == kPreciseTornadoSeconds );
     REQUIRE( checkpoints[0].worldSnapshot.physics.pointJoints.size() == 1u );
     CHECK( checkpoints[0].worldSnapshot.physics.motionEligibilityState == capturedMotionEligibilityState );
     const auto& loadedJoint = checkpoints[0].worldSnapshot.physics.pointJoints[0];

@@ -92,7 +92,7 @@ struct TornadoActiveVortex
 {
     TornadoFieldConfig field;
     float strength = 0.0f;
-    float ageSeconds = 0.0f;
+    double ageSeconds = 0.0;
     int sourceIndex = -1;
 };
 
@@ -131,8 +131,8 @@ class TornadoSystem
     void ToggleVelocityFieldVisualization();
     void SetFieldValue( float TornadoFieldConfig::* field, float value );
     void ResetElapsedSeconds();
-    void SetElapsedSeconds( float seconds );
-    float GetElapsedSeconds() const
+    void SetElapsedSeconds( double seconds );
+    double GetElapsedSeconds() const
     {
         return m_elapsedSeconds;
     }
@@ -143,12 +143,13 @@ class TornadoSystem
     }
     std::size_t DynamicMemoryBytes() const;
 
-    static void BuildActiveVortices( const TornadoSystemConfig& config, float elapsedSeconds,
+    static void BuildActiveVortices( const TornadoSystemConfig& config, double elapsedSeconds,
                                      std::vector<TornadoActiveVortex>& outVortices );
 
   private:
     TornadoSystemConfig m_config;
-    float m_elapsedSeconds = 0.0f;
+    double m_elapsedSeconds = 0.0;
+    bool m_preciseElapsedContinuation = false;
     std::vector<TornadoActiveVortex> m_activeVortices;
 
     void RebuildActiveVortices();

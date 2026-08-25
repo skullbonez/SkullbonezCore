@@ -166,7 +166,7 @@ const TornadoSystemConfig& TornadoGameplay::GetSystemConfig() const
     return m_system.GetConfig();
 }
 
-float TornadoGameplay::GetSystemElapsedSeconds() const
+double TornadoGameplay::GetSystemElapsedSeconds() const
 {
     return m_system.GetElapsedSeconds();
 }
@@ -227,7 +227,7 @@ void TornadoGameplay::SetFieldValue( float TornadoFieldConfig::* field, float va
 
 void TornadoGameplay::SetReplayState( const std::vector<float>& captureSeconds,
                                       const std::vector<float>& ejectCooldownSeconds, const TornadoFieldConfig& fieldConfig,
-                                      const TornadoSystemConfig& systemConfig, float systemElapsedSeconds )
+                                      const TornadoSystemConfig& systemConfig, double systemElapsedSeconds )
 {
     if ( captureSeconds.size() > m_captureSeconds.capacity() ||
          ejectCooldownSeconds.size() > m_ejectCooldownSeconds.capacity() )

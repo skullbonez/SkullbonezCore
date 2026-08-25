@@ -344,16 +344,55 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
     const auto migratedEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();
     ReplayPredictionArchiveDetailCapability migratedCapability = ReplayPredictionArchiveDetailCapability::High;
 
-    for ( const uint32_t legacySchema : { 2u, 3u } )
+    // Regression: seed every possible presented frame bank with a value that
+    // cannot survive float serialization, so schema 5 proves its double field.
+    constexpr double preciseTornadoSeconds = 262144.0 + static_cast<double>( 1.0f / 120.0f );
+
+    for ( RunReplayPredictionFrame& frame : restoredPrediction.simulation.frames )
+    {
+        frame.tornadoSystemElapsedSeconds = preciseTornadoSeconds;
+    }
+
+    for ( RunReplayPredictionFrame& frame : restoredPrediction.build.buildFrames )
+    {
+        frame.tornadoSystemElapsedSeconds = preciseTornadoSeconds;
+    }
+
+    for ( const uint32_t lightweightSchema : { 2u, 3u, 5u } )
     {
         std::vector<uint8_t> legacyBytes;
 
-        if ( !BuildReplayPredictionArchiveForSchemaValidation( restoredPathVisualizer, restoredPrediction, legacySchema,
+        if ( !BuildReplayPredictionArchiveForSchemaValidation( restoredPathVisualizer, restoredPrediction, lightweightSchema,
                                                                legacyBytes ) ||
              !LoadReplayPredictionArchive( legacyBytes, migratedPathVisualizer, migratedPrediction, *migratedEvidenceStorage,
                                            ReplayPredictionDetailMode::High, migratedCapability, outReason, reasonSize ) )
         {
             return false;
+        }
+
+        if ( lightweightSchema == 5u )
+        {
+            const std::span<const RunReplayPredictionFrame> expectedFrames =
+                ReplayPrediction::PresentationViewFromState( restoredPrediction, false ).frames;
+            const std::span<const RunReplayPredictionFrame> migratedFrames =
+                ReplayPrediction::PresentationViewFromState( migratedPrediction, false ).frames;
+
+            if ( expectedFrames.empty() || expectedFrames.size() != migratedFrames.size() )
+            {
+                WriteAutomationReason( outReason, reasonSize, "precise prediction archive changed frame count" );
+                return false;
+            }
+
+            for ( std::size_t frameIndex = 0; frameIndex < expectedFrames.size(); ++frameIndex )
+            {
+                if ( std::memcmp( &expectedFrames[frameIndex].tornadoSystemElapsedSeconds,
+                                  &migratedFrames[frameIndex].tornadoSystemElapsedSeconds,
+                                  sizeof( expectedFrames[frameIndex].tornadoSystemElapsedSeconds ) ) != 0 )
+                {
+                    WriteAutomationReason( outReason, reasonSize, "precise prediction archive changed tornado time" );
+                    return false;
+                }
+            }
         }
 
         const ReplayPredictionSolverEvidenceBanksMemoryStats migratedStats = migratedEvidenceStorage->CollectMemoryStats();
@@ -365,6 +404,17 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
             WriteAutomationReason( outReason, reasonSize, "legacy prediction archive did not remain Low detail" );
             return false;
         }
+    }
+
+    // Lifetime: the precision probe temporarily edits the loaded frame banks.
+    // Reload the canonical High artifact before atomic-rejection checks compare
+    // owner state against the original bytes captured above.
+    if ( !LoadReplayPredictionArchive( bytes, restoredPathVisualizer, restoredPrediction, *restoredEvidenceStorage,
+                                       ReplayPredictionDetailMode::High, restoredCapability, outReason, reasonSize ) ||
+         restoredCapability != ReplayPredictionArchiveDetailCapability::High )
+    {
+        WriteAutomationReason( outReason, reasonSize, "could not restore prediction archive after precision probe" );
+        return false;
     }
 
     std::vector<uint8_t> migratedCanonicalBytes;
@@ -424,7 +474,7 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
         return false;
     }
 
-    // Hazard: the offsets below are part of the RVPD v4 format contract. Each
+    // Hazard: the offsets below are part of the sectioned RVPD format contract. Each
     // mutation targets a distinct preflight rule, and every rejection is then
     // checked against the already committed High archive state.
     std::vector<uint8_t> mutation( bytes.begin(), bytes.end() );
@@ -548,7 +598,7 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
     // Hazard: bytes 4..7 are the little-endian schema field immediately after
     // the fixed RVPD magic. A future value must fail closed before any payload
     // values are accepted.
-    WriteLittleEndianU32( futureBytes, ARCHIVE_SCHEMA_OFFSET, 5u );
+    WriteLittleEndianU32( futureBytes, ARCHIVE_SCHEMA_OFFSET, 7u );
 
     if ( !VerifyRejectedArchivePreservesState( futureBytes, rebuiltBytes, restoredPathVisualizer, restoredPrediction,
                                                *restoredEvidenceStorage, ReplayPredictionArchiveDetailCapability::Low,

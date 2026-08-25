@@ -332,6 +332,9 @@ void CheckReplaySamplesExact( const ReplaySolverFrameSample& expected, const Rep
     CHECK( expected.worldSnapshot.physics.version == actual.worldSnapshot.physics.version );
     CHECK( expected.worldSnapshot.physics.modelCount == actual.worldSnapshot.physics.modelCount );
     CHECK( expected.worldSnapshot.physics.sleepEnabled == actual.worldSnapshot.physics.sleepEnabled );
+    CHECK( std::memcmp( &expected.worldSnapshot.tornadoSystemElapsedSeconds,
+                        &actual.worldSnapshot.tornadoSystemElapsedSeconds,
+                        sizeof( expected.worldSnapshot.tornadoSystemElapsedSeconds ) ) == 0 );
     CheckVectorExact( expected.worldSnapshot.physics.timeRemaining, actual.worldSnapshot.physics.timeRemaining );
     CheckVectorExact( expected.worldSnapshot.physics.sleepState, actual.worldSnapshot.physics.sleepState );
     CheckVectorExact( expected.worldSnapshot.physics.sleepCounter, actual.worldSnapshot.physics.sleepCounter );

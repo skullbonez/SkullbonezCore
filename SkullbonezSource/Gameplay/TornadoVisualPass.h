@@ -56,8 +56,8 @@ struct TornadoVisualTimeCandidates
     double presentationSeconds = 0.0;
     double solverSeconds = 0.0;
     double predictionSeconds = 0.0;
-    float solverSystemSeconds = 0.0f;
-    float predictionSystemSeconds = 0.0f;
+    double solverSystemSeconds = 0.0;
+    double predictionSystemSeconds = 0.0;
     bool hasPresentation = false;
     bool hasSolver = false;
     bool hasPrediction = false;
@@ -77,7 +77,7 @@ class TornadoVisualPass
     uint64_t DynamicMemoryBytes() const;
 
     Rendering::WorldRenderExtensionRegistration PrepareFrame( const TornadoFieldConfig& field,
-                                                              const TornadoSystemConfig& system, float systemElapsedSeconds,
+                                                              const TornadoSystemConfig& system, double systemElapsedSeconds,
                                                               const TornadoVisualTimeCandidates& time );
     void ReleaseResources();
 
@@ -100,7 +100,7 @@ class TornadoVisualPass
         const TornadoFieldConfig* field = nullptr;
         const TornadoSystemConfig* system = nullptr;
         TornadoVisualTimeCandidates time;
-        float systemElapsedSeconds = 0.0f;
+        double systemElapsedSeconds = 0.0;
     };
 
     struct GraphCallbackData
@@ -112,6 +112,7 @@ class TornadoVisualPass
 
     static bool RegisterGraphPass( TornadoVisualPass& pass, Rendering::WorldRenderExtensionScope& scope );
     static void ExecuteGraphPass( const Rendering::RenderGraphPassContext& context, GraphCallbackData& data );
+    static float ResolveRotationPhase( double time, float rotationSpeed, int sourceIndex );
     void RequirePreparedFrame( const char* operation ) const;
     void EnsureTransientCapacity();
     bool Render( const Rendering::WorldRenderExtensionFrameView& frame );

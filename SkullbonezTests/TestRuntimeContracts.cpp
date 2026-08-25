@@ -102,6 +102,7 @@
 #include <array>
 #include <atomic>
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -308,6 +309,11 @@ struct TornadoVisualPassTestAccess
     static bool IsPrepared( const TornadoVisualPass& pass )
     {
         return pass.m_frame.field != nullptr && pass.m_frame.system != nullptr;
+    }
+
+    static float RotationPhase( double time, float rotationSpeed, int sourceIndex )
+    {
+        return TornadoVisualPass::ResolveRotationPhase( time, rotationSpeed, sourceIndex );
     }
 };
 } // namespace SkullbonezCore::Gameplay
@@ -850,6 +856,46 @@ TEST_CASE( "Tornado visual frame remains prepared until explicit release" )
     SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RequirePrepared( pass, "ExactCapacityPositive" );
     pass.ReleaseResources();
     CHECK_FALSE( SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::IsPrepared( pass ) );
+}
+
+TEST_CASE( "Tornado visual rotation preserves ordinary bytes and long-time progress" )
+{
+    constexpr float kRotationSpeed = 1.25f;
+    constexpr int kSourceIndex = 2;
+    constexpr float kCompatibleTime = 12.5f;
+    const float compatiblePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
+        static_cast<double>( kCompatibleTime ), kRotationSpeed, kSourceIndex );
+    CHECK( compatiblePhase == kCompatibleTime * kRotationSpeed + static_cast<float>( kSourceIndex ) * 1.73f );
+    const float roundedCompatiblePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
+        static_cast<double>( kCompatibleTime ) + 1.0e-9, kRotationSpeed, kSourceIndex );
+    CHECK( roundedCompatiblePhase == compatiblePhase );
+
+    constexpr double kFloatFixedStepBoundary = 262144.0;
+    constexpr float kFixedStep = 1.0f / 120.0f;
+    const double advancedTime = kFloatFixedStepBoundary + static_cast<double>( kFixedStep );
+    const float boundaryPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
+        kFloatFixedStepBoundary, kRotationSpeed, kSourceIndex );
+    const float advancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
+        advancedTime, kRotationSpeed, kSourceIndex );
+    CHECK( advancedPhase != boundaryPhase );
+
+    constexpr double kExactFloatRestoreTime = kFloatFixedStepBoundary * 2.0;
+    const double exactFloatAdvancedTime = kExactFloatRestoreTime + static_cast<double>( kFixedStep );
+    const double twiceAdvancedTime = exactFloatAdvancedTime + static_cast<double>( kFixedStep );
+    const float exactFloatRestorePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
+        kExactFloatRestoreTime, kRotationSpeed, kSourceIndex );
+    constexpr float kTwoPi = 6.28318530718f;
+    const float expectedExactFloatRestorePhase = static_cast<float>(
+        std::fmod( kExactFloatRestoreTime * static_cast<double>( kRotationSpeed ) +
+                       static_cast<double>( kSourceIndex ) * 1.73,
+                   static_cast<double>( kTwoPi ) ) );
+    CHECK( exactFloatRestorePhase == expectedExactFloatRestorePhase );
+    const float exactFloatAdvancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
+        exactFloatAdvancedTime, kRotationSpeed, kSourceIndex );
+    const float twiceAdvancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
+        twiceAdvancedTime, kRotationSpeed, kSourceIndex );
+    CHECK( exactFloatAdvancedPhase != exactFloatRestorePhase );
+    CHECK( twiceAdvancedPhase != exactFloatAdvancedPhase );
 }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )

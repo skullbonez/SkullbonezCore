@@ -20,7 +20,8 @@ Glossary:
 Invariants:
   - The payload is little-endian, bounded, and field-serialized.
   - Low payloads contain no solver-evidence section or retained evidence capacity.
-  - Legacy v2/v3 payloads remain readable and report Low captured capability.
+  - Legacy v2/v3 and sectioned v4 payloads remain readable; precise lightweight
+    v5 payloads preserve the tornado clock and report Low captured capability.
   - Debug-contact presentation scratch and private prediction-engine state are excluded.
   - Failure leaves the destination state and evidence banks unchanged.
   - Loading always leaves prediction generation disabled and build state clean.

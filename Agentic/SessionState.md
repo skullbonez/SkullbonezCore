@@ -168,8 +168,17 @@ drive-relative `C:asset.jpg` from both drive-root separator forms, so resolution
 cannot consult the process's ambient per-drive directory. Two serial read-only
 reviews are clean after narrowing one test-header comment to drive-prefixed
 paths. Validation was deferred by explicit owner direction; no build, test,
-scanner, or validation command ran. GAME-003 is the next selected high-impact,
-low-complexity candidate.
+scanner, or validation command ran. GAME-003 is now closed: Gameplay retains
+ordinary float arithmetic until its fixed-step clock first stalls, then keeps
+elapsed time, lifecycle math, replay checkpoints, prediction archives, and
+visual phase progression precise beyond that boundary. Solver snapshot v5 and
+prediction raw-v5/sectioned-v6 preserve the double clock while their historical
+read, write, and hash branches retain the legacy float layouts. Four serial
+read-only reviews closed replay/prediction propagation, visual compatibility,
+exact-float restore, archive-probe isolation, schema-negative, and false-pass
+test findings; the final pass is clean. Validation was deferred by explicit
+owner direction; no build, test, scanner, or validation command ran. MATH-005
+is the next selected low-complexity bug candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
