@@ -248,9 +248,16 @@ existing links, and Windows case aliases. Fixed path copies fail closed, and an
 unsafe report target suppresses Run's normal failure-write callback. Two serial
 read-only reviews closed long-path and destructive-seam evidence gaps; the final
 pass is clean. Validation was deferred by explicit owner direction; no build,
-test, scanner, inventory, or validation command ran. AUTO-001 is the next
-selected candidate: it is high severity and its immutable-recording loss is
-bounded to sidecar naming and publication within one recording directory.
+test, scanner, inventory, or validation command ran. AUTO-001 is now closed:
+each manifest owns filename-derived scene and replay sidecars, and arming fails
+closed when any final or partial publication destination is already occupied.
+The focused fixture preserves the first manifest and both sidecars through a
+second recording in the same directory and covers inverse artifact-role
+collisions. One serial read-only review closed the inverse-collision and replay
+metadata coverage gaps; the final pass is clean. Validation was deferred by
+explicit owner direction; no build, test, scanner, inventory, or repository
+validation command ran. DX12-003 is the next selected candidate: it is a high-
+impact memory-safety defect with bounded fixed-array admission sites.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

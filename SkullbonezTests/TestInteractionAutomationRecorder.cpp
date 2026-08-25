@@ -11,6 +11,7 @@ Summary:
 Invariants:
   - F8 is absent from the serialized key snapshot even if its release is late.
   - A committed manifest references an existing adjacent scene sidecar.
+  - Distinct manifests in one directory retain distinct immutable sidecars.
   - Stop/save failures and invalid duration configuration are recoverable.
 
 Related:
@@ -27,9 +28,10 @@ Related:
 #include "../ThirdPtySource/nlohmann/json.hpp"
 #pragma warning( pop )
 
+#include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <cstring>
+#include <iterator>
 
 using Json = nlohmann::ordered_json;
 using namespace SkullbonezCore::Runtime;
@@ -45,10 +47,22 @@ std::filesystem::path PrepareRecorderTest( const char* name )
     return directory / "interaction.json";
 }
 
-void WriteSceneSidecar( const InteractionAutomationRecorder& recorder )
+void WriteText( const std::filesystem::path& path, const char* text )
 {
-    std::ofstream scene( recorder.ScenePath(), std::ios::binary );
-    scene << "{\"format\":\"test.scene\"}\n";
+    std::ofstream output( path, std::ios::binary );
+    output << text;
+}
+
+void WriteSceneSidecar( const InteractionAutomationRecorder& recorder,
+                        const char* text = "{\"format\":\"test.scene\"}\n" )
+{
+    WriteText( recorder.ScenePath(), text );
+}
+
+std::string ReadText( const std::filesystem::path& path )
+{
+    std::ifstream input( path, std::ios::binary );
+    return { std::istreambuf_iterator<char>( input ), std::istreambuf_iterator<char>() };
 }
 
 Json ReadJson( const std::filesystem::path& path )
@@ -57,6 +71,69 @@ Json ReadJson( const std::filesystem::path& path )
     return Json::parse( input );
 }
 } // namespace
+
+TEST_CASE( "Interaction recorder gives every manifest immutable sidecar names" )
+{
+    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+    const std::filesystem::path directory = PrepareRecorderTest( "sidecar_identity" ).parent_path();
+    const std::filesystem::path firstManifest = directory / "first.json";
+    const std::filesystem::path secondManifest = directory / "second.json";
+
+    InteractionAutomationRecorder firstRecorder;
+    REQUIRE( firstRecorder.Arm( diagnostics, firstManifest.string().c_str(), 1 ).Ok() );
+    const std::filesystem::path firstScene = firstRecorder.ScenePath();
+    const std::filesystem::path firstReplay = firstRecorder.ReplayPath();
+    WriteSceneSidecar( firstRecorder, "{\"format\":\"first.scene\"}\n" );
+    WriteText( firstReplay, "first replay sentinel\n" );
+    REQUIRE( firstRecorder.BeginAtBoundary( diagnostics, 1280, 720, 1u, {}, true ).Ok() );
+    REQUIRE( firstRecorder.StopAndSave( diagnostics, "operator" ).Ok() );
+    const std::string firstManifestBytes = ReadText( firstManifest );
+
+    InteractionAutomationRecorder secondRecorder;
+    REQUIRE( secondRecorder.Arm( diagnostics, secondManifest.string().c_str(), 1 ).Ok() );
+    const std::filesystem::path secondScene = secondRecorder.ScenePath();
+    const std::filesystem::path secondReplay = secondRecorder.ReplayPath();
+    CHECK( firstScene != secondScene );
+    CHECK( firstReplay != secondReplay );
+    WriteSceneSidecar( secondRecorder, "{\"format\":\"second.scene\"}\n" );
+    WriteText( secondReplay, "second replay sentinel\n" );
+    REQUIRE( secondRecorder.BeginAtBoundary( diagnostics, 1280, 720, 2u, {}, true ).Ok() );
+    REQUIRE( secondRecorder.StopAndSave( diagnostics, "operator" ).Ok() );
+
+    CHECK( ReadText( firstManifest ) == firstManifestBytes );
+    CHECK( ReadText( firstScene ) == "{\"format\":\"first.scene\"}\n" );
+    CHECK( ReadText( firstReplay ) == "first replay sentinel\n" );
+    CHECK( ReadText( secondScene ) == "{\"format\":\"second.scene\"}\n" );
+    CHECK( ReadText( secondReplay ) == "second replay sentinel\n" );
+
+    const Json firstRoot = ReadJson( firstManifest );
+    const Json secondRoot = ReadJson( secondManifest );
+    CHECK( firstRoot["scene"]["path"] == firstScene.filename().string() );
+    CHECK( firstRoot["replay"]["path"] == firstReplay.filename().string() );
+    CHECK( secondRoot["scene"]["path"] == secondScene.filename().string() );
+    CHECK( secondRoot["replay"]["path"] == secondReplay.filename().string() );
+}
+
+TEST_CASE( "Interaction recorder refuses to replace any reserved recording artifact" )
+{
+    const std::filesystem::path directory = PrepareRecorderTest( "sidecar_collision" ).parent_path();
+    const std::array<const char*, 5> reservedSuffixes = {
+        ".partial", ".scene.json", ".scene.json.partial", ".replay.skreplay", ".replay.skreplay.partial"
+    };
+
+    for ( std::size_t index = 0; index < reservedSuffixes.size(); ++index )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+        const std::filesystem::path manifest = directory / ( "collision-" + std::to_string( index ) + ".json" );
+        const std::filesystem::path reserved = manifest.string() + reservedSuffixes[index];
+        WriteText( reserved, "immutable evidence\n" );
+
+        InteractionAutomationRecorder recorder;
+        CHECK_FALSE( recorder.Arm( diagnostics, manifest.string().c_str(), 1 ).Ok() );
+        CHECK( ReadText( reserved ) == "immutable evidence\n" );
+        CHECK_FALSE( std::filesystem::exists( manifest ) );
+    }
+}
 
 TEST_CASE( "Interaction recorder round trips a complete resolution-independent device frame" )
 {

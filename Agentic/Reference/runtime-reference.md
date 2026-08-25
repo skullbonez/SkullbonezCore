@@ -314,11 +314,14 @@ recording in Debug, Profile, and Automation builds.
 
 Each capture is written to
 `TestOutput/recordings/<UTC timestamp>-<sequence>/interaction.json`. Adjacent
-`scene.scene.json` and, when replay state is active, `replay.skreplay` files are
-published first. The manifest is atomically published last and contains format
-version, completion and stop reason, viewport metadata, duration, turn count,
-the detached camera/tool/UI/replay baseline, SHA-256-bound relative sidecar
-paths, and one complete keyboard/mouse device frame per recorded turn.
+`interaction.json.scene.json` and, when replay state is active,
+`interaction.json.replay.skreplay` files are published first. Explicitly named
+manifests use that complete filename as the sidecar prefix, so recordings in one
+directory cannot replace each other's evidence. The manifest is atomically
+published last and contains format version, completion and stop reason, viewport
+metadata, duration, turn count, the detached camera/tool/UI/replay baseline,
+SHA-256-bound relative sidecar paths, and one complete keyboard/mouse device
+frame per recorded turn.
 Incomplete `.partial` files are not runnable recordings.
 The replay baseline includes track positions, historical/live pause state,
 prediction and path selection, plus the active cause-inspection row, tab,

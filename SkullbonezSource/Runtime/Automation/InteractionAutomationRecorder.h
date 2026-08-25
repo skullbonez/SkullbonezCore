@@ -151,7 +151,7 @@ class InteractionAutomationRecorder
     static constexpr int MAX_RECORDING_MINUTES = 60;
 
     // Arms an explicit path or a new timestamped TestOutput recording. The
-    // caller must publish sidecars before BeginAtBoundary.
+    // caller must publish the manifest-owned sidecars before BeginAtBoundary.
     Core::SbResult Arm( Core::SbDiagnosticStore& diagnostics, const char* requestedManifestPath, int maximumMinutes );
 
     // Captures detached non-scene state at the first clean pre-input boundary.

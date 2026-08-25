@@ -13,6 +13,7 @@ Invariants:
   - JSON numbers never carry 64-bit key masks; masks use fixed-width hex text.
   - Pointer coordinates are normalized only when a client position exists.
   - Raw camera deltas remain unscaled and therefore independent of viewport size.
+  - Every manifest owns sidecars derived from its complete filename.
   - Serialization and reserve growth run only inside explicit Diagnostics work.
 
 Related:
@@ -425,9 +426,34 @@ bool InteractionAutomationRecorder::PreparePaths( const char* requestedManifestP
         return false;
     }
 
-    m_manifestPath = manifest.lexically_normal().string();
-    m_scenePath = ( parent / "scene.scene.json" ).lexically_normal().string();
-    m_replayPath = ( parent / "replay.skreplay" ).lexically_normal().string();
+    const std::string manifestFilename = manifest.filename().string();
+    const std::filesystem::path normalizedManifest = manifest.lexically_normal();
+    const std::filesystem::path scenePath = ( parent / ( manifestFilename + ".scene.json" ) ).lexically_normal();
+    const std::filesystem::path replayPath = ( parent / ( manifestFilename + ".replay.skreplay" ) ).lexically_normal();
+    const std::filesystem::path manifestPartial = normalizedManifest.string() + ".partial";
+    const std::filesystem::path scenePartial = scenePath.string() + ".partial";
+    const std::filesystem::path replayPartial = replayPath.string() + ".partial";
+    const auto destinationIsUnused = [&error]( const std::filesystem::path& destination )
+    {
+        error.clear();
+        return !std::filesystem::exists( destination, error ) && !error;
+    };
+
+    // Invariant: the complete manifest filename, including its extension,
+    // namespaces both sidecars. Distinct manifests in one directory therefore
+    // cannot replace evidence retained by an earlier recording. Every final
+    // and temporary destination must also be unused because a manifest can be
+    // explicitly named after another recording's derived artifact.
+    if ( !destinationIsUnused( manifestPartial ) || !destinationIsUnused( scenePath ) ||
+         !destinationIsUnused( scenePartial ) || !destinationIsUnused( replayPath ) ||
+         !destinationIsUnused( replayPartial ) )
+    {
+        return false;
+    }
+
+    m_manifestPath = normalizedManifest.string();
+    m_scenePath = scenePath.string();
+    m_replayPath = replayPath.string();
     return true;
 }
 
