@@ -32,8 +32,8 @@ Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor act
   absolute threshold and runtime selector, and authorized the resulting governed
   baseline transition. FP5 is now the active Physics phase.
 
-- Runtime Boundary Separation And Project Topology was activated by owner
-  direction on 2026-08-22. RBS0-RBS7 make Runtime/App a true composition root,
+- Runtime Boundary Separation And Project Topology is complete by owner
+  direction at 8/8 phases. RBS0-RBS7 make Runtime/App a true composition root,
   remove reverse App dependencies and multi-package Runtime cycles, separate UI
   projection/commands from GPU submission and process command application, move
   frame metrics out of Rendering mutation, and adopt an evidence-driven acyclic
@@ -42,8 +42,9 @@ Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor act
   terminal validation. RBS phases may run beside Physics when their exact
   path-owner and mutable validation-resource leases are disjoint.
 
-- Game UI Component Library Separation was activated by owner direction on
-  2026-08-22 with phase-local RBS prerequisites and no Physics predecessor.
+- Game UI Component Library Separation is complete by owner direction at 7/7
+  phases. It was activated on 2026-08-22 with phase-local RBS prerequisites and
+  no Physics predecessor.
   The owner explicitly replaced the whole-plan RBS7 stop with this staged
   concurrency ruling on 2026-08-23.
   UI0-UI2 may run beside Physics/RBS; UI3 consumes RBS4, UI4 consumes RBS5, UI5
@@ -294,9 +295,11 @@ Completed plan files were deleted; git history is the archive.
 | Plan | Commit name | Tasks | Done | File |
 |---|---|---|---|---|
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 5 | `TODO/ragdoll-physics-unification.md` |
-| Runtime Boundary Separation And Project Topology | `RUNTIME_BOUNDARIES` | 8 | 8 | `TODO/runtime-boundary-separation.md` |
-| Game UI Component Library Separation | `GAME_UI_COMPONENTS` | 7 | 7 | `TODO/game-ui-component-library-separation.md` |
 | Recorded Interaction Playback Cursor | `RECORDED_CURSOR` | 4 | 3 | `TODO/recorded-interaction-playback-cursor.md` |
+
+The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
+deleted under the repository convention above. Their closure evidence remains
+in this ledger and Git history.
 
 ## Parked, Backlog, And Completed Plans
 
@@ -320,7 +323,10 @@ One detail in that table is recorded:
   Parked and backlog are different dispositions, so the file and this row
   disagree with the directory. An owner ruling should settle which it is.
 
-## Binding Order
+## Portfolio Binding Order
+
+The four-plan wave used the following binding order. Completed plans in this
+sequence are historical fan-in boundaries, not selectable active work.
 
 1. `RAGDOLL_PHYSICS` FP0 through FP9 - close verified Physics correctness bugs,
    make Discrete the deterministic default with automatic Swept TOI promotion,

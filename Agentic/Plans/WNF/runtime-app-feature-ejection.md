@@ -195,10 +195,10 @@ recorded as blocked with its exact reach set, not forced.
 
 ## Relationship To Sibling Plans
 
-- **Runtime Boundary Separation (`TODO/runtime-boundary-separation.md`)** is the
-  predecessor. This plan starts where RBS's Non-Goals stop and must not reopen
-  RBS's direction closure; it consumes a clean acyclic Runtime graph as its
-  precondition and keeps it clean.
+- **Runtime Boundary Separation** is the completed predecessor recorded in
+  `Agentic/Plans/MASTER-PLAN.md` and Git history. This plan starts where RBS's
+  Non-Goals stop and must not reopen RBS's direction closure; it consumes a
+  clean acyclic Runtime graph as its precondition and keeps it clean.
 - **Replay-Family Placement Rule (AGENTS.md)** governs AFE1/AFE3 destinations.
 - **Governance Simplification And LLM Scar Removal
   (`WNF/governance-simplification-and-scar-removal.md`)** constrains AFE6. The
