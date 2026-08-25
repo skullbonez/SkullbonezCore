@@ -113,7 +113,7 @@ class RuntimeSceneDiagnosticFacts
 
 struct RunPerfLogState
 {
-    bool isPerfTest = false;                             // Perf-suite mode; runtime writes pass/frame rows while scene advances.
+    bool isPerfTest = false;                             // Active only while RuntimeDiagnostics owns the required perf CSV handle.
     bool perfHeaderWritten = false;                      // Prevents duplicate CSV headers across passes in one run.
     char perfLogPath[256] = {};                          // Output path for perf CSV; empty disables file logging.
     FILE* perfLogFile = nullptr;                         // Open perf CSV handle owned by RuntimeDiagnostics until ClosePerfLog.

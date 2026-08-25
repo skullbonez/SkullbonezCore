@@ -236,9 +236,15 @@ latches its immutable diagnostic into `ApplicationExitState`, and posts a
 nonzero platform fallback. Two serial read-only reviews closed an end-to-end
 exit-wiring test gap; the final pass is clean. Validation was deferred by
 explicit owner direction; no build, test, scanner, inventory, or validation
-command ran. DIAG-001 is the next selected candidate: it is high severity and
-its false-success seam is bounded to perf-log activation, scene-control gating,
-and the existing process-failure owner.
+command ran. DIAG-001 is now closed: perf-scene automation becomes active only
+while RuntimeDiagnostics owns the required CSV handle. A failed open leaves
+scene rerun/advance disabled, a successful open activates it, and close clears
+the signal after the current transition has consumed it. One read-only review
+found no blocking or non-blocking issue. Validation was deferred by explicit
+owner direction; no build, test, scanner, inventory, or validation command ran.
+AUTO-002 is the next selected candidate: it is high severity and its destructive
+false-success seam is bounded to canonical path ownership before automation
+opens its trace and report outputs.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

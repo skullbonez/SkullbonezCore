@@ -82,6 +82,7 @@
 #include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/UIStressPolicy.h"
 #include "../SkullbonezSource/Runtime/Input/Input.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderer.h"
@@ -2294,6 +2295,30 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     return false;
 }
+
+TEST_CASE( "Runtime diagnostics activates perf control only for an owned log artifact" )
+{
+    RunPerfLogState perfLog;
+    perfLog.isPerfTest = true;
+    RuntimeDiagnostics::OpenScenePerfLog( perfLog, "?:\\skullbonez_perf.csv", 0, nullptr );
+    CHECK_FALSE( RuntimeDiagnostics::PerfTestActive( perfLog ) );
+    CHECK( perfLog.perfLogFile == nullptr );
+
+    char temporaryDirectory[MAX_PATH] = {};
+    char perfLogPath[MAX_PATH] = {};
+    REQUIRE( GetTempPathA( MAX_PATH, temporaryDirectory ) != 0 );
+    REQUIRE( GetTempFileNameA( temporaryDirectory, "sbp", 0, perfLogPath ) != 0 );
+
+    RuntimeDiagnostics::OpenScenePerfLog( perfLog, perfLogPath, 0, nullptr );
+    CHECK( RuntimeDiagnostics::PerfTestActive( perfLog ) );
+    CHECK( perfLog.perfLogFile != nullptr );
+
+    RuntimeDiagnostics::ClosePerfLog( perfLog );
+    CHECK_FALSE( RuntimeDiagnostics::PerfTestActive( perfLog ) );
+    CHECK( perfLog.perfLogFile == nullptr );
+    CHECK( DeleteFileA( perfLogPath ) != 0 );
+}
+
 
 TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes share one safe owner boundary" )
 {

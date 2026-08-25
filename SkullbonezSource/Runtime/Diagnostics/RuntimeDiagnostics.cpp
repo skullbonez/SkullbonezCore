@@ -244,6 +244,8 @@ void RuntimeDiagnostics::ClosePerfLog( RunPerfLogState& perfLog )
         fclose( perfLog.perfLogFile );
         perfLog.perfLogFile = nullptr;
     }
+
+    perfLog.isPerfTest = false;
 }
 
 
@@ -348,13 +350,16 @@ void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char*
         return;
     }
 
-    perfLog.isPerfTest = true;
+    perfLog.isPerfTest = false;
     strcpy_s( perfLog.perfLogPath, sizeof( perfLog.perfLogPath ), path );
     const char* mode = ( pass == 0 ) ? "w" : "a";
     fopen_s( &perfLog.perfLogFile, perfLog.perfLogPath, mode );
 
     if ( perfLog.perfLogFile )
     {
+        // Invariant: perf-suite scene control is active only while its required
+        // CSV artifact has a live owner.
+        perfLog.isPerfTest = true;
         perfLog.perfLogWritesSinceFlush = 0;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         // Why: validation appends multiple scene passes in one process. Reset
