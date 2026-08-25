@@ -1,7 +1,7 @@
 # Governance De-Bureaucratization and Jargon Removal
 
 Date: 2026-08-25
-Status: Active by owner direction 2026-08-25. 0/8 phases complete.
+Status: Active by owner direction 2026-08-25. 1/8 phases complete; DB1 next.
 Owner: Engine owner
 Priority: Sole active master-plan item. DB0-DB7 execute in strict order.
 Commit name: `DE_BUREAUCRATIZE`
@@ -53,16 +53,18 @@ The governance is simultaneously over-heavy and holey. Both facts motivate this
 plan; the holes are the proof that "delete and trust good engineering" is the
 wrong move.
 
-- **Evadable check.** The 13-parameter `PhysicsBroadphaseStage::Run`
+- **Evadable check.** The 12-parameter `PhysicsBroadphaseStage::Run`
   (`SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h`) is well past the
   12-parameter review trigger, yet `python tools/inventory_wide_signatures.py
   --repo . --strict` passes and lists no ruling for it. The regex inventory does
   not parse that signature, so the mandated review was silently skipped. This is
   the seed negative control for the wide-signature replacement.
 - **Under-enforced allocation.** `tools/check_allocation_policy.py` omits five
-  source roots (Assets, Maths, Scene, UI, World) containing ~97 unscanned STL
-  growth-call sites (bug `TOOL-003`), and reports 33 unreviewed findings
-  (`TOOL-002`). The zero-allocation guarantee is not actually enforced there.
+  source roots (Assets, Maths, Scene, UI, World). The DB0 scan passes across its
+  current 567 files and reports 55 direct-heap, 94 dynamic-member, and 722 STL-
+  growth findings with zero allowlist errors; the earlier ~97-site and 33-
+  finding estimates no longer reproduce and are not closure evidence. DB4 must
+  inventory the omitted roots directly before changing the policy.
 - **Brittle by admission.** `AGENTS.md` states that "removing or adding a comment
   line above a ruled aggregate shifts its recorded `site` and fails
   `validate_fast`." Comment edits break CI. That is the line-pinning to remove.
@@ -72,9 +74,11 @@ wrong move.
 - **Stale bug ledger.** `Agentic/Bugs/master_bug_report.csv` still marks
   `PHYS-001`..`PHYS-010` as `fixed=No` although FP0 closed them.
 
-Registry/script inventory (baseline for the ≥50% reduction target): `tools/`
-holds 13 JSON (10 are ruling/rule registries) and 56 Python scripts (6
-`inventory_*`, 24 `check_*`). Re-measure exactly in DB0.
+Registry/script inventory: `tools/` holds 13 tracked JSON files and 56 tracked
+Python scripts. DB0 defines a 20-file governance-administration cohort; the
+≥50% reduction target applies to that cohort, not to unrelated domain validators
+whose deletion would weaken behavior coverage. All 69 files remain listed below
+so this scope cannot hide a validator.
 
 ## Classification
 
@@ -103,11 +107,142 @@ holds 13 JSON (10 are ruling/rule registries) and 56 Python scripts (6
   STRENGTHEN / DE-BRITTLE / DELETE / KEEP with the invariant it protects.
 - Build the **negative-control catalog**: for every check slated to be
   strengthened or retired, capture one real violation the replacement must
-  catch. Seeds: the 13-parameter `Run`; a data-bag whose consumer destructures
+  catch. Seeds: the 12-parameter `Run`; a data-bag whose consumer destructures
   every member at entry; a non-deterministic `<cmath>` call reachable from
   `Physics`; an STL `push_back` growth site under one of the five omitted roots.
 - No deletions in this phase. Acceptance: classification table + control catalog
   written and reviewed.
+
+#### DB0 closure evidence — 2026-08-25
+
+`git ls-files "tools/*.json" "tools/*.py"` reports exactly 13 JSON files and
+56 Python files. CodeGraph is current at 1,219 files / 38,033 nodes /
+115,104 edges. The current wide-signature inventory reports eleven ruled
+operations at the 12-or-more threshold but omits the current 12-parameter
+`PhysicsBroadphaseStage::Run` declaration at
+`SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h:91`. This replaces the
+stale 13-parameter wording above with a reproduced parser miss.
+
+The action labels mean:
+
+- **KEEP:** required domain validation, generation, migration, or evidence.
+- **STRENGTHEN:** retain and expand coverage or make the safe workflow complete.
+- **DE-BRITTLE:** retain the protected rule while removing line, proof, or manual
+  workflow coupling.
+- **DELETE:** remove only after the named replacement and its negative test pass.
+
+##### JSON inventory
+
+| File | Action | Protected rule or disposition |
+|---|---|---|
+| `aggregate_ownership_rulings.json` | DELETE | Replaced by the compiler-backed DB3 design check; no per-site ledger remains. |
+| `allocation_policy_allowlist.json` | STRENGTHEN | Legitimate owner/phase/cap policy data; DB4 extends coverage to every engine root. |
+| `build_config_rulings.json` | DE-BRITTLE | Intentional project metadata differences remain reviewed without line/digest churn. |
+| `coverage_floors.json` | KEEP | Versioned subsystem coverage floors. |
+| `dependency_graph_rules.json` | KEEP | Authoritative layer, Runtime edge, content, and project-ownership policy data. |
+| `determinism_math_rulings.json` | DE-BRITTLE | Exact reviewed platform-math exceptions remain content-identified. |
+| `function_complexity_rulings.json` | DELETE | Replaced by the DB3 design check and negative fixtures. |
+| `glossary_term_rulings.json` | DELETE | Duplicate wording becomes non-blocking cleanup rather than a permission ledger. |
+| `native_diagnostics_suppressions.json` | KEEP | Reviewed compiler/ASan diagnostic suppressions. |
+| `physics_baseline_approval.json` | KEEP | Content-bound accepted Physics golden identity. |
+| `reachability_rulings.json` | DELETE | Replaced by link/dead-strip and focused reachability evidence. |
+| `shader_contracts.json` | KEEP | Shipping shader entry/profile/contract data. |
+| `wide_signature_ownership_rulings.json` | DELETE | Replaced by the compiler-backed DB3 design check. |
+
+##### Python inventory
+
+| File | Action | Protected rule or disposition |
+|---|---|---|
+| `align_header_inline_comments.py` | DELETE | Pinned clang-format becomes the sole token-layout owner. |
+| `analyze_at_rest_stability.py` | KEEP | Semantic at-rest Physics regression analysis. |
+| `analyze_replay_prediction_spikes.py` | KEEP | Bounded prediction-spike attribution. |
+| `archive_validation_artifacts.py` | KEEP | Repeatable validation-artifact collection. |
+| `bake_hulls.py` | KEEP | Deterministic authored hull generation. |
+| `bake_shaders.py` | KEEP | Shipping shader compilation, reflection, and freshness. |
+| `check_allocation_policy.py` | STRENGTHEN | Static no-growth policy; DB4 adds five omitted roots and resolves all findings. |
+| `check_at_rest_stability_analyzer.py` | KEEP | Negative tests for the at-rest analyzer. |
+| `check_broadphase_pair_stream_oracle.py` | KEEP | Deterministic broadphase pair-stream integrity. |
+| `check_build_config_consistency.py` | DE-BRITTLE | Effective project metadata and project-DAG parity without fragile sites. |
+| `check_causal_tree_interaction.py` | KEEP | Causal hierarchy interaction behavior. |
+| `check_contact_energy_scenes.py` | KEEP | Physics contact-energy scene behavior. |
+| `check_coverage.py` | KEEP | Coverage-floor enforcement from Cobertura data. |
+| `check_dependency_graph.py` | DE-BRITTLE | Keep the resolved edge evaluator; shrink only its generated Markdown proof. |
+| `check_determinism_math_policy.py` | DE-BRITTLE | Keep Physics/Maths math enforcement; key exceptions by content identity. |
+| `check_dx12_baselines.py` | KEEP | DX12 image-baseline comparison. |
+| `check_perf_budgets.py` | KEEP | Absolute performance budgets. |
+| `check_physics_baseline_guard.py` | DE-BRITTLE | Keep exact staged-content and producer integrity behind the DB5 one-command path. |
+| `check_physics_commit_gate.py` | KEEP | Fresh exact-index Physics validation before affected commits. |
+| `check_physics_known_issue_regression.py` | KEEP | Named Physics known-issue behavior. |
+| `check_physics_query_regression.py` | KEEP | SkullScope query output contract. |
+| `check_physics_regression.py` | DE-BRITTLE | Keep byte-exact comparison; replace raw dumps with bounded semantic first-difference output. |
+| `check_related_paths.py` | DE-BRITTLE | Keep a useful report but remove it from blocking validation. |
+| `check_replay_prediction_determinism.py` | KEEP | Replay prediction byte-exact behavior. |
+| `check_replay_scrub_regression.py` | KEEP | Replay scrub/restore behavior. |
+| `check_replay_v2_artifact.py` | KEEP | Replay artifact schema and byte integrity. |
+| `check_replay_visual_fidelity.py` | KEEP | Immutable recorded reveal-frame contract. |
+| `check_shooting_reaction.py` | KEEP | Physics shooting response. |
+| `check_staged_file_sizes.py` | KEEP | Reject oversized staged artifacts. |
+| `check_ui_blur.py` | KEEP | UI blur visual behavior. |
+| `cpp_source_scan.py` | DELETE | Retires with its three lexical design-inventory consumers after DB3 replacement. |
+| `export_screenshot_png.py` | KEEP | Deterministic screenshot conversion helper. |
+| `generate_doctest_from_recording.py` | KEEP | Recorded-interaction test generation. |
+| `generate_physics_scale_sleepy_scene.py` | KEEP | Deterministic 5,000-body scale fixture. |
+| `inventory_authority_free_aggregates.py` | DELETE | Replaced by one compiler-backed design check. |
+| `inventory_extraction_scars.py` | DELETE | Replaced by one compiler-backed design check. |
+| `inventory_function_complexity.py` | DELETE | Replaced by one compiler-backed design check. |
+| `inventory_glossary_terms.py` | DELETE | Duplicate definitions become non-blocking DB6 cleanup. |
+| `inventory_unreachable_symbols.py` | DELETE | Replaced by link/dead-strip and focused reachability evidence. |
+| `inventory_wide_signatures.py` | DELETE | Its reproduced parser miss is covered by the DB3 compiler-backed replacement. |
+| `measure_causal_inspection_perf.py` | KEEP | Causal inspection performance measurement. |
+| `measure_dense_pile_sleep.py` | KEEP | Dense-pile sleep measurement. |
+| `migrate_data_formats.py` | KEEP | Versioned authored-data migrations. |
+| `physics_query.py` | KEEP | SkullScope Physics query interface. |
+| `replay_query.py` | KEEP | Replay artifact query interface. |
+| `separate_multiline_cpp_declarations.py` | DELETE | Pinned clang-format becomes the sole layout owner. |
+| `test_analyze_replay_prediction_spikes.py` | KEEP | Prediction-spike analyzer tests. |
+| `time_validation_pipeline.py` | KEEP | Validation stage timing and critical-path measurement. |
+| `update_baselines.py` | STRENGTHEN | DB5 adds the content-bound one-command Physics transition. |
+| `validate_concepts.py` | KEEP | Finite concept-scene validation. |
+| `validate_governance_inventories.py` | DELETE | Direct retained checks and the DB3 replacement make the inventory meta-runner unnecessary. |
+| `validate_look_lab_reuse.py` | KEEP | Cross-process Look Lab reuse. |
+| `validate_native_diagnostics.py` | KEEP | ASan and compiler static-analysis lane. |
+| `validate_project_filters.py` | KEEP | Project/filter single-owner parity. |
+| `validate_scene_loads.py` | KEEP | Authored scene-load matrix. |
+| `validate_shaders.py` | KEEP | Shader build/contract validation. |
+
+The 20-file governance-administration cohort is the seven JSON files for
+aggregate, build-config, deterministic-math, complexity, glossary,
+reachability, and wide-signature administration plus thirteen Python files:
+the two custom formatters, three retained/de-brittled checkers, shared lexical
+scanner, six inventory scripts, and inventory meta-runner. Fifteen are marked
+DELETE, so the ratified end-state reduction is 75% for that cohort while all
+unrelated validators remain protected.
+
+##### Negative-test catalog
+
+| Mechanism | Seed violation | Replacement must prove |
+|---|---|---|
+| Wide signatures | Current 12-parameter `PhysicsBroadphaseStage::Run`, which the lexical inventory misses | Compiler-backed enumeration flags the declaration independent of formatting. |
+| Function size/nesting | A long, deeply nested function plus a once-called helper split | The design check reports the real operation shape rather than accepting helper-name evasion. |
+| Parameter struct | A data-only parameter struct whose consumer immediately unpacks every field | The replacement identifies the unnecessary argument bundle without rejecting ordinary structs. |
+| Refactor leftovers | An `m_`-prefixed local and a pure parameter alias | The replacement reports both concrete local-code problems. |
+| Reachability | An ordinary production `.cpp` definition with no production caller outside its translation unit | Link/dead-strip or focused symbol evidence exposes the unused production symbol. |
+| Duplicate glossary cleanup | The same term defined differently in two source learning headers | DB6's one-shot cleanup reports and removes the duplicate without a per-site permission ledger. |
+| Custom formatting | A C++ fixture with layout rejected by pinned clang-format | clang-format alone fails the fixture; no second formatter is needed. |
+| Inventory meta-runner | A retained replacement check returning non-zero | The direct fast-gate call propagates the failure without a checker-of-checkers. |
+| Allocation coverage | `std::vector::push_back` in `SkullbonezSource/Assets` | The expanded policy scan sees the omitted root and fails an unapproved growth site. |
+| Deterministic math | A Physics-reachable `std::sin`/`sinf` call | Content-keyed policy rejects it while comment/line movement stays green. |
+| Build configuration | One shared source compiled with a different exception/RTTI/FP contract | Content-keyed comparison fails real metadata drift but ignores comment movement. |
+| Dependency proof | A forbidden Core-to-Runtime include | The resolved-edge evaluator fails it after the Markdown proof is reduced. |
+| Related paths | A missing path in a `Related:` block | Advisory mode reports the path but does not fail fast validation. |
+| Physics comparison | One changed CSV value with frame, body, and metric columns | Output names the first semantic difference while byte-exact failure remains. |
+| Physics baseline update | A changed golden with a missing producer or mismatched hash | The DB5 command refuses partial evidence and writes a complete bound transition in one operation. |
+| Banned wording | One banned phrase in source and one in documentation | DB7's tracked-file scanner fails both local fast and hosted validation. |
+
+DB0 review found two stale premises and corrected them: the reproduced wide
+signature has 12 parameters, not 13, and the allocation check no longer reports
+the earlier 33 unreviewed findings. No tool, rule data, source, or validation
+behavior changes in DB0.
 
 ### DB1 — Line-number decoupling (pure win)
 - Remove physical line-number pinning from every retained checker. Key rulings
@@ -237,8 +372,8 @@ golden-referenced strings, or identifiers other tools grep for.
   a passing negative control.
 - Determinism, `/W4 /WX`, and dependency direction are unchanged; allocation is
   strictly stronger (five roots now scanned).
-- `tools/` file count down ≥50%; zero line-number CI traps; measurably faster
-  fast-gate.
+- Governance-administration cohort file count down ≥50%; zero line-number CI
+  traps; measurably faster fast-gate.
 - The banned lexicon is absent from all tracked first-party source and docs;
   validation rejects any reintroduction; all tests pass byte-exact.
 - The two superseded WNF drafts are deleted.
