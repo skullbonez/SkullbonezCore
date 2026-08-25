@@ -70,6 +70,7 @@ void LZ4_free( void* pointer )
 namespace
 {
 constexpr uint32_t MAX_OWNER_SOURCE_LOCATIONS = 256u;
+constexpr uint32_t MAX_TRACY_BACKING_RANGES = 1024u;
 constexpr int HEAVY_CALLSTACK_DEPTH = 16;
 constexpr const char* OWNER_ZONE_SOURCE = "SkullbonezCore owner boundary";
 constexpr const char* OWNER_ZONE_FUNCTION = "Engine owner interval";
@@ -91,11 +92,60 @@ struct OwnerSourceLocation
     uint32_t hash = 0u;
 };
 
+struct TracyBackingRange
+{
+    void* address = nullptr;
+    std::size_t size = 0u;
+    CoreAllocation::DevelopmentToolBackingAllocationTicket ticket = {};
+};
+
 std::atomic<bool> g_tracyInitialized { false };
 std::atomic<bool> g_tracyHeavyMode { false };
 OwnerSourceLocation g_ownerSourceLocations[MAX_OWNER_SOURCE_LOCATIONS] = {};
 std::atomic<uint32_t> g_ownerSourceLocationCount { 0u };
 std::mutex g_ownerSourceLocationMutex;
+TracyBackingRange g_tracyBackingRanges[MAX_TRACY_BACKING_RANGES] = {};
+std::mutex g_tracyBackingRangeMutex;
+
+// Invariant: rpmalloc's unmap callback returns only address/size metadata. This
+// fixed address registry carries the admission ticket without allocating from
+// the vendor heap whose backing callback is currently executing.
+bool RegisterTracyBackingRange( void* address, std::size_t size,
+                                CoreAllocation::DevelopmentToolBackingAllocationTicket ticket ) noexcept
+{
+    std::lock_guard<std::mutex> lock( g_tracyBackingRangeMutex );
+
+    for ( TracyBackingRange& range : g_tracyBackingRanges )
+    {
+        if ( !range.address )
+        {
+            range = { address, size, ticket };
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool TakeTracyBackingRange( void* address, std::size_t release,
+                            CoreAllocation::DevelopmentToolBackingAllocationTicket& outTicket,
+                            std::size_t& outAccountedSize ) noexcept
+{
+    std::lock_guard<std::mutex> lock( g_tracyBackingRangeMutex );
+
+    for ( TracyBackingRange& range : g_tracyBackingRanges )
+    {
+        if ( range.address == address && release >= range.size )
+        {
+            outTicket = range.ticket;
+            outAccountedSize = range.size;
+            range = {};
+            return true;
+        }
+    }
+
+    return false;
+}
 
 RequestedCaptureMode ReadRequestedCaptureMode() noexcept
 {
@@ -133,8 +183,9 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
         *offset = 0u;
     }
 
+    CoreAllocation::DevelopmentToolBackingAllocationTicket ticket;
     if ( !CoreAllocation::TryAccountDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                                  size ) )
+                                                                  size, ticket ) )
     {
         CoreAllocation::DevelopmentToolAllocationStats stats;
         CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, stats );
@@ -151,7 +202,8 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
 
     if ( !address )
     {
-        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, size );
+        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, size,
+                                                             ticket );
 
         SB_FATAL( "DevelopmentTools/Tracy", "VirtualAlloc failed for rpmalloc backing: request=%llu error=%lu",
                   static_cast<unsigned long long>( size ), static_cast<unsigned long>( GetLastError() ) );
@@ -160,9 +212,19 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
     if ( ( reinterpret_cast<std::uintptr_t>( address ) & ( TRACY_BACKING_ALIGNMENT - 1u ) ) != 0u )
     {
         VirtualFree( address, 0u, MEM_RELEASE );
-        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, size );
+        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, size,
+                                                             ticket );
 
         SB_FATAL( "DevelopmentTools/Tracy", "VirtualAlloc returned a non-64-KiB-aligned rpmalloc range." );
+    }
+
+    if ( !RegisterTracyBackingRange( address, size, ticket ) )
+    {
+        VirtualFree( address, 0u, MEM_RELEASE );
+        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, size,
+                                                             ticket );
+        SB_FATAL( "DevelopmentTools/Tracy", "rpmalloc backing registry exhausted: capacity=%u",
+                  MAX_TRACY_BACKING_RANGES );
     }
 
     return address;
@@ -186,13 +248,22 @@ void UnmapTracyBackingMemory( void* address, std::size_t size, std::size_t offse
                   static_cast<unsigned long long>( release ) );
     }
 
+    CoreAllocation::DevelopmentToolBackingAllocationTicket ticket;
+    std::size_t accountedSize = 0u;
+    if ( !TakeTracyBackingRange( address, release, ticket, accountedSize ) )
+    {
+        SB_FATAL( "DevelopmentTools/Tracy", "Unknown rpmalloc backing release: address=%p release=%llu", address,
+                  static_cast<unsigned long long>( release ) );
+    }
+
     if ( !VirtualFree( address, 0u, MEM_RELEASE ) )
     {
         SB_FATAL( "DevelopmentTools/Tracy", "VirtualFree failed for rpmalloc backing: release=%llu error=%lu",
                   static_cast<unsigned long long>( release ), static_cast<unsigned long>( GetLastError() ) );
     }
 
-    CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, release );
+    CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                         accountedSize, ticket );
 }
 
 void ConfigureTracyBackingAllocator()

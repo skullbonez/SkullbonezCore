@@ -67,14 +67,33 @@ class DevelopmentToolAllocationScope
     RuntimeReserveOwnerScope m_ownerScope;
 };
 
+struct DevelopmentToolBackingAllocationTicket
+{
+    DevelopmentToolBackingAllocationTicket() noexcept = default;
+    DevelopmentToolBackingAllocationTicket( const DevelopmentToolBackingAllocationTicket& ) noexcept = default;
+    DevelopmentToolBackingAllocationTicket& operator=( const DevelopmentToolBackingAllocationTicket& ) noexcept = default;
+
+  private:
+    friend bool TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size,
+                                                        DevelopmentToolBackingAllocationTicket& outTicket ) noexcept;
+    friend void ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size,
+                                                     DevelopmentToolBackingAllocationTicket ticket ) noexcept;
+
+    // Binds a mapped range to the owner-accounting session that admitted it;
+    // release always removes live bytes but only current tickets count a free.
+    uint64_t accountingGeneration = 0u;
+};
+
 bool CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner owner,
                                          DevelopmentToolAllocationStats& outStats ) noexcept;
 
 // Vendor page allocators reserve/release their real backing ranges through
 // this ledger seam. A failed reservation means the named hard cap was reached;
 // callers must not fall back to an untracked mapping.
-bool TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept;
-void ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept;
+bool TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size,
+                                             DevelopmentToolBackingAllocationTicket& outTicket ) noexcept;
+void ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size,
+                                          DevelopmentToolBackingAllocationTicket ticket ) noexcept;
 
 // Vendor allocator callbacks use these wrappers so their internal heap calls
 // always enter the named, hard-capped development owner.

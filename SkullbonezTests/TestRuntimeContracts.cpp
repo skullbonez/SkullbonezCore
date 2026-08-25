@@ -918,8 +918,18 @@ struct ForeignAllocationHeaderLayout
     uint16_t owner = 0u;
     uint16_t reserved = 0u;
     uint32_t magic = 0u;
+    uint64_t trackerAccountingGeneration = 0u;
+    uint64_t ownerAccountingGeneration = 0u;
     uint64_t ownershipCookie = 0u;
+    uint64_t tracyConnectionId = 0u;
 };
+
+static_assert( sizeof( void* ) == 8u, "Runtime allocation foreign-header probes require the supported x64 ABI." );
+static_assert( offsetof( ForeignAllocationHeaderLayout, magic ) == 28u );
+static_assert( offsetof( ForeignAllocationHeaderLayout, trackerAccountingGeneration ) == 32u );
+static_assert( offsetof( ForeignAllocationHeaderLayout, ownerAccountingGeneration ) == 40u );
+static_assert( offsetof( ForeignAllocationHeaderLayout, ownershipCookie ) == 48u );
+static_assert( sizeof( ForeignAllocationHeaderLayout ) == 64u );
 
 constexpr uint32_t FOREIGN_ALLOCATION_HEADER_MAGIC = 0xA110CA7Eu;
 
@@ -1853,6 +1863,8 @@ bool RunRuntimeFatalCase( const char* caseName )
         {
             return false;
         }
+
+        std::memset( candidate, 0, sizeof( *candidate ) );
 
         SYSTEM_INFO systemInfo = {};
         GetSystemInfo( &systemInfo );

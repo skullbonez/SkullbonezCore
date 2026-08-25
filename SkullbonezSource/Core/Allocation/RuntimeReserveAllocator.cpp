@@ -119,6 +119,7 @@ std::atomic<int> s_registeredOwnerCount { 1 };
 std::atomic<uint64_t> s_policyViolations { 0 };
 std::atomic<uint64_t> s_growthEventCount { 0 };
 std::atomic<uint64_t> s_capacitySessionGeneration { 1 };
+std::atomic<uint64_t> s_allocationAccountingGeneration { 1 };
 std::atomic<uint32_t> s_nextCapacityPublisher { 1 };
 std::atomic<uint64_t> s_nextReplayGrowthGrantId { 1 };
 std::atomic_flag s_ownerRegistrationLock = ATOMIC_FLAG_INIT;
@@ -276,7 +277,6 @@ void SubtractActiveBytes( std::atomic<uint64_t>& activeBytes, uint64_t size ) no
 
 bool TryReservePendingReplayGrantBytes( OwnerRecord& owner, uint64_t bytes, bool enforceByteCap ) noexcept
 {
-    ReplayBudgetLock lock;
     const uint64_t activeBytes = owner.counters.activeBytes.load( std::memory_order_relaxed );
     const uint64_t pendingBytes = owner.counters.pendingReplayGrantBytes.load( std::memory_order_relaxed );
 
@@ -341,14 +341,18 @@ void ReleasePendingReplayGrantBytes( RuntimeReserveOwnerHandle ownerHandle, uint
     SubtractActiveBytes( owner.counters.pendingReplayGrantBytes, bytes );
 }
 
-void ResetOwnerCounters( OwnerCounters& counters, int initialCapacity ) noexcept
+void ResetOwnerCounters( OwnerCounters& counters, int initialCapacity, bool preserveLiveBytes = false ) noexcept
 {
+    const uint64_t liveBytes = preserveLiveBytes ? counters.activeBytes.load( std::memory_order_relaxed ) : 0u;
+    const uint64_t pendingBytes = preserveLiveBytes
+                                      ? counters.pendingReplayGrantBytes.load( std::memory_order_relaxed )
+                                      : 0u;
     counters.allocations.store( 0u, std::memory_order_relaxed );
     counters.frees.store( 0u, std::memory_order_relaxed );
     counters.allocatedBytes.store( 0u, std::memory_order_relaxed );
-    counters.activeBytes.store( 0u, std::memory_order_relaxed );
-    counters.highWaterBytes.store( 0u, std::memory_order_relaxed );
-    counters.pendingReplayGrantBytes.store( 0u, std::memory_order_relaxed );
+    counters.activeBytes.store( liveBytes, std::memory_order_relaxed );
+    counters.highWaterBytes.store( liveBytes, std::memory_order_relaxed );
+    counters.pendingReplayGrantBytes.store( pendingBytes, std::memory_order_relaxed );
     counters.replayGrowths.store( 0u, std::memory_order_relaxed );
     counters.failedGrowths.store( 0u, std::memory_order_relaxed );
     counters.currentCapacity.store( initialCapacity, std::memory_order_relaxed );
@@ -625,6 +629,9 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
 RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserveOwnerHandle ownerHandle,
                                                                    const RuntimeReserveGrowthRequest& request ) noexcept
 {
+    // One allocator-session lock makes grant admission, pending reservation,
+    // counters, and event publication indivisible with respect to reset.
+    ReplayBudgetLock allocatorSessionLock;
     const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
     OwnerRecord& owner = OwnerForHandle( ownerIndex );
 
@@ -731,7 +738,8 @@ bool RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( RuntimeReserveOw
 }
 
 bool RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex,
-                                                                        uint64_t bytes ) noexcept
+                                                                        uint64_t bytes,
+                                                                        uint64_t* outAccountingGeneration ) noexcept
 {
     if ( bytes == 0u || !IsApprovedReplayGrowthAllocation( owner, phaseIndex ) ||
          bytes > s_approvedReplayGrowthRemainingBytes )
@@ -763,6 +771,10 @@ bool RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( RuntimeR
     ownerRecord.counters.allocatedBytes.fetch_add( bytes, std::memory_order_relaxed );
     ownerRecord.counters.lastPhaseIndex.store( phaseIndex, std::memory_order_relaxed );
     UpdateHighWaterU64( ownerRecord.counters.highWaterBytes, activeAfter );
+    if ( outAccountingGeneration )
+    {
+        *outAccountingGeneration = s_allocationAccountingGeneration.load( std::memory_order_relaxed );
+    }
     s_approvedReplayGrowthRemainingBytes -= bytes;
     return true;
 }
@@ -785,8 +797,10 @@ bool RuntimeReserveAllocator::IsApprovedDevelopmentToolAllocation( RuntimeReserv
 }
 
 bool RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle ownerHandle,
-                                                                         int phaseIndex, uint64_t bytes ) noexcept
+                                                                         int phaseIndex, uint64_t bytes,
+                                                                         uint64_t* outAccountingGeneration ) noexcept
 {
+    ReplayBudgetLock accountingLock;
     const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
 
     if ( ownerIndex == UNREGISTERED_OWNER || bytes == 0u )
@@ -827,20 +841,25 @@ bool RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation( Runtime
     owner.counters.allocatedBytes.fetch_add( bytes, std::memory_order_relaxed );
     owner.counters.lastPhaseIndex.store( phaseIndex, std::memory_order_relaxed );
     UpdateHighWaterU64( owner.counters.highWaterBytes, activeBefore + bytes );
+    if ( outAccountingGeneration )
+    {
+        *outAccountingGeneration = s_allocationAccountingGeneration.load( std::memory_order_relaxed );
+    }
     return true;
 }
 #endif
 
-void RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerHandle, int phaseIndex,
-                                                uint64_t bytes ) noexcept
+uint64_t RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerHandle, int phaseIndex,
+                                                    uint64_t bytes ) noexcept
 {
+    ReplayBudgetLock accountingLock;
+    const uint64_t accountingGeneration = s_allocationAccountingGeneration.load( std::memory_order_relaxed );
     const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
     OwnerRecord& owner = OwnerForHandle( ownerIndex );
     uint64_t activeAfter = 0u;
 
     if ( ownerIndex != UNREGISTERED_OWNER && owner.subsystem == RuntimeReserveSubsystem::Replay )
     {
-        ReplayBudgetLock lock;
         const uint64_t activeBefore = owner.counters.activeBytes.load( std::memory_order_relaxed );
         activeAfter = activeBefore + bytes;
         owner.counters.activeBytes.store( activeAfter, std::memory_order_relaxed );
@@ -896,23 +915,27 @@ void RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerH
                       owner.hardCapacity );
     }
 #endif
+    return accountingGeneration;
 }
 
-void RuntimeReserveAllocator::RecordFree( RuntimeReserveOwnerHandle ownerHandle, uint64_t bytes ) noexcept
+void RuntimeReserveAllocator::RecordFree( RuntimeReserveOwnerHandle ownerHandle, uint64_t bytes,
+                                          uint64_t accountingGeneration ) noexcept
 {
+    ReplayBudgetLock accountingLock;
     const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
     OwnerRecord& owner = OwnerForHandle( ownerIndex );
-    owner.counters.frees.fetch_add( 1u, std::memory_order_relaxed );
+    const bool currentSession = accountingGeneration == 0u ||
+                                accountingGeneration ==
+                                    s_allocationAccountingGeneration.load( std::memory_order_relaxed );
 
-    if ( ownerIndex != UNREGISTERED_OWNER && owner.subsystem == RuntimeReserveSubsystem::Replay )
+    if ( currentSession )
     {
-        ReplayBudgetLock lock;
-        SubtractActiveBytes( owner.counters.activeBytes, bytes );
+        owner.counters.frees.fetch_add( 1u, std::memory_order_relaxed );
     }
-    else
-    {
-        SubtractActiveBytes( owner.counters.activeBytes, bytes );
-    }
+
+    // Live bytes cross counter sessions. Every authentic free removes its real
+    // backing even when stale-session event totals deliberately ignore it.
+    SubtractActiveBytes( owner.counters.activeBytes, bytes );
 }
 
 int RuntimeReserveAllocator::CopyRecentGrowthEvents( RuntimeReserveGrowthEventView* outEvents, int maxEvents ) noexcept
@@ -1203,6 +1226,7 @@ uint64_t RuntimeReserveAllocator::GrowthEventDroppedCount() noexcept
 
 void RuntimeReserveAllocator::ResetCounters() noexcept
 {
+    ReplayBudgetLock accountingLock;
     s_policyViolations.store( 0u, std::memory_order_relaxed );
     {
         GrowthEventLock lock;
@@ -1213,7 +1237,8 @@ void RuntimeReserveAllocator::ResetCounters() noexcept
             event = {};
         }
     }
-    ResetOwnerCounters( s_owners[0].counters, 0 );
+    s_allocationAccountingGeneration.fetch_add( 1u, std::memory_order_relaxed );
+    ResetOwnerCounters( s_owners[0].counters, 0, true );
 
     for ( int index = 1; index < s_registeredOwnerCount.load( std::memory_order_acquire ); ++index )
     {
@@ -1221,7 +1246,7 @@ void RuntimeReserveAllocator::ResetCounters() noexcept
 
         if ( owner.active.load( std::memory_order_acquire ) != 0u )
         {
-            ResetOwnerCounters( owner.counters, owner.initialCapacity );
+            ResetOwnerCounters( owner.counters, owner.initialCapacity, true );
         }
     }
 
@@ -1314,7 +1339,39 @@ void RuntimeReserveAllocator::PrintSummary( FILE* out ) noexcept
 
 bool RuntimeReserveAllocator::HasPolicyViolations() noexcept
 {
-    return PolicyViolationCount() > 0u;
+    ReplayBudgetLock accountingLock;
+
+    if ( PolicyViolationCount() > 0u )
+    {
+        return true;
+    }
+
+    const int ownerCount = s_registeredOwnerCount.load( std::memory_order_acquire );
+    for ( int index = 1; index < ownerCount; ++index )
+    {
+        const OwnerRecord& owner = s_owners[index];
+        bool hasByteCap = owner.subsystem == RuntimeReserveSubsystem::Replay;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+        hasByteCap = hasByteCap || owner.allowDevelopmentToolAllocations;
+#endif
+        if ( owner.active.load( std::memory_order_acquire ) == 0u || !hasByteCap || owner.hardCapacity <= 0 )
+        {
+            continue;
+        }
+
+        const uint64_t hardBytes = static_cast<uint64_t>( owner.hardCapacity );
+        const uint64_t activeBytes = owner.counters.activeBytes.load( std::memory_order_relaxed );
+        const uint64_t pendingBytes = owner.counters.pendingReplayGrantBytes.load( std::memory_order_relaxed );
+        if ( activeBytes > hardBytes || pendingBytes > hardBytes - activeBytes )
+        {
+            // Invariant: resets clear session event counts, not live backing or
+            // unconsumed grants. A preserved cap breach remains a current
+            // policy failure until authentic frees restore the byte bound.
+            return true;
+        }
+    }
+
+    return false;
 }
 
 uint64_t RuntimeReserveAllocator::PolicyViolationCount() noexcept

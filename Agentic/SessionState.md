@@ -74,7 +74,16 @@ prediction-engine, and archive staging callers now grant only the backing they
 actually allocate. Two serial read-only reviews closed live-cap, caller-budget,
 guard-mode, pending-grant, and archive-constructor findings; the final pass is
 clean. No build, test, scanner, or validation command ran by explicit owner
-direction. CORE-004 is the next unresolved Core bug.
+direction. CORE-004 is now closed: allocation headers carry tracker and owner
+accounting generations, resets preserve real live and pending bytes while
+starting fresh event totals, and stale frees remove only their authentic
+backing. Replay grant, allocation, free, and reset transactions share one
+session lock; development-tool mappings retain address-bound generation
+tickets; foreign-header probes mirror the stable production layout. Three
+serial read-only reviews closed live/pending reset, development-tool ticket,
+foreign-header, transaction-boundary, and preserved-over-cap findings; the
+final pass is clean. No build, test, scanner, or validation command ran by
+explicit owner direction. CORE-005 is the next unresolved Core bug.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

@@ -215,7 +215,8 @@ class RuntimeReserveAllocator
     // allocation hook must use TryConsume with its exact requested byte count.
     static bool IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
     static bool TryConsumeApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex,
-                                                          uint64_t bytes ) noexcept;
+                                                          uint64_t bytes,
+                                                          uint64_t* outAccountingGeneration = nullptr ) noexcept;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     static bool IsApprovedDevelopmentToolAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
 
@@ -223,11 +224,13 @@ class RuntimeReserveAllocator
     // Unlike RecordAllocation(), this can reject the request without first
     // crossing the registered live-byte cap.
     static bool TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex,
-                                                           uint64_t bytes ) noexcept;
+                                                           uint64_t bytes,
+                                                           uint64_t* outAccountingGeneration = nullptr ) noexcept;
 #endif
 
-    static void RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
-    static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes ) noexcept;
+    static uint64_t RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
+    static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes,
+                            uint64_t accountingGeneration = 0u ) noexcept;
     static int CopyRecentGrowthEvents( RuntimeReserveGrowthEventView* outEvents, int maxEvents ) noexcept;
 
     // Copies one fixed-registry owner row without allocating. Name lookup lets

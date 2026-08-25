@@ -106,16 +106,21 @@ bool CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner owner,
     return true;
 }
 
-bool TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept
+bool TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size,
+                                             DevelopmentToolBackingAllocationTicket& outTicket ) noexcept
 {
+    outTicket = {};
     return RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation( ToolOwnerHandle( owner ),
                                                                                static_cast<int>( GetRuntimeAllocationPhase() ),
-                                                                               static_cast<uint64_t>( size ) );
+                                                                               static_cast<uint64_t>( size ),
+                                                                               &outTicket.accountingGeneration );
 }
 
-void ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept
+void ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size,
+                                          DevelopmentToolBackingAllocationTicket ticket ) noexcept
 {
-    RuntimeReserveAllocator::RecordFree( ToolOwnerHandle( owner ), static_cast<uint64_t>( size ) );
+    RuntimeReserveAllocator::RecordFree( ToolOwnerHandle( owner ), static_cast<uint64_t>( size ),
+                                         ticket.accountingGeneration );
 }
 
 void* AllocateDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept

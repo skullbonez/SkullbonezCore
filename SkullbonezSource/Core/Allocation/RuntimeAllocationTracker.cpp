@@ -61,10 +61,10 @@ struct AllocationHeader
     uint16_t owner;
     uint16_t reserved;
     uint32_t magic;
+    uint64_t trackerAccountingGeneration;
+    uint64_t ownerAccountingGeneration;
     uint64_t ownershipCookie;
-#if defined( TRACY_ENABLE )
     uint64_t tracyConnectionId;
-#endif
 };
 
 struct CallsiteCounters
@@ -99,9 +99,30 @@ std::atomic<uint64_t> s_foreignFrees { 0 };
 std::atomic<uint64_t> s_foreignFreeGuardBaseline { 0 };
 std::atomic<uint64_t> s_totalAllocations { 0 };
 std::atomic<uint64_t> s_totalBytes { 0 };
+std::atomic<uint64_t> s_trackerAccountingGeneration { 1 };
+std::atomic_flag s_accountingSessionLock = ATOMIC_FLAG_INIT;
 PhaseCounters s_phaseCounters[static_cast<int>( RuntimeAllocationPhase::Count )] = {};
 CallsiteCounters s_callsiteCounters[MAX_ALLOCATION_CALLSITES] = {};
 thread_local bool s_insideAllocationHook = false;
+
+class AccountingSessionLock
+{
+  public:
+    AccountingSessionLock() noexcept
+    {
+        while ( s_accountingSessionLock.test_and_set( std::memory_order_acquire ) )
+        {
+        }
+    }
+
+    ~AccountingSessionLock() noexcept
+    {
+        s_accountingSessionLock.clear( std::memory_order_release );
+    }
+
+    AccountingSessionLock( const AccountingSessionLock& ) = delete;
+    AccountingSessionLock& operator=( const AccountingSessionLock& ) = delete;
+};
 
 uint64_t MixOwnershipCookieValue( uint64_t cookie, uint64_t value ) noexcept
 {
@@ -126,10 +147,10 @@ uint64_t AllocationOwnershipCookie( const AllocationHeader& header, const void* 
     cookie = MixOwnershipCookieValue( cookie, static_cast<uint64_t>( header.phase ) << 32u | header.flags );
     cookie = MixOwnershipCookieValue( cookie, static_cast<uint64_t>( header.owner ) << 48u |
                                                   static_cast<uint64_t>( header.reserved ) << 32u | header.magic );
+    cookie = MixOwnershipCookieValue( cookie, header.trackerAccountingGeneration );
+    cookie = MixOwnershipCookieValue( cookie, header.ownerAccountingGeneration );
 
-#if defined( TRACY_ENABLE )
     cookie = MixOwnershipCookieValue( cookie, header.tracyConnectionId );
-#endif
     return cookie;
 }
 
@@ -289,18 +310,22 @@ void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle own
 }
 
 bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReserveOwnerHandle owner,
-                       uintptr_t callsite ) noexcept
+                       uintptr_t callsite, uint64_t& outTrackerGeneration, uint64_t& outOwnerGeneration ) noexcept
 {
+    AccountingSessionLock accountingLock;
+    outTrackerGeneration = s_trackerAccountingGeneration.load( std::memory_order_relaxed );
+    outOwnerGeneration = 0u;
     const int phaseIndex = static_cast<int>( phase );
     // The replay grant is an allocation-safety contract, not diagnostic state.
     // Consume its exact byte allowance even when measurement is disabled so an
     // earlier allocation cannot leave approval behind for a later allocation.
     const bool approvedReplayGrowth =
-        RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( owner, phaseIndex, size );
+        RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( owner, phaseIndex, size,
+                                                                           &outOwnerGeneration );
 
     if ( owner != INVALID_RUNTIME_RESERVE_OWNER && !approvedReplayGrowth )
     {
-        RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
+        outOwnerGeneration = RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
     }
 
     if ( CurrentMode() == RuntimeAllocationGuardMode::Off )
@@ -320,7 +345,7 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
     {
         // Measured unowned allocations retain the existing sentinel-row
         // diagnostics without making that row an always-on accounting owner.
-        RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
+        outOwnerGeneration = RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
     }
 
     uintptr_t stackFrames[8] = {};
@@ -365,11 +390,12 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
 
 void RecordFree( const AllocationHeader& header ) noexcept
 {
+    AccountingSessionLock accountingLock;
     if ( ( header.flags & ALLOCATION_HEADER_OWNER_RECORDED ) != 0u )
     {
         // Owner live-byte accounting enforces replay caps independently of
         // whether diagnostic allocation counters are currently enabled.
-        RuntimeReserveAllocator::RecordFree( header.owner, header.size );
+        RuntimeReserveAllocator::RecordFree( header.owner, header.size, header.ownerAccountingGeneration );
     }
 
     // Invariant: a delete only subtracts bytes that were counted while the
@@ -380,18 +406,22 @@ void RecordFree( const AllocationHeader& header ) noexcept
         return;
     }
 
-    if ( CurrentMode() == RuntimeAllocationGuardMode::Off )
-    {
-        return;
-    }
-
     const int phaseIndex = header.phase < static_cast<uint32_t>( RuntimeAllocationPhase::Count )
                                ? static_cast<int>( header.phase )
                                : static_cast<int>( RuntimeAllocationPhase::Startup );
 
     PhaseCounters& counters = s_phaseCounters[phaseIndex];
-    counters.frees.fetch_add( 1u, std::memory_order_relaxed );
-    counters.freedBytes.fetch_add( header.size, std::memory_order_relaxed );
+    const bool currentSession = header.trackerAccountingGeneration ==
+                                s_trackerAccountingGeneration.load( std::memory_order_relaxed );
+
+    if ( currentSession && CurrentMode() != RuntimeAllocationGuardMode::Off )
+    {
+        counters.frees.fetch_add( 1u, std::memory_order_relaxed );
+        counters.freedBytes.fetch_add( header.size, std::memory_order_relaxed );
+    }
+
+    // Active bytes describe real live memory across reporting sessions. A stale
+    // header suppresses only the new session's free event, never the release.
     SubtractActiveBytes( counters.activeBytes, header.size );
 }
 
@@ -440,10 +470,10 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     header->owner = static_cast<uint16_t>( owner );
     header->reserved = 0u;
     header->magic = ALLOCATION_HEADER_MAGIC;
+    header->trackerAccountingGeneration = 0u;
+    header->ownerAccountingGeneration = 0u;
     header->ownershipCookie = 0u;
-#if defined( TRACY_ENABLE )
     header->tracyConnectionId = 0u;
-#endif
 
     // Hazard: recording must never allocate through this same hook. The
     // thread-local guard keeps emergency CRT/STL paths from recursively counting
@@ -453,12 +483,13 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
         s_insideAllocationHook = true;
 
         if ( RecordAllocation( static_cast<RuntimeAllocationPhase>( header->phase ), header->size, owner,
-                               reinterpret_cast<uintptr_t>( callsite ) ) )
+                               reinterpret_cast<uintptr_t>( callsite ), header->trackerAccountingGeneration,
+                               header->ownerAccountingGeneration ) )
         {
             header->flags |= ALLOCATION_HEADER_RECORDED;
         }
 
-        if ( owner != INVALID_RUNTIME_RESERVE_OWNER )
+        if ( header->ownerAccountingGeneration != 0u )
         {
             header->flags |= ALLOCATION_HEADER_OWNER_RECORDED;
         }
@@ -745,6 +776,8 @@ uint64_t RuntimeAllocationForeignFreeCount() noexcept
 
 void ResetRuntimeAllocationCounters() noexcept
 {
+    AccountingSessionLock accountingLock;
+    s_trackerAccountingGeneration.fetch_add( 1u, std::memory_order_relaxed );
     s_gameplayViolations.store( 0u, std::memory_order_relaxed );
     s_totalAllocations.store( 0u, std::memory_order_relaxed );
     s_totalBytes.store( 0u, std::memory_order_relaxed );
@@ -752,12 +785,13 @@ void ResetRuntimeAllocationCounters() noexcept
 
     for ( PhaseCounters& counters : s_phaseCounters )
     {
+        const uint64_t liveBytes = counters.activeBytes.load( std::memory_order_relaxed );
         counters.allocations.store( 0u, std::memory_order_relaxed );
         counters.frees.store( 0u, std::memory_order_relaxed );
         counters.allocatedBytes.store( 0u, std::memory_order_relaxed );
         counters.freedBytes.store( 0u, std::memory_order_relaxed );
-        counters.activeBytes.store( 0u, std::memory_order_relaxed );
-        counters.highWaterBytes.store( 0u, std::memory_order_relaxed );
+        counters.activeBytes.store( liveBytes, std::memory_order_relaxed );
+        counters.highWaterBytes.store( liveBytes, std::memory_order_relaxed );
     }
 
     for ( CallsiteCounters& counters : s_callsiteCounters )
