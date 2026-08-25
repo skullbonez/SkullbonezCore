@@ -57,6 +57,9 @@ Related:
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
+#include "../UI/OperatorUiPhase.h"
+#include "../UI/RecordedCursorDrawing.h"
+#include "../UI/RecordedCursorPresentationPolicy.h"
 #include "../UI/RuntimeViewModel.h"
 #include "RenderModelFramePublisher.h"
 #include "../Startup/Window.h"
@@ -525,8 +528,10 @@ void Run::BeginFrameDiagnosticsPhase()
 }
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-SceneFrameProceedPolicy Run::RunAutomationAndInputPhase( bool& gameUiActive )
+SceneFrameProceedPolicy Run::RunAutomationAndInputPhase( bool& gameUiActive, RecordedCursorFrame& recordedCursor )
 {
+    recordedCursor = {};
+    const uint64_t sceneGenerationBeforeInput = m_sceneController.LifecyclePacket().generation;
     const ReplayAutomationView automationReplayView = m_replayRuntime.BuildAutomationView();
     const ReplayInputView automationReplayInput = automationReplayView.input;
     const InteractionAutomationFrameResult result = TickInteractionAutomationBeforeInput( m_interactionAutomation, m_window,
@@ -652,7 +657,33 @@ SceneFrameProceedPolicy Run::RunAutomationAndInputPhase( bool& gameUiActive )
         PostQuitMessage( 0 );
     }
 
-    return RunInputPhase( &result, gameUiActive );
+    const SceneFrameProceedPolicy proceedPolicy = RunInputPhase( &result, gameUiActive );
+    const bool sceneReplaced = sceneGenerationBeforeInput != m_sceneController.LifecyclePacket().generation;
+    const bool frameFailed = !result.status.Ok() || result.requestQuit || m_applicationExit.ExitRequested();
+    const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
+    const RunEditorPlacementState& editor = m_editorTools.Editor();
+    const PointerPresentationPolicy pointerPolicy = EvaluateRuntimePointerPresentation( m_inputRouter, editor, replayInput );
+    const RuntimePointerCaptureOwner captureOwner = m_interaction.PointerCapture();
+    const RecordedCursorPointerDisposition
+        disposition = ClassifyRecordedCursorPointerDisposition( captureOwner == RuntimePointerCaptureOwner::CameraLook,
+                                                                captureOwner == RuntimePointerCaptureOwner::ToolGesture,
+                                                                m_inputRouter.RuntimeContext().CurrentMode() ==
+                                                                    RuntimeInputMode::EditorViewportLook,
+                                                                replayInput.inspectionActive &&
+                                                                    pointerPolicy.mouseLookOwnsCursor,
+                                                                editor.editorModeEnabled && editor.placementModeEnabled &&
+                                                                    editor.placementPreviewVisible &&
+                                                                    pointerPolicy.hideNativeCursor,
+                                                                pointerPolicy.mouseLookOwnsCursor );
+    const RecordedCursorPlaybackPhase
+        phase = ClassifyRecordedCursorPlaybackPhase( m_interactionAutomation.enabled,
+                                                     m_interactionAutomation.recordedManifest,
+                                                     m_interactionAutomation.status.failed, m_interactionAutomation.finished,
+                                                     m_interactionAutomation.recordedFramePublished,
+                                                     result.recordedCursor.publishedRealTurn );
+    recordedCursor = FilterRecordedCursorFrame( result.recordedCursor, phase, disposition, m_window.ClientWidth(),
+                                                m_window.ClientHeight(), sceneReplaced, frameFailed );
+    return proceedPolicy;
 }
 #endif
 
@@ -1050,7 +1081,9 @@ SkullbonezCore::Core::SbResult Run::Execute()
         PROFILE_BEGIN( "Frame/Input" );
         bool gameUiActive = true;
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-        const SceneFrameProceedPolicy proceedPolicy = RunAutomationAndInputPhase( gameUiActive );
+        RecordedCursorFrame recordedCursor;
+        const SceneFrameProceedPolicy proceedPolicy = RunAutomationAndInputPhase( gameUiActive, recordedCursor );
+
 #else
         const SceneFrameProceedPolicy proceedPolicy = RunInputPhase( nullptr, gameUiActive );
 #endif
@@ -1089,13 +1122,35 @@ SkullbonezCore::Core::SbResult Run::Execute()
         m_timers.SampleFrame( { secondsPerFrame, models.sceneKineticEnergy } );
         const RuntimeFrameMetricsSnapshot frameMetrics = m_timers.Publish();
         RenderWorldPhase( models, presentationAlpha );
-        RenderOperatorUiPhase( models, presentationAlpha, capturePresentationPinned, secondsPerFrame, gameUiActive,
-                               frameMetrics );
+        const OperatorUiProcessCommands operatorUiCommands = RenderOperatorUiPhase( models, presentationAlpha,
+                                                                                    capturePresentationPinned,
+                                                                                    secondsPerFrame, gameUiActive,
+                                                                                    frameMetrics );
 
         if ( m_applicationExit.ExitRequested() )
         {
             return m_applicationExit.Resolve( 0 );
         }
+
+        // App applies process effects only after every presenter has released
+        // the phase owner's detached values and returned its typed commands.
+        ApplyOperatorUiProcessCommands( operatorUiCommands );
+
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+        {
+            UI::UIDrawList recordedCursorDrawList;
+            ComposeRecordedCursorDrawList( recordedCursorDrawList, recordedCursor, m_window.ClientWidth(),
+                                           m_window.ClientHeight() );
+
+            // Invariant: RenderOperatorUiPhase has already submitted GameUI,
+            // overlays, UI finalization, and ImGui. This unconditional App seam
+            // stays ahead of diagnostics, every screenshot path, and Present.
+            if ( !recordedCursorDrawList.Empty() )
+            {
+                Renderer().SubmitUiDrawList( recordedCursorDrawList, { m_window.ClientWidth(), m_window.ClientHeight() } );
+            }
+        }
+#endif
 
         RunPostDrawDiagnosticsPhase( gameUiActive );
 

@@ -28,7 +28,7 @@
 #   - Gitlinks contribute zero parent-repository blob bytes; the checker still
 #     measures the ordinary .gitmodules blob that makes each pin reproducible.
 #   - Baselines and SkullbonezData are the only broad large-file locations;
-#     Physics plan executables are a narrow named artifact exception.
+#     first-party Physics plan game binaries are a narrow named exception.
 #   - Self-tests run without touching the real git index.
 #
 # Related:
@@ -52,7 +52,7 @@ ALLOWLIST_PREFIXES = (
     "SkullbonezData/",
     "TestOutput/baselines/",
 )
-PHYSICS_EXECUTABLE_ARTIFACT_PREFIX = "Agentic/Plans/Artifacts/ragdoll-physics-unification/"
+PHYSICS_GAME_BINARY_ARTIFACT_PREFIX = "Agentic/Plans/Artifacts/"
 
 
 @dataclass(frozen=True)
@@ -77,8 +77,10 @@ def is_allowlisted(path: str) -> bool:
     if any(normalized.startswith(prefix) for prefix in ALLOWLIST_PREFIXES):
         return True
     artifact_name = normalized.rsplit("/", 1)[-1]
-    return normalized.startswith(PHYSICS_EXECUTABLE_ARTIFACT_PREFIX) and (
-        artifact_name.startswith("SKULLBONEZ_CORE-") and artifact_name.endswith(".exe")
+    return (
+        normalized.startswith(PHYSICS_GAME_BINARY_ARTIFACT_PREFIX)
+        and artifact_name.startswith("SKULLBONEZ_")
+        and artifact_name.lower().endswith((".exe", ".dll"))
     )
 
 
@@ -234,10 +236,18 @@ def run_self_tests() -> list[str]:
             )
         ],
     )
+    expect_clean(
+        "retained first-party physics DLL",
+        [CandidateFile("Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/SKULLBONEZ_PHYSICS.dll", large)],
+    )
     expect_violation(
-        "unrelated plan executable",
+        "third-party physics DLL",
+        [CandidateFile("Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/dxcompiler.dll", large)],
+        "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/dxcompiler.dll",
+    )
+    expect_clean(
+        "first-party game executable in another artifact plan",
         [CandidateFile("Agentic/Plans/Artifacts/other-plan/SKULLBONEZ_CORE-Debug.exe", large)],
-        "Agentic/Plans/Artifacts/other-plan/SKULLBONEZ_CORE-Debug.exe",
     )
     expect_violation("large temp report", [CandidateFile("Agentic/Temp/huge.txt", large)], "Agentic/Temp/huge.txt")
     expect_violation("large root file", [CandidateFile("huge.bin", large)], "huge.bin")

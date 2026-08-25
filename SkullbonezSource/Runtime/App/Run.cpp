@@ -816,29 +816,46 @@ void Run::Initialise()
                                                                                      sceneState, sceneObjectCapacity,
                                                                                      generatedObjectTypeOverrideBits );
 
-    const ReplayStartupLoadInput loadInput { m_timers.SimulationTotalSeconds(),
-                                             &sceneWorld.Cameras(),
-                                             m_runtimeTools.MousePickup(),
-                                             normalizedCameraMode,
-                                             m_inputRouter,
-                                             m_interaction,
-                                             sceneWorld.Terrain().Get(),
-                                             m_camera,
-                                             normalizedRestoreMode,
-                                             m_attachedCamera.State().activeFollow,
-                                             m_camera.director.grabbed };
+    const double startupApplicationTime = m_timers.SimulationTotalSeconds();
+    ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( startupApplicationTime );
 
-    ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
+    if ( replayStartup.status.Ok() && replayStartup.applicationAction != ReplayStartupApplicationAction::None &&
+         !m_replayRuntime.ApplyStartupApplicationAction( replayStartup, m_sceneController, m_camera, normalizedCameraMode,
+                                                         normalizedRestoreMode, m_attachedCamera.State().activeFollow,
+                                                         m_camera.director.grabbed, m_interaction, m_inputRouter,
+                                                         m_runtimeTools.MousePickup() ) )
+    {
+        replayStartup.status = m_resultDiagnostics.Failure( "Runtime/ReplayLoad",
+                                                            "loaded replay presentation could not enter inspection mode" );
+    }
 
 #ifdef _DEBUG
 
     if ( replayStartup.status.Ok() )
     {
-        RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
-        replayStartup = m_replayRuntime.RunStartupProbeWorkflows( loadInput, m_sceneController, m_diagnosticsRuntime,
-                                                                  presentationEdit.State(), m_editorTools, m_runtimeTools,
-                                                                  m_simulation, m_config, m_assets, m_workerPool,
-                                                                  sceneOverrides, generatedObjectTypeOverride );
+        ReplayStartupProbeContinuation continuation { startupApplicationTime };
+
+        while ( replayStartup.status.Ok() && !continuation.IsTerminal() )
+        {
+            RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
+            replayStartup = m_replayRuntime.AdvanceStartupProbeWorkflows( continuation, m_sceneController,
+                                                                          m_diagnosticsRuntime, presentationEdit.State(),
+                                                                          m_editorTools, m_runtimeTools, m_simulation,
+                                                                          m_config, m_assets, m_workerPool, sceneOverrides,
+                                                                          generatedObjectTypeOverride );
+
+            if ( replayStartup.status.Ok() &&
+                 continuation.CurrentPhase() == ReplayStartupProbeContinuation::Phase::AwaitingApplication )
+            {
+                replayStartup = m_replayRuntime.ApplyStartupProbeApplicationAction( continuation, m_sceneController,
+                                                                                    m_camera, normalizedCameraMode,
+                                                                                    normalizedRestoreMode,
+                                                                                    m_attachedCamera.State().activeFollow,
+                                                                                    m_camera.director.grabbed, m_interaction,
+                                                                                    m_inputRouter,
+                                                                                    m_runtimeTools.MousePickup() );
+            }
+        }
     }
 #endif
 

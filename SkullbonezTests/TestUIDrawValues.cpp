@@ -1,5 +1,5 @@
 /*
-File: TestUIDrawValues.cpp
+File: SkullbonezTests/TestUIDrawValues.cpp
 Purpose:
   Locks the backend-neutral UI draw-stream and font-metric contracts.
 
@@ -34,7 +34,9 @@ Related:
 #include "../SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.h"
 #include "../SkullbonezSource/UI/UIStyle.h"
 #include "../SkullbonezSource/Runtime/UI/GameUI/UI.h"
+#include "../SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.h"
 #include "../SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h"
+#include "../SkullbonezSource/UI/UIDrawWidgets.h"
 
 #include <array>
 #include <cstdio>
@@ -49,6 +51,27 @@ using SkullbonezCore::UI::UIFontMetrics;
 
 namespace
 {
+template <typename T>
+concept HasOrdinaryRenderCapability = requires( const T& value ) { value.ordinaryRender; };
+
+template <typename T>
+concept HasCinematicConfigCapability = requires( const T& value ) { value.cinematic; };
+
+template <typename T>
+concept HasOperatorEditorCapability = requires( const T& value ) { value.operatorEditor; };
+
+template <typename T>
+concept HasForecastTickCapability = requires( const T& value ) { value.newestAbsoluteTick; };
+
+template <typename T>
+concept HasForecastRetainedBytesCapability = requires( const T& value ) { value.retainedBytes; };
+
+static_assert( !HasOrdinaryRenderCapability<SkullbonezCore::UI::UIOptionsTabFrameView> );
+static_assert( !HasCinematicConfigCapability<SkullbonezCore::UI::UIOptionsTabFrameView> );
+static_assert( !HasOperatorEditorCapability<SkullbonezCore::UI::UISceneTabFrameView> );
+static_assert( !HasForecastTickCapability<SkullbonezCore::UI::UISceneForecastFrameView> );
+static_assert( !HasForecastRetainedBytesCapability<SkullbonezCore::UI::UISceneForecastFrameView> );
+
 int FindDrawTextIndex( const UIDrawList& list, const char* expected )
 {
     const std::span<const UIDrawList::Command> commands = list.Commands();
@@ -139,8 +162,8 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
     input.leftPressed = true;
     ui->SceneNavigation().browser.names.emplace_back( sceneOptions[0] );
     ui->SceneNavigation().browser.namePtrs.push_back( ui->SceneNavigation().browser.names[0].c_str() );
-    const InGameUIInputResult result =
-        ui->UpdateInput( input, data->screenW, data->screenH, 1.0, false, false, true, false, 0, 0xffffffffu );
+    const InGameUIInputResult result = ui->UpdateInput( input, data->screenW, data->screenH, 1.0, false, false, true, false,
+                                                        0, 0xffffffffu );
 
     CHECK( result.commands.forecast.type == UIForecastCommandType::ToggleContinuous );
     CHECK( result.commands.ui.userInteracted );
@@ -393,6 +416,74 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     }
 }
 
+TEST_CASE( "GameUI projects focused tab views from the root frame" )
+{
+    auto data = std::make_unique<SkullbonezCore::UI::InGameUIFrameData>();
+    data->modelCapacity = 321;
+    data->rngSeed = 77u;
+    data->editorObjectType = 9;
+    data->selectedCineModeSceneOption = 3;
+    data->ordinaryRender.shadow.enabled = false;
+    data->cinematic.shadow.enabled = true;
+    data->operatorEditor.forecast.available = true;
+    data->operatorEditor.forecast.simulatedSeconds = 12.5;
+    data->timeScale = 2.5f;
+    data->worldGravity = -12.0f;
+    data->profilerMarkerOptionCount = 4;
+    data->reserveGrowthEventTotalCount = 19u;
+    data->currentFrame = 42;
+
+    const auto controls = data->ControlsTabFrame();
+    const auto editor = data->EditorTabFrame();
+    const auto cinematic = data->CinematicTabFrame();
+    const auto options = data->OptionsTabFrame();
+    const auto physics = data->PhysicsTabFrame();
+    const auto profiler = data->ProfilerTabFrame();
+    const auto memory = data->MemoryTabFrame();
+    const auto scene = data->SceneTabFrame();
+
+    CHECK( controls.modelCapacity == 321 );
+    CHECK( controls.rngSeed == 77u );
+    CHECK( editor.editorObjectType == 9 );
+    CHECK( cinematic.selectedCineModeSceneOption == 3 );
+    CHECK( &cinematic.cinematic == &data->cinematic );
+    CHECK( options.timeScale == doctest::Approx( 2.5f ) );
+    CHECK_FALSE( options.ordinaryShadowsEnabled );
+    CHECK( options.cinematicShadowsEnabled );
+    CHECK( physics.worldGravity == doctest::Approx( -12.0f ) );
+    CHECK( &physics.physicsDebug == &data->physicsDebug );
+    CHECK( profiler.markerOptions == data->profilerMarkerOptions );
+    CHECK( profiler.markerOptionCount == 4 );
+    CHECK( &memory.mainMemory == &data->mainMemory );
+    CHECK( memory.reserveGrowthEventTotalCount == 19u );
+    CHECK( scene.forecast.available );
+    CHECK( scene.forecast.simulatedSeconds == doctest::Approx( 12.5 ) );
+    CHECK( scene.currentFrame == 42 );
+}
+
+TEST_CASE( "GameUI gravity slider endpoints emit signed world acceleration from shared policy" )
+{
+    namespace PhysicsTab = SkullbonezCore::UI::PhysicsTab;
+    namespace Policy = SkullbonezCore::UI::OperatorControlPolicy;
+    namespace Widgets = SkullbonezCore::UI::Widgets;
+
+    PhysicsTab::UIPhysicsTabState state;
+    state.worldGravitySlider.SetBounds( 20.0f, 30.0f, 320.0f, 34.0f );
+    const SkullbonezCore::UI::UIRect track = Widgets::SliderTrackBounds( state.worldGravitySlider.Bounds() );
+
+    SkullbonezCore::UI::InGameUIInputResult minimumResult;
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY,
+                                             static_cast<int>( track.x ), minimumResult ) );
+    CHECK( minimumResult.commands.water.requestWorldGravity );
+    CHECK( minimumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MIN ) );
+
+    SkullbonezCore::UI::InGameUIInputResult maximumResult;
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY,
+                                             static_cast<int>( track.x + track.w ), maximumResult ) );
+    CHECK( maximumResult.commands.water.requestWorldGravity );
+    CHECK( maximumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MAX ) );
+}
+
 TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes without draw overflow" )
 {
     using SkullbonezCore::UI::InGameUIFrameData;
@@ -418,11 +509,12 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
     capacityRows[1].liveCount = 80;
     capacityRows[1].sessionHighWater = 125;
     capacityRows[1].residentBytes = 16000;
+    const SkullbonezCore::UI::UIMemoryTabFrameView memoryFrame = data->MemoryTabFrame();
 
     UIDrawList list;
     UIDrawContext draw( 1920, 1080, list );
     UIMemoryOverlayState state;
-    SkullbonezCore::UI::MemoryTab::Draw( draw, state, *data, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0, 0 );
+    SkullbonezCore::UI::MemoryTab::Draw( draw, state, memoryFrame, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0, 0 );
 
     UIDrawList measuredList;
     UIDrawContext measuredDraw( 1920, 1080, measuredList );
@@ -433,8 +525,8 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope renderScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render );
-        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, *data, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0,
-                                             0 );
+        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, memoryFrame, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f,
+                                             0, 0, 0 );
     }
     const uint64_t memoryDrawAllocationViolations = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
     SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(

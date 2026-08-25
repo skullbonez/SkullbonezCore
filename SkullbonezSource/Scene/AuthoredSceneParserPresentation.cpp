@@ -10,7 +10,8 @@ Summary:
 
 Invariants:
   - Authored JSON field names remain command-line and scene-file compatibility.
-  - Parser failure stops further mutation and is returned without an engine throw.
+  - Parser failure prevents caller-visible publication and is returned without
+    an engine throw.
   - Stable scene identities and source ordering are preserved exactly.
 
 Related:
@@ -28,6 +29,7 @@ using AuthoredSceneParserDetail::Fail;
 using AuthoredSceneParserDetail::FindMember;
 using AuthoredSceneParserDetail::Lowercase;
 using AuthoredSceneParserDetail::ParsePhysicsDebugMode;
+using AuthoredSceneParserDetail::ParserFailed;
 using AuthoredSceneParserDetail::ParseUITab;
 using AuthoredSceneParserDetail::ParseWaterReflectionMode;
 using AuthoredSceneParserDetail::ReadBool;
@@ -37,7 +39,7 @@ using AuthoredSceneParserDetail::ReadRequiredStringField;
 using AuthoredSceneParserDetail::ReadString;
 using AuthoredSceneParserDetail::ReadUInt;
 using AuthoredSceneParserDetail::ReadVec3;
-using AuthoredSceneParserDetail::RequireArray;
+using AuthoredSceneParserDetail::RequireFixedArray;
 using AuthoredSceneParserDetail::RequireMember;
 using AuthoredSceneParserDetail::RequireObject;
 
@@ -203,18 +205,26 @@ void AuthoredSceneParser::ApplyUI( const Json& ui, const std::string& path )
 
     if ( const Json* rect = FindMember( ui, "rect" ) )
     {
-        RequireArray( *rect, path, "ui.rect" );
-
-        if ( rect->size() != 4 )
+        if ( !RequireFixedArray( *rect, path, "ui.rect", 4u, "integers" ) )
         {
-            Fail( path, "ui.rect must contain exactly 4 integers" );
+            return;
+        }
+
+        const int windowX = ReadInt( ( *rect )[0], path, "ui.rect[0]" );
+        const int windowY = ReadInt( ( *rect )[1], path, "ui.rect[1]" );
+        const int windowW = ReadInt( ( *rect )[2], path, "ui.rect[2]" );
+        const int windowH = ReadInt( ( *rect )[3], path, "ui.rect[3]" );
+
+        if ( ParserFailed() )
+        {
+            return;
         }
 
         out.hasWindowRect = true;
-        out.windowX = ReadInt( ( *rect )[0], path, "ui.rect[0]" );
-        out.windowY = ReadInt( ( *rect )[1], path, "ui.rect[1]" );
-        out.windowW = ReadInt( ( *rect )[2], path, "ui.rect[2]" );
-        out.windowH = ReadInt( ( *rect )[3], path, "ui.rect[3]" );
+        out.windowX = windowX;
+        out.windowY = windowY;
+        out.windowW = windowW;
+        out.windowH = windowH;
     }
 
     if ( const Json* blur = FindMember( ui, "blur" ) )
@@ -287,16 +297,22 @@ void AuthoredSceneParser::ApplyUI( const Json& ui, const std::string& path )
 
     if ( const Json* mouse = FindMember( ui, "mouse" ) )
     {
-        RequireArray( *mouse, path, "ui.mouse" );
-
-        if ( mouse->size() != 2 )
+        if ( !RequireFixedArray( *mouse, path, "ui.mouse", 2u, "integers" ) )
         {
-            Fail( path, "ui.mouse must contain exactly 2 integers" );
+            return;
+        }
+
+        const int mouseX = ReadInt( ( *mouse )[0], path, "ui.mouse[0]" );
+        const int mouseY = ReadInt( ( *mouse )[1], path, "ui.mouse[1]" );
+
+        if ( ParserFailed() )
+        {
+            return;
         }
 
         out.hasMouseOverride = true;
-        out.mouseX = ReadInt( ( *mouse )[0], path, "ui.mouse[0]" );
-        out.mouseY = ReadInt( ( *mouse )[1], path, "ui.mouse[1]" );
+        out.mouseX = mouseX;
+        out.mouseY = mouseY;
     }
 
     if ( const Json* stress = FindMember( ui, "stress" ) )
@@ -556,36 +572,52 @@ void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std
 
     if ( const Json* shadowParticipation = FindMember( cinematic, "shadowParticipation" ) )
     {
-        RequireArray( *shadowParticipation, path, "cinematic.shadowParticipation" );
-
-        if ( shadowParticipation->size() != 4 )
+        if ( !RequireFixedArray( *shadowParticipation, path, "cinematic.shadowParticipation", 4u, "booleans" ) )
         {
-            Fail( path, "cinematic.shadowParticipation must contain exactly 4 booleans" );
+            return;
         }
 
         // Invariant: shadow participation is one grouped override. Parsing all
         // four atoms before publishing its bit prevents omitted members from
         // silently borrowing process defaults during standalone-style reload.
-        c.shadow.terrainCasts = ReadBool( ( *shadowParticipation )[0], path, "cinematic.shadowParticipation[0]" );
-        c.shadow.objectsCast = ReadBool( ( *shadowParticipation )[1], path, "cinematic.shadowParticipation[1]" );
-        c.shadow.terrainReceives = ReadBool( ( *shadowParticipation )[2], path, "cinematic.shadowParticipation[2]" );
-        c.shadow.objectsReceive = ReadBool( ( *shadowParticipation )[3], path, "cinematic.shadowParticipation[3]" );
+        const bool terrainCasts = ReadBool( ( *shadowParticipation )[0], path, "cinematic.shadowParticipation[0]" );
+        const bool objectsCast = ReadBool( ( *shadowParticipation )[1], path, "cinematic.shadowParticipation[1]" );
+        const bool terrainReceives = ReadBool( ( *shadowParticipation )[2], path, "cinematic.shadowParticipation[2]" );
+        const bool objectsReceive = ReadBool( ( *shadowParticipation )[3], path, "cinematic.shadowParticipation[3]" );
+
+        if ( ParserFailed() )
+        {
+            return;
+        }
+
+        c.shadow.terrainCasts = terrainCasts;
+        c.shadow.objectsCast = objectsCast;
+        c.shadow.terrainReceives = terrainReceives;
+        c.shadow.objectsReceive = objectsReceive;
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_SHADOW_PARTICIPATION;
     }
 
     if ( const Json* styleModes = FindMember( cinematic, "styleModes" ) )
     {
-        RequireArray( *styleModes, path, "cinematic.styleModes" );
-
-        if ( styleModes->size() != 4 )
+        if ( !RequireFixedArray( *styleModes, path, "cinematic.styleModes", 4u, "integers" ) )
         {
-            Fail( path, "cinematic.styleModes must contain exactly 4 integers" );
+            return;
         }
 
-        c.skyMode = ReadInt( ( *styleModes )[0], path, "cinematic.styleModes[0]" );
-        c.terrainMode = ReadInt( ( *styleModes )[1], path, "cinematic.styleModes[1]" );
-        c.objectStyle = ReadInt( ( *styleModes )[2], path, "cinematic.styleModes[2]" );
-        c.waterMode = ReadInt( ( *styleModes )[3], path, "cinematic.styleModes[3]" );
+        const int skyMode = ReadInt( ( *styleModes )[0], path, "cinematic.styleModes[0]" );
+        const int terrainMode = ReadInt( ( *styleModes )[1], path, "cinematic.styleModes[1]" );
+        const int objectStyle = ReadInt( ( *styleModes )[2], path, "cinematic.styleModes[2]" );
+        const int waterMode = ReadInt( ( *styleModes )[3], path, "cinematic.styleModes[3]" );
+
+        if ( ParserFailed() )
+        {
+            return;
+        }
+
+        c.skyMode = skyMode;
+        c.terrainMode = terrainMode;
+        c.objectStyle = objectStyle;
+        c.waterMode = waterMode;
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
     }
 
@@ -610,15 +642,21 @@ void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std
 
     if ( const Json* terrainGrid = FindMember( cinematic, "terrainGrid" ) )
     {
-        RequireArray( *terrainGrid, path, "cinematic.terrainGrid" );
-
-        if ( terrainGrid->size() != 2 )
+        if ( !RequireFixedArray( *terrainGrid, path, "cinematic.terrainGrid", 2u, "numbers" ) )
         {
-            Fail( path, "cinematic.terrainGrid must contain exactly 2 numbers" );
+            return;
         }
 
-        c.terrainGridScale = ReadFloat( ( *terrainGrid )[0], path, "cinematic.terrainGrid[0]" );
-        c.terrainGridStrength = ReadFloat( ( *terrainGrid )[1], path, "cinematic.terrainGrid[1]" );
+        const float terrainGridScale = ReadFloat( ( *terrainGrid )[0], path, "cinematic.terrainGrid[0]" );
+        const float terrainGridStrength = ReadFloat( ( *terrainGrid )[1], path, "cinematic.terrainGrid[1]" );
+
+        if ( ParserFailed() )
+        {
+            return;
+        }
+
+        c.terrainGridScale = terrainGridScale;
+        c.terrainGridStrength = terrainGridStrength;
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_GRID;
     }
 
@@ -638,18 +676,27 @@ void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std
 
     if ( const Json* basinMask = FindMember( cinematic, "basinMask" ) )
     {
-        RequireArray( *basinMask, path, "cinematic.basinMask" );
-
-        if ( basinMask->size() != 5 )
+        if ( !RequireFixedArray( *basinMask, path, "cinematic.basinMask", 5u, "numbers" ) )
         {
-            Fail( path, "cinematic.basinMask must contain exactly 5 numbers" );
+            return;
         }
 
-        c.basinCenterX = ReadFloat( ( *basinMask )[0], path, "cinematic.basinMask[0]" );
-        c.basinCenterZ = ReadFloat( ( *basinMask )[1], path, "cinematic.basinMask[1]" );
-        c.basinRadiusX = ReadFloat( ( *basinMask )[2], path, "cinematic.basinMask[2]" );
-        c.basinRadiusZ = ReadFloat( ( *basinMask )[3], path, "cinematic.basinMask[3]" );
-        c.basinFeather = ReadFloat( ( *basinMask )[4], path, "cinematic.basinMask[4]" );
+        const float basinCenterX = ReadFloat( ( *basinMask )[0], path, "cinematic.basinMask[0]" );
+        const float basinCenterZ = ReadFloat( ( *basinMask )[1], path, "cinematic.basinMask[1]" );
+        const float basinRadiusX = ReadFloat( ( *basinMask )[2], path, "cinematic.basinMask[2]" );
+        const float basinRadiusZ = ReadFloat( ( *basinMask )[3], path, "cinematic.basinMask[3]" );
+        const float basinFeather = ReadFloat( ( *basinMask )[4], path, "cinematic.basinMask[4]" );
+
+        if ( ParserFailed() )
+        {
+            return;
+        }
+
+        c.basinCenterX = basinCenterX;
+        c.basinCenterZ = basinCenterZ;
+        c.basinRadiusX = basinRadiusX;
+        c.basinRadiusZ = basinRadiusZ;
+        c.basinFeather = basinFeather;
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
     }
 }

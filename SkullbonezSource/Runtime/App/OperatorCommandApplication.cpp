@@ -18,7 +18,8 @@ Glossary:
 
 Invariants:
   - Every public phase advances its one legal cursor edge before mutation.
-  - Render and cinematic UI values are clamped before they mutate live config.
+  - Shared domain values use OperatorControlPolicy and render values use
+    UIRenderAuthoringCatalog before either mutates live config.
   - Scene override masks must be updated with the value they describe.
   - Tornado commands mutate Gameplay-owned field/system/visual values in place.
   - A scene lockstep request only toggles Scene state; App compares the previous
@@ -26,10 +27,13 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h
+  - SkullbonezSource/Runtime/App/OperatorCommandBoundaryPolicy.h
+  - SkullbonezSource/Runtime/Render/UIRenderAuthoringCatalog.h
   - SkullbonezSource/Runtime/App/InputFrame.cpp
   - Agentic/Reference/engine-glossary.md
 */
 #include "../Interaction/OperatorCommandTransaction.h"
+#include "OperatorCommandBoundaryPolicy.h"
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../Diagnostics/OverlayDebugState.h"
@@ -39,7 +43,6 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../Scene/SceneWorld.h"
 #include "../../Rendering/DX12/RenderDeviceDX12.h"
-#include "../../UI/UILayout.h"
 #include "../../World/WorldEnvironment.h"
 #include "../../Scene/AuthoredScene.h"
 
@@ -262,39 +265,50 @@ void OperatorCommandTransaction::ApplyPhysicsControl( SceneWorld& world )
 
     if ( commands.requestTornadoRadius )
     {
-        tornado.SetFieldRadius( std::clamp( commands.requestedTornadoRadius, UI::Layout::UI_TORNADO_RADIUS_MIN,
-                                            UI::Layout::UI_TORNADO_RADIUS_MAX ) );
+        tornado.SetFieldRadius( OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTornadoRadius,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MIN,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MAX,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_RADIUS_STEP ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoHeight )
     {
-        tornado.SetFieldHeight( std::clamp( commands.requestedTornadoHeight, UI::Layout::UI_TORNADO_HEIGHT_MIN,
-                                            UI::Layout::UI_TORNADO_HEIGHT_MAX ) );
+        tornado.SetFieldHeight( OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTornadoHeight,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MIN,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MAX,
+                                                                               UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_STEP ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoInward )
     {
-        tornado.SetFieldInwardAcceleration( std::clamp( commands.requestedTornadoInward, UI::Layout::UI_TORNADO_INWARD_MIN,
-                                                        UI::Layout::UI_TORNADO_INWARD_MAX ) );
+        tornado.SetFieldInwardAcceleration( OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTornadoInward,
+                                                                                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_MIN,
+                                                                                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_MAX,
+                                                                                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_STEP ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoSwirl )
     {
-        tornado.SetFieldSwirlAcceleration( std::clamp( commands.requestedTornadoSwirl, UI::Layout::UI_TORNADO_SWIRL_MIN,
-                                                       UI::Layout::UI_TORNADO_SWIRL_MAX ) );
+        tornado.SetFieldSwirlAcceleration( OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTornadoSwirl,
+                                                                                          UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MIN,
+                                                                                          UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MAX,
+                                                                                          UI::OperatorControlPolicy::UI_TORNADO_SWIRL_STEP ) );
 
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 
     if ( commands.requestTornadoLift )
     {
-        tornado.SetFieldLiftAcceleration( std::clamp( commands.requestedTornadoLift, UI::Layout::UI_TORNADO_LIFT_MIN, UI::Layout::UI_TORNADO_LIFT_MAX ) );
+        tornado.SetFieldLiftAcceleration( OperatorCommandBoundaryPolicy::NormalizeFloat( commands.requestedTornadoLift,
+                                                                                         UI::OperatorControlPolicy::UI_TORNADO_LIFT_MIN,
+                                                                                         UI::OperatorControlPolicy::UI_TORNADO_LIFT_MAX,
+                                                                                         UI::OperatorControlPolicy::UI_TORNADO_LIFT_STEP ) );
         ++m_acceptance.tornadoApplySettingsActionCount;
     }
 }
@@ -419,14 +433,14 @@ void OperatorCommandTransaction::ApplySimulationPolicy( SceneSessionState& scene
 
     if ( m_commands.sceneOptions.requestedTimeScale > 0.0f )
     {
-        uiOverrides.timeScaleOverride = std::clamp( m_commands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
+        uiOverrides.timeScaleOverride = OperatorCommandBoundaryPolicy::NormalizeTimeScale( m_commands.sceneOptions.requestedTimeScale );
         scene.timeScale = uiOverrides.timeScaleOverride;
         m_acceptance.setTimeScale = true;
     }
 
     if ( m_commands.run.requestedSeed > 0 )
     {
-        scene.rngSeed = static_cast<unsigned int>( std::clamp( m_commands.run.requestedSeed, 1, 999999 ) );
+        scene.rngSeed = static_cast<unsigned int>( OperatorCommandBoundaryPolicy::ClampSeed( m_commands.run.requestedSeed ) );
         scene.rngState = scene.rngSeed;
         m_acceptance.setRunSeed = true;
     }
@@ -458,9 +472,10 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
 
     if ( commands.requestTerrainFrictionCoeff )
     {
-        config.physicsMaterial.frictionCoeff = std::clamp( commands.requestedTerrainFrictionCoeff,
-                                                           UI::Layout::UI_FRICTION_COEFF_MIN,
-                                                           UI::Layout::UI_FRICTION_COEFF_MAX );
+        config.physicsMaterial.frictionCoeff = OperatorCommandBoundaryPolicy::
+            NormalizeFloat( commands.requestedTerrainFrictionCoeff, UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX,
+                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -468,9 +483,10 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
 
     if ( commands.requestObjectFrictionCoeff )
     {
-        config.physicsMaterial.objectFrictionCoeff = std::clamp( commands.requestedObjectFrictionCoeff,
-                                                                 UI::Layout::UI_FRICTION_COEFF_MIN,
-                                                                 UI::Layout::UI_FRICTION_COEFF_MAX );
+        config.physicsMaterial.objectFrictionCoeff = OperatorCommandBoundaryPolicy::
+            NormalizeFloat( commands.requestedObjectFrictionCoeff, UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX,
+                            UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -478,9 +494,10 @@ void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::Eng
 
     if ( commands.requestRollingFrictionCoeff )
     {
-        config.physicsMaterial.rollingFrictionCoeff = std::clamp( commands.requestedRollingFrictionCoeff,
-                                                                  UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
-                                                                  UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX );
+        config.physicsMaterial.rollingFrictionCoeff = OperatorCommandBoundaryPolicy::
+            NormalizeFloat( commands.requestedRollingFrictionCoeff, UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MIN,
+                            UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MAX,
+                            UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_STEP );
 
         runtimePhysicsConfigChanged = true;
         ++m_acceptance.frictionApplySettingsActionCount;
@@ -509,9 +526,10 @@ void OperatorCommandTransaction::ApplyWorldPolicy( WorldEnvironment& world )
     const float fluidDensity = commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity
                                                                  : world.GetFluidDensity();
 
-    m_acceptance.worldOverride = world.ApplyOverride( std::clamp( gravity, -100.0f, 0.0f ),
-                                                      std::clamp( fluidHeight, -100.0f, 200.0f ),
-                                                      std::clamp( fluidDensity, 0.0f, 5.0f ) );
+    m_acceptance
+        .worldOverride = world.ApplyOverride( OperatorCommandBoundaryPolicy::NormalizeWorldGravity( gravity ),
+                                              OperatorCommandBoundaryPolicy::NormalizeWorldFluidHeight( fluidHeight ),
+                                              OperatorCommandBoundaryPolicy::NormalizeWorldFluidDensity( fluidDensity ) );
 
     m_acceptance.worldOverrideAccepted = true;
 }
@@ -580,275 +598,271 @@ void OperatorCommandTransaction::ApplyCinematicPolicy( RunLaunchOptions& launchO
 void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
                             UICinematicParam param, float rawValue )
 {
-    // Concept: the UI sends "the user dragged this slider to this raw value." This helper
-    // clamps the value into a safe range, writes it into the live cinematic
-    // config, and marks the scene override bit so reloads keep the user's tweak.
-    const auto clampValue = []( float value, float minValue, float maxValue ) -> float
-    { return std::clamp( value, minValue, maxValue ); };
-
-    const auto clampIntValue = []( float value, int minValue, int maxValue ) -> int
-    { return std::clamp( static_cast<int>( std::round( value ) ), minValue, maxValue ); };
+    // The catalog row is the shared presentation and validation vocabulary;
+    // this App boundary owns only application to concrete config fields.
+    const float boundedValue = OperatorCommandBoundaryPolicy::NormalizeCinematicParameter( param, rawValue );
+    const int boundedIntValue = static_cast<int>( std::round( boundedValue ) );
 
     switch ( param )
     {
     case UICinematicParam::Exposure:
-        cinematic.exposure = clampValue( rawValue, 0.05f, 3.00f );
+        cinematic.exposure = boundedValue;
         scene.hasCinematicExposure = true;
         scene.cinematicExposure = cinematic.exposure;
         scene.cinematicOverrideMask |= SCENE_CINE_EXPOSURE;
         break;
     case UICinematicParam::Gamma:
-        cinematic.gamma = clampValue( rawValue, 1.00f, 3.00f );
+        cinematic.gamma = boundedValue;
         scene.hasCinematicGamma = true;
         scene.cinematicGamma = cinematic.gamma;
         scene.cinematicOverrideMask |= SCENE_CINE_GAMMA;
         break;
     case UICinematicParam::SkyMode:
-        cinematic.skyMode = clampIntValue( rawValue, 0, 32 );
+        cinematic.skyMode = boundedIntValue;
         scene.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
         break;
     case UICinematicParam::TerrainMode:
-        cinematic.terrainMode = clampIntValue( rawValue, 0, 32 );
+        cinematic.terrainMode = boundedIntValue;
         scene.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
         break;
     case UICinematicParam::ObjectStyle:
-        cinematic.objectStyle = clampIntValue( rawValue, 0, 32 );
+        cinematic.objectStyle = boundedIntValue;
         scene.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
         break;
     case UICinematicParam::WaterMode:
-        cinematic.waterMode = clampIntValue( rawValue, 0, 4 );
+        cinematic.waterMode = boundedIntValue;
         scene.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
         break;
     case UICinematicParam::StyleSaturation:
-        cinematic.styleSaturation = clampValue( rawValue, 0.00f, 2.50f );
+        cinematic.styleSaturation = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
         break;
     case UICinematicParam::StyleContrast:
-        cinematic.styleContrast = clampValue( rawValue, 0.00f, 2.50f );
+        cinematic.styleContrast = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
         break;
     case UICinematicParam::StyleVignette:
-        cinematic.styleVignette = clampValue( rawValue, 0.00f, 1.00f );
+        cinematic.styleVignette = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
         break;
     case UICinematicParam::SunAzimuth:
-        cinematic.sunAzimuth = clampValue( rawValue, 0.00f, 1.00f );
+        cinematic.sunAzimuth = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SUN_AZIMUTH;
         break;
     case UICinematicParam::SunElevation:
-        cinematic.sunElevation = clampValue( rawValue, 0.00f, 1.00f );
+        cinematic.sunElevation = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SUN_ELEVATION;
         break;
     case UICinematicParam::SunBrightness:
-        cinematic.sunIntensity = clampValue( rawValue, 0.00f, 40.00f );
+        cinematic.sunIntensity = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SUN_INTENSITY;
         break;
     case UICinematicParam::SunRed:
-        cinematic.sunColorR = clampValue( rawValue, 0.00f, 2.00f );
+        cinematic.sunColorR = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SUN_COLOR_R;
         break;
     case UICinematicParam::SunGreen:
-        cinematic.sunColorG = clampValue( rawValue, 0.00f, 2.00f );
+        cinematic.sunColorG = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SUN_COLOR_G;
         break;
     case UICinematicParam::SunBlue:
-        cinematic.sunColorB = clampValue( rawValue, 0.00f, 2.00f );
+        cinematic.sunColorB = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SUN_COLOR_B;
         break;
     case UICinematicParam::SkyGlow:
-        cinematic.skyGlowStrength = clampValue( rawValue, 0.00f, 8.00f );
+        cinematic.skyGlowStrength = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SKY_GLOW_STRENGTH;
         break;
     case UICinematicParam::HorizonRed:
-        cinematic.skyHorizonR = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.skyHorizonR = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SKY_HORIZON_R;
         break;
     case UICinematicParam::HorizonGreen:
-        cinematic.skyHorizonG = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.skyHorizonG = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SKY_HORIZON_G;
         break;
     case UICinematicParam::HorizonBlue:
-        cinematic.skyHorizonB = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.skyHorizonB = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SKY_HORIZON_B;
         break;
     case UICinematicParam::ZenithRed:
-        cinematic.skyZenithR = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.skyZenithR = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SKY_ZENITH_R;
         break;
     case UICinematicParam::ZenithGreen:
-        cinematic.skyZenithG = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.skyZenithG = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SKY_ZENITH_G;
         break;
     case UICinematicParam::ZenithBlue:
-        cinematic.skyZenithB = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.skyZenithB = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SKY_ZENITH_B;
         break;
     case UICinematicParam::CloudCoverage:
-        cinematic.cloudCoverage = clampValue( rawValue, 0.00f, 1.00f );
+        cinematic.cloudCoverage = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_CLOUD_COVERAGE;
         break;
     case UICinematicParam::CloudSoftness:
-        cinematic.cloudSoftness = clampValue( rawValue, 0.01f, 0.65f );
+        cinematic.cloudSoftness = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_CLOUD_SOFTNESS;
         break;
     case UICinematicParam::CloudScale:
-        cinematic.cloudScale = clampValue( rawValue, 0.50f, 12.00f );
+        cinematic.cloudScale = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_CLOUD_SCALE;
         break;
     case UICinematicParam::CloudIntensity:
-        cinematic.cloudIntensity = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.cloudIntensity = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_CLOUD_INTENSITY;
         break;
     case UICinematicParam::ShaftStrength:
-        cinematic.sunShaftStrength = clampValue( rawValue, 0.00f, 3.00f );
+        cinematic.sunShaftStrength = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SUN_SHAFT_STRENGTH;
         break;
     case UICinematicParam::ShaftFalloff:
-        cinematic.sunShaftFalloff = clampValue( rawValue, 0.25f, 5.00f );
+        cinematic.sunShaftFalloff = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_SUN_SHAFT_FALLOFF;
         break;
     case UICinematicParam::VolumetricStrength:
-        cinematic.volumetricStrength = clampValue( rawValue, 0.00f, 2.00f );
+        cinematic.volumetricStrength = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_VOLUMETRIC_STRENGTH;
         break;
     case UICinematicParam::VolumetricDensity:
-        cinematic.volumetricDensity = clampValue( rawValue, 0.00f, 2.50f );
+        cinematic.volumetricDensity = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_VOLUMETRIC_DENSITY;
         break;
     case UICinematicParam::VolumetricDecay:
-        cinematic.volumetricDecay = clampValue( rawValue, 0.800f, 0.995f );
+        cinematic.volumetricDecay = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_VOLUMETRIC_DECAY;
         break;
     case UICinematicParam::BloomThreshold:
-        cinematic.bloomThreshold = clampValue( rawValue, 0.00f, 4.00f );
+        cinematic.bloomThreshold = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BLOOM_THRESHOLD;
         break;
     case UICinematicParam::BloomKnee:
-        cinematic.bloomKnee = clampValue( rawValue, 0.01f, 2.00f );
+        cinematic.bloomKnee = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BLOOM_KNEE;
         break;
     case UICinematicParam::BloomStrength:
-        cinematic.bloomStrength = clampValue( rawValue, 0.00f, 2.00f );
+        cinematic.bloomStrength = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BLOOM_STRENGTH;
         break;
     case UICinematicParam::BloomRadius:
-        cinematic.bloomRadius = clampValue( rawValue, 0.25f, 8.00f );
+        cinematic.bloomRadius = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BLOOM_RADIUS;
         break;
     case UICinematicParam::TerrainRelief:
-        cinematic.terrainRelief = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.terrainRelief = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_RELIEF;
         break;
     case UICinematicParam::TerrainTintRed:
-        cinematic.terrainTintR = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.terrainTintR = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
         break;
     case UICinematicParam::TerrainTintGreen:
-        cinematic.terrainTintG = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.terrainTintG = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
         break;
     case UICinematicParam::TerrainTintBlue:
-        cinematic.terrainTintB = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.terrainTintB = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
         break;
     case UICinematicParam::TerrainAccentRed:
-        cinematic.terrainAccentR = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.terrainAccentR = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
         break;
     case UICinematicParam::TerrainAccentGreen:
-        cinematic.terrainAccentG = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.terrainAccentG = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
         break;
     case UICinematicParam::TerrainAccentBlue:
-        cinematic.terrainAccentB = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.terrainAccentB = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
         break;
     case UICinematicParam::TerrainGridScale:
-        cinematic.terrainGridScale = clampValue( rawValue, 0.10f, 120.00f );
+        cinematic.terrainGridScale = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_GRID;
         break;
     case UICinematicParam::TerrainGridStrength:
-        cinematic.terrainGridStrength = clampValue( rawValue, 0.00f, 4.00f );
+        cinematic.terrainGridStrength = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_GRID;
         break;
     case UICinematicParam::WaterTintRed:
-        cinematic.waterTintR = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.waterTintR = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
         break;
     case UICinematicParam::WaterTintGreen:
-        cinematic.waterTintG = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.waterTintG = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
         break;
     case UICinematicParam::WaterTintBlue:
-        cinematic.waterTintB = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.waterTintB = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
         break;
     case UICinematicParam::WaterAlpha:
-        cinematic.waterAlpha = clampValue( rawValue, 0.00f, 1.00f );
+        cinematic.waterAlpha = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
         break;
     case UICinematicParam::WaterReflection:
-        cinematic.waterReflectionStrength = clampValue( rawValue, 0.00f, 1.00f );
+        cinematic.waterReflectionStrength = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
         break;
     case UICinematicParam::WaterGlint:
-        cinematic.waterGlintStrength = clampValue( rawValue, 0.00f, 4.00f );
+        cinematic.waterGlintStrength = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
         break;
     case UICinematicParam::BasinCenterX:
-        cinematic.basinCenterX = clampValue( rawValue, 0.00f, 1200.00f );
+        cinematic.basinCenterX = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
         break;
     case UICinematicParam::BasinCenterZ:
-        cinematic.basinCenterZ = clampValue( rawValue, 0.00f, 1200.00f );
+        cinematic.basinCenterZ = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
         break;
     case UICinematicParam::BasinRadiusX:
-        cinematic.basinRadiusX = clampValue( rawValue, 1.00f, 500.00f );
+        cinematic.basinRadiusX = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
         break;
     case UICinematicParam::BasinRadiusZ:
-        cinematic.basinRadiusZ = clampValue( rawValue, 1.00f, 500.00f );
+        cinematic.basinRadiusZ = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
         break;
     case UICinematicParam::BasinFeather:
-        cinematic.basinFeather = clampValue( rawValue, 0.00f, 1.00f );
+        cinematic.basinFeather = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
         break;
     case UICinematicParam::BasinDepth:
-        cinematic.basinDepth = clampValue( rawValue, 0.00f, 80.00f );
+        cinematic.basinDepth = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BASIN_DEPTH;
         break;
     case UICinematicParam::BasinRimLift:
-        cinematic.basinRimLift = clampValue( rawValue, 0.00f, 60.00f );
+        cinematic.basinRimLift = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_BASIN_RIM_LIFT;
         break;
     case UICinematicParam::FogDensity:
-        cinematic.fogDensity = clampValue( rawValue, 0.00000f, 0.00600f );
+        cinematic.fogDensity = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_FOG_DENSITY;
         break;
     case UICinematicParam::FogOpacity:
-        cinematic.fogMaxOpacity = clampValue( rawValue, 0.00f, 1.00f );
+        cinematic.fogMaxOpacity = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_FOG_MAX_OPACITY;
         break;
     case UICinematicParam::FogStart:
-        cinematic.fogStart = clampValue( rawValue, 0.00f, 500.00f );
+        cinematic.fogStart = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_FOG_START;
         break;
     case UICinematicParam::FogEnd:
-        cinematic.fogEnd = clampValue( rawValue, 100.00f, 4000.00f );
+        cinematic.fogEnd = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_FOG_END;
         break;
     case UICinematicParam::FogRed:
-        cinematic.fogColorR = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.fogColorR = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_FOG_COLOR_R;
         break;
     case UICinematicParam::FogGreen:
-        cinematic.fogColorG = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.fogColorG = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_FOG_COLOR_G;
         break;
     case UICinematicParam::FogBlue:
-        cinematic.fogColorB = clampValue( rawValue, 0.00f, 1.50f );
+        cinematic.fogColorB = boundedValue;
         scene.cinematicOverrideMask |= SCENE_CINE_FOG_COLOR_B;
         break;
     default:
@@ -880,121 +894,123 @@ void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConf
 void OperatorCommandTransaction::ApplyOrdinaryRenderParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
                                                            UIRenderParam param, float rawValue )
 {
+    const float boundedValue = OperatorCommandBoundaryPolicy::NormalizeOrdinaryRenderParameter( param, rawValue );
+
     switch ( param )
     {
     case UIRenderParam::SunIntensity:
-        ordinary.sunIntensity = std::clamp( rawValue, 0.0f, 4.0f );
+        ordinary.sunIntensity = boundedValue;
         break;
     case UIRenderParam::SunRed:
-        ordinary.sunColorR = std::clamp( rawValue, 0.0f, 2.0f );
+        ordinary.sunColorR = boundedValue;
         break;
     case UIRenderParam::SunGreen:
-        ordinary.sunColorG = std::clamp( rawValue, 0.0f, 2.0f );
+        ordinary.sunColorG = boundedValue;
         break;
     case UIRenderParam::SunBlue:
-        ordinary.sunColorB = std::clamp( rawValue, 0.0f, 2.0f );
+        ordinary.sunColorB = boundedValue;
         break;
     case UIRenderParam::AmbientStrength:
-        ordinary.ambientStrength = std::clamp( rawValue, 0.0f, 1.5f );
+        ordinary.ambientStrength = boundedValue;
         break;
     case UIRenderParam::SkyRed:
-        ordinary.skyAmbientR = std::clamp( rawValue, 0.0f, 1.5f );
+        ordinary.skyAmbientR = boundedValue;
         break;
     case UIRenderParam::SkyGreen:
-        ordinary.skyAmbientG = std::clamp( rawValue, 0.0f, 1.5f );
+        ordinary.skyAmbientG = boundedValue;
         break;
     case UIRenderParam::SkyBlue:
-        ordinary.skyAmbientB = std::clamp( rawValue, 0.0f, 1.5f );
+        ordinary.skyAmbientB = boundedValue;
         break;
     case UIRenderParam::GroundRed:
-        ordinary.groundAmbientR = std::clamp( rawValue, 0.0f, 1.5f );
+        ordinary.groundAmbientR = boundedValue;
         break;
     case UIRenderParam::GroundGreen:
-        ordinary.groundAmbientG = std::clamp( rawValue, 0.0f, 1.5f );
+        ordinary.groundAmbientG = boundedValue;
         break;
     case UIRenderParam::GroundBlue:
-        ordinary.groundAmbientB = std::clamp( rawValue, 0.0f, 1.5f );
+        ordinary.groundAmbientB = boundedValue;
         break;
     case UIRenderParam::ShadowStrength:
-        ordinary.shadow.strength = std::clamp( rawValue, 0.0f, 1.0f );
+        ordinary.shadow.strength = boundedValue;
         break;
     case UIRenderParam::ShadowSoftness:
-        ordinary.shadow.softness = std::clamp( rawValue, 0.25f, 4.0f );
+        ordinary.shadow.softness = boundedValue;
         break;
     case UIRenderParam::ShadowDepthBias:
-        ordinary.shadow.depthBias = std::clamp( rawValue, 0.0f, 0.005f );
+        ordinary.shadow.depthBias = boundedValue;
         break;
     case UIRenderParam::ShadowSlopeBias:
-        ordinary.shadow.slopeBias = std::clamp( rawValue, 0.0f, 0.005f );
+        ordinary.shadow.slopeBias = boundedValue;
         break;
     case UIRenderParam::WaterRed:
-        ordinary.waterTintR = std::clamp( rawValue, 0.0f, 1.5f );
+        ordinary.waterTintR = boundedValue;
         break;
     case UIRenderParam::WaterGreen:
-        ordinary.waterTintG = std::clamp( rawValue, 0.0f, 1.5f );
+        ordinary.waterTintG = boundedValue;
         break;
     case UIRenderParam::WaterBlue:
-        ordinary.waterTintB = std::clamp( rawValue, 0.0f, 1.5f );
+        ordinary.waterTintB = boundedValue;
         break;
     case UIRenderParam::WaterAlpha:
-        ordinary.waterAlpha = std::clamp( rawValue, 0.0f, 1.0f );
+        ordinary.waterAlpha = boundedValue;
         break;
     case UIRenderParam::WaterReflection:
-        ordinary.waterReflectionStrength = std::clamp( rawValue, 0.0f, 1.0f );
+        ordinary.waterReflectionStrength = boundedValue;
         break;
     case UIRenderParam::WaterFresnel:
-        ordinary.waterFresnelF0 = std::clamp( rawValue, 0.0f, 0.12f );
+        ordinary.waterFresnelF0 = boundedValue;
         break;
     case UIRenderParam::BallRoughness:
-        ordinary.ballRoughnessScale = std::clamp( rawValue, 0.25f, 2.0f );
+        ordinary.ballRoughnessScale = boundedValue;
         break;
     case UIRenderParam::BallSpecular:
-        ordinary.ballSpecularScale = std::clamp( rawValue, 0.0f, 2.0f );
+        ordinary.ballSpecularScale = boundedValue;
         break;
     case UIRenderParam::BoxRoughness:
-        ordinary.boxRoughnessScale = std::clamp( rawValue, 0.25f, 2.0f );
+        ordinary.boxRoughnessScale = boundedValue;
         break;
     case UIRenderParam::BoxSpecular:
-        ordinary.boxSpecularScale = std::clamp( rawValue, 0.0f, 2.0f );
+        ordinary.boxSpecularScale = boundedValue;
         break;
     case UIRenderParam::TrajectoryFutureWidth:
-        ordinary.replayTrajectory.futureWidth = std::clamp( rawValue, 1.0f, 6.0f );
+        ordinary.replayTrajectory.futureWidth = boundedValue;
         break;
     case UIRenderParam::TrajectoryFutureAlpha:
-        ordinary.replayTrajectory.futureAlpha = std::clamp( rawValue, 0.05f, 1.0f );
+        ordinary.replayTrajectory.futureAlpha = boundedValue;
         break;
     case UIRenderParam::TrajectoryFutureEdgeFeather:
-        ordinary.replayTrajectory.futureEdgeFeather = std::clamp( rawValue, 0.25f, 1.25f );
+        ordinary.replayTrajectory.futureEdgeFeather = boundedValue;
         break;
     case UIRenderParam::TrajectoryCausalWidth:
-        ordinary.replayTrajectory.causalWidth = std::clamp( rawValue, 1.0f, 6.0f );
+        ordinary.replayTrajectory.causalWidth = boundedValue;
         break;
     case UIRenderParam::TrajectoryCausalAlpha:
-        ordinary.replayTrajectory.causalAlpha = std::clamp( rawValue, 0.05f, 1.0f );
+        ordinary.replayTrajectory.causalAlpha = boundedValue;
         break;
     case UIRenderParam::TrajectoryCausalEdgeFeather:
-        ordinary.replayTrajectory.causalEdgeFeather = std::clamp( rawValue, 0.25f, 1.25f );
+        ordinary.replayTrajectory.causalEdgeFeather = boundedValue;
         break;
     case UIRenderParam::TrajectoryBaselineWidth:
-        ordinary.replayTrajectory.baselineWidth = std::clamp( rawValue, 1.0f, 6.0f );
+        ordinary.replayTrajectory.baselineWidth = boundedValue;
         break;
     case UIRenderParam::TrajectoryBaselineAlpha:
-        ordinary.replayTrajectory.baselineAlpha = std::clamp( rawValue, 0.05f, 1.0f );
+        ordinary.replayTrajectory.baselineAlpha = boundedValue;
         break;
     case UIRenderParam::TrajectoryBaselineEdgeFeather:
-        ordinary.replayTrajectory.baselineEdgeFeather = std::clamp( rawValue, 0.25f, 1.25f );
+        ordinary.replayTrajectory.baselineEdgeFeather = boundedValue;
         break;
     case UIRenderParam::TrajectoryMarkerWidth:
-        ordinary.replayTrajectory.markerWidth = std::clamp( rawValue, 1.0f, 6.0f );
+        ordinary.replayTrajectory.markerWidth = boundedValue;
         break;
     case UIRenderParam::TrajectoryMarkerAlpha:
-        ordinary.replayTrajectory.markerAlpha = std::clamp( rawValue, 0.05f, 1.0f );
+        ordinary.replayTrajectory.markerAlpha = boundedValue;
         break;
     case UIRenderParam::TrajectoryMarkerEdgeFeather:
-        ordinary.replayTrajectory.markerEdgeFeather = std::clamp( rawValue, 0.25f, 1.25f );
+        ordinary.replayTrajectory.markerEdgeFeather = boundedValue;
         break;
     case UIRenderParam::TrajectorySelectedEmphasis:
-        ordinary.replayTrajectory.selectedEmphasis = std::clamp( rawValue, 0.0f, 1.0f );
+        ordinary.replayTrajectory.selectedEmphasis = boundedValue;
         break;
     default:
         break;

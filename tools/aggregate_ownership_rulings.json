@@ -54,6 +54,15 @@
       "destructures_at_entry": "no"
     },
     {
+      "key": "DirectionalEligibilityFacts",
+      "site": "SkullbonezSource/Physics/Stages/PhysicsMotionEligibilityStage.cpp:60",
+      "members": 4,
+      "verdict": "retain",
+      "owner": "RAGDOLL_PHYSICS FP4 / PhysicsMotionEligibilityStage",
+      "reason": "One shape-axis classification produces the above/equal/finite decision and its separately derived diagnostic boundary together; callers must not combine a decision from one axis set with another set's reported threshold.",
+      "destructures_at_entry": "no"
+    },
+    {
       "key": "DebugOverlayGraphInputs",
       "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:294",
       "members": 2,
@@ -316,7 +325,7 @@
     },
     {
       "key": "ReplayInteractionExitInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:198",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:197",
       "members": 5,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -334,7 +343,7 @@
     },
     {
       "key": "ReplayKeyboardVelocityEditInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:309",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:320",
       "members": 4,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -423,17 +432,8 @@
       "destructures_at_entry": "no"
     },
     {
-      "key": "ReplaySaveProbeArtifactContext",
-      "site": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:477",
-      "members": 5,
-      "verdict": "retain",
-      "owner": "CA0 / Runtime/App",
-      "reason": "Artifact path plus presentation, solver, event, and world snapshots are captured at one save boundary so serialization cannot combine state from different replay generations.",
-      "destructures_at_entry": "no"
-    },
-    {
       "key": "ReplaySceneTimelineResetInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:257",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:268",
       "members": 13,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -451,7 +451,7 @@
     },
     {
       "key": "ReplayStartupRequest",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:216",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:215",
       "members": 12,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -460,7 +460,7 @@
     },
     {
       "key": "ReplayTransportHostContext",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:159",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:158",
       "members": 6,
       "verdict": "retain",
       "owner": "CA0 / Runtime/Replay",
@@ -496,7 +496,7 @@
     },
     {
       "key": "ReplayWorkspaceFrameInput",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:83",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:82",
       "members": 19,
       "verdict": "retain-prior",
       "owner": "prior owner ruling carried by CA0",

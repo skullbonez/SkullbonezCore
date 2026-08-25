@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md",
+  "phase": "FP3",
+  "transition_id": "discrete-terrain-replay-fidelity-20260824",
+  "source_commit": "730fc838295dc853eb7b65584607f57965b596fd",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/replay_visual_fidelity_200_box.json",
+      "old_sha256": "79acc8a12398e4f4c2a51ea2a3219a964640cf28b4f004e2b2986b50192080f4",
+      "new_sha256": "468e6f28f901e6c624fa66b4e946b5562f627643af4d785b566119ea005e7ddf"
+    },
+    {
+      "path": "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json",
+      "old_sha256": "0e616cd3fde12943e5f748523b80f460749f4ede66003307841146c231d9c13a",
+      "new_sha256": "3e5e739b8256d30e83a5ce13ed1bedd384d2935dc74d3e8160fb5d9082aaeb94"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "79f02de3b98da866610b15c8ea4a7f3f398423b1",
+    "golden_sha256": {
+      "TestOutput/baselines/replay_visual_fidelity_200_box.json": "79acc8a12398e4f4c2a51ea2a3219a964640cf28b4f004e2b2986b50192080f4",
+      "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json": "0e616cd3fde12943e5f748523b80f460749f4ede66003307841146c231d9c13a"
+    },
+    "executables": [
+      {
+        "configuration": "Automation|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/golden-transitions/discrete-terrain-replay-fidelity-20260824/old/SKULLBONEZ_CORE-Automation.exe",
+        "size": 4986880,
+        "sha256": "9d4ee221c3da2c07fe795a7ffcccd12e822422907bd5fa591b01f71664b9da24",
+        "launch_command": "old/SKULLBONEZ_CORE-Automation.exe --renderer dx12 --vsync on --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json --interaction-report TestOutput/validation/replay_visual_fidelity/full_reveal_probe_profile.json --frames 6800 --replay on --replay-seconds 21 --fixed-step",
+        "dependency_scan_command": "dumpbin /DEPENDENTS old/SKULLBONEZ_CORE-Automation.exe",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "730fc838295dc853eb7b65584607f57965b596fd",
+    "golden_sha256": {
+      "TestOutput/baselines/replay_visual_fidelity_200_box.json": "468e6f28f901e6c624fa66b4e946b5562f627643af4d785b566119ea005e7ddf",
+      "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json": "3e5e739b8256d30e83a5ce13ed1bedd384d2935dc74d3e8160fb5d9082aaeb94"
+    },
+    "executables": [
+      {
+        "configuration": "Automation|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/golden-transitions/discrete-terrain-replay-fidelity-20260824/new/SKULLBONEZ_CORE-Automation.exe",
+        "size": 4995072,
+        "sha256": "66df169f7382818b21379989f694b30d2ae6ea5d8904462e2bdaa15929ee6b2e",
+        "launch_command": "new/SKULLBONEZ_CORE-Automation.exe --renderer dx12 --vsync on --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json --interaction-report TestOutput/validation/replay_visual_fidelity/full_reveal_probe_profile.json --frames 6800 --replay on --replay-seconds 21 --fixed-step",
+        "dependency_scan_command": "dumpbin /DEPENDENTS new/SKULLBONEZ_CORE-Automation.exe",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

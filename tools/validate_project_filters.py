@@ -318,7 +318,6 @@ RUNTIME_LIFECYCLE_PREFIXES = (
     "Init",
     "OperatorCommandApplication",
     "OperatorEditorFramePhase",
-    "OperatorUiProjection",
     "RenderModelFramePublisher",
     "Run",
     "RunFrame",
@@ -383,6 +382,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "InteractionAutomationRecorder",
     "InteractionAutomationReportWriter",
     "InteractionRecordingBrowser",
+    "RecordedCursorFrame",
     "ReplayAutomationView",
     "ReplayAutomationPackets",
     "RuntimeStressController",
@@ -475,6 +475,7 @@ RUNTIME_APP_PREFIXES = (
     "CameraFrameApplication",
     "InteractionAutomationApplication",
     "InteractionAutomationReportApplication",
+    "OperatorCommandBoundaryPolicy",
     "ReplayAuthoringCauseTree",
     "ReplayCauseFocusSubmission",
     "ReplayPredictionComposition",
@@ -486,6 +487,10 @@ RUNTIME_APP_PREFIXES = (
     "ReplayRuntime",
     "ReplayScrubberTools",
     "ReplayValidation",
+)
+
+RUNTIME_DEVELOPMENT_TOOLS_PREFIXES = (
+    "ImGuiEditorControlPolicy",
 )
 
 RUNTIME_REPLAY_PREFIXES = (
@@ -574,9 +579,11 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "UIStressPolicy",
 )
 
-# Why: shared runtime UI values have their own physical owner and Solution
-# Explorer filter; keeping this explicit prevents them drifting into Runtime.
+# Why: Runtime UI values and GameUI product composition have their own physical
+# owner and Solution Explorer filter; keeping this explicit prevents them
+# drifting into another Runtime package or the reusable UI foundation.
 RUNTIME_UI_PREFIXES = (
+    "GameUILayout",
     "UI",
     "UIEditorMiniPalette",
     "UIEditorMiniPaletteDraw",
@@ -595,6 +602,9 @@ RUNTIME_UI_PREFIXES = (
     "UIWindowInteractionOwner",
     "UITab",
     "OperatorUiPhase",
+    "OperatorUiProjection",
+    "RecordedCursorDrawing",
+    "RecordedCursorPresentationPolicy",
     "UiTextPass",
     "RuntimeViewModel",
     "RenderDiagnosticsProjection",
@@ -645,6 +655,7 @@ AREA_PREFIXES = (
     ("Runtime\\Prediction", RUNTIME_PREDICTION_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
+    ("Runtime\\DevelopmentTools", RUNTIME_DEVELOPMENT_TOOLS_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
     ("Runtime\\Tools", RUNTIME_TOOLS_PREFIXES),
     ("Runtime\\Diagnostics", RUNTIME_DIAGNOSTICS_PREFIXES),

@@ -959,6 +959,8 @@ ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView( bool
              m_authoring.CauseTree(),
              m_planningOwner.CauseInspectionView(),
              m_timeline.Solver().GetStats(),
+             ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
+             ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS,
              selection.replay,
              selection.selectedPrediction,
              selection.predictionTimelineAvailable,

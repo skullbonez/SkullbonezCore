@@ -43,13 +43,14 @@ from typing import Any
 from analyze_replay_prediction_spikes import parse_perf_csv, prepare_scene
 
 
+PANEL_RENDER_MARKER = "Frame/Replay/RenderCauseInspectorDrawer"
 CAUSAL_MARKERS = (
     "Frame/Replay/CauseInspection/Selection",
     "Frame/Replay/CauseInspection/SolverDetailLookup",
     "Frame/Replay/CauseInspection/ManifoldPresentation",
     "Frame/Replay/CauseInspection/PanelLayout",
     "Frame/Replay/CauseInspection/PanelInput",
-    "Frame/Replay/CauseInspection/PanelRender",
+    PANEL_RENDER_MARKER,
 )
 EXISTING_OVERLAY_MARKER = "Frame/Replay/CauseTree/Overlay"
 RESERVE_GROWTH_PATTERN = re.compile(r"\[runtime-reserve\] growth owner=([^\s]+)")
@@ -123,7 +124,7 @@ def validate_evidence(
     if overlay["observations"] == 0:
         raise ValueError("existing cause-overlay marker was not observed")
 
-    panel_render = summaries["Frame/Replay/CauseInspection/PanelRender"]
+    panel_render = summaries[PANEL_RENDER_MARKER]
 
     if panel_render["maxMs"] > overlay["maxMs"]:
         raise ValueError("nested causal panel render exceeded its enclosing cause-overlay sample")
@@ -152,7 +153,7 @@ def validate_evidence(
     top_level_markers = (
         "Frame/Replay/CauseInspection/Selection",
         "Frame/Replay/CauseInspection/PanelInput",
-        "Frame/Replay/CauseInspection/PanelRender",
+        PANEL_RENDER_MARKER,
     )
     max_top_level_phase = max(summaries[name]["maxMs"] for name in top_level_markers)
 
@@ -263,6 +264,14 @@ def self_test() -> None:
     assert registered_growth_owners("[runtime-reserve] growth owner=replay_test target=x\n") == {
         "replay_test": 1
     }
+
+    current_marker_rows = [{"timings": {PANEL_RENDER_MARKER: 0.25}}]
+    retired_marker_rows = [{"timings": {"Frame/Replay/CauseInspection/PanelRender": 0.50}}]
+    assert marker_summary(current_marker_rows, PANEL_RENDER_MARKER)["observations"] == 1
+
+    # Invariant: the analyzer follows the current Planning owner exactly; a
+    # retired profiler spelling cannot silently satisfy the performance proof.
+    assert marker_summary(retired_marker_rows, PANEL_RENDER_MARKER)["observations"] == 0
 
 
 def main() -> int:

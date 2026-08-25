@@ -48,6 +48,7 @@
 #include "../SkullbonezSource/UI/UIDrawList.h"
 #include "../SkullbonezSource/UI/UIDrawWidgets.h"
 
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -101,7 +102,7 @@ TEST_CASE( "Operator UI phase: detached facts and process commands cross one ord
     snapshot.secondarySurfaceVisible = true;
 
     OperatorUiPhaseOwner phase;
-    REQUIRE( phase.Begin( snapshot ) );
+    phase.Begin( snapshot );
     snapshot.uiText.presentationAlpha = 0.75f;
     snapshot.metrics.uiDrawCalls = 99;
 
@@ -109,14 +110,15 @@ TEST_CASE( "Operator UI phase: detached facts and process commands cross one ord
     CHECK( phase.Snapshot().metrics.uiDrawCalls == 9 );
     CHECK( phase.Snapshot().viewportWidth == 1920 );
     CHECK( phase.Snapshot().secondarySurfaceVisible );
-    REQUIRE( phase.MarkComposed() );
-    REQUIRE( phase.RecordGpuSubmission( 7 ) );
+    phase.Compose( false, true, true, false );
+    CHECK( phase.SubmissionPlan().composeGameUi );
+    CHECK_FALSE( phase.SubmissionPlan().submitOverlay );
+    CHECK( phase.SubmissionPlan().submitReplay );
+    CHECK_FALSE( phase.SubmissionPlan().finalizeOverlay );
+    phase.RecordGpuSubmission( 7 );
 
-    OperatorUiProcessCommands commands;
-    commands.surface = OperatorUiSurfaceCommand::ShowGameUi;
-    commands.requestTracyStandardCapture = true;
-    REQUIRE( phase.EmitCommands( commands ) );
-    REQUIRE( phase.Complete() );
+    phase.EmitCommands( true, true );
+    phase.Complete();
 
     CHECK( phase.CurrentPhase() == OperatorUiPhaseOwner::Phase::Complete );
     CHECK( phase.GameUiDrawCalls() == 7 );
@@ -134,9 +136,9 @@ TEST_CASE( "Operator UI phase: hidden GameUI and ImGui consume the same immutabl
     OperatorUiPhaseOwner hidden;
     OperatorUiPhaseOwner gameUi;
     OperatorUiPhaseOwner imgui;
-    REQUIRE( hidden.Begin( shared ) );
-    REQUIRE( gameUi.Begin( shared ) );
-    REQUIRE( imgui.Begin( shared ) );
+    hidden.Begin( shared );
+    gameUi.Begin( shared );
+    imgui.Begin( shared );
 
     CHECK( hidden.Snapshot().uiText.cameraModeEnabledMask == gameUi.Snapshot().uiText.cameraModeEnabledMask );
     CHECK( gameUi.Snapshot().uiText.cameraModeEnabledMask == imgui.Snapshot().uiText.cameraModeEnabledMask );
@@ -144,40 +146,76 @@ TEST_CASE( "Operator UI phase: hidden GameUI and ImGui consume the same immutabl
     CHECK( hidden.Snapshot().metrics.sceneEnergy == doctest::Approx( imgui.Snapshot().metrics.sceneEnergy ) );
 }
 
-TEST_CASE( "Operator UI phase: skipped operations cannot advance the owner cursor" )
+TEST_CASE( "Operator UI phase: only adjacent operations belong to the fatal phase walk" )
 {
-    OperatorUiPhaseOwner phase;
-    CHECK_FALSE( phase.MarkComposed() );
-    CHECK_FALSE( phase.RecordGpuSubmission( 1 ) );
-    CHECK_FALSE( phase.EmitCommands( {} ) );
-    CHECK_FALSE( phase.Complete() );
-    CHECK( phase.CurrentPhase() == OperatorUiPhaseOwner::Phase::Idle );
+    using Phase = OperatorUiPhaseOwner::Phase;
+    constexpr std::array phases { Phase::Idle, Phase::Snapshot, Phase::Composed,
+                                  Phase::Submitted, Phase::CommandsEmitted, Phase::Complete };
+
+    for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
+    {
+        for ( std::size_t toIndex = 0u; toIndex < phases.size(); ++toIndex )
+        {
+            const bool adjacent = fromIndex + 1u == toIndex;
+            CHECK( OperatorUiPhaseOwner::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == adjacent );
+        }
+    }
 }
 
 TEST_CASE( "Operator UI phase: submission plan preserves text-only hidden and visible routing" )
 {
-    const OperatorUiSubmissionPlan textOnly = ResolveOperatorUiSubmissionPlan( true, true, true, false );
+    OperatorUiPhaseOwner textOnlyPhase;
+    textOnlyPhase.Begin( {} );
+    textOnlyPhase.Compose( true, true, true, false );
+    const OperatorUiSubmissionPlan& textOnly = textOnlyPhase.SubmissionPlan();
     CHECK_FALSE( textOnly.composeGameUi );
     CHECK_FALSE( textOnly.submitOverlay );
     CHECK_FALSE( textOnly.submitReplay );
     CHECK_FALSE( textOnly.finalizeOverlay );
 
-    const OperatorUiSubmissionPlan visible = ResolveOperatorUiSubmissionPlan( false, true, true, false );
+    OperatorUiPhaseOwner visiblePhase;
+    visiblePhase.Begin( {} );
+    visiblePhase.Compose( false, true, true, false );
+    const OperatorUiSubmissionPlan& visible = visiblePhase.SubmissionPlan();
     CHECK( visible.composeGameUi );
     CHECK_FALSE( visible.submitOverlay );
     CHECK( visible.submitReplay );
     CHECK_FALSE( visible.finalizeOverlay );
 
-    const OperatorUiSubmissionPlan hidden = ResolveOperatorUiSubmissionPlan( false, false, false, false );
+    OperatorUiPhaseOwner hiddenPhase;
+    hiddenPhase.Begin( {} );
+    hiddenPhase.Compose( false, false, false, false );
+    const OperatorUiSubmissionPlan& hidden = hiddenPhase.SubmissionPlan();
     CHECK_FALSE( hidden.composeGameUi );
     CHECK( hidden.submitOverlay );
     CHECK( hidden.submitReplay );
     CHECK( hidden.finalizeOverlay );
 
-    const OperatorUiSubmissionPlan profiler = ResolveOperatorUiSubmissionPlan( false, false, false, true );
+    OperatorUiPhaseOwner hiddenNeedsUiPhase;
+    hiddenNeedsUiPhase.Begin( {} );
+    hiddenNeedsUiPhase.Compose( false, true, false, false );
+    const OperatorUiSubmissionPlan& hiddenNeedsUi = hiddenNeedsUiPhase.SubmissionPlan();
+    CHECK( hiddenNeedsUi.composeGameUi );
+    CHECK( hiddenNeedsUi.submitOverlay );
+    CHECK( hiddenNeedsUi.submitReplay );
+    CHECK( hiddenNeedsUi.finalizeOverlay );
+
+    OperatorUiPhaseOwner profilerPhase;
+    profilerPhase.Begin( {} );
+    profilerPhase.Compose( false, false, false, true );
+    const OperatorUiSubmissionPlan& profiler = profilerPhase.SubmissionPlan();
     CHECK( profiler.submitOverlay );
     CHECK( profiler.submitReplay );
     CHECK_FALSE( profiler.finalizeOverlay );
+
+    OperatorUiPhaseOwner noCommandPhase;
+    noCommandPhase.Begin( {} );
+    noCommandPhase.Compose( true, false, false, false );
+    noCommandPhase.RecordGpuSubmission( 0 );
+    noCommandPhase.EmitCommands( false, false );
+    noCommandPhase.Complete();
+    CHECK( noCommandPhase.Commands().surface == OperatorUiSurfaceCommand::None );
+    CHECK_FALSE( noCommandPhase.Commands().requestTracyStandardCapture );
 }
 
 TEST_CASE( "Render policy: unavailable raytracing cannot select DXR reflection" )

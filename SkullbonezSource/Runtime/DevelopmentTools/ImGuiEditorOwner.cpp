@@ -38,12 +38,14 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
+  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorControlPolicy.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - ThirdPtySource/imgui
   - Agentic/Reference/engine-glossary.md
 */
 #include "ImGuiEditorOwner.h"
+#include "ImGuiEditorControlPolicy.h"
 #include "ImGuiEditorCausalityProjection.h"
 
 #include "../../Core/Allocation/DevelopmentToolAllocation.h"
@@ -51,7 +53,7 @@ Related:
 #include "../../Core/SbDiagnosticStore.h"
 #include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
 #include "../Interaction/OperatorEditorObjectCatalog.h"
-#include "../../UI/UILayout.h"
+#include "../Interaction/OperatorEditorExchange.h"
 #include "../Render/UIRenderAuthoringCatalog.h"
 #include "../../Physics/PhysicsDebugData.h"
 
@@ -2115,25 +2117,26 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 }
 
                 editFloat( "Time scale", UI::OperatorEditorPropertyCommandType::SetTimeScale, world.timeScale,
-                           UI::Layout::UI_TIME_SCALE_STEP, UI::Layout::UI_TIME_SCALE_MIN, UI::Layout::UI_TIME_SCALE_MAX,
-                           "%.2fx" );
+                           UI::OperatorControlPolicy::UI_TIME_SCALE_STEP, UI::OperatorControlPolicy::UI_TIME_SCALE_MIN,
+                           UI::OperatorControlPolicy::UI_TIME_SCALE_MAX, "%.2fx" );
             }
 
             if ( ImGui::CollapsingHeader( "Population / seed", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
                 const int capacity = (std::max)( 0, world.modelCapacity );
                 editInteger( "Population", UI::OperatorEditorPropertyCommandType::SetModelCount, world.modelCount,
-                             UI::Layout::UI_MODEL_COUNT_MIN, capacity );
+                             UI::OperatorControlPolicy::UI_MODEL_COUNT_MIN, capacity );
 
-                editInteger( "Seed", UI::OperatorEditorPropertyCommandType::SetSeed, world.rngSeed, UI::Layout::UI_SEED_MIN,
-                             UI::Layout::UI_SEED_MAX );
+                editInteger( "Seed", UI::OperatorEditorPropertyCommandType::SetSeed, world.rngSeed,
+                             UI::OperatorControlPolicy::UI_SEED_MIN, UI::OperatorControlPolicy::UI_SEED_MAX );
 
                 editInteger( "Solver balls", UI::OperatorEditorPropertyCommandType::SetSolverBallCount,
-                             world.solverBallCount, UI::Layout::UI_SOLVER_COUNT_MIN,
+                             world.solverBallCount, UI::OperatorControlPolicy::UI_SOLVER_COUNT_MIN,
                              (std::max)( 0, capacity - world.solverBoxCount ) );
 
                 editInteger( "Solver boxes", UI::OperatorEditorPropertyCommandType::SetSolverBoxCount, world.solverBoxCount,
-                             UI::Layout::UI_SOLVER_COUNT_MIN, (std::max)( 0, capacity - world.solverBallCount ) );
+                             UI::OperatorControlPolicy::UI_SOLVER_COUNT_MIN,
+                             (std::max)( 0, capacity - world.solverBallCount ) );
 
                 ImGui::TextDisabled( "Population controls rebuild generated scene topology on commit." );
             }
@@ -2141,31 +2144,37 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             if ( ImGui::CollapsingHeader( "World forces / fluid", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
                 editFloat( "Gravity", UI::OperatorEditorPropertyCommandType::SetWorldGravity, world.gravity,
-                           UI::Layout::UI_WORLD_GRAVITY_STEP, -UI::Layout::UI_WORLD_GRAVITY_MAX,
-                           -UI::Layout::UI_WORLD_GRAVITY_MIN, "%.2f m/s^2" );
+                           UI::OperatorControlPolicy::UI_WORLD_GRAVITY_STEP,
+                           -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MAX,
+                           -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MIN, "%.2f m/s^2" );
 
                 editFloat( "Fluid surface", UI::OperatorEditorPropertyCommandType::SetWorldFluidHeight, world.fluidHeight,
-                           UI::Layout::UI_WORLD_FLUID_HEIGHT_STEP, UI::Layout::UI_WORLD_FLUID_HEIGHT_MIN,
-                           UI::Layout::UI_WORLD_FLUID_HEIGHT_MAX, "%.1f m" );
+                           UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_STEP,
+                           UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MIN,
+                           UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MAX, "%.1f m" );
 
                 editFloat( "Fluid density", UI::OperatorEditorPropertyCommandType::SetWorldFluidDensity, world.fluidDensity,
-                           UI::Layout::UI_WORLD_FLUID_DENSITY_STEP, UI::Layout::UI_WORLD_FLUID_DENSITY_MIN,
-                           UI::Layout::UI_WORLD_FLUID_DENSITY_MAX, "%.2f kg/m3" );
+                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_STEP,
+                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MIN,
+                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MAX, "%.2f kg/m3" );
             }
 
             if ( ImGui::CollapsingHeader( "Contact friction", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
                 editFloat( "Terrain friction", UI::OperatorEditorPropertyCommandType::SetTerrainFriction,
-                           world.terrainFriction, UI::Layout::UI_FRICTION_COEFF_STEP, UI::Layout::UI_FRICTION_COEFF_MIN,
-                           UI::Layout::UI_FRICTION_COEFF_MAX, "%.2f" );
+                           world.terrainFriction, UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP,
+                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX, "%.2f" );
 
                 editFloat( "Object friction", UI::OperatorEditorPropertyCommandType::SetObjectFriction, world.objectFriction,
-                           UI::Layout::UI_FRICTION_COEFF_STEP, UI::Layout::UI_FRICTION_COEFF_MIN,
-                           UI::Layout::UI_FRICTION_COEFF_MAX, "%.2f" );
+                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP,
+                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX, "%.2f" );
 
                 editFloat( "Rolling friction", UI::OperatorEditorPropertyCommandType::SetRollingFriction,
-                           world.rollingFriction, UI::Layout::UI_ROLLING_FRICTION_COEFF_STEP,
-                           UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN, UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX, "%.3f" );
+                           world.rollingFriction, UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_STEP,
+                           UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MIN,
+                           UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MAX, "%.3f" );
             }
 
             if ( ImGui::CollapsingHeader( "Tornado / environment force", ImGuiTreeNodeFlags_DefaultOpen ) )
@@ -2178,24 +2187,27 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 }
 
                 editFloat( "Radius", UI::OperatorEditorPropertyCommandType::SetTornadoRadius, world.tornadoRadius,
-                           UI::Layout::UI_TORNADO_RADIUS_STEP, UI::Layout::UI_TORNADO_RADIUS_MIN,
-                           UI::Layout::UI_TORNADO_RADIUS_MAX, "%.1f m" );
+                           UI::OperatorControlPolicy::UI_TORNADO_RADIUS_STEP,
+                           UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MIN,
+                           UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MAX, "%.1f m" );
 
                 editFloat( "Height", UI::OperatorEditorPropertyCommandType::SetTornadoHeight, world.tornadoHeight,
-                           UI::Layout::UI_TORNADO_HEIGHT_STEP, UI::Layout::UI_TORNADO_HEIGHT_MIN,
-                           UI::Layout::UI_TORNADO_HEIGHT_MAX, "%.1f m" );
+                           UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_STEP,
+                           UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MIN,
+                           UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MAX, "%.1f m" );
 
                 editFloat( "Inward", UI::OperatorEditorPropertyCommandType::SetTornadoInward, world.tornadoInward,
-                           UI::Layout::UI_TORNADO_INWARD_STEP, UI::Layout::UI_TORNADO_INWARD_MIN,
-                           UI::Layout::UI_TORNADO_INWARD_MAX, "%.1f" );
+                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_STEP,
+                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_MIN,
+                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_MAX, "%.1f" );
 
                 editFloat( "Swirl", UI::OperatorEditorPropertyCommandType::SetTornadoSwirl, world.tornadoSwirl,
-                           UI::Layout::UI_TORNADO_SWIRL_STEP, UI::Layout::UI_TORNADO_SWIRL_MIN,
-                           UI::Layout::UI_TORNADO_SWIRL_MAX, "%.1f" );
+                           UI::OperatorControlPolicy::UI_TORNADO_SWIRL_STEP, UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MIN,
+                           UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MAX, "%.1f" );
 
                 editFloat( "Lift", UI::OperatorEditorPropertyCommandType::SetTornadoLift, world.tornadoLift,
-                           UI::Layout::UI_TORNADO_LIFT_STEP, UI::Layout::UI_TORNADO_LIFT_MIN,
-                           UI::Layout::UI_TORNADO_LIFT_MAX, "%.1f" );
+                           UI::OperatorControlPolicy::UI_TORNADO_LIFT_STEP, UI::OperatorControlPolicy::UI_TORNADO_LIFT_MIN,
+                           UI::OperatorControlPolicy::UI_TORNADO_LIFT_MAX, "%.1f" );
             }
         }
 
@@ -2522,27 +2534,28 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     const char* label;
                     UI::OperatorEditorDiagnosticsCommandType type;
                     float value;
-                    float minValue;
-                    float maxValue;
-                    float step;
                     const char* format;
                 } diagnosticScalars[] = {
                     { "Volume alpha", UI::OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha,
-                      diagnostics.physicsDebugAlpha, 0.0f, 1.0f, 0.01f, "%.2f" },
+                      diagnostics.physicsDebugAlpha, "%.2f" },
                     { "Contact linger", UI::OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger,
-                      diagnostics.physicsDebugContactLinger, 0.0f, 4.0f, 0.05f, "%.2fs" },
+                      diagnostics.physicsDebugContactLinger, "%.2fs" },
                     { "Ray impulse", UI::OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength,
-                      diagnostics.rayCastImpulseStrength, 0.0f, 500.0f, 1.0f, "%.0f" },
+                      diagnostics.rayCastImpulseStrength, "%.0f" },
                     { "Projectile speed", UI::OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed,
-                      diagnostics.launcherProjectileSpeed, 1.0f, 500.0f, 1.0f, "%.0f" },
+                      diagnostics.launcherProjectileSpeed, "%.0f" },
                 };
 
                 for ( const DiagnosticScalar& scalar : diagnosticScalars )
                 {
+                    const ImGuiEditorScalarControlPolicy policy = ResolveImGuiEditorDiagnosticsControlPolicy( scalar.type );
                     const int action = static_cast<int>( scalar.type );
                     ImGui::PushID( action );
-                    editParameterized( m_diagnosticsEdit, scalar.label, action, -1, -1, -1, scalar.value, scalar.step,
-                                       scalar.minValue, scalar.maxValue, scalar.format,
+
+                    // Why: DragFloat speed controls pointer ergonomics, not
+                    // canonicalization; App snaps the submitted typed command.
+                    editParameterized( m_diagnosticsEdit, scalar.label, action, -1, -1, -1, scalar.value, policy.step,
+                                       policy.minValue, policy.maxValue, scalar.format,
                                        [&]( float value, UI::OperatorEditorEditPhase phase )
                                        { submitDiagnostics( scalar.type, 0u, 0, value, phase ); } );
 
@@ -2997,14 +3010,17 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             {
                 float revealSpeed = static_cast<float>( replay.prediction.revealSecondsPerSecond );
 
-                if ( ImGui::SliderFloat( "Reveal speed", &revealSpeed, 0.25f, 4.0f, "%.2fx" ) )
+                if ( ImGui::SliderFloat( "Reveal speed", &revealSpeed,
+                                         static_cast<float>( replay.prediction.revealRateMinimum ),
+                                         static_cast<float>( replay.prediction.revealRateMaximum ), "%.2fx" ) )
                 {
                     submitReplay( UI::OperatorEditorReplayCommandType::SetRevealSpeed, revealSpeed );
                 }
 
                 float horizon = replay.prediction.horizonSeconds;
 
-                if ( ImGui::SliderFloat( "Prediction horizon", &horizon, 1.0f, 20.0f, "%.1fs" ) )
+                if ( ImGui::SliderFloat( "Prediction horizon", &horizon, replay.predictionHorizonMinimum,
+                                         replay.predictionHorizonMaximum, "%.1fs" ) )
                 {
                     submitReplay( UI::OperatorEditorReplayCommandType::SetPredictionHorizon, horizon );
                 }

@@ -37,6 +37,7 @@ Related:
 #include "Runtime/Interaction/RuntimeInteractionController.h"
 #include "Runtime/Interaction/RuntimeInteractionCommands.h"
 #include "Runtime/Interaction/RuntimePickGeometry.h"
+#include "Runtime/App/InputFrame.h"
 #include "Runtime/UI/RuntimeUiSurface.h"
 #include "Core/SbDiagnosticStore.h"
 
@@ -549,7 +550,7 @@ void TestCameraModeCommandsMapToInteractionOwners()
         BeginGesture( controller, MakeMousePickupGesture(), RuntimePointerCaptureOwner::ToolGesture,
                       InteractionExitReason::EnterManipulator );
 
-        const RuntimeInteractionTransition transition = controller.EnterCameraMode( modeCase.mode );
+        const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( controller, modeCase.mode );
 
         EXPECT_EQ( transition.workspace, modeCase.workspace );
         EXPECT_EQ( transition.owner, modeCase.owner );

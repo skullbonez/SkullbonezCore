@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabProfiler.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.cpp
 Purpose:
   Coordinates profiler tree, timeline, worker controls, and their shared tab layout.
 
@@ -736,7 +736,7 @@ bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIIn
 }
 
 
-void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX,
+void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrollY, int activeSlider )
 {
     char buf[128];

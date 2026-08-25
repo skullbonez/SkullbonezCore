@@ -1,8 +1,8 @@
 # Session State
 
-Date: 2026-08-24
-Branch: `nightrunner-22nd-AUG-26`
-Status: Ragdoll Physics Unification, Runtime Boundary Separation, Game UI Component Library Separation, and Recorded Interaction Playback Cursor active; 103/118 tasks complete
+Date: 2026-08-25
+Branch: `nightrunner-24th-aug`
+Status: Ragdoll Physics Unification and Recorded Interaction Playback Cursor active; 112/118 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -17,35 +17,58 @@ two reachability repair rows are gone, both live orders retain the exact sweep
 owner, and focused/all-config evidence is green. FP2 is closed through the
 standing archive-bound automated Physics override: core, deep, and replay-
 visual gates pass, and the artifact manifest retains the prior and new
-executables, launch DLLs, hashes, and the 6,800-frame 200-box comparison. The
+first-party game executables, hashes, and the 6,800-frame 200-box comparison.
+Third-party runtime DLLs are intentionally omitted from tracked artifacts and
+must be restored from the pinned setup/build inputs before an isolated launch. The
 replay witness runs one 2,401-tick generation, moves all 200 wall bricks,
 publishes 200 causal nodes, and rejects every registered false-pass control.
-FP3 is active.
-FP5-FP9 complete the ragdoll joint and late speculative-contact path. Runtime
-Boundary Separation And Project Topology
-RBS0-RBS7 remains active behind it; RBS0-RBS6 are complete and RBS7 is ready.
+FP3 and FP4 are complete. FP4's exact-final direction-valid radius comparison
+keeps 95.66%-100% of measured body ticks Discrete and reduces mean Physics time
+by 6.98%-51.30% across the mixed, 520-body, and 2,000-body retained runs. The owner
+signed off on the result and exact current-tree performance-baseline transition.
+The owner made the radius rule the sole shipping policy, retired the absolute
+threshold and runtime selector, and authorized the governed baseline refresh.
+Sphere radius-squared, oriented-box local-axis half-extent checks, and cached
+centered-difference hull face and edge-cross-edge SAT axes keep elongated shapes Discrete unless travel
+exceeds a valid shape width. SkullScope records per-frame and per-object policy state and
+`physics_query motion` reconstructs promotions and demotions. FP5-FP9 complete
+the ragdoll joint and late speculative-contact path. Runtime
+Boundary Separation And Project Topology RBS0-RBS7 is complete at 8/8. RBS7
+repaired the allocation rulings, replaced the Replay startup context with a
+finite-state continuation, moved Operator UI projection into Runtime/UI, and
+closed submission/command protocol ownership in the composition root.
 Strict Runtime enforcement now passes with zero forbidden sites, zero repair
 debt, zero reverse-App edges, and no multi-package SCC. Runtime/App alone
 composes cross-owner effects; native host, frame metrics, operator UI projection,
 GPU submission, and domain owners exchange bounded values and commands. All
 ten tracked Visual Studio projects remain inside the closed topology policy.
 The approved Rendering library owns the exact Rendering source closure; all
-five configurations and the portable CPU build pass. RBS7 now performs terminal
-behavioral and ownership validation. Completed plan files remain deleted under the repository convention;
+five configurations and the portable CPU build pass. Pushed integration commit
+`7a3e952d2` passed cumulative `validate_fast` and the ASSET/RBS focused overlap
+tests. Completed plan files remain deleted under the repository convention;
 Git history retains their phase evidence.
 
-Game UI Component Library Separation UI0-UI6 has phase-local RBS prerequisites
-and no Physics predecessor. UI0-UI3 are complete: all 70 tracked UI files have
+Game UI Component Library Separation UI0-UI6 is complete at 7/7: all tracked
+UI files have
 binding dispositions; explicit stateless geometry/state contracts cover the
 proved shared component families; and the seven retained wrappers now route
 through those contracts without changing product fingerprints, command values,
 or interaction geometry. Repeated Replay/Planning controls and fitting Runtime
-badges now use shared components without moving semantic owners. UI4's RBS5 and
-UI5's RBS6 prerequisites are satisfied; phase order requires UI4 next. UI6
-consumes RBS7.
-Recorded Interaction Playback Cursor RIC0-RIC3 is registered after UI6; it adds
-only a fake recorded-playback overlay and explicitly forbids any hardware cursor
-or native capture change.
+badges now use shared components without moving semantic owners. Product
+composition sits above the reusable foundation, project/test boundaries retain
+all 31 portable determinism cases, and UI6 closed Replay popup bounds through
+their Prediction and Replay/Planning owners. Its exactly-once plan-completion
+gate passed 760/760 cases and 2,685,294 assertions with unchanged baselines;
+the inherited causal-depth oracle and historical Physics performance baseline
+remain external recorded failures without refresh authority.
+Recorded Interaction Playback Cursor RIC0-RIC3 is active at 3/4. RIC2 draws the
+Automation-owned frame value through one bounded Runtime/UI compositor and one
+honest App submission edge after GameUI, replay overlays, UI finalization, and
+ImGui but before screenshots and Present. The exact unchanged recording and
+native captures prove the marker appears before right-look, disappears during
+captured look, and returns afterward while GameUI remains minimized. Focused
+RIC0-RIC2 tests pass 9/9 cases and 204/204 assertions; RIC3 terminal closure is
+next.
 
 Real-Time Physics Pacing SP0-SP2 is complete. Live and unlimited scenes now
 schedule fixed-frequency Physics from elapsed wall time, while explicit startup
@@ -482,32 +505,20 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Continue `RAGDOLL_PHYSICS` with FP3 on a fresh worker. Other slots may continue
-`RUNTIME_BOUNDARIES` RBS7
-when their current canonical subsystem, path-owner, worktree, and mutable
-resource leases are disjoint. UI4 is ready after RBS5. FP2 retains motion policy version 2: `0.1` metres
-of absolute per-tick travel promotes and `0.075` metres demotes, independent of
-collider thickness.
+Begin `RAGDOLL_PHYSICS` FP5's three-degree-of-freedom point-joint phase while
+running `RECORDED_CURSOR` RIC3 terminal audit on the integrated RIC0-RIC2 value
+and draw path. FP4's direction-valid radius policy is the only motion-eligibility
+path; the FP2 absolute policy and its selector are retired.
 
 ## Blockers
 
-- FP0 pre-change `tools\validate_perf.bat` stops on 33 existing non-Physics
-  allocation-policy findings before performance measurement. Preserve this as
-  inherited evidence; do not weaken the policy or attribute the rows to FP0.
-- At the FP2 version-2 threshold checkpoint, `tools\validate_perf.bat` stops on
-  the same 40 rows as clean base `07c065f65`: seven pre-existing
-  PhysicsFixedList mutation spellings in `PhysicsMotionEligibilityStage.cpp`
-  plus 33 inherited non-Physics/tooling rows, one of which is a stale allowlist
-  diagnostic. Direct 520/2,000-body measurements were run without changing the
-  checker, an allowlist, or a performance baseline; the registered FP4 A/B owner
-  ruling remains the place to adjudicate the intended Discrete transition.
 - FP0 pre-change `tools\validate_replay_visual_fidelity.bat` builds and passes
   its 18 typed/false-pass controls, then the authoritative run stops at reveal 0
   on `header.futureNodeCount`. Preserve the oracle until the Physics phase
   explains the transition, retains both launch payloads, and applies the exact
   candidate through the archived automated lane.
-- The stale Physics CSV, noisy relative Physics performance sample, and
-  corrected-topology visual oracle remain validation findings. Active Physics
+- The stale Physics CSV and corrected-topology visual oracle remain validation
+  findings. Active Physics
   plans now have standing authority for every golden they govern, including
   Physics, replay, visual, causal, SkullScope, and performance transitions,
   without another pause or interactive phrase. Every write remains exact-digest

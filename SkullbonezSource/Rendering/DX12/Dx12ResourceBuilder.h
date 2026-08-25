@@ -38,6 +38,7 @@ class Dx12TextureOwner;
 class FramebufferDX12;
 class MeshDX12;
 class ShaderDX12;
+struct Dx12InitialRasterShaderBytecodePreparationSummary;
 
 class Dx12ResourceBuilder
 {
@@ -53,6 +54,10 @@ class Dx12ResourceBuilder
     // contractBaseName separates a feature-owned physical asset name from the
     // generic CPU ABI name used by Rendering.
     std::unique_ptr<ShaderDX12> CreateShader( const char* baseName, const char* contractBaseName = nullptr );
+
+    // BackendInit-only operation: verify the finite first-gameplay raster set
+    // without constructing pass-owned ShaderDX12 objects.
+    Dx12InitialRasterShaderBytecodePreparationSummary PrepareInitialRasterShaderBytecode();
     std::unique_ptr<MeshDX12> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords );
     std::unique_ptr<FramebufferDX12> CreateFramebuffer( int width, int height,
                                                         FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );

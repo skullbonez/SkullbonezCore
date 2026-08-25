@@ -6,7 +6,8 @@ Purpose:
 Summary:
   The owner launches the repository's pinned bake tool, validates replacement
   bytecode for every registered raster shader, stages the generate-mips compute
-  PSO, drains the frame owner, and then performs a no-fail publication.
+  PSO, drains the frame owner, and then performs a no-fail publication. It also
+  prepares the fixed first-gameplay manifest projection before frame rendering.
 
 Glossary:
   Offline DXC bake: Repository tool invocation that creates one pinned manifest
@@ -18,6 +19,7 @@ Invariants:
   - Candidate preparation completes for every shader before any live object changes.
   - The commit contains no recoverable operation after old PSOs are released.
   - Registered rows are fixed-capacity and contain no backend or command-list pointer.
+  - Failed cold preparation remains recoverable and never caches a partial program.
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.h
@@ -26,6 +28,7 @@ Related:
 */
 #include "Dx12ShaderDevelopment.h"
 #include "../../Core/SbDiagnosticStore.h"
+#include "../../Core/WindowConstants.h"
 
 #include "RenderBackendDX12.h"
 #include "ShaderBytecodeManifest.h"
@@ -34,9 +37,56 @@ Related:
 #include "../../Core/FatalError.h"
 
 #include <array>
+#include <cctype>
+#include <cstring>
 #include <cstdio>
 
 using namespace SkullbonezCore::Rendering;
+using Microsoft::WRL::ComPtr;
+
+namespace
+{
+bool Dx12RenderSuiteRequested()
+{
+    constexpr char SUITE_TOKEN[] = "--suite";
+    const char* cursor = GetCommandLineA();
+
+    while ( cursor && *cursor )
+    {
+        while ( *cursor && std::isspace( static_cast<unsigned char>( *cursor ) ) )
+        {
+            ++cursor;
+        }
+
+        const bool quoted = *cursor == '"';
+
+        if ( quoted )
+        {
+            ++cursor;
+        }
+
+        const char* begin = cursor;
+
+        while ( *cursor && ( quoted ? *cursor != '"' : !std::isspace( static_cast<unsigned char>( *cursor ) ) ) )
+        {
+            ++cursor;
+        }
+
+        if ( static_cast<std::size_t>( cursor - begin ) == std::strlen( SUITE_TOKEN ) &&
+             std::strncmp( begin, SUITE_TOKEN, std::strlen( SUITE_TOKEN ) ) == 0 )
+        {
+            return true;
+        }
+
+        if ( quoted && *cursor == '"' )
+        {
+            ++cursor;
+        }
+    }
+
+    return false;
+}
+} // namespace
 
 
 Dx12ShaderDevelopment::Dx12ShaderDevelopment( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
@@ -52,6 +102,116 @@ Dx12ShaderDevelopment::Dx12ShaderDevelopment( SkullbonezCore::Core::SbDiagnostic
 bool Dx12ShaderDevelopment::Enabled() const
 {
     return DevShaderHotReloadEnabled();
+}
+
+
+Dx12InitialRasterShaderBytecodePreparationSummary Dx12ShaderDevelopment::PrepareInitialRasterShaderBytecode()
+{
+    std::string error;
+    const ShaderBytecodeManifestCache::PreparationSummary cacheSummary = m_bytecodeCache.PrepareFirstGameplayPrograms( error );
+    const Dx12InitialRasterShaderBytecodePreparationSummary summary { cacheSummary.attempted, cacheSummary.complete,
+                                                                      cacheSummary.newlyPublished, cacheSummary.cacheHits,
+                                                                      cacheSummary.stageLoads };
+
+    // Bounded cold evidence: stdout survives Profile builds and records only
+    // this invocation. Lifetime totals cannot distinguish a partial retry from
+    // an idempotent warm call.
+    std::fprintf( stdout,
+                  "dx12_shader_manifest_warm attempted=%zu complete=%zu newly_published=%zu cache_hits=%zu "
+                  "stage_loads=%zu\n",
+                  summary.attempted, summary.complete, summary.newlyPublished, summary.cacheHits, summary.stageLoads );
+    std::fflush( stdout );
+
+    if ( summary.complete != summary.attempted )
+    {
+        // Recoverable error: warm-up follows the same external-input policy as
+        // CreateShader. Leave failed rows uncached so their actual lazy owners
+        // retry and publish the existing path-specific rejection diagnostics.
+        std::fprintf( stderr, "dx12_shader_manifest_warm_incomplete reason=%s\n", error.c_str() );
+        std::fflush( stderr );
+    }
+
+    // The existing --suite launch is the renderer-owned validation boundary.
+    // External manifest overrides remain recoverable: the assertion probe runs
+    // only after the production warm call proved the pinned 13-row projection.
+    if ( Dx12RenderSuiteRequested() && summary.attempted == 13u && summary.complete == 13u )
+    {
+        ValidateInitialRasterShaderBytecodeCache();
+    }
+
+    return summary;
+}
+
+
+bool Dx12ShaderDevelopment::LoadCurrentProgramBytecode( const char* hlslPath, ComPtr<ID3DBlob>& outVertex,
+                                                        ComPtr<ID3DBlob>& outPixel, std::string& outError )
+{
+    return m_bytecodeCache.LoadProgram( hlslPath, outVertex, outPixel, outError ).complete;
+}
+
+
+void Dx12ShaderDevelopment::ValidateInitialRasterShaderBytecodeCache() const
+{
+    auto require = []( bool condition, const char* reason )
+    {
+        if ( !condition )
+        {
+            // Fatal invariant: this path is entered only by the repository's
+            // pinned DX12 suite after ordinary production preparation succeeds.
+            SB_FATAL( "Dx12ShaderDevelopment", "Shader manifest cache validation failed: %s", reason );
+        }
+    };
+
+    ShaderBytecodeManifestCache isolated;
+    std::string error;
+    const ShaderBytecodeManifestCache::PreparationSummary first = isolated.PrepareFirstGameplayPrograms( error );
+    require( first.attempted == 13u && first.complete == 13u && first.newlyPublished == 13u && first.cacheHits == 0u &&
+                 first.stageLoads == 26u,
+             "first warm did not publish exactly 13 two-stage programs" );
+
+    const ShaderBytecodeManifestCache::PreparationSummary second = isolated.PrepareFirstGameplayPrograms( error );
+    require( second.attempted == 13u && second.complete == 13u && second.newlyPublished == 0u && second.cacheHits == 13u &&
+                 second.stageLoads == 0u,
+             "second warm did not use exactly 13 manifest-free cache hits" );
+
+    isolated.Reset();
+    const std::string missingPath = std::string( DATA_ROOT ) + "shaders/__manifest_cache_validation_missing.hlsl";
+    ComPtr<ID3DBlob> vertex;
+    ComPtr<ID3DBlob> pixel;
+    const ShaderBytecodeManifestCache::ProgramLoadSummary missingFirst = isolated.LoadProgram( missingPath.c_str(), vertex,
+                                                                                               pixel, error );
+    const ShaderBytecodeManifestCache::ProgramLoadSummary missingSecond = isolated.LoadProgram( missingPath.c_str(), vertex,
+                                                                                                pixel, error );
+    require( !missingFirst.complete && !missingFirst.newlyPublished && !missingFirst.cacheHit &&
+                 missingFirst.stageLoads == 1u && !missingSecond.complete && !missingSecond.newlyPublished &&
+                 !missingSecond.cacheHit && missingSecond.stageLoads == 1u && isolated.m_programCount == 0u,
+             "missing program was cached or did not retry its manifest load" );
+
+    isolated.Reset();
+    const std::string directPath = std::string( DATA_ROOT ) + "shaders/lit_textured.hlsl";
+    const ShaderBytecodeManifestCache::ProgramLoadSummary direct = isolated.LoadProgram( directPath.c_str(), vertex, pixel,
+                                                                                         error );
+    require( direct.complete && direct.newlyPublished && !direct.cacheHit && direct.stageLoads == 2u &&
+                 isolated.m_programCount == 1u,
+             "direct load did not publish one verified raster pair" );
+
+    isolated.Reset();
+    const ShaderBytecodeManifestCache::PreparationSummary afterInvalidation = isolated.PrepareFirstGameplayPrograms( error );
+    require( afterInvalidation.attempted == 13u && afterInvalidation.complete == 13u &&
+                 afterInvalidation.newlyPublished == 13u && afterInvalidation.cacheHits == 0u &&
+                 afterInvalidation.stageLoads == 26u,
+             "cache invalidation did not force the next warm to reload all stages" );
+
+    std::fprintf( stdout,
+                  "dx12_shader_manifest_cache_validation pass=1 first_attempted=%zu first_complete=%zu "
+                  "first_newly_published=%zu first_cache_hits=%zu first_stage_loads=%zu second_newly_published=%zu "
+                  "second_cache_hits=%zu second_stage_loads=%zu missing_first_stage_loads=%zu "
+                  "missing_second_stage_loads=%zu "
+                  "direct_stage_loads=%zu reload_stage_loads=%zu\n",
+                  first.attempted, first.complete, first.newlyPublished, first.cacheHits, first.stageLoads,
+                  second.newlyPublished, second.cacheHits, second.stageLoads, missingFirst.stageLoads,
+                  missingSecond.stageLoads, direct.stageLoads, afterInvalidation.stageLoads );
+    std::fflush( stdout );
 }
 
 
@@ -210,6 +370,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
 
     // Lifetime: the composition root drained the GPU before this method. From
     // here through publication every operation is a bounded no-fail release/swap.
+    m_bytecodeCache.Reset();
     m_pipeline.ReleaseShaderPipelinesForReload();
 
     for ( size_t index = 0; index < m_liveShaderCount; ++index )
@@ -246,4 +407,5 @@ void Dx12ShaderDevelopment::ResetAfterShutdown()
     }
 
     m_liveShaders = {};
+    m_bytecodeCache.Reset();
 }

@@ -82,6 +82,12 @@ std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseN
 }
 
 
+Dx12InitialRasterShaderBytecodePreparationSummary Dx12ResourceBuilder::PrepareInitialRasterShaderBytecode()
+{
+    return m_shaderDevelopment.PrepareInitialRasterShaderBytecode();
+}
+
+
 std::unique_ptr<MeshDX12> Dx12ResourceBuilder::CreateMesh( const float* data, int vertexCount, bool hasNormals,
                                                            bool hasTexCoords )
 {

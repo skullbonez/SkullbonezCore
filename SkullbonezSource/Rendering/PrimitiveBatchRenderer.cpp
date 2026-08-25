@@ -58,6 +58,7 @@ static constexpr int PRIMITIVE_SHAPE_MESH = 0;
 static constexpr int PRIMITIVE_SHAPE_SPHERE = 1;
 static constexpr int MATERIAL_TABLE_WIDTH = 16;
 static constexpr int MATERIAL_TABLE_TEXTURE_SLOT = 4;
+static constexpr char INITIAL_VISIBLE_SHADER_BASE_NAME[] = "shaders/lit_textured_instanced";
 
 static Dx12ResourceBuilder& Resources( PrimitiveBatchRendererState& state )
 {
@@ -705,6 +706,16 @@ void PrimitiveBatchRenderer::EnsureSphereShader( const char* shaderBaseName,
         m_state.sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
         m_state.sphereShader->SetFloat( "uMaterialAlpha", 1.0f );
     }
+}
+
+
+void PrimitiveBatchRenderer::PrepareInitialVisibleShader( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting )
+{
+    // Why: visible sphere, box, and pine batches share this retained shader.
+    // Preparing only that shader during cold backend setup keeps reflection and
+    // object construction out of the first strict Render scope. A recoverable
+    // creation failure leaves the cache empty so the ordinary lazy path retries.
+    EnsureSphereShader( INITIAL_VISIBLE_SHADER_BASE_NAME, lighting );
 }
 
 

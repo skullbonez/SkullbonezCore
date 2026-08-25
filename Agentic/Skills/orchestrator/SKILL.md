@@ -474,17 +474,29 @@ Return findings with file/line references and a clear verdict.
     reports/session-state updates. Never stage the ignored live work ledger.
 12. After required validation succeeds, or after recording that validation is
     deferred or not applicable, transition to the `commit-push` ledger step.
-    Commit with the required MASTER progress header as the subject's first
-    fields, followed by a concise action summary. Use the post-commit ledger
-    values and update MASTER in the same commit whenever task completion or the
-    portfolio denominator changes. The body records what changed, why,
-    implementation details by area, exact validation command and result, and
-    baseline/report/session-state updates.
+    Write the complete message to a file before invoking Git. The subject uses
+    the required MASTER progress header followed by a concise action summary.
+    The substantive body must contain non-empty `Why:`, `Ownership:`, `What:`,
+    `Validation:`, `Baselines/Artifacts:`, and `Review:` sections with exact
+    commands, results, counts or hashes where available. A worker sends this
+    complete proposed message to the integration owner for approval; neither
+    worker nor integration owner may commit from a subject-only `-m` command.
+    Run the deterministic pre-commit body gate, then commit from that same file:
+
+```bat
+Agentic\Skills\orchestrator\scripts\work_ledger.bat verify-commit-message -MessageFile "<message-file>"
+git commit -F "<message-file>"
+```
+
+    A failed body gate blocks the commit. Do not weaken, bypass, or defer it.
+    Use the post-commit ledger values and update MASTER in the same commit
+    whenever task completion or the portfolio denominator changes.
 13. Push normally. Never force-push.
 14. Call `work_ledger.bat finish-task -Commit HEAD` only after the push
-    succeeds. This closes commit/push timing, verifies upstream containment,
-    writes the full hash into the task group, and makes the completed ledger
-    immediately queryable before advancing the queue.
+    succeeds. This closes commit/push timing, revalidates the actual committed
+    subject and six-section body as a post-commit backstop, verifies upstream
+    containment, writes the full hash into the task group, and makes the
+    completed ledger immediately queryable before advancing the queue.
 
 In plain mode, advance after the current item is reviewed, validated, committed,
 and pushed, or after its blocker record is pushed. In parallel mode, fan in any

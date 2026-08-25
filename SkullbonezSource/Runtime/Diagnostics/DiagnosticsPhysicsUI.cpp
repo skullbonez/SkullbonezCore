@@ -13,7 +13,8 @@ Glossary:
 Invariants:
   - Command application changes diagnostic presentation only, never simulation.
   - Pipeline indices are normalized before they cross into detached UI status.
-  - Numeric debug values are clamped at the Runtime ownership boundary.
+  - Numeric debug values use the shared OperatorControlPolicy ranges at the
+    Runtime ownership boundary.
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h
@@ -141,13 +142,17 @@ ApplyDiagnosticsPhysicsDebugValueUICommands( OverlayDebugState& debug, const UI:
 
     if ( commands.requestedPhysicsDebugAlpha >= 0.0f )
     {
-        debug.physicsDebugAlpha = std::clamp( commands.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
+        debug.physicsDebugAlpha = std::clamp( commands.requestedPhysicsDebugAlpha,
+                                              UI::OperatorControlPolicy::UI_PHYSICS_ALPHA_MIN,
+                                              UI::OperatorControlPolicy::UI_PHYSICS_ALPHA_MAX );
         result.setAlpha = true;
     }
 
     if ( commands.requestedPhysicsDebugContactLinger >= 0.0f )
     {
-        debug.physicsDebugContactLinger = std::clamp( commands.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
+        debug.physicsDebugContactLinger = std::clamp( commands.requestedPhysicsDebugContactLinger,
+                                                      UI::OperatorControlPolicy::UI_CONTACT_LINGER_MIN,
+                                                      UI::OperatorControlPolicy::UI_CONTACT_LINGER_MAX );
         result.setContactLinger = true;
     }
 

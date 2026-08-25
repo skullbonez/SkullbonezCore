@@ -100,6 +100,12 @@ ShaderDX12::~ShaderDX12()
 
 bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
 {
+    return CompileInternal( hlslPath, contractBaseName, true );
+}
+
+
+bool ShaderDX12::CompileInternal( const char* hlslPath, const char* contractBaseName, bool useManifestCache )
+{
     m_sourcePath = hlslPath ? hlslPath : "";
     m_contract = FindShaderProgramDesc( contractBaseName ? contractBaseName : hlslPath );
     m_uniformMap.clear();
@@ -111,8 +117,10 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
     m_resourceMap.clear();
 
     std::string loadError;
-    bool loadedBaked = LoadManifestCurrentShaderBytecode( hlslPath, "vs", m_vsBlob, loadError ) &&
-                       LoadManifestCurrentShaderBytecode( hlslPath, "ps", m_psBlob, loadError );
+    const bool loadedBaked = useManifestCache
+                                 ? m_shaderDevelopment.LoadCurrentProgramBytecode( hlslPath, m_vsBlob, m_psBlob, loadError )
+                                 : LoadManifestCurrentShaderBytecode( hlslPath, "vs", m_vsBlob, loadError ) &&
+                                       LoadManifestCurrentShaderBytecode( hlslPath, "ps", m_psBlob, loadError );
 
     if ( !loadedBaked )
     {
@@ -214,7 +222,7 @@ bool ShaderDX12::PrepareReload( ShaderDX12ReloadPayload& payload ) const
 {
     ShaderDX12 candidate( m_device, m_pipeline, m_shaderDevelopment, m_uploadReservations, false );
 
-    if ( !candidate.Compile( m_sourcePath.c_str(), m_contract ? m_contract->baseName : nullptr ) ||
+    if ( !candidate.CompileInternal( m_sourcePath.c_str(), m_contract ? m_contract->baseName : nullptr, false ) ||
          !CanAdoptReload( candidate ) )
     {
         return false;

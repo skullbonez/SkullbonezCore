@@ -5,11 +5,13 @@ Purpose:
 
 Summary:
   App supplies one detached snapshot shared by GameUI and ImGui. The phase
-  owner records composition and GPU submission completion, emits typed process
+  owner resolves which UI presentations belong to that snapshot, records GPU
+  submission completion, arbitrates presenter signals into typed process
   commands, and retains no subsystem pointer or callback.
 
 Invariants:
   - The only phase walk is Idle -> Snapshot -> Composed -> Submitted -> CommandsEmitted -> Complete.
+  - The owner terminates on every repeated, skipped, or backward phase operation.
   - The stored snapshot and returned commands are values; no owner borrow survives a call.
   - Surface visibility never changes which immutable frame facts either UI consumes.
 
@@ -19,6 +21,7 @@ Related:
 */
 #pragma once
 
+#include "../../Core/FatalError.h"
 #include "../RuntimeFrameViews.h"
 
 #include <cstdint>
@@ -55,17 +58,6 @@ struct OperatorUiSubmissionPlan
     bool finalizeOverlay = false;
 };
 
-inline OperatorUiSubmissionPlan ResolveOperatorUiSubmissionPlan( bool textOnly, bool gameUiNeedsTextPass, bool gameUiVisible,
-                                                                 bool profilerBars )
-{
-    if ( textOnly )
-    {
-        return {};
-    }
-
-    return { gameUiNeedsTextPass, !gameUiVisible, true, !gameUiVisible && !profilerBars };
-}
-
 class OperatorUiPhaseOwner
 {
   public:
@@ -79,47 +71,57 @@ class OperatorUiPhaseOwner
         Complete
     };
 
-    bool Begin( const OperatorUiFrameSnapshot& snapshot )
+    // The focused truth-table test exercises the same predicate that guards
+    // every public operation; callers cannot choose a recoverable fallback.
+    static constexpr bool IsLegalTransition( Phase current, Phase next )
     {
-        if ( !Advance( Phase::Idle, Phase::Snapshot ) )
-        {
-            return false;
-        }
+        return ( current == Phase::Idle && next == Phase::Snapshot ) ||
+               ( current == Phase::Snapshot && next == Phase::Composed ) ||
+               ( current == Phase::Composed && next == Phase::Submitted ) ||
+               ( current == Phase::Submitted && next == Phase::CommandsEmitted ) ||
+               ( current == Phase::CommandsEmitted && next == Phase::Complete );
+    }
+
+    void Begin( const OperatorUiFrameSnapshot& snapshot )
+    {
+        AdvanceOrFatal( Phase::Snapshot, "Begin" );
 
         m_snapshot = snapshot;
-        return true;
     }
 
-    bool MarkComposed()
+    // Resolves the complete presentation policy before App opens any UI GPU
+    // pass. Keeping the decision with the phase owner prevents the composition
+    // root from selecting individual renderer operations itself.
+    void Compose( bool textOnly, bool gameUiNeedsTextPass, bool gameUiVisible, bool profilerBars )
     {
-        return Advance( Phase::Snapshot, Phase::Composed );
-    }
+        AdvanceOrFatal( Phase::Composed, "Compose" );
 
-    bool RecordGpuSubmission( int gameUiDrawCalls )
-    {
-        if ( !Advance( Phase::Composed, Phase::Submitted ) )
+        if ( !textOnly )
         {
-            return false;
+            m_submissionPlan = { gameUiNeedsTextPass, !gameUiVisible, true, !gameUiVisible && !profilerBars };
         }
+    }
+
+    void RecordGpuSubmission( int gameUiDrawCalls )
+    {
+        AdvanceOrFatal( Phase::Submitted, "RecordGpuSubmission" );
 
         m_gameUiDrawCalls = gameUiDrawCalls;
-        return true;
     }
 
-    bool EmitCommands( const OperatorUiProcessCommands& commands )
+    // Presenter results are facts, not process authority. This method owns
+    // their translation into the only command value App may apply.
+    void EmitCommands( bool requestSurfaceSwap, bool requestTracyStandardCapture )
     {
-        if ( !Advance( Phase::Submitted, Phase::CommandsEmitted ) )
-        {
-            return false;
-        }
+        AdvanceOrFatal( Phase::CommandsEmitted, "EmitCommands" );
 
-        m_commands = commands;
-        return true;
+        m_commands.surface = requestSurfaceSwap ? OperatorUiSurfaceCommand::ShowGameUi : OperatorUiSurfaceCommand::None;
+        m_commands.requestTracyStandardCapture = requestTracyStandardCapture;
     }
 
-    bool Complete()
+    void Complete()
     {
-        return Advance( Phase::CommandsEmitted, Phase::Complete );
+        AdvanceOrFatal( Phase::Complete, "Complete" );
     }
     Phase CurrentPhase() const
     {
@@ -133,25 +135,32 @@ class OperatorUiPhaseOwner
     {
         return m_commands;
     }
+    const OperatorUiSubmissionPlan& SubmissionPlan() const
+    {
+        return m_submissionPlan;
+    }
     int GameUiDrawCalls() const
     {
         return m_gameUiDrawCalls;
     }
 
   private:
-    bool Advance( Phase expected, Phase next )
+    void AdvanceOrFatal( Phase next, const char* operation )
     {
-        if ( m_phase != expected )
+        const Phase current = m_phase;
+
+        if ( !IsLegalTransition( current, next ) )
         {
-            return false;
+            SB_FATAL( "Runtime/OperatorUiPhaseOwner", "Illegal phase transition. operation=%s current=%u next=%u", operation,
+                      static_cast<unsigned int>( current ), static_cast<unsigned int>( next ) );
         }
 
         m_phase = next;
-        return true;
     }
 
     Phase m_phase = Phase::Idle;
     OperatorUiFrameSnapshot m_snapshot;
+    OperatorUiSubmissionPlan m_submissionPlan;
     OperatorUiProcessCommands m_commands;
     int m_gameUiDrawCalls = 0;
 };

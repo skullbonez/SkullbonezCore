@@ -47,6 +47,8 @@
 //     device boundaries, and reports release/fence facts at exhaustion.
 //   - The texture table admits its exact final slot and terminates before an
 //     exhausted fixed table can produce an index.
+//   - DX12 texture upload keeps one- and four-channel inputs direct, expands
+//     luminance-alpha and RGB inputs to RGBA, and does not cross caller spans.
 //   - Tornado visual frame borrows remain valid until release; missing and
 //     release-cleared borrows terminate before capacity or draw dereference.
 //   - Lock-order invalid-id, cycle, and held-stack tripwires are classified by
@@ -117,7 +119,7 @@
 #include "../SkullbonezSource/Runtime/Input/Input.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderer.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"
-#include "../SkullbonezSource/Runtime/App/OperatorUiProjection.h"
+#include "../SkullbonezSource/Runtime/UI/OperatorUiProjection.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
 #include "../SkullbonezSource/World/Terrain.h"
@@ -136,9 +138,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <type_traits>
 #include <initializer_list>
 #include <limits>
 #include <memory>
+#include <span>
 #include <string>
 #include <thread>
 #include <vector>
@@ -156,6 +160,19 @@ struct Dx12DeferredReleaseOwnerTestAccess
 
 struct Dx12TextureOwnerTestAccess
 {
+    static int UploadBytesPerPixel( int channels )
+    {
+        return Dx12TextureOwner::TextureUploadBytesPerPixel( channels );
+    }
+    static bool RequiresRgbaExpansion( int channels )
+    {
+        return Dx12TextureOwner::TextureUploadRequiresRgbaExpansion( channels );
+    }
+    static bool ExpandToRgba( std::span<const uint8_t> source, int channels, std::span<uint8_t> destination )
+    {
+        return Dx12TextureOwner::ExpandTextureUploadToRgba( source, channels, destination );
+    }
+
     class EpochProbe
     {
       public:
@@ -500,6 +517,22 @@ struct OperatorCommandTransactionTestAccess
         transaction.AdvanceOrFatal( next, "ExhaustiveFatalProbe" );
     }
 };
+
+#ifdef _DEBUG
+struct ReplayStartupProbeContinuationTestAccess
+{
+    static void SeedPendingPresentationActivation( ReplayStartupProbeContinuation& continuation )
+    {
+        continuation.m_phase = ReplayStartupProbeContinuation::Phase::AwaitingApplication;
+        continuation.m_pendingAction = ReplayStartupProbeContinuation::PendingAction::ActivateLoadedPresentation;
+    }
+
+    static void RejectPendingApplication( ReplayStartupProbeContinuation& continuation )
+    {
+        continuation.RejectPendingApplicationOrFatal( "RejectPresentationActivationTest" );
+    }
+};
+#endif
 } // namespace Runtime
 } // namespace SkullbonezCore
 
@@ -532,9 +565,50 @@ TEST_CASE( "Lock-order Debug probes classify invalid ids, cycles, and held-stack
 
 TEST_CASE( "TextureCollection fixed capacity admits its exact final slot" )
 {
-    CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
-               SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1u ) ==
+    CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot( SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1u ) ==
            SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1 );
+}
+
+
+TEST_CASE( "DX12 texture upload preserves direct channels and expands two and three channel pixels within bounds" )
+{
+    using SkullbonezCore::Rendering::Dx12TextureOwnerTestAccess;
+
+    CHECK( Dx12TextureOwnerTestAccess::UploadBytesPerPixel( 1 ) == 1 );
+    CHECK_FALSE( Dx12TextureOwnerTestAccess::RequiresRgbaExpansion( 1 ) );
+    CHECK( Dx12TextureOwnerTestAccess::UploadBytesPerPixel( 2 ) == 4 );
+    CHECK( Dx12TextureOwnerTestAccess::RequiresRgbaExpansion( 2 ) );
+    CHECK( Dx12TextureOwnerTestAccess::UploadBytesPerPixel( 3 ) == 4 );
+    CHECK( Dx12TextureOwnerTestAccess::RequiresRgbaExpansion( 3 ) );
+    CHECK( Dx12TextureOwnerTestAccess::UploadBytesPerPixel( 4 ) == 4 );
+    CHECK_FALSE( Dx12TextureOwnerTestAccess::RequiresRgbaExpansion( 4 ) );
+
+    constexpr uint8_t sourceGuard = 0xD1;
+    constexpr uint8_t destinationGuard = 0xE2;
+    std::array<uint8_t, 6> twoChannelSource = { sourceGuard, 10, 20, 30, 40, sourceGuard };
+    std::array<uint8_t, 10> twoChannelDestination;
+    twoChannelDestination.fill( destinationGuard );
+    const std::array<uint8_t, 6> expectedTwoChannelSource = twoChannelSource;
+    const std::array<uint8_t, 10> expectedTwoChannelDestination = { destinationGuard, 10, 10, 10, 20, 30, 30, 30, 40,
+                                                                    destinationGuard };
+
+    const bool
+        twoChannelExpanded = Dx12TextureOwnerTestAccess::ExpandToRgba( std::span( twoChannelSource ).subspan( 1, 4 ), 2,
+                                                                       std::span( twoChannelDestination ).subspan( 1, 8 ) );
+    const bool twoChannelResultMatches = twoChannelExpanded && twoChannelDestination == expectedTwoChannelDestination;
+    CHECK( twoChannelResultMatches );
+    CHECK( twoChannelSource == expectedTwoChannelSource );
+
+    std::array<uint8_t, 5> threeChannelSource = { sourceGuard, 50, 60, 70, sourceGuard };
+    std::array<uint8_t, 6> threeChannelDestination;
+    threeChannelDestination.fill( destinationGuard );
+    const std::array<uint8_t, 5> expectedThreeChannelSource = threeChannelSource;
+    const std::array<uint8_t, 6> expectedThreeChannelDestination = { destinationGuard, 50, 60, 70, 255, destinationGuard };
+
+    CHECK( Dx12TextureOwnerTestAccess::ExpandToRgba( std::span( threeChannelSource ).subspan( 1, 3 ), 3,
+                                                     std::span( threeChannelDestination ).subspan( 1, 4 ) ) );
+    CHECK( threeChannelDestination == expectedThreeChannelDestination );
+    CHECK( threeChannelSource == expectedThreeChannelSource );
 }
 
 
@@ -667,10 +741,8 @@ TEST_CASE( "IH5 runtime lifecycle owners preserve valid and unavailable policy" 
 
     SkullbonezCore::Core::CinematicRenderConfig cinematic;
     cinematic.skyAtmosphereEnabled = true;
-    CHECK(
-        SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CinematicIfEnabled ) );
-    CHECK_FALSE(
-        SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CubemapOnly ) );
+    CHECK( SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CinematicIfEnabled ) );
+    CHECK_FALSE( SkyPassTestAccess::UsesCinematicAtmosphere( &cinematic, SkullbonezCore::Runtime::SkyPassMode::CubemapOnly ) );
 }
 
 
@@ -687,6 +759,7 @@ TEST_CASE( "IH7 frame resource schedule publishes ordinary sky without cinematic
     int ordinarySky = 0;
     int cinematicRequired = 0;
     int cinematicSky = 0;
+
     for ( const RuntimeFrameResourcePass pass : passes )
     {
         if ( RuntimeFrameResourcePassRequired( pass, false ) )
@@ -694,6 +767,7 @@ TEST_CASE( "IH7 frame resource schedule publishes ordinary sky without cinematic
             ++ordinaryRequired;
             ordinarySky += pass == RuntimeFrameResourcePass::Sky ? 1 : 0;
         }
+
         if ( RuntimeFrameResourcePassRequired( pass, true ) )
         {
             ++cinematicRequired;
@@ -871,7 +945,6 @@ FatalChildResult RunFatalChild( const char* caseName )
 
         if ( waitResult == WAIT_TIMEOUT )
         {
-
             // Hazard: terminate only the exact child process handle created for
             // this probe. A regressed fatal contract must not hang validation.
             result.timedOut = true;
@@ -894,7 +967,6 @@ FatalChildResult RunFatalChild( const char* caseName )
 void ExpectFatalCase( const char* caseName, std::initializer_list<const char*> expectedDiagnostics )
 {
 #if defined( __SANITIZE_ADDRESS__ )
-
     // ASan reports the deliberate abort as a sanitizer signal. The healthy
     // ASan lane targets the concurrent logger test; normal CPU gates own fatal
     // child proof.
@@ -918,6 +990,7 @@ void ExpectFatalCase( const char* caseName, std::initializer_list<const char*> e
                                               return expected &&
                                                      std::strcmp( expected, "FATAL[Tests/WorkerFatalProbe]" ) == 0;
                                           } );
+
     if ( checksStack )
     {
         CHECK( child.output.find( "STACK[0]=" ) != std::string::npos );
@@ -1021,10 +1094,29 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+#ifdef _DEBUG
+
+    if ( std::strcmp( caseName, "replay-startup-illegal-transition" ) == 0 )
+    {
+        using Continuation = SkullbonezCore::Runtime::ReplayStartupProbeContinuation;
+        Continuation::RequireLegalTransitionOrFatal( Continuation::Phase::Idle, Continuation::Phase::Complete,
+                                                     "FatalContractProbe" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "replay-startup-restore-action-without-transaction" ) == 0 )
+    {
+        using Continuation = SkullbonezCore::Runtime::ReplayStartupProbeContinuation;
+        Continuation::RequireApplicationStateOrFatal( Continuation::Phase::AwaitingApplication,
+                                                      Continuation::PendingAction::ApplyRestoredBranchTimeline, false,
+                                                      "FatalContractProbe" );
+        return true;
+    }
+#endif
+
     if ( std::strcmp( caseName, "texture-slot-capacity" ) == 0 )
     {
-        SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
-            SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT );
+        SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot( SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT );
         return true;
     }
 
@@ -1393,8 +1485,7 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "dx12-retirement-release-snapshot" ) == 0 )
     {
         SkullbonezCore::Rendering::Dx12RetirementDiagnosticState retirementDiagnostics;
-        retirementDiagnostics.ObservePendingCount(
-            SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
+        retirementDiagnostics.ObservePendingCount( SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
         retirementDiagnostics.ObserveRelease( 9u, 4u, true, 77u );
         retirementDiagnostics
             .FatalExhaustion( SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS,
@@ -1560,10 +1651,9 @@ bool RunRuntimeFatalCase( const char* caseName )
     {
         using namespace SkullbonezCore::Core::Allocation;
         constexpr int wrongOwnerHardCapacity = 1024;
-        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
-            { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
-              RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
-              "Fatal probe for unrelated Replay growth authority" } );
+        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
+                                                                                          RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
+                                                                                          "Fatal probe for unrelated Replay growth authority" } );
 
         const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::
             RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, "PhysicsEngine seed",
@@ -1712,8 +1802,7 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-shaped-header" ) == 0 )
     {
-        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>(
-            std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
+        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>( std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
 
         if ( !candidate )
         {
@@ -1747,8 +1836,7 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-crt-release" ) == 0 )
     {
-        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
         void* foreignPointer = std::malloc( 64u );
 
@@ -1919,8 +2007,7 @@ bool RunRuntimeFatalCase( const char* caseName )
             edges { "TestRuntimeContracts.sleepSupportEdges",
                     SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             edges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
         }
         edges.clear();
@@ -2116,20 +2203,19 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
     for ( int threadIndex = 0; threadIndex < threadCount; ++threadIndex )
     {
-        threads.emplace_back(
-            [threadIndex, path, writesPerThread]()
-            {
-                for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
-                {
-                    SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
+        threads.emplace_back( [threadIndex, path, writesPerThread]()
+                              {
+                                  for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
+                                  {
+                                      SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
 
-                    if ( writeIndex % 16 == 0 )
-                    {
-                        SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
-                                                                            threadIndex, writeIndex );
-                    }
-                }
-            } );
+                                      if ( writeIndex % 16 == 0 )
+                                      {
+                                          SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
+                                                                                              threadIndex, writeIndex );
+                                      }
+                                  }
+                              } );
     }
 
     for ( std::thread& thread : threads )
@@ -2252,7 +2338,6 @@ TEST_CASE( "AmortizedTask: partial work resumes at the first unfinished item" )
 
 TEST_CASE( "WorkerPool: inline and threaded self-tests preserve deterministic collection" )
 {
-
     for ( const int threadCount : { 0, 2 } )
     {
         LockOrderValidator lockOrderValidator;
@@ -2700,7 +2785,6 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
 
     for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
     {
-
         for ( std::size_t toIndex = 0u; toIndex < phases.size(); ++toIndex )
         {
             const bool adjacent = fromIndex < completeIndex && toIndex == fromIndex + 1u;
@@ -2710,7 +2794,6 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
             CHECK( PersistentContactSolvePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
 
             // Count is a sentinel and cannot become the cursor's current state.
-
             if ( fromIndex == phases.size() - 1u || expected )
             {
                 continue;
@@ -2773,6 +2856,127 @@ TEST_CASE( "UI stress policy publishes deterministic bounded commands without ow
     CHECK( first.FramesRun() == 2 );
 }
 
+TEST_CASE( "Operator UI projection owns hierarchy row order and selected identity" )
+{
+    using namespace SkullbonezCore::Runtime;
+
+    SkullbonezCore::UI::OperatorEditorFrameView view;
+    OperatorUiHierarchyFacts hierarchy;
+    hierarchy.totalRowCount = 2u;
+    hierarchy.selectedRow = 1;
+    hierarchy.selectedObjectType = 3;
+    hierarchy.objectTypeCount = 7;
+    hierarchy.sceneDirty = true;
+    BeginOperatorEditorHierarchy( view, hierarchy );
+
+    // Call order is intentionally reversed: source identity, not sampling
+    // sequence, owns the row slot exposed to both operator surfaces.
+    AppendOperatorEditorHierarchyRow( view, hierarchy, { "second", 202u, 200u, 2, true, false, true }, 1u );
+    AppendOperatorEditorHierarchyRow( view, hierarchy, { "first", 101u, 100u, 1, false, true, false }, 0u );
+
+    REQUIRE( view.hierarchy.rowCount == 2u );
+    CHECK( std::strcmp( view.hierarchy.rows[0].displayName, "first" ) == 0 );
+    CHECK( std::strcmp( view.hierarchy.rows[1].displayName, "second" ) == 0 );
+    CHECK_FALSE( view.hierarchy.rows[0].selected );
+    CHECK( view.hierarchy.rows[1].selected );
+    CHECK( view.hierarchy.selectedSceneObjectId == 202u );
+    CHECK( view.scene.dirty );
+    CHECK( view.assets.selectedObjectType == 3 );
+    static_assert( std::is_trivially_copyable_v<OperatorUiHierarchyFacts> );
+    static_assert( std::is_trivially_copyable_v<OperatorUiHierarchyEntityFacts> );
+}
+
+TEST_CASE( "Operator UI projection maps detached render-target facts without backend handles" )
+{
+    using namespace SkullbonezCore::Runtime;
+
+    OperatorUiRenderTargetListFacts facts;
+    CHECK( facts.Append( "color", 1280, 720, true, false, true ) );
+    CHECK( facts.Append( "depth", 640, 360, false, true, false ) );
+    SkullbonezCore::UI::InGameUIFrameData frame;
+    ProjectOperatorUiRenderTargets( frame, facts );
+
+    REQUIRE( frame.renderTargetPreviewCount == 2 );
+    CHECK( std::strcmp( frame.renderTargetPreviews[0].label, "color" ) == 0 );
+    CHECK( frame.renderTargetPreviews[0].available );
+    CHECK( frame.renderTargetPreviews[0].hdr );
+    CHECK( std::strcmp( frame.renderTargetPreviews[1].label, "depth" ) == 0 );
+    CHECK_FALSE( frame.renderTargetPreviews[1].available );
+    CHECK( frame.renderTargetPreviews[1].depth );
+
+    for ( int index = 2; index < SkullbonezCore::UI::UI_RENDER_TARGET_PREVIEW_MAX; ++index )
+    {
+        CHECK( facts.Append( "extra", index, index + 1, true, false, false ) );
+    }
+
+    CHECK_FALSE( facts.Append( "overflow", 1, 1, true, false, false ) );
+    ProjectOperatorUiRenderTargets( frame, facts );
+    CHECK( frame.renderTargetPreviewCount == SkullbonezCore::UI::UI_RENDER_TARGET_PREVIEW_MAX );
+
+    using AppendSignature = bool ( OperatorUiRenderTargetListFacts::* )( const char*, int, int, bool, bool, bool );
+    static_assert( std::is_same_v<decltype( &OperatorUiRenderTargetListFacts::Append ), AppendSignature> );
+}
+
+#ifdef _DEBUG
+TEST_CASE( "Replay startup probe continuation admits only serviced finite-state edges" )
+{
+    using Continuation = SkullbonezCore::Runtime::ReplayStartupProbeContinuation;
+    using ContinuationTestAccess = SkullbonezCore::Runtime::ReplayStartupProbeContinuationTestAccess;
+    using PendingAction = Continuation::PendingAction;
+    using Phase = Continuation::Phase;
+    constexpr std::array phases { Phase::Idle,     Phase::Running, Phase::AwaitingApplication, Phase::ApplicationApplied,
+                                  Phase::Complete, Phase::Failed };
+    constexpr std::array actions { PendingAction::None, PendingAction::ActivateLoadedPresentation,
+                                   PendingAction::ApplyRestoredBranchTimeline };
+
+    for ( Phase from : phases )
+    {
+        for ( Phase to : phases )
+        {
+            const bool expected = ( from == Phase::Idle && to == Phase::Running ) ||
+                                  ( from == Phase::Running && to == Phase::AwaitingApplication ) ||
+                                  ( from == Phase::AwaitingApplication && to == Phase::ApplicationApplied ) ||
+                                  ( from == Phase::AwaitingApplication && to == Phase::Failed ) ||
+                                  ( from == Phase::ApplicationApplied && to == Phase::Running ) ||
+                                  ( from == Phase::Running && ( to == Phase::Complete || to == Phase::Failed ) );
+            CHECK( Continuation::IsLegalTransition( from, to ) == expected );
+        }
+    }
+
+    for ( Phase phase : phases )
+    {
+        for ( PendingAction action : actions )
+        {
+            for ( bool hasRestore : { false, true } )
+            {
+                const bool expected = phase == Phase::AwaitingApplication
+                                          ? action != PendingAction::None &&
+                                                ( action != PendingAction::ApplyRestoredBranchTimeline || hasRestore )
+                                          : action == PendingAction::None;
+                CHECK( Continuation::IsApplicationStateCoherent( phase, action, hasRestore ) == expected );
+            }
+        }
+    }
+
+    ExpectFatalCase( "replay-startup-illegal-transition",
+                     { "FATAL[Runtime/ReplayStartupProbeContinuation]", "Illegal startup-probe continuation transition",
+                       "operation=FatalContractProbe" } );
+    ExpectFatalCase( "replay-startup-restore-action-without-transaction",
+                     { "FATAL[Runtime/ReplayStartupProbeContinuation]", "application state is incoherent",
+                       "operation=FatalContractProbe", "restore=0" } );
+
+    Continuation rejectedActivation( 0.0 );
+    ContinuationTestAccess::SeedPendingPresentationActivation( rejectedActivation );
+    ContinuationTestAccess::RejectPendingApplication( rejectedActivation );
+    CHECK( rejectedActivation.CurrentPhase() == Phase::Failed );
+    CHECK( rejectedActivation.ApplicationAction() == PendingAction::None );
+    CHECK( rejectedActivation.IsTerminal() );
+
+    static_assert( !std::is_copy_constructible_v<Continuation> );
+    static_assert( !std::is_move_constructible_v<Continuation> );
+}
+#endif
+
 TEST_CASE( "Operator command transaction enforces every phase edge through fatal invariant" )
 {
     using SkullbonezCore::Runtime::OperatorCommandPhaseCursor;
@@ -2792,14 +2996,12 @@ TEST_CASE( "Operator command transaction enforces every phase edge through fatal
 
     for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
     {
-
         for ( std::size_t toIndex = 0u; toIndex < phases.size(); ++toIndex )
         {
             const bool expected = fromIndex < phases.size() - 2u && toIndex == fromIndex + 1u;
             CHECK( OperatorCommandPhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
 
             // Count is a sentinel and cannot become the cursor's current state.
-
             if ( fromIndex == phases.size() - 1u || expected )
             {
                 continue;

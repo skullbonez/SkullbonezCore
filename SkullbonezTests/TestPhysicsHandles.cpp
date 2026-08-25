@@ -1032,7 +1032,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
 #if defined( _DEBUG )
     REQUIRE( eventCount == 98 );
 #else
-    REQUIRE( eventCount == 97 );
+    REQUIRE( eventCount == 98 );
 #endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
@@ -1068,6 +1068,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "ExternalForceStage.releaseWakeBodies", 2000 },
         { "PhysicsMotionEligibilityStage.state", 2000 },
         { "PhysicsMotionEligibilityStage.linearTravelSquared", 2000 },
+        { "PhysicsMotionEligibilityStage.linearDirectionalBoundary", 2000 },
         { "PhysicsMotionEligibilityStage.angularTravelSquared", 2000 },
         { "PhysicsMotionEligibilityStage.angularBroadphaseExpansion", 2000 },
         { "SpatialGrid.entries", 17024 },
@@ -1142,8 +1143,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsSleepController.m_sleepSupportEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
         { "PhysicsBroadphaseStage.candidatePairs", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
         { "PhysicsBroadphaseStage.collisionCellKeys", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
-        { "SpatialGrid.candidatePairNodes",
-          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes },
+        { "SpatialGrid.candidatePairNodes", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes },
         { "SpatialGrid.candidatePairSortKeys",
           SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys },
         { "SpatialGrid.candidatePairSortScratch",
@@ -1158,9 +1158,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     };
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 110 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 111 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 109 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 110 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
@@ -1424,10 +1424,10 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     REQUIRE( reservedBytes ==
              SkullbonezCore::Runtime::ReplayPredictionReserveOperations::ReplayPredictionEngineReserveBytes( *liveEngine ) );
 
-    CHECK(
-        predictionEngineOwner->CanRestoreReplaySolverSnapshot( solverSnapshot,
-                                                                SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
-                                                                    bodyCount ) ) );
+    CHECK( predictionEngineOwner
+               ->CanRestoreReplaySolverSnapshot( solverSnapshot,
+                                                 SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                     bodyCount ) ) );
 
     REQUIRE(
         predictionEngineOwner->RestoreReplaySolverSnapshot( solverSnapshot,

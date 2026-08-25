@@ -189,23 +189,6 @@ constexpr bool ReplayPredictionUsesAuthoredBodyColor( ReplayPredictionPathPresen
     return ReplayPredictionPathPresentationShowsAllBodies( pathPresentation ) && lane == ReplayTrajectoryLane::FutureRoot;
 }
 
-// Invariant: every participant and present-sample flag belongs to the same
-// published Prediction generation and one synchronous visualization submission.
-struct ReplayPathVisualizerRenderContext
-{
-    // Lifetime: every reference is a frame-local borrow after Prediction has
-    // published for this frame.
-    const ReplayPredictionPresentationView& prediction;
-    Core::Profiler* profiler = nullptr;
-    const RunReplayPathVisualizerState& pathVisualizer;
-    Physics::PhysicsEngine& physics;
-    const SceneEntityStore& entities;
-    EditorTracer& tracer;
-    ReplayFrameIndex presentFrame = 0;
-    bool hasPresentSample = false;
-    bool drawPredictionOverlay = true;
-};
-
 struct ReplayPathVisualizerRenderResult
 {
     bool retainedRefreshBudgetExpired = false;
@@ -222,5 +205,14 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
                                              const RunReplayPathVisualizerState& pathVisualizer,
                                              const ReplayPredictionDrawListState& state,
                                              const Physics::ColliderStore& colliderStore, EditorTracer& tracer );
-ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
+
+// Every participant and present-sample flag must belong to one published
+// Prediction generation. The explicit operands keep this synchronous App
+// operation from hiding owner access behind a context record.
+ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPredictionPresentationView& prediction,
+                                                             const RunReplayPathVisualizerState& pathVisualizer,
+                                                             Physics::PhysicsEngine& physics,
+                                                             const SceneEntityStore& entities, EditorTracer& tracer,
+                                                             Core::Profiler* profiler, ReplayFrameIndex presentFrame,
+                                                             bool hasPresentSample, bool drawPredictionOverlay );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

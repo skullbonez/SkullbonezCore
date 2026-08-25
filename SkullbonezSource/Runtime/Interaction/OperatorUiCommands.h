@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UICommands.h
+File: SkullbonezSource/Runtime/Interaction/OperatorUiCommands.h
 Purpose:
   Defines one-frame request packets emitted by in-engine operator controls.
 

@@ -18,16 +18,15 @@ Configuration: `Debug|x64`
 | `SKULLBONEZ_CORE-Debug-approved.exe` | 14,019,072 | `12DD17945B512E285B73E7DD6C833069AF8119BC880780F9BEC211134E0B945A` |
 | `SKULLBONEZ_CORE-Profile-approved.exe` | 4,694,528 | `E78AA5799102786A3C5C6D43ECBFCCF9345D56EE1728362A47F1C61C9BD2241A` |
 | `SKULLBONEZ_CORE-Automation-approved.exe` | 4,986,880 | `9D4EE221C3DA2C07FE795A7FFCCCD12E822422907BD5FA591B01F71664B9DA24` |
-| `WinPixEventRuntime.dll` | 58,368 | `81ADCFD8253C3489BE720DA7E30F16004DC9A1F02A8B418C6C3AEF4993032E6D` |
-| `dxcompiler.dll` | 14,317,000 | `A5AA1D9A95BF9EA68EFF4502EB687161464BB5A505E817782B7A770A2A312044` |
-| `dxil.dll` | 1,509,800 | `95AC1BB413178C4596F49498E912C270F8F343282B63840F174CBF5154AD1557` |
 | `fp1_wall200_impact.json` | 7,128 | `A3674BFF82332A71409BE592C8E33349657FD8E687A2FA3BB4BE14F4335A9C53` |
 | `fp2_wall200_impact.json` | 5,966 | `93DDB28FAA57A5F902A4AF5B2834C0B4D9D5A2CA6D72FFA01D93B1423F40C619` |
 
 `dumpbin /DEPENDENTS` reports the two direct non-system runtime imports
-`WinPixEventRuntime.dll` and `dxcompiler.dll`; `dxil.dll` is staged beside
-`dxcompiler.dll` as its runtime support library. All remaining direct imports
-are Windows system libraries.
+`WinPixEventRuntime.dll` and `dxcompiler.dll`; `dxil.dll` is the shader compiler's
+runtime support library. These are third-party binaries and are deliberately not
+tracked. Restore them from the repository's pinned setup/build inputs before an
+isolated launch. All remaining direct imports are Windows system libraries and
+are likewise not copied into the evidence bundle.
 
 ## Approved replay-visual closure
 

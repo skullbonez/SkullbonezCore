@@ -29,6 +29,7 @@ Related:
 */
 #include "InputFrame.h"
 #include "Run.h"
+#include "OperatorCommandBoundaryPolicy.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/InteractionRecordingBrowser.h"
 #include "../Scene/AttachedCameraController.h"
@@ -631,6 +632,10 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
         result.commands.scene.requestedInteractionRecordingIndex = -1;
     }
 
+    // Invariant: either operator surface may submit off-grid shared-policy or
+    // render-catalog floats. App snaps those rows before their owner dispatch;
+    // separately owned Replay reveal/horizon commands are intentionally absent.
+    OperatorCommandBoundaryPolicy::NormalizeOperatorCommands( result.commands );
     const InGameUICommands& uiCommands = result.commands;
     OperatorCommandTransaction operatorCommands( uiCommands );
     const OperatorCommandAcceptanceLedger& operatorAcceptance = operatorCommands.Acceptance();
@@ -659,8 +664,10 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
         }
     };
 
-    // Concept: operator transport values are normalized with every other
-    // editor command, then translated once into replay-domain vocabulary.
+    // Concept: Replay transport values pass the shared editor-command
+    // validation and arbitration boundary, then translate once into Replay
+    // vocabulary. Their reveal and horizon semantics remain owner-specific;
+    // they do not participate in App shared-policy normalization.
     // ReplayRuntime coordinates concrete owners and publishes recoverable
     // feedback; this input boundary retains no timeline or restore authority.
     for ( uint32_t index = 0u; index < editorCommands.commands.replay.count; ++index )

@@ -1,36 +1,41 @@
 /*
-File: SkullbonezSource/UI/UITabSky.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UITabSky.cpp
 Purpose:
   Owns the Sky tab widgets, layout, and input handling for in-engine sky tuning.
 
 Summary:
   The Sky tab projects the sky, cloud, ray, and palette subset of cinematic
   render policy into bounded widgets and emits the shared typed commands that
-  Runtime applies.
+  Runtime applies. Local grouping and concise labels consume the canonical
+  render catalog's range, step, and format for each parameter.
 
 Glossary:
   Cinematic command: Intent returned for the run loop to apply to render config.
 
 Invariants:
   - Slider specs must stay aligned with UISkyTabState slot count.
+  - Range and quantization metadata comes only from UIRenderAuthoringCatalog.
   - The tab emits commands only; render config is mutated by runtime code.
 
 Related:
   - SkullbonezSource/Runtime/UI/GameUI/UITabSky.h
   - SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.cpp
+  - SkullbonezSource/Runtime/Render/UIRenderAuthoringCatalog.h
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabSky.h"
 
 #include "UI.h"
+#include "../../Render/UIRenderAuthoringCatalog.h"
 #include "../../../UI/UIDrawWidgets.h"
-#include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 #include "../../../UI/UIStyle.h"
 
 #include <algorithm>
 #include <cstdio>
 
-using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::GameLayout;
+using namespace SkullbonezCore::UI::OperatorControlPolicy;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace
@@ -46,15 +51,11 @@ constexpr float UI_SKY_ROW_H = 42.0f;
 
 struct SkySliderSpec
 {
-    // Concept: One row in the Sky tab. Keeping param/range/step together
-    // prevents draw, hit-test, and command mapping from drifting apart.
+    // Concept: This row retains Sky-tab grouping and concise labels only. The
+    // canonical render catalog owns range, step, and display precision.
     const char* section;
     const char* label;
     SkullbonezCore::UI::UICinematicParam param;
-    float minValue;
-    float maxValue;
-    float step;
-    const char* valueFormat;
 };
 
 struct SkyFeatureSpec
@@ -64,32 +65,32 @@ struct SkyFeatureSpec
 };
 
 constexpr SkySliderSpec kSkySliderSpecs[] = {
-    { "Direction", "Azimuth", SkullbonezCore::UI::UICinematicParam::SunAzimuth, 0.00f, 1.00f, 0.005f, "%.3f" },
-    { nullptr, "Elevation", SkullbonezCore::UI::UICinematicParam::SunElevation, 0.00f, 1.00f, 0.005f, "%.3f" },
-    { "Palette", "Sun power", SkullbonezCore::UI::UICinematicParam::SunBrightness, 0.00f, 40.00f, 0.10f, "%.1f" },
-    { nullptr, "Glow", SkullbonezCore::UI::UICinematicParam::SkyGlow, 0.00f, 8.00f, 0.05f, "%.2f" },
-    { nullptr, "Sun R", SkullbonezCore::UI::UICinematicParam::SunRed, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Sun G", SkullbonezCore::UI::UICinematicParam::SunGreen, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Sun B", SkullbonezCore::UI::UICinematicParam::SunBlue, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Horizon R", SkullbonezCore::UI::UICinematicParam::HorizonRed, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Horizon G", SkullbonezCore::UI::UICinematicParam::HorizonGreen, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Horizon B", SkullbonezCore::UI::UICinematicParam::HorizonBlue, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Zenith R", SkullbonezCore::UI::UICinematicParam::ZenithRed, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Zenith G", SkullbonezCore::UI::UICinematicParam::ZenithGreen, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Zenith B", SkullbonezCore::UI::UICinematicParam::ZenithBlue, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { "Clouds", "Coverage", SkullbonezCore::UI::UICinematicParam::CloudCoverage, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Softness", SkullbonezCore::UI::UICinematicParam::CloudSoftness, 0.01f, 0.65f, 0.01f, "%.2f" },
-    { nullptr, "Scale", SkullbonezCore::UI::UICinematicParam::CloudScale, 0.50f, 12.00f, 0.05f, "%.2f" },
-    { nullptr, "Intensity", SkullbonezCore::UI::UICinematicParam::CloudIntensity, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { "Rays", "Shafts", SkullbonezCore::UI::UICinematicParam::ShaftStrength, 0.00f, 3.00f, 0.01f, "%.2f" },
-    { nullptr, "Falloff", SkullbonezCore::UI::UICinematicParam::ShaftFalloff, 0.25f, 5.00f, 0.01f, "%.2f" },
-    { nullptr, "Volume", SkullbonezCore::UI::UICinematicParam::VolumetricStrength, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Density", SkullbonezCore::UI::UICinematicParam::VolumetricDensity, 0.00f, 2.50f, 0.01f, "%.2f" },
-    { "Grade", "Exposure", SkullbonezCore::UI::UICinematicParam::Exposure, 0.05f, 3.00f, 0.01f, "%.2f" },
-    { nullptr, "Gamma", SkullbonezCore::UI::UICinematicParam::Gamma, 1.00f, 3.00f, 0.01f, "%.2f" },
-    { nullptr, "Saturation", SkullbonezCore::UI::UICinematicParam::StyleSaturation, 0.00f, 2.50f, 0.01f, "%.2f" },
-    { nullptr, "Contrast", SkullbonezCore::UI::UICinematicParam::StyleContrast, 0.00f, 2.50f, 0.01f, "%.2f" },
-    { nullptr, "Vignette", SkullbonezCore::UI::UICinematicParam::StyleVignette, 0.00f, 1.00f, 0.01f, "%.2f" },
+    { "Direction", "Azimuth", SkullbonezCore::UI::UICinematicParam::SunAzimuth },
+    { nullptr, "Elevation", SkullbonezCore::UI::UICinematicParam::SunElevation },
+    { "Palette", "Sun power", SkullbonezCore::UI::UICinematicParam::SunBrightness },
+    { nullptr, "Glow", SkullbonezCore::UI::UICinematicParam::SkyGlow },
+    { nullptr, "Sun R", SkullbonezCore::UI::UICinematicParam::SunRed },
+    { nullptr, "Sun G", SkullbonezCore::UI::UICinematicParam::SunGreen },
+    { nullptr, "Sun B", SkullbonezCore::UI::UICinematicParam::SunBlue },
+    { nullptr, "Horizon R", SkullbonezCore::UI::UICinematicParam::HorizonRed },
+    { nullptr, "Horizon G", SkullbonezCore::UI::UICinematicParam::HorizonGreen },
+    { nullptr, "Horizon B", SkullbonezCore::UI::UICinematicParam::HorizonBlue },
+    { nullptr, "Zenith R", SkullbonezCore::UI::UICinematicParam::ZenithRed },
+    { nullptr, "Zenith G", SkullbonezCore::UI::UICinematicParam::ZenithGreen },
+    { nullptr, "Zenith B", SkullbonezCore::UI::UICinematicParam::ZenithBlue },
+    { "Clouds", "Coverage", SkullbonezCore::UI::UICinematicParam::CloudCoverage },
+    { nullptr, "Softness", SkullbonezCore::UI::UICinematicParam::CloudSoftness },
+    { nullptr, "Scale", SkullbonezCore::UI::UICinematicParam::CloudScale },
+    { nullptr, "Intensity", SkullbonezCore::UI::UICinematicParam::CloudIntensity },
+    { "Rays", "Shafts", SkullbonezCore::UI::UICinematicParam::ShaftStrength },
+    { nullptr, "Falloff", SkullbonezCore::UI::UICinematicParam::ShaftFalloff },
+    { nullptr, "Volume", SkullbonezCore::UI::UICinematicParam::VolumetricStrength },
+    { nullptr, "Density", SkullbonezCore::UI::UICinematicParam::VolumetricDensity },
+    { "Grade", "Exposure", SkullbonezCore::UI::UICinematicParam::Exposure },
+    { nullptr, "Gamma", SkullbonezCore::UI::UICinematicParam::Gamma },
+    { nullptr, "Saturation", SkullbonezCore::UI::UICinematicParam::StyleSaturation },
+    { nullptr, "Contrast", SkullbonezCore::UI::UICinematicParam::StyleContrast },
+    { nullptr, "Vignette", SkullbonezCore::UI::UICinematicParam::StyleVignette },
 };
 static_assert( sizeof( kSkySliderSpecs ) / sizeof( kSkySliderSpecs[0] ) == SkullbonezCore::UI::SkyTab::UI_SKY_SLIDER_COUNT,
                "Sky slider specs must match UISkyTabState." );
@@ -243,8 +244,11 @@ float SkyValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinem
 void SetSkySliderResult( SkullbonezCore::UI::InGameUIInputResult& result, const SkullbonezCore::UI::UISlider& slider,
                          int mouseX, const SkySliderSpec& spec )
 {
+    const SkullbonezCore::UI::CinematicSliderSpec&
+        policy = SkullbonezCore::UI::kCinematicSliderSpecs[static_cast<int>( spec.param )];
     result.commands.cinematic.requestedParam = spec.param;
-    result.commands.cinematic.requestedValue = slider.ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
+    result.commands.cinematic.requestedValue = slider.ValueFromMouse( mouseX, policy.minValue, policy.maxValue,
+                                                                      policy.step );
 }
 
 } // namespace
@@ -355,8 +359,8 @@ void DrawHitboxes( const UISkyTabState& state, const UIDrawContext& draw, float 
     }
 }
 
-void Draw( UISkyTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY,
-           float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
+void Draw( UISkyTabState& state, const UIDrawContext& draw, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+           float contentX, float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
 {
     char buf[128];
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
@@ -382,7 +386,7 @@ void Draw( UISkyTabState& state, const UIDrawContext& draw, const InGameUIFrameD
         const float tx = SkyFeatureX( i, contentX, colW );
         const float toggleY = SkyFeatureY( i, featureBaseY );
         DrawContentToggle( draw, contentY, contentH, state.featureToggles[i], tx, toggleY, colW, kSkyFeatureSpecs[i].label,
-                           SkyFeatureEnabled( data.cinematic, kSkyFeatureSpecs[i].feature ) );
+                           SkyFeatureEnabled( cinematic, kSkyFeatureSpecs[i].feature ) );
     }
 
     const float baseY = scrolledY + UI_SKY_START_Y;
@@ -390,6 +394,8 @@ void Draw( UISkyTabState& state, const UIDrawContext& draw, const InGameUIFrameD
     for ( int i = 0; i < UI_SKY_SLIDER_COUNT; ++i )
     {
         const SkySliderSpec& spec = kSkySliderSpecs[i];
+        const SkullbonezCore::UI::CinematicSliderSpec&
+            policy = SkullbonezCore::UI::kCinematicSliderSpecs[static_cast<int>( spec.param )];
         const float sliderY = SkySliderY( i, baseY );
 
         if ( spec.section && IsRowVisible( contentY, contentH, sliderY - UI_SKY_SECTION_H + 4.0f, 18.0f ) )
@@ -397,13 +403,13 @@ void Draw( UISkyTabState& state, const UIDrawContext& draw, const InGameUIFrameD
             DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_SKY_SECTION_H + 4.0f, 12.0f, spec.section );
         }
 
-        const float value = std::clamp( SkyValueForParam( data.cinematic, spec.param ), spec.minValue, spec.maxValue );
-        snprintf( buf, sizeof( buf ), spec.valueFormat, value );
+        const float value = std::clamp( SkyValueForParam( cinematic, spec.param ), policy.minValue, policy.maxValue );
+        snprintf( buf, sizeof( buf ), policy.valueFormat, value );
         state.sliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
 
         if ( IsRowVisible( contentY, contentH, sliderY, 34.0f ) )
         {
-            state.sliders[i].Draw( draw, spec.label, buf, value, spec.minValue, spec.maxValue );
+            state.sliders[i].Draw( draw, spec.label, buf, value, policy.minValue, policy.maxValue );
         }
     }
 }

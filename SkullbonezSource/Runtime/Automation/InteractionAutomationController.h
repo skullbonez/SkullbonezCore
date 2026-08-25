@@ -371,6 +371,10 @@ struct InteractionAutomationFrameResult
     double recordedDeltaSeconds = 0.0;
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
 
+    // Lifetime: Automation publishes raw recorded-turn facts here; Run filters
+    // one stack copy after normal input routing and retains nothing between frames.
+    RecordedCursorFrame recordedCursor;
+
     // Value-only replay mutations are applied once by the frame composition
     // boundary after automation has finished producing its synthetic input.
     ReplayFrameIntent replayIntent;

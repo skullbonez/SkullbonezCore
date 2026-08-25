@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md",
+  "phase": "FP4",
+  "transition_id": "19698d3c-to-1b984310",
+  "source_commit": "8399b254999036e1cf7e63e0bdb141f7c3632035",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/physics_regression_varied.csv",
+      "old_sha256": "19698d3c37bcf1e0199b539e99b2de0d0ec33ceb7fc5db2e2eee36bcc434b038",
+      "new_sha256": "1b98431012f632d66cb18c50e3f253cea4898b57bcb8e78cdadd0de3f065e387"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "2806c7d70159e498c8fdd5678023e4d66a9db9d7",
+    "golden_sha256": {
+      "TestOutput/baselines/physics_regression_varied.csv": "19698d3c37bcf1e0199b539e99b2de0d0ec33ceb7fc5db2e2eee36bcc434b038"
+    },
+    "executables": [
+      {
+        "configuration": "Debug|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/19698d3c-to-1b984310/old/SKULLBONEZ_CORE-Debug.exe",
+        "size": 14019072,
+        "sha256": "12dd17945b512e285b73e7dd6c833069af8119bc880780f9bec211134e0b945a",
+        "launch_command": "old/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --workers 0 --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log physics_regression_varied.csv",
+        "dependency_scan_command": "dumpbin /DEPENDENTS old/SKULLBONEZ_CORE-Debug.exe",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "8399b254999036e1cf7e63e0bdb141f7c3632035",
+    "golden_sha256": {
+      "TestOutput/baselines/physics_regression_varied.csv": "1b98431012f632d66cb18c50e3f253cea4898b57bcb8e78cdadd0de3f065e387"
+    },
+    "executables": [
+      {
+        "configuration": "Debug|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/19698d3c-to-1b984310/new/SKULLBONEZ_CORE-Debug.exe",
+        "size": 14060544,
+        "sha256": "056a5c03aeb9d6a3570949ff0ddc650f76270f55a647801a80b47e8703e5993c",
+        "launch_command": "new/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --workers 0 --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log physics_regression_varied.csv",
+        "dependency_scan_command": "dumpbin /DEPENDENTS new/SKULLBONEZ_CORE-Debug.exe",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

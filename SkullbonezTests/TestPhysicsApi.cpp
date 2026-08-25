@@ -1,5 +1,5 @@
 /*
-File: TestPhysicsApi.cpp
+File: SkullbonezTests/TestPhysicsApi.cpp
 Purpose:
   Pins the public Physics descriptor and query coordinate-frame contract.
 
@@ -30,7 +30,6 @@ Related:
   - SkullbonezSource/Physics/PhysicsMotionEligibility.h
   - SkullbonezSource/Physics/Ragdoll.cpp
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
-  - SkullbonezSource/UI/UILayout.h
 */
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -54,7 +53,6 @@ Related:
 #include "../SkullbonezSource/Physics/Ragdoll.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
-#include "../SkullbonezSource/UI/UILayout.h"
 #include "../SkullbonezSource/World/Terrain.h"
 #include "TestColliderStoreFixtures.h"
 
@@ -96,27 +94,25 @@ using SkullbonezCore::Physics::Ragdoll;
 namespace
 {
 constexpr float HALF_PI_RADIANS = 1.57079632679489661923f;
-constexpr float FIRST_FP2_LAUNCHER_SPEED = SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN;
-constexpr int FIRST_FP2_LAUNCHER_SPEED_STEP = static_cast<int>(
-    ( FIRST_FP2_LAUNCHER_SPEED - SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN ) /
-    SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP );
-constexpr int LAST_LAUNCHER_SPEED_STEP = static_cast<int>( ( SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MAX -
-                                                             SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN ) /
-                                                           SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP );
+constexpr float FP2_LAUNCHER_SPEED_MIN = 20.0f;
+constexpr float FP2_LAUNCHER_SPEED_MAX = 360.0f;
+constexpr float FP2_LAUNCHER_SPEED_STEP = 5.0f;
+constexpr float FP2_LAUNCHER_PROJECTILE_RADIUS = 0.85f;
+constexpr float FIRST_FP2_LAUNCHER_SPEED = 105.0f;
+constexpr int FIRST_FP2_LAUNCHER_SPEED_STEP = static_cast<int>( ( FIRST_FP2_LAUNCHER_SPEED - FP2_LAUNCHER_SPEED_MIN ) /
+                                                                FP2_LAUNCHER_SPEED_STEP );
+constexpr int LAST_LAUNCHER_SPEED_STEP = static_cast<int>( ( FP2_LAUNCHER_SPEED_MAX - FP2_LAUNCHER_SPEED_MIN ) /
+                                                           FP2_LAUNCHER_SPEED_STEP );
 constexpr int FP2_LAUNCHER_SPEED_COUNT = LAST_LAUNCHER_SPEED_STEP - FIRST_FP2_LAUNCHER_SPEED_STEP + 1;
 constexpr int FP2_LAUNCHER_BODY_COUNT = FP2_LAUNCHER_SPEED_COUNT * 2;
 
-static_assert( SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
-                       static_cast<float>( FIRST_FP2_LAUNCHER_SPEED_STEP ) *
-                           SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP ==
+static_assert( FP2_LAUNCHER_SPEED_MIN + static_cast<float>( FIRST_FP2_LAUNCHER_SPEED_STEP ) * FP2_LAUNCHER_SPEED_STEP ==
                    FIRST_FP2_LAUNCHER_SPEED,
                "The FP2 matrix must begin on a supported launcher slider step." );
-static_assert( SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
-                       static_cast<float>( LAST_LAUNCHER_SPEED_STEP ) *
-                           SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP ==
-                   SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MAX,
+static_assert( FP2_LAUNCHER_SPEED_MIN + static_cast<float>( LAST_LAUNCHER_SPEED_STEP ) * FP2_LAUNCHER_SPEED_STEP ==
+                   FP2_LAUNCHER_SPEED_MAX,
                "The FP2 matrix must include the supported launcher maximum." );
-static_assert( FP2_LAUNCHER_SPEED_COUNT == 69 );
+static_assert( FP2_LAUNCHER_SPEED_COUNT == 52 );
 
 // Invariant: these body constants mirror RuntimeTools' launcher projectile.
 // The paired rows differ in presentation name and position only, leaving shape
@@ -124,7 +120,7 @@ static_assert( FP2_LAUNCHER_SPEED_COUNT == 69 );
 void AddLauncherClassificationBody( PhysicsEngine& engine, uint32_t sceneObjectId, float speed, float z,
                                     const char* diagnosticName )
 {
-    constexpr float projectileRadius = 0.85f;
+    constexpr float projectileRadius = FP2_LAUNCHER_PROJECTILE_RADIUS;
     constexpr float projectileMass = 6.0f;
     constexpr float projectileRestitution = 0.42f;
     constexpr float projectileMoment = 0.4f * projectileMass * projectileRadius * projectileRadius;
@@ -175,8 +171,7 @@ Vector3 RunAngularDragCase( const CollisionShape& shape, const Vector3& bodyPrin
     ColliderStore colliders;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 1u );
         colliders.ReserveCapacity( 1u );
         colliders.ReserveShapeCapacity( 1u, 1u, 0u );
@@ -225,8 +220,7 @@ PhysicsBodyHotState SolveAnchorCase( const Vector3& anchorForBodyA )
     PhysicsBodyStore bodies;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 2u );
     }
 
@@ -286,8 +280,7 @@ TEST_CASE( "Physics launcher classification: every supported fast speed promotes
     engine.SetSleepEnabled( false );
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ),
                                             static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ) );
 
@@ -295,9 +288,7 @@ TEST_CASE( "Physics launcher classification: every supported fast speed promotes
         {
             const int speedOffset = speedStep - FIRST_FP2_LAUNCHER_SPEED_STEP;
             const int firstBodyRow = speedOffset * 2;
-            const float speed = SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
-                                static_cast<float>( speedStep ) *
-                                    SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP;
+            const float speed = FP2_LAUNCHER_SPEED_MIN + static_cast<float>( speedStep ) * FP2_LAUNCHER_SPEED_STEP;
             AddLauncherClassificationBody( engine, 12000u + static_cast<uint32_t>( firstBodyRow ), speed,
                                            static_cast<float>( firstBodyRow ) * 4.0f, "launcher_projectile" );
             AddLauncherClassificationBody( engine, 12001u + static_cast<uint32_t>( firstBodyRow ), speed,
@@ -325,12 +316,11 @@ TEST_CASE( "Physics launcher classification: every supported fast speed promotes
         const int speedOffset = speedStep - FIRST_FP2_LAUNCHER_SPEED_STEP;
         const std::size_t launcherRow = static_cast<std::size_t>( speedOffset * 2 );
         const std::size_t genericRow = launcherRow + 1u;
-        const float speed = SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN +
-                            static_cast<float>( speedStep ) * SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_STEP;
+        const float speed = FP2_LAUNCHER_SPEED_MIN + static_cast<float>( speedStep ) * FP2_LAUNCHER_SPEED_STEP;
         const float expectedTravel = speed * PHYSICS_FIXED_DT;
         CAPTURE( speed );
 
-        CHECK( expectedTravel >= SkullbonezCore::Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK );
+        CHECK( expectedTravel > FP2_LAUNCHER_PROJECTILE_RADIUS );
         CHECK( hot.positionX[launcherRow] == doctest::Approx( expectedTravel ) );
         CHECK( hot.positionX[genericRow] == doctest::Approx( expectedTravel ) );
         CHECK( diagnostics.motionEligibilityState[launcherRow] ==
@@ -355,7 +345,7 @@ TEST_CASE( "Physics launcher collision path: generic and launcher names produce 
 
     constexpr float laneSeparation = 8.0f;
     constexpr float wallCenterX = 1.05f;
-    constexpr float speed = SkullbonezCore::UI::Layout::UI_LAUNCHER_PROJECTILE_SPEED_MIN;
+    constexpr float speed = FIRST_FP2_LAUNCHER_SPEED;
     constexpr int launcherBodyRow = 0;
     constexpr int launcherWallRow = 1;
     constexpr int genericBodyRow = 2;
@@ -371,8 +361,7 @@ TEST_CASE( "Physics launcher collision path: generic and launcher names produce 
     engine.SetPipelineTraceFullRecordConsumerActive( true );
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 4u, 2u, 2u );
         AddLauncherClassificationBody( engine, 13000u, speed, 0.0f, "launcher_projectile" );
         AddLauncherCollisionWall( engine, 13001u, wallCenterX, 0.0f, "launcher_collision_wall" );
@@ -453,8 +442,7 @@ TEST_CASE( "Physics API frames: body-local shape offsets project into world quer
     PhysicsAuthoredBodyRegistration registration;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 1u, 1u );
         registration = engine.RegisterAuthoredBody( bodyDesc, colliderDesc );
     }
@@ -508,8 +496,7 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     auto broadphase = std::make_unique<SkullbonezCore::Physics::PhysicsBroadphaseStage>();
     auto diagnostics = std::make_unique<SkullbonezCore::Physics::PhysicsStepDiagnostics>();
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies->ReserveCapacity( 2u );
         colliders->ReserveCapacity( 2u );
         colliders->ReserveShapeCapacity( 2u, 0u, 0u );
@@ -529,8 +516,7 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
         body.cold.mass = 1.0f;
         body.hot.position = bodyPositions[bodyIndex];
         body.hot.inverseMass = 1.0f;
-        body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBodyOriginBoundingRadius(
-            shapes[bodyIndex] );
+        body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBodyOriginBoundingRadius( shapes[bodyIndex] );
         const auto bodyHandle = bodies->CreateBodyRecord( body );
         REQUIRE( bodyHandle.IsValid() );
         ColliderRecord collider;
@@ -544,11 +530,13 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     diagnostics->BeginStep( 2 );
     const std::array<uint8_t, 2> sleepState = { 0u, 0u };
     const std::array<int, 2> awakeBodies = { 0, 1 };
+    const std::array<uint8_t, 2> motionEligibilityState = {};
     const std::array<float, 2> angularBroadphaseExpansion = { 0.0f, 0.0f };
     SkullbonezCore::Physics::BroadphaseSettings settings;
     settings.cellSize = 2.0f;
     const auto unrotatedPairs = broadphase->Run( *bodies, *colliders, settings, {}, sleepState, awakeBodies,
-                                                 angularBroadphaseExpansion, *diagnostics, 1.0f / 120.0f, 0.0f, 0.05f );
+                                                 motionEligibilityState, angularBroadphaseExpansion, *diagnostics,
+                                                 1.0f / 120.0f, 0.0f, 0.05f );
     CHECK( unrotatedPairs.empty() );
 
     auto offsetBody = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies->HotFields(), 0u );
@@ -556,7 +544,7 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     SkullbonezCore::Physics::StorePhysicsBodyHotState( bodies->MutableHotFields(), 0u, offsetBody );
     broadphase->InvalidateBodyTopology();
     diagnostics->BeginStep( 2 );
-    const auto pairs = broadphase->Run( *bodies, *colliders, settings, {}, sleepState, awakeBodies,
+    const auto pairs = broadphase->Run( *bodies, *colliders, settings, {}, sleepState, awakeBodies, motionEligibilityState,
                                         angularBroadphaseExpansion, *diagnostics, 1.0f / 120.0f, 0.0f, 0.05f );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );

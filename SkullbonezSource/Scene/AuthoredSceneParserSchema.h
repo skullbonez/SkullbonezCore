@@ -564,6 +564,29 @@ inline void RequireArray( const Json& value, const std::string& path, const char
     }
 }
 
+inline bool RequireFixedArray( const Json& value, const std::string& path, const char* context, std::size_t requiredSize,
+                               const char* elementDescription )
+{
+    // Recoverable Error: Fail() records a diagnostic but does not unwind the
+    // parser. Validate both shape and cardinality before any indexed access so
+    // malformed authored JSON cannot reach nlohmann's unchecked array operator.
+    if ( !value.is_array() )
+    {
+        RequireArray( value, path, context );
+        return false;
+    }
+
+    if ( value.size() != requiredSize )
+    {
+        std::ostringstream message;
+        message << context << " must contain exactly " << requiredSize << ' ' << elementDescription;
+        Fail( path, message.str() );
+        return false;
+    }
+
+    return true;
+}
+
 inline const Json* FindMember( const Json& object, const char* key )
 {
     if ( !object.is_object() )
@@ -803,38 +826,47 @@ inline void ReadOptionalSceneObjectGroup( SceneObjectGroupMetadata& group, const
 
 inline void ReadVec3( const Json& value, const std::string& path, const char* context, float& x, float& y, float& z )
 {
-    RequireArray( value, path, context );
-
-    if ( value.size() != 3 )
+    if ( !RequireFixedArray( value, path, context, 3u, "numbers" ) )
     {
-        std::ostringstream message;
-        message << context << " must contain exactly 3 numbers";
-        Fail( path, message.str() );
         return;
     }
 
-    x = ReadFloat( value[0], path, context );
-    y = ReadFloat( value[1], path, context );
-    z = ReadFloat( value[2], path, context );
+    const float parsedX = ReadFloat( value[0], path, context );
+    const float parsedY = ReadFloat( value[1], path, context );
+    const float parsedZ = ReadFloat( value[2], path, context );
+
+    if ( ParserFailed() )
+    {
+        return;
+    }
+
+    x = parsedX;
+    y = parsedY;
+    z = parsedZ;
 }
 
 inline void ReadVec4( const Json& value, const std::string& path, const char* context, float& x, float& y, float& z,
                       float& w )
 {
-    RequireArray( value, path, context );
-
-    if ( value.size() != 4 )
+    if ( !RequireFixedArray( value, path, context, 4u, "numbers" ) )
     {
-        std::ostringstream message;
-        message << context << " must contain exactly 4 numbers";
-        Fail( path, message.str() );
         return;
     }
 
-    x = ReadFloat( value[0], path, context );
-    y = ReadFloat( value[1], path, context );
-    z = ReadFloat( value[2], path, context );
-    w = ReadFloat( value[3], path, context );
+    const float parsedX = ReadFloat( value[0], path, context );
+    const float parsedY = ReadFloat( value[1], path, context );
+    const float parsedZ = ReadFloat( value[2], path, context );
+    const float parsedW = ReadFloat( value[3], path, context );
+
+    if ( ParserFailed() )
+    {
+        return;
+    }
+
+    x = parsedX;
+    y = parsedY;
+    z = parsedZ;
+    w = parsedW;
 }
 
 inline Json ReadJsonFile( const std::string& path )

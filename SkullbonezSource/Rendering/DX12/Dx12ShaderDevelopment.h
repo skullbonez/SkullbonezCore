@@ -7,8 +7,8 @@ Summary:
   Live raster shaders register with one fixed-capacity owner. A developer reload
   bakes one complete offline-DXC generation, stages every raster and compute
   replacement, drains the concrete frame epoch, and publishes the generation
-  transactionally. Per-frame draw and pipeline-selection policy remain outside
-  this owner.
+  transactionally. The same backend owner caches verified startup bytecode;
+  per-frame draw and pipeline-selection policy remain outside it.
 
 Glossary:
   Live shader registry: Bounded table of ShaderDX12 objects eligible for manual
@@ -22,6 +22,7 @@ Invariants:
   - Registration never grows dynamically; capacity exhaustion is a fatal invariant failure.
   - A bake or candidate-validation failure leaves every live shader and PSO unchanged.
   - ReloadShadersFromSource proves GPU completion before releasing old PSOs.
+  - A successful reload clears startup bytecode cached from the old generation.
   - This owner stores concrete shader-domain owners, never the aggregate backend
     or per-frame command authority.
 
@@ -33,6 +34,7 @@ Related:
 #pragma once
 
 #include "../../Core/SbResult.h"
+#include "ShaderBytecodeManifest.h"
 
 #include <array>
 #include <cstddef>
@@ -49,14 +51,28 @@ class Dx12RenderDevice;
 class Dx12TextureOwner;
 class ShaderDX12;
 
+// One cold preparation invocation. Counts describe only the fixed projection
+// traversed by that call; they are never backend-lifetime cache totals.
+struct Dx12InitialRasterShaderBytecodePreparationSummary
+{
+    std::size_t attempted = 0;
+    std::size_t complete = 0;
+    std::size_t newlyPublished = 0;
+    std::size_t cacheHits = 0;
+    std::size_t stageLoads = 0;
+};
+
 class Dx12ShaderDevelopment
 {
+    friend class ShaderDX12;
+
   public:
     Dx12ShaderDevelopment( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Dx12PipelineOwner& pipeline,
                            Dx12TextureOwner& textures, Dx12GeometryOwner& geometry, Dx12RenderDevice& device,
                            Dx12FrameOwner& frame, Dx12Diagnostics& diagnostics );
 
     bool Enabled() const;
+    Dx12InitialRasterShaderBytecodePreparationSummary PrepareInitialRasterShaderBytecode();
     SkullbonezCore::Core::SbResult ReloadShadersFromSource();
     void RegisterShader( ShaderDX12* shader );
     void UnregisterShader( ShaderDX12* shader );
@@ -70,6 +86,10 @@ class Dx12ShaderDevelopment
   private:
     static constexpr size_t LIVE_SHADER_CAPACITY = 64;
 
+    bool LoadCurrentProgramBytecode( const char* hlslPath, Microsoft::WRL::ComPtr<ID3DBlob>& outVertex,
+                                     Microsoft::WRL::ComPtr<ID3DBlob>& outPixel, std::string& outError );
+    void ValidateInitialRasterShaderBytecodeCache() const;
+
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Dx12PipelineOwner& m_pipeline;
     Dx12TextureOwner& m_textures;
@@ -77,6 +97,7 @@ class Dx12ShaderDevelopment
     Dx12RenderDevice& m_device;
     Dx12FrameOwner& m_frame;
     Dx12Diagnostics& m_diagnostics;
+    ShaderBytecodeManifestCache m_bytecodeCache;
 
     // Lifetime: rows borrow ShaderDX12 objects. Geometry-owned rows unregister
     // before reset; the final reset also makes late external shader teardown inert.

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabMemory.h
+File: SkullbonezSource/Runtime/UI/GameUI/UITabMemory.h
 Purpose:
   Declares the in-engine memory diagnostics tab.
 
@@ -46,7 +46,7 @@ namespace UI
 {
 
 class UIDrawContext;
-struct InGameUIFrameData;
+struct UIMemoryTabFrameView;
 struct InGameUIInputResult;
 
 namespace MemoryTab
@@ -100,10 +100,10 @@ struct UIMemoryOverlayState
 int ContentHeight();
 bool OverlayEnabled( const UIMemoryOverlayState& state );
 void SetOverlayEnabled( UIMemoryOverlayState& state, bool enabled );
-void PushOverlayFrame( UIMemoryOverlayState& state, const InGameUIFrameData& data );
-void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float preferredX,
+void PushOverlayFrame( UIMemoryOverlayState& state, const UIMemoryTabFrameView& data );
+void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const UIMemoryTabFrameView& data, float preferredX,
                   float preferredY );
-void Draw( const UIDrawContext& draw, UIMemoryOverlayState& state, const InGameUIFrameData& data, float contentX,
+void Draw( const UIDrawContext& draw, UIMemoryOverlayState& state, const UIMemoryTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrolledY, int activeSlider, int mouseX, int mouseY );
 bool HandleContentClick( UIMemoryOverlayState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                          float contentX, float scrolledY, float contentW );

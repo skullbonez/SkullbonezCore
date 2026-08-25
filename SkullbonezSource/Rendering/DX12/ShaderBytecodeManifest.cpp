@@ -6,7 +6,8 @@ Purpose:
 Summary:
   The bake tool owns compilation. This file is only a verifier and loader: it
   hashes the authored source and baked bytes, finds their manifest row, and
-  publishes a blob after every identity check succeeds.
+  publishes a blob after every identity check succeeds. The backend cache keeps
+  complete raster pairs so later lazy owners do not reparse the manifest.
 
 Glossary:
   DXIL container reflection: Compiler metadata used to discover constant-buffer
@@ -17,6 +18,7 @@ Invariants:
     labelled developer reload transaction.
   - Hash comparison uses lowercase SHA-256 text emitted by the bake tool.
   - Developer hot reload is opt-in through one exact command-line token.
+  - A cache row is visible only after both vertex and pixel stages verify.
 
 Related:
   - tools/bake_shaders.py
@@ -25,6 +27,7 @@ Related:
 */
 #include "ShaderBytecodeManifest.h"
 #include "../ShaderReflectionContracts.h"
+#include "../../Core/WindowConstants.h"
 
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
 
@@ -37,6 +40,7 @@ Related:
 #include <cctype>
 #include <cstring>
 #include <fstream>
+#include <utility>
 
 #pragma comment( lib, "bcrypt.lib" )
 
@@ -47,6 +51,25 @@ namespace SkullbonezCore::Rendering
 {
 namespace
 {
+// This projection follows the lazy shader owners reachable from the first
+// gameplay frame. It is unconditional because scene/debug/cinematic policy can
+// select any row after BackendInit without changing the backend contract.
+constexpr std::array<const char*, 13> FIRST_GAMEPLAY_SHADER_BASE_NAMES = {
+    "shaders/lit_textured",            // Terrain receiver.
+    "shaders/shadow_depth",            // Terrain shadow caster.
+    "shaders/unlit_textured",          // Authored skybox.
+    "shaders/lit_textured_instanced",  // Primitive/object receiver.
+    "shaders/shadow_depth_instanced",  // Primitive/object shadow caster.
+    "shaders/water_calm",              // Calm WorldEnvironment water path.
+    "shaders/water_ocean",             // Ocean WorldEnvironment water path.
+    "shaders/collision_visualizer",    // CollisionVisualizer overlay.
+    "shaders/sky_atmosphere",          // Cinematic SkyPass.
+    "shaders/post_volumetric_light",   // VolumetricPass.
+    "shaders/post_tonemap",            // TonemapPass.
+    "shaders/launcher_laser",          // DebugOverlayPass launcher path.
+    "shaders/ui_render_target_preview" // UiDrawSubmission preview path.
+};
+
 bool ReadBytes( const std::string& path, std::string& bytes )
 {
     std::ifstream file( path, std::ios::binary );
@@ -330,6 +353,121 @@ bool DevShaderHotReloadEnabled()
     // renderer can query it from the manual cold utility action.
     static const bool enabled = CommandLineHasExactToken( "--dev-shader-hot-reload" );
     return enabled;
+}
+
+
+ShaderBytecodeManifestCache::ProgramLoadSummary ShaderBytecodeManifestCache::LoadProgram( const char* hlslPath,
+                                                                                          ComPtr<ID3DBlob>& outVertex,
+                                                                                          ComPtr<ID3DBlob>& outPixel,
+                                                                                          std::string& outError )
+{
+    ProgramLoadSummary summary;
+    outVertex.Reset();
+    outPixel.Reset();
+
+    if ( !hlslPath || hlslPath[0] == '\0' )
+    {
+        outError = "missing shader path";
+        return summary;
+    }
+
+    for ( std::size_t index = 0; index < m_programCount; ++index )
+    {
+        const Program& cached = m_programs[index];
+
+        if ( cached.sourcePath == hlslPath )
+        {
+            outVertex = cached.vertexBytecode;
+            outPixel = cached.pixelBytecode;
+            summary.complete = true;
+            summary.cacheHit = true;
+            return summary;
+        }
+    }
+
+    ComPtr<ID3DBlob> vertex;
+    ComPtr<ID3DBlob> pixel;
+    ++summary.stageLoads;
+
+    if ( !LoadManifestCurrentShaderBytecode( hlslPath, "vs", vertex, outError ) )
+    {
+        return summary;
+    }
+
+    ++summary.stageLoads;
+
+    if ( !LoadManifestCurrentShaderBytecode( hlslPath, "ps", pixel, outError ) )
+    {
+        return summary;
+    }
+
+    if ( m_programCount >= m_programs.size() )
+    {
+        outError = "shader bytecode cache capacity exhausted";
+        return summary;
+    }
+
+    // Lifetime: cache rows own shared DXIL blobs for the backend epoch. Lazy
+    // ShaderDX12 owners take ComPtr references without reopening the manifest.
+    Program& destination = m_programs[m_programCount++];
+    destination.sourcePath = hlslPath;
+    destination.vertexBytecode = vertex;
+    destination.pixelBytecode = pixel;
+    outVertex = std::move( vertex );
+    outPixel = std::move( pixel );
+    summary.complete = true;
+    summary.newlyPublished = true;
+    return summary;
+}
+
+
+ShaderBytecodeManifestCache::PreparationSummary
+ShaderBytecodeManifestCache::PrepareFirstGameplayPrograms( std::string& outError )
+{
+    PreparationSummary summary;
+    std::string firstError;
+
+    for ( const char* baseName : FIRST_GAMEPLAY_SHADER_BASE_NAMES )
+    {
+        ++summary.attempted;
+
+        // Invariant: fixed path assembly stays on the stack, so a fully warm
+        // invocation performs neither manifest IO nor path-string allocation.
+        char sourcePath[MAX_PATH] = {};
+        ComPtr<ID3DBlob> vertex;
+        ComPtr<ID3DBlob> pixel;
+        std::string programError;
+        const int sourcePathLength = std::snprintf( sourcePath, sizeof( sourcePath ), "%s%s.hlsl", DATA_ROOT, baseName );
+        const ProgramLoadSummary program = sourcePathLength > 0 &&
+                                                   static_cast<std::size_t>( sourcePathLength ) < sizeof( sourcePath )
+                                               ? LoadProgram( sourcePath, vertex, pixel, programError )
+                                               : ProgramLoadSummary {};
+        summary.stageLoads += program.stageLoads;
+        summary.newlyPublished += program.newlyPublished ? 1u : 0u;
+        summary.cacheHits += program.cacheHit ? 1u : 0u;
+
+        if ( program.complete )
+        {
+            ++summary.complete;
+        }
+        else
+        {
+            if ( firstError.empty() )
+            {
+                firstError = std::string( sourcePath ) + ": " + programError;
+            }
+        }
+    }
+
+    outError = std::move( firstError );
+    return summary;
+}
+
+
+void ShaderBytecodeManifestCache::Reset()
+{
+    m_programs = {};
+    m_programCount = 0;
 }
 
 bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob,

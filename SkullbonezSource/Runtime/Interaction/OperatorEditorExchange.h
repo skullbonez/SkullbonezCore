@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/OperatorEditorExchange.h
+File: SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h
 Purpose:
   Defines the shared value boundary used by either operator editor surface.
 
@@ -8,7 +8,8 @@ Summary:
   typed command queues, including detached forecast status and lifecycle intent,
   but runtime selection activates only one human surface. A deterministic
   arbitration pass also admits optional automation/probe intent before projecting
-  one canonical packet into established owner command paths.
+  one canonical packet into established owner command paths. Shared control
+  ranges live here so both front ends and command application clamp identically.
 
 Glossary:
   Domain view: Read-only scene, property, rendering, diagnostics, authoring,
@@ -47,6 +48,63 @@ Related:
 namespace SkullbonezCore::UI
 {
 struct InGameUICommands;
+
+// OperatorControlPolicy is the shared product contract for the scalar rows
+// declared below. GameUI uses each step for pointer quantization; ImGui uses it
+// as DragFloat input speed only. App deterministically clamp-snaps these rows,
+// while Replay reveal and horizon retain their separate owner semantics.
+namespace OperatorControlPolicy
+{
+inline constexpr float UI_TIME_SCALE_MIN = 0.10f;
+inline constexpr float UI_TIME_SCALE_MAX = 10.00f;
+inline constexpr float UI_TIME_SCALE_STEP = 0.05f;
+inline constexpr int UI_MODEL_COUNT_MIN = 0;
+inline constexpr float UI_PHYSICS_ALPHA_MIN = 0.05f;
+inline constexpr float UI_PHYSICS_ALPHA_MAX = 1.00f;
+inline constexpr float UI_PHYSICS_ALPHA_STEP = 0.01f;
+inline constexpr float UI_CONTACT_LINGER_MIN = 0.00f;
+inline constexpr float UI_CONTACT_LINGER_MAX = 5.00f;
+inline constexpr float UI_CONTACT_LINGER_STEP = 0.05f;
+inline constexpr float UI_RAY_IMPULSE_MIN = 0.0f;
+inline constexpr float UI_RAY_IMPULSE_MAX = 6000.0f;
+inline constexpr float UI_RAY_IMPULSE_STEP = 100.0f;
+inline constexpr float UI_LAUNCHER_PROJECTILE_SPEED_MIN = 20.0f;
+inline constexpr float UI_LAUNCHER_PROJECTILE_SPEED_MAX = 360.0f;
+inline constexpr float UI_LAUNCHER_PROJECTILE_SPEED_STEP = 5.0f;
+inline constexpr float UI_FRICTION_COEFF_MIN = 0.0f;
+inline constexpr float UI_FRICTION_COEFF_MAX = 3.0f;
+inline constexpr float UI_FRICTION_COEFF_STEP = 0.05f;
+inline constexpr float UI_ROLLING_FRICTION_COEFF_MIN = 0.0f;
+inline constexpr float UI_ROLLING_FRICTION_COEFF_MAX = 0.20f;
+inline constexpr float UI_ROLLING_FRICTION_COEFF_STEP = 0.005f;
+inline constexpr int UI_SEED_MIN = 1;
+inline constexpr int UI_SEED_MAX = 999999;
+inline constexpr int UI_SOLVER_COUNT_MIN = 0;
+inline constexpr float UI_WORLD_GRAVITY_MIN = 0.0f;
+inline constexpr float UI_WORLD_GRAVITY_MAX = 100.0f;
+inline constexpr float UI_WORLD_GRAVITY_STEP = 0.50f;
+inline constexpr float UI_WORLD_FLUID_HEIGHT_MIN = -100.0f;
+inline constexpr float UI_WORLD_FLUID_HEIGHT_MAX = 200.0f;
+inline constexpr float UI_WORLD_FLUID_HEIGHT_STEP = 1.0f;
+inline constexpr float UI_WORLD_FLUID_DENSITY_MIN = 0.0f;
+inline constexpr float UI_WORLD_FLUID_DENSITY_MAX = 5.0f;
+inline constexpr float UI_WORLD_FLUID_DENSITY_STEP = 0.05f;
+inline constexpr float UI_TORNADO_RADIUS_MIN = 40.0f;
+inline constexpr float UI_TORNADO_RADIUS_MAX = 360.0f;
+inline constexpr float UI_TORNADO_RADIUS_STEP = 5.0f;
+inline constexpr float UI_TORNADO_HEIGHT_MIN = 40.0f;
+inline constexpr float UI_TORNADO_HEIGHT_MAX = 300.0f;
+inline constexpr float UI_TORNADO_HEIGHT_STEP = 5.0f;
+inline constexpr float UI_TORNADO_INWARD_MIN = 0.0f;
+inline constexpr float UI_TORNADO_INWARD_MAX = 300.0f;
+inline constexpr float UI_TORNADO_INWARD_STEP = 5.0f;
+inline constexpr float UI_TORNADO_SWIRL_MIN = 0.0f;
+inline constexpr float UI_TORNADO_SWIRL_MAX = 400.0f;
+inline constexpr float UI_TORNADO_SWIRL_STEP = 5.0f;
+inline constexpr float UI_TORNADO_LIFT_MIN = 0.0f;
+inline constexpr float UI_TORNADO_LIFT_MAX = 250.0f;
+inline constexpr float UI_TORNADO_LIFT_STEP = 5.0f;
+} // namespace OperatorControlPolicy
 
 struct OperatorEditorSceneView
 {

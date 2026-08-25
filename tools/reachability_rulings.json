@@ -498,11 +498,11 @@
     },
     {
       "file": "SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp",
-      "signature": "ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )",
+      "signature": "ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPredictionPresentationView& prediction, const RunReplayPathVisualizerState& pathVisualizer, PhysicsEngine& physics, const SceneEntityStore& entities, EditorTracer& tracer, Core::Profiler* profiler, ReplayFrameIndex presentFrame, bool hasPresentSample, bool drawPredictionOverlay )",
       "owner": "Replay prediction path presentation",
       "disposition": "retain-owner",
       "reason": "Owns bounded path-visualizer drawing and ribbon/time budgets.",
-      "evidence": "ReplayPredictionPresentation::RenderPathVisualizer calls it from the production presentation path. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=1/1; symbols=?RenderReplayPathVisualizer@ReplayOverlay@Runtime@SkullbonezCore@@YA?AUReplayPathVisualizerRenderResult@123@AEBUReplayPathVisualizerRenderContext@123@@Z",
+      "evidence": "ReplayPredictionPresentation::RenderPathVisualizer calls it from the production presentation path. 2026-08-25 synchronized Debug/Profile census after replacing the retired capability context with explicit workflow operands: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=9/9; symbols=?RenderReplayPathVisualizer@ReplayOverlay@Runtime@SkullbonezCore@@YA?AUReplayPathVisualizerRenderResult@123@AEBUReplayPredictionPresentationView@23@AEBURunReplayPathVisualizerState@23@AEAVPhysicsEngine@Physics@3@AEBVSceneEntityStore@23@AEAVEditorTracer@23@PEAVProfiler@Core@3@_K_N7@Z",
       "plan": ""
     },
     {

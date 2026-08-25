@@ -5293,7 +5293,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             // commands apply before the after-render report observes them.
             RecordedInputFrame neutralFrame;
             neutralFrame.appFocused = false;
-            state.inputDriver.PublishRecordedFrame( neutralFrame, windowOwner.ClientWidth(), windowOwner.ClientHeight() );
+            result.recordedCursor = state.inputDriver.PublishRecordedFrame( neutralFrame, windowOwner.ClientWidth(),
+                                                                            windowOwner.ClientHeight(), false );
             state.recordedDeltaSeconds = 0.0;
             state.recordedFramePublished = true;
             result.hasRecordedDeltaSeconds = true;
@@ -5305,12 +5306,13 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         POINT semanticPosition = {};
         int semanticX = 0;
         int semanticY = 0;
-        const bool resolvedSemantic = recorded.semanticAnchor[0] != '\0' &&
+        const bool resolvedSemantic = recorded.hasPointer && recorded.semanticAnchor[0] != '\0' &&
                                       ui.ResolveInteractionAnchor( recorded.semanticAnchor, semanticX, semanticY );
         semanticPosition.x = semanticX;
         semanticPosition.y = semanticY;
-        state.inputDriver.PublishRecordedFrame( recorded, windowOwner.ClientWidth(), windowOwner.ClientHeight(),
-                                                resolvedSemantic ? &semanticPosition : nullptr );
+        result.recordedCursor = state.inputDriver.PublishRecordedFrame( recorded, windowOwner.ClientWidth(),
+                                                                        windowOwner.ClientHeight(), true,
+                                                                        resolvedSemantic ? &semanticPosition : nullptr );
         state.recordedDeltaSeconds = recorded.deltaSeconds;
         state.recordedFramePublished = true;
         result.hasRecordedDeltaSeconds = true;

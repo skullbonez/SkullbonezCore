@@ -187,6 +187,87 @@ def verify_convergence_projection():
     print("  PASS: opt-in solver convergence projection is populated")
 
 
+def verify_motion_transition_projection():
+    full = run_query_set(
+        TRACE,
+        [("full", ["motion", "--body", "ball_drop_a", "--limit", "2000"])],
+    )["full"]
+    timeline = full.get("policyTimeline") or []
+    transitions = [row for row in timeline if row.get("transition")]
+    promotions = [row for row in transitions if row.get("transition") == "promoted"]
+    demotions = [row for row in transitions if row.get("transition") == "demoted"]
+    if not promotions and not demotions:
+        stats = full.get("bodyStats") or {}
+        if int(stats.get("swept_rows") or 0) != 0:
+            raise RuntimeError("all-Discrete motion fixture reports Swept body rows without transitions")
+        if int(full.get("bodyPromotionEvents") or 0) != 0 or int(full.get("bodyDemotionEvents") or 0) != 0:
+            raise RuntimeError("all-Discrete motion fixture invented promotion or demotion events")
+        swept = run_query_set(
+            TRACE,
+            [("swept", ["motion", "--body", "ball_drop_a", "--policy", "swept", "--limit", "2000"])],
+        )["swept"]
+        if swept.get("policyTimeline"):
+            raise RuntimeError("Swept policy filter returned rows for an all-Discrete body")
+        if int(swept.get("bodyPromotionEvents") or 0) != 0 or int(swept.get("bodyDemotionEvents") or 0) != 0:
+            raise RuntimeError("Swept policy filter invented transitions for an all-Discrete body")
+        print("  PASS: all-Discrete motion timeline and empty Swept filter are exact")
+        return
+    if len(promotions) < 2 or len(demotions) < 2:
+        raise RuntimeError("motion transition fixture no longer contains two promotion/demotion cycles")
+    if int(full.get("bodyPromotionEvents") or 0) != len(promotions):
+        raise RuntimeError("complete motion query promotion count disagrees with annotated timeline")
+    if int(full.get("bodyDemotionEvents") or 0) != len(demotions):
+        raise RuntimeError("complete motion query demotion count disagrees with annotated timeline")
+
+    first_promotion_frame = int(promotions[0]["frame"])
+    following_demotion = next(row for row in demotions if int(row["frame"]) > first_promotion_frame)
+    interior_start = first_promotion_frame + 1
+    interior_end = int(following_demotion["frame"]) - 1
+    if interior_start > interior_end:
+        raise RuntimeError("motion transition fixture has no bounded Swept interval interior")
+    bounded = run_query_set(
+        TRACE,
+        [
+            (
+                "bounded",
+                [
+                    "motion",
+                    "--body",
+                    "ball_drop_a",
+                    "--frames",
+                    f"{interior_start}:{interior_end}",
+                    "--limit",
+                    "2000",
+                ],
+            )
+        ],
+    )["bounded"]
+    if int(bounded.get("bodyPromotionEvents") or 0) != 0 or int(bounded.get("bodyDemotionEvents") or 0) != 0:
+        raise RuntimeError("bounded motion query invented a transition inside an existing Swept interval")
+    if any(row.get("transition") for row in bounded.get("policyTimeline") or []):
+        raise RuntimeError("bounded motion timeline annotated a transition outside the selected frame range")
+
+    swept = run_query_set(
+        TRACE,
+        [
+            (
+                "swept",
+                ["motion", "--body", "ball_drop_a", "--policy", "swept", "--limit", "2000"],
+            )
+        ],
+    )["swept"]
+    if int(swept.get("bodyPromotionEvents") or 0) != len(promotions):
+        raise RuntimeError("Swept policy filter hid a later re-promotion")
+    if int(swept.get("bodyDemotionEvents") or 0) != 0:
+        raise RuntimeError("Swept policy filter reported a hidden Discrete demotion")
+    if any(row.get("collision_policy") != "swept" for row in swept.get("policyTimeline") or []):
+        raise RuntimeError("Swept policy filter returned a non-Swept body row")
+    promoted_markers = sum(1 for row in swept.get("policyTimeline") or [] if row.get("transition") == "promoted")
+    if promoted_markers != len(promotions):
+        raise RuntimeError("Swept policy timeline lost a reconstructed promotion marker")
+    print("  PASS: complete, bounded, and policy-filtered motion transitions are exact")
+
+
 def canonical_json(packet):
     return json.dumps(packet, indent=2, sort_keys=True) + "\n"
 
@@ -262,6 +343,8 @@ def main():
         generate_trace(TRACE, [])
         print("  Checking opt-in solver convergence projection...")
         verify_convergence_projection()
+        print("  Checking motion transition projection...")
+        verify_motion_transition_projection()
         print("  Running SkullScope query packet...")
         current_text = canonical_json(run_queries())
         return compare_or_update(

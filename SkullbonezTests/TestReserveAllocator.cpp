@@ -26,6 +26,8 @@
 //     independently of guard mode and concurrent scopes.
 //   - Development tool scopes do not mask an ordinary gameplay allocation.
 //   - Tracker cases restore the process-wide guard to Off before returning.
+//   - Rejected owner registrations never advance the fixed registry count.
+//   - Registry-capacity probes run in a child because owners are process-lived.
 //   - A new capacity session resets the visible and list-local peak lazily.
 //   - Grow-only default extension preserves the existing admitted prefix and
 //     value-initializes only newly admitted rows.
@@ -39,6 +41,7 @@
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
+#include "TestFatalCases.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
@@ -52,11 +55,16 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <new>
 #include <ranges>
 #include <string>
 #include <thread>
+#if defined( _WIN32 )
+#include <process.h>
+#endif
 
 using SkullbonezCore::Core::Allocation::GetRuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase;
@@ -100,6 +108,9 @@ using SkullbonezCore::Core::Allocation::TryAccountDevelopmentToolBackingMemory;
 
 namespace
 {
+constexpr const char*
+    OWNER_REGISTRY_CHILD_SENTINEL_PATH = "TestOutput/validation/runtime_reserve_registry_capacity_child.ok";
+constexpr const char* OWNER_REGISTRY_CHILD_SENTINEL_TEXT = "CORE-002 runtime reserve registry capacity child passed\n";
 
 // Why: owner registration persists for the process lifetime; unique owner names
 // let ResetCounters() clear diagnostics between cases without a registry teardown.
@@ -213,6 +224,166 @@ std::string ReadFileText( FILE* file )
     }
 
     return text;
+}
+
+void ExerciseOwnerRegistryCapacity()
+{
+    constexpr std::size_t concurrentCallers = 8u;
+    constexpr const char* concurrentOwnerName = "unit.reserve.registry-capacity.concurrent";
+    constexpr std::size_t registrationAttempts = 512u;
+    std::array<std::thread, concurrentCallers> workers;
+    std::array<RuntimeReserveOwnerHandle, concurrentCallers> concurrentHandles = {};
+    std::atomic<std::size_t> readyCallers { 0u };
+    std::atomic<bool> startRegistration { false };
+    std::array<std::array<char, 64>, registrationAttempts> ownerNames = {};
+    RuntimeReserveAllocator::ResetCounters();
+
+    for ( std::size_t index = 0; index < workers.size(); ++index )
+    {
+        workers[index] = std::thread(
+            [&, index]()
+            {
+                readyCallers.fetch_add( 1u, std::memory_order_release );
+
+                while ( !startRegistration.load( std::memory_order_acquire ) )
+                {
+                    std::this_thread::yield();
+                }
+
+                concurrentHandles[index] = RuntimeReserveAllocator::RegisterOwner(
+                    MakeReplayOwnerDesc( concurrentOwnerName ) );
+            } );
+    }
+
+    while ( readyCallers.load( std::memory_order_acquire ) != workers.size() )
+    {
+        std::this_thread::yield();
+    }
+
+    startRegistration.store( true, std::memory_order_release );
+
+    for ( std::thread& worker : workers )
+    {
+        worker.join();
+    }
+
+    REQUIRE( concurrentHandles[0] != INVALID_RUNTIME_RESERVE_OWNER );
+
+    for ( const RuntimeReserveOwnerHandle owner : concurrentHandles )
+    {
+        REQUIRE( owner == concurrentHandles[0] );
+    }
+
+    RuntimeReserveOwnerHandle lastRegisteredOwner = INVALID_RUNTIME_RESERVE_OWNER;
+    const char* lastRegisteredName = nullptr;
+    int rejectedRegistrations = 0;
+
+    for ( std::size_t index = 0; index < ownerNames.size(); ++index )
+    {
+        std::snprintf( ownerNames[index].data(), ownerNames[index].size(), "unit.reserve.registry-capacity.%zu", index );
+        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+            MakeReplayOwnerDesc( ownerNames[index].data() ) );
+
+        if ( owner == INVALID_RUNTIME_RESERVE_OWNER )
+        {
+            ++rejectedRegistrations;
+            continue;
+        }
+
+        REQUIRE( rejectedRegistrations == 0 );
+        lastRegisteredOwner = owner;
+        lastRegisteredName = ownerNames[index].data();
+    }
+
+    REQUIRE( lastRegisteredOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    REQUIRE( lastRegisteredName != nullptr );
+    REQUIRE( rejectedRegistrations > 0 );
+    REQUIRE( RuntimeReserveAllocator::PolicyViolationCount() == static_cast<uint64_t>( rejectedRegistrations ) );
+    REQUIRE( RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( lastRegisteredName ) ) == lastRegisteredOwner );
+
+    // Test probe: reset and summary traverse every published registry row. A
+    // rejected registration must not expand either traversal past fixed storage.
+    RuntimeReserveAllocator::ResetCounters();
+    REQUIRE_FALSE( RuntimeReserveAllocator::HasPolicyViolations() );
+    FILE* summaryFile = nullptr;
+    REQUIRE( tmpfile_s( &summaryFile ) == 0 );
+    REQUIRE( summaryFile != nullptr );
+    RuntimeReserveAllocator::PrintSummary( summaryFile );
+    const std::string summary = ReadFileText( summaryFile );
+    std::fclose( summaryFile );
+    REQUIRE( summary.find( "registered_owners=159" ) != std::string::npos );
+
+    std::error_code directoryError;
+    std::filesystem::create_directories( "TestOutput/validation", directoryError );
+    REQUIRE_FALSE( directoryError );
+    FILE* sentinelFile = nullptr;
+    REQUIRE( fopen_s( &sentinelFile, OWNER_REGISTRY_CHILD_SENTINEL_PATH, "wb" ) == 0 );
+    REQUIRE( sentinelFile != nullptr );
+    const std::size_t sentinelSize = std::strlen( OWNER_REGISTRY_CHILD_SENTINEL_TEXT );
+    REQUIRE( std::fwrite( OWNER_REGISTRY_CHILD_SENTINEL_TEXT, 1u, sentinelSize, sentinelFile ) == sentinelSize );
+    REQUIRE( std::fclose( sentinelFile ) == 0 );
+}
+
+bool EnsureOwnerRegistryCapacitySentinelAbsent()
+{
+    std::error_code removalError;
+    std::filesystem::remove( OWNER_REGISTRY_CHILD_SENTINEL_PATH, removalError );
+
+    if ( removalError )
+    {
+        return false;
+    }
+
+    std::error_code existenceError;
+    const bool sentinelExists = std::filesystem::exists( OWNER_REGISTRY_CHILD_SENTINEL_PATH, existenceError );
+    return !existenceError && !sentinelExists;
+}
+
+bool ConsumeOwnerRegistryCapacitySentinel()
+{
+    FILE* sentinelFile = nullptr;
+
+    if ( fopen_s( &sentinelFile, OWNER_REGISTRY_CHILD_SENTINEL_PATH, "rb" ) != 0 || !sentinelFile )
+    {
+        return false;
+    }
+
+    const std::string sentinel = ReadFileText( sentinelFile );
+    const int closeResult = std::fclose( sentinelFile );
+    const bool sentinelRemoved = EnsureOwnerRegistryCapacitySentinelAbsent();
+    return closeResult == 0 && sentinelRemoved && sentinel == OWNER_REGISTRY_CHILD_SENTINEL_TEXT;
+}
+
+int RunOwnerRegistryCapacityChild( bool& childCompleted )
+{
+    const char* executable = RuntimeTestExecutablePath();
+
+    if ( !executable )
+    {
+        return -1;
+    }
+
+    // Why: Windows CRT spawn reconstructs a command line from argv strings.
+    // A wildcard without spaces keeps the child selector one unambiguous token.
+    constexpr const char* filter = "--test-case=*registry*capacity*child*probe";
+
+    // Hazard: doctest exits successfully when a filter selects zero cases. A
+    // stale success sentinel must be verifiably absent before that can happen.
+    if ( !EnsureOwnerRegistryCapacitySentinelAbsent() )
+    {
+        return -1;
+    }
+
+    int childExit = -1;
+#if defined( _WIN32 )
+    childExit = static_cast<int>(
+        _spawnl( _P_WAIT, executable, executable, filter, "--no-skip=true", static_cast<char*>( nullptr ) ) );
+#else
+    const std::string command = "\"" + std::string( executable ) + "\" " + filter + " --no-skip=true";
+    childExit = std::system( command.c_str() );
+#endif
+    childCompleted = ConsumeOwnerRegistryCapacitySentinel();
+    return childExit;
 }
 } // namespace
 
@@ -384,6 +555,22 @@ TEST_CASE( "RuntimeAllocationTracker: global allocation overloads preserve align
 
     PrintRuntimeAllocationSummary( nullptr );
     CHECK_FALSE( RuntimeAllocationGuardEnabled() );
+}
+
+TEST_CASE( "RuntimeReserveAllocator: owner registry exhaustion remains bounded" )
+{
+    // Lifetime: owner registrations persist for the process, so this capacity
+    // probe runs in a child and cannot consume the parent suite's registry.
+    bool childCompleted = false;
+    const int childExit = RunOwnerRegistryCapacityChild( childCompleted );
+    REQUIRE( childExit != -1 );
+    CHECK( childExit == 0 );
+    CHECK( childCompleted );
+}
+
+TEST_CASE( "RuntimeReserveAllocator: owner registry capacity child probe" * doctest::skip() )
+{
+    ExerciseOwnerRegistryCapacity();
 }
 
 TEST_CASE( "RuntimeReserveAllocator: replay growth under cap grants and records bytes" )

@@ -128,6 +128,7 @@ struct ReplayPathPickInput;
 struct RuntimeRenderModelFrameView;
 struct RuntimeUiTextFrameFacts;
 struct OperatorUiProcessCommands;
+struct OperatorUiSecondaryDiagnosticsFacts;
 class SceneLoadTransaction;
 namespace ReplayOverlay
 {
@@ -243,7 +244,7 @@ class Run
     void CaptureInteractionRecordingTurn( double secondsPerFrame );                                               // Copies the routed device frame after input completes.
     void BeginFrameDiagnosticsPhase();                                                                            // Publishes prior GPU timing, then resets draw counters.
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-    SceneFrameProceedPolicy RunAutomationAndInputPhase( bool& gameUiActive );
+    SceneFrameProceedPolicy RunAutomationAndInputPhase( bool& gameUiActive, RecordedCursorFrame& recordedCursor );
 #endif
     SceneFrameProceedPolicy RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput,
                                            bool& gameUiActive );
@@ -253,13 +254,18 @@ class Run
     RuntimeRenderModelFrameView PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
 
-    void RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha,
-                                bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive,
-                                const RuntimeFrameMetricsSnapshot& frameMetrics );
-    void ProjectSecondaryOperatorDiagnostics( UI::OperatorEditorFrameView& view, const RuntimeFrameMetricsSnapshot& frameMetrics,
-                                              const RuntimeUiTextFrameFacts& uiTextFacts, const OverlayDebugState& debug, bool shadowsEnabled,
-                                              bool cinematicRendering, const Core::CinematicRenderConfig& cinematic, RuntimeViewModel& runtimeViewModel,
-                                              RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, RenderDiagnosticsReadout& renderDiagnosticsReadout );
+    OperatorUiProcessCommands RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
+                                                     float presentationAlpha, bool capturePresentationPinned,
+                                                     double secondsPerFrame, bool gameUiActive,
+                                                     const RuntimeFrameMetricsSnapshot& frameMetrics );
+    void SampleSecondaryOperatorDiagnostics( const RuntimeFrameMetricsSnapshot& frameMetrics,
+                                             const RuntimeUiTextFrameFacts& uiTextFacts, const OverlayDebugState& debug,
+                                             bool shadowsEnabled, bool cinematicRendering,
+                                             const Core::CinematicRenderConfig& cinematic,
+                                             RuntimeViewModel& runtimeViewModel,
+                                             RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
+                                             RenderDiagnosticsReadout& renderDiagnosticsReadout,
+                                             OperatorUiSecondaryDiagnosticsFacts& facts );
     void ApplyOperatorUiProcessCommands( const OperatorUiProcessCommands& commands );
     void RunPostDrawDiagnosticsPhase( bool gameUiActive );
     void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );

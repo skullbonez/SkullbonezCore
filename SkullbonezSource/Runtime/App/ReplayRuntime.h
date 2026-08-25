@@ -69,6 +69,8 @@ Related:
 #include "../Replay/ReplayTimeline.h"
 
 #include "../Replay/ReplayRecorder.h"
+#include "../Replay/ReplayRestoreTransactions.h"
+#include "../Replay/ReplayV2Artifact.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Prediction/ReplayPredictionScheduling.h"
 #include "../../Assets/AssetKeys.h"
@@ -82,6 +84,9 @@ Related:
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
 #include "../../Core/AmortizedTask.h"
+#ifdef _DEBUG
+#include "../../Core/FatalError.h"
+#endif
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Physics/PhysicsWorldForces.h"
@@ -92,6 +97,7 @@ Related:
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 
@@ -171,24 +177,157 @@ struct ReplayRestoreStepView
 };
 #ifdef _DEBUG
 struct ReplayScrubProbeDiagnostic;
+struct ReplayStartupProbeContinuationTestAccess;
 #endif
 
-// Invariant: startup presentation activation borrows lower owners only for one
-// synchronous App workflow. Replay receives no retained host-owner bundle.
-struct ReplayStartupLoadInput
+#ifdef _DEBUG
+// Invariant: a Debug startup may pause only while App services one typed
+// camera/input or restored-branch action. This cursor retains detached restore
+// evidence and internally addressed values, never a process owner borrow.
+class ReplayStartupProbeContinuation
 {
-    double now = 0.0;
-    Environment::CameraCollection* cameras = nullptr;
-    RunMousePickupState& mousePickup;
-    RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
-    InputRouter& inputRouter;
-    RuntimeInteractionController& interaction;
-    Geometry::Terrain* terrain = nullptr;
-    CameraControlState& camera;
-    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
-    bool attachedFollow = false;
-    bool directorGrabbed = false;
+  public:
+    enum class Phase : uint8_t
+    {
+        Idle,
+        Running,
+        AwaitingApplication,
+        ApplicationApplied,
+        Complete,
+        Failed
+    };
+
+    enum class PendingAction : uint8_t
+    {
+        None,
+        ActivateLoadedPresentation,
+        ApplyRestoredBranchTimeline
+    };
+
+    explicit ReplayStartupProbeContinuation( double applicationTimeSeconds )
+        : m_applicationTimeSeconds( applicationTimeSeconds )
+    {
+    }
+
+    ReplayStartupProbeContinuation( const ReplayStartupProbeContinuation& ) = delete;
+    ReplayStartupProbeContinuation& operator=( const ReplayStartupProbeContinuation& ) = delete;
+    ReplayStartupProbeContinuation( ReplayStartupProbeContinuation&& ) = delete;
+    ReplayStartupProbeContinuation& operator=( ReplayStartupProbeContinuation&& ) = delete;
+
+    static constexpr bool IsLegalTransition( Phase current, Phase next )
+    {
+        return ( current == Phase::Idle && next == Phase::Running ) ||
+               ( current == Phase::Running && next == Phase::AwaitingApplication ) ||
+               ( current == Phase::AwaitingApplication && next == Phase::ApplicationApplied ) ||
+               ( current == Phase::AwaitingApplication && next == Phase::Failed ) ||
+               ( current == Phase::ApplicationApplied && next == Phase::Running ) ||
+               ( current == Phase::Running && ( next == Phase::Complete || next == Phase::Failed ) );
+    }
+
+    static void RequireLegalTransitionOrFatal( Phase current, Phase next, const char* operation )
+    {
+        if ( !IsLegalTransition( current, next ) )
+        {
+            SB_FATAL( "Runtime/ReplayStartupProbeContinuation",
+                      "Illegal startup-probe continuation transition. operation=%s current=%u next=%u", operation,
+                      static_cast<unsigned int>( current ), static_cast<unsigned int>( next ) );
+        }
+    }
+
+    static constexpr bool IsApplicationStateCoherent( Phase phase, PendingAction action, bool hasRestore )
+    {
+        if ( phase != Phase::AwaitingApplication )
+        {
+            return action == PendingAction::None;
+        }
+
+        return action != PendingAction::None && ( action != PendingAction::ApplyRestoredBranchTimeline || hasRestore );
+    }
+
+    static void RequireApplicationStateOrFatal( Phase phase, PendingAction action, bool hasRestore, const char* operation )
+    {
+        if ( !IsApplicationStateCoherent( phase, action, hasRestore ) )
+        {
+            SB_FATAL( "Runtime/ReplayStartupProbeContinuation",
+                      "Startup-probe application state is incoherent. operation=%s phase=%u action=%u restore=%u", operation,
+                      static_cast<unsigned int>( phase ), static_cast<unsigned int>( action ), hasRestore ? 1u : 0u );
+        }
+    }
+
+    Phase CurrentPhase() const
+    {
+        return m_phase;
+    }
+
+    PendingAction ApplicationAction() const
+    {
+        RequireApplicationStateOrFatal( m_phase, m_pendingAction, m_restore.has_value(), "ReadApplicationAction" );
+        return m_pendingAction;
+    }
+
+    bool IsTerminal() const
+    {
+        return m_phase == Phase::Complete || m_phase == Phase::Failed;
+    }
+
+  private:
+    friend class ReplayRuntime;
+    friend struct ReplayStartupProbeContinuationTestAccess;
+
+    enum class Step : uint8_t
+    {
+        Load,
+        Checkpoint,
+        Target,
+        Branch,
+        Failure,
+        Complete
+    };
+
+    enum class Resume : uint8_t
+    {
+        None,
+        CompleteLoad,
+        CompleteCheckpoint,
+        CompleteBranchPreparation,
+        CompleteBranchRestore
+    };
+
+    void AdvanceOrFatal( Phase next, const char* operation );
+
+    void RejectPendingApplicationOrFatal( const char* operation )
+    {
+        // Invariant: a terminal cursor cannot retain an action that App could
+        // service after failure. Clear the courier value before closing the
+        // finite-state edge, then prove the resulting state is self-consistent.
+        m_pendingAction = PendingAction::None;
+        RequireLegalTransitionOrFatal( m_phase, Phase::Failed, operation );
+        m_phase = Phase::Failed;
+        RequireApplicationStateOrFatal( m_phase, m_pendingAction, m_restore.has_value(), operation );
+    }
+
+    Phase m_phase = Phase::Idle;
+    Step m_step = Step::Load;
+    Resume m_resume = Resume::None;
+    PendingAction m_pendingAction = PendingAction::None;
+    double m_applicationTimeSeconds = 0.0;
+    char m_sceneLabel[260] = {};
+
+    // Invariant: emplace gives the transaction one stable address across the
+    // App-serviced action; its self-referential diagnostic strings are never
+    // moved, and its scene-label view points only into this value cursor.
+    std::optional<ReplayRestoreTransaction> m_restore;
+    ReplayLiveRestoreRequest m_restoreRequest;
+    ReplayLiveRestoreOutcome m_restoreOutcome;
+    ReplaySolverFrameSample m_checkpoint;
+    ReplayV2SolverCheckpointLoadResult m_checkpointLoadResult;
+
+    // Invariant: these counts are detached artifact evidence captured before
+    // activation and reported only after App services the pending action.
+    std::size_t m_loadedVisualPacketCount = 0;
+    std::size_t m_loadedVisualPredictionBytes = 0;
 };
+#endif
 
 namespace ReplayPresentationOperations
 {
@@ -273,13 +412,15 @@ class ReplayProbeRunner
     void CompleteSaveProbe( const ReplayProbeSaveRequest& request, const SkullbonezCore::Core::SbResult& result );
     SkullbonezCore::Core::SbResult CurrentFailure() const;
     void RecordFailure( const SkullbonezCore::Core::SbResult& result );
-    SkullbonezCore::Core::SbResult VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScrubber& scrubber,
-                                                             ReplayPresentation& presentation, ReplayAuthoring& authoring,
-                                                             ReplayPrediction& prediction,
-                                                             ReplayPredictionPresentation& predictionPresentation,
-                                                             const ReplayStartupLoadInput& loadInput, SceneWorld& world,
-                                                             EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
-                                                             float normalized );
+    SkullbonezCore::Core::SbResult VerifyLoadedPresentationBeforeActivation( ReplayTimeline& timeline, ReplayScrubber& scrubber, ReplayPresentation& presentation, ReplayAuthoring& authoring,
+                                                                             ReplayPrediction& prediction, ReplayPredictionPresentation& predictionPresentation, SceneWorld& world,
+                                                                             EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, std::size_t& outVisualPacketCount,
+                                                                             std::size_t& outVisualPredictionBytes );
+    SkullbonezCore::Core::SbResult VerifyLoadedPresentationAfterActivation( ReplayTimeline& timeline,
+                                                                            ReplayScrubber& scrubber,
+                                                                            ReplayPresentation& presentation,
+                                                                            SceneWorld& world, std::size_t visualPacketCount,
+                                                                            std::size_t visualPredictionBytes );
     SkullbonezCore::Core::SbResult PrepareCheckpointFileProbe( const char* path, ReplaySolverFrameSample& outCheckpoint,
                                                                ReplayV2SolverCheckpointLoadResult& outLoadResult );
     SkullbonezCore::Core::SbResult CompleteCheckpointFileProbe( const char* path, const ReplaySolverFrameSample& checkpoint,
@@ -290,11 +431,9 @@ class ReplayProbeRunner
     ReplayFailureProbeRequest BeginFailureFileProbe( const char* path );
     ReplayFailureProbeRequest AdvanceFailureFileProbe( const ReplayFailureProbeRequest& request,
                                                        const ReplayFailureProbeStepResult& result );
-    SkullbonezCore::Core::SbResult PrepareBranchFileProbe( ReplayTimeline& timeline, ReplayScrubber& scrubber,
-                                                           ReplayPresentation& presentation, ReplayAuthoring& authoring,
-                                                           ReplayPrediction& prediction,
-                                                           const ReplayStartupLoadInput& loadInput, SceneWorld& world,
-                                                           const char* path, ReplayLiveRestoreRequest& outRequest );
+    SkullbonezCore::Core::SbResult BeginBranchFileProbe( ReplayTimeline& timeline, const char* path );
+    SkullbonezCore::Core::SbResult CompleteBranchFileProbePreparation( ReplayTimeline& timeline, ReplayScrubber& scrubber,
+                                                                       double now, ReplayLiveRestoreRequest& outRequest );
     SkullbonezCore::Core::SbResult CompleteBranchFileProbe( const char* path, const ReplayLiveRestoreOutcome& outcome );
 #endif
 
@@ -516,12 +655,24 @@ class ReplayRuntime
                                                    RuntimeInteractionController& interaction, SceneWorld& world,
                                                    AttachedCameraController& attachedCamera, CameraControlState& camera,
                                                    RunMousePickupState& mousePickup );
-    ReplayStartupResult RunStartupWorkflows( const ReplayStartupLoadInput& loadInput );
+    ReplayStartupResult RunStartupWorkflows( double applicationTimeSeconds );
+    bool ApplyStartupApplicationAction( const ReplayStartupResult& result, SceneController& sceneController,
+                                        CameraControlState& camera, RunCameraMode normalizedCurrentMode,
+                                        RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed,
+                                        RuntimeInteractionController& interaction, InputRouter& inputRouter,
+                                        RunMousePickupState& mousePickup );
 #ifdef _DEBUG
-    ReplayStartupResult RunStartupProbeWorkflows( const ReplayStartupLoadInput& loadInput, SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime,
-                                                  OverlayDebugState& debug, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                                  const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
-                                                  SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride );
+    ReplayStartupResult AdvanceStartupProbeWorkflows( ReplayStartupProbeContinuation& continuation, SceneController& sceneController,
+                                                      DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, EditorToolsOwner& editorTools,
+                                                      RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config,
+                                                      Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
+                                                      SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride );
+    ReplayStartupResult ApplyStartupProbeApplicationAction( ReplayStartupProbeContinuation& continuation,
+                                                            SceneController& sceneController, CameraControlState& camera,
+                                                            RunCameraMode normalizedCurrentMode,
+                                                            RunCameraMode normalizedRestoreMode, bool attachedFollow,
+                                                            bool directorGrabbed, RuntimeInteractionController& interaction,
+                                                            InputRouter& inputRouter, RunMousePickupState& mousePickup );
 #endif
 
     // Advances and publishes the private prediction during frame update.

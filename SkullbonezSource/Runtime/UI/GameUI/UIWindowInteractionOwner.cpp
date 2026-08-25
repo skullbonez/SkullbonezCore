@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UIWindowInteractionOwner.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.cpp
 Purpose:
   Implements stateful in-game UI window and widget interaction ownership.
 
@@ -26,6 +26,7 @@ Related:
 #include "../../../Core/Profiler.h"
 #include "UIFrameComposition.h"
 #include "../../../UI/UIInput.h"
+#include "../../../UI/UILayout.h"
 #include "../../../UI/UIDrawWidgets.h"
 #include "../../../UI/UIWindowChrome.h"
 
@@ -36,7 +37,8 @@ Related:
 
 using namespace SkullbonezCore::UI;
 using namespace SkullbonezCore::UI::Widgets;
-using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::GameLayout;
+using namespace SkullbonezCore::UI::OperatorControlPolicy;
 using namespace SkullbonezCore::UI::FrameComposition;
 
 namespace
@@ -144,7 +146,7 @@ void UIWindowInteractionOwner::SetVisible( bool visible, double now )
         m_window.isMinimized = true;
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
-        m_interaction.blocksCameraMouse = false;
+        m_blocksCameraMouse = false;
         CancelEditorMiniPaletteInteraction();
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
@@ -188,10 +190,10 @@ void UIWindowInteractionOwner::SetMinimized( bool minimized, double now )
     }
 
     const UIRect currentBounds = Chrome::WindowRect( m_window );
-    const UIRect minimizedBounds = MinimizedRect( m_lastScreenW, m_lastScreenH, m_window.minimizedWidth );
+    const UIRect minimizedBounds = Layout::MinimizedRect( m_lastScreenW, m_lastScreenH, m_window.minimizedWidth );
     m_interaction.isDragging = false;
     m_interaction.isResizing = false;
-    m_interaction.blocksCameraMouse = false;
+    m_blocksCameraMouse = false;
     CancelEditorMiniPaletteInteraction();
 
     if ( minimized )
@@ -258,7 +260,7 @@ void UIWindowInteractionOwner::CancelInputCapture()
 {
     m_interaction.isDragging = false;
     m_interaction.isResizing = false;
-    m_interaction.blocksCameraMouse = false;
+    m_blocksCameraMouse = false;
     m_activeSlider = 0;
     SceneTab::ResetPreviewState( m_sceneTab );
     OptionsTab::ResetPreviewState( m_optionsTab );
@@ -274,7 +276,7 @@ void UIWindowInteractionOwner::CancelInputCapture()
 
 bool UIWindowInteractionOwner::BlocksCameraMouse() const
 {
-    return m_interaction.blocksCameraMouse;
+    return m_blocksCameraMouse;
 }
 
 
@@ -289,7 +291,7 @@ bool UIWindowInteractionOwner::BlocksKeyboard() const
 
 bool UIWindowInteractionOwner::WantsNativeMouseCursor() const
 {
-    return ( m_window.isVisible && !m_window.isMinimized ) || m_interaction.blocksCameraMouse ||
+    return ( m_window.isVisible && !m_window.isMinimized ) || m_blocksCameraMouse ||
            ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
 }
 
@@ -601,7 +603,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     // owns applying scene, physics, renderer, and editor mutations.
     cameraModeIndex = std::clamp( cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
     cameraModeEnabledMask &= ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u;
-    m_interaction.blocksCameraMouse = false;
+    m_blocksCameraMouse = false;
     const int wheelDelta = input.wheelDelta;
     result.unhandledWheelDelta = wheelDelta;
     m_mouseX = input.mouseX;
@@ -632,7 +634,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
             result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
         }
 
-        m_interaction.blocksCameraMouse = true;
+        m_blocksCameraMouse = true;
         return result;
     }
 
@@ -662,7 +664,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
 
     if ( m_window.isMinimized )
     {
-        const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
+        const UIRect minimized = Layout::MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
         const bool showEditorMiniPalette = editorModeEnabled;
         const UIRect cameraModeComboBounds = MinimizedCameraModeComboBounds( minimized );
@@ -896,9 +898,9 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
             result.commands.ui.userInteracted = true;
         }
 
-        m_interaction.blocksCameraMouse = insideMinimized || insideCameraModeCombo || cameraModeComboHandled ||
-                                          insideEditorMiniPalette || insideEditorMinimizedStatusControl ||
-                                          m_editorMiniPalettePressActive;
+        m_blocksCameraMouse = insideMinimized || insideCameraModeCombo || cameraModeComboHandled ||
+                              insideEditorMiniPalette || insideEditorMinimizedStatusControl ||
+                              m_editorMiniPalettePressActive;
 
         return result;
     }
@@ -1615,7 +1617,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     }
 
     m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
-    m_interaction.blocksCameraMouse = inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0;
+    m_blocksCameraMouse = inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0;
 
     return result;
 }

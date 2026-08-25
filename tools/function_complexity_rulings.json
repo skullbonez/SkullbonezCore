@@ -5,11 +5,11 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "f96f738643636134509f60e7f68aa6b5ec00e4d1a0376cacba9c03dea23296f9",
+      "body_sha256": "2e2e99f8dc8a06fc466ffa29b82eb5e3a52fe70fe1fa406cb2f043268547e057",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
-      "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab and continuous-forecast status, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return, while helper extraction without a new invariant would only relay the same frame authority.",
-      "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01); ORBIT_FORECAST OF4 shared operator-surface review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22); SIM_PACING capture-lockstep label-only review (2026-08-23)",
+      "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab, continuous-forecast status, Prediction-owned reveal presentation bounds, and Replay-owned horizon presentation bounds, and emits only typed one-frame commands; its window and tree branches plus local widget values all expire at return. UI4 projects shared diagnostic ranges and drag speeds through OperatorControlPolicy and render controls through UIRenderAuthoringCatalog; App composes authoritative grid and Replay popup bounds, so this body adds neither retained state nor a second phase.",
+      "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01); ORBIT_FORECAST OF4 shared operator-surface review (2026-08-19); CR1 GameUI naming-only surface review (2026-08-22); SIM_PACING capture-lockstep label-only review (2026-08-23); GAME_UI_COMPONENTS UI4 shared-control-policy review (2026-08-24); GAME_UI_COMPONENTS UI6 terminal popup-policy review (2026-08-25)",
       "plan": ""
     },
     {
@@ -45,11 +45,11 @@
     {
       "file": "SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.cpp",
       "signature": "InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight, double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask, const SceneNavigationModel& sceneNavigation )",
-      "body_sha256": "f568602ab9ac33d5090774f0e86f31e6f19f439e124a4504dd9e449a2c8dbd62",
+      "body_sha256": "f40cd1fdaf5998c3c2da89a7785e94bbdc90c5a204947a4f9214f193d07d7f09",
       "owner": "UIWindowInteractionOwner input turn",
       "disposition": "retain-owner",
-      "reason": "One UI interaction owner resolves a detached input snapshot against viewport, editor, camera, Scene-tab catalog, and forecast-control hit-test policy for a single turn; both scene and recording combos share this owner's open-state and click-order invariant, all model access is synchronous, and extraction would leave one-call hit-test helpers sharing the same widget state.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); ORBIT_FORECAST OF4 GameUI control review (2026-08-19); interaction recording picker review (2026-08-22)",
+      "reason": "One UI interaction owner resolves a detached input snapshot against viewport, editor, camera, Scene-tab catalog, and forecast-control hit-test policy for a single turn; both scene and recording combos share this owner's open-state and click-order invariant, all model access is synchronous, and extraction would leave one-call hit-test helpers sharing the same widget state. UI4 moved camera-pointer blocking from the generic UIInteractionState into this existing product owner, preserving one authority.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); ORBIT_FORECAST OF4 GameUI control review (2026-08-19); interaction recording picker review (2026-08-22); GAME_UI_COMPONENTS UI4 pointer-policy ownership review (2026-08-24)",
       "plan": "",
       "body_lines": 1042,
       "max_brace_depth": 8,
@@ -58,11 +58,21 @@
     {
       "file": "SkullbonezSource/Physics/Diagnostics/SkullScope.cpp",
       "signature": "void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameInput )",
-      "body_sha256": "a607fd318726c1f6a92239e59a8ad4a4eb15518f58bdc4a34fd9d5033686bb93",
+      "body_sha256": "00be36409faf41e066acf780141c67f7d0f585da550e8507717abbe9ae1dacea",
       "owner": "SkullScope frame emission transaction",
       "disposition": "retain-owner",
-      "reason": "One bounded diagnostics transaction serializes a complete physics frame schema in deterministic field order, including separation-only bias attribution distinct from restitution; splitting field families would fragment the format invariant and byte-exact validation contract.",
-      "evidence": "git history: contact-energy-and-warm-start-integrity-es5 (2026-08-02)",
+      "reason": "One bounded diagnostics transaction serializes a complete physics frame schema in deterministic field order, including separation-only bias attribution, motion-policy totals, and each body's direction-valid eligibility boundary and policy state; splitting field families would fragment the format invariant and byte-exact validation contract.",
+      "evidence": "git history: contact-energy-and-warm-start-integrity-es5 (2026-08-02); RAGDOLL_PHYSICS FP4 motion-policy query review (2026-08-25)",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/OperatorEditorFramePhase.cpp",
+      "signature": "OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha, bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive, const RuntimeFrameMetricsSnapshot& frameMetrics )",
+      "body_sha256": "2ea344f21ef70a44a4dfc75d414c31a0a908c1ff49e85225c5ad3302e1817ecd",
+      "owner": "Runtime App operator-frame composition phase",
+      "disposition": "retain-owner",
+      "reason": "One ordered frame samples per-domain detached facts, delegates all domain UI-row mapping to Runtime/UI, sequences GameUI and secondary presentation with renderer submission, then emits typed process commands. No owner borrow survives return, and extraction would create relay helpers without an independent invariant. This current-body ruling does not permit App to regain UI-row mapping or retained sibling authority.",
+      "evidence": "RUNTIME_BOUNDARIES RBS7 terminal composition-root review (2026-08-25)",
       "plan": ""
     },
     {
@@ -117,21 +127,21 @@
     {
       "file": "SkullbonezSource/Runtime/UI/GameUI/UI.cpp",
       "signature": "const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )",
-      "body_sha256": "57ea28e626c6343b88c7ba0605dcea93d86b31399378f0c8baebed981f035b77",
+      "body_sha256": "1e8bf1a96006ae40f98fa343d8169daf5cb2b9cc2ad59e4037ec048ffe242108",
       "owner": "InGameUI immediate draw pass",
       "disposition": "retain-owner",
-      "reason": "One immediate-mode UI pass transforms a detached frame value into one ordered draw list; layout, hitbox, and widget branches share the same frame lifetime and draw-order invariant.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); GAME_UI_COMPONENTS product-surface move re-review (2026-08-24)",
+      "reason": "One immediate-mode UI pass transforms a detached root frame into one ordered draw list; UI4 projects focused per-tab borrows once at the composition root, while layout, hitbox, and widget branches still share the same frame lifetime and draw-order invariant.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); GAME_UI_COMPONENTS product-surface move and UI4 focused-view re-review (2026-08-24)",
       "plan": ""
     },
     {
       "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
       "signature": "RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts )",
-      "body_sha256": "33e6f5ae2db0e7f15c3b68cc7020ab2e2e620f5656726675c68ab340758523f4",
+      "body_sha256": "dd5e7ab2d3688c735a030d79b62c55aee3afa7b0785f7c930c73765841939738",
       "owner": "Runtime input-command application phase",
       "disposition": "retain-owner",
-      "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. App resolves bounded-PREDICT/continuous-forecast mutual exclusion here because it composes the Replay and Planning owners, and both visible and automation-originated forecast commands enter that same queue. Extracting the added branch would split one atomic mode transition without moving authority.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled for C1 causal-row transport (2026-08-17); ORBIT_FORECAST OF4 mutual-exclusion review and OF5 typed command review (2026-08-19); RUNTIME_BOUNDARIES RBS7 command-owner re-review (2026-08-24)",
+      "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. App normalizes the covered OperatorControlPolicy and render/cinematic catalog floats once here before their owner dispatch, while separately owned Replay reveal/horizon values remain outside that pass. App also resolves bounded-PREDICT/continuous-forecast mutual exclusion here because it composes the Replay and Planning owners. Extracting either step would split one atomic command transition without moving authority.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled for C1 causal-row transport (2026-08-17); ORBIT_FORECAST OF4 mutual-exclusion review and OF5 typed command review (2026-08-19); RUNTIME_BOUNDARIES RBS7 command-owner re-review (2026-08-24); GAME_UI_COMPONENTS UI4 shared-policy normalization review (2026-08-24)",
       "plan": "",
       "body_lines": 699,
       "max_brace_depth": 4,
@@ -140,7 +150,7 @@
     {
       "file": "SkullbonezSource/Physics/ConvexHullShape.cpp",
       "signature": "SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, ConvexHullShape& outHull )",
-      "body_sha256": "c801d466122f2c56b81b9a675fa64e9453bf0efde71a2891af6ba5d368642007",
+      "body_sha256": "d4dd1e2386c53ac83c2d1898cf4b4d1d193d8fbba4524c50c97c50946503e60f",
       "owner": "ConvexHullShape decode transaction",
       "disposition": "retain-owner",
       "reason": "One cold hull decode validates and canonicalizes a complete authored shape before publishing the output value; parse branches share one diagnostic path and no partial shape escapes.",
@@ -200,11 +210,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
       "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "b8b771acc20999cb67dc5dde08c480d114e0873aa63bb6726221d2cf5c9b664b",
+      "body_sha256": "edfae93f62a2f95316fe3cd4a7acdbcc61073023ed6e74414b03dce2400fbc07",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
       "reason": "One pre-input automation phase interprets either the next legacy scene-frame action or one recorded full-device turn across the exact App-composed owners before normal device routing. Frame timing crosses as a detached metrics snapshot and EditorTools is now explicit; both paths remain one mutually exclusive automation state machine, and extraction would preserve caller-ordered dispatch rather than create a separate owner.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); recorded-manifest full-device playback review (2026-08-22); RUNTIME_BOUNDARIES RBS7 snapshot and EditorTools ownership re-review (2026-08-24)",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); recorded-manifest full-device playback review (2026-08-22); RUNTIME_BOUNDARIES RBS7 snapshot and EditorTools ownership re-review (2026-08-24); RECORDED_CURSOR RIC1 frame-local recorded-cursor publication (2026-08-25)",
       "plan": "",
       "body_lines": 650,
       "max_brace_depth": 7,
@@ -212,22 +222,22 @@
     },
     {
       "file": "SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.cpp",
-      "signature": "void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY, float contentW, float contentH, float scrollY, int activeSlider )",
+      "signature": "void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data, float contentX, float contentY, float contentW, float contentH, float scrollY, int activeSlider )",
       "body_sha256": "7cbccbf0cd729a870b87e155dacaa93d16083598d760622d398e6faaf16d1f86",
       "owner": "Profiler tab immediate draw pass",
       "disposition": "retain-owner",
-      "reason": "One profiler-tab draw pass lays out the complete detached profiler view and its active controls in draw and hit-test order; all geometry and widget state expires with the frame. The worker column added one more per-row value in that same order and did not introduce a second responsibility; depth 6 is unchanged.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled when the per-marker worker column was added",
+      "reason": "One profiler-tab draw pass lays out its focused detached profiler view and active controls in draw and hit-test order; all geometry and widget state expires with the frame. UI4 narrowed the input packet without changing the pass or its depth-six presentation invariant.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); per-marker worker-column review; GAME_UI_COMPONENTS UI4 focused-view review (2026-08-24)",
       "plan": ""
     },
     {
       "file": "SkullbonezSource/Runtime/UI/GameUI/UITabProfilerHistogram.cpp",
-      "signature": "void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data )",
-      "body_sha256": "3f639da9cc3c23d65cbdc58fe44be34a46bfeeea546a1eacbcd1b61b880c02ba",
+      "signature": "void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data )",
+      "body_sha256": "fdaad9b3f9ad9e5b42ea30e8ef32875f630e1ddb1b348b471543326d219bf36b",
       "owner": "Profiler histogram immediate draw pass",
       "disposition": "retain-owner",
-      "reason": "One histogram pass maps the current profiler sample window into axes, buckets, labels, and hit regions; scale selection and geometry share one frame-local presentation invariant. The selector row now sums frame-thread and worker time so a worker-owned marker does not read zero; that is one more value in the same pass, and depth 6 is unchanged.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled when the selector stopped reading frame-thread time alone",
+      "reason": "One histogram pass maps the focused profiler sample window into axes, buckets, labels, and hit regions; scale selection and geometry share one frame-local presentation invariant. UI4 narrowed the borrowed marker packet without changing histogram ownership or depth.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); selector worker-time review; GAME_UI_COMPONENTS UI4 focused-view review (2026-08-24)",
       "plan": ""
     },
     {
@@ -286,11 +296,11 @@
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
       "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
-      "body_sha256": "ec406da946198b8320a234e67e53b5f36b64e2c3ad64d0d8300f013c3f55d72f",
+      "body_sha256": "9bd49ddff01fa332330857b7492ee455a2eafcfb320c1b59307e7e40bc61ea41",
       "owner": "Physics narrowphase pair kernel",
       "disposition": "retain-owner",
-      "reason": "One hot pair kernel resolves the sleep-state branch, Swept TOI policy, wake evidence, time advancement, collision publication, and optional trace payload for exactly one candidate pair. Its nesting is one pair state machine; extraction would leave once-called helpers sharing the same ephemeral pair scratch and output authority.",
-      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31); RAGDOLL_PHYSICS FP2 geometry-aware Discrete-pair safety review (2026-08-23)",
+      "reason": "One hot pair kernel resolves the sleep-state branch, direction-valid promotion-aware Swept TOI policy, wake evidence, time advancement, collision publication, and optional trace payload for exactly one candidate pair. Its nesting is one pair state machine; extraction would leave once-called helpers sharing the same ephemeral pair scratch and output authority.",
+      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31); RAGDOLL_PHYSICS FP2 geometry-aware Discrete-pair safety review (2026-08-23); FP4 sole shipping motion-eligibility review (2026-08-25)",
       "plan": ""
     },
     {
@@ -326,7 +336,7 @@
       "owner": "Startup command-line value application",
       "disposition": "retain-owner",
       "reason": "One startup transaction applies the closed command-line value schema to launch arguments and engine configuration before runtime owners exist; validation and precedence share one initialization invariant.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); RAGDOLL_PHYSICS FP4 selector-retirement review (2026-08-25)",
       "plan": ""
     },
     {

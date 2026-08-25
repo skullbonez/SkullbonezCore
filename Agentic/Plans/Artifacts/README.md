@@ -15,11 +15,16 @@ Agentic/Plans/Artifacts/<physics-plan>/<phase>/golden-transitions/<transition-id
 
 The directory is append-only. A later transition creates a different
 `<transition-id>`; no file in a committed transition directory may be edited,
-replaced, or deleted. Copy every executable needed to reproduce each behavior
-and every non-system DLL reported by the recorded dependency scan. The new
-producing executable is retained as the old-behavior comparison executable for
-the next transition. Use `git add -f` for the explicitly retained `.exe` and
-`.dll` files hidden by global artifact ignore rules.
+replaced, or deleted except for owner-directed removal of a prohibited binary.
+Copy every first-party game executable needed to reproduce each behavior and
+only first-party `SKULLBONEZ_*.dll` outputs required by those executables. Never
+commit Windows system DLLs, third-party runtime DLLs, SDK redistributables,
+shader compiler payloads, symbols, import libraries, or other derived binary
+artifacts. The dependency scan remains in the manifest so an isolated run can
+restore omitted dependencies from pinned setup/build inputs. The new producing
+executable is retained as the old-behavior comparison executable for the next
+transition. Use `git add -f` only for explicitly retained `SKULLBONEZ_*.exe`
+and `SKULLBONEZ_*.dll` files hidden by global artifact ignore rules.
 
 ## Manifest Schema
 
@@ -32,7 +37,7 @@ mistakenly associated with a different transition.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "physics_plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md",
   "phase": "FP3",
   "transition_id": "<old-prefix>-to-<new-prefix>",
@@ -57,9 +62,9 @@ mistakenly associated with a different transition.
         "sha256": "<executable-sha256>",
         "launch_command": "old/SKULLBONEZ_CORE-Debug.exe <exact arguments>",
         "dependency_scan_command": "dumpbin /DEPENDENTS old/SKULLBONEZ_CORE-Debug.exe",
-        "required_dlls": [
+        "first_party_dlls": [
           {
-            "path": "Agentic/Plans/Artifacts/<physics-plan>/<phase>/golden-transitions/<transition-id>/old/WinPixEventRuntime.dll",
+            "path": "Agentic/Plans/Artifacts/<physics-plan>/<phase>/golden-transitions/<transition-id>/old/SKULLBONEZ_PHYSICS.dll",
             "size": 58368,
             "sha256": "<dll-sha256>"
           }
@@ -80,7 +85,7 @@ mistakenly associated with a different transition.
         "sha256": "<executable-sha256>",
         "launch_command": "new/SKULLBONEZ_CORE-Debug.exe <exact arguments>",
         "dependency_scan_command": "dumpbin /DEPENDENTS new/SKULLBONEZ_CORE-Debug.exe",
-        "required_dlls": []
+        "first_party_dlls": []
       }
     ]
   }
@@ -88,8 +93,11 @@ mistakenly associated with a different transition.
 ```
 
 Use one `goldens[]` row per golden changed by the phase. Old and new behavior
-maps must contain that exact path set. An empty `required_dlls` array asserts
-that the recorded dependency scan found no non-system runtime DLL to retain.
+maps must contain that exact path set. `first_party_dlls` contains only game
+DLLs produced by this repository and named `SKULLBONEZ_*.dll`; it is empty when
+the retained executable is the only first-party binary. System and third-party
+dependencies may appear in `dependency_scan_command` output but never in the
+bundle.
 
 ## Core Physics Command
 
@@ -105,9 +113,10 @@ python tools\check_physics_baseline_guard.py --repo . ^
 The old `--approve-output` and `--owner-approved-sha256` spellings remain aliases
 for command compatibility; new documentation and automation use the names
 above. The guard verifies the candidate, manifest, old and new golden hashes,
-retained executables, required DLLs, and the byte-identical retained copy of the
+retained first-party game binaries and the byte-identical retained copy of the
 new producing executable before it writes. The staged guard repeats the checks
-from Git-index bytes and rejects any mutation of an older transition bundle.
+from Git-index bytes, rejects third-party/system binary artifacts, and rejects
+any mutation of an older transition bundle.
 
 For a Physics-plan golden without a domain-specific serialized writer, use the
 same guard with a separate generated candidate:

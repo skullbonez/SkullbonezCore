@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md",
+  "phase": "FP3",
+  "transition_id": "discrete-terrain-sleep-continuity-20260824",
+  "source_commit": "730fc838295dc853eb7b65584607f57965b596fd",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/physics_known_issue_signatures.json",
+      "old_sha256": "c92564ac9527cdd9baa91230c69805852878784c429c8e4add1939ce3d5916f3",
+      "new_sha256": "d58e048998622aea37c17423b8d85186777bb732e5cde2c5ddb120ab3cdf81a2"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "ed218674ca7684cf8ec5579850bf1607b6ccfa53",
+    "golden_sha256": {
+      "TestOutput/baselines/physics_known_issue_signatures.json": "c92564ac9527cdd9baa91230c69805852878784c429c8e4add1939ce3d5916f3"
+    },
+    "executables": [
+      {
+        "configuration": "Debug|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/golden-transitions/discrete-terrain-sleep-continuity-20260824/old/SKULLBONEZ_CORE-Debug.exe",
+        "size": 14075392,
+        "sha256": "ea5029fa5beadf9a18b73e42718f27e96b7466ea30b3e70d5485d7180d017a0c",
+        "launch_command": "old/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/stacking.scene.json --physics-regression-log Debug/physics_known_stacking.csv",
+        "dependency_scan_command": "dumpbin /DEPENDENTS old/SKULLBONEZ_CORE-Debug.exe",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "730fc838295dc853eb7b65584607f57965b596fd",
+    "golden_sha256": {
+      "TestOutput/baselines/physics_known_issue_signatures.json": "d58e048998622aea37c17423b8d85186777bb732e5cde2c5ddb120ab3cdf81a2"
+    },
+    "executables": [
+      {
+        "configuration": "Debug|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/golden-transitions/discrete-terrain-sleep-continuity-20260824/new/SKULLBONEZ_CORE-Debug.exe",
+        "size": 14016000,
+        "sha256": "df434eb9ef942305514c32710a904b9fe10cb9f56daa8e490db6438f630c6ed8",
+        "launch_command": "new/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/stacking.scene.json --physics-regression-log Debug/physics_known_stacking.csv",
+        "dependency_scan_command": "dumpbin /DEPENDENTS new/SKULLBONEZ_CORE-Debug.exe",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

@@ -64,7 +64,6 @@ class RuntimeInteractionController;
 class SceneController;
 class SceneEntityStore;
 class ReplayRestoreTransaction;
-struct ReplayStartupLoadInput;
 struct CameraControlState;
 struct RunMousePickupState;
 struct SceneSessionState;
@@ -231,9 +230,21 @@ struct ReplayStartupRequest
 #endif
 };
 
+// Detached application work emitted after Replay has accepted a startup
+// artifact decision. App supplies the concrete camera/input owners only while
+// applying the command; Replay never stores a host capability.
+enum class ReplayStartupApplicationAction : uint8_t
+{
+    None,
+    ActivateLoadedPresentation
+};
+
 struct ReplayStartupResult
 {
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+    ReplayStartupApplicationAction applicationAction = ReplayStartupApplicationAction::None;
+    double applicationTimeSeconds = 0.0;
+    float presentationTrackPosition = 0.25f;
     bool skipExecute = false;
 };
 

@@ -2,6 +2,17 @@
   "schema": 1,
   "allowed": [
     {
+      "path": "SkullbonezSource/Physics/ConvexHullShape.cpp",
+      "patterns": [
+        "std::make_shared<MotionAxisCache>"
+      ],
+      "owner": "RAGDOLL_PHYSICS FP4 convex-hull motion-axis cache",
+      "phase": "scene_load_or_authored_copy_scale",
+      "reason": "ConvexHullShape builds one immutable, fixed-size SAT-axis cache after validating or copy-scaling hull topology. Shape copies share that cold cache so authored scene assembly stays off the bounded launcher stack and fixed Physics ticks perform no allocation.",
+      "cap": "One 512-axis fixed cache per distinct loaded or copy-scaled hull value, bounded by the existing 8192 scene-collider ceiling; no steady-state growth.",
+      "removal_or_wrapper_plan": "Move this cache into a future ColliderStore-owned cold shape arena if hull geometry adopts arena-backed immutable storage."
+    },
+    {
       "path": "SkullbonezSource/Physics/PhysicsEngine.cpp",
       "patterns": [
         "std::make_unique<PhysicsWorld>"
@@ -13,7 +24,7 @@
       "removal_or_wrapper_plan": "Replace with typed owner-lifetime arena storage if Physics gains a dedicated construction arena; do not re-inline PhysicsWorld into the public header."
     },
     {
-      "path": "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp",
+      "path": "SkullbonezSource/Runtime/App/StartupProbeApplication.cpp",
       "patterns": [
         "std::make_unique<SkullbonezCore::Runtime::SceneController>",
         "std::make_unique<PhysicsBodyStore>",
@@ -22,7 +33,7 @@
       "owner": "Physics engine lifecycle smoke bootstrap",
       "phase": "startup_validation",
       "reason": "The engine lifecycle and runtime-handle probes construct isolated owners before WorkerPool, Window, renderer, or Run startup; fixed-array physics stores stay off the bounded launcher stack.",
-      "cap": "Two sequential PhysicsEngine owners plus one SceneController and one PhysicsBodyStore owner when --physics-standalone-smoke is requested.",
+      "cap": "One PhysicsEngine, three sequential SceneController owners, and one PhysicsBodyStore owner across the explicitly requested startup probes.",
       "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay and retain explicit heap ownership for MAX_SCENE_OBJECTS fixed stores."
     },
     {
@@ -274,7 +285,7 @@
       "removal_or_wrapper_plan": "Retain the segmented non-relocating owner while predicted solver rows need stable published addresses; replace it only with a typed replay arena preserving the same bank and release contract."
     },
     {
-      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp",
+      "path": "SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp",
       "patterns": [
         "std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY )"
       ],
@@ -283,6 +294,18 @@
       "reason": "ReplayRuntime constructs one process-lifetime fixed-capacity compact ribbon arena before steady gameplay; pointer ownership keeps the 513,000-float payload off the bounded launcher stack and exposes no capacity-changing API.",
       "cap": "Exactly 513,000 floats (2,052,000 bytes) allocated once per ReplayPredictionPresentation owner from the compile-time ordinary and priority record capacities.",
       "removal_or_wrapper_plan": "Move this fixed payload to a typed process-lifetime startup arena when one exists; do not replace it with a growing container or replay-phase reserve privilege."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsMotionEligibilityStage.cpp",
+      "patterns": [
+        ".assign(",
+        ".resize("
+      ],
+      "owner": "PhysicsMotionEligibilityStage fixed-capacity body rows",
+      "phase": "scene_load_replay_and_steady_gameplay_within_committed_capacity",
+      "reason": "The apparent STL mutations target PhysicsFixedList rows whose backing is committed through ReserveBodyCapacity during SceneLoad. Replay restoration and topology changes adjust logical size only, while the fixed-step pass cannot grow beyond the committed scene-body capacity.",
+      "cap": "Four PhysicsBodyRowList instances, each capped by the PhysicsFixedList compile-time ceiling and the scene-load committed body capacity.",
+      "removal_or_wrapper_plan": "Teach the checker to distinguish PhysicsFixedList logical-size mutation from allocating STL growth, then delete this exact false-positive row; do not replace the fixed lists with dynamic STL storage."
     },
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h",
@@ -686,11 +709,12 @@
         ".assign(",
         ".reserve(",
         ".push_back(",
-        ".insert("
+        ".insert(",
+        ".shrink_to_fit("
       ],
-      "owner": "Gameplay tornado authored-content, body state, and debug-line publication",
-      "phase": "startup_preallocation_scene_load_replay_and_bounded_debug_build",
-      "reason": "Body timers/debug buffers reserve during owner construction, while live SceneWorld preallocation reserves the complete production-visual recipe; assigns/inserts/pushes only change logical size inside those capacities.",
+      "owner": "Gameplay tornado authored-content, body state, debug-line publication, and shutdown release",
+      "phase": "startup_preallocation_scene_load_replay_bounded_debug_build_and_shutdown",
+      "reason": "Body timers/debug buffers reserve during owner construction, while live SceneWorld preallocation reserves the complete production-visual recipe; assigns/inserts/pushes only change logical size inside those capacities. The two shrink calls release the authored and debug vortex buffers only during explicit Shutdown().",
       "cap": "Active fields/debug vortices are capped at 64; timer rows use scene-object capacity; production visuals cap at 16x96 ribbons, three 56-segment dust bands, and 256 particles for each of 64 vortices.",
       "removal_or_wrapper_plan": "Replace replay-owned dynamic copies separately and move debug publication to a fixed packed-line store when the shared diagnostics buffer contract lands."
     },
@@ -708,8 +732,7 @@
     {
       "path": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
       "patterns": [
-        ".push_back(",
-        ".shrink_to_fit("
+        ".push_back("
       ],
       "owner": "Gameplay tornado production visual",
       "phase": "startup_preallocation_then_drained_shutdown_release",
@@ -980,26 +1003,14 @@
     {
       "path": "SkullbonezSource/Runtime/Tools/LauncherLaser.cpp",
       "patterns": [
-        ".insert(",
-        ".push_back(",
+        ".assign(",
         ".reserve("
       ],
-      "owner": "Runtime editor tool storage surface",
-      "phase": "editor_tooling",
-      "reason": "Editor and launcher tooling use reviewed staging vectors for interactive authoring paths, not unapproved steady gameplay allocation exceptions.",
-      "cap": "Bounded by editor selection, tracer, or placement asset counts.",
-      "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
-    },
-    {
-      "path": "SkullbonezSource/Runtime/Tools/LauncherLaser.h",
-      "patterns": [
-        "std::vector<"
-      ],
-      "owner": "Runtime editor tool storage surface",
-      "phase": "editor_tooling",
-      "reason": "Editor and launcher tooling use reviewed staging vectors for interactive authoring paths, not unapproved steady gameplay allocation exceptions.",
-      "cap": "Bounded by editor selection, tracer, or placement asset counts.",
-      "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
+      "owner": "LauncherLaser bounded replay snapshot copy",
+      "phase": "startup_preallocation_and_explicit_replay_restore",
+      "reason": "CaptureShots reserves the fixed launcher-shot capacity before copying the embedded shot array, and RestoreShots assigns only the validated prefix back into the caller-owned replay snapshot vector.",
+      "cap": "Exactly REPLAY_LAUNCHER_LASER_SHOT_CAPACITY (32) shot rows.",
+      "removal_or_wrapper_plan": "Replace the replay snapshot vector with a fixed launcher-shot packet, then delete these growth spellings."
     },
     {
       "path": "SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp",
@@ -1026,6 +1037,17 @@
       "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
     },
     {
+      "path": "SkullbonezSource/Runtime/Tools/EditorTracer.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "EditorTracer bounded debug and replay geometry storage",
+      "phase": "startup_preallocation_then_diagnostics_editor_tooling",
+      "reason": "EditorTracer retains nine staging vectors whose complete ordinary, priority, cache, and expanded-vertex capacities are reserved during owner setup; frame construction clears and refills without growing them.",
+      "cap": "The named EDITOR_TRACER line, ribbon-segment, and ribbon-vertex float capacities bound every retained vector and are checked by replay and performance gates.",
+      "removal_or_wrapper_plan": "Replace the nine staging vectors with fixed debug/tool buffers or the render upload arena while preserving packet-span lifetime through Clear()."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp",
       "patterns": [
         ".push_back("
@@ -1037,8 +1059,9 @@
       "removal_or_wrapper_plan": "Replace startup token vectors with a bounded parser buffer if process bootstrap adopts fixed storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp",
+      "path": "SkullbonezSource/Runtime/App/StartupLaunchApplication.cpp",
       "patterns": [
+        ".assign(",
         ".push_back("
       ],
       "owner": "Startup scene launch resolution",
@@ -1048,7 +1071,7 @@
       "removal_or_wrapper_plan": "Move the cold scene launch queue to fixed startup storage if composition-root allocation becomes arena-backed."
     },
     {
-      "path": "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp",
+      "path": "SkullbonezSource/Runtime/App/StartupProbeApplication.cpp",
       "patterns": [
         ".push_back("
       ],
@@ -1125,7 +1148,18 @@
       "removal_or_wrapper_plan": "Route presentation reserves through a typed ReplayPresentation reserve wrapper once the replay allocation-policy owner API replaces direct pre-gameplay vector reservation."
     },
     {
-      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.cpp",
+      "path": "SkullbonezSource/Runtime/App/ReplayRuntime.cpp",
+      "patterns": [
+        ".reserve("
+      ],
+      "owner": "ReplayRuntime launcher visual capture scratch",
+      "phase": "startup_replay_configuration",
+      "reason": "ReplayRuntime reserves both launcher visual snapshot arrays while configuring recording, before steady capture begins; frame capture only copies within the prepared capacities.",
+      "cap": "Exactly REPLAY_LAUNCHER_RAY_LINE_CAPACITY (64) ray rows and REPLAY_LAUNCHER_LASER_SHOT_CAPACITY (32) shot rows.",
+      "removal_or_wrapper_plan": "Replace the launcher visual scratch vectors with the fixed Replay tool packet storage shared by capture and presentation."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/App/ReplayPredictionPresentation.cpp",
       "patterns": [
         ".assign(",
         ".push_back(",
@@ -1138,7 +1172,7 @@
       "removal_or_wrapper_plan": "Replace both vectors with typed fixed/reserve-backed Prediction presentation buffers when the replay allocation owner wrapper lands."
     },
     {
-      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h",
+      "path": "SkullbonezSource/Runtime/App/ReplayPredictionPresentation.h",
       "patterns": [
         "std::vector<"
       ],
@@ -1158,6 +1192,18 @@
       "reason": "ReplayTimeline owns the existing hash-log destination selected during cold recording configuration; moving the field out of ReplayRuntime does not introduce a new growth path.",
       "cap": "The path is configured once before capture and is bounded by the platform replay-path input contract.",
       "removal_or_wrapper_plan": "Replace the string with the repository's fixed replay-path value when recording configuration adopts that typed boundary."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h",
+      "patterns": [
+        ".push_back(",
+        "std::vector<"
+      ],
+      "owner": "Replay visual topology canonicalization",
+      "phase": "cold_replay_artifact_and_validation_projection",
+      "reason": "The canonicalizer is a short-lived cold artifact/report helper that records first-publication topology versions while walking an already bounded replay sample sequence; it is not retained by the live presentation path.",
+      "cap": "At most one token per distinct non-zero topology version in the bounded input replay artifact or validation tick sequence.",
+      "removal_or_wrapper_plan": "Replace the vector with a fixed canonicalization table when the replay artifact schema exposes its maximum topology-generation count."
     },
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.cpp",
@@ -1246,19 +1292,20 @@
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {
-      "path": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
+      "path": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
       "patterns": [
         ".push_back(",
-        ".reserve("
+        ".reserve(",
+        ".resize("
       ],
       "owner": "Interaction automation controller",
       "phase": "startup_scene_load_diagnostics",
-      "reason": "Automation script parsing grows the action list only during validation startup, outside steady gameplay.",
-      "cap": "Bounded by the explicitly supplied automation script action count.",
+      "reason": "Automation script/recording parsing, manifest hashing, and optional JSONL turn tracing grow only inside the explicit validation/diagnostics path; ordinary gameplay does not open these outputs.",
+      "cap": "Actions and recorded frames are bounded by the supplied manifest, trace key/action rows by InputKeySnapshot and InputActions capacities, and the BCrypt hash object by its provider-reported object length.",
       "removal_or_wrapper_plan": "Keep growth inside the cold validation harness; replace the parser vector with bounded validation storage if the script schema gains a hard action cap."
     },
     {
-      "path": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
+      "path": "SkullbonezSource/Runtime/App/InteractionAutomationReportApplication.cpp",
       "patterns": [
         ".emplace_back(",
         ".push_back(",
@@ -1281,6 +1328,33 @@
       "reason": "The cold validation report owner retains bounded action, assertion, screenshot, and replay-proof rows for artifact assembly outside steady gameplay.",
       "cap": "Bounded by the supplied automation action count and replay validation tick capacity.",
       "removal_or_wrapper_plan": "Replace report vectors with bounded validation storage when report schemas gain hard row caps."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve(",
+        ".resize(",
+        "CoreAllocation::RuntimeReserveAllocator::RequestGrowth("
+      ],
+      "owner": "InteractionAutomationRecorder diagnostics tape and artifact writer",
+      "phase": "diagnostics_recording_and_cold_artifact_write",
+      "reason": "Explicit recording grows its frame tape only after the registered Diagnostics reserve owner grants one-minute capacity blocks. Hash scratch and JSON manifest arrays are cold save-time temporaries under the Diagnostics allocation scope.",
+      "cap": "The retained tape is capped at MAX_RECORDING_MINUTES (60) times FRAMES_PER_MINUTE (14,400); hash scratch is provider-sized, key words are fixed per frame, and manifest rows equal the retained frame prefix.",
+      "removal_or_wrapper_plan": "Move the retained tape to a typed Diagnostics reserve-backed buffer and stream manifest rows to the atomic artifact writer; keep the same 60-minute hard cap and growth counter."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Automation/InteractionRecordingBrowser.cpp",
+      "patterns": [
+        ".append(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Interaction recording browser and playback launcher",
+      "phase": "explicit_editor_refresh_and_playback_launch",
+      "reason": "A user-requested browser refresh rebuilds the detached TestOutput recording catalog, and a user-requested playback launch constructs one quoted CreateProcess command line. Neither path runs during ordinary simulation frames.",
+      "cap": "Catalog rows are bounded by complete interaction manifests directly beneath TestOutput/recordings; command-line storage is bounded by one executable, manifest, report, and trace path.",
+      "removal_or_wrapper_plan": "Replace catalog vectors with bounded browser storage and the launch string with a fixed Windows command-line builder once explicit UI tooling adopts fixed buffers."
     },
     {
       "path": "SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.cpp",
@@ -1306,6 +1380,17 @@
       "removal_or_wrapper_plan": "Replace requirement vectors with bounded validation storage when the validation schema gains hard row caps."
     },
     {
+      "path": "SkullbonezSource/Runtime/Scene/SceneSleepingDynamicBodyGatePolicy.h",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Scene automation sleeping-body requirement configuration",
+      "phase": "scene_load_diagnostics",
+      "reason": "Authored scene setup resolves each required sleeping body and appends it to the cold SceneAutomationGateConfiguration before simulation begins; frame observation only updates existing rows in place.",
+      "cap": "Bounded by the authored requiredSleepingDynamicBodies entries accepted for the active scene.",
+      "removal_or_wrapper_plan": "Replace the requirement vector with bounded scene-validation storage when the authored validation schema adopts a fixed row cap."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp",
       "patterns": [
         ".emplace("
@@ -1315,6 +1400,29 @@
       "reason": "The optional PrimitiveBatchRenderer reconstructs its single backend-bound value only after a successful device/resource rebuild.",
       "cap": "Exactly one optional PrimitiveBatchRenderer instance.",
       "removal_or_wrapper_plan": "Replace optional emplacement with an in-place lifecycle-owned value when backend rebuild can rebind the resource factory without reconstructing the owner."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
+      "patterns": [
+        ".insert(",
+        ".reserve("
+      ],
+      "owner": "DebugOverlayPass launcher vertex staging",
+      "phase": "backend_resource_init_then_bounded_debug_overlay",
+      "reason": "The pass reserves its complete launcher vertex capacity when the backend creates the dynamic vertex buffer. Per-frame shot expansion inserts packed vertices only inside that prepared capacity.",
+      "cap": "LAUNCHER_MAX_VERTICES equals RenderToolOverlayView::LAUNCHER_SHOT_CAPACITY times 96, with exactly seven floats per vertex.",
+      "removal_or_wrapper_plan": "Move launcher geometry into the bounded render upload arena or a fixed DebugOverlayPass buffer, then delete the retained vector and growth spellings."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "DebugOverlayPass launcher vertex staging",
+      "phase": "backend_resource_init_then_bounded_debug_overlay",
+      "reason": "DebugOverlayPass owns one retained packed launcher-vertex vector whose full capacity is established with its backend dynamic vertex buffer before frame drawing.",
+      "cap": "Exactly LAUNCHER_MAX_VERTICES times seven floats for the bounded launcher-shot overlay.",
+      "removal_or_wrapper_plan": "Replace the vector with the render upload arena or a fixed pass-owned buffer while preserving the dynamic-buffer capacity contract."
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneSessionState.cpp",
@@ -1388,17 +1496,6 @@
       "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Tools/RuntimeTools.h",
-      "patterns": [
-        "std::vector<"
-      ],
-      "owner": "Runtime debug/tool visualization storage",
-      "phase": "diagnostics_editor_tooling",
-      "reason": "Debug and tool visualizers use reviewed staging vectors for diagnostics and editor/tool overlays; they are not new gameplay allocation exceptions.",
-      "cap": "Bounded by scene/model counts, debug line budgets, or replay ribbon staging limits validated by replay/perf gates.",
-      "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
-    },
-    {
       "path": "SkullbonezSource/Runtime/Capture/CaptureSystem.cpp",
       "patterns": [
         ".insert(",
@@ -1448,6 +1545,17 @@
       "reason": "RunReplayPredictionState is 792,936 bytes and the round-trip verifier needs three live at once for restored High, legacy migration, and active-Low projection. Matching evidence banks prove retained-capacity behavior for those three states. Keeping these owners on the stack faulted in __chkstk before report output. One mutation vector is reused sequentially for bounded corrupt-artifact cases. This translation unit links only in Automation, runs once after the sole live capture, and never touches steady gameplay or presentation.",
       "cap": "Exactly three RunReplayPredictionState allocations and three ReplayPredictionSolverEvidenceBanks allocations per VerifyReplayPredictionArchiveRoundTrip call. One mutation vector is repeatedly reassigned from the already capped input artifact; failure cases run serially.",
       "removal_or_wrapper_plan": "Delete when the verifier can compare decodes one at a time against a streamed encoder, or when prediction state moves behind a handle whose value type is small enough to keep on the frame."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
+      "patterns": [
+        "m_restore.emplace("
+      ],
+      "owner": "ReplayStartupProbeContinuation fixed restore transaction slot",
+      "phase": "debug_startup_probe",
+      "reason": "std::optional::emplace reconstructs the single embedded non-copyable/non-movable ReplayRestoreTransaction at a stable address across one App-serviced typed action and performs no heap allocation.",
+      "cap": "Exactly one sizeof(ReplayRestoreTransaction) slot embedded in ReplayStartupProbeContinuation.",
+      "removal_or_wrapper_plan": "Delete when the checker distinguishes optional/variant emplacement from container growth."
     }
   ]
 }

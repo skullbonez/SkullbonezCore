@@ -1,7 +1,7 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Active by explicit owner direction. 3/10 phases complete; FP3 active after FP2 closed under motion-eligibility policy version 2.
+Status: Active by explicit owner direction. 5/10 phases complete; FP5 active after FP4 closed the Discrete performance A/B and owner ruling.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
 Priority: Binding first plan; execute FP2-FP9 in strict internal order. This position allocates scarce slots
@@ -32,18 +32,24 @@ refresh merely to close a gate.
 Every changed golden uses an exact candidate digest and a new append-only bundle
 at `Agentic/Plans/Artifacts/ragdoll-physics-unification/<phase>/golden-transitions/<transition-id>/`.
 Before replacement, preserve both the exact prior behavior and the new producer:
-all executables needed for comparison, their non-system runtime DLLs, and a
-schema-1 `manifest.json` binding the owning phase, source commits, old/new golden
-hashes, artifact paths/sizes/hashes, dependency-scan commands, and launch
-commands. Never overwrite an older bundle. The new producer becomes the prior
-behavior executable for the next transition. Source, tests, golden changes, and
-the complete bundle land atomically through the automated writer documented in
+all first-party game executables needed for comparison, any first-party
+`SKULLBONEZ_*.dll` outputs they require, and a schema-2 `manifest.json` binding
+the owning phase, source commits, old/new golden hashes, artifact
+paths/sizes/hashes, dependency-scan commands, and launch commands. Never commit
+system or third-party runtime DLLs, SDK redistributables, compiler payloads,
+symbols, import libraries, or other derived binary artifacts. Dependency scans
+still record the complete runtime dependency set; omitted dependencies are
+restored from the repository's pinned setup/build inputs for an isolated launch.
+The new producer becomes the prior behavior executable for the next transition.
+Source, tests, golden changes, and the complete first-party bundle land
+atomically through the automated writer documented in
 `Agentic/Plans/Artifacts/README.md`.
 
-The 2026-08-23 FP1 launch audit proved why this is required: a lone retained
-executable is not a runnable artifact. FP0/FP1 import `WinPixEventRuntime.dll`,
-but their original artifact directories do not contain it. Future transitions
-therefore fail closed if any declared executable/DLL hash is missing or differs.
+The 2026-08-24 owner correction supersedes FP2's copied dependency payload.
+`WinPixEventRuntime.dll`, `dxcompiler.dll`, and `dxil.dll` are third-party
+binaries and are not repository evidence. The retained game executables and
+their exact dependency-scan commands remain sufficient to identify behavior;
+reproduction restores those pinned dependencies outside Git.
 
 This is a major Physics-system transition, not only a ragdoll feature. Its
 non-negotiable order is:
@@ -259,7 +265,7 @@ performance comparison.
 ### What This Aims To Solve
 
 Swept TOI should be paid for only when a body's predicted fixed-tick motion
-crosses one simple absolute travel threshold. The classification must be cheap
+crosses its shape-valid directional half-width. The classification must be cheap
 enough to run once per non-sleeping body per fixed Physics tick and exact enough
 to produce the same result across repetitions and supported worker counts.
 
@@ -482,7 +488,7 @@ comment-truth correction.
 
 FP2 is closed. The standing Physics-plan automated override accepted the exact
 archived transitions, while the artifact manifest retains the prior and new
-producer executables, launch DLLs, hashes, and FP1-versus-FP2 200-box evidence.
+producer game executables, hashes, dependency scans, and FP1-versus-FP2 200-box evidence.
 The core, deep, and replay-visual gates pass. The replay witness completes one
 2,401-tick prediction generation, moves all 200 wall bricks, publishes all 200
 causal nodes, and rejects the visual, causal, artifact, trajectory-count,
@@ -530,6 +536,42 @@ closed independently.
 - The owner explicitly records that Discrete determinism is closed before FP4
   or any later predictive phase proceeds.
 
+### FP3 Closure - 2026-08-24
+
+FP3 is closed. Commits `65fda5e94` and `cbba89a2f` made the determinism oracle
+compare exact body, pair, persistent-contact, terrain-manifold, solver,
+sleep/promotion, replay, and point-joint state, then moved the varied-scene
+worker proof into four fresh processes. This closure also requires those
+families to be non-empty and compares every ordered point-joint field directly,
+so a missing diagnostic family or hash-only joint comparison cannot create a
+false pass.
+
+`tools\validate_physics.bat --commit-gate` passed the fresh-process matrix for
+workers 0 primary, 0 repeat, 1, and 4: each produced 44,401 lines with SHA-256
+`19698d3c37bcf1e0199b539e99b2de0d0ec33ceb7fc5db2e2eee36bcc434b038`.
+The same digest remains the accepted core Physics golden; FP3 did not refresh
+it. Focused Profile witnesses pass for the multithreaded determinism,
+eligibility, promotion, replay-restore, and replay-sample families, and the full
+test executable passes 750/750 cases and 2,683,265/2,683,265 assertions.
+
+The Discrete terrain support-continuity correction in `730fc8382` closes the
+tilted terrain box sleep regression without restoring predictive behavior.
+Commit `9733cd586` archives the governed known-issue and replay-fidelity
+transitions using first-party executables only. The corresponding manifests are
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/golden-transitions/discrete-terrain-sleep-continuity-20260824/manifest.json`
+and
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP3/golden-transitions/discrete-terrain-replay-fidelity-20260824/manifest.json`.
+No speculative ragdoll row, predictive contact path, or predictive
+classification exists in Physics source.
+
+The direct allocation-policy checker reports 126 current repository findings.
+They are RBS7 path/allowlist fan-in debt plus the seven previously recorded
+`PhysicsMotionEligibilityStage` fixed-list mutation spellings; they are neither
+a byte-exact FP3 behavior failure nor authority to weaken the checker. RBS7 owns
+the path reconciliation, while FP4 retains the registered Physics allocation
+and performance ruling. With that explicit ownership, the Physics owner closes
+Discrete correctness and determinism and makes FP4 the active phase.
+
 ---
 
 ## FP4 — Discrete Performance A/B & Owner Ruling
@@ -542,10 +584,10 @@ same-workload A/B comparison.
 
 ### Required A/B Design
 
-1. Add a validation-only runtime selector that can force the then-current
-   legacy swept eligibility behavior for variant A or enable the new automatic
-   Discrete classification for variant B. It must not become an authored scene
-   option or a shipping per-body mode.
+1. For the decision capture, use one validation executable that can run the
+   then-current eligibility behavior as variant A and the proposed automatic
+   Discrete classification as variant B. The comparison control must not become
+   an authored scene option or a shipping per-body mode.
 2. Run both variants from the same executable, fixed timestep, authored scene,
    inputs, worker count, frame range, renderer settings, and machine session.
 3. Alternate warm A/B/A/B runs and retain every raw timing artifact rather than
@@ -568,6 +610,76 @@ same-workload A/B comparison.
   different machine or source tree.
 - The owner rules whether the measured improvement justifies the transition.
 - FP8 predictive work remains unauthorized until FP3 and FP4 are both closed.
+
+### FP4 Closure Evidence — 2026-08-25
+
+The retained local A/B captures compare the retired absolute-travel Profile
+control (SHA-256 `445b6742...`) with the exact final shipping Profile producer
+(SHA-256 `c62bd84a...`) in alternating runs on the same machine session. Spheres
+compare travel squared with radius squared. Oriented boxes compare each local
+travel component squared with its half-extent squared. Convex hulls compare
+projected travel squared against cached centered-difference SAT half-widths:
+hull face normals plus every non-degenerate edge-cross-edge axis. Any exceeded axis promotes,
+all-below demotes, and direct exact equality on any reached axis preserves the
+prior bit; stationary rows demote. The hot classifier performs no square root
+and allocates no memory. Across the retained
+two-pass artifacts, the mixed scene stayed 100% Discrete and reduced mean
+Physics time by 18.19%; the 520-body scale scene stayed 96.29% Discrete and
+reduced mean Physics time by 6.98%; and the 2,000-body scene stayed 95.66%
+Discrete and reduced mean Physics time by 51.30%. The final eligibility pass
+averaged 0.0014 ms, 0.0130 ms, and 0.0475 ms respectively. Each 520-body run recorded
+160 promotions and 140 demotions; the 2,000-body run recorded 796 promotions
+and 738 demotions.
+
+SkullScope now publishes per-frame policy totals and per-body policy rows, and
+`physics_query motion` reconstructs the object timeline and transition events.
+A 0.06-metre probe travelling 0.09 metres in one tick promotes, then demotes
+after stopping. Focused opposing-body coverage proves two sub-radius bodies
+remain Discrete and resolve their next-tick overlap without exchanging sides.
+Elongated-box and convex-hull coverage proves that motion along a long axis does
+not promote merely because an unrelated axis is thin. A SkullScope integration
+probe reports the 3-metre long-axis radius as Discrete and both 0.1-metre thin-
+axis cases as Swept, including the rotated-box case.
+
+The policies are intentionally not behavior-equivalent. The mixed A/B first
+diverges at frame 104 and the 200-box wall first differs in contact count at
+frame 75. A temporary pre-signoff negative control also passed all 18 replay
+visual typed/false-pass cases and 82 assertions but did not complete the
+6,800-frame interaction report. The owner subsequently selected the
+direction-valid radius rule as the sole shipping policy, retired the absolute
+threshold and runtime selector, and authorized the governed Physics,
+SkullScope, replay, visual, and performance baseline transitions.
+
+The owner's signoff applies to this focused FP4 decision slice and explicitly
+accepts a narrower evidence set than the original matrix above. The retained
+same-executable A/B covers the mixed-speed workload and the 520/2,000-body scale
+matrix; slow-heavy, launcher, 200-box-wall, and dense-contact behavior remain
+covered by the unchanged-default canonical Physics gates rather than separate
+directional A/B captures. The current performance capture emits no final solver
+state hash, so FP4 retains raw local timing/count artifacts, first-divergence
+frames, the exact producing executable, and baseline SHA-256 transitions instead
+of claiming unavailable final-state hashes. The complete workload/hash matrix
+remains terminal FP7 evidence; it is not silently represented as FP4 evidence.
+
+The owner signed off on the measured result and current-tree performance
+baseline update. The exact historical producers and final current producer are
+retained in the append-only transitions
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/99e03bc1-to-bcb67b8d/`
+and
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP4/golden-transitions/7ddbc9d4-to-6ef6b797/`.
+The new DX12 and physics-bench baseline SHA-256 values are respectively
+`bcb67b8d4e1bfcc4bc64f37185c2bc6f8b90e173cb25ef5bff503fbbac8643ef` and
+`6ef6b79741f713f454803f1d83907ea97e40db2b8af71e0002b64847f9dd3550`.
+The shipping-policy follow-up accepted the deterministic core Physics golden
+`1b98431012f632d66cb18c50e3f253cea4898b57bcb8e78cdadd0de3f065e387`,
+the known-issue signature golden
+`e50f56728d1daf1d278f40e8e2a74ab835378243dfe8e9c8b8757a2350483214`,
+and the SkullScope query golden
+`2a5eef89c17769564a6281143ae5f30fa382610d2d03950cd9ee707568870e0e`.
+Their retained transition directories are `19698d3c-to-1b984310`,
+`d58e0489-to-e50f5672`, and `2ed8eebb-to-2a5eef89` under the FP4
+`golden-transitions` directory.
+FP4 is closed; FP5 is the next Physics phase.
 
 ---
 
@@ -832,9 +944,9 @@ solver changes.
   angular broadphase eligibility.
 - [x] **FP2 — Discrete default and automatic Swept TOI promotion.** No projectile
   tags or scene-specific continuous modes.
-- [ ] **FP3 — Discrete correctness and determinism closure.** Mandatory blocker
+- [x] **FP3 — Discrete correctness and determinism closure.** Mandatory blocker
   before any predictive implementation.
-- [ ] **FP4 — Discrete performance A/B and owner ruling.** Isolate and record the
+- [x] **FP4 — Discrete performance A/B and owner ruling.** Isolate and record the
   performance improvement.
 - [ ] **FP5 — Ragdoll 3-DOF point joint.** Pin linear anchor coincidence with a
   3-by-3 effective mass and vector warm start.

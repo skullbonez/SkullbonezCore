@@ -323,6 +323,7 @@ class PrimitiveBatchRenderer
                                          const Math::Transformation::Matrix4& model,
                                          const Math::Transformation::Matrix4& view,
                                          const Math::Transformation::Matrix4& proj );
+    void PrepareInitialVisibleShader( const SkullbonezCore::Core::OrdinaryRenderConfig& lighting );
     void EnsureSphereMesh();                                                                                            // Create the shared sphere mesh before DXR BLAS
 
     // construction needs its vertex data.

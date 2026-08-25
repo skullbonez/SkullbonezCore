@@ -4,17 +4,17 @@ Purpose:
   Defines the deterministic motion-path classification value contract.
 
 Summary:
-  One versioned absolute-travel policy classifies awake body motion before
-  broadphase. The stage retains hysteresis bits; diagnostics publish bounded
-  counts and the independently measured pass duration without granting mutation
-  authority.
+  The shipping policy compares travel with the first collider-local separating-
+  axis boundary reached by the tick displacement while retaining stage-owned bits.
+  Diagnostics identify the active policy and publish bounded work counts.
 
 Invariants:
-  - Promotion equality promotes; demotion equality demotes.
-  - Per-tick demotion travel is strictly below per-tick promotion travel.
-  - Thresholds are absolute metres travelled during one Physics tick and do not
-    depend on collider thickness.
-  - Linear promotion and angular broadphase expansion are independent bits.
+  - Linear promotion uses sphere radius, box half-extents, or cached hull
+    centered-difference SAT axes.
+  - Travel below every reached local-axis boundary demotes; stationary bodies demote.
+  - Exact radius equality preserves the previous radius-scaled classification.
+  - Angular expansion remains conservative at half the minimum thickness and
+    is independent from linear promotion.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsMotionEligibilityStage.cpp
@@ -27,11 +27,9 @@ Related:
 
 namespace SkullbonezCore::Physics
 {
-inline constexpr uint32_t PHYSICS_MOTION_ELIGIBILITY_POLICY_VERSION = 2u;
-inline constexpr float PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK = 0.1f;
-inline constexpr float PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK = 0.075f;
-static_assert( PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK > 0.0f );
-static_assert( PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK < PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK );
+inline constexpr uint32_t PHYSICS_MOTION_ELIGIBILITY_POLICY_VERSION = 4u;
+inline constexpr float PHYSICS_ANGULAR_EXPANSION_THRESHOLD_THICKNESS_FACTOR = 0.5f;
+static_assert( PHYSICS_ANGULAR_EXPANSION_THRESHOLD_THICKNESS_FACTOR > 0.0f );
 
 enum PhysicsMotionEligibilityBit : uint8_t
 {
@@ -50,6 +48,8 @@ struct PhysicsMotionEligibilityStats
     int discreteBodies = 0;
     int promotedBodies = 0;
     int angularExpandedBodies = 0;
+    int promotionsThisStep = 0;
+    int demotionsThisStep = 0;
     uint64_t passDurationNanoseconds = 0u;
 };
 } // namespace SkullbonezCore::Physics

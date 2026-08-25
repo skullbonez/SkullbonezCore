@@ -878,6 +878,14 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( SkullbonezCore:
         }
     }
 
+    if ( !hull.RefreshMotionAxes() )
+    {
+        return HullLoadFailure( diagnostics,
+                                "Convex hull exceeds the %u-axis motion-eligibility cache in %s.  "
+                                "(ConvexHullShape::LoadFromFile)",
+                                ConvexHullShape::MAX_MOTION_AXES, path );
+    }
+
     CopyHullName( hull.m_name, path, authoredName );
     outHull = hull;
     return SkullbonezCore::Core::SbResult::Success();
@@ -936,6 +944,112 @@ Vector3 ConvexHullShape::ComputeBoxApproxInertia( float mass ) const
     return m_unitInertia * mass;
 }
 
+bool ConvexHullShape::RefreshMotionAxes()
+{
+    auto cache = std::make_shared<MotionAxisCache>();
+
+    const auto includeAxis = [&]( const Vector3& unnormalizedAxis ) -> bool
+    {
+        const float axisLengthSquared = VectorMagSquared( unnormalizedAxis );
+
+        if ( axisLengthSquared <= 0.0f || !std::isfinite( axisLengthSquared ) )
+        {
+            return true;
+        }
+
+        Vector3 normal = unnormalizedAxis / sqrtf( axisLengthSquared );
+
+        if ( normal.x < 0.0f || ( normal.x == 0.0f && normal.y < 0.0f ) ||
+             ( normal.x == 0.0f && normal.y == 0.0f && normal.z < 0.0f ) )
+        {
+            normal = -normal;
+        }
+
+        // Invariant: deduplication is exact after sign canonicalization. A
+        // tolerance could erase a distinct, tunnelling-relevant SAT axis.
+        for ( uint16_t axisIndex = 0; axisIndex < cache->count; ++axisIndex )
+        {
+            const Vector3& cachedNormal = cache->axes[axisIndex].normalLocal;
+
+            if ( normal.x == cachedNormal.x && normal.y == cachedNormal.y && normal.z == cachedNormal.z )
+            {
+                return true;
+            }
+        }
+
+        if ( cache->count >= MAX_MOTION_AXES )
+        {
+            return false;
+        }
+
+        float minimumProjection = FLT_MAX;
+        float maximumProjection = -FLT_MAX;
+
+        for ( uint16_t vertexIndex = 0; vertexIndex < m_vertexCount; ++vertexIndex )
+        {
+            const float projection = Dot( normal, m_vertices[vertexIndex] );
+            minimumProjection = (std::min)( minimumProjection, projection );
+            maximumProjection = (std::max)( maximumProjection, projection );
+        }
+
+        const float halfWidth = (std::max)( 0.0f, 0.5f * ( maximumProjection - minimumProjection ) );
+        cache->axes[cache->count++] = ConvexHullMotionAxis { normal, halfWidth * halfWidth };
+        return true;
+    };
+
+    for ( uint16_t faceIndex = 0; faceIndex < m_faceCount; ++faceIndex )
+    {
+        if ( !includeAxis( m_faces[faceIndex].normalLocal ) )
+        {
+            return false;
+        }
+    }
+
+    for ( uint16_t edgeAIndex = 0; edgeAIndex < m_edgeCount; ++edgeAIndex )
+    {
+        const ConvexHullEdge& edgeA = m_edges[edgeAIndex];
+        const Vector3 edgeADirection = m_vertices[edgeA.vertexB] - m_vertices[edgeA.vertexA];
+        const float edgeALengthSquared = VectorMagSquared( edgeADirection );
+
+        // Invariant: validated hull topology has no zero-length edges. Exact
+        // zero is the scale-independent degeneracy test; an authored-size
+        // epsilon could erase a valid SAT axis from a small copied hull.
+        if ( edgeALengthSquared <= 0.0f || !std::isfinite( edgeALengthSquared ) )
+        {
+            continue;
+        }
+
+        const Vector3 edgeANormal = edgeADirection / sqrtf( edgeALengthSquared );
+
+        for ( uint16_t edgeBIndex = static_cast<uint16_t>( edgeAIndex + 1u ); edgeBIndex < m_edgeCount; ++edgeBIndex )
+        {
+            const ConvexHullEdge& edgeB = m_edges[edgeBIndex];
+            const Vector3 edgeBDirection = m_vertices[edgeB.vertexB] - m_vertices[edgeB.vertexA];
+            const float edgeBLengthSquared = VectorMagSquared( edgeBDirection );
+
+            if ( edgeBLengthSquared <= 0.0f || !std::isfinite( edgeBLengthSquared ) )
+            {
+                continue;
+            }
+
+            const Vector3 edgeBNormal = edgeBDirection / sqrtf( edgeBLengthSquared );
+
+            if ( !includeAxis( CrossProduct( edgeANormal, edgeBNormal ) ) )
+            {
+                return false;
+            }
+        }
+    }
+
+    // Concept: K versus -K SAT defines the exact centered difference body used
+    // by linear motion eligibility. Face normals plus every edge-cross-edge axis
+    // are cached once; the fixed-step stage performs only dot/squared compares.
+    // Hazard: a hull exceeding the fixed cache is rejected at load rather than
+    // silently losing an SAT axis or forcing conservative extra promotions.
+    m_motionAxisCache = std::move( cache );
+    return true;
+}
+
 void ConvexHullShape::ScaleAxis( int axis, float factor )
 {
     if ( axis < 0 || axis > 2 || m_vertexCount == 0 || !std::isfinite( factor ) || factor <= TOLERANCE )
@@ -989,7 +1103,7 @@ void ConvexHullShape::ScaleAxis( int axis, float factor )
         const Vector3 unnormalized = CrossProduct( b - a, c - a );
         const float magnitudeSquared = VectorMagSquared( unnormalized );
 
-        if ( magnitudeSquared <= 1.0e-10f )
+        if ( magnitudeSquared <= 0.0f || !std::isfinite( magnitudeSquared ) )
         {
             // Invariant: positive finite copy-scale must preserve baked hull
             // topology. Degeneration here is an engine/data bug, not user input.
@@ -1005,6 +1119,13 @@ void ConvexHullShape::ScaleAxis( int axis, float factor )
 
         face.normalLocal = normal;
         face.planeOffsetLocal = Dot( normal, a );
+    }
+
+    if ( !RefreshMotionAxes() )
+    {
+        // Invariant: positive finite copy-scale preserves parallelism and thus
+        // cannot increase the source hull's non-degenerate SAT-axis count.
+        SB_FATAL( HULL_LOAD_OWNER, "Scaled convex hull exceeded its motion-axis cache.  (ConvexHullShape::ScaleAxis)" );
     }
 
     float projectedX = 0.0f;
@@ -1071,6 +1192,13 @@ const ConvexHullFace& ConvexHullShape::GetFace( uint16_t index ) const
 const ConvexHullEdge& ConvexHullShape::GetEdge( uint16_t index ) const
 {
     return m_edges[index];
+}
+
+std::span<const ConvexHullMotionAxis> ConvexHullShape::GetMotionAxes() const
+{
+    return m_motionAxisCache
+               ? std::span<const ConvexHullMotionAxis>( m_motionAxisCache->axes.data(), m_motionAxisCache->count )
+               : std::span<const ConvexHullMotionAxis>();
 }
 
 uint16_t ConvexHullShape::GetFaceIndex( uint16_t index ) const

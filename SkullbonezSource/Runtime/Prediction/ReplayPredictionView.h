@@ -48,6 +48,12 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+// Owner: Prediction publishes the operator's useful reveal interval because
+// the upper endpoint is the shipped effectively-immediate pace. Scheduling
+// still accepts and normalizes every finite positive rate.
+inline constexpr double REPLAY_PREDICTION_REVEAL_RATE_MIN = 1.0;
+inline constexpr double REPLAY_PREDICTION_REVEAL_RATE_MAX = 1000.0;
+
 struct ReplayPredictionSceneEntityFact
 {
     Physics::PhysicsSceneObjectId id;
@@ -216,6 +222,8 @@ struct ReplayPredictionPresentationView
     ReplayPredictionPathPresentation pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
     float horizonSeconds = 0.0f;
     double revealSecondsPerSecond = 1.0;
+    double revealRateMinimum = REPLAY_PREDICTION_REVEAL_RATE_MIN;
+    double revealRateMaximum = REPLAY_PREDICTION_REVEAL_RATE_MAX;
     double measuredTicksPerMs = 0.0;
     double lastBuildWallMs = 0.0;
     bool enabled = false;

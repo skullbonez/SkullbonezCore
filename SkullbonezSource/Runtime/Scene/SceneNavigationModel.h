@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UISceneNavigationModel.h
+File: SkullbonezSource/Runtime/Scene/SceneNavigationModel.h
 Purpose:
   Defines the UI-owned scene browser, live overrides, and navigation model.
 

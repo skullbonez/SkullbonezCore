@@ -83,6 +83,18 @@ std::string EscapeSkullScopeJson( const char* value )
 
     return escaped;
 }
+
+const char* MotionEligibilityPolicyName( uint32_t policyVersion )
+{
+    static_cast<void>( policyVersion );
+    return "radius_scaled";
+}
+
+double MotionTravelFromSquared( float travelSquared )
+{
+    return std::isfinite( travelSquared ) && travelSquared >= 0.0f ? std::sqrt( static_cast<double>( travelSquared ) )
+                                                                   : -1.0;
+}
 } // namespace
 
 
@@ -182,6 +194,12 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     const auto& sleepIslandVisualId = physicsDiagnostics.sleepIslandVisualId;
     const auto& physicsPipelineTrace = physicsDiagnostics.physicsPipelineTrace;
     const auto& terrainContactManifolds = physicsDiagnostics.terrainContactManifolds;
+    const auto& motionEligibilityState = physicsDiagnostics.motionEligibilityState;
+    const auto& linearTravelSquared = physicsDiagnostics.linearTravelSquared;
+    const auto& linearDirectionalBoundary = physicsDiagnostics.linearDirectionalBoundary;
+    const auto& angularTravelSquared = physicsDiagnostics.angularTravelSquared;
+    const auto& motionStats = physicsDiagnostics.motionEligibilityStats;
+    const auto colliderRecords = frameInput.colliderStore.Records();
 
     // Frame rows summarize the whole physics island graph, not just individual
     // bodies.  The query layer uses these aggregate maxima/counts to decide which
@@ -394,6 +412,16 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                  sleepingCount, supportedCount, inhibitedCount, persistentContacts.size(), islandRoots.size(), totalEnergy,
                  totalLinearEnergy, totalAngularEnergy, maxSpeed, maxSpeedBody, maxOmega, maxOmegaBody, maxPenetration,
                  maxPenetrationContact );
+
+    SkullbonezCore::Core::Log()
+        .Writef( m_physicsDiagnosticsPath,
+                 "{\"kind\":\"motion_policy_summary\",\"run\":\"%s\",\"frame\":%d,\"time_seconds\":%.6f,"
+                 "\"selector\":\"%s\",\"policy_version\":%u,\"evaluated_bodies\":%d,\"discrete_bodies\":%d,"
+                 "\"swept_bodies\":%d,\"angular_expanded_bodies\":%d,\"promotions\":%d,\"demotions\":%d}\n",
+                 m_physicsDiagnosticsRunId, frame, m_physicsDiagnosticsTimeSeconds,
+                 MotionEligibilityPolicyName( motionStats.policyVersion ), motionStats.policyVersion,
+                 motionStats.evaluatedBodies, motionStats.discreteBodies, motionStats.promotedBodies,
+                 motionStats.angularExpandedBodies, motionStats.promotionsThisStep, motionStats.demotionsThisStep );
 
     SkullbonezCore::Core::Log()
         .Writef( m_physicsDiagnosticsPath,
@@ -814,6 +842,50 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         const uint16_t hullFaces = model.hullFaces;
         const uint16_t hullEdges = model.hullEdges;
         const std::string escapedHullName = EscapeSkullScopeJson( model.hullName );
+
+        const uint8_t motionState = i < static_cast<int>( motionEligibilityState.size() )
+                                        ? motionEligibilityState[static_cast<std::size_t>( i )]
+                                        : Physics::PhysicsMotionEligibilityNone;
+        const bool linearPromoted = ( motionState & Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u;
+        const bool angularExpanded = ( motionState & Physics::PhysicsMotionEligibilityAngularExpanded ) != 0u;
+        const float minimumThickness = i < static_cast<int>( colliderRecords.size() )
+                                           ? (std::max)( 0.0f, colliderRecords[static_cast<std::size_t>( i )]
+                                                                   .minimumCollisionThickness )
+                                           : 0.0f;
+        const double linearTravel = i < static_cast<int>( linearTravelSquared.size() )
+                                        ? MotionTravelFromSquared( linearTravelSquared[static_cast<std::size_t>( i )] )
+                                        : -1.0;
+        const double angularTravel = i < static_cast<int>( angularTravelSquared.size() )
+                                         ? MotionTravelFromSquared( angularTravelSquared[static_cast<std::size_t>( i )] )
+                                         : -1.0;
+        const float directionalBoundary = i < static_cast<int>( linearDirectionalBoundary.size() )
+                                              ? linearDirectionalBoundary[static_cast<std::size_t>( i )]
+                                              : -1.0f;
+
+        // The hot stage stores the squared distance to the first reached SAT
+        // boundary. A stationary body has no travel direction, so the cold
+        // timeline reports -1 (unavailable) rather than inventing zero metres.
+        const double directionalRadius = MotionTravelFromSquared( directionalBoundary );
+
+        const double promoteDistance = directionalRadius;
+        const double demoteDistance = directionalRadius;
+
+        // Why: a separate row keeps the stable body query contract untouched
+        // while making policy changes queryable as a body/timeline relation.
+        SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath,
+                                            "{\"kind\":\"motion_policy\",\"run\":\"%s\",\"frame\":%d,\"time_seconds\":%.6f,"
+                                            "\"body_id\":%d,\"name\":\"%s\",\"selector\":\"%s\",\"policy_version\":%u,"
+                                            "\"collision_policy\":\"%s\",\"motion_state\":%u,\"evaluated\":%d,"
+                                            "\"linear_promoted\":%d,\"angular_expanded\":%d,\"linear_travel\":%.9g,"
+                                            "\"angular_tip_travel\":%.9g,\"minimum_collision_thickness\":%.9g,"
+                                            "\"promote_distance\":%.9g,\"demote_distance\":%.9g}\n",
+                                            m_physicsDiagnosticsRunId, frame, m_physicsDiagnosticsTimeSeconds, i,
+                                            escapedName.c_str(), MotionEligibilityPolicyName( motionStats.policyVersion ),
+                                            motionStats.policyVersion, linearPromoted ? "swept" : "discrete",
+                                            static_cast<unsigned>( motionState ),
+                                            model.inverseMass > 0.0f && !sleeping ? 1 : 0, linearPromoted ? 1 : 0,
+                                            angularExpanded ? 1 : 0, linearTravel, angularTravel, minimumThickness,
+                                            promoteDistance, demoteDistance );
 
         SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath,
                                             "{\"kind\":\"body\",\"run\":\"%s\",\"frame\":%d,\"body_id\":%d,\"name\":\"%s\","

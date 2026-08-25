@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UIWindowInteractionOwner.h
+File: SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h
 Purpose:
   Owns the persistent window, widget, and pointer-interaction state used by the in-game UI.
 
@@ -43,7 +43,7 @@ Related:
 #include "UITabProfiler.h"
 #include "UITabScene.h"
 #include "UITabSky.h"
-#include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 
 #include <cstdint>
 #include <span>
@@ -175,6 +175,7 @@ class UIWindowInteractionOwner
 
     UIWindowState m_window;
     UIInteractionState m_interaction;
+    bool m_blocksCameraMouse = false;
     bool m_blurPreviewEnabled = false;
     InGameUITab m_activeTab;
     UITabBar m_tabBar;

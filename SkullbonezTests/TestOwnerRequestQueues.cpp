@@ -1,5 +1,5 @@
 /*
-File: TestOwnerRequestQueues.cpp
+File: SkullbonezTests/TestOwnerRequestQueues.cpp
 Purpose:
   Verifies fixed scene, capture, render-default, and operator-editor request contracts.
 
@@ -56,7 +56,8 @@ Related:
   - SkullbonezSource/Runtime/Capture/CaptureController.h
   - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
   - SkullbonezSource/Runtime/Render/RenderDefaultsStore.h
-  - SkullbonezSource/UI/OperatorEditorExchange.h
+  - SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h
+  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorControlPolicy.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -68,6 +69,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Render/RenderDefaultsStore.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorControlPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h"
@@ -395,16 +397,18 @@ TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detac
     CHECK( status.pipelineStageName[0] != '\0' );
 
     commands = {};
-    commands.requestedPhysicsDebugAlpha = 2.0f;
-    commands.requestedPhysicsDebugContactLinger = 8.0f;
+    commands.requestedPhysicsDebugAlpha = OperatorControlPolicy::UI_PHYSICS_ALPHA_MAX +
+                                          OperatorControlPolicy::UI_PHYSICS_ALPHA_STEP;
+    commands.requestedPhysicsDebugContactLinger = OperatorControlPolicy::UI_CONTACT_LINGER_MAX +
+                                                  OperatorControlPolicy::UI_CONTACT_LINGER_STEP;
     const DiagnosticsPhysicsDebugValueUICommandResult valueResult = ApplyDiagnosticsPhysicsDebugValueUICommands( debug,
                                                                                                                  commands );
 
     CHECK( valueResult.setAlpha );
     CHECK( valueResult.setContactLinger );
     status = BuildDiagnosticsPhysicsUIStatus( debug );
-    CHECK( status.alpha == doctest::Approx( 1.0f ) );
-    CHECK( status.contactLinger == doctest::Approx( 5.0f ) );
+    CHECK( status.alpha == doctest::Approx( OperatorControlPolicy::UI_PHYSICS_ALPHA_MAX ) );
+    CHECK( status.contactLinger == doctest::Approx( OperatorControlPolicy::UI_CONTACT_LINGER_MAX ) );
 
     commands = {};
     commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Axes;
@@ -1672,11 +1676,11 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
                .Ok() );
 
     CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
-                                        replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 2.0f ) )
+                                        replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 1000.0f ) )
                .Ok() );
 
     CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
-                                        replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 3.0f ) )
+                                        replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 120.0f ) )
                .Ok() );
 
     CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
@@ -1685,6 +1689,22 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
 
     CHECK( valid.count == 5u );
 
+    // The exchange validates transport shape only. Prediction and Replay own
+    // normalization/clamping, so a frontend cannot create a second policy by
+    // narrowing this queue boundary to its current slider endpoints. Isolate
+    // these submissions because the queue separately rejects conflicting
+    // payloads for one action identity.
+    OperatorEditorReplayCommandQueue abovePresentationEndpoints;
+    CHECK( SubmitOperatorEditorCommand( diagnostics, abovePresentationEndpoints,
+                                        replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 1001.0f ) )
+               .Ok() );
+
+    CHECK( SubmitOperatorEditorCommand( diagnostics, abovePresentationEndpoints,
+                                        replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 121.0f ) )
+               .Ok() );
+
+    CHECK( abovePresentationEndpoints.count == 2u );
+
     OperatorEditorReplayCommandQueue invalid;
     CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
                                               replayCommand( OperatorEditorReplayCommandType::Scrub,
@@ -1692,11 +1712,11 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
                      .Ok() );
 
     CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
-                                              replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 10.0f ) )
+                                              replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 0.0f ) )
                      .Ok() );
 
     CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
-                                              replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 0.0f ) )
+                                              replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, -1.0f ) )
                      .Ok() );
 
     CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
@@ -1920,6 +1940,46 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
     changed.lookLab.hasCandidate = true;
     strcpy_s( changed.lookLab.detail.data(), changed.lookLab.detail.size(), "style saved; screenshot pending" );
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+}
+
+TEST_CASE( "ImGui diagnostics scalar controls project the shared operator policy" )
+{
+    using SkullbonezCore::Runtime::DevelopmentTools::ResolveImGuiEditorDiagnosticsControlPolicy;
+    using namespace SkullbonezCore::UI;
+    namespace Policy = OperatorControlPolicy;
+
+    struct ExpectedPolicy
+    {
+        OperatorEditorDiagnosticsCommandType type;
+        float minValue;
+        float maxValue;
+        float step;
+    };
+
+    const ExpectedPolicy expected[] = {
+        { OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha, Policy::UI_PHYSICS_ALPHA_MIN,
+          Policy::UI_PHYSICS_ALPHA_MAX, Policy::UI_PHYSICS_ALPHA_STEP },
+        { OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger, Policy::UI_CONTACT_LINGER_MIN,
+          Policy::UI_CONTACT_LINGER_MAX, Policy::UI_CONTACT_LINGER_STEP },
+        { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, Policy::UI_RAY_IMPULSE_MIN,
+          Policy::UI_RAY_IMPULSE_MAX, Policy::UI_RAY_IMPULSE_STEP },
+        { OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed,
+          Policy::UI_LAUNCHER_PROJECTILE_SPEED_MIN, Policy::UI_LAUNCHER_PROJECTILE_SPEED_MAX,
+          Policy::UI_LAUNCHER_PROJECTILE_SPEED_STEP },
+    };
+
+    for ( const ExpectedPolicy& row : expected )
+    {
+        const auto policy = ResolveImGuiEditorDiagnosticsControlPolicy( row.type );
+        REQUIRE( policy.valid );
+        CHECK( policy.minValue == doctest::Approx( row.minValue ) );
+        CHECK( policy.maxValue == doctest::Approx( row.maxValue ) );
+        CHECK( policy.step == doctest::Approx( row.step ) );
+    }
+
+    CHECK_FALSE( ResolveImGuiEditorDiagnosticsControlPolicy(
+                     OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag )
+                     .valid );
 }
 
 TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner projection" )
@@ -2234,8 +2294,13 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     RunReplayVelocityEditState velocity;
     RunReplayCauseTreeState tree;
     ReplayRecorderStats solverStats;
-    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop, planner,
-                                    path,     velocity,   tree,      {},       solverStats };
+    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop, planner, path,
+                                    velocity, tree,       {},        solverStats, 1.0f,  120.0f };
+
+    CHECK( replay.prediction.revealRateMinimum == doctest::Approx( 1.0 ) );
+    CHECK( replay.prediction.revealRateMaximum == doctest::Approx( 1000.0 ) );
+    CHECK( replay.predictionHorizonMinimum == doctest::Approx( 1.0f ) );
+    CHECK( replay.predictionHorizonMaximum == doctest::Approx( 120.0f ) );
 
     ImGuiEditorCausalityContext context = BuildImGuiEditorCausalityContext( replay );
     CHECK( context.state == ImGuiEditorCausalityState::Empty );

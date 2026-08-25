@@ -8,9 +8,11 @@ Summary:
   A goal owns independently active task records, and each task owns a
   contiguous sequence of steps from one primary agent session. Every command
   captures the selected task session counter and atomically rewrites a CSV
-  ledger. Rubber-duck steps may add a second session counter, keeping reviewer
-  usage distinct while preserving exact combined usage and a standard
-  short-context API-cost estimate for the step, task, and goal.
+  ledger. The same entrypoint rejects incomplete commit messages before Git and
+  revalidates the actual committed body at task closure. Rubber-duck steps may
+  add a second session counter, keeping reviewer usage distinct while
+  preserving exact combined usage and a standard short-context API-cost
+  estimate for the step, task, and goal.
 
 Glossary:
   Token snapshot: Monotonic cumulative counters from the latest token_count
@@ -29,6 +31,8 @@ Invariants:
     rate and cached input at the cached rate, never both rates for one token.
   - Completed task commits resolve to full hashes and are verified as pushed
     to the configured upstream unless self-test explicitly disables that check.
+  - Every accepted plan or bug commit carries ordered rationale, ownership,
+    implementation, validation, artifact, and review evidence in its body.
 
 Related:
   - Agentic/Skills/orchestrator/scripts/work_ledger.bat is the public entrypoint.
@@ -38,7 +42,7 @@ Related:
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('start-goal', 'start-task', 'attach-worker', 'transition', 'finish-task', 'stop-task', 'finish-goal', 'show', 'self-test')]
+    [ValidateSet('start-goal', 'start-task', 'attach-worker', 'transition', 'finish-task', 'stop-task', 'finish-goal', 'show', 'verify-commit-message', 'self-test')]
     [string]$Action = 'show',
 
     [string]$MasterPlanPath = 'Agentic/Plans/MASTER-PLAN.md',
@@ -52,6 +56,7 @@ param(
     [string]$Outcome,
     [int]$Findings = -1,
     [string]$Commit,
+    [string]$MessageFile,
     [string]$MainThreadId,
     [string]$MainSessionFile,
     [switch]$MainBaselineZero,
@@ -632,14 +637,83 @@ function Resolve-CommitRecord {
         }
     }
 
-    $subject = (& git -C $repo show -s --format=%s $fullHash)
+    $message = (& git -C $repo show -s --format=%B $fullHash)
     if ($LASTEXITCODE -ne 0) {
-        throw "Could not read subject for commit: $fullHash"
+        throw "Could not read commit message for commit: $fullHash"
     }
+    $messageText = ($message -join [Environment]::NewLine)
+    Assert-OrchestratorCommitMessageContent -Content $messageText -Context "commit $fullHash"
+    $subject = ($messageText.Replace("`r`n", "`n") -split "`n")[0]
     return [pscustomobject][ordered]@{
         Hash = $fullHash
         Subject = $subject.Trim()
     }
+}
+
+function Assert-OrchestratorCommitMessageContent {
+    param(
+        [Parameter(Mandatory)][string]$Content,
+        [Parameter(Mandatory)][string]$Context
+    )
+
+    $content = $Content.Replace("`r`n", "`n")
+    $lines = @($content -split "`n")
+    if ($lines.Count -lt 3 -or [string]::IsNullOrWhiteSpace($lines[0])) {
+        throw "$Context requires a subject and a substantive body."
+    }
+    if (-not [string]::IsNullOrWhiteSpace($lines[1])) {
+        throw "$Context subject must be followed by a blank line."
+    }
+    $planSubject = $lines[0] -match '^[A-Z0-9_]+, TASK [0-9]+/[0-9]+ (?:\u2014|-)[ ]+\S.+$'
+    $bugSubject = $lines[0] -match '^BUG [A-Z][A-Z0-9_-]*-[0-9]+ (?:\u2014|-)[ ]+\S.+$'
+    if (-not $planSubject -and -not $bugSubject) {
+        throw "$Context subject must use the plan-task or parallel bug-finding convention."
+    }
+
+    $body = ($lines[2..($lines.Count - 1)] -join "`n").Trim()
+    if ($body.Length -lt 320) {
+        throw "$Context body is too short to preserve plan evidence: length=$($body.Length) minimum=320"
+    }
+    $sections = @('Why', 'Ownership', 'What', 'Validation', 'Baselines/Artifacts', 'Review')
+    $sectionValues = @{}
+    $previousIndex = -1
+    foreach ($section in $sections) {
+        $match = [regex]::Match($body, "(?m)^$([regex]::Escape($section)):\s+(.+?)\s*$")
+        if (-not $match.Success) {
+            throw "$Context requires a non-empty '${section}:' section."
+        }
+        if ($match.Index -le $previousIndex) {
+            throw "$Context sections must appear in the required order."
+        }
+        $value = $match.Groups[1].Value.Trim()
+        if ($value.Length -lt 32 -or $value -match '^(?i:n/?a|none|unknown|tbd|todo|x)[.!]?$') {
+            throw "$Context '${section}:' section is not substantive enough: length=$($value.Length) minimum=32"
+        }
+        $sectionValues[$section] = $value
+        $previousIndex = $match.Index
+    }
+    if ($sectionValues['Ownership'] -notmatch '(?i)\b(owner|ownership|authority)\b') {
+        throw "$Context Ownership section must identify the affected owner or state that authority did not move."
+    }
+    if ($sectionValues['Validation'] -notmatch '(?i)\b(pass(?:ed)?|fail(?:ed)?|deferred|not applicable|exit(?:ed)?(?: code)? [0-9]+)\b') {
+        throw "$Context Validation section must record an exact result or an explicit deferral/not-applicable ruling."
+    }
+    if ($sectionValues['Baselines/Artifacts'] -notmatch '(?i)\b(baseline|golden|artifact|binary|dll|testoutput)\b') {
+        throw "$Context Baselines/Artifacts section must disposition baselines and generated artifacts explicitly."
+    }
+    if ($sectionValues['Review'] -notmatch '(?i)\b(clean|finding|not required|deferred)\b') {
+        throw "$Context Review section must record the independent verdict, findings, or why review was not required."
+    }
+}
+
+function Assert-OrchestratorCommitMessage {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $resolved = [IO.Path]::GetFullPath($Path)
+    if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
+        throw "Commit message file not found: $resolved"
+    }
+    Assert-OrchestratorCommitMessageContent -Content ([IO.File]::ReadAllText($resolved)) -Context "commit message file '$resolved'"
 }
 
 function Get-StepDeltas {
@@ -1376,12 +1450,84 @@ Status: One active plan; 2/5 tasks complete
         [IO.File]::WriteAllText($planWorkerSession, '', [Text.UTF8Encoding]::new($false))
         [IO.File]::WriteAllText($duckSession, '', [Text.UTF8Encoding]::new($false))
 
-        $repo = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>$null)
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($repo)) {
-            throw 'Self-test must run from the tracked SkullbonezCore skill directory.'
+        $validMessage = Join-Path $testRoot 'valid-commit-message.txt'
+        $validBugMessage = Join-Path $testRoot 'valid-bug-commit-message.txt'
+        $invalidMessage = Join-Path $testRoot 'invalid-commit-message.txt'
+        $paddedMessage = Join-Path $testRoot 'padded-commit-message.txt'
+        $validMessageText = @'
+PLAN, TASK 2/3 - VERIFY COMMIT EVIDENCE
+
+Why: Close the accepted plan slice while preserving the decision and its motivation in Git history.
+Ownership: The plan owner retains the changed policy; no unrelated subsystem authority moved.
+What: Record the implementation, focused tests, and integration metadata for the completed slice.
+Validation: tools\validate_fast.bat passed with all required configurations and focused tests green.
+Baselines/Artifacts: No baseline changed and no generated binary, vendor DLL, or TestOutput file is committed.
+Review: Independent rubber-duck review returned CLEAN with zero findings after the final source change.
+'@
+        [IO.File]::WriteAllText($validMessage, $validMessageText, [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($validBugMessage, $validMessageText.Replace('PLAN, TASK 2/3', 'BUG UI-001'), [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($invalidMessage, "PLAN, TASK 2/3 - EMPTY BODY`n", [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText(
+            $paddedMessage,
+            "PLAN, TASK 2/3 - PAD PLACEHOLDERS`n`nWhy: x`nOwnership: x`nWhat: x`nValidation: x`nBaselines/Artifacts: x`nReview: x$('z' * 400)`n",
+            [Text.UTF8Encoding]::new($false))
+        Assert-OrchestratorCommitMessage -Path $validMessage
+        Assert-OrchestratorCommitMessage -Path $validBugMessage
+        $invalidRejected = $false
+        try {
+            Assert-OrchestratorCommitMessage -Path $invalidMessage
+        } catch {
+            $invalidRejected = $true
         }
-        $head = (& git -C $repo.Trim() rev-parse HEAD).Trim()
+        if (-not $invalidRejected) {
+            throw 'Empty commit-body negative control unexpectedly succeeded.'
+        }
+
+        $paddedRejected = $false
+        try {
+            Assert-OrchestratorCommitMessage -Path $paddedMessage
+        } catch {
+            $paddedRejected = $true
+        }
+        if (-not $paddedRejected) {
+            throw 'Padded placeholder commit-body negative control unexpectedly succeeded.'
+        }
+
+        $repo = Join-Path $testRoot 'repo'
+        $null = New-Item -ItemType Directory -Path $repo
+        & git -C $repo init --quiet
+        if ($LASTEXITCODE -ne 0) { throw 'Could not initialize self-test Git repository.' }
+        & git -C $repo config user.name 'Skullbonez Work Ledger Self Test'
+        & git -C $repo config user.email 'work-ledger-self-test@example.invalid'
+        [IO.File]::WriteAllText((Join-Path $repo 'fixture.txt'), 'fixture', [Text.UTF8Encoding]::new($false))
+        & git -C $repo add fixture.txt
+        & git -C $repo commit --quiet -F $validMessage
+        if ($LASTEXITCODE -ne 0) { throw 'Could not create valid self-test commit.' }
+        $head = (& git -C $repo rev-parse HEAD).Trim()
+        Assert-OrchestratorCommitMessageContent -Content ((& git -C $repo show -s --format=%B $head) -join [Environment]::NewLine) -Context 'valid self-test commit'
+
+        & git -C $repo commit --quiet --allow-empty -m 'PLAN, TASK 2/3 - INVALID EMPTY BODY'
+        if ($LASTEXITCODE -ne 0) { throw 'Could not create invalid self-test commit.' }
+        $invalidHead = (& git -C $repo rev-parse HEAD).Trim()
+        $invalidCommitRejected = $false
+        try {
+            Assert-OrchestratorCommitMessageContent -Content ((& git -C $repo show -s --format=%B $invalidHead) -join [Environment]::NewLine) -Context 'invalid self-test commit'
+        } catch {
+            $invalidCommitRejected = $true
+        }
+        if (-not $invalidCommitRejected) {
+            throw 'Post-commit empty-body negative control unexpectedly succeeded.'
+        }
         $powershell = Join-Path $PSHOME 'powershell.exe'
+
+        $null = & $powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath verify-commit-message -MessageFile $validMessage
+        if ($LASTEXITCODE -ne 0) { throw 'Public commit-message action rejected the valid control.' }
+        $savedErrorPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $null = & $powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath verify-commit-message -MessageFile $invalidMessage 2>&1
+        $invalidActionExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $savedErrorPreference
+        if ($invalidActionExitCode -eq 0) { throw 'Public commit-message action accepted the empty-body control.' }
 
         Write-FakeModelEvent -Path $mainSession
         Write-FakeModelEvent -Path $planWorkerSession
@@ -1463,6 +1609,18 @@ Status: One active plan; 2/5 tasks complete
         if ($LASTEXITCODE -ne 0) { throw 'validation-to-commit transition self-test failed.' }
 
         Write-FakeTokenEvent -Path $mainSession -InputTokens 420 -CachedTokens 190 -OutputTokens 95
+        $ledgerBeforeFailure = [Convert]::ToBase64String([IO.File]::ReadAllBytes($ledger))
+        $savedErrorPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $null = & $powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath finish-task -MasterPlanPath $plan -LedgerPath $ledger -Task 'PLAN-T1' -Outcome 'must fail' -Commit $invalidHead -RepositoryRoot $repo.Trim() -SkipPushVerification -At '2026-08-18T09:32:00+10:00' 2>&1
+        $invalidFinishExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $savedErrorPreference
+        if ($invalidFinishExitCode -eq 0) { throw 'finish-task accepted an empty-body commit.' }
+        $ledgerAfterFailure = [Convert]::ToBase64String([IO.File]::ReadAllBytes($ledger))
+        if ($ledgerAfterFailure -ne $ledgerBeforeFailure) {
+            throw 'Rejected finish-task commit-body control mutated the live ledger.'
+        }
+
         $null = & $powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath finish-task -MasterPlanPath $plan -LedgerPath $ledger -Task 'PLAN-T1' -Outcome 'pushed' -Commit $head -RepositoryRoot $repo.Trim() -SkipPushVerification -At '2026-08-18T09:33:00+10:00'
         if ($LASTEXITCODE -ne 0) { throw 'finish-task self-test failed.' }
 
@@ -1526,6 +1684,15 @@ Status: One active plan; 2/5 tasks complete
 
 if ($Action -eq 'self-test') {
     Invoke-SelfTest
+    exit 0
+}
+
+if ($Action -eq 'verify-commit-message') {
+    if ([string]::IsNullOrWhiteSpace($MessageFile)) {
+        throw 'verify-commit-message requires -MessageFile.'
+    }
+    Assert-OrchestratorCommitMessage -Path $MessageFile
+    Write-Output "PASS: orchestrator commit message preserves required rationale and evidence: $([IO.Path]::GetFullPath($MessageFile))"
     exit 0
 }
 

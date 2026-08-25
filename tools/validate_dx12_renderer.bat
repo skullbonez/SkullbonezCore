@@ -132,6 +132,20 @@ if "%STDOUT_CLEAN%"=="0" (
     exit /b 5
 )
 
+findstr /X /C:"dx12_shader_manifest_warm attempted=13 complete=13 newly_published=13 cache_hits=0 stage_loads=26" "%REPO%\Profile\dx12_stdout.txt" >nul 2>&1
+if errorlevel 1 (
+    echo FAIL: DX12 suite did not record the exact cold shader-manifest warm summary.
+    popd
+    exit /b 5
+)
+
+findstr /X /C:"dx12_shader_manifest_cache_validation pass=1 first_attempted=13 first_complete=13 first_newly_published=13 first_cache_hits=0 first_stage_loads=26 second_newly_published=0 second_cache_hits=13 second_stage_loads=0 missing_first_stage_loads=1 missing_second_stage_loads=1 direct_stage_loads=2 reload_stage_loads=26" "%REPO%\Profile\dx12_stdout.txt" >nul 2>&1
+if errorlevel 1 (
+    echo FAIL: DX12 suite did not prove shader-manifest cache hits, retryability, and invalidation.
+    popd
+    exit /b 5
+)
+
 call "%~dp0check_dx12_validation.bat"
 if errorlevel 1 (
     popd

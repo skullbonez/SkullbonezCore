@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UI.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UI.cpp
 Purpose:
   Composes in-engine UI drawing and preserves the public InGameUI command surface.
 
@@ -31,6 +31,7 @@ Related:
 #include "../../../UI/UIDrawWidgets.h"
 #include "../../../UI/UIInput.h"
 #include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 #include "UITabControls.h"
 #include "UITabCinematic.h"
 #include "UITabEditor.h"
@@ -51,8 +52,147 @@ Related:
 
 using namespace SkullbonezCore::UI;
 using namespace SkullbonezCore::UI::Widgets;
-using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::GameLayout;
+using namespace SkullbonezCore::UI::OperatorControlPolicy;
 using namespace SkullbonezCore::UI::FrameComposition;
+
+// Invariant: these projections are the only place a tab-specific presentation
+// borrow is assembled. Adding a visible tab fact requires adding it to that
+// tab's view rather than widening every moved presenter back to the root frame.
+UIControlsTabFrameView InGameUIFrameData::ControlsTabFrame() const
+{
+    return { modelCapacity, rngSeed, solverBallCount, solverBoxCount, worldFluidHeight, worldFluidDensity };
+}
+
+UIEditorTabFrameView InGameUIFrameData::EditorTabFrame() const
+{
+    return { editorModeEnabled,        editorPlacementMode, editorPlaceStatic, editorTerrainAlign,
+             editorViewportLookActive, editorObjectType,    editorUndoDepth,   editorRedoDepth };
+}
+
+UICinematicTabFrameView InGameUIFrameData::CinematicTabFrame() const
+{
+    return { cinematic, sceneOptions, sceneOptionCount, selectedCineModeSceneOption };
+}
+
+UIOptionsTabFrameView InGameUIFrameData::OptionsTabFrame() const
+{
+    return { ordinaryRender.shadow.enabled,
+             cinematic.shadow.enabled,
+             timeScale,
+             presentationAlpha,
+             modelCount,
+             modelCapacity,
+             fixedStep,
+             presentationInterpolation,
+             presentationPinned,
+             cinematicRendering,
+             waterFreezeDebug,
+             waterFlatDebug,
+             terrainHidden,
+             waterHidden };
+}
+
+UIPhysicsTabFrameView InGameUIFrameData::PhysicsTabFrame() const
+{
+    return { physicsDebug,
+             worldGravity,
+             rayCastImpulseStrength,
+             launcherProjectileSpeed,
+             terrainFrictionCoeff,
+             objectFrictionCoeff,
+             rollingFrictionCoeff,
+             tornadoRadius,
+             tornadoHeight,
+             tornadoInwardAcceleration,
+             tornadoSwirlAcceleration,
+             tornadoLiftAcceleration,
+             physicsSleepEnabled,
+             tornadoEnabled,
+             tornadoVisualShell,
+             tornadoFieldVectors,
+             rayCastVisualization };
+}
+
+UIProfilerTabFrameView InGameUIFrameData::ProfilerTabFrame() const
+{
+    return { profilerMarkerOptions,
+             profilerMarkerOptionCount,
+             workerThreadCount,
+             maxWorkerThreadCount,
+             screenW,
+             screenH,
+             workerCoreTotalMs,
+             now };
+}
+
+UIMemoryTabFrameView InGameUIFrameData::MemoryTabFrame() const
+{
+    return { mainMemory,
+             renderMemory,
+             reserveCapacityRows,
+             reserveGrowthEvents,
+             reserveCapacityRowCount,
+             reserveGrowthEventCount,
+             screenW,
+             screenH,
+             replayMemoryPreset,
+             replayMemoryRequestedRetentionSeconds,
+             replayMemoryRequestedBudgetMiB,
+             replayMemoryPresentationRetentionSeconds,
+             replayMemorySolverRetentionSeconds,
+             reserveGrowthEventTotalCount,
+             reserveGrowthEventDroppedCount,
+             now,
+             replayMemoryBudgetClamped,
+             replayMemorySolverWindowReduced };
+}
+
+UISceneTabFrameView InGameUIFrameData::SceneTabFrame() const
+{
+    const OperatorEditorForecastView& source = operatorEditor.forecast;
+    const UISceneForecastFrameView forecast = { source.simulatedSeconds,
+                                                source.simulatedSecondsPerRealSecond,
+                                                source.rollingWindowAgeSeconds,
+                                                source.energyDrift,
+                                                source.angularMomentumDrift,
+                                                source.maximumAbsoluteEnergyDrift,
+                                                source.maximumAngularMomentumDrift,
+                                                source.firstFailureSeconds,
+                                                source.firstFailureSubject,
+                                                source.firstFailureOther,
+                                                source.firstFailureCause,
+                                                source.available,
+                                                source.active,
+                                                source.workerInFlight,
+                                                source.failed,
+                                                source.configured,
+                                                source.numericalHealthy,
+                                                source.systemOrbitalHealthy,
+                                                source.auxiliaryOrbitalHealthy,
+                                                source.energyDriftAvailable,
+                                                source.angularMomentumDriftAvailable };
+
+    return { forecast,
+             rendererName,
+             sceneOptions,
+             interactionRecordingOptions,
+             sceneOptionCount,
+             selectedSceneOption,
+             interactionRecordingOptionCount,
+             selectedInteractionRecordingOption,
+             currentFrame,
+             targetFrameCount,
+             modelCount,
+             currentSceneIndex,
+             sceneCount,
+             fps,
+             sceneEnergy,
+             timeScale,
+             predictionRevealRate,
+             fixedStep,
+             testComplete };
+}
 
 
 bool InGameUI::IsVisible() const
@@ -179,6 +319,7 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
                                   const UIRect& contentBounds, const UIRect& footerBounds )
 {
     auto widgets = m_windowInteraction.Widgets();
+    const UICinematicTabFrameView cinematicTabFrame = data.CinematicTabFrame();
 
     if ( !widgets.hitboxOverlayEnabled )
     {
@@ -218,8 +359,9 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
     switch ( widgets.activeTab )
     {
     case InGameUITab::Scene:
-        DrawComboHitboxes( draw, widgets.sceneTab.combo, SceneDropdownHitboxOptionCount( widgets.sceneTab, data ), contentR,
-                           contentG, contentB );
+        DrawComboHitboxes( draw, widgets.sceneTab.combo,
+                           SceneDropdownHitboxOptionCount( widgets.sceneTab, data.SceneTabFrame() ), contentR, contentG,
+                           contentB );
 
         DrawHitboxRect( draw, widgets.sceneTab.resetSceneButton.Bounds(), buttonR, buttonG, buttonB );
         DrawHitboxRect( draw, widgets.sceneTab.resetDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
@@ -292,7 +434,7 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         SkyTab::DrawHitboxes( widgets.skyTab, draw, contentR, contentG, contentB );
         break;
     case InGameUITab::Cinematic:
-        CinematicTab::DrawHitboxes( widgets.cinematicTab, draw, data, contentR, contentG, contentB );
+        CinematicTab::DrawHitboxes( widgets.cinematicTab, draw, cinematicTabFrame, contentR, contentG, contentB );
         break;
     case InGameUITab::Profiler:
         DrawHitboxRect( draw, widgets.profilerTab.workerToggle.Bounds(), contentR, contentG, contentB );
@@ -342,6 +484,14 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     m_histogramDrawList.Clear();
     m_memoryOverlayDrawList.Clear();
     auto widgets = m_windowInteraction.Widgets();
+    const UIControlsTabFrameView controlsTabFrame = data.ControlsTabFrame();
+    const UIEditorTabFrameView editorTabFrame = data.EditorTabFrame();
+    const UICinematicTabFrameView cinematicTabFrame = data.CinematicTabFrame();
+    const UIOptionsTabFrameView optionsTabFrame = data.OptionsTabFrame();
+    const UIPhysicsTabFrameView physicsTabFrame = data.PhysicsTabFrame();
+    const UIProfilerTabFrameView profilerTabFrame = data.ProfilerTabFrame();
+    const UIMemoryTabFrameView memoryTabFrame = data.MemoryTabFrame();
+    const UISceneTabFrameView sceneTabFrame = data.SceneTabFrame();
     const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( widgets.profilerTab );
     const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( widgets.memoryOverlay );
     const auto finishDraw = [&]() -> const UIDrawList&
@@ -410,7 +560,7 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
         // every frame.
         m_histogramDrawList.Clear();
         const UIDrawContext histogramDraw( screenW, screenH, m_histogramDrawList );
-        ProfilerTab::DrawPerformanceHistogram( widgets.profilerTab, histogramDraw, data );
+        ProfilerTab::DrawPerformanceHistogram( widgets.profilerTab, histogramDraw, profilerTabFrame );
         m_frameDrawList.Append( m_histogramDrawList );
     };
 
@@ -431,7 +581,7 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
                                   ? widgets.profilerTab.histogramPanelY + widgets.profilerTab.histogramPanelH + 8.0f
                                   : 16.0f;
 
-        MemoryTab::DrawOverlay( widgets.memoryOverlay, memoryDraw, data, memoryX, memoryY );
+        MemoryTab::DrawOverlay( widgets.memoryOverlay, memoryDraw, memoryTabFrame, memoryX, memoryY );
         m_frameDrawList.Append( m_memoryOverlayDrawList );
     };
 
@@ -444,12 +594,12 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 
     if ( histogramEnabled )
     {
-        ProfilerTab::PushPerformanceHistogramSample( widgets.profilerTab, data );
+        ProfilerTab::PushPerformanceHistogramSample( widgets.profilerTab, profilerTabFrame );
     }
 
     if ( memoryOverlayEnabled )
     {
-        MemoryTab::PushOverlayFrame( widgets.memoryOverlay, data );
+        MemoryTab::PushOverlayFrame( widgets.memoryOverlay, memoryTabFrame );
     }
 
     if ( !widgets.window.isVisible )
@@ -487,11 +637,11 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
         }
 
         widgets.window.minimizedWidth = data.editorModeEnabled
-                                            ? EditorMinimizedWidth( data, screenW )
+                                            ? EditorMinimizedWidth( editorTabFrame, screenW )
                                             : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ),
                                                           MINIMIZED_RUN_MAX_W );
 
-        const UIRect minimized = MinimizedRect( screenW, screenH, widgets.window.minimizedWidth );
+        const UIRect minimized = Layout::MinimizedRect( screenW, screenH, widgets.window.minimizedWidth );
 
         if ( data.editorModeEnabled )
         {
@@ -505,7 +655,7 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
                                    widgets.editorMiniPalettePressedHoldMode, widgets.editorMiniPalettePressedEntry, screenW,
                                    screenH );
 
-            DrawEditorMinimizedWindow( draw, minimized, data, widgets.mouseX, widgets.mouseY );
+            DrawEditorMinimizedWindow( draw, minimized, editorTabFrame, widgets.mouseX, widgets.mouseY );
         }
         else
         {
@@ -642,32 +792,32 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 
     if ( widgets.activeTab == InGameUITab::Profiler )
     {
-        ProfilerTab::Draw( widgets.profilerTab, draw, data, contentX, contentY, contentW, contentH, widgets.scrollY,
-                           widgets.activeSlider );
+        ProfilerTab::Draw( widgets.profilerTab, draw, profilerTabFrame, contentX, contentY, contentW, contentH,
+                           widgets.scrollY, widgets.activeSlider );
     }
     else if ( widgets.activeTab == InGameUITab::Memory )
     {
-        MemoryTab::Draw( draw, widgets.memoryOverlay, data, contentX, contentY, contentW, contentH, scrolledY,
+        MemoryTab::Draw( draw, widgets.memoryOverlay, memoryTabFrame, contentX, contentY, contentW, contentH, scrolledY,
                          widgets.activeSlider, widgets.mouseX, widgets.mouseY );
     }
     else if ( widgets.activeTab == InGameUITab::Scene )
     {
-        SceneTab::Draw( widgets.sceneTab, draw, data, contentX, contentY, contentW, contentH, scrolledY, widgets.mouseX,
-                        widgets.mouseY );
+        SceneTab::Draw( widgets.sceneTab, draw, sceneTabFrame, contentX, contentY, contentW, contentH, scrolledY,
+                        widgets.mouseX, widgets.mouseY );
     }
     else if ( widgets.activeTab == InGameUITab::Physics )
     {
-        PhysicsTab::Draw( widgets.physicsTab, draw, data, contentX, contentY, contentW, contentH, scrolledY,
+        PhysicsTab::Draw( widgets.physicsTab, draw, physicsTabFrame, contentX, contentY, contentW, contentH, scrolledY,
                           widgets.activeSlider, widgets.mouseX, widgets.mouseY );
     }
     else if ( widgets.activeTab == InGameUITab::Editor )
     {
-        EditorTab::Draw( widgets.editorTab, draw, data, contentX, contentY, contentW, contentH, scrolledY, widgets.mouseX,
-                         widgets.mouseY );
+        EditorTab::Draw( widgets.editorTab, draw, editorTabFrame, contentX, contentY, contentW, contentH, scrolledY,
+                         widgets.mouseX, widgets.mouseY );
     }
     else if ( widgets.activeTab == InGameUITab::Options )
     {
-        OptionsTab::Draw( widgets.optionsTab, draw, data, contentX, contentY, contentW, contentH, scrolledY,
+        OptionsTab::Draw( widgets.optionsTab, draw, optionsTabFrame, contentX, contentY, contentW, contentH, scrolledY,
                           widgets.activeSlider );
     }
     else if ( widgets.activeTab == InGameUITab::Render )
@@ -841,17 +991,17 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     }
     else if ( widgets.activeTab == InGameUITab::Sky )
     {
-        SkyTab::Draw( widgets.skyTab, draw, data, contentX, contentY, contentW, contentH, scrolledY, widgets.mouseX,
-                      widgets.mouseY );
+        SkyTab::Draw( widgets.skyTab, draw, data.cinematic, contentX, contentY, contentW, contentH, scrolledY,
+                      widgets.mouseX, widgets.mouseY );
     }
     else if ( widgets.activeTab == InGameUITab::Cinematic )
     {
-        CinematicTab::Draw( widgets.cinematicTab, draw, data, contentX, contentY, contentW, contentH, scrolledY,
+        CinematicTab::Draw( widgets.cinematicTab, draw, cinematicTabFrame, contentX, contentY, contentW, contentH, scrolledY,
                             widgets.mouseX, widgets.mouseY );
     }
     else
     {
-        ControlsTab::Draw( widgets.controlsTab, draw, data, contentX, contentY, contentW, contentH, scrolledY );
+        ControlsTab::Draw( widgets.controlsTab, draw, controlsTabFrame, contentX, contentY, contentW, contentH, scrolledY );
     }
 
     widgets.scrollBar.SetBounds( x + w - 14.0f, contentY, 4.0f, contentH );

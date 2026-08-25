@@ -58,10 +58,12 @@
 //   - SkullbonezSource/Physics/PhysicsMotionEligibility.h
 //   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
 //   - SkullbonezTests/TestReplayDeterminism.cpp
+//   - SkullbonezTests/TestReplaySolverHashWitness.cpp
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestResultLoadFixtures.h"
+#include "TestReplaySolverHashWitness.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
@@ -80,7 +82,6 @@
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 #include "../SkullbonezSource/Gameplay/TornadoGameplay.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
 #include "../SkullbonezSource/World/Terrain.h"
 
@@ -264,13 +265,12 @@ void AddPromotionFixtureBody( PhysicsEngine& engine, PhysicsTerrainView terrainV
     engine.SetTerrainView( terrainView );
     auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId { sceneObjectIdValue }, shape, position,
                                                SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, linearVelocity,
-                                               Vector3( 0.0f, 0.0f, 0.0f ), rotationalInertia, mass, restitution,
-                                               motionKind, diagnosticName );
+                                               Vector3( 0.0f, 0.0f, 0.0f ), rotationalInertia, mass, restitution, motionKind,
+                                               diagnosticName );
     bodyDesc.angularVelocityLimit = 1000.0f;
     auto colliderDesc = MakeColliderCreateDesc( shape, restitution, 0u, "unit" );
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
@@ -321,7 +321,6 @@ void AddSupportedSleepBody( PhysicsEngine& engine, PhysicsTerrainView terrainVie
 void SeedSupportedSleepWorld( PhysicsEngine& engine, PhysicsTerrainView terrainView,
                               const SkullbonezCore::Core::EngineConfig& config )
 {
-
     // Why: the sleep-threshold test needs real terrain support but no inherited
     // angular motion from SeedMicroWorld. One quiet sphere starts exactly on the
     // flat terrain so the solver, not fixture surgery, earns the sleep state.
@@ -346,7 +345,6 @@ void SeedParallelContactSleepWorld( PhysicsEngine& engine, PhysicsTerrainView te
     // final eight bodies stay separated so the fixture also proves a real sleep
     // transition. All 520 bodies cross the force, terrain, and integration
     // worker thresholds before the awake list shrinks.
-
     for ( int bodyIndex = 0; bodyIndex < kParallelContactBodyCount; ++bodyIndex )
     {
         const int pairIndex = bodyIndex / 2;
@@ -370,7 +368,6 @@ void SeedParallelContactSleepWorld( PhysicsEngine& engine, PhysicsTerrainView te
 
 TEST_CASE( "Physics collision-time diagnostics cover every bounded fixed-step event" )
 {
-
     // Four candidate pairs per model are the PhysicsWorld reserve contract;
     // terrain can add one more event for every model in the same fixed step.
     CHECK( SkullbonezCore::Physics::PhysicsDiagnosticsSink::CollisionTimeEventCapacity() ==
@@ -379,7 +376,6 @@ TEST_CASE( "Physics collision-time diagnostics cover every bounded fixed-step ev
 
 TEST_CASE( "PhysicsEngine exposes its owned sleep policy" )
 {
-
     // PhysicsEngine owns fixed-capacity solver scratch too large for the
     // default test-thread stack. Heap ownership also keeps repeated fixtures
     // out of the Debug executable's image-size budget.
@@ -394,7 +390,6 @@ TEST_CASE( "PhysicsEngine exposes its owned sleep policy" )
 
 TEST_CASE( "Tornado force witness preserves exact one-step body state" )
 {
-
     // Why: the varied-scene CSV gate does not contain tornado content. This
     // focused byte witness pins the field arithmetic and its exact force-stage
     // scheduling point before gameplay ownership moves out of Physics.
@@ -603,7 +598,6 @@ void CheckEngineKinematicsEqual( const PhysicsEngine& lhs, const PhysicsEngine& 
 
 void CheckMutualGravityFieldExactAcrossWorkerCounts( int bodyCount, int ticks )
 {
-
     // Lifetime: each cold fixture owns an independent analytic terrain and
     // heap engine. Equality cannot pass through shared mutable terrain state.
     DeterminismTerrainFixture serialFixture( kFlatTerrainBaseY );
@@ -630,6 +624,7 @@ void CheckMutualGravityFieldExactAcrossWorkerCounts( int bodyCount, int ticks )
         {
             const int column = index % 8;
             const int row = index / 8;
+
             // Why: the bounded parallel case deliberately places adjacent
             // fixed bodies across chunked rows. Their skipped pairs create
             // holes in worker slices and exercise canonical compaction, while
@@ -740,11 +735,10 @@ bool DiagnosticsHasCandidatePair( const PhysicsEngine& engine, int bodyA, int bo
     return std::find( pairs.begin(), pairs.end(), std::make_pair( bodyA, bodyB ) ) != pairs.end();
 }
 
-bool DiagnosticsHasPipelineStageForPair( const PhysicsEngine& engine,
-                                         SkullbonezCore::Physics::PhysicsPipelineStage stage, int bodyA, int bodyB )
+bool DiagnosticsHasPipelineStageForPair( const PhysicsEngine& engine, SkullbonezCore::Physics::PhysicsPipelineStage stage,
+                                         int bodyA, int bodyB )
 {
-    for ( const SkullbonezCore::Physics::PhysicsPipelineRecord& record :
-          engine.GetDiagnosticsView().physicsPipelineTrace )
+    for ( const SkullbonezCore::Physics::PhysicsPipelineRecord& record : engine.GetDiagnosticsView().physicsPipelineTrace )
     {
         const bool samePair = ( record.bodyA == bodyA && record.bodyB == bodyB ) ||
                               ( record.bodyA == bodyB && record.bodyB == bodyA );
@@ -760,7 +754,6 @@ bool DiagnosticsHasPipelineStageForPair( const PhysicsEngine& engine,
 
 void CheckTerrainPenetrationWithinTolerance( const PhysicsEngine& engine, const SkullbonezCore::Core::EngineConfig& config )
 {
-
     // Concept: this is the fast invariant partner to byte-exact CSV baselines.
     // It does not care about exact impulse history, only that settled body rows
     // and terrain manifolds stay inside the configured contact envelope.
@@ -777,7 +770,6 @@ void CheckTerrainPenetrationWithinTolerance( const PhysicsEngine& engine, const 
 
     for ( const SkullbonezCore::Physics::TerrainContactManifold& manifold : diagnostics.terrainContactManifolds )
     {
-
         for ( uint8_t i = 0; i < manifold.pointCount; ++i )
         {
             CHECK( manifold.points[i].penetration <= maxAllowedPenetration );
@@ -835,6 +827,7 @@ uint64_t HashMicroWorldPhysicsState( const PhysicsEngine& engine )
         HashPhysicsValueForTest( hash, hotState.angularVelocity );
         HashPhysicsValueForTest( hash, hotState.awake );
     }
+
     return hash != 0ull ? hash : 1ull;
 }
 
@@ -862,8 +855,7 @@ void RestoreMicroWorldSnapshot( PhysicsEngine& engine, const MicroWorldSnapshot&
                                                                           state.rotationalInertia, state.inverseRotationalInertia } ) );
     }
 
-    REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot.solver,
-                                                 MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot.solver, MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) ) );
 }
 
 void CheckVectorBytesEqual( const Vector3& lhs, const Vector3& rhs )
@@ -947,17 +939,6 @@ void CheckPhysicsPipelineTraceBytesEqual( const PhysicsEngine& lhs, const Physic
     }
 }
 
-uint64_t CaptureSolverReplayHash( const PhysicsEngine& engine )
-{
-    SkullbonezCore::Runtime::ReplaySolverFrameSample sample;
-    const int bodyCount = PhysicsEngine::ReadBodies( engine ).Count();
-    sample.contactCount = static_cast<uint16_t>( PhysicsEngine::ReadDebugContacts( engine ).size() );
-    sample.pipelineRecordCount = static_cast<uint16_t>( PhysicsEngine::ReadPipelineRecordCount( engine ) );
-    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot.physics,
-                                        MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) );
-    return SkullbonezCore::Runtime::ReplaySolverHashForSample( sample );
-}
-
 void CheckContactIdentityOrderEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
 {
     const auto left = lhs.GetDiagnosticsView().persistentContacts;
@@ -996,19 +977,43 @@ void CheckTerrainManifoldOrderEqual( const PhysicsEngine& lhs, const PhysicsEngi
             const auto& rightPoint = rightManifold.points[pointIndex];
             CheckVectorBytesEqual( leftPoint.point, rightPoint.point );
             CheckVectorBytesEqual( leftPoint.rA, rightPoint.rA );
-            CHECK( std::memcmp( &leftPoint.penetration, &rightPoint.penetration,
-                                sizeof( leftPoint.penetration ) ) == 0 );
+            CHECK( std::memcmp( &leftPoint.penetration, &rightPoint.penetration, sizeof( leftPoint.penetration ) ) == 0 );
             CHECK( leftPoint.featureId == rightPoint.featureId );
         }
 
-        CHECK( std::memcmp( &leftManifold.timeOfImpact, &rightManifold.timeOfImpact,
-                            sizeof( leftManifold.timeOfImpact ) ) == 0 );
+        CHECK( std::memcmp( &leftManifold.timeOfImpact, &rightManifold.timeOfImpact, sizeof( leftManifold.timeOfImpact ) ) ==
+               0 );
         CHECK( leftManifold.sweptHit == rightManifold.sweptHit );
         CHECK( leftManifold.supportsRestingPolicy == rightManifold.supportsRestingPolicy );
         CHECK( leftManifold.allowsTangentFriction == rightManifold.allowsTangentFriction );
         CHECK( leftManifold.inhibitsSleep == rightManifold.inhibitsSleep );
         CHECK( leftManifold.terrainCellId == rightManifold.terrainCellId );
         CHECK( leftManifold.materialId == rightManifold.materialId );
+    }
+}
+
+void CheckPointJointOrderEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
+{
+    const auto& left = PhysicsEngine::ReadPointJointConstraints( lhs );
+    const auto& right = PhysicsEngine::ReadPointJointConstraints( rhs );
+    REQUIRE( left.size() == right.size() );
+
+    for ( std::size_t index = 0; index < left.size(); ++index )
+    {
+        const auto& leftJoint = left[index];
+        const auto& rightJoint = right[index];
+        CHECK( leftJoint.handle == rightJoint.handle );
+        CHECK( leftJoint.bodyA == rightJoint.bodyA );
+        CHECK( leftJoint.bodyB == rightJoint.bodyB );
+        CheckVectorBytesEqual( leftJoint.localAnchorA, rightJoint.localAnchorA );
+        CheckVectorBytesEqual( leftJoint.localAnchorB, rightJoint.localAnchorB );
+        CHECK( std::memcmp( &leftJoint.slack, &rightJoint.slack, sizeof( leftJoint.slack ) ) == 0 );
+        CHECK( std::memcmp( &leftJoint.stiffness, &rightJoint.stiffness, sizeof( leftJoint.stiffness ) ) == 0 );
+        CHECK( std::memcmp( &leftJoint.damping, &rightJoint.damping, sizeof( leftJoint.damping ) ) == 0 );
+        CHECK( std::memcmp( &leftJoint.accumulatedImpulse, &rightJoint.accumulatedImpulse,
+                            sizeof( leftJoint.accumulatedImpulse ) ) == 0 );
+        CHECK( leftJoint.groupId == rightJoint.groupId );
+        CHECK( leftJoint.flags == rightJoint.flags );
     }
 }
 
@@ -1047,24 +1052,29 @@ void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const P
     checkRowsEqual( leftDiagnostics.collisionCellKeys, rightDiagnostics.collisionCellKeys );
     checkRowsEqual( leftDiagnostics.motionEligibilityState, rightDiagnostics.motionEligibilityState );
     checkRowsEqual( leftDiagnostics.linearTravelSquared, rightDiagnostics.linearTravelSquared );
+    checkRowsEqual( leftDiagnostics.linearDirectionalBoundary, rightDiagnostics.linearDirectionalBoundary );
     checkRowsEqual( leftDiagnostics.angularTravelSquared, rightDiagnostics.angularTravelSquared );
-    CHECK( leftDiagnostics.motionEligibilityStats.policyVersion ==
-           rightDiagnostics.motionEligibilityStats.policyVersion );
+    CHECK( leftDiagnostics.motionEligibilityStats.policyVersion == rightDiagnostics.motionEligibilityStats.policyVersion );
     CHECK( leftDiagnostics.motionEligibilityStats.evaluatedBodies ==
            rightDiagnostics.motionEligibilityStats.evaluatedBodies );
-    CHECK( leftDiagnostics.motionEligibilityStats.discreteBodies ==
-           rightDiagnostics.motionEligibilityStats.discreteBodies );
-    CHECK( leftDiagnostics.motionEligibilityStats.promotedBodies ==
-           rightDiagnostics.motionEligibilityStats.promotedBodies );
+    CHECK( leftDiagnostics.motionEligibilityStats.discreteBodies == rightDiagnostics.motionEligibilityStats.discreteBodies );
+    CHECK( leftDiagnostics.motionEligibilityStats.promotedBodies == rightDiagnostics.motionEligibilityStats.promotedBodies );
     CHECK( leftDiagnostics.motionEligibilityStats.angularExpandedBodies ==
            rightDiagnostics.motionEligibilityStats.angularExpandedBodies );
 
     // Invariant: worker equality owns ordered collision work and the complete
-    // Replay-restorable solver record, not only poses and summary counters.
+    // replay-restorable solver record, not only poses and summary counters.
+    // The MSVC Runtime lane adds the production Replay hash assertion through
+    // its test-only witness; portable builds retain every renderer-free case
+    // without acquiring Runtime authority. All comparisons remain byte-exact
+    // and affect determinism validation rather than a Physics golden baseline.
     CheckContactIdentityOrderEqual( lhs, rhs );
     CheckTerrainManifoldOrderEqual( lhs, rhs );
+    CheckPointJointOrderEqual( lhs, rhs );
     CheckPhysicsPipelineTraceBytesEqual( lhs, rhs );
-    CHECK( CaptureSolverReplayHash( lhs ) == CaptureSolverReplayHash( rhs ) );
+#if !defined( SKULLBONEZ_PORTABLE_CPU )
+    SkullbonezTests::CheckProductionReplaySolverHashEqual( lhs, rhs );
+#endif
 }
 } // namespace
 
@@ -1118,14 +1128,13 @@ TEST_CASE( "Physics motion promotion: fixed-step force integration promotes in t
     DeterminismTerrainFixture fixture( kDeepSpaceTerrainBaseY );
     PhysicsEngine& engine = fixture.Engine();
     EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = -2400.0f;
+    config.worldForces.gravity = -15360.0f;
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( false );
     ReserveTestPhysicsCapacity( engine, 1u );
-    AddPromotionFixtureBody( engine, fixture.TerrainView(), 3101u, MakeSphereShape( 1.0f ),
-                             Vector3( 0.0f, 10.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
-                             Vector3( 0.4f, 0.4f, 0.4f ), 1.0f, 0.0f,
+    AddPromotionFixtureBody( engine, fixture.TerrainView(), 3101u, MakeSphereShape( 1.0f ), Vector3( 0.0f, 10.0f, 0.0f ),
+                             Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.4f, 0.4f, 0.4f ), 1.0f, 0.0f,
                              PhysicsBodyMotionKind::Dynamic, "force-promoted-sphere" );
 
     PhysicsWorldForces forces = NoGravityForces();
@@ -1134,17 +1143,18 @@ TEST_CASE( "Physics motion promotion: fixed-step force integration promotes in t
 
     const auto diagnostics = engine.GetDiagnosticsView();
     REQUIRE( diagnostics.motionEligibilityState.size() == 1u );
-    CHECK( ( diagnostics.motionEligibilityState[0] &
-             SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+    CHECK( ( diagnostics.motionEligibilityState[0] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) !=
+           0u );
     CHECK( diagnostics.motionEligibilityStats.promotedBodies == 1 );
 }
 
 
-TEST_CASE( "Physics motion promotion: authoritative 200-box striker velocity promotes without scene identity" )
+TEST_CASE( "Physics motion promotion: authoritative 200-box striker stays Discrete below its radius" )
 {
     SkullbonezCore::Runtime::AuthoredScene scene;
-    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene(
-        resultDiagnostics, "SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json", scene ) );
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::
+                 TryLoadAuthoredScene( resultDiagnostics, "SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json",
+                                       scene ) );
     const SkullbonezCore::Runtime::SceneBallState* striker = nullptr;
 
     for ( int ballIndex = 0; ballIndex < scene.GetBallStateCount(); ++ballIndex )
@@ -1160,8 +1170,7 @@ TEST_CASE( "Physics motion promotion: authoritative 200-box striker velocity pro
 
     REQUIRE( striker != nullptr );
     const Vector3 authoredVelocity( striker->velX, striker->velY, striker->velZ );
-    CHECK( sqrtf( VectorMagnitudeSquared( authoredVelocity ) ) * PHYSICS_FIXED_DT >
-           SkullbonezCore::Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK );
+    CHECK( sqrtf( VectorMagnitudeSquared( authoredVelocity ) ) * PHYSICS_FIXED_DT < striker->radius );
 
     DeterminismTerrainFixture fixture( kDeepSpaceTerrainBaseY );
     PhysicsEngine& engine = fixture.Engine();
@@ -1179,9 +1188,8 @@ TEST_CASE( "Physics motion promotion: authoritative 200-box striker velocity pro
     StepMicroWorldWith( engine, 1, NoGravityForces() );
     const auto diagnostics = engine.GetDiagnosticsView();
     REQUIRE( diagnostics.motionEligibilityState.size() == 1u );
-    CHECK( ( diagnostics.motionEligibilityState[0] &
-             SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
-    CHECK( diagnostics.motionEligibilityStats.promotedBodies == 1 );
+    CHECK( diagnostics.motionEligibilityState[0] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+    CHECK( diagnostics.motionEligibilityStats.discreteBodies == 1 );
 }
 
 
@@ -1194,12 +1202,9 @@ TEST_CASE( "PhysicsEngine terrain fixtures reconstruct without cross-instance st
         engine.Clear();
         engine.ApplyRuntimeConfig( MakeDeterministicConfig() );
         engine.SetSleepEnabled( false );
-        AddMicroBody( engine, fixture.TerrainView(), 501u, Vector3( 0.0f, 2.0f, 0.0f ),
-                      Vector3( 0.0f, 0.0f, 0.0f ) );
-        AddMicroBody( engine, fixture.TerrainView(), 502u, Vector3( 4.0f, 4.0f, 0.0f ),
-                      Vector3( 0.0f, 0.0f, 0.0f ) );
-        AddMicroBody( engine, fixture.TerrainView(), 503u, Vector3( 8.0f, 6.0f, 0.0f ),
-                      Vector3( 0.0f, 0.0f, 0.0f ) );
+        AddMicroBody( engine, fixture.TerrainView(), 501u, Vector3( 0.0f, 2.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+        AddMicroBody( engine, fixture.TerrainView(), 502u, Vector3( 4.0f, 4.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+        AddMicroBody( engine, fixture.TerrainView(), 503u, Vector3( 8.0f, 6.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
         StepMicroWorld( engine, kSnapshotFrame );
         return HashMicroWorldPhysicsState( engine );
     };
@@ -1209,12 +1214,9 @@ TEST_CASE( "PhysicsEngine terrain fixtures reconstruct without cross-instance st
     // deep after both predecessor kinds, then exact hashes prove that no prior
     // fixture contributes retained mutable state.
     const std::array<uint64_t, 7> reconstructionHashes = {
-        runColdFixture( kFlatTerrainBaseY ),
-        runColdFixture( kDeepSpaceTerrainBaseY ),
-        runColdFixture( kFlatTerrainBaseY ),
-        runColdFixture( kDeepSpaceTerrainBaseY ),
-        runColdFixture( kDeepSpaceTerrainBaseY ),
-        runColdFixture( kFlatTerrainBaseY ),
+        runColdFixture( kFlatTerrainBaseY ),      runColdFixture( kDeepSpaceTerrainBaseY ),
+        runColdFixture( kFlatTerrainBaseY ),      runColdFixture( kDeepSpaceTerrainBaseY ),
+        runColdFixture( kDeepSpaceTerrainBaseY ), runColdFixture( kFlatTerrainBaseY ),
         runColdFixture( kFlatTerrainBaseY ),
     };
 
@@ -1231,7 +1233,6 @@ TEST_CASE( "PhysicsEngine terrain fixtures reconstruct without cross-instance st
 
 TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline is exact across worker counts" )
 {
-
     // Lifetime: each fixture keeps the heap engine before its independent
     // terrain owner in reverse destruction order.
     DeterminismTerrainFixture serialFixture( kFlatTerrainBaseY );
@@ -1259,13 +1260,11 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
     SeedParallelDeterminismPointJoints( oneWorker );
     SeedParallelDeterminismPointJoints( fourWorkers );
 
-    const Vector3 promotedVelocity( 13.0f, 0.0f, 0.0f );
+    const Vector3 promotedVelocity( 121.0f, 0.0f, 0.0f );
     const Vector3 zeroAngularVelocity( 0.0f, 0.0f, 0.0f );
     REQUIRE( serial.SetBodyVelocity( RequireBodyHandle( serial, 0 ), promotedVelocity, zeroAngularVelocity, true ) );
-    REQUIRE(
-        oneWorker.SetBodyVelocity( RequireBodyHandle( oneWorker, 0 ), promotedVelocity, zeroAngularVelocity, true ) );
-    REQUIRE( fourWorkers.SetBodyVelocity( RequireBodyHandle( fourWorkers, 0 ), promotedVelocity, zeroAngularVelocity,
-                                         true ) );
+    REQUIRE( oneWorker.SetBodyVelocity( RequireBodyHandle( oneWorker, 0 ), promotedVelocity, zeroAngularVelocity, true ) );
+    REQUIRE( fourWorkers.SetBodyVelocity( RequireBodyHandle( fourWorkers, 0 ), promotedVelocity, zeroAngularVelocity, true ) );
     const PhysicsWorldForces forces = DeterministicForces();
 
     StepMicroWorldWith( serial, 1, forces, 0 );
@@ -1275,11 +1274,15 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
     // Invariant: the fixture must keep the parallel-narrowphase threshold
     // active. A geometry/filter drift to 255 pairs would otherwise let every
     // worker-count comparison pass through the serial fallback.
+    const auto serialDiagnostics = serial.GetDiagnosticsView();
     CHECK( oneWorker.GetDiagnosticsView().candidatePairs.size() == 256u );
     CHECK( fourWorkers.GetDiagnosticsView().candidatePairs.size() == 256u );
+    CHECK_FALSE( serialDiagnostics.persistentContacts.empty() );
+    CHECK_FALSE( serialDiagnostics.terrainContactManifolds.empty() );
+    CHECK_FALSE( serialDiagnostics.physicsPipelineTrace.empty() );
     CHECK( PhysicsEngine::ReadPointJointConstraints( serial ).size() == 2u );
-    CHECK( serial.GetDiagnosticsView().motionEligibilityStats.promotedBodies >= 1 );
-    CHECK( ( serial.GetDiagnosticsView().motionEligibilityState[0] &
+    CHECK( serialDiagnostics.motionEligibilityStats.promotedBodies >= 1 );
+    CHECK( ( serialDiagnostics.motionEligibilityState[0] &
              SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
     CheckEngineWorkerDeterministicStateEqual( serial, oneWorker );
     CheckEngineWorkerDeterministicStateEqual( serial, fourWorkers );
@@ -1317,8 +1320,8 @@ TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel
                                 20.0f + static_cast<float>( index / 20 ) * 5.0f,
                                 -40.0f + static_cast<float>( index % 9 ) * 10.0f );
         const Vector3 zeroVelocity( 0.0f, 0.0f, 0.0f );
-        AddMicroBody( serial, serialFixture.TerrainView(), 2000u + static_cast<uint32_t>( index ), position, zeroVelocity );
-        AddMicroBody( parallel, parallelFixture.TerrainView(), 2000u + static_cast<uint32_t>( index ), position,
+        AddMicroBody( serial, serialFixture.TerrainView(), 5000u + static_cast<uint32_t>( index ), position, zeroVelocity );
+        AddMicroBody( parallel, parallelFixture.TerrainView(), 5000u + static_cast<uint32_t>( index ), position,
                       zeroVelocity );
     }
 
@@ -1349,7 +1352,7 @@ TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel
                    parallelWorkers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
 
     // Invariant: every authored spin in this 520-body workload crosses the
-    // absolute angular threshold. Persistent grid cells must therefore be
+    // direction-valid angular threshold. Persistent grid cells must therefore be
     // established before transient coverage is admitted in either execution mode.
     CHECK( serial.GetDiagnosticsView().motionEligibilityStats.angularExpandedBodies == bodyCount );
     CHECK( parallel.GetDiagnosticsView().motionEligibilityStats.angularExpandedBodies == bodyCount );
@@ -1366,7 +1369,7 @@ TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel
 }
 
 
-TEST_CASE( "Physics motion promotion: opposing individually Discrete balls retain relative Swept TOI" )
+TEST_CASE( "Physics motion promotion: opposing individually Discrete balls do not invoke Swept TOI" )
 {
     DeterminismTerrainFixture fixture( kDeepSpaceTerrainBaseY );
     PhysicsEngine& engine = fixture.Engine();
@@ -1396,15 +1399,13 @@ TEST_CASE( "Physics motion promotion: opposing individually Discrete balls retai
     REQUIRE( diagnostics.motionEligibilityState.size() == 2u );
     CHECK( diagnostics.motionEligibilityState[0] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
     CHECK( diagnostics.motionEligibilityState[1] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
-    CHECK( DiagnosticsHasCandidatePair( engine, 0, 1 ) );
-    CHECK( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit,
-                                               0, 1 ) );
+    CHECK_FALSE( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit, 0, 1 ) );
 
     const PhysicsBodyHotState left = RequireBodyHotState( engine, 0 );
     const PhysicsBodyHotState right = RequireBodyHotState( engine, 1 );
     CHECK( left.position.x < right.position.x );
-    CHECK( left.linearVelocity.x < 0.0f );
-    CHECK( right.linearVelocity.x > 0.0f );
+    CHECK( left.linearVelocity.x == doctest::Approx( speed ) );
+    CHECK( right.linearVelocity.x == doctest::Approx( -speed ) );
 }
 
 
@@ -1439,18 +1440,122 @@ TEST_CASE( "Physics motion promotion: sub-threshold opposing tiny balls retain g
     const float perBodyTravel = speed * PHYSICS_FIXED_DT;
     CHECK( perBodyTravel == doctest::Approx( 0.04f ) );
     CHECK( perBodyTravel * 2.0f == doctest::Approx( 0.08f ) );
-    CHECK( perBodyTravel < SkullbonezCore::Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK );
-    CHECK( perBodyTravel * 2.0f < SkullbonezCore::Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK );
+    CHECK( perBodyTravel > radius );
     CHECK( perBodyTravel * 2.0f > initialCenterSeparation + radius * 2.0f );
 
     StepMicroWorldWith( engine, 1, NoGravityForces() );
     const auto diagnostics = engine.GetDiagnosticsView();
     REQUIRE( diagnostics.motionEligibilityState.size() == 2u );
-    CHECK( diagnostics.motionEligibilityState[0] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
-    CHECK( diagnostics.motionEligibilityState[1] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+    CHECK( ( diagnostics.motionEligibilityState[0] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) !=
+           0u );
+    CHECK( ( diagnostics.motionEligibilityState[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) !=
+           0u );
     CHECK( DiagnosticsHasCandidatePair( engine, 0, 1 ) );
-    CHECK( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit,
-                                               0, 1 ) );
+    CHECK( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit, 0, 1 ) );
+
+    const PhysicsBodyHotState left = RequireBodyHotState( engine, 0 );
+    const PhysicsBodyHotState right = RequireBodyHotState( engine, 1 );
+    CHECK( left.position.x < right.position.x );
+    CHECK( left.linearVelocity.x < 0.0f );
+    CHECK( right.linearVelocity.x > 0.0f );
+}
+
+TEST_CASE( "Physics direction-valid promotion keeps sub-radius bodies out of the swept overlay" )
+{
+    float radius = 0.1f;
+    float speed = 9.0f;
+    bool shouldPromote = false;
+
+    SUBCASE( "sub-radius travel remains Discrete without a motion overlay" )
+    {
+        radius = 0.1f;
+        speed = 9.0f;
+        shouldPromote = false;
+    }
+
+    SUBCASE( "small fast body promotes and retains a motion overlay" )
+    {
+        radius = 0.01f;
+        speed = 4.8f;
+        shouldPromote = true;
+    }
+
+    DeterminismTerrainFixture fixture( kDeepSpaceTerrainBaseY );
+    PhysicsEngine& engine = fixture.Engine();
+    EngineConfig config = MakeDeterministicConfig();
+    config.worldForces.gravity = 0.0f;
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( false );
+    ReserveTestPhysicsCapacity( engine, 1u );
+
+    const float inertia = 0.4f * radius * radius;
+    AddPromotionFixtureBody( engine, fixture.TerrainView(), 3031u, MakeSphereShape( radius ), Vector3( 0.0f, 0.0f, 0.0f ),
+                             Vector3( speed, 0.0f, 0.0f ), Vector3( inertia, inertia, inertia ), 1.0f, 0.0f,
+                             PhysicsBodyMotionKind::Dynamic, "directional-radius-overlay-probe" );
+
+    StepMicroWorldWith( engine, 1, NoGravityForces() );
+    const auto diagnostics = engine.GetDiagnosticsView();
+    REQUIRE( diagnostics.motionEligibilityState.size() == 1u );
+    CHECK( diagnostics.motionEligibilityStats.policyVersion ==
+           SkullbonezCore::Physics::PHYSICS_MOTION_ELIGIBILITY_POLICY_VERSION );
+    CHECK( ( ( diagnostics.motionEligibilityState[0] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) !=
+             0u ) == shouldPromote );
+
+    const auto& grid = diagnostics.spatialGrid;
+    const bool emittedSweptCoverage = grid.GetMaintenanceStats().sweptOverlayCellsAdded > 0 ||
+                                      grid.GetSweptFallbackBodyCount() > 0u;
+
+    if ( !shouldPromote )
+    {
+        CHECK_FALSE( emittedSweptCoverage );
+    }
+}
+
+TEST_CASE( "Physics sub-radius opposing balls resolve at the next discrete boundary" )
+{
+    DeterminismTerrainFixture fixture( kDeepSpaceTerrainBaseY );
+    PhysicsEngine& engine = fixture.Engine();
+    EngineConfig config = MakeDeterministicConfig();
+    config.worldForces.gravity = 0.0f;
+    config.bodySimulation.contactEpsilon = 0.001f;
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( false );
+    engine.SetPipelineTraceFullRecordConsumerActive( true );
+    ReserveTestPhysicsCapacity( engine, 2u );
+
+    constexpr float radius = 0.1f;
+    constexpr float mass = 1.0f;
+    constexpr float speed = 9.0f;
+    const float inertia = 0.4f * mass * radius * radius;
+    const CollisionShape sphere = MakeSphereShape( radius );
+    AddPromotionFixtureBody( engine, fixture.TerrainView(), 3041u, sphere, Vector3( -0.17f, 0.0f, 0.0f ),
+                             Vector3( speed, 0.0f, 0.0f ), Vector3( inertia, inertia, inertia ), mass, 1.0f,
+                             PhysicsBodyMotionKind::Dynamic, "radius-discrete-left" );
+    AddPromotionFixtureBody( engine, fixture.TerrainView(), 3042u, sphere, Vector3( 0.17f, 0.0f, 0.0f ),
+                             Vector3( -speed, 0.0f, 0.0f ), Vector3( inertia, inertia, inertia ), mass, 1.0f,
+                             PhysicsBodyMotionKind::Dynamic, "radius-discrete-right" );
+
+    StepMicroWorldWith( engine, 1, NoGravityForces() );
+    const auto firstDiagnostics = engine.GetDiagnosticsView();
+    REQUIRE( firstDiagnostics.motionEligibilityState.size() == 2u );
+    CHECK( firstDiagnostics.motionEligibilityState[0] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+    CHECK( firstDiagnostics.motionEligibilityState[1] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+    CHECK_FALSE( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit, 0, 1 ) );
+    CHECK_FALSE( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectMiss, 0, 1 ) );
+
+    // Invariant: one sub-radius step may create overlap but cannot exchange the
+    // sphere centers. The next current-position sample owns the Discrete contact.
+    const PhysicsBodyHotState firstLeft = RequireBodyHotState( engine, 0 );
+    const PhysicsBodyHotState firstRight = RequireBodyHotState( engine, 1 );
+    CHECK( firstLeft.position.x < firstRight.position.x );
+    CHECK( firstRight.position.x - firstLeft.position.x < radius * 2.0f );
+
+    StepMicroWorldWith( engine, 1, NoGravityForces() );
+    CHECK( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::ManifoldRow, 0, 1 ) );
+    CHECK_FALSE( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit, 0, 1 ) );
+    CHECK_FALSE( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectMiss, 0, 1 ) );
 
     const PhysicsBodyHotState left = RequireBodyHotState( engine, 0 );
     const PhysicsBodyHotState right = RequireBodyHotState( engine, 1 );
@@ -1475,10 +1580,8 @@ TEST_CASE( "Physics motion promotion: resting static-friction pair stays Discret
 
     constexpr float dynamicHalfExtent = 0.5f;
     constexpr float initialTangentialSpeed = 0.05f;
-    const CollisionShape dynamicBox = CollisionShape(
-        BoundingBox( Vector3( dynamicHalfExtent, dynamicHalfExtent, dynamicHalfExtent ), Vector3( 0.0f, 0.0f, 0.0f ) ) );
-    const CollisionShape supportBox =
-        CollisionShape( BoundingBox( Vector3( 1.0f, dynamicHalfExtent, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    const CollisionShape dynamicBox = CollisionShape( BoundingBox( Vector3( dynamicHalfExtent, dynamicHalfExtent, dynamicHalfExtent ), Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    const CollisionShape supportBox = CollisionShape( BoundingBox( Vector3( 1.0f, dynamicHalfExtent, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ) );
     AddPromotionFixtureBody( engine, fixture.TerrainView(), 3021u, dynamicBox, Vector3( 0.0f, 0.99f, 0.0f ),
                              Vector3( initialTangentialSpeed, 0.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, 0.0f,
                              PhysicsBodyMotionKind::Dynamic, "resting-friction-box" );
@@ -1497,8 +1600,7 @@ TEST_CASE( "Physics motion promotion: resting static-friction pair stays Discret
         REQUIRE( diagnostics.motionEligibilityState.size() == 2u );
         CHECK( diagnostics.motionEligibilityState[0] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
         CHECK( DiagnosticsHasCandidatePair( engine, 0, 1 ) );
-        CHECK( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::ManifoldRow,
-                                                   0, 1 ) );
+        CHECK( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::ManifoldRow, 0, 1 ) );
         CHECK_FALSE( DiagnosticsHasPipelineStageForPair( engine,
                                                          SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit, 0,
                                                          1 ) );
@@ -1513,6 +1615,63 @@ TEST_CASE( "Physics motion promotion: resting static-friction pair stays Discret
     CHECK( dynamicAfter.position.y >= 0.99f - config.bodySimulation.contactEpsilon );
     CheckVectorBytesEqual( supportBefore.position, supportAfter.position );
     CheckVectorBytesEqual( supportBefore.linearVelocity, supportAfter.linearVelocity );
+}
+
+
+TEST_CASE( "Physics motion promotion: tilted terrain box keeps support long enough to sleep while Discrete" )
+{
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& engine = fixture.Engine();
+    EngineConfig config = MakeDeterministicConfig();
+    config.worldForces.gravity = -32.0f;
+    config.physicsSleep.frames = 30;
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    ReserveTestPhysicsCapacity( engine, 1u );
+
+    const Vector3 halfExtents( 1.15f, 1.45f, 2.45f );
+    const CollisionShape shape = CollisionShape( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    const SkullbonezCore::Math::Orientation::Quaternion orientation( -0.010159f, -0.006545f, -0.000461f, 0.999927f );
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId { 3031u }, shape, Vector3( 592.0f, 1.5004f, 472.5f ),
+                                               orientation, Vector3( 0.0f, -0.0001f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
+                                               Vector3( 32.42f, 29.3f, 13.7f ), 12.0f, 0.08f, PhysicsBodyMotionKind::Dynamic,
+                                               "tilted-discrete-terrain-box" );
+    auto colliderDesc = MakeColliderCreateDesc( shape, 0.08f, 0u, "unit" );
+    colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
+    }
+
+    bool observedSupport = false;
+    int supportDropouts = 0;
+
+    for ( int tick = 0; tick < config.physicsSleep.frames + 30; ++tick )
+    {
+        StepMicroWorldWith( engine, 1, DeterministicForces() );
+        const auto diagnostics = engine.GetDiagnosticsView();
+        REQUIRE( diagnostics.motionEligibilityState.size() == 1u );
+        CHECK( diagnostics.motionEligibilityState[0] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
+
+        if ( !DiagnosticsSleepStateAt( engine, 0 ) )
+        {
+            if ( diagnostics.sleepSupportedThisFrame[0] != 0u )
+            {
+                observedSupport = true;
+            }
+            else if ( observedSupport )
+            {
+                ++supportDropouts;
+            }
+        }
+    }
+
+    // Invariant: a clamp to terrain is a collision consequence, not a support
+    // substitute. A quiet Discrete body must retain solver support continuously
+    // enough for the 30-frame sleep policy to complete.
+    CHECK( observedSupport );
+    CHECK( supportDropouts == 0 );
+    CHECK( DiagnosticsSleepStateAt( engine, 0 ) );
 }
 
 
@@ -1535,14 +1694,13 @@ TEST_CASE( "Physics motion promotion: collision-promoted target uses Swept TOI a
     constexpr float wallHalfThickness = 0.005f;
     const float ballInertia = 0.4f * ballMass * ballRadius * ballRadius;
     const CollisionShape ballShape = MakeSphereShape( ballRadius );
-    const CollisionShape wallShape = CollisionShape(
-        BoundingBox( Vector3( wallHalfThickness, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    const CollisionShape wallShape = CollisionShape( BoundingBox( Vector3( wallHalfThickness, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ) );
     AddPromotionFixtureBody( engine, fixture.TerrainView(), 3101u, ballShape, Vector3( -1.1f, 0.0f, 0.0f ),
-                             Vector3( 120.0f, 0.0f, 0.0f ), Vector3( ballInertia, ballInertia, ballInertia ), ballMass,
-                             1.0f, PhysicsBodyMotionKind::Dynamic, "promotion-striker" );
+                             Vector3( 120.0f, 0.0f, 0.0f ), Vector3( ballInertia, ballInertia, ballInertia ), ballMass, 1.0f,
+                             PhysicsBodyMotionKind::Dynamic, "promotion-striker" );
     AddPromotionFixtureBody( engine, fixture.TerrainView(), 3102u, ballShape, Vector3( 0.0f, 0.0f, 0.0f ),
-                             Vector3( 0.0f, 0.0f, 0.0f ), Vector3( ballInertia, ballInertia, ballInertia ), ballMass,
-                             1.0f, PhysicsBodyMotionKind::Dynamic, "promotion-target" );
+                             Vector3( 0.0f, 0.0f, 0.0f ), Vector3( ballInertia, ballInertia, ballInertia ), ballMass, 1.0f,
+                             PhysicsBodyMotionKind::Dynamic, "promotion-target" );
     AddPromotionFixtureBody( engine, fixture.TerrainView(), 3103u, wallShape, Vector3( wallX, 0.0f, 0.0f ),
                              Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, 0.0f,
                              PhysicsBodyMotionKind::Fixed, "promotion-thin-wall" );
@@ -1551,25 +1709,20 @@ TEST_CASE( "Physics motion promotion: collision-promoted target uses Swept TOI a
     const auto firstTick = engine.GetDiagnosticsView();
     REQUIRE( firstTick.motionEligibilityState.size() == 3u );
     REQUIRE( firstTick.linearTravelSquared.size() == 3u );
-    CHECK( ( firstTick.motionEligibilityState[0] &
-             SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
+    CHECK( ( firstTick.motionEligibilityState[0] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
     CHECK( firstTick.motionEligibilityState[1] == SkullbonezCore::Physics::PhysicsMotionEligibilityNone );
     CHECK( firstTick.linearTravelSquared[1] == doctest::Approx( 0.0f ) );
     CHECK( DiagnosticsHasCandidatePair( engine, 1, 2 ) );
-    CHECK( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit,
-                                               0, 1 ) );
-    CHECK_FALSE( DiagnosticsHasPipelineStageForPair(
-        engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit, 1, 2 ) );
-    CHECK_FALSE( DiagnosticsHasPipelineStageForPair(
-        engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectMiss, 1, 2 ) );
+    CHECK( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit, 0, 1 ) );
+    CHECK_FALSE( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit, 1, 2 ) );
+    CHECK_FALSE( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectMiss, 1, 2 ) );
 
     const PhysicsBodyHotState targetAfterImpact = RequireBodyHotState( engine, 1 );
     const PhysicsBodyHotState wallBeforeSecondTick = RequireBodyHotState( engine, 2 );
     const float wallNearContactCenter = wallX - wallHalfThickness - ballRadius;
     const float wallFarClearanceCenter = wallX + wallHalfThickness + ballRadius;
     CHECK( targetAfterImpact.position.x < wallNearContactCenter );
-    CHECK( targetAfterImpact.linearVelocity.x * PHYSICS_FIXED_DT >
-           SkullbonezCore::Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK );
+    CHECK( targetAfterImpact.linearVelocity.x * PHYSICS_FIXED_DT > ballRadius );
     const float unimpededEndX = targetAfterImpact.position.x + targetAfterImpact.linearVelocity.x * PHYSICS_FIXED_DT;
     CHECK( unimpededEndX > wallFarClearanceCenter );
 
@@ -1577,13 +1730,10 @@ TEST_CASE( "Physics motion promotion: collision-promoted target uses Swept TOI a
     const auto secondTick = engine.GetDiagnosticsView();
     REQUIRE( secondTick.motionEligibilityState.size() == 3u );
     REQUIRE( secondTick.linearTravelSquared.size() == 3u );
-    CHECK( ( secondTick.motionEligibilityState[1] &
-             SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
-    CHECK( secondTick.linearTravelSquared[1] >
-           SkullbonezCore::Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK *
-               SkullbonezCore::Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK );
-    CHECK( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit,
-                                               1, 2 ) );
+    CHECK( ( secondTick.motionEligibilityState[1] & SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) !=
+           0u );
+    CHECK( secondTick.linearTravelSquared[1] > ballRadius * ballRadius );
+    CHECK( DiagnosticsHasPipelineStageForPair( engine, SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit, 1, 2 ) );
 
     const PhysicsBodyHotState targetAfterWall = RequireBodyHotState( engine, 1 );
     const PhysicsBodyHotState wallAfterSecondTick = RequireBodyHotState( engine, 2 );
@@ -1667,8 +1817,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
 TEST_CASE( "PhysicsEngine solar assist: same-state 120-second forecast matches live and depends on Earth gravity" )
 {
     SkullbonezCore::Runtime::AuthoredScene scene;
-    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene(
-        resultDiagnostics, "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json", scene ) );
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::
+                 TryLoadAuthoredScene( resultDiagnostics, "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json",
+                                       scene ) );
 
     DeterminismTerrainFixture liveFixture( kDeepSpaceTerrainBaseY );
     DeterminismTerrainFixture forecastFixture( kDeepSpaceTerrainBaseY );
@@ -1721,7 +1872,6 @@ TEST_CASE( "PhysicsEngine solar assist: same-state 120-second forecast matches l
 
     for ( MoonOrbitProbe& orbit : moonOrbits )
     {
-
         for ( int index = 0; index < scene.GetBallStateCount(); ++index )
         {
             const char* name = scene.GetBallState( index ).name;
@@ -2010,14 +2160,11 @@ TEST_CASE( "PhysicsEngine replay restore preserves promoted impact and demotion 
     constexpr float mass = 1.0f;
     constexpr float wallHalfThickness = 0.005f;
     constexpr float primeTravel = 0.11f;
-    constexpr float retainedTravel = ( SkullbonezCore::Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK +
-                                       SkullbonezCore::Physics::PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK ) *
-                                     0.5f;
+    constexpr float retainedTravel = radius;
     constexpr float wallX = primeTravel + retainedTravel * 0.5f + radius + wallHalfThickness;
     const float inertia = 0.4f * mass * radius * radius;
     const CollisionShape sphere = MakeSphereShape( radius );
-    const CollisionShape wall = CollisionShape(
-        BoundingBox( Vector3( wallHalfThickness, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    const CollisionShape wall = CollisionShape( BoundingBox( Vector3( wallHalfThickness, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ) );
     const auto seedWorld = [&]( PhysicsEngine& engine, PhysicsTerrainView terrainView, uint32_t idBase )
     {
         engine.Clear();
@@ -2044,12 +2191,10 @@ TEST_CASE( "PhysicsEngine replay restore preserves promoted impact and demotion 
                SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted ) != 0u );
 
     const Vector3 retainedVelocity( retainedTravel / PHYSICS_FIXED_DT, 0.0f, 0.0f );
-    CHECK( retainedTravel < SkullbonezCore::Physics::PHYSICS_MOTION_PROMOTE_TRAVEL_PER_TICK );
-    CHECK( retainedTravel > SkullbonezCore::Physics::PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK );
+    CHECK( retainedTravel == radius );
     REQUIRE( reference.SetBodyVelocity( RequireBodyHandle( reference, 0 ), retainedVelocity, Vector3( 0.0f, 0.0f, 0.0f ),
                                         true ) );
-    REQUIRE( restored.SetBodyVelocity( RequireBodyHandle( restored, 0 ), retainedVelocity,
-                                       Vector3( 0.0f, 0.0f, 0.0f ), true ) );
+    REQUIRE( restored.SetBodyVelocity( RequireBodyHandle( restored, 0 ), retainedVelocity, Vector3( 0.0f, 0.0f, 0.0f ), true ) );
 
     std::array<BodyReplayState, 2> bodyStates;
 
@@ -2082,10 +2227,9 @@ TEST_CASE( "PhysicsEngine replay restore preserves promoted impact and demotion 
 
     for ( const BodyReplayState& state : bodyStates )
     {
-        REQUIRE( restored.RestoreReplayBodyState( PhysicsBodyRestoreState {
-            state.handle, state.sceneObjectId, state.fixed, state.position, state.orientation, state.linearVelocity,
-            state.angularVelocity, state.mass, state.inverseMass, state.rotationalInertia,
-            state.inverseRotationalInertia } ) );
+        REQUIRE( restored.RestoreReplayBodyState( PhysicsBodyRestoreState { state.handle, state.sceneObjectId, state.fixed, state.position, state.orientation,
+                                                                            state.linearVelocity, state.angularVelocity, state.mass, state.inverseMass,
+                                                                            state.rotationalInertia, state.inverseRotationalInertia } ) );
     }
 
     REQUIRE( restored.RestoreReplaySolverSnapshot( solverSnapshot, MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
@@ -2112,8 +2256,7 @@ TEST_CASE( "PhysicsEngine replay restore preserves promoted impact and demotion 
     const PhysicsBodyHotState wallAfterImpact = RequireBodyHotState( reference, 1 );
     const float wallNearContactCenter = wallX - wallHalfThickness - radius;
     CHECK( ballAfterImpact.position.x <= wallNearContactCenter + config.bodySimulation.contactEpsilon * 2.0f );
-    CHECK( fabsf( ballAfterImpact.linearVelocity.x ) * PHYSICS_FIXED_DT <=
-           SkullbonezCore::Physics::PHYSICS_MOTION_DEMOTE_TRAVEL_PER_TICK );
+    CHECK( fabsf( ballAfterImpact.linearVelocity.x ) * PHYSICS_FIXED_DT <= radius );
     CheckVectorBytesEqual( wallBeforeImpact.position, wallAfterImpact.position );
     CheckVectorBytesEqual( wallBeforeImpact.linearVelocity, wallAfterImpact.linearVelocity );
 

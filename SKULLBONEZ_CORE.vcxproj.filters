@@ -104,6 +104,9 @@
     <Filter Include="Header Files\Runtime\App">
       <UniqueIdentifier>{66C89A8B-4991-4E54-AD99-B8112DA4D3C5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Runtime\DevelopmentTools">
+      <UniqueIdentifier>{D472696E-95CA-4D27-8832-312085704947}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Tools">
       <UniqueIdentifier>{776E5B97-F9D8-4E8D-A30E-2D9DD4D1E9B1}</UniqueIdentifier>
     </Filter>
@@ -615,6 +618,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
@@ -639,8 +643,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\App\OperatorEditorFramePhase.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\App\OperatorUiProjection.cpp">
-      <Filter>Source Files\Runtime\Lifecycle</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\OperatorUiProjection.cpp">
+      <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
@@ -886,6 +890,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\App\InputFrame.h">
       <Filter>Header Files\Runtime\Input</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\App\OperatorCommandBoundaryPolicy.h">
+      <Filter>Header Files\Runtime\App</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\App\SceneLoadApplication.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
@@ -950,6 +957,9 @@
       <Filter>Header Files\Runtime\App</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\RecordedCursorFrame.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationReportWriter.h">
@@ -1024,6 +1034,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.h"><Filter>Header Files\Runtime\Render</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\UIRenderAuthoringCatalog.h"><Filter>Header Files\Runtime\Render</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.h"><Filter>Header Files\Runtime\Scene</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UI.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIFrameComposition.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIRenderDiagnostics.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
@@ -1061,8 +1072,14 @@
     <ClInclude Include="SkullbonezSource\Runtime\App\RenderModelFramePublisher.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\App\OperatorUiProjection.h">
-      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorUiProjection.h">
+      <Filter>Header Files\Runtime\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\RecordedCursorPresentationPolicy.h">
+      <Filter>Header Files\Runtime\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\RecordedCursorDrawing.h">
+      <Filter>Header Files\Runtime\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h">
       <Filter>Header Files\Runtime\Render</Filter>
@@ -1420,6 +1437,9 @@
       </ClInclude>
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h">
         <Filter>Header Files\Runtime\Diagnostics</Filter>
+      </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorControlPolicy.h">
+        <Filter>Header Files\Runtime\DevelopmentTools</Filter>
       </ClInclude>
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.h">
         <Filter>Header Files\Runtime\Editor</Filter>

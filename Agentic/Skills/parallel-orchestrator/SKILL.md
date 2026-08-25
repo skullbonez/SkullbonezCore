@@ -408,7 +408,7 @@ Worker branch/worktree: <branch and absolute path>
 Authority: <independent plan, plan lane, or master bug-report side lane>
 Tracking identity: <stable plan task id/title or bug finding id/title>
 Subsystem lease: <complete exclusive subsystem set for this lane>
-Commit convention: <resolved current DONE/TOTAL header or normal bug subject>
+Commit convention: <resolved current DONE/TOTAL header or `BUG <FINDING_ID> — <ACTION SUMMARY>`>
 Lane kind and objective: <bounded outcome>
 Dependencies already satisfied: <commits/evidence>
 Reversible decision envelope: <choices the worker may make without waiting>
@@ -416,8 +416,12 @@ Allowed write scope: <exact files/directories>
 Prohibited shared scope: <exact files/directories>
 Required focused evidence: <commands/assertions/artifacts>
 Do not edit plan progress, SessionState, WORK_LEDGER, baselines, or other lanes.
-Commit locally when the lane is complete and return the full hash, changed-file
-list, validation output, residual risks, and actual thread/session id.
+When the lane is complete, send the coordinator the complete proposed commit
+message with the base skill's six substantive body sections. Wait for explicit
+approval, run `work_ledger.bat verify-commit-message`, and commit from that same
+file with `git commit -F`. Never use a subject-only `-m` command. Return the full
+hash, changed-file list, validation output, residual risks, and actual
+thread/session id.
 ```
 
 Require every worker to inspect its own `git status` before editing and before
@@ -426,8 +430,9 @@ lane rather than overwriting them.
 
 Worker commits that do not close the selected task retain the current completed
 count in the required plan header. Only the coordinator's accepted closure
-commit advances the plan count. Master bug-report side-lane commits use the
-normal bug convention defined above and never carry a plan progress header.
+commit advances the plan count. Master bug-report side-lane commits use exactly
+`BUG <FINDING_ID> — <ACTION SUMMARY>` and the same six-section substantive body;
+they never carry a plan progress header or bypass the message gate.
 
 ## Coordinator Work During The Worker Lane
 
@@ -453,8 +458,12 @@ When a worker completes:
    work based on the wrong commit.
 3. Inspect behavior-sensitive code and tests directly; a worker summary is not
    source review.
-4. Integrate with a normal merge or another non-history-rewriting Git operation
-   permitted by the base orchestrator.
+4. Before integrating, export and validate every worker commit's actual message.
+   For a merge commit, use `git merge --no-commit`, prepare a fresh six-section
+   integration message, run the base message gate, and commit with `git commit
+   -F`; never accept Git's automatic subject-only merge message. Cherry-pick
+   only commits whose actual message passes the same gate. Use no
+   history-rewriting operation.
 5. Resolve conflicts only in the coordinator worktree. A conflict in a declared
    exclusive write scope is evidence that the wave definition was wrong; record
    and correct the scheduling rule before another wave.

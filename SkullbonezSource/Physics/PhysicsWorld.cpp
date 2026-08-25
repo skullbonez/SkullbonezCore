@@ -1068,15 +1068,18 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     // One deterministic dense pass consumes the final force-resolved velocities.
     // Narrowphase consumes linear path bits, while broadphase consumes angular
     // reach; rotational time-of-impact and response remain outside this phase.
+    PROFILE_BEGIN( "Frame/Physics/MotionEligibility" );
     m_motionEligibility.Run( bodyStore, colliderStore, sleepStates, dt );
+    PROFILE_END( "Frame/Physics/MotionEligibility" );
 
     // Broadphase: sleeping membership remains resident, while awake rows update
     // their ranges and source awake-to-sleep wake-detection pairs.
     const float contactSkin = (std::max)( 0.0f, settings.body.contactEpsilon );
     const std::span<const std::pair<int, int>>
         candidatePairs = m_broadphase.Run( bodyStore, colliderStore, settings.broadphase, m_pointJointConstraints,
-                                           sleepStates, awakeBodyIndices, m_motionEligibility.AngularBroadphaseExpansion(),
-                                           m_stepDiagnostics, dt, contactSkin, settings.body.contactEpsilon );
+                                           sleepStates, awakeBodyIndices, m_motionEligibility.State(),
+                                           m_motionEligibility.AngularBroadphaseExpansion(), m_stepDiagnostics, dt,
+                                           contactSkin, settings.body.contactEpsilon );
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.
@@ -1195,8 +1198,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
     // Terrain phase ownership:
-    //   1. Detect only the current boundary for Discrete bodies; linearly
-    //      promoted bodies inspect their full remaining path and stop at TOI.
+    //   1. Detect the current boundary plus quiet downward speculative contact
+    //      for Discrete bodies; linearly promoted bodies inspect their full
+    //      remaining path and stop at TOI. Discrete look-ahead commits at zero.
     //   2. Convert the hit into a terrain manifold only. Do not apply impulses
     //      or terrain-only velocity response in this phase.
     //   3. Leave remaining-time integration and all normal/friction response to
@@ -1342,6 +1346,19 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     const int awakeBodyCount = m_sleepController.GetAwakeBodyCount();
     PROFILE_COUNTER( m_profiler, "Counter/Physics/TotalBodies", modelCount );
     PROFILE_COUNTER( m_profiler, "Counter/Physics/AwakeBodies", awakeBodyCount );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/MotionEvaluatedBodies", m_motionEligibility.Stats().evaluatedBodies );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/MotionDiscreteBodies", m_motionEligibility.Stats().discreteBodies );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/MotionPromotedBodies", m_motionEligibility.Stats().promotedBodies );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/MotionPromotionsThisStep",
+                     m_motionEligibility.Stats().promotionsThisStep );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/MotionDemotionsThisStep", m_motionEligibility.Stats().demotionsThisStep );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/AngularExpandedBodies",
+                     m_motionEligibility.Stats().angularExpandedBodies );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/BroadphaseCandidatePairs", candidatePairCount );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/SweptOverlayCells",
+                     m_broadphase.GetSpatialGrid().GetMaintenanceStats().sweptOverlayCellsAdded );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/SweptFallbackBodies",
+                     m_broadphase.GetSpatialGrid().GetSweptFallbackBodyCount() );
 
     // Concept: persistent solver rows are the compact contact work unit. This
     // count is more actionable in an external capture than object-pair guesses
@@ -1669,6 +1686,7 @@ PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
                                     m_terrain.GetContactManifolds(),
                                     m_motionEligibility.State(),
                                     m_motionEligibility.LinearTravelSquared(),
+                                    m_motionEligibility.LinearDirectionalBoundary(),
                                     m_motionEligibility.AngularTravelSquared(),
                                     m_motionEligibility.Stats() };
 }

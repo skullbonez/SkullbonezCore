@@ -8,8 +8,9 @@ Summary:
   CollisionShapeReference is the non-owning runtime view used by dense collider
   rows to point into ColliderStore's separate sphere, box, and hull stores.
   Shared visitors keep both representations on the same exhaustive nonvirtual
-  dispatch surface and compute exact cold thickness/farthest-point geometry for
-  motion eligibility without adding vertex work to fixed ticks.
+  dispatch surface and compute cold minimum-thickness/farthest-point geometry.
+  Direction-valid linear eligibility may additionally query the borrowed shape;
+  convex hull support remains a bounded allocation-free vertex scan.
 
 Glossary:
   Shape reference: Typed borrowed pointer; store-backed references also carry a

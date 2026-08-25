@@ -211,6 +211,7 @@ struct PhysicsDiagnosticsView
     std::span<const TerrainContactManifold> terrainContactManifolds;
     std::span<const uint8_t> motionEligibilityState;
     std::span<const float> linearTravelSquared;
+    std::span<const float> linearDirectionalBoundary;
     std::span<const float> angularTravelSquared;
     const PhysicsMotionEligibilityStats& motionEligibilityStats;
 };

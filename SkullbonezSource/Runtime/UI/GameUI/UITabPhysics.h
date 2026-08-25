@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabPhysics.h
+File: SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.h
 Purpose:
   Declares physics-policy toggles and parameter-slider command projection.
 
@@ -27,7 +27,7 @@ namespace SkullbonezCore
 namespace UI
 {
 
-struct InGameUIFrameData;
+struct UIPhysicsTabFrameView;
 
 namespace PhysicsTab
 {
@@ -139,7 +139,7 @@ bool HandleContentClick( UIPhysicsTabState& state, InGameUIInputResult& result, 
 bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInputResult& result );
 
-void Draw( UIPhysicsTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX,
+void Draw( UIPhysicsTabState& state, const UIDrawContext& draw, const UIPhysicsTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrolledY, int activeSlider, int mouseX, int mouseY );
 
 } // namespace PhysicsTab

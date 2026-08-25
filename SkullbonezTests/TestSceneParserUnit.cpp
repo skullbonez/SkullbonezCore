@@ -26,6 +26,8 @@
 //     center, never absolute world positions.
 //   - Tornado scenes retain all 64 admitted fields and reject the 65th before
 //     committing authored state.
+//   - Fixed-cardinality values validate container shape and exact length before
+//     indexing; a failed load never replaces the caller's prior scene.
 //
 // Related:
 //   - SkullbonezSource/Scene/AuthoredScene.h
@@ -135,6 +137,54 @@ std::string BuildOrbitalStabilityResolutionScene( const char* coreObjectName )
                R"({"format":"skullbonez.scene.json","version":2,"simulation":{"physics":true,"text":false,"orbitalStability":{"escapeGraceSeconds":5,"members":[{"object":"sun","role":"primary"},{"object":")" ) +
            coreObjectName +
            R"(","role":"core","innerRadius":60,"outerRadius":100,"escapeStartRadius":90}]}},"cameras":[{"name":"main","position":[0,0,10],"view":[0,0,0],"up":[0,1,0]}],"objects":[{"type":"ballState","sceneObjectId":71,"name":"sun","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":2,"mass":100,"restitution":0,"inertia":[1,1,1],"fixed":true,"sleeping":false},{"type":"ballState","sceneObjectId":72,"name":"earth","position":[80,0,0],"velocity":[0,1,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":1,"mass":1,"restitution":0,"inertia":[1,1,1],"fixed":false,"sleeping":false}]})";
+}
+
+// Invariant: one row binds a field's document splice, exact cardinality, and
+// diagnostic noun so all three malformed-shape variants exercise the same
+// parser contract.
+struct FixedArrayFailureCase
+{
+    const char* context;
+    const char* prefix;
+    const char* suffix;
+    std::size_t cardinality;
+    const char* elementDescription;
+};
+
+std::string BuildNumberArray( std::size_t cardinality )
+{
+    std::string value = "[";
+
+    for ( std::size_t index = 0u; index < cardinality; ++index )
+    {
+        if ( index != 0u )
+        {
+            value += ',';
+        }
+
+        value += '0';
+    }
+
+    value += ']';
+    return value;
+}
+
+std::string BuildSameCardinalityObject( std::size_t cardinality )
+{
+    std::string value = "{";
+
+    for ( std::size_t index = 0u; index < cardinality; ++index )
+    {
+        if ( index != 0u )
+        {
+            value += ',';
+        }
+
+        value += "\"v" + std::to_string( index ) + "\":0";
+    }
+
+    value += '}';
+    return value;
 }
 } // namespace
 
@@ -411,6 +461,73 @@ TEST_CASE( "AuthoredSceneParser: malformed JSON reports recoverable load failure
                                                  "{ \"format\": \"skullbonez.scene.json\", \"cameras\": [" );
     AuthoredScene scene;
     CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, malformed.path, scene ), malformed.path, "Invalid JSON" );
+}
+
+TEST_CASE( "AuthoredSceneParser: fixed-cardinality fields fail recoverably before indexed access" )
+{
+    // Concept: these eight fields cover both shared tuple readers and every
+    // direct fixed-width UI/cinematic access. An object with the expected
+    // member count is the false-pass control for validating size without type.
+    static constexpr FixedArrayFailureCase cases[] = {
+        { "camera.position",
+          R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"cameras":[{"name":"main","position":)",
+          R"(,"view":[0,0,1],"up":[0,1,0]}]})", 3u, "numbers" },
+        { "ballState.orientation",
+          R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"objects":[{"type":"ballState","sceneObjectId":12,"name":"probe","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":)",
+          R"(,"radius":1,"mass":1,"restitution":0.1,"inertia":[1,1,1],"fixed":false,"sleeping":false}]})", 4u,
+          "numbers" },
+        { "ui.rect",
+          R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"ui":{"rect":)",
+          R"(},"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})", 4u, "integers" },
+        { "ui.mouse",
+          R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"ui":{"mouse":)",
+          R"(},"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})", 2u, "integers" },
+        { "cinematic.shadowParticipation",
+          R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"cinematic":{"shadowParticipation":)",
+          R"(},"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})", 4u, "booleans" },
+        { "cinematic.styleModes",
+          R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"cinematic":{"styleModes":)",
+          R"(},"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})", 4u, "integers" },
+        { "cinematic.terrainGrid",
+          R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"cinematic":{"terrainGrid":)",
+          R"(},"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})", 2u, "numbers" },
+        { "cinematic.basinMask",
+          R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"cinematic":{"basinMask":)",
+          R"(},"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})", 5u, "numbers" },
+    };
+
+    for ( const FixedArrayFailureCase& failureCase : cases )
+    {
+        for ( int variant = 0; variant < 3; ++variant )
+        {
+            CAPTURE( failureCase.context );
+            CAPTURE( variant );
+            const std::size_t arraySize = variant == 1 ? failureCase.cardinality - 1u : failureCase.cardinality + 1u;
+            const std::string malformedValue =
+                variant == 0 ? BuildSameCardinalityObject( failureCase.cardinality ) : BuildNumberArray( arraySize );
+            const std::string document = failureCase.prefix + malformedValue + failureCase.suffix;
+            constexpr const char* path = "TestOutput/scene_parser_fixed_array_invalid.scene.json";
+            const TemporaryMalformedSceneFile fixture( path, document );
+            AuthoredScene scene;
+            REQUIRE( TryLoadAuthoredScene( diagnostics, kSmallestCommittedScenePath, scene ) );
+            REQUIRE( scene.GetCameraCount() == 1 );
+            const SceneCamera retainedCamera = scene.GetCamera( 0 );
+
+            const SbResult result = AuthoredScene::TryLoadFromFile( diagnostics, path, scene );
+            const std::string expectedMessage =
+                variant == 0 ? std::string( failureCase.context ) + " must be an array, got object"
+                             : std::string( failureCase.context ) + " must contain exactly " +
+                                   std::to_string( failureCase.cardinality ) + ' ' + failureCase.elementDescription;
+            CheckLoadFailure( result, path, expectedMessage.c_str() );
+
+            // Invariant: TryLoad assigns only after a complete parse. A
+            // recoverable shape error must leave the caller's scene untouched.
+            REQUIRE( scene.GetCameraCount() == 1 );
+            CHECK( scene.GetCamera( 0 ).m_position.x == retainedCamera.m_position.x );
+            CHECK( scene.GetCamera( 0 ).m_position.y == retainedCamera.m_position.y );
+            CHECK( scene.GetCamera( 0 ).m_position.z == retainedCamera.m_position.z );
+        }
+    }
 }
 
 TEST_CASE( "AuthoredSceneParser: quaternion representation is versioned at the scene boundary" )

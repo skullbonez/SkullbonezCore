@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/UI/UITabPhysics.cpp
+File: SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.cpp
 Purpose:
   Implements physics-policy toggles and parameter-slider command projection.
 
@@ -19,13 +19,14 @@ Related:
 
 #include "UI.h"
 #include "../../../UI/UIDrawWidgets.h"
-#include "../../../UI/UILayout.h"
+#include "GameUILayout.h"
 #include "../../../UI/UIStyle.h"
 
 #include <algorithm>
 #include <cstdio>
 
-using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::GameLayout;
+using namespace SkullbonezCore::UI::OperatorControlPolicy;
 using namespace SkullbonezCore::UI::Widgets;
 
 namespace
@@ -50,6 +51,16 @@ constexpr float PHYSICS_TORNADO_HEIGHT_SLIDER_Y = 818.0f;
 constexpr float PHYSICS_TORNADO_INWARD_SLIDER_Y = 858.0f;
 constexpr float PHYSICS_TORNADO_SWIRL_SLIDER_Y = 898.0f;
 constexpr float PHYSICS_TORNADO_LIFT_SLIDER_Y = 938.0f;
+
+float GravityStrengthFromWorld( float gravity )
+{
+    return std::clamp( -gravity, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
+}
+
+float WorldGravityFromStrength( float strength )
+{
+    return -std::clamp( strength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
+}
 
 void SetToggleBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state, int index, int row, int column, float col1,
                       float col2, float rowBase, float colW )
@@ -575,7 +586,7 @@ bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInp
 }
 
 
-void Draw( UIPhysicsTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX,
+void Draw( UIPhysicsTabState& state, const UIDrawContext& draw, const UIPhysicsTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrolledY, int activeSlider, int mouseX, int mouseY )
 {
     char buf[128];
