@@ -51,6 +51,8 @@
 //     cinematic frames while keeping the four post-chain owners cinematic-only.
 //   - Targeted assert-only controls prove the retired Run/sky/profiler
 //     checks would return cleanly outside Debug.
+//   - Automation output aliases fail before either truncating owner can replace
+//     immutable interaction-script input.
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
@@ -82,6 +84,7 @@
 #include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
+#include "../SkullbonezSource/Runtime/Automation/InteractionAutomationController.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/UIStressPolicy.h"
 #include "../SkullbonezSource/Runtime/Input/Input.h"
@@ -107,6 +110,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <type_traits>
 #include <initializer_list>
 #include <limits>
@@ -2317,6 +2322,85 @@ TEST_CASE( "Runtime diagnostics activates perf control only for an owned log art
     CHECK_FALSE( RuntimeDiagnostics::PerfTestActive( perfLog ) );
     CHECK( perfLog.perfLogFile == nullptr );
     CHECK( DeleteFileA( perfLogPath ) != 0 );
+}
+
+
+TEST_CASE( "Interaction automation rejects canonical output aliases before truncating its input" )
+{
+    char temporaryDirectory[MAX_PATH] = {};
+    char scriptPath[MAX_PATH] = {};
+    char safeReportPath[MAX_PATH] = {};
+    char safeTracePath[MAX_PATH] = {};
+    REQUIRE( GetTempPathA( MAX_PATH, temporaryDirectory ) != 0 );
+    REQUIRE( GetTempFileNameA( temporaryDirectory, "sbi", 0, scriptPath ) != 0 );
+    REQUIRE( GetTempFileNameA( temporaryDirectory, "sbr", 0, safeReportPath ) != 0 );
+    REQUIRE( GetTempFileNameA( temporaryDirectory, "sbt", 0, safeTracePath ) != 0 );
+
+    constexpr const char* scriptBytes = "{\"actions\":[]}\n";
+    {
+        std::ofstream script( scriptPath, std::ios::binary | std::ios::trunc );
+        REQUIRE( script.is_open() );
+        script << scriptBytes;
+        script.close();
+        REQUIRE( script.good() );
+    }
+
+    const std::filesystem::path script( scriptPath );
+    const std::string canonicalAlias = ( script.parent_path() / "." / script.filename() ).string();
+
+    SkullbonezCore::Core::SbDiagnosticStore distinctDiagnostics;
+    InteractionAutomationReportWriter distinctWriter( distinctDiagnostics );
+    char copiedScriptPath[MAX_PATH] = {};
+    char copiedTracePath[MAX_PATH] = {};
+    std::ofstream safeTrace;
+    CHECK( PrepareInteractionAutomationOutputPaths( scriptPath, safeReportPath, safeTracePath, copiedScriptPath,
+                                                    sizeof( copiedScriptPath ), copiedTracePath,
+                                                    sizeof( copiedTracePath ), safeTrace, distinctWriter ) == nullptr );
+    CHECK( distinctWriter.OutputEnabled() );
+    CHECK( safeTrace.is_open() );
+    safeTrace.close();
+
+    SkullbonezCore::Core::SbDiagnosticStore traceDiagnostics;
+    InteractionAutomationReportWriter traceWriter( traceDiagnostics );
+    char rejectedScriptPath[MAX_PATH] = {};
+    char rejectedTracePath[MAX_PATH] = {};
+    std::ofstream rejectedTrace;
+    const char* traceFailure = PrepareInteractionAutomationOutputPaths(
+        scriptPath, safeReportPath, canonicalAlias.c_str(), rejectedScriptPath, sizeof( rejectedScriptPath ),
+        rejectedTracePath, sizeof( rejectedTracePath ), rejectedTrace, traceWriter );
+    REQUIRE( traceFailure != nullptr );
+    CHECK( std::strcmp( traceFailure, "interaction trace path resolves to interaction script path" ) == 0 );
+    CHECK( traceWriter.OutputEnabled() );
+    CHECK_FALSE( rejectedTrace.is_open() );
+    CHECK( rejectedScriptPath[0] == '\0' );
+    CHECK( ReadSharedFileText( scriptPath ) == scriptBytes );
+
+    SkullbonezCore::Core::SbDiagnosticStore reportDiagnostics;
+    InteractionAutomationReportWriter reportWriter( reportDiagnostics );
+    char reportRejectedScriptPath[MAX_PATH] = {};
+    char reportRejectedTracePath[MAX_PATH] = {};
+    std::ofstream reportRejectedTrace;
+    const char* reportFailure = PrepareInteractionAutomationOutputPaths(
+        scriptPath, canonicalAlias.c_str(), nullptr, reportRejectedScriptPath, sizeof( reportRejectedScriptPath ),
+        reportRejectedTracePath, sizeof( reportRejectedTracePath ), reportRejectedTrace, reportWriter );
+    REQUIRE( reportFailure != nullptr );
+    CHECK( std::strcmp( reportFailure, "interaction report path resolves to interaction script path" ) == 0 );
+    CHECK_FALSE( reportWriter.OutputEnabled() );
+    CHECK( reportWriter.CompleteSuppressedWrite() );
+    CHECK( reportWriter.Written() );
+    CHECK( ReadSharedFileText( scriptPath ) == scriptBytes );
+
+    SkullbonezCore::Core::SbDiagnosticStore longPathDiagnostics;
+    InteractionAutomationReportWriter longPathWriter( longPathDiagnostics );
+    const std::string overCapacityScriptPath( 260u, 'x' );
+    CHECK_FALSE( longPathWriter.ConfigurePathMetadata( canonicalAlias.c_str(), overCapacityScriptPath.c_str() ) );
+    CHECK_FALSE( longPathWriter.OutputEnabled() );
+    CHECK( longPathWriter.CompleteSuppressedWrite() );
+    CHECK( ReadSharedFileText( scriptPath ) == scriptBytes );
+
+    CHECK( DeleteFileA( safeTracePath ) != 0 );
+    CHECK( DeleteFileA( safeReportPath ) != 0 );
+    CHECK( DeleteFileA( scriptPath ) != 0 );
 }
 
 

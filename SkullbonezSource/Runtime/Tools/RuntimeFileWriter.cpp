@@ -1,16 +1,17 @@
 /*
 File: SkullbonezSource/Runtime/Tools/RuntimeFileWriter.cpp
 Purpose:
-  Implements shared runtime file-output helpers.
+  Implements shared runtime file-output and path-identity helpers.
 
 Summary:
   Runtime features ask for safe paths here before they write artifacts. The
-  helpers create missing folders, keep numbered saves collision-free, and leave
-  serialization to the caller.
+  helpers recognize aliases, create missing folders, keep numbered saves
+  collision-free, and leave serialization to the caller.
 
 Invariants:
   - Helpers choose paths but do not serialize feature-specific data.
   - Directory creation treats an already-existing directory as success.
+  - Existing hard links and normalized platform path aliases compare as one file.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeFileWriter.h
@@ -21,6 +22,8 @@ Related:
 
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <system_error>
 
 #include "../../Core/PlatformWin32.h"
 
@@ -32,6 +35,37 @@ bool ExistingDirectory( const char* directory )
 {
     const DWORD attributes = GetFileAttributesA( directory );
     return attributes != INVALID_FILE_ATTRIBUTES && ( attributes & FILE_ATTRIBUTE_DIRECTORY ) != 0;
+}
+
+bool TryResolveComparablePath( const char* value, std::filesystem::path& output )
+{
+    if ( !value || value[0] == '\0' )
+    {
+        return false;
+    }
+
+    std::error_code error;
+    output = std::filesystem::weakly_canonical( std::filesystem::path( value ), error );
+
+    if ( error )
+    {
+        error.clear();
+        output = std::filesystem::absolute( std::filesystem::path( value ), error ).lexically_normal();
+    }
+
+    return !error && !output.empty();
+}
+
+bool ComparablePathsEqual( const std::filesystem::path& first, const std::filesystem::path& second )
+{
+#if defined( _WIN32 )
+    const std::wstring& firstNative = first.native();
+    const std::wstring& secondNative = second.native();
+    return CompareStringOrdinal( firstNative.c_str(), static_cast<int>( firstNative.size() ), secondNative.c_str(),
+                                 static_cast<int>( secondNative.size() ), TRUE ) == CSTR_EQUAL;
+#else
+    return first == second;
+#endif
 }
 } // namespace
 
@@ -76,6 +110,26 @@ bool RuntimeFileWriter::EnsureParentDirectory( const char* path )
 
     *separator = '\0';
     return EnsureDirectory( directory );
+}
+
+bool RuntimeFileWriter::PathsResolveToSameFile( const char* first, const char* second )
+{
+    if ( !first || first[0] == '\0' || !second || second[0] == '\0' )
+    {
+        return false;
+    }
+
+    std::error_code error;
+
+    if ( std::filesystem::equivalent( std::filesystem::path( first ), std::filesystem::path( second ), error ) )
+    {
+        return true;
+    }
+
+    std::filesystem::path resolvedFirst;
+    std::filesystem::path resolvedSecond;
+    return TryResolveComparablePath( first, resolvedFirst ) && TryResolveComparablePath( second, resolvedSecond ) &&
+           ComparablePathsEqual( resolvedFirst, resolvedSecond );
 }
 
 bool RuntimeFileWriter::OpenTextFile( const char* path, std::ofstream& output )

@@ -29,6 +29,7 @@ Invariants:
     identity and contact/pipeline indices used by Planning inspection.
   - Runtime-owner references are never stored on the writer.
   - A report failure never replaces an earlier probe failure.
+  - Suppressed unsafe output returns the retained configuration failure without opening a file.
 
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h
@@ -412,11 +413,13 @@ SkullbonezCore::Runtime::InteractionAutomationRunStatus::Result( Core::SbDiagnos
     return diagnostics.Failure( "InteractionAutomation", failure[0] != '\0' ? failure : "interaction automation failed" );
 }
 
-void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( const char* reportPath, const char* scriptPath )
+bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( const char* reportPath,
+                                                                            const char* scriptPath )
 {
     // Reconfiguration is a cold Automation operation. Clear the complete
     // previous report epoch while retaining the fixed store-bound tracer owner.
     m_written = false;
+    m_outputEnabled = true;
     m_actionReports.clear();
     m_assertionReports.clear();
     m_screenshots.clear();
@@ -438,12 +441,9 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( cons
     m_editorSelectionCaptureValid[0] = false;
     m_editorSelectionCaptureValid[1] = false;
 
-    strcpy_s( m_path, sizeof( m_path ),
-              reportPath && reportPath[0] != '\0' ? reportPath : "TestOutput\\interaction\\interaction_report.json" );
-
     // Invariant: the report metadata names the same script epoch as every
     // action and assertion retained after this reset.
-    strcpy_s( m_scriptPath, sizeof( m_scriptPath ), scriptPath ? scriptPath : "" );
+    return ConfigurePathMetadata( reportPath, scriptPath );
 }
 
 void SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReserveForActions( std::size_t actionCount )
@@ -1302,6 +1302,11 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
 
     if ( m_written )
+    {
+        return status.Result( m_resultDiagnostics );
+    }
+
+    if ( CompleteSuppressedWrite() )
     {
         return status.Result( m_resultDiagnostics );
     }

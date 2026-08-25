@@ -33,6 +33,7 @@ Invariants:
 #include "InteractionAutomationRecorder.h"
 #include "InteractionAutomationReportWriter.h"
 #include "../Startup/RunLaunchOptions.h"
+#include "../Tools/RuntimeFileWriter.h"
 
 #include "../../Core/Common.h"
 #include "../../Core/SbResult.h"
@@ -45,6 +46,8 @@ Invariants:
 #include <string>
 #include <string_view>
 #include <array>
+#include <cstddef>
+#include <cstring>
 #include <fstream>
 #include <vector>
 
@@ -379,6 +382,66 @@ struct InteractionAutomationFrameResult
     std::array<InteractionAutomationDevelopmentUiCommand, DEVELOPMENT_UI_COMMAND_CAPACITY> developmentUiCommands = {};
     std::size_t developmentUiCommandCount = 0u;
 };
+
+// Resolves the exact policy used by ConfigureInteractionAutomation before it
+// opens the trace. Report suppression also protects Run's later failure-write.
+inline const char* ApplyInteractionAutomationOutputPathPolicy( const char* scriptPath, const char* reportPath,
+                                                               const char* tracePath,
+                                                               InteractionAutomationReportWriter& reportWriter )
+{
+    if ( RuntimeFileWriter::PathsResolveToSameFile( scriptPath, reportPath ) )
+    {
+        reportWriter.SuppressUnsafeOutput();
+        return "interaction report path resolves to interaction script path";
+    }
+
+    if ( tracePath && tracePath[0] != '\0' && RuntimeFileWriter::PathsResolveToSameFile( scriptPath, tracePath ) )
+    {
+        return "interaction trace path resolves to interaction script path";
+    }
+
+    return nullptr;
+}
+
+// Performs the exact copy/open sequence used by ConfigureInteractionAutomation.
+// Identity policy runs on the original caller strings before a fixed buffer or
+// truncating stream can lose the evidence needed for the decision.
+inline const char* PrepareInteractionAutomationOutputPaths( const char* scriptPath, const char* reportPath,
+                                                            const char* tracePath, char* scriptDestination,
+                                                            std::size_t scriptCapacity, char* traceDestination,
+                                                            std::size_t traceCapacity, std::ofstream& traceOutput,
+                                                            InteractionAutomationReportWriter& reportWriter )
+{
+    const char* policyFailure =
+        ApplyInteractionAutomationOutputPathPolicy( scriptPath, reportPath, tracePath, reportWriter );
+
+    if ( policyFailure )
+    {
+        return policyFailure;
+    }
+
+    if ( !scriptPath || scriptPath[0] == '\0' || std::strlen( scriptPath ) >= scriptCapacity ||
+         strcpy_s( scriptDestination, scriptCapacity, scriptPath ) != 0 )
+    {
+        return "interaction script path exceeds supported length";
+    }
+
+    if ( tracePath && tracePath[0] != '\0' )
+    {
+        if ( std::strlen( tracePath ) >= traceCapacity ||
+             strcpy_s( traceDestination, traceCapacity, tracePath ) != 0 )
+        {
+            return "interaction trace path exceeds supported length";
+        }
+
+        if ( !RuntimeFileWriter::OpenTextFile( traceDestination, traceOutput ) )
+        {
+            return "interaction turn trace could not be opened";
+        }
+    }
+
+    return nullptr;
+}
 
 SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
                                                                const char* scriptPath, const char* reportPath,

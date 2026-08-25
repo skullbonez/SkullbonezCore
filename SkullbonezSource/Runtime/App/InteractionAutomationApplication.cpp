@@ -21,6 +21,8 @@ Invariants:
     evidence remains a recoverable automation failure.
   - Each turn trace row is flushed after rendering; a write failure fails the
     run instead of allowing incomplete evidence to look successful.
+  - Trace and report targets are resolved against immutable script input before
+    either output owner may open a truncating stream.
 */
 #include "../Automation/InteractionAutomationController.h"
 #include "../Automation/InteractionAutomationRecorder.h"
@@ -5055,7 +5057,12 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
     state.recordedBaseline = {};
     state.status = {};
     state.inputDriver.Reset();
-    state.reportWriter.Configure( reportPath, scriptPath );
+    if ( !state.reportWriter.Configure( reportPath, scriptPath ) )
+    {
+        state.finished = true;
+        state.status.Fail( "interaction report or script path exceeds supported length" );
+        return state.status.Result( state.resultDiagnostics );
+    }
 
     if ( !scriptPath || scriptPath[0] == '\0' )
     {
@@ -5064,19 +5071,21 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
         return state.status.Result( state.resultDiagnostics );
     }
 
-    strcpy_s( state.scriptPath, sizeof( state.scriptPath ), scriptPath );
+    const char* outputPathFailure = PrepareInteractionAutomationOutputPaths(
+        scriptPath, state.reportWriter.Path(), tracePath, state.scriptPath, sizeof( state.scriptPath ), state.tracePath,
+        sizeof( state.tracePath ), state.traceOutput, state.reportWriter );
 
-    if ( tracePath && tracePath[0] != '\0' )
+    if ( outputPathFailure )
     {
-        strcpy_s( state.tracePath, sizeof( state.tracePath ), tracePath );
+        // Hazard: this is the last decision before trace truncation. Report
+        // collision suppression was applied by the shared policy above.
+        state.finished = true;
+        state.status.Fail( outputPathFailure );
+        return state.status.Result( state.resultDiagnostics );
+    }
 
-        if ( !RuntimeFileWriter::OpenTextFile( state.tracePath, state.traceOutput ) )
-        {
-            state.finished = true;
-            state.status.Fail( "interaction turn trace could not be opened" );
-            return state.status.Result( state.resultDiagnostics );
-        }
-
+    if ( state.traceOutput.is_open() )
+    {
         state.traceOutput << Json( { { "type", "header" },
                                      { "schema", "skullbonez.interaction-trace" },
                                      { "version", 1 },

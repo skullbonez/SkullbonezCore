@@ -25,6 +25,7 @@ Invariants:
   - Completing the committed frame prefix latches capture closure; later
     scripted assertions cannot restart reveal control before offline proof.
   - Report failure is recoverable error and must not overwrite an earlier probe failure.
+  - A report target rejected as an input alias suppresses the normal failure-write callback.
 
 Related:
   - SkullbonezSource/Runtime/App/InteractionAutomationReportApplication.cpp
@@ -45,6 +46,8 @@ Related:
 #include "../Replay/ReplayVisualPacketFingerprint.h"
 
 #include <cstdint>
+#include <cstddef>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -198,7 +201,50 @@ class InteractionAutomationReportWriter
     {
     }
 
-    void Configure( const char* reportPath, const char* scriptPath );
+    // Returns false with output suppressed when either fixed path cannot retain
+    // the complete caller value. Callers must keep the original failure result.
+    bool Configure( const char* reportPath, const char* scriptPath );
+    bool ConfigurePathMetadata( const char* reportPath, const char* scriptPath )
+    {
+        m_outputEnabled = true;
+        const char* resolvedReportPath = reportPath && reportPath[0] != '\0'
+                                             ? reportPath
+                                             : "TestOutput\\interaction\\interaction_report.json";
+        const char* resolvedScriptPath = scriptPath ? scriptPath : "";
+
+        if ( std::strlen( resolvedReportPath ) >= sizeof( m_path ) ||
+             std::strlen( resolvedScriptPath ) >= sizeof( m_scriptPath ) ||
+             strcpy_s( m_path, sizeof( m_path ), resolvedReportPath ) != 0 ||
+             strcpy_s( m_scriptPath, sizeof( m_scriptPath ), resolvedScriptPath ) != 0 )
+        {
+            m_path[0] = '\0';
+            m_scriptPath[0] = '\0';
+            m_outputEnabled = false;
+            return false;
+        }
+
+        return true;
+    }
+    // Hazard: a rejected report path may alias immutable automation input.
+    // Suppression keeps Run's normal failure-report callback from truncating it.
+    void SuppressUnsafeOutput()
+    {
+        m_outputEnabled = false;
+    }
+    bool OutputEnabled() const
+    {
+        return m_outputEnabled;
+    }
+    bool CompleteSuppressedWrite()
+    {
+        if ( m_outputEnabled )
+        {
+            return false;
+        }
+
+        m_written = true;
+        return true;
+    }
     void ReserveForActions( std::size_t actionCount );
     void AppendAction( int frame, const char* type, const char* target, const POINT* mouse, bool consumed,
                        const char* detail );
@@ -271,6 +317,7 @@ class InteractionAutomationReportWriter
     // call-scoped offline prediction owner that publishes through this writer.
     Core::SbDiagnosticStore& m_resultDiagnostics;
     bool m_written = false;
+    bool m_outputEnabled = true;
     char m_path[260] = {};
     char m_scriptPath[260] = {};
     std::vector<RunInteractionAutomationReportAction> m_actionReports;

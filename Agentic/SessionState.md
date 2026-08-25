@@ -242,9 +242,15 @@ scene rerun/advance disabled, a successful open activates it, and close clears
 the signal after the current transition has consumed it. One read-only review
 found no blocking or non-blocking issue. Validation was deferred by explicit
 owner direction; no build, test, scanner, inventory, or validation command ran.
-AUTO-002 is the next selected candidate: it is high severity and its destructive
-false-success seam is bounded to canonical path ownership before automation
-opens its trace and report outputs.
+AUTO-002 is now closed: trace and report targets are resolved against immutable
+interaction input before any truncating open, including relative components,
+existing links, and Windows case aliases. Fixed path copies fail closed, and an
+unsafe report target suppresses Run's normal failure-write callback. Two serial
+read-only reviews closed long-path and destructive-seam evidence gaps; the final
+pass is clean. Validation was deferred by explicit owner direction; no build,
+test, scanner, inventory, or validation command ran. AUTO-001 is the next
+selected candidate: it is high severity and its immutable-recording loss is
+bounded to sidecar naming and publication within one recording directory.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
