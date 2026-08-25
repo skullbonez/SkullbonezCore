@@ -90,8 +90,14 @@ parsed rows remain in a candidate copy until the complete stream succeeds, so
 a failed read cannot publish a valid prefix. Two serial read-only reviews
 closed the missing mid-stream failure proof and a CRT-specific directory
 assertion; the final pass is clean. No build, test, scanner, or validation
-command ran by explicit owner direction. CORE-006 is the next unresolved Core
-bug.
+command ran by explicit owner direction. CORE-006 is now closed: config reads
+use binary mode, reject embedded NUL bytes, and require each fixed-buffer row to
+reach a real LF, CRLF, or physical EOF boundary before parsing. Exact boundary,
+continuation, Ctrl-Z, settings-pass rollback, and raw-NUL fixtures cover the
+truncation paths. Three serial read-only reviews closed off-by-one, text-mode
+EOF, settings-path, and embedded-NUL findings; the final pass is clean. No
+build, test, scanner, or validation command ran by explicit owner direction.
+CORE-007 is the next unresolved Core bug.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

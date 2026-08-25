@@ -26,6 +26,7 @@ Invariants:
   - Version-1 config files omit the mutual-gravity worker key and therefore
     retain its enabled default; the migration tool materializes the same value.
   - Both file passes must finish before parsed settings replace caller state.
+  - A row must reach newline or true EOF inside the fixed buffer before parsing.
 
 Related:
   - SkullbonezSource/Core/Config.h
@@ -69,6 +70,7 @@ using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
 
 #if defined( SKULLBONEZ_RENDER_FREE_TESTS )
 thread_local int s_settingsReadFailureAfterLineForTest = -1;
+thread_local bool s_formatLineLimitBypassForTest = false;
 #endif
 
 bool IsSpaceOrTab( char c )
@@ -792,7 +794,7 @@ SbResult OpenOptionalConfigFile( SbDiagnosticStore& diagnostics, const char* pat
     outFile = nullptr;
     outMissing = false;
     errno = 0;
-    const errno_t openError = fopen_s( &outFile, path, "r" );
+    const errno_t openError = fopen_s( &outFile, path, "rb" );
 
     if ( openError == 0 && outFile )
     {
@@ -823,6 +825,68 @@ SbResult RequireCompleteConfigRead( SbDiagnosticStore& diagnostics, FILE* file, 
                                 path, error );
 }
 
+SbResult RejectTruncatedConfigLine( SbDiagnosticStore& diagnostics, FILE* file, const char* path, int lineNumber,
+                                    const char* line, size_t lineCapacity )
+{
+    const size_t length = strlen( line );
+    if ( length + 1u < lineCapacity || length == 0u || line[length - 1u] == '\n' )
+    {
+        return SbResult::Success();
+    }
+
+    errno = 0;
+    const int next = fgetc( file );
+    if ( next == EOF && !ferror( file ) )
+    {
+        // A final line may exactly fill the payload without a newline. Binary
+        // mode makes this probe physical EOF rather than MSVC Ctrl-Z handling.
+        return SbResult::Success();
+    }
+
+    if ( line[length - 1u] == '\r' && next == '\n' )
+    {
+        // A 510-byte payload plus CRLF fills the buffer with the carriage
+        // return; the probed LF completes, rather than continues, that row.
+        return SbResult::Success();
+    }
+
+    if ( next == EOF )
+    {
+        return RequireCompleteConfigRead( diagnostics, file, path, "line-boundary" );
+    }
+
+    return diagnostics.Failure( "Core/EngineConfig", "Engine config line does not fit the %zu-byte parser buffer at %s:%d.",
+                                lineCapacity, path, lineNumber );
+}
+
+SbResult RejectEmbeddedConfigNul( SbDiagnosticStore& diagnostics, FILE* file, const char* path )
+{
+    unsigned char bytes[512];
+    for ( ;; )
+    {
+        const size_t count = fread( bytes, 1u, sizeof( bytes ), file );
+        if ( count > 0u && memchr( bytes, 0, count ) )
+        {
+            return diagnostics.Failure( "Core/EngineConfig", "Engine config contains an embedded NUL byte: %s.", path );
+        }
+        if ( count < sizeof( bytes ) )
+        {
+            break;
+        }
+    }
+    const SbResult readResult = RequireCompleteConfigRead( diagnostics, file, path, "binary-preflight" );
+    if ( !readResult.Ok() )
+    {
+        return readResult;
+    }
+    clearerr( file );
+    if ( fseek( file, 0, SEEK_SET ) != 0 )
+    {
+        return diagnostics.Failure( "Core/EngineConfig", "Unable to restart engine config after binary preflight: %s.", path );
+    }
+    return SbResult::Success();
+}
+
 // Invariant: version validation is a separate read pass. A future file must
 // fail before even one otherwise-valid setting mutates the destination object.
 SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, FILE* file, const char* path,
@@ -837,6 +901,18 @@ SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, FILE* file, co
     while ( fgets( line, sizeof( line ), file ) )
     {
         ++lineNumber;
+        SbResult lineResult = SbResult::Success();
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+        if ( !s_formatLineLimitBypassForTest )
+#endif
+        {
+            lineResult = RejectTruncatedConfigLine( diagnostics, file, path, lineNumber, line, sizeof( line ) );
+        }
+        if ( !lineResult.Ok() )
+        {
+            return lineResult;
+        }
+
         size_t len = strlen( line );
 
         while ( len > 0 && ( line[len - 1] == '\r' || line[len - 1] == '\n' ) )
@@ -920,6 +996,11 @@ void SkullbonezCore::Core::SetEngineConfigSettingsReadFailureAfterLineForTest( i
 {
     s_settingsReadFailureAfterLineForTest = completedLines;
 }
+
+void SkullbonezCore::Core::SetEngineConfigFormatLineLimitBypassForTest( bool bypass ) noexcept
+{
+    s_formatLineLimitBypassForTest = bypass;
+}
 #endif
 
 
@@ -943,6 +1024,11 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
     }
 
     FileHandle file( rawFile, &fclose );
+    const SbResult binaryResult = RejectEmbeddedConfigNul( diagnostics, file.get(), path );
+    if ( !binaryResult.Ok() )
+    {
+        return binaryResult;
+    }
     unsigned int formatVersion = 0;
     const SbResult versionResult = ReadConfigFormatVersion( diagnostics, file.get(), path, formatVersion );
     if ( !versionResult.Ok() )
@@ -982,6 +1068,13 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
         }
 
         ++lineNumber;
+        const SbResult lineResult =
+            RejectTruncatedConfigLine( diagnostics, file.get(), path, lineNumber, line, sizeof( line ) );
+        if ( !lineResult.Ok() )
+        {
+            return lineResult;
+        }
+
         size_t len = strlen( line );
 
         while ( len > 0 && ( line[len - 1] == '\r' || line[len - 1] == '\n' ) )

@@ -590,6 +590,7 @@ class EngineConfig
 #if defined( SKULLBONEZ_RENDER_FREE_TESTS )
 // Test-only stream seam: fail the settings pass before reading the next line.
 void SetEngineConfigSettingsReadFailureAfterLineForTest( int completedLines ) noexcept;
+void SetEngineConfigFormatLineLimitBypassForTest( bool bypass ) noexcept;
 #endif
 
 inline int ActiveSceneObjectCapacity( const EngineConfig& config )

@@ -20,6 +20,7 @@ Invariants:
   - Rejected rows do not block later valid rows in the same file.
   - Unsupported format versions fail before any setting mutates the config.
   - Only ENOENT is accepted as an absent optional file.
+  - A row that crosses the fixed parser buffer fails without publishing its prefix.
   - Temporary fixtures are cold test artifacts and are removed after each run.
 
 Related:
@@ -77,6 +78,17 @@ bool WriteTextFile( const char* path, const char* text )
 
     const size_t length = strlen( text );
     const bool wroteAll = fwrite( text, 1, length, file ) == length;
+    return fclose( file ) == 0 && wroteAll;
+}
+
+bool WriteBytes( const char* path, const std::string& bytes )
+{
+    FILE* file = nullptr;
+    if ( fopen_s( &file, path, "wb" ) != 0 || !file )
+    {
+        return false;
+    }
+    const bool wroteAll = fwrite( bytes.data(), 1u, bytes.size(), file ) == bytes.size();
     return fclose( file ) == 0 && wroteAll;
 }
 
@@ -237,6 +249,77 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: settings read failure publishes 
     CHECK( std::string( result.ErrorMessage() ).find( "settings read" ) != std::string::npos );
     CHECK( config.window.screenX == 1234 );
     CHECK( config.window.screenY == 567 );
+}
+
+TEST_CASE( "SkullbonezCore::Core::EngineConfig: overlong rows fail before a truncated prefix can publish" )
+{
+    TemporaryConfigFiles files;
+    const std::string oversizedValue( 600u, 'a' );
+    const std::string contents = "screen_x = 2222\nsky_front = " + oversizedValue + "\nscreen_y = 777\n";
+    REQUIRE( WriteTextFile( kConfigInputPath, contents.c_str() ) );
+    EngineConfig config;
+    config.window.screenX = 1234;
+    config.window.screenY = 567;
+    config.assetPaths.skyFront = "prior_sky.jpg";
+
+    SkullbonezCore::Core::SetEngineConfigFormatLineLimitBypassForTest( true );
+    const auto result = config.Load( diagnostics, kConfigInputPath );
+    SkullbonezCore::Core::SetEngineConfigFormatLineLimitBypassForTest( false );
+
+    CHECK_FALSE( result.Ok() );
+    CHECK( std::string( result.ErrorOwner() ) == "Core/EngineConfig" );
+    CHECK( std::string( result.ErrorMessage() ).find( "does not fit" ) != std::string::npos );
+    CHECK( std::string( result.ErrorMessage() ).find( ":2" ) != std::string::npos );
+    CHECK( config.window.screenX == 1234 );
+    CHECK( config.window.screenY == 567 );
+    CHECK( config.assetPaths.skyFront == "prior_sky.jpg" );
+}
+
+TEST_CASE( "SkullbonezCore::Core::EngineConfig: line buffer boundaries distinguish terminators from continuation" )
+{
+    TemporaryConfigFiles files;
+    const std::string prefix = "sky_front = ";
+    const std::string newlineValue( 498u, 'b' );
+    const std::string eofValue( 499u, 'c' );
+    REQUIRE( prefix.size() + newlineValue.size() == 510u );
+    REQUIRE( prefix.size() + eofValue.size() == 511u );
+
+    const std::string newlineTerminated = prefix + newlineValue + "\nscreen_x = 2222\n";
+    REQUIRE( WriteTextFile( kConfigInputPath, newlineTerminated.c_str() ) );
+    EngineConfig newlineConfig;
+    REQUIRE( newlineConfig.Load( diagnostics, kConfigInputPath ).Ok() );
+    CHECK( newlineConfig.assetPaths.skyFront == newlineValue );
+    CHECK( newlineConfig.window.screenX == 2222 );
+
+    const std::string eofTerminated = prefix + eofValue;
+    REQUIRE( WriteTextFile( kConfigInputPath, eofTerminated.c_str() ) );
+    EngineConfig eofConfig;
+    REQUIRE( eofConfig.Load( diagnostics, kConfigInputPath ).Ok() );
+    CHECK( eofConfig.assetPaths.skyFront == eofValue );
+
+    const std::string newlineOverflow = prefix + eofValue + "\n";
+    REQUIRE( WriteTextFile( kConfigInputPath, newlineOverflow.c_str() ) );
+    EngineConfig newlineOverflowConfig;
+    CHECK_FALSE( newlineOverflowConfig.Load( diagnostics, kConfigInputPath ).Ok() );
+
+    const std::string eofOverflow = prefix + std::string( 500u, 'd' );
+    REQUIRE( WriteTextFile( kConfigInputPath, eofOverflow.c_str() ) );
+    EngineConfig eofOverflowConfig;
+    CHECK_FALSE( eofOverflowConfig.Load( diagnostics, kConfigInputPath ).Ok() );
+
+    std::string ctrlZContinuation = prefix + eofValue;
+    ctrlZContinuation.push_back( static_cast<char>( 0x1a ) );
+    ctrlZContinuation += "screen_x = 2222\n";
+    REQUIRE( WriteTextFile( kConfigInputPath, ctrlZContinuation.c_str() ) );
+    EngineConfig ctrlZConfig;
+    CHECK_FALSE( ctrlZConfig.Load( diagnostics, kConfigInputPath ).Ok() );
+
+    std::string nulContinuation = prefix + eofValue;
+    nulContinuation.push_back( '\0' );
+    nulContinuation += "screen_x = 2222\n";
+    REQUIRE( WriteBytes( kConfigInputPath, nulContinuation ) );
+    EngineConfig nulConfig;
+    CHECK_FALSE( nulConfig.Load( diagnostics, kConfigInputPath ).Ok() );
 }
 
 TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future version fails before mutation" )
