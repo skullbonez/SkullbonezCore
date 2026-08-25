@@ -715,7 +715,7 @@ class ShadowPass
                           const Rendering::ShadowFrameData& shadowFrame,
                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                           Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures,
-                          bool renderTerrain, const Rendering::ShadowCasterBatches* objectCasters,
+                          bool renderTerrain, const Rendering::ShadowCasterBatches& objectCasters,
                           Geometry::Terrain* terrain );
 
     ShadowPassResources& m_resources;

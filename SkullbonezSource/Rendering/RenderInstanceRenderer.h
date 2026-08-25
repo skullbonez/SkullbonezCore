@@ -88,10 +88,6 @@ class RenderInstanceRenderer
                                     const Math::Transformation::Matrix4& proj,
                                     const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                     Rendering::RenderVisibilityView visibilityView );
-    void RenderShadowCasters( Core::Profiler* profiler, const char* shaderBaseName,
-                              const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj,
-                              const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                              Rendering::RenderVisibilityView visibilityView );
     bool GetObjectShadowBounds( Core::Profiler* profiler, const Math::Vector::Vector3& focus, float maxDistance,
                                 Math::Vector::Vector3& outCenter, float& outRadius, float& outHeightRange );
 

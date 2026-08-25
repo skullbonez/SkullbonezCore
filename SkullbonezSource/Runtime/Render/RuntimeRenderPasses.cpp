@@ -856,7 +856,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, Rendering:
                                   const Rendering::ShadowFrameData& shadowFrame,
                                   const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures,
-                                  bool renderTerrain, const Rendering::ShadowCasterBatches* objectCasters,
+                                  bool renderTerrain, const Rendering::ShadowCasterBatches& objectCasters,
                                   Geometry::Terrain* terrain )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
@@ -913,17 +913,12 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, Rendering:
         const Rendering::RenderVisibilityView visibilityView = renderTerrain ? Rendering::RenderVisibilityView::TerrainShadow
                                                                              : Rendering::RenderVisibilityView::ObjectShadow;
 
-        if ( objectCasters )
-        {
-            instanceRenderer.SubmitShadowCasterBatches( m_profiler, shadowShaderBaseName, *objectCasters,
-                                                        shadowFrame.lightView, shadowFrame.lightProjection, &cinematic,
-                                                        visibilityView );
-        }
-        else
-        {
-            instanceRenderer.RenderShadowCasters( m_profiler, shadowShaderBaseName, shadowFrame.lightView,
-                                                  shadowFrame.lightProjection, &cinematic, visibilityView );
-        }
+        // Invariant: shadow collection always targets the frame-owned batches
+        // reserved during RuntimeRenderResources construction. A stack fallback
+        // would begin with zero-capacity vectors inside the render phase.
+        instanceRenderer.SubmitShadowCasterBatches( m_profiler, shadowShaderBaseName, objectCasters,
+                                                    shadowFrame.lightView, shadowFrame.lightProjection, &cinematic,
+                                                    visibilityView );
     }
 
     target.Unbind();
@@ -977,7 +972,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             {
                 RenderShadowMap( *m_resources.terrainTarget, inputs.instanceRenderer, inputs.renderDiagnostics,
                                  inputs.shadowShaderBaseName, m_resources.terrainFrame, *inputs.cinematic,
-                                 inputs.renderFrame, inputs.renderTextures, true, &objectCasters, inputs.terrain );
+                                 inputs.renderFrame, inputs.renderTextures, true, objectCasters, inputs.terrain );
             }
 
             // Anchor the tight object-shadow map to the render look target, not
@@ -990,7 +985,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             {
                 RenderShadowMap( *m_resources.objectTarget, inputs.instanceRenderer, inputs.renderDiagnostics,
                                  inputs.shadowShaderBaseName, m_resources.objectFrame, *inputs.cinematic, inputs.renderFrame,
-                                 inputs.renderTextures, false, &objectCasters, inputs.terrain );
+                                 inputs.renderTextures, false, objectCasters, inputs.terrain );
             }
         }
         PROFILE_GPU_END( inputs.gpuTiming, "Frame/Shadows/ShadowMap" );

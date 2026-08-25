@@ -104,7 +104,14 @@ overwrites readiness with false, and `DrawConvexHullModel` skips the batch;
 failed shader or dynamic-buffer creation retries at the next Begin. One serial
 read-only review confirmed the visible and shadow paths are clean. No build,
 test, scanner, or validation command ran by explicit owner direction.
-RENDER-002 is the next selected high-impact, low-complexity candidate.
+RENDER-002 is now closed: the public zero-capacity stack fallback is removed,
+and `ShadowPass::RenderShadowMap` requires the frame-owned caster batches by
+reference. Those vectors reserve for maximum scene capacity during render
+resource construction, retain capacity across frame clears, and serve both
+shadow-map submissions. One serial read-only review confirmed allocation,
+empty-scene, worker, lifecycle, and caller behavior is clean. No build, test,
+scanner, or validation command ran by explicit owner direction. RENDER-003 is
+the next selected high-impact candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

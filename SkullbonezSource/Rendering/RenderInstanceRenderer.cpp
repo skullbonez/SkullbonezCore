@@ -714,17 +714,6 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
 }
 
 
-void RenderInstanceRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler* profiler, const char* shaderBaseName,
-                                                  const Matrix4& view, const Matrix4& proj,
-                                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                                  Rendering::RenderVisibilityView visibilityView )
-{
-    ShadowCasterBatches batches;
-    BuildShadowCasterBatches( profiler, batches );
-    SubmitShadowCasterBatches( profiler, shaderBaseName, batches, view, proj, cinematic, visibilityView );
-}
-
-
 bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profiler* profiler, const Vector3& focus,
                                                     float maxDistance, Vector3& outCenter, float& outRadius,
                                                     float& outHeightRange )
