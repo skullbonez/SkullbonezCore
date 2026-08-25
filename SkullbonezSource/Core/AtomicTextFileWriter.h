@@ -46,8 +46,9 @@ enum class AtomicTextFileTestFailure
 void SetAtomicTextFileTestFailure( AtomicTextFileTestFailure failure ) noexcept;
 #endif
 
-// Publishes bytes only after the temporary sibling is durable. Parent
-// directories may be created; an existing destination is replaced at rename.
+// Publishes bytes only after the temporary sibling is completely written,
+// flushed, and closed. Parent directories may be created; an existing
+// destination is replaced at rename.
 [[nodiscard]] SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner, const char* path,
                                             std::string_view bytes );
 } // namespace SkullbonezCore::Core

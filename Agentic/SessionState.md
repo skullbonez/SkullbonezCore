@@ -120,8 +120,8 @@ triangle, capacity, and synchronous-copy behavior is clean. No build, test,
 scanner, or validation command ran by explicit owner direction. SCENE-002 is
 now closed: scene snapshots publish through a unique sibling only after the
 complete JSON has been written, flushed, and successfully closed, then replace
-the destination atomically. Write, flush, close, and replace fault probes prove
-the prior scene remains byte-identical and no sibling leaks. Two serial
+the destination atomically. Focused write, flush, close, and replace regression
+cases cover prior-scene byte preservation and sibling cleanup. Two serial
 read-only reviews closed the initial false-pass and cleanup-evidence findings;
 the final pass is clean. No build, test, scanner, or validation command ran by
 explicit owner direction. CORE-007 remains the next selected high-impact,
