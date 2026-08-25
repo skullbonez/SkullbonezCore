@@ -123,8 +123,8 @@ complete JSON has been written, flushed, and successfully closed, then replace
 the destination atomically. Focused write, flush, close, and replace regression
 cases cover prior-scene byte preservation and sibling cleanup. Two serial
 read-only reviews closed the initial false-pass and cleanup-evidence findings;
-the final pass is clean. No build, test, scanner, or validation command ran by
-explicit owner direction. CORE-007 remains the next selected high-impact,
+the final pass is clean. Validation was deferred by explicit owner direction;
+no build, test, scanner, or validation command ran. CORE-007 remains the next selected high-impact,
 low-complexity candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
