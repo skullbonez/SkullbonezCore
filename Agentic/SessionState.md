@@ -154,8 +154,15 @@ exact-minimum grid regression pins every emitted UV pair and
 would fail the old posts-per-side denominator. One serial read-only review
 confirmed arbitrary-grid scaling, axis orientation, triangle order, and the
 minimum-grid denominator are clean. Validation was deferred by explicit owner
-direction; no build, test, scanner, or validation command ran. WORLD-005 is the
-next selected high-impact, low-complexity candidate.
+direction; no build, test, scanner, or validation command ran. WORLD-005 is now
+closed: World Terrain is the RAW asset-load owner and accepts only the exact
+map-size-squared payload. A one-byte-oversized fixture uses a trailing Ctrl-Z,
+proves the binary probe rejects the extra byte, checks the specific diagnostic,
+and preserves the caller's existing terrain. Two serial read-only reviews are
+clean after strengthening the initial zero-byte fixture for Windows text-mode
+regression coverage. Validation was deferred by explicit owner direction; no
+build, test, scanner, or validation command ran. ASSET-005 is the next selected
+high-impact, low-complexity candidate.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI

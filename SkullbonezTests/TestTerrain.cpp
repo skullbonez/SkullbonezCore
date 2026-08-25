@@ -177,6 +177,32 @@ TEST_CASE( "Terrain: exact-minimum height map publishes one checked quad" )
     }
 }
 
+
+TEST_CASE( "Terrain: oversized RAW height map is rejected without replacing terrain" )
+{
+    constexpr const char* kHeightMapPath = "TestOutput/terrain_oversized.raw";
+    constexpr int kMapSize = 2;
+    {
+        std::ofstream heightMap( kHeightMapPath, std::ios::binary | std::ios::trunc );
+        const char pixels[kMapSize * kMapSize + 1] = { 0, 0, 0, 0, '\x1a' };
+        heightMap.write( pixels, sizeof( pixels ) );
+    }
+
+    EngineConfig config;
+    std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( 0.0f, 0.0f, 0.0f, config );
+    Terrain* const originalTerrain = terrain.get();
+    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, 1, config,
+                                                                terrain );
+
+    std::remove( kHeightMapPath );
+
+    CHECK_FALSE( result.Ok() );
+    CHECK( std::strcmp( result.ErrorOwner(), "World/Terrain" ) == 0 );
+    CHECK( std::strstr( result.ErrorMessage(), "more than the expected 4 bytes" ) != nullptr );
+    CHECK( terrain.get() == originalTerrain );
+}
+
+
 TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )
 {
     SkullbonezCore::Core::EngineConfig config;

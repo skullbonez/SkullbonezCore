@@ -610,8 +610,8 @@ int Terrain::GetPixelHeightAt( int worldXCoordinate, int worldZCoordinate )
 SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                          const char* fileName )
 {
-    // Recoverable error: height-map files are config/scene-selected assets. Missing or
-    // truncated bytes report a recoverable load failure at the scene boundary.
+    // Recoverable error: height-map files are config/scene-selected assets. Missing,
+    // truncated, or oversized bytes report a recoverable load failure at the scene boundary.
     if ( !fileName || fileName[0] == '\0' )
     {
         return diagnostics.Failure( "World/Terrain", "Height map file path is empty." );
@@ -637,6 +637,23 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::S
         m_terrainData.clear();
         return diagnostics.Failure( "World/Terrain", "Failed to read height map '%s' (%zu/%zu bytes).", fileName, bytesRead,
                                     expectedBytes );
+    }
+
+    // Invariant: RAW terrain dimensions define the complete byte contract. Accepting
+    // a prefix would silently crop an asset authored for different dimensions.
+    const int trailingByte = fgetc( file.get() );
+
+    if ( trailingByte != EOF )
+    {
+        m_terrainData.clear();
+        return diagnostics.Failure( "World/Terrain", "Height map '%s' contains more than the expected %zu bytes.",
+                                    fileName, expectedBytes );
+    }
+
+    if ( ferror( file.get() ) )
+    {
+        m_terrainData.clear();
+        return diagnostics.Failure( "World/Terrain", "Failed to verify height map size: %s", fileName );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
