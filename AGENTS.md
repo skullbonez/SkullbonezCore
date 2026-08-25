@@ -407,38 +407,30 @@ historical debt. These policies are enforced by code review, owning plans,
 the focused behavioral tests in `SkullbonezTests/` and `Agentic/Tests/`, and
 the targeted validation gates below.
 
-**Repeatable inventories are the instrument, not budgets.** Banning frozen counts
-removed the wrong instrument but left nothing in its place, so shape rules were
-enforced only when a human happened to notice. Six tools now report current
-structure without ratcheting anything:
+Changed C++ source is checked by the compiler-backed source-design gate. It
+uses Clang-Tidy for function parameter count and function size/nesting, and
+Clang Query syntax-tree matches for member-prefixed locals, pure parameter
+aliases, and immediate parameter-struct unpacking. It has no permission ledger
+and no source-site exception: repair a finding in the changed translation unit.
+
+Two focused tools remain in ordinary validation:
 
 | Tool | Reports | Owning rule |
 |---|---|---|
-| `tools/inventory_wide_signatures.py` | parameter counts plus current owner rulings per operation | 12-or-more qualitative owner-review trigger |
-| `tools/inventory_authority_free_aggregates.py` | suffix-free data-bearing type discovery, members, behavior, stated invariants, sites | Invariant Ownership Rule |
-| `tools/inventory_extraction_scars.py` | function-block member-prefixed locals, pure parameter aliases | Extraction Scar Rule |
-| `tools/inventory_function_complexity.py` | function body lines, maximum brace depth, closure count, current-body owner rulings | Function Complexity Ownership Review Rule |
+| `tools/check_source_design.py` | changed-source compiler findings plus negative controls | Wide signatures, function shape, parameter structs, and local refactor leftovers |
 | `tools/check_build_config_consistency.py` | effective C++ project metadata, shared-source divergence, dropped list inheritance | Build Configuration Consistency Rule |
-| `tools/inventory_unreachable_symbols.py` | Debug/Profile decorated-symbol reachability, test-only and unrooted same-TU definitions, exact current rulings | Symbol Reachability Ownership Review Rule |
 
-All six outputs are **current measurements requiring review**, never
-allowances. The aggregate and extraction-scar inventories use the shared
-unruled-fails/ruled-passes gate backed by
-`tools/aggregate_ownership_rulings.json`. The wide-signature inventory uses
-`tools/wide_signature_ownership_rulings.json`; a signature at or above the
-review trigger must match a current ruling by file and normalized signature.
-The function-complexity inventory uses
-`tools/function_complexity_rulings.json`; a triggered body must match by file,
-normalized signature, and comment-free normalized-body digest. The build-configuration inventory
+The source-design gate checks the changed translation units selected from the
+branch and working-tree diff; its self-test plants each protected defect and
+requires clean compiler fixtures to pass. It also requires function-level
+sections plus linker dead-code elimination in optimized first-party builds and
+proves that policy with an unreferenced-function link fixture. The build-configuration inventory
 uses `tools/build_config_rulings.json`; a shared file/setting pair must match
 the digest of every current cross-project configuration variant, while dropped
-list inheritance is always a defect and cannot be ruled away. The reachability
-inventory uses `tools/reachability_rulings.json`; its file/signature identity
-must match the current definition, and a repair ruling must name a live plan.
-Historical dispositions never satisfy any gate. Never convert any inventory
-into a count threshold, ratio,
-or "no more than N" budget, and never add a ruling merely to make a number look
-better — a row records a judgement and names the plan that owns the repair.
+list inheritance is always a defect and cannot be ruled away.
+Historical dispositions never satisfy any gate. Never convert the remaining
+inventories into a count budget or add a ruling merely to make a number look
+better; a row records a review decision and names the plan that owns the repair.
 
 Any review that `AGENTS.md` delegates a rule to must state that rule in the skill
 file the reviewer actually reads. A rule that exists only here, while
@@ -446,76 +438,45 @@ file the reviewer actually reads. A rule that exists only here, while
 `Agentic/Skills/carmack-test/SKILL.md` say nothing about it, is unenforced in
 practice.
 
-## Symbol Reachability Ownership Review Rule
+## Dead Production Code Rule
 
-An ordinary out-of-line first-party function definition in a `.cpp` file, with
-a matching first-party header declaration and no Debug or Profile production
-reference outside its own translation unit, triggers qualitative owner review.
-Constructors, destructors, operators, inline/header definitions, and
-internal-linkage helpers remain review-owned outside this inventory. This is a
-review trigger, not proof that the symbol is dead: virtual dispatch, callbacks,
-exports, compiler-generated uses, and a source-to-symbol join uncertainty must
-be resolved before deletion.
+Optimized first-party builds compile every function into its own linker section
+and application links eliminate unreferenced sections. Do not add a test-only
+call merely to keep obsolete production surface alive; delete the surface or
+give it a real production entry. Direct review remains responsible for virtual,
+callback, configured, and exported seams that a linker cannot classify as a
+design mistake.
 
-`tools/inventory_unreachable_symbols.py` runs after current Debug and Profile
-builds. Decorated COFF names preserve overload type identity after each
-configuration's preprocessor has run. The source pass supplies same-TU helper
-edges; compiler objects own production cross-TU and `SKULLBONEZ_TESTS`
-references. Standalone `Agentic/Tests` projects contribute masked lexical test
-edges because their objects live outside the Debug/Profile roots. Every row is
-classified as no-reference, test-only, own-TU-only, or own-TU-and-test-only.
+`tools/check_source_design.py` verifies the project settings and links a fixture
+containing one used and one unused external function. The self-test passes only
+when the used function remains and the unused section is removed. There is no
+symbol-by-symbol permission ledger.
 
-For every row, the reviewer must answer:
+## Wide Signature Rule
 
-1. Which concrete module or invariant owns the symbol?
-2. What exact production invocation mechanism reaches it, if any?
-3. Is a test proving a deliberately exposed invariant seam, or manufacturing
-   reachability for retired surface?
-4. Does an unrooted same-TU component have a live entry, or should it be
-   internalized/deleted?
-5. Is the exact current ruling `retain-owner`, or does `repair-plan` name the
-   active plan that owns adjudication and deletion?
-
-An unruled row, stale signature ruling, or missing repair plan fails
-`validate_fast`. A ruled row is current judgement, not an allowance. Never
-convert the row count into a ceiling, target ratio, or ratchet.
-
-## Wide Signature Ownership Review Rule
-
-An operation with 12 or more parameters triggers mandatory qualitative owner
-review. Twelve is the point at which review becomes compulsory; it is not a
-maximum, a safe allowance, or an automatic defect. A signature above the
-trigger may pass when the ruling proves one cohesive operation, while an
-exact-12 signature remains a blocking design defect when its responsibilities
-or authority are unowned.
+An edited operation with 12 or more parameters is a blocking design finding.
+Narrow it by moving a coherent value or phase into a real type, or split an
+independent operation. Do not silence the compiler check or add an exception.
 
 For every triggered signature, the reviewer must answer:
 
 1. Which concrete owner or invariant-owning phase owns the operation?
 2. Do all participant borrows and outputs have one synchronous lifetime, or
    does the operation span unrelated responsibilities?
-3. Would shortening the signature introduce a courier, capability-slice set,
-   callback pack, service/context bag, pure forwarder, or owner reach-back?
-4. Does the callee immediately destructure an aggregate or preserve an
-   extraction scar instead of moving design?
-5. Is the current ruling `retain-owner`, or does `repair-plan` name the active
-   plan that owns deletion/decomposition?
+3. Would shortening the signature introduce a callback pack, broad context,
+   pure forwarder, or reach-back into another owner?
+4. Does the callee immediately copy a parameter struct into locals instead of
+   using a coherent value boundary?
 
-`tools/wide_signature_ownership_rulings.json` is exact current-source evidence.
-Changing a file/signature pair invalidates its ruling; deleting or narrowing a
-signature makes its old ruling stale. An unruled trigger row, a stale ruling,
-or a repair ruling without an owning plan fails `validate_fast`. Passing the
-mechanical gate only proves that somebody made a current, reviewable judgement;
-an independent reviewer may disagree with the reason and reopen the work.
+`tools/check_source_design.py` obtains the parameter count from Clang's syntax
+tree, so formatting and macro-expanded declarations cannot evade the rule. Its
+12-parameter negative control must remain green.
 
 ## Function Complexity Ownership Review Rule
 
-A function with 400 or more inclusive body lines, or a maximum brace depth of
-6 or more, triggers mandatory qualitative owner review. Either signal is
-sufficient. These are points where review becomes compulsory, not maxima,
-allowances, targets, or automatic defects; a shorter or flatter function may
-still be badly owned. Brace depth includes the function body's outer brace, as
-reported by `tools/inventory_function_complexity.py`.
+An edited function with 400 or more lines, or nesting beyond five levels, is a
+blocking design finding. A shorter or flatter function may still be badly
+owned, so review remains responsible for cohesion below those compiler limits.
 
 For every triggered body, the reviewer must answer:
 
@@ -528,21 +489,11 @@ For every triggered body, the reviewer must answer:
    body?
 4. Do nested branches encode one state machine or algorithm, or accumulate
    unrelated policy whose ordering is enforced only by caller discipline?
-5. Is the current ruling `retain-owner`, with a concrete cohesion reason, or
-   does `repair-plan` name the active plan that owns decomposition?
 
-`tools/function_complexity_rulings.json` is exact current-source evidence.
-Changing any body text invalidates its digest; renaming, moving, deleting, or
-shrinking a triggered function makes its old ruling stale. An unruled body, an
-edited body, a stale ruling, or a repair ruling without a canonical existing
-Markdown plan under `Agentic/Plans/TODO/` fails `validate_fast`.
-
-Passing the mechanical gate proves current judgement, not sound design.
-Splitting a function into a helper that is called once immediately, moving the
-same authority across sibling translation units, or adding a ruling merely to
-clear the trigger is a review failure. The reviewer must follow the operation
-across such helpers and reopen the ruling or owning plan when responsibility did
-not move.
+Clang-Tidy evaluates definitions rather than source regexes. The negative
+control puts deep logic in a helper called once, so renaming or moving the body
+does not hide the function-shape finding. Reviewers must still follow an
+operation across helpers when responsibility did not move.
 
 ## God-Object Closure Rule
 
@@ -632,29 +583,11 @@ names avoid the banned nouns.
 The same question applies to reference-carrying view structs, judged as one
 surface rather than one at a time. See Capability Slice Ownership below.
 
-`tools/inventory_authority_free_aggregates.py` reports the mechanically decidable
-part of this — member counts, stated invariants, and lexical construction and
-consumer sites — with owner verdicts in
-`tools/aggregate_ownership_rulings.json`. An **unruled** member of the bounded
-gate defined below fails `validate_fast`; a **ruled** one passes, because an
-owner has answered for it. Structural signals remain visible even outside that
-bounded set. The inventory deliberately does not gate on the destructuring test, because
-distinguishing a construction from a same-named local is not decidable without a
-compiler database; that half stays a review question and a bad mechanical proxy
-for it would recreate the frozen-metric failure this rule replaced. No count in
-the inventory or the ruling file is a threshold, and adding a ruling row is never
-a way to raise an allowance.
-
-The permanent mechanical gate is deliberately bounded: every discovered
-aggregate whose name uses a candidate suffix family and whose own documentation
-states no `Invariant:` block requires a row in
-`tools/aggregate_ownership_rulings.json` before it can land. The row must state
-an ownership reason a reviewer can disagree with; “carries data for the frame
-packet” or a restatement of the type name is not a ruling. Suffix-free discovery
-and structural signals remain wider review context. A name-scoped gate is
-evadable by calling a new bag `FooFrameData`, so this gate shrinks the evasion
-surface rather than proving ownership; the review questions above remain
-responsible for deliberately renamed bags.
+`tools/check_source_design.py` uses Clang Query to catch a parameter struct whose
+consumer immediately copies four or more fields into locals. The compiler owns
+type and member identity, so renaming the struct or reformatting the source does
+not hide it. This is one concrete signal, not proof that every smaller struct is
+well designed; direct review still asks what rule the type owns.
 
 ## Capability Slice Ownership Rule
 
@@ -691,9 +624,9 @@ its new owner. Two shapes prove it does not, and both are closure failures:
   required by the language, such as materialising a forwarding reference for a
   lambda capture. Both need a stated reason.
 
-`tools/inventory_extraction_scars.py` reports both shapes with owner verdicts in
-`tools/aggregate_ownership_rulings.json`, on the same unruled-fails/ruled-passes
-contract as the aggregate inventory. It is not a count budget.
+`tools/check_source_design.py` reports both shapes from Clang's syntax tree and
+has no permission ledger. Range-for bindings are language-required and are not
+reported as pure aliases.
 
 **Banned example — authority-free bag:** the rejected
 `RenderModelPassInput` shape from the 2026-07-23 parameter-bag remediation
@@ -939,13 +872,11 @@ render, or tool gate; it does not replace it.
 | `Core/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
 | `tools/check_determinism_math_policy.py`, `tools/determinism_math_rulings.json` | `validate_fast`, then `python tools\check_determinism_math_policy.py --self-test` and `python tools\check_determinism_math_policy.py --repo .` |
-| `tools/inventory_authority_free_aggregates.py`, `tools/inventory_extraction_scars.py`, `tools/cpp_source_scan.py`, `tools/aggregate_ownership_rulings.json` | `validate_fast`, which runs both `--self-test` invocations, the aggregate repository scan in `--strict` mode, and the extraction-scar repository scan |
-| `tools/inventory_function_complexity.py`, `tools/function_complexity_rulings.json` | `validate_fast`, which runs the complexity `--self-test` and current-tree `--strict` scan; then run the changed script directly |
+| `tools/check_source_design.py`, changed C++ function signatures/shape, parameter structs, or local refactor cleanup | `validate_fast`, then `python tools\check_source_design.py --repo . --self-test` and `python tools\check_source_design.py --repo .` |
 | `Agentic/Reference/engine-glossary.md`, `Agentic/Reference/comment-style-guide.md`, `Agentic/Skills/comment-style-audit/skill.md`, or `Agentic/Skills/rubber-duck/SKILL.md` glossary rules | Documentation-only changes require no repository validation; review touched glossary ownership and wording directly |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
 | `tools/check_build_config_consistency.py`, `tools/build_config_rulings.json`, or any root first-party `*.vcxproj` | `validate_fast`, then `python tools\check_build_config_consistency.py --self-test` and `python tools\check_build_config_consistency.py --repo .` |
 | `CMakeLists.txt`, `Core/PlatformWin32.h`, `Core/PlatformPosix.h`, or `Core/FloatingPointContract.h` portable-build behavior | `validate_fast`, then configure, build, and run the `skullbonez_portable_tests` CMake target |
-| `tools/inventory_unreachable_symbols.py`, `tools/reachability_rulings.json`, or externally declared C++ symbol reachability | Build Debug and Profile, then `validate_fast`; run `python tools\inventory_unreachable_symbols.py --self-test` and `python tools\inventory_unreachable_symbols.py --repo . --strict` directly |
 | `Run*`, `Runtime/*` | `validate_fast` plus every more-specific matching focused gate |
 | `Window*` | `validate_fast` + `validate_automation` |
 | `Init*` | `validate_fast` + `validate_automation` |
@@ -1165,14 +1096,13 @@ tools\validate_build.bat Profile
 REM Debug build (for physics logging / CDB debugging):
 tools\validate_build.bat Debug
 
-REM Every configuration the compiled-symbol gates read (Automation, Debug, Profile):
+REM Every ordinary development configuration (Automation, Debug, Profile):
 tools\validate_build_all.bat
 ```
 
-The compiled-symbol reachability scan joins Automation, Debug, and Profile
-objects and fails closed when any root predates current source. Build all three
-after editing source before running that scan directly; `validate_fast` now does
-this for you.
+Use `validate_build_all.bat` only when all three development configurations are
+the requested evidence. Ordinary `validate_fast` builds Profile and does not
+rebuild unrelated configurations.
 
 - **Platform:** x64 only; do not change.
 - **Configurations:** Debug, Profile, Release.

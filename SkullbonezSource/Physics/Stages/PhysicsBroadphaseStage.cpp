@@ -70,7 +70,8 @@ float SolverBodyRadius( std::span<const Physics::ColliderRecord> colliderRecords
 
 float SolverShapeRadius( std::span<const Physics::ColliderRecord> colliderRecords, int bodyIndex )
 {
-    return SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius( colliderRecords[static_cast<size_t>( bodyIndex )].shape );
+    return SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius(
+        colliderRecords[static_cast<size_t>( bodyIndex )].shape );
 }
 
 Vector3 SolverColliderCenter( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
@@ -433,11 +434,9 @@ void PhysicsBroadphaseStage::ResetTransientAfterReplayRestore()
 }
 
 
-std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const BroadphaseSettings& broadphaseSettings,
-                                                                  std::span<const PointJointConstraint> pointJointConstraints, std::span<const uint8_t> sleepState,
-                                                                  std::span<const int> awakeBodyIndices, std::span<const uint8_t> motionEligibilityState,
-                                                                  std::span<const float> angularBroadphaseExpansion, PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin,
-                                                                  float contactEpsilon )
+std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsBodyStore& bodyStore,
+                                                                  const ColliderStore& colliderStore,
+                                                                  const PhysicsBroadphaseStepInput& input )
 {
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
@@ -446,7 +445,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     const int modelCount = (std::min)( { bodyStore.Count(), static_cast<int>( bodyRecords.size() ),
                                          static_cast<int>( colliderRecords.size() ) } );
 
-    auto& physicsPipelineTrace = stepDiagnostics.MutablePipelineTraceRecorder();
+    auto& physicsPipelineTrace = input.diagnostics.MutablePipelineTraceRecorder();
 
     {
         // Invariant: Broadphase is the inclusive owner marker. Every direct
@@ -475,8 +474,9 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
         // Why: a fixed 24m cell made the 200-brick wall share huge buckets.
         // Deterministic scene inputs choose a cell no larger than the config cap.
-        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, broadphaseSettings.cellSize );
-        const float sceneCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, ( m_largestBroadphaseRadius + contactSkin ) * 2.0f );
+        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, input.settings.cellSize );
+        const float sceneCell = (std::max)( BROADPHASE_MIN_CELL_SIZE,
+                                            ( m_largestBroadphaseRadius + input.contactSkin ) * 2.0f );
 
         const float selectedCellSize = (std::min)( configuredCell, sceneCell );
 
@@ -494,23 +494,24 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         const bool fullSeed = !m_gridMembershipSeeded || m_gridMembershipBodyCount != modelCount;
         auto maintainPersistentBody = [&]( int bodyIndex )
         {
-            const float baseRadius = SolverShapeRadius( colliderRecords, bodyIndex ) + contactSkin;
+            const float baseRadius = SolverShapeRadius( colliderRecords, bodyIndex ) + input.contactSkin;
             const Vector3 colliderCenter = SolverColliderCenter( hotFields, colliderRecords, bodyIndex );
             m_spatialGrid.Insert( bodyIndex, colliderCenter, baseRadius );
         };
         auto admitMotionOverlayAndMarkSource = [&]( int bodyIndex )
         {
-            const float baseRadius = SolverShapeRadius( colliderRecords, bodyIndex ) + contactSkin;
-            const float angularExpansion = bodyIndex < static_cast<int>( angularBroadphaseExpansion.size() )
-                                               ? angularBroadphaseExpansion[static_cast<std::size_t>( bodyIndex )]
+            const float baseRadius = SolverShapeRadius( colliderRecords, bodyIndex ) + input.contactSkin;
+            const float angularExpansion = bodyIndex < static_cast<int>( input.angularExpansion.size() )
+                                               ? input.angularExpansion[static_cast<std::size_t>( bodyIndex )]
                                                : 0.0f;
             const float radius = std::isfinite( angularExpansion ) ? baseRadius + (std::max)( 0.0f, angularExpansion )
                                                                    : ( std::numeric_limits<float>::quiet_NaN )();
-            const Vector3 displacement = PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyIndex ) ) * dt;
+            const Vector3 displacement = PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyIndex ) ) * input.dt;
             const float displacementSq = Vector::VectorMagSquared( displacement );
             const bool hasLinearTravel = !std::isfinite( displacementSq ) || displacementSq > TOLERANCE * TOLERANCE;
-            const bool linearPromoted = bodyIndex < 0 || bodyIndex >= static_cast<int>( motionEligibilityState.size() ) ||
-                                        ( motionEligibilityState[static_cast<std::size_t>( bodyIndex )] &
+            const bool linearPromoted = bodyIndex < 0 ||
+                                        bodyIndex >= static_cast<int>( input.motionEligibilityState.size() ) ||
+                                        ( input.motionEligibilityState[static_cast<std::size_t>( bodyIndex )] &
                                           PhysicsMotionEligibilityLinearPromoted ) != 0u;
             const bool publishLinearOverlay = hasLinearTravel && linearPromoted;
 
@@ -544,7 +545,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
             // pair-work sources after persistent ownership is complete.
             for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
             {
-                if ( !IsSolverBodyFixed( hotFields, bodyIndex ) && sleepState[static_cast<size_t>( bodyIndex )] == 0u )
+                if ( !IsSolverBodyFixed( hotFields, bodyIndex ) && input.sleepState[static_cast<size_t>( bodyIndex )] == 0u )
                 {
                     admitMotionOverlayAndMarkSource( bodyIndex );
                 }
@@ -557,12 +558,12 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         {
             // Invariant: sleepers keep their last persistent range. Only
             // awake bodies can move, sweep, or source new narrowphase work.
-            for ( int bodyIndex : awakeBodyIndices )
+            for ( int bodyIndex : input.awakeBodyIndices )
             {
                 maintainPersistentBody( bodyIndex );
             }
 
-            for ( int bodyIndex : awakeBodyIndices )
+            for ( int bodyIndex : input.awakeBodyIndices )
             {
                 admitMotionOverlayAndMarkSource( bodyIndex );
             }
@@ -575,22 +576,23 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
         // Debug walks the full retained grid to preserve one bounded
         // SleepPrunedPair breadcrumb per old sleep-only pair.
-        m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                 angularBroadphaseExpansion, m_sleepPrunedPairs, false );
+        m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, input.sleepState, input.dt,
+                                                 input.contactSkin, input.angularExpansion, m_sleepPrunedPairs, false );
 #else
         // Production visits only cells reached by an awake body this step;
         // sleep-only cells retain membership but emit no candidate work.
-        m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                 angularBroadphaseExpansion, true );
+        m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, input.sleepState, input.dt,
+                                                 input.contactSkin, input.angularExpansion, true );
 #endif
     }
 
     bool fastSmallSweepAppendedPairs = false;
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/FastSmallSweepAugment" );
-        fastSmallSweepAppendedPairs = AppendFastSmallSweepPairs( m_candidatePairs, bodyStore, colliderStore, sleepState,
-                                                                 hotFields, colliderRecords, awakeBodyIndices, dt,
-                                                                 contactSkin, contactEpsilon );
+        fastSmallSweepAppendedPairs = AppendFastSmallSweepPairs( m_candidatePairs, bodyStore, colliderStore,
+                                                                 input.sleepState, hotFields, colliderRecords,
+                                                                 input.awakeBodyIndices, input.dt, input.contactSkin,
+                                                                 input.contactEpsilon );
     }
 
     if ( fastSmallSweepAppendedPairs )
@@ -611,16 +613,18 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 #endif
     }
 
-    if ( !pointJointConstraints.empty() )
+    if ( !input.pointJointConstraints.empty() )
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneJointPairs" );
         m_candidatePairs.erase( std::remove_if( m_candidatePairs.begin(), m_candidatePairs.end(),
-                                                PointJointCandidatePairPredicate { bodyStore, pointJointConstraints } ),
+                                                PointJointCandidatePairPredicate { bodyStore,
+                                                                                   input.pointJointConstraints } ),
                                 m_candidatePairs.end() );
 
 #if defined( _DEBUG )
         m_sleepPrunedPairs.erase( std::remove_if( m_sleepPrunedPairs.begin(), m_sleepPrunedPairs.end(),
-                                                  PointJointCandidatePairPredicate { bodyStore, pointJointConstraints } ),
+                                                  PointJointCandidatePairPredicate { bodyStore,
+                                                                                     input.pointJointConstraints } ),
                                   m_sleepPrunedPairs.end() );
 #endif
     }

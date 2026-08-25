@@ -2,7 +2,7 @@
 
 Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
-Status: Governance De-Bureaucratization and Jargon Removal active; 115/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal active; 116/120 tasks complete
 
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
@@ -11,7 +11,7 @@ Hygiene Cleanup RC0-RC5 are 100% complete, reviewed, and closed.
 Causal C0-C8, Determinism T0-T8, Catto CD0-CD5, Predicted Solver Cause Hierarchy PSD0-PSD7,
 and Continuous Orbital Forecast OF0-OF6 are complete.
 Governance De-Bureaucratization and Jargon Removal DB0-DB7 is the sole active
-plan at 3/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
+plan at 4/8. DB0 inventories all 13 tracked JSON files and 56 tracked Python
 tools, records sixteen replacement negative tests, and corrects the current
 wide-signature seed to the omitted 12-parameter
 `PhysicsBroadphaseStage::Run`. DB1 removes physical-coordinate policy identity
@@ -20,7 +20,16 @@ complexity review. Their location-movement mutations and live focused scans are
 green. DB2 deletes the two custom formatters, glossary permission machinery,
 and governance meta-runner; clang-format is the sole forward layout rule,
 Related-path reporting is advisory, and the retained direct checks stay
-parallel with exact failure propagation. DB3 design-check replacement is next.
+parallel with exact failure propagation. DB3 replaces five lexical design
+inventories with `tools/check_source_design.py`, deletes their four permission
+ledgers and shared scanner, and narrows the missed broadphase signature from 12
+parameters to three. Effective Debug/Profile/Automation compile contexts,
+project dead-code settings, MSVC link behavior, and exact negative fixtures are
+covered by focused checks. Three read-only reviews are clean after closing the
+reported false-pass gaps. An automatic commit hook was stopped during its Debug
+build before tests or runtime comparison; broad validation and Physics
+behavior/determinism evidence remain deferred by explicit owner direction. DB4
+allocation-policy coverage is next.
 Deterministic Collision Modes And Ragdoll Unification is parked after FP4;
 its completed work established the binding
 deterministic Discrete collision with automatic Swept TOI
@@ -516,9 +525,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Begin `DE_BUREAUCRATIZE` DB3: install compiler-backed negative controls for
-wide signatures, function complexity, aggregate data bags, and local refactor
-leftovers before deleting their lexical inventories and ruling ledgers.
+Begin `DE_BUREAUCRATIZE` DB4: expand the allocation-policy scan to Assets,
+Maths, Scene, UI, and World, then resolve every newly visible finding without
+weakening the zero-allocation rule.
 `RAGDOLL_PHYSICS` FP5-FP9 and
 `RECORDED_CURSOR` RIC3 remain parked and are not selectable.
 
@@ -633,12 +642,11 @@ Still current; read before your first commit.
   `<PLAN_NAME>, TASK <DONE>/<TASK_COUNT> — <ACTION SUMMARY>` and keep the whole
   subject under 72 characters. Commits made outside a plan runner, including
   plan registration, use normal subject rules and claim no plan progress.
-- `tools/validate_build_all.bat` builds Automation, Debug, and Profile.
-  `validate_fast` calls it, because the compiled-symbol reachability scan reads
-  three object roots.
+- `tools/validate_build_all.bat` builds Automation, Debug, and Profile only when
+  all three development configurations are explicitly requested. `validate_fast`
+  builds Profile and does not rebuild unrelated object roots.
 
-Ownership rulings no longer use physical source coordinates. Deterministic-math
-calls use normalized statement identity, Runtime repair debt uses exact edge
-content plus stable occurrence, aggregates use declaration paths, and function
-complexity uses comment-free code lines and normalized body digests. Line
-numbers remain diagnostics only; do not reintroduce them in ruling data.
+Retained review decisions no longer use physical source coordinates.
+Deterministic-math calls use normalized statement identity and Runtime repair
+debt uses exact edge content plus stable occurrence. Source design now comes
+from Clang syntax trees without a per-site ledger.

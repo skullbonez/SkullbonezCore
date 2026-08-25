@@ -57,11 +57,11 @@ cases are settled and need no debate:
   the *operation* needs an explicit owner ruling or decomposition — never a bag
   created to hide the number.
 
-Introduce an aggregate when it owns a rule its absence would let a caller break:
+Introduce a struct when it owns a rule its absence would let a caller break:
 a phase order, a lifetime, an arbitration policy. Say which in an `Invariant:`
-block and exercise it in a test. `tools/inventory_authority_free_aggregates.py`
-reports the mechanically decidable part and `validate_fast` fails on an unruled
-row.
+block and exercise it in a test. `tools/check_source_design.py` uses Clang's
+syntax tree to reject changed code that immediately copies a parameter struct
+into locals.
 
 Do not name a local after a member either. An `m_`-prefixed local claims owner
 state it does not have — see the Extraction Scar Rule in `AGENTS.md`.

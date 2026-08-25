@@ -75,8 +75,10 @@ SETTINGS = (
     "FloatingPointModel",
     "RuntimeLibrary",
     "ForcedIncludeFiles",
+    "FunctionLevelLinking",
 )
-LIST_SETTINGS = {"PreprocessorDefinitions", "ForcedIncludeFiles"}
+EFFECTIVE_SETTINGS = SETTINGS + ("AdditionalIncludeDirectories",)
+LIST_SETTINGS = {"PreprocessorDefinitions", "ForcedIncludeFiles", "AdditionalIncludeDirectories"}
 DEFAULT_RULINGS = Path("tools/build_config_rulings.json")
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 COMPARISON_RE = re.compile(
@@ -201,7 +203,7 @@ def _project_defaults(
     configuration: str,
     platform: str,
 ) -> tuple[dict[str, str], set[str]]:
-    values = {setting: "" for setting in SETTINGS}
+    values = {setting: "" for setting in EFFECTIVE_SETTINGS}
     declared: set[str] = set()
     for group in root:
         if _local_name(group.tag) != "ItemDefinitionGroup":
@@ -210,8 +212,12 @@ def _project_defaults(
             continue
         compile_nodes = _children_named(group, "ClCompile")
         for compile_node in compile_nodes:
-            for setting in SETTINGS:
-                children = _children_named(compile_node, setting)
+            for setting in EFFECTIVE_SETTINGS:
+                children = [
+                    child
+                    for child in _children_named(compile_node, setting)
+                    if condition_matches(child.get("Condition"), configuration, platform)
+                ]
                 if children:
                     declared.add(setting)
                     values[setting] = (children[-1].text or "").strip()
@@ -316,7 +322,7 @@ def scan_project(
             if excluded_values and excluded_values[-1].casefold() == "true":
                 continue
             effective: dict[str, str] = {}
-            for setting in SETTINGS:
+            for setting in EFFECTIVE_SETTINGS:
                 value = defaults[setting]
                 overrides = _metadata_values(nodes, setting, configuration, platform)
                 for override in overrides:

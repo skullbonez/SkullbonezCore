@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - Agentic/Reference/code-style-guide.md
-  - tools/inventory_function_complexity.py
+  - tools/check_source_design.py
 """
 
 import sys

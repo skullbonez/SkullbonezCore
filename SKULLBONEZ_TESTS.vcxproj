@@ -195,6 +195,7 @@
     <!-- fp-envelope-hardening: force contraction off in every TU before any vector-width or contraction-policy change. -->
     <ClCompile>
       <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <FunctionLevelLinking Condition="'$(Configuration)'!='Debug'">true</FunctionLevelLinking>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

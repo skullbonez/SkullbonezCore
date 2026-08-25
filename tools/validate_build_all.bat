@@ -1,31 +1,25 @@
 @rem
 @rem File: tools/validate_build_all.bat
 @rem Purpose:
-@rem   Builds every configuration the repository's compiled-symbol gates read,
-@rem   so a scan never compares fresh source against a stale object root.
+@rem   Builds every ordinary development configuration in one explicit command.
 @rem
 @rem Summary:
-@rem   Tools are command-line guardrails around builds, validation, screenshots,
-@rem   diagnostics, and artifact handling. This one exists because compiled
-@rem   evidence has three producers, not one: inventory_unreachable_symbols.py
-@rem   joins Automation, Debug, and Profile objects and fails closed when any
-@rem   root predates current source. Building only the two launch configurations
-@rem   left Automation stale after every source edit.
+@rem   Automation, Debug, and Profile remain useful together for release
+@rem   preparation and explicit whole-build requests. Ordinary fast validation
+@rem   builds only the configuration it consumes.
 @rem
 @rem Glossary:
 @rem   Object root: Per-configuration output directory holding *.obj evidence.
-@rem   Gate-required configuration: One the reachability scan must read.
+@rem   Development configuration: One of Automation, Debug, or Profile.
 @rem
 @rem Invariants:
-@rem   - Automation, Debug, and Profile are all built; the reachability scan
-@rem   requires three distinct current roots and rejects a missing one.
+@rem   - Automation, Debug, and Profile are all built in a fixed order.
 @rem   - Release is built only on explicit request because no gate reads it.
 @rem   - The first failing configuration stops the run and returns non-zero.
 @rem
 @rem Related:
 @rem   - tools/validate_build.bat
 @rem   - tools/validate_fast.bat
-@rem   - tools/inventory_unreachable_symbols.py
 @rem
 @rem
 @echo off

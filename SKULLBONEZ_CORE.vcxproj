@@ -239,6 +239,7 @@
     <!-- fp-envelope-hardening: force contraction off in every TU before any vector-width or contraction-policy change. -->
     <ClCompile>
       <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <FunctionLevelLinking Condition="'$(Configuration)'!='Debug'">true</FunctionLevelLinking>
     </ClCompile>
     <PostBuildEvent>
       <Command>copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxcompiler.dll" "$(OutDir)dxcompiler.dll" &gt;nul

@@ -11,16 +11,15 @@
 @rem   Cheap failures surface first. After the Debug build, deterministic
 @rem   physics runs immediately so behavior drift cannot hide behind the CPU,
 @rem   automation, or DX12 lanes. Automation and Debug then join the Profile
-@rem   build performed by validate_fast to make reachability evidence current.
+@rem   build performed by validate_fast for terminal multi-configuration evidence.
 @rem   Each CPU test target runs once before automation and DX12. Automation
 @rem   launches a negative Profile boundary plus one positive replay smoke.
 @rem   After every gate passes, the informational replay spike workload records
 @rem   findings without changing validation success.
 @rem
 @rem Glossary:
-@rem   CPU preflight: Formatting, project metadata, staged-size, Profile build,
-@rem   and Automation/Debug/Profile reachability checks that do not launch a
-@rem   test or engine.
+@rem   CPU preflight: Formatting, project metadata, source design, staged-size,
+@rem   and Profile build checks that do not launch a test or engine.
 @rem   Plan-completion gate: Terminal repository proof run once after every task
 @rem   in an implementation plan is complete and independently reviewed.
 @rem

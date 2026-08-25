@@ -1,7 +1,7 @@
 # Governance De-Bureaucratization and Jargon Removal
 
 Date: 2026-08-25
-Status: Active by owner direction 2026-08-25. 3/8 phases complete; DB3 next.
+Status: Active by owner direction 2026-08-25. 4/8 phases complete; DB4 next.
 Owner: Engine owner
 Priority: Sole active master-plan item. DB0-DB7 execute in strict order.
 Commit name: `DE_BUREAUCRATIZE`
@@ -324,11 +324,47 @@ extraction-scar:
    review test. Consolidate aggregate + extraction-scar into one god-object /
    data-bag check.
 2. Ship a negative-control test that **fails** on the DB0 violation (the
-   13-parameter `Run` must now be flagged) and passes on clean source.
+   12-parameter `Run` must now be flagged) and passes on clean source.
 3. Only then delete the brittle JSON ledger and regex inventory it replaces.
 - Acceptance: every retired check has a passing negative control proving the
-  replacement catches what the ledger protected; the 13-parameter `Run` is now
+  replacement catches what the ledger protected; the 12-parameter `Run` is now
   flagged and is either narrowed or explicitly ruled in the leaner scheme.
+
+#### DB3 closure evidence — 2026-08-26
+
+`tools/check_source_design.py` replaces five lexical inventories and their
+shared scanner with compiler syntax trees. Clang-Tidy rejects changed functions
+with 12 parameters, more than 400 lines, or nesting beyond five levels. Clang
+Query rejects member-prefixed locals, pure parameter aliases, and parameter
+structs copied into four or more locals at function entry. The check has no
+per-site permission ledger.
+
+The compiler contexts come from effective MSBuild metadata for the owning
+project. Debug, Profile, and Automation definitions, forced includes, language
+mode, exception mode, and additional include directories are applied where the
+project declares those configurations. Assets and Gameplay headers resolve to
+CORE rather than a synthetic fallback. The planted controls cover the exact
+multiline 12-parameter broadphase declaration shape, a 403-line function,
+six-level nesting in a once-called helper, both parameter-struct forms, both
+local-refactor remnants, missing effective `/Gy`, and a late `/OPT:REF`
+override. A native MSVC compile/link fixture proves that the used function
+survives and the unreferenced function is removed.
+
+`PhysicsBroadphaseStage::Run` is narrowed from 12 parameters to three. Its
+fixed-step borrows now travel in `PhysicsBroadphaseStepInput` and are consumed
+directly rather than copied into locals; the stage retains no new state. Four
+per-site JSON ledgers, five lexical inventories, and their shared scanner are
+deleted only after the replacement controls pass. Together with DB2, all 15
+ratified governance-administration deletions are complete.
+
+Three independent read-only review passes found and closed configuration,
+effective-link-setting, negative-fixture, include-directory, and header-owner
+gaps. The final review reports no implementation blocker. Focused compiler and
+checker controls pass, including the legitimate `TextureCollection.cpp` probe.
+No validation suite was intentionally run. The commit hook nevertheless started
+`validate_physics` and was stopped during its Debug build; no test executable,
+runtime comparison, or determinism phase ran. Broad evidence remains deferred
+by explicit owner direction.
 
 ### DB4 — Close the enforcement holes (strengthen)
 - Extend `check_allocation_policy.py` to Assets, Maths, Scene, UI, World; review

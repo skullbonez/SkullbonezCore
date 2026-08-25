@@ -200,10 +200,11 @@ bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, std::span<const Po
 
 CoreAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 {
-    static const CoreAllocation::RuntimeReserveOwnerHandle owner = CoreAllocation::RuntimeReserveAllocator::RegisterOwner( { PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, CoreAllocation::RuntimeReserveSubsystem::Replay,
-                                                                                                                             CoreAllocation::RuntimeReservePhase::Replay, 0, PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
-                                                                                                                             REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT, true,
-                                                                                                                             "solver replay snapshots reserve vector payload bytes through replay-only growth approval" } );
+    static const CoreAllocation::RuntimeReserveOwnerHandle owner = CoreAllocation::RuntimeReserveAllocator::RegisterOwner(
+        { PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, CoreAllocation::RuntimeReserveSubsystem::Replay,
+          CoreAllocation::RuntimeReservePhase::Replay, 0, PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
+          REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT, true,
+          "solver replay snapshots reserve vector payload bytes through replay-only growth approval" } );
 
     return owner;
 }
@@ -1075,11 +1076,18 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     // Broadphase: sleeping membership remains resident, while awake rows update
     // their ranges and source awake-to-sleep wake-detection pairs.
     const float contactSkin = (std::max)( 0.0f, settings.body.contactEpsilon );
-    const std::span<const std::pair<int, int>>
-        candidatePairs = m_broadphase.Run( bodyStore, colliderStore, settings.broadphase, m_pointJointConstraints,
-                                           sleepStates, awakeBodyIndices, m_motionEligibility.State(),
-                                           m_motionEligibility.AngularBroadphaseExpansion(), m_stepDiagnostics, dt,
-                                           contactSkin, settings.body.contactEpsilon );
+    const PhysicsBroadphaseStepInput broadphaseInput { settings.broadphase,
+                                                       m_pointJointConstraints,
+                                                       sleepStates,
+                                                       awakeBodyIndices,
+                                                       m_motionEligibility.State(),
+                                                       m_motionEligibility.AngularBroadphaseExpansion(),
+                                                       m_stepDiagnostics,
+                                                       dt,
+                                                       contactSkin,
+                                                       settings.body.contactEpsilon };
+    const std::span<const std::pair<int, int>> candidatePairs = m_broadphase.Run( bodyStore, colliderStore,
+                                                                                  broadphaseInput );
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.

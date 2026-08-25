@@ -58,6 +58,22 @@ struct ColliderRecord;
 struct PhysicsBodyRecord;
 class PhysicsStepDiagnostics;
 
+// One fixed-step view keeps the stage's related policy, motion, clock, and
+// diagnostic values together. Every reference and span expires when Run returns.
+struct PhysicsBroadphaseStepInput
+{
+    const BroadphaseSettings& settings;
+    std::span<const PointJointConstraint> pointJointConstraints;
+    std::span<const uint8_t> sleepState;
+    std::span<const int> awakeBodyIndices;
+    std::span<const uint8_t> motionEligibilityState;
+    std::span<const float> angularExpansion;
+    PhysicsStepDiagnostics& diagnostics;
+    float dt = 0.0f;
+    float contactSkin = 0.0f;
+    float contactEpsilon = 0.0f;
+};
+
 class PhysicsBroadphaseStage
 {
   private:
@@ -87,12 +103,8 @@ class PhysicsBroadphaseStage
 
     // Lifetime: every argument is borrowed for this synchronous fixed-step
     // call; only the stage-owned grid and bounded result buffers are retained.
-    std::span<const std::pair<int, int>>
-    Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const BroadphaseSettings& broadphaseSettings,
-         std::span<const PointJointConstraint> pointJointConstraints, std::span<const uint8_t> sleepState,
-         std::span<const int> awakeBodyIndices, std::span<const uint8_t> motionEligibilityState,
-         std::span<const float> angularBroadphaseExpansion, PhysicsStepDiagnostics& stepDiagnostics, float dt,
-         float contactSkin, float contactEpsilon );
+    std::span<const std::pair<int, int>> Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                              const PhysicsBroadphaseStepInput& input );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     float GetCellSize() const;

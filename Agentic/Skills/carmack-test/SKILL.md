@@ -157,25 +157,16 @@ contained:
 - Plans are ticked without matching source changes, validation evidence, and
   independent review.
 
-Evidence for the aggregate, local, and wide-operation findings above comes from
-read-only inventories rather than impression:
+Evidence for struct, local-code, wide-operation, and function-shape findings
+comes from the compiler-backed changed-source report:
 
 ```bash
-python tools/inventory_authority_free_aggregates.py --repo .
-python tools/inventory_extraction_scars.py --repo .
-python tools/inventory_wide_signatures.py --repo . --strict
-python tools/inventory_function_complexity.py --repo . --strict
+python tools/check_source_design.py --repo .
 ```
 
-Aggregate and extraction-scar verdicts live in
-`tools/aggregate_ownership_rulings.json`; wide-signature verdicts live in
-`tools/wide_signature_ownership_rulings.json` and match an exact current file
-plus normalized signature. Function-complexity verdicts live in
-`tools/function_complexity_rulings.json` and additionally match the full body
-digest. `UNRULED` means nobody has judged the row yet, `EDITED-BODY` means the
-judgement predates a body edit, and `STALE-RULING` means the source changed
-shape or disappeared. None of these is a count budget: report the unowned
-operation or invariant, never the number.
+The report has no permission ledger. A finding in changed source is blocking;
+repair the operation, struct, or local code directly and report the concrete
+design issue rather than a count.
 
 Verdict caps:
 

@@ -23,8 +23,9 @@ The expected pins, licenses, compiled source list, and update procedure are in
 
 Install Visual Studio with the Desktop development with C++ workload, LLVM
 tools, and the C++ AddressSanitizer component. The validation scripts discover
-MSBuild and clang-format through `vswhere`, so Visual Studio Professional is
-not required as long as those C++ components are installed.
+MSBuild, clang-format, clang-tidy, and clang-query from the installed tools, so
+Visual Studio Professional is not required as long as those C++ components are
+installed.
 
 Install Git:
 

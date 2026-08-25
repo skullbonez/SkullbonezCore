@@ -189,13 +189,10 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_format.bat` | Check changed first-party C++ source directly with the pinned clang-format binary |
 | `format_fix.bat` | Apply the pinned clang-format binary to changed first-party C++ source |
 | `check_related_paths.py [--self-test]` | Advisory report for unresolved repository-relative paths in tracked source learning-header `Related:` blocks; never blocks validation |
-| `check_build_config_consistency.py --repo . [--format text\|json] [--self-test]` | Inventory effective C++ metadata across the five first-party projects; fail on dropped per-file inheritance or shared-source divergence without an exact current-setting ruling |
-| `inventory_unreachable_symbols.py --repo . [--format text\|json] [--strict] [--self-test]` | Join ordinary out-of-line first-party `.cpp` function definitions to current Debug/Profile decorated COFF symbols; separate no-reference, test-only, and unrooted same-TU rows and require exact current rulings |
-| `inventory_authority_free_aggregates.py [--repo .] [--strict] [--self-test] [--format text\|json\|markdown] [--output path]` | Discover data-bearing structs/classes without suffix filtering; report members, behavior, stated invariants, lexical sites, and joined owner rulings; `--strict` fails on an unruled bounded legacy-suffix/no-invariant row, while stale, malformed, or source-drifted rulings always fail |
-| `inventory_extraction_scars.py [--repo .] [--self-test]` | Report function-block member-prefixed locals and pure reference aliases, including control/direct initializers and structured bindings; fail on a finding with no owner ruling |
-| `cpp_source_scan.py` | Shared tracked-source enumeration and comment/literal masking for the two inventories; masking is imported from `inventory_wide_signatures.py` so there is one implementation |
+| `check_build_config_consistency.py --repo . [--format text\|json] [--self-test]` | Inventory effective C++ metadata across the six first-party projects; fail on dropped per-file inheritance or shared-source divergence without an exact current-setting ruling |
+| `check_source_design.py --repo . [--self-test] [--files ...]` | Use Clang-Tidy and Clang Query on changed C++ translation units; reject wide or oversized functions, deep nesting, member-prefixed locals, pure parameter aliases, and immediate parameter-struct unpacking without a permission ledger |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
-| `validate_build_all.bat [--with-release]` | Build every configuration the compiled-symbol gates read (`Automation`, `Debug`, `Profile`); skips when `SKULLBONEZ_SKIP_READY_BUILDS=1` |
+| `validate_build_all.bat [--with-release]` | Build every ordinary development configuration (`Automation`, `Debug`, `Profile`); skips when `SKULLBONEZ_SKIP_READY_BUILDS=1` |
 | `validate_all_cpu_tests.bat` | Run all six first-party CPU/coverage gates, stop at the first failure, print a combined summary, and preserve the child exit code |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |

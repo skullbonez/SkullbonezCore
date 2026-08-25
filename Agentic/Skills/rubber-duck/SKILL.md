@@ -86,46 +86,31 @@ waived as follow-up debt, closed by a rename, or closed by a parameter reshuffle
    fact the post-change source does not hold? Moved responsibilities must be
    corrected in the same commit under the Comment Quality Gate.
 
-For each operation at or above the 12-parameter review trigger, state whether
+For each edited operation at or above 12 parameters, state whether
 one concrete owner owns one synchronous operation, whether participant lifetimes
 close at return, and whether shortening it would introduce a courier, nominal
-slice set, callback/context bag, pure forwarder, or reach-back. Then compare the
-answer with `tools/wide_signature_ownership_rulings.json`. `UNRULED`,
-`STALE-RULING`, or an unowned `repair-plan` is `[Blocking]`. A current ruling is
-reviewable evidence, not immunity: disagree with it when source responsibility
-does not support its reason.
+slice set, callback/context bag, pure forwarder, or reach-back. A compiler
+finding from `tools/check_source_design.py` is `[Blocking]`; do not ask for or
+accept a per-site exception.
 
-For every function at the 400-line or depth-6 review trigger, state the concrete
+For every edited function at 400 lines or nesting beyond five, state the concrete
 owner and whether all parsing, arbitration, mutation, publication, or lifecycle
-phases are one cohesive operation. Compare that answer with
-`tools/function_complexity_rulings.json`. `UNRULED`, `EDITED-BODY`,
-`STALE-RULING`, or a missing repair plan is `[Blocking]`. A split into a helper
+phases are one cohesive operation. A compiler finding is `[Blocking]`. A split into a helper
 called once immediately is not decomposition when the same authority and phase
-order remain in the caller; follow that helper before accepting the ruling.
+order remain in the caller; follow that helper before accepting the change.
 
-Cite evidence rather than asserting a conclusion. Six repeatable inventories
-produce it, and all six are read-only:
+Cite evidence rather than asserting a conclusion. Two focused reports
+produce it, and both are read-only:
 
 ```bash
 python tools/check_build_config_consistency.py --repo .
-python tools/inventory_unreachable_symbols.py --repo . --strict
-python tools/inventory_authority_free_aggregates.py --repo .
-python tools/inventory_extraction_scars.py --repo .
-python tools/inventory_wide_signatures.py --repo . --strict
-python tools/inventory_function_complexity.py --repo . --strict
+python tools/check_source_design.py --repo .
 ```
 
-Verdicts for the aggregate and extraction-scar inventories live in
-`tools/aggregate_ownership_rulings.json`. An `UNRULED` row means nobody has
-judged it yet; a ruled row means an owner has, and the reason field says why.
-Wide-signature rulings live in
-`tools/wide_signature_ownership_rulings.json` and match the current file plus
-normalized signature. Function-complexity rulings live in
-`tools/function_complexity_rulings.json` and also match the current body digest.
+Source-design findings have no permission ledger. Repair the changed function,
+parameter struct, or local code directly.
 Build-configuration rulings live in `tools/build_config_rulings.json` and match
-the complete current cross-project variant set for one file/setting pair;
-reachability rulings live in `tools/reachability_rulings.json` and match the
-current definition file/signature while every repair row names a live plan.
+the complete current cross-project variant set for one file/setting pair.
 Review touched glossary definitions directly against
 `Agentic/Reference/engine-glossary.md`; consolidate duplicates instead of
 recording a per-term exception.
