@@ -67,6 +67,18 @@ struct DiagnosticsUIKeyboardShortcutResult
 DiagnosticsUIKeyboardShortcutResult
 HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug, DiagnosticsUiKeyboardCommand command, bool wasPressed );
 
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+enum class MainMemoryDumpTestFailure : uint8_t
+{
+    None,
+    Write,
+    Flush,
+    Close,
+};
+
+void SetMainMemoryDumpTestFailure( MainMemoryDumpTestFailure failure ) noexcept;
+#endif
+
 class DiagnosticsRuntime
 {
   public:
@@ -77,15 +89,15 @@ class DiagnosticsRuntime
 
     RunPerfLogState& PerfLog();
 
-    void ClosePerfLog();
-    void ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint );
+    [[nodiscard]] bool ClosePerfLog();
+    [[nodiscard]] bool ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint );
     void ResetPerfLogForSceneLoad();
-    void ResetForSceneLoad( int completedPerfPass );
+    [[nodiscard]] bool ResetForSceneLoad( int completedPerfPass );
     void ConfigurePerfLogFlush( bool enabled, int interval );
-    void OpenScenePerfLog( const char* path, int pass );
-    void ApplyScenePerfLogOptions( const char* path, int perfPass );
+    [[nodiscard]] bool OpenScenePerfLog( const char* path, int pass );
+    [[nodiscard]] bool ApplyScenePerfLogOptions( const char* path, int perfPass );
     bool PerfTestActive() const;
-    void TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds );
+    [[nodiscard]] bool TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds );
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
 
     // Accepts replay accounting already published by the composition root so

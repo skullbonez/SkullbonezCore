@@ -1007,8 +1007,17 @@ bool Run::CompleteFramePhase( const SceneFrameProceedPolicy& proceedPolicy )
                                        profilerTimes.gpuFrameWorkMs );
     }
 #endif
-    m_diagnosticsRuntime.TickPerfLog( m_sceneController.PerfPass() + 1, m_sceneController.State().currentFrame + 1,
-                                      m_timers.Publish().physicsSeconds, m_timers.Publish().renderSeconds );
+    const bool perfLogSucceeded =
+        m_diagnosticsRuntime.TickPerfLog( m_sceneController.PerfPass() + 1,
+                                          m_sceneController.State().currentFrame + 1,
+                                          m_timers.Publish().physicsSeconds, m_timers.Publish().renderSeconds );
+
+    if ( !perfLogSucceeded )
+    {
+        (void)ApplyPerfLogArtifactStatus( m_resultDiagnostics, m_applicationExit, false );
+        PostQuitMessage( 1 );
+        return false;
+    }
 
     return TickSceneAdvance( proceedPolicy );
 }

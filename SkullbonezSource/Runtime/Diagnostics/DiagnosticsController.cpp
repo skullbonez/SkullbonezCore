@@ -34,15 +34,15 @@ RunPerfLogState& DiagnosticsController::PerfLog()
 }
 
 
-void DiagnosticsController::ClosePerfLog()
+bool DiagnosticsController::ClosePerfLog()
 {
-    RuntimeDiagnostics::ClosePerfLog( m_perfLog );
+    return RuntimeDiagnostics::ClosePerfLog( m_perfLog );
 }
 
 
-void DiagnosticsController::ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint )
+bool DiagnosticsController::ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint )
 {
-    RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( m_perfLog, pass, checkpoint );
+    return RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( m_perfLog, pass, checkpoint );
 }
 
 
@@ -58,9 +58,9 @@ void DiagnosticsController::ConfigurePerfLogFlush( bool enabled, int interval )
 }
 
 
-void DiagnosticsController::OpenScenePerfLog( const char* path, int pass )
+bool DiagnosticsController::OpenScenePerfLog( const char* path, int pass )
 {
-    RuntimeDiagnostics::OpenScenePerfLog( m_perfLog, path, pass, m_profiler );
+    return RuntimeDiagnostics::OpenScenePerfLog( m_perfLog, path, pass, m_profiler );
 }
 
 
@@ -70,9 +70,9 @@ bool DiagnosticsController::PerfTestActive() const
 }
 
 
-void DiagnosticsController::TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds )
+bool DiagnosticsController::TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds )
 {
-    RuntimeDiagnostics::TickPerfLog( m_perfLog, pass, frame, physicsTimeSeconds, renderTimeSeconds, m_profiler );
+    return RuntimeDiagnostics::TickPerfLog( m_perfLog, pass, frame, physicsTimeSeconds, renderTimeSeconds, m_profiler );
 }
 
 

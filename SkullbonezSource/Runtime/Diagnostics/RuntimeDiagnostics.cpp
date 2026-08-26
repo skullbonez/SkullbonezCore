@@ -61,23 +61,77 @@ RuntimeSceneDiagnosticFacts::RuntimeSceneDiagnosticFacts( int currentSceneIndex,
 
 namespace
 {
-void FlushPerfLogIfNeeded( RunPerfLogState& perfLog )
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+thread_local RuntimePerfLogTestFailure g_runtimePerfLogTestFailure = RuntimePerfLogTestFailure::None;
+
+bool ConsumeRuntimePerfLogTestFailure( RuntimePerfLogTestFailure failure ) noexcept
+{
+    if ( g_runtimePerfLogTestFailure != failure )
+    {
+        return false;
+    }
+
+    g_runtimePerfLogTestFailure = RuntimePerfLogTestFailure::None;
+    return true;
+}
+#endif
+
+bool PerfLogWriteSucceeded( FILE* file, int writeResult = 0 )
+{
+    bool succeeded = file && writeResult >= 0 && std::ferror( file ) == 0;
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+    succeeded = !ConsumeRuntimePerfLogTestFailure( RuntimePerfLogTestFailure::Write ) && succeeded;
+#endif
+    return succeeded;
+}
+
+bool FlushPerfLog( FILE* file )
+{
+    bool succeeded = file && std::fflush( file ) == 0;
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+    succeeded = !ConsumeRuntimePerfLogTestFailure( RuntimePerfLogTestFailure::Flush ) && succeeded;
+#endif
+    return succeeded;
+}
+
+bool ClosePerfLogFile( FILE* file )
+{
+    bool succeeded = !file || std::fclose( file ) == 0;
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+    succeeded = !ConsumeRuntimePerfLogTestFailure( RuntimePerfLogTestFailure::Close ) && succeeded;
+#endif
+    return succeeded;
+}
+
+bool FlushPerfLogIfNeeded( RunPerfLogState& perfLog )
 {
     if ( perfLog.isPerfLogFlushEnabled ||
          ( perfLog.perfLogFlushInterval > 0 && perfLog.perfLogWritesSinceFlush >= perfLog.perfLogFlushInterval ) )
     {
-        fflush( perfLog.perfLogFile );
+        if ( !FlushPerfLog( perfLog.perfLogFile ) )
+        {
+            return false;
+        }
+
         perfLog.perfLogWritesSinceFlush = 0;
     }
+
+    return true;
 }
 
-void FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
+bool FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
 {
     if ( perfLog.perfLogFile && perfLog.perfLogWritesSinceFlush > 0 )
     {
-        fflush( perfLog.perfLogFile );
+        if ( !FlushPerfLog( perfLog.perfLogFile ) )
+        {
+            return false;
+        }
+
         perfLog.perfLogWritesSinceFlush = 0;
     }
+
+    return true;
 }
 
 bool FlushWorkingSetQueryBatch( HANDLE process, PSAPI_WORKING_SET_EX_INFORMATION* pages, std::size_t pageCount,
@@ -236,23 +290,33 @@ std::string JsonEscape( const char* value )
 #endif
 } // namespace
 
-void RuntimeDiagnostics::ClosePerfLog( RunPerfLogState& perfLog )
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+void SetRuntimePerfLogTestFailure( RuntimePerfLogTestFailure failure ) noexcept
 {
+    g_runtimePerfLogTestFailure = failure;
+}
+#endif
+
+bool RuntimeDiagnostics::ClosePerfLog( RunPerfLogState& perfLog )
+{
+    bool succeeded = true;
+
     if ( perfLog.perfLogFile )
     {
-        FlushPendingPerfLogWrites( perfLog );
-        fclose( perfLog.perfLogFile );
+        succeeded = FlushPendingPerfLogWrites( perfLog );
+        succeeded = ClosePerfLogFile( perfLog.perfLogFile ) && succeeded;
         perfLog.perfLogFile = nullptr;
     }
 
     perfLog.isPerfTest = false;
+    return succeeded;
 }
 
 
-void RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perfLog, int pass, const char* checkpoint )
+bool RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perfLog, int pass, const char* checkpoint )
 {
-    LogPerfMemory( perfLog, pass, checkpoint );
-    ClosePerfLog( perfLog );
+    const bool checkpointWritten = LogPerfMemory( perfLog, pass, checkpoint );
+    return ClosePerfLog( perfLog ) && checkpointWritten;
 }
 
 SkullbonezCore::Core::MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMemory( bool includePrivateWorkingSet )
@@ -296,11 +360,11 @@ SkullbonezCore::Core::MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMe
     return stats;
 }
 
-void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint )
+bool RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint )
 {
     if ( !perfLog.perfLogFile )
     {
-        return;
+        return true;
     }
 
     const SkullbonezCore::Core::MainMemoryProcessStats stats = SampleProcessMemory( true );
@@ -312,15 +376,22 @@ void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, cons
         const double privateWorkingSetMb = static_cast<double>( stats.privateWorkingSetBytes ) / ( 1024.0 * 1024.0 );
         const double privateCommitMb = static_cast<double>( stats.privateCommitBytes ) / ( 1024.0 * 1024.0 );
         const double pagefileMb = static_cast<double>( stats.pagefileUsageBytes ) / ( 1024.0 * 1024.0 );
-        fprintf( perfLog.perfLogFile,
-                 "# MEM %s pass=%d task_manager_metric=%s task_manager_mb=%.2f working_set_mb=%.2f "
-                 "private_working_set_mb=%.2f private_commit_mb=%.2f pagefile_mb=%.2f\n",
-                 checkpoint, pass, stats.taskManagerMetricName, taskManagerMb, workingSetMb, privateWorkingSetMb,
-                 privateCommitMb, pagefileMb );
+        const int writeResult = fprintf( perfLog.perfLogFile,
+                                         "# MEM %s pass=%d task_manager_metric=%s task_manager_mb=%.2f working_set_mb=%.2f "
+                                         "private_working_set_mb=%.2f private_commit_mb=%.2f pagefile_mb=%.2f\n",
+                                         checkpoint, pass, stats.taskManagerMetricName, taskManagerMb, workingSetMb,
+                                         privateWorkingSetMb, privateCommitMb, pagefileMb );
+
+        if ( !PerfLogWriteSucceeded( perfLog.perfLogFile, writeResult ) )
+        {
+            return false;
+        }
 
         ++perfLog.perfLogWritesSinceFlush;
-        FlushPerfLogIfNeeded( perfLog );
+        return FlushPerfLogIfNeeded( perfLog );
     }
+
+    return true;
 }
 
 
@@ -342,12 +413,12 @@ void RuntimeDiagnostics::ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool e
 }
 
 
-void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass,
+bool RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass,
                                            SkullbonezCore::Core::Profiler* profiler )
 {
     if ( !path || path[0] == '\0' )
     {
-        return;
+        return true;
     }
 
     perfLog.isPerfTest = false;
@@ -372,8 +443,14 @@ void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char*
 #else
         (void)profiler;
 #endif
-        LogPerfMemory( perfLog, pass + 1, "start" );
+        if ( !LogPerfMemory( perfLog, pass + 1, "start" ) )
+        {
+            (void)ClosePerfLog( perfLog );
+            return false;
+        }
     }
+
+    return perfLog.perfLogFile != nullptr;
 }
 
 
@@ -424,12 +501,12 @@ RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const Sk
 }
 
 
-void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, int pass, int frame, float physicsTimeSeconds,
+bool RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, int pass, int frame, float physicsTimeSeconds,
                                       float renderTimeSeconds, SkullbonezCore::Core::Profiler* profiler )
 {
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )
     {
-        return;
+        return true;
     }
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -441,6 +518,12 @@ void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, int pass, int fr
         if ( profiler )
         {
             profiler->WritePerfCSVHeader( perfLog.perfLogFile );
+
+            if ( !PerfLogWriteSucceeded( perfLog.perfLogFile ) )
+            {
+                (void)ClosePerfLog( perfLog );
+                return false;
+            }
         }
 
         perfLog.perfHeaderWritten = true;
@@ -450,19 +533,39 @@ void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, int pass, int fr
     {
         profiler->WritePerfCSVRow( perfLog.perfLogFile, pass, frame );
     }
+
+    if ( !PerfLogWriteSucceeded( perfLog.perfLogFile ) )
+    {
+        (void)ClosePerfLog( perfLog );
+        return false;
+    }
 #else
     (void)profiler;
-    fprintf( perfLog.perfLogFile, "%d,%d,%.4f,%.4f\n", pass, frame, physicsTimeSeconds * 1000.0f,
-             renderTimeSeconds * 1000.0f );
+    const int writeResult = fprintf( perfLog.perfLogFile, "%d,%d,%.4f,%.4f\n", pass, frame,
+                                     physicsTimeSeconds * 1000.0f, renderTimeSeconds * 1000.0f );
+
+    if ( !PerfLogWriteSucceeded( perfLog.perfLogFile, writeResult ) )
+    {
+        (void)ClosePerfLog( perfLog );
+        return false;
+    }
 #endif
 
     ++perfLog.perfLogWritesSinceFlush;
-    FlushPerfLogIfNeeded( perfLog );
 
-    if ( frame % 60 == 0 )
+    if ( !FlushPerfLogIfNeeded( perfLog ) )
     {
-        LogPerfMemory( perfLog, pass, "periodic" );
+        (void)ClosePerfLog( perfLog );
+        return false;
     }
+
+    if ( frame % 60 == 0 && !LogPerfMemory( perfLog, pass, "periodic" ) )
+    {
+        (void)ClosePerfLog( perfLog );
+        return false;
+    }
+
+    return true;
 }
 
 #ifdef _DEBUG

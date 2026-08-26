@@ -87,12 +87,15 @@
 #include "../SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h"
 #include "../SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"
 #include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
+#include "../SkullbonezSource/Rendering/RenderInstanceStore.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
 #include "../SkullbonezSource/Runtime/App/InteractionAutomationApplication.h"
 #include "../SkullbonezSource/Runtime/App/StartupInputApplication.h"
 #include "../SkullbonezSource/Runtime/Automation/InteractionAutomationController.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/SceneMemoryDiagnostics.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/UIStressPolicy.h"
 #include "../SkullbonezSource/Runtime/Input/Input.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderer.h"
@@ -2663,7 +2666,7 @@ TEST_CASE( "Runtime diagnostics activates perf control only for an owned log art
 {
     RunPerfLogState perfLog;
     perfLog.isPerfTest = true;
-    RuntimeDiagnostics::OpenScenePerfLog( perfLog, "?:\\skullbonez_perf.csv", 0, nullptr );
+    CHECK_FALSE( RuntimeDiagnostics::OpenScenePerfLog( perfLog, "?:\\skullbonez_perf.csv", 0, nullptr ) );
     CHECK_FALSE( RuntimeDiagnostics::PerfTestActive( perfLog ) );
     CHECK( perfLog.perfLogFile == nullptr );
 
@@ -2672,14 +2675,126 @@ TEST_CASE( "Runtime diagnostics activates perf control only for an owned log art
     REQUIRE( GetTempPathA( MAX_PATH, temporaryDirectory ) != 0 );
     REQUIRE( GetTempFileNameA( temporaryDirectory, "sbp", 0, perfLogPath ) != 0 );
 
-    RuntimeDiagnostics::OpenScenePerfLog( perfLog, perfLogPath, 0, nullptr );
+    REQUIRE( RuntimeDiagnostics::OpenScenePerfLog( perfLog, perfLogPath, 0, nullptr ) );
     CHECK( RuntimeDiagnostics::PerfTestActive( perfLog ) );
     CHECK( perfLog.perfLogFile != nullptr );
 
-    RuntimeDiagnostics::ClosePerfLog( perfLog );
+    CHECK( RuntimeDiagnostics::ClosePerfLog( perfLog ) );
     CHECK_FALSE( RuntimeDiagnostics::PerfTestActive( perfLog ) );
     CHECK( perfLog.perfLogFile == nullptr );
     CHECK( DeleteFileA( perfLogPath ) != 0 );
+}
+
+
+TEST_CASE( "Runtime diagnostics fails required perf artifacts on write flush and close errors" )
+{
+    char temporaryDirectory[MAX_PATH] = {};
+    char perfLogPath[MAX_PATH] = {};
+    REQUIRE( GetTempPathA( MAX_PATH, temporaryDirectory ) != 0 );
+    REQUIRE( GetTempFileNameA( temporaryDirectory, "sbf", 0, perfLogPath ) != 0 );
+
+    RunPerfLogState perfLog;
+    REQUIRE( RuntimeDiagnostics::OpenScenePerfLog( perfLog, perfLogPath, 0, nullptr ) );
+    SkullbonezCore::Runtime::SetRuntimePerfLogTestFailure(
+        SkullbonezCore::Runtime::RuntimePerfLogTestFailure::Write );
+    CHECK_FALSE( RuntimeDiagnostics::TickPerfLog( perfLog, 1, 1, 0.001f, 0.002f, nullptr ) );
+    CHECK_FALSE( RuntimeDiagnostics::PerfTestActive( perfLog ) );
+    CHECK( perfLog.perfLogFile == nullptr );
+
+    REQUIRE( RuntimeDiagnostics::OpenScenePerfLog( perfLog, perfLogPath, 0, nullptr ) );
+    RuntimeDiagnostics::ConfigurePerfLogFlush( perfLog, true, 0 );
+    SkullbonezCore::Runtime::SetRuntimePerfLogTestFailure(
+        SkullbonezCore::Runtime::RuntimePerfLogTestFailure::Flush );
+    CHECK_FALSE( RuntimeDiagnostics::TickPerfLog( perfLog, 1, 1, 0.001f, 0.002f, nullptr ) );
+    CHECK_FALSE( RuntimeDiagnostics::PerfTestActive( perfLog ) );
+    CHECK( perfLog.perfLogFile == nullptr );
+
+    REQUIRE( RuntimeDiagnostics::OpenScenePerfLog( perfLog, perfLogPath, 0, nullptr ) );
+    SkullbonezCore::Runtime::SetRuntimePerfLogTestFailure(
+        SkullbonezCore::Runtime::RuntimePerfLogTestFailure::Close );
+    CHECK_FALSE( RuntimeDiagnostics::ClosePerfLog( perfLog ) );
+
+    SkullbonezCore::Core::SbDiagnosticStore resultDiagnostics;
+    SkullbonezCore::Runtime::ApplicationExitState exitState( resultDiagnostics );
+    const SkullbonezCore::Core::SbResult failure =
+        SkullbonezCore::Runtime::ApplyPerfLogArtifactStatus( resultDiagnostics, exitState, false );
+    const SkullbonezCore::Core::SbResult resolved = exitState.Resolve( 0 );
+    CHECK_FALSE( resolved.Ok() );
+    CHECK( std::strcmp( resolved.ErrorOwner(), "Runtime/Diagnostics" ) == 0 );
+    CHECK( std::strstr( resolved.ErrorMessage(), "written, flushed, and closed" ) != nullptr );
+
+    SkullbonezCore::Runtime::ApplicationExitState combinedExitState( resultDiagnostics );
+    const SkullbonezCore::Core::SbResult sceneFailure =
+        resultDiagnostics.Failure( "Runtime/Scene", "scene population failed" );
+    const SkullbonezCore::Core::SbResult combinedResult = SkullbonezCore::Runtime::ApplySceneLoadDiagnosticsStatus(
+        resultDiagnostics, combinedExitState, sceneFailure, false );
+    CHECK_FALSE( combinedResult.Ok() );
+    CHECK( std::strcmp( combinedResult.ErrorOwner(), "Runtime/Scene" ) == 0 );
+    const SkullbonezCore::Core::SbResult combinedExitResult = combinedExitState.Resolve( 0 );
+    CHECK_FALSE( combinedExitResult.Ok() );
+    CHECK( std::strcmp( combinedExitResult.ErrorOwner(), "Runtime/Diagnostics" ) == 0 );
+    CHECK( DeleteFileA( perfLogPath ) != 0 );
+}
+
+
+TEST_CASE( "Scene memory diagnostics count complete Physics store capacity" )
+{
+    using namespace SkullbonezCore::Core::Allocation;
+
+    auto physics = std::make_unique<PhysicsEngine>();
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        physics->ReserveAuthoredBodyCapacity( 4u, 2u, 1u, 1u, 2u );
+    }
+
+    SkullbonezCore::Rendering::RenderInstanceStore renderInstances;
+    const SkullbonezCore::Physics::ColliderStore& colliders = PhysicsEngine::ReadColliders( *physics );
+    const uint64_t colliderBytes = colliders.CollectRuntimeCapacityMemoryBytes();
+    const uint64_t sceneStoreBytes = physics->CollectSceneSizedStoreMemoryBytes();
+    REQUIRE( sceneStoreBytes >= colliderBytes );
+
+    const SkullbonezCore::Core::MainMemoryGameObjectStats stats = SkullbonezCore::Runtime::CollectSceneMemoryStats(
+        SkullbonezCore::Runtime::SceneMemoryDiagnosticsView { 0u, 0u, 0u, *physics, renderInstances } );
+    CHECK( stats.colliderStoreBytes == colliderBytes );
+    CHECK( stats.physicsStoreBytes == sceneStoreBytes - colliderBytes );
+
+    const uint64_t retiredRecordOnlyBytes =
+        static_cast<uint64_t>( PhysicsEngine::ReadBodies( *physics ).RecordCapacity() ) *
+            sizeof( SkullbonezCore::Physics::PhysicsBodyRecord ) +
+        static_cast<uint64_t>( PhysicsEngine::ReadBuoyancyFactCapacity( *physics ) ) *
+            sizeof( SkullbonezCore::Physics::BuoyancyBodyFacts );
+    CHECK( stats.physicsStoreBytes > retiredRecordOnlyBytes );
+}
+
+
+TEST_CASE( "Main memory dump reports incomplete write flush and close operations" )
+{
+    char temporaryDirectory[MAX_PATH] = {};
+    char dumpPath[MAX_PATH] = {};
+    REQUIRE( GetTempPathA( MAX_PATH, temporaryDirectory ) != 0 );
+    REQUIRE( GetTempFileNameA( temporaryDirectory, "sbm", 0, dumpPath ) != 0 );
+
+    SkullbonezCore::Runtime::DiagnosticsRuntime runtime;
+    runtime.SetMainMemoryDumpPath( dumpPath );
+    const SkullbonezCore::Core::MainMemoryReplayStats replay;
+    const SkullbonezCore::Core::MainMemoryGameObjectStats gameObjects;
+    const SkullbonezCore::Runtime::RuntimeSceneDiagnosticFacts scene( 0, 0, 0, 7, 10, 0 );
+
+    for ( const SkullbonezCore::Runtime::MainMemoryDumpTestFailure failure : {
+              SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Write,
+              SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Flush,
+              SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Close } )
+    {
+        SkullbonezCore::Runtime::SetMainMemoryDumpTestFailure( failure );
+        CHECK_FALSE( runtime.WriteMainMemoryDump( replay, gameObjects, scene, "fault", 1.0 ) );
+    }
+
+    CHECK( runtime.WriteMainMemoryDump( replay, gameObjects, scene, "complete", 2.0 ) );
+    std::ifstream input( dumpPath, std::ios::binary );
+    const std::string bytes( std::istreambuf_iterator<char>( input ), std::istreambuf_iterator<char>() );
+    CHECK( bytes.find( "skullbonez.main_memory.v1" ) != std::string::npos );
+    input.close();
+    CHECK( DeleteFileA( dumpPath ) != 0 );
 }
 
 

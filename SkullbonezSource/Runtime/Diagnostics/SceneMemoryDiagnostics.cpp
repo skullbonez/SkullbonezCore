@@ -45,13 +45,14 @@ SkullbonezCore::Core::MainMemoryGameObjectStats CollectSceneMemoryStats( const S
     stats.colliderStoreCapacity = colliderStore.RecordCapacity();
     stats.renderStoreCapacity = view.renderInstances.RecordCapacity();
     stats.modelVectorBytes = view.renderInstances.PresentationCapacityBytes() + view.entityCapacityBytes;
-    stats.physicsStoreBytes = static_cast<uint64_t>( bodyStore.RecordCapacity() ) * sizeof( Physics::PhysicsBodyRecord ) +
-                              static_cast<uint64_t>( Physics::PhysicsEngine::ReadBuoyancyFactCapacity( view.physics ) ) *
-                                  sizeof( Physics::BuoyancyBodyFacts );
+    stats.colliderStoreBytes = colliderStore.CollectRuntimeCapacityMemoryBytes();
 
-    stats.colliderStoreBytes = static_cast<uint64_t>( colliderStore.RecordCapacity() ) * sizeof( Physics::ColliderRecord ) +
-                               static_cast<uint64_t>( colliderStore.AuthoringRecordCapacity() ) *
-                                   sizeof( Physics::ColliderAuthoringRecord );
+    // Invariant: PhysicsEngine's scene-sized total includes every body hot
+    // column, handle table, authored descriptor, buoyancy row, and scratch
+    // owner. ColliderStore publishes its complete subset separately, so the
+    // remainder is the exact non-collider Physics store contribution.
+    const uint64_t sceneSizedStoreBytes = view.physics.CollectSceneSizedStoreMemoryBytes();
+    stats.physicsStoreBytes = sceneSizedStoreBytes - stats.colliderStoreBytes;
 
     stats.renderStoreBytes = static_cast<uint64_t>( view.renderInstances.RecordCapacity() ) *
                              sizeof( Rendering::RenderInstanceRecord );

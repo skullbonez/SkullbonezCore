@@ -1000,3 +1000,20 @@ blocking, 0 non-blocking, and 1 missing-evidence item. Per owner direction, no
 build, test, scanner, inventory, or validation command was run; compile/link
 and focused runtime behavior remain unexecuted evidence rather than claimed
 results.
+## Runtime Diagnostics Bug Ledger Closure (2026-08-26)
+
+DIAG-002 through DIAG-005 are fixed as one subsystem batch. Scene memory
+reporting now partitions the canonical Physics scene-sized store total between
+collider and other Physics storage without double counting. Performance CSV and
+main-memory dump ownership now propagate write, flush, and close failures; the
+application exit owner retains those failures, including when a scene load also
+fails. The C-key overlay cycle now preserves the independent terrain and
+pipeline layers.
+
+One consolidated read-only rubber-duck review covered all four Runtime
+Diagnostics rows in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found and
+closed two process-exit propagation blockers: a discarded scene-load diagnostic
+result and the combined scene-load/performance-artifact failure case. Final
+counts were 0 Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner
+direction, no build, test, scanner, inventory, or repository validation was
+run; compile, link, and focused runtime evidence remain unexecuted.

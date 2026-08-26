@@ -86,13 +86,15 @@ void CaptureSceneDiagnosticsLoad( SceneLoadTransaction& transaction, Diagnostics
 }
 
 
-void ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reactions, DiagnosticsRuntime& diagnostics,
+bool ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reactions, DiagnosticsRuntime& diagnostics,
                                      SceneController& sceneController, const SkullbonezCore::Core::EngineConfig& config )
 {
 #ifndef _DEBUG
     (void)sceneController;
     (void)config;
 #endif
+
+    bool succeeded = true;
 
     for ( std::size_t index = 0; index < reactions.count; ++index )
     {
@@ -101,13 +103,13 @@ void ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reacti
         switch ( reaction.kind )
         {
         case SceneDiagnosticsReactionKind::ResetForSceneLoad:
-            diagnostics.ResetForSceneLoad( reaction.value );
+            succeeded = diagnostics.ResetForSceneLoad( reaction.value ) && succeeded;
             break;
         case SceneDiagnosticsReactionKind::ConfigurePerfLogFlush:
             diagnostics.ConfigurePerfLogFlush( reaction.enabled, reaction.value );
             break;
         case SceneDiagnosticsReactionKind::ApplyScenePerfLog:
-            diagnostics.ApplyScenePerfLogOptions( reaction.path, reaction.value );
+            succeeded = diagnostics.ApplyScenePerfLogOptions( reaction.path, reaction.value ) && succeeded;
             break;
         case SceneDiagnosticsReactionKind::SetUiStressEnabled:
             diagnostics.UIStress().SetEnabled( reaction.enabled );
@@ -123,7 +125,7 @@ void ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reacti
                                               reaction.secondaryValue );
             break;
         case SceneDiagnosticsReactionKind::ClosePerfLog:
-            diagnostics.ClosePerfLog();
+            succeeded = diagnostics.ClosePerfLog() && succeeded;
             break;
         case SceneDiagnosticsReactionKind::ResetPerfLogForSceneLoad:
             diagnostics.ResetPerfLogForSceneLoad();
@@ -139,6 +141,8 @@ void ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reacti
             break;
         }
     }
+
+    return succeeded;
 }
 
 
@@ -304,7 +308,11 @@ SkullbonezCore::Core::SbResult Run::LoadSceneRequest( SceneLoadTransaction& tran
                                                               m_startup, m_assets, m_workerPool, &renderer.RenderFrame(),
                                                               &renderer.RenderResources() );
 
-    ApplySceneDiagnosticsReactions( transaction.DiagnosticsReactions(), m_diagnosticsRuntime, m_sceneController, m_config );
+    const bool diagnosticsSucceeded =
+        ApplySceneDiagnosticsReactions( transaction.DiagnosticsReactions(), m_diagnosticsRuntime, m_sceneController,
+                                        m_config );
+
+    result = ApplySceneLoadDiagnosticsStatus( m_resultDiagnostics, m_applicationExit, result, diagnosticsSucceeded );
 
     const SceneRenderPolicyState& policy = transaction.RenderPolicy();
     renderer.RestorePresentationSettings( RenderPresentationSettings { policy.vsyncEnabled, policy.pipelineSyncEnabled } );

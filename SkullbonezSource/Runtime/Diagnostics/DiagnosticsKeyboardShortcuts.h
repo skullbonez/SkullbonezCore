@@ -101,27 +101,36 @@ inline bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& ca
         debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
         return true;
     case DiagnosticsKeyboardCommand::CyclePhysicsDebugOverlay:
+    {
+        constexpr uint32_t cycledFlags = Physics::PHYSICS_DEBUG_AXES | Physics::PHYSICS_DEBUG_CONTACTS |
+                                         Physics::PHYSICS_DEBUG_SLEEP;
+        const uint32_t retainedFlags = debug.physicsDebugFlags & ~cycledFlags;
+        uint32_t nextCycledFlags = Physics::PHYSICS_DEBUG_NONE;
 
-        switch ( debug.physicsDebugFlags )
+        // Invariant: C cycles only the three legacy inspection layers. Terrain
+        // contact and pipeline tracing are independently toggled owners and
+        // survive every step of this presentation-only cycle.
+        switch ( debug.physicsDebugFlags & cycledFlags )
         {
         case Physics::PHYSICS_DEBUG_NONE:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_AXES;
+            nextCycledFlags = Physics::PHYSICS_DEBUG_AXES;
             break;
         case Physics::PHYSICS_DEBUG_AXES:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_CONTACTS;
+            nextCycledFlags = Physics::PHYSICS_DEBUG_CONTACTS;
             break;
         case Physics::PHYSICS_DEBUG_CONTACTS:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_SLEEP;
+            nextCycledFlags = Physics::PHYSICS_DEBUG_SLEEP;
             break;
         case Physics::PHYSICS_DEBUG_SLEEP:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_ALL;
+            nextCycledFlags = cycledFlags;
             break;
         default:
-            debug.physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
             break;
         }
 
+        debug.physicsDebugFlags = retainedFlags | nextCycledFlags;
         return true;
+    }
     case DiagnosticsKeyboardCommand::ToggleTerrainContactProbe:
         debug.physicsDebugFlags ^= Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
         return true;

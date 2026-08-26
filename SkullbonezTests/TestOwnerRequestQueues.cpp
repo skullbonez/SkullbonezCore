@@ -392,6 +392,28 @@ TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detac
     CHECK( status.contacts );
 }
 
+
+TEST_CASE( "Physics debug cycle preserves terrain and pipeline overlays" )
+{
+    OverlayDebugState debug;
+    constexpr uint32_t retained = Physics::PHYSICS_DEBUG_TERRAIN_CONTACT | Physics::PHYSICS_DEBUG_PIPELINE;
+    debug.physicsDebugFlags = retained;
+
+    constexpr uint32_t expectedCycle[] = {
+        Physics::PHYSICS_DEBUG_AXES,
+        Physics::PHYSICS_DEBUG_CONTACTS,
+        Physics::PHYSICS_DEBUG_SLEEP,
+        Physics::PHYSICS_DEBUG_AXES | Physics::PHYSICS_DEBUG_CONTACTS | Physics::PHYSICS_DEBUG_SLEEP,
+        Physics::PHYSICS_DEBUG_NONE,
+    };
+
+    for ( const uint32_t expected : expectedCycle )
+    {
+        CHECK( HandleDiagnosticsKeyboardShortcut( debug, DiagnosticsKeyboardCommand::CyclePhysicsDebugOverlay ) );
+        CHECK( debug.physicsDebugFlags == ( retained | expected ) );
+    }
+}
+
 TEST_CASE( "Diagnostics keyboard commands mutate presentation without Input ownership" )
 {
     OverlayDebugState debug;

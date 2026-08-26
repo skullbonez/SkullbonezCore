@@ -345,6 +345,13 @@ SkullbonezCore::Core::SbResult Run::BindRenderBackend( Rendering::RenderBackendD
 SkullbonezCore::Core::SbResult Run::ResolveExecuteExit( int messageExitCode )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
+
+    // Invariant: every Execute return closes the required perf artifact before
+    // ApplicationExitState resolves process success. Buffered write, flush, or
+    // close failures therefore outrank a normal WM_QUIT code.
+    (void)ApplyPerfLogArtifactStatus( m_resultDiagnostics, m_applicationExit,
+                                      m_diagnosticsRuntime.ClosePerfLog() );
+
     return ResolveRunExitAfterInteractionRecording( m_interactionRecorder, m_resultDiagnostics, m_applicationExit,
                                                      messageExitCode,
                                                      []( void* context )
@@ -404,7 +411,7 @@ Run::~Run()
                                   m_timers.SimulationTotalSeconds() );
     }
 
-    m_diagnosticsRuntime.ClosePerfLog();
+    (void)m_diagnosticsRuntime.ClosePerfLog();
     const ReplayShutdownReport replayShutdown = m_replayRuntime.FinishShutdown();
 
     if ( replayShutdown.presentation.enabled )

@@ -126,6 +126,20 @@ struct RunPerfLogState
 #endif
 };
 
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+enum class RuntimePerfLogTestFailure : uint8_t
+{
+    None,
+    Write,
+    Flush,
+    Close,
+};
+
+// Test-only fault selection is thread-local so artifact probes cannot perturb
+// another test worker or a concurrently open diagnostic stream.
+void SetRuntimePerfLogTestFailure( RuntimePerfLogTestFailure failure ) noexcept;
+#endif
+
 #ifdef _DEBUG
 struct RunPhysicsDiagnosticsState
 {
@@ -223,20 +237,21 @@ class RuntimeDiagnostics
     // Samples cheap process counters; includePrivateWorkingSet adds a
     // full resident-page walk for diagnostics that need Task Manager parity.
     static SkullbonezCore::Core::MainMemoryProcessStats SampleProcessMemory( bool includePrivateWorkingSet );
-    static void ClosePerfLog( RunPerfLogState& perfLog );
-    static void ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perfLog, int pass, const char* checkpoint );
-    static void LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint );
+    [[nodiscard]] static bool ClosePerfLog( RunPerfLogState& perfLog );
+    [[nodiscard]] static bool ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perfLog, int pass,
+                                                                const char* checkpoint );
+    [[nodiscard]] static bool LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint );
     static void ResetPerfLogForSceneLoad( RunPerfLogState& perfLog );
     static void ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool enabled, int interval );
 
     // SkullbonezCore::Core::Profiler is a startup-bound optional dependency so artifact writers do
     // not reopen a process-global profiler locator while ticking frames or
     // scene automation.
-    static void OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass,
-                                  SkullbonezCore::Core::Profiler* profiler );
+    [[nodiscard]] static bool OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass,
+                                               SkullbonezCore::Core::Profiler* profiler );
     static bool PerfTestActive( const RunPerfLogState& perfLog );
-    static void TickPerfLog( RunPerfLogState& perfLog, int pass, int frame, float physicsTimeSeconds,
-                             float renderTimeSeconds, SkullbonezCore::Core::Profiler* profiler );
+    [[nodiscard]] static bool TickPerfLog( RunPerfLogState& perfLog, int pass, int frame, float physicsTimeSeconds,
+                                          float renderTimeSeconds, SkullbonezCore::Core::Profiler* profiler );
     static RuntimeProfilerFrameTimes SampleProfilerFrameTimes( const SkullbonezCore::Core::Profiler* profiler );
 
 #ifdef _DEBUG

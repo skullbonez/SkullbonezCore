@@ -47,6 +47,21 @@ namespace
 {
 constexpr double MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS = 1.0;
 
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+thread_local MainMemoryDumpTestFailure g_mainMemoryDumpTestFailure = MainMemoryDumpTestFailure::None;
+
+bool ConsumeMainMemoryDumpTestFailure( MainMemoryDumpTestFailure failure ) noexcept
+{
+    if ( g_mainMemoryDumpTestFailure != failure )
+    {
+        return false;
+    }
+
+    g_mainMemoryDumpTestFailure = MainMemoryDumpTestFailure::None;
+    return true;
+}
+#endif
+
 const char* DiagnosticFileNameFromPath( const char* path )
 {
     const char* forwardSlash = std::strrchr( path, '/' );
@@ -382,6 +397,13 @@ void WriteReplayTrajectoryCounters( FILE* file, const SkullbonezCore::Core::Main
 }
 } // namespace
 
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+void SetMainMemoryDumpTestFailure( MainMemoryDumpTestFailure failure ) noexcept
+{
+    g_mainMemoryDumpTestFailure = failure;
+}
+#endif
+
 DiagnosticsUIKeyboardShortcutResult
 HandleDiagnosticsUIKeyboardShortcut( OverlayDebugState& debug, DiagnosticsUiKeyboardCommand command, bool wasPressed )
 {
@@ -433,15 +455,15 @@ RunPerfLogState& DiagnosticsRuntime::PerfLog()
 }
 
 
-void DiagnosticsRuntime::ClosePerfLog()
+bool DiagnosticsRuntime::ClosePerfLog()
 {
-    m_diagnostics.ClosePerfLog();
+    return m_diagnostics.ClosePerfLog();
 }
 
 
-void DiagnosticsRuntime::ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint )
+bool DiagnosticsRuntime::ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint )
 {
-    m_diagnostics.ClosePerfLogWithMemoryCheckpoint( pass, checkpoint );
+    return m_diagnostics.ClosePerfLogWithMemoryCheckpoint( pass, checkpoint );
 }
 
 
@@ -451,11 +473,12 @@ void DiagnosticsRuntime::ResetPerfLogForSceneLoad()
 }
 
 
-void DiagnosticsRuntime::ResetForSceneLoad( int completedPerfPass )
+bool DiagnosticsRuntime::ResetForSceneLoad( int completedPerfPass )
 {
-    ClosePerfLogWithMemoryCheckpoint( completedPerfPass, "end" );
+    const bool perfLogClosed = ClosePerfLogWithMemoryCheckpoint( completedPerfPass, "end" );
     ResetPerfLogForSceneLoad();
     m_uiStress.Reset();
+    return perfLogClosed;
 }
 
 
@@ -465,18 +488,20 @@ void DiagnosticsRuntime::ConfigurePerfLogFlush( bool enabled, int interval )
 }
 
 
-void DiagnosticsRuntime::OpenScenePerfLog( const char* path, int pass )
+bool DiagnosticsRuntime::OpenScenePerfLog( const char* path, int pass )
 {
-    m_diagnostics.OpenScenePerfLog( path, pass );
+    return m_diagnostics.OpenScenePerfLog( path, pass );
 }
 
 
-void DiagnosticsRuntime::ApplyScenePerfLogOptions( const char* path, int perfPass )
+bool DiagnosticsRuntime::ApplyScenePerfLogOptions( const char* path, int perfPass )
 {
     if ( path && path[0] != '\0' )
     {
-        OpenScenePerfLog( path, perfPass );
+        return OpenScenePerfLog( path, perfPass );
     }
+
+    return true;
 }
 
 
@@ -486,9 +511,9 @@ bool DiagnosticsRuntime::PerfTestActive() const
 }
 
 
-void DiagnosticsRuntime::TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds )
+bool DiagnosticsRuntime::TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds )
 {
-    m_diagnostics.TickPerfLog( pass, frame, physicsTimeSeconds, renderTimeSeconds );
+    return m_diagnostics.TickPerfLog( pass, frame, physicsTimeSeconds, renderTimeSeconds );
 }
 
 
@@ -729,7 +754,27 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              static_cast<unsigned long long>( stats.foreignFreeCount ), scene.CurrentFrame(), scene.TargetFrameCount(),
              scene.ModelCount(), scene.TestComplete() ? "true" : "false" );
 
-    fclose( file );
+    bool writeSucceeded = std::ferror( file ) == 0;
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+    writeSucceeded = !ConsumeMainMemoryDumpTestFailure( MainMemoryDumpTestFailure::Write ) && writeSucceeded;
+#endif
+
+    bool flushSucceeded = std::fflush( file ) == 0;
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+    flushSucceeded = !ConsumeMainMemoryDumpTestFailure( MainMemoryDumpTestFailure::Flush ) && flushSucceeded;
+#endif
+
+    bool closeSucceeded = std::fclose( file ) == 0;
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+    closeSucceeded = !ConsumeMainMemoryDumpTestFailure( MainMemoryDumpTestFailure::Close ) && closeSucceeded;
+#endif
+
+    if ( !writeSucceeded || !flushSucceeded || !closeSucceeded )
+    {
+        fprintf( stderr, "[memory] Failed to complete memory dump: %s\n", m_mainMemoryDumpPath );
+        return false;
+    }
+
     fprintf( stdout, "[memory] Wrote main memory dump: %s\n", m_mainMemoryDumpPath );
     return true;
 }

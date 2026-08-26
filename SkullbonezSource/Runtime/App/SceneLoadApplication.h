@@ -27,6 +27,7 @@ Related:
 #include "../Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "../Scene/SceneLifecycle.h"
 #include "../Scene/SceneSessionState.h"
+#include "../../Core/SbDiagnosticStore.h"
 
 #include <cstdint>
 
@@ -63,6 +64,46 @@ inline RuntimeSceneDiagnosticFacts ProjectSceneDiagnosticFacts( const SceneSessi
     return RuntimeSceneDiagnosticFacts( scene.currentSceneIndex, scene.loadCount, scene.manualResetCount, scene.currentFrame,
                                         scene.targetFrameCount, scene.modelCount, scene.rngSeed, scene.isFixedStep,
                                         scene.isTestComplete, scene.isFinishLogged );
+}
+
+inline SkullbonezCore::Core::SbResult ResolvePerfLogArtifactStatus( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                    bool succeeded )
+{
+    return succeeded
+               ? SkullbonezCore::Core::SbResult::Success()
+               : diagnostics.Failure( "Runtime/Diagnostics",
+                                      "Performance CSV could not be completely written, flushed, and closed." );
+}
+
+inline SkullbonezCore::Core::SbResult ApplyPerfLogArtifactStatus( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                  ApplicationExitState& exitState, bool succeeded )
+{
+    SkullbonezCore::Core::SbResult result = ResolvePerfLogArtifactStatus( diagnostics, succeeded );
+
+    if ( !result.Ok() )
+    {
+        // Invariant: App latches the owned failure before a caller can reduce
+        // the scene-load or frame result to a boolean and post WM_QUIT(0).
+        exitState.RequestPhaseFailure( result );
+    }
+
+    return result;
+}
+
+inline SkullbonezCore::Core::SbResult
+ApplySceneLoadDiagnosticsStatus( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, ApplicationExitState& exitState,
+                                 const SkullbonezCore::Core::SbResult& sceneStatus, bool diagnosticsSucceeded )
+{
+    if ( diagnosticsSucceeded )
+    {
+        return sceneStatus;
+    }
+
+    SkullbonezCore::Core::SbResult perfStatus = ApplyPerfLogArtifactStatus( diagnostics, exitState, false );
+
+    // The scene owner keeps the returned diagnostic when both operations fail;
+    // the App exit latch independently retains the required-artifact failure.
+    return sceneStatus.Ok() ? perfStatus : sceneStatus;
 }
 
 struct RuntimeFrameMetricsLifecycleActions
