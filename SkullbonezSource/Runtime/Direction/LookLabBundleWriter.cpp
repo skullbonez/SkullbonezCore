@@ -1,25 +1,30 @@
 /*
-File : LookLabBundleWriter.cpp Purpose : Creates collision -
-    safe Look Lab directories and exact derived receipts.
+File: SkullbonezSource/Runtime/Direction/LookLabBundleWriter.cpp
+Purpose:
+  Creates collision-safe Look Lab directories and exact derived receipts.
 
-    Summary : The writer validates all user -
-    visible receipt text,
-    reserves the bundle path with exclusive directory creation,
-    and combines fixed transaction facts with Scene's complete flattened style listing.
+Summary:
+  The writer validates timestamp and receipt text before reserving one bundle
+  directory, then combines fixed transaction facts with Scene's flattened style
+  listing for atomic receipt publication.
 
-        Glossary : Exclusive directory creation
-    : create_directory succeeds only when this call owns a previously absent final bundle path.Partial success
-    : Style is reusable even when later screenshot capture fails;
-the receipt reports both states independently.
+Glossary:
+  Exclusive directory creation: create_directory succeeds only when this call
+    owns a previously absent final bundle path.
+  Partial success: Style remains reusable when later screenshot capture fails;
+    the receipt reports both states independently.
 
-    Invariants : -Bundle creation never deletes,
-    merges into, or overwrites an existing path.- Receipt output filenames are the fixed three bundle leaf names.- Newline -
-                         bearing metadata is rejected before receipt serialization.
+Invariants:
+  - Bundle creation never deletes, merges into, or overwrites an existing path.
+  - Receipt output filenames are the fixed three bundle leaf names.
+  - Calendar-invalid timestamps and newline-bearing metadata are rejected before
+    filesystem or receipt publication.
 
-                             Related : -SkullbonezSource /
-                             Runtime / Direction / LookLabBundleWriter.h -
-                         SkullbonezSource / Scene / StandaloneStyleWriter.cpp -
-                         SkullbonezSource / Core / AtomicTextFileWriter.cpp*/
+Related:
+  - SkullbonezSource/Runtime/Direction/LookLabBundleWriter.h
+  - SkullbonezSource/Scene/StandaloneStyleWriter.cpp
+  - SkullbonezSource/Core/AtomicTextFileWriter.cpp
+*/
 #include "LookLabBundleWriter.h"
 #include "../../Core/AtomicTextFileWriter.h"
 #include "../../Core/SbDiagnosticStore.h"
@@ -36,7 +41,9 @@ namespace
 {
 constexpr const char* OWNER = "Runtime/Direction/LookLabBundleWriter";
 
-bool TimestampValid( const char* timestamp )
+} // namespace
+
+bool IsValidLookLabLocalTimestamp( const char* timestamp ) noexcept
 {
     if ( !timestamp || std::strlen( timestamp ) != 19 )
     {
@@ -50,7 +57,8 @@ bool TimestampValid( const char* timestamp )
     {
         bool separator = false;
 
-        for ( size_t separatorIndex = 0; separatorIndex < std::size( separators ); ++separatorIndex )
+        for ( size_t separatorIndex = 0; separatorIndex < sizeof( separators ) / sizeof( separators[0] );
+              ++separatorIndex )
         {
             if ( index == separators[separatorIndex] )
             {
@@ -72,13 +80,32 @@ bool TimestampValid( const char* timestamp )
     }
 
     const auto pair = [timestamp]( int index ) { return ( timestamp[index] - '0' ) * 10 + timestamp[index + 1] - '0'; };
+    const int year = ( timestamp[0] - '0' ) * 1000 + ( timestamp[1] - '0' ) * 100 +
+                     ( timestamp[2] - '0' ) * 10 + timestamp[3] - '0';
     const int month = pair( 5 );
     const int day = pair( 8 );
     const int hour = pair( 11 );
     const int minute = pair( 14 );
     const int second = pair( 17 );
-    return month >= 1 && month <= 12 && day >= 1 && day <= 31 && hour <= 23 && minute <= 59 && second <= 59;
+    if ( year < 1 || month < 1 || month > 12 || hour > 23 || minute > 59 || second > 59 )
+    {
+        return false;
+    }
+
+    constexpr int daysPerMonth[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    int maximumDay = daysPerMonth[month - 1];
+    const bool leapYear = year % 400 == 0 || ( year % 4 == 0 && year % 100 != 0 );
+
+    if ( month == 2 && leapYear )
+    {
+        maximumDay = 29;
+    }
+
+    return day >= 1 && day <= maximumDay;
 }
+
+namespace
+{
 
 template <size_t Capacity> bool TextValid( const std::array<char, Capacity>& text, bool allowEmpty = true )
 {
@@ -140,11 +167,11 @@ std::string OffsetText( int minutes )
 }
 } // namespace
 
-Core::SbResult LookLabBundleWriter::CreateBundleDirectory( Core::SbDiagnosticStore& diagnostics, const char* lookLabRoot,
-                                                           const char* localTimestamp, uint64_t seed,
-                                                           LookLabBundlePaths& output )
+Core::SbResult LookLabBundleWriter::ResolveBundlePaths( Core::SbDiagnosticStore& diagnostics, const char* lookLabRoot,
+                                                        const char* localTimestamp, uint64_t seed,
+                                                        LookLabBundlePaths& output )
 {
-    if ( !lookLabRoot || lookLabRoot[0] == '\0' || !TimestampValid( localTimestamp ) )
+    if ( !lookLabRoot || lookLabRoot[0] == '\0' || !IsValidLookLabLocalTimestamp( localTimestamp ) )
     {
         return diagnostics.Failure( OWNER, "Look Lab root or local timestamp is invalid." );
     }
@@ -154,6 +181,35 @@ Core::SbResult LookLabBundleWriter::CreateBundleDirectory( Core::SbDiagnosticSto
                   << seed;
     const std::filesystem::path root( lookLabRoot );
     const std::filesystem::path directory = root / directoryName.str();
+    LookLabBundlePaths resolved;
+    const bool pathsFit = CopyPath( directory, resolved.directory ) &&
+                          CopyPath( directory / "look.style.json", resolved.style ) &&
+                          CopyPath( directory / "look.txt", resolved.receipt ) &&
+                          CopyPath( directory / "look.png", resolved.screenshot );
+
+    if ( !pathsFit )
+    {
+        return diagnostics.Failure( OWNER, "Look Lab bundle path exceeds the bounded path capacity." );
+    }
+
+    output = resolved;
+    return Core::SbResult::Success();
+}
+
+Core::SbResult LookLabBundleWriter::CreateBundleDirectory( Core::SbDiagnosticStore& diagnostics, const char* lookLabRoot,
+                                                           const char* localTimestamp, uint64_t seed,
+                                                           LookLabBundlePaths& output )
+{
+    LookLabBundlePaths resolved;
+    Core::SbResult resolveResult = ResolveBundlePaths( diagnostics, lookLabRoot, localTimestamp, seed, resolved );
+
+    if ( !resolveResult.Ok() )
+    {
+        return resolveResult;
+    }
+
+    const std::filesystem::path root( lookLabRoot );
+    const std::filesystem::path directory( resolved.directory.data() );
     std::error_code filesystemError;
     std::filesystem::create_directories( root, filesystemError );
 
@@ -171,18 +227,6 @@ Core::SbResult LookLabBundleWriter::CreateBundleDirectory( Core::SbDiagnosticSto
                                     directory.generic_string().c_str(), filesystemError.value() );
     }
 
-    LookLabBundlePaths resolved;
-    const bool pathsFit = CopyPath( directory, resolved.directory ) &&
-                          CopyPath( directory / "look.style.json", resolved.style ) &&
-                          CopyPath( directory / "look.txt", resolved.receipt ) &&
-                          CopyPath( directory / "look.png", resolved.screenshot );
-
-    if ( !pathsFit )
-    {
-        std::filesystem::remove( directory, filesystemError );
-        return diagnostics.Failure( OWNER, "Look Lab bundle path exceeds the bounded path capacity." );
-    }
-
     output = resolved;
     return Core::SbResult::Success();
 }
@@ -191,7 +235,7 @@ Core::SbResult LookLabBundleWriter::BuildReceipt( Core::SbDiagnosticStore& diagn
                                                   const Scene::StandaloneStyleSnapshot& snapshot,
                                                   const LookLabBundlePaths& paths, std::string& output )
 {
-    if ( !TextValid( facts.localTimestamp, false ) || !TimestampValid( facts.localTimestamp.data() ) ||
+    if ( !TextValid( facts.localTimestamp, false ) || !IsValidLookLabLocalTimestamp( facts.localTimestamp.data() ) ||
          facts.utcOffsetMinutes < -14 * 60 || facts.utcOffsetMinutes > 14 * 60 || !TextValid( facts.sourceScenePath ) ||
          !TextValid( facts.sourceSceneDisplayName ) || !TextValid( facts.styleDiagnostic ) ||
          !TextValid( facts.screenshotDiagnostic ) || !TextValid( paths.style, false ) ||

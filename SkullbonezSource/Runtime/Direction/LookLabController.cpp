@@ -24,6 +24,8 @@ Invariants:
   - The current candidate is published only after final validity succeeds.
   - A pending bundle blocks reroll and duplicate save so one accepted action
     produces one directory containing one internally consistent candidate.
+  - Receipt metadata is fully validated before bundle publication receives a
+    directory-creation request.
   - App explicitly clears before every scene replacement; clearing drops all
     scene-local candidate and pending-save state without polling a frame packet.
 
@@ -84,6 +86,23 @@ template <std::size_t Capacity> void CopyBounded( std::array<char, Capacity>& ou
     strncpy_s( output.data(), output.size(), value ? value : "", _TRUNCATE );
 }
 
+template <std::size_t Capacity> bool RequestTextFits( const char* value, bool allowEmpty = true )
+{
+    if ( !value || ( !allowEmpty && value[0] == '\0' ) )
+    {
+        return false;
+    }
+
+    const std::size_t length = std::strlen( value );
+
+    if ( length >= Capacity )
+    {
+        return false;
+    }
+
+    return std::strchr( value, '\r' ) == nullptr && std::strchr( value, '\n' ) == nullptr;
+}
+
 uint64_t MixAuthoringSeed( uint64_t value )
 {
     value += 0x9e3779b97f4a7c15ull;
@@ -134,6 +153,28 @@ void ResolveRetainedPresentationValues( LookLabCandidate& candidate, const Core:
     resolved.shadow.maxDistance = activePresentation.shadow.maxDistance;
 }
 } // namespace
+
+Core::SbResult ValidateLookLabSaveRequest( Core::SbDiagnosticStore& diagnostics, const LookLabSaveRequest& request,
+                                           uint64_t seed )
+{
+    if ( !request.lookLabRoot || request.lookLabRoot[0] == '\0' ||
+         !RequestTextFits<LookLabReceiptFacts::LOCAL_TIMESTAMP_CAPACITY>( request.localTimestamp, false ) ||
+         !IsValidLookLabLocalTimestamp( request.localTimestamp ) ||
+         !RequestTextFits<LookLabReceiptFacts::SOURCE_SCENE_PATH_CAPACITY>( request.sourceScenePath ) ||
+         !RequestTextFits<LookLabReceiptFacts::SOURCE_SCENE_DISPLAY_NAME_CAPACITY>( request.sourceSceneDisplayName ) )
+    {
+        return diagnostics.Failure( OWNER, "save request contains invalid or unbounded receipt metadata" );
+    }
+
+    if ( request.utcOffsetMinutes < -14 * 60 || request.utcOffsetMinutes > 14 * 60 )
+    {
+        return diagnostics.Failure( OWNER, "save request UTC offset must be within -14:00..+14:00" );
+    }
+
+    LookLabBundlePaths preflightPaths;
+    return LookLabBundleWriter::ResolveBundlePaths( diagnostics, request.lookLabRoot, request.localTimestamp, seed,
+                                                     preflightPaths );
+}
 
 LookLabController::LookLabController() : m_publication( &DefaultBundlePublication() )
 {
@@ -302,6 +343,15 @@ LookLabSaveStartResult LookLabController::BeginSave( Core::SbDiagnosticStore& di
     {
         output.status = diagnostics.Failure( OWNER, "one Look Lab bundle is already pending capture" );
         PublishStatus( LookLabStatusKind::Rejected, output.status.ErrorMessage() );
+        return output;
+    }
+
+    Core::SbResult requestResult = ValidateLookLabSaveRequest( diagnostics, request, m_candidate->seed );
+
+    if ( !requestResult.Ok() )
+    {
+        PublishStatus( LookLabStatusKind::Rejected, requestResult.ErrorMessage() );
+        output.status = std::move( requestResult );
         return output;
     }
 

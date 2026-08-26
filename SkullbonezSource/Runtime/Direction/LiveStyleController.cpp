@@ -36,28 +36,8 @@ bool IsPathSeparator( char c )
 
 bool IsAbsolutePath( const char* path )
 {
-    return path && ( IsPathSeparator( path[0] ) || ( path[0] != '\0' && path[1] == ':' ) );
-}
-
-
-void JoinControlPath( const char* directory, const char* fileName, char* out, size_t outSize )
-{
-    if ( !directory || directory[0] == '\0' )
-    {
-        strcpy_s( out, outSize, fileName );
-        return;
-    }
-
-    const size_t len = strlen( directory );
-
-    if ( len > 0 && IsPathSeparator( directory[len - 1] ) )
-    {
-        sprintf_s( out, outSize, "%s%s", directory, fileName );
-    }
-    else
-    {
-        sprintf_s( out, outSize, "%s\\%s", directory, fileName );
-    }
+    return path && ( IsPathSeparator( path[0] ) ||
+                     ( path[0] != '\0' && path[1] == ':' && IsPathSeparator( path[2] ) ) );
 }
 
 
@@ -165,30 +145,98 @@ bool ExtractCapturePath( const char* source, char* out, size_t outSize )
 }
 
 
-bool ReadCaptureRequest( const char* path, char* out, size_t outSize )
+enum class CaptureRequestReadResult
+{
+    Unavailable,
+    Invalid,
+    NoRequest,
+    Found
+};
+
+CaptureRequestReadResult ReadCaptureRequest( const char* path, char* out, size_t outSize )
 {
     FILE* file = nullptr;
-    const errno_t err = fopen_s( &file, path, "r" );
+    const errno_t err = fopen_s( &file, path, "rb" );
 
     if ( err != 0 || !file )
     {
-        return false;
+        return CaptureRequestReadResult::Unavailable;
     }
 
-    char line[512] = {};
+    char line[LIVE_STYLE_SCREENSHOT_PATH_CAPACITY] = {};
     bool found = false;
+    bool invalid = false;
+    bool reachedEnd = false;
 
-    while ( fgets( line, sizeof( line ), file ) )
+    // Hazard: fgets cannot distinguish an exact final line from the prefix of
+    // an overlong command. Read physical bytes so no truncated path can become
+    // a different valid screenshot destination.
+    while ( !found && !invalid && !reachedEnd )
     {
+        std::size_t length = 0u;
+
+        for ( ;; )
+        {
+            const int next = fgetc( file );
+
+            if ( next == EOF )
+            {
+                reachedEnd = true;
+                break;
+            }
+
+            if ( next == '\n' )
+            {
+                break;
+            }
+
+            if ( next == '\0' || length + 1u >= sizeof( line ) )
+            {
+                invalid = true;
+
+                // Consume the rejected logical line so a suffix can never be
+                // reconsidered as a second capture command.
+                int remainder = next;
+
+                while ( remainder != '\n' && remainder != EOF )
+                {
+                    remainder = fgetc( file );
+                }
+
+                reachedEnd = remainder == EOF;
+                break;
+            }
+
+            line[length++] = static_cast<char>( next );
+        }
+
+        line[length] = '\0';
+
+        if ( invalid || ferror( file ) != 0 )
+        {
+            break;
+        }
+
         if ( ExtractCapturePath( line, out, outSize ) )
         {
             found = true;
-            break;
         }
     }
 
-    fclose( file );
-    return found;
+    const bool readFailed = ferror( file ) != 0;
+    const bool closeFailed = fclose( file ) != 0;
+
+    if ( readFailed || closeFailed )
+    {
+        return CaptureRequestReadResult::Unavailable;
+    }
+
+    if ( invalid )
+    {
+        return CaptureRequestReadResult::Invalid;
+    }
+
+    return found ? CaptureRequestReadResult::Found : CaptureRequestReadResult::NoRequest;
 }
 
 
@@ -222,15 +270,17 @@ void LiveStyleController::WriteStatus( const char* status, const char* detail ) 
 
 bool LiveStyleController::ConfigureDirectory( const char* path )
 {
-    if ( !path || path[0] == '\0' )
+    const LiveStyleControlPaths resolved = ResolveLiveStyleControlPaths( path );
+
+    if ( !resolved.valid )
     {
         return false;
     }
 
-    strcpy_s( m_directory, sizeof( m_directory ), path );
-    JoinControlPath( m_directory, "live.style.json", m_stylePath, sizeof( m_stylePath ) );
-    JoinControlPath( m_directory, "capture.txt", m_capturePath, sizeof( m_capturePath ) );
-    JoinControlPath( m_directory, "status.txt", m_statusPath, sizeof( m_statusPath ) );
+    std::memcpy( m_directory, resolved.directory.data(), sizeof( m_directory ) );
+    std::memcpy( m_stylePath, resolved.style.data(), sizeof( m_stylePath ) );
+    std::memcpy( m_capturePath, resolved.capture.data(), sizeof( m_capturePath ) );
+    std::memcpy( m_statusPath, resolved.status.data(), sizeof( m_statusPath ) );
     m_styleStamp = 0;
     m_captureStamp = FileStamp( m_capturePath );
     m_pendingScreenshotPath[0] = '\0';
@@ -262,10 +312,10 @@ bool LiveStyleController::Poll( SkullbonezCore::Core::SbDiagnosticStore& resultD
 
     if ( styleStamp != 0 && styleStamp != m_styleStamp )
     {
-        m_styleStamp = styleStamp;
         const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( resultDiagnostics,
                                                                                                m_stylePath, assets,
                                                                                                outStyle );
+        m_styleStamp = ResolveLiveStyleRetainedStamp( m_styleStamp, styleStamp, loadResult.Ok() );
 
         if ( loadResult.Ok() )
         {
@@ -283,27 +333,38 @@ bool LiveStyleController::Poll( SkullbonezCore::Core::SbDiagnosticStore& resultD
 
     if ( captureStamp != 0 && captureStamp != m_captureStamp )
     {
-        m_captureStamp = captureStamp;
-
         char requestedPath[512] = {};
+        const CaptureRequestReadResult readResult = ReadCaptureRequest( m_capturePath, requestedPath,
+                                                                        sizeof( requestedPath ) );
+        m_captureStamp = ResolveLiveStyleRetainedStamp( m_captureStamp, captureStamp,
+                                                        readResult != CaptureRequestReadResult::Unavailable );
 
-        if ( ReadCaptureRequest( m_capturePath, requestedPath, sizeof( requestedPath ) ) )
+        if ( readResult == CaptureRequestReadResult::Found )
         {
-            if ( IsAbsolutePath( requestedPath ) )
+            char resolvedPath[sizeof( m_pendingScreenshotPath )] = {};
+            const bool pathFits = IsAbsolutePath( requestedPath )
+                                      ? TryBuildLiveStylePath( "", requestedPath, resolvedPath, sizeof( resolvedPath ) )
+                                      : TryBuildLiveStylePath( m_directory, requestedPath, resolvedPath,
+                                                               sizeof( resolvedPath ) );
+
+            if ( pathFits )
             {
-                strcpy_s( m_pendingScreenshotPath, sizeof( m_pendingScreenshotPath ), requestedPath );
+                std::memcpy( m_pendingScreenshotPath, resolvedPath, sizeof( m_pendingScreenshotPath ) );
+                m_hasPendingScreenshot = true;
+                WriteStatus( "capture_pending", m_pendingScreenshotPath );
             }
             else
             {
-                JoinControlPath( m_directory, requestedPath, m_pendingScreenshotPath, sizeof( m_pendingScreenshotPath ) );
+                WriteStatus( "capture_ignored", "requested screenshot path exceeds bounded capacity" );
             }
-
-            m_hasPendingScreenshot = true;
-            WriteStatus( "capture_pending", m_pendingScreenshotPath );
         }
-        else
+        else if ( readResult == CaptureRequestReadResult::NoRequest )
         {
             WriteStatus( "capture_ignored", "capture.txt contains no screenshot path" );
+        }
+        else if ( readResult == CaptureRequestReadResult::Invalid )
+        {
+            WriteStatus( "capture_ignored", "capture.txt contains an invalid or overlong request" );
         }
     }
 

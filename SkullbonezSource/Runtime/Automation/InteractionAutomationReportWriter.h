@@ -104,14 +104,29 @@ struct InteractionAutomationRunStatus
 
 struct RunInteractionAutomationReportAction
 {
+    static constexpr std::size_t TARGET_CAPACITY = 1024u;
+
     int frame = 0;
     char type[64] = {};
-    char target[128] = {};
+    char target[TARGET_CAPACITY] = {};
     POINT mouse = {};
     bool hasMouse = false;
     bool consumed = false;
     char detail[256] = {};
 };
+
+inline bool TryRetainInteractionAutomationReportTarget( RunInteractionAutomationReportAction& report,
+                                                         std::string_view target ) noexcept
+{
+    if ( target.size() >= sizeof( report.target ) || target.find( '\0' ) != std::string_view::npos )
+    {
+        return false;
+    }
+
+    std::memcpy( report.target, target.data(), target.size() );
+    report.target[target.size()] = '\0';
+    return true;
+}
 
 struct RunInteractionAutomationReportAssertion
 {

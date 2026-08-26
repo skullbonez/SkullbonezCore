@@ -1088,14 +1088,15 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     {
     case RunInteractionAutomationActionType::LoadShotList:
     {
-        const bool loaded = DemoDirectorPlayback::LoadShotList( camera.director, currentPose, action.path );
+        const bool loaded = DemoDirectorPlayback::LoadShotList( camera.director, currentPose,
+                                                                action.directorShotListPath );
 
         if ( !loaded )
         {
             FailAutomation( state, "failed to load director shot list" );
         }
 
-        AppendReportAction( state, frame, action.type, action.path, nullptr, loaded,
+        AppendReportAction( state, frame, action.type, action.directorShotListPath, nullptr, loaded,
                             loaded ? "shot list loaded" : "shot list unavailable" );
 
         break;
@@ -1702,8 +1703,15 @@ bool ParseLoadShotListAction( const Json& entry, RunInteractionAutomationAction&
         return false;
     }
 
+    const std::string path = entry["loadShotList"].get<std::string>();
+
+    if ( !TryRetainInteractionShotListPath( outAction, path ) )
+    {
+        outError = "loadShotList path is empty or exceeds the bounded director path capacity";
+        return false;
+    }
+
     outAction.type = RunInteractionAutomationActionType::LoadShotList;
-    CopyText( outAction.path, sizeof( outAction.path ), entry["loadShotList"].get<std::string>() );
     return true;
 }
 

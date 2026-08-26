@@ -27,9 +27,11 @@ Related:
 #include "DemoDirectorPersistence.h"
 #include "../Tools/RuntimeFileWriter.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string>
 
@@ -85,7 +87,15 @@ bool ReadFloatValue( const Json& value, const char* path, const std::string& con
         return FailField( path, context, "must be a number" );
     }
 
-    out = value.get<float>();
+    const double parsed = value.get<double>();
+
+    if ( !std::isfinite( parsed ) || parsed < -(std::numeric_limits<float>::max)() ||
+         parsed > (std::numeric_limits<float>::max)() )
+    {
+        return FailField( path, context, "must fit a finite float" );
+    }
+
+    out = static_cast<float>( parsed );
     return true;
 }
 
@@ -136,6 +146,23 @@ bool ReadOptionalFloatMember( const Json& object, const char* key, const char* p
 {
     const Json* member = FindMember( object, key );
     return !member || ReadFloatValue( *member, path, context + "." + key, inOutValue );
+}
+
+bool CameraPoseValid( const DemoCameraPose& camera )
+{
+    const auto finite = []( const Vector3& value )
+    { return std::isfinite( value.x ) && std::isfinite( value.y ) && std::isfinite( value.z ); };
+
+    if ( !finite( camera.eye ) || !finite( camera.view ) || !finite( camera.up ) )
+    {
+        return false;
+    }
+
+    const double forwardX = static_cast<double>( camera.view.x ) - camera.eye.x;
+    const double forwardY = static_cast<double>( camera.view.y ) - camera.eye.y;
+    const double forwardZ = static_cast<double>( camera.view.z ) - camera.eye.z;
+    const double forwardSquared = forwardX * forwardX + forwardY * forwardY + forwardZ * forwardZ;
+    return forwardSquared >= 1.0e-12;
 }
 
 bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPhase )
@@ -191,10 +218,17 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
         }
     }
 
-    return ReadOptionalFloatMember( value, "timerSeconds", path, context, outPhase.timerSeconds ) &&
-           ReadOptionalFloatMember( value, "revealThreshold", path, context, outPhase.revealThreshold ) &&
-           ReadOptionalFloatMember( value, "blendInSeconds", path, context, outPhase.blendInSeconds ) &&
-           ReadOptionalFloatMember( value, "revealRate", path, context, outPhase.revealRate );
+    if ( !ReadOptionalFloatMember( value, "timerSeconds", path, context, outPhase.timerSeconds ) ||
+         !ReadOptionalFloatMember( value, "revealThreshold", path, context, outPhase.revealThreshold ) ||
+         !ReadOptionalFloatMember( value, "blendInSeconds", path, context, outPhase.blendInSeconds ) ||
+         !ReadOptionalFloatMember( value, "revealRate", path, context, outPhase.revealRate ) )
+    {
+        return false;
+    }
+
+    // Hazard: LookAt can repair a missing/parallel up vector, but no fallback
+    // can recover an eye/view pair with no usable forward direction.
+    return CameraPoseValid( outPhase.camera ) || FailField( path, context + ".camera", "pose is degenerate" );
 }
 
 bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )

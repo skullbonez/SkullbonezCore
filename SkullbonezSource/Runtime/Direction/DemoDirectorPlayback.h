@@ -59,6 +59,8 @@ struct DemoDirectorCameraCommand
 
 namespace DemoDirectorPlayback
 {
+// Retains the complete cold save target or leaves the prior path unchanged.
+bool TryRetainShotListPath( DemoDirectorPlaybackState& director, const char* path ) noexcept;
 bool LoadShotList( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose, const char* path );
 bool AdvancePhase( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose );
 void EnterMode( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose );

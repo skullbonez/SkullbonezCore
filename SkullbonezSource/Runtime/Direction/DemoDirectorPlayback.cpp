@@ -36,6 +36,7 @@ Related:
 #include "DemoDirectorPlayback.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -53,12 +54,57 @@ Vector3 LerpVector( const Vector3& from, const Vector3& to, float t )
     return from + ( to - from ) * t;
 }
 
+Vector3 BlendUpVector( const Vector3& from, const Vector3& to, float t )
+{
+    Vector3 fromUnit;
+    Vector3 toUnit;
+
+    if ( t <= 0.0f || !from.TryNormalised( fromUnit ) || !to.TryNormalised( toUnit ) )
+    {
+        return t <= 0.0f ? from : LerpVector( from, to, t );
+    }
+
+    if ( t >= 1.0f )
+    {
+        return to;
+    }
+
+    const float alignment = Math::Vector::Dot( fromUnit, toUnit );
+
+    if ( alignment > -0.999f )
+    {
+        return LerpVector( from, to, t );
+    }
+
+    const float absoluteX = std::fabs( fromUnit.x );
+    const float absoluteY = std::fabs( fromUnit.y );
+    const float absoluteZ = std::fabs( fromUnit.z );
+    const Vector3 basis = absoluteX <= absoluteY && absoluteX <= absoluteZ
+                              ? Vector3( 1.0f, 0.0f, 0.0f )
+                              : ( absoluteY <= absoluteZ ? Vector3( 0.0f, 1.0f, 0.0f )
+                                                         : Vector3( 0.0f, 0.0f, 1.0f ) );
+    Vector3 perpendicular = Math::Vector::CrossProduct( fromUnit, basis );
+
+    if ( !perpendicular.TryNormalise() )
+    {
+        return LerpVector( from, to, t );
+    }
+
+    constexpr float PI = 3.14159265358979323846f;
+    const float angle = PI * t;
+
+    // Why: normalized linear interpolation between opposite up directions
+    // collapses and flips at the midpoint. This bounded half-turn chooses one
+    // stable perpendicular and keeps the camera roll continuous.
+    return fromUnit * std::cos( angle ) + perpendicular * std::sin( angle );
+}
+
 DemoCameraPose LerpPose( const DemoCameraPose& from, const DemoCameraPose& to, float t )
 {
     DemoCameraPose pose;
     pose.eye = LerpVector( from.eye, to.eye, t );
     pose.view = LerpVector( from.view, to.view, t );
-    pose.up = LerpVector( from.up, to.up, t );
+    pose.up = BlendUpVector( from.up, to.up, t );
     return pose;
 }
 
@@ -97,16 +143,6 @@ const DemoPhase& CurrentPhase( const DemoDirectorPlaybackState& director )
 DemoPhase& CurrentPhase( DemoDirectorPlaybackState& director )
 {
     return director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
-}
-
-void CopyShotListPath( DemoDirectorPlaybackState& director, const char* path )
-{
-    director.activeShotListPath[0] = '\0';
-
-    if ( path && path[0] )
-    {
-        std::snprintf( director.activeShotListPath, sizeof( director.activeShotListPath ), "%s", path );
-    }
 }
 
 void RememberPhaseStyleAttempt( DemoDirectorPlaybackState& director, const DemoPhase& phase )
@@ -226,8 +262,35 @@ void PublishPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, DemoDirecto
 namespace DemoDirectorPlayback
 {
 
+bool TryRetainShotListPath( DemoDirectorPlaybackState& director, const char* path ) noexcept
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return false;
+    }
+
+    const std::size_t length = std::strlen( path );
+
+    if ( length >= sizeof( director.activeShotListPath ) )
+    {
+        return false;
+    }
+
+    std::memcpy( director.activeShotListPath, path, length + 1u );
+    return true;
+}
+
 bool LoadShotList( DemoDirectorPlaybackState& director, const DemoCameraPose& currentPose, const char* path )
 {
+    DemoDirectorPlaybackState nextState;
+
+    if ( !TryRetainShotListPath( nextState, path ) )
+    {
+        std::printf( "[demo-director] %s: shot-list path exceeds retained capacity\n",
+                     path && path[0] ? path : "<null-path>" );
+        return false;
+    }
+
     DemoShotList loadedShotList;
 
     if ( !LoadDemoShotList( path, loadedShotList ) || loadedShotList.phaseCount <= 0 )
@@ -236,13 +299,11 @@ bool LoadShotList( DemoDirectorPlaybackState& director, const DemoCameraPose& cu
         return false;
     }
 
-    DemoDirectorPlaybackState nextState;
     nextState.activeShotList = loadedShotList;
     nextState.hasActiveShotList = true;
     nextState.currentPhaseIndex = 0;
     nextState.blendStartPose = currentPose;
     nextState.poseCapturedAtGrab = nextState.blendStartPose;
-    CopyShotListPath( nextState, path );
     director = nextState;
 
     std::printf( "[demo-director] loaded %d phase(s) from %s\n", loadedShotList.phaseCount,
@@ -441,9 +502,19 @@ DemoDirectorTickResult Tick( DemoDirectorPlaybackState& director, bool directorM
     result.cameraPose = LerpPose( director.blendStartPose, phase.camera, blendAlpha );
     result.applyCameraPose = true;
 
-    if ( CurrentPhaseRequestsAdvance( director, prediction ) )
+    const bool timerAdvance = phase.advance == PhaseAdvance::Timer;
+    const float timerDuration = (std::max)( 0.0f, phase.timerSeconds );
+    const float timerOvershoot = timerAdvance ? (std::max)( 0.0f, director.phaseElapsedSeconds - timerDuration ) : 0.0f;
+
+    if ( CurrentPhaseRequestsAdvance( director, prediction ) && AdvancePhase( director, result.cameraPose ) )
     {
-        AdvancePhase( director, result.cameraPose );
+        if ( timerAdvance )
+        {
+            // Invariant: a timer boundary consumes only its authored duration;
+            // the remainder already belongs to the next phase and its blend.
+            director.phaseElapsedSeconds = timerOvershoot;
+            director.blendElapsedSeconds = timerOvershoot;
+        }
     }
 
     return result;
@@ -461,6 +532,7 @@ void CompleteStyleApplication( DemoDirectorPlaybackState& director, bool succeed
 
     const char* message = errorMessage && errorMessage[0] != '\0' ? errorMessage : "style load failed";
     std::fprintf( stderr, "[demo-director] style error for %s: %s\n", director.appliedStylePath, message );
+    ResetPhaseStyleApplication( director );
 }
 } // namespace DemoDirectorPlayback
 } // namespace Runtime

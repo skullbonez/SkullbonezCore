@@ -73,11 +73,13 @@ class FailingLookLabPublication final : public Runtime::LookLabBundlePublication
   public:
     bool failStyle = false;
     int failReceiptCall = 0;
+    int createCalls = 0;
     int receiptCalls = 0;
 
     Core::SbResult CreateBundleDirectory( Core::SbDiagnosticStore&, const Runtime::LookLabSaveRequest&, uint64_t,
                                           Runtime::LookLabBundlePaths& output ) override
     {
+        ++createCalls;
         strcpy_s( output.directory.data(), output.directory.size(), "TestOutput/injected_look_lab_bundle" );
         strcpy_s( output.style.data(), output.style.size(), "TestOutput/injected_look_lab_bundle/look.style.json" );
         strcpy_s( output.receipt.data(), output.receipt.size(), "TestOutput/injected_look_lab_bundle/look.txt" );
@@ -339,5 +341,37 @@ TEST_CASE( "Look Lab controller reports style initial receipt and final receipt 
                      .Ok() );
     CHECK_FALSE( finalReceiptController.HasPendingSave() );
     CHECK( finalReceiptController.Status().kind == Runtime::LookLabStatusKind::BundlePartialFailure );
+}
+
+TEST_CASE( "Look Lab validates receipt metadata before bundle publication" )
+{
+    Core::SbDiagnosticStore diagnostics;
+    FailingLookLabPublication publication;
+    Runtime::LookLabController controller( publication );
+    REQUIRE( controller.ResolveSeed( 71u, SentinelPresentation() ) );
+
+    Runtime::LookLabSaveRequest invalidOffset = InjectedSaveRequest();
+    invalidOffset.utcOffsetMinutes = 14 * 60 + 1;
+    const Runtime::LookLabSaveStartResult rejected = controller.BeginSave( diagnostics, invalidOffset );
+    CHECK_FALSE( rejected.status.Ok() );
+    CHECK_FALSE( rejected.captureRequested );
+    CHECK( publication.createCalls == 0 );
+    CHECK( controller.Status().kind == Runtime::LookLabStatusKind::Rejected );
+    CHECK_FALSE( controller.HasPendingSave() );
+
+    const std::string oversizedRoot( 512u, 'r' );
+    Runtime::LookLabSaveRequest invalidRoot = InjectedSaveRequest();
+    invalidRoot.lookLabRoot = oversizedRoot.c_str();
+    const Runtime::LookLabSaveStartResult rejectedRoot = controller.BeginSave( diagnostics, invalidRoot );
+    CHECK_FALSE( rejectedRoot.status.Ok() );
+    CHECK_FALSE( rejectedRoot.captureRequested );
+    CHECK( publication.createCalls == 0 );
+
+    Runtime::LookLabSaveRequest corrected = InjectedSaveRequest();
+    corrected.utcOffsetMinutes = 14 * 60;
+    const Runtime::LookLabSaveStartResult accepted = controller.BeginSave( diagnostics, corrected );
+    REQUIRE( accepted.status.Ok() );
+    CHECK( publication.createCalls == 1 );
+    CHECK( accepted.captureRequested );
 }
 } // namespace

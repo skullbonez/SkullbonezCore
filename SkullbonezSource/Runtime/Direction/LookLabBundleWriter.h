@@ -61,25 +61,37 @@ struct LookLabBundlePaths
 
 struct LookLabReceiptFacts
 {
+    static constexpr std::size_t LOCAL_TIMESTAMP_CAPACITY = 20u;
+    static constexpr std::size_t SOURCE_SCENE_PATH_CAPACITY = 512u;
+    static constexpr std::size_t SOURCE_SCENE_DISPLAY_NAME_CAPACITY = 128u;
+
     // Invariant: one receipt revision consumes this complete fact set together.
     // Artifact diagnostics describe the status beside them and the focused
     // serialization test proves pending-to-failed atomic revision.
-    std::array<char, 20> localTimestamp = {};
+    std::array<char, LOCAL_TIMESTAMP_CAPACITY> localTimestamp = {};
     int utcOffsetMinutes = 0;
     uint64_t seed = 0;
     uint32_t generatorVersion = LOOK_LAB_GENERATOR_VERSION;
     LookLabRecipeFamily recipe = LookLabRecipeFamily::GoldenRealism;
-    std::array<char, 512> sourceScenePath = {};
-    std::array<char, 128> sourceSceneDisplayName = {};
+    std::array<char, SOURCE_SCENE_PATH_CAPACITY> sourceScenePath = {};
+    std::array<char, SOURCE_SCENE_DISPLAY_NAME_CAPACITY> sourceSceneDisplayName = {};
     LookLabArtifactStatus styleStatus = LookLabArtifactStatus::Pending;
     LookLabArtifactStatus screenshotStatus = LookLabArtifactStatus::Pending;
     std::array<char, 256> styleDiagnostic = {};
     std::array<char, 256> screenshotDiagnostic = {};
 };
 
+// Validates the filename schema and the actual Gregorian calendar date.
+bool IsValidLookLabLocalTimestamp( const char* timestamp ) noexcept;
+
 class LookLabBundleWriter
 {
   public:
+
+    // Derives and bounds every bundle path without mutating the filesystem.
+    [[nodiscard]] static Core::SbResult ResolveBundlePaths( Core::SbDiagnosticStore& diagnostics,
+                                                            const char* lookLabRoot, const char* localTimestamp,
+                                                            uint64_t seed, LookLabBundlePaths& output );
 
     // Reserves exactly <timestamp>_seed_<16hex> beneath lookLabRoot. Existing
     // final directories are collisions and are never adopted or overwritten.

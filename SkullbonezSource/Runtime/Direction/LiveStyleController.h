@@ -29,7 +29,10 @@ Related:
 */
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 namespace SkullbonezCore
 {
@@ -44,6 +47,88 @@ class SbDiagnosticStore;
 namespace Runtime
 {
 class AuthoredScene;
+
+inline constexpr std::size_t LIVE_STYLE_DIRECTORY_CAPACITY = 260u;
+inline constexpr std::size_t LIVE_STYLE_CONTROL_PATH_CAPACITY = 300u;
+inline constexpr std::size_t LIVE_STYLE_SCREENSHOT_PATH_CAPACITY = 512u;
+
+// Invariant: capacity is proved before the first destination byte changes, so
+// failed configuration and capture commands preserve the prior live state.
+inline bool TryBuildLiveStylePath( const char* directory, const char* leaf, char* output,
+                                   std::size_t outputCapacity ) noexcept
+{
+    if ( !directory || !leaf || !output || outputCapacity == 0u )
+    {
+        return false;
+    }
+
+    const std::size_t directoryLength = std::strlen( directory );
+    const std::size_t leafLength = std::strlen( leaf );
+    const bool hasSeparator = directoryLength > 0u &&
+                              ( directory[directoryLength - 1u] == '\\' || directory[directoryLength - 1u] == '/' );
+    const std::size_t separatorLength = directoryLength > 0u && !hasSeparator ? 1u : 0u;
+
+    if ( directoryLength >= outputCapacity || leafLength >= outputCapacity - directoryLength ||
+         separatorLength >= outputCapacity - directoryLength - leafLength )
+    {
+        return false;
+    }
+
+    std::memcpy( output, directory, directoryLength );
+    std::size_t write = directoryLength;
+
+    if ( separatorLength != 0u )
+    {
+        output[write++] = '\\';
+    }
+
+    std::memcpy( output + write, leaf, leafLength );
+    output[write + leafLength] = '\0';
+    return true;
+}
+
+struct LiveStyleControlPaths
+{
+    std::array<char, LIVE_STYLE_DIRECTORY_CAPACITY> directory = {};
+    std::array<char, LIVE_STYLE_CONTROL_PATH_CAPACITY> style = {};
+    std::array<char, LIVE_STYLE_CONTROL_PATH_CAPACITY> capture = {};
+    std::array<char, LIVE_STYLE_CONTROL_PATH_CAPACITY> status = {};
+    bool valid = false;
+};
+
+inline LiveStyleControlPaths ResolveLiveStyleControlPaths( const char* directory ) noexcept
+{
+    LiveStyleControlPaths result;
+
+    if ( !directory || directory[0] == '\0' )
+    {
+        return result;
+    }
+
+    const std::size_t length = std::strlen( directory );
+
+    if ( length >= result.directory.size() )
+    {
+        return result;
+    }
+
+    std::memcpy( result.directory.data(), directory, length + 1u );
+    result.valid = TryBuildLiveStylePath( result.directory.data(), "live.style.json", result.style.data(),
+                                          result.style.size() ) &&
+                   TryBuildLiveStylePath( result.directory.data(), "capture.txt", result.capture.data(),
+                                          result.capture.size() ) &&
+                   TryBuildLiveStylePath( result.directory.data(), "status.txt", result.status.data(),
+                                          result.status.size() );
+    return result;
+}
+
+inline constexpr uint64_t ResolveLiveStyleRetainedStamp( uint64_t retainedStamp, uint64_t observedStamp,
+                                                          bool operationSucceeded ) noexcept
+{
+    // A failed read/load remains eligible for retry even if metadata is unchanged.
+    return operationSucceeded ? observedStamp : retainedStamp;
+}
+
 class LiveStyleController
 {
   public:
@@ -61,12 +146,12 @@ class LiveStyleController
     void WriteStatus( const char* status, const char* detail ) const;
 
     bool m_enabled = false;                 // Polls a small control folder for live style JSON and screenshot requests.
-    char m_directory[260] = {};             // Folder containing live.style.json, capture.txt, and status.txt.
-    char m_stylePath[300] = {};             // Style descriptor applied without reloading the scene.
-    char m_capturePath[300] = {};           // Text command file used to request one screenshot.
-    char m_statusPath[300] = {};            // Latest harness status for scripts/humans.
-    char m_pendingScreenshotPath[512] = {}; // Screenshot path requested by capture.txt.
-    uint64_t m_styleStamp = 0;              // Last applied live.style.json write stamp.
+    char m_directory[LIVE_STYLE_DIRECTORY_CAPACITY] = {};             // Folder containing live.style.json, capture.txt, and status.txt.
+    char m_stylePath[LIVE_STYLE_CONTROL_PATH_CAPACITY] = {};           // Style descriptor applied without reloading the scene.
+    char m_capturePath[LIVE_STYLE_CONTROL_PATH_CAPACITY] = {};         // Text command file used to request one screenshot.
+    char m_statusPath[LIVE_STYLE_CONTROL_PATH_CAPACITY] = {};          // Latest harness status for scripts/humans.
+    char m_pendingScreenshotPath[LIVE_STYLE_SCREENSHOT_PATH_CAPACITY] = {}; // Screenshot path requested by capture.txt.
+    uint64_t m_styleStamp = 0;              // Last successfully loaded live.style.json write stamp.
     uint64_t m_captureStamp = 0;            // Last consumed capture.txt write stamp.
     int m_styleApplyCount = 0;              // Successful live style applications.
     int m_captureCount = 0;                 // Successful live screenshots.

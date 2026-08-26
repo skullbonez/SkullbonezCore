@@ -118,6 +118,8 @@ LookLabCandidate ResolveLookLabCandidateForScene( uint64_t seed, const Core::Cin
 LookLabCandidateIssue ValidateResolvedLookLabCandidate( const LookLabCandidate& candidate,
                                                         const Core::CinematicRenderConfig& activePresentation );
 Scene::StandaloneStyleSnapshot BuildLookLabStyleSnapshot( const LookLabCandidate& candidate );
+Core::SbResult ValidateLookLabSaveRequest( Core::SbDiagnosticStore& diagnostics, const LookLabSaveRequest& request,
+                                           uint64_t seed );
 
 class LookLabController
 {

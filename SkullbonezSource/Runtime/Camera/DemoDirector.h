@@ -25,7 +25,8 @@ Invariants:
   - Phase storage is fixed-capacity so playback never needs runtime growth.
   - Playback state owns only presentation timing/style facts; it must not mutate
     deterministic physics state directly.
-  - Style paths are borrowed text tokens; applying the style is a later phase.
+  - Style and loaded shot-list paths are bounded owned text; applying or saving
+    them is a later cold phase.
   - Load/save are cold authoring paths and return bool status instead of throwing.
 
 Related:
@@ -82,7 +83,7 @@ struct DemoShotList
 
 struct DemoDirectorPlaybackState
 {
-    static constexpr int SHOT_LIST_PATH_BYTES = 260;
+    static constexpr int SHOT_LIST_PATH_BYTES = 1024;
 
     // Concept: Director playback is camera presentation state. The shot list is
     // fixed-capacity authoring data, and these timers only decide which authored

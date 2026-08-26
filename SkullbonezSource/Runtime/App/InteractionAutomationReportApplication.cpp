@@ -444,7 +444,10 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::AppendAction( i
 
     if ( target )
     {
-        strcpy_s( report.target, sizeof( report.target ), target );
+        if ( !TryRetainInteractionAutomationReportTarget( report, target ) )
+        {
+            strcpy_s( report.target, "<target exceeds report capacity>" );
+        }
     }
 
     if ( mouse )

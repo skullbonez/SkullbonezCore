@@ -288,10 +288,27 @@ struct RunInteractionAutomationAction
     Math::Vector::Vector3 vectorValue = Math::Vector::ZERO_VECTOR; // Generic vector payload for replay proof actions.
     char text[128] = {};
     char path[260] = {};
+    char directorShotListPath[DemoDirectorPlaybackState::SHOT_LIST_PATH_BYTES] = {};
     POINT mouse = {};
     bool hasMouse = false;
     bool processed = false;
 };
+
+inline bool TryRetainInteractionShotListPath( RunInteractionAutomationAction& action,
+                                               std::string_view path ) noexcept
+{
+    if ( path.empty() || path.size() >= sizeof( action.directorShotListPath ) ||
+         path.find( '\0' ) != std::string_view::npos )
+    {
+        return false;
+    }
+
+    // Invariant: admission completes before the action field changes, so the
+    // director never receives a truncated automation path.
+    std::memcpy( action.directorShotListPath, path.data(), path.size() );
+    action.directorShotListPath[path.size()] = '\0';
+    return true;
+}
 
 struct InteractionAutomationFrameResult;
 

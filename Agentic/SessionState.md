@@ -1251,3 +1251,24 @@ counts were 0 Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner
 direction, no build, test, scanner, inventory, formatter, or repository
 validation was run; compile/link and live ImGui behavior therefore remain
 unexecuted evidence.
+
+## Runtime Direction Bug Ledger Closure (2026-08-26)
+
+DIR-001 through DIR-009 are fixed as one subsystem batch. Shot-list loading now
+rejects non-finite or degenerate camera input, preserves exact long automation
+paths end to end, carries timer overshoot into the next phase, retries failed
+phase styles, and keeps opposite up-vector blends away from zero.
+
+Live-style polling now retains failed-read stamps for retry, admits bounded paths
+before publication, and rejects physical overlong or NUL-bearing capture lines
+without publishing a valid-looking prefix. Look Lab validates receipt facts,
+Gregorian timestamps, UTC offsets, and every derived bundle path before either
+the controller publication port or the filesystem can create a directory.
+
+One consolidated read-only rubber-duck review covered all nine Runtime Direction
+rows in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found and closed the
+capture-line prefix, upstream automation-path, report-target, and Look Lab
+filesystem-preflight blockers. Final counts were 0 Blocking, 0 Non-blocking,
+and 1 Missing evidence. Per owner direction, no build, test, scanner, inventory,
+formatter, or repository validation was run; compile/link and focused runtime
+behavior therefore remain unexecuted evidence.

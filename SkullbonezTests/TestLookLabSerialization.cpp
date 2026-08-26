@@ -540,6 +540,23 @@ TEST_CASE( "Look Lab bundle naming and receipt facts are exact and collision saf
     CHECK_FALSE(
         Runtime::LookLabBundleWriter::CreateBundleDirectory( diagnostics, bundleRoot.c_str(), "bad", seed, invalidPaths )
             .Ok() );
+    CHECK_FALSE( Runtime::IsValidLookLabLocalTimestamp( "2026-02-31_17-23-45" ) );
+    CHECK_FALSE( Runtime::IsValidLookLabLocalTimestamp( "2025-02-29_17-23-45" ) );
+    CHECK_FALSE( Runtime::IsValidLookLabLocalTimestamp( "2026-04-31_17-23-45" ) );
+    CHECK( Runtime::IsValidLookLabLocalTimestamp( "2024-02-29_17-23-45" ) );
+    CHECK_FALSE( Runtime::LookLabBundleWriter::CreateBundleDirectory(
+                     diagnostics, bundleRoot.c_str(), "2026-02-31_17-23-45", seed + 1u, invalidPaths )
+                     .Ok() );
+    CHECK_FALSE( std::filesystem::exists( std::filesystem::path( bundleRoot ) /
+                                          "2026-02-31_17-23-45_seed_00000000000000ac" ) );
+    const std::filesystem::path longRootBase = std::filesystem::path( ROOT ) / "LookLabPreflight";
+    const std::string segment( 100u, 'r' );
+    const std::filesystem::path overlongRoot = longRootBase / segment / segment / segment / segment / segment;
+    CHECK_FALSE( Runtime::LookLabBundleWriter::CreateBundleDirectory(
+                     diagnostics, overlongRoot.generic_string().c_str(), "2026-08-01_17-23-45", seed + 2u,
+                     invalidPaths )
+                     .Ok() );
+    CHECK_FALSE( std::filesystem::exists( longRootBase ) );
     CopyText( facts.sourceSceneDisplayName, "bad\nmetadata" );
     std::string rejectedReceipt;
     CHECK_FALSE( Runtime::LookLabBundleWriter::BuildReceipt( diagnostics, facts, snapshot, paths, rejectedReceipt ).Ok() );
