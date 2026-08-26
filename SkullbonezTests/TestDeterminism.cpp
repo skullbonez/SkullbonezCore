@@ -542,6 +542,65 @@ TEST_CASE( "Tornado owner edits and replay restore reuse bounded vortex storage"
     }
 }
 
+
+TEST_CASE( "Tornado body timers survive inactive legacy edits and dense topology changes" )
+{
+    SkullbonezCore::Gameplay::TornadoGameplay gameplay;
+    SkullbonezCore::Gameplay::TornadoSystemConfig system;
+    system.enabled = true;
+    system.vortices.resize( 1u );
+    system.vortices[0].field.enabled = true;
+
+    const std::vector<float> captureSeconds { 0.25f, 0.50f, 0.75f };
+    const std::vector<float> cooldownSeconds { 1.25f, 1.50f, 1.75f };
+    gameplay.SetReplayState( captureSeconds, cooldownSeconds, {}, system, 2.0 );
+
+    // Regression: editing an inactive legacy field must not erase timers owned
+    // by the active authored system.
+    SkullbonezCore::Gameplay::TornadoFieldConfig inactiveLegacyField;
+    inactiveLegacyField.radius = 240.0f;
+    gameplay.SetFieldConfig( inactiveLegacyField );
+    CHECK( gameplay.CaptureSeconds() == captureSeconds );
+    CHECK( gameplay.EjectCooldownSeconds() == cooldownSeconds );
+
+    // The preservation rule ends when neither source can apply forces.
+    gameplay.SetSystemConfig( {} );
+    CHECK( gameplay.CaptureSeconds().empty() );
+    CHECK( gameplay.EjectCooldownSeconds().empty() );
+
+    gameplay.SetReplayState( captureSeconds, cooldownSeconds, {}, system, 2.0 );
+
+    // Regression: a runtime append adds only a fresh final row.
+    gameplay.BuildForceFrame( 0.0f, 4 );
+    REQUIRE( gameplay.CaptureSeconds().size() == 4u );
+    REQUIRE( gameplay.EjectCooldownSeconds().size() == 4u );
+    CHECK( gameplay.CaptureSeconds()[0] == 0.25f );
+    CHECK( gameplay.CaptureSeconds()[1] == 0.50f );
+    CHECK( gameplay.CaptureSeconds()[2] == 0.75f );
+    CHECK( gameplay.CaptureSeconds()[3] == 0.0f );
+    CHECK( gameplay.EjectCooldownSeconds()[0] == 1.25f );
+    CHECK( gameplay.EjectCooldownSeconds()[1] == 1.50f );
+    CHECK( gameplay.EjectCooldownSeconds()[2] == 1.75f );
+    CHECK( gameplay.EjectCooldownSeconds()[3] == 0.0f );
+
+    const std::vector<float> fourCaptureSeconds { 0.25f, 0.50f, 0.75f, 1.0f };
+    const std::vector<float> fourCooldownSeconds { 1.25f, 1.50f, 1.75f, 2.0f };
+    gameplay.SetReplayState( fourCaptureSeconds, fourCooldownSeconds, {}, system, 2.0 );
+
+    // Regression: deleting row one moves a distinct former-last history into
+    // that row, exactly matching PhysicsBodyStore's swap-last compaction.
+    gameplay.RemoveBodyStateAtSwapLast( 1, 4 );
+    REQUIRE( gameplay.CaptureSeconds().size() == 3u );
+    REQUIRE( gameplay.EjectCooldownSeconds().size() == 3u );
+    CHECK( gameplay.CaptureSeconds()[0] == 0.25f );
+    CHECK( gameplay.CaptureSeconds()[1] == 1.0f );
+    CHECK( gameplay.CaptureSeconds()[2] == 0.75f );
+    CHECK( gameplay.EjectCooldownSeconds()[0] == 1.25f );
+    CHECK( gameplay.EjectCooldownSeconds()[1] == 2.0f );
+    CHECK( gameplay.EjectCooldownSeconds()[2] == 1.75f );
+}
+
+
 void AddMutualGravityBody( PhysicsEngine& engine, PhysicsTerrainView terrainView, uint32_t sceneObjectIdValue,
                            const Vector3& position, const Vector3& linearVelocity, float mass, float radius,
                            PhysicsBodyMotionKind motionKind = PhysicsBodyMotionKind::Dynamic )

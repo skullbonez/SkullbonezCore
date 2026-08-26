@@ -631,6 +631,11 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
         return false;
     }
 
+    // Invariant: Physics committed the swap-last body row. Gameplay's dense
+    // per-body timers must apply the identical move before any later force frame
+    // borrows them by model index.
+    m_tornadoGameplay.RemoveBodyStateAtSwapLast( modelIndex, modelCount );
+
     const bool entityRemoved = Entities().DestroyAtSwapLast( modelIndex );
     const bool renderRemoved = m_renderInstanceStore.DestroyCreationRowAtSwapLast( modelIndex );
 

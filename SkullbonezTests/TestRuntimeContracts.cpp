@@ -54,6 +54,8 @@
 //     checks would return cleanly outside Debug.
 //   - Automation output aliases fail before either truncating owner can replace
 //     immutable interaction-script input.
+//   - SceneWorld swap-last deletion carries Gameplay's dense tornado timers with
+//     the stable body that Physics moves into the removed row.
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
@@ -94,6 +96,7 @@
 #include "../SkullbonezSource/Runtime/UI/OperatorUiProjection.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneWorld.h"
 #include "../SkullbonezSource/World/Terrain.h"
 #include "../SkullbonezSource/World/SkyBox.h"
 #include "../SkullbonezSource/World/WorldEnvironment.h"
@@ -3570,4 +3573,59 @@ TEST_CASE( "Operator command transaction enforces every phase edge through fatal
     CHECK_FALSE( transaction.Acceptance().toggledVsync );
     static_assert( !std::is_copy_constructible_v<OperatorCommandTransaction> );
     static_assert( !std::is_copy_assignable_v<OperatorCommandTransaction> );
+}
+
+
+TEST_CASE( "SceneWorld deletion preserves the moved tornado body timer history" )
+{
+    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+    SkullbonezCore::Runtime::SceneWorld world( diagnostics );
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsExecution.parallel = false;
+    world.ApplyRuntimeConfig( config );
+
+    std::array<SkullbonezCore::Physics::PhysicsBodyHandle, 4u> bodyHandles {};
+
+    for ( std::size_t index = 0; index < bodyHandles.size(); ++index )
+    {
+        const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { static_cast<uint32_t>( 4100u + index ) };
+        const SkullbonezCore::Math::CollisionDetection::CollisionShape shape =
+            SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+        SkullbonezCore::Runtime::SceneEntityCreateDesc entity;
+        entity.sceneObjectId = sceneObjectId;
+        entity.SetName( "tornado-state-remap-body" );
+
+        auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
+            sceneObjectId, shape, Vector3( static_cast<float>( index ), 5.0f, 0.0f ),
+            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, Vector3( 0.0f, 0.0f, 0.0f ),
+            Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.4f, 0.4f, 0.4f ), 1.0f, 0.0f,
+            SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic, "tornado-state-remap-body" );
+        auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u,
+                                                                             "tornado-state-remap-body" );
+        colliderDesc.sceneObjectId = sceneObjectId;
+
+        const SkullbonezCore::Runtime::SceneEntityCreateResult created =
+            world.TryCreateSceneEntity( entity, bodyDesc, colliderDesc );
+        REQUIRE( created.status.Ok() );
+        REQUIRE( created.body.IsValid() );
+        bodyHandles[index] = created.body;
+    }
+
+    SkullbonezCore::Gameplay::TornadoSystemConfig system;
+    system.enabled = true;
+    system.vortices.resize( 1u );
+    system.vortices[0].field.enabled = true;
+    world.Tornado().SetReplayState( { 0.1f, 0.2f, 0.3f, 0.4f }, { 1.1f, 1.2f, 1.3f, 1.4f }, {}, system, 1.0 );
+
+    REQUIRE( world.DestroySceneEntity( bodyHandles[1] ) );
+    CHECK( world.BodyStore().ModelIndexForHandle( bodyHandles[3] ) == 1 );
+    CHECK_FALSE( world.BodyStore().Contains( bodyHandles[1] ) );
+    REQUIRE( world.Tornado().CaptureSeconds().size() == 3u );
+    REQUIRE( world.Tornado().EjectCooldownSeconds().size() == 3u );
+    CHECK( world.Tornado().CaptureSeconds()[0] == 0.1f );
+    CHECK( world.Tornado().CaptureSeconds()[1] == 0.4f );
+    CHECK( world.Tornado().CaptureSeconds()[2] == 0.3f );
+    CHECK( world.Tornado().EjectCooldownSeconds()[0] == 1.1f );
+    CHECK( world.Tornado().EjectCooldownSeconds()[1] == 1.4f );
+    CHECK( world.Tornado().EjectCooldownSeconds()[2] == 1.3f );
 }

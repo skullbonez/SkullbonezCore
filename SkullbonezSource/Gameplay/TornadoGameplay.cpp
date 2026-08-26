@@ -129,7 +129,7 @@ void TornadoGameplay::SetFieldConfig( const TornadoFieldConfig& config )
 {
     m_field.SetConfig( config );
 
-    if ( !m_field.GetConfig().enabled )
+    if ( !m_field.GetConfig().enabled && !m_system.IsEnabled() )
     {
         m_captureSeconds.clear();
         m_ejectCooldownSeconds.clear();
@@ -246,6 +246,32 @@ void TornadoGameplay::SetReplayState( const std::vector<float>& captureSeconds,
     // that normalization so the recaptured solver snapshot remains byte-faithful.
     m_captureSeconds = captureSeconds;
     m_ejectCooldownSeconds = ejectCooldownSeconds;
+}
+
+
+void TornadoGameplay::RemoveBodyStateAtSwapLast( int removedIndex, int priorBodyCount )
+{
+    if ( removedIndex < 0 || removedIndex >= priorBodyCount )
+    {
+        SB_FATAL( "Gameplay/TornadoGameplay", "Invalid body timer removal. row=%d prior_count=%d", removedIndex,
+                  priorBodyCount );
+    }
+
+    EnsureStateBuffers( priorBodyCount );
+    const std::size_t removedRow = static_cast<std::size_t>( removedIndex );
+    const std::size_t lastRow = static_cast<std::size_t>( priorBodyCount - 1 );
+
+    // Invariant: Physics, SceneEntityStore, render presentation, and these timer
+    // rows use the same dense ordering. Preserve the moved body's history before
+    // discarding the duplicate last row.
+    if ( removedRow != lastRow )
+    {
+        m_captureSeconds[removedRow] = m_captureSeconds[lastRow];
+        m_ejectCooldownSeconds[removedRow] = m_ejectCooldownSeconds[lastRow];
+    }
+
+    m_captureSeconds.pop_back();
+    m_ejectCooldownSeconds.pop_back();
 }
 
 const std::vector<float>& TornadoGameplay::CaptureSeconds() const
@@ -416,15 +442,11 @@ void TornadoGameplay::EnsureStateBuffers( int modelCount )
                   m_captureSeconds.capacity(), m_ejectCooldownSeconds.capacity() );
     }
 
-    if ( static_cast<int>( m_captureSeconds.size() ) != modelCount )
-    {
-        m_captureSeconds.assign( modelCount, 0.0f );
-    }
-
-    if ( static_cast<int>( m_ejectCooldownSeconds.size() ) != modelCount )
-    {
-        m_ejectCooldownSeconds.assign( modelCount, 0.0f );
-    }
+    // Invariant: a runtime append adds one zeroed timer row without disturbing
+    // surviving exposure history. Arbitrary deletion is handled explicitly by
+    // RemoveBodyStateAtSwapLast so a moved last body keeps its timers.
+    m_captureSeconds.resize( static_cast<std::size_t>( modelCount ), 0.0f );
+    m_ejectCooldownSeconds.resize( static_cast<std::size_t>( modelCount ), 0.0f );
 }
 
 void TornadoGameplay::AppendForceField( const TornadoFieldConfig& config )

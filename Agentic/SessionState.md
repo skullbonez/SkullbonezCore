@@ -931,3 +931,20 @@ counts were 0 blocking, 0 non-blocking, and 1 missing-evidence item. Per owner
 direction, no build, test, scanner, inventory, or validation command was run;
 compile/link and focused runtime behavior remain unexecuted evidence rather
 than claimed results.
+
+## Gameplay Bug Ledger Closure (2026-08-26)
+
+GAME-001 and GAME-002 are fixed as one subsystem batch. Editing the inactive
+legacy field now preserves per-body capture and cooldown timers while an
+authored TornadoSystem remains active, while disabling every tornado source
+still clears those timers. Runtime body appends preserve surviving dense rows
+and add only zeroed rows. SceneWorld deletion mirrors PhysicsBodyStore's
+swap-last compaction so the moved stable body retains its exact timer history.
+
+One consolidated read-only rubber-duck review covered both Gameplay rows in
+task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found and closed three focused
+false-pass gaps plus one portable-test ownership issue. Final counts were 0
+blocking, 0 non-blocking, and 1 missing-evidence item. Per owner direction, no
+build, test, scanner, inventory, or validation command was run; compile/link
+and focused runtime behavior remain unexecuted evidence rather than claimed
+results.

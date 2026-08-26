@@ -20,8 +20,8 @@ Glossary:
 Invariants:
   - Active fields retain authored/source order; Physics must accumulate them
     left-to-right without sorting or reduction.
-  - Capture and cooldown arrays are dense body rows and are sized before the
-    frame borrow is published.
+  - Capture and cooldown arrays are dense body rows, preserve surviving rows
+    across appends, and mirror Physics' swap-last deletion before publication.
   - At most 64 active fields cross one fixed step; the storage never grows in
     steady gameplay.
   - Visual and debug publications retain no renderer, scene, or replay owner.
@@ -90,6 +90,11 @@ class TornadoGameplay
     void SetReplayState( const std::vector<float>& captureSeconds, const std::vector<float>& ejectCooldownSeconds,
                          const TornadoFieldConfig& fieldConfig, const TornadoSystemConfig& systemConfig,
                          double systemElapsedSeconds );
+
+    // Mirrors PhysicsBodyStore::DestroyBodyRecord after its dense row commits.
+    // The removed row receives the former last body's timers before both timer
+    // arrays discard their last row.
+    void RemoveBodyStateAtSwapLast( int removedIndex, int priorBodyCount );
 
     const std::vector<float>& CaptureSeconds() const;
     const std::vector<float>& EjectCooldownSeconds() const;
