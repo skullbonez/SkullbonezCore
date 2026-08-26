@@ -470,8 +470,8 @@ void ShaderBytecodeManifestCache::Reset()
     m_programCount = 0;
 }
 
-bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob,
-                                        std::string& outError )
+static bool LoadManifestCurrentShaderBytecodeImpl( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob,
+                                                   std::string& outError, bool validateRasterReflection )
 {
     outBlob.Reset();
 
@@ -532,9 +532,11 @@ bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage,
     const auto sourceHashIt = matched->find( "source_sha256" );
     const auto bytecodeHashIt = matched->find( "bytecode_sha256" );
     const auto bytecodePathIt = matched->find( "bytecode" );
+    const auto dependenciesIt = matched->find( "dependencies_sha256" );
 
     if ( sourceHashIt == matched->end() || !sourceHashIt->is_string() || bytecodeHashIt == matched->end() ||
-         !bytecodeHashIt->is_string() || bytecodePathIt == matched->end() || !bytecodePathIt->is_string() )
+         !bytecodeHashIt->is_string() || bytecodePathIt == matched->end() || !bytecodePathIt->is_string() ||
+         dependenciesIt == matched->end() || !dependenciesIt->is_object() )
     {
         outError = "freshness manifest row is incomplete for " + normalizedSource;
         return false;
@@ -556,6 +558,28 @@ bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage,
     {
         outError = "shader source is newer than baked manifest: " + normalizedSource;
         return false;
+    }
+
+    for ( const auto& dependency : dependenciesIt->items() )
+    {
+        if ( !dependency.value().is_string() )
+        {
+            outError = "shader dependency hash is invalid: " + dependency.key();
+            return false;
+        }
+
+        std::string dependencyBytes;
+        std::string dependencyHash;
+        if ( !ReadBytes( dependency.key(), dependencyBytes ) || !Sha256Hex( dependencyBytes, dependencyHash ) )
+        {
+            outError = "cannot hash shader dependency " + dependency.key();
+            return false;
+        }
+        if ( dependencyHash != dependency.value().get_ref<const std::string&>() )
+        {
+            outError = "shader dependency is newer than baked manifest: " + dependency.key();
+            return false;
+        }
     }
 
     if ( !ReadBytes( bytecodePath, bytecodeBytes ) || !Sha256Hex( bytecodeBytes, bytecodeHash ) )
@@ -580,7 +604,7 @@ bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage,
 
     std::memcpy( outBlob->GetBufferPointer(), bytecodeBytes.data(), bytecodeBytes.size() );
 
-    if ( !ValidateLoadedReflection( hlslPath, stage, outBlob.Get(), outError ) )
+    if ( validateRasterReflection && !ValidateLoadedReflection( hlslPath, stage, outBlob.Get(), outError ) )
     {
         outBlob.Reset();
         outError = "shader reflection metadata rejected owner=ShaderBytecodeManifest: " + outError;
@@ -588,6 +612,23 @@ bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage,
     }
 
     return true;
+}
+
+
+bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob,
+                                        std::string& outError )
+{
+    return LoadManifestCurrentShaderBytecodeImpl( hlslPath, stage, outBlob, outError, true );
+}
+
+
+bool LoadManifestCurrentShaderLibraryBytecode( const char* hlslPath, const char* stage, ComPtr<ID3DBlob>& outBlob,
+                                               std::string& outError )
+{
+    // DXR libraries expose ID3D12LibraryReflection rather than the raster-stage
+    // interface. The bake still records their container reflection; startup
+    // enforces source, include, and bytecode hashes before the RTPSO sees bytes.
+    return LoadManifestCurrentShaderBytecodeImpl( hlslPath, stage, outBlob, outError, false );
 }
 
 bool ReflectShaderBytecode( ID3DBlob* blob, ComPtr<ID3D12ShaderReflection>& outReflection, HRESULT& outResult )

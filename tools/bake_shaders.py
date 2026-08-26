@@ -27,7 +27,8 @@ Glossary:
 Invariants:
   - Shader order, JSON key order, and output paths are stable across machines.
   - Warnings are errors and matrices are explicitly column-major.
-  - The raytracing library keeps its existing reflect.rt.dxil convention.
+  - Raster, compute, and raytracing-library DXIL share one content-addressed manifest.
+  - Local HLSL includes are hashed as compiler inputs.
   - Byte-identical outputs retain their timestamps so incremental C++ builds do
     not recompile generated-header consumers.
 
@@ -126,41 +127,63 @@ def find_clang_format() -> Path:
     )
 
 
-def shader_jobs(shader_dir: Path) -> list[dict[str, str]]:
+def shader_dependencies(source: Path, repo: Path) -> list[str]:
+    dependencies: set[Path] = set()
+
+    def visit(including_file: Path) -> None:
+        source_text = including_file.read_text(encoding="utf-8")
+        for include_name in re.findall(r'^\s*#include\s+"([^"]+)"', source_text, re.MULTILINE):
+            dependency = (including_file.parent / include_name).resolve()
+            if not dependency.is_file() or repo not in dependency.parents:
+                raise SystemExit(
+                    f"Shader include is missing or outside the repository: {including_file} -> {include_name}"
+                )
+            if dependency not in dependencies:
+                dependencies.add(dependency)
+                visit(dependency)
+
+    visit(source)
+    return sorted(dependency.relative_to(repo).as_posix() for dependency in dependencies)
+
+
+def shader_jobs(shader_dir: Path) -> list[dict[str, object]]:
+    repo = shader_dir.parent.parent
     sources = sorted(shader_dir.glob("*.hlsl"), key=lambda path: path.name.lower())
-    jobs: list[dict[str, str]] = []
+    jobs: list[dict[str, object]] = []
     for source in sources:
         if source.name == "reflect.rt.hlsl":
-            continue
-        if source.name == "generate_mips.hlsl":
-            stages = (("cs", "main_cs"),)
+            stages = (("lib", "", f"lib_{SHADER_MODEL}", source.with_suffix(".dxil")),)
+        elif source.name == "generate_mips.hlsl":
+            stages = (("cs", "main_cs", f"cs_{SHADER_MODEL}", source.with_suffix(".cs.dxil")),)
         else:
-            stages = RASTER_STAGES
-        for stage, entry in stages:
+            stages = tuple(
+                (stage, entry, f"{stage}_{SHADER_MODEL}", source.with_suffix(f".{stage}.dxil"))
+                for stage, entry in RASTER_STAGES
+            )
+        for stage, entry, target, bytecode in stages:
             jobs.append(
                 {
-                    "source": source.relative_to(shader_dir.parent.parent).as_posix(),
+                    "source": source.relative_to(repo).as_posix(),
                     "entry": entry,
                     "stage": stage,
-                    "target": f"{stage}_{SHADER_MODEL}",
-                    "bytecode": source.with_suffix(f".{stage}.dxil").relative_to(shader_dir.parent.parent).as_posix(),
+                    "target": target,
+                    "bytecode": bytecode.relative_to(repo).as_posix(),
+                    "dependencies": shader_dependencies(source, repo),
                 }
             )
     return jobs
 
 
-def compile_job(repo: Path, dxc: Path, job: dict[str, str], output: Path) -> bytes:
-    args = [
-        str(dxc),
-        "-T",
-        job["target"],
-        "-E",
-        job["entry"],
-        *COMMON_FLAGS,
-        "-Fo",
-        str(output),
-        job["source"],
-    ]
+def compile_arguments(job: dict[str, object], output: str) -> list[str]:
+    args = ["-T", str(job["target"])]
+    if job["entry"]:
+        args.extend(["-E", str(job["entry"])])
+    args.extend([*COMMON_FLAGS, "-Fo", output, str(job["source"])])
+    return args
+
+
+def compile_job(repo: Path, dxc: Path, job: dict[str, object], output: Path) -> bytes:
+    args = [str(dxc), *compile_arguments(job, str(output))]
     result = subprocess.run(args, cwd=repo, capture_output=True, text=True, check=False)
     diagnostics = (result.stdout + result.stderr).strip()
     if result.returncode != 0 or diagnostics:
@@ -169,7 +192,7 @@ def compile_job(repo: Path, dxc: Path, job: dict[str, str], output: Path) -> byt
     return output.read_bytes()
 
 
-def reflect_job(repo: Path, dxc: Path, job: dict[str, str], bytecode_path: Path) -> dict[str, object]:
+def reflect_job(repo: Path, dxc: Path, job: dict[str, object], bytecode_path: Path) -> dict[str, object]:
     """Extract the ABI from the compiled DXIL container, never from HLSL text."""
     result = subprocess.run(
         [str(dxc), "-dumpbin", str(bytecode_path)], cwd=repo, capture_output=True, text=True, check=False
@@ -355,24 +378,22 @@ def build_manifest(repo: Path, dxc: Path, version_text: str, check_only: bool) -
             if not bytecode_path.is_file():
                 raise SystemExit(f"Missing baked shader: {job['bytecode']}")
             bytecode = bytecode_path.read_bytes()
-            compile_args = [
-                "-T", job["target"], "-E", job["entry"], *COMMON_FLAGS,
-                "-Fo", "<output>", job["source"],
-            ]
+            compile_args = compile_arguments(job, "<output>")
         else:
             with tempfile.TemporaryDirectory(prefix="skullbonez-shaders-") as temp_dir:
                 temp_output = Path(temp_dir) / Path(job["bytecode"]).name
                 bytecode = compile_job(repo, dxc, job, temp_output)
-                compile_args = [
-                    "-T", job["target"], "-E", job["entry"], *COMMON_FLAGS,
-                    "-Fo", "<output>", job["source"],
-                ]
+                compile_args = compile_arguments(job, "<output>")
             write_bytes_if_changed(bytecode_path, bytecode)
 
+        dependency_hashes = {
+            dependency: sha256_bytes((repo / dependency).read_bytes()) for dependency in job["dependencies"]
+        }
         compile_inputs = {
             "compiler": f"Windows SDK {SDK_VERSION} DXC {DXC_VERSION}",
             "args": compile_args,
             "source_sha256": source_hash,
+            "dependencies_sha256": dependency_hashes,
         }
         reflection = reflect_job(repo, dxc, job, bytecode_path)
         entry = dict(job)
@@ -382,6 +403,7 @@ def build_manifest(repo: Path, dxc: Path, version_text: str, check_only: bool) -
                 "compile_inputs_sha256": sha256_bytes(canonical_json(compile_inputs)),
                 "bytecode_sha256": sha256_bytes(bytecode),
                 "bytecode_size": len(bytecode),
+                "dependencies_sha256": dependency_hashes,
                 "reflection": reflection,
             }
         )

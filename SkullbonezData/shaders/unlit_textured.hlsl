@@ -59,7 +59,9 @@ uint BindlessTextureIndex(uint slot)
     return slot < 4u ? _textureDescriptorIndices0[slot] : _textureDescriptorIndices1[slot - 4u];
 }
 
-SamplerState sSampler0 : register(s0);  // Texture filtering settings
+// Invariant: six independent face textures must clamp at their authored edge;
+// wrapping would blend the opposite edge of the same face into cube seams.
+SamplerState sSkyFaceSampler : register(s1);
 
 struct VS_IN
 {
@@ -88,5 +90,5 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 {
     // Sample texture and apply color tint. No lighting calculations.
     Texture2D<float4> textureSource = ResourceDescriptorHeap[BindlessTextureIndex(0u)];
-    return textureSource.Sample(sSampler0, input.texCoord) * uColorTint;
+    return textureSource.Sample(sSkyFaceSampler, input.texCoord) * uColorTint;
 }

@@ -19,6 +19,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma pack_matrix(column_major)
+#include "shader_behavior.hlsli"
 
 // =============================================================================
 // WORLD-SPACE CINEMATIC SKY (DirectX)
@@ -132,9 +133,11 @@ float2 DirectionCoord(float3 dir)
 
 float LowPolyRidgeHeight(float x, float baseY, float amplitude, float frequency, float phase)
 {
-    float primary = 1.0f - abs(frac(x * frequency + phase) * 2.0f - 1.0f);
-    float secondary = 1.0f - abs(frac(x * frequency * 1.61f + phase * 1.87f + 0.19f) * 2.0f - 1.0f);
-    float broad = 1.0f - abs(frac(x * frequency * 0.43f + phase * 0.71f + 0.37f) * 2.0f - 1.0f);
+    // Invariant: every harmonic has an integer turn count. Longitude zero and
+    // one therefore produce the same authored ridge height at the atan2 seam.
+    float primary = PeriodicTriangle(x, frequency, phase);
+    float secondary = PeriodicTriangle(x, frequency + 2.0f, phase * 1.87f + 0.19f);
+    float broad = PeriodicTriangle(x, max(frequency - 2.0f, 1.0f), phase * 0.71f + 0.37f);
     return baseY + amplitude * (primary * 0.58f + secondary * 0.28f + broad * 0.20f);
 }
 
@@ -150,9 +153,10 @@ float RidgeMask(float2 coord, float baseY, float amplitude, float frequency, flo
 float CloudMask(float2 coord, float3 dir, out float cloudShape)
 {
     float scale = max(uCloudParams.z, 0.05f);
-    float2 p = float2(coord.x * 2.0f, coord.y * 1.42f);
-    p.x += dir.x * 0.15f + sin(coord.y * 5.4f) * 0.055f;
-    p *= scale;
+    // Concept: the horizontal noise domain is a circle, not a cut strip. The
+    // same world direction on either side of atan2's cut reaches identical p.
+    float2 p = float2(CloudLongitudeDomainX(coord.x, coord.y, dir.x),
+                      CloudLongitudeDomainY(coord.x, coord.y)) * scale;
 
     float broad = CloudFBM(p * float2(0.52f, 0.82f) + float2(0.1f, 2.7f));
     float detail = CloudFBM(p * float2(1.24f, 1.78f) + float2(7.4f, 1.9f));
@@ -164,7 +168,8 @@ float CloudMask(float2 coord, float3 dir, out float cloudShape)
     float mask = smoothstep(threshold, threshold + softness, cloudShape);
     float band = smoothstep(0.30f, 0.46f, coord.y) * (1.0f - smoothstep(0.78f, 0.94f, coord.y));
     float streakBand = smoothstep(0.46f, 0.60f, coord.y) * (1.0f - smoothstep(0.88f, 0.98f, coord.y));
-    float streak = 1.0f - smoothstep(0.035f, 0.16f, abs(frac(coord.x * 7.0f + coord.y * 1.65f) - 0.5f));
+    float periodicStreak = PeriodicStreak(coord.x, coord.y);
+    float streak = 1.0f - smoothstep(0.035f, 0.16f, abs(periodicStreak - 0.5f));
     streak *= streakBand * 0.34f;
     mask = saturate(max(mask * band, streak));
 
@@ -220,9 +225,9 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         // Why: SKY_MODE_OPEN_HORIZON is reserved for procedural skies used by
         // scenes that forbid mountain or ridge silhouettes while keeping the
         // existing sky shader and all default styles unchanged.
-        float farRidge = RidgeMask(coord, 0.34f, 0.10f, 3.2f, 0.10f);
-        float midRidge = RidgeMask(coord, 0.30f, 0.105f, 4.6f, 0.36f);
-        float nearRidge = RidgeMask(coord, 0.26f, 0.092f, 6.1f, 0.68f);
+        float farRidge = RidgeMask(coord, 0.34f, 0.10f, 3.0f, 0.10f);
+        float midRidge = RidgeMask(coord, 0.30f, 0.105f, 5.0f, 0.36f);
+        float nearRidge = RidgeMask(coord, 0.26f, 0.092f, 6.0f, 0.68f);
         float3 farColor = clamp(lerp(zenith, horizon, 0.36f) * float3(0.42f, 0.55f, 0.68f), 0.0f, 1.8f);
         float3 midColor = clamp(lerp(zenith, horizon, 0.46f) * float3(0.38f, 0.48f, 0.58f), 0.0f, 1.8f);
         float3 nearColor = clamp(lerp(zenith, horizon, 0.62f) * float3(0.28f, 0.38f, 0.40f), 0.0f, 1.6f);

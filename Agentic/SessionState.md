@@ -1156,3 +1156,27 @@ result and the combined scene-load/performance-artifact failure case. Final
 counts were 0 Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner
 direction, no build, test, scanner, inventory, or repository validation was
 run; compile, link, and focused runtime evidence remain unexecuted.
+
+## Shader Suite Bug Ledger Closure (2026-08-26)
+
+SHADER-001 through SHADER-004 are fixed as one subsystem batch. Mip dispatches
+now stop before an odd shared-memory reduction so the next filtered dispatch
+retains NPOT edge texels. Separate sky faces use the shared s1 clamp plan in
+both raster and DXR paths. Procedural ridge, cloud-domain, and streak inputs are
+periodic across the longitude cut. Trajectory ribbons clip homogeneous w and
+the D3D near plane before any screen-space expansion.
+
+The bake now owns raster, compute, and DXR-library bytecode in one 44-stage
+content-addressed manifest, including recursive local-include hashes checked by
+the runtime loader. The shared dual-language shader behavior header supplies
+the exact periodic and clipping function bodies to both shipping HLSL and the
+focused CPU fixtures. Required artifact generation completed successfully with
+pinned DXC 1.8.2502.11; this was not a validation run.
+
+One consolidated read-only rubber-duck review covered all four Shader Suite
+rows in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found and closed the
+initial three subsystem blockers: unaudited DXR bytecode, symbol-only seam
+evidence, and symbol-only clipping evidence. Final counts were 0 Blocking, 0
+Non-blocking, and 1 Missing evidence. Per owner direction, no `--check`, build,
+test, scanner, inventory, or repository validation was run; compile/link and
+focused runtime behavior therefore remain unexecuted evidence.

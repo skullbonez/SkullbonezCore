@@ -233,9 +233,9 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `check_physics_regression.py` | Byte-exact core physics CSV diff, with `--deep` for the broader CSV set |
 | `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines`; do not use for physics CSV or SkullScope baselines |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
-| `bake_shaders.bat` | Bake all shipping raster/compute shaders with pinned DXC and generate fixed reflection POD metadata; `--check` verifies bytecode, hashes, and metadata freshness |
+| `bake_shaders.bat` | Bake all shipping raster, compute, and DXR-library shaders with pinned DXC and generate fixed reflection POD metadata; `--check` verifies source/include hashes, bytecode, and metadata freshness |
 
-`SKULLBONEZ_CORE.vcxproj` runs `bake_shaders.bat` before every Visual Studio
+`SKULLBONEZ_RENDERING.vcxproj` runs `bake_shaders.bat` before every Visual Studio
 build in Debug, Profile, Profile-WPO, Automation, and Release. Visual Studio fast up-to-date
 skipping is disabled for that project so an HLSL-only edit still reaches the
 bake; shader compiler diagnostics and a nonzero bake exit fail the build.

@@ -141,10 +141,11 @@
   </ItemGroup>
   <ItemGroup>
     <ShaderBakeRasterSource Include="$(ProjectDir)SkullbonezData\shaders\*.hlsl" Exclude="$(ProjectDir)SkullbonezData\shaders\generate_mips.hlsl;$(ProjectDir)SkullbonezData\shaders\reflect.rt.hlsl" />
-    <ShaderBakeInput Include="$(ProjectDir)tools\bake_shaders.bat;$(ProjectDir)tools\bake_shaders.py;@(ShaderBakeRasterSource);$(ProjectDir)SkullbonezData\shaders\generate_mips.hlsl;$(WindowsSdkDir)bin\10.0.26100.0\x64\dxc.exe" />
+    <ShaderBakeSharedInclude Include="$(ProjectDir)SkullbonezData\shaders\*.hlsli" />
+    <ShaderBakeInput Include="$(ProjectDir)tools\bake_shaders.bat;$(ProjectDir)tools\bake_shaders.py;@(ShaderBakeRasterSource);@(ShaderBakeSharedInclude);$(ProjectDir)SkullbonezData\shaders\generate_mips.hlsl;$(ProjectDir)SkullbonezData\shaders\reflect.rt.hlsl;$(WindowsSdkDir)bin\10.0.26100.0\x64\dxc.exe" />
     <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).vs.dxil')" />
     <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).ps.dxil')" />
-    <ShaderBakeOutput Include="$(ProjectDir)SkullbonezData\shaders\generate_mips.cs.dxil;$(ProjectDir)SkullbonezData\shaders\shader_manifest.json;$(ProjectDir)SkullbonezData\generated\GeneratedShaderReflection.h" />
+    <ShaderBakeOutput Include="$(ProjectDir)SkullbonezData\shaders\generate_mips.cs.dxil;$(ProjectDir)SkullbonezData\shaders\reflect.rt.dxil;$(ProjectDir)SkullbonezData\shaders\shader_manifest.json;$(ProjectDir)SkullbonezData\generated\GeneratedShaderReflection.h" />
   </ItemGroup>
   <Target Name="BakeShippingShaders" BeforeTargets="ClCompile" Inputs="@(ShaderBakeInput)" Outputs="@(ShaderBakeOutput)">
     <Message Importance="High" Text="Shader inputs changed; baking shipping shaders and refreshing generated metadata..." />

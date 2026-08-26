@@ -19,6 +19,7 @@ Related:
 */
 
 #pragma pack_matrix( column_major )
+#include "shader_behavior.hlsli"
 
 cbuffer Uniforms : register( b0 )
 {
@@ -73,6 +74,47 @@ VS_OUT main_vs( VS_IN input, uint vertexId : SV_VertexID )
     float4 startClip = mul( uViewProj, float4( input.start, 1.0 ) );
     float4 endClip = mul( uViewProj, float4( end, 1.0 ) );
     float4 nextClip = mul( uViewProj, float4( input.next, 1.0 ) );
+    const bool startWasBehind = startClip.w < 0.0001 || startClip.z < 0.0;
+    const bool endWasBehind = endClip.w < 0.0001 || endClip.z < 0.0;
+    // Hazard: the shared behavior seam clips w first, then the D3D z>=0 near
+    // plane before any endpoint participates in screen-space expansion.
+    if ( !ClipSegmentToNearPlane( startClip, endClip ) )
+    {
+        VS_OUT hidden;
+        hidden.position = float4( 0.0, 0.0, -1.0, 1.0 );
+        hidden.color = float4( 0.0, 0.0, 0.0, 0.0 );
+        hidden.edgeCoord = 0.0;
+        hidden.style = float2( 0.0, 0.0 );
+        hidden.ribbonCoord = float3( 0.0, 0.0, 0.0 );
+        return hidden;
+    }
+
+    // A clipped endpoint is a visible path cap. Adjacent behind-camera points
+    // must not re-enter join math and recreate the same unbounded NDC vector.
+    if ( startWasBehind )
+    {
+        previousClip = startClip;
+    }
+    else
+    {
+        float4 retainedStart = startClip;
+        if ( !ClipSegmentToNearPlane( previousClip, retainedStart ) )
+        {
+            previousClip = startClip;
+        }
+    }
+    if ( endWasBehind )
+    {
+        nextClip = endClip;
+    }
+    else
+    {
+        float4 retainedEnd = endClip;
+        if ( !ClipSegmentToNearPlane( retainedEnd, nextClip ) )
+        {
+            nextClip = endClip;
+        }
+    }
     float4 baseClip = lerp( startClip, endClip, endpointT );
 
     const float2 startNdc = startClip.xy / SafeClipW( startClip.w );

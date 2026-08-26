@@ -664,12 +664,15 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
     params[UnifiedRasterRootSignature::ROOT_PARAMETER_TEXTURE_INDICES].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_STATIC_SAMPLER_DESC samplers[3] = {};
+    const auto nativeAddressMode = []( UnifiedRasterRootSignature::StaticSampler::AddressMode mode )
+    { return mode == UnifiedRasterRootSignature::StaticSampler::AddressMode::Wrap ? D3D12_TEXTURE_ADDRESS_MODE_WRAP
+                                                                                   : D3D12_TEXTURE_ADDRESS_MODE_CLAMP; };
 
-    // s0: linear wrap (most textures — terrain, skybox, sphere)
+    // s0 repeats material textures; independent skybox faces bind s1 below.
     samplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-    samplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplers[0].AddressU = nativeAddressMode( UnifiedRasterRootSignature::STATIC_SAMPLERS[0].addressMode );
+    samplers[0].AddressV = samplers[0].AddressU;
+    samplers[0].AddressW = samplers[0].AddressU;
     samplers[0].MaxAnisotropy = 1;
     samplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     samplers[0].MaxLOD = D3D12_FLOAT32_MAX; // allow all mip levels (default 0 = mip 0 only!)
@@ -677,11 +680,11 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
 
     samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-    // s1: linear clamp (FBO / reflection textures)
+    // s1 clamps render targets and independent skybox faces at their edges.
     samplers[1].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-    samplers[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    samplers[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    samplers[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    samplers[1].AddressU = nativeAddressMode( UnifiedRasterRootSignature::STATIC_SAMPLERS[1].addressMode );
+    samplers[1].AddressV = samplers[1].AddressU;
+    samplers[1].AddressW = samplers[1].AddressU;
     samplers[1].MaxAnisotropy = 1;
     samplers[1].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     samplers[1].MaxLOD = D3D12_FLOAT32_MAX;
@@ -690,9 +693,9 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
 
     // s3: point clamp for manual shadow-map PCF.
     samplers[2].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-    samplers[2].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    samplers[2].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    samplers[2].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    samplers[2].AddressU = nativeAddressMode( UnifiedRasterRootSignature::STATIC_SAMPLERS[2].addressMode );
+    samplers[2].AddressV = samplers[2].AddressU;
+    samplers[2].AddressW = samplers[2].AddressU;
     samplers[2].MaxAnisotropy = 1;
     samplers[2].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     samplers[2].MaxLOD = D3D12_FLOAT32_MAX;

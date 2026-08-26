@@ -24,7 +24,7 @@
       "status": "active",
       "stages": ["hlsl"],
       "uniforms": ["uViewProj", "uViewportPixels", "uRibbonStyle"],
-      "requiredSymbols": ["uViewProj", "uViewportPixels", "uRibbonStyle"]
+      "requiredSymbols": ["uViewProj", "uViewportPixels", "uRibbonStyle", "ClipSegmentToNearPlane"]
     },
     {
       "name": "lit_textured",
@@ -77,7 +77,12 @@
       "name": "reflect.rt",
       "status": "active",
       "backend": "dx12",
-      "stages": ["hlsl", "dxil"]
+      "stages": ["hlsl", "dxil"],
+      "resources": [
+        { "name": "gSampler", "type": "SamplerState", "registerClass": "s", "slot": 0 },
+        { "name": "gSkySampler", "type": "SamplerState", "registerClass": "s", "slot": 1 }
+      ],
+      "requiredSymbols": ["SampleSkybox", "gSkySampler"]
     },
     {
       "name": "shadow_depth",
@@ -97,7 +102,7 @@
       "status": "active",
       "stages": ["hlsl"],
       "uniforms": ["uSunParams", "uSunColor", "uHorizonColor", "uZenithColor", "uCloudParams", "uInvView", "uInvProjection", "uSkyMode"],
-      "requiredSymbols": ["uSunParams", "uSunColor", "uCloudParams", "uSkyMode"]
+      "requiredSymbols": ["uSunParams", "uSunColor", "uCloudParams", "uSkyMode", "PeriodicTriangle", "PeriodicStreak", "CloudLongitudeDomainX"]
     },
     {
       "name": "solid_color",
@@ -123,7 +128,11 @@
     {
       "name": "unlit_textured",
       "status": "active",
-      "stages": ["hlsl"]
+      "stages": ["hlsl"],
+      "resources": [
+        { "name": "sSkyFaceSampler", "type": "SamplerState", "registerClass": "s", "slot": 1 }
+      ],
+      "requiredSymbols": ["sSkyFaceSampler"]
     },
     {
       "name": "water_calm",

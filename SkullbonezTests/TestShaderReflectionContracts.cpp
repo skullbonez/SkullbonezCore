@@ -12,7 +12,7 @@ Glossary:
     rejects the same class of defect it is intended to prevent.
 
 Invariants:
-  - The pinned reflection inventory contains 43 raster/compute stages.
+  - The pinned reflection inventory contains 44 raster, compute, and library stages.
   - Compute reflection remains represented even though it has no raster PSO.
 
 Related:
@@ -23,6 +23,7 @@ Related:
 
 #include "../SkullbonezSource/Rendering/ShaderReflectionContracts.h"
 #include "../SkullbonezSource/Runtime/App/ReplayPredictionRetainedGeometry.h"
+#include "../SkullbonezData/shaders/shader_behavior.hlsli"
 
 #include <string>
 
@@ -42,7 +43,7 @@ const char* ReflectionSourceForContract( const char* contractBaseName )
 
 TEST_CASE( "Shader reflection contracts: every shipping stage is represented" )
 {
-    REQUIRE( GeneratedShaderReflection::StageCount == 43u );
+    REQUIRE( GeneratedShaderReflection::StageCount == 44u );
     for ( size_t i = 0; i < GeneratedShaderReflection::StageCount; ++i )
     {
         const auto& stage = GeneratedShaderReflection::Stages[i];
@@ -54,6 +55,105 @@ TEST_CASE( "Shader reflection contracts: every shipping stage is represented" )
     CHECK( compute->cbufferSize == 16u );
     CHECK( compute->resourceCount == 7u );
     CHECK( compute->inputCount == 0u );
+
+    const auto* raytracingLibrary = FindGeneratedShaderStage( "SkullbonezData/shaders/reflect.rt.hlsl", "lib" );
+    REQUIRE( raytracingLibrary != nullptr );
+    bool foundMaterialWrap = false;
+    bool foundSkyClamp = false;
+    for ( std::uint32_t i = 0; i < raytracingLibrary->resourceCount; ++i )
+    {
+        const auto& resource = GeneratedShaderReflection::Resources[raytracingLibrary->resourceStart + i];
+        foundMaterialWrap = foundMaterialWrap ||
+                            ( std::string( resource.name ) == "gSampler" && resource.registerClass == 's' &&
+                              resource.slot == UnifiedRasterRootSignature::STATIC_SAMPLERS[0].shaderRegister );
+        foundSkyClamp = foundSkyClamp ||
+                        ( std::string( resource.name ) == "gSkySampler" && resource.registerClass == 's' &&
+                          resource.slot == UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister );
+    }
+    CHECK( foundMaterialWrap );
+    CHECK( foundSkyClamp );
+}
+
+TEST_CASE( "Shader behavior contracts: NPOT mip batches stop before odd shared reductions" )
+{
+    const GenerateMipsDispatchPlan first = PlanGenerateMipsDispatch( 10u, 10u, 3u );
+    CHECK( first.mipCount == 1u );
+    CHECK( first.finalWidth == 5u );
+    CHECK( first.finalHeight == 5u );
+
+    const GenerateMipsDispatchPlan second = PlanGenerateMipsDispatch( 5u, 5u, 2u );
+    CHECK( second.mipCount == 2u );
+    CHECK( second.finalWidth == 1u );
+    CHECK( second.finalHeight == 1u );
+
+    const GenerateMipsDispatchPlan rectangular = PlanGenerateMipsDispatch( 16u, 10u, 4u );
+    CHECK( rectangular.mipCount == 1u );
+    CHECK( rectangular.finalWidth == 8u );
+    CHECK( rectangular.finalHeight == 5u );
+
+    const GenerateMipsDispatchPlan powerOfTwo = PlanGenerateMipsDispatch( 16u, 8u, 4u );
+    CHECK( powerOfTwo.mipCount == 4u );
+    CHECK( powerOfTwo.finalWidth == 1u );
+    CHECK( powerOfTwo.finalHeight == 1u );
+}
+
+TEST_CASE( "Shader behavior contracts: procedural longitude inputs meet at the wrap seam" )
+{
+    using namespace SkullbonezCore::Rendering::ShaderBehavior;
+
+    CHECK( PeriodicLongitudeX( 0.0f ) == PeriodicLongitudeX( 1.0f ) );
+    CHECK( PeriodicLongitudeY( 0.0f ) == PeriodicLongitudeY( 1.0f ) );
+    CHECK( CloudLongitudeDomainX( 0.0f, 0.63f, 0.0f ) == CloudLongitudeDomainX( 1.0f, 0.63f, 0.0f ) );
+    CHECK( CloudLongitudeDomainY( 0.0f, 0.63f ) == CloudLongitudeDomainY( 1.0f, 0.63f ) );
+    CHECK( PeriodicTriangle( 0.0f, 5.0f, 0.36f ) == PeriodicTriangle( 1.0f, 5.0f, 0.36f ) );
+    CHECK( PeriodicStreak( 0.0f, 0.63f ) == PeriodicStreak( 1.0f, 0.63f ) );
+
+    const float beforeSeam = 1.0f - 1.0e-5f;
+    CHECK( std::abs( PeriodicLongitudeX( beforeSeam ) - PeriodicLongitudeX( 0.0f ) ) < 1.0e-4f );
+    CHECK( std::abs( PeriodicLongitudeY( beforeSeam ) - PeriodicLongitudeY( 0.0f ) ) < 1.0e-4f );
+    CHECK( std::abs( PeriodicTriangle( beforeSeam, 6.0f, 0.68f ) - PeriodicTriangle( 0.0f, 6.0f, 0.68f ) ) <
+           1.0e-3f );
+    CHECK( std::abs( PeriodicStreak( beforeSeam, 0.63f ) - PeriodicStreak( 0.0f, 0.63f ) ) < 1.0e-3f );
+}
+
+TEST_CASE( "Shader behavior contracts: ribbon clipping rejects behind geometry and bounds straddles" )
+{
+    using namespace SkullbonezCore::Rendering::ShaderBehavior;
+
+    Float4 behindStart = { -2.0f, 1.0f, -2.0f, -1.0f };
+    Float4 behindEnd = { 2.0f, -1.0f, -1.0f, -0.5f };
+    CHECK_FALSE( ClipSegmentToNearPlane( behindStart, behindEnd ) );
+
+    Float4 eyeStart = { -2.0f, -4.0f, -1.0f, -1.0f };
+    Float4 eyeEnd = { 2.0f, 4.0f, 1.0f, 1.0f };
+    REQUIRE( ClipSegmentToNearPlane( eyeStart, eyeEnd ) );
+    CHECK( std::isfinite( eyeStart.x ) );
+    CHECK( std::isfinite( eyeStart.y ) );
+    CHECK( eyeStart.w >= 0.00009f );
+    CHECK( eyeStart.z >= 0.0f );
+    CHECK( std::abs( eyeStart.x / eyeStart.w ) < 10.0f );
+    CHECK( std::abs( eyeStart.y / eyeStart.w ) < 10.0f );
+
+    Float4 nearStart = { -2.0f, 0.0f, -1.0f, 1.0f };
+    Float4 nearEnd = { 2.0f, 0.0f, 1.0f, 1.0f };
+    REQUIRE( ClipSegmentToNearPlane( nearStart, nearEnd ) );
+    CHECK( nearStart.x == doctest::Approx( 0.0f ) );
+    CHECK( nearStart.z == doctest::Approx( 0.0f ) );
+    CHECK( nearStart.w == doctest::Approx( 1.0f ) );
+
+    Float4 frontStart = { -0.25f, 0.5f, 0.25f, 1.0f };
+    Float4 frontEnd = { 0.75f, -0.5f, 0.75f, 1.0f };
+    const Float4 originalFrontStart = frontStart;
+    const Float4 originalFrontEnd = frontEnd;
+    REQUIRE( ClipSegmentToNearPlane( frontStart, frontEnd ) );
+    CHECK( frontStart.x == originalFrontStart.x );
+    CHECK( frontStart.y == originalFrontStart.y );
+    CHECK( frontStart.z == originalFrontStart.z );
+    CHECK( frontStart.w == originalFrontStart.w );
+    CHECK( frontEnd.x == originalFrontEnd.x );
+    CHECK( frontEnd.y == originalFrontEnd.y );
+    CHECK( frontEnd.z == originalFrontEnd.z );
+    CHECK( frontEnd.w == originalFrontEnd.w );
 }
 
 TEST_CASE( "Shader reflection contracts: CPU declarations match baked DXIL" )
@@ -122,6 +222,34 @@ TEST_CASE( "Shader reflection contracts: bindless texture indices are pixel-stag
     std::string error;
     CHECK_FALSE( ValidateUnifiedRasterResource( *vertexStage, textureIndices, error ) );
     CHECK( error.find( "outside the UnifiedRaster root-signature slot map" ) != std::string::npos );
+}
+
+TEST_CASE( "Shader reflection contracts: separate skybox faces use the clamp sampler" )
+{
+    CHECK( UnifiedRasterRootSignature::STATIC_SAMPLERS[0].shaderRegister == 0u );
+    CHECK( UnifiedRasterRootSignature::STATIC_SAMPLERS[0].addressMode ==
+           UnifiedRasterRootSignature::StaticSampler::AddressMode::Wrap );
+    CHECK( UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister == 1u );
+    CHECK( UnifiedRasterRootSignature::STATIC_SAMPLERS[1].addressMode ==
+           UnifiedRasterRootSignature::StaticSampler::AddressMode::Clamp );
+
+    const auto* pixelStage = FindGeneratedShaderStage( "unlit_textured.hlsl", "ps" );
+    REQUIRE( pixelStage != nullptr );
+
+    bool foundClampSampler = false;
+    bool foundWrapSampler = false;
+    for ( std::uint32_t i = 0; i < pixelStage->resourceCount; ++i )
+    {
+        const auto& resource = GeneratedShaderReflection::Resources[pixelStage->resourceStart + i];
+        if ( resource.registerClass == 's' )
+        {
+            foundClampSampler = foundClampSampler || resource.slot == 1u;
+            foundWrapSampler = foundWrapSampler || resource.slot == 0u;
+        }
+    }
+
+    CHECK( foundClampSampler );
+    CHECK_FALSE( foundWrapSampler );
 }
 
 TEST_CASE( "Shader reflection contracts: every raster input signature matches the CPU table" )

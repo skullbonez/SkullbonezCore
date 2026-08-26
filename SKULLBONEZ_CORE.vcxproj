@@ -944,6 +944,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\shaders\water_ocean.vs.dxil" />
     <None Include="SkullbonezData\shaders\reflect.rt.dxil" />
     <None Include="SkullbonezData\shaders\reflect.rt.hlsl" />
+    <None Include="SkullbonezData\shaders\shader_behavior.hlsli" />
     <None Include="SkullbonezData\shaders\shadow_depth.hlsl" />
     <None Include="SkullbonezData\shaders\shadow_depth_instanced.hlsl" />
     <None Include="SkullbonezData\shaders\sky_atmosphere.hlsl" />

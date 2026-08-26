@@ -72,12 +72,17 @@ struct StaticSampler
 {
     const char* name;
     std::uint32_t shaderRegister;
+    enum class AddressMode
+    {
+        Wrap,
+        Clamp
+    } addressMode;
 };
 
 inline constexpr StaticSampler STATIC_SAMPLERS[] = {
-    { "LinearWrap", 0 },
-    { "LinearClamp", 1 },
-    { "ShadowPointClamp", 3 },
+    { "LinearWrap", 0, StaticSampler::AddressMode::Wrap },
+    { "LinearClamp", 1, StaticSampler::AddressMode::Clamp },
+    { "ShadowPointClamp", 3, StaticSampler::AddressMode::Clamp },
 };
 
 inline constexpr bool AcceptsSamplerRegister( std::uint32_t slot )

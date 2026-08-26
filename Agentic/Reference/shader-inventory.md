@@ -80,8 +80,9 @@ parameter overrides.
 | Shader | Role |
 |--------|------|
 | `generate_mips.hlsl` | DX12 compute mip-generation shader. |
+| `shader_behavior.hlsli` | Dual-language periodic-sky and homogeneous ribbon-clipping behavior compiled by HLSL and focused CPU fixtures. |
 | `reflect.rt.hlsl` | DXR reflection raytracing library source. |
-| `reflect.rt.dxil` | Checked-in DXR bytecode loaded by the runtime. Rebuild it from `reflect.rt.hlsl` when the raytracing source changes. |
+| `reflect.rt.dxil` | Content-addressed DXR library bytecode generated with the raster and compute shader manifest. |
 
 ## Validation
 

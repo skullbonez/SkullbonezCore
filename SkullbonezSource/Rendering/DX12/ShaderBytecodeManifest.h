@@ -5,9 +5,9 @@ Purpose:
   bytecode.
 
 Summary:
-  Authored HLSL and executable DXIL are a matched pair. The bake manifest
-  records their hashes. A backend-lifetime cache verifies each raster program
-  once, while explicit reload bypasses and then invalidates that generation.
+  Authored HLSL, local includes, and executable DXIL are one matched set. The
+  bake manifest records their hashes. A backend-lifetime cache verifies raster
+  programs, while the DXR library uses the same source-bound loading boundary.
 
 Invariants:
   - Shipping startup never invokes a shader compiler.
@@ -80,6 +80,8 @@ bool DevShaderHotReloadEnabled();
 
 bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage, Microsoft::WRL::ComPtr<ID3DBlob>& outBlob,
                                         std::string& outError );
+bool LoadManifestCurrentShaderLibraryBytecode( const char* hlslPath, const char* stage,
+                                               Microsoft::WRL::ComPtr<ID3DBlob>& outBlob, std::string& outError );
 
 bool ReflectShaderBytecode( ID3DBlob* blob, Microsoft::WRL::ComPtr<ID3D12ShaderReflection>& outReflection,
                             HRESULT& outResult );

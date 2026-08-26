@@ -22,7 +22,9 @@ Related:
 // GENERATE MIPMAPS COMPUTE SHADER — Shader Model 6.6
 // =============================================================================
 //
-// One 8x8 thread group can write up to 4 consecutive mip levels.
+// One 8x8 thread group can write up to 4 consecutive mip levels. The CPU ends
+// a batch before an odd intermediate dimension; that level becomes the next
+// dispatch source so its final row or column is filtered instead of discarded.
 // The first output mip is sampled from the SRV source (handles NPOT via
 // multiple samples). Subsequent mips use group shared memory reduction.
 //

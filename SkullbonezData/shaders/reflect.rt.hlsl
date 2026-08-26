@@ -109,7 +109,8 @@ Texture2D gSkyLeft    : register(t5);  // skybox face: +X (east)
 Texture2D gSkyFront   : register(t6);  // skybox face: +Z (north)
 Texture2D gSkyBack    : register(t7);  // skybox face: -Z (south)
 
-SamplerState gSampler : register(s0);  // linear wrap sampler for all textures
+SamplerState gSampler : register(s0);     // repeating sphere and terrain textures
+SamplerState gSkySampler : register(s1);  // independent sky faces clamp at their authored edges
 
 // Constant buffer with per-frame camera and scene data.
 cbuffer RTConstants : register(b1)
@@ -205,12 +206,12 @@ float3 SampleSkybox( float3 d )
         if ( d.y > 0.0f )
         {
             float v = ( d.z / ay ) * 0.5f + 0.5f;
-            return gSkyUp.SampleLevel( gSampler, float2( u, v ), 0 ).rgb;
+            return gSkyUp.SampleLevel( gSkySampler, float2( u, v ), 0 ).rgb;
         }
         else
         {
             float v = -( d.z / ay ) * 0.5f + 0.5f;
-            return gSkyDown.SampleLevel( gSampler, float2( u, v ), 0 ).rgb;
+            return gSkyDown.SampleLevel( gSkySampler, float2( u, v ), 0 ).rgb;
         }
     }
     else if ( ax >= az )
@@ -220,12 +221,12 @@ float3 SampleSkybox( float3 d )
         if ( d.x < 0.0f )
         {
             float u = ( d.z / ax ) * 0.5f + 0.5f;
-            return gSkyRight.SampleLevel( gSampler, float2( u, v ), 0 ).rgb;
+            return gSkyRight.SampleLevel( gSkySampler, float2( u, v ), 0 ).rgb;
         }
         else
         {
             float u = -( d.z / ax ) * 0.5f + 0.5f;
-            return gSkyLeft.SampleLevel( gSampler, float2( u, v ), 0 ).rgb;
+            return gSkyLeft.SampleLevel( gSkySampler, float2( u, v ), 0 ).rgb;
         }
     }
     else
@@ -235,12 +236,12 @@ float3 SampleSkybox( float3 d )
         if ( d.z > 0.0f )
         {
             float u = ( d.x / az ) * 0.5f + 0.5f;
-            return gSkyFront.SampleLevel( gSampler, float2( u, v ), 0 ).rgb;
+            return gSkyFront.SampleLevel( gSkySampler, float2( u, v ), 0 ).rgb;
         }
         else
         {
             float u = -( d.x / az ) * 0.5f + 0.5f;
-            return gSkyBack.SampleLevel( gSampler, float2( u, v ), 0 ).rgb;
+            return gSkyBack.SampleLevel( gSkySampler, float2( u, v ), 0 ).rgb;
         }
     }
 }

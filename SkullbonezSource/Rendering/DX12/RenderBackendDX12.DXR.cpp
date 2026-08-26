@@ -24,6 +24,7 @@ Related:
 #include "RenderBackendDX12.h"
 #include "../../Core/WindowConstants.h"
 #include "ShaderDX12.h"
+#include "ShaderBytecodeManifest.h"
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
@@ -140,7 +141,8 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12D
     // [1] output UAV: reflection texture written by the ray-generation shader.
     // [2] constants CBV: camera, water plane, and per-dispatch values.
     // [3] texture SRV table: sphere/terrain/sky textures for hit/miss shaders.
-    // [s0] sampler: linear wrap sampling for the texture table.
+    // [s0] sampler: linear wrap for repeating material textures.
+    // [s1] sampler: linear clamp for the six independent sky faces.
     //
     // Inline descriptors point directly at one GPU virtual address. Descriptor
     // tables point at rows in a shader-visible descriptor heap.
@@ -182,24 +184,32 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12D
     params[3].DescriptorTable.pDescriptorRanges = &texRange;
     params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-    // Static linear-wrap sampler at s0
-    D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
-    samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-    samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplerDesc.MaxAnisotropy = 1;
-    samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
-    samplerDesc.ShaderRegister = 0;
-    samplerDesc.RegisterSpace = 0;
-    samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    D3D12_STATIC_SAMPLER_DESC samplerDescs[2] = {};
+    const auto nativeAddressMode = []( UnifiedRasterRootSignature::StaticSampler::AddressMode mode )
+    { return mode == UnifiedRasterRootSignature::StaticSampler::AddressMode::Wrap ? D3D12_TEXTURE_ADDRESS_MODE_WRAP
+                                                                                   : D3D12_TEXTURE_ADDRESS_MODE_CLAMP; };
+    samplerDescs[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    samplerDescs[0].AddressU = nativeAddressMode( UnifiedRasterRootSignature::STATIC_SAMPLERS[0].addressMode );
+    samplerDescs[0].AddressV = samplerDescs[0].AddressU;
+    samplerDescs[0].AddressW = samplerDescs[0].AddressU;
+    samplerDescs[0].MaxAnisotropy = 1;
+    samplerDescs[0].MaxLOD = D3D12_FLOAT32_MAX;
+    samplerDescs[0].ShaderRegister = UnifiedRasterRootSignature::STATIC_SAMPLERS[0].shaderRegister;
+    samplerDescs[0].RegisterSpace = 0;
+    samplerDescs[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+    samplerDescs[1] = samplerDescs[0];
+    samplerDescs[1].AddressU = nativeAddressMode( UnifiedRasterRootSignature::STATIC_SAMPLERS[1].addressMode );
+    samplerDescs[1].AddressV = samplerDescs[1].AddressU;
+    samplerDescs[1].AddressW = samplerDescs[1].AddressU;
+    samplerDescs[1].ShaderRegister = UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister;
 
     D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSigDesc = {};
     rootSigDesc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
     rootSigDesc.Desc_1_1.NumParameters = 4;
     rootSigDesc.Desc_1_1.pParameters = params;
-    rootSigDesc.Desc_1_1.NumStaticSamplers = 1;
-    rootSigDesc.Desc_1_1.pStaticSamplers = &samplerDesc;
+    rootSigDesc.Desc_1_1.NumStaticSamplers = 2;
+    rootSigDesc.Desc_1_1.pStaticSamplers = samplerDescs;
     rootSigDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
     ComPtr<ID3DBlob> signature;
@@ -228,24 +238,13 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
 {
     // DXR reflection uses checked-in DXIL. Keep compilation in tools/build
     // workflows so runtime startup never shells out or depends on SDK paths.
-    std::string dxilPath = std::string( DATA_ROOT ) + "shaders/reflect.rt.dxil";
-
-    FILE* dxilFile = nullptr;
-    fopen_s( &dxilFile, dxilPath.c_str(), "rb" );
-
-    if ( !dxilFile )
+    const std::string hlslPath = std::string( DATA_ROOT ) + "shaders/reflect.rt.hlsl";
+    ComPtr<ID3DBlob> dxilBlob;
+    std::string bytecodeError;
+    if ( !LoadManifestCurrentShaderLibraryBytecode( hlslPath.c_str(), "lib", dxilBlob, bytecodeError ) )
     {
-        return m_resultDiagnostics
-            .Failure( "Rendering/DX12", "Missing SkullbonezData/shaders/reflect.rt.dxil; rebuild and commit the DXR shader "
-                                        "bytecode before using DXR reflection." );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "DXR shader bytecode rejected: %s", bytecodeError.c_str() );
     }
-
-    fseek( dxilFile, 0, SEEK_END );
-    long dxilSize = ftell( dxilFile );
-    fseek( dxilFile, 0, SEEK_SET );
-    std::vector<uint8_t> dxilBlob( static_cast<size_t>( dxilSize ) );
-    fread( dxilBlob.data(), 1, static_cast<size_t>( dxilSize ), dxilFile );
-    fclose( dxilFile );
 
     // Concept: an RTPSO is assembled from subobjects instead of one flat
     // graphics-pipeline description.
@@ -255,8 +254,8 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
     // attribute sizes. Pipeline config caps recursion. The global root signature
     // is the binding contract shared by all those raytracing shaders.
     D3D12_DXIL_LIBRARY_DESC libDesc = {};
-    libDesc.DXILLibrary.pShaderBytecode = dxilBlob.data();
-    libDesc.DXILLibrary.BytecodeLength = dxilBlob.size();
+    libDesc.DXILLibrary.pShaderBytecode = dxilBlob->GetBufferPointer();
+    libDesc.DXILLibrary.BytecodeLength = dxilBlob->GetBufferSize();
     libDesc.NumExports = 0; // Export all entry points
 
     D3D12_HIT_GROUP_DESC terrainHitGroup = {};

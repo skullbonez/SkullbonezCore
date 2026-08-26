@@ -35,6 +35,46 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
+struct GenerateMipsDispatchPlan
+{
+    unsigned int mipCount = 0;
+    unsigned int finalWidth = 0;
+    unsigned int finalHeight = 0;
+};
+
+// Invariant: group-memory reduction is exact only while each reduced axis is
+// either one texel or even. An odd intermediate level must become the source
+// of a new dispatch so the shader's filtered NPOT path includes its edge row.
+inline constexpr GenerateMipsDispatchPlan PlanGenerateMipsDispatch( unsigned int sourceWidth,
+                                                                    unsigned int sourceHeight,
+                                                                    unsigned int remainingMipCount )
+{
+    GenerateMipsDispatchPlan plan = {};
+    if ( sourceWidth == 0 || sourceHeight == 0 || remainingMipCount == 0 )
+    {
+        return plan;
+    }
+
+    plan.mipCount = 1;
+    plan.finalWidth = sourceWidth > 1 ? sourceWidth / 2 : 1;
+    plan.finalHeight = sourceHeight > 1 ? sourceHeight / 2 : 1;
+
+    while ( plan.mipCount < remainingMipCount && plan.mipCount < 4 &&
+            ( plan.finalWidth == 1 || ( plan.finalWidth & 1u ) == 0 ) &&
+            ( plan.finalHeight == 1 || ( plan.finalHeight & 1u ) == 0 ) )
+    {
+        if ( plan.finalWidth == 1 && plan.finalHeight == 1 )
+        {
+            break;
+        }
+        plan.finalWidth = plan.finalWidth > 1 ? plan.finalWidth / 2 : 1;
+        plan.finalHeight = plan.finalHeight > 1 ? plan.finalHeight / 2 : 1;
+        ++plan.mipCount;
+    }
+
+    return plan;
+}
+
 enum class ShaderValueType
 {
     Int,

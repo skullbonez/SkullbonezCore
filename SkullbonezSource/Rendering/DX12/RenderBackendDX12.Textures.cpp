@@ -31,6 +31,7 @@ Related:
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
+#include "../ShaderContracts.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
@@ -396,7 +397,9 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
 
     while ( srcMip < numMips - 1 )
     {
-        UINT mipsToGenerate = (std::min)( numMips - 1 - srcMip, 4u );
+        const GenerateMipsDispatchPlan dispatchPlan =
+            PlanGenerateMipsDispatch( srcMipW, srcMipH, numMips - 1 - srcMip );
+        const UINT mipsToGenerate = dispatchPlan.mipCount;
         UINT dstW = (std::max)( srcMipW >> 1, 1u );
         UINT dstH = (std::max)( srcMipH >> 1, 1u );
 
