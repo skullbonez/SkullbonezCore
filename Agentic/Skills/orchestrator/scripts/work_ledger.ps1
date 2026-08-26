@@ -1112,12 +1112,26 @@ function Write-Ledger {
 
     $content = Render-Ledger -State $State -UpdatedAt $UpdatedAt
     $tempPath = Join-Path $directory ('.' + [IO.Path]::GetFileName($Path) + '.' + [Guid]::NewGuid().ToString('N') + '.tmp')
+    $backupPath = Join-Path $directory ('.' + [IO.Path]::GetFileName($Path) + '.' + [Guid]::NewGuid().ToString('N') + '.bak')
+    $replaceSucceeded = $false
     try {
         [IO.File]::WriteAllText($tempPath, $content, [Text.UTF8Encoding]::new($false))
-        Move-Item -LiteralPath $tempPath -Destination $Path -Force
+
+        # Hazard: Windows PowerShell's Move-Item -Force can still reject an
+        # existing destination. File.Replace preserves one atomic handoff when
+        # refreshing the live ledger; the first write has no predecessor.
+        if (Test-Path -LiteralPath $Path -PathType Leaf) {
+            [IO.File]::Replace($tempPath, $Path, $backupPath, $true)
+            $replaceSucceeded = $true
+        } else {
+            [IO.File]::Move($tempPath, $Path)
+        }
     } finally {
         if (Test-Path -LiteralPath $tempPath -PathType Leaf) {
             Remove-Item -LiteralPath $tempPath -Force
+        }
+        if ($replaceSucceeded -and (Test-Path -LiteralPath $backupPath -PathType Leaf)) {
+            Remove-Item -LiteralPath $backupPath -Force
         }
     }
 }

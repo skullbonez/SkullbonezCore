@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-26
-Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
+Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete; bug ledger 126/126 fixed
 
 ## Owner Direction
 
@@ -338,8 +338,9 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-No `TODO/` implementation plan is selectable. The bug ledger is the next live
-queue unless the owner activates a parked plan.
+No `TODO/` implementation plan is selectable, and the bug ledger has no
+unresolved row. No implementation work is live unless the owner activates a
+parked plan or adds a new plan or bug row.
 
 The former `RAGDOLL_PHYSICS` and `RECORDED_CURSOR` plans are parked, while
 `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` are complete. None participates in
@@ -367,7 +368,8 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-120/120 tasks complete. Governance De-Bureaucratization and Jargon Removal is
+120/120 tasks complete, and all 126 bug-ledger rows are fixed. Governance
+De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen
 negative-test seeds, and ratifies a 20-file governance-administration cohort
