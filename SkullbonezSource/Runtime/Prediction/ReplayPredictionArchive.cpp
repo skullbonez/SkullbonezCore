@@ -71,21 +71,24 @@ constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS = REPLAY_PREDICTION_MAR
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_POINTS = 4000000u;
 constexpr std::size_t REPLAY_PREDICTION_ARCHIVE_MAX_BYTES = 128u * 1024u * 1024u;
 
-bool IsInactivePredictionWorkerBankRecord( const ReplayTrajectoryRecord& record ) noexcept
+bool IsInactivePredictionWorkerBankRecord( const ReplayTrajectoryRecord& record,
+                                           bool presentedTrajectoryUsesBuildBank ) noexcept
 {
     const bool childLane = record.key.lane == ReplayTrajectoryLane::FutureChildIncoming ||
                            record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing;
+    const bool recordUsesBuildBank = record.key.branchOrdinal >= REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
 
-    return childLane && record.key.branchOrdinal >= REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
+    return childLane && recordUsesBuildBank != presentedTrajectoryUsesBuildBank;
 }
 
-uint32_t CountCanonicalTrajectoryVersions( const ReplayTrajectoryStore& store ) noexcept
+uint32_t CountCanonicalTrajectoryVersions( const ReplayTrajectoryStore& store,
+                                           bool presentedTrajectoryUsesBuildBank ) noexcept
 {
     uint32_t count = 0;
 
     for ( const ReplayTrajectoryRecord& record : store.ActiveRecords() )
     {
-        if ( !IsInactivePredictionWorkerBankRecord( record ) )
+        if ( !IsInactivePredictionWorkerBankRecord( record, presentedTrajectoryUsesBuildBank ) )
         {
             ++count;
         }
@@ -505,7 +508,10 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
     const uint32_t canonicalNextTopologyVersion = canonicalTopologyVersion != 0u ? 2u : 1u;
     writer.Scalar( canonicalTopologyVersion );
     writer.Scalar( canonicalNextTopologyVersion );
-    writer.Boolean( prediction.futureNodeCache.futureNodesBuiltRagdollVisuals );
+    const bool presentedFutureNodesBuiltRagdollVisuals =
+        usingVisibleSnapshot ? prediction.committedPublication.visibleFutureNodesBuiltRagdollVisuals
+                             : prediction.futureNodeCache.futureNodesBuiltRagdollVisuals;
+    writer.Boolean( presentedFutureNodesBuiltRagdollVisuals );
     writer.Scalar( static_cast<uint32_t>( presentation.futureNodes.size() ) );
 
     for ( const RunReplayPathTraceNode& node : presentation.futureNodes )
@@ -520,7 +526,8 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
         WriteMarker( writer, marker );
     }
 
-    const uint32_t canonicalTrajectoryVersionCount = CountCanonicalTrajectoryVersions( prediction.trajectoryStore );
+    const uint32_t canonicalTrajectoryVersionCount =
+        CountCanonicalTrajectoryVersions( prediction.trajectoryStore, presentedTrajectory.usingBuildFrames );
     writer.Scalar( canonicalTrajectoryVersionCount + 1u );
     writer.Scalar( static_cast<uint32_t>( prediction.trajectoryStore.RecordCount() ) );
     uint64_t totalPointCount = 0;
@@ -528,23 +535,19 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
 
     for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.ActiveRecords() )
     {
-        totalPointCount += record.points.size();
-
-        if ( totalPointCount > REPLAY_PREDICTION_ARCHIVE_MAX_POINTS || record.publishedPointCount > record.points.size() )
+        if ( IsInactivePredictionWorkerBankRecord( record, presentedTrajectory.usingBuildFrames ) )
         {
-            return false;
-        }
-
-        if ( IsInactivePredictionWorkerBankRecord( record ) )
-        {
-            // Hazard: this double-buffer bank is renderer-inactive after
-            // completion, but its schedule-selected keys and point payloads
+            // Hazard: this double-buffer bank is not part of the selected
+            // publication, but its schedule-selected keys and point payloads
             // used to leak into the durable artifact. Keep one fixed-width
             // record slot while replacing all variable telemetry with an inert
             // constant; the reader layout and record-count contract stay intact.
             writer.Scalar( static_cast<uint32_t>( 0u ) );
             writer.Scalar( static_cast<uint8_t>( ReplayTrajectoryLane::FutureChildIncoming ) );
-            writer.Scalar( static_cast<uint16_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
+            const uint16_t inactiveBankSentinel = presentedTrajectory.usingBuildFrames
+                                                      ? REPLAY_TRAJECTORY_COMMITTED_BRANCH
+                                                      : REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
+            writer.Scalar( inactiveBankSentinel );
             writer.Scalar( static_cast<uint32_t>( 0u ) );
             writer.Scalar( static_cast<uint32_t>( 0u ) );
             writer.Scalar( static_cast<uint16_t>( 0u ) );
@@ -554,6 +557,13 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
             writer.Boolean( false );
             writer.Scalar( static_cast<uint32_t>( 0u ) );
             continue;
+        }
+
+        totalPointCount += record.points.size();
+
+        if ( totalPointCount > REPLAY_PREDICTION_ARCHIVE_MAX_POINTS || record.publishedPointCount > record.points.size() )
+        {
+            return false;
         }
 
         writer.Scalar( record.key.bodyId.value );

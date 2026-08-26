@@ -393,7 +393,10 @@ struct ReplayPredictionCommittedPublicationState
     // These values remain B's publication source until its coherent flip;
     // the requested C identity stays only in the restart/coalescer input.
     Physics::ModelRowHint visibleTargetModelRow;
+    // Invariant: topology-derived flags are captured beside their node rows;
+    // archive and presentation readers never pair them with the live cache.
     bool visibleFutureNodesCacheValid = false;
+    bool visibleFutureNodesBuiltRagdollVisuals = false;
     bool visibleTargetAvailable = false;
 
     // Lifetime: trajectory branch identity and frame-vector storage are
@@ -437,6 +440,7 @@ struct ReplayPredictionCommittedPublicationState
         visibleTrajectoryPublicationVersion = owningTrajectoryPublicationVersion;
         visibleTargetModelRow = owningTargetModelRow;
         visibleFutureNodesCacheValid = visibleFutureCache.futureNodesCacheValid;
+        visibleFutureNodesBuiltRagdollVisuals = visibleFutureCache.futureNodesBuiltRagdollVisuals;
         visibleTargetAvailable = owningTargetAvailable;
         visibleFramesUseBuildBank = owningFramesUseBuildBank;
         visibleSnapshotCaptured = true;
@@ -480,6 +484,7 @@ struct ReplayPredictionCommittedPublicationState
         visibleTrajectoryPublicationVersion = 0;
         visibleTargetModelRow = {};
         visibleFutureNodesCacheValid = false;
+        visibleFutureNodesBuiltRagdollVisuals = false;
         visibleTargetAvailable = false;
         visibleFramesUseBuildBank = false;
         visibleSnapshotCaptured = false;

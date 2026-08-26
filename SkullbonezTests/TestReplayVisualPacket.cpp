@@ -18,10 +18,13 @@ Invariants:
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.h"
 #include "../SkullbonezSource/Runtime/App/ReplayPredictionDrawing.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.MarkerScan.inl"
+#include "../SkullbonezSource/Runtime/Replay/ReplayPathPackets.h"
 
 #include <algorithm>
 #include <array>
@@ -1011,6 +1014,113 @@ TEST_CASE( "Replay presentation holds the exact pending frame and version bank" 
     const ReplayPredictionPresentationView flipped = ReplayPrediction::PresentationViewFromState( *state, true );
     CHECK( flipped.frames.size() == 200u );
     CHECK( flipped.trajectoryPublicationVersion == 100u );
+}
+
+TEST_CASE( "Replay prediction archive keeps one coherent pending publication" )
+{
+    auto state = std::make_unique<RunReplayPredictionState>();
+    state->build.complete = true;
+    state->build.buildFrames.resize( 2u );
+    state->build.buildFrames[0].frameIndex = 10u;
+    state->build.buildFrames[1].frameIndex = 11u;
+    state->simulation.targetId.value = 41u;
+    state->simulation.targetModelRow.value = 3;
+
+    ReplayTrajectoryRecordKey visibleKey;
+    visibleKey.bodyId.value = 52u;
+    visibleKey.lane = ReplayTrajectoryLane::FutureChildIncoming;
+    visibleKey.branchOrdinal = static_cast<uint16_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY );
+    REQUIRE( state->trajectoryStore.ReserveRecords( 2u, 0 ) );
+    ReplayTrajectoryRecord* visibleRecord = state->trajectoryStore.BeginReplaceRecord(
+        visibleKey, 7u, state->simulation.targetId, 1, 10u, true, 1u );
+    REQUIRE( visibleRecord );
+    REQUIRE( state->trajectoryStore.ReserveRecordPoints( *visibleRecord, 1u, 0 ) );
+    REQUIRE( state->trajectoryStore.TryAppendPoint( *visibleRecord, { 10u, { 3.0f, 4.0f, 5.0f } } ) );
+    state->trajectoryStore.PublishPrefix( *visibleRecord, 1u );
+
+    ReplayTrajectoryRecordKey inactiveKey = visibleKey;
+    inactiveKey.bodyId.value = 53u;
+    inactiveKey.branchOrdinal = 0u;
+    ReplayTrajectoryRecord* inactiveRecord = state->trajectoryStore.BeginReplaceRecord(
+        inactiveKey, 9u, state->simulation.targetId, 1, 10u, true, 1u );
+    REQUIRE( inactiveRecord );
+    REQUIRE( state->trajectoryStore.ReserveRecordPoints( *inactiveRecord, 1u, 0 ) );
+    REQUIRE( state->trajectoryStore.TryAppendPoint( *inactiveRecord, { 10u, { 90.0f, 91.0f, 92.0f } } ) );
+    state->trajectoryStore.PublishPrefix( *inactiveRecord, 1u );
+    inactiveRecord->publishedPointCount = 2u;
+
+    RunReplayPathTraceNode visibleNode;
+    visibleNode.id = visibleKey.bodyId;
+    visibleNode.parentId = state->simulation.targetId;
+    visibleNode.modelRow.value = 5;
+    visibleNode.parentModelRow = state->simulation.targetModelRow;
+    visibleNode.firstFrame = 10u;
+    visibleNode.depth = 1;
+    visibleNode.contactDerived = true;
+    state->futureNodeCache.futureNodes.push_back( visibleNode );
+    state->futureNodeCache.futureNodesTopologyVersion = 12u;
+    state->futureNodeCache.futureNodesCacheValid = true;
+    state->futureNodeCache.futureNodesBuiltRagdollVisuals = true;
+    state->futureNodeCache.retainedMarkers[0].id = visibleKey.bodyId;
+    state->futureNodeCache.retainedMarkers[0].modelRow = visibleNode.modelRow;
+    state->futureNodeCache.retainedMarkers[0].hasEntryPose = true;
+    state->futureNodeCache.retainedMarkers[0].entryPosition = { 6.0f, 7.0f, 8.0f };
+    state->futureNodeCache.retainedMarkerCount = 1u;
+    RunReplayPredictionTrajectoryBuildState visibleBuild;
+    visibleBuild.rootId = state->simulation.targetId;
+    visibleBuild.usingBuildFrames = true;
+    visibleBuild.childFrameCount = state->build.buildFrames.size();
+    visibleBuild.builtNodeCount = 1u;
+    visibleBuild.topologyVersion = state->futureNodeCache.futureNodesTopologyVersion;
+    visibleBuild.valid = true;
+    state->committedPublication.visibleFutureNodes.reserve( 1u );
+    REQUIRE( state->committedPublication.Begin( visibleBuild, state->futureNodeCache, 4u,
+                                                state->build.buildFrames.size(), state->simulation.targetModelRow, true,
+                                                true, state->build.buildFrames.size(),
+                                                state->trajectoryStore.publicationVersion ) );
+
+    // Hazard: worker setup may immediately repurpose the live cache and the
+    // opposite trajectory bank. Saving must still consume only the captured
+    // publication that readers can see until the coherent flip.
+    state->futureNodeCache.futureNodes[0].id.value = 99u;
+    state->futureNodeCache.futureNodesTopologyVersion = 44u;
+    state->futureNodeCache.futureNodesBuiltRagdollVisuals = false;
+    state->futureNodeCache.retainedMarkers[0].id.value = 98u;
+    state->futureNodeCache.retainedMarkers[0].entryPosition = { 96.0f, 97.0f, 98.0f };
+
+    RunReplayPathVisualizerState pathVisualizer;
+    auto evidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();
+    std::vector<uint8_t> archiveBytes;
+    REQUIRE( ReplayPredictionArchiveOperations::BuildReplayPredictionArchive(
+        pathVisualizer, *state, ReplayPredictionDetailMode::Low, evidence->Committed(), archiveBytes ) );
+
+    RunReplayPathVisualizerState restoredPathVisualizer;
+    auto restored = std::make_unique<RunReplayPredictionState>();
+    auto restoredEvidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();
+    ReplayPredictionArchiveDetailCapability restoredCapability = ReplayPredictionArchiveDetailCapability::High;
+    char reason[256] = {};
+    REQUIRE( ReplayPredictionArchiveOperations::LoadReplayPredictionArchive(
+        archiveBytes, restoredPathVisualizer, *restored, *restoredEvidence, ReplayPredictionDetailMode::Low,
+        restoredCapability, reason, sizeof( reason ) ) );
+    CHECK( restoredCapability == ReplayPredictionArchiveDetailCapability::Low );
+
+    const ReplayTrajectoryRecord* restoredRecord = restored->trajectoryStore.FindRecord( visibleKey );
+    REQUIRE( restoredRecord );
+    REQUIRE( restoredRecord->points.size() == 1u );
+    CHECK( restoredRecord->publishedPointCount == 1u );
+    CHECK( restoredRecord->points[0].position.x == 3.0f );
+    CHECK( restoredRecord->points[0].position.y == 4.0f );
+    CHECK( restoredRecord->points[0].position.z == 5.0f );
+    CHECK_FALSE( restored->trajectoryStore.FindRecord( inactiveKey ) );
+    REQUIRE( restored->futureNodeCache.futureNodes.size() == 1u );
+    CHECK( restored->futureNodeCache.futureNodes[0].id.value == visibleKey.bodyId.value );
+    CHECK( restored->futureNodeCache.futureNodesTopologyVersion == restored->trajectoryBuild.topologyVersion );
+    REQUIRE( restored->futureNodeCache.retainedMarkerCount == 1u );
+    CHECK( restored->futureNodeCache.retainedMarkers[0].id.value == visibleKey.bodyId.value );
+    CHECK( restored->futureNodeCache.retainedMarkers[0].entryPosition.x == 6.0f );
+    CHECK( restored->futureNodeCache.retainedMarkers[0].entryPosition.y == 7.0f );
+    CHECK( restored->futureNodeCache.retainedMarkers[0].entryPosition.z == 8.0f );
+    CHECK( restored->futureNodeCache.futureNodesBuiltRagdollVisuals );
 }
 
 TEST_CASE( "Replay fast completion retains the committed bank before first build presentation" )

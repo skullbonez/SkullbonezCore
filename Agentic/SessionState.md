@@ -4,6 +4,23 @@ Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
 Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
 
+## Runtime Prediction Bug Ledger Closure (2026-08-26)
+
+PRED-001 and PRED-002 are fixed as one Runtime Prediction subsystem batch.
+Prediction archives now classify child trajectory records against the bank that
+is actually presentation-visible, discard the opposite bank before inspecting
+its variable payload, and serialize the ragdoll-visual fact captured beside the
+visible nodes and retained markers. A real save/load fixture makes the captured
+and live generations disagree, retains the visible build-bank child, and proves
+the malformed inactive bank cannot reject or leak into the artifact.
+
+One consolidated read-only rubber-duck review used task
+`01a03961-d56f-70d1-a7f2-56d4651b858b`. The first pass found three blocking
+ordering and evidence gaps; the follow-up closed all three. Final counts were
+0 Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner direction,
+focused Prediction tests, builds, scanners, inventories, and repository
+validation were not executed.
+
 ## Runtime Replay Bug Ledger Closure (2026-08-26)
 
 REPLAY-001 and REPLAY-002 are fixed as one Runtime Replay subsystem batch.
