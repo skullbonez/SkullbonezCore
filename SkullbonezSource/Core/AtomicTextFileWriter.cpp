@@ -1,7 +1,7 @@
 /*
 File: AtomicTextFileWriter.cpp
 Purpose:
-  Publishes complete UTF-8 text files through temporary-sibling replacement.
+  Publishes complete byte artifacts through temporary-sibling replacement.
 
 Summary:
   The implementation validates the destination, creates its parent tree, then
@@ -66,11 +66,11 @@ void SetAtomicTextFileTestFailure( AtomicTextFileTestFailure failure ) noexcept
 }
 #endif
 
-SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner, const char* path, std::string_view bytes )
+SbResult WriteFileAtomic( SbDiagnosticStore& diagnostics, const char* owner, const char* path, std::string_view bytes )
 {
     if ( !path || path[0] == '\0' )
     {
-        return diagnostics.Failure( owner ? owner : "Core/AtomicTextFileWriter", "Atomic text path is empty." );
+        return diagnostics.Failure( owner ? owner : "Core/AtomicTextFileWriter", "Atomic file path is empty." );
     }
 
     std::error_code filesystemError;

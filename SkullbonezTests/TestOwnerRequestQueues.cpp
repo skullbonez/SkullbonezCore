@@ -30,9 +30,12 @@ Invariants:
     returned Runtime copy retains the exact failure bytes.
   - Replay interaction requests pair native capture with exactly one gesture
     transition, and scene diagnostic snapshots reject invalid count domains.
+  - Capture scheduling retains independent one-shot and interval events, while
+    binary publication preserves the prior artifact on write or close failure.
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
+#include "../SkullbonezSource/Core/AtomicTextFileWriter.h"
 #include "../SkullbonezSource/Runtime/Capture/CaptureController.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h"
@@ -1156,6 +1159,103 @@ TEST_CASE( "PNG encoder preserves top-down RGB pixels from padded bottom-up BGR"
     std::vector<uint8_t> invalidOutput { 1, 2, 3 };
     CHECK_FALSE( CaptureSystem::BuildPngBytes( diagnostics, std::span<const uint8_t> {}, 2, 2, invalidOutput ).Ok() );
     CHECK( invalidOutput.empty() );
+}
+
+TEST_CASE( "Capture scheduling keeps same-frame one-shot and interval work independent" )
+{
+    RunScreenshotState screenshot;
+    strcpy_s( screenshot.screenshotPath, "TestOutput\\capture_once.bmp" );
+    screenshot.screenshotFrame = 3;
+    screenshot.screenshotInterval = 3;
+    strcpy_s( screenshot.screenshotDir, "TestOutput\\capture_interval" );
+
+    const ScreenshotCapturePlan plan = CaptureSystem::BuildScreenshotCapturePlan( screenshot, true, 2, 0.0 );
+    CHECK( plan.oneShotDue );
+    CHECK( plan.intervalDue );
+    CHECK( CaptureSystem::IsScreenshotDue( screenshot, true, 2, 0.0 ) );
+
+    screenshot.isScreenshotSaved = true;
+    const ScreenshotCapturePlan afterOneShot = CaptureSystem::BuildScreenshotCapturePlan( screenshot, true, 2, 0.0 );
+    CHECK_FALSE( afterOneShot.oneShotDue );
+    CHECK( afterOneShot.intervalDue );
+}
+
+TEST_CASE( "Screenshot-and-exit naming honors the last separator of either kind" )
+{
+    char output[256] = {};
+    REQUIRE( CaptureSystem::TryBuildScreenshotAndExitPath( "Scenes/recorded\\nested.scene.json", output,
+                                                           sizeof( output ) ) );
+    CHECK_EQ( std::strcmp( output, "nested.scene.bmp" ), 0 );
+
+    REQUIRE( CaptureSystem::TryBuildScreenshotAndExitPath( "Scenes\\recorded/nested.scene.json", output,
+                                                           sizeof( output ) ) );
+    CHECK_EQ( std::strcmp( output, "nested.scene.bmp" ), 0 );
+
+    char tooSmall[4] = { 'x', 'x', 'x', '\0' };
+    CHECK_FALSE( CaptureSystem::TryBuildScreenshotAndExitPath( "scene.json", tooSmall, sizeof( tooSmall ) ) );
+    CHECK_EQ( tooSmall[0], '\0' );
+}
+
+TEST_CASE( "Screenshot byte publication preserves prior artifact on write and close failure" )
+{
+    namespace fs = std::filesystem;
+    std::error_code filesystemError;
+    const fs::path root = fs::current_path( filesystemError ) / "TestOutput" / "capture_atomic_publication";
+    REQUIRE_FALSE( filesystemError );
+    fs::remove_all( root, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    fs::create_directories( root, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+
+    const fs::path destination = root / "retained.bmp";
+    const std::string destinationText = destination.string();
+    const std::string originalBytes( "prior\0artifact", 14u );
+    const std::array<uint8_t, 7> replacementBytes = { 'B', 'M', 0u, 1u, 2u, 3u, 4u };
+
+    {
+        std::ofstream output( destination, std::ios::binary | std::ios::trunc );
+        REQUIRE( output.good() );
+        output.write( originalBytes.data(), static_cast<std::streamsize>( originalBytes.size() ) );
+        REQUIRE( output.good() );
+    }
+
+    const auto readDestination = [&]()
+    {
+        std::ifstream input( destination, std::ios::binary );
+        CHECK( input.good() );
+        return std::string( std::istreambuf_iterator<char>( input ), std::istreambuf_iterator<char>() );
+    };
+
+    struct FailureCase
+    {
+        SkullbonezCore::Core::AtomicTextFileTestFailure failure;
+        const char* action;
+    };
+
+    const FailureCase failures[] = {
+        { SkullbonezCore::Core::AtomicTextFileTestFailure::Write, "Write temporary sibling" },
+        { SkullbonezCore::Core::AtomicTextFileTestFailure::Close, "Close temporary sibling" },
+    };
+
+    for ( const FailureCase& failure : failures )
+    {
+        SkullbonezCore::Core::SetAtomicTextFileTestFailure( failure.failure );
+        const SkullbonezCore::Core::SbResult result =
+            CaptureSystem::SaveScreenshotBytesAtomic( diagnostics, destinationText.c_str(), replacementBytes );
+        SkullbonezCore::Core::SetAtomicTextFileTestFailure( SkullbonezCore::Core::AtomicTextFileTestFailure::None );
+        CHECK_FALSE( result.Ok() );
+        CHECK_EQ( std::strcmp( result.ErrorOwner(), "Runtime/CaptureSystem" ), 0 );
+        CHECK( std::string( result.ErrorMessage() ).find( failure.action ) != std::string::npos );
+        CHECK_EQ( readDestination(), originalBytes );
+    }
+
+    REQUIRE( CaptureSystem::SaveScreenshotBytesAtomic( diagnostics, destinationText.c_str(), replacementBytes ).Ok() );
+    const std::string expectedReplacement( reinterpret_cast<const char*>( replacementBytes.data() ),
+                                           replacementBytes.size() );
+    CHECK_EQ( readDestination(), expectedReplacement );
+
+    fs::remove_all( root, filesystemError );
+    CHECK_FALSE( filesystemError );
 }
 
 TEST_CASE( "Capture request batches return only successful requests as accepted events" )

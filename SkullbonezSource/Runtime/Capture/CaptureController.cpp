@@ -93,8 +93,8 @@ RuntimeCaptureResult CaptureController::TickScreenshots( bool isSceneMode, bool 
                                                          double elapsedMs, const char* currentScenePath,
                                                          Rendering::Dx12BackbufferCapture& backend )
 {
-    return CaptureSystem::TickScreenshots( m_screenshot, isSceneMode, isInteractiveRun, currentFrame, elapsedMs,
-                                           currentScenePath, *this, backend );
+    return CaptureSystem::TickScreenshots( m_diagnostics, m_screenshot, isSceneMode, isInteractiveRun, currentFrame,
+                                           elapsedMs, currentScenePath, *this, backend );
 }
 
 

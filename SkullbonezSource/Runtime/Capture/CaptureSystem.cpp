@@ -28,8 +28,8 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "CaptureSystem.h"
+#include "../../Core/AtomicTextFileWriter.h"
 #include "../../Core/SbDiagnosticStore.h"
-#include "../../Core/ByteView.h"
 #include "CaptureController.h"
 
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
@@ -42,7 +42,7 @@ Related:
 #include <cstdio>
 #include <cstring>
 #include <limits>
-#include <memory>
+#include <string_view>
 #include <vector>
 
 namespace SkullbonezCore
@@ -191,32 +191,52 @@ SkullbonezCore::Core::SbResult CaptureSystem::BuildPngBytes( SkullbonezCore::Cor
     return SkullbonezCore::Core::SbResult::Success();
 }
 
+
+bool CaptureSystem::TryBuildScreenshotAndExitPath( const char* scenePath, char* outPath, size_t outPathSize ) noexcept
+{
+    if ( !scenePath || !outPath || outPathSize == 0u )
+    {
+        return false;
+    }
+
+    outPath[0] = '\0';
+    const char* name = scenePath;
+
+    for ( const char* cursor = scenePath; *cursor != '\0'; ++cursor )
+    {
+        if ( *cursor == '/' || *cursor == '\\' )
+        {
+            name = cursor + 1;
+        }
+    }
+
+    const char* dot = strrchr( name, '.' );
+    const size_t stemLength = dot ? static_cast<size_t>( dot - name ) : strlen( name );
+    constexpr char extension[] = ".bmp";
+
+    if ( stemLength == 0u || stemLength + sizeof( extension ) > outPathSize )
+    {
+        return false;
+    }
+
+    memcpy( outPath, name, stemLength );
+    memcpy( outPath + stemLength, extension, sizeof( extension ) );
+    return true;
+}
+
+
+SkullbonezCore::Core::SbResult CaptureSystem::SaveScreenshotBytesAtomic(
+    SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, std::span<const uint8_t> bytes )
+{
+    const std::string_view byteView = bytes.empty()
+                                          ? std::string_view {}
+                                          : std::string_view( reinterpret_cast<const char*>( bytes.data() ), bytes.size() );
+    return SkullbonezCore::Core::WriteFileAtomic( diagnostics, "Runtime/CaptureSystem", path, byteView );
+}
+
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
 namespace
 {
-using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
-
-SkullbonezCore::Core::SbResult WriteExact( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, FILE* file,
-                                           SkullbonezCore::Core::ByteView bytes, const char* path )
-{
-    // Invariant: validation screenshots are binary artifacts; a short write is
-    // a failed capture, not a partial success that downstream comparisons can
-    // safely inspect.
-    if ( bytes.empty() )
-    {
-        return SkullbonezCore::Core::SbResult::Success();
-    }
-
-    const size_t written = fwrite( bytes.data(), 1, bytes.size(), file );
-
-    if ( written != bytes.size() )
-    {
-        return diagnostics.Failure( "Runtime/CaptureSystem", "Failed to write screenshot file: %s", path );
-    }
-
-    return SkullbonezCore::Core::SbResult::Success();
-}
-
 RuntimeCaptureAutomation CompletionAutomation( bool isInteractiveRun, RuntimeCaptureAutomation automationWhenHeadless )
 {
     // Why: interactive captures should keep the window available for inspection,
@@ -224,23 +244,6 @@ RuntimeCaptureAutomation CompletionAutomation( bool isInteractiveRun, RuntimeCap
     return isInteractiveRun ? RuntimeCaptureAutomation::HoldInteractive : automationWhenHeadless;
 }
 
-void BuildScreenshotAndExitPath( const char* scenePath, char* outPath, size_t outPathSize )
-{
-    const char* slash = strrchr( scenePath, '/' );
-    const char* backslash = strrchr( scenePath, '\\' );
-    const char* name = slash ? slash + 1 : ( backslash ? backslash + 1 : scenePath );
-
-    char stem[256];
-    strcpy_s( stem, sizeof( stem ), name );
-    char* dot = strrchr( stem, '.' );
-
-    if ( dot )
-    {
-        *dot = '\0';
-    }
-
-    sprintf_s( outPath, outPathSize, "%s.bmp", stem );
-}
 } // namespace
 
 SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
@@ -315,39 +318,16 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( SkullbonezCore:
     infoHeader[22] = static_cast<unsigned char>( imageSize >> 16 );
     infoHeader[23] = static_cast<unsigned char>( imageSize >> 24 );
 
-    FILE* rawFile = nullptr;
-    const errno_t err = fopen_s( &rawFile, path, "wb" );
-
-    if ( err != 0 || !rawFile )
-    {
-        return diagnostics.Failure( "Runtime/CaptureSystem",
-                                    "Failed to open screenshot file: %s  (CaptureSystem::SaveBackbufferBmp)", path );
-    }
-
-    FileHandle file( rawFile, &fclose );
-
-    SkullbonezCore::Core::SbResult writeResult = WriteExact( diagnostics, file.get(), fileHeader, path );
-
-    if ( !writeResult.Ok() )
-    {
-        return writeResult;
-    }
-
-    writeResult = WriteExact( diagnostics, file.get(), infoHeader, path );
-
-    if ( !writeResult.Ok() )
-    {
-        return writeResult;
-    }
-
-    writeResult = WriteExact( diagnostics, file.get(), { pixels.data(), static_cast<size_t>( imageSize ) }, path );
-
-    if ( !writeResult.Ok() )
-    {
-        return writeResult;
-    }
-
-    return SkullbonezCore::Core::SbResult::Success();
+    // Hazard: the final artifact may be validation evidence from an earlier
+    // run. Assemble the complete replacement in memory, then publish through
+    // the shared temporary-sibling transaction so short writes and close
+    // failures cannot truncate that retained file.
+    std::vector<uint8_t> bmp;
+    bmp.reserve( static_cast<size_t>( fileSize ) );
+    bmp.insert( bmp.end(), std::begin( fileHeader ), std::end( fileHeader ) );
+    bmp.insert( bmp.end(), std::begin( infoHeader ), std::end( infoHeader ) );
+    bmp.insert( bmp.end(), pixels.begin(), pixels.begin() + imageSize );
+    return SaveScreenshotBytesAtomic( diagnostics, path, bmp );
 }
 
 
@@ -378,47 +358,42 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferPng( SkullbonezCore:
         return result;
     }
 
-    FILE* rawFile = nullptr;
-    const errno_t error = fopen_s( &rawFile, path, "wb" );
-
-    if ( error != 0 || !rawFile )
-    {
-        return diagnostics.Failure( "Runtime/CaptureSystem", "Failed to open PNG screenshot file: %s", path );
-    }
-
-    FileHandle file( rawFile, &fclose );
-    return WriteExact( diagnostics, file.get(), png, path );
+    return SaveScreenshotBytesAtomic( diagnostics, path, png );
 }
 #endif
 
-bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, bool isSceneMode, int currentFrame,
-                                     double elapsedMs )
+ScreenshotCapturePlan CaptureSystem::BuildScreenshotCapturePlan( const RunScreenshotState& screenshot, bool isSceneMode,
+                                                                 int currentFrame, double elapsedMs )
 {
+    ScreenshotCapturePlan plan;
+
     if ( !isSceneMode )
     {
-        return false;
-    }
-
-    if ( screenshot.isScreenshotAndExit && currentFrame == 0 )
-    {
-        return true;
+        return plan;
     }
 
     if ( screenshot.screenshotPath[0] != '\0' && !screenshot.isScreenshotSaved )
     {
-        if ( screenshot.screenshotFrame > 0 && ( currentFrame + 1 ) >= screenshot.screenshotFrame )
-        {
-            return true;
-        }
-
-        if ( screenshot.screenshotMs > 0 && elapsedMs >= screenshot.screenshotMs )
-        {
-            return true;
-        }
+        plan.oneShotDue = ( screenshot.screenshotFrame > 0 && ( currentFrame + 1 ) >= screenshot.screenshotFrame ) ||
+                          ( screenshot.screenshotMs > 0 && elapsedMs >= screenshot.screenshotMs );
     }
 
-    return screenshot.screenshotInterval > 0 && screenshot.screenshotDir[0] != '\0' &&
-           ( currentFrame + 1 ) % screenshot.screenshotInterval == 0;
+    plan.intervalDue = screenshot.screenshotInterval > 0 && screenshot.screenshotDir[0] != '\0' &&
+                       ( currentFrame + 1 ) % screenshot.screenshotInterval == 0;
+    return plan;
+}
+
+
+bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, bool isSceneMode, int currentFrame,
+                                     double elapsedMs )
+{
+    if ( isSceneMode && screenshot.isScreenshotAndExit && currentFrame == 0 )
+    {
+        return true;
+    }
+
+    const ScreenshotCapturePlan plan = BuildScreenshotCapturePlan( screenshot, isSceneMode, currentFrame, elapsedMs );
+    return plan.oneShotDue || plan.intervalDue;
 }
 
 
@@ -443,9 +418,11 @@ bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState&
 
 
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
-RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screenshot, bool isSceneMode, bool isInteractiveRun,
-                                                     int currentFrame, double elapsedMs, const char* currentScenePath,
-                                                     CaptureController& capture, Rendering::Dx12BackbufferCapture& backend )
+RuntimeCaptureResult CaptureSystem::TickScreenshots( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                     RunScreenshotState& screenshot, bool isSceneMode,
+                                                     bool isInteractiveRun, int currentFrame, double elapsedMs,
+                                                     const char* currentScenePath, CaptureController& capture,
+                                                     Rendering::Dx12BackbufferCapture& backend )
 {
     if ( isSceneMode && screenshot.isScreenshotAndExit && currentFrame == 0 )
     {
@@ -455,7 +432,14 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
         }
 
         char outPath[256];
-        BuildScreenshotAndExitPath( currentScenePath, outPath, sizeof( outPath ) );
+
+        if ( !TryBuildScreenshotAndExitPath( currentScenePath, outPath, sizeof( outPath ) ) )
+        {
+            return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None,
+                     diagnostics.Failure( "Runtime/CaptureSystem",
+                                          "Could not derive screenshot-and-exit path from scene: %s", currentScenePath ) };
+        }
+
         const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, outPath );
 
         if ( !captureResult.Ok() )
@@ -467,55 +451,48 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
                  CompletionAutomation( isInteractiveRun, RuntimeCaptureAutomation::Quit ) };
     }
 
-    if ( isSceneMode && screenshot.screenshotPath[0] != '\0' && !screenshot.isScreenshotSaved )
+    const ScreenshotCapturePlan plan = BuildScreenshotCapturePlan( screenshot, isSceneMode, currentFrame, elapsedMs );
+    RuntimeCaptureResult result;
+
+    if ( plan.oneShotDue )
     {
-        bool shouldCapture = false;
+        const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, screenshot.screenshotPath );
 
-        if ( screenshot.screenshotFrame > 0 && ( currentFrame + 1 ) >= screenshot.screenshotFrame )
+        if ( !captureResult.Ok() )
         {
-            shouldCapture = true;
+            return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
         }
 
-        if ( screenshot.screenshotMs > 0 && elapsedMs >= screenshot.screenshotMs )
-        {
-            shouldCapture = true;
-        }
-
-        if ( shouldCapture )
-        {
-            const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend,
-                                                                                         screenshot.screenshotPath );
-
-            if ( !captureResult.Ok() )
-            {
-                return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
-            }
-
-            screenshot.isScreenshotSaved = true;
-            return { true, RuntimeCaptureCompletion::Screenshot,
-                     CompletionAutomation( isInteractiveRun, RuntimeCaptureAutomation::AdvanceSceneOrQuit ) };
-        }
+        screenshot.isScreenshotSaved = true;
+        result = { true, RuntimeCaptureCompletion::Screenshot,
+                   CompletionAutomation( isInteractiveRun, RuntimeCaptureAutomation::AdvanceSceneOrQuit ) };
     }
 
-    if ( isSceneMode && screenshot.screenshotInterval > 0 && screenshot.screenshotDir[0] != '\0' )
+    if ( plan.intervalDue )
     {
-        if ( ( currentFrame + 1 ) % screenshot.screenshotInterval == 0 )
+        const int nextIntervalCapture = screenshot.intervalCaptureCount + 1;
+        char intervalPath[512];
+        const int formatted = sprintf_s( intervalPath, sizeof( intervalPath ), "%s/capture_%04d.bmp",
+                                         screenshot.screenshotDir, nextIntervalCapture );
+
+        if ( formatted < 0 )
         {
-            ++screenshot.intervalCaptureCount;
-            char intervalPath[512];
-            sprintf_s( intervalPath, sizeof( intervalPath ), "%s/capture_%04d.bmp", screenshot.screenshotDir,
-                       screenshot.intervalCaptureCount );
-
-            const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, intervalPath );
-
-            if ( !captureResult.Ok() )
-            {
-                return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
-            }
+            return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None,
+                     diagnostics.Failure( "Runtime/CaptureSystem", "Interval screenshot path is too long: %s",
+                                          screenshot.screenshotDir ) };
         }
+
+        const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, intervalPath );
+
+        if ( !captureResult.Ok() )
+        {
+            return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
+        }
+
+        screenshot.intervalCaptureCount = nextIntervalCapture;
     }
 
-    return {};
+    return result;
 }
 
 RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode, bool isInteractiveRun, int ballCount,

@@ -982,3 +982,21 @@ in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. Final counts were 0 blocking, 0
 non-blocking, and 1 missing-evidence item. Per owner direction, no build, test,
 scanner, inventory, or validation command was run; compile/link and focused
 runtime behavior remain unexecuted evidence rather than claimed results.
+
+## Runtime Capture Bug Ledger Closure (2026-08-26)
+
+CAP-001 through CAP-004 are fixed as one subsystem batch. BMP and PNG captures
+now publish complete binary buffers through the shared temporary-sibling file
+transaction, so write, flush, close, or replacement failure preserves an
+existing final artifact and returns the exact owned failure. Regular one-shot
+and interval triggers remain independent when both are due on one frame, and
+the interval ordinal advances only after successful publication. Screenshot-
+and-exit naming selects the last slash of either path-separator kind without
+truncating its bounded output.
+
+One consolidated read-only rubber-duck review covered all four Runtime Capture
+rows in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. Final counts were 0
+blocking, 0 non-blocking, and 1 missing-evidence item. Per owner direction, no
+build, test, scanner, inventory, or validation command was run; compile/link
+and focused runtime behavior remain unexecuted evidence rather than claimed
+results.

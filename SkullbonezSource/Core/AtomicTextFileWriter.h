@@ -1,12 +1,13 @@
 /*
 File: AtomicTextFileWriter.h
 Purpose:
-  Declares recoverable atomic publication for cold UTF-8 text artifacts.
+  Declares recoverable atomic publication for cold byte artifacts.
 
 Summary:
-  Filesystem-facing owners can publish a complete text value without exposing
-  readers to a truncated target. The helper creates missing parent directories,
-  flushes a unique temporary sibling, and replaces the destination atomically.
+  Filesystem-facing owners can publish complete text or binary bytes without
+  exposing readers to a truncated target. The helper creates missing parent
+  directories, flushes a unique temporary sibling, and replaces the destination
+  atomically.
 
 Glossary:
   Temporary sibling: Exclusively created file beside the final destination so
@@ -49,6 +50,13 @@ void SetAtomicTextFileTestFailure( AtomicTextFileTestFailure failure ) noexcept;
 // Publishes bytes only after the temporary sibling is completely written,
 // flushed, and closed. Parent directories may be created; an existing
 // destination is replaced at rename.
-[[nodiscard]] SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner, const char* path,
-                                            std::string_view bytes );
+[[nodiscard]] SbResult WriteFileAtomic( SbDiagnosticStore& diagnostics, const char* owner, const char* path,
+                                        std::string_view bytes );
+
+// Source-compatible text spelling; publication treats the view as opaque bytes.
+[[nodiscard]] inline SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner, const char* path,
+                                                   std::string_view bytes )
+{
+    return WriteFileAtomic( diagnostics, owner, path, bytes );
+}
 } // namespace SkullbonezCore::Core
