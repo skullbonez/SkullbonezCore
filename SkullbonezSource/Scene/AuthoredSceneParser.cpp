@@ -19,6 +19,8 @@ Related:
 */
 #include "AuthoredSceneParserSchema.h"
 
+#include <array>
+
 namespace SkullbonezCore
 {
 namespace Runtime
@@ -556,6 +558,60 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     }
 }
 
+void AuthoredSceneParser::ValidateStyleTopLevelFields( const Json& root, const std::string& path )
+{
+    static const std::array<const char*, 5> kAllowedStyleFields = {
+        "format", "version", "includes", "cinematic", "objectMaterials",
+    };
+
+    for ( auto member = root.begin(); member != root.end(); ++member )
+    {
+        const bool isAllowed = std::find( kAllowedStyleFields.begin(), kAllowedStyleFields.end(), member.key() ) !=
+                               kAllowedStyleFields.end();
+
+        if ( !isAllowed )
+        {
+            Fail( path, "Style document cannot contain top-level field '" + member.key() + "'" );
+            return;
+        }
+    }
+}
+
+void AuthoredSceneParser::ApplyStyleBody( const Json& root, const std::string& path )
+{
+    // Invariant: style includes can alter presentation only. Simulation,
+    // runtime, capture, object, and asset state remain owned by the scene file.
+    if ( const Json* cinematic = FindMember( root, "cinematic" ) )
+    {
+        ApplyCinematic( *cinematic, path );
+
+        if ( ParserFailed() )
+        {
+            return;
+        }
+    }
+
+    if ( const Json* objectMaterials = FindMember( root, "objectMaterials" ) )
+    {
+        RequireArray( *objectMaterials, path, "objectMaterials" );
+
+        if ( ParserFailed() )
+        {
+            return;
+        }
+
+        for ( const Json& objectMaterial : *objectMaterials )
+        {
+            ApplyObjectMaterial( objectMaterial, path );
+
+            if ( ParserFailed() )
+            {
+                return;
+            }
+        }
+    }
+}
+
 void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool styleOnly, int depth )
 {
     if ( depth > kMaxStyleIncludeDepth )
@@ -612,6 +668,18 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
         m_scene.m_schemaVersion = documentVersion;
     }
 
+    if ( styleOnly )
+    {
+        // Why: reject a forbidden parent before it can trigger include I/O or
+        // obscure the owning document's policy diagnostic with a child error.
+        ValidateStyleTopLevelFields( root, path );
+
+        if ( ParserFailed() )
+        {
+            return;
+        }
+    }
+
     LoadStyleIncludes( root, path, "includes", depth );
 
     if ( ParserFailed() )
@@ -634,7 +702,16 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
     // decided by the file that actually authored each object.
     const uint32_t previousDocumentVersion = m_currentDocumentVersion;
     m_currentDocumentVersion = documentVersion;
-    ApplySceneBody( root, path );
+
+    if ( styleOnly )
+    {
+        ApplyStyleBody( root, path );
+    }
+    else
+    {
+        ApplySceneBody( root, path );
+    }
+
     m_currentDocumentVersion = previousDocumentVersion;
 }
 

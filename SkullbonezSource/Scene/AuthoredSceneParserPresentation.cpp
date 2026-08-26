@@ -24,7 +24,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-using AuthoredSceneParserDetail::CopyStringField;
+using AuthoredSceneParserDetail::CopyCheckedStringField;
 using AuthoredSceneParserDetail::Fail;
 using AuthoredSceneParserDetail::FindMember;
 using AuthoredSceneParserDetail::Lowercase;
@@ -253,8 +253,14 @@ void AuthoredSceneParser::ApplyUI( const Json& ui, const std::string& path )
 
     if ( const Json* sceneFilter = FindMember( ui, "sceneFilter" ) )
     {
+        const std::string filter = ReadString( *sceneFilter, path, "ui.sceneFilter" );
+
+        if ( ParserFailed() || !CopyCheckedStringField( out.sceneFilter, filter, path, "ui.sceneFilter" ) )
+        {
+            return;
+        }
+
         out.hasSceneFilter = true;
-        CopyStringField( out.sceneFilter, ReadString( *sceneFilter, path, "ui.sceneFilter" ) );
     }
 
     if ( const Json* profilerExpand = FindMember( ui, "profilerExpand" ) )

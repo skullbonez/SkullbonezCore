@@ -28,6 +28,10 @@
 //     committing authored state.
 //   - Fixed-cardinality values validate container shape and exact length before
 //     indexing; a failed load never replaces the caller's prior scene.
+//   - Physical body dimensions and mass properties are finite and usable before
+//     a parsed scene can replace the caller's retained scene.
+//   - Style documents own presentation fields only; scene/runtime sections fail
+//     before publication, and bounded authored text is never truncated.
 //
 // Related:
 //   - SkullbonezSource/Scene/AuthoredScene.h
@@ -137,6 +141,19 @@ std::string BuildOrbitalStabilityResolutionScene( const char* coreObjectName )
                R"({"format":"skullbonez.scene.json","version":2,"simulation":{"physics":true,"text":false,"orbitalStability":{"escapeGraceSeconds":5,"members":[{"object":"sun","role":"primary"},{"object":")" ) +
            coreObjectName +
            R"(","role":"core","innerRadius":60,"outerRadius":100,"escapeStartRadius":90}]}},"cameras":[{"name":"main","position":[0,0,10],"view":[0,0,0],"up":[0,1,0]}],"objects":[{"type":"ballState","sceneObjectId":71,"name":"sun","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":2,"mass":100,"restitution":0,"inertia":[1,1,1],"fixed":true,"sleeping":false},{"type":"ballState","sceneObjectId":72,"name":"earth","position":[80,0,0],"velocity":[0,1,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":1,"mass":1,"restitution":0,"inertia":[1,1,1],"fixed":false,"sleeping":false}]})";
+}
+
+std::string BuildSingleObjectScene( const std::string& object )
+{
+    return std::string(
+               R"({"format":"skullbonez.scene.json","version":4,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,10],"view":[0,0,0],"up":[0,1,0]}],"objects":)" ) +
+           '[' + object + "]}";
+}
+
+std::string BuildSceneWithSection( const std::string& section )
+{
+    return std::string( R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,)" ) +
+           section + R"(,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})";
 }
 
 // Invariant: one row binds a field's document splice, exact cardinality, and
@@ -769,4 +786,204 @@ TEST_CASE( "AuthoredSceneParser: malformed style JSON reports recoverable load f
     AuthoredScene scene;
     CheckLoadFailure( AuthoredScene::TryLoadStyleFromFile( diagnostics, malformedStyle.path, scene ), malformedStyle.path,
                       "Invalid JSON" );
+}
+
+TEST_CASE( "AuthoredSceneParser: physical body values fail closed before scene publication" )
+{
+    struct PhysicalFailureCase
+    {
+        const char* object;
+        const char* expectedMessage;
+    };
+
+    static constexpr PhysicalFailureCase cases[] = {
+        { R"({"type":"ball","sceneObjectId":101,"name":"probe","position":[0,0,0],"radius":0,"mass":1,"moment":1,"restitution":0.1})",
+          "ball.radius must be finite and > 0" },
+        { R"({"type":"ball","sceneObjectId":101,"name":"probe","position":[0,0,0],"radius":1,"mass":0,"moment":1,"restitution":0.1})",
+          "ball.mass must be finite and > 0" },
+        { R"({"type":"ball","sceneObjectId":101,"name":"probe","position":[0,0,0],"radius":1,"mass":1,"moment":3.5e38,"restitution":0.1})",
+          "ball.moment must be finite and > 0" },
+        { R"({"type":"ball","sceneObjectId":101,"name":"probe","position":[0,0,0],"radius":1,"mass":1,"moment":1,"restitution":1.1})",
+          "ball.restitution must be finite and between 0 and 1" },
+        { R"({"type":"box","sceneObjectId":101,"name":"probe","position":[0,0,0],"halfExtents":[1,0,1],"mass":1,"restitution":0.1})",
+          "box.halfExtents must be finite and > 0" },
+        { R"({"type":"box","sceneObjectId":101,"name":"probe","position":[0,0,0],"halfExtents":[1,1,1],"mass":0,"restitution":0.1})",
+          "box.mass must be finite and > 0" },
+        { R"({"type":"convexHull","sceneObjectId":101,"name":"probe","hull":"pyramid","position":[0,0,0],"mass":0,"restitution":0.1})",
+          "convexHull.mass must be finite and > 0" },
+        { R"({"type":"convexHull","sceneObjectId":101,"name":"probe","hull":"pyramid","position":[0,0,0],"mass":1,"restitution":-0.1})",
+          "convexHull.restitution must be finite and between 0 and 1" },
+        { R"({"type":"ballState","sceneObjectId":101,"name":"probe","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":1,"mass":1,"restitution":0.1,"inertia":[1,0,1],"fixed":false})",
+          "ballState.inertia must be finite and > 0" },
+        { R"({"type":"ballState","sceneObjectId":101,"name":"probe","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":0,"mass":1,"restitution":0.1,"inertia":[1,1,1],"fixed":false})",
+          "ballState.radius must be finite and > 0" },
+        { R"({"type":"ballState","sceneObjectId":101,"name":"probe","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":1,"mass":0,"restitution":0.1,"inertia":[1,1,1],"fixed":false})",
+          "ballState.mass must be finite and > 0" },
+        { R"({"type":"boxState","sceneObjectId":101,"name":"probe","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"halfExtents":[1,1,1],"mass":0,"restitution":0.1,"inertia":[1,1,1],"fixed":false})",
+          "boxState.mass must be finite and > 0" },
+        { R"({"type":"boxState","sceneObjectId":101,"name":"probe","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"halfExtents":[1,-1,1],"mass":1,"restitution":0.1,"inertia":[1,1,1],"fixed":false})",
+          "boxState.halfExtents must be finite and > 0" },
+        { R"({"type":"convexHullState","sceneObjectId":101,"name":"probe","hull":"pyramid","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"mass":1,"restitution":2,"inertia":[1,1,1],"fixed":false})",
+          "convexHullState.restitution must be finite and between 0 and 1" },
+        { R"({"type":"convexHullState","sceneObjectId":101,"name":"probe","hull":"pyramid","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"mass":0,"restitution":0.1,"inertia":[1,1,1],"fixed":false})",
+          "convexHullState.mass must be finite and > 0" },
+        { R"({"type":"convexHullState","sceneObjectId":101,"name":"probe","hull":"pyramid","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"mass":1,"restitution":0.1,"inertia":[1,-1,1],"fixed":false})",
+          "convexHullState.inertia must be finite and > 0" },
+    };
+
+    for ( const PhysicalFailureCase& failureCase : cases )
+    {
+        CAPTURE( failureCase.expectedMessage );
+        constexpr const char* path = "unit_scene_parser_invalid_physics.scene.json";
+        const TemporaryMalformedSceneFile fixture( path, BuildSingleObjectScene( failureCase.object ) );
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, kAtRestScenePath, scene ) );
+        const SceneCamera retainedCamera = scene.GetCamera( 0 );
+        const int retainedBallCount = scene.GetBallCount();
+        REQUIRE( retainedBallCount > 0 );
+        const std::string retainedBallName = scene.GetBall( 0 ).name;
+        const float retainedBallMass = scene.GetBall( 0 ).m_mass;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ), path,
+                          failureCase.expectedMessage );
+        REQUIRE( scene.GetCameraCount() == 1 );
+        CHECK( scene.GetCamera( 0 ).m_position.x == retainedCamera.m_position.x );
+        REQUIRE( scene.GetBallCount() == retainedBallCount );
+        CHECK( std::string( scene.GetBall( 0 ).name ) == retainedBallName );
+        CHECK( scene.GetBall( 0 ).m_mass == retainedBallMass );
+    }
+}
+
+TEST_CASE( "AuthoredSceneParser: restitution zero remains a valid no-bounce material" )
+{
+    const TemporaryMalformedSceneFile fixture(
+        "unit_scene_parser_zero_restitution.scene.json",
+        BuildSingleObjectScene(
+            R"({"type":"ball","sceneObjectId":101,"name":"probe","position":[0,0,0],"radius":1,"mass":1,"moment":1,"restitution":0})" ) );
+    AuthoredScene scene;
+    REQUIRE( TryLoadAuthoredScene( diagnostics, fixture.path, scene ) );
+    REQUIRE( scene.GetBallCount() == 1 );
+    CHECK( scene.GetBall( 0 ).restitution == 0.0f );
+}
+
+TEST_CASE( "AuthoredSceneParser: styles reject scene-owned top-level sections" )
+{
+    struct ForbiddenStyleField
+    {
+        const char* name;
+        const char* value;
+    };
+
+    static constexpr ForbiddenStyleField forbiddenFields[] = {
+        { "objects",
+          R"([{"type":"ball","sceneObjectId":101,"name":"style_body","position":[0,0,0],"radius":1,"mass":1,"moment":1,"restitution":0.1}])" },
+        { "simulation", R"({"physics":true})" },
+        { "runtime", R"({"vsync":false})" },
+        { "capture", R"({"screenshotAndExit":true})" },
+    };
+
+    for ( const ForbiddenStyleField& field : forbiddenFields )
+    {
+        CAPTURE( field.name );
+        const std::string document = std::string( R"({"format":"skullbonez.style.json","version":4,")" ) +
+                                     field.name + R"(":)" + field.value + '}';
+        constexpr const char* path = "unit_scene_parser_forbidden_style.style.json";
+        const TemporaryMalformedSceneFile fixture( path, document );
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, kSmallestCommittedScenePath, scene ) );
+        REQUIRE( scene.GetCameraCount() == 1 );
+        CheckLoadFailure( AuthoredScene::TryLoadStyleFromFile( diagnostics, path, scene ), path,
+                          ( std::string( "Style document cannot contain top-level field '" ) + field.name + "'" ).c_str() );
+        CHECK( scene.GetCameraCount() == 1 );
+    }
+}
+
+TEST_CASE( "AuthoredSceneParser: style policy rejects the parent before include I/O" )
+{
+    constexpr const char* path = "unit_scene_parser_forbidden_style_include.style.json";
+    const TemporaryMalformedSceneFile fixture(
+        path,
+        R"({"format":"skullbonez.style.json","version":4,"includes":["missing_style_child"],"runtime":{"vsync":false}})" );
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadStyleFromFile( diagnostics, path, scene ), path,
+                      "Style document cannot contain top-level field 'runtime'" );
+}
+
+TEST_CASE( "AuthoredSceneParser: signed integer fields reject 64-bit narrowing" )
+{
+    static constexpr const char* values[] = { "2147483648", "-2147483649" };
+
+    for ( const char* value : values )
+    {
+        CAPTURE( value );
+        const std::string section = std::string( R"("capture":{"screenshot":{"path":"probe.png","frame":)" ) +
+                                    value + "}}";
+        constexpr const char* path = "unit_scene_parser_int32_overflow.scene.json";
+        const TemporaryMalformedSceneFile fixture( path, BuildSceneWithSection( section ) );
+        AuthoredScene scene;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ), path,
+                          "capture.screenshot.frame must fit in int32" );
+    }
+}
+
+TEST_CASE( "AuthoredSceneParser: numeric booleans preserve nonzero 64-bit values" )
+{
+    static constexpr const char* values[] = { "4294967296", "-4294967296" };
+
+    for ( const char* value : values )
+    {
+        CAPTURE( value );
+        std::string object =
+            R"({"type":"ball","sceneObjectId":101,"name":"probe","position":[0,0,0],"radius":1,"mass":1,"moment":1,"restitution":0.1,"fixed":)";
+        object += value;
+        object += '}';
+        constexpr const char* path = "unit_scene_parser_int64_bool.scene.json";
+        const TemporaryMalformedSceneFile fixture( path, BuildSingleObjectScene( object ) );
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, path, scene ) );
+        REQUIRE( scene.GetBallCount() == 1 );
+        CHECK( scene.GetBall( 0 ).isFixed );
+    }
+}
+
+TEST_CASE( "AuthoredSceneParser: authored output and filter text rejects truncation" )
+{
+    struct TextFailureCase
+    {
+        const char* context;
+        std::string section;
+        std::size_t capacity;
+    };
+
+    const std::string pathText( 256u, 'p' );
+    const std::string filterText( 64u, 'f' );
+    const TextFailureCase cases[] = {
+        { "capture.screenshot.path",
+          std::string( R"("capture":{"screenshot":{"path":")" ) + pathText + R"(","frame":1}})", 256u },
+        { "capture.interval.dir", std::string( R"("capture":{"interval":{"dir":")" ) + pathText +
+                                      R"(","frames":1}})",
+          256u },
+        { "logging.perfLog", std::string( R"("logging":{"perfLog":")" ) + pathText + R"("})", 256u },
+        { "ui.sceneFilter", std::string( R"("ui":{"sceneFilter":")" ) + filterText + R"("})", 64u },
+    };
+
+    for ( const TextFailureCase& failureCase : cases )
+    {
+        CAPTURE( failureCase.context );
+        constexpr const char* path = "unit_scene_parser_text_overflow.scene.json";
+        const TemporaryMalformedSceneFile fixture( path, BuildSceneWithSection( failureCase.section ) );
+        AuthoredScene scene;
+        const std::string expected = std::string( failureCase.context ) + " must be shorter than " +
+                                     std::to_string( failureCase.capacity ) + " characters";
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ), path, expected.c_str() );
+    }
+}
+
+TEST_CASE( "AuthoredSceneParser: authored output paths reject embedded NUL truncation" )
+{
+    constexpr const char* path = "unit_scene_parser_path_nul.scene.json";
+    const TemporaryMalformedSceneFile fixture(
+        path, BuildSceneWithSection( R"("capture":{"screenshot":{"path":"before\u0000after","frame":1}})" ) );
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ), path,
+                      "capture.screenshot.path must not contain NUL" );
 }

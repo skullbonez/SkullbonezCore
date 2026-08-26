@@ -23,7 +23,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-using AuthoredSceneParserDetail::CopyStringField;
+using AuthoredSceneParserDetail::CopyCheckedStringField;
 using AuthoredSceneParserDetail::Fail;
 using AuthoredSceneParserDetail::FindMember;
 using AuthoredSceneParserDetail::Lowercase;
@@ -537,9 +537,14 @@ void AuthoredSceneParser::ApplyCapture( const Json& capture, const std::string& 
     if ( const Json* screenshot = FindMember( capture, "screenshot" ) )
     {
         RequireObject( *screenshot, path, "capture.screenshot" );
-        CopyStringField( m_scene.m_captureOptions.screenshotPath,
-                         ReadString( RequireMember( *screenshot, path, "capture.screenshot", "path" ), path,
-                                     "capture.screenshot.path" ) );
+        const std::string screenshotPath = ReadString( RequireMember( *screenshot, path, "capture.screenshot", "path" ),
+                                                       path, "capture.screenshot.path" );
+
+        if ( ParserFailed() || !CopyCheckedStringField( m_scene.m_captureOptions.screenshotPath, screenshotPath, path,
+                                                        "capture.screenshot.path" ) )
+        {
+            return;
+        }
 
         if ( const Json* frame = FindMember( *screenshot, "frame" ) )
         {
@@ -562,9 +567,14 @@ void AuthoredSceneParser::ApplyCapture( const Json& capture, const std::string& 
     if ( const Json* interval = FindMember( capture, "interval" ) )
     {
         RequireObject( *interval, path, "capture.interval" );
-        CopyStringField( m_scene.m_captureOptions.screenshotDir,
-                         ReadString( RequireMember( *interval, path, "capture.interval", "dir" ), path,
-                                     "capture.interval.dir" ) );
+        const std::string screenshotDir = ReadString( RequireMember( *interval, path, "capture.interval", "dir" ), path,
+                                                      "capture.interval.dir" );
+
+        if ( ParserFailed() || !CopyCheckedStringField( m_scene.m_captureOptions.screenshotDir, screenshotDir, path,
+                                                        "capture.interval.dir" ) )
+        {
+            return;
+        }
 
         const int frames = ReadInt( RequireMember( *interval, path, "capture.interval", "frames" ), path,
                                     "capture.interval.frames" );
@@ -584,7 +594,13 @@ void AuthoredSceneParser::ApplyLogging( const Json& logging, const std::string& 
 
     if ( const Json* perfLog = FindMember( logging, "perfLog" ) )
     {
-        CopyStringField( m_scene.m_loggingOptions.perfLogPath, ReadString( *perfLog, path, "logging.perfLog" ) );
+        const std::string perfLogPath = ReadString( *perfLog, path, "logging.perfLog" );
+
+        if ( ParserFailed() ||
+             !CopyCheckedStringField( m_scene.m_loggingOptions.perfLogPath, perfLogPath, path, "logging.perfLog" ) )
+        {
+            return;
+        }
     }
 
     if ( const Json* flush = FindMember( logging, "perfLogFlush" ) )

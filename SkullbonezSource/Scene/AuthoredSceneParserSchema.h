@@ -643,7 +643,6 @@ inline float ReadFloat( const Json& value, const std::string& path, const char* 
 inline int ReadInt( const Json& value, const std::string& path, const char* context )
 {
     if ( !value.is_number_integer() && !value.is_number_unsigned() )
-
     {
         std::ostringstream message;
         message << context << " must be an integer, got " << JsonTypeName( value );
@@ -651,7 +650,29 @@ inline int ReadInt( const Json& value, const std::string& path, const char* cont
         return 0;
     }
 
-    return value.get<int>();
+    if ( value.is_number_unsigned() )
+    {
+        const unsigned long long parsed = value.get<unsigned long long>();
+
+        if ( parsed > static_cast<unsigned long long>( ( std::numeric_limits<int>::max )() ) )
+        {
+            Fail( path, std::string( context ) + " must fit in int32" );
+            return 0;
+        }
+
+        return static_cast<int>( parsed );
+    }
+
+    const long long parsed = value.get<long long>();
+
+    if ( parsed < static_cast<long long>( ( std::numeric_limits<int>::min )() ) ||
+         parsed > static_cast<long long>( ( std::numeric_limits<int>::max )() ) )
+    {
+        Fail( path, std::string( context ) + " must fit in int32" );
+        return 0;
+    }
+
+    return static_cast<int>( parsed );
 }
 
 inline unsigned int ReadUInt( const Json& value, const std::string& path, const char* context )
@@ -720,7 +741,7 @@ inline bool ReadBool( const Json& value, const std::string& path, const char* co
 
     if ( value.is_number_integer() || value.is_number_unsigned() )
     {
-        return value.get<int>() != 0;
+        return value.is_number_unsigned() ? value.get<unsigned long long>() != 0u : value.get<long long>() != 0;
     }
 
     if ( value.is_string() )
@@ -739,14 +760,15 @@ inline bool ReadBool( const Json& value, const std::string& path, const char* co
     return false;
 }
 
-template <size_t N> void CopyStringField( char ( &out )[N], const std::string& text )
-{
-    strncpy_s( out, N, text.c_str(), _TRUNCATE );
-}
-
 template <size_t N>
 inline bool CopyCheckedStringField( char ( &out )[N], const std::string& text, const std::string& path, const char* context )
 {
+    if ( text.find( '\0' ) != std::string::npos )
+    {
+        Fail( path, std::string( context ) + " must not contain NUL" );
+        return false;
+    }
+
     if ( text.size() >= N )
     {
         std::ostringstream message;
@@ -869,6 +891,39 @@ inline void ReadVec4( const Json& value, const std::string& path, const char* co
     w = parsedW;
 }
 
+inline bool RequirePositiveFinite( float value, const std::string& path, const char* context )
+{
+    if ( std::isfinite( value ) && value > 0.0f )
+    {
+        return true;
+    }
+
+    Fail( path, std::string( context ) + " must be finite and > 0" );
+    return false;
+}
+
+inline bool RequireFiniteUnit( float value, const std::string& path, const char* context )
+{
+    if ( std::isfinite( value ) && value >= 0.0f && value <= 1.0f )
+    {
+        return true;
+    }
+
+    Fail( path, std::string( context ) + " must be finite and between 0 and 1" );
+    return false;
+}
+
+inline bool RequirePositiveFiniteVec3( float x, float y, float z, const std::string& path, const char* context )
+{
+    if ( RequirePositiveFinite( x, path, context ) && RequirePositiveFinite( y, path, context ) &&
+         RequirePositiveFinite( z, path, context ) )
+    {
+        return true;
+    }
+
+    return false;
+}
+
 inline Json ReadJsonFile( const std::string& path )
 {
     std::ifstream input( path );
@@ -902,7 +957,7 @@ inline int ParseUITab( const Json& value, const std::string& path )
 {
     if ( value.is_number_integer() || value.is_number_unsigned() )
     {
-        return value.get<int>();
+        return ReadInt( value, path, "ui.tab" );
     }
 
     const std::string tab = Lowercase( ReadString( value, path, "ui.tab" ) );
@@ -933,7 +988,7 @@ inline int ParseWaterReflectionMode( const Json& value, const std::string& path 
 {
     if ( value.is_number_integer() || value.is_number_unsigned() )
     {
-        return value.get<int>();
+        return ReadInt( value, path, "debug.waterReflection" );
     }
 
     const std::string mode = Lowercase( ReadString( value, path, "debug.waterReflection" ) );
@@ -1246,6 +1301,8 @@ class AuthoredSceneParser
     void ApplyObjectMaterial( const Json& materialJson, const std::string& path );
     void ApplyRequirements( const Json& requirements, const std::string& path );
     void ApplySceneBody( const Json& root, const std::string& path );
+    void ApplyStyleBody( const Json& root, const std::string& path );
+    void ValidateStyleTopLevelFields( const Json& root, const std::string& path );
     void LoadDocumentIntoScene( const std::string& path, bool styleOnly, int depth );
     SkullbonezCore::Core::SbResult TryLoadDocument( const char* path, bool styleOnly, AuthoredScene& outScene );
 

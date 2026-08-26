@@ -42,6 +42,9 @@ using AuthoredSceneParserDetail::ReadVec4;
 using AuthoredSceneParserDetail::RequireArray;
 using AuthoredSceneParserDetail::RequireMember;
 using AuthoredSceneParserDetail::RequireObject;
+using AuthoredSceneParserDetail::RequireFiniteUnit;
+using AuthoredSceneParserDetail::RequirePositiveFinite;
+using AuthoredSceneParserDetail::RequirePositiveFiniteVec3;
 using AuthoredSceneParserDetail::SetObjectMaterialBaseColor;
 
 void AuthoredSceneParser::ApplyBall( const Json& object, const std::string& path, bool isFixed )
@@ -67,6 +70,15 @@ void AuthoredSceneParser::ApplyBall( const Json& object, const std::string& path
     ball.m_mass = ReadFloat( RequireMember( object, path, "ball", "mass" ), path, "ball.mass" );
     ball.moment = ReadFloat( RequireMember( object, path, "ball", "moment" ), path, "ball.moment" );
     ball.restitution = ReadFloat( RequireMember( object, path, "ball", "restitution" ), path, "ball.restitution" );
+
+    if ( ParserFailed() || !RequirePositiveFinite( ball.m_radius, path, "ball.radius" ) ||
+         !RequirePositiveFinite( ball.m_mass, path, "ball.mass" ) ||
+         !RequirePositiveFinite( ball.moment, path, "ball.moment" ) ||
+         !RequireFiniteUnit( ball.restitution, path, "ball.restitution" ) )
+    {
+        return;
+    }
+
     CopyOptionalContactMaterial( ball.contactMaterial, object, path, "ball.contactMaterial" );
     ball.isFixed = isFixed;
 
@@ -136,6 +148,14 @@ void AuthoredSceneParser::ApplyBox( const Json& object, const std::string& path,
 
     box.mass = ReadFloat( RequireMember( object, path, "box", "mass" ), path, "box.mass" );
     box.restitution = ReadFloat( RequireMember( object, path, "box", "restitution" ), path, "box.restitution" );
+
+    if ( ParserFailed() || !RequirePositiveFiniteVec3( box.halfX, box.halfY, box.halfZ, path, "box.halfExtents" ) ||
+         !RequirePositiveFinite( box.mass, path, "box.mass" ) ||
+         !RequireFiniteUnit( box.restitution, path, "box.restitution" ) )
+    {
+        return;
+    }
+
     CopyOptionalContactMaterial( box.contactMaterial, object, path, "box.contactMaterial" );
     box.isFixed = isFixed;
 
@@ -193,6 +213,12 @@ void AuthoredSceneParser::ApplyConvexHull( const Json& object, const std::string
 
     hull.restitution = ReadFloat( RequireMember( object, path, "convexHull", "restitution" ), path,
                                   "convexHull.restitution" );
+
+    if ( ParserFailed() || !RequirePositiveFinite( hull.mass, path, "convexHull.mass" ) ||
+         !RequireFiniteUnit( hull.restitution, path, "convexHull.restitution" ) )
+    {
+        return;
+    }
 
     CopyOptionalContactMaterial( hull.contactMaterial, object, path, "convexHull.contactMaterial" );
     hull.isFixed = isFixed;
@@ -291,6 +317,14 @@ void AuthoredSceneParser::ApplyBallState( const Json& object, const std::string&
     ReadVec3( RequireMember( object, path, "ballState", "inertia" ), path, "ballState.inertia", state.inertiaX,
               state.inertiaY, state.inertiaZ );
 
+    if ( ParserFailed() || !RequirePositiveFinite( state.radius, path, "ballState.radius" ) ||
+         !RequirePositiveFinite( state.mass, path, "ballState.mass" ) ||
+         !RequireFiniteUnit( state.restitution, path, "ballState.restitution" ) ||
+         !RequirePositiveFiniteVec3( state.inertiaX, state.inertiaY, state.inertiaZ, path, "ballState.inertia" ) )
+    {
+        return;
+    }
+
     if ( const Json* fixed = FindMember( object, "fixed" ) )
     {
         state.isFixed = ReadBool( *fixed, path, "ballState.fixed" );
@@ -348,6 +382,15 @@ void AuthoredSceneParser::ApplyBoxState( const Json& object, const std::string& 
     ReadVec3( RequireMember( object, path, "boxState", "inertia" ), path, "boxState.inertia", state.inertiaX, state.inertiaY,
               state.inertiaZ );
 
+    if ( ParserFailed() ||
+         !RequirePositiveFiniteVec3( state.halfX, state.halfY, state.halfZ, path, "boxState.halfExtents" ) ||
+         !RequirePositiveFinite( state.mass, path, "boxState.mass" ) ||
+         !RequireFiniteUnit( state.restitution, path, "boxState.restitution" ) ||
+         !RequirePositiveFiniteVec3( state.inertiaX, state.inertiaY, state.inertiaZ, path, "boxState.inertia" ) )
+    {
+        return;
+    }
+
     state.isFixed = ReadBool( RequireMember( object, path, "boxState", "fixed" ), path, "boxState.fixed" );
 
     if ( const Json* sleeping = FindMember( object, "sleeping" ) )
@@ -402,6 +445,14 @@ void AuthoredSceneParser::ApplyConvexHullState( const Json& object, const std::s
     CopyOptionalContactMaterial( state.contactMaterial, object, path, "convexHullState.contactMaterial" );
     ReadVec3( RequireMember( object, path, "convexHullState", "inertia" ), path, "convexHullState.inertia", state.inertiaX,
               state.inertiaY, state.inertiaZ );
+
+    if ( ParserFailed() || !RequirePositiveFinite( state.mass, path, "convexHullState.mass" ) ||
+         !RequireFiniteUnit( state.restitution, path, "convexHullState.restitution" ) ||
+         !RequirePositiveFiniteVec3( state.inertiaX, state.inertiaY, state.inertiaZ, path,
+                                     "convexHullState.inertia" ) )
+    {
+        return;
+    }
 
     state.isFixed = ReadBool( RequireMember( object, path, "convexHullState", "fixed" ), path, "convexHullState.fixed" );
 

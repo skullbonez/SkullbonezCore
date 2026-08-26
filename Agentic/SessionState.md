@@ -4,6 +4,24 @@ Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
 Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
 
+## Scene Data Bug Ledger Closure (2026-08-26)
+
+SCENE-003 through SCENE-006 are fixed as one Scene Data subsystem batch. Direct
+and saved-state bodies now reject unusable dimensions and mass properties before
+publication while preserving zero restitution as a valid no-bounce material.
+Style documents are closed to presentation-owned fields and are checked before
+include traversal. Signed integer parsing rejects int32 overflow, numeric booleans
+preserve full 64-bit nonzero meaning, and bounded output/filter strings reject
+capacity overflow and embedded NUL instead of truncating.
+
+One consolidated read-only rubber-duck review used task
+`01a03961-d56f-70d1-a7f2-56d4651b858b`. The first pass reported two non-blocking
+findings: style policy ordering and incomplete whole-scene atomicity evidence.
+Both were closed before the final pass. Final counts were 0 Blocking,
+0 Non-blocking, and 1 Missing evidence. Per owner direction, the focused parser
+tests, builds, scanners, inventories, and repository validation were deferred
+and not executed.
+
 ## Runtime Camera Bug Ledger Closure (2026-08-26)
 
 CAM-001 through CAM-003 are fixed as one Runtime Camera subsystem batch.
