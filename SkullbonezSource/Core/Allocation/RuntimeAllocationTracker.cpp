@@ -1,6 +1,11 @@
 /*
+File: SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp
 Purpose:
   Implements fixed-storage allocation tracking and the process allocation hook.
+
+Summary:
+  One process allocation boundary records phase, reserve-owner, callsite, and
+  live-byte evidence without allocating from inside the hook.
 
 Invariants:
   - Allocation/deallocation hooks must not allocate, throw during delete, or use
@@ -17,6 +22,11 @@ Invariants:
   - A foreign pointer cannot fault the process while the hook copies its
     candidate header; only a fully readable, pointer-bound provenance cookie
     admits tracker-owned field access.
+
+Related:
+  - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h
+  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeAllocationTracker.h"
 
@@ -281,9 +291,9 @@ void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle own
         uintptr_t observed = counters.address.load( std::memory_order_acquire );
 
         if ( observed == callsite && counters.parentAddress.load( std::memory_order_relaxed ) == parent &&
-             counters.phaseIndex.load( std::memory_order_relaxed ) == phaseIndex )
+             counters.phaseIndex.load( std::memory_order_relaxed ) == phaseIndex &&
+             counters.owner.load( std::memory_order_relaxed ) == owner )
         {
-            counters.owner.store( owner, std::memory_order_relaxed );
             counters.allocations.fetch_add( 1u, std::memory_order_relaxed );
 
             if ( violation )
@@ -295,15 +305,19 @@ void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle own
             return;
         }
 
-        if ( observed == 0u && counters.address.compare_exchange_strong( observed, callsite, std::memory_order_acq_rel,
-                                                                         std::memory_order_acquire ) )
+        if ( observed == 0u )
         {
+            // Lifetime: RecordAllocation holds AccountingSessionLock across
+            // this call. Initialize the complete owner-bearing key and counters
+            // before publishing address, so summary readers cannot observe a
+            // partial row and concurrent writers cannot claim a duplicate.
             counters.parentAddress.store( parent, std::memory_order_relaxed );
             counters.phaseIndex.store( phaseIndex, std::memory_order_relaxed );
             counters.owner.store( owner, std::memory_order_relaxed );
             counters.allocations.store( 1u, std::memory_order_relaxed );
             counters.violations.store( violation ? 1u : 0u, std::memory_order_relaxed );
             counters.bytes.store( size, std::memory_order_relaxed );
+            counters.address.store( callsite, std::memory_order_release );
             return;
         }
     }
@@ -848,75 +862,99 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
 
     RuntimeReserveAllocator::PrintSummary( out );
     const uintptr_t imageBase = ProcessImageBase();
-    const CallsiteCounters* topCallsites[MAX_PRINTED_CALLSITES] = {};
+
+    struct CallsiteSnapshot
+    {
+        uintptr_t address;
+        uintptr_t parentAddress;
+        int phaseIndex;
+        uint32_t owner;
+        uint64_t allocations;
+        uint64_t violations;
+        uint64_t bytes;
+    };
+
+    CallsiteSnapshot topCallsites[MAX_PRINTED_CALLSITES] = {};
 
     uint64_t topCounts[MAX_PRINTED_CALLSITES] = {};
 
     const bool rankViolationCallsites = mode == RuntimeAllocationGuardMode::Gameplay;
 
-    for ( const CallsiteCounters& counters : s_callsiteCounters )
     {
-        const uintptr_t address = counters.address.load( std::memory_order_acquire );
-        const uint64_t allocations = counters.allocations.load( std::memory_order_relaxed );
-        const uint64_t violations = counters.violations.load( std::memory_order_relaxed );
-        const int phaseIndex = counters.phaseIndex.load( std::memory_order_relaxed );
+        // Lifetime: reset and hook writers use this same lock. Rank and copy
+        // complete value rows while holding it, then release it before file I/O
+        // so no ranked row can mix pre-reset and post-reset fields.
+        AccountingSessionLock accountingLock;
 
-        if ( address == 0u || allocations == 0u || phaseIndex < 0 ||
-             phaseIndex >= static_cast<int>( RuntimeAllocationPhase::Count ) ||
-             !SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase( static_cast<RuntimeAllocationPhase>( phaseIndex ) ) )
+        for ( const CallsiteCounters& counters : s_callsiteCounters )
         {
-            continue;
-        }
+            const CallsiteSnapshot candidate {
+                counters.address.load( std::memory_order_acquire ),
+                counters.parentAddress.load( std::memory_order_relaxed ),
+                counters.phaseIndex.load( std::memory_order_relaxed ),
+                counters.owner.load( std::memory_order_relaxed ),
+                counters.allocations.load( std::memory_order_relaxed ),
+                counters.violations.load( std::memory_order_relaxed ),
+                counters.bytes.load( std::memory_order_relaxed ),
+            };
 
-        const uint64_t rankCount = rankViolationCallsites ? violations : allocations;
-
-        if ( rankCount == 0u )
-        {
-            continue;
-        }
-
-        for ( int rank = 0; rank < MAX_PRINTED_CALLSITES; ++rank )
-        {
-            if ( rankCount <= topCounts[rank] )
+            if ( candidate.address == 0u || candidate.allocations == 0u || candidate.phaseIndex < 0 ||
+                 candidate.phaseIndex >= static_cast<int>( RuntimeAllocationPhase::Count ) ||
+                 !SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase(
+                     static_cast<RuntimeAllocationPhase>( candidate.phaseIndex ) ) )
             {
                 continue;
             }
 
-            for ( int move = MAX_PRINTED_CALLSITES - 1; move > rank; --move )
+            const uint64_t rankCount = rankViolationCallsites ? candidate.violations : candidate.allocations;
+
+            if ( rankCount == 0u )
             {
-                topCounts[move] = topCounts[move - 1];
-                topCallsites[move] = topCallsites[move - 1];
+                continue;
             }
 
-            topCounts[rank] = rankCount;
-            topCallsites[rank] = &counters;
-            break;
+            for ( int rank = 0; rank < MAX_PRINTED_CALLSITES; ++rank )
+            {
+                if ( rankCount <= topCounts[rank] )
+                {
+                    continue;
+                }
+
+                for ( int move = MAX_PRINTED_CALLSITES - 1; move > rank; --move )
+                {
+                    topCounts[move] = topCounts[move - 1];
+                    topCallsites[move] = topCallsites[move - 1];
+                }
+
+                topCounts[rank] = rankCount;
+                topCallsites[rank] = candidate;
+                break;
+            }
         }
     }
 
     for ( int rank = 0; rank < MAX_PRINTED_CALLSITES; ++rank )
     {
-        const CallsiteCounters* counters = topCallsites[rank];
+        const CallsiteSnapshot& counters = topCallsites[rank];
 
-        if ( !counters )
+        if ( counters.address == 0u )
         {
             continue;
         }
 
-        const uintptr_t address = counters->address.load( std::memory_order_relaxed );
-        const uintptr_t parent = counters->parentAddress.load( std::memory_order_relaxed );
-        const uintptr_t rva = imageBase != 0u && address >= imageBase ? address - imageBase : address;
-        const uintptr_t parentRva = imageBase != 0u && parent >= imageBase ? parent - imageBase : parent;
-        const int phaseIndex = counters->phaseIndex.load( std::memory_order_relaxed );
+        const uintptr_t rva = imageBase != 0u && counters.address >= imageBase ? counters.address - imageBase : counters.address;
+        const uintptr_t parentRva = imageBase != 0u && counters.parentAddress >= imageBase
+                                        ? counters.parentAddress - imageBase
+                                        : counters.parentAddress;
         fprintf( out,
                  "[allocation-guard] callsite rank=%d phase=%s owner=%u rva=0x%llx parent_rva=0x%llx "
                  "allocations=%llu violations=%llu bytes=%llu\n",
-                 rank + 1, RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( phaseIndex ) ),
-                 counters->owner.load( std::memory_order_relaxed ), static_cast<unsigned long long>( rva ),
+                 rank + 1, RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( counters.phaseIndex ) ),
+                 counters.owner, static_cast<unsigned long long>( rva ),
                  static_cast<unsigned long long>( parentRva ),
-                 static_cast<unsigned long long>( counters->allocations.load( std::memory_order_relaxed ) ),
-                 static_cast<unsigned long long>( counters->violations.load( std::memory_order_relaxed ) ),
-                 static_cast<unsigned long long>( counters->bytes.load( std::memory_order_relaxed ) ) );
+                 static_cast<unsigned long long>( counters.allocations ),
+                 static_cast<unsigned long long>( counters.violations ),
+                 static_cast<unsigned long long>( counters.bytes ) );
     }
 
     if ( RuntimeAllocationGuardHasGameplayViolations() )

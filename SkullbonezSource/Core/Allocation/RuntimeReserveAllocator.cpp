@@ -24,7 +24,8 @@ Invariants:
   - The registry uses fixed arrays and atomics only; no STL containers or heap
     allocation are allowed here.
   - Registration serializes duplicate lookup and publishes only initialized
-    bounded rows; same-name scene warmups reuse the first handle.
+    bounded rows; same-name scene warmups reuse the first handle only when
+    their complete effective policies match.
   - RequestGrowth grants capacity only for replay owners during replay phases.
   - A replay growth result opens one matching owner scope, and the allocation
     hook consumes no more than the granted backing bytes.
@@ -225,7 +226,7 @@ const char* SafeReason( const char* reason ) noexcept
     return reason && reason[0] != '\0' ? reason : "unspecified";
 }
 
-bool SameOwnerName( const char* lhs, const char* rhs ) noexcept
+bool SameText( const char* lhs, const char* rhs ) noexcept
 {
     if ( lhs == rhs )
     {
@@ -363,7 +364,22 @@ void ResetOwnerCounters( OwnerCounters& counters, int initialCapacity, bool pres
 
 bool GrowthRequestMatchesOwner( const OwnerRecord& owner, const RuntimeReserveGrowthRequest& request ) noexcept
 {
-    return !request.ownerName || SameOwnerName( owner.ownerName, request.ownerName );
+    return !request.ownerName || SameText( owner.ownerName, request.ownerName );
+}
+
+bool RegistrationMatchesOwnerPolicy( const OwnerRecord& owner, const RuntimeReserveOwnerDesc& desc ) noexcept
+{
+    const int hardCapacity = desc.hardCapacity >= desc.initialCapacity ? desc.hardCapacity : desc.initialCapacity;
+    const int elementSizeBytes = desc.elementSizeBytes > 0 ? desc.elementSizeBytes : 0;
+
+    bool matches = owner.subsystem == desc.subsystem && owner.initPhase == desc.initPhase &&
+                   owner.initialCapacity == desc.initialCapacity && owner.hardCapacity == hardCapacity &&
+                   owner.replayGrowthLimit == desc.replayGrowthLimit && owner.allowReplayGrowth == desc.allowReplayGrowth &&
+                   owner.elementSizeBytes == elementSizeBytes;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    matches = matches && owner.allowDevelopmentToolAllocations == desc.allowDevelopmentToolAllocations;
+#endif
+    return matches;
 }
 
 bool ReplayGrowthCountLimitExhausted( const OwnerRecord& owner, uint64_t oldGrowthCount ) noexcept
@@ -566,8 +582,21 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
     {
         OwnerRecord& existing = s_owners[index];
 
-        if ( existing.active.load( std::memory_order_acquire ) != 0u && SameOwnerName( existing.ownerName, ownerName ) )
+        if ( existing.active.load( std::memory_order_acquire ) != 0u && SameText( existing.ownerName, ownerName ) )
         {
+            // Invariant: a name identifies one immutable process-lifetime
+            // policy. Reuse is idempotent only when every effective field
+            // matches; a conflicting descriptor never inherits this handle.
+            if ( !RegistrationMatchesOwnerPolicy( existing, desc ) )
+            {
+                s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
+                std::fprintf( stdout,
+                              "[runtime-reserve] registration owner=%s status=denied "
+                              "reason=duplicate_owner_policy_mismatch\n",
+                              ownerName );
+                return INVALID_RUNTIME_RESERVE_OWNER;
+            }
+
             return static_cast<RuntimeReserveOwnerHandle>( index );
         }
     }

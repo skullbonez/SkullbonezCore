@@ -1,23 +1,33 @@
-// Purpose:
-//   Lock allocation-tracker phase accounting and RuntimeReserveAllocator
-//   policy contracts.
+/*
+File: SkullbonezTests/TestReserveAllocator.cpp
+Purpose:
+  Locks allocation-tracker phase accounting and RuntimeReserveAllocator policy
+  contracts.
 
-// Invariants:
-//   - Gameplay-phase owners never receive replay growth approval.
-//   - Replay growth grants are one-use, owner-specific, and byte-limited.
-//   - Denied growth increments policy violations and still records an event.
-//   - ResetCounters() clears counters/events without unregistering owners.
-//   - RuntimeAllocationScope publishes/restores calling-thread phase
-//     independently of guard mode and concurrent scopes.
-//   - Development tool scopes do not mask an ordinary gameplay allocation.
-//   - Tracker cases restore the process-wide guard to Off before returning.
-//   - Rejected owner registrations never advance the fixed registry count.
-//   - Registry-capacity probes run in a child because owners are process-lived.
-//   - A new capacity session resets the visible and list-local peak lazily.
-//   - Grow-only default extension preserves the existing admitted prefix and
-//     value-initializes only newly admitted rows.
-//   - Non-trivial fixed-list relocation moves every live element without
-//     unwinding and destroys the retired prefix exactly once.
+Summary:
+  Exercises the real process allocation hook, fixed owner registry, replay grant
+  lifecycle, capacity publication, and fixed Physics containers without adding
+  a second accounting implementation.
+
+Invariants:
+  - Gameplay-phase owners never receive replay growth approval.
+  - Replay growth grants are one-use, owner-specific, and byte-limited.
+  - Denied growth increments policy violations and still records an event.
+  - ResetCounters() clears counters/events without unregistering owners.
+  - RuntimeAllocationScope publishes/restores calling-thread phase independently
+    of guard mode and concurrent scopes.
+  - Tracker cases restore the process-wide guard to Off before returning.
+  - Rejected owner registrations never advance the fixed registry count.
+  - Registry-capacity probes run in a child because owners are process-lived.
+  - A new capacity session resets the visible and list-local peak lazily.
+  - Grow-only fixed storage preserves the admitted prefix and initializes only
+    new rows; non-trivial relocation destroys the retired prefix exactly once.
+
+Related:
+  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp
+  - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp
+  - SkullbonezSource/Physics/PhysicsFixedList.h
+*/
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
@@ -119,6 +129,31 @@ RuntimeReserveOwnerDesc MakeReplayOwnerDesc( const char* ownerName, int initialC
     return desc;
 }
 
+RuntimeReserveOwnerDesc MakeDiagnosticOwnerDesc( const char* ownerName )
+{
+    RuntimeReserveOwnerDesc desc = {};
+    desc.ownerName = ownerName;
+    desc.subsystem = RuntimeReserveSubsystem::Diagnostics;
+    desc.initPhase = RuntimeReservePhase::Startup;
+    desc.initialCapacity = 0;
+    desc.hardCapacity = 4096;
+    desc.replayGrowthLimit = 0;
+    desc.allowReplayGrowth = false;
+    desc.capacityReason = "allocation callsite test owner";
+    return desc;
+}
+
+#if defined( _MSC_VER )
+__declspec( noinline )
+#elif defined( __GNUC__ )
+__attribute__( ( noinline ) )
+#endif
+void* AllocateAtFixedTrackedCallsite( RuntimeReserveOwnerHandle owner )
+{
+    RuntimeReserveOwnerScope ownerScope( owner );
+    return ::operator new( 48u );
+}
+
 TEST_CASE( "RuntimeAllocationScope: lifecycle phase remains active when allocation counting is off" )
 {
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
@@ -216,6 +251,39 @@ std::string ReadFileText( FILE* file )
     }
 
     return text;
+}
+
+int CountCallsiteRowsForOwner( const std::string& summary, RuntimeReserveOwnerHandle owner,
+                               uint64_t expectedAllocations )
+{
+    char ownerNeedle[32] = {};
+    char allocationNeedle[48] = {};
+    std::snprintf( ownerNeedle, sizeof( ownerNeedle ), " owner=%u rva=", static_cast<unsigned int>( owner ) );
+    std::snprintf( allocationNeedle, sizeof( allocationNeedle ), " allocations=%llu ",
+                   static_cast<unsigned long long>( expectedAllocations ) );
+    int matchingRows = 0;
+    std::size_t lineStart = 0u;
+
+    while ( ( lineStart = summary.find( "[allocation-guard] callsite ", lineStart ) ) != std::string::npos )
+    {
+        const std::size_t lineEnd = summary.find( '\n', lineStart );
+        const std::size_t lineLength = lineEnd == std::string::npos ? std::string::npos : lineEnd - lineStart;
+        const std::string line = summary.substr( lineStart, lineLength );
+
+        if ( line.find( ownerNeedle ) != std::string::npos && line.find( allocationNeedle ) != std::string::npos )
+        {
+            ++matchingRows;
+        }
+
+        if ( lineEnd == std::string::npos )
+        {
+            break;
+        }
+
+        lineStart = lineEnd + 1u;
+    }
+
+    return matchingRows;
 }
 
 void ExerciseOwnerRegistryCapacity()
@@ -399,6 +467,93 @@ TEST_CASE( "RuntimeAllocationTracker: public mode and phase names cover every li
     CHECK( std::string( RuntimeAllocationPhaseName( RuntimeAllocationPhase::Count ) ) == "unknown" );
 }
 
+TEST_CASE( "RuntimeReserveAllocator: duplicate owner names require one identical immutable policy" )
+{
+    RuntimeReserveAllocator::ResetCounters();
+    constexpr const char* ownerName = "unit.reserve.core009.immutable-policy";
+    RuntimeReserveOwnerDesc canonical = MakeReplayOwnerDesc( ownerName, 4, 12, 2 );
+    canonical.capacityReason = "CORE-009 canonical policy";
+    canonical.elementSizeBytes = 16;
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( canonical );
+    REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
+    CHECK( RuntimeReserveAllocator::RegisterOwner( canonical ) == owner );
+    RuntimeReserveOwnerDesc samePolicyDifferentReason = canonical;
+    samePolicyDifferentReason.capacityReason = "CORE-009 diagnostic wording does not change policy";
+    CHECK( RuntimeReserveAllocator::RegisterOwner( samePolicyDifferentReason ) == owner );
+    CHECK( RuntimeReserveAllocator::PolicyViolationCount() == 0u );
+
+    uint64_t expectedViolations = 0u;
+    const auto requireMismatchRejected = [&]( const RuntimeReserveOwnerDesc& conflicting )
+    {
+        ++expectedViolations;
+        CHECK( RuntimeReserveAllocator::RegisterOwner( conflicting ) == INVALID_RUNTIME_RESERVE_OWNER );
+        CHECK( RuntimeReserveAllocator::PolicyViolationCount() == expectedViolations );
+    };
+
+    RuntimeReserveOwnerDesc conflicting = canonical;
+    conflicting.subsystem = RuntimeReserveSubsystem::Diagnostics;
+    requireMismatchRejected( conflicting );
+    conflicting = canonical;
+    conflicting.initPhase = RuntimeReservePhase::SceneLoad;
+    requireMismatchRejected( conflicting );
+    conflicting = canonical;
+    conflicting.initialCapacity = 5;
+    requireMismatchRejected( conflicting );
+    conflicting = canonical;
+    conflicting.hardCapacity = 13;
+    requireMismatchRejected( conflicting );
+    conflicting = canonical;
+    conflicting.replayGrowthLimit = 1;
+    requireMismatchRejected( conflicting );
+    conflicting = canonical;
+    conflicting.allowReplayGrowth = false;
+    requireMismatchRejected( conflicting );
+    conflicting = canonical;
+    conflicting.elementSizeBytes = 32;
+    requireMismatchRejected( conflicting );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    conflicting = canonical;
+    conflicting.allowDevelopmentToolAllocations = !canonical.allowDevelopmentToolAllocations;
+    requireMismatchRejected( conflicting );
+#endif
+
+    CHECK( RuntimeReserveAllocator::RegisterOwner( canonical ) == owner );
+    RuntimeReserveOwnerStatsView stats = {};
+    REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, stats ) );
+    CHECK( stats.subsystem == canonical.subsystem );
+    CHECK( stats.initPhase == canonical.initPhase );
+    CHECK( stats.currentCapacity == canonical.initialCapacity );
+    CHECK( stats.hardCapacity == canonical.hardCapacity );
+    CHECK( stats.allowReplayGrowth == canonical.allowReplayGrowth );
+}
+
+TEST_CASE( "RuntimeReserveAllocator: duplicate equality uses effective normalized policy" )
+{
+    RuntimeReserveAllocator::ResetCounters();
+    RuntimeReserveOwnerDesc canonical = MakeReplayOwnerDesc( "unit.reserve.core009.normalized-policy", 8, 4, 0 );
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( canonical );
+    REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
+
+    RuntimeReserveOwnerDesc equivalentHardCapacity = canonical;
+    equivalentHardCapacity.hardCapacity = 7;
+    CHECK( RuntimeReserveAllocator::RegisterOwner( equivalentHardCapacity ) == owner );
+
+    RuntimeReserveOwnerDesc equivalentElementSize = canonical;
+    equivalentElementSize.elementSizeBytes = -32;
+    CHECK( RuntimeReserveAllocator::RegisterOwner( equivalentElementSize ) == owner );
+
+#if !defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    RuntimeReserveOwnerDesc ignoredDevelopmentPermission = canonical;
+    ignoredDevelopmentPermission.allowDevelopmentToolAllocations = !canonical.allowDevelopmentToolAllocations;
+    CHECK( RuntimeReserveAllocator::RegisterOwner( ignoredDevelopmentPermission ) == owner );
+#endif
+
+    CHECK( RuntimeReserveAllocator::PolicyViolationCount() == 0u );
+    RuntimeReserveOwnerStatsView stats = {};
+    REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, stats ) );
+    CHECK( stats.hardCapacity == canonical.initialCapacity );
+}
+
 TEST_CASE( "RuntimeAllocationTracker: measured allocations are attributed and freed in their source phase" )
 {
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Measure );
@@ -434,6 +589,81 @@ TEST_CASE( "RuntimeAllocationTracker: measured allocations are attributed and fr
     CHECK( summary.find( "allocations=1" ) != std::string::npos );
     CHECK( summary.find( "frees=1" ) != std::string::npos );
     CHECK( summary.find( "PASS: no steady gameplay allocations" ) != std::string::npos );
+}
+
+TEST_CASE( "RuntimeAllocationTracker: callsite rows retain owner identity and publish once" )
+{
+    ResetRuntimeAllocationCounters();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
+    const RuntimeReserveOwnerHandle firstOwner = RuntimeReserveAllocator::RegisterOwner(
+        MakeDiagnosticOwnerDesc( "unit.reserve.core011.first-owner" ) );
+    const RuntimeReserveOwnerHandle secondOwner = RuntimeReserveAllocator::RegisterOwner(
+        MakeDiagnosticOwnerDesc( "unit.reserve.core011.second-owner" ) );
+    const RuntimeReserveOwnerHandle concurrentOwner = RuntimeReserveAllocator::RegisterOwner(
+        MakeDiagnosticOwnerDesc( "unit.reserve.core011.concurrent-owner" ) );
+    REQUIRE( firstOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    REQUIRE( secondOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    REQUIRE( concurrentOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    FILE* output = nullptr;
+    REQUIRE( tmpfile_s( &output ) == 0 );
+    REQUIRE( output != nullptr );
+
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Measure );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::SteadyGameplay );
+    const RuntimeReserveOwnerHandle sequentialOwners[] = { firstOwner, secondOwner };
+
+    for ( const RuntimeReserveOwnerHandle owner : sequentialOwners )
+    {
+        void* allocation = AllocateAtFixedTrackedCallsite( owner );
+        ::operator delete( allocation );
+    }
+
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
+    std::atomic<int> ready { 0 };
+    std::atomic<bool> start { false };
+    std::array<std::thread, 2> workers;
+
+    for ( std::thread& worker : workers )
+    {
+        worker = std::thread(
+            [&]()
+            {
+                SetRuntimeAllocationPhase( RuntimeAllocationPhase::SteadyGameplay );
+                ready.fetch_add( 1, std::memory_order_release );
+
+                while ( !start.load( std::memory_order_acquire ) )
+                {
+                    std::this_thread::yield();
+                }
+
+                void* allocation = AllocateAtFixedTrackedCallsite( concurrentOwner );
+                ::operator delete( allocation );
+                SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
+            } );
+    }
+
+    while ( ready.load( std::memory_order_acquire ) != static_cast<int>( workers.size() ) )
+    {
+        std::this_thread::yield();
+    }
+
+    start.store( true, std::memory_order_release );
+
+    for ( std::thread& worker : workers )
+    {
+        worker.join();
+    }
+
+    PrintRuntimeAllocationSummary( output );
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
+    const std::string summary = ReadFileText( output );
+    std::fclose( output );
+
+    CHECK( CountCallsiteRowsForOwner( summary, firstOwner, 1u ) == 1 );
+    CHECK( CountCallsiteRowsForOwner( summary, secondOwner, 1u ) == 1 );
+    CHECK( CountCallsiteRowsForOwner( summary, concurrentOwner, 2u ) == 1 );
 }
 
 TEST_CASE( "RuntimeAllocationTracker: gameplay guard reports a physics allocation violation" )
@@ -976,6 +1206,62 @@ TEST_CASE( "RuntimeReserveAllocator: replay growth count limit denies later bump
     CHECK( RuntimeReserveAllocator::PolicyViolationCount() == 1u );
     CHECK( RuntimeReserveAllocator::GrowthEventCount() == 2u );
     CheckEventText( LatestGrowthEvent().reason, "growth_count_limit" );
+}
+
+TEST_CASE( "RuntimeReserveAllocator: concurrent replay requests share one growth-count admission" )
+{
+    RuntimeReserveAllocator::ResetCounters();
+    constexpr const char* ownerName = "unit.reserve.core010.concurrent-growth-limit";
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( ownerName, 4, 12, 1 ) );
+    REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
+    constexpr std::size_t callerCount = 8u;
+    std::array<std::thread, callerCount> workers;
+    std::array<bool, callerCount> granted = {};
+    std::array<int, callerCount> growthCounts = {};
+    std::atomic<std::size_t> ready { 0u };
+    std::atomic<bool> start { false };
+
+    for ( std::size_t index = 0; index < workers.size(); ++index )
+    {
+        workers[index] = std::thread(
+            [&, index]()
+            {
+                ready.fetch_add( 1u, std::memory_order_release );
+
+                while ( !start.load( std::memory_order_acquire ) )
+                {
+                    std::this_thread::yield();
+                }
+
+                const RuntimeReserveGrowthResult result = RuntimeReserveAllocator::RequestGrowth(
+                    owner, MakeGrowthRequest( ownerName, 4, 6 ) );
+                granted[index] = result.granted;
+                growthCounts[index] = result.growthCount;
+            } );
+    }
+
+    while ( ready.load( std::memory_order_acquire ) != workers.size() )
+    {
+        std::this_thread::yield();
+    }
+
+    start.store( true, std::memory_order_release );
+
+    for ( std::thread& worker : workers )
+    {
+        worker.join();
+    }
+
+    CHECK( std::ranges::count( granted, true ) == 1 );
+    CHECK( std::ranges::count( growthCounts, 1 ) == static_cast<std::ptrdiff_t>( callerCount ) );
+    CHECK( RuntimeReserveAllocator::PolicyViolationCount() == callerCount - 1u );
+    CHECK( RuntimeReserveAllocator::GrowthEventCount() == callerCount );
+    RuntimeReserveOwnerStatsView stats = {};
+    REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, stats ) );
+    CHECK( stats.replayGrowths == 1u );
+    CHECK( stats.failedGrowths == callerCount - 1u );
+    CHECK( stats.pendingReplayGrantBytes == 0u );
 }
 
 

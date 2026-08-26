@@ -4,6 +4,23 @@ Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
 Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
 
+## Core Allocation Bug Ledger Closure (2026-08-26)
+
+CORE-009 through CORE-011 are fixed as one Core allocation subsystem batch.
+Duplicate reserve-owner names now reuse a process-lifetime handle only when
+their normalized effective policies match. Replay growth-count admission stays
+serialized with its owner budget transaction, with concurrent regression
+evidence covering the final permitted grant. Allocation callsite keys now retain
+owner identity, publish only complete rows, and snapshot ranked rows under the
+accounting lock so reset cannot mix fields within a reported row.
+
+One consolidated read-only rubber-duck review used task
+`01a03961-d56f-70d1-a7f2-56d4651b858b`. The first pass found one blocking
+reset-versus-summary race and missing normalized-policy controls; the follow-up
+closed both. Final counts were 0 Blocking, 0 Non-blocking, and 1 Missing
+evidence. Per owner direction, focused allocation tests, builds, scanners,
+inventories, and repository validation were not executed.
+
 ## UI Library Bug Ledger Closure (2026-08-26)
 
 UI-001 through UI-005 are fixed as one UI Library subsystem batch. Losing
