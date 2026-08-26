@@ -136,8 +136,9 @@ void SkyBox::RequireRenderBindings( const char* operation ) const
 }
 
 
-void SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg, SkullbonezCore::Assets::AssetSystem& assets,
-                          Dx12ResourceBuilder& resources )
+SkullbonezCore::Core::SbResult
+SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg, SkullbonezCore::Assets::AssetSystem& assets,
+                     Dx12ResourceBuilder& resources )
 {
     // Shorthand for boundary values with overflow
     const int overflow = cfg.skybox.overflow;
@@ -204,14 +205,46 @@ void SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg, Skullbo
 
     m_shader = assets.CreateShader( resources, "shader.unlit_textured" );
 
-    if ( !m_shader )
+    std::array<bool, 6> meshesReady = {};
+
+    for ( std::size_t index = 0; index < m_faceMeshes.size(); ++index )
     {
-        return;
+        meshesReady[index] = m_faceMeshes[index] != nullptr;
+    }
+
+    SkullbonezCore::Core::SbResult resourceResult =
+        RequiredRenderResourcesResult( m_resultDiagnostics, meshesReady, m_shader != nullptr );
+
+    if ( !resourceResult.Ok() )
+    {
+        return resourceResult;
     }
 
     m_shader->Use();
     m_shader->SetMat4( "uModel", Matrix4() );
     m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
+    return SkullbonezCore::Core::SbResult::Success();
+}
+
+
+SkullbonezCore::Core::SbResult
+SkyBox::RequiredRenderResourcesResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                       const std::array<bool, 6>& meshesReady, bool shaderReady )
+{
+    for ( std::size_t index = 0; index < meshesReady.size(); ++index )
+    {
+        if ( !meshesReady[index] )
+        {
+            return diagnostics.Failure( "Rendering/SkyBox", "Skybox face mesh %zu failed during resource reset.", index );
+        }
+    }
+
+    if ( !shaderReady )
+    {
+        return diagnostics.Failure( "Rendering/SkyBox", "Skybox shader failed during resource reset." );
+    }
+
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -253,7 +286,13 @@ SkullbonezCore::Core::SbResult SkyBox::ResetRenderResources()
         return textureResult;
     }
 
-    BuildMeshes( *m_config, *m_assets, *m_resources );
+    SkullbonezCore::Core::SbResult buildResult = BuildMeshes( *m_config, *m_assets, *m_resources );
+
+    if ( !buildResult.Ok() )
+    {
+        return buildResult;
+    }
+
     return SkullbonezCore::Core::SbResult::Success();
 }
 

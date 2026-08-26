@@ -913,3 +913,21 @@ One consolidated read-only rubber-duck review covered both Assets rows in task
 non-blocking, and 1 missing-evidence item. Per owner direction, no build, test,
 scanner, inventory, or validation command was run; compile/link and focused
 runtime behavior remain unexecuted evidence rather than claimed results.
+
+## World Bug Ledger Closure (2026-08-26)
+
+WORLD-001 through WORLD-003 are fixed as one subsystem batch. Passive generated
+camera bounds now consume the live WorldEnvironment fluid plane, preserve the
+terrain floor and out-of-bounds no-support rule, and independently apply the
+configured upper cap. Height-map terrain publication remains local until both
+its mesh and shader exist, so either failure preserves a caller's existing
+terrain owner. Skybox reset now returns the exact failed result when any face
+mesh or the shader is unavailable instead of reporting successful resources.
+
+One consolidated read-only rubber-duck review covered all three World rows in
+task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found and closed one conflicting
+lower/upper camera-bound precedence defect and two focused-evidence gaps. Final
+counts were 0 blocking, 0 non-blocking, and 1 missing-evidence item. Per owner
+direction, no build, test, scanner, inventory, or validation command was run;
+compile/link and focused runtime behavior remain unexecuted evidence rather
+than claimed results.

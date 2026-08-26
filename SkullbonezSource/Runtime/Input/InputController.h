@@ -29,6 +29,7 @@ Invariants:
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 #include "Input.h"
 
@@ -265,6 +266,7 @@ struct RuntimeCameraMovementInput
     float mouseMovementQuantity = 0.0f;
     float minCameraHeight = 0.0f;
     float maxCameraHeight = 0.0f;
+    float fluidSurfaceHeight = 0.0f;
     bool attachedOrbitOwnsCamera = false;
     bool flyControlsActive = false;
     bool editorModeEnabled = false;
@@ -306,6 +308,34 @@ class RuntimeInputContext
 class InputController
 {
   public:
+    static float ResolvePassiveCameraMinimumY( float terrainHeight, float fluidSurfaceHeight,
+                                                float clearance ) noexcept
+    {
+        const float missingTerrain = -( std::numeric_limits<float>::max )();
+
+        if ( terrainHeight == missingTerrain )
+        {
+            return missingTerrain;
+        }
+
+        const float supportingSurface = terrainHeight > fluidSurfaceHeight ? terrainHeight : fluidSurfaceHeight;
+        return supportingSurface + clearance;
+    }
+
+    static float ResolvePassiveCameraY( float currentY, float terrainHeight, float fluidSurfaceHeight,
+                                        float clearance, float maximumY ) noexcept
+    {
+        const float minimumY = ResolvePassiveCameraMinimumY( terrainHeight, fluidSurfaceHeight, clearance );
+        float resolvedY = currentY < minimumY ? minimumY : currentY;
+
+        if ( resolvedY > maximumY )
+        {
+            resolvedY = maximumY;
+        }
+
+        return resolvedY;
+    }
+
     static void BeginFrame( RuntimeInputContext& context, const RuntimeInputModeState& modeState, bool appFocused,
                             bool uiBlocksKeyboard, bool uiBlocksMouse );
     static void ApplyModeAction( RuntimeInputContext& context, RuntimeInputMode mode, RuntimeInputAction action,

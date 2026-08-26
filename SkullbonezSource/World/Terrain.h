@@ -213,6 +213,17 @@ class Terrain
   private:
     friend struct TerrainRenderLifecycleTestAccess;
 
+    enum class RequiredRenderResourceFailure
+    {
+        None,
+        Mesh,
+        Shader
+    };
+
+    static RequiredRenderResourceFailure
+    TryPublishRenderReadyCandidate( std::unique_ptr<Terrain>& outTerrain, std::unique_ptr<Terrain>& candidate,
+                                    bool meshReady, bool shaderReady ) noexcept;
+
     std::uint32_t displayListReference; // Legacy display-list token retained for serialized state.
 
     // Why: the standalone CPU test executable validates the authoritative

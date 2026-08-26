@@ -38,6 +38,7 @@
 
 #include "../SkullbonezSource/Runtime/App/InputFrame.h"
 #include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
+#include "../SkullbonezSource/Runtime/Input/InputController.h"
 #include "../SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
@@ -53,10 +54,26 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
+
+TEST_CASE( "Passive camera floor follows the live fluid surface without inventing out-of-bounds terrain" )
+{
+    CHECK( InputController::ResolvePassiveCameraMinimumY( 4.0f, 20.0f, 1.5f ) == doctest::Approx( 21.5f ) );
+    CHECK( InputController::ResolvePassiveCameraMinimumY( 30.0f, 20.0f, 1.5f ) == doctest::Approx( 31.5f ) );
+
+    const float missingTerrain = -( std::numeric_limits<float>::max )();
+    CHECK( InputController::ResolvePassiveCameraMinimumY( missingTerrain, 20.0f, 1.5f ) == missingTerrain );
+    CHECK( InputController::ResolvePassiveCameraY( 5.0f, 4.0f, 120.0f, 1.5f, 110.0f ) ==
+           doctest::Approx( 110.0f ) );
+    CHECK( InputController::ResolvePassiveCameraY( 140.0f, missingTerrain, 20.0f, 1.5f, 110.0f ) ==
+           doctest::Approx( 110.0f ) );
+    CHECK( InputController::ResolvePassiveCameraY( 50.0f, missingTerrain, 20.0f, 1.5f, 110.0f ) ==
+           doctest::Approx( 50.0f ) );
+}
 
 namespace
 {

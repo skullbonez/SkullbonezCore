@@ -319,16 +319,17 @@ void InputController::ApplyCameraMovement( CameraControlState& camera, Environme
     if ( !input.manualControlsActive && !input.editorViewportLookActive && !input.authoredScene )
     {
         const Math::Vector::Vector3 translatedCameraPosition = cameras.GetCameraTranslation();
-        const float minY = terrain.GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) +
-                           input.minCameraHeight;
+        const float terrainHeight =
+            terrain.GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, false );
+        // The world owner may move water after startup; the frame input carries
+        // that live plane so passive cameras do not consult Terrain's config-era copy.
+        const float resolvedY = ResolvePassiveCameraY( translatedCameraPosition.y, terrainHeight,
+                                                       input.fluidSurfaceHeight, input.minCameraHeight,
+                                                       input.maxCameraHeight );
 
-        if ( minY > translatedCameraPosition.y )
+        if ( resolvedY != translatedCameraPosition.y )
         {
-            cameras.AmmendPrimaryY( minY );
-        }
-        else if ( translatedCameraPosition.y > input.maxCameraHeight )
-        {
-            cameras.AmmendPrimaryY( input.maxCameraHeight );
+            cameras.AmmendPrimaryY( resolvedY );
         }
     }
 }

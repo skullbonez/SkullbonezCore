@@ -56,6 +56,8 @@ class Dx12ResourceBuilder;
 
 namespace Geometry
 {
+struct SkyBoxRenderLifecycleTestAccess;
+
 // Lifetime: sky rebuild borrows form one backend-epoch lease. Release closes
 // the complete lease so a later reset must bind all owners again.
 class SkyBoxRenderRebuildLease
@@ -105,6 +107,7 @@ class SkyBox
 {
 
   private:
+    friend struct SkyBoxRenderLifecycleTestAccess;
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Box m_boundaries;                                                     // World-space cube bounds around the scene camera.
     Textures::TextureCollection* m_textures;                              // Borrowed texture registry; scene/runtime owns it.
@@ -118,8 +121,13 @@ class SkyBox
 
     void RequireRenderBindings( const char* operation ) const;
     SkullbonezCore::Core::SbResult LoadTextures( const SkullbonezCore::Core::EngineConfig& config );
-    void BuildMeshes( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
-                      Rendering::Dx12ResourceBuilder& resources );
+    static SkullbonezCore::Core::SbResult
+    RequiredRenderResourcesResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                   const std::array<bool, 6>& meshesReady, bool shaderReady );
+
+    SkullbonezCore::Core::SbResult BuildMeshes( const SkullbonezCore::Core::EngineConfig& config,
+                                                Assets::AssetSystem& assets,
+                                                Rendering::Dx12ResourceBuilder& resources );
 
   public:
     SkyBox( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, int xMin, int xMax, int yMin, int yMax, int zMin,

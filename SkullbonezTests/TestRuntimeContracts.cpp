@@ -297,6 +297,40 @@ struct TerrainRenderLifecycleTestAccess
     {
         Terrain::RequireClipPlane( clipPlane );
     }
+    static bool PublicationPreservesExistingOnFailure( bool meshReady, bool shaderReady )
+    {
+        SkullbonezCore::Core::EngineConfig config;
+        std::unique_ptr<Terrain> existing = std::make_unique<Terrain>( 1.0f, 0.0f, 0.0f, config );
+        std::unique_ptr<Terrain> candidate = std::make_unique<Terrain>( 2.0f, 0.0f, 0.0f, config );
+        Terrain* const existingIdentity = existing.get();
+        Terrain* const candidateIdentity = candidate.get();
+        const Terrain::RequiredRenderResourceFailure failure =
+            Terrain::TryPublishRenderReadyCandidate( existing, candidate, meshReady, shaderReady );
+
+        return failure != Terrain::RequiredRenderResourceFailure::None && existing.get() == existingIdentity &&
+               candidate.get() == candidateIdentity;
+    }
+    static bool PublicationMovesReadyCandidate()
+    {
+        SkullbonezCore::Core::EngineConfig config;
+        std::unique_ptr<Terrain> existing = std::make_unique<Terrain>( 1.0f, 0.0f, 0.0f, config );
+        std::unique_ptr<Terrain> candidate = std::make_unique<Terrain>( 2.0f, 0.0f, 0.0f, config );
+        Terrain* const candidateIdentity = candidate.get();
+        const Terrain::RequiredRenderResourceFailure failure =
+            Terrain::TryPublishRenderReadyCandidate( existing, candidate, true, true );
+
+        return failure == Terrain::RequiredRenderResourceFailure::None && existing.get() == candidateIdentity &&
+               !candidate;
+    }
+};
+
+struct SkyBoxRenderLifecycleTestAccess
+{
+    static SkullbonezCore::Core::SbResult RequiredResourcesResult(
+        SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const std::array<bool, 6>& meshesReady, bool shaderReady )
+    {
+        return SkyBox::RequiredRenderResourcesResult( diagnostics, meshesReady, shaderReady );
+    }
 };
 } // namespace SkullbonezCore::Geometry
 
@@ -717,6 +751,29 @@ TEST_CASE( "DX12 shader requests distinguish default-root names from resolved as
                "AlternateData/shaders/unit" ) == "AlternateData/shaders/unit.hlsl" );
     CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath(
                "C:/ShaderRoot/absolute" ) == "C:/ShaderRoot/absolute.hlsl" );
+}
+
+
+TEST_CASE( "World resource readiness rejects incomplete terrain and sky creation" )
+{
+    using SkullbonezCore::Geometry::SkyBoxRenderLifecycleTestAccess;
+    using SkullbonezCore::Geometry::TerrainRenderLifecycleTestAccess;
+
+    CHECK( TerrainRenderLifecycleTestAccess::PublicationPreservesExistingOnFailure( false, true ) );
+    CHECK( TerrainRenderLifecycleTestAccess::PublicationPreservesExistingOnFailure( true, false ) );
+    CHECK( TerrainRenderLifecycleTestAccess::PublicationMovesReadyCandidate() );
+
+    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+    std::array<bool, 6> skyMeshesReady = { true, true, true, true, true, true };
+    CHECK( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( diagnostics, skyMeshesReady, true ).Ok() );
+    CHECK_FALSE( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( diagnostics, skyMeshesReady, false ).Ok() );
+
+    for ( std::size_t failedFace = 0; failedFace < skyMeshesReady.size(); ++failedFace )
+    {
+        skyMeshesReady.fill( true );
+        skyMeshesReady[failedFace] = false;
+        CHECK_FALSE( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( diagnostics, skyMeshesReady, true ).Ok() );
+    }
 }
 
 

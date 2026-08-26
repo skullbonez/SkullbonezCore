@@ -33,6 +33,7 @@ Related:
 #include "../../Core/Config.h"
 #include "../Scene/SceneWorld.h"
 #include "../../World/Terrain.h"
+#include "../../World/WorldEnvironment.h"
 #include "../../Core/Profiler.h"
 
 using SkullbonezCore::Math::Orientation::Quaternion;
@@ -126,6 +127,7 @@ void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCamer
                                                                            config.camera.mouseSensitivity,
                                                                        config.camera.minCameraHeight,
                                                                        config.camera.maxCameraHeight,
+                                                                       world.Environment().GetFluidSurfaceHeight(),
                                                                        attachedOrbitOwnsCamera,
                                                                        RunCameraModeUsesFlyControls( mode,
                                                                                                      attachedCamera.State()

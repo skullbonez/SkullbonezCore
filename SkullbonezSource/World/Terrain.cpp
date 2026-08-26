@@ -262,10 +262,41 @@ Terrain::TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagno
     terrain->m_terrainData.clear();
     terrain->m_terrainData.shrink_to_fit();
     terrain->InitialiseTerrainShader();
-    outTerrain = std::move( terrain );
+
+    const bool meshReady = terrain->m_terrainMesh != nullptr;
+    const bool shaderReady = terrain->m_terrainShader != nullptr;
+    const RequiredRenderResourceFailure resourceFailure =
+        TryPublishRenderReadyCandidate( outTerrain, terrain, meshReady, shaderReady );
+
+    if ( resourceFailure != RequiredRenderResourceFailure::None )
+    {
+        return diagnostics.Failure( "World/Terrain",
+                                    "Terrain mesh or shader creation failed. path=\"%s\" mesh=%d shader=%d", fileName,
+                                    meshReady ? 1 : 0, shaderReady ? 1 : 0 );
+    }
+
     return SkullbonezCore::Core::SbResult::Success();
 }
 #endif
+
+
+Terrain::RequiredRenderResourceFailure
+Terrain::TryPublishRenderReadyCandidate( std::unique_ptr<Terrain>& outTerrain, std::unique_ptr<Terrain>& candidate,
+                                         bool meshReady, bool shaderReady ) noexcept
+{
+    if ( !meshReady )
+    {
+        return RequiredRenderResourceFailure::Mesh;
+    }
+
+    if ( !shaderReady )
+    {
+        return RequiredRenderResourceFailure::Shader;
+    }
+
+    outTerrain = std::move( candidate );
+    return RequiredRenderResourceFailure::None;
+}
 
 
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
