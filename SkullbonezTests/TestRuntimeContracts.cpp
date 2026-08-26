@@ -56,6 +56,8 @@
 //     immutable interaction-script input.
 //   - SceneWorld swap-last deletion carries Gameplay's dense tornado timers with
 //     the stable body that Physics moves into the removed row.
+//   - Orderly process exit returns an interaction-recorder save failure, and raw
+//     mouse startup registration reports native rejection before renderer startup.
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
@@ -87,6 +89,8 @@
 #include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
+#include "../SkullbonezSource/Runtime/App/InteractionAutomationApplication.h"
+#include "../SkullbonezSource/Runtime/App/StartupInputApplication.h"
 #include "../SkullbonezSource/Runtime/Automation/InteractionAutomationController.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/UIStressPolicy.h"
@@ -266,6 +270,29 @@ namespace SkullbonezCore::Hardware
 {
 struct InputWindowBridgeTestAccess
 {
+    struct RawMouseRegistrationProbe
+    {
+        RAWINPUTDEVICE observed = {};
+        DWORD error = ERROR_SUCCESS;
+        bool called = false;
+
+        static DWORD Invoke( const RAWINPUTDEVICE& device, void* context ) noexcept
+        {
+            auto& probe = *static_cast<RawMouseRegistrationProbe*>( context );
+            probe.observed = device;
+            probe.called = true;
+            return probe.error;
+        }
+    };
+
+    static SkullbonezCore::Core::SbResult RegisterRawMouse(
+        SkullbonezCore::Core::SbDiagnosticStore& diagnostics, HWND window, bool callbackBridgeBound,
+        RawMouseRegistrationProbe& probe )
+    {
+        return Input::RegisterRawMouseInputWithOperation( diagnostics, window, callbackBridgeBound,
+                                                          RawMouseRegistrationProbe::Invoke, &probe );
+    }
+
     class Probe
     {
       public:
@@ -3628,4 +3655,195 @@ TEST_CASE( "SceneWorld deletion preserves the moved tornado body timer history" 
     CHECK( world.Tornado().EjectCooldownSeconds()[0] == 1.1f );
     CHECK( world.Tornado().EjectCooldownSeconds()[1] == 1.4f );
     CHECK( world.Tornado().EjectCooldownSeconds()[2] == 1.3f );
+}
+
+
+TEST_CASE( "Orderly exit returns the interaction recording save failure" )
+{
+    namespace fs = std::filesystem;
+    const fs::path root = "TestOutput/runtime_contracts/interaction_shutdown_failure";
+    const fs::path manifest = root / "interaction.json";
+    std::error_code error;
+    fs::remove_all( root, error );
+    REQUIRE_FALSE( error );
+    REQUIRE( fs::create_directories( root, error ) );
+    REQUIRE_FALSE( error );
+
+    SkullbonezCore::Core::SbDiagnosticStore localDiagnostics;
+    SkullbonezCore::Runtime::InteractionAutomationRecorder recorder;
+    REQUIRE( recorder.Arm( localDiagnostics, manifest.string().c_str(), 1 ).Ok() );
+
+    {
+        std::ofstream scene( recorder.ScenePath(), std::ios::binary | std::ios::trunc );
+        scene << "{}\n";
+        REQUIRE( scene.good() );
+    }
+
+    struct ArmedBoundaryContext
+    {
+        SkullbonezCore::Runtime::InteractionAutomationRecorder* recorder = nullptr;
+        SkullbonezCore::Core::SbDiagnosticStore* diagnostics = nullptr;
+        const fs::path* root = nullptr;
+        SbResult boundaryResult = SbResult::Success();
+        std::error_code removalError;
+        int attempts = 0;
+    } context { &recorder, &localDiagnostics, &root };
+
+    const auto captureArmedBoundary = []( void* opaque )
+    {
+        auto& capture = *static_cast<ArmedBoundaryContext*>( opaque );
+        ++capture.attempts;
+        SkullbonezCore::Runtime::InteractionRecordingBaseline baseline;
+        capture.boundaryResult = capture.recorder->BeginAtBoundary( *capture.diagnostics, 1280, 720, 1u, baseline, false );
+
+        if ( capture.boundaryResult.Ok() )
+        {
+            fs::remove_all( *capture.root, capture.removalError );
+        }
+    };
+
+    SkullbonezCore::Runtime::ApplicationExitState applicationExit( localDiagnostics );
+    RuntimeAllocationScope shutdownScope( RuntimeAllocationPhase::Shutdown );
+    const SbResult result = SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording(
+        recorder, localDiagnostics, applicationExit, 0, captureArmedBoundary, &context );
+
+    CHECK( context.attempts == 1 );
+    CHECK( context.boundaryResult.Ok() );
+    CHECK_FALSE( context.removalError );
+    REQUIRE_FALSE( result.Ok() );
+    CHECK( applicationExit.HasOwnedFailure() );
+    CHECK_FALSE( recorder.IsActive() );
+    REQUIRE( result.ErrorOwner() );
+    CHECK( std::strcmp( result.ErrorOwner(), "InteractionRecorder" ) == 0 );
+    REQUIRE( result.ErrorMessage() );
+    CHECK( std::strstr( result.ErrorMessage(), "failed to hash the recorded scene snapshot" ) != nullptr );
+
+    const SbResult repeated = SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording(
+        recorder, localDiagnostics, applicationExit, 0, captureArmedBoundary, &context );
+    CHECK( context.attempts == 1 );
+    REQUIRE_FALSE( repeated.Ok() );
+    CHECK( std::strcmp( repeated.ErrorOwner(), "InteractionRecorder" ) == 0 );
+}
+
+
+TEST_CASE( "Raw mouse startup registration reports the native failure" )
+{
+    SkullbonezCore::Core::SbDiagnosticStore localDiagnostics;
+    SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RawMouseRegistrationProbe probe;
+    probe.error = ERROR_ACCESS_DENIED;
+    const HWND window = reinterpret_cast<HWND>( static_cast<uintptr_t>( 1u ) );
+
+    const SbResult failure = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse(
+        localDiagnostics, window, true, probe );
+    REQUIRE_FALSE( failure.Ok() );
+    CHECK( probe.called );
+    CHECK( probe.observed.usUsagePage == 0x01u );
+    CHECK( probe.observed.usUsage == 0x02u );
+    CHECK( probe.observed.hwndTarget == window );
+    REQUIRE( failure.ErrorOwner() );
+    CHECK( std::strcmp( failure.ErrorOwner(), "Runtime/Input" ) == 0 );
+    REQUIRE( failure.ErrorMessage() );
+    CHECK( std::strstr( failure.ErrorMessage(), "win32_error=5" ) != nullptr );
+
+    int reportedFailures = 0;
+    int workerShutdowns = 0;
+    int developmentToolShutdowns = 0;
+    int windowCleanups = 0;
+    int comUninitializations = 0;
+    int rendererStarts = 0;
+    std::string failureTitle;
+    std::vector<int> startupSequence;
+    const SbResult startupFailure = SkullbonezCore::Runtime::StartRendererAfterRawMouseRegistration(
+        failure,
+        [&]( const SbResult&, const char* title )
+        {
+            ++reportedFailures;
+            failureTitle = title ? title : "";
+            startupSequence.push_back( 1 );
+        },
+        [&]()
+        {
+            ++workerShutdowns;
+            startupSequence.push_back( 2 );
+        },
+        [&]()
+        {
+            ++developmentToolShutdowns;
+            startupSequence.push_back( 3 );
+        },
+        [&]()
+        {
+            ++windowCleanups;
+            startupSequence.push_back( 4 );
+        },
+        [&]()
+        {
+            ++comUninitializations;
+            startupSequence.push_back( 5 );
+        },
+        [&]()
+        {
+            ++rendererStarts;
+            startupSequence.push_back( 6 );
+            return SbResult::Success();
+        } );
+    REQUIRE_FALSE( startupFailure.Ok() );
+    CHECK( std::strcmp( startupFailure.ErrorOwner(), "Runtime/Input" ) == 0 );
+    CHECK( failureTitle == "SkullbonezCore Input Startup Failed" );
+    CHECK( reportedFailures == 1 );
+    CHECK( workerShutdowns == 1 );
+    CHECK( developmentToolShutdowns == 1 );
+    CHECK( windowCleanups == 1 );
+    CHECK( comUninitializations == 1 );
+    CHECK( rendererStarts == 0 );
+    CHECK( startupSequence == std::vector<int> { 1, 2, 3, 4, 5 } );
+
+    probe = {};
+    const SbResult success = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse(
+        localDiagnostics, window, true, probe );
+    CHECK( success.Ok() );
+    CHECK( probe.called );
+
+    startupSequence.clear();
+    const SbResult startupSuccess = SkullbonezCore::Runtime::StartRendererAfterRawMouseRegistration(
+        success,
+        [&]( const SbResult&, const char* )
+        {
+            ++reportedFailures;
+            startupSequence.push_back( 1 );
+        },
+        [&]()
+        {
+            ++workerShutdowns;
+            startupSequence.push_back( 2 );
+        },
+        [&]()
+        {
+            ++developmentToolShutdowns;
+            startupSequence.push_back( 3 );
+        },
+        [&]()
+        {
+            ++windowCleanups;
+            startupSequence.push_back( 4 );
+        },
+        [&]()
+        {
+            ++comUninitializations;
+            startupSequence.push_back( 5 );
+        },
+        [&]()
+        {
+            ++rendererStarts;
+            startupSequence.push_back( 6 );
+            return SbResult::Success();
+        } );
+    CHECK( startupSuccess.Ok() );
+    CHECK( reportedFailures == 1 );
+    CHECK( workerShutdowns == 1 );
+    CHECK( developmentToolShutdowns == 1 );
+    CHECK( windowCleanups == 1 );
+    CHECK( comUninitializations == 1 );
+    CHECK( rendererStarts == 1 );
+    CHECK( startupSequence == std::vector<int> { 6 } );
 }

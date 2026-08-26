@@ -956,6 +956,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\App\InteractionAutomationApplication.h">
       <Filter>Header Files\Runtime\App</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\App\StartupInputApplication.h">
+      <Filter>Header Files\Runtime\App</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationInputDriver.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>

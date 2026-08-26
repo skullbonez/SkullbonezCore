@@ -20,12 +20,14 @@ Related:
 #pragma once
 
 #include "../Automation/InteractionAutomationController.h"
+#include "../../Core/SbResult.h"
 
 namespace SkullbonezCore
 {
 namespace Core
 {
 class EngineConfig;
+class SbDiagnosticStore;
 }
 namespace Rendering
 {
@@ -38,8 +40,10 @@ class InGameUI;
 }
 namespace Runtime
 {
+class ApplicationExitState;
 class CaptureController;
 class EditorToolsOwner;
+class InteractionAutomationRecorder;
 class InputRouter;
 class RuntimeInteractionController;
 class RuntimeTools;
@@ -47,6 +51,15 @@ class SceneController;
 class Window;
 struct CameraControlState;
 struct ContinuousOrbitalForecastView;
+
+using InteractionRecordingBoundaryOperation = void ( * )( void* context );
+
+// Captures an armed baseline, then converts an active recorder's final save
+// result into the process-owned exit state before Run::Execute returns.
+SkullbonezCore::Core::SbResult ResolveRunExitAfterInteractionRecording(
+    InteractionAutomationRecorder& recorder, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+    ApplicationExitState& applicationExit, int messageExitCode,
+    InteractionRecordingBoundaryOperation captureArmedBoundary, void* captureContext );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 InteractionAutomationDevelopmentUiApplyResult

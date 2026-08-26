@@ -26,6 +26,8 @@ Invariants:
     bridge instead of reacquiring the process singleton.
   - Input owns the sole retained Window borrow; unbind clears it only when the
     caller presents the currently bound Window identity.
+  - Raw mouse device registration either succeeds before renderer startup or
+    returns a diagnostic that aborts process initialization.
 
 Related:
   - SkullbonezSource/Runtime/Input/Input.cpp
@@ -164,7 +166,9 @@ class Input
                                                                    static void BindCallbackBridge( HWND window );       // Arms callback-fed input queues for the active HWND.
                                                                    static void UnbindCallbackBridge( HWND window );     // Disarms callback-fed queues and clears stale queued input.
                                                                    static void ClearCallbackEventBuffer( HWND window ); // Clears queued callback data for the bound HWND.
-                                                                   static bool RegisterRawMouseInput( HWND window );    // Registers the window for relative mouse movement messages
+                                                                   [[nodiscard]] static SkullbonezCore::Core::SbResult
+                                                                   RegisterRawMouseInput( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                   HWND window );                                      // Registers relative mouse messages or returns a startup failure.
                                                                    static void
                                                                    AccumulateRawMouseSample( HWND window, long x, long y, bool absolute,
                                                                    bool virtualDesktop );                               // Adds a copied WM_INPUT sample when the callback bridge is bound.
@@ -176,6 +180,13 @@ class Input
 
                                                                    private:
                                                                    friend struct InputWindowBridgeTestAccess;
+
+                                                                   using RawMouseRegistrationOperation = DWORD ( * )(
+                                                                   const RAWINPUTDEVICE& device, void* context ) noexcept;
+                                                                   static SkullbonezCore::Core::SbResult RegisterRawMouseInputWithOperation(
+                                                                   SkullbonezCore::Core::SbDiagnosticStore& diagnostics, HWND window,
+                                                                   bool callbackBridgeBound, RawMouseRegistrationOperation operation,
+                                                                   void* context );
 
                                                                    class NativeWindowBinding
                                                                    {

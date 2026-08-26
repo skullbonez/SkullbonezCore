@@ -242,6 +242,7 @@ class Run
     double BeginFrameTurn();                                                                                      // Starts timing/profiling and validates renderer composition.
     void AdvanceInteractionRecordingBoundary();                                                                   // Commits the prior pending turn or captures an armed baseline.
     void CaptureInteractionRecordingTurn( double secondsPerFrame );                                               // Copies the routed device frame after input completes.
+    SkullbonezCore::Core::SbResult ResolveExecuteExit( int messageExitCode );                                     // Finalizes recorder evidence before publishing process status.
     void BeginFrameDiagnosticsPhase();                                                                            // Publishes prior GPU timing, then resets draw counters.
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     SceneFrameProceedPolicy RunAutomationAndInputPhase( bool& gameUiActive, RecordedCursorFrame& recordedCursor );

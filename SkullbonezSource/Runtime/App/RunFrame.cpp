@@ -1017,12 +1017,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
 {
     if ( m_skipExecute )
     {
-        return SkullbonezCore::Core::SbResult::Success();
+        return ResolveExecuteExit( 0 );
     }
 
     if ( m_applicationExit.ExitRequested() )
     {
-        return m_applicationExit.Resolve( 0 );
+        return ResolveExecuteExit( 0 );
     }
 
     int messageExitCode = 0;
@@ -1042,7 +1042,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
         if ( m_applicationExit.ExitRequested() )
         {
-            return m_applicationExit.Resolve( 0 );
+            return ResolveExecuteExit( 0 );
         }
 
         BeginFrameDiagnosticsPhase();
@@ -1067,7 +1067,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
         if ( m_applicationExit.ExitRequested() )
         {
-            return m_applicationExit.Resolve( 0 );
+            return ResolveExecuteExit( 0 );
         }
 
         bool capturePresentationPinned = false;
@@ -1078,7 +1078,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
         // is observable only through the ApplicationExitState latch.
         if ( m_applicationExit.ExitRequested() )
         {
-            return m_applicationExit.Resolve( 0 );
+            return ResolveExecuteExit( 0 );
         }
 
         RuntimeRenderModelFrameView models = PublishRenderModelsPhase();
@@ -1097,7 +1097,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
         if ( m_applicationExit.ExitRequested() )
         {
-            return m_applicationExit.Resolve( 0 );
+            return ResolveExecuteExit( 0 );
         }
 
         // App applies process effects only after every presenter has released
@@ -1124,7 +1124,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
         if ( m_applicationExit.ExitRequested() )
         {
-            return m_applicationExit.Resolve( 0 );
+            return ResolveExecuteExit( 0 );
         }
 
         {
@@ -1140,7 +1140,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
         if ( m_applicationExit.ExitRequested() )
         {
-            return m_applicationExit.Resolve( 0 );
+            return ResolveExecuteExit( 0 );
         }
 
         if ( CompleteFramePhase( proceedPolicy ) )
@@ -1149,7 +1149,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
     }
 
-    return m_applicationExit.Resolve( messageExitCode );
+    return ResolveExecuteExit( messageExitCode );
 }
 
 

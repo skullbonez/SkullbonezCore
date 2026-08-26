@@ -23,10 +23,13 @@ Invariants:
     run instead of allowing incomplete evidence to look successful.
   - Trace and report targets are resolved against immutable script input before
     either output owner may open a truncating stream.
+  - Orderly process exit saves an active interaction recording before Run
+    resolves its final status; an owned save failure outranks normal exit.
 */
 #include "../Automation/InteractionAutomationController.h"
 #include "../Automation/InteractionAutomationRecorder.h"
 #include "InteractionAutomationApplication.h"
+#include "ApplicationExitState.h"
 #include "../Planning/ContinuousOrbitalForecast.h"
 
 
@@ -4822,6 +4825,39 @@ bool LoadScript( InteractionAutomationController& state )
     return true;
 }
 } // namespace
+
+
+SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording(
+    InteractionAutomationRecorder& recorder, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+    ApplicationExitState& applicationExit, int messageExitCode,
+    InteractionRecordingBoundaryOperation captureArmedBoundary, void* captureContext )
+{
+    if ( recorder.IsArmed() )
+    {
+        if ( !captureArmedBoundary )
+        {
+            applicationExit.RequestOwnedFailure(
+                diagnostics.Failure( "InteractionRecorder", "Orderly exit could not capture the armed baseline." ) );
+            return applicationExit.Resolve( messageExitCode );
+        }
+
+        captureArmedBoundary( captureContext );
+    }
+
+    if ( recorder.IsActive() )
+    {
+        const SkullbonezCore::Core::SbResult save = recorder.StopAndSave( diagnostics, "shutdown", true );
+
+        if ( !save.Ok() )
+        {
+            // Invariant: the recorder's owned diagnostic outranks a normal
+            // WM_QUIT code and remains leased through the returned result.
+            applicationExit.RequestOwnedFailure( save );
+        }
+    }
+
+    return applicationExit.Resolve( messageExitCode );
+}
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 InteractionAutomationDevelopmentUiApplyResult SkullbonezCore::Runtime::ApplyInteractionAutomationDevelopmentUiCommands( const InteractionAutomationController& state, const InteractionAutomationFrameResult& frame, Window& window,

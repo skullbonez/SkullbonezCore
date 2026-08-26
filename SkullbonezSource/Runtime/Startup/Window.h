@@ -132,6 +132,7 @@ class Window
     } // True when CreateAppWindow selected fullscreen mode.
     HDC AcquireDeviceContext();                                                                                            // Caches GetDC() for startup render initialization.
     void ReleaseDeviceContext();                                                                                           // Releases the cached HDC before native window teardown.
+    bool DestroyAppWindow() noexcept;                                                                                      // Destroys and clears the live HWND before class teardown.
     void UpdateProjectionForCurrentClient();                                                                               // Rebuilds the host projection after App accepts a nonzero resize.
     void SetTitleText( const char* text );                                                                                 // Updates the native title bar without touching renderer text.
     void SetProjectionFrustum( float nearPlane, float farPlane );                                                          // Stores projection depth planes used by later resize messages.

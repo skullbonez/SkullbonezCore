@@ -580,6 +580,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\Run.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\InteractionAutomationApplication.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\App\StartupInputApplication.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\CameraControlState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirectorPlayback.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\OverlayDebugState.h" />

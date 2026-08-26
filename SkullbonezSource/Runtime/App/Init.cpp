@@ -39,6 +39,7 @@ Related:
 #include "../Input/Input.h"
 #include "ReplayPredictionRetainedGeometry.h"
 #include "Run.h"
+#include "StartupInputApplication.h"
 #include "../Startup/StartupCommandLine.h"
 #include "../Startup/StartupCrashLogging.h"
 #include "../Startup/StartupLaunchResolution.h"
@@ -301,6 +302,12 @@ void CleanupWindow( Window* window, HINSTANCE instance, std::unique_ptr<RenderBa
         SkullbonezCore::Hardware::Input::SetSystemCursorVisible( true );
     }
 
+    if ( !window->DestroyAppWindow() )
+    {
+        std::fprintf( stderr, "[startup] DestroyWindow failed during cleanup. win32_error=%lu\n",
+                      static_cast<unsigned long>( GetLastError() ) );
+    }
+
     UnregisterClass( WINDOW_NAME, instance );
 }
 
@@ -458,24 +465,33 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
     }
 
     const HWND nativeWindow = window->NativeWindowHandle();
+    std::unique_ptr<RenderBackendDX12> renderBackend;
     SkullbonezCore::Hardware::Input::BindNativeWindow( nativeWindow );
     SkullbonezCore::Hardware::Input::BindCallbackBridge( nativeWindow );
-    SkullbonezCore::Hardware::Input::SetSystemCursorVisible( false );
-    (void)SkullbonezCore::Hardware::Input::RegisterRawMouseInput( nativeWindow );
-    window->AcquireDeviceContext();
-
-    std::unique_ptr<RenderBackendDX12> renderBackend;
-    const SkullbonezCore::Core::SbResult renderBackendResult = InitRenderBackend( diagnostics, window, renderBackend );
-
-    if ( !renderBackendResult.Ok() )
+    const SkullbonezCore::Core::SbResult rawMouseResult =
+        SkullbonezCore::Hardware::Input::RegisterRawMouseInput( diagnostics, nativeWindow );
+    const auto shutdownDevelopmentTools = [&]()
     {
-        ReportStartupFailure( renderBackendResult, "SkullbonezCore Renderer Startup Failed" );
-        workerPool.Shutdown();
 #if defined( TRACY_ENABLE )
         tracyClientOwner.Shutdown();
 #endif
-        CleanupWindow( window, instance, renderBackend );
-        CoUninitialize();
+    };
+    const SkullbonezCore::Core::SbResult rendererStartupResult =
+        SkullbonezCore::Runtime::StartRendererAfterRawMouseRegistration(
+            rawMouseResult,
+            []( const SkullbonezCore::Core::SbResult& failure, const char* title )
+            { ReportStartupFailure( failure, title ); },
+            [&]() { workerPool.Shutdown(); }, shutdownDevelopmentTools,
+            [&]() { CleanupWindow( window, instance, renderBackend ); }, []() { CoUninitialize(); },
+            [&]()
+            {
+                SkullbonezCore::Hardware::Input::SetSystemCursorVisible( false );
+                window->AcquireDeviceContext();
+                return InitRenderBackend( diagnostics, window, renderBackend );
+            } );
+
+    if ( !rendererStartupResult.Ok() )
+    {
         return ReportDiagnosticStoreSession( diagnostics, 1 );
     }
 

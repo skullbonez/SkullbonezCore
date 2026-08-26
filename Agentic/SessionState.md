@@ -948,3 +948,22 @@ blocking, 0 non-blocking, and 1 missing-evidence item. Per owner direction, no
 build, test, scanner, inventory, or validation command was run; compile/link
 and focused runtime behavior remain unexecuted evidence rather than claimed
 results.
+
+## Runtime App Bug Ledger Closure (2026-08-26)
+
+APP-002 and APP-003 are fixed as one subsystem batch. Every `Run::Execute`
+exit now finalizes an armed interaction recording before process status is
+resolved, retains the exact save diagnostic, and gives that owned failure
+precedence over an otherwise successful exit. Raw mouse registration now
+returns an owned Win32 diagnostic; startup stops before renderer creation and
+releases workers, development tools, the window, and COM in order when that
+registration fails. Window cleanup also treats an HWND already retired by
+`WM_DESTROY` as an idempotently completed release.
+
+One consolidated read-only rubber-duck review covered both Runtime App rows in
+task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found and closed the initial
+three lifecycle/evidence blockers, then one stale-HWND blocker and one cleanup
+ordering evidence gap. Final counts were 0 blocking, 0 non-blocking, and 1
+missing-evidence item. Per owner direction, no build, test, scanner, inventory,
+or validation command was run; compile/link and focused runtime behavior remain
+unexecuted evidence rather than claimed results.

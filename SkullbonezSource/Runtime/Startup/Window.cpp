@@ -86,6 +86,34 @@ void Window::ReleaseDeviceContext()
 }
 
 
+bool Window::DestroyAppWindow() noexcept
+{
+    if ( !m_sWindow )
+    {
+        return true;
+    }
+
+    if ( !IsWindow( m_sWindow ) )
+    {
+        // WM_DESTROY may have retired the HWND before process cleanup reaches
+        // this owner. Clear the cached identity without issuing a second native
+        // destruction request.
+        m_sWindow = nullptr;
+        return true;
+    }
+
+    const HWND window = m_sWindow;
+
+    if ( !DestroyWindow( window ) )
+    {
+        return false;
+    }
+
+    m_sWindow = nullptr;
+    return true;
+}
+
+
 void Window::UpdateProjectionForCurrentClient()
 {
     const int w = m_sWindowDimensions.x;

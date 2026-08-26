@@ -49,6 +49,17 @@ namespace
 // mutate stale frame input.
 HWND s_callbackBridgeWindow = nullptr;
 
+DWORD RegisterRawMouseDevice( const RAWINPUTDEVICE& device, void* ) noexcept
+{
+    if ( RegisterRawInputDevices( &device, 1u, sizeof( device ) ) )
+    {
+        return ERROR_SUCCESS;
+    }
+
+    const DWORD error = GetLastError();
+    return error == ERROR_SUCCESS ? ERROR_GEN_FAILURE : error;
+}
+
 // WndProc WM_MOUSEWHEEL writes; CaptureDeviceInputFrame consumes once per
 // frame so UI, editor, and replay cannot each drain the same wheel input.
 int g_mouseWheelDelta = 0;
@@ -328,19 +339,28 @@ bool Input::IsSystemCursorVisibleRequested()
 }
 
 
-bool Input::RegisterRawMouseInput( HWND window )
+SkullbonezCore::Core::SbResult Input::RegisterRawMouseInput( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            HWND window )
 {
-    assert( IsCallbackBridgeBoundForWindow( window ) &&
-            "Raw mouse input must register through the bound callback bridge HWND" );
+    return RegisterRawMouseInputWithOperation( diagnostics, window, IsCallbackBridgeBoundForWindow( window ),
+                                               RegisterRawMouseDevice, nullptr );
+}
 
-    if ( !IsCallbackBridgeBoundForWindow( window ) )
+
+SkullbonezCore::Core::SbResult Input::RegisterRawMouseInputWithOperation(
+    SkullbonezCore::Core::SbDiagnosticStore& diagnostics, HWND window, bool callbackBridgeBound,
+    RawMouseRegistrationOperation operation, void* context )
+{
+    assert( callbackBridgeBound && "Raw mouse input must register through the bound callback bridge HWND" );
+
+    if ( !callbackBridgeBound || !window )
     {
-        return false;
+        return diagnostics.Failure( "Runtime/Input", "Raw mouse registration requires the bound application window." );
     }
 
-    if ( !window )
+    if ( !operation )
     {
-        return false;
+        return diagnostics.Failure( "Runtime/Input", "Raw mouse registration has no native operation." );
     }
 
     RAWINPUTDEVICE device = {};
@@ -351,13 +371,16 @@ bool Input::RegisterRawMouseInput( HWND window )
 
     device.hwndTarget = window;
 
-    if ( !RegisterRawInputDevices( &device, 1, sizeof( device ) ) )
+    const DWORD error = operation( device, context );
+
+    if ( error != ERROR_SUCCESS )
     {
-        return false;
+        return diagnostics.Failure( "Runtime/Input", "RegisterRawInputDevices failed. win32_error=%lu",
+                                    static_cast<unsigned long>( error ) );
     }
 
     ResetMouseLookDeltas();
-    return true;
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

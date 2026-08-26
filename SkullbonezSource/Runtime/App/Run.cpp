@@ -31,6 +31,7 @@ Related:
 #include "../Automation/InteractionRecordingBrowser.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "InputFrame.h"
+#include "InteractionAutomationApplication.h"
 #include "SceneLoadApplication.h"
 #include "../Startup/Window.h"
 #include "../../Core/WindowConstants.h"
@@ -338,6 +339,21 @@ SkullbonezCore::Core::SbResult Run::BindRenderBackend( Rendering::RenderBackendD
 
 #endif
     return SkullbonezCore::Core::SbResult::Success();
+}
+
+
+SkullbonezCore::Core::SbResult Run::ResolveExecuteExit( int messageExitCode )
+{
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
+    return ResolveRunExitAfterInteractionRecording( m_interactionRecorder, m_resultDiagnostics, m_applicationExit,
+                                                     messageExitCode,
+                                                     []( void* context )
+                                                     {
+                                                         // Orderly exit can follow the F8 arm edge before the next
+                                                         // frame boundary while every baseline source is still live.
+                                                         static_cast<Run*>( context )->AdvanceInteractionRecordingBoundary();
+                                                     },
+                                                     this );
 }
 
 
