@@ -62,8 +62,17 @@ BroadphaseVisualizer::BroadphaseVisualizer()
 {
     memset( m_cells, 0, sizeof( m_cells ) );
 
-    // Reserve reasonable capacity for line data (200 cells × 144 floats each)
-    m_lineData.reserve( 200 * 144 );
+    // Invariant: every admitted tracked cell can emit its complete 12-edge cube
+    // without growing CPU staging during the guarded render phase.
+    m_lineData.reserve( DiagnosticRequiredLineFloatCapacity() );
+}
+
+void BroadphaseVisualizer::ResetTransientState()
+{
+    // Scene and enable epochs may reuse the same visualizer owner. Retain its
+    // allocation while discarding every prior cell identity and staged line.
+    m_cellCount = 0;
+    m_lineData.clear();
 }
 
 

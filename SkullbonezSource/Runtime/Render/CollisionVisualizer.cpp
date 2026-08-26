@@ -162,6 +162,16 @@ void CollisionVisualizer::ResetResources( Dx12GeometryOwner* renderGeometry )
     m_boxVertexCount = 0;
 }
 
+void CollisionVisualizer::ResetTransientState()
+{
+    // Scene activation retains GPU resources and vector allocations, but all
+    // contact fades and frame staging belong to the previous scene epoch.
+    m_models.clear();
+    m_sleepGroupSizes.clear();
+    m_sphereInstanceData.clear();
+    m_boxInstanceData.clear();
+}
+
 
 void CollisionVisualizer::BuildSphereMesh( Dx12GeometryOwner& renderGeometry )
 {
@@ -216,12 +226,13 @@ void CollisionVisualizer::BuildBoxMesh( Dx12GeometryOwner& renderGeometry )
 }
 
 
-void CollisionVisualizer::EnsureResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
-                                           Rendering::Dx12GeometryOwner& renderGeometry )
+void CollisionVisualizer::EnsureGpuResources( Assets::AssetSystem& assets,
+                                              Rendering::Dx12ResourceBuilder& renderResources,
+                                              Rendering::Dx12GeometryOwner& renderGeometry )
 {
-    // Resource creation is lazy so toggling the visualizer off has no startup cost.
-    // The shader and both primitive meshes are created together on the first visible
-    // frame, then reused until ResetResources() is called.
+    // Lifetime: ObjectPass invokes this only inside the BackendInit allocation
+    // phase. Render therefore observes ready handles without creating CPU/GPU
+    // resources inside the guarded Render phase.
     if ( !m_shader )
     {
         m_shader = assets.CreateShader( renderResources, "shader.collision_visualizer" );
@@ -488,8 +499,7 @@ void CollisionVisualizer::DrawHullInstance( Dx12GeometryOwner& renderCommands, c
 }
 
 
-void CollisionVisualizer::Render( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
-                                  Rendering::Dx12GeometryOwner& renderGeometry,
+void CollisionVisualizer::Render( Rendering::Dx12GeometryOwner& renderGeometry,
                                   Rendering::Dx12Diagnostics& renderDiagnostics, const CollisionVisualizerFrameView& view,
                                   const Matrix4& cameraView, const Matrix4& proj, const float lightPos[4] )
 {
@@ -498,7 +508,11 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets, Rendering::Dx12Re
         return;
     }
 
-    EnsureResources( assets, renderResources, renderGeometry );
+    if ( ResolveCollisionVisualizerResourceAction( CollisionVisualizerResourcePhase::Render, ResourcesReady() ) !=
+         CollisionVisualizerResourceAction::Draw )
+    {
+        return;
+    }
     BuildSleepGroupSizes( view );
 
     m_sphereInstanceData.clear();

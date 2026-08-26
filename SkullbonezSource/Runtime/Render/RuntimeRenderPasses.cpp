@@ -1199,8 +1199,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
             {
                 const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
                 m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-                m_collisionVisualizer.Render( inputs.assets, inputs.renderResources, inputs.renderGeometry,
-                                              inputs.renderDiagnostics, frameView, inputs.reflectionView,
+                m_collisionVisualizer.Render( inputs.renderGeometry, inputs.renderDiagnostics, frameView,
+                                              inputs.reflectionView,
                                               inputs.camera.projection, inputs.camera.lightPosition );
 
                 m_collisionVisualizer.SetAlphaOverride( -1.0f );
@@ -1259,8 +1259,8 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         {
             const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
             m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( inputs.assets, inputs.renderResources, inputs.renderGeometry,
-                                          inputs.renderDiagnostics, frameView, inputs.camera.baseView,
+            m_collisionVisualizer.Render( inputs.renderGeometry, inputs.renderDiagnostics, frameView,
+                                          inputs.camera.baseView,
                                           inputs.camera.projection, inputs.camera.lightPosition );
 
             m_collisionVisualizer.SetAlphaOverride( -1.0f );
@@ -1285,10 +1285,18 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
 }
 
 
-void ObjectPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ )
+void ObjectPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-    // Object mesh/shader resources live behind the scene view; this pass owns
-    // the draw contract and texture-slot hygiene, not the model cache.
+    // Collision-state solids can be selected by the ordinary or reflection
+    // object pass. Prepare their lazy backend objects here while the caller owns
+    // the BackendInit allocation phase, before either guarded draw path.
+    PrepareCollisionVisualizerResourcePhase(
+        [&]()
+        {
+            m_collisionVisualizer.EnsureGpuResources( resources.assets, resources.renderResources,
+                                                      resources.renderGeometry );
+        },
+        [&]() { return m_collisionVisualizer.ResourcesReady(); } );
 }
 
 

@@ -1180,3 +1180,27 @@ evidence, and symbol-only clipping evidence. Final counts were 0 Blocking, 0
 Non-blocking, and 1 Missing evidence. Per owner direction, no `--check`, build,
 test, scanner, inventory, or repository validation was run; compile/link and
 focused runtime behavior therefore remain unexecuted evidence.
+
+## Runtime Debug Bug Ledger Closure (2026-08-26)
+
+DBG-001 through DBG-006 are fixed as one subsystem batch. Scene activation now
+clears collision fades, contact linger rows, and broadphase cells through one
+renderer-owned epoch reset. Disabling the broadphase overlay also clears its
+visual cache immediately. Collision mesh, shader, and dynamic-buffer creation
+now occurs only in the BackendInit resource phase; guarded Render can draw or
+skip but cannot create those resources.
+
+Physics debug line staging is pre-sized to the complete scene-body axes budget
+and every later layer is bounded by that retained capacity. Contact linger rows
+have a fixed scene-sized ceiling, while broadphase line staging covers all 2,048
+tracked visual cells. Focused evidence exercises the production reset and
+resource-phase seams, ready-epoch reuse, disabled-overlay clearing, exact
+capacities, bounded contacts, and same-sized-scene collision reset.
+
+One consolidated read-only rubber-duck review covered all six Runtime Debug
+rows in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found and closed two
+initial evidence blockers: bypassing the renderer-owned scene reset and failing
+to pin BackendInit preparation against Render admission. Final counts were 0
+Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner direction, no build,
+test, scanner, inventory, formatter, or repository validation was run;
+compile/link and focused runtime behavior therefore remain unexecuted evidence.

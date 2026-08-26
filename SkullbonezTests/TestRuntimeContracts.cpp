@@ -50,6 +50,8 @@
 //     behavior owners through valid, absent, and teardown-closed transitions.
 //   - The production frame-resource policy schedules Sky once for ordinary and
 //     cinematic frames while keeping the four post-chain owners cinematic-only.
+//   - Runtime debug visualizers bound frame staging and clear visual-only state
+//     at scene and enable epoch boundaries.
 //   - Targeted assert-only controls prove the retired Run/sky/profiler
 //     checks would return cleanly outside Debug.
 //   - Automation output aliases fail before either truncating owner can replace
@@ -106,6 +108,9 @@
 #include "../SkullbonezSource/Runtime/Input/Input.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderer.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"
+#include "../SkullbonezSource/Runtime/Render/BroadphaseVisualizer.h"
+#include "../SkullbonezSource/Runtime/Render/CollisionVisualizer.h"
+#include "../SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.h"
 #include "../SkullbonezSource/Runtime/UI/OperatorUiProjection.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
@@ -1334,6 +1339,85 @@ TEST_CASE( "IH7 frame resource schedule publishes ordinary sky without cinematic
     CHECK( ordinarySky == 1 );
     CHECK( cinematicRequired == static_cast<int>( passes.size() ) );
     CHECK( cinematicSky == 1 );
+}
+
+TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" )
+{
+    using namespace SkullbonezCore;
+
+    Runtime::BroadphaseVisualizer broadphase;
+    CHECK( broadphase.DiagnosticLineFloatCapacity() ==
+           Runtime::BroadphaseVisualizer::DiagnosticRequiredLineFloatCapacity() );
+    broadphase.SetEnabled( true );
+    const Physics::PhysicsBroadphaseActiveCell activeCell { 3, -2, 7, 1 };
+    broadphase.Update( 0.0f, std::span<const Physics::PhysicsBroadphaseActiveCell>( &activeCell, 1 ), {} );
+    CHECK( broadphase.DiagnosticTrackedCellCount() == 1 );
+    broadphase.SetEnabled( false );
+    CHECK( broadphase.DiagnosticTrackedCellCount() == 0 );
+    broadphase.SetEnabled( true );
+    broadphase.Update( 0.0f, std::span<const Physics::PhysicsBroadphaseActiveCell>( &activeCell, 1 ), {} );
+
+    Physics::PhysicsBodyStore bodies;
+    Physics::ColliderStore colliders;
+    Rendering::RenderInstanceStore renderInstances;
+    Runtime::CollisionVisualizer collision;
+    const uint8_t collisionContact = 1u;
+    const uint8_t awake = 0u;
+    collision.Update( 0.0f,
+                      Runtime::CollisionVisualizerFrameView { bodies, colliders, renderInstances,
+                                                               std::span<const uint8_t>( &collisionContact, 1 ),
+                                                               std::span<const uint8_t>( &awake, 1 ), {}, 1 } );
+    CHECK( collision.DiagnosticTrackedModelCount() == 1u );
+    CHECK( collision.DiagnosticCollisionAmount( 0u ) == doctest::Approx( 1.0f ) );
+
+    Runtime::PhysicsDebugVisualizer physicsDebug;
+    CHECK( physicsDebug.DiagnosticLineFloatCapacity() ==
+           Runtime::PhysicsDebugVisualizer::DiagnosticRequiredLineFloatCapacity() );
+    physicsDebug.SetFlags( Physics::PHYSICS_DEBUG_CONTACTS );
+    physicsDebug.SetContactLingerSeconds( 0.0f );
+    std::vector<Physics::PhysicsDebugContact> contacts(
+        Runtime::PhysicsDebugVisualizer::DiagnosticTrackedContactCapacity() + 1u );
+
+    for ( std::size_t index = 0; index < contacts.size(); ++index )
+    {
+        contacts[index].featureId = static_cast<uint32_t>( index );
+    }
+
+    physicsDebug.Update( 0.0f,
+                         Runtime::PhysicsDebugFrameView { bodies, colliders, {}, {}, {}, contacts, {}, 0 } );
+    CHECK( physicsDebug.DiagnosticTrackedContactCount() ==
+           Runtime::PhysicsDebugVisualizer::DiagnosticTrackedContactCapacity() );
+    Runtime::RuntimeRenderer::ResetDebugVisualizerTransientState( collision, physicsDebug, broadphase );
+    CHECK( broadphase.DiagnosticTrackedCellCount() == 0 );
+    CHECK( collision.DiagnosticTrackedModelCount() == 0u );
+    CHECK( physicsDebug.DiagnosticTrackedContactCount() == 0u );
+
+    const uint8_t noCollisionContact = 0u;
+    collision.Update( 0.0f,
+                      Runtime::CollisionVisualizerFrameView { bodies, colliders, renderInstances,
+                                                               std::span<const uint8_t>( &noCollisionContact, 1 ),
+                                                               std::span<const uint8_t>( &awake, 1 ), {}, 1 } );
+    CHECK( collision.DiagnosticCollisionAmount( 0u ) == doctest::Approx( 0.0f ) );
+
+    bool resourcesReady = false;
+    int resourcePreparations = 0;
+    CHECK( Runtime::PrepareCollisionVisualizerResourcePhase(
+        [&]()
+        {
+            ++resourcePreparations;
+            resourcesReady = true;
+        },
+        [&]() { return resourcesReady; } ) );
+    CHECK( resourcePreparations == 1 );
+    CHECK( Runtime::PrepareCollisionVisualizerResourcePhase( [&]() { ++resourcePreparations; },
+                                                             [&]() { return resourcesReady; } ) );
+    CHECK( resourcePreparations == 1 );
+    CHECK( Runtime::ResolveCollisionVisualizerResourceAction( Runtime::CollisionVisualizerResourcePhase::Render,
+                                                              resourcesReady ) ==
+           Runtime::CollisionVisualizerResourceAction::Draw );
+    CHECK( Runtime::ResolveCollisionVisualizerResourceAction( Runtime::CollisionVisualizerResourcePhase::Render,
+                                                              false ) ==
+           Runtime::CollisionVisualizerResourceAction::Skip );
 }
 
 

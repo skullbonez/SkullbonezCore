@@ -109,9 +109,18 @@ class RuntimeRenderer
     void SetVsyncEnabled( bool enabled );
     bool PipelineSyncEnabled() const;
     void SetPipelineSyncEnabled( bool enabled );
+    static void ResetDebugVisualizerTransientState( CollisionVisualizer& collisionVisualizer,
+                                                    PhysicsDebugVisualizer& physicsDebugVisualizer,
+                                                    BroadphaseVisualizer& broadphaseVisualizer )
+    {
+        collisionVisualizer.ResetTransientState();
+        physicsDebugVisualizer.ResetTransientState();
+        broadphaseVisualizer.ResetTransientState();
+    }
     void SetSceneIdentity( int sceneIndex, int sceneLoadCount )
     {
         m_resources.Log().SetSceneIdentity( sceneIndex, sceneLoadCount );
+        ResetDebugVisualizerTransientState( m_collisionVisualizer, m_physicsDebugVisualizer, m_broadphaseVisualizer );
     }
 
     void EnsureFrameResources( const RenderResourceContext& resources );

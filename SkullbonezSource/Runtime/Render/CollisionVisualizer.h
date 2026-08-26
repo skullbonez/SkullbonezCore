@@ -24,6 +24,7 @@ Related:
 
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -76,6 +77,45 @@ struct CollisionVisualizerFrameView
     int modelCount = 0;
 };
 
+enum class CollisionVisualizerResourcePhase : uint8_t
+{
+    BackendInit,
+    Render,
+};
+
+enum class CollisionVisualizerResourceAction : uint8_t
+{
+    Skip,
+    Prepare,
+    Draw,
+};
+
+constexpr CollisionVisualizerResourceAction ResolveCollisionVisualizerResourceAction(
+    CollisionVisualizerResourcePhase phase, bool resourcesReady )
+{
+    if ( phase == CollisionVisualizerResourcePhase::BackendInit )
+    {
+        return resourcesReady ? CollisionVisualizerResourceAction::Skip
+                              : CollisionVisualizerResourceAction::Prepare;
+    }
+
+    return resourcesReady ? CollisionVisualizerResourceAction::Draw : CollisionVisualizerResourceAction::Skip;
+}
+
+template <typename PrepareResources, typename ResourcesReady>
+bool PrepareCollisionVisualizerResourcePhase( PrepareResources&& prepareResources, ResourcesReady&& resourcesReady )
+{
+    // BackendInit is the sole creation phase. The injected operations keep this
+    // sequencing testable without granting Render an asset or resource builder.
+    if ( ResolveCollisionVisualizerResourceAction( CollisionVisualizerResourcePhase::BackendInit, resourcesReady() ) ==
+         CollisionVisualizerResourceAction::Prepare )
+    {
+        prepareResources();
+    }
+
+    return resourcesReady();
+}
+
 /*
 Concept: Collision visualizer
 
@@ -126,8 +166,6 @@ class CollisionVisualizer
 
     void BuildSphereMesh( Rendering::Dx12GeometryOwner& renderGeometry );
     void BuildBoxMesh( Rendering::Dx12GeometryOwner& renderGeometry );
-    void EnsureResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
-                          Rendering::Dx12GeometryOwner& renderGeometry );
     void AppendInstance( std::vector<float>& out, const Math::Transformation::Matrix4& model, const Color& color );
     Color ComputeModelColor( int modelIndex, const CollisionVisualizerFrameView& view ) const;
     void BuildSleepGroupSizes( const CollisionVisualizerFrameView& view );
@@ -156,9 +194,23 @@ class CollisionVisualizer
     void SetClipPlane( float x, float y, float z, float w );
     void SetAlphaOverride( float alpha );
     void ResetResources( Rendering::Dx12GeometryOwner* renderGeometry );
+    void ResetTransientState();
+    void EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
+                             Rendering::Dx12GeometryOwner& renderGeometry );
+    bool ResourcesReady() const
+    {
+        return m_shader != nullptr && m_sphereInstMesh != 0 && m_boxInstMesh != 0 && m_hullDynamicVB != 0;
+    }
+    std::size_t DiagnosticTrackedModelCount() const
+    {
+        return m_models.size();
+    }
+    float DiagnosticCollisionAmount( std::size_t index ) const
+    {
+        return index < m_models.size() ? m_models[index].collisionAmount : 0.0f;
+    }
     void Update( float dt, const CollisionVisualizerFrameView& view );
-    void Render( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
-                 Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
+    void Render( Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
                  const CollisionVisualizerFrameView& view, const Math::Transformation::Matrix4& cameraView,
                  const Math::Transformation::Matrix4& proj, const float lightPos[4] );
 };

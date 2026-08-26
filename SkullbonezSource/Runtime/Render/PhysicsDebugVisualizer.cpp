@@ -179,7 +179,17 @@ PhysicsDebugVisualizer::PhysicsDebugVisualizer()
     // Invariant: Detached manifold rendering can emit at most two pose-axis
     // triplets, one body-pair line, and eight lines per bounded contact point.
     // Reserve that complete batch before steady-state rendering begins.
-    m_lineData.reserve( CONTACT_MANIFOLD_LINE_FLOAT_CAPACITY );
+    static_assert( LINE_FLOAT_CAPACITY >= CONTACT_MANIFOLD_LINE_FLOAT_CAPACITY );
+    m_lineData.reserve( LINE_FLOAT_CAPACITY );
+    m_trackedContacts.reserve( TRACKED_CONTACT_CAPACITY );
+}
+
+void PhysicsDebugVisualizer::ResetTransientState()
+{
+    // Lifetime: scene activation retains allocated storage but cannot inherit
+    // contact fades or staged geometry from the previous scene epoch.
+    m_trackedContacts.clear();
+    m_lineData.clear();
 }
 
 // Contact debug rows are produced by the solver only for the current physics
@@ -225,6 +235,13 @@ float PhysicsDebugVisualizer::ContactFade( const TrackedContact& contact ) const
 
 void PhysicsDebugVisualizer::EmitLine( const Vector3& a, const Vector3& b, float r, float g, float bl )
 {
+    if ( m_lineData.size() + 12u > LINE_FLOAT_CAPACITY )
+    {
+        // Hazard: diagnostic layers can be enabled together. Once their shared
+        // visual budget is full, omit later lines instead of allocating in Render.
+        return;
+    }
+
     m_lineData.insert( m_lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
 }
 
@@ -582,10 +599,14 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
     if ( m_contactLingerSeconds <= 0.0f )
     {
         m_trackedContacts.clear();
-        m_trackedContacts.reserve( contacts.size() );
 
         for ( const PhysicsDebugContact& contact : contacts )
         {
+            if ( m_trackedContacts.size() >= TRACKED_CONTACT_CAPACITY )
+            {
+                break;
+            }
+
             TrackedContact tracked;
             tracked.contact = contact;
             m_trackedContacts.push_back( tracked );
@@ -620,7 +641,10 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
         newTracked.contact = contact;
         newTracked.remainingSeconds = m_contactLingerSeconds;
         newTracked.lifetimeSeconds = m_contactLingerSeconds;
-        m_trackedContacts.push_back( newTracked );
+        if ( m_trackedContacts.size() < TRACKED_CONTACT_CAPACITY )
+        {
+            m_trackedContacts.push_back( newTracked );
+        }
     }
 }
 

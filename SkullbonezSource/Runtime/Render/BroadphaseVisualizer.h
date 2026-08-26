@@ -20,6 +20,7 @@ Related:
 #pragma once
 
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -60,6 +61,7 @@ class BroadphaseVisualizer
 
   private:
     static constexpr int MAX_TRACKED_CELLS = 2048;
+    static constexpr std::size_t LINE_FLOATS_PER_CELL = 144u;
     static constexpr float FADE_DURATION = 0.5f;
     static constexpr int MAX_COLLISION_HEAT = 10; // Collision count that saturates the black heat color.
 
@@ -101,6 +103,8 @@ class BroadphaseVisualizer
   public:
     BroadphaseVisualizer();
 
+    void ResetTransientState();
+
     // Diagnostic seam: Update uses this exact identity for active and
     // collision cells, so focused tests can pin visualization parity with the
     // Physics-owned spatial-key contract without exposing retained state.
@@ -115,6 +119,11 @@ class BroadphaseVisualizer
     }
     void SetEnabled( bool enabled )
     {
+        if ( m_enabled && !enabled )
+        {
+            ResetTransientState();
+        }
+
         m_enabled = enabled;
     }
     bool IsEnabled() const
@@ -123,7 +132,20 @@ class BroadphaseVisualizer
     }
     void Toggle()
     {
-        m_enabled = !m_enabled;
+        SetEnabled( !m_enabled );
+    }
+
+    std::size_t DiagnosticLineFloatCapacity() const
+    {
+        return m_lineData.capacity();
+    }
+    int DiagnosticTrackedCellCount() const
+    {
+        return m_cellCount;
+    }
+    static constexpr std::size_t DiagnosticRequiredLineFloatCapacity()
+    {
+        return static_cast<std::size_t>( MAX_TRACKED_CELLS ) * LINE_FLOATS_PER_CELL;
     }
 
     // Call once per frame after broadphase + narrowphase complete.

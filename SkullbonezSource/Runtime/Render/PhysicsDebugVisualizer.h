@@ -22,8 +22,10 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
 #include <span>
 #include <vector>
+#include "../../Core/SceneCapacity.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsDebugData.h"
@@ -65,6 +67,14 @@ struct PhysicsDebugFrameView
 class PhysicsDebugVisualizer
 {
   private:
+    // The line buffer is deliberately bounded at the complete scene-body axes
+    // footprint. Other enabled layers share this staging and truncate only
+    // visual output after it fills; they never grow storage during Render.
+    static constexpr std::size_t LINE_FLOATS_PER_BODY_AXES = 3u * 3u * 12u;
+    static constexpr std::size_t LINE_FLOAT_CAPACITY =
+        static_cast<std::size_t>( Scene::Capacity::MAX_SCENE_OBJECTS ) * LINE_FLOATS_PER_BODY_AXES;
+    static constexpr std::size_t TRACKED_CONTACT_CAPACITY = Scene::Capacity::MAX_SCENE_OBJECTS;
+
     struct TrackedContact
     {
         // Contact visuals linger briefly after the solver row disappears so a
@@ -97,6 +107,8 @@ class PhysicsDebugVisualizer
   public:
     PhysicsDebugVisualizer();
 
+    void ResetTransientState();
+
     void SetFlags( uint32_t flags )
     {
         m_flags = flags & Physics::PHYSICS_DEBUG_ALL;
@@ -117,6 +129,23 @@ class PhysicsDebugVisualizer
     void SetContactLingerSeconds( float seconds );
     void SetPipelineStageCursor( int cursor );
     void Update( float dt, const PhysicsDebugFrameView& view );
+
+    std::size_t DiagnosticLineFloatCapacity() const
+    {
+        return m_lineData.capacity();
+    }
+    std::size_t DiagnosticTrackedContactCount() const
+    {
+        return m_trackedContacts.size();
+    }
+    static constexpr std::size_t DiagnosticRequiredLineFloatCapacity()
+    {
+        return LINE_FLOAT_CAPACITY;
+    }
+    static constexpr std::size_t DiagnosticTrackedContactCapacity()
+    {
+        return TRACKED_CONTACT_CAPACITY;
+    }
 
     // The caller owns renderer readiness and debug-line capability for the frame.
     void Render( const PhysicsDebugFrameView& view, const Math::Transformation::Matrix4& viewProj,
