@@ -509,6 +509,11 @@ when the following applies; keep every unrelated ready plan running:
 
 Provide every handoff item required by the base orchestrator. Add:
 
+- after all fan-in, task closure, and `finish-goal`, have the coordinator alone
+  render, inspect, commit, and push the branch-named HTML and PNG completion
+  ledger under `Agentic/Ledgers/` exactly as the base orchestrator requires;
+  workers never write or stage these single-writer artifacts;
+
 - each parallel wave's base commit, dependency graph, lane objective, worker
   thread/session id, worktree, branch, and commit;
 - declared versus actual changed-file scopes;

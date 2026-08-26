@@ -72,9 +72,14 @@ class ParallelTimeline:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Render a WORK_LEDGER.csv infographic fragment.")
+    parser = argparse.ArgumentParser(description="Render a WORK_LEDGER.csv infographic.")
     parser.add_argument("--ledger", type=Path, help="CSV ledger to render")
-    parser.add_argument("--output", type=Path, help="HTML fragment path")
+    parser.add_argument("--output", type=Path, help="HTML output path")
+    parser.add_argument(
+        "--standalone",
+        action="store_true",
+        help="Wrap the infographic in a self-contained UTF-8 HTML document",
+    )
     parser.add_argument("--self-test", action="store_true", help="Run a deterministic smoke test")
     return parser.parse_args()
 
@@ -279,12 +284,12 @@ def build_css() -> str:
 #work-ledger-infographic{color:var(--foreground);font-family:inherit;width:100%;padding:4px 0 10px}
 #work-ledger-infographic *{box-sizing:border-box}
 #work-ledger-infographic h1,#work-ledger-infographic h2,#work-ledger-infographic p{margin-top:0}
-#work-ledger-infographic .masthead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:end;padding-bottom:18px;border-bottom:1px solid var(--border)}
+#work-ledger-infographic .masthead{display:grid;grid-template-columns:minmax(320px,.85fr) minmax(0,1.15fr);gap:32px;align-items:end;padding-bottom:18px;border-bottom:1px solid var(--border)}
 #work-ledger-infographic .eyebrow{color:var(--viz-series-1);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
 #work-ledger-infographic h1{margin-bottom:6px}
 #work-ledger-infographic .subtitle,#work-ledger-infographic .muted{color:var(--muted-foreground)}
 #work-ledger-infographic .subtitle{margin-bottom:0}
-#work-ledger-infographic .status{display:flex;align-items:center;gap:10px;white-space:nowrap}
+#work-ledger-infographic .status{display:flex;align-items:flex-start;gap:10px;min-width:0}
 #work-ledger-infographic .dot{width:12px;height:12px;border-radius:50%;background:var(--viz-series-1);box-shadow:0 0 0 6px color-mix(in srgb,var(--viz-series-1) 16%,transparent)}
 #work-ledger-infographic .status strong{display:block;font-weight:500}
 #work-ledger-infographic .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0 26px}
@@ -337,7 +342,7 @@ def build_css() -> str:
 #work-ledger-infographic .portfolio-bar{flex:1;height:8px;min-width:120px;background:var(--muted);border-radius:999px;overflow:hidden}
 #work-ledger-infographic .portfolio-bar span{display:block;width:var(--portfolio);height:100%;background:var(--viz-series-1)}
 #work-ledger-infographic .source{white-space:nowrap}
-@media(max-width:760px){#work-ledger-infographic .stats{grid-template-columns:repeat(2,minmax(0,1fr))}#work-ledger-infographic .cost-visual{grid-template-columns:1fr}#work-ledger-infographic .lane-row,#work-ledger-infographic .overlap-row{grid-template-columns:128px minmax(0,1fr) 62px;gap:8px}#work-ledger-infographic .axis{margin-left:136px;margin-right:66px}#work-ledger-infographic .stream-legend{margin-left:136px;margin-right:66px}#work-ledger-infographic .axis span:nth-child(even){visibility:hidden}}
+@media(max-width:760px){#work-ledger-infographic .masthead{grid-template-columns:1fr;align-items:start}#work-ledger-infographic .stats{grid-template-columns:repeat(2,minmax(0,1fr))}#work-ledger-infographic .cost-visual{grid-template-columns:1fr}#work-ledger-infographic .lane-row,#work-ledger-infographic .overlap-row{grid-template-columns:128px minmax(0,1fr) 62px;gap:8px}#work-ledger-infographic .axis{margin-left:136px;margin-right:66px}#work-ledger-infographic .stream-legend{margin-left:136px;margin-right:66px}#work-ledger-infographic .axis span:nth-child(even){visibility:hidden}}
 @media(max-width:480px){#work-ledger-infographic .masthead{grid-template-columns:1fr;align-items:start}#work-ledger-infographic .stats{grid-template-columns:1fr}#work-ledger-infographic .section-head{display:block}#work-ledger-infographic .section-head span{display:block;margin-top:4px}#work-ledger-infographic .axis{display:none}#work-ledger-infographic .lane-row,#work-ledger-infographic .overlap-row{grid-template-columns:minmax(0,1fr);padding-bottom:5px}#work-ledger-infographic .track{grid-row:2}#work-ledger-infographic .duration{display:none}#work-ledger-infographic .stream-legend{margin:0 0 22px}#work-ledger-infographic .cost-visual{gap:16px}#work-ledger-infographic .cost-legend{grid-template-columns:1fr}#work-ledger-infographic footer{grid-template-columns:1fr}#work-ledger-infographic .portfolio{display:grid;grid-template-columns:auto minmax(0,1fr)}#work-ledger-infographic .portfolio>span:last-child{grid-column:1/-1}#work-ledger-infographic .source{white-space:normal;overflow-wrap:anywhere}}
 """
 
@@ -522,14 +527,66 @@ def build_fragment(ledger: Path, goal: dict[str, str], tasks: list[Task]) -> tup
     return fragment, summary
 
 
-def render(ledger: Path, output: Path) -> dict[str, object]:
+def build_standalone_document(fragment: str, run_id: str) -> str:
+    """Supply the host theme that an exported ledger needs outside Codex."""
+    shell_css = r"""
+:root {
+  color-scheme: dark;
+  --background:#08111f;
+  --foreground:#eef5ff;
+  --muted:#152238;
+  --muted-foreground:#95a7c2;
+  --border:#263853;
+  --viz-series-1:#55d6be;
+  --viz-series-2:#8bd450;
+  --viz-series-3:#ffca5c;
+  --viz-series-4:#ff7aa2;
+  --viz-series-5:#b69cff;
+  --viz-series-6:#66a8ff;
+}
+html { background:var(--background); }
+body {
+  margin:0;
+  padding:40px;
+  background:
+    radial-gradient(circle at 12% 0%,color-mix(in srgb,var(--viz-series-6) 12%,transparent),transparent 32rem),
+    var(--background);
+  color:var(--foreground);
+  font:15px/1.45 "Segoe UI",Inter,Arial,sans-serif;
+}
+main { max-width:1440px; margin:0 auto; }
+h1 { font-size:clamp(2rem,3vw,3.25rem); line-height:1.05; letter-spacing:-.035em; }
+h2 { font-size:1.45rem; letter-spacing:-.015em; }
+.text-small { font-size:.82rem; }
+.text-muted { color:var(--muted-foreground); }
+.card {
+  min-height:112px;
+  padding:18px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:color-mix(in srgb,var(--muted) 72%,transparent);
+}
+.viz-stat-value { margin:5px 0 3px; font-size:1.8rem; font-weight:650; letter-spacing:-.025em; }
+@media(max-width:760px) { body { padding:22px; } }
+"""
+    return (
+        "<!doctype html>\n<html lang=\"en\">\n<head>\n"
+        "<meta charset=\"utf-8\">\n"
+        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+        f"<title>Work Ledger · Run {esc(run_id)}</title>\n"
+        f"<style>{shell_css}</style>\n</head>\n<body>\n<main>\n{fragment}\n</main>\n</body>\n</html>\n"
+    )
+
+
+def render(ledger: Path, output: Path, *, standalone: bool = False) -> dict[str, object]:
     goal, tasks = load_run(ledger)
     fragment, summary = build_fragment(ledger, goal, tasks)
 
-    # Invariant: write a fragment, not a standalone document. The conversation
-    # visualization host supplies the document shell and theme variables.
+    # Invariant: fragment mode inherits the conversation host's theme. Durable
+    # repository artifacts carry the same visual through a self-contained shell.
+    rendered = build_standalone_document(fragment, str(summary["run_id"])) if standalone else fragment
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(fragment, encoding="utf-8", newline="\n")
+    output.write_text(rendered, encoding="utf-8", newline="\n")
     summary["output"] = str(output.resolve())
     return summary
 
@@ -580,6 +637,9 @@ def self_test() -> None:
             writer.writerows(rows)
         summary = render(ledger, output)
         rendered = output.read_text(encoding="utf-8")
+        standalone_output = Path(temp_dir) / "ledger-standalone.html"
+        render(ledger, standalone_output, standalone=True)
+        standalone_rendered = standalone_output.read_text(encoding="utf-8")
         _, parsed_tasks = load_run(ledger)
         cost_fixture = [replace(parsed_tasks[0], task_id=f"COST_PLAN-T{index}", cost_usd=float(index + 1)) for index in range(8)]
         grouped_costs = group_task_costs(cost_fixture)
@@ -601,6 +661,10 @@ def self_test() -> None:
             "Close <unsafe> task" not in rendered,
             "$12.50" in rendered,
             "90.0% cached" in rendered,
+            standalone_rendered.startswith("<!doctype html>"),
+            '<meta charset="utf-8">' in standalone_rendered,
+            "--viz-series-6:#66a8ff" in standalone_rendered,
+            "Close &lt;unsafe&gt; task" in standalone_rendered,
             len(grouped_costs) == 7,
             grouped_costs[-1][0] == "Other tasks",
             grouped_costs[-1][2] == 2,
@@ -618,7 +682,7 @@ def main() -> int:
         return 0
     if args.ledger is None or args.output is None:
         raise SystemExit("--ledger and --output are required unless --self-test is used.")
-    summary = render(args.ledger.resolve(), args.output.resolve())
+    summary = render(args.ledger.resolve(), args.output.resolve(), standalone=args.standalone)
     print(json.dumps(summary, indent=2))
     return 0
 

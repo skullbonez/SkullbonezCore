@@ -27,7 +27,8 @@ manually transcribe ledger values into markup.
    exact on-disk snapshot, preserve its visible timestamp, and disclose that
    the open row may be stale because it was not refreshed.
 4. Choose a durable, task-owned output path outside the checkout. Use a
-   lowercase hyphenated `.html` filename.
+   lowercase hyphenated `.html` filename. For an orchestrator completion
+   artifact, use the tracked `Agentic/Ledgers/<branch-stem>.html` path instead.
 5. Run the generator:
 
    ```powershell
@@ -36,11 +37,16 @@ manually transcribe ledger values into markup.
      --output <absolute-output-path>
    ```
 
+   Add `--standalone` when the HTML must open outside the conversation
+   visualization host, including every tracked orchestrator completion artifact.
+
 6. Read the generator's JSON summary. Check that its run id, completed-task
    count, current task, elapsed time, and portfolio progress agree with the CSV.
 7. Use the conversation visualization surface to show the generated fragment.
    Prefer wide mode because the task timeline and cost panel benefit from direct
-   comparison. Do not expose the temporary HTML as a download link.
+   comparison. Do not expose temporary HTML as a download link. For a standalone
+   completion artifact, render the HTML in a wide browser viewport, save the
+   matching PNG beside it, and visually inspect the PNG before commit.
 
 ## Output Contract
 
@@ -58,6 +64,10 @@ The generator owns:
 - commit count and portfolio progress;
 - 32-bit Windows CSV field size limit (`csv.field_size_limit(2147483647)`) to safely parse large base64-encoded state payloads; and
 - responsive, theme-aware HTML with accessible labels.
+
+Fragment mode inherits the conversation host's document shell and theme.
+`--standalone` preserves the same infographic inside a self-contained UTF-8
+document with explicit theme tokens for browser and PNG rendering.
 
 Preserve the ledger's distinctions between input, cached input, output, and
 estimated API cost. Never relabel input plus output as "total tokens". Keep the
