@@ -31,9 +31,15 @@ UIRect MinimizedRect( int screenW, int screenH, float requestedW )
 {
     constexpr float h = 38.0f;
     constexpr float margin = 14.0f;
-    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float w = std::clamp( requestedW, 154.0f, maxW );
-    return { margin, (std::max)( margin, static_cast<float>( screenH ) - h - margin ), w, h };
+    const float safeScreenW = static_cast<float>( (std::max)( 1, screenW ) );
+    const float safeScreenH = static_cast<float>( (std::max)( 1, screenH ) );
+    const float marginX = (std::min)( margin, ( safeScreenW - 1.0f ) * 0.5f );
+    const float marginY = (std::min)( margin, ( safeScreenH - 1.0f ) * 0.5f );
+    const float maxW = (std::max)( 1.0f, safeScreenW - marginX * 2.0f );
+    const float minW = (std::min)( 154.0f, maxW );
+    const float boundedH = (std::min)( h, (std::max)( 1.0f, safeScreenH - marginY * 2.0f ) );
+    const float w = std::clamp( requestedW, minW, maxW );
+    return { marginX, (std::max)( marginY, safeScreenH - boundedH - marginY ), w, boundedH };
 }
 
 

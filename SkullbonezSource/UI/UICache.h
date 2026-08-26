@@ -62,7 +62,11 @@ class UICacheState
     void Reset();
 
     uint32_t BeginFrame( const UICacheFrameKey& key );
-    bool CanReplayPositionOnly( const UICacheFrameKey& key ) const;
+
+    // During a captured window drag, live counters may advance while the
+    // retained panel is translated. The caller rebuilds those values when
+    // capture ends; layout, style, viewport, and interaction must still match.
+    bool CanReplayPositionOnly( const UICacheFrameKey& key, bool allowContentSignatureChange = false ) const;
     void StoreFrame( const UICacheFrameKey& key );
 
     UIDrawList& MutableDrawList();

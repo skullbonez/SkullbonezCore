@@ -1,18 +1,22 @@
 /*
-File : SkullbonezSource / UI / UIWindowChrome.cpp Purpose : Implements window placement, clamping, title fitting, animation,
-    and chrome drawing.
+File: SkullbonezSource/UI/UIWindowChrome.cpp
+Purpose:
+  Implements window placement, clamping, title fitting, animation, and chrome
+  drawing.
 
-        Summary : Owns window placement,
-    clamping, maximize / minimize animation, title controls,
-    and frame drawing
-                .
+Summary:
+  Owns reusable window geometry policy while each product UI retains its own
+  UIWindowState and interaction lifecycle.
 
-            Invariants : -Draw geometry and hit testing must be derived from the same layout constants.
+Invariants:
+  - Draw geometry and hit testing derive from the same layout constants.
+  - Screen bounds replace configured minima when the client is narrower or
+    shorter than the ordinary window contract.
 
-                         Related : -SkullbonezSource /
-            UI / UIWindowChrome.h -
-        Agentic / Reference / engine -
-        glossary.md*/
+Related:
+  - SkullbonezSource/UI/UIWindowChrome.h
+  - Agentic/Reference/engine-glossary.md
+*/
 #include "UIWindowChrome.h"
 #include "UIFontMetrics.h"
 #include "UIDrawWidgets.h"
@@ -82,12 +86,17 @@ void ClampWindowToScreen( UIWindowState& window, int screenW, int screenH, int m
 {
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
-    const int maxW = (std::max)( minW, screenW - margin * 2 );
-    const int maxH = (std::max)( minH, screenH - margin * 2 );
-    window.width = std::clamp( window.width, minW, maxW );
-    window.height = std::clamp( window.height, minH, maxH );
-    window.x = std::clamp( window.x, margin, (std::max)( margin, screenW - window.width - margin ) );
-    window.y = std::clamp( window.y, margin, (std::max)( margin, screenH - window.height - margin ) );
+    margin = (std::max)( 0, margin );
+    const int marginX = (std::min)( margin, ( screenW - 1 ) / 2 );
+    const int marginY = (std::min)( margin, ( screenH - 1 ) / 2 );
+    const int maxW = (std::max)( 1, screenW - marginX * 2 );
+    const int maxH = (std::max)( 1, screenH - marginY * 2 );
+    const int effectiveMinW = (std::min)( (std::max)( 1, minW ), maxW );
+    const int effectiveMinH = (std::min)( (std::max)( 1, minH ), maxH );
+    window.width = std::clamp( window.width, effectiveMinW, maxW );
+    window.height = std::clamp( window.height, effectiveMinH, maxH );
+    window.x = std::clamp( window.x, marginX, (std::max)( marginX, screenW - window.width - marginX ) );
+    window.y = std::clamp( window.y, marginY, (std::max)( marginY, screenH - window.height - marginY ) );
 }
 
 
@@ -103,8 +112,12 @@ bool SetMaximized( UIWindowState& window, bool maximized, int screenW, int scree
     constexpr int margin = 10;
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
-    const int maxW = (std::max)( minW, screenW - margin * 2 );
-    const int maxH = (std::max)( minH, screenH - margin * 2 );
+    const int marginX = (std::min)( margin, ( screenW - 1 ) / 2 );
+    const int marginY = (std::min)( margin, ( screenH - 1 ) / 2 );
+    const int maxW = (std::max)( 1, screenW - marginX * 2 );
+    const int maxH = (std::max)( 1, screenH - marginY * 2 );
+    const int effectiveMinW = (std::min)( (std::max)( 1, minW ), maxW );
+    const int effectiveMinH = (std::min)( (std::max)( 1, minH ), maxH );
     const UIRect from = WindowRect( window );
 
     if ( maximized )
@@ -113,17 +126,20 @@ bool SetMaximized( UIWindowState& window, bool maximized, int screenW, int scree
         window.restoreY = window.y;
         window.restoreW = window.width;
         window.restoreH = window.height;
-        window.x = margin;
-        window.y = margin;
+        window.x = marginX;
+        window.y = marginY;
         window.width = maxW;
         window.height = maxH;
     }
     else
     {
-        window.x = std::clamp( window.restoreX, margin, (std::max)( margin, screenW - window.restoreW - margin ) );
-        window.y = std::clamp( window.restoreY, margin, (std::max)( margin, screenH - window.restoreH - margin ) );
-        window.width = std::clamp( window.restoreW, minW, maxW );
-        window.height = std::clamp( window.restoreH, minH, maxH );
+        window.width = std::clamp( window.restoreW, effectiveMinW, maxW );
+        window.height = std::clamp( window.restoreH, effectiveMinH, maxH );
+        window.x = std::clamp( window.restoreX, marginX,
+                               (std::max)( marginX, screenW - window.width - marginX ) );
+
+        window.y = std::clamp( window.restoreY, marginY,
+                               (std::max)( marginY, screenH - window.height - marginY ) );
     }
 
     window.isMaximized = maximized;

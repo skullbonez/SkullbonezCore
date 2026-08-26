@@ -130,14 +130,14 @@ void SetSceneHeaderBounds( SkullbonezCore::UI::UIComboBox& combo, SkullbonezCore
                            SkullbonezCore::UI::UIButton& resetDefaultsButton,
                            SkullbonezCore::UI::UIButton& saveDefaultsButton, float contentX, float rowBase, float contentW )
 {
-    const float sceneComboW = SceneTabComboWidth( contentW );
-    combo.SetBounds( contentX, rowBase, sceneComboW, 24.0f );
-    const float resetX = contentX + sceneComboW + UI_SCENE_HEADER_BUTTON_GAP;
-    const float defaultsX = resetX + UI_SCENE_RESET_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
-    const float saveDefaultsX = defaultsX + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
-    resetSceneButton.SetBounds( resetX, rowBase, UI_SCENE_RESET_BUTTON_W, 24.0f );
-    resetDefaultsButton.SetBounds( defaultsX, rowBase, UI_SCENE_RESET_DEFAULTS_BUTTON_W, 24.0f );
-    saveDefaultsButton.SetBounds( saveDefaultsX, rowBase, UI_SCENE_SAVE_DEFAULTS_BUTTON_W, 24.0f );
+    const SceneHeaderWidths widths = ResolveSceneHeaderWidths( contentW );
+    combo.SetBounds( contentX, rowBase, widths.combo, 24.0f );
+    const float resetX = contentX + widths.combo + widths.gap;
+    const float defaultsX = resetX + widths.reset + widths.gap;
+    const float saveDefaultsX = defaultsX + widths.resetDefaults + widths.gap;
+    resetSceneButton.SetBounds( resetX, rowBase, widths.reset, 24.0f );
+    resetDefaultsButton.SetBounds( defaultsX, rowBase, widths.resetDefaults, 24.0f );
+    saveDefaultsButton.SetBounds( saveDefaultsX, rowBase, widths.saveDefaults, 24.0f );
     combo.SetDropUp( false );
 }
 

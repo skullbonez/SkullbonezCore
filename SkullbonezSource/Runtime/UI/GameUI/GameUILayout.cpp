@@ -43,12 +43,39 @@ int SceneComboScrollForSelection( int selectedIndex, int optionCount )
     return ClampSceneComboScroll( selectedIndex - visibleCount / 2, optionCount );
 }
 
+SceneHeaderWidths ResolveSceneHeaderWidths( float contentW )
+{
+    SceneHeaderWidths widths;
+    contentW = (std::max)( 1.0f, contentW );
+    constexpr float naturalButtons = UI_SCENE_RESET_BUTTON_W + UI_SCENE_RESET_DEFAULTS_BUTTON_W +
+                                     UI_SCENE_SAVE_DEFAULTS_BUTTON_W;
+
+    widths.gap = (std::min)( UI_SCENE_HEADER_BUTTON_GAP, contentW / 16.0f );
+    const float availableWithoutGaps = (std::max)( 1.0f, contentW - widths.gap * 3.0f );
+
+    if ( availableWithoutGaps >= naturalButtons + 1.0f )
+    {
+        widths.reset = UI_SCENE_RESET_BUTTON_W;
+        widths.resetDefaults = UI_SCENE_RESET_DEFAULTS_BUTTON_W;
+        widths.saveDefaults = UI_SCENE_SAVE_DEFAULTS_BUTTON_W;
+        widths.combo = (std::min)( 520.0f, availableWithoutGaps - naturalButtons );
+        return widths;
+    }
+
+    // Invariant: every control remains inside the one authored header row. At
+    // compact widths the combo receives one quarter and buttons scale together.
+    widths.combo = availableWithoutGaps * 0.25f;
+    const float scaledButtonSpace = availableWithoutGaps - widths.combo;
+    const float scale = scaledButtonSpace / naturalButtons;
+    widths.reset = UI_SCENE_RESET_BUTTON_W * scale;
+    widths.resetDefaults = UI_SCENE_RESET_DEFAULTS_BUTTON_W * scale;
+    widths.saveDefaults = scaledButtonSpace - widths.reset - widths.resetDefaults;
+    return widths;
+}
+
 float SceneTabComboWidth( float contentW )
 {
-    const float maxComboW = (std::min)( contentW, 520.0f );
-    const float buttonW = UI_SCENE_RESET_BUTTON_W + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_SAVE_DEFAULTS_BUTTON_W +
-                          UI_SCENE_HEADER_BUTTON_GAP * 3.0f;
-    return (std::max)( 180.0f, (std::min)( maxComboW, contentW - buttonW ) );
+    return ResolveSceneHeaderWidths( contentW ).combo;
 }
 
 void SetPipelineStepButtonBounds( UIRect& previous, UIRect& next, float contentX, float contentW, float y )

@@ -152,6 +152,7 @@ class UIWindowInteractionOwner
     bool NeedsUiTextPass() const;
     void SetHitboxOverlayEnabled( bool enabled );
     void SetScrollY( float scrollY );
+    void PrepareForDraw( double now );
     void SetMouseOverride( bool enabled, int x, int y );
     void ResetPresentationResources();
     int ContentHeight() const;
@@ -170,6 +171,7 @@ class UIWindowInteractionOwner
 
   private:
     void CloseSceneCombo();
+    void CancelActiveSliderPreview();
     void CancelEditorMiniPaletteInteraction();
     void SetMaximized( bool maximized, int screenW, int screenH, double now );
 
@@ -222,6 +224,7 @@ class UIWindowInteractionOwner
     CinematicTab::UICinematicTabState m_cinematicTab;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
+    bool m_scrollbarRevealPending = false;
     int m_activeSlider = 0;
     bool m_hitboxOverlayEnabled = false;
     bool m_editorMiniPalettePressActive = false;

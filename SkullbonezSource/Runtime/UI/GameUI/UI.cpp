@@ -665,10 +665,17 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
                                                cameraModeComboBounds.h );
 
             widgets.cameraModeCombo.SetDropUp( true );
-            const float titleMaxW = (std::max)( 40.0f, cameraModeComboBounds.x - ( minimized.x + 32.0f ) -
+            const float titleMaxW = (std::max)( 0.0f, cameraModeComboBounds.x - ( minimized.x + 32.0f ) -
                                                            MINIMIZED_CAMERA_MODE_GAP );
 
-            Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, titleMaxW );
+            if ( titleMaxW < UIFontMetrics::MeasureText( 12.5f, "..." ) )
+            {
+                titleText[0] = '\0';
+            }
+            else
+            {
+                Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, titleMaxW );
+            }
             Chrome::DrawMinimizedWindow( draw, minimized, titleText );
             const int cameraModeIndex = std::clamp( data.cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
             const uint32_t cameraModeDisabledMask = ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) &
@@ -685,6 +692,8 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
         drawStandaloneOverlays();
         return finishDraw();
     }
+
+    m_windowInteraction.PrepareForDraw( data.now );
 
     PROFILE_BEGIN( "Frame/UI/Layout" );
     const UIRect windowBounds = Chrome::CurrentWindowRect( widgets.window, data.now );
@@ -733,7 +742,7 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     cacheKey.contentSignature = BuildUIContentSignature( data );
     cacheKey.styleSignature = HashBool( HashBool( 2166136261u, widgets.blurPreviewEnabled ), widgets.hitboxOverlayEnabled );
 
-    cacheKey.interactionSignature = BuildUIInteractionSignature( widgets.mouseX, widgets.mouseY,
+    cacheKey.interactionSignature = BuildUIInteractionSignature( widgets.mouseX, widgets.mouseY, windowBounds,
                                                                  widgets.rendererCombo.IsOpen(),
                                                                  widgets.reflectionCombo.IsOpen(),
                                                                  widgets.sceneTab.combo.IsOpen(),
@@ -751,14 +760,17 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 
     const bool drawsLiveRenderTargetPreview = widgets.activeTab == InGameUITab::Targets;
 
-    if ( !drawsLiveRenderTargetPreview && widgets.cache.CanReplayPositionOnly( cacheKey ) )
+    if ( !drawsLiveRenderTargetPreview &&
+         widgets.cache.CanReplayPositionOnly( cacheKey, widgets.interaction.isDragging ) )
     {
         const float replayOffsetX = widgets.cache.ReplayOffsetX( cacheKey );
         const float replayOffsetY = widgets.cache.ReplayOffsetY( cacheKey );
         m_frameDrawList.Append( widgets.cache.DrawList(), replayOffsetX, replayOffsetY );
 
         drawStandaloneOverlays();
-        widgets.cache.StoreFrame( cacheKey );
+        // Lifetime: the cached commands remain in their original coordinate
+        // space. Retain that source key so consecutive drag offsets stay total,
+        // then rebuild from current content when capture ends.
         return finishDraw();
     }
 

@@ -4,6 +4,25 @@ Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
 Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
 
+## UI Library Bug Ledger Closure (2026-08-26)
+
+UI-001 through UI-005 are fixed as one UI Library subsystem batch. Losing
+pointer capture now discards deferred Replay memory previews. Window, minimized
+editor, and runtime camera-mode geometry shrink to the actual client without an
+invalid clamp or unreachable controls. Programmatic scroll feedback is anchored
+to the next visible draw. Captured window drags replay retained commands from a
+stable source using window-local pointer identity while live content rebuilds
+after release. The Scene header now shares its supported width across every
+control, keeping Save Defaults reachable.
+
+One consolidated read-only rubber-duck review used task
+`01a03961-d56f-70d1-a7f2-56d4651b858b`. Three passes closed the non-editor
+camera-mode overflow and compact-editor title overlap; the root pass also closed
+cumulative drag-offset and live-content cache invalidation hazards before final
+review. Final counts were 0 Blocking, 0 Non-blocking, and 1 Missing evidence.
+Per owner direction, focused UI tests, builds, scanners, inventories, and
+repository validation were not executed.
+
 ## Scene Data Bug Ledger Closure (2026-08-26)
 
 SCENE-003 through SCENE-006 are fixed as one Scene Data subsystem batch. Direct

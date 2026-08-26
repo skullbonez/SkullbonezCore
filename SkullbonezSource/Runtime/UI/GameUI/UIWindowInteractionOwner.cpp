@@ -147,6 +147,7 @@ void UIWindowInteractionOwner::SetVisible( bool visible, double now )
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
         m_blocksCameraMouse = false;
+        CancelActiveSliderPreview();
         CancelEditorMiniPaletteInteraction();
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
@@ -182,6 +183,20 @@ void UIWindowInteractionOwner::CancelEditorMiniPaletteInteraction()
 }
 
 
+void UIWindowInteractionOwner::CancelActiveSliderPreview()
+{
+    // Invariant: a preview belongs to the current pointer capture only. Losing
+    // that capture restores every deferred control to its last runtime snapshot.
+    m_activeSlider = 0;
+    SceneTab::ResetPreviewState( m_sceneTab );
+    OptionsTab::ResetPreviewState( m_optionsTab );
+    PhysicsTab::ResetPreviewState( m_physicsTab );
+    ControlsTab::ResetPreviewState( m_controlsTab );
+    ProfilerTab::ResetPreviewState( m_profilerTab );
+    MemoryTab::ResetPreviewState( m_memoryOverlay );
+}
+
+
 void UIWindowInteractionOwner::SetMinimized( bool minimized, double now )
 {
     if ( m_window.isMinimized == minimized )
@@ -198,6 +213,7 @@ void UIWindowInteractionOwner::SetMinimized( bool minimized, double now )
 
     if ( minimized )
     {
+        CancelActiveSliderPreview();
         m_window.isMinimized = true;
         Chrome::BeginWindowAnimation( m_window, currentBounds, minimizedBounds, now, true );
         m_rendererCombo.Close();
@@ -206,7 +222,6 @@ void UIWindowInteractionOwner::SetMinimized( bool minimized, double now )
         CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
         m_cameraModeCombo.Close();
-        m_activeSlider = 0;
     }
     else
     {
@@ -240,11 +255,8 @@ void UIWindowInteractionOwner::SetActiveTab( InGameUITab tab )
     CinematicTab::CloseCombo( m_cinematicTab );
     m_renderTargetCombo.Close();
     m_cameraModeCombo.Close();
-    m_activeSlider = 0;
-    SceneTab::ResetPreviewState( m_sceneTab );
-    OptionsTab::ResetPreviewState( m_optionsTab );
-    PhysicsTab::ResetPreviewState( m_physicsTab );
-    ControlsTab::ResetPreviewState( m_controlsTab );
+    CancelActiveSliderPreview();
+    m_scrollbarRevealPending = false;
     m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Content );
     m_cache.Reset();
 }
@@ -261,11 +273,7 @@ void UIWindowInteractionOwner::CancelInputCapture()
     m_interaction.isDragging = false;
     m_interaction.isResizing = false;
     m_blocksCameraMouse = false;
-    m_activeSlider = 0;
-    SceneTab::ResetPreviewState( m_sceneTab );
-    OptionsTab::ResetPreviewState( m_optionsTab );
-    PhysicsTab::ResetPreviewState( m_physicsTab );
-    ControlsTab::ResetPreviewState( m_controlsTab );
+    CancelActiveSliderPreview();
     m_editorTab.objectCombo.Close();
     m_renderTargetCombo.Close();
     m_cameraModeCombo.Close();
@@ -311,6 +319,7 @@ void UIWindowInteractionOwner::SetWindowBounds( int x, int y, int width, int hei
     m_window.animationActive = false;
     m_scrollY = 0.0f;
     m_scrollbarVisibleUntil = 0.0;
+    m_scrollbarRevealPending = false;
     m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
     m_cache.Reset();
 }
@@ -499,8 +508,22 @@ void UIWindowInteractionOwner::SetHitboxOverlayEnabled( bool enabled )
 void UIWindowInteractionOwner::SetScrollY( float scrollY )
 {
     m_scrollY = (std::max)( 0.0f, scrollY );
-    m_scrollbarVisibleUntil = 1.2;
+    m_scrollbarRevealPending = true;
     m_cache.Reset();
+}
+
+
+void UIWindowInteractionOwner::PrepareForDraw( double now )
+{
+    if ( !m_scrollbarRevealPending )
+    {
+        return;
+    }
+
+    // Why: programmatic callers do not own the runtime clock. Anchor feedback
+    // to the next visible full-window draw instead of an absolute startup time.
+    m_scrollbarVisibleUntil = (std::max)( m_scrollbarVisibleUntil, now + 1.2 );
+    m_scrollbarRevealPending = false;
 }
 
 
@@ -652,8 +675,12 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     const int tabH = 44;
     const int bottomH = 78;
     const int contentPad = 18;
-    const int maxW = (std::max)( minW, screenW - margin * 2 );
-    const int maxH = (std::max)( minH, screenH - margin * 2 );
+    const int marginX = (std::min)( margin, ( screenW - 1 ) / 2 );
+    const int marginY = (std::min)( margin, ( screenH - 1 ) / 2 );
+    const int maxW = (std::max)( 1, screenW - marginX * 2 );
+    const int maxH = (std::max)( 1, screenH - marginY * 2 );
+    const int effectiveMinW = (std::min)( minW, maxW );
+    const int effectiveMinH = (std::min)( minH, maxH );
 
     if ( !m_window.hasAppliedDefaultPlacement )
     {
@@ -1549,11 +1576,11 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     {
         const int oldX = m_window.x;
         const int oldY = m_window.y;
-        m_window.x = std::clamp( m_mouseX - m_interaction.dragOffsetX, margin,
-                                 (std::max)( margin, screenW - m_window.width - margin ) );
+        m_window.x = std::clamp( m_mouseX - m_interaction.dragOffsetX, marginX,
+                                 (std::max)( marginX, screenW - m_window.width - marginX ) );
 
-        m_window.y = std::clamp( m_mouseY - m_interaction.dragOffsetY, margin,
-                                 (std::max)( margin, screenH - m_window.height - margin ) );
+        m_window.y = std::clamp( m_mouseY - m_interaction.dragOffsetY, marginY,
+                                 (std::max)( marginY, screenH - m_window.height - marginY ) );
 
         if ( oldX != m_window.x || oldY != m_window.y )
         {
@@ -1565,9 +1592,11 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     {
         const int oldW = m_window.width;
         const int oldH = m_window.height;
-        m_window.width = std::clamp( m_interaction.resizeStartW + m_mouseX - m_interaction.resizeStartMouseX, minW, maxW );
+        m_window.width = std::clamp( m_interaction.resizeStartW + m_mouseX - m_interaction.resizeStartMouseX,
+                                     effectiveMinW, maxW );
 
-        m_window.height = std::clamp( m_interaction.resizeStartH + m_mouseY - m_interaction.resizeStartMouseY, minH, maxH );
+        m_window.height = std::clamp( m_interaction.resizeStartH + m_mouseY - m_interaction.resizeStartMouseY,
+                                      effectiveMinH, maxH );
 
         m_scrollbarVisibleUntil = now + 1.4;
 

@@ -628,9 +628,13 @@ void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimiz
 
     char shapeLabel[64] = {};
     snprintf( shapeLabel, sizeof( shapeLabel ), "%s", EditorTab::ObjectLabel( data.editorObjectType ) );
-    Chrome::FitTitleText( shapeLabel, sizeof( shapeLabel ), 12.0f, layout.labelMaxW );
-    draw.Text( layout.labelX, minimized.y + 13.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g,
-               palette.textPrimary.b, shapeLabel );
+
+    if ( layout.labelMaxW >= UIFontMetrics::MeasureText( 12.0f, "..." ) )
+    {
+        Chrome::FitTitleText( shapeLabel, sizeof( shapeLabel ), 12.0f, layout.labelMaxW );
+        draw.Text( layout.labelX, minimized.y + 13.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, shapeLabel );
+    }
 
     Style::UIColor modeFill = palette.accent;
     modeFill.a = 0.92f;
@@ -638,13 +642,13 @@ void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimiz
     bodyFill.a = 0.92f;
     Style::UIColor alignFill = data.editorTerrainAlign ? palette.accentStrong : palette.control;
     alignFill.a = 0.92f;
-    DrawEditorMiniChip( draw, layout.modeChip.x, layout.modeChip.y, modeLabel, modeFill, palette.textPrimary,
+    DrawEditorMiniChip( draw, layout.modeChip, modeLabel, modeFill, palette.textPrimary,
                         layout.modeChip.Contains( mouseX, mouseY ) );
 
-    DrawEditorMiniChip( draw, layout.bodyChip.x, layout.bodyChip.y, bodyLabel, bodyFill, palette.textPrimary,
+    DrawEditorMiniChip( draw, layout.bodyChip, bodyLabel, bodyFill, palette.textPrimary,
                         layout.bodyChip.Contains( mouseX, mouseY ) );
 
-    DrawEditorMiniChip( draw, layout.alignChip.x, layout.alignChip.y, alignLabel, alignFill, palette.textPrimary,
+    DrawEditorMiniChip( draw, layout.alignChip, alignLabel, alignFill, palette.textPrimary,
                         layout.alignChip.Contains( mouseX, mouseY ) );
 
     draw.RoundedPanel( layout.restoreButton, Style::Radii().smallButton, palette.control, palette.border );

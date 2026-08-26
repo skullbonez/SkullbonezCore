@@ -91,9 +91,10 @@ uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnaps
 uint32_t BuildUIContentSignature( const InGameUIFrameData& data );
 
 
-uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen, bool reflectionOpen, bool sceneOpen,
-                                      bool cineSceneOpen, bool editorObjectOpen, bool renderTargetOpen, bool cameraModeOpen,
-                                      int selectedRenderTarget, int activeSlider );
+uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, const UIRect& windowBounds, bool rendererOpen,
+                                      bool reflectionOpen, bool sceneOpen, bool cineSceneOpen, bool editorObjectOpen,
+                                      bool renderTargetOpen, bool cameraModeOpen, int selectedRenderTarget,
+                                      int activeSlider );
 
 
 int RenderTargetPreviewCount( const InGameUIFrameData& data );
@@ -238,7 +239,7 @@ EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& mini
                                                               bool editorPlaceStatic, bool editorTerrainAlign );
 EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, const UIEditorTabFrameView& data );
 float EditorMinimizedWidth( const UIEditorTabFrameView& data, int screenW );
-void DrawEditorMiniChip( const UIDrawContext& draw, float x, float y, const char* label, const Style::UIColor& fill,
+void DrawEditorMiniChip( const UIDrawContext& draw, const UIRect& bounds, const char* label, const Style::UIColor& fill,
                          const Style::UIColor& text, bool hot );
 bool IsEditorMiniRootType( int objectType );
 bool IsEditorMiniRockType( int objectType );

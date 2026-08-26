@@ -99,12 +99,15 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
 }
 
 
-bool UICacheState::CanReplayPositionOnly( const UICacheFrameKey& key ) const
+bool UICacheState::CanReplayPositionOnly( const UICacheFrameKey& key, bool allowContentSignatureChange ) const
 {
-    return m_hasFrame && !m_drawList->Empty() && m_dirtyFlags == UI_DIRTY_POSITION && key.screenW == m_lastKey.screenW &&
+    const uint32_t allowedDirty = UI_DIRTY_POSITION | ( allowContentSignatureChange ? UI_DIRTY_CONTENT : 0u );
+    return m_hasFrame && !m_drawList->Empty() && ( m_dirtyFlags & UI_DIRTY_POSITION ) != 0u &&
+           ( m_dirtyFlags & ~allowedDirty ) == 0u && key.screenW == m_lastKey.screenW &&
            key.screenH == m_lastKey.screenH && SameSize( key.windowBounds, m_lastKey.windowBounds ) &&
            key.activeTab == m_lastKey.activeTab && SameFloat( key.scrollY, m_lastKey.scrollY ) &&
-           key.blurEnabled == m_lastKey.blurEnabled && key.contentSignature == m_lastKey.contentSignature &&
+           key.blurEnabled == m_lastKey.blurEnabled &&
+           ( allowContentSignatureChange || key.contentSignature == m_lastKey.contentSignature ) &&
            key.styleSignature == m_lastKey.styleSignature && key.interactionSignature == m_lastKey.interactionSignature;
 }
 

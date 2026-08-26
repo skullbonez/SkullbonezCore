@@ -39,6 +39,17 @@ inline constexpr float UI_PIPELINE_STEP_BUTTON_GAP = 6.0f;
 int SceneComboVisibleCount( int optionCount );
 int ClampSceneComboScroll( int scroll, int optionCount );
 int SceneComboScrollForSelection( int selectedIndex, int optionCount );
+
+struct SceneHeaderWidths
+{
+    float combo = 0.0f;
+    float reset = 0.0f;
+    float resetDefaults = 0.0f;
+    float saveDefaults = 0.0f;
+    float gap = 0.0f;
+};
+
+SceneHeaderWidths ResolveSceneHeaderWidths( float contentW );
 float SceneTabComboWidth( float contentW );
 
 void SetPipelineStepButtonBounds( UIRect& previous, UIRect& next, float contentX, float contentW, float y );

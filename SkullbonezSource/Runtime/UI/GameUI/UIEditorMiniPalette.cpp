@@ -20,6 +20,9 @@ Related:
 */
 #include "UIFrameComposition.h"
 #include "../../../UI/UIFontMetrics.h"
+#include "../../../UI/UIWindowChrome.h"
+
+#include <cstdio>
 
 namespace SkullbonezCore::UI::FrameComposition
 {
@@ -513,7 +516,22 @@ EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& mini
     layout.alignChip = { alignX, chipY, alignW, 20.0f };
 
     layout.labelX = layout.glyph.x + layout.glyph.w + 10.0f;
-    layout.labelMaxW = (std::max)( 42.0f, modeX - layout.labelX - 10.0f );
+    layout.labelMaxW = (std::max)( 0.0f, modeX - layout.labelX - 10.0f );
+
+    if ( modeX < layout.glyph.x + layout.glyph.w + 4.0f )
+    {
+        // Why: compact clients keep every editor status control inside the
+        // minimized owner. Chip text is fitted by the shared draw path.
+        constexpr float compactGap = 3.0f;
+        const float chipStart = layout.glyph.x + layout.glyph.w + 4.0f;
+        const float chipEnd = layout.restoreButton.x - 4.0f;
+        const float chipW = (std::max)( 0.0f, ( chipEnd - chipStart - compactGap * 2.0f ) / 3.0f );
+        layout.modeChip = { chipStart, chipY, chipW, 20.0f };
+        layout.bodyChip = { chipStart + chipW + compactGap, chipY, chipW, 20.0f };
+        layout.alignChip = { chipStart + ( chipW + compactGap ) * 2.0f, chipY, chipW, 20.0f };
+        layout.labelMaxW = 0.0f;
+    }
+
     return layout;
 }
 
@@ -528,7 +546,10 @@ EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& mini
 float EditorMinimizedWidth( const UIEditorTabFrameView& data, int screenW )
 {
     constexpr float margin = 14.0f;
-    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
+    const float safeScreenW = static_cast<float>( (std::max)( 1, screenW ) );
+    const float marginX = (std::min)( margin, ( safeScreenW - 1.0f ) * 0.5f );
+    const float maxW = (std::max)( 1.0f, safeScreenW - marginX * 2.0f );
+    const float minW = (std::min)( 376.0f, maxW );
     const char* shapeLabel = EditorTab::ObjectLabel( data.editorObjectType );
     const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
     const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
@@ -536,25 +557,37 @@ float EditorMinimizedWidth( const UIEditorTabFrameView& data, int screenW )
     const float desiredW = 140.0f + UIFontMetrics::MeasureText( 12.0f, shapeLabel ) + EditorMiniChipWidth( modeLabel ) +
                            EditorMiniChipWidth( bodyLabel ) + EditorMiniChipWidth( alignLabel );
 
-    return std::clamp( desiredW, 376.0f, maxW );
+    return std::clamp( desiredW, minW, maxW );
 }
 
 
-void DrawEditorMiniChip( const UIDrawContext& draw, float x, float y, const char* label, const Style::UIColor& fill,
+void DrawEditorMiniChip( const UIDrawContext& draw, const UIRect& bounds, const char* label, const Style::UIColor& fill,
                          const Style::UIColor& text, bool hot )
 {
+    if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
+    {
+        return;
+    }
+
     const Style::UIPalette& palette = Style::Palette();
-    const float w = EditorMiniChipWidth( label );
     Style::UIColor chipFill = fill;
     chipFill.a = hot ? (std::min)( 1.0f, chipFill.a + 0.08f ) : chipFill.a;
-    draw.RoundedRect( x, y, w, 20.0f, Style::Radii().smallButton, chipFill.r, chipFill.g, chipFill.b, chipFill.a );
+    draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, Style::Radii().smallButton, chipFill.r, chipFill.g, chipFill.b,
+                      chipFill.a );
 
     if ( hot )
     {
-        draw.Outline( x, y, w, 20.0f, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.72f );
+        draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, palette.accentStrong.r, palette.accentStrong.g,
+                      palette.accentStrong.b, 0.72f );
     }
 
-    draw.Text( x + 9.0f, y + 5.0f, 10.5f, text.r, text.g, text.b, label );
+    if ( bounds.w > 18.0f )
+    {
+        char fittedLabel[16] = {};
+        snprintf( fittedLabel, sizeof( fittedLabel ), "%s", label ? label : "" );
+        Chrome::FitTitleText( fittedLabel, sizeof( fittedLabel ), 10.5f, bounds.w - 18.0f );
+        draw.Text( bounds.x + 9.0f, bounds.y + 5.0f, 10.5f, text.r, text.g, text.b, fittedLabel );
+    }
 }
 
 

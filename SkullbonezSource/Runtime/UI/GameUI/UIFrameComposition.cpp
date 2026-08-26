@@ -27,6 +27,8 @@ Related:
 #include "UIFrameComposition.h"
 #include "../../../UI/UIFontMetrics.h"
 
+#include <cmath>
+
 namespace SkullbonezCore::UI::FrameComposition
 {
 uint32_t HashCombine( uint32_t seed, uint32_t value )
@@ -74,8 +76,12 @@ uint32_t HashFloat( uint32_t seed, float value, float scale )
 
 UIRect MinimizedCameraModeComboBounds( const UIRect& minimized )
 {
-    return { minimized.x + minimized.w - MINIMIZED_RESTORE_W - MINIMIZED_CAMERA_MODE_COMBO_W, minimized.y + 6.0f,
-             MINIMIZED_CAMERA_MODE_COMBO_W, 24.0f };
+    constexpr float titleLeft = 32.0f;
+    const float availableW = (std::max)( 0.0f, minimized.w - titleLeft - MINIMIZED_CAMERA_MODE_GAP -
+                                                  MINIMIZED_RESTORE_W );
+    const float comboW = (std::min)( MINIMIZED_CAMERA_MODE_COMBO_W, availableW );
+    const float comboRight = (std::max)( minimized.x, minimized.x + minimized.w - MINIMIZED_RESTORE_W );
+    return { (std::max)( minimized.x, comboRight - comboW ), minimized.y + 6.0f, comboW, 24.0f };
 }
 
 
@@ -84,12 +90,15 @@ float MinimizedWidthWithCameraModeCombo( const char* title, int screenW )
     constexpr float margin = 14.0f;
     constexpr float textSize = 12.5f;
     constexpr float titleLeft = 32.0f;
-    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
+    const float safeScreenW = static_cast<float>( (std::max)( 1, screenW ) );
+    const float marginX = (std::min)( margin, ( safeScreenW - 1.0f ) * 0.5f );
+    const float maxW = (std::max)( 1.0f, safeScreenW - marginX * 2.0f );
+    const float minW = (std::min)( 154.0f, maxW );
     const float titleW = UIFontMetrics::MeasureText( textSize, title ? title : "" );
     const float desiredW = titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W +
                            MINIMIZED_RESTORE_W;
 
-    return std::clamp( desiredW, 154.0f, maxW );
+    return std::clamp( desiredW, minW, maxW );
 }
 
 // Invariant: the product title clamps completed captures to their requested
@@ -522,13 +531,16 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 }
 
 
-uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen, bool reflectionOpen, bool sceneOpen,
-                                      bool cineSceneOpen, bool editorObjectOpen, bool renderTargetOpen, bool cameraModeOpen,
-                                      int selectedRenderTarget, int activeSlider )
+uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, const UIRect& windowBounds, bool rendererOpen,
+                                      bool reflectionOpen, bool sceneOpen, bool cineSceneOpen, bool editorObjectOpen,
+                                      bool renderTargetOpen, bool cameraModeOpen, int selectedRenderTarget,
+                                      int activeSlider )
 {
     uint32_t hash = 2166136261u;
-    hash = HashInt( hash, mouseX );
-    hash = HashInt( hash, mouseY );
+    // Invariant: pointer interaction is window-local. Moving a captured window
+    // and pointer together changes only position, so retained commands replay.
+    hash = HashInt( hash, static_cast<int>( std::lround( static_cast<float>( mouseX ) - windowBounds.x ) ) );
+    hash = HashInt( hash, static_cast<int>( std::lround( static_cast<float>( mouseY ) - windowBounds.y ) ) );
     hash = HashBool( hash, rendererOpen );
     hash = HashBool( hash, reflectionOpen );
     hash = HashBool( hash, sceneOpen );
