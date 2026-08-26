@@ -89,6 +89,34 @@ void CopySanitizedPreferenceText( char* destination, std::size_t capacity, const
 
     destination[write] = '\0';
 }
+
+void FitPairBesideRequiredCenter( int desiredFirst, int desiredSecond, int total, int& outFirst,
+                                  int& outSecond ) noexcept
+{
+    const int available = (std::max)( 0, total - 1 );
+    const int desiredTotal = desiredFirst + desiredSecond;
+
+    if ( desiredTotal <= available )
+    {
+        outFirst = desiredFirst;
+        outSecond = desiredSecond;
+        return;
+    }
+
+    if ( available == 0 || desiredTotal <= 0 )
+    {
+        outFirst = 0;
+        outSecond = 0;
+        return;
+    }
+
+    // Invariant: narrow windows retain one center pixel and divide every
+    // remaining pixel proportionally between the two bounded tool regions.
+    outFirst = std::clamp( static_cast<int>( std::lround(
+                                  static_cast<double>( available ) * desiredFirst / desiredTotal ) ),
+                           0, available );
+    outSecond = available - outFirst;
+}
 } // namespace
 
 ImGuiEditorLayoutEnvelope ResolveImGuiEditorLayoutEnvelope( int contentWidth, int contentHeight ) noexcept
@@ -97,14 +125,23 @@ ImGuiEditorLayoutEnvelope ResolveImGuiEditorLayoutEnvelope( int contentWidth, in
     result.contentWidth = (std::max)( 1, contentWidth );
     result.contentHeight = (std::max)( 1, contentHeight );
 
-    result.editorLeftWidth = std::clamp( static_cast<int>( std::lround( result.contentWidth * 0.22 ) ), 260, 420 );
-    result.utilityRightWidth = std::clamp( static_cast<int>( std::lround( result.contentWidth * 0.24 ) ), 280, 460 );
-    result.viewportWidth = (std::max)( 1, result.contentWidth - result.editorLeftWidth - result.utilityRightWidth );
+    const int desiredEditorLeft =
+        std::clamp( static_cast<int>( std::lround( result.contentWidth * 0.22 ) ), 260, 420 );
+    const int desiredUtilityRight =
+        std::clamp( static_cast<int>( std::lround( result.contentWidth * 0.24 ) ), 280, 460 );
+    FitPairBesideRequiredCenter( desiredEditorLeft, desiredUtilityRight, result.contentWidth,
+                                result.editorLeftWidth, result.utilityRightWidth );
+    result.viewportWidth = result.contentWidth - result.editorLeftWidth - result.utilityRightWidth;
 
-    result.statusHeight = std::clamp( static_cast<int>( std::lround( result.contentHeight * 0.075 ) ), 48, 68 );
-    const int aboveStatus = (std::max)( 1, result.contentHeight - result.statusHeight );
-    result.replayHeight = std::clamp( static_cast<int>( std::lround( aboveStatus * 0.22 ) ), 112, 280 );
-    result.upperHeight = (std::max)( 1, aboveStatus - result.replayHeight );
+    const int desiredStatus =
+        std::clamp( static_cast<int>( std::lround( result.contentHeight * 0.075 ) ), 48, 68 );
+    const int desiredAboveStatus = (std::max)( 1, result.contentHeight - desiredStatus );
+    const int desiredReplay =
+        std::clamp( static_cast<int>( std::lround( desiredAboveStatus * 0.22 ) ), 112, 280 );
+    FitPairBesideRequiredCenter( desiredStatus, desiredReplay, result.contentHeight, result.statusHeight,
+                                result.replayHeight );
+    const int aboveStatus = result.contentHeight - result.statusHeight;
+    result.upperHeight = aboveStatus - result.replayHeight;
 
     result.statusSplitFraction = static_cast<float>( result.statusHeight ) / result.contentHeight;
     result.replaySplitFraction = static_cast<float>( result.replayHeight ) / aboveStatus;

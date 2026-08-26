@@ -1229,3 +1229,25 @@ blockers. Final counts were 0 Blocking, 0 Non-blocking, and 1 Missing evidence.
 Per owner direction, no build, test, scanner, inventory, formatter, or
 repository validation was run; compile/link and focused runtime behavior remain
 unexecuted evidence.
+
+## Runtime DevelopmentTools Bug Ledger Closure (2026-08-26)
+
+DEV-001 through DEV-006 are fixed as one subsystem batch. Retrying startup now
+discards an incomplete ImGui context before rebinding the renderer. Ordered
+panel reducers preserve first-build commands, make reset establish complete
+defaults, and cancel focus requests whose target is later hidden. Shutdown
+clears pending commands, diagnostics, counters, and presentation state before a
+new editor epoch begins.
+
+Responsive dock sizing now reserves a valid central region and keeps every
+split fraction bounded even below the normal minimum client size. Game Viewport
+capture also requires that panel to remain visible, so closing it stops the
+unused per-frame GPU copy while the rest of the editor stays open.
+
+One consolidated read-only rubber-duck review covered all six Runtime
+DevelopmentTools rows in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found
+and closed two command-ordering defects plus one focused-evidence gap. Final
+counts were 0 Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner
+direction, no build, test, scanner, inventory, formatter, or repository
+validation was run; compile/link and live ImGui behavior therefore remain
+unexecuted evidence.

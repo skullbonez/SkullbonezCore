@@ -196,6 +196,52 @@ class ImGuiEditorFrameStatusLease
     SkullbonezCore::Core::SbResult m_status = SkullbonezCore::Core::SbResult::Success();
 };
 
+// Invariant: shutdown cannot lend commands or a diagnostic lease to the next
+// editor context, including when startup stopped before creating that context.
+inline void ResetImGuiEditorPendingEpoch( ImGuiEditorCommands& frameCommands,
+                                          UI::OperatorEditorCommandQueues& pendingCommands,
+                                          ImGuiEditorFrameStatusLease& frameStatus ) noexcept
+{
+    frameCommands = {};
+    pendingCommands = {};
+    (void)frameStatus.Take();
+}
+
+enum class ImGuiEditorStartDisposition : uint8_t
+{
+    StartFresh,
+    ReturnReady,
+    RestartIncomplete,
+};
+
+inline ImGuiEditorStartDisposition ResolveImGuiEditorStartDisposition( bool hasContext,
+                                                                       bool hasRendererBinding ) noexcept
+{
+    if ( !hasContext )
+    {
+        return ImGuiEditorStartDisposition::StartFresh;
+    }
+
+    return hasRendererBinding ? ImGuiEditorStartDisposition::ReturnReady
+                              : ImGuiEditorStartDisposition::RestartIncomplete;
+}
+
+inline bool ShouldCaptureImGuiGameViewport( bool editorVisible, bool gameViewportPanelVisible ) noexcept
+{
+    return editorVisible && gameViewportPanelVisible;
+}
+
+inline bool CanCompleteImGuiPanelFocus( bool panelVisible, bool windowExists, bool focusApplied ) noexcept
+{
+    return panelVisible && windowExists && focusApplied;
+}
+
+inline ImGuiEditorPanelId ResolveImGuiPendingFocusAfterVisibility( ImGuiEditorPanelId pendingPanel,
+                                                                   ImGuiEditorPanelId changedPanel,
+                                                                   bool visible ) noexcept
+{
+    return !visible && pendingPanel == changedPanel ? ImGuiEditorPanelId::Count : pendingPanel;
+}
 
 class ImGuiEditorOwner
 {
@@ -257,6 +303,7 @@ class ImGuiEditorOwner
     void ApplyPanelVisibilityMask( uint32_t mask ) noexcept;
     void LoadPreferences() noexcept;
     void SavePreferences() noexcept;
+    void ResetLifecycleStateAfterShutdown() noexcept;
 
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     ImGuiContext* m_context = nullptr;

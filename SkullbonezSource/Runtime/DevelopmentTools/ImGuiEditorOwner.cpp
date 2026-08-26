@@ -273,9 +273,19 @@ ImGuiEditorOwner::~ImGuiEditorOwner()
 
 SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::Dx12ImGuiRendererOwner* renderer )
 {
-    if ( m_context )
+    const ImGuiEditorStartDisposition startDisposition =
+        ResolveImGuiEditorStartDisposition( m_context != nullptr, m_renderer != nullptr );
+
+    if ( startDisposition == ImGuiEditorStartDisposition::ReturnReady )
     {
         return SkullbonezCore::Core::SbResult::Success();
+    }
+
+    if ( startDisposition == ImGuiEditorStartDisposition::RestartIncomplete )
+    {
+        // Recoverable renderer binding can fail after the platform context is
+        // live. Retry owns a fresh complete epoch, never the partial context.
+        Shutdown();
     }
 
     if ( !window )
@@ -382,6 +392,10 @@ void ImGuiEditorOwner::Shutdown() noexcept
 {
     if ( !m_context )
     {
+        // Commands and automation values may be accepted before startup. A
+        // shutdown boundary clears that epoch even when no vendor context was
+        // ever created.
+        ResetLifecycleStateAfterShutdown();
         return;
     }
 
@@ -451,6 +465,60 @@ void ImGuiEditorOwner::Shutdown() noexcept
             static_cast<unsigned long long>( m_suppressedKeyboardMessages ),
             static_cast<unsigned long long>( m_suppressedTextMessages ), static_cast<unsigned long long>( m_focusMessages ),
             static_cast<unsigned long long>( m_dpiMessages ), static_cast<unsigned long long>( m_imeMessages ) );
+    ResetLifecycleStateAfterShutdown();
+}
+
+void ImGuiEditorOwner::ResetLifecycleStateAfterShutdown() noexcept
+{
+    m_renderer = nullptr;
+    m_window = nullptr;
+    m_visible = false;
+    m_surfaceSelectionInitialized = false;
+    m_surfaceSelectionActivated = false;
+    m_selectedSurface = DevelopmentUiMode::GameUI;
+    m_frameActive = false;
+    m_platformBackendInitialized = false;
+    m_gameViewportHovered = false;
+    m_gameViewportFocused = false;
+    m_gameViewportRect = {};
+    m_nativePointerStateTouched = false;
+    m_lastPlatformMouseCursor = -2;
+    m_appliedDpiScale = 0.0f;
+    m_frameInput = {};
+    m_completedFrames = 0u;
+    m_sharedViewFingerprint = 0u;
+    m_layoutTopologyFingerprint = 0u;
+    m_layoutBuildCount = 0u;
+    m_layoutResetCount = 0u;
+    m_layoutResetRequested = false;
+    m_automationDpiScale = 0.0f;
+    m_pendingFocusPanel = ImGuiEditorPanelId::Count;
+    m_lastFocusedPanel = ImGuiEditorPanelId::Count;
+    m_automationFocusCount = 0u;
+    m_preferencesLoaded = false;
+    m_preferencesRecovered = false;
+    m_preferencesSaveSucceeded = false;
+    ResetDefaultPanelVisibility();
+    snprintf( m_tracyLaunchFeedback, sizeof( m_tracyLaunchFeedback ), "%s", "Viewer not launched" );
+    strcpy_s( m_newSceneName, "NewScene" );
+    m_sceneFilter[0] = '\0';
+    m_hierarchyFilter[0] = '\0';
+    m_assetFilter[0] = '\0';
+    m_propertyEdit = {};
+    m_renderingEdit = {};
+    m_diagnosticsEdit = {};
+    m_causalityDetailSelectedRow = -1;
+    m_focusSceneCreate = false;
+    m_focusSceneFilter = false;
+    ResetImGuiEditorPendingEpoch( m_frameCommands, m_pendingOperatorEditorCommands, m_frameCommandStatus );
+    m_platformMessages = 0u;
+    m_suppressedMouseMessages = 0u;
+    m_suppressedKeyboardMessages = 0u;
+    m_suppressedTextMessages = 0u;
+    m_focusMessages = 0u;
+    m_dpiMessages = 0u;
+    m_imeMessages = 0u;
+    m_fontSource = ImGuiEditorFontSource::None;
 }
 
 void ImGuiEditorOwner::SetVisible( bool visible ) noexcept
@@ -534,22 +602,27 @@ ImGuiEditorOwner::ApplyAutomationCommand( const ImGuiEditorAutomationCommand& co
     {
     case ImGuiEditorAutomationCommandType::SetPanelVisible:
 
-        if ( !SetPanelVisibility( command.panel, command.visible ) )
+        if ( static_cast<uint32_t>( command.panel ) >= static_cast<uint32_t>( ImGuiEditorPanelId::Count ) )
         {
             return m_resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation", "Unknown panel identity" );
         }
 
+        ApplyPanelVisibilityMask(
+            ResolveImGuiEditorPanelVisibilityCommand( CopyPanelVisibilityMask(), command.panel, command.visible ) );
         return SkullbonezCore::Core::SbResult::Success();
     case ImGuiEditorAutomationCommandType::ResetLayout:
         m_layoutResetRequested = true;
+        ApplyPanelVisibilityMask( ResetImGuiEditorPanelMask() );
         return SkullbonezCore::Core::SbResult::Success();
     case ImGuiEditorAutomationCommandType::FocusPanel:
 
-        if ( command.panel == ImGuiEditorPanelId::Count || !SetPanelVisibility( command.panel, true ) )
+        if ( static_cast<uint32_t>( command.panel ) >= static_cast<uint32_t>( ImGuiEditorPanelId::Count ) )
         {
             return m_resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation", "Cannot focus an unknown panel" );
         }
 
+        ApplyPanelVisibilityMask(
+            ResolveImGuiEditorPanelVisibilityCommand( CopyPanelVisibilityMask(), command.panel, true ) );
         m_pendingFocusPanel = command.panel;
         return SkullbonezCore::Core::SbResult::Success();
     case ImGuiEditorAutomationCommandType::SetDpiScale:
@@ -584,7 +657,7 @@ void ImGuiEditorOwner::ReportTracyClientStartResult( bool started ) noexcept
 
 SkullbonezCore::Core::SbResult ImGuiEditorOwner::CaptureGameViewport()
 {
-    if ( !m_visible )
+    if ( !ShouldCaptureImGuiGameViewport( m_visible, m_showGameViewport ) )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
@@ -863,6 +936,7 @@ bool ImGuiEditorOwner::SetPanelVisibility( ImGuiEditorPanelId panel, bool visibl
         return false;
     }
 
+    m_pendingFocusPanel = ResolveImGuiPendingFocusAfterVisibility( m_pendingFocusPanel, panel, visible );
     return true;
 }
 
@@ -988,7 +1062,7 @@ void ImGuiEditorOwner::BuildDefaultDockLayout( uint32_t rootDockId, float width,
     ImGui::DockBuilderFinish( root );
     ImGui::MarkIniSettingsDirty();
 
-    ResetDefaultPanelVisibility();
+    ApplyPanelVisibilityMask( ResolveImGuiEditorPanelMaskAfterDockBuild( CopyPanelVisibilityMask() ) );
     m_layoutTopologyFingerprint = FingerprintImGuiEditorDefaultTopology();
     ++m_layoutBuildCount;
 
@@ -1362,6 +1436,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             if ( ImGui::MenuItem( "Reset Editor Layout" ) )
             {
                 m_layoutResetRequested = true;
+                ApplyPanelVisibilityMask( ResetImGuiEditorPanelMask() );
             }
 
             ImGui::EndMenu();
@@ -1483,22 +1558,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     ImGui::DockSpace( rootDockId, dockSize );
     ImGui::End();
-
-    if ( m_pendingFocusPanel != ImGuiEditorPanelId::Count )
-    {
-        const ImGuiEditorPanelId panel = m_pendingFocusPanel;
-        m_pendingFocusPanel = ImGuiEditorPanelId::Count;
-        const char* panelName = ImGuiEditorPanelName( panel );
-
-        if ( panelName && ( CopyPanelVisibilityMask() & ImGuiEditorPanelBit( panel ) ) != 0u )
-        {
-            // Automation focuses by stable panel identity after the dock host
-            // exists; it never synthesizes brittle title-bar coordinates.
-            ImGui::SetWindowFocus( panelName );
-            m_lastFocusedPanel = panel;
-            ++m_automationFocusCount;
-        }
-    }
 
     if ( m_showSceneAndModes )
     {
@@ -3122,6 +3181,38 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         }
 
         ImGui::End();
+    }
+
+    if ( m_pendingFocusPanel != ImGuiEditorPanelId::Count )
+    {
+        const ImGuiEditorPanelId panel = m_pendingFocusPanel;
+        const char* panelName = ImGuiEditorPanelName( panel );
+        const bool panelVisible = panelName && ( CopyPanelVisibilityMask() & ImGuiEditorPanelBit( panel ) ) != 0u;
+        ImGuiWindow* panelWindow = panelVisible ? ImGui::FindWindowByName( panelName ) : nullptr;
+        ImGuiContext* context = ImGui::GetCurrentContext();
+        const bool windowSubmitted = panelWindow && context && panelWindow->LastFrameActive == context->FrameCount;
+        bool focusApplied = false;
+
+        if ( !panelVisible )
+        {
+            // A close or reset after the request cancels it without claiming a
+            // focus completion that could be replayed on a later reopen.
+            m_pendingFocusPanel = ImGuiEditorPanelId::Count;
+        }
+        else if ( windowSubmitted )
+        {
+            // Focus only after this frame has submitted the named window. The
+            // counter is completion evidence, not command-acceptance evidence.
+            ImGui::FocusWindow( panelWindow );
+            focusApplied = context->NavWindow == panelWindow;
+        }
+
+        if ( CanCompleteImGuiPanelFocus( panelVisible, windowSubmitted, focusApplied ) )
+        {
+            m_pendingFocusPanel = ImGuiEditorPanelId::Count;
+            m_lastFocusedPanel = panel;
+            ++m_automationFocusCount;
+        }
     }
 }
 

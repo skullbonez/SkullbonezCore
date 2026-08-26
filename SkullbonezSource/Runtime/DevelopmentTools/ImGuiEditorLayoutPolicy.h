@@ -95,6 +95,32 @@ inline constexpr uint32_t IMGUI_EDITOR_ALL_PANEL_MASK = ( 1u << static_cast<uint
 inline constexpr uint32_t IMGUI_EDITOR_DEFAULT_PANEL_MASK = IMGUI_EDITOR_ALL_PANEL_MASK &
                                                             ~ImGuiEditorPanelBit( ImGuiEditorPanelId::CausalityDetail );
 
+inline constexpr uint32_t ResolveImGuiEditorPanelMaskAfterDockBuild( uint32_t currentMask ) noexcept
+{
+    return currentMask & IMGUI_EDITOR_ALL_PANEL_MASK;
+}
+
+inline constexpr uint32_t ResetImGuiEditorPanelMask() noexcept
+{
+    return IMGUI_EDITOR_DEFAULT_PANEL_MASK;
+}
+
+inline constexpr uint32_t ResolveImGuiEditorPanelVisibilityCommand( uint32_t currentMask,
+                                                                    ImGuiEditorPanelId panel,
+                                                                    bool visible ) noexcept
+{
+    const uint32_t panelIndex = static_cast<uint32_t>( panel );
+
+    if ( panelIndex >= static_cast<uint32_t>( ImGuiEditorPanelId::Count ) )
+    {
+        return currentMask & IMGUI_EDITOR_ALL_PANEL_MASK;
+    }
+
+    const uint32_t panelBit = ImGuiEditorPanelBit( panel );
+    return visible ? ( currentMask | panelBit ) & IMGUI_EDITOR_ALL_PANEL_MASK
+                   : currentMask & ~panelBit & IMGUI_EDITOR_ALL_PANEL_MASK;
+}
+
 struct ImGuiEditorPreferences
 {
     int preferencesVersion = IMGUI_EDITOR_PREFERENCES_VERSION;

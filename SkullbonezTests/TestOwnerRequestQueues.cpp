@@ -2314,6 +2314,94 @@ TEST_CASE( "Editor dock envelope preserves viewport across supported aspect rati
                         "right:inspector,world,rendering,diagnostics,causality" ) == 0 );
 }
 
+TEST_CASE( "Editor dock envelope remains possible at narrow client extents" )
+{
+    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+
+    for ( const ImGuiEditorLayoutEnvelope& envelope :
+          { ResolveImGuiEditorLayoutEnvelope( 539, 360 ), ResolveImGuiEditorLayoutEnvelope( 2, 2 ),
+            ResolveImGuiEditorLayoutEnvelope( 1, 1 ), ResolveImGuiEditorLayoutEnvelope( 0, -4 ) } )
+    {
+        CHECK( envelope.contentWidth >= 1 );
+        CHECK( envelope.contentHeight >= 1 );
+        CHECK( envelope.editorLeftWidth >= 0 );
+        CHECK( envelope.utilityRightWidth >= 0 );
+        CHECK( envelope.viewportWidth >= 1 );
+        CHECK( envelope.statusHeight >= 0 );
+        CHECK( envelope.replayHeight >= 0 );
+        CHECK( envelope.upperHeight >= 1 );
+        CHECK( envelope.editorLeftWidth + envelope.viewportWidth + envelope.utilityRightWidth == envelope.contentWidth );
+        CHECK( envelope.upperHeight + envelope.replayHeight + envelope.statusHeight == envelope.contentHeight );
+        CHECK( envelope.statusSplitFraction >= 0.0f );
+        CHECK( envelope.statusSplitFraction <= 1.0f );
+        CHECK( envelope.replaySplitFraction >= 0.0f );
+        CHECK( envelope.replaySplitFraction <= 1.0f );
+        CHECK( envelope.preservesCentralViewport == ( envelope.viewportWidth >= 480 && envelope.upperHeight >= 360 ) );
+    }
+}
+
+TEST_CASE( "Editor lifecycle policies retain acknowledged state and require completed effects" )
+{
+    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+
+    CHECK( ResolveImGuiEditorStartDisposition( false, false ) == ImGuiEditorStartDisposition::StartFresh );
+    CHECK( ResolveImGuiEditorStartDisposition( true, true ) == ImGuiEditorStartDisposition::ReturnReady );
+    CHECK( ResolveImGuiEditorStartDisposition( true, false ) == ImGuiEditorStartDisposition::RestartIncomplete );
+
+    const uint32_t requestedMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK &
+                                   ~ImGuiEditorPanelBit( ImGuiEditorPanelId::GameViewport );
+    CHECK( ResolveImGuiEditorPanelMaskAfterDockBuild( requestedMask ) == requestedMask );
+    CHECK( ResolveImGuiEditorPanelMaskAfterDockBuild( (std::numeric_limits<uint32_t>::max)() ) ==
+           IMGUI_EDITOR_ALL_PANEL_MASK );
+
+    const uint32_t staleMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK &
+                               ~ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics );
+    uint32_t resetThenHideGame = ResetImGuiEditorPanelMask();
+    resetThenHideGame =
+        ResolveImGuiEditorPanelVisibilityCommand( resetThenHideGame, ImGuiEditorPanelId::GameViewport, false );
+    CHECK( ResolveImGuiEditorPanelMaskAfterDockBuild( resetThenHideGame ) == resetThenHideGame );
+    CHECK( ( resetThenHideGame & ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics ) ) != 0u );
+    CHECK( ( resetThenHideGame & ImGuiEditorPanelBit( ImGuiEditorPanelId::GameViewport ) ) == 0u );
+
+    uint32_t hideThenReset =
+        ResolveImGuiEditorPanelVisibilityCommand( staleMask, ImGuiEditorPanelId::GameViewport, false );
+    hideThenReset = ResetImGuiEditorPanelMask();
+    CHECK( hideThenReset == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
+
+    CHECK( ShouldCaptureImGuiGameViewport( true, true ) );
+    CHECK_FALSE( ShouldCaptureImGuiGameViewport( false, true ) );
+    CHECK_FALSE( ShouldCaptureImGuiGameViewport( true, false ) );
+    CHECK_FALSE( ShouldCaptureImGuiGameViewport( false, false ) );
+
+    CHECK( CanCompleteImGuiPanelFocus( true, true, true ) );
+    CHECK_FALSE( CanCompleteImGuiPanelFocus( false, true, true ) );
+    CHECK_FALSE( CanCompleteImGuiPanelFocus( true, false, true ) );
+    CHECK_FALSE( CanCompleteImGuiPanelFocus( true, true, false ) );
+
+    const ImGuiEditorPanelId requestedFocus = ImGuiEditorPanelId::CausalityDetail;
+    CHECK( ResolveImGuiPendingFocusAfterVisibility( requestedFocus, ImGuiEditorPanelId::Diagnostics, false ) ==
+           requestedFocus );
+    const ImGuiEditorPanelId cancelledFocus =
+        ResolveImGuiPendingFocusAfterVisibility( requestedFocus, requestedFocus, false );
+    CHECK( cancelledFocus == ImGuiEditorPanelId::Count );
+    CHECK( ResolveImGuiPendingFocusAfterVisibility( cancelledFocus, requestedFocus, true ) == ImGuiEditorPanelId::Count );
+
+    ImGuiEditorCommands frameCommands;
+    frameCommands.requestSurfaceSwap = true;
+    frameCommands.operatorEditor.tools.count = 1u;
+    SkullbonezCore::UI::OperatorEditorCommandQueues pendingCommands;
+    pendingCommands.scene.count = 1u;
+    ImGuiEditorFrameStatusLease frameStatus;
+    frameStatus.Record( diagnostics.Failure( "Tests/ImGuiEditor", "stale frame failure" ) );
+    REQUIRE_FALSE( frameStatus.Ok() );
+
+    ResetImGuiEditorPendingEpoch( frameCommands, pendingCommands, frameStatus );
+    CHECK_FALSE( frameCommands.requestSurfaceSwap );
+    CHECK( frameCommands.operatorEditor.Empty() );
+    CHECK( pendingCommands.Empty() );
+    CHECK( frameStatus.Ok() );
+}
+
 TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
 {
     using namespace SkullbonezCore::Runtime::DevelopmentTools;
