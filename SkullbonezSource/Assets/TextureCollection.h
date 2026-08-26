@@ -16,6 +16,8 @@ Invariants:
     selection uses a borrowed command context.
   - Texture file and backend creation failures are recoverable results; fixed slot
     capacity and missing renderer facets remain fatal owner invariants.
+  - Replacement publishes a complete candidate before releasing the last good
+    backend handle.
 
 Related:
   - SkullbonezSource/Assets/TextureCollection.cpp
@@ -92,11 +94,58 @@ class TextureCollection
     friend struct TextureCollectionTestAccess;
     int FindIndex( uint32_t hash ) const;
     int FindIndexNoThrow( uint32_t hash ) const;
-    int FindFreeSlot() const;
     void ReleaseTexture( GpuTextureRecord& texture );
-    SkullbonezCore::Core::SbResult LoadJpegTextureIntoSlot( int slot, const char* fileName, uint32_t hash,
-                                                            Assets::AssetId sourceId, bool generateMips, bool linearFilter,
-                                                            int channelsHint );
+    template <typename CandidateLoader, typename RetireHandle>
+    static SkullbonezCore::Core::SbResult CreateOrReplaceTextureRecord(
+        std::array<GpuTextureRecord, SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT>& textures, uint32_t hash,
+        CandidateLoader&& loadCandidate, RetireHandle&& retireHandle )
+    {
+        int destinationIndex = -1;
+
+        for ( std::size_t index = 0; index < textures.size(); ++index )
+        {
+            if ( textures[index].legacyHash == hash && textures[index].IsResident() )
+            {
+                destinationIndex = static_cast<int>( index );
+                break;
+            }
+        }
+
+        if ( destinationIndex < 0 )
+        {
+            destinationIndex = FindFreeSlotOrFatal( textures );
+        }
+
+        GpuTextureRecord candidate;
+        SkullbonezCore::Core::SbResult loadResult = loadCandidate( candidate );
+
+        if ( !loadResult.Ok() )
+        {
+            return loadResult;
+        }
+
+        if ( !candidate.IsResident() )
+        {
+            SB_FATAL( "TextureCollection", "Completed texture candidate is not resident. hash=0x%08X", hash );
+        }
+
+        // Lifetime: candidate creation is complete before publication, and
+        // retirement observes the new resident row already in place.
+        GpuTextureRecord& destination = textures[static_cast<std::size_t>( destinationIndex )];
+        const uint32_t supersededHandle = destination.backendHandle;
+        destination = candidate;
+
+        if ( supersededHandle != 0 )
+        {
+            retireHandle( supersededHandle );
+        }
+
+        return SkullbonezCore::Core::SbResult::Success();
+    }
+
+    SkullbonezCore::Core::SbResult CreateOrReplaceJpegTexture( const char* fileName, uint32_t hash,
+                                                               Assets::AssetId sourceId, bool generateMips,
+                                                               bool linearFilter, int channelsHint );
     SkullbonezCore::Core::SbResult CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source );
 
   public:

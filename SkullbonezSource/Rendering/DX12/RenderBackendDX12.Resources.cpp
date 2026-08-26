@@ -59,7 +59,22 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 
 std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseName, const char* contractBaseName )
 {
-    std::string hlslPath = std::string( DATA_ROOT ) + baseName + ".hlsl";
+    const std::string hlslPath = DefaultShaderHlslPath( baseName );
+    return CreateShaderFromHlslPath( hlslPath.c_str(), contractBaseName ? contractBaseName : baseName );
+}
+
+
+std::unique_ptr<ShaderDX12>
+Dx12ResourceBuilder::CreateShaderFromResolvedBasePath( const char* resolvedBasePath, const char* contractBaseName )
+{
+    const std::string hlslPath = ResolvedShaderHlslPath( resolvedBasePath );
+    return CreateShaderFromHlslPath( hlslPath.c_str(), contractBaseName );
+}
+
+
+std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShaderFromHlslPath( const char* hlslPath,
+                                                                           const char* contractBaseName )
+{
 
     if ( !m_device.Device() )
     {
@@ -68,17 +83,29 @@ std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseN
 
     auto shader = std::make_unique<ShaderDX12>( m_device, m_pipeline, m_shaderDevelopment, m_frame.UploadReservations() );
 
-    if ( !shader->Compile( hlslPath.c_str(), contractBaseName ) )
+    if ( !shader->Compile( hlslPath, contractBaseName ) )
     {
         // Recoverable error: shader files and compiler output are external inputs. Return
         // a null shader so setup/render owners can skip the dependent draw while
         // the DX12 validation log names the missing program.
-        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_create_failed path=%s", hlslPath.c_str() );
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_create_failed path=%s", hlslPath ? hlslPath : "" );
         SkullbonezCore::Core::Log().FlushAll();
         return nullptr;
     }
 
     return shader;
+}
+
+
+std::string Dx12ResourceBuilder::DefaultShaderHlslPath( const char* baseName )
+{
+    return std::string( DATA_ROOT ) + ( baseName ? baseName : "" ) + ".hlsl";
+}
+
+
+std::string Dx12ResourceBuilder::ResolvedShaderHlslPath( const char* resolvedBasePath )
+{
+    return std::string( resolvedBasePath ? resolvedBasePath : "" ) + ".hlsl";
 }
 
 

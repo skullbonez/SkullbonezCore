@@ -9,8 +9,8 @@ Summary:
   renderer-facing owners create GPU resources from those records.
 
 Glossary:
-  Shader base name: Data-root-relative shader path without the backend-specific
-    file extension.
+  Shader base name: Authored shader identity without the backend-specific file
+    extension; its resolved base path applies the configured data root.
 
 Invariants:
   - Logical asset names are stable scene/runtime contracts; re-registering an
@@ -443,11 +443,42 @@ const char* AssetSystem::ResolveShaderBaseName( const char* logicalNameOrBaseNam
 }
 
 
+std::string AssetSystem::ResolveShaderBasePath( const char* logicalNameOrBaseName ) const
+{
+    if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )
+    {
+        SB_FATAL( "AssetSystem", "ResolveShaderBasePath requires a logical name or base name." );
+    }
+
+    const ShaderSourceAsset* shader = FindShaderSourceAsset( logicalNameOrBaseName );
+
+    if ( shader )
+    {
+        return shader->resolvedBasePath;
+    }
+
+    // The static logical-name fallback still belongs to this AssetSystem's
+    // configured root. Raw absolute paths pass through ResolvePath unchanged.
+    return ResolvePath( ResolveShaderBaseName( logicalNameOrBaseName ) );
+}
+
+
+ShaderSourceRequest AssetSystem::ResolveShaderSourceRequest( const char* logicalNameOrBaseName ) const
+{
+    ShaderSourceRequest request;
+    request.resolvedBasePath = ResolveShaderBasePath( logicalNameOrBaseName );
+    request.contractBaseName = ResolveShaderBaseName( logicalNameOrBaseName );
+    return request;
+}
+
+
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 std::unique_ptr<Rendering::ShaderDX12> AssetSystem::CreateShader( Rendering::Dx12ResourceBuilder& renderResources,
                                                                   const char* logicalNameOrBaseName ) const
 {
-    return renderResources.CreateShader( ResolveShaderBaseName( logicalNameOrBaseName ) );
+    const ShaderSourceRequest request = ResolveShaderSourceRequest( logicalNameOrBaseName );
+    return renderResources.CreateShaderFromResolvedBasePath( request.resolvedBasePath.c_str(),
+                                                              request.contractBaseName.c_str() );
 }
 #endif
 

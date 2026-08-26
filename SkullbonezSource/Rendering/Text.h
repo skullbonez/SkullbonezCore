@@ -30,6 +30,7 @@ Related:
 
 
 #include <array>
+#include <memory>
 
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
@@ -41,7 +42,6 @@ namespace SkullbonezCore
 namespace Rendering
 {
 class Dx12GeometryOwner;
-class Dx12ResourceBuilder;
 class Dx12TextureOwner;
 class Dx12GeometryOwner;
 } // namespace Rendering
@@ -115,9 +115,10 @@ class Text2d
     static void FlushQuads( TextBatch& batch, Rendering::Dx12GeometryOwner& renderCommands ); // Uploads the current queued quad/triangle segment.
     static SkullbonezCore::Core::SbResult
     BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, TextBatch& batch,
-               Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
-               Rendering::Dx12GeometryOwner& renderGeometry, const char* textShaderBaseName, const char* solidShaderBaseName,
-               const char* solidBatchShaderBaseName, int screenW, int screenH,
+               Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+               std::unique_ptr<Rendering::ShaderDX12> textShader,
+               std::unique_ptr<Rendering::ShaderDX12> solidShader,
+               std::unique_ptr<Rendering::ShaderDX12> solidBatchShader, int screenW, int screenH,
                const char* fontName );                                                        // Loads or generates SDF atlas resources for the active backend.
     static bool GenerateSdfAtlasToFile( const char* fontName, const char* outputPath );       // Offline SDF atlas writer used by --gen-atlas tooling.
     static void DeleteFont( TextBatch& batch, Rendering::Dx12TextureOwner* renderTextures,

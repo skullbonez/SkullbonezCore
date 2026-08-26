@@ -338,6 +338,91 @@ struct TextureCollectionTestAccess
 
         return TextureCollection::FindFreeSlotOrFatal( textures );
     }
+
+    static bool ReplacementTransactionPreservesFailuresAndRetiresAfterPublication()
+    {
+        std::array<TextureCollection::GpuTextureRecord, SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT> textures {};
+        TextureCollection::GpuTextureRecord& destination = textures[0];
+        destination.legacyHash = 0xA11CEu;
+        destination.backendHandle = 17u;
+        destination.sourceId = 3u;
+        destination.width = 64;
+        destination.height = 32;
+        destination.channels = 4;
+        const TextureCollection::GpuTextureRecord original = destination;
+        SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+        int eventOrder = 0;
+        bool retired = false;
+
+        SkullbonezCore::Core::SbResult decodeFailure = TextureCollection::CreateOrReplaceTextureRecord(
+            textures, original.legacyHash,
+            [&]( TextureCollection::GpuTextureRecord& ) {
+                eventOrder = 1;
+                return diagnostics.Failure( "TextureCollectionTest", "planted decode failure" );
+            },
+            [&]( uint32_t ) { retired = true; } );
+
+        if ( decodeFailure.Ok() || eventOrder != 1 || retired || destination.legacyHash != original.legacyHash ||
+             destination.backendHandle != original.backendHandle || destination.sourceId != original.sourceId ||
+             destination.width != original.width || destination.height != original.height ||
+             destination.channels != original.channels )
+        {
+            return false;
+        }
+
+        eventOrder = 0;
+        SkullbonezCore::Core::SbResult backendFailure = TextureCollection::CreateOrReplaceTextureRecord(
+            textures, original.legacyHash,
+            [&]( TextureCollection::GpuTextureRecord& ) {
+                eventOrder = 2;
+                return diagnostics.Failure( "TextureCollectionTest", "planted backend failure" );
+            },
+            [&]( uint32_t ) { retired = true; } );
+
+        if ( backendFailure.Ok() || eventOrder != 2 || retired || destination.legacyHash != original.legacyHash ||
+             destination.backendHandle != original.backendHandle || destination.sourceId != original.sourceId ||
+             destination.width != original.width || destination.height != original.height ||
+             destination.channels != original.channels )
+        {
+            return false;
+        }
+
+        TextureCollection::GpuTextureRecord candidate;
+        candidate.legacyHash = original.legacyHash;
+        candidate.backendHandle = 29u;
+        candidate.sourceId = 8u;
+        candidate.width = 128;
+        candidate.height = 64;
+        candidate.channels = 3;
+        eventOrder = 0;
+        uint32_t retiredHandle = 0;
+
+        const SkullbonezCore::Core::SbResult success = TextureCollection::CreateOrReplaceTextureRecord(
+            textures, original.legacyHash,
+            [&]( TextureCollection::GpuTextureRecord& loadedCandidate ) {
+                if ( destination.backendHandle != original.backendHandle )
+                {
+                    return diagnostics.Failure( "TextureCollectionTest", "resident row changed before candidate load" );
+                }
+
+                eventOrder = 3;
+                loadedCandidate = candidate;
+                return SkullbonezCore::Core::SbResult::Success();
+            },
+            [&]( uint32_t handle ) {
+                retiredHandle = handle;
+
+                if ( destination.backendHandle == candidate.backendHandle )
+                {
+                    eventOrder = 4;
+                }
+            } );
+
+        return success.Ok() && eventOrder == 4 && retiredHandle == original.backendHandle &&
+               destination.legacyHash == candidate.legacyHash && destination.backendHandle == candidate.backendHandle &&
+               destination.sourceId == candidate.sourceId && destination.width == candidate.width &&
+               destination.height == candidate.height && destination.channels == candidate.channels;
+    }
 };
 } // namespace SkullbonezCore::Textures
 
@@ -614,6 +699,24 @@ TEST_CASE( "TextureCollection fixed capacity admits its exact final slot" )
     CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::FirstFreeSlot(
                SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1u ) ==
            SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT - 1 );
+}
+
+
+TEST_CASE( "TextureCollection publishes a valid replacement without erasing the resident failure fallback" )
+{
+    CHECK( SkullbonezCore::Textures::TextureCollectionTestAccess::
+               ReplacementTransactionPreservesFailuresAndRetiresAfterPublication() );
+}
+
+
+TEST_CASE( "DX12 shader requests distinguish default-root names from resolved asset paths" )
+{
+    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::DefaultShaderHlslPath( "shaders/unit" ) ==
+           std::string( DATA_ROOT ) + "shaders/unit.hlsl" );
+    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath(
+               "AlternateData/shaders/unit" ) == "AlternateData/shaders/unit.hlsl" );
+    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath(
+               "C:/ShaderRoot/absolute" ) == "C:/ShaderRoot/absolute.hlsl" );
 }
 
 

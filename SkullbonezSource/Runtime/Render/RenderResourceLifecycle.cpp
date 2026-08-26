@@ -33,6 +33,7 @@ Related:
 
 #include <cassert>
 #include <cstdio>
+#include <utility>
 
 using namespace SkullbonezCore::Runtime;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
@@ -145,10 +146,12 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( int screenW, int screenH )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-    return m_uiTextPass.EnsureGpuResources( m_renderResources, m_renderTextures, m_renderGeometry,
-                                            m_assets.ResolveShaderBaseName( "shader.text" ),
-                                            m_assets.ResolveShaderBaseName( "shader.solid_color" ),
-                                            m_assets.ResolveShaderBaseName( "shader.solid_color_batch" ), screenW, screenH );
+    std::unique_ptr<Rendering::ShaderDX12> textShader = m_assets.CreateShader( m_renderResources, "shader.text" );
+    std::unique_ptr<Rendering::ShaderDX12> solidShader = m_assets.CreateShader( m_renderResources, "shader.solid_color" );
+    std::unique_ptr<Rendering::ShaderDX12> solidBatchShader =
+        m_assets.CreateShader( m_renderResources, "shader.solid_color_batch" );
+    return m_uiTextPass.EnsureGpuResources( m_renderTextures, m_renderGeometry, std::move( textShader ),
+                                            std::move( solidShader ), std::move( solidBatchShader ), screenW, screenH );
 }
 
 

@@ -126,6 +126,13 @@ struct ShaderSourceAsset
     ShaderProgramContract contract;
 };
 
+
+struct ShaderSourceRequest
+{
+    std::string resolvedBasePath;
+    std::string contractBaseName;
+};
+
 struct AssetLibrarySourceAsset
 {
     AssetId id = 0;
@@ -159,6 +166,8 @@ class AssetSystem
     // Lifetime: the returned name may alias registry, static, or caller storage;
     // consume it synchronously before registry mutation or caller-buffer reuse.
     const char* ResolveShaderBaseName( const char* logicalNameOrBaseName ) const;
+    std::string ResolveShaderBasePath( const char* logicalNameOrBaseName ) const;
+    ShaderSourceRequest ResolveShaderSourceRequest( const char* logicalNameOrBaseName ) const;
     std::unique_ptr<Rendering::ShaderDX12> CreateShader( Rendering::Dx12ResourceBuilder& renderResources,
                                                          const char* logicalNameOrBaseName ) const;
 

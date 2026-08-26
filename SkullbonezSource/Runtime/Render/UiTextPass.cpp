@@ -35,6 +35,7 @@ Invariants:
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <utility>
 
 using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Text::Text2d;
@@ -160,15 +161,15 @@ void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, 
 } // namespace
 
 SkullbonezCore::Core::SbResult
-UiTextPass::EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
-                                Rendering::Dx12GeometryOwner& renderGeometry, const char* textShaderBaseName,
-                                const char* solidShaderBaseName, const char* solidBatchShaderBaseName, int screenW,
-                                int screenH )
+UiTextPass::EnsureGpuResources( Rendering::Dx12TextureOwner& renderTextures,
+                                Rendering::Dx12GeometryOwner& renderGeometry,
+                                std::unique_ptr<Rendering::ShaderDX12> textShader,
+                                std::unique_ptr<Rendering::ShaderDX12> solidShader,
+                                std::unique_ptr<Rendering::ShaderDX12> solidBatchShader, int screenW, int screenH )
 {
-    const SkullbonezCore::Core::SbResult fontResult = Text2d::BuildFont( m_resultDiagnostics, m_textBatch, renderResources,
-                                                                         renderTextures, renderGeometry, textShaderBaseName,
-                                                                         solidShaderBaseName, solidBatchShaderBaseName,
-                                                                         screenW, screenH, "Verdana" );
+    const SkullbonezCore::Core::SbResult fontResult =
+        Text2d::BuildFont( m_resultDiagnostics, m_textBatch, renderTextures, renderGeometry, std::move( textShader ),
+                           std::move( solidShader ), std::move( solidBatchShader ), screenW, screenH, "Verdana" );
 
     if ( !fontResult.Ok() )
     {

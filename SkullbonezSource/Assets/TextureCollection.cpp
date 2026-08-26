@@ -84,16 +84,6 @@ int TextureCollection::FindIndexNoThrow( uint32_t hash ) const
 }
 
 
-int TextureCollection::FindFreeSlot() const
-{
-    // Invariant: the first non-resident row is the only writable slot, and a
-    // full table reaches the TextureCollection-owned fatal before any indexing.
-    // Runtime allocation policy: the legacy table never grows during asset
-    // loading, draw preparation, or resource rebuilds.
-    return FindFreeSlotOrFatal( m_textures );
-}
-
-
 void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
 {
     // Lifetime: the collection stores renderer-neutral ids, but the backend
@@ -219,19 +209,10 @@ SkullbonezCore::Core::SbResult TextureCollection::EnsureTexture( uint32_t hash )
 }
 
 
-SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int slot, const char* fileName, uint32_t hash,
-                                                                           Assets::AssetId sourceId, bool generateMips,
-                                                                           bool linearFilter, int channelsHint )
+SkullbonezCore::Core::SbResult TextureCollection::CreateOrReplaceJpegTexture( const char* fileName, uint32_t hash,
+                                                                              Assets::AssetId sourceId, bool generateMips,
+                                                                              bool linearFilter, int channelsHint )
 {
-    if ( slot < 0 || slot >= static_cast<int>( m_textures.size() ) )
-    {
-        // Invariant: callers reserve slots through FindFreeSlot or reuse an
-        // existing resident slot. A direct out-of-range slot would corrupt the
-        // fixed legacy texture table.
-        SB_FATAL( "TextureCollection", "Invalid texture slot. slot=%d capacity=%zu hash=0x%08X", slot, m_textures.size(),
-                  hash );
-    }
-
     if ( !fileName || fileName[0] == '\0' )
     {
         return m_resultDiagnostics.Failure( "TextureCollection", "Texture file path is empty. hash=0x%08X", hash );
@@ -244,46 +225,46 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int s
         // Invariant: texture file bytes become a backend resource immediately
         // after decode, so the render resource facet must be bound first.
         SB_FATAL( "TextureCollection",
-                  "LoadJpegTextureIntoSlot requires a bound render resource context. slot=%d hash=0x%08X path=\"%s\"", slot,
-                  hash, fileName ? fileName : "" );
+                  "CreateOrReplaceJpegTexture requires a bound render resource context. hash=0x%08X path=\"%s\"", hash,
+                  fileName ? fileName : "" );
     }
 
-    int width = 0;
-    int height = 0;
-    int sourceChannels = 0;
-    std::unique_ptr<unsigned char, decltype( &stbi_image_free )> data( stbi_load( fileName, &width, &height, &sourceChannels,
-                                                                                  requestedChannels ),
-                                                                       stbi_image_free );
+    return CreateOrReplaceTextureRecord(
+        m_textures, hash,
+        [&]( GpuTextureRecord& candidate ) {
+            int width = 0;
+            int height = 0;
+            int sourceChannels = 0;
+            std::unique_ptr<unsigned char, decltype( &stbi_image_free )> data(
+                stbi_load( fileName, &width, &height, &sourceChannels, requestedChannels ), stbi_image_free );
 
-    if ( !data )
-    {
-        return m_resultDiagnostics.Failure( "TextureCollection", "Image load failed. path=\"%s\" hash=0x%08X", fileName,
-                                            hash );
-    }
+            if ( !data )
+            {
+                return m_resultDiagnostics.Failure( "TextureCollection", "Image load failed. path=\"%s\" hash=0x%08X",
+                                                    fileName, hash );
+            }
 
-    const uint32_t backendHandle = m_renderResources->CreateTexture2D( data.get(), width, height, requestedChannels,
-                                                                       generateMips
-                                                                           ? Rendering::TextureMipPolicy::Generate
-                                                                           : Rendering::TextureMipPolicy::SingleLevel,
-                                                                       linearFilter
-                                                                           ? Rendering::TextureFilterPolicy::Linear
-                                                                           : Rendering::TextureFilterPolicy::Nearest );
+            const uint32_t backendHandle = m_renderResources->CreateTexture2D(
+                data.get(), width, height, requestedChannels,
+                generateMips ? Rendering::TextureMipPolicy::Generate : Rendering::TextureMipPolicy::SingleLevel,
+                linearFilter ? Rendering::TextureFilterPolicy::Linear : Rendering::TextureFilterPolicy::Nearest );
 
-    if ( backendHandle == 0 )
-    {
-        return m_resultDiagnostics.Failure( "TextureCollection",
-                                            "Backend returned an invalid texture handle. path=\"%s\" hash=0x%08X", fileName,
-                                            hash );
-    }
+            if ( backendHandle == 0 )
+            {
+                return m_resultDiagnostics.Failure(
+                    "TextureCollection", "Backend returned an invalid texture handle. path=\"%s\" hash=0x%08X", fileName,
+                    hash );
+            }
 
-    GpuTextureRecord& texture = m_textures[slot];
-    texture.legacyHash = hash;
-    texture.backendHandle = backendHandle;
-    texture.sourceId = sourceId;
-    texture.width = width;
-    texture.height = height;
-    texture.channels = requestedChannels;
-    return SkullbonezCore::Core::SbResult::Success();
+            candidate.legacyHash = hash;
+            candidate.backendHandle = backendHandle;
+            candidate.sourceId = sourceId;
+            candidate.width = width;
+            candidate.height = height;
+            candidate.channels = requestedChannels;
+            return SkullbonezCore::Core::SbResult::Success();
+        },
+        [&]( uint32_t supersededHandle ) { m_renderResources->DeleteTexture( supersededHandle ); } );
 }
 
 
@@ -296,15 +277,8 @@ SkullbonezCore::Core::SbResult TextureCollection::CreateTextureFromSourceAsset( 
                                             source.id, source.logicalName.c_str() );
     }
 
-    const int existingIndex = FindIndexNoThrow( source.legacyHash );
-
-    if ( existingIndex >= 0 )
-    {
-        ReleaseTexture( m_textures[existingIndex] );
-    }
-
-    return LoadJpegTextureIntoSlot( FindFreeSlot(), source.resolvedPath.c_str(), source.legacyHash, source.id,
-                                    source.generateMips, source.linearFilter, source.channelsHint );
+    return CreateOrReplaceJpegTexture( source.resolvedPath.c_str(), source.legacyHash, source.id, source.generateMips,
+                                       source.linearFilter, source.channelsHint );
 }
 
 
@@ -325,14 +299,7 @@ SkullbonezCore::Core::SbResult TextureCollection::CreateJpegTexture( const char*
         return CreateTextureFromSourceAsset( *source );
     }
 
-    const int existingIndex = FindIndexNoThrow( hash );
-
-    if ( existingIndex >= 0 )
-    {
-        ReleaseTexture( m_textures[existingIndex] );
-    }
-
-    return LoadJpegTextureIntoSlot( FindFreeSlot(), fileName, hash, 0, true, true, 3 );
+    return CreateOrReplaceJpegTexture( fileName, hash, 0, true, true, 3 );
 }
 
 

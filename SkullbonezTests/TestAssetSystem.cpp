@@ -113,3 +113,29 @@ TEST_CASE( "AssetSystem: shader base-name resolution preserves source ownership 
     CHECK( std::string( assets.ResolveShaderBaseName( "shader.text" ) ) == "shaders/overridden_text" );
     CHECK( std::string( assets.ResolveShaderBaseName( "shaders/overridden_text" ) ) == "shaders/overridden_text" );
 }
+
+
+TEST_CASE( "AssetSystem: shader base paths retain configured and absolute roots" )
+{
+    AssetSystem configured( "AlternateData" );
+    const auto& configuredShader =
+        configured.RegisterShaderSourceAsset( "shader.unit", "shaders/unit" );
+
+    CHECK( configuredShader.resolvedBasePath == "AlternateData/shaders/unit" );
+    CHECK( configured.ResolveShaderBasePath( "shader.unit" ) == "AlternateData/shaders/unit" );
+    CHECK( configured.ResolveShaderBasePath( "shaders/unit" ) == "AlternateData/shaders/unit" );
+    CHECK( configured.ResolveShaderBasePath( "shader.text" ) == "AlternateData/shaders/text" );
+    const SkullbonezCore::Assets::ShaderSourceRequest configuredRequest =
+        configured.ResolveShaderSourceRequest( "shader.unit" );
+    CHECK( configuredRequest.resolvedBasePath == "AlternateData/shaders/unit" );
+    CHECK( configuredRequest.contractBaseName == "shaders/unit" );
+
+    const auto& absoluteShader =
+        configured.RegisterShaderSourceAsset( "shader.absolute", "C:/ShaderRoot/absolute" );
+    CHECK( absoluteShader.resolvedBasePath == "C:/ShaderRoot/absolute" );
+    CHECK( configured.ResolveShaderBasePath( "shader.absolute" ) == "C:/ShaderRoot/absolute" );
+    const SkullbonezCore::Assets::ShaderSourceRequest absoluteRequest =
+        configured.ResolveShaderSourceRequest( "shader.absolute" );
+    CHECK( absoluteRequest.resolvedBasePath == "C:/ShaderRoot/absolute" );
+    CHECK( absoluteRequest.contractBaseName == "C:/ShaderRoot/absolute" );
+}

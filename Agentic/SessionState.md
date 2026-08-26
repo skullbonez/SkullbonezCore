@@ -896,3 +896,20 @@ same-state aliases. Final review counts were 0 blocking, 0 non-blocking, and 1
 missing-evidence item. Per owner direction, no build, test, scanner, inventory,
 or validation command was run; native fence, COM, and command-stream behavior
 therefore remains unexecuted evidence rather than a claimed result.
+
+## Assets Bug Ledger Closure (2026-08-26)
+
+ASSET-002 and ASSET-004 are fixed as one subsystem batch. Shader creation now
+carries an AssetSystem-owned request containing the configured or absolute
+resolved base path and the authored contract name. Ordinary asset shaders and
+all three UI text shaders use that request, while direct Rendering builder
+calls keep their compile-time `DATA_ROOT` behavior. Texture replacement now
+loads a candidate through one shared transaction, leaves the resident row
+untouched on decode or backend failure, publishes the complete candidate, and
+only then retires the superseded backend handle.
+
+One consolidated read-only rubber-duck review covered both Assets rows in task
+`01a03961-d56f-70d1-a7f2-56d4651b858b`. The final counts were 0 blocking, 0
+non-blocking, and 1 missing-evidence item. Per owner direction, no build, test,
+scanner, inventory, or validation command was run; compile/link and focused
+runtime behavior remain unexecuted evidence rather than claimed results.

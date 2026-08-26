@@ -973,11 +973,12 @@ class UiTextPass
     {
     }
 
-    SkullbonezCore::Core::SbResult EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
-                                                       Rendering::Dx12TextureOwner& renderTextures,
+    SkullbonezCore::Core::SbResult EnsureGpuResources( Rendering::Dx12TextureOwner& renderTextures,
                                                        Rendering::Dx12GeometryOwner& renderGeometry,
-                                                       const char* textShaderBaseName, const char* solidShaderBaseName,
-                                                       const char* solidBatchShaderBaseName, int screenW, int screenH );
+                                                       std::unique_ptr<Rendering::ShaderDX12> textShader,
+                                                       std::unique_ptr<Rendering::ShaderDX12> solidShader,
+                                                       std::unique_ptr<Rendering::ShaderDX12> solidBatchShader,
+                                                       int screenW, int screenH );
     void ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures, Rendering::Dx12GeometryOwner* renderGeometry );
     bool ShouldRender( const UiTextVisibility& visibility ) const;
     void SetDxrReflectionPreviewTexture( uint32_t textureHandle );

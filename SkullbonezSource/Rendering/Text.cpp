@@ -26,10 +26,10 @@ Related:
 #include "../Core/WindowConstants.h"
 #include "RenderCommandTypes.h"
 #include "DX12/RenderBackendDX12.h"
-#include "DX12/Dx12ResourceBuilder.h"
 #include "DX12/RenderBackendDX12.h"
 
 #include <memory>
+#include <utility>
 
 
 using namespace SkullbonezCore::Text;
@@ -511,10 +511,11 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 
 
 SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                                  TextBatch& batch, Dx12ResourceBuilder& renderResources,
-                                                  Dx12TextureOwner& renderTextures, Dx12GeometryOwner& renderGeometry,
-                                                  const char* textShaderBaseName, const char* solidShaderBaseName,
-                                                  const char* solidBatchShaderBaseName, int screenW, int screenH,
+                                                  TextBatch& batch, Dx12TextureOwner& renderTextures,
+                                                  Dx12GeometryOwner& renderGeometry,
+                                                  std::unique_ptr<ShaderDX12> textShader,
+                                                  std::unique_ptr<ShaderDX12> solidShader,
+                                                  std::unique_ptr<ShaderDX12> solidBatchShader, int screenW, int screenH,
                                                   const char* fontName )
 {
     // Load the pre-generated SDF atlas if available.  To regenerate, run:
@@ -541,8 +542,8 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
         fprintf( stderr, "[Text2d] SDF atlas saved to %s\n", atlasPath.c_str() );
     }
 
-    // Create the text batch VB: [x, y, u, v, r, g, b] per vertex, large enough for a full HUD frame.
-    // All Render2dText* calls accumulate into this; FlushText() does one upload+draw per frame.
+    // Create the text batch VB: [x, y, u, v, r, g, b] per vertex. Render2dText*
+    // calls accumulate until a capacity or submission boundary flushes one segment.
     int batchAttribs[] = { 2, 2, 3 };
     Text2d::textBatchVB = renderGeometry.CreateDynamicVB( batchAttribs, 3,
                                                           TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR );
@@ -557,14 +558,13 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
     Text2d::quadBatchVB = renderGeometry.CreateDynamicVB( quadBatchAttribs, 2,
                                                           QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD );
 
-    // Compile the text shader and bind the atlas sampler slot once.
-    Text2d::pTextShader = renderResources.CreateShader( textShaderBaseName );
+    // The AssetSystem-resolved shaders arrive as complete candidates so Text2d
+    // cannot silently fall back to the compile-time data root.
+    Text2d::pTextShader = std::move( textShader );
 
-    // Compile the solid-colour HUD quad shader (used by Render2dQuad — immediate, one draw per call)
-    Text2d::pSolidShader = renderResources.CreateShader( solidShaderBaseName );
+    Text2d::pSolidShader = std::move( solidShader );
 
-    // Compile the batched per-vertex-RGBA quad shader used for one draw per flushed segment.
-    Text2d::pSolidBatchShader = renderResources.CreateShader( solidBatchShaderBaseName );
+    Text2d::pSolidBatchShader = std::move( solidBatchShader );
 
     // Recoverable error: text is required UI, not an optional effect. Returning success
     // with a missing shader makes every glyph draw quietly disappear while

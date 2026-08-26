@@ -25,6 +25,7 @@ Related:
 #include "../RenderResourceTypes.h"
 
 #include <memory>
+#include <string>
 
 namespace SkullbonezCore::Rendering
 {
@@ -54,6 +55,12 @@ class Dx12ResourceBuilder
     // contractBaseName separates a feature-owned physical asset name from the
     // generic CPU ABI name used by Rendering.
     std::unique_ptr<ShaderDX12> CreateShader( const char* baseName, const char* contractBaseName = nullptr );
+    // AssetSystem has already applied its configured root to this path. The
+    // builder appends only the HLSL extension and never reapplies DATA_ROOT.
+    std::unique_ptr<ShaderDX12> CreateShaderFromResolvedBasePath( const char* resolvedBasePath,
+                                                                  const char* contractBaseName = nullptr );
+    static std::string DefaultShaderHlslPath( const char* baseName );
+    static std::string ResolvedShaderHlslPath( const char* resolvedBasePath );
 
     // BackendInit-only operation: verify the finite first-gameplay raster set
     // without constructing pass-owned ShaderDX12 objects.
@@ -63,6 +70,7 @@ class Dx12ResourceBuilder
                                                         FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );
 
   private:
+    std::unique_ptr<ShaderDX12> CreateShaderFromHlslPath( const char* hlslPath, const char* contractBaseName );
     Dx12RenderDevice& m_device;
     Dx12PipelineOwner& m_pipeline;
     Dx12TextureOwner& m_textures;
