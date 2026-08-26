@@ -86,9 +86,10 @@ class Camera
     Math::Vector::Vector3 GetViewVectorNormalised();
     Math::Vector::Vector3 GetViewVectorRaw();
     Math::Vector::Vector3 GetRightVector();
-    float UpVectorViewVectorRotationCap( float requestRadians, const CameraMovementSettings& settings );      // Caps pitch so view and up vectors cannot
-
+    // Caps pitch for the effective staged eye so view and up vectors cannot
     // collapse into the same direction.
+    float UpVectorViewVectorRotationCap( float requestRadians, const CameraMovementSettings& settings,
+                                         const Math::Vector::Vector3& eyePosition );
     void RecoverViewMagnitude( bool isOnBoundX, bool isOnBoundZ, const CameraMovementSettings& settings );    // One-axis bound clamps may need a guarded
 
     // repair pass to restore eye-to-view distance.

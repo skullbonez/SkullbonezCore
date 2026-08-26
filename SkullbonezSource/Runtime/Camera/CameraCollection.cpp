@@ -526,6 +526,15 @@ void CameraCollection::SetCamera()
 
         if ( m_tweenProgress >= 1.0f )
         {
+            // Invariant: the selected slot becomes the exact endpoint that was
+            // published. Terrain correction is part of the completed pose, not
+            // a one-frame render override that may snap back on the next frame.
+            m_tweenCamera.m_viewMagnitude = Vector::Distance( m_tweenCamera.m_position, m_tweenCamera.m_view );
+            m_cameraArray[m_selectedCamera] = m_tweenCamera;
+            // Camera's assignment intentionally preserves slot-local bounds and
+            // repair flags, so publish the corrected distance explicitly.
+            m_cameraArray[m_selectedCamera].m_viewMagnitude = m_tweenCamera.m_viewMagnitude;
+            ResetRelativity();
             m_isTweening = false;
         }
     }

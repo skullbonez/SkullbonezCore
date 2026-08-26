@@ -4,6 +4,22 @@ Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
 Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
 
+## Runtime Camera Bug Ledger Closure (2026-08-26)
+
+CAM-001 through CAM-003 are fixed as one Runtime Camera subsystem batch.
+Locked dolly and rotation inputs now compose against the effective staged eye,
+clamp requested orbit endpoints, share the supported world-Y basis fallback,
+and never repair floating rotation drift by moving the retained target. Tween
+completion publishes the terrain-corrected pose and its corrected view
+magnitude back to the selected camera slot.
+
+One consolidated read-only rubber-duck review used task
+`01a03961-d56f-70d1-a7f2-56d4651b858b`. Four passes closed staged-input
+composition, partial-assignment magnitude publication, zero-up orbit basis, and
+locked target-recovery findings. Final counts were 0 Blocking, 0 Non-blocking,
+and 1 Missing evidence. Per owner direction, the focused camera tests, builds,
+scanners, inventories, and repository validation were not executed.
+
 ## Validation Tooling Bug Ledger Closure (2026-08-26)
 
 TOOL-001 is fixed as the complete pending Validation Tooling subsystem batch.

@@ -32,6 +32,7 @@ Related:
 #include "Camera.h"
 #include "../../Maths/RotationMatrix.h"
 
+#include <algorithm>
 
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math;
@@ -91,20 +92,24 @@ void Camera::MoveCamera( const TravelDirection direction, float amount, const Ca
 
         if ( m_isLockedMode )
         {
-            // in locked mode we only want to be able to translate the camera
-            // within a certain m_distance to the view point, so here we test to
-            // ensure this rule is not violated
-            if ( Vector::Distance( m_position, m_view ) < settings.minViewMag )
+            // Invariant: clamp the requested endpoint, not the pre-move eye.
+            // A large forward step must stop at the minimum instead of crossing
+            // through the retained look target and becoming a reversed orbit.
+            const Vector3 effectiveEye = m_position + m_movementBuffer;
+            const float currentDistance = Vector::Distance( effectiveEye, m_view );
+            const float targetDistance = std::clamp( currentDistance - amount, settings.minViewMag, settings.maxViewMag );
+            Vector3 effectiveViewDirection = m_view - effectiveEye;
+            if ( !effectiveViewDirection.TryNormalise() )
             {
-                return;
+                effectiveViewDirection = Vector3( 0.0f, 0.0f, -1.0f );
             }
-
-            // if there has been a change in view magnitude, we need to recalculate
+            movementResults = effectiveViewDirection * ( currentDistance - targetDistance );
             m_doCalculateViewMagnitude = true;
         }
-
-        // movement result is along the view vector, positive direction
-        movementResults = GetViewVectorNormalised() * amount;
+        else
+        {
+            movementResults = GetViewVectorNormalised() * amount;
+        }
         break;
 
     case TravelDirection::Left:
@@ -133,20 +138,21 @@ void Camera::MoveCamera( const TravelDirection direction, float amount, const Ca
 
         if ( m_isLockedMode )
         {
-            // in locked mode we only want to be able to translate the camera
-            // within a certain m_distance from the view point, so here we test to
-            // ensure this rule is not violated
-            if ( Vector::Distance( m_position, m_view ) > settings.maxViewMag )
+            const Vector3 effectiveEye = m_position + m_movementBuffer;
+            const float currentDistance = Vector::Distance( effectiveEye, m_view );
+            const float targetDistance = std::clamp( currentDistance + amount, settings.minViewMag, settings.maxViewMag );
+            Vector3 effectiveViewDirection = m_view - effectiveEye;
+            if ( !effectiveViewDirection.TryNormalise() )
             {
-                return;
+                effectiveViewDirection = Vector3( 0.0f, 0.0f, -1.0f );
             }
-
-            // if there has been a change in view magnitude, we need to recalculate
+            movementResults = effectiveViewDirection * -( targetDistance - currentDistance );
             m_doCalculateViewMagnitude = true;
         }
-
-        // movement result is along the view vector, negative direction
-        movementResults = GetViewVectorNormalised() * -amount;
+        else
+        {
+            movementResults = GetViewVectorNormalised() * -amount;
+        }
     }
 
     m_movementBuffer += movementResults;
@@ -175,8 +181,10 @@ void Camera::ApplyMovementBuffer( const CameraMovementSettings& settings )
 
 void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSettings& settings )
 {
+    const Vector3 effectiveEye = m_isLockedMode ? m_position + m_movementBuffer : m_position;
+
     // caps the y rotation quantity to avoid view-up collisions
-    float yMoveCapped = UpVectorViewVectorRotationCap( yMove, settings );
+    float yMoveCapped = UpVectorViewVectorRotationCap( yMove, settings, effectiveEye );
 
     // the following code will move the view vector - this is not allowed
     // in locked mode
@@ -213,21 +221,35 @@ void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSetting
             to camera translation opposed to camera to view point.
         */
 
-        // local to add up translation proposal
-        Vector3 proposedTranslation;
+        // Invariant: yaw and pitch compose on one eye-from-target vector. Adding
+        // two independent endpoint deltas leaves the orbit sphere whenever both
+        // inputs are nonzero and later distance recovery can move the target.
+        Vector3 orbitUp = m_upVector;
+        if ( !orbitUp.TryNormalise() )
+        {
+            // Match pitch policy: an authored zero basis uses world Y for the
+            // complete locked-orbit calculation, not only for cap selection.
+            orbitUp = Vector3( 0.0f, 1.0f, 0.0f );
+        }
 
-        // the mouses xMove will always represent a pivot on the up vector
-        // (repsective to the view point)
-        proposedTranslation = m_view + Transformation::RotatePointAboutArbitrary( xMove, m_upVector, -GetViewVectorRaw() );
+        Vector3 eyeFromTarget = effectiveEye - m_view;
+        eyeFromTarget = Transformation::RotatePointAboutArbitrary( xMove, orbitUp, eyeFromTarget );
 
-        m_movementBuffer += proposedTranslation - m_position;
+        Vector3 yawedViewDirection = -eyeFromTarget;
+        if ( !yawedViewDirection.TryNormalise() )
+        {
+            yawedViewDirection = Vector3( 0.0f, 0.0f, -1.0f );
+        }
 
-        // the mouses yMove will always represent a pivot on the right vector
-        // (repsective to the view point)
-        proposedTranslation = m_view + Transformation::RotatePointAboutArbitrary( yMoveCapped, GetRightVector(),
-                                                                                  -GetViewVectorRaw() );
+        Vector3 yawedRight = Vector::CrossProduct( yawedViewDirection, orbitUp );
+        if ( !yawedRight.TryNormalise() )
+        {
+            yawedRight = Vector3( 1.0f, 0.0f, 0.0f );
+        }
 
-        m_movementBuffer += proposedTranslation - m_position;
+        eyeFromTarget = Transformation::RotatePointAboutArbitrary( yMoveCapped, yawedRight, eyeFromTarget );
+        const Vector3 proposedTranslation = m_view + eyeFromTarget;
+        m_movementBuffer += proposedTranslation - effectiveEye;
     }
 }
 
@@ -408,16 +430,34 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ,
         // if the current view magnitude is over quota
         else if ( viewMagTmp > m_viewMagnitude )
         {
-            // cap the magnitude to what it is set to
-            m_view = m_position + ( GetViewVectorNormalised() * m_viewMagnitude );
+            // Invariant: locked recovery never moves the retained look target.
+            // Floating rotation can round the radius upward; repair the eye
+            // only when that projection remains inside the active XZ bounds.
+            const Vector3 projectedPosition = m_view - GetViewVectorNormalised() * m_viewMagnitude;
+            const float boundedMinX = m_boundary.m_xMin + settings.minCameraHeight;
+            const float boundedMaxX = m_boundary.m_xMax - settings.minCameraHeight;
+            const float boundedMinZ = m_boundary.m_zMin + settings.minCameraHeight;
+            const float boundedMaxZ = m_boundary.m_zMax - settings.minCameraHeight;
+
+            if ( projectedPosition.x >= boundedMinX && projectedPosition.x <= boundedMaxX &&
+                 projectedPosition.z >= boundedMinZ && projectedPosition.z <= boundedMaxZ )
+            {
+                m_position = projectedPosition;
+            }
         }
     }
 }
 
 
-float Camera::UpVectorViewVectorRotationCap( float requestRadians, const CameraMovementSettings& settings )
+float Camera::UpVectorViewVectorRotationCap( float requestRadians, const CameraMovementSettings& settings,
+                                             const Vector3& eyePosition )
 {
-    Vector3 vNegatedView = -GetViewVectorNormalised();
+    Vector3 effectiveViewDirection = m_view - eyePosition;
+    if ( !effectiveViewDirection.TryNormalise() )
+    {
+        effectiveViewDirection = Vector3( 0.0f, 0.0f, -1.0f );
+    }
+    Vector3 vNegatedView = -effectiveViewDirection;
     Vector3 effectiveUp = m_upVector;
 
     if ( !effectiveUp.TryNormalise() )
