@@ -201,7 +201,7 @@ def task_stream(task_id: str) -> str:
     return "Bug fixes"
 
 
-def group_task_costs(tasks: Iterable[Task], *, individual_limit: int = 6) -> list[tuple[str, float, int]]:
+def group_task_costs(tasks: Iterable[Task], *, individual_limit: int = 9) -> list[tuple[str, float, int]]:
     """Keep the expensive tasks legible and combine the long cheap tail."""
     paid = sorted((task for task in tasks if task.cost_usd > 0.0), key=lambda task: (-task.cost_usd, task.task_id))
     groups = [(task_code(task.task_id), task.cost_usd, 1) for task in paid[:individual_limit]]
@@ -470,7 +470,7 @@ def build_fragment(ledger: Path, goal: dict[str, str], tasks: list[Task]) -> tup
 </header>
 <section class="stats" aria-label="Run totals">
   <div class="card viz-stat"><div class="text-muted">Tasks closed</div><div class="viz-stat-value">{len(completed)}</div><div class="text-small text-muted">{commits} commits · peak {parallel.peak_concurrency} parallel</div></div>
-  <div class="card viz-stat"><div class="text-muted">Total time</div><div class="viz-stat-value">{format_duration(completed_elapsed, compact=True)}</div><div class="text-small text-muted">{format_duration(validation_seconds, compact=True)} validation · {format_duration(other_seconds, compact=True)} other</div></div>
+  <div class="card viz-stat"><div class="text-muted">Total time</div><div class="viz-stat-value">{format_duration(completed_elapsed, compact=True)}</div><div class="text-small text-muted">{format_duration(other_seconds, compact=True)} tasks · {format_duration(validation_seconds, compact=True)} validation</div></div>
   <div class="card viz-stat"><div class="text-muted">Model traffic</div><div class="viz-stat-value">{compact_number(goal_input)} in</div><div class="text-small text-muted">{compact_number(goal_output)} out · {cache_percent:.1f}% cached</div></div>
   <div class="card viz-stat"><div class="text-muted">Recorded API cost</div><div class="viz-stat-value">${goal_cost:,.2f}</div><div class="text-small text-muted">{esc(pricing or 'ledger pricing basis')}</div></div>
 </section>
@@ -482,7 +482,7 @@ def build_fragment(ledger: Path, goal: dict[str, str], tasks: list[Task]) -> tup
   </div>
   <div class="stream-legend text-small">{stream_legend}</div>
 </section>
-<section class="cost-section" aria-labelledby="ledger-cost-title"><div class="section-head"><h2 id="ledger-cost-title">Cost by task</h2><span class="muted">six most expensive shown individually · inexpensive tail grouped</span></div>
+<section class="cost-section" aria-labelledby="ledger-cost-title"><div class="section-head"><h2 id="ledger-cost-title">Cost by task</h2><span class="muted">nine most expensive shown individually · inexpensive tail grouped</span></div>
   <div class="cost-visual">
     <svg class="cost-pie" viewBox="0 0 300 300" role="img" aria-label="Recorded API cost distribution by task">{''.join(pie_shapes)}
       <circle cx="150" cy="150" r="64" fill="var(--background)"></circle>
@@ -493,7 +493,7 @@ def build_fragment(ledger: Path, goal: dict[str, str], tasks: list[Task]) -> tup
 </section>
 <section class="effort-section" aria-label="Effort and review details">
   <div><div class="section-head"><h2>Where the run went</h2><span class="muted">completed task time · {format_duration(completed_elapsed, compact=True)}</span></div>
-    <div class="allocation" style="--validation:{validation_percent:.3f}%" role="img" aria-label="{format_duration(validation_seconds, compact=True)} validation and {format_duration(other_seconds, compact=True)} other task work"><span class="validation"></span><span class="other"></span></div>
+    <div class="allocation" style="--validation:{validation_percent:.3f}%" role="img" aria-label="{format_duration(other_seconds, compact=True)} task work and {format_duration(validation_seconds, compact=True)} validation"><span class="validation"></span><span class="other"></span></div>
     <div class="legend text-small"><span><i class="swatch"></i>Validation · {format_duration(validation_seconds, compact=True)}</span><span><i class="swatch other"></i>Implementation, review &amp; commits · {format_duration(other_seconds, compact=True)}</span></div>
     <div class="section-head" style="margin-top:24px"><h2>Review pressure</h2><span class="muted">recorded critique and repair</span></div>
     <div class="review"><div><strong>{duck_passes}</strong><span class="muted">duck passes</span></div><div><strong>{findings}</strong><span class="muted">findings</span></div><div><strong>{fix_cycles}</strong><span class="muted">fix cycles</span></div></div>
@@ -641,7 +641,7 @@ def self_test() -> None:
         render(ledger, standalone_output, standalone=True)
         standalone_rendered = standalone_output.read_text(encoding="utf-8")
         _, parsed_tasks = load_run(ledger)
-        cost_fixture = [replace(parsed_tasks[0], task_id=f"COST_PLAN-T{index}", cost_usd=float(index + 1)) for index in range(8)]
+        cost_fixture = [replace(parsed_tasks[0], task_id=f"COST_PLAN-T{index}", cost_usd=float(index + 1)) for index in range(12)]
         grouped_costs = group_task_costs(cost_fixture)
         checks = [
             summary["run_id"] == "test-run",
@@ -663,15 +663,15 @@ def self_test() -> None:
             "90.0% cached" in rendered,
             "Total time" in rendered,
             "2h 00m" in rendered,
-            "0h 30m validation · 1h 30m other" in rendered,
+            "1h 30m tasks · 0h 30m validation" in rendered,
             standalone_rendered.startswith("<!doctype html>"),
             '<meta charset="utf-8">' in standalone_rendered,
             "--viz-series-6:#66a8ff" in standalone_rendered,
             "Close &lt;unsafe&gt; task" in standalone_rendered,
-            len(grouped_costs) == 7,
+            len(grouped_costs) == 10,
             grouped_costs[-1][0] == "Other tasks",
-            grouped_costs[-1][2] == 2,
-            abs(sum(cost for _, cost, _ in grouped_costs) - 36.0) < 0.000001,
+            grouped_costs[-1][2] == 3,
+            abs(sum(cost for _, cost, _ in grouped_costs) - 78.0) < 0.000001,
         ]
         if not all(checks):
             raise AssertionError("Self-test output did not preserve the expected ledger contract.")

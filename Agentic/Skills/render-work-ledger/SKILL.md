@@ -56,10 +56,10 @@ The generator owns:
 - exact task timing, interval-graph worker lanes, proportional clock placement,
   overlap duration, and peak concurrency;
 - goal and completed-task token/cost totals;
-- a bounded task-cost pie that labels the six most expensive tasks and groups
+- a bounded task-cost pie that labels the nine most expensive tasks and groups
   the inexpensive tail into one honest aggregate;
 - cached-input ratio;
-- total completed task time with its validation-versus-other split;
+- total completed task time with its task-work-versus-validation split;
 - rubber-duck passes, findings, and fix cycles;
 - commit count and portfolio progress;
 - 32-bit Windows CSV field size limit (`csv.field_size_limit(2147483647)`) to safely parse large base64-encoded state payloads; and
