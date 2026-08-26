@@ -4,6 +4,22 @@ Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
 Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
 
+## Runtime Replay Bug Ledger Closure (2026-08-26)
+
+REPLAY-001 and REPLAY-002 are fixed as one Runtime Replay subsystem batch.
+Solver restore now publishes the recorded camera eye, target, and up basis as
+one pose after cancelling any live tween. Interactive save preparation and both
+artifact-writer entry families classify their allocation-heavy work as cold
+Capture activity, including fallback prediction-state encoding before the
+binary writer starts.
+
+One consolidated read-only rubber-duck review used task
+`01a03961-d56f-70d1-a7f2-56d4651b858b`. Review closed active-tween and
+independent plain, solver-track, and runtime-fallback evidence gaps. Final
+counts were 0 Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner
+direction, focused Replay tests, builds, scanners, inventories, and repository
+validation were not executed.
+
 ## Core Allocation Bug Ledger Closure (2026-08-26)
 
 CORE-009 through CORE-011 are fixed as one Core allocation subsystem batch.

@@ -27,6 +27,8 @@
 //     after bodies and constraints are recreated with new handles.
 //   - Motion eligibility is retained as a per-body v4 snapshot tail, participates
 //     in solver hashes and sparse deltas, and round-trips through disk checkpoints.
+//   - Cold artifact saves restore the caller's allocation phase and never charge
+//     encoder or stream growth to steady gameplay.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
@@ -43,6 +45,7 @@
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
+#include "../SkullbonezSource/Runtime/App/ReplayRuntime.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
 #include "../SkullbonezSource/World/Terrain.h"
@@ -74,6 +77,19 @@ namespace
 {
 SkullbonezCore::Core::SbDiagnosticStore diagnostics;
 }
+
+namespace SkullbonezCore::Runtime
+{
+struct ReplayRuntimeTestAccess
+{
+    static bool SaveWithFallbackPredictionState( const ReplayRuntime& runtime, const char* path, ReplayV2SaveResult* result,
+                                                 std::span<const ReplayVisualArchiveSample> visualPackets )
+    {
+        return runtime.SavePresentationWithSolverHashes( path, result, visualPackets, {} );
+    }
+};
+} // namespace SkullbonezCore::Runtime
+
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
 using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
@@ -342,6 +358,31 @@ TEST_CASE( "Replay artifact codec: presentation round-trip is complete and byte-
     CHECK( hashes.empty() );
     CHECK( packets.empty() );
     CHECK( predictionState.empty() );
+}
+
+TEST_CASE( "Replay artifact codec: cold save does not inherit steady gameplay allocation policy" )
+{
+    using SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
+    using SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase;
+
+    ReplayRecorder recorder = MakeArtifactRecorder();
+    const std::string path = ArtifactPath( "guarded_cold_save.skreplay" );
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::SteadyGameplay );
+    const uint64_t violationsBefore = RuntimeAllocationGuardViolationCount();
+    const bool saved = ReplayV2Artifact::SavePresentation( recorder, path.c_str() );
+    const uint64_t violationsAfter = RuntimeAllocationGuardViolationCount();
+    const RuntimeAllocationPhase restoredPhase = GetRuntimeAllocationPhase();
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+
+    CHECK( saved );
+    CHECK( restoredPhase == RuntimeAllocationPhase::SteadyGameplay );
+    CHECK( violationsAfter == violationsBefore );
 }
 
 TEST_CASE( "Replay artifact codec: v3 quaternion bytes migrate after historical hash validation" )
@@ -650,9 +691,67 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
         events.RecordEvent( event );
     }
 
+    std::array<ReplayVisualArchiveSample, 1> guardedVisualPackets {};
+    guardedVisualPackets[0].schemaVersion = REPLAY_VISUAL_PACKET_SCHEMA_VERSION;
+    ReplayV2SaveResult guardedSave;
+    const std::string guardedPath = ArtifactPath( "guarded_runtime_style_save.skreplay" );
+    SkullbonezCore::Runtime::RuntimeTools runtimeTools( diagnostics );
+    SkullbonezCore::Runtime::ReplayRuntime replayRuntime( diagnostics, nullptr );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        const ReplayRecordingActivationResult activation = replayRuntime.ConfigureRecording( true, 1, nullptr, 2 );
+        REQUIRE( activation.configuration.presentationConfig.enabled );
+        REQUIRE( activation.configuration.solverConfig.enabled );
+    }
+    replayRuntime.CaptureFrame( 21, 1.0f / 120.0f, captureWorld, captureCamera, engine, tornadoGameplay, entities,
+                                runtimeTools );
+
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
+    const uint64_t guardedViolationsBefore =
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    const bool guardedSaved = SkullbonezCore::Runtime::ReplayRuntimeTestAccess::SaveWithFallbackPredictionState(
+        replayRuntime, guardedPath.c_str(), &guardedSave, guardedVisualPackets );
+    const uint64_t guardedViolationsAfter =
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    const auto guardedRestoredPhase = SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase();
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Startup );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
+
+    CHECK( guardedSaved );
+    CHECK( guardedRestoredPhase == SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
+    CHECK( guardedViolationsAfter == guardedViolationsBefore );
+    CHECK( guardedSave.visualPacketCount == guardedVisualPackets.size() );
+    std::vector<uint8_t> guardedPredictionState;
+    REQUIRE( ReplayV2Artifact::LoadVisualPredictionState( guardedPath.c_str(), guardedPredictionState ) );
+    CHECK_FALSE( guardedPredictionState.empty() );
+
     ReplayV2SaveResult save;
     const std::string path = FullArtifactPath();
-    REQUIRE( ReplayV2Artifact::SavePresentationWithSolverHashes( presentation, solver, events, path.c_str(), &save ) );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
+    const uint64_t directViolationsBefore =
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    const bool directSaved =
+        ReplayV2Artifact::SavePresentationWithSolverHashes( presentation, solver, events, path.c_str(), &save );
+    const uint64_t directViolationsAfter =
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    const auto directRestoredPhase = SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase();
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Startup );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
+
+    REQUIRE( directSaved );
+    CHECK( directRestoredPhase == SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
+    CHECK( directViolationsAfter == directViolationsBefore );
     CHECK( save.sampleCount == 2u );
     CHECK( save.solverHashCount == 2u );
     CHECK( save.solverCheckpointCount == 1u );

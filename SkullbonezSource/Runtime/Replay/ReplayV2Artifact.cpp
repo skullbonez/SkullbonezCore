@@ -29,6 +29,8 @@ Invariants:
     migration; v5 is native and versions newer than v5 fail closed.
   - Nested Physics snapshot versions are independent of the outer artifact;
     snapshot v4 appends counted motion state after v3 point-joint rows.
+  - Save entry points classify allocation-heavy encoding and stream ownership as
+    cold Capture work even when an interactive caller starts in gameplay.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
@@ -38,6 +40,7 @@ Related:
 #include "ReplayV2Artifact.h"
 
 #include "ReplayArtifactSource.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/ByteView.h"
 
 #include <algorithm>
@@ -2800,6 +2803,12 @@ void ReplayArtifactSource::MaterializeEvents( const ReplayEventRecorder& recorde
 
 bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const char* path, ReplayV2SaveResult* result )
 {
+    // Direct codec callers receive the same cold-capture classification as the
+    // interactive ReplayRuntime path. The Runtime layer may nest this scope to
+    // include prediction-state preparation that happens before codec entry.
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope captureAllocationScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture );
+
     std::vector<ReplayPresentationSample> samples;
     ReplayArtifactSource::MaterializePresentation( recorder, samples );
 
@@ -2880,6 +2889,9 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder, const ReplaySol
                                  std::span<const uint8_t> visualPredictionState, const char* path,
                                  ReplayV2SaveResult* result )
 {
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope captureAllocationScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture );
+
     std::vector<ReplayPresentationSample> samples;
     ReplayArtifactSource::MaterializePresentation( recorder, samples );
 

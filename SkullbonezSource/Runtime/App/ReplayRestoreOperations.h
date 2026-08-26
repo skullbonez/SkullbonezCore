@@ -65,6 +65,15 @@ class ReplayRestoreOperations
   public:
     using ResolvedBodyTable = std::array<Physics::PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
+    static void ApplyCameraSample( Environment::CameraCollection& cameras, const ReplayCameraSample& sample )
+    {
+        // Invariant: eye, target, and up form one recorded pose. Publishing
+        // only two components would retain roll from the unrelated live slot.
+        cameras.CancelTween();
+        cameras.SetPrimaryPose( sample.eye, sample.view, sample.up );
+        cameras.SetCamera();
+    }
+
     // Resolves every retained body by stable scene object identity. modelRow is only
     // a cache hint; callers may deliberately pass stale hints to prove that a
     // restore cannot be redirected to another live body.
@@ -218,10 +227,7 @@ class ReplayRestoreOperations
                                               sample.worldSnapshot.tornadoSystemConfig.enabled );
         }
 
-        world.Cameras().CancelTween();
-        world.Cameras().SetPrimaryPosition( sample.camera.eye );
-        world.Cameras().SetViewCoordinates( sample.camera.view );
-        world.Cameras().SetCamera();
+        ApplyCameraSample( world.Cameras(), sample.camera );
 
         WriteReason( outReason, reasonSize, "applied" );
         return true;

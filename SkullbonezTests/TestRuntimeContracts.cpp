@@ -56,6 +56,8 @@
 //     immutable interaction-script input.
 //   - SceneWorld swap-last deletion carries Gameplay's dense tornado timers with
 //     the stable body that Physics moves into the removed row.
+//   - Replay restore publishes the recorded eye, target, and up basis as one
+//     camera pose instead of retaining live-slot roll.
 //   - Orderly process exit returns an interaction-recorder save failure, and raw
 //     mouse startup registration reports native rejection before renderer startup.
 
@@ -91,6 +93,7 @@
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
 #include "../SkullbonezSource/Runtime/App/InteractionAutomationApplication.h"
+#include "../SkullbonezSource/Runtime/App/ReplayRestoreOperations.h"
 #include "../SkullbonezSource/Runtime/App/StartupInputApplication.h"
 #include "../SkullbonezSource/Runtime/Automation/InteractionAutomationController.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h"
@@ -3426,6 +3429,38 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                                                    "reason=size_arithmetic_overflow", "size=18446744073709551615" } );
 }
 
+
+TEST_CASE( "Replay restore applies the recorded camera up vector with the full pose" )
+{
+    using SkullbonezCore::Environment::CameraCollection;
+    using SkullbonezCore::Math::Vector::Vector3;
+    using SkullbonezCore::Runtime::ReplayCameraSample;
+    using SkullbonezCore::Runtime::ReplayRestoreOperations;
+
+    CameraCollection cameras;
+    cameras.AddCamera( Vector3( 4.0f, 5.0f, 6.0f ), Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ),
+                       0x5A11u );
+    cameras.SetCamera();
+
+    cameras.TweenPrimaryToPose( Vector3( 40.0f, 50.0f, 60.0f ), Vector3( 1.0f, 2.0f, 3.0f ),
+                                Vector3( 1.0f, 0.0f, 0.0f ) );
+    cameras.SetTweenProgress( 0.5f );
+    cameras.SetCamera();
+
+    ReplayCameraSample recorded;
+    recorded.eye = Vector3( 10.0f, 20.0f, 30.0f );
+    recorded.view = Vector3( -3.0f, 7.0f, 11.0f );
+    recorded.up = Vector3( 0.6f, 0.0f, 0.8f );
+    CHECK( cameras.GetRenderCameraTranslation() != recorded.eye );
+    ReplayRestoreOperations::ApplyCameraSample( cameras, recorded );
+
+    CHECK( cameras.GetCameraTranslation() == recorded.eye );
+    CHECK( cameras.GetCameraView() == recorded.view );
+    CHECK( cameras.GetCameraUp() == recorded.up );
+    CHECK( cameras.GetRenderCameraTranslation() == recorded.eye );
+    CHECK( cameras.GetRenderCameraView() == recorded.view );
+    CHECK( cameras.GetRenderCameraUp() == recorded.up );
+}
 
 TEST_CASE( "Physics invariant guards admit exact scratch and consequence capacities" )
 {

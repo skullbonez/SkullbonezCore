@@ -1997,6 +1997,12 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path, ReplayV2
     SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/Replay/ColdIO/SavePresentation",
                                    ::HashStr( "Frame/Replay/ColdIO/SavePresentation" ) );
 
+    // Invariant: operator-authored persistence is cold capture work. This scope
+    // begins before optional prediction-state materialization so none of the
+    // writer preparation inherits the steady gameplay allocation phase.
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope captureAllocationScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture );
+
     std::vector<uint8_t> fallbackPredictionState;
 
     if ( !visualPackets.empty() && visualPredictionState.empty() &&

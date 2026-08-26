@@ -107,6 +107,7 @@ class WorkerPool;
 namespace Runtime
 {
 class ReplayRuntime;
+struct ReplayRuntimeTestAccess;
 class InputRouter;
 class RuntimeTools;
 class EditorToolsOwner;
@@ -121,6 +122,7 @@ namespace ReplayLiveRestoreOperations
 ReplayLiveRestoreOutcome BuildOutcome( const ReplayRestoreTransaction& transaction, ReplayLiveRestoreKind kind,
                                        bool restored );
 } // namespace ReplayLiveRestoreOperations
+
 class DiagnosticsRuntime;
 class SimulationSystem;
 enum class GeneratedObjectTypeOverride;
@@ -698,6 +700,7 @@ class ReplayRuntime
                                bool directorGrabbed, RuntimeInteractionController& interaction, InputRouter& inputRouter );
 
   private:
+    friend struct ReplayRuntimeTestAccess;
 
     // Advances one selected restore target through event application, fixed
     // stepping, and hash validation while the transaction owns progress.
