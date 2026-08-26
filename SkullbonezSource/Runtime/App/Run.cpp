@@ -352,6 +352,14 @@ SkullbonezCore::Core::SbResult Run::ResolveExecuteExit( int messageExitCode )
     (void)ApplyPerfLogArtifactStatus( m_resultDiagnostics, m_applicationExit,
                                       m_diagnosticsRuntime.ClosePerfLog() );
 
+    const SkullbonezCore::Core::SbResult processStatus = m_applicationExit.Resolve( messageExitCode );
+    const SkullbonezCore::Core::SbResult automationStatus = FinalizeInteractionAutomationReport( processStatus );
+
+    if ( processStatus.Ok() && !automationStatus.Ok() )
+    {
+        m_applicationExit.RequestOwnedFailure( automationStatus );
+    }
+
     return ResolveRunExitAfterInteractionRecording( m_interactionRecorder, m_resultDiagnostics, m_applicationExit,
                                                      messageExitCode,
                                                      []( void* context )
@@ -361,6 +369,29 @@ SkullbonezCore::Core::SbResult Run::ResolveExecuteExit( int messageExitCode )
                                                          static_cast<Run*>( context )->AdvanceInteractionRecordingBoundary();
                                                      },
                                                      this );
+}
+
+SkullbonezCore::Core::SbResult Run::FinalizeInteractionAutomationReport(
+    const SkullbonezCore::Core::SbResult& processStatus )
+{
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+    return ResolveInteractionAutomationReportForExit(
+        m_interactionAutomation, processStatus,
+        []( void* context,
+            InteractionAutomationRunStatus& status ) -> SkullbonezCore::Core::SbResult
+        {
+            Run& run = *static_cast<Run*>( context );
+            const ReplayAutomationView replay = run.m_replayRuntime.BuildAutomationView();
+            return run.m_interactionAutomation.reportWriter.Write(
+                status, run.m_sceneController.Scene(), run.m_sceneController.State(),
+                run.m_sceneController.CurrentPath() ? run.m_sceneController.CurrentPath()->c_str() : nullptr,
+                run.m_editorTools, run.m_runtimeTools, replay, run.m_interaction, run.m_camera, *run.m_operatorUi,
+                run.Renderer().FrameGraphSnapshot() );
+        },
+        this );
+#else
+    return processStatus;
+#endif
 }
 
 

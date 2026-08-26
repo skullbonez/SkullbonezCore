@@ -25,6 +25,7 @@ Invariants:
   - Completing the committed frame prefix latches capture closure; later
     scripted assertions cannot restart reveal control before offline proof.
   - Report failure is recoverable error and must not overwrite an earlier probe failure.
+  - Report success means complete temporary-sibling flush, close, and replacement.
   - A report target rejected as an input alias suppresses the normal failure-write callback.
 
 Related:
@@ -35,6 +36,8 @@ Related:
 #pragma once
 
 #include "../../Core/PlatformWin32.h"
+#include "../../Core/AtomicTextFileWriter.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 #include "../Camera/RuntimeCameraMode.h"
@@ -49,6 +52,7 @@ Related:
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace SkullbonezCore
@@ -77,8 +81,25 @@ struct InteractionAutomationRunStatus
     bool failed = false;
     char failure[512] = {};
 
-    void Fail( const char* message );
-    Core::SbResult Result( Core::SbDiagnosticStore& diagnostics ) const;
+    void Fail( const char* message )
+    {
+        failed = true;
+
+        if ( failure[0] == '\0' )
+        {
+            strcpy_s( failure, sizeof( failure ), message ? message : "interaction automation failed" );
+        }
+    }
+    Core::SbResult Result( Core::SbDiagnosticStore& diagnostics ) const
+    {
+        if ( !failed )
+        {
+            return Core::SbResult::Success();
+        }
+
+        return diagnostics.Failure( "InteractionAutomation",
+                                    failure[0] != '\0' ? failure : "interaction automation failed" );
+    }
 };
 
 struct RunInteractionAutomationReportAction
@@ -278,6 +299,30 @@ class InteractionAutomationReportWriter
                           const ReplayAutomationView& replay, const RuntimeInteractionController& interaction,
                           const CameraControlState& camera, const UI::InGameUI& ui,
                           const Rendering::RenderSceneSnapshot& renderSnapshot );
+
+    static std::string DeriveReplayArtifactPath( std::string_view reportPath )
+    {
+        // The report filename is an opaque leaf. Appending a role suffix never
+        // mistakes a dotted parent for an extension and cannot equal the report.
+        std::string result( reportPath );
+        result += ".replay.skreplay";
+        return result;
+    }
+    Core::SbResult PublishReportBytes( InteractionAutomationRunStatus& status, std::string_view bytes )
+    {
+        const Core::SbResult publication =
+            Core::WriteTextFileAtomic( m_resultDiagnostics, "InteractionAutomation", m_path, bytes );
+        m_written = true;
+
+        if ( !publication.Ok() && !status.failed )
+        {
+            // Recoverable error: the report itself is process evidence. A
+            // partial write, flush, close, or replace cannot report success.
+            status.Fail( publication.ErrorMessage() );
+        }
+
+        return publication.Ok() ? status.Result( m_resultDiagnostics ) : publication;
+    }
 
     // Report facts are centralized here so live assertions and final JSON use
     // one implementation of every validation-sensitive calculation.

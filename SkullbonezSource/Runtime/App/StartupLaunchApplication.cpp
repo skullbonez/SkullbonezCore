@@ -21,7 +21,8 @@ Invariants:
     the same storage lifetime as before extraction.
   - Resolution performs no window, renderer, worker, or Run construction.
   - Recorded scene/replay paths stay adjacent to the manifest and cannot escape
-    its directory; the automation controller verifies their content digests.
+    its directory; launch authenticates their digests before publishing either
+    path and the automation controller repeats the check before its first turn.
 
 Related:
   - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.h
@@ -34,6 +35,7 @@ Related:
 #include "../Startup/RunLaunchOptions.h"
 #include "../Replay/ReplayCaptureLimits.h"
 #include "../Replay/ReplayOverlaySurface.h"
+#include "../Automation/InteractionRecordingSidecarDigest.h"
 #include "../../Core/WindowConstants.h"
 #include <algorithm>
 #include <cstdint>
@@ -767,9 +769,17 @@ bool ResolveInteractionRecordingLaunch( ParsedArgs& args )
 
     Json root = Json::parse( input, nullptr, false );
 
-    if ( root.is_discarded() || root.value( "format", std::string {} ) != "skullbonez.interaction-recording" )
+    if ( root.is_discarded() || !root.is_object() )
     {
         return true; // Legacy interaction script; retain existing scene CLI behavior.
+    }
+
+    const auto format = root.find( "format" );
+
+    if ( format == root.end() || !format->is_string() ||
+         format->get_ref<const std::string&>() != "skullbonez.interaction-recording" )
+    {
+        return true; // The Automation owner reports malformed or legacy script values.
     }
 
     if ( args.isSuiteOrSceneMode )
@@ -777,27 +787,30 @@ bool ResolveInteractionRecordingLaunch( ParsedArgs& args )
         return FailCommandLineParse( "recorded --interaction-script already owns its scene; remove --scene/--suite." );
     }
 
-    if ( !root.value( "complete", false ) || root.value( "version", 0 ) != 1 || !root.contains( "scene" ) ||
-         !root["scene"].is_object() || !root["scene"].contains( "path" ) || !root["scene"]["path"].is_string() )
+    if ( !root.contains( "complete" ) || !root["complete"].is_boolean() || !root["complete"].get<bool>() ||
+         !root.contains( "version" ) || !root["version"].is_number_integer() || root["version"] != 1 ||
+         !root.contains( "scene" ) ||
+         !root["scene"].is_object() || !root["scene"].contains( "path" ) || !root["scene"]["path"].is_string() ||
+         !root["scene"].contains( "sha256" ) || !root["scene"]["sha256"].is_string() )
     {
-        return FailCommandLineParse( "recorded --interaction-script is incomplete or has invalid scene metadata." );
+        return true; // Do not consume sidecars; Automation publishes the report failure.
     }
 
-    const auto resolveSidecar = [&]( const Json& sidecar, const char* label, char* destination,
+    const auto resolveSidecar = [&]( const Json& sidecar, char* destination,
                                      std::size_t destinationSize ) -> bool
     {
         const std::filesystem::path relative = sidecar["path"].get<std::string>();
 
         if ( relative.empty() || relative.is_absolute() || relative.has_root_name() || relative.has_root_directory() )
         {
-            return FailCommandLineParse( "recorded --interaction-script %s path must be relative.", label );
+            return false;
         }
 
         for ( const std::filesystem::path& component : relative )
         {
             if ( component == ".." )
             {
-                return FailCommandLineParse( "recorded --interaction-script %s path may not escape its directory.", label );
+                return false;
             }
         }
 
@@ -805,7 +818,7 @@ bool ResolveInteractionRecordingLaunch( ParsedArgs& args )
 
         if ( resolved.size() >= destinationSize )
         {
-            return FailCommandLineParse( "recorded --interaction-script %s path is too long.", label );
+            return false;
         }
 
         strcpy_s( destination, destinationSize, resolved.c_str() );
@@ -813,10 +826,34 @@ bool ResolveInteractionRecordingLaunch( ParsedArgs& args )
     };
 
     char scenePath[260] = {};
+    char replayPath[260] = {};
+    const std::string sceneDigest = root["scene"]["sha256"].get<std::string>();
+    std::string replayDigest;
 
-    if ( !resolveSidecar( root["scene"], "scene", scenePath, sizeof( scenePath ) ) )
+    if ( !resolveSidecar( root["scene"], scenePath, sizeof( scenePath ) ) )
     {
-        return false;
+        return true; // Automation reports manifest-content failures without consuming a path.
+    }
+
+    if ( root.contains( "replay" ) )
+    {
+        if ( !root["replay"].is_object() || !root["replay"].contains( "path" ) || !root["replay"]["path"].is_string() ||
+             !root["replay"].contains( "sha256" ) || !root["replay"]["sha256"].is_string() ||
+             !resolveSidecar( root["replay"], replayPath, sizeof( replayPath ) ) )
+        {
+            return true; // Automation owns recorded-manifest diagnostics and required report publication.
+        }
+
+        replayDigest = root["replay"]["sha256"].get<std::string>();
+    }
+
+    // Invariant: authenticate the exact paths and digests selected from this
+    // parsed root. Reopening the manifest here could bind a different metadata
+    // epoch while publishing the first one.
+    if ( !InteractionRecordingSidecarDigestMatches( scenePath, sceneDigest ) ||
+         ( replayPath[0] != '\0' && !InteractionRecordingSidecarDigestMatches( replayPath, replayDigest ) ) )
+    {
+        return true; // Digest failure must be reported before either sidecar is consumed.
     }
 
     args.sceneList.assign( 1u, scenePath );
@@ -824,14 +861,9 @@ bool ResolveInteractionRecordingLaunch( ParsedArgs& args )
     args.interactiveRun = true;
     args.suppressExitDialog = true;
 
-    if ( root.contains( "replay" ) )
+    if ( replayPath[0] != '\0' )
     {
-        if ( !root["replay"].is_object() || !root["replay"].contains( "path" ) || !root["replay"]["path"].is_string() ||
-             !resolveSidecar( root["replay"], "replay", args.replayLoadPath, sizeof( args.replayLoadPath ) ) )
-        {
-            return FailCommandLineParse( "recorded --interaction-script has invalid replay metadata." );
-        }
-
+        strcpy_s( args.replayLoadPath, sizeof( args.replayLoadPath ), replayPath );
         args.replayLoad = true;
         args.replayRecording = true;
         args.replayExplicit = true;

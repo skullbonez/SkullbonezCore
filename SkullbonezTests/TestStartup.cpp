@@ -6,8 +6,9 @@
 //   Exercises the production command-line and launch-resolution units without
 //   constructing a window, renderer, worker pool, or Run owner. Table-driven
 //   failure cases assert the exact recoverable-result messages consumed by
-//   automation. Recorded-manifest cases prove adjacent scene resolution, while
-//   development builds lock the exclusive editor selector's launch projection.
+//   automation. Recorded-manifest cases prove adjacent, digest-authenticated
+//   scene resolution, while development builds lock the exclusive editor
+//   selector's launch projection.
 //
 // Glossary:
 //   Assigned option: A value supplied as --name=value rather than a later token.
@@ -302,9 +303,10 @@ TEST_CASE( "Startup launch values: malformed directives keep exact recoverable m
 
 TEST_CASE( "Startup recorded interaction owns its adjacent scene launch" )
 {
+    WriteSuite( "saved.scene.json", "" );
     const std::string manifest = WriteSuite(
         "recorded_interaction.json",
-        R"({"format":"skullbonez.interaction-recording","version":1,"complete":true,"scene":{"path":"saved.scene.json","sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"frames":[]})" );
+        R"({"format":"skullbonez.interaction-recording","version":1,"complete":true,"scene":{"path":"saved.scene.json","sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},"frames":[]})" );
     ParsedArgs args;
     strcpy_s( args.interactionScriptPath, manifest.c_str() );
     REQUIRE( ResolveInteractionRecordingLaunch( args ) );
@@ -315,6 +317,20 @@ TEST_CASE( "Startup recorded interaction owns its adjacent scene launch" )
     CHECK( args.suppressExitDialog );
 }
 
+TEST_CASE( "Startup recorded interaction authenticates sidecars before launch publication" )
+{
+    WriteSuite( "mutated.scene.json", "mutated" );
+    const std::string manifest = WriteSuite(
+        "recorded_interaction_mutated.json",
+        R"({"format":"skullbonez.interaction-recording","version":1,"complete":true,"scene":{"path":"mutated.scene.json","sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},"frames":[]})" );
+    ParsedArgs args;
+    strcpy_s( args.interactionScriptPath, manifest.c_str() );
+    REQUIRE( ResolveInteractionRecordingLaunch( args ) );
+    CHECK( args.sceneList.empty() );
+    CHECK_FALSE( args.replayLoad );
+    CHECK_FALSE( args.isSuiteOrSceneMode );
+}
+
 TEST_CASE( "Startup recorded interaction rejects escaping sidecar paths" )
 {
     const std::string manifest = WriteSuite(
@@ -322,9 +338,9 @@ TEST_CASE( "Startup recorded interaction rejects escaping sidecar paths" )
         R"({"format":"skullbonez.interaction-recording","version":1,"complete":true,"scene":{"path":"../saved.scene.json","sha256":"0000000000000000000000000000000000000000000000000000000000000000"},"frames":[]})" );
     ParsedArgs args;
     strcpy_s( args.interactionScriptPath, manifest.c_str() );
-    CHECK_FALSE( ResolveInteractionRecordingLaunch( args ) );
-    CHECK( std::strcmp( GetCommandLineError(), "recorded --interaction-script scene path may not escape its directory." ) ==
-           0 );
+    REQUIRE( ResolveInteractionRecordingLaunch( args ) );
+    CHECK( args.sceneList.empty() );
+    CHECK_FALSE( args.isSuiteOrSceneMode );
 }
 
 TEST_CASE( "Startup physics debug: component, float, and optional switches compose deterministically" )

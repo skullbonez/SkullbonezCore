@@ -12,6 +12,8 @@ Invariants:
   - No concrete lower owner is retained by Automation.
   - Before-input effects complete before normal input routing.
   - After-render capture and report effects observe the submitted frame.
+  - A startup-failure report may publish before the first frame and retains the
+    earlier process diagnostic as its result.
 
 Related:
   - SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp
@@ -21,6 +23,10 @@ Related:
 
 #include "../Automation/InteractionAutomationController.h"
 #include "../../Core/SbResult.h"
+
+#include <algorithm>
+#include <string>
+#include <vector>
 
 namespace SkullbonezCore
 {
@@ -53,6 +59,88 @@ struct CameraControlState;
 struct ContinuousOrbitalForecastView;
 
 using InteractionRecordingBoundaryOperation = void ( * )( void* context );
+using InteractionAutomationReportExitOperation = SkullbonezCore::Core::SbResult ( * )(
+    void* context, InteractionAutomationRunStatus& status );
+
+// Production and focused tests share the exact structural-admission boundaries
+// and stable authored-order sort used by the first automation turn.
+inline bool AdmitInteractionAutomationScriptRoot( InteractionAutomationController& state, bool rootIsObject )
+{
+    if ( rootIsObject )
+    {
+        return true;
+    }
+
+    state.status.Fail( "interaction script root must be an object" );
+    return false;
+}
+
+inline bool AdmitInteractionRecordingBaselineContainers( InteractionAutomationController& state, bool cameraIsObject,
+                                                          bool interactionIsObject, bool toolsIsObject,
+                                                          bool uiIsObject, bool replayIsObject,
+                                                          bool causeInspectionIsObject )
+{
+    if ( cameraIsObject && interactionIsObject && toolsIsObject && uiIsObject && replayIsObject &&
+         causeInspectionIsObject )
+    {
+        return true;
+    }
+
+    state.status.Fail( "recorded manifest baseline state is incomplete or invalid" );
+    return false;
+}
+
+inline bool AdmitInteractionAutomationPressKeyOptions( bool pressKeyIsString, bool controlTypeIsValid,
+                                                        bool holdFramesTypeIsValid, std::string& outError )
+{
+    if ( pressKeyIsString && controlTypeIsValid && holdFramesTypeIsValid )
+    {
+        return true;
+    }
+
+    outError = "pressKey requires a string key, optional boolean control, and optional integer holdFrames";
+    return false;
+}
+
+inline void SortInteractionAutomationActions( std::vector<RunInteractionAutomationAction>& actions )
+{
+    // Invariant: frame grouping never changes the authored order within a turn;
+    // order-dependent commands therefore replay exactly as serialized.
+    std::stable_sort( actions.begin(), actions.end(),
+                      []( const RunInteractionAutomationAction& lhs,
+                          const RunInteractionAutomationAction& rhs ) { return lhs.frame < rhs.frame; } );
+}
+
+// Finalizes the required report without replacing an earlier process failure.
+// Run supplies the concrete owner-composition operation; tests can exercise the
+// same precedence boundary with the writer's atomic publication seam.
+inline SkullbonezCore::Core::SbResult ResolveInteractionAutomationReportForExit(
+    InteractionAutomationController& state, const SkullbonezCore::Core::SbResult& processStatus,
+    InteractionAutomationReportExitOperation writeReport, void* writeContext )
+{
+    if ( !state.enabled || state.reportWriter.Written() )
+    {
+        return processStatus;
+    }
+
+    if ( !processStatus.Ok() && !state.status.failed )
+    {
+        // Lifetime: InteractionAutomationRunStatus copies the diagnostic text;
+        // the report never retains the process result's diagnostic lease.
+        state.status.Fail( processStatus.ErrorMessage() );
+    }
+
+    if ( !writeReport )
+    {
+        return processStatus.Ok()
+                   ? state.resultDiagnostics.Failure( "InteractionAutomation",
+                                                      "required interaction report operation is unavailable" )
+                   : processStatus;
+    }
+
+    const SkullbonezCore::Core::SbResult reportStatus = writeReport( writeContext, state.status );
+    return processStatus.Ok() ? reportStatus : processStatus;
+}
 
 // Captures an armed baseline, then converts an active recorder's final save
 // result into the process-owned exit state before Run::Execute returns.

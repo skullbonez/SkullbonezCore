@@ -235,7 +235,9 @@ int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window
 
         if ( !cRun->LastSceneLoadResult().Ok() )
         {
-            return reportRunResult( cRun->LastSceneLoadResult() );
+            const SkullbonezCore::Core::SbResult startupExit =
+                cRun->FinalizeInteractionAutomationReport( cRun->LastSceneLoadResult() );
+            return reportRunResult( startupExit );
         }
 
         if ( args.sceneLoadOnly )

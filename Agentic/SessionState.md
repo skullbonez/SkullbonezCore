@@ -1204,3 +1204,28 @@ to pin BackendInit preparation against Render admission. Final counts were 0
 Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner direction, no build,
 test, scanner, inventory, formatter, or repository validation was run;
 compile/link and focused runtime behavior therefore remain unexecuted evidence.
+
+## Runtime Automation Bug Ledger Closure (2026-08-26)
+
+AUTO-003 through AUTO-007 are fixed as one subsystem batch. Startup now
+authenticates the exact recorded scene and replay sidecar paths selected from a
+single parsed manifest before publishing either consumer path. Recorded
+manifest content failures remain Automation-owned so initial scene-load and
+ordinary execution exits both publish the required report while retaining an
+earlier process diagnostic.
+
+Malformed script roots, nested baseline containers, and optional press-key
+fields are admitted before typed JSON reads in the repository's no-exception
+configuration. Reports publish through temporary-sibling replacement and
+cannot claim success after write, flush, close, or replacement failure. Replay
+artifacts append a disjoint role suffix to the complete report path, and legacy
+same-frame actions retain authored order through the production stable sorter.
+
+One consolidated read-only rubber-duck review covered all five Runtime
+Automation rows in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found and
+closed manifest-epoch binding, startup report-finalization, no-exception JSON,
+test-link ownership, optional-field admission, and unstable-sort evidence
+blockers. Final counts were 0 Blocking, 0 Non-blocking, and 1 Missing evidence.
+Per owner direction, no build, test, scanner, inventory, formatter, or
+repository validation was run; compile/link and focused runtime behavior remain
+unexecuted evidence.

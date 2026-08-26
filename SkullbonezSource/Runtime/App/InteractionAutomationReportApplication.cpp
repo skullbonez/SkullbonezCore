@@ -7,8 +7,8 @@ Summary:
   App assembles lower-owner facts for the Automation report and final JSON, so
   validation-sensitive calculations have one implementation.
   Runtime owners are borrowed synchronously through one report call. The
-  writer computes report facts, verifies any durable replay artifact, writes
-  JSON, then releases every borrow before returning.
+  writer computes report facts, verifies any durable replay artifact, atomically
+  publishes JSON, then releases every borrow before returning.
   Prediction witnesses serialize complete bounded trajectory, future-node, and
   cause-row topology, exact evidence stamps, and solver anchors so root-policy
   or stale-bank regressions are reviewable without inferring structure from a
@@ -29,6 +29,7 @@ Invariants:
     identity and contact/pipeline indices used by Planning inspection.
   - Runtime-owner references are never stored on the writer.
   - A report failure never replaces an earlier probe failure.
+  - Report success means every byte was flushed, closed, and atomically replaced.
   - Suppressed unsafe output returns the retained configuration failure without opening a file.
 
 Related:
@@ -41,6 +42,7 @@ Related:
 #include "../Automation/InteractionAutomationController.h"
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/AtomicTextFileWriter.h"
 #include "../../Core/SbDiagnosticStore.h"
 #include "../Editor/EditorTools.h"
 #include "../Prediction/ReplayPrediction.h"
@@ -391,27 +393,6 @@ const RunReplayPredictionBodySample* FindPredictionBodyById( const RunReplayPred
 }
 
 } // namespace
-
-void SkullbonezCore::Runtime::InteractionAutomationRunStatus::Fail( const char* message )
-{
-    failed = true;
-
-    if ( failure[0] == '\0' )
-    {
-        strcpy_s( failure, sizeof( failure ), message ? message : "interaction automation failed" );
-    }
-}
-
-SkullbonezCore::Core::SbResult
-SkullbonezCore::Runtime::InteractionAutomationRunStatus::Result( Core::SbDiagnosticStore& diagnostics ) const
-{
-    if ( !failed )
-    {
-        return SkullbonezCore::Core::SbResult::Success();
-    }
-
-    return diagnostics.Failure( "InteractionAutomation", failure[0] != '\0' ? failure : "interaction automation failed" );
-}
 
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( const char* reportPath,
                                                                             const char* scriptPath )
@@ -1317,15 +1298,14 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
 
     if ( m_replayVisualFidelityCaptureEnabled && m_replayVisualOfflineProjectionComplete && !status.failed )
     {
-        replayArtifactPath = m_path;
-        const std::size_t extensionOffset = replayArtifactPath.find_last_of( '.' );
+        replayArtifactPath = DeriveReplayArtifactPath( m_path );
 
-        if ( extensionOffset != std::string::npos )
+        if ( RuntimeFileWriter::PathsResolveToSameFile( replayArtifactPath.c_str(), m_path ) ||
+             RuntimeFileWriter::PathsResolveToSameFile( replayArtifactPath.c_str(), m_scriptPath ) )
         {
-            replayArtifactPath.resize( extensionOffset );
+            status.Fail( "replay artifact path resolves to protected interaction input or report path" );
         }
 
-        replayArtifactPath += ".skreplay";
         std::vector<ReplayVisualArchiveSample> visualPackets;
         visualPackets.reserve( m_replayVisualFidelityTicks.size() );
         ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer topologyVersions;
@@ -2162,19 +2142,15 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
                                 { "replayFutureNodeCount",
                                   static_cast<int>( replay.prediction.futureNodeCache.futureNodes.size() ) } };
 
-    std::ofstream output;
+    std::string reportBytes = report.dump( 2 );
+    reportBytes.push_back( '\n' );
+    const SkullbonezCore::Core::SbResult result = PublishReportBytes( status, reportBytes );
 
-    if ( !RuntimeFileWriter::OpenTextFile( m_path, output ) )
+    if ( result.Ok() || status.failed )
     {
-        m_written = true;
-        status.failed = true;
-        strcpy_s( status.failure, sizeof( status.failure ), "failed to open interaction report path" );
-        return m_resultDiagnostics.Failure( "InteractionAutomation", status.failure );
+        printf( "[interaction] Report publication: %s ok=%d\n", m_path,
+                result.Ok() && !status.failed ? 1 : 0 );
     }
 
-    output << report.dump( 2 ) << "\n";
-    output.close();
-    m_written = true;
-    printf( "[interaction] Report written: %s ok=%d\n", m_path, status.failed ? 0 : 1 );
-    return status.Result( m_resultDiagnostics );
+    return result;
 }

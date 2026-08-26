@@ -543,6 +543,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionRecordingSidecarDigest.cpp">
+      <Filter>Source Files\Runtime\Automation</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionRecordingBrowser.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
@@ -969,6 +972,9 @@
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingSidecarDigest.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingBrowser.h">

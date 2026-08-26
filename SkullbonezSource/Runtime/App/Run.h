@@ -328,6 +328,8 @@ class Run
     void Initialise();                                                                                            // Initialises shared resources and loads first scene
     const SkullbonezCore::Core::SbResult& LastSceneLoadResult() const;                                            // Initialise scene-load result for CLI startup checks.
     SkullbonezCore::Core::SbResult ApplyStartupOverrides( const RunStartupOverrides& overrides );                 // Apply parsed CLI/startup policy before Initialise().
+    SkullbonezCore::Core::SbResult FinalizeInteractionAutomationReport(
+        const SkullbonezCore::Core::SbResult& processStatus );                                                    // Publishes required report before startup or Execute returns.
     SkullbonezCore::Core::SbResult RunSceneLoadOnly( const char* snapshotOutPath = nullptr );                     // Scene-load smoke path; skips the frame loop.
     SkullbonezCore::Core::SbResult Execute();                                                                     // Main message loop; returns recoverable runtime failures.
 };

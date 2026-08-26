@@ -28,6 +28,7 @@ Invariants:
 */
 #include "../Automation/InteractionAutomationController.h"
 #include "../Automation/InteractionAutomationRecorder.h"
+#include "../Automation/InteractionRecordingSidecarDigest.h"
 #include "InteractionAutomationApplication.h"
 #include "ApplicationExitState.h"
 #include "../Planning/ContinuousOrbitalForecast.h"
@@ -71,20 +72,15 @@ Invariants:
 #pragma warning( pop )
 
 #include <algorithm>
-#include <array>
-#include <bcrypt.h>
 #include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <iomanip>
 #include <limits>
 #include <sstream>
 #include <utility>
-
-#pragma comment( lib, "bcrypt.lib" )
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
@@ -2100,9 +2096,13 @@ bool ParseShowReplayScrubberAction( const Json& entry, RunInteractionAutomationA
 
 bool ParsePressKeyAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-    if ( !entry["pressKey"].is_string() || ( entry.contains( "control" ) && !entry["control"].is_boolean() ) )
+    const bool controlTypeIsValid = !entry.contains( "control" ) || entry["control"].is_boolean();
+    const bool holdFramesTypeIsValid =
+        !entry.contains( "holdFrames" ) || entry["holdFrames"].is_number_integer();
+
+    if ( !AdmitInteractionAutomationPressKeyOptions( entry["pressKey"].is_string(), controlTypeIsValid,
+                                                      holdFramesTypeIsValid, outError ) )
     {
-        outError = "pressKey requires a string key and optional boolean control";
         return false;
     }
 
@@ -2117,7 +2117,7 @@ bool ParsePressKeyAction( const Json& entry, RunInteractionAutomationAction& out
 
     CopyText( outAction.text, sizeof( outAction.text ), keyName );
     outAction.boolValue = entry.value( "control", false );
-    outAction.holdFrames = entry.value( "holdFrames", 1 );
+    outAction.holdFrames = entry.contains( "holdFrames" ) ? (std::max)( 1, entry["holdFrames"].get<int>() ) : 1;
     return true;
 }
 
@@ -4238,84 +4238,6 @@ bool IsSafeRecordingSidecarPath( const std::filesystem::path& path )
     return true;
 }
 
-bool HashInteractionSidecar( const std::filesystem::path& path, std::string& outDigest )
-{
-    std::ifstream input( path, std::ios::binary );
-
-    if ( !input )
-    {
-        return false;
-    }
-
-    BCRYPT_ALG_HANDLE algorithm = nullptr;
-    BCRYPT_HASH_HANDLE hash = nullptr;
-    DWORD objectBytes = 0;
-    DWORD resultBytes = 0;
-    std::vector<UCHAR> object;
-    std::array<UCHAR, 32> digest = {};
-    bool ok = BCryptOpenAlgorithmProvider( &algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0 ) >= 0;
-
-    if ( ok )
-    {
-        ok = BCryptGetProperty( algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>( &objectBytes ),
-                                sizeof( objectBytes ), &resultBytes, 0 ) >= 0;
-    }
-
-    if ( ok )
-    {
-        object.resize( objectBytes );
-        ok = BCryptCreateHash( algorithm, &hash, object.data(), objectBytes, nullptr, 0, 0 ) >= 0;
-    }
-
-    std::array<char, 64 * 1024> buffer = {};
-
-    while ( ok && input )
-    {
-        input.read( buffer.data(), static_cast<std::streamsize>( buffer.size() ) );
-        const std::streamsize count = input.gcount();
-
-        if ( count > 0 )
-        {
-            ok = BCryptHashData( hash, reinterpret_cast<PUCHAR>( buffer.data() ), static_cast<ULONG>( count ), 0 ) >= 0;
-        }
-    }
-
-    // A normal EOF sets failbit after the final short read; badbit instead
-    // means the digest covered only a prefix and must never authenticate it.
-    ok = ok && !input.bad();
-
-    if ( ok )
-    {
-        ok = BCryptFinishHash( hash, digest.data(), static_cast<ULONG>( digest.size() ), 0 ) >= 0;
-    }
-
-    if ( hash )
-    {
-        BCryptDestroyHash( hash );
-    }
-
-    if ( algorithm )
-    {
-        BCryptCloseAlgorithmProvider( algorithm, 0 );
-    }
-
-    if ( !ok )
-    {
-        return false;
-    }
-
-    std::ostringstream stream;
-    stream << std::hex << std::setfill( '0' );
-
-    for ( const UCHAR byte : digest )
-    {
-        stream << std::setw( 2 ) << static_cast<unsigned int>( byte );
-    }
-
-    outDigest = stream.str();
-    return true;
-}
-
 bool ValidateInteractionSidecar( const Json& root, const char* field, const std::filesystem::path& manifestPath,
                                  bool required, std::string& outError )
 {
@@ -4348,10 +4270,7 @@ bool ValidateInteractionSidecar( const Json& root, const char* field, const std:
     }
 
     const std::string expected = ( *sidecar )["sha256"].get<std::string>();
-    std::string actual;
-
-    if ( expected.size() != 64u || !HashInteractionSidecar( manifestPath.parent_path() / relative, actual ) ||
-         actual != expected )
+    if ( !InteractionRecordingSidecarDigestMatches( manifestPath.parent_path() / relative, expected ) )
     {
         outError = std::string( "recorded manifest " ) + field + " SHA-256 mismatch";
         return false;
@@ -4621,12 +4540,30 @@ bool LoadRecordedInteractionManifest( InteractionAutomationController& state, co
     }
 
     const Json& baseline = root["baseline"];
-    const Json camera = baseline.value( "camera", Json::object() );
-    const Json interaction = baseline.value( "interaction", Json::object() );
-    const Json tools = baseline.value( "tools", Json::object() );
-    const Json ui = baseline.value( "ui", Json::object() );
-    const Json replay = baseline.value( "replay", Json::object() );
-    const Json causeInspection = replay.value( "causeInspection", Json::object() );
+
+    // Hazard: Automation builds configure nlohmann JSON without exceptions.
+    // Every typed read must therefore be admitted structurally; a mismatched
+    // field would otherwise abort instead of becoming reportable evidence.
+    const bool cameraIsObject = baseline.contains( "camera" ) && baseline["camera"].is_object();
+    const bool interactionIsObject = baseline.contains( "interaction" ) && baseline["interaction"].is_object();
+    const bool toolsIsObject = baseline.contains( "tools" ) && baseline["tools"].is_object();
+    const bool uiIsObject = baseline.contains( "ui" ) && baseline["ui"].is_object();
+    const bool replayIsObject = baseline.contains( "replay" ) && baseline["replay"].is_object();
+    const bool causeInspectionIsObject = replayIsObject && baseline["replay"].contains( "causeInspection" ) &&
+                                         baseline["replay"]["causeInspection"].is_object();
+
+    if ( !AdmitInteractionRecordingBaselineContainers( state, cameraIsObject, interactionIsObject, toolsIsObject,
+                                                        uiIsObject, replayIsObject, causeInspectionIsObject ) )
+    {
+        return false;
+    }
+
+    const Json& camera = baseline["camera"];
+    const Json& interaction = baseline["interaction"];
+    const Json& tools = baseline["tools"];
+    const Json& ui = baseline["ui"];
+    const Json& replay = baseline["replay"];
+    const Json& causeInspection = replay["causeInspection"];
 
     if ( !camera.contains( "mode" ) || !interaction.contains( "worldOwner" ) || !tools.contains( "editorMode" ) ||
          !tools["editorMode"].is_boolean() || !tools.contains( "placementMode" ) || !tools["placementMode"].is_boolean() ||
@@ -4781,6 +4718,11 @@ bool LoadScript( InteractionAutomationController& state )
         return false;
     }
 
+    if ( !AdmitInteractionAutomationScriptRoot( state, root.is_object() ) )
+    {
+        return false;
+    }
+
     const auto format = root.find( "format" );
 
     if ( format != root.end() && !format->is_string() )
@@ -4818,14 +4760,11 @@ bool LoadScript( InteractionAutomationController& state )
         state.actions.push_back( action );
     }
 
-    std::sort( state.actions.begin(), state.actions.end(),
-               []( const RunInteractionAutomationAction& lhs, const RunInteractionAutomationAction& rhs )
-               { return lhs.frame < rhs.frame; } );
+    SortInteractionAutomationActions( state.actions );
 
     return true;
 }
 } // namespace
-
 
 SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording(
     InteractionAutomationRecorder& recorder, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,

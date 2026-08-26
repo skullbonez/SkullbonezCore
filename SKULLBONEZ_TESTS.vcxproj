@@ -321,6 +321,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\App\StartupLaunchApplication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionRecordingSidecarDigest.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorEditorExchange.cpp" />
@@ -382,6 +383,7 @@
     <ClInclude Include="SkullbonezTests\TestFatalCases.h" />
     <ClInclude Include="SkullbonezTests\TestSbResultAccess.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingSidecarDigest.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="SKULLBONEZ_UI.vcxproj">

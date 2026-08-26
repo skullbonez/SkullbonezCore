@@ -462,6 +462,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionRecordingSidecarDigest.cpp">
+      <Filter>Source Files\Runtime\Automation</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp">
       <Filter>Source Files\Runtime\Interaction</Filter>
     </ClCompile>

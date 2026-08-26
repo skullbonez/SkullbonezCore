@@ -56,6 +56,8 @@
 //     checks would return cleanly outside Debug.
 //   - Automation output aliases fail before either truncating owner can replace
 //     immutable interaction-script input.
+//   - Automation malformed-input admission, authored same-frame order, report
+//     publication, and startup-failure precedence use production policy seams.
 //   - SceneWorld swap-last deletion carries Gameplay's dense tornado timers with
 //     the stable body that Physics moves into the removed row.
 //   - Replay restore publishes the recorded eye, target, and up basis as one
@@ -66,6 +68,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/AmortizedTask.h"
+#include "../SkullbonezSource/Core/AtomicTextFileWriter.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -3112,6 +3115,148 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
 
     CHECK( DeleteFileA( safeTracePath ) != 0 );
     CHECK( DeleteFileA( safeReportPath ) != 0 );
+    CHECK( DeleteFileA( scriptPath ) != 0 );
+}
+
+TEST_CASE( "Interaction automation recovers malformed JSON and preserves equal-frame order" )
+{
+    SkullbonezCore::Core::SbDiagnosticStore automationDiagnostics;
+    InteractionAutomationController controller( automationDiagnostics );
+    CHECK_FALSE( AdmitInteractionAutomationScriptRoot( controller, false ) );
+    CHECK( controller.status.failed );
+    CHECK( std::strcmp( controller.status.failure, "interaction script root must be an object" ) == 0 );
+
+    controller.status = {};
+    CHECK_FALSE( AdmitInteractionRecordingBaselineContainers( controller, true, true, true, true, false, false ) );
+    CHECK( std::strcmp( controller.status.failure,
+                        "recorded manifest baseline state is incomplete or invalid" ) == 0 );
+
+    std::string pressKeyError;
+    CHECK_FALSE( AdmitInteractionAutomationPressKeyOptions( true, true, false, pressKeyError ) );
+    CHECK( pressKeyError ==
+           "pressKey requires a string key, optional boolean control, and optional integer holdFrames" );
+
+    std::vector<RunInteractionAutomationAction> actions( 64u );
+
+    for ( std::size_t index = 0u; index < actions.size(); ++index )
+    {
+        actions[index].frame = static_cast<int>( index & 1u );
+        actions[index].integerValue = static_cast<int>( index );
+    }
+
+    std::vector<RunInteractionAutomationAction> retiredUnstableOrder = actions;
+    std::sort( retiredUnstableOrder.begin(), retiredUnstableOrder.end(),
+               []( const RunInteractionAutomationAction& lhs,
+                   const RunInteractionAutomationAction& rhs ) { return lhs.frame < rhs.frame; } );
+    bool retiredPathDiffers = false;
+
+    for ( std::size_t index = 0u; index < retiredUnstableOrder.size(); ++index )
+    {
+        const int expectedAuthoredId = index < 32u ? static_cast<int>( index * 2u )
+                                                   : static_cast<int>( ( index - 32u ) * 2u + 1u );
+        retiredPathDiffers = retiredPathDiffers || retiredUnstableOrder[index].integerValue != expectedAuthoredId;
+    }
+
+    // The negative control proves this concrete supported-STL fixture reaches
+    // the retired unstable partition path rather than passing by coincidence.
+    REQUIRE( retiredPathDiffers );
+    SortInteractionAutomationActions( actions );
+
+    for ( std::size_t index = 0u; index < actions.size(); ++index )
+    {
+        const int expectedAuthoredId = index < 32u ? static_cast<int>( index * 2u )
+                                                   : static_cast<int>( ( index - 32u ) * 2u + 1u );
+        CHECK( actions[index].integerValue == expectedAuthoredId );
+    }
+
+}
+
+TEST_CASE( "Interaction report publication is atomic and replay artifact naming is disjoint" )
+{
+    const std::string extensionless = "TestOutput/dotted.parent/interaction_report";
+    const std::string replayNamed = "TestOutput/dotted.parent/interaction_report.skreplay";
+    CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( extensionless ) ==
+           extensionless + ".replay.skreplay" );
+    CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( replayNamed ) ==
+           replayNamed + ".replay.skreplay" );
+    CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( replayNamed ) != replayNamed );
+
+    char temporaryDirectory[MAX_PATH] = {};
+    char reportPath[MAX_PATH] = {};
+    char scriptPath[MAX_PATH] = {};
+    REQUIRE( GetTempPathA( MAX_PATH, temporaryDirectory ) != 0 );
+    REQUIRE( GetTempFileNameA( temporaryDirectory, "sbr", 0, reportPath ) != 0 );
+    REQUIRE( GetTempFileNameA( temporaryDirectory, "sbi", 0, scriptPath ) != 0 );
+    constexpr const char* retainedBytes = "retained-report\n";
+    {
+        std::ofstream report( reportPath, std::ios::binary | std::ios::trunc );
+        report << retainedBytes;
+    }
+
+    const SkullbonezCore::Core::AtomicTextFileTestFailure failures[] = {
+        SkullbonezCore::Core::AtomicTextFileTestFailure::Write,
+        SkullbonezCore::Core::AtomicTextFileTestFailure::Flush,
+        SkullbonezCore::Core::AtomicTextFileTestFailure::Close,
+        SkullbonezCore::Core::AtomicTextFileTestFailure::Replace,
+    };
+
+    for ( const SkullbonezCore::Core::AtomicTextFileTestFailure failure : failures )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore reportDiagnostics;
+        InteractionAutomationReportWriter writer( reportDiagnostics );
+        REQUIRE( writer.ConfigurePathMetadata( reportPath, scriptPath ) );
+        InteractionAutomationRunStatus status;
+        SkullbonezCore::Core::SetAtomicTextFileTestFailure( failure );
+        const SkullbonezCore::Core::SbResult publication = writer.PublishReportBytes(
+            status, "replacement-report\n" );
+        SkullbonezCore::Core::SetAtomicTextFileTestFailure(
+            SkullbonezCore::Core::AtomicTextFileTestFailure::None );
+        CHECK_FALSE( publication.Ok() );
+        CHECK( status.failed );
+        CHECK( writer.Written() );
+        CHECK( ReadSharedFileText( reportPath ) == retainedBytes );
+    }
+
+    CHECK( DeleteFileA( reportPath ) != 0 );
+    CHECK( DeleteFileA( scriptPath ) != 0 );
+}
+
+TEST_CASE( "Interaction startup failure publishes its report without replacing process status" )
+{
+    char temporaryDirectory[MAX_PATH] = {};
+    char reportPath[MAX_PATH] = {};
+    char scriptPath[MAX_PATH] = {};
+    REQUIRE( GetTempPathA( MAX_PATH, temporaryDirectory ) != 0 );
+    REQUIRE( GetTempFileNameA( temporaryDirectory, "sbr", 0, reportPath ) != 0 );
+    REQUIRE( GetTempFileNameA( temporaryDirectory, "sbi", 0, scriptPath ) != 0 );
+
+    SkullbonezCore::Core::SbDiagnosticStore automationDiagnostics;
+    InteractionAutomationController controller( automationDiagnostics );
+    REQUIRE( controller.reportWriter.ConfigurePathMetadata( reportPath, scriptPath ) );
+    strcpy_s( controller.scriptPath, sizeof( controller.scriptPath ), scriptPath );
+    controller.enabled = true;
+
+    SkullbonezCore::Core::SbDiagnosticStore startupDiagnostics;
+    const SkullbonezCore::Core::SbResult startupFailure =
+        startupDiagnostics.Failure( "Runtime/Scene", "recorded scene failed semantic validation" );
+    const SkullbonezCore::Core::SbResult resolved = ResolveInteractionAutomationReportForExit(
+        controller, startupFailure,
+        []( void* context, InteractionAutomationRunStatus& status ) -> SkullbonezCore::Core::SbResult
+        {
+            auto* writer = static_cast<InteractionAutomationReportWriter*>( context );
+            return writer->PublishReportBytes( status, "{\"status\":\"failed\"}\n" );
+        },
+        &controller.reportWriter );
+
+    CHECK_FALSE( resolved.Ok() );
+    CHECK( std::strcmp( resolved.ErrorOwner(), "Runtime/Scene" ) == 0 );
+    CHECK( std::strcmp( resolved.ErrorMessage(), "recorded scene failed semantic validation" ) == 0 );
+    CHECK( controller.status.failed );
+    CHECK( std::strcmp( controller.status.failure, "recorded scene failed semantic validation" ) == 0 );
+    CHECK( controller.reportWriter.Written() );
+    CHECK( ReadSharedFileText( reportPath ) == "{\"status\":\"failed\"}\n" );
+
+    CHECK( DeleteFileA( reportPath ) != 0 );
     CHECK( DeleteFileA( scriptPath ) != 0 );
 }
 
