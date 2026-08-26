@@ -107,6 +107,9 @@ def format_duration(seconds: int, *, compact: bool = False) -> str:
     hours, remainder = divmod(seconds, 3600)
     minutes, _ = divmod(remainder, 60)
     if compact:
+        days, day_hours = divmod(hours, 24)
+        if days:
+            return f"{days}d {day_hours}h {minutes:02d}m"
         return f"{hours}h {minutes:02d}m"
     return f"{hours:02d}:{minutes:02d}"
 
@@ -664,6 +667,7 @@ def self_test() -> None:
             "Total time" in rendered,
             "2h 00m" in rendered,
             "1h 30m tasks · 0h 30m validation" in rendered,
+            format_duration(115 * 3600 + 32 * 60, compact=True) == "4d 19h 32m",
             standalone_rendered.startswith("<!doctype html>"),
             '<meta charset="utf-8">' in standalone_rendered,
             "--viz-series-6:#66a8ff" in standalone_rendered,
