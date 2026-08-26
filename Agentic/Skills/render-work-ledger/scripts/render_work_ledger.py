@@ -470,7 +470,7 @@ def build_fragment(ledger: Path, goal: dict[str, str], tasks: list[Task]) -> tup
 </header>
 <section class="stats" aria-label="Run totals">
   <div class="card viz-stat"><div class="text-muted">Tasks closed</div><div class="viz-stat-value">{len(completed)}</div><div class="text-small text-muted">{commits} commits · peak {parallel.peak_concurrency} parallel</div></div>
-  <div class="card viz-stat"><div class="text-muted">Validation</div><div class="viz-stat-value">{format_duration(validation_seconds, compact=True)}</div><div class="text-small text-muted">{validation_percent:.1f}% of completed task time</div></div>
+  <div class="card viz-stat"><div class="text-muted">Total time</div><div class="viz-stat-value">{format_duration(completed_elapsed, compact=True)}</div><div class="text-small text-muted">{format_duration(validation_seconds, compact=True)} validation · {format_duration(other_seconds, compact=True)} other</div></div>
   <div class="card viz-stat"><div class="text-muted">Model traffic</div><div class="viz-stat-value">{compact_number(goal_input)} in</div><div class="text-small text-muted">{compact_number(goal_output)} out · {cache_percent:.1f}% cached</div></div>
   <div class="card viz-stat"><div class="text-muted">Recorded API cost</div><div class="viz-stat-value">${goal_cost:,.2f}</div><div class="text-small text-muted">{esc(pricing or 'ledger pricing basis')}</div></div>
 </section>
@@ -661,6 +661,9 @@ def self_test() -> None:
             "Close <unsafe> task" not in rendered,
             "$12.50" in rendered,
             "90.0% cached" in rendered,
+            "Total time" in rendered,
+            "2h 00m" in rendered,
+            "0h 30m validation · 1h 30m other" in rendered,
             standalone_rendered.startswith("<!doctype html>"),
             '<meta charset="utf-8">' in standalone_rendered,
             "--viz-series-6:#66a8ff" in standalone_rendered,

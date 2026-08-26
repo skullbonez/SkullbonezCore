@@ -59,7 +59,7 @@ The generator owns:
 - a bounded task-cost pie that labels the six most expensive tasks and groups
   the inexpensive tail into one honest aggregate;
 - cached-input ratio;
-- validation versus other task time;
+- total completed task time with its validation-versus-other split;
 - rubber-duck passes, findings, and fix cycles;
 - commit count and portfolio progress;
 - 32-bit Windows CSV field size limit (`csv.field_size_limit(2147483647)`) to safely parse large base64-encoded state payloads; and
