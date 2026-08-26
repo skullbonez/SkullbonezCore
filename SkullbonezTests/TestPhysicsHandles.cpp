@@ -25,6 +25,8 @@
 //     seeded state bit-for-bit.
 //   - Replay prefix trim stably compacts point-joint rows before retiring body
 //     handles, so checkpoint topology ordinals remain valid and no doomed row leaks.
+//   - Rebinding a point-joint handle to another body pair clears the scalar
+//     warm-start impulse before the new pair can consume it.
 //   - Replay restore rejects malformed dense counts, references, contact keys,
 //     cache order/uniqueness, terrain flags, and capacities transactionally;
 //     every prior owner snapshot remains byte-for-byte unchanged.
@@ -1792,6 +1794,70 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     CHECK( survivingColliders.RecordForHandle( registrations[3].collider )->shape.StorageIndex() == 0u );
     REQUIRE( survivingColliders.HullIdentityForHandle( registrations[3].collider ) != nullptr );
     CHECK( *survivingColliders.HullIdentityForHandle( registrations[3].collider ) == sharedHullIdentity );
+}
+
+
+TEST_CASE( "Point-joint body rebinding clears a restored warm-start impulse" )
+{
+    constexpr int bodyCount = 3;
+    constexpr float seededImpulse = 7.25f;
+    PhysicsEngine engine;
+    const CollisionShape shape = MakeColliderShape( 0.5f );
+    SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration registrations[bodyCount] = {};
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( bodyCount, bodyCount, 0u, 0u, 1u );
+
+        for ( int row = 0; row < bodyCount; ++row )
+        {
+            const auto sceneObjectId = MakePhysicsSceneObjectId( 820u + static_cast<uint32_t>( row ) );
+            auto body = SkullbonezCore::Physics::
+                MakePhysicsBodyCreateDesc( sceneObjectId, shape, Vector3( static_cast<float>( row ), 10.0f, 0.0f ),
+                                           SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                           Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
+                                           Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, 0.0f,
+                                           SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
+                                           "point-joint-rebind-body" );
+            auto collider =
+                SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "point-joint-rebind" );
+            collider.sceneObjectId = sceneObjectId;
+            registrations[row] = engine.RegisterAuthoredBody( body, collider );
+            REQUIRE( registrations[row].IsValid() );
+        }
+    }
+
+    SkullbonezCore::Physics::PhysicsPointJointCreateDesc joint;
+    joint.bodyA = registrations[0].body;
+    joint.bodyB = registrations[1].body;
+    const auto jointHandle = engine.CreatePointJoint( joint );
+    REQUIRE( jointHandle.IsValid() );
+
+    SkullbonezCore::Physics::PhysicsSolverSnapshot snapshot;
+    const auto snapshotBodyCount = SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount );
+    engine.CaptureReplaySolverSnapshot( snapshot, snapshotBodyCount );
+    REQUIRE( snapshot.pointJoints.size() == 1u );
+    snapshot.pointJoints[0].accumulatedImpulse = seededImpulse;
+    REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot, snapshotBodyCount ) );
+
+    const auto& warmedJoints = PhysicsEngine::ReadPointJointConstraints( engine );
+    REQUIRE( warmedJoints.size() == 1u );
+    REQUIRE( FloatBitsEqual( warmedJoints[0].accumulatedImpulse, seededImpulse ) );
+
+    SkullbonezCore::Physics::PhysicsPointJointUpdateDesc rebind;
+    rebind.constraint = jointHandle;
+    rebind.updateMask = SkullbonezCore::Physics::PHYSICS_POINT_JOINT_UPDATE_BODIES;
+    rebind.bodyA = registrations[1].body;
+    rebind.bodyB = registrations[2].body;
+    REQUIRE( engine.UpdatePointJoint( rebind ) );
+
+    const auto& reboundJoints = PhysicsEngine::ReadPointJointConstraints( engine );
+    REQUIRE( reboundJoints.size() == 1u );
+    CHECK( reboundJoints[0].handle == jointHandle );
+    CHECK( reboundJoints[0].bodyA == registrations[1].body );
+    CHECK( reboundJoints[0].bodyB == registrations[2].body );
+    CHECK( reboundJoints[0].accumulatedImpulse == 0.0f );
 }
 
 

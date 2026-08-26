@@ -967,3 +967,18 @@ ordering evidence gap. Final counts were 0 blocking, 0 non-blocking, and 1
 missing-evidence item. Per owner direction, no build, test, scanner, inventory,
 or validation command was run; compile/link and focused runtime behavior remain
 unexecuted evidence rather than claimed results.
+
+## Physics Bug Ledger Closure (2026-08-26)
+
+PHYS-007 is fixed. The existing point-joint body assignment boundary clears the
+retained scalar warm-start impulse before a stable constraint handle can refer
+to a different body pair. Focused regression evidence now plants an exact
+nonzero retained impulse through replay restore, rebinds through the public
+PhysicsEngine API, and pins the stable handle, replacement endpoints, and zeroed
+solver cache.
+
+One terminal read-only rubber-duck review covered the sole remaining Physics row
+in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. Final counts were 0 blocking, 0
+non-blocking, and 1 missing-evidence item. Per owner direction, no build, test,
+scanner, inventory, or validation command was run; compile/link and focused
+runtime behavior remain unexecuted evidence rather than claimed results.
