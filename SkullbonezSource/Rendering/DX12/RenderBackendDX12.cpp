@@ -217,6 +217,42 @@ size_t Dx12GraphTransientPool::ExecuteGraphTransitions( const RenderGraph& graph
         SB_FATAL( "RenderBackendDX12", "Graph transition requested an invalid pass. pass=%u", passIndex );
     }
 
+    emittedCount += DispatchCompiledUavBarriersForPass(
+        graph, compiled, passIndex, true,
+        [&]( const RenderGraphUavBarrierDesc& barrier, const RenderGraphResourceDesc& resource )
+        {
+            ID3D12Resource* nativeResource = barrier.nativeResource.As<ID3D12Resource>();
+
+            if ( !nativeResource )
+            {
+                SB_FATAL( "RenderBackendDX12",
+                          "Compiled external UAV barrier has no native resource. pass=%s resource=%s",
+                          graph.Passes()[passIndex].name, resource.name );
+            }
+
+            if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().Ok() )
+            {
+                SB_FATAL( "RenderBackendDX12",
+                          "Compiled external UAV barrier could not open command recording. pass=%s resource=%s",
+                          graph.Passes()[passIndex].name, resource.name );
+            }
+
+            Dx12RenderGraphUavBarrierDesc desc;
+            desc.commandList = m_frame.CommandList();
+            desc.resource = nativeResource;
+            const Dx12RenderGraphUavBarrierRecord record = ExecuteDx12RenderGraphUavBarrier(
+                "Dx12GraphCompiledExternal", graph.Passes()[passIndex].name, resource.name, desc );
+
+            if ( !record.hasNativeResource || record.missingCommandList || !record.emitted )
+            {
+                SB_FATAL( "RenderBackendDX12",
+                          "Compiled external UAV ordering barrier was not emitted. pass=%s resource=%s",
+                          graph.Passes()[passIndex].name, resource.name );
+            }
+
+            return true;
+        } );
+
     for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
     {
         if ( transition.passIndex != passIndex )

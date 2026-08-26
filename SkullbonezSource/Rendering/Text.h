@@ -30,7 +30,10 @@ Related:
 
 
 #include <array>
+#include <cmath>
+#include <cstddef>
 #include <memory>
+#include <span>
 
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
@@ -80,6 +83,26 @@ class Text2d
 {
 
   public:
+    struct SdfGdiOperationResults
+    {
+        bool bitmapSelected = true;
+        bool brushCreated = true;
+        bool backgroundFilled = true;
+        bool brushDeleted = true;
+        bool fontCreated = true;
+        bool fontSelected = true;
+        bool glyphWidthsMeasured = true;
+        bool backgroundModeSet = true;
+        bool textColorSet = true;
+        bool glyphsDrawn = true;
+        bool queueFlushed = true;
+        bool fontRestored = true;
+        bool bitmapRestored = true;
+        bool fontDeleted = true;
+        bool bitmapDeleted = true;
+        bool dcDeleted = true;
+    };
+
     inline static uint32_t fontTexture = 0;
     inline static uint32_t dynamicVB = 0;                                                     // solid-quad VB: [x,y,u,v] — used by Render2dQuad (immediate, one draw per call)
     inline static uint32_t textBatchVB = 0;                                                   // batch text VB: [x,y,u,v,r,g,b], one draw per flushed segment
@@ -92,6 +115,60 @@ class Text2d
     inline static std::unique_ptr<Rendering::ShaderDX12> pSolidBatchShader;                   // per-vertex RGBA batch shader
 #endif
     inline static float charAdvance[96] = {};
+
+    static bool SdfAdvanceMetricsValid( std::span<const float> advances )
+    {
+        if ( advances.size() != 96u )
+        {
+            return false;
+        }
+
+        // Invariant: an authored glyph advances by a positive finite fraction
+        // no wider than its 40-pixel cell at the 32-pixel font size.
+        constexpr float MAX_CELL_ADVANCE = 40.0f / 32.0f;
+
+        for ( const float advance : advances )
+        {
+            if ( !std::isfinite( advance ) || advance <= 0.0f || advance > MAX_CELL_ADVANCE )
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static bool SdfAtlasWriteSucceeded( std::size_t headerRowsWritten, std::size_t pixelBytesWritten,
+                                        std::size_t expectedPixelBytes, int flushResult, int closeResult )
+    {
+        return headerRowsWritten == 1u && pixelBytesWritten == expectedPixelBytes && flushResult == 0 &&
+               closeResult == 0;
+    }
+
+    static bool SdfGdiOperationsSucceeded( const SdfGdiOperationResults& results )
+    {
+        return results.bitmapSelected && results.brushCreated && results.backgroundFilled && results.brushDeleted &&
+               results.fontCreated && results.fontSelected && results.glyphWidthsMeasured &&
+               results.backgroundModeSet && results.textColorSet && results.glyphsDrawn && results.queueFlushed &&
+               results.fontRestored && results.bitmapRestored && results.fontDeleted && results.bitmapDeleted &&
+               results.dcDeleted;
+    }
+
+    static bool PublishSdfAtlasCandidate( uint32_t textureHandle, std::span<const float> advances )
+    {
+        if ( textureHandle == 0u || !SdfAdvanceMetricsValid( advances ) )
+        {
+            return false;
+        }
+
+        for ( std::size_t index = 0; index < advances.size(); ++index )
+        {
+            charAdvance[index] = advances[index];
+        }
+
+        fontTexture = textureHandle;
+        return true;
+    }
 
     // Text coordinates are centered on the client rect in legacy frustum units:
     // x/y normally stay within [-0.5, 0.5], size is normalized, and the format

@@ -89,7 +89,10 @@
 #include "../SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h"
 #include "../SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"
 #include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
+#include "../SkullbonezSource/Rendering/RenderMaterial.h"
 #include "../SkullbonezSource/Rendering/RenderInstanceStore.h"
+#include "../SkullbonezSource/Rendering/RenderPipeline.h"
+#include "../SkullbonezSource/Rendering/Text.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
 #include "../SkullbonezSource/Runtime/App/InteractionAutomationApplication.h"
@@ -269,6 +272,25 @@ struct Dx12GeometryOwnerTestAccess
         int m_diagnosticsIdentity = 0;
         Dx12GeometryOwner::SubmissionEpoch m_epoch;
     };
+};
+
+struct PrimitiveBatchRendererTestAccess
+{
+    static bool MaterialTableCreationSucceeded( uint32_t textureHandle )
+    {
+        return PrimitiveBatchRenderer::MaterialTableCreationSucceeded( textureHandle );
+    }
+
+    static bool ResolveVisibleBatchReadiness( bool materialTableReady, bool& shaderPublicationCalled )
+    {
+        return PrimitiveBatchRenderer::ResolveVisibleBatchReadiness(
+            [materialTableReady]() { return materialTableReady; },
+            [&shaderPublicationCalled]()
+            {
+                shaderPublicationCalled = true;
+                return true;
+            } );
+    }
 };
 } // namespace SkullbonezCore::Rendering
 
@@ -736,6 +758,136 @@ struct ReplayStartupProbeContinuationTestAccess
 #endif
 } // namespace Runtime
 } // namespace SkullbonezCore
+
+TEST_CASE( "Legacy render material modes classify extreme numeric inputs without integer conversion" )
+{
+    using SkullbonezCore::Rendering::RenderMaterialKind;
+    using SkullbonezCore::Rendering::RenderMaterialKindFromLegacyMode;
+
+    CHECK( RenderMaterialKindFromLegacyMode( (std::numeric_limits<float>::max)() ) == RenderMaterialKind::Matte );
+    CHECK( RenderMaterialKindFromLegacyMode( std::numeric_limits<float>::infinity() ) == RenderMaterialKind::Matte );
+    CHECK( RenderMaterialKindFromLegacyMode( -std::numeric_limits<float>::infinity() ) ==
+           RenderMaterialKind::Textured );
+    CHECK( RenderMaterialKindFromLegacyMode( std::numeric_limits<float>::quiet_NaN() ) ==
+           RenderMaterialKind::Textured );
+    CHECK( RenderMaterialKindFromLegacyMode( 13.0f ) == RenderMaterialKind::Pine );
+}
+
+TEST_CASE( "Primitive batches require a published material table texture" )
+{
+    using SkullbonezCore::Rendering::PrimitiveBatchRendererTestAccess;
+
+    CHECK_FALSE( PrimitiveBatchRendererTestAccess::MaterialTableCreationSucceeded( 0u ) );
+    CHECK( PrimitiveBatchRendererTestAccess::MaterialTableCreationSucceeded( 1u ) );
+    bool shaderPublicationCalled = false;
+    CHECK_FALSE( PrimitiveBatchRendererTestAccess::ResolveVisibleBatchReadiness( false, shaderPublicationCalled ) );
+    CHECK_FALSE( shaderPublicationCalled );
+    CHECK( PrimitiveBatchRendererTestAccess::ResolveVisibleBatchReadiness( true, shaderPublicationCalled ) );
+    CHECK( shaderPublicationCalled );
+}
+
+TEST_CASE( "Frame graph diagnostics retry unchanged frames until publication succeeds" )
+{
+    SkullbonezCore::Rendering::RenderPipelineDiagnosticWriteState state;
+    SkullbonezCore::Rendering::RenderSceneSnapshot snapshot;
+    constexpr uint64_t fingerprint = 0x1234u;
+    const std::string dumpText = "frame graph diagnostic";
+
+    CHECK_FALSE( state.MatchesFrame( snapshot, fingerprint ) );
+    CHECK_FALSE( state.MatchesDumpText( dumpText ) );
+
+    state.RecordPublicationResult( false, snapshot, fingerprint, dumpText );
+    // A failed file write performs no commit. The identical next frame must
+    // still reach the writer instead of being hidden by attempted state.
+    CHECK_FALSE( state.MatchesFrame( snapshot, fingerprint ) );
+    CHECK_FALSE( state.MatchesDumpText( dumpText ) );
+
+    state.RecordPublicationResult( true, snapshot, fingerprint, dumpText );
+    CHECK( state.MatchesFrame( snapshot, fingerprint ) );
+    CHECK( state.MatchesDumpText( dumpText ) );
+}
+
+TEST_CASE( "SDF atlas contracts reject malformed metrics and incomplete publication" )
+{
+    using SkullbonezCore::Text::Text2d;
+
+    const uint32_t originalTexture = Text2d::fontTexture;
+    std::array<float, 96> originalAdvances;
+
+    for ( std::size_t index = 0; index < originalAdvances.size(); ++index )
+    {
+        originalAdvances[index] = Text2d::charAdvance[index];
+        Text2d::charAdvance[index] = 0.75f;
+    }
+
+    Text2d::fontTexture = 41u;
+    std::array<float, 96> advances;
+    advances.fill( 0.5f );
+    CHECK( Text2d::SdfAdvanceMetricsValid( advances ) );
+
+    CHECK_FALSE( Text2d::PublishSdfAtlasCandidate( 0u, advances ) );
+    CHECK( Text2d::fontTexture == 41u );
+    CHECK( Text2d::charAdvance[0] == 0.75f );
+
+    advances[7] = 0.0f;
+    CHECK_FALSE( Text2d::SdfAdvanceMetricsValid( advances ) );
+    CHECK_FALSE( Text2d::PublishSdfAtlasCandidate( 77u, advances ) );
+    CHECK( Text2d::fontTexture == 41u );
+    CHECK( Text2d::charAdvance[7] == 0.75f );
+    advances[7] = -0.25f;
+    CHECK_FALSE( Text2d::SdfAdvanceMetricsValid( advances ) );
+    advances[7] = std::numeric_limits<float>::quiet_NaN();
+    CHECK_FALSE( Text2d::SdfAdvanceMetricsValid( advances ) );
+    advances[7] = std::numeric_limits<float>::infinity();
+    CHECK_FALSE( Text2d::SdfAdvanceMetricsValid( advances ) );
+    advances[7] = 1.2501f;
+    CHECK_FALSE( Text2d::SdfAdvanceMetricsValid( advances ) );
+    CHECK_FALSE( Text2d::SdfAdvanceMetricsValid( std::span<const float>( advances.data(), advances.size() - 1u ) ) );
+
+    CHECK( Text2d::SdfAtlasWriteSucceeded( 1u, 256u, 256u, 0, 0 ) );
+    CHECK_FALSE( Text2d::SdfAtlasWriteSucceeded( 0u, 256u, 256u, 0, 0 ) );
+    CHECK_FALSE( Text2d::SdfAtlasWriteSucceeded( 1u, 255u, 256u, 0, 0 ) );
+    CHECK_FALSE( Text2d::SdfAtlasWriteSucceeded( 1u, 256u, 256u, EOF, 0 ) );
+    CHECK_FALSE( Text2d::SdfAtlasWriteSucceeded( 1u, 256u, 256u, 0, EOF ) );
+
+    using GdiResults = Text2d::SdfGdiOperationResults;
+    CHECK( Text2d::SdfGdiOperationsSucceeded( GdiResults {} ) );
+    const auto checkRejectedGdiFailure = []( bool GdiResults::*field )
+    {
+        GdiResults results;
+        results.*field = false;
+        CHECK_FALSE( Text2d::SdfGdiOperationsSucceeded( results ) );
+    };
+    checkRejectedGdiFailure( &GdiResults::bitmapSelected );
+    checkRejectedGdiFailure( &GdiResults::brushCreated );
+    checkRejectedGdiFailure( &GdiResults::backgroundFilled );
+    checkRejectedGdiFailure( &GdiResults::brushDeleted );
+    checkRejectedGdiFailure( &GdiResults::fontCreated );
+    checkRejectedGdiFailure( &GdiResults::fontSelected );
+    checkRejectedGdiFailure( &GdiResults::glyphWidthsMeasured );
+    checkRejectedGdiFailure( &GdiResults::backgroundModeSet );
+    checkRejectedGdiFailure( &GdiResults::textColorSet );
+    checkRejectedGdiFailure( &GdiResults::glyphsDrawn );
+    checkRejectedGdiFailure( &GdiResults::queueFlushed );
+    checkRejectedGdiFailure( &GdiResults::fontRestored );
+    checkRejectedGdiFailure( &GdiResults::bitmapRestored );
+    checkRejectedGdiFailure( &GdiResults::fontDeleted );
+    checkRejectedGdiFailure( &GdiResults::bitmapDeleted );
+    checkRejectedGdiFailure( &GdiResults::dcDeleted );
+
+    advances.fill( 0.625f );
+    CHECK( Text2d::PublishSdfAtlasCandidate( 99u, advances ) );
+    CHECK( Text2d::fontTexture == 99u );
+    CHECK( Text2d::charAdvance[0] == 0.625f );
+    CHECK( Text2d::charAdvance[95] == 0.625f );
+
+    Text2d::fontTexture = originalTexture;
+
+    for ( std::size_t index = 0; index < originalAdvances.size(); ++index )
+    {
+        Text2d::charAdvance[index] = originalAdvances[index];
+    }
+}
 
 TEST_CASE( "Tracy disabled marker seams discard caller expressions" )
 {

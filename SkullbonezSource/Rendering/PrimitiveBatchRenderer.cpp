@@ -139,7 +139,7 @@ static uint8_t MaterialByte( float value )
     return static_cast<uint8_t>( std::clamp( value, 0.0f, 1.0f ) * 255.0f + 0.5f );
 }
 
-static void EnsureMaterialTableTexture( PrimitiveBatchRendererState& state )
+bool PrimitiveBatchRenderer::EnsureMaterialTableTexture()
 {
     // Concept: the current object material table is a tiny texture, not a
     // structured buffer or bindless descriptor table.
@@ -149,10 +149,10 @@ static void EnsureMaterialTableTexture( PrimitiveBatchRendererState& state )
     // carries draw-local values; the t4 table gives shaders a stable fallback
     // and a validation-visible binding point without expanding the resource
     // model beyond the ordinary raster ABI.
-    if ( state.materialTableTexture != 0 )
+    if ( m_state.materialTableTexture != 0 )
     {
-        Textures( state ).BindTexture( state.materialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
-        return;
+        Textures( m_state ).BindTexture( m_state.materialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+        return true;
     }
 
     uint8_t rows[MATERIAL_TABLE_WIDTH * 4] = {};
@@ -169,11 +169,17 @@ static void EnsureMaterialTableTexture( PrimitiveBatchRendererState& state )
         rows[i * 4 + 3] = MaterialByte( material.stylization );
     }
 
-    state.materialTableTexture = Textures( state ).CreateTexture2D( rows, MATERIAL_TABLE_WIDTH, 1, 4,
-                                                                    TextureMipPolicy::SingleLevel,
-                                                                    TextureFilterPolicy::Nearest );
+    m_state.materialTableTexture = Textures( m_state ).CreateTexture2D( rows, MATERIAL_TABLE_WIDTH, 1, 4,
+                                                                        TextureMipPolicy::SingleLevel,
+                                                                        TextureFilterPolicy::Nearest );
 
-    Textures( state ).BindTexture( state.materialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+    if ( !MaterialTableCreationSucceeded( m_state.materialTableTexture ) )
+    {
+        return false;
+    }
+
+    Textures( m_state ).BindTexture( m_state.materialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+    return true;
 }
 
 static void AppendMaterialInstancePayload( std::vector<float>& out, const Matrix4& model, const RenderMaterial& material )
@@ -365,45 +371,52 @@ bool PrimitiveBatchRenderer::BindShader( ShaderDX12& shader, const SkullbonezCor
                                          const ShadowFrameData* shadow, int primitiveShape, bool receiveShadows,
                                          float materialAlpha )
 {
-    EnsureMaterialTableTexture( m_state );
-
-    float viewLightPos[4];
-
-    for ( int i = 0; i < 3; ++i )
+    return ResolveVisibleBatchReadiness( [this]() { return EnsureMaterialTableTexture(); }, [&]()
     {
-        viewLightPos[i] = view.m[i] * lightPosition[0] + view.m[i + 4] * lightPosition[1] +
-                          view.m[i + 8] * lightPosition[2] + view.m[i + 12] * lightPosition[3];
-    }
+        float viewLightPos[4];
 
-    viewLightPos[3] = lightPosition[3];
+        for ( int i = 0; i < 3; ++i )
+        {
+            viewLightPos[i] = view.m[i] * lightPosition[0] + view.m[i + 4] * lightPosition[1] +
+                              view.m[i + 8] * lightPosition[2] + view.m[i + 12] * lightPosition[3];
+        }
 
-    shader.Use();
-    PrimitiveBatchShaderConstants constants = {};
-    constants.view = view;
-    constants.projection = projection;
-    constants.clipPlane[0] = m_state.clipPlane[0];
-    constants.clipPlane[1] = m_state.clipPlane[1];
-    constants.clipPlane[2] = m_state.clipPlane[2];
-    constants.clipPlane[3] = m_state.clipPlane[3];
-    constants.lightPosition[0] = viewLightPos[0];
-    constants.lightPosition[1] = viewLightPos[1];
-    constants.lightPosition[2] = viewLightPos[2];
-    constants.lightPosition[3] = viewLightPos[3];
-    constants.materialAmbient[0] = 0.2f;
-    constants.materialAmbient[1] = 0.2f;
-    constants.materialAmbient[2] = 0.2f;
-    constants.materialAmbient[3] = 1.0f;
-    constants.materialDiffuse[0] = 0.8f;
-    constants.materialDiffuse[1] = 0.8f;
-    constants.materialDiffuse[2] = 0.8f;
-    constants.materialDiffuse[3] = 1.0f;
-    constants.objectStyle = ObjectStyleForShader( cinematic );
-    constants.primitiveShape = primitiveShape;
-    constants.materialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
-    constants.objectStylePad = 0.0f;
-    ApplyBatchLightConstants( constants, lighting, cinematic );
-    FillShadowReceiverConstants( constants, m_state, shadow, receiveShadows, true );
-    return shader.SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ), "PrimitiveBatchShaderConstants" );
+        viewLightPos[3] = lightPosition[3];
+
+        shader.Use();
+        PrimitiveBatchShaderConstants constants = {};
+        constants.view = view;
+        constants.projection = projection;
+        constants.clipPlane[0] = m_state.clipPlane[0];
+        constants.clipPlane[1] = m_state.clipPlane[1];
+        constants.clipPlane[2] = m_state.clipPlane[2];
+        constants.clipPlane[3] = m_state.clipPlane[3];
+        constants.lightPosition[0] = viewLightPos[0];
+        constants.lightPosition[1] = viewLightPos[1];
+        constants.lightPosition[2] = viewLightPos[2];
+        constants.lightPosition[3] = viewLightPos[3];
+        constants.materialAmbient[0] = 0.2f;
+        constants.materialAmbient[1] = 0.2f;
+        constants.materialAmbient[2] = 0.2f;
+        constants.materialAmbient[3] = 1.0f;
+        constants.materialDiffuse[0] = 0.8f;
+        constants.materialDiffuse[1] = 0.8f;
+        constants.materialDiffuse[2] = 0.8f;
+        constants.materialDiffuse[3] = 1.0f;
+        constants.objectStyle = ObjectStyleForShader( cinematic );
+        constants.primitiveShape = primitiveShape;
+        constants.materialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
+        constants.objectStylePad = 0.0f;
+        ApplyBatchLightConstants( constants, lighting, cinematic );
+        FillShadowReceiverConstants( constants, m_state, shadow, receiveShadows, true );
+        return shader.SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
+                                              "PrimitiveBatchShaderConstants" );
+    } );
+}
+
+bool PrimitiveBatchRenderer::MaterialTableCreationSucceeded( uint32_t textureHandle )
+{
+    return textureHandle != 0u;
 }
 
 void PrimitiveBatchRenderer::SetClipPlane( float x, float y, float z, float w )

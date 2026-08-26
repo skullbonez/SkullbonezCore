@@ -309,12 +309,35 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     renderStore.BeginPhysicsStepPoseCapture( bodyStore );
     auto hotFields = bodyStore.MutableHotFields();
     hotFields.positionX[0] = 8.0f;
+    hotFields.orientationZ[0] = 0.70710677f;
+    hotFields.orientationW[0] = 0.70710677f;
     renderStore.CompletePhysicsStepPoseCapture( bodyStore );
 
     Vector3 presentedPosition;
     Quaternion presentedOrientation;
     REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
     CHECK( presentedPosition.x == doctest::Approx( 2.0f ) );
+
+    renderStore.Refresh( bodyStore, colliderStore, -0.25f );
+    REQUIRE( renderStore.Records().size() == 1u );
+    const auto& negativeAlphaModel = renderStore.Records()[0].modelMatrix;
+    CHECK( negativeAlphaModel.m[12] == doctest::Approx( 0.0f ) );
+    CHECK( negativeAlphaModel.m[0] == doctest::Approx( 1.0f ) );
+    CHECK( negativeAlphaModel.m[1] == doctest::Approx( 0.0f ) );
+    CHECK( negativeAlphaModel.m[4] == doctest::Approx( 0.0f ) );
+    CHECK( negativeAlphaModel.m[5] == doctest::Approx( 1.0f ) );
+
+    REQUIRE( renderStore.TryGetPresentationPose( 0, -0.25f, presentedPosition, presentedOrientation ) );
+    CHECK( presentedPosition.x == doctest::Approx( 0.0f ) );
+    float orientationX = 0.0f;
+    float orientationY = 0.0f;
+    float orientationZ = 0.0f;
+    float orientationW = 0.0f;
+    presentedOrientation.GetComponents( orientationX, orientationY, orientationZ, orientationW );
+    CHECK( orientationX == doctest::Approx( 0.0f ) );
+    CHECK( orientationY == doctest::Approx( 0.0f ) );
+    CHECK( orientationZ == doctest::Approx( 0.0f ) );
+    CHECK( orientationW == doctest::Approx( 1.0f ) );
 
     // Concept: a teleport between ticks is a discontinuity. Refresh must publish it
     // exactly instead of blending from the previous physics endpoint.

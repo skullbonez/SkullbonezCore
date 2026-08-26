@@ -123,8 +123,7 @@ void ResetPoseHistory( RenderInstanceRecord& record, const Vector3& position, co
 
 Vector3 InterpolatePosition( const RenderInstanceRecord& record, float alpha )
 {
-    const float t = std::clamp( alpha, 0.0f, 1.0f );
-    return record.previousPosition + ( record.currentPosition - record.previousPosition ) * t;
+    return record.previousPosition + ( record.currentPosition - record.previousPosition ) * alpha;
 }
 
 void TickContactSeconds( float& seconds, float deltaSeconds )
@@ -449,15 +448,19 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         // Why: deterministic/fixed-step and capture frames intentionally use
         // alpha 1. Avoid quaternion normalization across every row on that
         // common validation path while preserving the exact same endpoint.
-        const bool useCurrentEndpoint = presentationAlpha >= 1.0f;
+        // Invariant: position and orientation consume one clamped presentation
+        // fraction. A negative scheduler fraction must select the previous
+        // endpoint for both values instead of extrapolating only rotation.
+        const float interpolationAlpha = std::clamp( presentationAlpha, 0.0f, 1.0f );
+        const bool useCurrentEndpoint = interpolationAlpha >= 1.0f;
         const Vector3 presentedPosition = useCurrentEndpoint ? record.currentPosition
-                                                             : InterpolatePosition( record, presentationAlpha );
+                                                             : InterpolatePosition( record, interpolationAlpha );
 
         const Quaternion presentedOrientation = useCurrentEndpoint
                                                     ? record.currentOrientation
                                                     : Math::Orientation::NlerpShortest( record.previousOrientation,
                                                                                         record.currentOrientation,
-                                                                                        presentationAlpha );
+                                                                                        interpolationAlpha );
 
         record.modelMatrix = BuildRenderModelMatrix( presentedPosition, presentedOrientation, collider );
         record.material = presentationRecord.material;
@@ -487,16 +490,18 @@ bool RenderInstanceStore::TryGetPresentationPose( int modelIndex, float presenta
         return false;
     }
 
-    if ( presentationAlpha >= 1.0f )
+    const float interpolationAlpha = std::clamp( presentationAlpha, 0.0f, 1.0f );
+
+    if ( interpolationAlpha >= 1.0f )
     {
         outPosition = record.currentPosition;
         outOrientation = record.currentOrientation;
     }
     else
     {
-        outPosition = InterpolatePosition( record, presentationAlpha );
+        outPosition = InterpolatePosition( record, interpolationAlpha );
         outOrientation = Math::Orientation::NlerpShortest( record.previousOrientation, record.currentOrientation,
-                                                           presentationAlpha );
+                                                           interpolationAlpha );
     }
 
     return true;

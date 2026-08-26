@@ -32,6 +32,7 @@ Related:
 */
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 
 namespace SkullbonezCore
@@ -130,7 +131,11 @@ inline RenderMaterialKind RenderMaterialKindFromLegacyMode( float legacyMode )
         return RenderMaterialKind::Textured;
     }
 
-    if ( legacyMode > 1.25f )
+    // Hazard: float-to-int conversion is undefined when the finite value is
+    // outside int range, and infinity is never a material ordinal. Bound the
+    // bridge to the only numeric interval that can name a retained kind.
+    if ( std::isfinite( legacyMode ) && legacyMode > 1.25f &&
+         legacyMode < static_cast<float>( static_cast<int>( RenderMaterialKind::Pine ) ) + 0.5f )
     {
         const int mode = static_cast<int>( legacyMode + 0.5f );
 

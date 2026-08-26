@@ -1055,7 +1055,17 @@ inline float ParseMaterialModeValue( const Json& value, const std::string& path,
 {
     if ( value.is_number() )
     {
-        return value.get<float>();
+        const double numericMode = value.get<double>();
+
+        if ( !std::isfinite( numericMode ) ||
+             numericMode < -static_cast<double>( (std::numeric_limits<float>::max)() ) ||
+             numericMode > static_cast<double>( (std::numeric_limits<float>::max)() ) )
+        {
+            Fail( path, std::string( context ) + " must fit a finite float" );
+            return 0.0f;
+        }
+
+        return static_cast<float>( numericMode );
     }
 
     const std::string token = Lowercase( ReadString( value, path, context ) );

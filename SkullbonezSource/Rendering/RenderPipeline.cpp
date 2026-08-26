@@ -33,21 +33,6 @@ namespace Rendering
 namespace
 {
 
-bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& rhs )
-{
-    return lhs.cinematicRender == rhs.cinematicRender && lhs.useCinematicTarget == rhs.useCinematicTarget &&
-           lhs.terrainShadowValid == rhs.terrainShadowValid && lhs.objectShadowValid == rhs.objectShadowValid &&
-           lhs.shadowPassExecuted == rhs.shadowPassExecuted && lhs.reflectionPassExecuted == rhs.reflectionPassExecuted &&
-           lhs.reflectionUsedDxr == rhs.reflectionUsedDxr && lhs.objectOpaquePass == rhs.objectOpaquePass &&
-           lhs.objectTransparentPass == rhs.objectTransparentPass && lhs.terrainPassRendered == rhs.terrainPassRendered &&
-           lhs.waterPassRendered == rhs.waterPassRendered && lhs.waterSamplesReflection == rhs.waterSamplesReflection &&
-           lhs.worldExtensionRendered == rhs.worldExtensionRendered &&
-           lhs.volumetricPassExecuted == rhs.volumetricPassExecuted && lhs.volumetricReady == rhs.volumetricReady &&
-           lhs.volumetricTextureHandle == rhs.volumetricTextureHandle && lhs.volumetricWidth == rhs.volumetricWidth &&
-           lhs.volumetricHeight == rhs.volumetricHeight;
-}
-
-
 uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
 {
     // Why: DumpText allocates. Hash only stable schedule/resource vocabulary so
@@ -160,25 +145,22 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderGraph& grap
 
 void RenderPipeline::DumpExecutedFrameGraphIfChanged( const RenderGraph& graph, const RenderSceneSnapshot& snapshot )
 {
-    static bool hasLastSnapshot = false;
-    static RenderSceneSnapshot lastSnapshot;
-    static uint64_t lastGraphFingerprint = 0;
+    static RenderPipelineDiagnosticWriteState writeState;
 
     const uint64_t graphFingerprint = FrameGraphShapeFingerprint( graph );
 
-    if ( hasLastSnapshot && IsSameSnapshot( snapshot, lastSnapshot ) && graphFingerprint == lastGraphFingerprint )
+    if ( writeState.MatchesFrame( snapshot, graphFingerprint ) )
     {
         return;
     }
 
     const std::string dumpText = BuildExecutedFrameGraphText( graph, snapshot );
-    static std::string lastDumpText;
-    lastSnapshot = snapshot;
-    lastGraphFingerprint = graphFingerprint;
-    hasLastSnapshot = true;
 
-    if ( dumpText == lastDumpText )
+    if ( writeState.MatchesDumpText( dumpText ) )
     {
+        // The durable artifact already contains these exact bytes. Advance the
+        // fast frame key without performing another filesystem operation.
+        writeState.RecordPublicationResult( true, snapshot, graphFingerprint, dumpText );
         return;
     }
 
@@ -189,7 +171,8 @@ void RenderPipeline::DumpExecutedFrameGraphIfChanged( const RenderGraph& graph, 
     if ( file.is_open() )
     {
         file << dumpText << "\n";
-        lastDumpText = dumpText;
+        file.close();
+        writeState.RecordPublicationResult( !file.fail(), snapshot, graphFingerprint, dumpText );
     }
 }
 

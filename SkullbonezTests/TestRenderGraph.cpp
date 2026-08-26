@@ -43,6 +43,7 @@ Related:
 #include <array>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 using namespace SkullbonezCore::Rendering;
 
@@ -59,6 +60,14 @@ void CheckTransition( const RenderGraphTransitionDesc& transition, uint32_t expe
     CHECK( transition.before == expectedBefore );
     CHECK( transition.after == expectedAfter );
     CHECK( transition.subresource == expectedSubresource );
+}
+
+void CheckUavBarrier( const RenderGraphUavBarrierDesc& barrier, uint32_t expectedPassIndex,
+                      RenderGraphResourceHandle expectedResource, RenderGraphNativeResourceToken expectedNativeResource )
+{
+    CHECK( barrier.passIndex == expectedPassIndex );
+    CHECK( barrier.resource.index == expectedResource.index );
+    CHECK( barrier.nativeResource.value == expectedNativeResource.value );
 }
 
 void CheckLifetime( const RenderGraphResourceLifetimeDesc& lifetime, RenderGraphResourceHandle expectedResource,
@@ -140,6 +149,18 @@ void CheckExecutionContract( const RenderGraphExecutionContractResult& result, s
 
 bool RunRenderGraphFatalCase( const char* caseName )
 {
+    if ( std::strcmp( caseName, "render-graph-incompatible-same-pass-use" ) == 0 )
+    {
+        RenderGraph graph;
+        const RenderGraphResourceHandle texture =
+            graph.AddExternalResource( "SamePassTexture", RenderGraphResourceAccess::PixelShaderResource );
+        const uint32_t pass = graph.AddPass( "ImpossiblePass" );
+        graph.AddRead( pass, texture, RenderGraphResourceAccess::PixelShaderResource );
+        graph.AddWrite( pass, texture, RenderGraphResourceAccess::RenderTarget );
+        (void)graph.Compile();
+        return true;
+    }
+
     if ( std::strcmp( caseName, "render-graph-subresource-state-capacity" ) == 0 )
     {
         RenderGraph graph;
@@ -378,6 +399,89 @@ TEST_CASE( "Render graph backbuffer returns to Present after repeated render-tar
                      RenderGraphResourceAccess::RenderTarget );
     CheckTransition( compiled.transitions[1], pass2, backbuffer, nativeResource, RenderGraphResourceAccess::RenderTarget,
                      RenderGraphResourceAccess::Present );
+}
+
+TEST_CASE( "Render graph emits one UAV ordering edge per later pass without inventing state changes" )
+{
+    RenderGraph graph;
+    const RenderGraphNativeResourceToken nativeResource { 0xFA01u };
+    const RenderGraphResourceHandle texture =
+        graph.AddExternalResource( "UavTexture", RenderGraphResourceAccess::Unknown, nativeResource );
+
+    const uint32_t produce = graph.AddPass( "Produce" );
+    graph.AddWrite( produce, texture, RenderGraphResourceAccess::UnorderedAccess );
+    const uint32_t update = graph.AddPass( "Update" );
+    graph.AddRead( update, texture, RenderGraphResourceAccess::UnorderedAccess );
+    graph.AddWrite( update, texture, RenderGraphResourceAccess::UnorderedAccess );
+    const uint32_t sample = graph.AddPass( "Sample" );
+    graph.AddRead( sample, texture, RenderGraphResourceAccess::PixelShaderResource );
+    const uint32_t writeAgain = graph.AddPass( "WriteAgain" );
+    graph.AddWrite( writeAgain, texture, RenderGraphResourceAccess::UnorderedAccess );
+    const uint32_t continueWrite = graph.AddPass( "ContinueWrite" );
+    graph.AddWrite( continueWrite, texture, RenderGraphResourceAccess::UnorderedAccess );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    REQUIRE( compiled.uavBarriers.size() == 2u );
+    CheckUavBarrier( compiled.uavBarriers[0], update, texture, nativeResource );
+    CheckUavBarrier( compiled.uavBarriers[1], continueWrite, texture, nativeResource );
+    REQUIRE( compiled.transitions.size() == 2u );
+    CheckTransition( compiled.transitions[0], sample, texture, nativeResource,
+                     RenderGraphResourceAccess::UnorderedAccess, RenderGraphResourceAccess::PixelShaderResource );
+    CheckTransition( compiled.transitions[1], writeAgain, texture, nativeResource,
+                     RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::UnorderedAccess );
+    CHECK( graph.DumpText().find( "UavBarriers:" ) != std::string::npos );
+    CHECK( graph.DumpText().find( "before pass [1] Update: UavTexture UAV order" ) != std::string::npos );
+}
+
+TEST_CASE( "Compiled UAV dispatch routes external and transient ordering to their backend owners" )
+{
+    RenderGraph graph;
+    const RenderGraphNativeResourceToken nativeResource { 0xFB01u };
+    const RenderGraphResourceHandle external =
+        graph.AddExternalResource( "ExternalUav", RenderGraphResourceAccess::Unknown, nativeResource );
+    RenderGraphTransientResourceDesc transientDesc = MakeSingleDescriptorTransient();
+    transientDesc.descriptors.renderTarget = false;
+    transientDesc.descriptors.unorderedAccess = true;
+    const RenderGraphResourceHandle transient =
+        graph.AddTransientResource( "TransientUav", transientDesc, RenderGraphResourceAccess::Unknown );
+
+    const uint32_t produce = graph.AddPass( "ProduceBoth" );
+    graph.AddWrite( produce, external, RenderGraphResourceAccess::UnorderedAccess );
+    graph.AddWrite( produce, transient, RenderGraphResourceAccess::UnorderedAccess );
+    const uint32_t continueBoth = graph.AddPass( "ContinueBoth" );
+    graph.AddWrite( continueBoth, external, RenderGraphResourceAccess::UnorderedAccess );
+    graph.AddWrite( continueBoth, transient, RenderGraphResourceAccess::UnorderedAccess );
+    const RenderGraphCompileResult compiled = graph.Compile();
+
+    size_t externalCallbacks = 0;
+    const size_t externalDispatches = DispatchCompiledUavBarriersForPass(
+        graph, compiled, continueBoth, true,
+        [&]( const RenderGraphUavBarrierDesc& barrier, const RenderGraphResourceDesc& resource )
+        {
+            ++externalCallbacks;
+            CHECK( barrier.resource.index == external.index );
+            CHECK( resource.external );
+            CHECK( barrier.nativeResource.value == nativeResource.value );
+            return true;
+        } );
+    size_t transientCallbacks = 0;
+    const size_t transientDispatches = DispatchCompiledUavBarriersForPass(
+        graph, compiled, continueBoth, false,
+        [&]( const RenderGraphUavBarrierDesc& barrier, const RenderGraphResourceDesc& resource )
+        {
+            ++transientCallbacks;
+            CHECK( barrier.resource.index == transient.index );
+            CHECK_FALSE( resource.external );
+            return true;
+        } );
+
+    CHECK( externalDispatches == 1u );
+    CHECK( externalCallbacks == 1u );
+    CHECK( transientDispatches == 1u );
+    CHECK( transientCallbacks == 1u );
+    CHECK( DispatchCompiledUavBarriersForPass(
+               graph, compiled, produce, true,
+               []( const RenderGraphUavBarrierDesc&, const RenderGraphResourceDesc& ) { return true; } ) == 0u );
 }
 
 TEST_CASE( "Render graph divergent numeric states converge in deterministic stored order" )
@@ -682,6 +786,9 @@ TEST_CASE( "Render graph transient output accepts exactly sixteen allocations" )
 
 TEST_CASE( "Render graph fixed stores reject every first excess row with fatal invariant" )
 {
+    ExpectRuntimeFatalCase( "render-graph-incompatible-same-pass-use",
+                            { "FATAL[RenderGraph]", "Pass declares incompatible overlapping read/write access",
+                              "pass=ImpossiblePass", "resource=SamePassTexture" } );
     ExpectRuntimeFatalCase( "render-graph-resource-capacity",
                             { "FATAL[RenderGraph]",
                               "Resource capacity exceeded while adding external resource. count=24 capacity=24" } );

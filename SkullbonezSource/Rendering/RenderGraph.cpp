@@ -23,6 +23,7 @@ Related:
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
 #include <sstream>
 
 namespace SkullbonezCore
@@ -199,6 +200,7 @@ void RenderGraphResourceUseList::push_back( const RenderGraphResourceUse& use )
 void RenderGraphCompileResult::Clear()
 {
     transitions.clear();
+    uavBarriers.clear();
     resourceLifetimes.clear();
     transientAllocations.clear();
     transientDiagnostics = RenderGraphTransientAllocationDiagnostics();
@@ -208,6 +210,7 @@ void RenderGraphCompileResult::Clear()
 void RenderGraphCompileResult::ReserveForRuntimePassGraph()
 {
     transitions.reserve( RENDER_GRAPH_MAX_TRANSITIONS );
+    uavBarriers.reserve( RENDER_GRAPH_MAX_UAV_BARRIERS );
     resourceLifetimes.reserve( RENDER_GRAPH_MAX_RESOURCES );
     transientAllocations.reserve( RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS );
 }
@@ -499,6 +502,15 @@ std::string RenderGraph::DumpText() const
         out << "\n";
     }
 
+    out << "UavBarriers:\n";
+
+    for ( const RenderGraphUavBarrierDesc& barrier : compiled.uavBarriers )
+    {
+        const RenderGraphResourceDesc& resource = CheckedResource( barrier.resource );
+        const RenderGraphPassDesc& pass = m_passes[barrier.passIndex];
+        out << "  before pass [" << barrier.passIndex << "] " << pass.name << ": " << resource.name << " UAV order\n";
+    }
+
     out << "TransientAllocations:\n";
 
     for ( const RenderGraphTransientAllocationDesc& allocation : compiled.transientAllocations )
@@ -540,7 +552,8 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
     // 2. Walk passes in the order they were added.
     // 3. Visit each declared read, then each declared write.
     // 4. Whenever the desired access differs from the tracked current access,
-    //    emit a transition record before that pass.
+    //    emit a transition record before that pass. Repeated UAV access in a
+    //    later pass emits an ordering record even though state is unchanged.
     // 5. Remember the new access as the resource's current state.
     // 6. Plan graph-declared transient lifetime, aliasing, and descriptor high
     //    water diagnostics from the first/last use of each resource.
@@ -559,6 +572,9 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
     }
 
     std::array<RenderGraphResourceAccess, RENDER_GRAPH_MAX_RESOURCES> allSubresourceAccess = {};
+    std::array<uint32_t, RENDER_GRAPH_MAX_RESOURCES> lastUavUsePass = {};
+    constexpr uint32_t NO_UAV_PASS = (std::numeric_limits<uint32_t>::max)();
+    lastUavUsePass.fill( NO_UAV_PASS );
 
     for ( size_t resourceIndex = 0; resourceIndex < m_resources.size(); ++resourceIndex )
     {
@@ -583,6 +599,60 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
     {
         const RenderGraphPassDesc& pass = m_passes[passIndex];
 
+        // Hazard: all compiled barriers execute before the callback. One pass
+        // therefore cannot declare overlapping read/write states that would
+        // require a transition in the middle of its own callback.
+        for ( const RenderGraphResourceUse& read : pass.reads )
+        {
+            for ( const RenderGraphResourceUse& write : pass.writes )
+            {
+                const bool sameResource = read.resource.index == write.resource.index;
+                const bool overlappingSubresource = read.subresource == write.subresource ||
+                                                    read.subresource == RENDER_GRAPH_ALL_SUBRESOURCES ||
+                                                    write.subresource == RENDER_GRAPH_ALL_SUBRESOURCES;
+
+                if ( sameResource && overlappingSubresource && read.access != write.access )
+                {
+                    const RenderGraphResourceDesc& resource = CheckedResource( read.resource );
+                    SB_FATAL( "RenderGraph",
+                              "Pass declares incompatible overlapping read/write access. pass=%s resource=%s read=%s "
+                              "write=%s",
+                              pass.name, resource.name, ToString( read.access ), ToString( write.access ) );
+                }
+            }
+        }
+
+        const auto emitUavBarrier = [&]( const RenderGraphResourceUse& use )
+        {
+            const uint32_t resourceIndex = use.resource.index;
+
+            if ( lastUavUsePass[resourceIndex] == NO_UAV_PASS ||
+                 lastUavUsePass[resourceIndex] == static_cast<uint32_t>( passIndex ) )
+            {
+                return;
+            }
+
+            for ( const RenderGraphUavBarrierDesc& barrier : result.uavBarriers )
+            {
+                if ( barrier.passIndex == passIndex && barrier.resource.index == resourceIndex )
+                {
+                    return;
+                }
+            }
+
+            if ( result.uavBarriers.size() >= RENDER_GRAPH_MAX_UAV_BARRIERS )
+            {
+                SB_FATAL( "RenderGraph", "UAV barrier capacity exceeded. count=%zu capacity=%zu",
+                          result.uavBarriers.size(), RENDER_GRAPH_MAX_UAV_BARRIERS );
+            }
+
+            RenderGraphUavBarrierDesc barrier;
+            barrier.passIndex = static_cast<uint32_t>( passIndex );
+            barrier.resource = use.resource;
+            barrier.nativeResource = m_resources[resourceIndex].nativeResource;
+            result.uavBarriers.push_back( barrier );
+        };
+
         const auto emitTransition = [&]( const RenderGraphResourceUse& use,
                                         RenderGraphResourceAccess before, uint32_t subresource )
         {
@@ -593,6 +663,11 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
 
             if ( before == use.access )
             {
+                if ( before == RenderGraphResourceAccess::UnorderedAccess )
+                {
+                    emitUavBarrier( use );
+                }
+
                 return;
             }
 
@@ -664,6 +739,12 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
                     // DX12 state." It is useful as a diagnostic marker, but it
                     // is not a real barrier source state.
                     allAccess = use.access;
+
+                    if ( use.access == RenderGraphResourceAccess::UnorderedAccess )
+                    {
+                        lastUavUsePass[resourceIndex] = static_cast<uint32_t>( passIndex );
+                    }
+
                     return;
                 }
 
@@ -675,6 +756,12 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
 
                 emitTransition( use, allAccess, RENDER_GRAPH_ALL_SUBRESOURCES );
                 allAccess = use.access;
+
+                if ( use.access == RenderGraphResourceAccess::UnorderedAccess )
+                {
+                    lastUavUsePass[resourceIndex] = static_cast<uint32_t>( passIndex );
+                }
+
                 return;
             }
 
@@ -712,6 +799,11 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
                 }
 
                 specificAccess.states[specificAccess.count++] = { use.subresource, use.access };
+            }
+
+            if ( use.access == RenderGraphResourceAccess::UnorderedAccess )
+            {
+                lastUavUsePass[resourceIndex] = static_cast<uint32_t>( passIndex );
             }
         };
 

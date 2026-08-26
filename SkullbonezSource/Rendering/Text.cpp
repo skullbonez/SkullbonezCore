@@ -74,6 +74,11 @@ constexpr PassRasterStateBucket TEXT_RASTER_STATE = MakePassRasterStateBucket( 0
                                                                                  BlendFactor::OneMinusSrcAlpha } );
 
 using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
+
+bool IsValidGdiSelection( HGDIOBJ object )
+{
+    return object != nullptr && object != HGDI_ERROR;
+}
 } // namespace
 
 
@@ -234,7 +239,10 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
         return false;
     }
 
-    memcpy( Text2d::charAdvance, hdr.charAdvance, 96 * sizeof( float ) );
+    if ( !Text2d::SdfAdvanceMetricsValid( std::span<const float>( hdr.charAdvance ) ) )
+    {
+        return false;
+    }
 
     const size_t dataSize = static_cast<size_t>( FONT_ATLAS_W ) * static_cast<size_t>( FONT_ATLAS_H );
     std::unique_ptr<uint8_t[]> pixels( new uint8_t[dataSize] );
@@ -246,9 +254,18 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 
     // SDF rendering requires linear filtering; nearest-neighbour would staircase
     // the distance gradient and make glyph edges look aliased.
-    Text2d::fontTexture = renderTextures.CreateTexture2D( pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1,
-                                                          TextureMipPolicy::SingleLevel, TextureFilterPolicy::Linear );
-    return true;
+    const uint32_t textureHandle = renderTextures.CreateTexture2D( pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1,
+                                                                   TextureMipPolicy::SingleLevel,
+                                                                   TextureFilterPolicy::Linear );
+
+    if ( textureHandle == 0u )
+    {
+        return false;
+    }
+
+    // Publication is atomic with respect to the complete file and backend
+    // texture: malformed metrics or failed upload leave prior font state intact.
+    return Text2d::PublishSdfAtlasCandidate( textureHandle, std::span<const float>( hdr.charAdvance ) );
 }
 
 
@@ -266,6 +283,7 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 
 bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPath )
 {
+    SdfGdiOperationResults gdiResults;
     // Hi-res dimensions — each axis is SDF_SCALE × the final atlas.
     const int FONT_SIZE_HI = FONT_SIZE * SDF_SCALE;     // 192 px glyph height
     const int FONT_CELL_W_HI = FONT_CELL_W * SDF_SCALE; // 240 px cell width
@@ -322,11 +340,37 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
     }
 
     HBITMAP hOldBitmap = reinterpret_cast<HBITMAP>( SelectObject( memDC, hBitmap ) );
+    gdiResults.bitmapSelected = IsValidGdiSelection( hOldBitmap );
+
+    if ( !gdiResults.bitmapSelected )
+    {
+        DeleteObject( hBitmap );
+        DeleteDC( memDC );
+        return false;
+    }
 
     RECT fillRect = { 0, 0, ATLAS_W_HI, ATLAS_H_HI };
     HBRUSH hBlackBrush = CreateSolidBrush( RGB( 0, 0, 0 ) );
-    FillRect( memDC, &fillRect, hBlackBrush );
-    DeleteObject( hBlackBrush );
+    gdiResults.brushCreated = hBlackBrush != nullptr;
+
+    if ( !gdiResults.brushCreated )
+    {
+        SelectObject( memDC, hOldBitmap );
+        DeleteObject( hBitmap );
+        DeleteDC( memDC );
+        return false;
+    }
+
+    gdiResults.backgroundFilled = FillRect( memDC, &fillRect, hBlackBrush ) != 0;
+    gdiResults.brushDeleted = DeleteObject( hBlackBrush ) != FALSE;
+
+    if ( !gdiResults.backgroundFilled || !gdiResults.brushDeleted )
+    {
+        SelectObject( memDC, hOldBitmap );
+        DeleteObject( hBitmap );
+        DeleteDC( memDC );
+        return false;
+    }
 
     // TrueType outline font at 6× size.
     // OUT_TT_PRECIS requests a vector outline for clean scaling.
@@ -334,8 +378,9 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
     // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createfonta
     HFONT hFont = CreateFont( -FONT_SIZE_HI, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS,
                               CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FF_DONTCARE | DEFAULT_PITCH, fontName );
+    gdiResults.fontCreated = hFont != nullptr;
 
-    if ( !hFont )
+    if ( !gdiResults.fontCreated )
     {
         SelectObject( memDC, hOldBitmap );
         DeleteObject( hBitmap );
@@ -344,13 +389,33 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
     }
 
     HFONT hOldFont = reinterpret_cast<HFONT>( SelectObject( memDC, hFont ) );
+    gdiResults.fontSelected = IsValidGdiSelection( hOldFont );
+
+    if ( !gdiResults.fontSelected )
+    {
+        DeleteObject( hFont );
+        SelectObject( memDC, hOldBitmap );
+        DeleteObject( hBitmap );
+        DeleteDC( memDC );
+        return false;
+    }
+
+    const auto releaseGdiResources = [&]()
+    {
+        gdiResults.fontRestored = IsValidGdiSelection( SelectObject( memDC, hOldFont ) );
+        gdiResults.bitmapRestored = IsValidGdiSelection( SelectObject( memDC, hOldBitmap ) );
+        gdiResults.fontDeleted = DeleteObject( hFont ) != FALSE;
+        gdiResults.bitmapDeleted = DeleteObject( hBitmap ) != FALSE;
+        gdiResults.dcDeleted = DeleteDC( memDC ) != FALSE;
+        return SdfGdiOperationsSucceeded( gdiResults );
+    };
 
     // Per-glyph advance widths measured at hi-res, then normalised to FONT_SIZE
     // units so the runtime advance table is resolution-independent.
     float charAdvBuf[96] = {};
     INT advWidths[96] = {};
 
-    GetCharWidth32( memDC, 32, 127, advWidths );
+    gdiResults.glyphWidthsMeasured = GetCharWidth32( memDC, 32, 127, advWidths ) != FALSE;
 
     for ( int i = 0; i < 96; ++i )
     {
@@ -359,8 +424,8 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 
     // Render all 96 printable ASCII characters (0x20–0x7F).
     // Cell layout mirrors the final atlas (FONT_COLS × FONT_ROWS) but scaled up.
-    SetBkMode( memDC, TRANSPARENT );
-    SetTextColor( memDC, RGB( 255, 255, 255 ) );
+    gdiResults.backgroundModeSet = SetBkMode( memDC, TRANSPARENT ) != 0;
+    gdiResults.textColorSet = SetTextColor( memDC, RGB( 255, 255, 255 ) ) != CLR_INVALID;
     char ch[2] = { 0, 0 };
 
     for ( int i = 0; i < 96; ++i )
@@ -368,12 +433,19 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
         ch[0] = static_cast<char>( i + 32 );
         const int col = i % FONT_COLS;
         const int row = i / FONT_COLS;
-        TextOutA( memDC, col * FONT_CELL_W_HI, row * FONT_CELL_H_HI, ch, 1 );
+        gdiResults.glyphsDrawn =
+            TextOutA( memDC, col * FONT_CELL_W_HI, row * FONT_CELL_H_HI, ch, 1 ) != FALSE && gdiResults.glyphsDrawn;
     }
 
     // Flush GDI drawing queue before reading pBits.
     // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-gdiflush
-    GdiFlush();
+    gdiResults.queueFlushed = GdiFlush() != FALSE;
+
+    if ( !SdfGdiOperationsSucceeded( gdiResults ) )
+    {
+        (void)releaseGdiResources();
+        return false;
+    }
 
     // Extract the red channel into a packed byte array.
     // White-on-black rendering means R = G = B = luminance, so any channel works.
@@ -386,11 +458,15 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
     }
 
     // Release all GDI resources — the rest is CPU-only.
-    SelectObject( memDC, hOldFont );
-    SelectObject( memDC, hOldBitmap );
-    DeleteObject( hFont );
-    DeleteObject( hBitmap );
-    DeleteDC( memDC );
+    if ( !releaseGdiResources() )
+    {
+        return false;
+    }
+
+    if ( !SdfAdvanceMetricsValid( std::span<const float>( charAdvBuf ) ) )
+    {
+        return false;
+    }
 
 
     // Phase 2 — signed distance field via two 2D Euclidean Distance Transforms
@@ -504,9 +580,13 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
     hdr.cellH = static_cast<uint32_t>( FONT_CELL_H );
     memcpy( hdr.charAdvance, charAdvBuf, 96 * sizeof( float ) );
 
-    fwrite( &hdr, sizeof( hdr ), 1, file.get() );
-    fwrite( finalAtlas.get(), 1, static_cast<size_t>( finalTotalPx ), file.get() );
-    return true;
+    const size_t headerRowsWritten = fwrite( &hdr, sizeof( hdr ), 1, file.get() );
+    const size_t expectedPixelBytes = static_cast<size_t>( finalTotalPx );
+    const size_t pixelBytesWritten = fwrite( finalAtlas.get(), 1, expectedPixelBytes, file.get() );
+    const int flushResult = fflush( file.get() );
+    FILE* closingFile = file.release();
+    const int closeResult = fclose( closingFile );
+    return SdfAtlasWriteSucceeded( headerRowsWritten, pixelBytesWritten, expectedPixelBytes, flushResult, closeResult );
 }
 
 

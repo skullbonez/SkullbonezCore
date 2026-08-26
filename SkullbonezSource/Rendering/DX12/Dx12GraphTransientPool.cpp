@@ -557,6 +557,47 @@ size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph, con
         binding.activated = true;
     }
 
+    emittedCount += DispatchCompiledUavBarriersForPass(
+        graph, compiled, passIndex, false,
+        [&]( const RenderGraphUavBarrierDesc& barrier, const RenderGraphResourceDesc& graphResource )
+        {
+            GraphTransientResourceDX12* slot = FindSlot( barrier.resource );
+
+            if ( !slot || !slot->resource )
+            {
+                return false;
+            }
+
+            if ( slot->currentAccess != RenderGraphResourceAccess::UnorderedAccess )
+            {
+                SB_FATAL( "Dx12GraphTransientPool",
+                          "Compiled transient UAV barrier has a non-UAV physical state. pass=%s resource=%s access=%s",
+                          graph.Passes()[passIndex].name, graphResource.name, ToString( slot->currentAccess ) );
+            }
+
+            if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().Ok() )
+            {
+                SB_FATAL( "Dx12GraphTransientPool",
+                          "Compiled transient UAV barrier could not open command recording. pass=%s resource=%s",
+                          graph.Passes()[passIndex].name, graphResource.name );
+            }
+
+            Dx12RenderGraphUavBarrierDesc desc;
+            desc.commandList = m_frame.CommandList();
+            desc.resource = slot->resource;
+            const Dx12RenderGraphUavBarrierRecord record = ExecuteDx12RenderGraphUavBarrier(
+                "Dx12GraphCompiledTransient", graph.Passes()[passIndex].name, graphResource.name, desc );
+
+            if ( !record.hasNativeResource || record.missingCommandList || !record.emitted )
+            {
+                SB_FATAL( "Dx12GraphTransientPool",
+                          "Compiled transient UAV ordering barrier was not emitted. pass=%s resource=%s",
+                          graph.Passes()[passIndex].name, graphResource.name );
+            }
+
+            return true;
+        } );
+
     for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
     {
         if ( transition.passIndex != passIndex )

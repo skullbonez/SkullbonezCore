@@ -52,6 +52,7 @@ inline constexpr size_t RENDER_GRAPH_MAX_PASSES = 24;
 inline constexpr size_t RENDER_GRAPH_MAX_PASS_RESOURCE_USES = 8;
 inline constexpr size_t RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE = 8;
 inline constexpr size_t RENDER_GRAPH_MAX_TRANSITIONS = 96;
+inline constexpr size_t RENDER_GRAPH_MAX_UAV_BARRIERS = 96;
 inline constexpr size_t RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS = 16;
 
 /*
@@ -410,6 +411,16 @@ struct RenderGraphTransitionDesc
     uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES;
 };
 
+// UAV access can remain in the same resource state across passes while still
+// requiring execution ordering. This descriptor represents that ordering
+// edge without pretending a before/after state transition occurred.
+struct RenderGraphUavBarrierDesc
+{
+    uint32_t passIndex = 0;
+    RenderGraphResourceHandle resource;
+    RenderGraphNativeResourceToken nativeResource;
+};
+
 struct RenderGraphResourceLifetimeDesc
 {
     RenderGraphResourceHandle resource;
@@ -572,15 +583,16 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
 
 // Result of the first simple graph compile step.
 //
-// The transition list is the live barrier authority consumed immediately before
-// each callback pass. Compile output also carries transient allocation/lifetime
-// facts; future queue ownership can extend the same declarations.
+// Transition and UAV-ordering lists are the live barrier authority consumed
+// immediately before each callback pass. Compile output also carries transient
+// allocation/lifetime facts; future queue ownership can extend the same declarations.
 struct RenderGraphCompileResult
 {
     void Clear();
     void ReserveForRuntimePassGraph();
 
     RenderGraphFixedList<RenderGraphTransitionDesc, RENDER_GRAPH_MAX_TRANSITIONS> transitions;
+    RenderGraphFixedList<RenderGraphUavBarrierDesc, RENDER_GRAPH_MAX_UAV_BARRIERS> uavBarriers;
     RenderGraphFixedList<RenderGraphResourceLifetimeDesc, RENDER_GRAPH_MAX_RESOURCES> resourceLifetimes;
     RenderGraphFixedList<RenderGraphTransientAllocationDesc, RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS> transientAllocations;
     RenderGraphTransientAllocationDiagnostics transientDiagnostics;
@@ -699,6 +711,44 @@ class RenderGraph
     RenderGraphFixedList<RenderGraphPassDesc, RENDER_GRAPH_MAX_PASSES> m_passes;
     std::array<CallbackRecord, RENDER_GRAPH_MAX_PASSES> m_callbackRecords = {};
 };
+
+// Routes one compiled pass's UAV ordering edges to the owning backend resource
+// class. The injected emitter makes the CPU contract testable while DX12 keeps
+// ownership of native-resource validation and command recording.
+template <typename EmitOperation>
+size_t DispatchCompiledUavBarriersForPass( const RenderGraph& graph, const RenderGraphCompileResult& compiled,
+                                           uint32_t passIndex, bool externalResources, EmitOperation&& emitOperation )
+{
+    size_t emittedCount = 0;
+
+    for ( const RenderGraphUavBarrierDesc& barrier : compiled.uavBarriers )
+    {
+        if ( barrier.passIndex != passIndex )
+        {
+            continue;
+        }
+
+        if ( barrier.resource.index >= graph.Resources().size() )
+        {
+            SB_FATAL( "RenderGraph", "Compiled UAV barrier references an invalid resource. resource=%u resourceCount=%zu",
+                      barrier.resource.index, graph.Resources().size() );
+        }
+
+        const RenderGraphResourceDesc& resource = graph.Resources()[barrier.resource.index];
+
+        if ( resource.external != externalResources )
+        {
+            continue;
+        }
+
+        if ( emitOperation( barrier, resource ) )
+        {
+            ++emittedCount;
+        }
+    }
+
+    return emittedCount;
+}
 
 const char* ToString( RenderGraphQueueType queue );
 const char* ToString( RenderGraphPassExecutionOwner owner );

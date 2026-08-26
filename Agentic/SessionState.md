@@ -4,6 +4,25 @@ Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
 Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
 
+## Rendering Bug Ledger Closure (2026-08-26)
+
+RENDER-004 through RENDER-011 are fixed as one Rendering subsystem batch. The
+render graph now rejects impossible overlapping same-pass states and carries
+same-state UAV ordering through API-neutral compile output into both transient
+and external DX12 execution. Primitive readiness requires its material table,
+pose presentation uses one bounded interpolation fraction, and material/font
+inputs reject unsafe numeric values before publication. SDF generation and
+frame-graph diagnostics now report incomplete output honestly and retry without
+publishing failed state.
+
+One consolidated read-only rubber-duck review used task
+`01a03961-d56f-70d1-a7f2-56d4651b858b`. The first pass found five focused
+evidence/wiring gaps across UAV dispatch, primitive readiness, Refresh pose
+publication, font-state atomicity, and GDI result aggregation; the follow-up
+closed all five. Final counts were 0 Blocking, 0 Non-blocking, and 1 Missing
+evidence. Per owner direction, focused Rendering tests, builds, scanners,
+inventories, and repository validation were not executed.
+
 ## Runtime Prediction Bug Ledger Closure (2026-08-26)
 
 PRED-001 and PRED-002 are fixed as one Runtime Prediction subsystem batch.

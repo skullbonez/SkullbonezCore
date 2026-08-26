@@ -833,6 +833,14 @@ size_t CountCompiledTransitionsForPass( const SkullbonezCore::Rendering::RenderG
         }
     }
 
+    for ( const SkullbonezCore::Rendering::RenderGraphUavBarrierDesc& barrier : compiled.uavBarriers )
+    {
+        if ( barrier.passIndex == passIndex )
+        {
+            ++count;
+        }
+    }
+
     return count;
 }
 

@@ -242,6 +242,13 @@ class PrimitiveBatchRenderer
 
     void EnsureSphereShader( const char* shaderBaseName, const SkullbonezCore::Core::OrdinaryRenderConfig& lighting );
     void EnsureShadowDepthShader( const char* shaderBaseName );
+    bool EnsureMaterialTableTexture();
+    static bool MaterialTableCreationSucceeded( uint32_t textureHandle );
+    template <typename EnsureOperation, typename PublishOperation>
+    static bool ResolveVisibleBatchReadiness( EnsureOperation&& ensureOperation, PublishOperation&& publishOperation )
+    {
+        return ensureOperation() && publishOperation();
+    }
     bool BindShader( Rendering::ShaderDX12& shader, const SkullbonezCore::Core::OrdinaryRenderConfig& lighting,
                      const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection,
                      const float lightPosition[4], const SkullbonezCore::Core::CinematicRenderConfig* cinematic,

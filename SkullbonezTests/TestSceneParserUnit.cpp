@@ -987,3 +987,13 @@ TEST_CASE( "AuthoredSceneParser: authored output paths reject embedded NUL trunc
     CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ), path,
                       "capture.screenshot.path must not contain NUL" );
 }
+
+TEST_CASE( "AuthoredSceneParser: material modes reject values outside the finite float domain" )
+{
+    constexpr const char* path = "unit_scene_parser_material_mode_overflow.scene.json";
+    const TemporaryMalformedSceneFile fixture(
+        path, BuildSceneWithSection( R"("objectMaterials":[{"target":"probe","mode":1e100}])" ) );
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ), path,
+                      "objectMaterial.mode must fit a finite float" );
+}
