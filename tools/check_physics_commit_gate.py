@@ -11,7 +11,7 @@
 #
 # Glossary:
 #   Relevant index state: Git blob identities for staged source, project,
-#   authored scene, shader, and physics-validation inputs.
+#   authored scene, config, hull, shader, and physics-validation inputs.
 #   Validation stamp: Local Git metadata recording one successful relevant
 #   index fingerprint and approved golden digest.
 #
@@ -37,6 +37,7 @@ import os
 from pathlib import Path, PurePosixPath
 import subprocess
 import sys
+import tempfile
 
 
 SOURCE_SUFFIXES = {".cpp", ".h", ".hpp", ".inl", ".hlsl"}
@@ -49,6 +50,9 @@ EXACT_TOOL_INPUTS = {
     "tools/validate_physics.bat",
 }
 BASELINE_PATH = "TestOutput/baselines/physics_regression_varied.csv"
+ENGINE_CONFIG_PATH = "SkullbonezData/engine.cfg"
+HULL_PATH_PREFIX = "SkullbonezData/hulls/"
+RELEVANT_DIFF_FILTER = "ACDMRTUXB"
 STAMP_RELATIVE_PATH = Path("skore-validation") / "physics-precommit.json"
 
 
@@ -79,13 +83,15 @@ def affects_physics(path: str) -> bool:
     normalized = path.replace("\\", "/")
     value = PurePosixPath(normalized)
     suffix = value.suffix.lower()
-    if normalized == BASELINE_PATH or normalized in EXACT_TOOL_INPUTS:
+    if normalized in {BASELINE_PATH, ENGINE_CONFIG_PATH} or normalized in EXACT_TOOL_INPUTS:
         return True
     if normalized.startswith("SkullbonezSource/") and suffix in SOURCE_SUFFIXES:
         return True
     if normalized.startswith("ThirdPtySource/"):
         return True
     if normalized.startswith("SkullbonezData/") and suffix == ".json":
+        return True
+    if normalized.startswith(HULL_PATH_PREFIX) and suffix == ".hull":
         return True
     if suffix in BUILD_SUFFIXES:
         return True
@@ -94,6 +100,33 @@ def affects_physics(path: str) -> bool:
 
 def changed_paths(repo: Path, *git_args: str) -> list[str]:
     return normalized_paths(run_git(repo, *git_args).stdout)
+
+
+def staged_relevant_paths(repo: Path) -> list[str]:
+    return [
+        path
+        for path in changed_paths(
+            repo,
+            "diff",
+            "--cached",
+            "--name-only",
+            f"--diff-filter={RELEVANT_DIFF_FILTER}",
+        )
+        if affects_physics(path)
+    ]
+
+
+def unstaged_relevant_paths(repo: Path) -> list[str]:
+    return [
+        path
+        for path in changed_paths(
+            repo,
+            "diff",
+            "--name-only",
+            f"--diff-filter={RELEVANT_DIFF_FILTER}",
+        )
+        if affects_physics(path)
+    ]
 
 
 def relevant_index_lines(repo: Path) -> list[str]:
@@ -169,11 +202,7 @@ def approved_digest(repo: Path) -> str:
 
 
 def validate_clean_relevant_worktree(repo: Path) -> None:
-    unstaged = [
-        path
-        for path in changed_paths(repo, "diff", "--name-only", "--diff-filter=ACMRTUXB")
-        if affects_physics(path)
-    ]
+    unstaged = unstaged_relevant_paths(repo)
     untracked = [
         path
         for path in changed_paths(repo, "ls-files", "--others", "--exclude-standard")
@@ -188,8 +217,7 @@ def validate_clean_relevant_worktree(repo: Path) -> None:
 
 
 def run_commit_gate(repo: Path) -> None:
-    staged = changed_paths(repo, "diff", "--cached", "--name-only", "--diff-filter=ACMRTUXB")
-    if not any(affects_physics(path) for path in staged):
+    if not staged_relevant_paths(repo):
         print("PASS: staged change does not affect deterministic physics inputs")
         return
 
@@ -222,6 +250,8 @@ def self_test() -> None:
         "SkullbonezSource/Rendering/Physics.hlsl",
         "SkullbonezData/scenes/physics_bench_varied.scene.json",
         "SkullbonezData/config/physics.json",
+        ENGINE_CONFIG_PATH,
+        "SkullbonezData/hulls/tree_trunk_faceted.hull",
         "ThirdPtySource/JoltPhysics",
         "SKULLBONEZ_CORE.sln",
         "SKULLBONEZ_CORE.vcxproj",
@@ -232,12 +262,45 @@ def self_test() -> None:
         "README.md",
         "Agentic/Plans/TODO/example.md",
         "SkullbonezData/unrelated.txt",
+        "SkullbonezData/engine.cfg.backup",
+        "SkullbonezData/models/example.hull",
+        "SkullbonezData/hulls/readme.txt",
         "tools/README.md",
     ]
     if any(not affects_physics(path) for path in positive):
         raise GateFailure("self-test missed a physics-affecting path")
     if any(affects_physics(path) for path in negative):
         raise GateFailure("self-test classified documentation as physics-affecting")
+
+    # Hazard: a removed deterministic input must invalidate both the dirty-tree
+    # preflight and the staged fingerprint path. A pure suffix fixture cannot
+    # prove that Git's deletion status survives the command's diff filter.
+    with tempfile.TemporaryDirectory() as directory:
+        repo = Path(directory)
+        config_path = repo / ENGINE_CONFIG_PATH
+        hull_path = repo / HULL_PATH_PREFIX / "fixture.hull"
+        config_path.parent.mkdir(parents=True)
+        hull_path.parent.mkdir(parents=True)
+        config_path.write_text("format_version = 6\n", encoding="utf-8")
+        hull_path.write_text("name fixture\n", encoding="utf-8")
+        run_git(repo, "init")
+        run_git(repo, "config", "user.name", "physics-gate-self-test")
+        run_git(repo, "config", "user.email", "physics-gate-self-test@example.invalid")
+        run_git(repo, "config", "commit.gpgSign", "false")
+        (repo / ".no-hooks").mkdir()
+        run_git(repo, "config", "core.hooksPath", ".no-hooks")
+        run_git(repo, "add", "--", ENGINE_CONFIG_PATH, f"{HULL_PATH_PREFIX}fixture.hull")
+        run_git(repo, "commit", "-m", "fixture")
+
+        config_path.unlink()
+        hull_path.unlink()
+        expected_deletions = {ENGINE_CONFIG_PATH, f"{HULL_PATH_PREFIX}fixture.hull"}
+        if set(unstaged_relevant_paths(repo)) != expected_deletions:
+            raise GateFailure("self-test missed an unstaged deterministic-input deletion")
+
+        run_git(repo, "add", "-u")
+        if set(staged_relevant_paths(repo)) != expected_deletions:
+            raise GateFailure("self-test missed a staged deterministic-input deletion")
     print("PASS: physics commit gate self-tests")
 
 

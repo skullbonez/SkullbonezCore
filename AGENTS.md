@@ -860,6 +860,13 @@ render, or tool gate; it does not replace it.
 | Documentation-only `Agentic/*` (excluding `Agentic/Tests/*`), `*.md`, docs | No validation required when documentation-only |
 | `tools/*` | `validate_fast`, then run the changed script; `validate_fast` includes `validate_tests` |
 
+The physics commit gate treats `SkullbonezData/engine.cfg` and every
+`SkullbonezData/hulls/*.hull` file as deterministic Physics inputs regardless
+of which field changed. Their tracked blob identities belong to the cached
+validation fingerprint, and unstaged or untracked variants fail closed before
+the gate can reuse prior evidence. The gate's self-test must pin these exact
+owned paths and reject similarly suffixed files outside the hull directory.
+
 ---
 
 ## Rules

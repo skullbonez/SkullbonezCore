@@ -4,6 +4,23 @@ Date: 2026-08-26
 Branch: `nightrunner-25th-AUG-26`
 Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete
 
+## Validation Tooling Bug Ledger Closure (2026-08-26)
+
+TOOL-001 is fixed as the complete pending Validation Tooling subsystem batch.
+The Physics commit gate now classifies `SkullbonezData/engine.cfg` and owned
+`SkullbonezData/hulls/*.hull` files as deterministic inputs for staged
+triggering, index fingerprinting, and dirty-worktree rejection. Deletions are
+included in both staged and unstaged checks, and the self-test plants real Git
+deletions while isolating its temporary repository from global signing and hook
+policy.
+
+One consolidated read-only rubber-duck review used task
+`01a03961-d56f-70d1-a7f2-56d4651b858b`. Three passes closed the omitted-deletion
+bypass and temporary-repository Git-policy isolation. Final counts were 0
+Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner direction, the
+updated self-test, commit gate, builds, scanners, inventories, and repository
+validation were not executed.
+
 At-Rest Ball Stability RS0-RS7, Invariant Enforcement And Assertion
 Hardening IH0-IH7, Cause Hierarchy Scientific Inspector CHUI0-CHUI6, Full Source Comment
 Truth Replacement CT0-CT5, Full Validation Time And Value Audit VTA0-VTA5, and Repository
