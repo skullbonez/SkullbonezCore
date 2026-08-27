@@ -35,18 +35,6 @@ FIRST_PARTY_PROJECTS = (
     "SKULLBONEZ_UI.vcxproj",
 )
 APPLICATION_PROJECTS = {"SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_TESTS.vcxproj"}
-SOURCE_PROJECTS = {
-    "assets": "SKULLBONEZ_CORE.vcxproj",
-    "core": "SKULLBONEZ_CORE.vcxproj",
-    "gameplay": "SKULLBONEZ_CORE.vcxproj",
-    "runtime": "SKULLBONEZ_CORE.vcxproj",
-    "scene": "SKULLBONEZ_CORE.vcxproj",
-    "world": "SKULLBONEZ_CORE.vcxproj",
-    "maths": "SKULLBONEZ_MATHS.vcxproj",
-    "physics": "SKULLBONEZ_PHYSICS.vcxproj",
-    "rendering": "SKULLBONEZ_RENDERING.vcxproj",
-    "ui": "SKULLBONEZ_UI.vcxproj",
-}
 UNPACK_THRESHOLD = 4
 MATCH_COUNT_RE = re.compile(r"(?m)^(\d+) match(?:es)?\.$")
 UNPACK_FUNCTION_RE = re.compile(r'(?m)^(.+?):(\d+):\d+: note: "unpacking_function" binds here$')
@@ -140,18 +128,6 @@ def compile_arguments(repo: Path) -> list[str]:
     ]
 
 
-def _source_project(source: Path, repo: Path) -> str | None:
-    try:
-        parts = source.resolve().relative_to(repo.resolve()).parts
-    except ValueError:
-        return None
-    if len(parts) >= 2 and parts[0].casefold() == "skullbonezsource":
-        return SOURCE_PROJECTS.get(parts[1].casefold())
-    if parts and parts[0].casefold() == "skullboneztests":
-        return "SKULLBONEZ_TESTS.vcxproj"
-    return None
-
-
 def _row_arguments(repo: Path, row: CompileRow) -> tuple[str, ...]:
     arguments = compile_arguments(repo)
     language = row.settings["LanguageStandard"].casefold()
@@ -191,18 +167,50 @@ def _row_arguments(repo: Path, row: CompileRow) -> tuple[str, ...]:
 
 
 def compile_contexts(repo: Path, source: Path, rows: list[CompileRow]) -> list[CompileContext]:
-    """Use the source owner's effective Debug and production compile settings."""
+    """Use exact source settings or every distinct first-party header context."""
     relative = source.resolve().relative_to(repo.resolve()).as_posix().casefold()
-    project = _source_project(source, repo)
     exact = [row for row in rows if row.file == relative]
-    candidates = exact or ([row for row in rows if row.project == project] if project else [])
-    contexts: dict[tuple[str, tuple[str, ...]], CompileContext] = {}
+    sibling_rows: list[CompileRow] = []
+    if not exact and source.suffix.lower() in {".h", ".hpp", ".inl"}:
+        sibling_names = {
+            source.with_suffix(suffix).resolve().relative_to(repo.resolve()).as_posix().casefold()
+            for suffix in (".cpp", ".c")
+        }
+        sibling_rows = [row for row in rows if row.file in sibling_names]
+    first_party_rows = [
+        row
+        for row in rows
+        if row.project in FIRST_PARTY_PROJECTS
+        and (
+            row.file.startswith("skullbonezsource/")
+            or row.file.startswith("skullboneztests/")
+        )
+    ]
+    # Headers can be compiled by projects other than the physical source-root
+    # owner. Use each project's most common effective context per configuration;
+    # this preserves project macros and forced includes without treating
+    # unrelated per-file metadata as a header requirement. An exact sibling is
+    # retained in addition to those project contexts.
+    grouped_rows: dict[tuple[str, str], dict[tuple[str, ...], list[CompileRow]]] = collections.defaultdict(
+        lambda: collections.defaultdict(list)
+    )
+    for row in first_party_rows:
+        grouped_rows[(row.project, row.configuration)][_row_arguments(repo, row)].append(row)
+    representative_rows = [
+        min(argument_rows, key=lambda row: row.file)
+        for argument_groups in grouped_rows.values()
+        for argument_rows in [
+            max(argument_groups.values(), key=lambda group: (len(group), tuple(sorted(row.file for row in group))))
+        ]
+    ]
+    candidates = exact or (sibling_rows + representative_rows)
+    contexts: dict[tuple[str, str, tuple[str, ...]], CompileContext] = {}
     for row in candidates:
         configuration = row.configuration.split("|", 1)[0]
         if configuration not in {"Debug", "Profile", "Automation"}:
             continue
         arguments = _row_arguments(repo, row)
-        key = configuration, arguments
+        key = row.project, configuration, arguments
         contexts[key] = CompileContext(row.project, row.configuration, arguments)
     if not contexts:
         return [CompileContext("fixture", "default", tuple(compile_arguments(repo)))]
@@ -220,6 +228,7 @@ def clang_tidy_findings(repo: Path, source: Path, tidy: Path, arguments: tuple[s
             str(source),
             "--checks=-*,readability-function-size",
             f"--config={TIDY_CONFIG}",
+            "--exclude-header-filter=.*ThirdPtySource.*",
             "--warnings-as-errors=readability-function-size",
             "--",
             *(arguments or tuple(compile_arguments(repo))),
@@ -441,6 +450,63 @@ def prove_compile_contexts(repo: Path) -> None:
         header_contexts = compile_contexts(repo, header, rows)
         if any(context.project == "fixture" for context in header_contexts):
             raise AssertionError(f"{root_name} headers fell back to the synthetic fixture context")
+    reserve_header = repo / "SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
+    reserve_contexts = compile_contexts(repo, reserve_header, rows)
+    if any(
+        "DevelopmentToolsCapability.h" in argument
+        for context in reserve_contexts
+        for argument in context.arguments
+    ):
+        raise AssertionError("header context leaked unrelated third-party per-file metadata")
+
+    sibling_row = next(
+        row
+        for row in rows
+        if row.project == "SKULLBONEZ_CORE.vcxproj" and row.configuration == "Profile|x64"
+    )
+    consumer_row = next(
+        row
+        for row in rows
+        if row.project == "SKULLBONEZ_TESTS.vcxproj" and row.configuration == "Profile|x64"
+    )
+    probe_header = repo / "SkullbonezSource/Core/HeaderContextProbe.h"
+    probe_rows = [
+        CompileRow(
+            file="skullbonezsource/core/headercontextprobe.cpp",
+            project=sibling_row.project,
+            configuration=sibling_row.configuration,
+            settings={
+                **sibling_row.settings,
+                "PreprocessorDefinitions": sibling_row.settings["PreprocessorDefinitions"] + ";SIBLING_CONTEXT=1",
+            },
+        ),
+        CompileRow(
+            file="skullbonezsource/core/headercontextconsumer.cpp",
+            project=consumer_row.project,
+            configuration=consumer_row.configuration,
+            settings={
+                **consumer_row.settings,
+                "PreprocessorDefinitions": consumer_row.settings["PreprocessorDefinitions"] + ";CONSUMER_CONTEXT=1",
+            },
+        ),
+    ]
+    probe_contexts = compile_contexts(repo, probe_header, probe_rows)
+    probe_definitions = {
+        argument
+        for context in probe_contexts
+        for argument in context.arguments
+        if argument in {"-DSIBLING_CONTEXT=1", "-DCONSUMER_CONTEXT=1"}
+    }
+    if probe_definitions != {"-DSIBLING_CONTEXT=1", "-DCONSUMER_CONTEXT=1"}:
+        raise AssertionError(
+            "header contexts dropped a non-sibling first-party consumer: "
+            f"actual={sorted(probe_definitions)}"
+        )
+    if {context.project for context in probe_contexts} != {
+        "SKULLBONEZ_CORE.vcxproj",
+        "SKULLBONEZ_TESTS.vcxproj",
+    }:
+        raise AssertionError("header contexts did not preserve distinct first-party consumer projects")
 
 
 def self_test(repo: Path, tidy: Path, query: Path, clang_cl: Path, linker: Path) -> None:

@@ -110,6 +110,7 @@ MATH_PREFIXES = (
     "OrbitalMechanics",
     "Quaternion",
     "RotationMatrix",
+    "ScalarMath",
     "Vector3",
 )
 

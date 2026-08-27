@@ -1,30 +1,7 @@
-@rem
-@rem File: tools/update_baselines.bat
-@rem Purpose:
-@rem   Documents and runs the update_baselines.bat developer/validation helper script.
-@rem
-@rem Summary:
-@rem   Tools are command-line guardrails around builds, validation, screenshots,
-@rem   diagnostics, and artifact handling. They make the safe path repeatable and
-@rem   keep output bounded for humans and agents.
-@rem
-@rem Glossary:
-@rem   JSON (JavaScript Object Notation): Structured text format used by
-@rem   diagnostics, baselines, and tool reports.
-@rem   Validation gate: Repository script that proves a class of changes before
-@rem   commit or PR.
-@rem
-@rem Invariants:
-@rem   - Tool output should be bounded and readable because agents and humans use
-@rem   it for decisions.
-@rem
-@rem Related:
-@rem   - AGENTS.md
-@rem
-@rem
+@rem Update visual/perf baselines or run the guarded core Physics transition.
 @echo off
 setlocal
-REM Update TestOutput\baselines from current Profile artifacts.
+REM Update TestOutput\baselines from current validation artifacts.
 
 if /I "%~1"=="--help" goto :help
 if /I "%~1"=="/?" goto :help
@@ -39,7 +16,7 @@ exit /b %ERRORLEVEL%
 :help
 echo Usage: tools\update_baselines.bat [--visuals] [--perf] [--physics] [--require] [--self-test]
 echo.
-echo Updates TestOutput\baselines from current Profile artifacts.
+echo Updates TestOutput\baselines from current validation artifacts.
 echo With no flags, updates both visual PNG baselines and perf JSON baselines.
 echo --physics archives old/new Debug producers, writes the Physics transition,
 echo updates the core golden, stages the complete evidence, and checks the index.

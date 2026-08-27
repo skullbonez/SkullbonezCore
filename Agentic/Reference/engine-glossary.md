@@ -5,11 +5,9 @@ is a documentation boundary, not a C++ dependency. Source comments may point
 here when a shared term needs more context; file-specific terms should be
 explained once beside their first dense use.
 
-These 341 definitions are review decisions. Terms are distinguished by exact
-spelling and capitalization, so case-distinct terms remain distinct until a
-review explicitly unifies them. When touching glossary ownership, inspect the
-affected source headers and this table directly; no per-term registry grants an
-exception for duplicated or conflicting definitions.
+Terms are distinguished by exact spelling and capitalization. When changing a
+shared definition, inspect the affected source headers and this table directly;
+the glossary documents usage and does not grant exceptions.
 
 | Term | Canonical definition |
 |---|---|

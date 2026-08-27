@@ -782,10 +782,21 @@ class Dx12GeometryOwner
                                   D3D12_GPU_VIRTUAL_ADDRESS uploadAddress, uint8_t* uploadPointer );
     void DrawColoredTrianglesFromBuffer( std::size_t packedFloatCount, const Math::Transformation::Matrix4& viewProjection,
                                          TransientTriangleStyle style, int viewportWidth, int viewportHeight,
-                                         bool compactRibbonInstances, UINT startInstance,
-                                         D3D12_GPU_VIRTUAL_ADDRESS vertexAddress, ID3D12GraphicsCommandList* commandList,
-                                         Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics,
-                                         const RasterStateDesc& rasterState );
+                                         D3D12_GPU_VIRTUAL_ADDRESS vertexAddress, const RasterStateDesc& rasterState,
+                                         ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
+                                         Dx12Diagnostics& diagnostics );
+    void DrawCompactRibbonsFromBuffer( std::size_t packedFloatCount, const Math::Transformation::Matrix4& viewProjection,
+                                       TransientTriangleStyle style, int viewportWidth, int viewportHeight,
+                                       UINT startInstance, D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+                                       const RasterStateDesc& rasterState, ID3D12GraphicsCommandList* commandList,
+                                       Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics );
+    bool PrepareColoredTriangleShader( const Math::Transformation::Matrix4& viewProjection, TransientTriangleStyle style,
+                                       int viewportWidth, int viewportHeight );
+    void SubmitColoredTriangleBuffer( std::size_t packedFloatCount, TransientTriangleStyle style,
+                                      bool compactRibbonInstances, UINT startInstance,
+                                      D3D12_GPU_VIRTUAL_ADDRESS vertexAddress, const RasterStateDesc& rasterState,
+                                      ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
+                                      Dx12Diagnostics& diagnostics );
     void DrawLinesColoredFromBuffer( std::size_t packedFloatCount, const Math::Transformation::Matrix4& viewProjection,
                                      D3D12_GPU_VIRTUAL_ADDRESS vertexAddress, ID3D12GraphicsCommandList* commandList,
                                      Dx12PipelineOwner& pipeline, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics,

@@ -182,6 +182,7 @@
     <ClInclude Include="SkullbonezSource\Maths\OrbitalMechanics.h" />
     <ClInclude Include="SkullbonezSource\Maths\Quaternion.h" />
     <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h" />
+    <ClInclude Include="SkullbonezSource\Maths\ScalarMath.h" />
     <ClInclude Include="SkullbonezSource\Maths\Vector3.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

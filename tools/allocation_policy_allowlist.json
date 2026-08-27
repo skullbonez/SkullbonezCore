@@ -2459,16 +2459,16 @@
     {
       "path": "SkullbonezSource/Scene/SceneSnapshotWriter.cpp",
       "patterns": [
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"( entity.asset.isAssetBacked || ShouldSaveRenderMaterial( material ) ) )\",\"{\"],\"statement\":\"objectMaterials.push_back( RenderMaterialJson( entity.displayName, material ) );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"else if ( !entity.asset.isAssetBacked )\",\"{\"],\"statement\":\"scene[\\\"objects\\\"].push_back( BuildLiveStateJson( sceneView, i ) );\",\"after\":[\"}\",\"const auto& material = entity.renderMaterial;\"]}",
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"emittedAssetRows[static_cast<std::size_t>( partRow )] = true;\",\"}\"],\"statement\":\"scene[\\\"assetInstances\\\"].push_back( std::move( instance ) );\",\"after\":[\"const bool libraryAlreadyEmitted = std::any_of( scene[ ].begin(), scene[ ].end(),\",\"[&]( const Json& value )\"]}",
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"entity.asset.rootObjectId.value, candidate );\",\"}\"],\"statement\":\"partRows.push_back( candidate );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"if ( !libraryAlreadyEmitted )\",\"{\"],\"statement\":\"scene[\\\"assetLibraries\\\"].push_back( entity.asset.libraryToken );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"jointJson[ ] = static_cast<int>( joint.flags );\",\"}\"],\"statement\":\"scene[\\\"ragdollJoints\\\"].push_back( jointJson );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"memberJson[ ] = member.escapeStartRadius;\",\"}\"],\"statement\":\"members.push_back( std::move( memberJson ) );\",\"after\":[\"}\",\"scene[ ][ ] = {\"]}",
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"partState.erase( );\",\"}\"],\"statement\":\"instance[\\\"parts\\\"].push_back( std::move( partState ) );\",\"after\":[\"emittedAssetRows[static_cast<std::size_t>( partRow )] = true;\",\"}\"]}",
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"}\",\"scene[ ] = Json::array();\"],\"statement\":\"scene[\\\"cameras\\\"].push_back( {\",\"after\":[\"{ , },\",\"{ , Vec3Json( sceneView.cameraEye ) },\"]}",
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"}\",\"std::string serializedScene = scene.dump( 2 );\"],\"statement\":\"serializedScene.push_back( '\\\\n' );\",\"after\":[\"return SkullbonezCore::Core::WriteTextFileAtomic( diagnostics, , request.path,\",\"serializedScene );\"]}"
+        "{\"symbol\":\"AppendSceneObjectsJson\",\"before\":[\"( entity.asset.isAssetBacked || ShouldSaveRenderMaterial( material ) ) )\",\"{\"],\"statement\":\"objectMaterials.push_back( RenderMaterialJson( entity.displayName, material ) );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"AppendSceneObjectsJson\",\"before\":[\"else if ( !entity.asset.isAssetBacked )\",\"{\"],\"statement\":\"scene[\\\"objects\\\"].push_back( BuildLiveStateJson( sceneView, i ) );\",\"after\":[\"}\",\"const auto& material = entity.renderMaterial;\"]}",
+        "{\"symbol\":\"AppendSceneObjectsJson\",\"before\":[\"emittedAssetRows[static_cast<std::size_t>( partRow )] = true;\",\"}\"],\"statement\":\"scene[\\\"assetInstances\\\"].push_back( std::move( instance ) );\",\"after\":[\"const bool libraryAlreadyEmitted = std::any_of( scene[ ].begin(), scene[ ].end(),\",\"[&]( const Json& value )\"]}",
+        "{\"symbol\":\"AppendSceneObjectsJson\",\"before\":[\"entity.asset.rootObjectId.value, candidate );\",\"}\"],\"statement\":\"partRows.push_back( candidate );\",\"after\":[\"}\",\"std::sort( partRows.begin(), partRows.end(), [&]( int a, int b )\"]}",
+        "{\"symbol\":\"AppendSceneObjectsJson\",\"before\":[\"if ( !libraryAlreadyEmitted )\",\"{\"],\"statement\":\"scene[\\\"assetLibraries\\\"].push_back( entity.asset.libraryToken );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"AppendPointJointsJson\",\"before\":[\"jointJson[ ] = static_cast<int>( joint.flags );\",\"}\"],\"statement\":\"scene[\\\"ragdollJoints\\\"].push_back( jointJson );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"AppendSimulationJson\",\"before\":[\"memberJson[ ] = member.escapeStartRadius;\",\"}\"],\"statement\":\"members.push_back( std::move( memberJson ) );\",\"after\":[\"}\",\"scene[ ][ ] = {\"]}",
+        "{\"symbol\":\"AppendSceneObjectsJson\",\"before\":[\"partState.erase( );\",\"}\"],\"statement\":\"instance[\\\"parts\\\"].push_back( std::move( partState ) );\",\"after\":[\"emittedAssetRows[static_cast<std::size_t>( partRow )] = true;\",\"}\"]}",
+        "{\"symbol\":\"AppendPresentationJson\",\"before\":[\"}\",\"scene[ ] = Json::array();\"],\"statement\":\"scene[\\\"cameras\\\"].push_back( {\",\"after\":[\"{ , },\",\"{ , Vec3Json( sceneView.cameraEye ) },\"]}",
+        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"AppendPointJointsJson( sceneView, scene );\",\"std::string serializedScene = scene.dump( 2 );\"],\"statement\":\"serializedScene.push_back( '\\\\n' );\",\"after\":[\"return SkullbonezCore::Core::WriteTextFileAtomic( diagnostics, , request.path,\",\"serializedScene );\"]}"
       ],
       "owner": "SceneSnapshotWriter explicit artifact encoder",
       "phase": "explicit_scene_save",

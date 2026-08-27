@@ -502,16 +502,8 @@ SceneFrameProceedPolicy Run::RunAutomationAndInputPhase( bool& gameUiActive, Rec
 {
     recordedCursor = {};
     const uint64_t sceneGenerationBeforeInput = m_sceneController.LifecyclePacket().generation;
-    const ReplayAutomationView automationReplayView = m_replayRuntime.BuildAutomationView();
-    const ReplayInputView automationReplayInput = automationReplayView.input;
-    const InteractionAutomationFrameResult result = TickInteractionAutomationBeforeInput( m_interactionAutomation, m_window,
-                                                                                          m_config, m_sceneController,
-                                                                                          m_timers.Publish(), m_camera,
-                                                                                          m_inputRouter, m_interaction,
-                                                                                          m_editorTools, m_runtimeTools,
-                                                                                          *m_operatorUi,
-                                                                                          automationReplayView,
-                                                                                          Renderer().FrameGraphSnapshot() );
+    const InteractionAutomationFrameResult result = RunInteractionAutomationBeforeInput();
+    const ReplayInputView automationReplayInput = m_replayRuntime.BuildAutomationView().input;
 
     if ( result.applyDirectorCameraPose )
     {
@@ -896,22 +888,7 @@ void Run::RunPostDrawDiagnosticsPhase( bool gameUiActive )
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     PROFILE_BEGIN( "Frame/PostDraw/InteractionAutomation" );
-    InteractionAutomationDevelopmentUiView automationDevelopmentUiView;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    const DevelopmentTools::ImGuiEditorStatus imguiAutomationStatus = m_imguiEditor.CopyStatus();
-    automationDevelopmentUiView = m_interactionAutomation.BuildDevelopmentUiView( imguiAutomationStatus,
-                                                                                  m_operatorUi->IsVisible(), gameUiActive );
-
-#endif
-    const InteractionAutomationFrameResult
-        automationAfterRender = TickInteractionAutomationAfterRender( m_interactionAutomation, m_editorTools, m_runtimeTools,
-                                                                      m_interaction, m_inputRouter, m_camera, *m_operatorUi,
-                                                                      m_sceneController,
-                                                                      m_replayRuntime.BuildAutomationView(),
-                                                                      automationDevelopmentUiView,
-                                                                      m_continuousForecast.View(),
-                                                                      Renderer().FrameGraphSnapshot(), m_capture,
-                                                                      BackbufferCapture() );
+    const InteractionAutomationFrameResult automationAfterRender = RunInteractionAutomationAfterRender( gameUiActive );
 
     if ( !automationAfterRender.status.Ok() )
     {

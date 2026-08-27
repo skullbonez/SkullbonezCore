@@ -29,22 +29,18 @@ Do not claim to be a separate model or independent process unless you actually i
    - For debugging: inspect the observed symptom, current hypothesis, evidence, and latest failure output.
 3. Compare expected outcome against actual work and evidence.
 4. For any change that adds, moves, or deletes C++ types or functions, answer the
-   five ownership questions below. For every operation with 12 or more
-   parameters, also verify its exact current wide-signature ruling and name the
-   concrete owner or repair plan. For every function at 400 body lines or brace
-   depth 6, verify the exact current-body complexity ruling and challenge its
-   cohesion reason. These are not style comments — `AGENTS.md` delegates
-   enforcement of its aggregate, slice, extraction, wide-signature, and
-   function-complexity rules to this review, so skipping them leaves those
-   rules unenforced.
+   five ownership questions below. Treat every changed operation with 12 or more
+   parameters and every changed function at 400 body lines or brace depth 6 as
+   blocking compiler-backed source-design findings. Name the concrete ownership
+   defect and require a real responsibility repair; there is no permission
+   ledger or historical exception.
    For project-file or build-inventory changes, also inspect the fifth
    inventory: every shared file/setting divergence needs an exact current
    fingerprint ruling, and dropped list inheritance is always blocking.
-   For changes that add, move, or delete C++ functions, inspect the sixth
-   inventory after current Debug/Profile builds. Every non-production-rooted
-   definition needs an exact current reachability ruling; distinguish dynamic
-   invocation and deliberate test seams from dead surface, and require a live
-   plan for every repair disposition.
+   For changes that add, move, or delete C++ functions, inspect production use
+   directly and use the source-design link fixture as the mechanical evidence.
+   Distinguish dynamic invocation and deliberate test seams from dead surface;
+   do not preserve obsolete code through a test-only call.
    For source-comment or shared-glossary changes, inspect the comment guide and
    the post-change source directly. Reject false ownership, sequencing,
    lifetime, unit, capacity, or behavior claims and oversized template preambles.

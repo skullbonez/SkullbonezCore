@@ -723,26 +723,18 @@ new runtime allocation exceptions without an owner decision.
 
 Physics-visible arithmetic must not depend silently on implementation-defined
 `<cmath>` transcendental results. Static enforcement lives in
-`tools/check_determinism_math_policy.py` with exact current-source judgements in
-`tools/determinism_math_rulings.json`. The checker scans both
-`SkullbonezSource/Physics` and `SkullbonezSource/Maths`; scanning Physics alone
-misses shared Maths code that Physics invokes.
+`tools/check_determinism_math_policy.py`. The checker scans both
+`SkullbonezSource/Physics` and `SkullbonezSource/Maths`; it admits only named
+presentation-only Maths owners and rejects Physics references to those owners.
 
 Basic arithmetic and comparison plus the certified exact or correctly-rounded
 families (`sqrt`, `fabs`, `floor`, `ceil`, `trunc`, `round`, `copysign`,
 `ldexp`, `frexp`, and `fmod`, including their standard float/long-double
-spellings) pass directly. Every other `<cmath>` entry point requires an exact
-current ruling. Explicit fused multiply-add also requires a ruling: the
-operation is correctly rounded, but this repository deliberately disables
-implicit contraction, so an explicit fused operation must record its owner and
-intent.
-
-A `retain-owner` ruling must name a concrete current purpose and prove the call
-is not Physics-reachable. A Physics-visible call remains a `repair-plan` row
-that names an existing canonical plan until the deterministic owner replaces
-it. Unruled calls, stale source fingerprints, malformed rows, and missing repair
-plans fail `validate_fast`. Rulings are reviewable judgements, not allowances;
-never turn the inventory into a count threshold or frozen budget.
+spellings) pass directly. Every other `<cmath>` entry point fails in Physics and
+outside the checker's closed set of presentation-only Maths functions. Explicit
+fused multiply-add always fails because this repository deliberately disables
+implicit contraction. Add a new presentation owner by changing the checker and
+its negative fixtures, not by recording source coordinates or fingerprints.
 
 ## Error Handling Policy
 
@@ -844,7 +836,7 @@ render, or tool gate; it does not replace it.
 | `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
 | `Core/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
-| `tools/check_determinism_math_policy.py`, `tools/determinism_math_rulings.json` | `validate_fast`, then `python tools\check_determinism_math_policy.py --self-test` and `python tools\check_determinism_math_policy.py --repo .` |
+| `tools/check_determinism_math_policy.py` | `validate_fast`, then `python tools\check_determinism_math_policy.py --self-test` and `python tools\check_determinism_math_policy.py --repo .` |
 | `tools/check_source_design.py`, changed C++ function signatures/shape, parameter structs, or local refactor cleanup | `validate_fast`, then `python tools\check_source_design.py --repo . --self-test` and `python tools\check_source_design.py --repo .` |
 | `Agentic/Reference/engine-glossary.md`, `Agentic/Reference/comment-style-guide.md`, `Agentic/Skills/comment-style-audit/skill.md`, or `Agentic/Skills/rubber-duck/SKILL.md` glossary rules | Documentation-only changes require no repository validation; review touched glossary ownership and wording directly |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
@@ -979,9 +971,9 @@ that does not is incomplete rather than clean:
    does not hold?
 
 Report a finding against these as `[Blocking]`. None of them may be waived as
-follow-up debt, and none is closed by a rename or a parameter reshuffle. The three
-repeatable inventories named in the Governance Review Model provide the evidence
-for questions 1 and 3; cite their output rather than asserting a conclusion.
+follow-up debt, and none is closed by a rename or a parameter reshuffle. Use the
+compiler-backed source-design report for questions it can classify and answer
+the remaining ownership questions directly from the changed source.
 
 A test file is named for the subsystem whose behavior it pins, never for a gate,
 a metric, or a plan. Coverage is raised by testing a subsystem, not by adding a

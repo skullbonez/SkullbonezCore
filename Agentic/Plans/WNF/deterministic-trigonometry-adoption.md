@@ -49,18 +49,16 @@ The closure state is:
 
 - every direct `std::sin`, `std::cos`, `sinf`, or `cosf` call under
   `SkullbonezSource/` is either migrated to a named Maths owner with a certified
-  input domain and measured error contract, or retained under an exact current-
-  source ruling because the approximation failed the caller's measured
-  contract;
+  input domain and measured error contract, or retained by its named algorithm
+  owner because the approximation failed the caller's measured contract;
 - every retained platform call has a nearby source comment naming the owning
   algorithm, the failed approximation/error or convergence requirement, and
   the evidence that justifies platform trig;
 - exact test-only reference/oracle uses remain explicitly classified and
   cannot become production dependencies;
-- a static gate scans every first-party CPU production root, permits only the
-  exact reviewed retained sites, and rejects every new or changed spelling,
-  alias, pointer, macro, and line-break form already covered by the determinism-
-  policy scanner's negative fixtures; and
+- a static gate scans every first-party CPU production root, reports the named
+  function and numeric domain for each platform-trig use, and rejects calls
+  without a nearby owner explanation;
 - the solar-system fast-forward and orbital-planning evidence demonstrates
   that the migration did not trade reproducibility for unacceptable numerical
   drift.
@@ -196,12 +194,13 @@ one of these honest outcomes:
 2. algebraically reformulate the Stumpff evaluation around a deterministic
    series/rational owner with measured truncation and cancellation bounds; or
 3. retain the two double runtime calls if the candidate cannot meet the
-   accuracy/convergence contract, with a nearby source explanation and an exact
-   current-source gate ruling that becomes stale if the site changes.
+   accuracy/convergence contract, with a nearby source explanation and the
+   named function/domain ownership check kept current.
 
 Outcome 3 is an allowed numerical result. It is not permission to add another
 platform call: a plan runner may not silently narrow to float, declare
-presentation-only code numerically irrelevant, or weaken the exact-site gate.
+presentation-only code numerically irrelevant, or weaken the function/domain
+boundary.
 
 ## Solar-System Fast-Forward Evidence
 
@@ -276,22 +275,23 @@ a convergence flip acceptable.
 
 ### DT0 — Make The Inventory And Enforcement Repository-Wide
 
-- [ ] Extend `tools/check_determinism_math_policy.py` and its exact ruling data
-  to scan every first-party CPU production root under `SkullbonezSource/`.
+- [ ] Extend `tools/check_determinism_math_policy.py` domain checks to scan
+  every first-party CPU production root under `SkullbonezSource/`.
 - [ ] Preserve negative fixtures for split-line calls, global qualification,
   namespace aliases, function pointers, same-line and continued macro aliases,
   while excluding member-access false positives.
 - [ ] Classify test roots separately so independent reference calls are visible
   and exact, but never become production allowances.
-- [ ] Add exact current-source rulings for retained production calls. Each
-  ruling must match the file/site and call identity, point to the nearby source
+- [ ] Classify retained production calls by named function/domain ownership.
+  Each retained owner must point to the nearby source
   explanation, and fail strict validation when the call moves, changes, or a
   new unruled call appears. Do not use a count budget.
 - [ ] Reproduce the 120-production/20-test inventory or explain every delta from
   this dated evidence.
 
-Evidence: scanner self-test, strict repository scan, exact current rulings, and
-an independent review that the widened roots have no bypass.
+Evidence: scanner self-test, strict repository scan, named function/domain
+ownership with nearby explanations, and an independent review that the widened
+roots have no bypass.
 
 ### DT1 — Build A/B Oracles And Exact-Tick Fast-Forward Before Replacements
 
@@ -312,7 +312,8 @@ control output, and no production behavior change.
 - [ ] Extend the float domain/error evidence to all caller families.
 - [ ] Implement and certify the chosen binary64/Stumpff strategy without
   narrowing to float, or record that it failed the measured contract and retain
-  the affected platform calls under source explanations plus exact rulings.
+  the affected platform calls under nearby source explanations plus named
+  function/domain ownership in the current scan.
 - [ ] Add high-precision committed oracle vectors, reduction-boundary neighbors,
   special values, symmetry, quadrant, continuity, and cross-toolchain bit tests.
 - [ ] Measure scalar cost and representative bulk cost against platform trig.
@@ -364,7 +365,8 @@ physics and performance gates, and an attributed before/after artifact diff.
   accuracy and convergence evidence after each group.
 - [ ] Migrate the double Stumpff path only if the certified binary64/series
   owner chosen in DT2 meets its convergence contract; otherwise retain the
-  platform calls with the required source explanation and exact gate rulings.
+  platform calls with the required source explanation and named function/domain
+  ownership in the current checker output.
 - [ ] Run the full analytic planning suite after every convergence-sensitive
   group and the live n-body suite after the final source state.
 - [ ] Update trip, porkchop, and orbital tests so their expected inputs remain
@@ -375,13 +377,11 @@ and porkchop hashes, live fast-forward metrics/hashes, and performance.
 
 ### DT7 — Close The Production Surface
 
-- [ ] Strict scan reports no unruled direct sine/cosine call under
-  `SkullbonezSource/`; every retained call matches its exact current-source
-  ruling and nearby explanation, and tests contain only exact reviewed oracle
-  calls.
-- [ ] Rulings for migrated calls are deleted rather than left stale; rulings for
-  retained calls and non-sine/cosine transcendental calls remain exact and
-  accurate.
+- [ ] Strict scan reports no unexplained direct sine/cosine call under
+  `SkullbonezSource/`; every retained call reports its named function/domain
+  owner and nearby explanation, and tests contain only reviewed oracle calls.
+- [ ] Migrated calls disappear from the current-source inventory; retained calls
+  and other transcendental calls report accurate named ownership.
 - [ ] Run all cumulative focused gates, then one independent numerical,
   ownership, and test-strength review.
 - [ ] Run `tools\agent_validate.bat --plan-completion` exactly once, only after
@@ -389,7 +389,7 @@ and porkchop hashes, live fast-forward metrics/hashes, and performance.
 - [ ] Record final performance/memory deltas and update the master/session
   ledgers before deleting this completed plan under repository convention.
 
-Evidence: final classified-call inventory, exact retained-site rulings, focused
+Evidence: final classified-call inventory with named function/domain ownership, focused
 gate outputs, independent review verdict, single terminal full-plan validation
 output, and final artifact hashes.
 
@@ -399,8 +399,8 @@ output, and final artifact hashes.
   retained because measured approximation evidence failed that caller's
   contract; no spelling is silently omitted.
 - [ ] Every retained production call has a nearby source explanation and an
-  exact current-source gate ruling; strict validation rejects any unreviewed
-  addition or changed retained site.
+  accurate named function/domain owner in the current scan; strict validation
+  rejects any retained call without that explanation.
 - [ ] Tests do not compute expected values through the production implementation
   they are meant to verify.
 - [ ] Float and double owners each have a certified input domain, exact

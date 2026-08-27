@@ -14,8 +14,8 @@ Glossary:
   Unit domain: Closed numeric interval [-1, 1] accepted by inverse cosine and
     inverse sine.
   Aliasing period: Core/Common.h includes this header while older callers still
-    expect these names from Common.h; new Maths code should include this file
-    directly.
+    expect these names from Common.h. New Maths code should include the
+    narrowest owning header, such as ScalarMath.h for scalar tolerances.
 
 Invariants:
   - This header must not include Core/Common.h, Windows headers, Config.h, or
@@ -27,10 +27,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Common.h
+  - SkullbonezSource/Maths/ScalarMath.h
 */
 #pragma once
 
-#include <algorithm>
+#include "ScalarMath.h"
+
 #include <cfloat> // FLT_MAX for math users that still include the common prelude.
 #include <cmath>  // sqrtf, sinf, cosf, fabsf, acosf
 
@@ -52,19 +54,5 @@ constexpr float _HALF_PI = 1.570796325f;
 constexpr float FOUR_OVER_THREE = 1.33333f;
 constexpr float ONE_OVER_THREE = 0.33333f;
 
-// Numeric sentinels and tolerances shared by math and collision code.
+// Collision sentinel retained for the legacy collision APIs.
 constexpr float NO_COLLISION = 1e30f;
-constexpr float TOLERANCE = 0.00005f;
-constexpr float ONE_PLUS_TOLERANCE = 1.00005f;
-constexpr float ZERO_TAKE_TOLERANCE = -0.00005f;
-
-namespace SkullbonezCore::Math
-{
-// Invariant: inverse-trig inputs derived from normalized float vectors use
-// this visible domain clamp before acos/asin. Rounding can otherwise move an
-// exact pole just outside [-1, 1], where the NaN result makes comparisons fail open.
-inline float ClampUnit( float value )
-{
-    return std::clamp( value, -1.0f, 1.0f );
-}
-} // namespace SkullbonezCore::Math

@@ -1,27 +1,4 @@
-# File: tools/time_validation_pipeline.py
-# Purpose:
-# Instruments, measures, and audits the complete execution graph of validation gates.
-#
-# Summary:
-# Implements the measurement contract for the Full Validation Time And Value Audit (VTA0-VTA5).
-# Provides high-resolution wall-clock duration tracking, output line counts, process exit code
-# preservation, structured JSON artifact serialization, and a verified stage manifest.
-#
-# Glossary:
-# Stage id: Stable dot-delimited identifier naming a node in the validation call tree.
-# Timing artifact: Structured JSON record containing per-process wall-clock timing, output line
-# counts, exit code, and machine context.
-#
-# Invariants:
-# - Child process exit code, stdout/stderr line counts, and fail-fast behavior are preserved.
-# - Instrumentation failure must never convert a failed gate into an incorrect pass.
-# - Raw timing artifacts are written to TestOutput/validation/VALIDATION_TIME_AUDIT/.
-#
-# Related:
-# - tools/agent_validate.bat
-# - tools/README.md
-# - tools/validate_full.bat
-# - tools/validate_fast.bat
+# Measure validation commands without changing their exit codes or output.
 
 import argparse
 import datetime
@@ -33,6 +10,8 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+REPO = Path(__file__).resolve().parents[1]
 
 STAGE_MANIFEST = [
     {
@@ -103,7 +82,7 @@ STAGE_MANIFEST = [
         "id": "fast.3_project_filters",
         "parent": "full.1_fast_preflight",
         "name": "Fast 4/9: Project filter validation",
-        "command": "python tools/check_project_filters.py --repo .",
+        "command": "tools\\validate_project_filters.bat",
         "defect_class": "Missing or redundant vcxproj.filters entries",
         "blocking": True
     },
@@ -175,7 +154,7 @@ STAGE_MANIFEST = [
         "id": "cpu.4_scene_parser",
         "parent": "full.2_cpu_tests",
         "name": "CPU 4/6: Scene parser validation",
-        "command": "tools\\validate_scene_parser.bat",
+        "command": "tools\\validate_scene_parser_tests.bat",
         "defect_class": "Scene JSON parsing, validation, and schema bounds",
         "blocking": True
     },
@@ -183,7 +162,7 @@ STAGE_MANIFEST = [
         "id": "cpu.5_ui_boundary",
         "parent": "full.2_cpu_tests",
         "name": "CPU 5/6: UI boundary validation",
-        "command": "tools\\validate_ui_boundary.bat",
+        "command": "tools\\validate_ui_boundary_tests.bat",
         "defect_class": "UI command queueing and decoupling invariants",
         "blocking": True
     },
@@ -191,7 +170,7 @@ STAGE_MANIFEST = [
         "id": "cpu.6_dx12_architecture",
         "parent": "full.2_cpu_tests",
         "name": "CPU 6/6: DX12 architecture check",
-        "command": "tools\\validate_dx12_architecture.bat",
+        "command": "tools\\validate_dx12_arch_tests.bat",
         "defect_class": "Renderer backend structural and boundary invariants",
         "blocking": True
     },
@@ -311,6 +290,21 @@ def run_instrumented_command(
     return record
 
 
+def missing_manifest_command_paths(stages: List[Dict[str, Any]], repo: Path) -> List[str]:
+    missing: List[str] = []
+    for stage in stages:
+        command = str(stage.get("command", ""))
+        if command.startswith("tools\\") or command.startswith("tools/"):
+            candidate = command.split()[0].replace("\\", "/")
+        elif command.startswith("python tools/") or command.startswith("python tools\\"):
+            candidate = command.split()[1].replace("\\", "/")
+        else:
+            continue
+        if not (repo / candidate).is_file():
+            missing.append(command)
+    return missing
+
+
 def run_self_tests() -> bool:
     print("Running time_validation_pipeline self-tests...")
 
@@ -339,6 +333,16 @@ def run_self_tests() -> bool:
     rec = run_instrumented_command("test.spaces", [sys.executable, "-c", "import sys; print('hello world with spaces')"])
     assert rec["exit_code"] == 0
     print("  [PASS] Arguments with spaces and quoting test")
+
+    # Manifest commands that name a repository script must resolve now. Prose
+    # rows describe in-process groups and intentionally have no executable path.
+    missing = missing_manifest_command_paths(STAGE_MANIFEST, REPO)
+    assert not missing, f"Manifest names missing command path(s): {missing}"
+    planted = [{"command": "tools\\definitely_missing_validation.bat"}]
+    assert missing_manifest_command_paths(planted, REPO) == [
+        "tools\\definitely_missing_validation.bat"
+    ]
+    print("  [PASS] Manifest command paths exist")
 
     # 6. Overhead calibration test (50 in-memory iterations)
     t0 = time.perf_counter()
@@ -414,7 +418,7 @@ def run_baseline_measurement(samples_count: int = 3) -> Dict[str, Any]:
         {"id": "fast_plain_language_self_test", "command": "python tools/check_plain_language.py --repo . --self-test", "desc": "Fast 2/9a: Plain-language fixtures"},
         {"id": "fast_plain_language_repo_scan", "command": "python tools/check_plain_language.py --repo .", "desc": "Fast 2/9b: Plain-language repository scan"},
         {"id": "fast_format", "command": "tools\\validate_format.bat", "desc": "Fast 3/9: Format check"},
-        {"id": "fast_project_filters", "command": "python tools/check_project_filters.py --repo .", "desc": "Fast 4/9: Project filters"},
+        {"id": "fast_project_filters", "command": "tools\\validate_project_filters.bat", "desc": "Fast 4/9: Project filters"},
         {"id": "fast_dependency_graph", "command": "tools\\validate_dependency_graph.bat", "desc": "Fast 5/9: Dependency graph"},
         {"id": "fast_build_profile", "command": "tools\\validate_build.bat Profile", "desc": "Fast 8/9: Profile build"},
         {"id": "phase_2_all_cpu_tests", "command": "tools\\validate_all_cpu_tests.bat", "desc": "Phase 2: All CPU tests"},

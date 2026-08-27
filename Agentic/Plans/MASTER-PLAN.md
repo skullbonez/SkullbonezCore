@@ -1,9 +1,16 @@
 # MASTER PLAN
 
 Date: 2026-08-28
-Status: Recorded Interaction Playback Cursor complete; 121/121 tasks complete; bug ledger 126/126 fixed
+Status: No active plan; 126/126 implementation tasks complete; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- Governance Simplification And Scar Removal completed after Recorded
+  Interaction Playback Cursor RIC3. Its five implementation phases
+  removed brittle registries and stale meta-tool metadata,
+  simplified comment and terminology rules, and streamlined Physics golden
+  diagnostics while preserving compiler warnings, dependency direction,
+  allocation checks, and byte-exact determinism.
 
 - Governance De-Bureaucratization and Jargon Removal completed by explicit
   owner direction at 8/8 phases. `DE_BUREAUCRATIZE` DB0-DB7 inventory the
@@ -50,7 +57,7 @@ Status: Recorded Interaction Playback Cursor complete; 121/121 tasks complete; b
   Visual Studio project topology. No project-count or source-line target is
   authorized; separation is judged by ownership, direction, behavior, and
   terminal validation. RBS phases may run beside Physics when their exact
-  path-owner and mutable validation-resource leases are disjoint.
+  path owners and mutable validation resources are disjoint.
 
 - Game UI Component Library Separation is complete by owner direction at 7/7
   phases. It was activated on 2026-08-22 with phase-local RBS prerequisites and
@@ -73,6 +80,13 @@ Status: Recorded Interaction Playback Cursor complete; 121/121 tasks complete; b
   hardware cursor is never hidden, moved, captured, released, restyled, or
   otherwise changed by the feature. The plan does not add pointer history to
   `.skreplay` or change interaction-manifest schema. RIC0-RIC3 are complete.
+
+- Governance Simplification And Scar Removal has completed implementation at
+  5/5 phases and is in terminal re-review. The closure reconciles previously
+  landed DB work, removes the remaining source-fingerprint math registry and
+  empty diagnostics suppression file, repairs stale reviewer/tool metadata,
+  and makes the guarded one-command Physics baseline updater the documented
+  core workflow without changing any accepted golden.
 
 - Causal Event Inspection is complete. Its synchronized exact-frame transport,
   dedicated camera follow, bounded manifold presentation, and four-row solver
@@ -303,9 +317,7 @@ Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
-| Plan | Status | Phases | File |
-|---|---|---|---|
-| (none) | - | - | - |
+No plan is active.
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -322,6 +334,8 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
+| Governance Simplification And Scar Removal | Complete 2026-08-28 | 5/5 | `DONE/governance-simplification-and-scar-removal.md` |
+| Recorded Interaction Playback Cursor | Complete 2026-08-28 | 4/4 | `DONE/recorded-interaction-playback-cursor.md` |
 | Deterministic Collision Modes And Ragdoll Unification | Owner-parked 2026-08-25 | 5/10 | `WNF/ragdoll-physics-unification.md` |
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
@@ -336,8 +350,9 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`RECORDED_CURSOR` RIC0-RIC3 are complete. The bug ledger has no unresolved
-row.
+`GOVERNANCE_SIMPLIFICATION` phases 1-5 are implemented and in terminal
+re-review. `RECORDED_CURSOR` RIC0-RIC3 is complete, and the bug ledger has no
+unresolved row.
 
 `RAGDOLL_PHYSICS` remains parked, while `RUNTIME_BOUNDARIES` and
 `GAME_UI_COMPONENTS` and `RECORDED_CURSOR` are complete.
@@ -364,7 +379,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-121/121 tasks complete, and all 126 bug-ledger rows are fixed. Governance
+126/126 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen
@@ -459,5 +474,17 @@ capacity `2`, exact injected coordinates, truthful submission, and zero legacy
 trace differences. Focused tests pass 10/10 cases and 222/222 assertions; the
 hardware cursor/capture path and recording schemas remain unchanged. Independent
 review is blocker-free.
+Governance Simplification And Scar Removal is complete at 5/5 with
+blocker-free independent terminal review. The retained
+governance surface is compiler- or domain-backed rather than a source-line
+permission ledger; all focused tool checks, the four-configuration `/W4 /WX`
+build, byte-exact Physics matrix, and six-lane CPU umbrella pass. The
+branch-wide source-design scan passes all 30 changed source files after bounded
+DX12 direct draw operations, ordered interaction-automation dispatch, and
+scene-writer refactors. The exactly-once completion command passed Debug,
+Physics, fast preflight, all six CPU lanes, and Automation, then stopped at the
+inherited DX12 terrain-baseline mismatch already present in run
+`20260827T174544Z`; the matching golden was not refreshed. No exception or
+weakened selection was added, and no golden changed.
 Deterministic
 Trigonometry is owner-parked and excluded from progress.
