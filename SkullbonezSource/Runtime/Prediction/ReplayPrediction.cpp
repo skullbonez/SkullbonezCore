@@ -179,11 +179,14 @@ constexpr int REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048;
 // the final frame shows no visible motion and it has not drifted across the
 // final grace window; otherwise it has no resting pose and gets no grey box.
 constexpr double REPLAY_PREDICTION_REST_GRACE_SECONDS = 0.4;
-constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES = static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
+constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES = static_cast<ReplayFrameIndex>(
+    REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
-constexpr uint32_t REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH = HashStr( "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies" );
-constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH = HashStr( "Frame/Replay/Prediction/CaptureSample/WorkerBodies" );
+constexpr uint32_t REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH = HashStr(
+    "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies" );
+constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH = HashStr(
+    "Frame/Replay/Prediction/CaptureSample/WorkerBodies" );
 
 // Concept: future-node building is an incremental cache.
 //
@@ -737,10 +740,11 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
 
 } // namespace
 
-ReplayPredictionSourcePreparation ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const SkullbonezCore::Core::EngineConfig& config, bool scenePhysics,
-                                                                      double fallbackSourceSimulationSeconds, double simulationTotalSeconds, const ReplaySolverFrameSample* latestSolverSample,
-                                                                      const ReplayPastTrajectoryView& requestedPath, const std::chrono::steady_clock::time_point& budgetStart,
-                                                                      double budgetMilliseconds, ReplayPredictionUpdateResult& result )
+ReplayPredictionSourcePreparation ReplayPrediction::BeginFrameSource(
+    PhysicsEngine& physicsEngine, const SkullbonezCore::Core::EngineConfig& config, bool scenePhysics,
+    double fallbackSourceSimulationSeconds, double simulationTotalSeconds, const ReplaySolverFrameSample* latestSolverSample,
+    const ReplayPastTrajectoryView& requestedPath, const std::chrono::steady_clock::time_point& budgetStart,
+    double budgetMilliseconds, ReplayPredictionUpdateResult& result )
 {
     ReplayPrediction& predictionOwner = *this;
     RunReplayPredictionState& prediction = m_state;
@@ -900,7 +904,8 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     prediction.simulation.horizonSeconds = std::clamp( prediction.simulation.horizonSeconds, minHorizonSeconds,
                                                        maxHorizonSeconds );
 
-    const int predictionTicks = (std::max)( 1, static_cast<int>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) );
+    const int predictionTicks = (std::max)( 1, static_cast<int>(
+                                                   std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) );
 
     prediction.build.targetTickCount = predictionTicks;
     prediction.build.nextTick = 1;
@@ -1261,7 +1266,8 @@ void ReplayPrediction::PrepareFrameRebuild( Physics::PhysicsSceneObjectId target
     }
     else
     {
-        ++result.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )];
+        ++result.rebuildCauses[static_cast<std::size_t>(
+            SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )];
     }
 
     if ( prediction.baseline.comparisonActive && !prediction.baseline.valid && prediction.HasCommittedFramePrefix() )
@@ -1472,8 +1478,8 @@ bool ReplayPrediction::CopyCauseEvidence( const ReplayPredictionCauseEvidenceQue
 
         return ( bodyA == expectedA && bodyB == expectedB ) || ( bodyA == expectedB && bodyB == expectedA );
     };
-    const auto contactMatches = [&]( const Physics::PhysicsSolverPersistentContactSample& contact,
-                                    int bodyA, int bodyB, bool terrain )
+    const auto contactMatches =
+        [&]( const Physics::PhysicsSolverPersistentContactSample& contact, int bodyA, int bodyB, bool terrain )
     { return pairMatches( contact.bodyA, contact.bodyB, bodyA, bodyB, terrain ); };
     const auto solverStage = []( Physics::PhysicsPipelineStage stage )
     {
@@ -1491,7 +1497,8 @@ bool ReplayPrediction::CopyCauseEvidence( const ReplayPredictionCauseEvidenceQue
         }
     };
 
-    const Physics::PhysicsSolverPersistentContactSample* anchor = store.Contact( frame->contacts, static_cast<std::size_t>( query.contactIndex ) );
+    const Physics::PhysicsSolverPersistentContactSample* anchor = store.Contact( frame->contacts, static_cast<std::size_t>(
+                                                                                                      query.contactIndex ) );
     const Physics::PhysicsPipelineRecord* sequenceAnchor = store.Pipeline( frame->pipeline,
                                                                            static_cast<std::size_t>( query.pipelineIndex ) );
 
@@ -1894,7 +1901,8 @@ void ReplayPrediction::SetRevealRatePreservingCursor( double revealRate ) noexce
                                                            .count() );
 
         const double revealedSeconds = elapsedSeconds * previousRevealRate;
-        m_state.revealClock.anchor = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>( revealedSeconds / normalizedRevealRate ) );
+        m_state.revealClock.anchor = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                               std::chrono::duration<double>( revealedSeconds / normalizedRevealRate ) );
     }
 
     m_state.revealClock.secondsPerSecond = normalizedRevealRate;
@@ -1938,16 +1946,6 @@ void ReplayPrediction::ArmDeterministicReveal( ReplayFrameIndex frame, bool rese
     {
         m_state.revealClock.presentedFrame = frame;
     }
-}
-
-RunReplayPredictionState::RunReplayPredictionState()
-{
-    // Runtime allocation policy: prediction reuses this snapshot throughout
-    // the session. Reserve every Gameplay row at construction so per-build
-    // seeding and per-tick capture only change logical sizes.
-    simulation.predictionWorld.tornadoSystemConfig.vortices.reserve( Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS );
-    simulation.predictionWorld.tornadoCaptureSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    simulation.predictionWorld.tornadoEjectCooldownSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 void ReplayPrediction::ClearFutureNodeCache()
@@ -2080,7 +2078,8 @@ ReplayPastTrajectoryRefreshPlan ReplayPrediction::BeginPastTrajectoryRefresh( Re
 
     ReplayTrajectoryRecord* record = BeginReplayPastRootTrajectoryRecord( m_state.trajectoryStore, path.targetId,
                                                                           recorder.sampleCount,
-                                                                          ReplayTrajectoryFrameNumberForReserve( newestFrame ) );
+                                                                          ReplayTrajectoryFrameNumberForReserve(
+                                                                              newestFrame ) );
 
     if ( !record )
     {
@@ -2242,8 +2241,10 @@ ReplayPredictionMemoryStats ReplayPrediction::CollectMemoryStats() const
         MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                           SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree,
                                           ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodes ) +
-                                              ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodeBuildScratch ) +
-                                              ReplayPredictionVectorCapacityBytes( m_state.committedPublication.visibleFutureNodes ) );
+                                              ReplayPredictionVectorCapacityBytes(
+                                                  m_state.futureNodeCache.futureNodeBuildScratch ) +
+                                              ReplayPredictionVectorCapacityBytes(
+                                                  m_state.committedPublication.visibleFutureNodes ) );
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                                             SkullbonezCore::Core::MainMemoryReplayByteCategory::
@@ -2281,7 +2282,8 @@ ReplayPredictionMemoryStats ReplayPrediction::CollectMemoryStats() const
 
     for ( const ReplayTrajectoryRecord& record : m_state.trajectoryStore.ActiveRecords() )
     {
-        stats.trajectory.publishedPointCount += static_cast<uint64_t>( (std::min)( record.publishedPointCount, record.points.size() ) );
+        stats.trajectory.publishedPointCount += static_cast<uint64_t>(
+            (std::min)( record.publishedPointCount, record.points.size() ) );
         stats.trajectory.maxRecordVersion = (std::max)( stats.trajectory.maxRecordVersion, record.version );
     }
 

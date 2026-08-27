@@ -36,6 +36,7 @@ Related:
 
 #include "TornadoField.h"
 #include "TornadoVisualPass.h"
+#include "../Core/SceneCapacity.h"
 #include "../Physics/Stages/ExternalForceStage.h"
 
 #include <array>
@@ -60,6 +61,14 @@ class TornadoGameplay
 {
   public:
     static constexpr std::size_t MAX_ACTIVE_FORCE_FIELDS = MAX_TORNADO_ACTIVE_FORCE_FIELDS;
+
+    static constexpr uint64_t InitialReserveBytes()
+    {
+        constexpr std::size_t debugLineFloatCount = MAX_ACTIVE_FORCE_FIELDS * 12u * 4u * 5u * 6u * 6u;
+        return MAX_ACTIVE_FORCE_FIELDS * sizeof( TornadoVortexConfig ) +
+               2u * SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * sizeof( float ) +
+               debugLineFloatCount * sizeof( float ) + 3u * MAX_ACTIVE_FORCE_FIELDS * sizeof( TornadoActiveVortex );
+    }
 
     TornadoGameplay();
 

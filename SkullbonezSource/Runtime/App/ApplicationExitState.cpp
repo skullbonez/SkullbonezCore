@@ -112,10 +112,11 @@ SkullbonezCore::Core::SbResult ApplicationExitState::Resolve( int messageExitCod
 
 
 #if !defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-SkullbonezCore::Core::SbResult ResolveRunExitAfterInteractionRecording(
-    InteractionAutomationRecorder& recorder, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-    ApplicationExitState& applicationExit, int messageExitCode,
-    InteractionRecordingBoundaryOperation captureArmedBoundary, void* captureContext )
+SkullbonezCore::Core::SbResult
+ResolveRunExitAfterInteractionRecording( InteractionAutomationRecorder& recorder,
+                                         SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                         ApplicationExitState& applicationExit, int messageExitCode,
+                                         InteractionRecordingBoundaryOperation captureArmedBoundary, void* captureContext )
 {
     if ( recorder.IsArmed() )
     {

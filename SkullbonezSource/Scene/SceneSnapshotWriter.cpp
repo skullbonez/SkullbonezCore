@@ -159,11 +159,11 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
     }
 
     const SkullbonezCore::Rendering::RenderMaterial defaults = {};
-    const bool hasDurableEmissiveState =
-        material.kind == SkullbonezCore::Rendering::RenderMaterialKind::Emissive || material.emissiveStrength > 0.0f ||
-        material.emissiveColor[0] != defaults.emissiveColor[0] ||
-        material.emissiveColor[1] != defaults.emissiveColor[1] ||
-        material.emissiveColor[2] != defaults.emissiveColor[2];
+    const bool hasDurableEmissiveState = material.kind == SkullbonezCore::Rendering::RenderMaterialKind::Emissive ||
+                                         material.emissiveStrength > 0.0f ||
+                                         material.emissiveColor[0] != defaults.emissiveColor[0] ||
+                                         material.emissiveColor[1] != defaults.emissiveColor[1] ||
+                                         material.emissiveColor[2] != defaults.emissiveColor[2];
 
     // Invariant: zero strength disables emission without erasing the color an
     // editor will reveal if strength is raised again after snapshot reload.

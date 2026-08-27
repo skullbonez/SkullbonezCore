@@ -211,6 +211,7 @@ bool WriteInteractionTraceTurn( InteractionAutomationController& state, InputRou
     const Vector3& cameraEye = cameras.GetCameraTranslation();
     const Vector3& cameraView = cameras.GetCameraView();
     const Vector3& cameraUp = cameras.GetCameraUp();
+    const RecordedCursorPresentationObservation& cursor = state.recordedCursorPresentation;
     const Json line = { { "type", "turn" },
                         { "turn", state.traceTurn },
                         { "recordingTurn", state.recordedManifest ? Json( state.recordedTurn ) : Json() },
@@ -228,7 +229,14 @@ bool WriteInteractionTraceTurn( InteractionAutomationController& state, InputRou
                             { "inputMode", static_cast<int>( inputRouter.RuntimeContext().CurrentMode() ) },
                             { "uiVisible", ui.IsVisible() },
                             { "uiMinimized", ui.IsMinimized() },
-                            { "uiTab", static_cast<int>( ui.GetActiveTab() ) } } } };
+                            { "uiTab", static_cast<int>( ui.GetActiveTab() ) },
+                            { "recordedCursor",
+                              { { "visible", cursor.visible },
+                                { "clientX", cursor.clientX },
+                                { "clientY", cursor.clientY },
+                                { "drawCommandCount", cursor.drawCommandCount },
+                                { "drawCommandCapacity", cursor.drawCommandCapacity },
+                                { "submitted", cursor.submitted } } } } } };
 
     state.traceOutput << line.dump() << '\n';
     state.traceOutput.flush();
@@ -317,7 +325,8 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( EditorToolsOwner& ed
 
     const SceneEntityRecord& entity = world.Entities().At( modelIndex );
     const Physics::PhysicsBodyRecord* body = world.BodyStore().RecordForModelIndex( modelIndex );
-    const std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts = Physics::PhysicsEngine::ReadBuoyancyFacts( world.Physics() );
+    const std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts = Physics::PhysicsEngine::ReadBuoyancyFacts(
+        world.Physics() );
 
     const Physics::PhysicsColliderHandle colliderHandle = world.Colliders().HandleForModelIndex( modelIndex );
     const Physics::ColliderRecord* collider = world.Colliders().RecordForHandle( colliderHandle );
@@ -1088,8 +1097,7 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     {
     case RunInteractionAutomationActionType::LoadShotList:
     {
-        const bool loaded = DemoDirectorPlayback::LoadShotList( camera.director, currentPose,
-                                                                action.directorShotListPath );
+        const bool loaded = DemoDirectorPlayback::LoadShotList( camera.director, currentPose, action.directorShotListPath );
 
         if ( !loaded )
         {
@@ -1313,7 +1321,8 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         // Why: this text exists only in the machine-readable automation report.
         // Keep stream/string formatting in Diagnostics even though the scripted
         // action executes inside the steady-gameplay input phase.
-        CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+        CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+            CoreAllocation::RuntimeAllocationPhase::Diagnostics );
 
         std::ostringstream detail;
         detail << "prediction horizon set to " << horizonSeconds << "s";
@@ -1343,7 +1352,8 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                 // mouse drag, but without depending on pixel-perfect axis hit
                 // testing. Capture is still deferred to the visualizer.
                 const Physics::PhysicsBodyHotState hotState = Physics::LoadPhysicsBodyHotState( bodyStore.HotFields(),
-                                                                                                static_cast<std::size_t>( bodyIndex ) );
+                                                                                                static_cast<std::size_t>(
+                                                                                                    bodyIndex ) );
 
                 const Vector3 nextLinearVelocity = hotState.linearVelocity + action.vectorValue;
                 applied = physics.SetBodyVelocity( body, nextLinearVelocity, hotState.angularVelocity, true );
@@ -2105,11 +2115,10 @@ bool ParseShowReplayScrubberAction( const Json& entry, RunInteractionAutomationA
 bool ParsePressKeyAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
     const bool controlTypeIsValid = !entry.contains( "control" ) || entry["control"].is_boolean();
-    const bool holdFramesTypeIsValid =
-        !entry.contains( "holdFrames" ) || entry["holdFrames"].is_number_integer();
+    const bool holdFramesTypeIsValid = !entry.contains( "holdFrames" ) || entry["holdFrames"].is_number_integer();
 
     if ( !AdmitInteractionAutomationPressKeyOptions( entry["pressKey"].is_string(), controlTypeIsValid,
-                                                      holdFramesTypeIsValid, outError ) )
+                                                     holdFramesTypeIsValid, outError ) )
     {
         return false;
     }
@@ -3368,12 +3377,13 @@ struct InteractionAutomationAssertionEvaluation
 };
 
 template <typename InspectGizmoInteractionActive>
-InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, const InteractionAutomationController& automation,
-                                                                                 const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter,
-                                                                                 CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui,
-                                                                                 const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast,
-                                                                                 const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action,
-                                                                                 InspectGizmoInteractionActive inspectGizmoInteractionActive )
+InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
+    EditorToolsOwner& editorTools, RuntimeTools& runtimeTools, const InteractionAutomationController& automation,
+    const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter,
+    CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui,
+    const InteractionAutomationDevelopmentUiView& developmentUi, const ContinuousOrbitalForecastView& forecast,
+    const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action,
+    InspectGizmoInteractionActive inspectGizmoInteractionActive )
 {
     // Concept: after-render assertions are read-only probes over owner state.
     // The context keeps that state explicit so the Run tick only schedules,
@@ -3688,7 +3698,8 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     case RunInteractionAutomationAssertKind::PredictionFullHorizonComplete:
     {
         const RunReplayPredictionState& prediction = replay.prediction;
-        const std::size_t expectedFrameCount = static_cast<std::size_t>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) +
+        const std::size_t expectedFrameCount = static_cast<std::size_t>(
+                                                   std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) +
                                                1u;
 
         const bool complete = prediction.build.complete && !prediction.build.building &&
@@ -3701,7 +3712,8 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     }
     case RunInteractionAutomationAssertKind::PredictionBuildMode:
     {
-        const char* actualMode = InteractionAutomationReportWriter::ReplayPredictionBuildModeName( replay.prediction.build.buildMode );
+        const char* actualMode = InteractionAutomationReportWriter::ReplayPredictionBuildModeName(
+            replay.prediction.build.buildMode );
 
         evaluation.expected = action.text;
         evaluation.actual = actualMode;
@@ -3878,7 +3890,8 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     }
     case RunInteractionAutomationAssertKind::PredictionEvidenceMemoryReconciled:
     {
-        const bool reconciled = SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles( replay.memoryStats );
+        const bool reconciled = SkullbonezCore::Core::MainMemoryReplayPredictionEvidenceReleaseReconciles(
+            replay.memoryStats );
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( reconciled );
         evaluation.passed = reconciled == action.boolValue;
@@ -4560,8 +4573,8 @@ bool LoadRecordedInteractionManifest( InteractionAutomationController& state, co
     const bool causeInspectionIsObject = replayIsObject && baseline["replay"].contains( "causeInspection" ) &&
                                          baseline["replay"]["causeInspection"].is_object();
 
-    if ( !AdmitInteractionRecordingBaselineContainers( state, cameraIsObject, interactionIsObject, toolsIsObject,
-                                                        uiIsObject, replayIsObject, causeInspectionIsObject ) )
+    if ( !AdmitInteractionRecordingBaselineContainers( state, cameraIsObject, interactionIsObject, toolsIsObject, uiIsObject,
+                                                       replayIsObject, causeInspectionIsObject ) )
     {
         return false;
     }
@@ -4776,8 +4789,8 @@ bool LoadScript( InteractionAutomationController& state )
 
 SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording(
     InteractionAutomationRecorder& recorder, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-    ApplicationExitState& applicationExit, int messageExitCode,
-    InteractionRecordingBoundaryOperation captureArmedBoundary, void* captureContext )
+    ApplicationExitState& applicationExit, int messageExitCode, InteractionRecordingBoundaryOperation captureArmedBoundary,
+    void* captureContext )
 {
     if ( recorder.IsArmed() )
     {
@@ -4807,8 +4820,9 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::ResolveRunExitAfterInter
 }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-InteractionAutomationDevelopmentUiApplyResult SkullbonezCore::Runtime::ApplyInteractionAutomationDevelopmentUiCommands( const InteractionAutomationController& state, const InteractionAutomationFrameResult& frame, Window& window,
-                                                                                                                        DevelopmentTools::ImGuiEditorOwner& editor )
+InteractionAutomationDevelopmentUiApplyResult SkullbonezCore::Runtime::ApplyInteractionAutomationDevelopmentUiCommands(
+    const InteractionAutomationController& state, const InteractionAutomationFrameResult& frame, Window& window,
+    DevelopmentTools::ImGuiEditorOwner& editor )
 {
     InteractionAutomationDevelopmentUiApplyResult result;
 
@@ -5054,9 +5068,11 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
         return state.status.Result( state.resultDiagnostics );
     }
 
-    const char* outputPathFailure = PrepareInteractionAutomationOutputPaths(
-        scriptPath, state.reportWriter.Path(), tracePath, state.scriptPath, sizeof( state.scriptPath ), state.tracePath,
-        sizeof( state.tracePath ), state.traceOutput, state.reportWriter );
+    const char* outputPathFailure = PrepareInteractionAutomationOutputPaths( scriptPath, state.reportWriter.Path(),
+                                                                             tracePath, state.scriptPath,
+                                                                             sizeof( state.scriptPath ), state.tracePath,
+                                                                             sizeof( state.tracePath ), state.traceOutput,
+                                                                             state.reportWriter );
 
     if ( outputPathFailure )
     {
@@ -5099,11 +5115,12 @@ SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomatio
     return state.status.Result( state.resultDiagnostics );
 }
 
-InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config,
-                                                                                                SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter,
-                                                                                                RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
-                                                                                                SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView,
-                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot )
+InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput(
+    InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config,
+    SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter,
+    RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+    SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView,
+    const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
     Window* window = &windowOwner;
     InteractionAutomationFrameResult result;
@@ -5182,8 +5199,10 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                     return result;
                 }
 
-                const Physics::PhysicsBodyRecord* selectedBody = scene.Scene().BodyStore().RecordForModelIndex( selectedModel );
-                const Physics::PhysicsColliderHandle selectedCollider = scene.Scene().Colliders().HandleForModelIndex( selectedModel );
+                const Physics::PhysicsBodyRecord* selectedBody = scene.Scene().BodyStore().RecordForModelIndex(
+                    selectedModel );
+                const Physics::PhysicsColliderHandle selectedCollider = scene.Scene().Colliders().HandleForModelIndex(
+                    selectedModel );
 
                 if ( !selectedBody || !selectedBody->handle.IsValid() || !selectedCollider.IsValid() )
                 {
@@ -5349,63 +5368,65 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         case RunInteractionAutomationActionType::SetReplayTripPlannerCommand:
         case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
         case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
-            ApplyInteractionAutomationReplayStateAction( state, timers, result.replayIntent, replayView, scene.Scene().Physics(), action, frame,
-                                                         [&]( const char* name )
-                                                         {
-                                                             int modelIndex = -1;
+            ApplyInteractionAutomationReplayStateAction(
+                state, timers, result.replayIntent, replayView, scene.Scene().Physics(), action, frame,
+                [&]( const char* name )
+                {
+                    int modelIndex = -1;
 
-                                                             if ( !TryFindInteractionAutomationModel( scene.Scene(), name, modelIndex ) )
-                                                             {
-                                                                 return false;
-                                                             }
+                    if ( !TryFindInteractionAutomationModel( scene.Scene(), name, modelIndex ) )
+                    {
+                        return false;
+                    }
 
-                                                             const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
+                    const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
 
-                                                             if ( !body || !body->sceneObjectId.IsValid() )
-                                                             {
-                                                                 return false;
-                                                             }
+                    if ( !body || !body->sceneObjectId.IsValid() )
+                    {
+                        return false;
+                    }
 
-                                                             result.replayIntent.setPathTarget = true;
-                                                             result.replayIntent.pathTargetId = body->sceneObjectId;
-                                                             result.replayIntent.pathTargetModelRow.value = modelIndex;
-                                                             strncpy_s( result.replayIntent.pathTargetName, sizeof( result.replayIntent.pathTargetName ), name,
-                                                                        _TRUNCATE );
+                    result.replayIntent.setPathTarget = true;
+                    result.replayIntent.pathTargetId = body->sceneObjectId;
+                    result.replayIntent.pathTargetModelRow.value = modelIndex;
+                    strncpy_s( result.replayIntent.pathTargetName, sizeof( result.replayIntent.pathTargetName ), name,
+                               _TRUNCATE );
 
-                                                             return true;
-                                                         },
-                                                         [&]( const char* name )
-                                                         {
-                                                             int modelIndex = -1;
+                    return true;
+                },
+                [&]( const char* name )
+                {
+                    int modelIndex = -1;
 
-                                                             if ( !TryFindInteractionAutomationModel( scene.Scene(), name, modelIndex ) )
-                                                             {
-                                                                 return false;
-                                                             }
+                    if ( !TryFindInteractionAutomationModel( scene.Scene(), name, modelIndex ) )
+                    {
+                        return false;
+                    }
 
-                                                             const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
+                    const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
 
-                                                             if ( !body || !body->sceneObjectId.IsValid() )
-                                                             {
-                                                                 return false;
-                                                             }
+                    if ( !body || !body->sceneObjectId.IsValid() )
+                    {
+                        return false;
+                    }
 
-                                                             result.replayIntent.setInterceptTarget = true;
-                                                             result.replayIntent.interceptTargetId = body->sceneObjectId;
-                                                             result.replayIntent.interceptTargetModelRow.value = modelIndex;
-                                                             return true;
-                                                         },
-                                                         [&]( WorldInteractionOwner owner, InteractionExitReason reason )
-                                                         {
-                                                             result.setWorldInteractionOwner = true;
-                                                             result.worldInteractionOwner = static_cast<int>( owner );
-                                                             result.worldInteractionReason = static_cast<int>( reason );
-                                                         } );
+                    result.replayIntent.setInterceptTarget = true;
+                    result.replayIntent.interceptTargetId = body->sceneObjectId;
+                    result.replayIntent.interceptTargetModelRow.value = modelIndex;
+                    return true;
+                },
+                [&]( WorldInteractionOwner owner, InteractionExitReason reason )
+                {
+                    result.setWorldInteractionOwner = true;
+                    result.worldInteractionOwner = static_cast<int>( owner );
+                    result.worldInteractionReason = static_cast<int>( reason );
+                } );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::BeginReplayVisualFidelityCapture:
         {
-            state.reportWriter.BeginReplayVisualCapture( static_cast<std::size_t>( REPLAY_FUTURE_DEFAULT_SECONDS / PHYSICS_FIXED_DT ) + 2u );
+            state.reportWriter.BeginReplayVisualCapture(
+                static_cast<std::size_t>( REPLAY_FUTURE_DEFAULT_SECONDS / PHYSICS_FIXED_DT ) + 2u );
 
             // Invariant: the script arms this hold before target/horizon setup
             // and the sole Predict click. Letting wall-clock reveal run first
@@ -5758,12 +5779,13 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     return result;
 }
 
-InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
-                                                                                                RuntimeInteractionController& interaction, InputRouter& inputRouter, CameraControlState& camera,
-                                                                                                SkullbonezCore::UI::InGameUI& ui, SceneController& scene, const ReplayAutomationView& replayView,
-                                                                                                const InteractionAutomationDevelopmentUiView& developmentUiView, const ContinuousOrbitalForecastView& forecastView,
-                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
-                                                                                                Rendering::Dx12BackbufferCapture& backbufferCapture )
+InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender(
+    InteractionAutomationController& state, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+    RuntimeInteractionController& interaction, InputRouter& inputRouter, CameraControlState& camera,
+    SkullbonezCore::UI::InGameUI& ui, SceneController& scene, const ReplayAutomationView& replayView,
+    const InteractionAutomationDevelopmentUiView& developmentUiView, const ContinuousOrbitalForecastView& forecastView,
+    const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
+    Rendering::Dx12BackbufferCapture& backbufferCapture )
 {
     InteractionAutomationFrameResult result;
 
@@ -5870,9 +5892,10 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         assertion.frame = frame;
         strcpy_s( assertion.name, sizeof( assertion.name ), AssertName( action.assertKind ) );
 
-        const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion( editorTools, runtimeTools, state, replayView, interaction, inputRouter, camera, scene.Scene(), ui,
-                                                                                                            developmentUiView, forecastView, renderSnapshot, action,
-                                                                                                            [&]() { return editorTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
+        const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion(
+            editorTools, runtimeTools, state, replayView, interaction, inputRouter, camera, scene.Scene(), ui,
+            developmentUiView, forecastView, renderSnapshot, action,
+            [&]() { return editorTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );
         strcpy_s( assertion.actual, sizeof( assertion.actual ), evaluation.actual.c_str() );

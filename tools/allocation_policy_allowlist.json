@@ -134,7 +134,7 @@
       "patterns": [
         "{\"symbol\":\"Dx12ResourceBuilder::CreateFramebuffer\",\"before\":[\"return nullptr;\",\"}\"],\"statement\":\"auto fbo = std::make_unique<FramebufferDX12>( m_device, m_pipeline, m_textures, m_descriptors, m_frame.DrawGate(),\",\"after\":[\"m_frame.ResourceRelease(), colorFormat );\",\"if ( !fbo->Create( width, height ) )\"]}",
         "{\"symbol\":\"Dx12ResourceBuilder::CreateMesh\",\"before\":[\"}\",\"uint8_t* uploadPtr = m_frame.UploadReservations().UploadPointer( uploadAddr );\"],\"statement\":\"auto mesh = std::make_unique<MeshDX12>( m_device, m_frame.DrawGate(), m_diagnostics );\",\"after\":[\"if ( !mesh->Create( m_device.Device(), m_device.CommandList(), data, vertexCount, floatsPerVert, format, uploadAddr,\",\"uploadPtr, m_frame.Uploads().Resource( m_frame.AllocatorIndex() ) ) )\"]}",
-        "{\"symbol\":\"Dx12ResourceBuilder::CreateShader\",\"before\":[\"return nullptr;\",\"}\"],\"statement\":\"auto shader = std::make_unique<ShaderDX12>( m_device, m_pipeline, m_shaderDevelopment, m_frame.UploadReservations() );\",\"after\":[\"if ( !shader->Compile( hlslPath.c_str(), contractBaseName ) )\",\"{\"]}"
+        "{\"symbol\":\"Dx12ResourceBuilder::CreateShaderFromHlslPath\",\"before\":[\"return nullptr;\",\"}\"],\"statement\":\"auto shader = std::make_unique<ShaderDX12>( m_device, m_pipeline, m_shaderDevelopment, m_frame.UploadReservations() );\",\"after\":[\"if ( !shader->Compile( hlslPath, contractBaseName ) )\",\"{\"]}"
       ],
       "owner": "DX12 resource factory",
       "phase": "backend_resource_init",
@@ -172,7 +172,7 @@
     {
       "path": "SkullbonezSource/Physics/PhysicsFixedList.h",
       "patterns": [
-        "{\"symbol\":\"Reserve\",\"before\":[\"}\",\"const RuntimeReserveGrowthResult\"],\"statement\":\"growth = RuntimeReserveAllocator::RequestGrowth( m_ownerHandle, { m_ownerName, m_ownerName, phase, -1,\",\"after\":[\"static_cast<int>( m_runtimeCapacity ),\",\"static_cast<int>( requested ),\"]}"
+        "{\"symbol\":\"Reserve\",\"before\":[\"}\",\"RuntimeReserveGrowthResult\"],\"statement\":\"growth = RuntimeReserveAllocator::RequestGrowth( m_ownerHandle, { m_ownerName, m_ownerName, phase, -1,\",\"after\":[\"static_cast<int>( m_runtimeCapacity ),\",\"static_cast<int>( requested ),\"]}"
       ],
       "owner": "PhysicsFixedList scene-sized backing storage",
       "phase": "scene_load_or_approved_replay_prediction",
@@ -184,7 +184,7 @@
     {
       "path": "SkullbonezSource/Physics/PhysicsSceneVectorReserve.h",
       "patterns": [
-        "{\"symbol\":\"ReservePhysicsSceneVector\",\"before\":[\"0, false, capacityReason } );\",\"const RuntimeReserveGrowthResult\"],\"statement\":\"growth = RuntimeReserveAllocator::RequestGrowth( owner, { ownerName, ownerName, phase, -1,\",\"after\":[\"static_cast<int>( values.capacity() ),\",\"static_cast<int>( requestedCapacity ),\"]}",
+        "{\"symbol\":\"ReservePhysicsSceneVector\",\"before\":[\"0, false, capacityReason } );\",\"RuntimeReserveGrowthResult\"],\"statement\":\"growth = RuntimeReserveAllocator::RequestGrowth( owner, { ownerName, ownerName, phase, -1,\",\"after\":[\"static_cast<int>( values.capacity() ),\",\"static_cast<int>( requestedCapacity ),\"]}",
         "{\"symbol\":\"ReservePhysicsSceneVector\",\"before\":[\"RuntimeReserveOwnerScope ownerScope( owner );\",\"RuntimeReserveGrowthScope growthScope( owner, phase, growth );\"],\"statement\":\"values.reserve( requestedCapacity );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"ReservePhysicsSceneVector\",\"before\":[\"}\",\"RuntimeReserveOwnerScope ownerScope( replayOwner );\"],\"statement\":\"values.reserve( requestedCapacity );\",\"after\":[\"return;\",\"}\"]}"
       ],
@@ -198,7 +198,7 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp",
       "patterns": [
-        "{\"symbol\":\"RequestReplayPredictionReserveGrowth\",\"before\":[\"requestedCapacityBytes,\",\"elementSizeBytes };\"],\"statement\":\"outResult = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );\",\"after\":[\"return outResult.granted;\",\"}\"]}"
+        "{\"symbol\":\"RequestReplayPredictionReserveGrowth\",\"before\":[\"elementSizeBytes,\",\"allocationBytes };\"],\"statement\":\"outResult = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );\",\"after\":[\"return outResult.granted;\",\"}\"]}"
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
@@ -291,7 +291,7 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp",
       "patterns": [
-        "{\"symbol\":\"SeedReplayPredictionEngineStorage\",\"before\":[\"if ( !destination )\",\"{\"],\"statement\":\"destination = std::make_unique<Physics::PhysicsEngine>();\",\"after\":[\"}\",\"destination->SeedReplayPredictionStorageFrom( source );\"]}"
+        "{\"symbol\":\"SeedReplayPredictionEngineStorage\",\"before\":[\"if ( replaceDestination )\",\"{\"],\"statement\":\"std::unique_ptr<Physics::PhysicsEngine> replacement = std::make_unique<Physics::PhysicsEngine>();\",\"after\":[\"replacement->SeedReplayPredictionStorageFrom( source );\",\"destination = std::move( replacement );\"]}"
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
@@ -361,8 +361,8 @@
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
       "patterns": [
-        "{\"symbol\":\"ReserveReplayRecorderDeltaVector\",\"before\":[\"1 };\",\"const CoreAllocation::RuntimeReserveGrowthResult\"],\"statement\":\"result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );\",\"after\":[\"if ( !result.granted )\",\"{\"]}",
-        "{\"symbol\":\"ReserveReplayRecorderSampleVector\",\"before\":[\"1 };\",\"const CoreAllocation::RuntimeReserveGrowthResult\"],\"statement\":\"result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );\",\"after\":[\"if ( !result.granted )\",\"{\"]}"
+        "{\"symbol\":\"ReserveReplayRecorderDeltaVector\",\"before\":[\"static_cast<int>( requestedBytes ),\",\"1 };\"],\"statement\":\"CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,\",\"after\":[\"request );\",\"if ( !result.granted )\"]}",
+        "{\"symbol\":\"ReserveReplayRecorderSampleVector\",\"before\":[\"static_cast<int>( requestedBytes ),\",\"1 };\"],\"statement\":\"CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,\",\"after\":[\"request );\",\"if ( !result.granted )\"]}"
       ],
       "owner": "Replay recorder sample payloads",
       "phase": "replay",
@@ -374,7 +374,7 @@
     {
       "path": "SkullbonezSource/Physics/PhysicsWorld.cpp",
       "patterns": [
-        "{\"symbol\":\"PhysicsWorld::CaptureReplaySolverSnapshot\",\"before\":[\"1 };\",\"const CoreAllocation::RuntimeReserveGrowthResult\"],\"statement\":\"result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );\",\"after\":[\"if ( !result.granted )\",\"{\"]}"
+        "{\"symbol\":\"PhysicsWorld::CaptureReplaySolverSnapshot\",\"before\":[\"allocationBytes };\",\"CoreAllocation::RuntimeReserveGrowthResult\"],\"statement\":\"result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );\",\"after\":[\"if ( !result.granted )\",\"{\"]}"
       ],
       "owner": "Replay solver snapshot reserve",
       "phase": "replay",
@@ -412,9 +412,9 @@
     {
       "path": "SkullbonezSource/Rendering/Text.cpp",
       "patterns": [
-        "{\"symbol\":\"LoadSdfAtlasFromFile\",\"before\":[\"memcpy( Text2d::charAdvance, hdr.charAdvance, 96 * sizeof( float ) );\",\"const size_t dataSize = static_cast<size_t>( FONT_ATLAS_W ) * static_cast<size_t>( FONT_ATLAS_H );\"],\"statement\":\"std::unique_ptr<uint8_t[]> pixels( new uint8_t[dataSize] );\",\"after\":[\"if ( fread( pixels.get(), 1, dataSize, file.get() ) != dataSize )\",\"{\"]}",
-        "{\"symbol\":\"Text2d::GenerateSdfAtlasToFile\",\"before\":[\"DeleteDC( memDC );\",\"const int finalTotalPx = FONT_ATLAS_W * FONT_ATLAS_H;\"],\"statement\":\"std::unique_ptr<uint8_t[]> finalAtlas( new uint8_t[finalTotalPx] );\",\"after\":[\"const int cellPx = FONT_CELL_W_HI * FONT_CELL_H_HI;\",\"std::vector<float> edtOut( cellPx );\"]}",
-        "{\"symbol\":\"Text2d::GenerateSdfAtlasToFile\",\"before\":[\"GdiFlush();\",\"const int hiTotalPx = ATLAS_W_HI * ATLAS_H_HI;\"],\"statement\":\"std::unique_ptr<uint8_t[]> hiAtlas( new uint8_t[hiTotalPx] );\",\"after\":[\"for ( int i = 0; i < hiTotalPx; ++i )\",\"{\"]}"
+        "{\"symbol\":\"LoadSdfAtlasFromFile\",\"before\":[\"}\",\"const size_t dataSize = static_cast<size_t>( FONT_ATLAS_W ) * static_cast<size_t>( FONT_ATLAS_H );\"],\"statement\":\"std::unique_ptr<uint8_t[]> pixels( new uint8_t[dataSize] );\",\"after\":[\"if ( fread( pixels.get(), 1, dataSize, file.get() ) != dataSize )\",\"{\"]}",
+        "{\"symbol\":\"Text2d::GenerateSdfAtlasToFile\",\"before\":[\"}\",\"const int finalTotalPx = FONT_ATLAS_W * FONT_ATLAS_H;\"],\"statement\":\"std::unique_ptr<uint8_t[]> finalAtlas( new uint8_t[finalTotalPx] );\",\"after\":[\"const int cellPx = FONT_CELL_W_HI * FONT_CELL_H_HI;\",\"std::vector<float> edtOut( cellPx );\"]}",
+        "{\"symbol\":\"Text2d::GenerateSdfAtlasToFile\",\"before\":[\"}\",\"const int hiTotalPx = ATLAS_W_HI * ATLAS_H_HI;\"],\"statement\":\"std::unique_ptr<uint8_t[]> hiAtlas( new uint8_t[hiTotalPx] );\",\"after\":[\"for ( int i = 0; i < hiTotalPx; ++i )\",\"{\"]}"
       ],
       "owner": "Text atlas construction",
       "phase": "startup_backend_init",
@@ -903,7 +903,7 @@
     {
       "path": "SkullbonezSource/Gameplay/TornadoField.cpp",
       "patterns": [
-        "{\"symbol\":\"TornadoSystem::BuildActiveVortices\",\"before\":[\"active.field.center.z += sinf( phase ) * source.driftRadius + sinf( wobble ) * source.driftRadius * 0.34f;\",\"}\",\"}\"],\"statement\":\"outVortices.push_back( active );\",\"after\":[\"}\",\"for ( int a = 0; a < static_cast<int>( outVortices.size() ); ++a )\"]}",
+        "{\"symbol\":\"TornadoSystem::BuildActiveVortices\",\"before\":[\"}\",\"}\"],\"statement\":\"outVortices.push_back( active );\",\"after\":[\"}\",\"for ( int a = 0; a < static_cast<int>( outVortices.size() ); ++a )\"]}",
         "{\"symbol\":\"TornadoSystem::TornadoSystem\",\"before\":[\"TornadoSystem::TornadoSystem()\",\"{\"],\"statement\":\"m_config.vortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );\",\"after\":[\"m_activeVortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );\",\"}\"]}",
         "{\"symbol\":\"TornadoSystem::TornadoSystem\",\"before\":[\"{\",\"m_config.vortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );\"],\"statement\":\"m_activeVortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );\",\"after\":[\"}\",\"void TornadoSystem::SetConfig( const TornadoSystemConfig& config )\"]}"
       ],
@@ -931,8 +931,8 @@
       "patterns": [
         "{\"symbol\":\"TornadoGameplay::BuildDebugLineVertices\",\"before\":[\"active.ageSeconds = m_system.GetElapsedSeconds();\",\"active.sourceIndex = 0;\"],\"statement\":\"m_debugVortices.push_back( active );\",\"after\":[\"}\",\"constexpr int ANGLE_STEPS = 12;\"]}",
         "{\"symbol\":\"TornadoGameplay::BuildDebugLineVertices\",\"before\":[\"const auto emit = [&]( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float blue )\",\"{\"],\"statement\":\"m_debugLineVertices.insert( m_debugLineVertices.end(),\",\"after\":[\"{ a.x, a.y, a.z, r, g, blue, b.x, b.y, b.z, r, g, blue } );\",\"};\"]}",
-        "{\"symbol\":\"TornadoGameplay::EnsureStateBuffers\",\"before\":[\"if ( static_cast<int>( m_captureSeconds.size() ) != modelCount )\",\"{\"],\"statement\":\"m_captureSeconds.assign( modelCount, 0.0f );\",\"after\":[\"}\",\"if ( static_cast<int>( m_ejectCooldownSeconds.size() ) != modelCount )\"]}",
-        "{\"symbol\":\"TornadoGameplay::EnsureStateBuffers\",\"before\":[\"if ( static_cast<int>( m_ejectCooldownSeconds.size() ) != modelCount )\",\"{\"],\"statement\":\"m_ejectCooldownSeconds.assign( modelCount, 0.0f );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"TornadoGameplay::EnsureStateBuffers\",\"before\":[\"}\",\"m_captureSeconds.resize( static_cast<std::size_t>( modelCount ), 0.0f );\"],\"statement\":\"m_ejectCooldownSeconds.resize( static_cast<std::size_t>( modelCount ), 0.0f );\",\"after\":[\"}\",\"void TornadoGameplay::AppendForceField( const TornadoFieldConfig& config )\"]}",
+        "{\"symbol\":\"TornadoGameplay::EnsureStateBuffers\",\"before\":[\"m_captureSeconds.capacity(), m_ejectCooldownSeconds.capacity() );\",\"}\"],\"statement\":\"m_captureSeconds.resize( static_cast<std::size_t>( modelCount ), 0.0f );\",\"after\":[\"m_ejectCooldownSeconds.resize( static_cast<std::size_t>( modelCount ), 0.0f );\",\"}\"]}",
         "{\"symbol\":\"TornadoGameplay::ReserveBodyCapacity\",\"before\":[\"const std::size_t reserveCount = static_cast<std::size_t>( (std::max)( 0, capacity ) );\",\"m_captureSeconds.reserve( reserveCount );\"],\"statement\":\"m_ejectCooldownSeconds.reserve( reserveCount );\",\"after\":[\"}\",\"void TornadoGameplay::ReserveVisualCapacity()\"]}",
         "{\"symbol\":\"TornadoGameplay::ReserveBodyCapacity\",\"before\":[\"{\",\"const std::size_t reserveCount = static_cast<std::size_t>( (std::max)( 0, capacity ) );\"],\"statement\":\"m_captureSeconds.reserve( reserveCount );\",\"after\":[\"m_ejectCooldownSeconds.reserve( reserveCount );\",\"}\"]}",
         "{\"symbol\":\"TornadoGameplay::TornadoGameplay\",\"before\":[\"ReserveBodyCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"m_debugLineVertices.reserve( MAX_ACTIVE_FORCE_FIELDS * 12u * 4u * 5u * 6u * 6u );\"],\"statement\":\"m_debugVortices.reserve( MAX_ACTIVE_FORCE_FIELDS );\",\"after\":[\"}\",\"void TornadoGameplay::SetParallelForceEvaluation( bool enabled )\"]}",
@@ -952,10 +952,10 @@
     {
       "path": "SkullbonezSource/Gameplay/TornadoGameplay.h",
       "patterns": [
-        "{\"symbol\":\"TornadoGameplay\",\"before\":[\"TornadoField m_field;\",\"TornadoSystem m_system;\"],\"statement\":\"std::vector<float> m_captureSeconds;\",\"after\":[\"std::vector<float> m_ejectCooldownSeconds;\",\"TornadoVisualPass m_visualPass;\"]}",
-        "{\"symbol\":\"TornadoGameplay\",\"before\":[\"TornadoSystem m_system;\",\"std::vector<float> m_captureSeconds;\"],\"statement\":\"std::vector<float> m_ejectCooldownSeconds;\",\"after\":[\"TornadoVisualPass m_visualPass;\",\"std::vector<float> m_debugLineVertices;\"]}",
-        "{\"symbol\":\"TornadoGameplay\",\"before\":[\"TornadoVisualPass m_visualPass;\",\"std::vector<float> m_debugLineVertices;\"],\"statement\":\"std::vector<TornadoActiveVortex> m_debugVortices;\",\"after\":[\"std::array<Physics::ExternalCylindricalForceField, MAX_ACTIVE_FORCE_FIELDS> m_forceFields {};\",\"std::size_t m_forceFieldCount = 0u;\"]}",
-        "{\"symbol\":\"TornadoGameplay\",\"before\":[\"std::vector<float> m_ejectCooldownSeconds;\",\"TornadoVisualPass m_visualPass;\"],\"statement\":\"std::vector<float> m_debugLineVertices;\",\"after\":[\"std::vector<TornadoActiveVortex> m_debugVortices;\",\"std::array<Physics::ExternalCylindricalForceField, MAX_ACTIVE_FORCE_FIELDS> m_forceFields {};\"]}"
+        "{\"symbol\":\"InitialReserveBytes\",\"before\":[\"TornadoField m_field;\",\"TornadoSystem m_system;\"],\"statement\":\"std::vector<float> m_captureSeconds;\",\"after\":[\"std::vector<float> m_ejectCooldownSeconds;\",\"TornadoVisualPass m_visualPass;\"]}",
+        "{\"symbol\":\"InitialReserveBytes\",\"before\":[\"TornadoSystem m_system;\",\"std::vector<float> m_captureSeconds;\"],\"statement\":\"std::vector<float> m_ejectCooldownSeconds;\",\"after\":[\"TornadoVisualPass m_visualPass;\",\"std::vector<float> m_debugLineVertices;\"]}",
+        "{\"symbol\":\"InitialReserveBytes\",\"before\":[\"TornadoVisualPass m_visualPass;\",\"std::vector<float> m_debugLineVertices;\"],\"statement\":\"std::vector<TornadoActiveVortex> m_debugVortices;\",\"after\":[\"std::array<Physics::ExternalCylindricalForceField, MAX_ACTIVE_FORCE_FIELDS> m_forceFields {};\",\"std::size_t m_forceFieldCount = 0u;\"]}",
+        "{\"symbol\":\"InitialReserveBytes\",\"before\":[\"std::vector<float> m_ejectCooldownSeconds;\",\"TornadoVisualPass m_visualPass;\"],\"statement\":\"std::vector<float> m_debugLineVertices;\",\"after\":[\"std::vector<TornadoActiveVortex> m_debugVortices;\",\"std::array<Physics::ExternalCylindricalForceField, MAX_ACTIVE_FORCE_FIELDS> m_forceFields {};\"]}"
       ],
       "owner": "Gameplay tornado authored-content and preallocated state surface",
       "phase": "startup_preallocation_scene_load_replay",
@@ -1003,9 +1003,9 @@
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",
       "patterns": [
-        "{\"symbol\":\"Dx12GeometryOwner::CreateDynamicVB\",\"before\":[\"dvb.floatsPerVertex = totalFloats;\",\"dvb.stride = totalFloats * static_cast<int>( sizeof( float ) );\"],\"statement\":\"m_dynamicVBs.push_back( dvb );\",\"after\":[\"return static_cast<uint32_t>( m_dynamicVBs.size() );\",\"}\"]}",
+        "{\"symbol\":\"Dx12GeometryOwner::CreateDynamicVB\",\"before\":[\"if ( slotIndex == m_dynamicVBs.size() )\",\"{\"],\"statement\":\"m_dynamicVBs.push_back( dvb );\",\"after\":[\"}\",\"else\"]}",
         "{\"symbol\":\"Dx12GeometryOwner::CreateInstancedMesh\",\"before\":[\"im.staticVBV.SizeInBytes = static_cast<UINT>( dataSize );\",\"im.staticVBV.StrideInBytes = static_cast<UINT>( im.staticStride );\"],\"statement\":\"m_instancedMeshes.push_back( im );\",\"after\":[\"return static_cast<uint32_t>( m_instancedMeshes.size() );\",\"}\"]}",
-        "{\"symbol\":\"Dx12GeometryOwner::Dx12GeometryOwner\",\"before\":[\"Dx12GeometryOwner::Dx12GeometryOwner()\",\"{\"],\"statement\":\"m_dynamicVBs.reserve( MAX_DYNAMIC_VERTEX_BUFFERS );\",\"after\":[\"}\",\"uint32_t Dx12GeometryOwner::CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices )\"]}"
+        "{\"symbol\":\"Dx12GeometryOwner::Dx12GeometryOwner\",\"before\":[\"Dx12GeometryOwner::Dx12GeometryOwner()\",\"{\"],\"statement\":\"m_dynamicVBs.reserve( MAX_DYNAMIC_VERTEX_BUFFERS );\",\"after\":[\"}\",\"bool Dx12GeometryOwner::AttributeLayoutFits( std::span<const int> attributeSizes, std::size_t capacity ) noexcept\"]}"
       ],
       "owner": "Rendering backend/resource static STL surface",
       "phase": "startup_preallocation_backend_init_scene_resource_preallocation",
@@ -1042,8 +1042,8 @@
     {
       "path": "SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp",
       "patterns": [
-        "{\"symbol\":\"Dx12GraphTransientPool::Materialize\",\"before\":[\"if ( !slot )\",\"{\"],\"statement\":\"m_resources.push_back( GraphTransientResourceDX12() );\",\"after\":[\"slot = &m_resources.back();\",\"slot->desc = desc;\"]}",
-        "{\"symbol\":\"Dx12GraphTransientPool::Materialize\",\"before\":[\"}\",\"slot->usedThisCompile = true;\"],\"statement\":\"m_bindings.push_back( { allocation.resource, static_cast<size_t>( slot - m_resources.data() ) } );\",\"after\":[\"}\",\"m_stats.poolSize = m_resources.size();\"]}"
+        "{\"symbol\":\"Dx12GraphTransientPool::Materialize\",\"before\":[\"if ( !slot )\",\"{\"],\"statement\":\"m_resources.push_back( GraphTransientResourceDX12() );\",\"after\":[\"slot = &m_resources.back();\",\"appendedSlot = true;\"]}",
+        "{\"symbol\":\"Dx12GraphTransientPool::Materialize\",\"before\":[\"slot->lastPass = allocation.lastPass;\",\"slot->usedThisCompile = true;\"],\"statement\":\"m_bindings.push_back( { allocation.resource, static_cast<size_t>( slot - m_resources.data() ),\",\"after\":[\"allocation.firstPass, firstAccess, false } );\",\"}\"]}"
       ],
       "owner": "Rendering/DX12 graph transient pool",
       "phase": "backend_init_scene_resource_preallocation",
@@ -1102,14 +1102,14 @@
     {
       "path": "SkullbonezSource/Rendering/DX12/ShaderDX12.h",
       "patterns": [
-        "{\"symbol\":\"ResourceInfo\",\"before\":[\"#ifdef _DEBUG\",\"mutable std::vector<uint8_t> m_contractUniformsSet;\"],\"statement\":\"mutable std::vector<uint8_t> m_contractMissingRequiredLogged;\",\"after\":[\"mutable std::vector<std::string> m_missingUniformWarnings;\",\"mutable std::vector<std::string> m_typeMismatchWarnings;\"]}",
-        "{\"symbol\":\"ResourceInfo\",\"before\":[\"D3D_SRV_DIMENSION dimension;\",\"};\"],\"statement\":\"std::unordered_map<std::string, ResourceInfo> m_resourceMap;\",\"after\":[\"#ifdef _DEBUG\",\"mutable std::vector<uint8_t> m_contractUniformsSet;\"]}",
-        "{\"symbol\":\"ResourceInfo\",\"before\":[\"mutable std::vector<uint8_t> m_contractMissingRequiredLogged;\",\"mutable std::vector<std::string> m_missingUniformWarnings;\"],\"statement\":\"mutable std::vector<std::string> m_typeMismatchWarnings;\",\"after\":[\"#endif\",\"bool ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName );\"]}",
-        "{\"symbol\":\"ResourceInfo\",\"before\":[\"mutable std::vector<uint8_t> m_contractUniformsSet;\",\"mutable std::vector<uint8_t> m_contractMissingRequiredLogged;\"],\"statement\":\"mutable std::vector<std::string> m_missingUniformWarnings;\",\"after\":[\"mutable std::vector<std::string> m_typeMismatchWarnings;\",\"#endif\"]}",
-        "{\"symbol\":\"ResourceInfo\",\"before\":[\"std::unordered_map<std::string, ResourceInfo> m_resourceMap;\",\"#ifdef _DEBUG\"],\"statement\":\"mutable std::vector<uint8_t> m_contractUniformsSet;\",\"after\":[\"mutable std::vector<uint8_t> m_contractMissingRequiredLogged;\",\"mutable std::vector<std::string> m_missingUniformWarnings;\"]}",
-        "{\"symbol\":\"UniformInfo\",\"before\":[\"UINT m_cbReflectedSize;\",\"UINT m_cbSize;\"],\"statement\":\"mutable std::vector<uint8_t> m_cbData;\",\"after\":[\"mutable bool m_cbDirty;\",\"size_t m_vsBytecodeHash;\"]}",
-        "{\"symbol\":\"UniformInfo\",\"before\":[\"UINT size;\",\"};\"],\"statement\":\"std::unordered_map<std::string, UniformInfo> m_uniformMap;\",\"after\":[\"UINT m_cbReflectedSize;\",\"UINT m_cbSize;\"]}",
-        "{\"symbol\":\"UniformInfo\",\"before\":[\"size_t m_vsBytecodeHash;\",\"size_t m_psBytecodeHash;\"],\"statement\":\"std::string m_sourcePath;\",\"after\":[\"const ShaderProgramDesc* m_contract;\",\"bool m_registeredForDevelopment = false;\"]}"
+        "{\"symbol\":\"Dx12ReflectedUniformWriteFits\",\"before\":[\"#ifdef _DEBUG\",\"mutable std::vector<uint8_t> m_contractUniformsSet;\"],\"statement\":\"mutable std::vector<uint8_t> m_contractMissingRequiredLogged;\",\"after\":[\"mutable std::vector<std::string> m_missingUniformWarnings;\",\"mutable std::vector<std::string> m_typeMismatchWarnings;\"]}",
+        "{\"symbol\":\"Dx12ReflectedUniformWriteFits\",\"before\":[\"D3D_SRV_DIMENSION dimension;\",\"};\"],\"statement\":\"std::unordered_map<std::string, ResourceInfo> m_resourceMap;\",\"after\":[\"#ifdef _DEBUG\",\"mutable std::vector<uint8_t> m_contractUniformsSet;\"]}",
+        "{\"symbol\":\"Dx12ReflectedUniformWriteFits\",\"before\":[\"mutable std::vector<uint8_t> m_contractMissingRequiredLogged;\",\"mutable std::vector<std::string> m_missingUniformWarnings;\"],\"statement\":\"mutable std::vector<std::string> m_typeMismatchWarnings;\",\"after\":[\"#endif\",\"bool ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName );\"]}",
+        "{\"symbol\":\"Dx12ReflectedUniformWriteFits\",\"before\":[\"mutable std::vector<uint8_t> m_contractUniformsSet;\",\"mutable std::vector<uint8_t> m_contractMissingRequiredLogged;\"],\"statement\":\"mutable std::vector<std::string> m_missingUniformWarnings;\",\"after\":[\"mutable std::vector<std::string> m_typeMismatchWarnings;\",\"#endif\"]}",
+        "{\"symbol\":\"Dx12ReflectedUniformWriteFits\",\"before\":[\"std::unordered_map<std::string, ResourceInfo> m_resourceMap;\",\"#ifdef _DEBUG\"],\"statement\":\"mutable std::vector<uint8_t> m_contractUniformsSet;\",\"after\":[\"mutable std::vector<uint8_t> m_contractMissingRequiredLogged;\",\"mutable std::vector<std::string> m_missingUniformWarnings;\"]}",
+        "{\"symbol\":\"Dx12ReflectedUniformWriteFits\",\"before\":[\"UINT m_cbReflectedSize;\",\"UINT m_cbSize;\"],\"statement\":\"mutable std::vector<uint8_t> m_cbData;\",\"after\":[\"mutable bool m_cbDirty;\",\"size_t m_vsBytecodeHash;\"]}",
+        "{\"symbol\":\"Dx12ReflectedUniformWriteFits\",\"before\":[\"UINT size;\",\"};\"],\"statement\":\"std::unordered_map<std::string, UniformInfo> m_uniformMap;\",\"after\":[\"UINT m_cbReflectedSize;\",\"UINT m_cbSize;\"]}",
+        "{\"symbol\":\"Dx12ReflectedUniformWriteFits\",\"before\":[\"size_t m_vsBytecodeHash;\",\"size_t m_psBytecodeHash;\"],\"statement\":\"std::string m_sourcePath;\",\"after\":[\"const ShaderProgramDesc* m_contract;\",\"bool m_registeredForDevelopment = false;\"]}"
       ],
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
@@ -1178,9 +1178,11 @@
         "{\"symbol\":\"RenderGraph::Compile\",\"before\":[\"{\",\"result.Clear();\"],\"statement\":\"result.resourceLifetimes.resize( m_resources.size() );\",\"after\":[\"for ( size_t resourceIndex = 0; resourceIndex < m_resources.size(); ++resourceIndex )\",\"{\"]}",
         "{\"symbol\":\"RenderGraph::ReserveForRuntimePassGraph\",\"before\":[\"void RenderGraph::ReserveForRuntimePassGraph()\",\"{\"],\"statement\":\"m_resources.reserve( RENDER_GRAPH_MAX_RESOURCES );\",\"after\":[\"m_passes.reserve( RENDER_GRAPH_MAX_PASSES );\",\"}\"]}",
         "{\"symbol\":\"RenderGraph::ReserveForRuntimePassGraph\",\"before\":[\"{\",\"m_resources.reserve( RENDER_GRAPH_MAX_RESOURCES );\"],\"statement\":\"m_passes.reserve( RENDER_GRAPH_MAX_PASSES );\",\"after\":[\"}\",\"RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess,\"]}",
-        "{\"symbol\":\"RenderGraphCompileResult::ReserveForRuntimePassGraph\",\"before\":[\"transitions.reserve( RENDER_GRAPH_MAX_TRANSITIONS );\",\"resourceLifetimes.reserve( RENDER_GRAPH_MAX_RESOURCES );\"],\"statement\":\"transientAllocations.reserve( RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS );\",\"after\":[\"}\",\"void RenderGraph::Clear()\"]}",
-        "{\"symbol\":\"RenderGraphCompileResult::ReserveForRuntimePassGraph\",\"before\":[\"void RenderGraphCompileResult::ReserveForRuntimePassGraph()\",\"{\"],\"statement\":\"transitions.reserve( RENDER_GRAPH_MAX_TRANSITIONS );\",\"after\":[\"resourceLifetimes.reserve( RENDER_GRAPH_MAX_RESOURCES );\",\"transientAllocations.reserve( RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS );\"]}",
-        "{\"symbol\":\"RenderGraphCompileResult::ReserveForRuntimePassGraph\",\"before\":[\"{\",\"transitions.reserve( RENDER_GRAPH_MAX_TRANSITIONS );\"],\"statement\":\"resourceLifetimes.reserve( RENDER_GRAPH_MAX_RESOURCES );\",\"after\":[\"transientAllocations.reserve( RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS );\",\"}\"]}"
+        "{\"symbol\":\"RenderGraphCompileResult::ReserveForRuntimePassGraph\",\"before\":[\"uavBarriers.reserve( RENDER_GRAPH_MAX_UAV_BARRIERS );\",\"resourceLifetimes.reserve( RENDER_GRAPH_MAX_RESOURCES );\"],\"statement\":\"transientAllocations.reserve( RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS );\",\"after\":[\"}\",\"void RenderGraph::Clear()\"]}",
+        "{\"symbol\":\"RenderGraphCompileResult::ReserveForRuntimePassGraph\",\"before\":[\"void RenderGraphCompileResult::ReserveForRuntimePassGraph()\",\"{\"],\"statement\":\"transitions.reserve( RENDER_GRAPH_MAX_TRANSITIONS );\",\"after\":[\"uavBarriers.reserve( RENDER_GRAPH_MAX_UAV_BARRIERS );\",\"resourceLifetimes.reserve( RENDER_GRAPH_MAX_RESOURCES );\"]}",
+        "{\"symbol\":\"RenderGraphCompileResult::ReserveForRuntimePassGraph\",\"before\":[\"transitions.reserve( RENDER_GRAPH_MAX_TRANSITIONS );\",\"uavBarriers.reserve( RENDER_GRAPH_MAX_UAV_BARRIERS );\"],\"statement\":\"resourceLifetimes.reserve( RENDER_GRAPH_MAX_RESOURCES );\",\"after\":[\"transientAllocations.reserve( RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS );\",\"}\"]}",
+        "{\"symbol\":\"RenderGraphCompileResult::ReserveForRuntimePassGraph\",\"before\":[\"{\",\"transitions.reserve( RENDER_GRAPH_MAX_TRANSITIONS );\"],\"statement\":\"uavBarriers.reserve( RENDER_GRAPH_MAX_UAV_BARRIERS );\",\"after\":[\"resourceLifetimes.reserve( RENDER_GRAPH_MAX_RESOURCES );\",\"transientAllocations.reserve( RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS );\"]}",
+        "{\"symbol\":\"RenderGraph::Compile\",\"before\":[\"barrier.resource = use.resource;\",\"barrier.nativeResource = m_resources[resourceIndex].nativeResource;\"],\"statement\":\"result.uavBarriers.push_back( barrier );\",\"after\":[\"};\",\"const auto emitTransition = [&]( const RenderGraphResourceUse& use,\"]}"
       ],
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
@@ -1242,7 +1244,7 @@
     {
       "path": "SkullbonezSource/Runtime/Render/BroadphaseVisualizer.cpp",
       "patterns": [
-        "{\"symbol\":\"BroadphaseVisualizer::BroadphaseVisualizer\",\"before\":[\"{\",\"memset( m_cells, 0, sizeof( m_cells ) );\"],\"statement\":\"m_lineData.reserve( 200 * 144 );\",\"after\":[\"}\",\"int BroadphaseVisualizer::FindCell( int64_t key ) const\"]}",
+        "{\"symbol\":\"BroadphaseVisualizer::BroadphaseVisualizer\",\"before\":[\"{\",\"memset( m_cells, 0, sizeof( m_cells ) );\"],\"statement\":\"m_lineData.reserve( DiagnosticRequiredLineFloatCapacity() );\",\"after\":[\"}\",\"void BroadphaseVisualizer::ResetTransientState()\"]}",
         "{\"symbol\":\"BroadphaseVisualizer::EmitCubeWireframe\",\"before\":[\"auto emit = [&]( float ax, float ay, float az, float bx, float by, float bz )\",\"{\"],\"statement\":\"m_lineData.push_back( ax );\",\"after\":[\"m_lineData.push_back( ay );\",\"m_lineData.push_back( az );\"]}",
         "{\"symbol\":\"BroadphaseVisualizer::EmitCubeWireframe\",\"before\":[\"m_lineData.push_back( ax );\",\"m_lineData.push_back( ay );\"],\"statement\":\"m_lineData.push_back( az );\",\"after\":[\"m_lineData.push_back( r );\",\"m_lineData.push_back( g );\"]}",
         "{\"symbol\":\"BroadphaseVisualizer::EmitCubeWireframe\",\"before\":[\"m_lineData.push_back( ay );\",\"m_lineData.push_back( az );\"],\"statement\":\"m_lineData.push_back( r );\",\"after\":[\"m_lineData.push_back( g );\",\"m_lineData.push_back( b );\"]}",
@@ -1304,10 +1306,10 @@
     {
       "path": "SkullbonezSource/Runtime/Render/CollisionVisualizer.h",
       "patterns": [
-        "{\"symbol\":\"Color\",\"before\":[\"int m_boxVertexCount = 0;\",\"std::vector<TrackedModel> m_models;\"],\"statement\":\"std::vector<int> m_sleepGroupSizes;                                                                        // Per-island body counts used to color sleep/debug groups.\",\"after\":[\"std::vector<float> m_sphereInstanceData;\",\"std::vector<float> m_boxInstanceData;\"]}",
-        "{\"symbol\":\"Color\",\"before\":[\"int m_sphereVertexCount = 0;\",\"int m_boxVertexCount = 0;\"],\"statement\":\"std::vector<TrackedModel> m_models;\",\"after\":[\"std::vector<int> m_sleepGroupSizes;\",\"std::vector<float> m_sphereInstanceData;\"]}",
-        "{\"symbol\":\"Color\",\"before\":[\"std::vector<TrackedModel> m_models;\",\"std::vector<int> m_sleepGroupSizes;\"],\"statement\":\"std::vector<float> m_sphereInstanceData;                                                                   // CPU staging buffer for sphere instance matrices and colors.\",\"after\":[\"std::vector<float> m_boxInstanceData;\",\"std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> m_hullDebugVertexData = {};\"]}",
-        "{\"symbol\":\"Color\",\"before\":[\"std::vector<int> m_sleepGroupSizes;\",\"std::vector<float> m_sphereInstanceData;\"],\"statement\":\"std::vector<float> m_boxInstanceData;                                                                      // CPU staging buffer for box instance matrices and colors.\",\"after\":[\"std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> m_hullDebugVertexData = {};\",\"void BuildSphereMesh( Rendering::Dx12GeometryOwner& renderGeometry );\"]}"
+        "{\"symbol\":\"PrepareCollisionVisualizerResourcePhase\",\"before\":[\"int m_boxVertexCount = 0;\",\"std::vector<TrackedModel> m_models;\"],\"statement\":\"std::vector<int> m_sleepGroupSizes;                                                                        // Per-island body counts used to color sleep/debug groups.\",\"after\":[\"std::vector<float> m_sphereInstanceData;\",\"std::vector<float> m_boxInstanceData;\"]}",
+        "{\"symbol\":\"PrepareCollisionVisualizerResourcePhase\",\"before\":[\"int m_sphereVertexCount = 0;\",\"int m_boxVertexCount = 0;\"],\"statement\":\"std::vector<TrackedModel> m_models;\",\"after\":[\"std::vector<int> m_sleepGroupSizes;\",\"std::vector<float> m_sphereInstanceData;\"]}",
+        "{\"symbol\":\"PrepareCollisionVisualizerResourcePhase\",\"before\":[\"std::vector<TrackedModel> m_models;\",\"std::vector<int> m_sleepGroupSizes;\"],\"statement\":\"std::vector<float> m_sphereInstanceData;                                                                   // CPU staging buffer for sphere instance matrices and colors.\",\"after\":[\"std::vector<float> m_boxInstanceData;\",\"std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> m_hullDebugVertexData = {};\"]}",
+        "{\"symbol\":\"PrepareCollisionVisualizerResourcePhase\",\"before\":[\"std::vector<int> m_sleepGroupSizes;\",\"std::vector<float> m_sphereInstanceData;\"],\"statement\":\"std::vector<float> m_boxInstanceData;                                                                      // CPU staging buffer for box instance matrices and colors.\",\"after\":[\"std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> m_hullDebugVertexData = {};\",\"void BuildSphereMesh( Rendering::Dx12GeometryOwner& renderGeometry );\"]}"
       ],
       "owner": "Runtime debug/tool visualization storage",
       "phase": "diagnostics_editor_tooling",
@@ -1319,11 +1321,11 @@
     {
       "path": "SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.cpp",
       "patterns": [
-        "{\"symbol\":\"PhysicsDebugVisualizer::EmitLine\",\"before\":[\"void PhysicsDebugVisualizer::EmitLine( const Vector3& a, const Vector3& b, float r, float g, float bl )\",\"{\"],\"statement\":\"m_lineData.insert( m_lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );\",\"after\":[\"}\",\"void PhysicsDebugVisualizer::EmitCross( const Vector3& p, float size, float r, float g, float bl )\"]}",
-        "{\"symbol\":\"PhysicsDebugVisualizer::PhysicsDebugVisualizer\",\"before\":[\"PhysicsDebugVisualizer::PhysicsDebugVisualizer()\",\"{\"],\"statement\":\"m_lineData.reserve( CONTACT_MANIFOLD_LINE_FLOAT_CAPACITY );\",\"after\":[\"}\",\"PhysicsDebugVisualizer::TrackedContact* PhysicsDebugVisualizer::FindTrackedContact( const PhysicsDebugContact& contact )\"]}",
+        "{\"symbol\":\"PhysicsDebugVisualizer::EmitLine\",\"before\":[\"return;\",\"}\"],\"statement\":\"m_lineData.insert( m_lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );\",\"after\":[\"}\",\"void PhysicsDebugVisualizer::EmitCross( const Vector3& p, float size, float r, float g, float bl )\"]}",
+        "{\"symbol\":\"PhysicsDebugVisualizer::PhysicsDebugVisualizer\",\"before\":[\"{\",\"static_assert( LINE_FLOAT_CAPACITY >= CONTACT_MANIFOLD_LINE_FLOAT_CAPACITY );\"],\"statement\":\"m_lineData.reserve( LINE_FLOAT_CAPACITY );\",\"after\":[\"m_trackedContacts.reserve( TRACKED_CONTACT_CAPACITY );\",\"}\"]}",
         "{\"symbol\":\"PhysicsDebugVisualizer::Update\",\"before\":[\"TrackedContact tracked;\",\"tracked.contact = contact;\"],\"statement\":\"m_trackedContacts.push_back( tracked );\",\"after\":[\"}\",\"return;\"]}",
-        "{\"symbol\":\"PhysicsDebugVisualizer::Update\",\"before\":[\"newTracked.remainingSeconds = m_contactLingerSeconds;\",\"newTracked.lifetimeSeconds = m_contactLingerSeconds;\"],\"statement\":\"m_trackedContacts.push_back( newTracked );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"PhysicsDebugVisualizer::Update\",\"before\":[\"{\",\"m_trackedContacts.clear();\"],\"statement\":\"m_trackedContacts.reserve( contacts.size() );\",\"after\":[\"for ( const PhysicsDebugContact& contact : contacts )\",\"{\"]}"
+        "{\"symbol\":\"PhysicsDebugVisualizer::Update\",\"before\":[\"if ( m_trackedContacts.size() < TRACKED_CONTACT_CAPACITY )\",\"{\"],\"statement\":\"m_trackedContacts.push_back( newTracked );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"PhysicsDebugVisualizer::PhysicsDebugVisualizer\",\"before\":[\"static_assert( LINE_FLOAT_CAPACITY >= CONTACT_MANIFOLD_LINE_FLOAT_CAPACITY );\",\"m_lineData.reserve( LINE_FLOAT_CAPACITY );\"],\"statement\":\"m_trackedContacts.reserve( TRACKED_CONTACT_CAPACITY );\",\"after\":[\"}\",\"void PhysicsDebugVisualizer::ResetTransientState()\"]}"
       ],
       "owner": "Runtime debug/tool visualization storage",
       "phase": "diagnostics_editor_tooling",
@@ -1478,7 +1480,7 @@
         "{\"symbol\":\"ParseSceneArgs\",\"before\":[\"if ( heroArg )\",\"{\"],\"statement\":\"sceneList.push_back( HeroSceneLaunchPath() );\",\"after\":[\"isSuiteOrSceneMode = true;\",\"fprintf( stdout, );\"]}",
         "{\"symbol\":\"ParseSceneArgs\",\"before\":[\"if ( sceneList.empty() )\",\"{\"],\"statement\":\"sceneList.push_back( \\\"\\\" ); // generated demo mode\",\"after\":[\"}\",\"return true;\"]}",
         "{\"symbol\":\"ParseSceneArgs\",\"before\":[\"return FailCommandLineParse( , suitePath.c_str() );\",\"}\"],\"statement\":\"sceneList.push_back( ResolveSceneLaunchPath( scene.get<std::string>().c_str() ) );\",\"after\":[\"}\",\"isSuiteOrSceneMode = true;\"]}",
-        "{\"symbol\":\"ResolveInteractionRecordingLaunch\",\"before\":[\"return false;\",\"}\"],\"statement\":\"args.sceneList.assign( 1u, scenePath );\",\"after\":[\"args.isSuiteOrSceneMode = true;\",\"args.interactiveRun = true;\"]}"
+        "{\"symbol\":\"ResolveInteractionRecordingLaunch\",\"before\":[\"return true;\",\"}\"],\"statement\":\"args.sceneList.assign( 1u, scenePath );\",\"after\":[\"args.isSuiteOrSceneMode = true;\",\"args.interactiveRun = true;\"]}"
       ],
       "owner": "Startup scene launch resolution",
       "phase": "startup",
@@ -1838,14 +1840,11 @@
         "{\"symbol\":\"CaptureReplayPredictionBodyState\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outBodies.resize( static_cast<std::size_t>( modelCount ) );\",\"after\":[\"const auto captureBody = [&]( int i )\",\"{\"]}",
         "{\"symbol\":\"CaptureReplayPredictionFrame\",\"before\":[\"return false;\",\"}\"],\"statement\":\"frame.bodies.resize( static_cast<std::size_t>( modelCount ) );\",\"after\":[\"const auto captureBody = [&]( int i )\",\"{\"]}",
         "{\"symbol\":\"CaptureReplayPredictionFrame\",\"before\":[\"}\",\"}\"],\"statement\":\"frame.debugContacts.assign( debugContacts.begin(), debugContacts.end() );\",\"after\":[\"frame.contactsIncomplete = false;\",\"if ( !PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot ) )\"]}",
-        "{\"symbol\":\"ReplayPrediction::BeginFrameSimulation\",\"before\":[\"return false;\",\"}\"],\"statement\":\"prediction.build.buildFrames.resize( buildFrameCapacity );\",\"after\":[\"prediction.ResetBuildFramePublication();\",\"prediction.build.buildPresentationFrameCount = buildPresentationFrameCount;\"]}",
-        "{\"symbol\":\"RunReplayPredictionState::RunReplayPredictionState\",\"before\":[\"RunReplayPredictionState::RunReplayPredictionState()\",\"{\"],\"statement\":\"simulation.predictionWorld.tornadoSystemConfig.vortices.reserve( Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS );\",\"after\":[\"simulation.predictionWorld.tornadoCaptureSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"simulation.predictionWorld.tornadoEjectCooldownSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\"]}",
-        "{\"symbol\":\"RunReplayPredictionState::RunReplayPredictionState\",\"before\":[\"simulation.predictionWorld.tornadoSystemConfig.vortices.reserve( Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS );\",\"simulation.predictionWorld.tornadoCaptureSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\"],\"statement\":\"simulation.predictionWorld.tornadoEjectCooldownSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"after\":[\"}\",\"void ReplayPrediction::ClearFutureNodeCache()\"]}",
-        "{\"symbol\":\"RunReplayPredictionState::RunReplayPredictionState\",\"before\":[\"{\",\"simulation.predictionWorld.tornadoSystemConfig.vortices.reserve( Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS );\"],\"statement\":\"simulation.predictionWorld.tornadoCaptureSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"after\":[\"simulation.predictionWorld.tornadoEjectCooldownSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"}\"]}"
+        "{\"symbol\":\"ReplayPrediction::BeginFrameSimulation\",\"before\":[\"return false;\",\"}\"],\"statement\":\"prediction.build.buildFrames.resize( buildFrameCapacity );\",\"after\":[\"prediction.ResetBuildFramePublication();\",\"prediction.build.buildPresentationFrameCount = buildPresentationFrameCount;\"]}"
       ],
       "owner": "Replay static STL storage/growth surface",
       "phase": "startup_preallocation_and_replay",
-      "reason": "Replay is the only approved runtime growth exception; prediction also reserves its bounded Gameplay snapshot rows during owner construction so per-build copies do not grow outside a registered replay reserve scope.",
+      "reason": "Replay is the only approved runtime growth exception; prediction build and capture vectors remain bounded by replay hard caps and are filled only through the registered prediction owner paths.",
       "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file.",
       "match_mode": "exact_finding"
@@ -1906,10 +1905,9 @@
     {
       "path": "SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp",
       "patterns": [
-        "{\"symbol\":\"HashInteractionSidecar\",\"before\":[\"if ( ok )\",\"{\"],\"statement\":\"object.resize( objectBytes );\",\"after\":[\"ok = BCryptCreateHash( algorithm, &hash, object.data(), objectBytes, nullptr, 0, 0 ) >= 0;\",\"}\"]}",
         "{\"symbol\":\"LoadRecordedInteractionManifest\",\"before\":[\"CopyText( frame.semanticAnchor, sizeof( frame.semanticAnchor ), entry[ ].get<std::string>() );\",\"}\"],\"statement\":\"state.recordedFrames.push_back( frame );\",\"after\":[\"}\",\"uint64_t turnCount = 0;\"]}",
         "{\"symbol\":\"LoadRecordedInteractionManifest\",\"before\":[\"return false;\",\"}\"],\"statement\":\"state.recordedFrames.reserve( frames->size() );\",\"after\":[\"double accumulatedDuration = 0.0;\",\"for ( std::size_t index = 0u; index < frames->size(); ++index )\"]}",
-        "{\"symbol\":\"LoadScript\",\"before\":[\"return false;\",\"}\"],\"statement\":\"state.actions.push_back( action );\",\"after\":[\"}\",\"std::sort( state.actions.begin(), state.actions.end(),\"]}",
+        "{\"symbol\":\"LoadScript\",\"before\":[\"return false;\",\"}\"],\"statement\":\"state.actions.push_back( action );\",\"after\":[\"}\",\"SortInteractionAutomationActions( state.actions );\"]}",
         "{\"symbol\":\"LoadScript\",\"before\":[\"}\",\"const std::size_t actionCount = root[ ].size();\"],\"statement\":\"state.actions.reserve( actionCount );\",\"after\":[\"state.reportWriter.ReserveForActions( actionCount );\",\"for ( const Json& entry : root[ ] )\"]}",
         "{\"symbol\":\"WriteInteractionTraceTurn\",\"before\":[\"if ( device.keys.IsDown( key ) )\",\"{\"],\"statement\":\"downKeys.push_back( { { \\\"virtualKey\\\", key }, { \\\"name\\\", VirtualKeyName( key ) } } );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"WriteInteractionTraceTurn\",\"before\":[\"{\",\"const InputActionEvent& event = actions[index];\"],\"statement\":\"routed.push_back( { { \\\"actionId\\\", static_cast<int>( event.action ) },\",\"after\":[\"{ , InputActionSourceName( event.source ) },\",\"{ , InputActionPhaseName( event.phase ) },\"]}"
@@ -1948,9 +1946,9 @@
         "{\"symbol\":\"SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write\",\"before\":[\"for ( const RunReplayPathTraceNode& node : replay.visualPacket.futureNodes )\",\"{\"],\"statement\":\"predictionFutureNodeRows.push_back( Json { { \\\"bodyId\\\", node.id.value },\",\"after\":[\"{ , node.parentId.value },\",\"{ , node.depth },\"]}",
         "{\"symbol\":\"SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write\",\"before\":[\"for ( const UI::UIRect& tab : causeInspectorLayout.tabs )\",\"{\"],\"statement\":\"causeInspectorTabBounds.push_back( inspectorRect( tab ) );\",\"after\":[\"}\",\"PredictionTrajectoryFingerprint predictionTrajectoryFingerprint = BuildPredictionTrajectoryFingerprint( replay );\"]}",
         "{\"symbol\":\"SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write\",\"before\":[\"for ( const std::string& screenshot : m_screenshots )\",\"{\"],\"statement\":\"screenshots.push_back( screenshot );\",\"after\":[\"}\",\"Json replayVisualFidelityTickRows = Json::array();\"]}",
-        "{\"symbol\":\"SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write\",\"before\":[\"if ( extensionOffset != std::string::npos )\",\"{\"],\"statement\":\"replayArtifactPath.resize( extensionOffset );\",\"after\":[\"}\",\"replayArtifactPath += ;\"]}",
+        "{\"symbol\":\"SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write\",\"before\":[\"}\",\"std::vector<ReplayVisualArchiveSample> visualPackets;\"],\"statement\":\"visualPackets.reserve( m_replayVisualFidelityTicks.size() );\",\"after\":[\"ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer topologyVersions;\",\"for ( const ReplayVisualFidelityReportTick& tick : m_replayVisualFidelityTicks )\"]}",
         "{\"symbol\":\"SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write\",\"before\":[\"item[ ] = Json::array( { report.mouse.x, report.mouse.y } );\",\"}\"],\"statement\":\"actions.push_back( item );\",\"after\":[\"}\",\"Json assertions = Json::array();\"]}",
-        "{\"symbol\":\"SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write\",\"before\":[\"replayArtifactPath += ;\",\"std::vector<ReplayVisualArchiveSample> visualPackets;\"],\"statement\":\"visualPackets.reserve( m_replayVisualFidelityTicks.size() );\",\"after\":[\"ReplayVisualPacketOperations::ReplayVisualTopologyVersionCanonicalizer topologyVersions;\",\"for ( const ReplayVisualFidelityReportTick& tick : m_replayVisualFidelityTicks )\"]}",
+        "{\"symbol\":\"SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write\",\"before\":[\"static_cast<int>( replay.prediction.futureNodeCache.futureNodes.size() ) } };\",\"std::string reportBytes = report.dump( 2 );\"],\"statement\":\"reportBytes.push_back( '\\\\n' );\",\"after\":[\"const SkullbonezCore::Core::SbResult result = PublishReportBytes( status, reportBytes );\",\"if ( result.Ok() || status.failed )\"]}",
         "{\"symbol\":\"SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write\",\"before\":[\"{\",\"const uint32_t canonicalTopologyVersion = topologyVersions.Observe( tick.topologyVersion );\"],\"statement\":\"visualPackets.push_back( BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion ) );\",\"after\":[\"}\",\"char archiveReason[192] = {};\"]}"
       ],
       "owner": "Interaction automation report writer",
@@ -2216,12 +2214,16 @@
         "{\"symbol\":\"CaptureSystem::BuildPngBytes\",\"before\":[\"}\",\"constexpr uint8_t signature[] = { 0x89u, , , , 0x0du, 0x0au, 0x1au, 0x0au };\"],\"statement\":\"output.insert( output.end(), std::begin( signature ), std::end( signature ) );\",\"after\":[\"std::array<uint8_t, 13> header = {};\",\"header[0] = static_cast<uint8_t>( static_cast<uint32_t>( width ) >> 24 );\"]}",
         "{\"symbol\":\"CaptureSystem::BuildPngBytes\",\"before\":[\"}\",\"std::vector<uint8_t> zlib;\"],\"statement\":\"zlib.reserve( scanlines.size() + scanlines.size() / 65535u * 5u + 11u );\",\"after\":[\"zlib.push_back( 0x78u );\",\"zlib.push_back( 0x01u );\"]}",
         "{\"symbol\":\"ZlibAdler32\",\"before\":[\"AppendBigEndian32( output, static_cast<uint32_t>( payload.size() ) );\",\"const size_t crcStart = output.size();\"],\"statement\":\"output.insert( output.end(), type, type + 4 );\",\"after\":[\"output.insert( output.end(), payload.begin(), payload.end() );\",\"AppendBigEndian32( output, PngCrc32( std::span<const uint8_t>( output ).subspan( crcStart ) ) );\"]}",
-        "{\"symbol\":\"ZlibAdler32\",\"before\":[\"const size_t crcStart = output.size();\",\"output.insert( output.end(), type, type + 4 );\"],\"statement\":\"output.insert( output.end(), payload.begin(), payload.end() );\",\"after\":[\"AppendBigEndian32( output, PngCrc32( std::span<const uint8_t>( output ).subspan( crcStart ) ) );\",\"}\"]}"
+        "{\"symbol\":\"ZlibAdler32\",\"before\":[\"const size_t crcStart = output.size();\",\"output.insert( output.end(), type, type + 4 );\"],\"statement\":\"output.insert( output.end(), payload.begin(), payload.end() );\",\"after\":[\"AppendBigEndian32( output, PngCrc32( std::span<const uint8_t>( output ).subspan( crcStart ) ) );\",\"}\"]}",
+        "{\"symbol\":\"CaptureSystem::SaveBackbufferBmp\",\"before\":[\"infoHeader[23] = static_cast<unsigned char>( imageSize >> 24 );\",\"std::vector<uint8_t> bmp;\"],\"statement\":\"bmp.reserve( static_cast<size_t>( fileSize ) );\",\"after\":[\"bmp.insert( bmp.end(), std::begin( fileHeader ), std::end( fileHeader ) );\",\"bmp.insert( bmp.end(), std::begin( infoHeader ), std::end( infoHeader ) );\"]}",
+        "{\"symbol\":\"CaptureSystem::SaveBackbufferBmp\",\"before\":[\"std::vector<uint8_t> bmp;\",\"bmp.reserve( static_cast<size_t>( fileSize ) );\"],\"statement\":\"bmp.insert( bmp.end(), std::begin( fileHeader ), std::end( fileHeader ) );\",\"after\":[\"bmp.insert( bmp.end(), std::begin( infoHeader ), std::end( infoHeader ) );\",\"bmp.insert( bmp.end(), pixels.begin(), pixels.begin() + imageSize );\"]}",
+        "{\"symbol\":\"CaptureSystem::SaveBackbufferBmp\",\"before\":[\"bmp.reserve( static_cast<size_t>( fileSize ) );\",\"bmp.insert( bmp.end(), std::begin( fileHeader ), std::end( fileHeader ) );\"],\"statement\":\"bmp.insert( bmp.end(), std::begin( infoHeader ), std::end( infoHeader ) );\",\"after\":[\"bmp.insert( bmp.end(), pixels.begin(), pixels.begin() + imageSize );\",\"return SaveScreenshotBytesAtomic( diagnostics, path, bmp );\"]}",
+        "{\"symbol\":\"CaptureSystem::SaveBackbufferBmp\",\"before\":[\"bmp.insert( bmp.end(), std::begin( fileHeader ), std::end( fileHeader ) );\",\"bmp.insert( bmp.end(), std::begin( infoHeader ), std::end( infoHeader ) );\"],\"statement\":\"bmp.insert( bmp.end(), pixels.begin(), pixels.begin() + imageSize );\",\"after\":[\"return SaveScreenshotBytesAtomic( diagnostics, path, bmp );\",\"}\"]}"
       ],
-      "owner": "CaptureSystem explicit PNG artifact encoder",
+      "owner": "CaptureSystem explicit image artifact encoders",
       "phase": "explicit_post_render_capture",
-      "reason": "PNG byte growth occurs only after an accepted screenshot request has synchronously read back one completed frame; the ordinary frame path never enters the encoder, and CaptureSystem releases every temporary buffer before returning the result.",
-      "cap": "One readback-sized scanline buffer, one uncompressed zlib payload, and one PNG output for the current backbuffer extent; dimension and uint32 PNG payload checks reject invalid or unrepresentable artifacts.",
+      "reason": "PNG and BMP byte growth occurs only after an accepted screenshot request has synchronously read back one completed frame; the ordinary frame path never enters either encoder, and CaptureSystem releases every temporary buffer before returning the result.",
+      "cap": "PNG storage is bounded by the validated backbuffer extent and uint32 payload checks. BMP storage is exactly one checked file header, info header, and 24-bit pixel payload for the current backbuffer extent.",
       "removal_or_wrapper_plan": "Replace the temporary PNG vectors with a streaming chunk encoder when Capture adopts an allocation-free artifact sink; do not move screenshot bytes into retained frame state.",
       "match_mode": "exact_finding"
     },
@@ -2266,7 +2268,7 @@
       "patterns": [
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"CoreAllocation::RuntimeAllocationScope verificationAllocationScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );\",\"RunReplayPathVisualizerState restoredPathVisualizer;\"],\"statement\":\"const auto restoredPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"after\":[\"RunReplayPredictionState& restoredPrediction = *restoredPredictionStorage;\",\"const auto restoredEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"const auto lowPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"RunReplayPredictionState& lowPrediction = *lowPredictionStorage;\"],\"statement\":\"const auto lowEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\",\"after\":[\"ReplayPredictionArchiveDetailCapability lowCapturedCapability = ReplayPredictionArchiveDetailCapability::Low;\",\"if ( !LoadReplayPredictionArchive( bytes, lowPathVisualizer, lowPrediction, *lowEvidenceStorage,\"]}",
-        "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"const auto migratedPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"RunReplayPredictionState& migratedPrediction = *migratedPredictionStorage;\"],\"statement\":\"const auto migratedEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\",\"after\":[\"ReplayPredictionArchiveDetailCapability migratedCapability = ReplayPredictionArchiveDetailCapability::High;\",\"for ( const uint32_t legacySchema : { 2u, 3u } )\"]}",
+        "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"const auto migratedPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"RunReplayPredictionState& migratedPrediction = *migratedPredictionStorage;\"],\"statement\":\"const auto migratedEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\",\"after\":[\"ReplayPredictionArchiveDetailCapability migratedCapability = ReplayPredictionArchiveDetailCapability::High;\",\"constexpr double preciseTornadoSeconds = 262144.0 + static_cast<double>( 1.0f / 120.0f );\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"const auto prefixPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"RunReplayPredictionState& prefixPrediction = *prefixPredictionStorage;\"],\"statement\":\"const auto prefixEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\",\"after\":[\"ReplayPredictionArchiveDetailCapability prefixCapability = ReplayPredictionArchiveDetailCapability::Low;\",\"if ( !prefixBuilt ||\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"const auto restoredPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"RunReplayPredictionState& restoredPrediction = *restoredPredictionStorage;\"],\"statement\":\"const auto restoredEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\",\"after\":[\"ReplayPredictionArchiveDetailCapability restoredCapability = ReplayPredictionArchiveDetailCapability::Low;\",\"if ( !LoadReplayPredictionArchive( bytes, restoredPathVisualizer, restoredPrediction, *restoredEvidenceStorage,\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"prefixProbeSource->publishedPointCount = capturedPublishedPointCount;\",\"RunReplayPathVisualizerState prefixPathVisualizer;\"],\"statement\":\"const auto prefixPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"after\":[\"RunReplayPredictionState& prefixPrediction = *prefixPredictionStorage;\",\"const auto prefixEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\"]}",
@@ -2465,7 +2467,8 @@
         "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"jointJson[ ] = static_cast<int>( joint.flags );\",\"}\"],\"statement\":\"scene[\\\"ragdollJoints\\\"].push_back( jointJson );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"memberJson[ ] = member.escapeStartRadius;\",\"}\"],\"statement\":\"members.push_back( std::move( memberJson ) );\",\"after\":[\"}\",\"scene[ ][ ] = {\"]}",
         "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"partState.erase( );\",\"}\"],\"statement\":\"instance[\\\"parts\\\"].push_back( std::move( partState ) );\",\"after\":[\"emittedAssetRows[static_cast<std::size_t>( partRow )] = true;\",\"}\"]}",
-        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"}\",\"scene[ ] = Json::array();\"],\"statement\":\"scene[\\\"cameras\\\"].push_back( {\",\"after\":[\"{ , },\",\"{ , Vec3Json( sceneView.cameraEye ) },\"]}"
+        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"}\",\"scene[ ] = Json::array();\"],\"statement\":\"scene[\\\"cameras\\\"].push_back( {\",\"after\":[\"{ , },\",\"{ , Vec3Json( sceneView.cameraEye ) },\"]}",
+        "{\"symbol\":\"SceneSnapshotWriter::Save\",\"before\":[\"}\",\"std::string serializedScene = scene.dump( 2 );\"],\"statement\":\"serializedScene.push_back( '\\\\n' );\",\"after\":[\"return SkullbonezCore::Core::WriteTextFileAtomic( diagnostics, , request.path,\",\"serializedScene );\"]}"
       ],
       "owner": "SceneSnapshotWriter explicit artifact encoder",
       "phase": "explicit_scene_save",
@@ -2539,7 +2542,7 @@
         "{\"symbol\":\"Terrain::BuildTerrain\",\"before\":[\"void Terrain::BuildTerrain()\",\"{\"],\"statement\":\"m_postData.resize( m_postCount );\",\"after\":[\"TranslatePostings();\",\"m_maxTerrainHeight = -FLT_MAX;\"]}",
         "{\"symbol\":\"Terrain::LoadTerrainData\",\"before\":[\"}\",\"FileHandle file( rawFile, &fclose );\"],\"statement\":\"m_terrainData.resize( m_pixelCount );\",\"after\":[\"const std::size_t expectedBytes = m_terrainData.size();\",\"const std::size_t bytesRead = fread( m_terrainData.data(), 1, m_terrainData.size(), file.get() );\"]}",
         "{\"symbol\":\"Terrain::TryCreateFromHeightMap\",\"before\":[\"return shapeResult;\",\"}\"],\"statement\":\"std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( ValidatedHeightMapTag {}, config, &assets, &resources,\",\"after\":[\"mapSize, stepSize, textureWrap, pixelCount, postsPerSide,\",\"postCount, quadCount );\"]}",
-        "{\"symbol\":\"Terrain::TryCreateFromHeightMap\",\"before\":[\"terrain->BuildMesh();\",\"terrain->m_terrainData.clear();\"],\"statement\":\"terrain->m_terrainData.shrink_to_fit();\",\"after\":[\"terrain->InitialiseTerrainShader();\",\"outTerrain = std::move( terrain );\"]}",
+        "{\"symbol\":\"Terrain::TryCreateFromHeightMap\",\"before\":[\"terrain->BuildMesh();\",\"terrain->m_terrainData.clear();\"],\"statement\":\"terrain->m_terrainData.shrink_to_fit();\",\"after\":[\"terrain->InitialiseTerrainShader();\",\"const bool meshReady = terrain->m_terrainMesh != nullptr;\"]}",
         "{\"symbol\":\"Terrain::TryCreatePhysicsFromHeightMap\",\"before\":[\"return shapeResult;\",\"}\"],\"statement\":\"std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( ValidatedHeightMapTag {}, config, nullptr, nullptr,\",\"after\":[\"mapSize, stepSize, textureWrap, pixelCount, postsPerSide,\",\"postCount, quadCount );\"]}",
         "{\"symbol\":\"Terrain::TryCreatePhysicsFromHeightMap\",\"before\":[\"terrain->BuildTerrain();\",\"terrain->m_terrainData.clear();\"],\"statement\":\"terrain->m_terrainData.shrink_to_fit();\",\"after\":[\"outTerrain = std::move( terrain );\",\"return SkullbonezCore::Core::SbResult::Success();\"]}"
       ],
@@ -2610,6 +2613,81 @@
       "reason": "SetTerrainBounds fills retained calm and ocean vertex buffers before the first render. Backend resource retries only read those completed buffers, and repeated staging reuses their full reserved capacities.",
       "cap": "Calm water reserves exactly 128 times 128 times 6 times 3 floats; ocean water reserves at most 64 times 64 times 6 times 3 floats.",
       "removal_or_wrapper_plan": "Write both fixed-topology water meshes directly into a bounded render upload allocation and remove the retained CPU vectors.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionState.cpp",
+      "patterns": [
+        "{\"symbol\":\"RunReplayPredictionState::RunReplayPredictionState\",\"before\":[\"RunReplayPredictionState::RunReplayPredictionState()\",\"{\"],\"statement\":\"simulation.predictionWorld.tornadoSystemConfig.vortices.reserve( Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS );\",\"after\":[\"simulation.predictionWorld.tornadoCaptureSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"simulation.predictionWorld.tornadoEjectCooldownSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\"]}",
+        "{\"symbol\":\"RunReplayPredictionState::RunReplayPredictionState\",\"before\":[\"{\",\"simulation.predictionWorld.tornadoSystemConfig.vortices.reserve( Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS );\"],\"statement\":\"simulation.predictionWorld.tornadoCaptureSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"after\":[\"simulation.predictionWorld.tornadoEjectCooldownSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"}\"]}",
+        "{\"symbol\":\"RunReplayPredictionState::RunReplayPredictionState\",\"before\":[\"simulation.predictionWorld.tornadoSystemConfig.vortices.reserve( Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS );\",\"simulation.predictionWorld.tornadoCaptureSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\"],\"statement\":\"simulation.predictionWorld.tornadoEjectCooldownSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"after\":[\"}\",\"}\"]}"
+      ],
+      "owner": "Replay prediction snapshot-row preallocation",
+      "phase": "startup_preallocation_and_replay",
+      "reason": "RunReplayPredictionState reserves the bounded Gameplay snapshot rows during owner construction so prediction-world copies do not grow during steady replay builds.",
+      "cap": "One vortex row capped by MAX_ACTIVE_FORCE_FIELDS and two per-body rows capped by MAX_SCENE_OBJECTS for each bounded prediction state.",
+      "removal_or_wrapper_plan": "Replace the snapshot vectors with fixed-capacity Physics-owned storage if the prediction world adopts a typed scene arena.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Automation/InteractionRecordingSidecarDigest.cpp",
+      "patterns": [
+        "{\"symbol\":\"SkullbonezCore::Runtime::InteractionRecordingSidecarDigestMatches\",\"before\":[\"if ( ok )\",\"{\"],\"statement\":\"object.resize( objectBytes );\",\"after\":[\"ok = BCryptCreateHash( algorithm, &hash, object.data(), objectBytes, nullptr, 0, 0 ) >= 0;\",\"}\"]}"
+      ],
+      "owner": "Interaction recording sidecar digest verifier",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "The optional recording-sidecar verifier allocates only the BCrypt provider-reported hash-object workspace while validating immutable interaction evidence before playback.",
+      "cap": "Exactly one temporary byte vector sized to the selected BCrypt provider object length per sidecar verification.",
+      "removal_or_wrapper_plan": "Keep the allocation inside the cold verification boundary; replace it with fixed provider workspace only if BCrypt exposes a stable repository-wide maximum.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/TLASDX12.cpp",
+      "patterns": [
+        "{\"symbol\":\"TLAS::Init\",\"before\":[\"bufDesc.SampleDesc.Count = 1;\",\"bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;\"],\"statement\":\"m_instanceDescs.resize( frameCount, nullptr );\",\"after\":[\"for ( UINT frameIndex = 0; frameIndex < frameCount; ++frameIndex )\",\"{\"]}"
+      ],
+      "owner": "DX12 TLAS frame-slot upload ownership",
+      "phase": "backend_init",
+      "reason": "TLAS creates one upload-resource pointer slot for each renderer frame allocator during backend initialization; steady frames rewrite those existing resources without growing the vector.",
+      "cap": "Exactly frameCount pointer slots, bounded by the renderer frame-resource count, and one upload resource per slot.",
+      "removal_or_wrapper_plan": "Replace the pointer vector with a fixed frame-resource array when the DX12 frame count becomes a compile-time contract.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/TLASDX12.h",
+      "patterns": [
+        "{\"symbol\":\"SelectDx12FrameUploadResource\",\"before\":[\"ID3D12Resource* m_scratch;\",\"ID3D12Resource* m_result;\"],\"statement\":\"std::vector<ID3D12Resource*> m_instanceDescs; // One upload table per allocator/fence slot.\",\"after\":[\"int m_maxInstances;\",\"public:\"]}"
+      ],
+      "owner": "DX12 TLAS frame-slot upload ownership",
+      "phase": "backend_init",
+      "reason": "TLAS creates one upload-resource pointer slot for each renderer frame allocator during backend initialization; steady frames rewrite those existing resources without growing the vector.",
+      "cap": "Exactly frameCount pointer slots, bounded by the renderer frame-resource count, and one upload resource per slot.",
+      "removal_or_wrapper_plan": "Replace the pointer vector with a fixed frame-resource array when the DX12 frame count becomes a compile-time contract.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Rendering/RenderPipeline.h",
+      "patterns": [
+        "{\"symbol\":\"SameSnapshot\",\"before\":[\"RenderSceneSnapshot m_snapshot;\",\"uint64_t m_graphFingerprint = 0;\"],\"statement\":\"std::string m_dumpText;\",\"after\":[\"};\",\"class RenderPipeline\"]}"
+      ],
+      "owner": "RenderPipeline diagnostic snapshot text",
+      "phase": "render_diagnostics",
+      "reason": "RenderPipeline retains the last formatted graph dump so unchanged diagnostic snapshots are not written repeatedly; ordinary render submission does not grow this string.",
+      "cap": "One diagnostic string bounded by the fixed render-graph pass, resource, transition, and UAV-barrier capacities.",
+      "removal_or_wrapper_plan": "Replace the retained string with a fixed diagnostic buffer if graph-dump formatting moves to bounded text storage.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "patterns": [
+        "{\"symbol\":\"ReserveReplayRecorderSampleVector\",\"before\":[\"if ( CoreAllocation::GetRuntimeAllocationPhase() == CoreAllocation::RuntimeAllocationPhase::Capture )\",\"{\"],\"statement\":\"values.reserve( reserveCapacity );\",\"after\":[\"if ( requestedCapacity > values.capacity() )\",\"{\"]}",
+        "{\"symbol\":\"ReserveReplayRecorderDeltaVector\",\"before\":[\"if ( CoreAllocation::GetRuntimeAllocationPhase() == CoreAllocation::RuntimeAllocationPhase::Capture )\",\"{\"],\"statement\":\"values.reserve( reserveCapacity );\",\"after\":[\"if ( requestedCapacity > values.capacity() )\",\"{\"]}"
+      ],
+      "owner": "Replay artifact dense materialization",
+      "phase": "explicit_capture",
+      "reason": "Artifact serialization reconstructs compact replay samples into temporary Capture-owned dense vectors. These vectors are released after the cold save and deliberately do not consume or relabel the retained Replay growth grant.",
+      "cap": "Sample vectors are capped by MAX_SCENE_OBJECTS and the shared REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES limit. Delta vectors use the same byte limit plus their source-owner count bounds; artifact saves materialize one recorder stream at a time.",
+      "removal_or_wrapper_plan": "Stream compact replay samples directly to the artifact writer when the format supports checked incremental encoding.",
       "match_mode": "exact_finding"
     }
   ]

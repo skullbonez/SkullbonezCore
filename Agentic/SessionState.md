@@ -1,8 +1,8 @@
 # Session State
 
-Date: 2026-08-26
+Date: 2026-08-28
 Branch: `nightrunner-25th-AUG-26`
-Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete; bug ledger 126/126 fixed
+Status: Recorded Interaction Playback Cursor complete; 121/121 tasks complete; bug ledger 126/126 fixed
 
 ## Rendering Bug Ledger Closure (2026-08-26)
 
@@ -449,13 +449,18 @@ their Prediction and Replay/Planning owners. Its exactly-once plan-completion
 gate passed 760/760 cases and 2,685,294 assertions with unchanged baselines;
 the inherited causal-depth oracle and historical Physics performance baseline
 remain external recorded failures without refresh authority.
-Recorded Interaction Playback Cursor is parked at 3/4. RIC2 draws the
-Automation-owned frame value through one bounded Runtime/UI compositor and one
-honest App submission edge after GameUI, replay overlays, UI finalization, and
-ImGui but before screenshots and Present. The exact unchanged recording and
-native captures prove the marker appears before right-look, disappears during
-captured look, and returns afterward while GameUI remains minimized. Focused
-RIC0-RIC2 tests pass 9/9 cases and 204/204 assertions; RIC3 remains parked.
+Recorded Interaction Playback Cursor RIC0-RIC3 is complete at 4/4. The
+Automation-owned frame value crosses one bounded Runtime/UI compositor and one
+App submission edge after GameUI, replay overlays, UI finalization, and ImGui
+but before screenshots and Present. The exact unchanged 413-turn recording
+contains 256 visible turns and 157 cursorless right-look turns; command high
+water and capacity are both `2`; recorded coordinates and every legacy trace
+field remain unchanged. Focused tests pass 10/10 cases and 222/222 assertions,
+and independent review is blocker-free after requiring successful submission
+for observed visibility and correcting the sample/delta allocation inventory.
+The exactly-once plan-completion command rebuilt Automation cleanly and then
+stopped at the existing plain-language wording queued for the next governance
+task; it was not rerun. No golden, manifest, sidecar, or schema changed.
 
 Real-Time Physics Pacing SP0-SP2 is complete. Live and unlimited scenes now
 schedule fixed-frequency Physics from elapsed wall time, while explicit startup
@@ -892,9 +897,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Begin the highest-priority unresolved entry in `Agentic/Bugs/master_bug_report.csv`.
-`RAGDOLL_PHYSICS` FP5-FP9 and
-`RECORDED_CURSOR` RIC3 remain parked and are not selectable.
+Begin the owner-requested governance simplification work now that
+`RECORDED_CURSOR` RIC0-RIC3 is complete. `RAGDOLL_PHYSICS` FP5-FP9 remain
+parked and are not selectable.
 
 ## Blockers
 

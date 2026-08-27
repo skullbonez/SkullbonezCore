@@ -82,6 +82,9 @@
     <Filter Include="Source Files\Runtime\Automation">
       <UniqueIdentifier>{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Runtime\Automation">
+      <UniqueIdentifier>{6C388BA5-E3A8-4F43-ADBF-D75740264E70}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Editor">
       <UniqueIdentifier>{A84A2248-37E9-4E32-9D84-7709D31D8802}</UniqueIdentifier>
     </Filter>
@@ -151,6 +154,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestMain.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TracyClientOwnerLinkStubs.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestFrustum.cpp">
@@ -534,6 +540,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionArchive.cpp">
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionState.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionProducer.cpp">
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
@@ -594,8 +603,47 @@
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp">
       <Filter>Source Files\World</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Assets\AssetSystem.Rendering.cpp">
+      <Filter>Source Files\Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoVisualPass.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsController.cpp">
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp">
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.cpp">
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.cpp">
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Input\Input.cpp">
+      <Filter>Source Files\Runtime\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneWorld.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp">
+      <Filter>Source Files\World</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingSidecarDigest.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>

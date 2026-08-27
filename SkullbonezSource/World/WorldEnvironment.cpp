@@ -504,10 +504,12 @@ void WorldEnvironment::ReleaseRenderResources()
 }
 
 
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 float WorldEnvironment::GetFluidSurfaceHeight() const
 {
     return m_fluidSurfaceHeight;
 }
+#endif
 
 
 SkullbonezCore::Physics::PhysicsWorldForces WorldEnvironment::GetPhysicsWorldForces() const
@@ -537,10 +539,12 @@ void WorldEnvironment::ApplyFluidSurfaceAdjustment( const FluidSurfaceAdjustment
 }
 
 
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 float WorldEnvironment::GetGravity() const
 {
     return m_gravity;
 }
+#endif
 
 
 void WorldEnvironment::SetGravity( float gravity )
@@ -549,10 +553,12 @@ void WorldEnvironment::SetGravity( float gravity )
 }
 
 
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 float WorldEnvironment::GetFluidDensity() const
 {
     return m_fluidDensity;
 }
+#endif
 
 
 void WorldEnvironment::SetFluidDensity( float density )

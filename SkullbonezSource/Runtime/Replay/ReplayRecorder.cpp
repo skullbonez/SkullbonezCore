@@ -107,10 +107,11 @@ int ReplayRuntimeBodyCapacity( const ReplayRecorderConfig& config )
 
 CoreAllocation::RuntimeReserveOwnerHandle ReplayRecorderSampleReserveOwner()
 {
-    static const CoreAllocation::RuntimeReserveOwnerHandle owner = CoreAllocation::RuntimeReserveAllocator::RegisterOwner( { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER, CoreAllocation::RuntimeReserveSubsystem::Replay,
-                                                                                                                             CoreAllocation::RuntimeReservePhase::Replay, 0, REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
-                                                                                                                             REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT, true,
-                                                                                                                             "replay recorder sample body vectors grow under the active scene size instead of startup capacity" } );
+    static const CoreAllocation::RuntimeReserveOwnerHandle owner = CoreAllocation::RuntimeReserveAllocator::RegisterOwner(
+        { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER, CoreAllocation::RuntimeReserveSubsystem::Replay,
+          CoreAllocation::RuntimeReservePhase::Replay, 0, REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
+          REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT, true,
+          "replay recorder sample body vectors grow under the active scene size instead of startup capacity" } );
 
     return owner;
 }
@@ -211,6 +212,21 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
+    if ( CoreAllocation::GetRuntimeAllocationPhase() == CoreAllocation::RuntimeAllocationPhase::Capture )
+    {
+        // Why: artifact serialization materializes a temporary dense view of
+        // compact replay data. Capture owns that cold output allocation; it
+        // must not consume or relabel the retained recorder's Replay grant.
+        values.reserve( reserveCapacity );
+
+        if ( requestedCapacity > values.capacity() )
+        {
+            ReportReplayRecorderReserveFailure( targetName, requestedCapacity, requestedBytes );
+        }
+
+        return;
+    }
+
     // Runtime allocation policy: approval is required even when allocation-hook
     // measurement is off; guard mode changes attribution, not the hard cap.
     const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
@@ -222,8 +238,8 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
                                                                   static_cast<int>( requestedBytes ),
                                                                   1 };
 
-    CoreAllocation::RuntimeReserveGrowthResult
-        result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,
+                                                                                                                request );
 
     if ( !result.granted )
     {
@@ -261,6 +277,21 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
+    if ( CoreAllocation::GetRuntimeAllocationPhase() == CoreAllocation::RuntimeAllocationPhase::Capture )
+    {
+        // Why: cold artifact materialization reconstructs solver-world vectors
+        // into Capture-owned output. Those vectors are not retained Replay
+        // state and therefore must not enter the recorder growth grant.
+        values.reserve( reserveCapacity );
+
+        if ( requestedCapacity > values.capacity() )
+        {
+            ReportReplayRecorderReserveFailure( targetName, requestedCapacity, requestedBytes );
+        }
+
+        return;
+    }
+
     // Runtime allocation policy: delta payloads share the recorder owner's
     // aggregate byte cap with body vectors instead of receiving a per-vector
     // 64 MiB allowance.
@@ -273,8 +304,8 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
                                                                   static_cast<int>( requestedBytes ),
                                                                   1 };
 
-    CoreAllocation::RuntimeReserveGrowthResult
-        result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,
+                                                                                                                request );
 
     if ( !result.granted )
     {
@@ -1522,7 +1553,7 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
     {
         hash = HashTornadoSystemConfig( hash, snapshot.tornadoSystemConfig );
         hash = physics.version >= 5u ? HashDouble( hash, snapshot.tornadoSystemElapsedSeconds )
-                                    : HashFloat( hash, static_cast<float>( snapshot.tornadoSystemElapsedSeconds ) );
+                                     : HashFloat( hash, static_cast<float>( snapshot.tornadoSystemElapsedSeconds ) );
     }
 
     hash = HashFloatVector( hash, physics.timeRemaining );
@@ -1634,8 +1665,9 @@ SkullbonezCore::Runtime::ReplaySolverHashBreakdownForSample( const ReplaySolverF
                                      sample.bodies );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildCommand( ReplayEventKind kind, ReplayFrameIndex frameIndex, bool useNextFrame, uint32_t flags, int32_t value0, int32_t value1,
-                                                                                        int32_t value2, int32_t value3, uint64_t data0, const char* text )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildCommand(
+    ReplayEventKind kind, ReplayFrameIndex frameIndex, bool useNextFrame, uint32_t flags, int32_t value0, int32_t value1,
+    int32_t value2, int32_t value3, uint64_t data0, const char* text )
 {
     ReplayEventCommand command;
     command.frameIndex = frameIndex;
@@ -1656,8 +1688,9 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildC
     return command;
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildGeneratedSceneConfig( uint32_t flags, int modelCount, int solverBallCount, int solverBoxCount, uint32_t rngSeed, int sceneObjectCapacity,
-                                                                                                     uint32_t generatedObjectTypeOverride )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildGeneratedSceneConfig(
+    uint32_t flags, int modelCount, int solverBallCount, int solverBoxCount, uint32_t rngSeed, int sceneObjectCapacity,
+    uint32_t generatedObjectTypeOverride )
 {
     uint64_t hash = FNV64_OFFSET;
     hash = HashInt( hash, modelCount );
@@ -1709,8 +1742,9 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildL
                          SignedFloatBits( projectileSpeed ), 0, 0, hash, "launcher_config" );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildLauncherFire( const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& cameraUp, bool projectile, float impulseStrength,
-                                                                                             float projectileSpeed, int modelCount )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildLauncherFire(
+    const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& cameraUp, bool projectile, float impulseStrength,
+    float projectileSpeed, int modelCount )
 {
     char payload[96] = {};
     char* cursor = payload;
@@ -1739,8 +1773,9 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildL
                          modelCount, hash, payload );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorPlace( int objectType, bool fixedObject, bool terrainAlign, int modelCountBefore, const Vector3& terrainPoint,
-                                                                                            const Vector3& placementScale, float placementYawRadians )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorPlace(
+    int objectType, bool fixedObject, bool terrainAlign, int modelCountBefore, const Vector3& terrainPoint,
+    const Vector3& placementScale, float placementYawRadians )
 {
     char payload[80] = {};
     char* cursor = payload;
@@ -1775,8 +1810,9 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildE
                          modelCountBefore, hash, payload );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorTransform( int modelIndex, uint32_t changedFlags, Physics::PhysicsSceneObjectId sceneObjectId, const Vector3& position,
-                                                                                                const SkullbonezCore::Math::Orientation::Quaternion& orientation, int modelCount, int scaleAxis, float scaleFactor )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorTransform(
+    int modelIndex, uint32_t changedFlags, Physics::PhysicsSceneObjectId sceneObjectId, const Vector3& position,
+    const SkullbonezCore::Math::Orientation::Quaternion& orientation, int modelCount, int scaleAxis, float scaleFactor )
 {
     changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
 
@@ -1839,7 +1875,8 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildE
                          static_cast<int32_t>( sceneObjectId.value ), modelCount, scaleAxis, hash, payload );
 }
 
-uint64_t SkullbonezCore::Runtime::ReplayRecorderOperations::ComputePresentationStateHash( const ReplayPresentationSample& sample ) noexcept
+uint64_t SkullbonezCore::Runtime::ReplayRecorderOperations::ComputePresentationStateHash(
+    const ReplayPresentationSample& sample ) noexcept
 {
     uint64_t hash = FNV64_OFFSET;
     hash = HashWorld( hash, sample.world );
@@ -2888,7 +2925,8 @@ uint64_t ReplaySolverRecorder::CollectMemoryBytes() const
                                             SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner );
 }
 
-void ReplaySolverRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
+void ReplaySolverRecorder::CollectMemoryCategoryBytes(
+    SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
 {
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories,
                                                             SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner,

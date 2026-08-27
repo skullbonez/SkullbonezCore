@@ -45,9 +45,9 @@ Related:
 
 namespace
 {
+using SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
-using SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
 using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
 using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle;
 
@@ -324,8 +324,8 @@ void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle own
     }
 }
 
-bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReserveOwnerHandle owner,
-                       uintptr_t callsite, uint64_t& outTrackerGeneration, uint64_t& outOwnerGeneration ) noexcept
+bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReserveOwnerHandle owner, uintptr_t callsite,
+                       uint64_t& outTrackerGeneration, uint64_t& outOwnerGeneration ) noexcept
 {
     AccountingSessionLock accountingLock;
     outTrackerGeneration = s_trackerAccountingGeneration.load( std::memory_order_relaxed );
@@ -334,9 +334,9 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
     // The replay grant is an allocation-safety contract, not diagnostic state.
     // Consume its exact byte allowance even when measurement is disabled so an
     // earlier allocation cannot leave approval behind for a later allocation.
-    const bool approvedReplayGrowth =
-        RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( owner, phaseIndex, size,
-                                                                           &outOwnerGeneration );
+    const bool
+        approvedReplayGrowth = RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( owner, phaseIndex, size,
+                                                                                                  &outOwnerGeneration );
 
     if ( owner != INVALID_RUNTIME_RESERVE_OWNER && !approvedReplayGrowth )
     {
@@ -513,7 +513,8 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
         // Heavy Tracy capture is independent of allocation-guard mode. The
         // connection id pairs this allocation with a free only inside the same
         // viewer session, avoiding stale frees after disconnect/reconnect.
-        header->tracyConnectionId = SkullbonezCore::Core::Allocation::RecordTracyAllocation( reinterpret_cast<void*>( userAddress ),
+        header->tracyConnectionId = SkullbonezCore::Core::Allocation::RecordTracyAllocation( reinterpret_cast<void*>(
+                                                                                                 userAddress ),
                                                                                              size );
 #endif
         s_insideAllocationHook = false;
@@ -943,7 +944,8 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
             continue;
         }
 
-        const uintptr_t rva = imageBase != 0u && counters.address >= imageBase ? counters.address - imageBase : counters.address;
+        const uintptr_t rva = imageBase != 0u && counters.address >= imageBase ? counters.address - imageBase
+                                                                               : counters.address;
         const uintptr_t parentRva = imageBase != 0u && counters.parentAddress >= imageBase
                                         ? counters.parentAddress - imageBase
                                         : counters.parentAddress;
@@ -951,11 +953,9 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
                  "[allocation-guard] callsite rank=%d phase=%s owner=%u rva=0x%llx parent_rva=0x%llx "
                  "allocations=%llu violations=%llu bytes=%llu\n",
                  rank + 1, RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( counters.phaseIndex ) ),
-                 counters.owner, static_cast<unsigned long long>( rva ),
-                 static_cast<unsigned long long>( parentRva ),
+                 counters.owner, static_cast<unsigned long long>( rva ), static_cast<unsigned long long>( parentRva ),
                  static_cast<unsigned long long>( counters.allocations ),
-                 static_cast<unsigned long long>( counters.violations ),
-                 static_cast<unsigned long long>( counters.bytes ) );
+                 static_cast<unsigned long long>( counters.violations ), static_cast<unsigned long long>( counters.bytes ) );
     }
 
     if ( RuntimeAllocationGuardHasGameplayViolations() )

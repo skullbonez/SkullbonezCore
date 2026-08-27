@@ -203,9 +203,8 @@ struct InstancedMeshDX12
 // Hazard: draw counts are caller values, while both vertex-buffer views expose
 // finite uploaded byte ranges. Validate by division so hostile counts cannot
 // overflow a bytes-needed multiplication.
-inline bool Dx12InstancedDrawFitsUploadedData( UINT staticBytes, int staticStride, UINT instanceBytes,
-                                               int instanceStride, int requestedStaticVertices,
-                                               int requestedInstances ) noexcept
+inline bool Dx12InstancedDrawFitsUploadedData( UINT staticBytes, int staticStride, UINT instanceBytes, int instanceStride,
+                                               int requestedStaticVertices, int requestedInstances ) noexcept
 {
     if ( staticStride <= 0 || instanceStride <= 0 || requestedStaticVertices <= 0 || requestedInstances <= 0 )
     {
@@ -723,8 +722,8 @@ class Dx12GeometryOwner
 
     static bool AttributeLayoutFits( std::span<const int> attributeSizes, std::size_t capacity ) noexcept;
     static bool TryBuildInstancedAttributeLayout( std::span<const int> instanceAttributeSizes,
-                                                   std::span<const int> staticAttributeSizes,
-                                                   InstancedAttributeLayout& outLayout ) noexcept;
+                                                  std::span<const int> staticAttributeSizes,
+                                                  InstancedAttributeLayout& outLayout ) noexcept;
     DynamicVBDX12* ResolveDynamicVB( uint32_t handle ) noexcept;
     const DynamicVBDX12* ResolveDynamicVB( uint32_t handle ) const noexcept;
 
@@ -778,10 +777,9 @@ class Dx12GeometryOwner
     void RequireSubmissionEpoch( const char* operation ) const;
     uint32_t CreateInstancedMesh( const float* staticVertices, int staticVertexCount, int staticFloatsPerVertex,
                                   int instanceFloats, int instanceStartAttribute,
-                                  const InstancedAttributeLayout& attributeLayout,
-                                  ID3D12Device* device, ID3D12GraphicsCommandList* commandList,
-                                  ID3D12Resource* uploadResource, D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
-                                  uint8_t* uploadPointer );
+                                  const InstancedAttributeLayout& attributeLayout, ID3D12Device* device,
+                                  ID3D12GraphicsCommandList* commandList, ID3D12Resource* uploadResource,
+                                  D3D12_GPU_VIRTUAL_ADDRESS uploadAddress, uint8_t* uploadPointer );
     void DrawColoredTrianglesFromBuffer( std::size_t packedFloatCount, const Math::Transformation::Matrix4& viewProjection,
                                          TransientTriangleStyle style, int viewportWidth, int viewportHeight,
                                          bool compactRibbonInstances, UINT startInstance,
@@ -847,13 +845,16 @@ inline bool TryBuildDx12RaytracingMaterialTextureTable( std::span<const UINT> re
         return false;
     }
 
-    for ( size_t i = 0; i < resolvedSrvIndices.size(); ++i )
+    for ( const UINT srvIndex : resolvedSrvIndices )
     {
-        if ( resolvedSrvIndices[i] == UINT_MAX )
+        if ( srvIndex == UINT_MAX )
         {
             return false;
         }
+    }
 
+    for ( size_t i = 0; i < resolvedSrvIndices.size(); ++i )
+    {
         outTable.srvIndices[i] = resolvedSrvIndices[i];
     }
 
@@ -998,7 +999,6 @@ class RenderBackendDX12
 {
 
   private:
-
     // Concept: the composition root retains concrete owners, while domain state
     // and helper operations remain inside those owners.
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;

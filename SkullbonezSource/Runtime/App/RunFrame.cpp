@@ -247,7 +247,8 @@ bool Run::PumpFrameMessages( int& messageExitCode )
         {
             if ( message.id == WM_SETFOCUS )
             {
-                SkullbonezCore::Hardware::Input::SetSystemCursorVisible( SkullbonezCore::Hardware::Input::IsSystemCursorVisibleRequested() );
+                SkullbonezCore::Hardware::Input::SetSystemCursorVisible(
+                    SkullbonezCore::Hardware::Input::IsSystemCursorVisibleRequested() );
             }
             else if ( message.id == WM_KILLFOCUS )
             {
@@ -256,7 +257,8 @@ bool Run::PumpFrameMessages( int& messageExitCode )
             else if ( message.id == WM_SETCURSOR && LOWORD( message.lParam ) == HTCLIENT )
             {
                 const bool focused = GetForegroundWindow() == message.window;
-                SkullbonezCore::Hardware::Input::SetSystemCursorVisible( focused ? SkullbonezCore::Hardware::Input::IsSystemCursorVisibleRequested() : true );
+                SkullbonezCore::Hardware::Input::SetSystemCursorVisible(
+                    focused ? SkullbonezCore::Hardware::Input::IsSystemCursorVisibleRequested() : true );
                 route.engineCursorHandled = true;
             }
         }
@@ -706,12 +708,14 @@ float Run::RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPo
     {
         PhysicsBroadphaseActiveCell activeCells[PHYSICS_BROADPHASE_ACTIVE_CELL_CAPACITY];
         const int activeCellCount = PhysicsEngine::ReadBroadphaseActiveCells( scene.Physics(), activeCells );
-        sceneGates.UpdateRequiredBroadphaseXCells( std::span<const PhysicsBroadphaseActiveCell>( activeCells, static_cast<std::size_t>( activeCellCount ) ) );
+        sceneGates.UpdateRequiredBroadphaseXCells(
+            std::span<const PhysicsBroadphaseActiveCell>( activeCells, static_cast<std::size_t>( activeCellCount ) ) );
     }
 
     sceneGates.UpdateRequiredSleepingDynamicBodies( scene.BodyStore().HotFields().awake );
     sceneGates.UpdateRequiredContacts( SceneAutomationGatePhysicsView { scene.BodyStore(), scene.Colliders(),
-                                                                        PhysicsEngine::ReadDebugContacts( scene.Physics() ) },
+                                                                        PhysicsEngine::ReadDebugContacts(
+                                                                            scene.Physics() ) },
                                        m_config.bodySimulation.contactEpsilon );
 
     return interpolationAlpha;
@@ -804,11 +808,12 @@ float Run::PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned
 
                 if ( stressResult.worldOverrideChanged )
                 {
-                    m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( stressResult.previousGravity,
-                                                                                                   stressResult.previousFluidHeight,
-                                                                                                   stressResult.previousFluidDensity,
-                                                                                                   stressResult.gravity, stressResult.fluidHeight,
-                                                                                                   stressResult.fluidDensity ) );
+                    m_replayRuntime.SubmitEvent(
+                        ReplayEventCommandOperations::BuildWorldOverride( stressResult.previousGravity,
+                                                                          stressResult.previousFluidHeight,
+                                                                          stressResult.previousFluidDensity,
+                                                                          stressResult.gravity, stressResult.fluidHeight,
+                                                                          stressResult.fluidDensity ) );
                 }
             }
         }
@@ -1007,10 +1012,10 @@ bool Run::CompleteFramePhase( const SceneFrameProceedPolicy& proceedPolicy )
                                        profilerTimes.gpuFrameWorkMs );
     }
 #endif
-    const bool perfLogSucceeded =
-        m_diagnosticsRuntime.TickPerfLog( m_sceneController.PerfPass() + 1,
-                                          m_sceneController.State().currentFrame + 1,
-                                          m_timers.Publish().physicsSeconds, m_timers.Publish().renderSeconds );
+    const bool perfLogSucceeded = m_diagnosticsRuntime.TickPerfLog( m_sceneController.PerfPass() + 1,
+                                                                    m_sceneController.State().currentFrame + 1,
+                                                                    m_timers.Publish().physicsSeconds,
+                                                                    m_timers.Publish().renderSeconds );
 
     if ( !perfLogSucceeded )
     {
@@ -1091,7 +1096,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
 
         RuntimeRenderModelFrameView models = PublishRenderModelsPhase();
-        const RuntimeRenderFramePolicy debugFramePolicy = ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
+        const RuntimeRenderFramePolicy debugFramePolicy = ProjectRenderFramePolicy(
+            m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
         Renderer().UpdateDebugVisualizers( static_cast<float>( secondsPerFrame ), models, debugFramePolicy );
 
         // Fixed boundary: diagnostics advance once from completed frame-model
@@ -1118,6 +1124,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
             UI::UIDrawList recordedCursorDrawList;
             ComposeRecordedCursorDrawList( recordedCursorDrawList, recordedCursor, m_window.ClientWidth(),
                                            m_window.ClientHeight() );
+            const UI::UIDrawList::Stats recordedCursorDrawStats = recordedCursorDrawList.GetStats();
+            bool recordedCursorSubmitted = false;
 
             // Invariant: RenderOperatorUiPhase has already submitted GameUI,
             // overlays, UI finalization, and ImGui. This unconditional App seam
@@ -1125,7 +1133,17 @@ SkullbonezCore::Core::SbResult Run::Execute()
             if ( !recordedCursorDrawList.Empty() )
             {
                 Renderer().SubmitUiDrawList( recordedCursorDrawList, { m_window.ClientWidth(), m_window.ClientHeight() } );
+                recordedCursorSubmitted = true;
             }
+
+            // Automation owns the trace stream, while App supplies only the
+            // detached result it just composed and submitted. No native pointer
+            // or retained renderer state crosses this evidence boundary.
+            m_interactionAutomation
+                .recordedCursorPresentation = ObserveRecordedCursorPresentation( recordedCursor,
+                                                                                 recordedCursorDrawStats.commandCount,
+                                                                                 RECORDED_CURSOR_DRAW_COMMAND_HIGH_WATER,
+                                                                                 recordedCursorSubmitted );
         }
 #endif
 
@@ -1188,7 +1206,8 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
 
     // Why: the saturated Replay count remains live every step, but payload rows
     // are observational work needed only by capture or pipeline presentation.
-    m_sceneController.Scene().Physics().SetPipelineTraceFullRecordConsumerActive( replayCapture || ( overlayPresentation.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0u );
+    m_sceneController.Scene().Physics().SetPipelineTraceFullRecordConsumerActive(
+        replayCapture || ( overlayPresentation.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0u );
 #ifdef _DEBUG
     const bool physicsCapture = m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
                                 m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
@@ -1220,9 +1239,10 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
                                                                                sceneState.isFixedStep,
                                                                                sceneState.targetFrameCount,
                                                                                sceneState.isInteractiveRun );
-    const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput { secondsPerFrame, policy.physicsTimeScale, m_sceneController.State().isSceneMode,
-                                                                               m_sceneController.State().isScenePhysics, pacingPolicy, policy.physicsAdvance, stepRequested,
-                                                                               canStepPhysics } );
+    const SimulationTickResult tick = m_simulation.Tick(
+        SimulationTickInput { secondsPerFrame, policy.physicsTimeScale, m_sceneController.State().isSceneMode,
+                              m_sceneController.State().isScenePhysics, pacingPolicy, policy.physicsAdvance, stepRequested,
+                              canStepPhysics } );
 
     const float presentationAlpha = ResolvePresentationAlpha( m_config, capturePresentationPinned, tick.presentationAlpha );
 
@@ -1616,10 +1636,11 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
         m_timers.RestartSceneClock();
     }
 
-    const SceneAdvanceExitDisposition exitDisposition =
-        ResolveSceneAdvanceExitDisposition( result.requestQuit, loadSucceeded, result.quitIfLoadFails );
-    const SceneAdvanceExitAction exitAction =
-        ApplySceneAdvanceExitDisposition( exitDisposition, loadResult, m_applicationExit );
+    const SceneAdvanceExitDisposition exitDisposition = ResolveSceneAdvanceExitDisposition( result.requestQuit,
+                                                                                            loadSucceeded,
+                                                                                            result.quitIfLoadFails );
+    const SceneAdvanceExitAction exitAction = ApplySceneAdvanceExitDisposition( exitDisposition, loadResult,
+                                                                                m_applicationExit );
 
     if ( exitAction.postQuit )
     {

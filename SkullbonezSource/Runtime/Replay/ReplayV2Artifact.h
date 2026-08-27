@@ -37,6 +37,7 @@ Related:
 #include <span>
 #include <vector>
 
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "ReplayRecorder.h"
 #include "ReplayVisualPacket.h"
 
@@ -104,10 +105,36 @@ struct ReplayV2SolverHashLoadResult
     ReplayFrameIndex lastFrame = 0;
 };
 
+namespace ReplayArtifactOperations
+{
+template <typename BuildFallbackPredictionState, typename SaveArtifact>
+bool SaveColdWithOptionalPredictionState( std::span<const ReplayVisualArchiveSample> visualPackets,
+                                          std::span<const uint8_t> suppliedPredictionState,
+                                          BuildFallbackPredictionState&& buildFallbackPredictionState,
+                                          SaveArtifact&& saveArtifact )
+{
+    // Invariant: fallback materialization and file encoding are one cold
+    // capture operation, so both run outside steady-gameplay allocation policy.
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope captureAllocationScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture );
+    std::vector<uint8_t> fallbackPredictionState;
+
+    if ( !visualPackets.empty() && suppliedPredictionState.empty() &&
+         !buildFallbackPredictionState( fallbackPredictionState ) )
+    {
+        return false;
+    }
+
+    const std::span<const uint8_t> predictionState = !suppliedPredictionState.empty()
+                                                         ? suppliedPredictionState
+                                                         : std::span<const uint8_t>( fallbackPredictionState );
+    return saveArtifact( predictionState );
+}
+} // namespace ReplayArtifactOperations
+
 class ReplayV2Artifact
 {
   public:
-
     // Saves presentation samples only: enough for exact visual scrub, not
     // enough for authoritative physics rollback.
     static bool SavePresentation( const ReplayRecorder& recorder, const char* path, ReplayV2SaveResult* result = nullptr );

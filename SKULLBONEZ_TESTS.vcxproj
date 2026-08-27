@@ -197,6 +197,9 @@
       <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <FunctionLevelLinking Condition="'$(Configuration)'!='Debug'">true</FunctionLevelLinking>
     </ClCompile>
+    <Link>
+      <AdditionalDependencies>psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezTests\TestAssetSystem.cpp" />
@@ -275,8 +278,10 @@
     <ClCompile Include="SkullbonezTests\TestTerrain.cpp" />
     <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Assets\AssetSystem.Rendering.cpp" />
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp" />
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp" />
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoVisualPass.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SbResult.cpp" />
@@ -285,6 +290,10 @@
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
+    <ClCompile Include="SkullbonezTests\TracyClientOwnerLinkStubs.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
+      <PreprocessorDefinitions>TRACY_ENABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
@@ -306,6 +315,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputController.Bindings.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Input\Input.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputRouter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp" />
@@ -313,9 +323,14 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneWorld.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSessionState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp" />
@@ -329,6 +344,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorEditorExchange.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\UIProfilerOverlayPresenter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\BroadphaseVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\CollisionVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\PhysicsDebugVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp" />
@@ -361,6 +379,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ContinuousPredictionSampleRing.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionArchive.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionSolverEvidenceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\TrajectoryStore.cpp" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.MarkerScan.inl" />
@@ -377,6 +396,7 @@
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\StandaloneStyleWriter.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
+    <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
@@ -398,6 +418,9 @@
     <ProjectReference Include="SKULLBONEZ_PHYSICS.vcxproj">
       <Project>{2CC512B8-5A21-49F4-AE75-9982116F5B62}</Project>
     </ProjectReference>
+    <ProjectReference Include="SKULLBONEZ_RENDERING.vcxproj">
+      <Project>{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <!-- Product UI tests compile the moved sources with the same profiler ABI
@@ -408,5 +431,7 @@
     </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets"></ImportGroup>
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets" Condition="Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" />
+  </ImportGroup>
 </Project>

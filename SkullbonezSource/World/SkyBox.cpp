@@ -53,16 +53,16 @@ constexpr PassRasterStateBucket SKYBOX_RASTER_BUCKET = { { 0 },
 } // namespace
 
 
-SkyBox::SkyBox( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, int m_xMin, int m_xMax, int yMin, int yMax,
-                int m_zMin, int m_zMax )
+SkyBox::SkyBox( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, int xMin, int xMax, int yMin, int yMax, int zMin,
+                int zMax )
     : m_resultDiagnostics( resultDiagnostics )
 {
-    m_boundaries.m_xMin = m_xMin;
-    m_boundaries.m_xMax = m_xMax;
+    m_boundaries.m_xMin = xMin;
+    m_boundaries.m_xMax = xMax;
     m_boundaries.yMin = yMin;
     m_boundaries.yMax = yMax;
-    m_boundaries.m_zMin = m_zMin;
-    m_boundaries.m_zMax = m_zMax;
+    m_boundaries.m_zMin = zMin;
+    m_boundaries.m_zMax = zMax;
     m_textures = 0;
     m_config = nullptr;
     m_assets = nullptr;
@@ -136,9 +136,9 @@ void SkyBox::RequireRenderBindings( const char* operation ) const
 }
 
 
-SkullbonezCore::Core::SbResult
-SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg, SkullbonezCore::Assets::AssetSystem& assets,
-                     Dx12ResourceBuilder& resources )
+SkullbonezCore::Core::SbResult SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg,
+                                                    SkullbonezCore::Assets::AssetSystem& assets,
+                                                    Dx12ResourceBuilder& resources )
 {
     // Shorthand for boundary values with overflow
     const int overflow = cfg.skybox.overflow;
@@ -212,8 +212,8 @@ SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg, SkullbonezCo
         meshesReady[index] = m_faceMeshes[index] != nullptr;
     }
 
-    SkullbonezCore::Core::SbResult resourceResult =
-        RequiredRenderResourcesResult( m_resultDiagnostics, meshesReady, m_shader != nullptr );
+    SkullbonezCore::Core::SbResult resourceResult = RequiredRenderResourcesResult( m_resultDiagnostics, meshesReady,
+                                                                                   m_shader != nullptr );
 
     if ( !resourceResult.Ok() )
     {
@@ -223,27 +223,6 @@ SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg, SkullbonezCo
     m_shader->Use();
     m_shader->SetMat4( "uModel", Matrix4() );
     m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
-    return SkullbonezCore::Core::SbResult::Success();
-}
-
-
-SkullbonezCore::Core::SbResult
-SkyBox::RequiredRenderResourcesResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                       const std::array<bool, 6>& meshesReady, bool shaderReady )
-{
-    for ( std::size_t index = 0; index < meshesReady.size(); ++index )
-    {
-        if ( !meshesReady[index] )
-        {
-            return diagnostics.Failure( "Rendering/SkyBox", "Skybox face mesh %zu failed during resource reset.", index );
-        }
-    }
-
-    if ( !shaderReady )
-    {
-        return diagnostics.Failure( "Rendering/SkyBox", "Skybox shader failed during resource reset." );
-    }
-
     return SkullbonezCore::Core::SbResult::Success();
 }
 

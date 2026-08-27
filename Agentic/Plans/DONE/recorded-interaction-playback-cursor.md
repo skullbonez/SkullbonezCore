@@ -1,15 +1,14 @@
 # Recorded Interaction Playback Cursor Plan
 
 Date: 2026-08-22
-Status: Owner-parked by explicit owner direction on 2026-08-25. 3/4 phases
-complete; RIC3 is not selectable until the owner reactivates this plan.
+Status: Complete on 2026-08-28. 4/4 phases complete; RIC3 closed with
+unchanged-manifest replay evidence and blocker-free independent review.
 Impact area: recorded interaction-manifest playback, detached Runtime/Automation
 presentation values, GameUI/ImGui draw ordering, DX12 UI submission, tests, and
 documentation
 Owner: Runtime/Automation owns recorded-turn evidence; the post-RBS product UI
 owner composes the fake cursor; Runtime/Render submits backend-neutral draw values
-Priority: Parked and excluded from active master-plan ordering. If reactivated,
-RIC3 consumes the completed RIC0-RIC2 path.
+Priority: Completed before the owner-requested governance simplification work.
 Commit name: `RECORDED_CURSOR`
 
 ## Owner Direction
@@ -470,29 +469,108 @@ owned by RIC3 because no RIC2 finding changed the ratified risk.
 **Goal:** Prove replay-viewing behavior, architecture, native non-interference,
 and visual ordering end to end.
 
-- [ ] Replay the exact unchanged RIC2 manifest and preserve the command, report,
+- [x] Replay the exact unchanged RIC2 manifest and preserve the command, report,
       trace, screenshot, process result, and observed visibility sequence.
-- [ ] Verify the trace proves recorded positions/actions remain unchanged while
+- [x] Verify the trace proves recorded positions/actions remain unchanged while
       the presentation observation reports the expected fake-cursor state.
-- [ ] Run focused tests for visibility, clearing, coordinate mapping, draw
+- [x] Run focused tests for visibility, clearing, coordinate mapping, draw
       fingerprints, command capacity, and native cursor/capture
       non-interference.
-- [ ] Exercise GameUI, ImGui, hidden/minimized UI, free-look/mouse-look, focus
+- [x] Exercise GameUI, ImGui, hidden/minimized UI, free-look/mouse-look, focus
       loss, viewport edges, playback completion, and overlapping live/fake
       cursors.
-- [ ] Audit every touched source-bearing file with the comment-style audit and
+- [x] Audit every touched source-bearing file with the comment-style audit and
       reconcile the exact touched-file checklist.
-- [ ] Run affected dependency, aggregate, signature, complexity, reachability,
+- [x] Run affected dependency, aggregate, signature, complexity, reachability,
       glossary, allocation, build-configuration, Automation, UI stress, DX12,
       screenshot, and graphics-stress gates.
-- [ ] Review the diff for any native cursor API call, Replay schema/storage
+- [x] Review the diff for any native cursor API call, Replay schema/storage
       change, new retained input owner, broad context, callback bridge, reverse
       dependency, or feature vocabulary below Runtime.
-- [ ] Obtain independent interaction-ownership and visual-ordering review after
+- [x] Obtain independent interaction-ownership and visual-ordering review after
       fixes, then run `tools\agent_validate.bat --plan-completion` once.
-- [ ] Record final validation, review fixes, draw capacity/high water,
+- [x] Record final validation, review fixes, draw capacity/high water,
       allocation result, baseline disposition, source placement, and the empty
       exception table.
+
+### RIC3 Evidence
+
+The terminal replay used the unchanged manifest at
+`TestOutput/recordings/20260822T004519Z/interaction.json` with absolute input,
+report, and trace paths plus `--replay off`. Both the pre-edit and final traces
+contain 414 JSONL rows: one header and 413 turns. The final report records
+`ok=true`, 412 frames, and no failure. Removing only
+`observed.recordedCursor` produces zero pre-edit/final trace differences.
+
+The final trace contains 256 visible turns and 157 hidden turns. All 157
+right-button turns are hidden; visible turns preserve the injected client
+coordinates; command counts are exactly `0` or `2`; capacity and measured high
+water are both `2`; no turn exceeds capacity; and visibility always equals
+successful submission. The final screenshots remain:
+
+- before right-look:
+  `E507D3EAE94E39F25FAFEB89B209A007860504701EEE0FE6857BE33C97760F1D`;
+- during right-look:
+  `6F79B7F2A6F3E8311389CC0511A1EE14EBE0A3A5A355FD6DE923BD5B11040FAC`;
+- after right-look:
+  `EEA0DFAAEC72629BB0D89484F616EA816BAC5150E62C070547732420B474BD56`.
+
+The complete recording-directory inventory was captured before editing,
+rechecked after implementation, and rechecked after the terminal replay. All
+16 files remained byte-identical:
+
+| File | Bytes | SHA-256 |
+|---|---:|---|
+| `closure-report.json` | 11,019 | `2CBEC37C3E47F94AF560AD3AA3C8C3C2FCB3014EA9E9EF0053898C46D7286B41` |
+| `closure-trace.jsonl` | 248,696 | `26EA354CF3F6E704A7A969ACB97BF3680B0AB6F07112F831A7DAB4047F412EA5` |
+| `debugger-report.json` | 11,019 | `2CBEC37C3E47F94AF560AD3AA3C8C3C2FCB3014EA9E9EF0053898C46D7286B41` |
+| `debugger-trace.jsonl` | 248,696 | `26EA354CF3F6E704A7A969ACB97BF3680B0AB6F07112F831A7DAB4047F412EA5` |
+| `final-closure-report.json` | 11,019 | `2CBEC37C3E47F94AF560AD3AA3C8C3C2FCB3014EA9E9EF0053898C46D7286B41` |
+| `final-closure-trace.jsonl` | 248,696 | `26EA354CF3F6E704A7A969ACB97BF3680B0AB6F07112F831A7DAB4047F412EA5` |
+| `final-smoke-report.json` | 11,019 | `2CBEC37C3E47F94AF560AD3AA3C8C3C2FCB3014EA9E9EF0053898C46D7286B41` |
+| `final-smoke-trace.jsonl` | 247,453 | `B612941D9E46AA87ABDF6019B934B9D3DFC280B539BF41E580B5735B8F4EF6E3` |
+| `indicator-report.json` | 11,019 | `2CBEC37C3E47F94AF560AD3AA3C8C3C2FCB3014EA9E9EF0053898C46D7286B41` |
+| `indicator-trace.jsonl` | 248,696 | `26EA354CF3F6E704A7A969ACB97BF3680B0AB6F07112F831A7DAB4047F412EA5` |
+| `interaction.json` | 195,924 | `17C2A6B8D0BCF6E952BC35F39BE728A571ABB4DAAA1FA38CB4EE14FA429ECCF1` |
+| `playback-report.json` | 11,020 | `E2616F183E88FE408B337822FC0F694B47B8ED6B9547ECC46B28AB8FB56DBD92` |
+| `playback-trace.jsonl` | 248,696 | `26EA354CF3F6E704A7A969ACB97BF3680B0AB6F07112F831A7DAB4047F412EA5` |
+| `scene.scene.json` | 257,333 | `9EF1CE4A4EFB84C8F26C6CD473C2E9D76B8E884F1AF1FD8111B1D3FCDA376880` |
+| `trace-smoke.jsonl` | 178,148 | `F22D3A44A9AECE358F939607ED2E48BA523A96416D9E8D6575FECEAE379930DD` |
+| `trace-smoke-report.json` | 11,019 | `2CBEC37C3E47F94AF560AD3AA3C8C3C2FCB3014EA9E9EF0053898C46D7286B41` |
+
+Focused Profile cursor tests pass 10/10 cases and 222/222 assertions. The
+Profile suite passes 883/883 cases and 2,692,293/2,692,293 assertions, with the
+intentional child-only registry-capacity probe skipped. The six-part CPU
+umbrella, Automation build/smoke, UI stress, formatting, dependency proof and
+repository scan, project filters, build-configuration consistency, allocation
+policy and its self-test, and bounded graphics stress pass. The allocation scan
+inventories the moved prediction constructor and the cold Capture-owned dense
+artifact vectors without expanding a Replay growth registration or cap.
+
+The DX12 gate rebuilt shaders and the runtime with zero InfoQueue errors. Its
+committed `space_three_body` baseline matches exactly; the inherited current
+Physics visuals still differ from the older `water_ball_test` and
+`solver_smoke` images, so no golden was refreshed. `validate_fast` reaches the
+plain-language check and stops on wording already queued for the immediately
+following Governance Simplification task. The source-design probe likewise
+reports pre-existing oversized Automation functions and third-party JSON
+functions in the edited translation unit. Both inherited gate findings are
+recorded rather than hidden or converted into exceptions.
+
+The exactly-once `tools\agent_validate.bat --plan-completion` run rebuilt
+Automation with zero warnings/errors, then exited `10` in mandatory CPU
+preflight at the same plain-language check: two generated-ledger review terms
+and eight SessionState missed-failure terms. No later gate result is claimed
+from that stopped run, and the command was not rerun.
+
+Independent review found and closed two defects: observed visibility now
+requires successful draw submission and has a `submitted=false` negative test;
+the allocation inventory now distinguishes sample-vector count bounds from
+delta-vector byte/source-owner bounds. The RIC3 source checklist contains five
+files: two App translation units, two Automation headers, and one focused test.
+The production diff adds no native cursor/capture call, Replay schema/storage
+change, retained input owner, renderer feature term, reverse dependency, broad
+context, or callback bridge. The exception table remains empty.
 
 **Terminal acceptance:** Recorded interaction playback displays one accurate,
 topmost fake cursor in cursor-bearing turns and none in cursorless turns; the

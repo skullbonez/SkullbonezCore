@@ -45,6 +45,7 @@ using SkullbonezCore::Runtime::ClassifyRecordedCursorPointerDisposition;
 using SkullbonezCore::Runtime::ComposeRecordedCursorDrawList;
 using SkullbonezCore::Runtime::FilterRecordedCursorFrame;
 using SkullbonezCore::Runtime::InputRouter;
+using SkullbonezCore::Runtime::ObserveRecordedCursorPresentation;
 using SkullbonezCore::Runtime::PointerPresentationState;
 using SkullbonezCore::Runtime::RecordedCursorFrame;
 using SkullbonezCore::Runtime::RecordedCursorPlaybackPhase;
@@ -112,6 +113,33 @@ TEST_CASE( "Recorded cursor presentation: arrow commands preserve hot point and 
     CHECK( commands[1].b == doctest::Approx( 1.0f ) );
     CHECK( commands[1].a == doctest::Approx( 1.0f ) );
     CHECK( drawList.Fingerprint() == UINT64_C( 0x5DA1E2565D540004 ) );
+}
+
+TEST_CASE( "Recorded cursor presentation: trace observation reports only submitted bounded geometry" )
+{
+    const auto visible = ObserveRecordedCursorPresentation( VisibleCursorAt( 50, 40 ), 2, 2, true );
+    CHECK( visible.visible );
+    CHECK( visible.submitted );
+    CHECK( visible.clientX == 50 );
+    CHECK( visible.clientY == 40 );
+    CHECK( visible.drawCommandCount == 2 );
+    CHECK( visible.drawCommandCapacity == 2 );
+
+    const auto notSubmitted = ObserveRecordedCursorPresentation( VisibleCursorAt( 50, 40 ), 2, 2, false );
+    CHECK_FALSE( notSubmitted.visible );
+    CHECK_FALSE( notSubmitted.submitted );
+    CHECK( notSubmitted.clientX == 0 );
+    CHECK( notSubmitted.clientY == 0 );
+    CHECK( notSubmitted.drawCommandCount == 2 );
+    CHECK( notSubmitted.drawCommandCapacity == 2 );
+
+    const auto hidden = ObserveRecordedCursorPresentation( {}, 0, 2, false );
+    CHECK_FALSE( hidden.visible );
+    CHECK_FALSE( hidden.submitted );
+    CHECK( hidden.clientX == 0 );
+    CHECK( hidden.clientY == 0 );
+    CHECK( hidden.drawCommandCount == 0 );
+    CHECK( hidden.drawCommandCapacity == 2 );
 }
 
 TEST_CASE( "Recorded cursor presentation: arrow flips without moving the hot point" )

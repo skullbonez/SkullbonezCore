@@ -21,6 +21,8 @@ Invariants:
     sequencer stores no Planning owner reference or worker-ring span.
   - App applies editor and window commands synchronously; automation stores
     neither owner while retaining script progress or report evidence.
+  - Recorded-cursor trace evidence is one overwritten detached frame value; it
+    does not retain an input, UI, renderer, or native pointer owner.
   - Process-wide development-surface selection remains a typed request for Run.
 */
 #pragma once
@@ -294,8 +296,7 @@ struct RunInteractionAutomationAction
     bool processed = false;
 };
 
-inline bool TryRetainInteractionShotListPath( RunInteractionAutomationAction& action,
-                                               std::string_view path ) noexcept
+inline bool TryRetainInteractionShotListPath( RunInteractionAutomationAction& action, std::string_view path ) noexcept
 {
     if ( path.empty() || path.size() >= sizeof( action.directorShotListPath ) ||
          path.find( '\0' ) != std::string_view::npos )
@@ -341,6 +342,7 @@ struct InteractionAutomationController
     InteractionAutomationRunStatus status;
     InteractionAutomationInputDriver inputDriver;
     InteractionAutomationReportWriter reportWriter;
+    RecordedCursorPresentationObservation recordedCursorPresentation;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Interprets the automation-owned replay command and submits it through
     // the same bounded queue used by real editor widgets.
@@ -429,8 +431,8 @@ inline const char* PrepareInteractionAutomationOutputPaths( const char* scriptPa
                                                             std::size_t traceCapacity, std::ofstream& traceOutput,
                                                             InteractionAutomationReportWriter& reportWriter )
 {
-    const char* policyFailure =
-        ApplyInteractionAutomationOutputPathPolicy( scriptPath, reportPath, tracePath, reportWriter );
+    const char* policyFailure = ApplyInteractionAutomationOutputPathPolicy( scriptPath, reportPath, tracePath,
+                                                                            reportWriter );
 
     if ( policyFailure )
     {
@@ -445,8 +447,7 @@ inline const char* PrepareInteractionAutomationOutputPaths( const char* scriptPa
 
     if ( tracePath && tracePath[0] != '\0' )
     {
-        if ( std::strlen( tracePath ) >= traceCapacity ||
-             strcpy_s( traceDestination, traceCapacity, tracePath ) != 0 )
+        if ( std::strlen( tracePath ) >= traceCapacity || strcpy_s( traceDestination, traceCapacity, tracePath ) != 0 )
         {
             return "interaction trace path exceeds supported length";
         }

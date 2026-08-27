@@ -118,7 +118,7 @@ TEST_CASE( "Quaternion migration: double conjugation is bitwise lossless" )
 
 TEST_CASE( "Quaternion: Normalise is idempotent for a non-zero quaternion" )
 {
-    const QuaternionComponents original { 0.2f, -0.3f, 0.4f, 0.7f };
+    const QuaternionComponents original { 0.1f, 0.1f, 0.1f, 0.2f };
     Quaternion value( original.x, original.y, original.z, original.w );
 
     const float magnitudeSquared = original.w * original.w + original.x * original.x + original.y * original.y +
@@ -129,15 +129,17 @@ TEST_CASE( "Quaternion: Normalise is idempotent for a non-zero quaternion" )
     const float scaledX = original.x / original.w;
     const float scaledY = original.y / original.w;
     const float scaledZ = original.z / original.w;
-    const float oneOverScaledMagnitude =
-        1.0f / sqrtf( 1.0f + scaledX * scaledX + scaledY * scaledY + scaledZ * scaledZ );
+    const float oneOverScaledMagnitude = 1.0f / sqrtf( 1.0f + scaledX * scaledX + scaledY * scaledY + scaledZ * scaledZ );
     const QuaternionComponents allPathScaledResult { scaledX * oneOverScaledMagnitude, scaledY * oneOverScaledMagnitude,
                                                      scaledZ * oneOverScaledMagnitude, oneOverScaledMagnitude };
-    const bool scaledPathDiffers =
-        std::bit_cast<uint32_t>( establishedResult.x ) != std::bit_cast<uint32_t>( allPathScaledResult.x ) ||
-        std::bit_cast<uint32_t>( establishedResult.y ) != std::bit_cast<uint32_t>( allPathScaledResult.y ) ||
-        std::bit_cast<uint32_t>( establishedResult.z ) != std::bit_cast<uint32_t>( allPathScaledResult.z ) ||
-        std::bit_cast<uint32_t>( establishedResult.w ) != std::bit_cast<uint32_t>( allPathScaledResult.w );
+    const bool scaledPathDiffers = std::bit_cast<uint32_t>( establishedResult.x ) !=
+                                       std::bit_cast<uint32_t>( allPathScaledResult.x ) ||
+                                   std::bit_cast<uint32_t>( establishedResult.y ) !=
+                                       std::bit_cast<uint32_t>( allPathScaledResult.y ) ||
+                                   std::bit_cast<uint32_t>( establishedResult.z ) !=
+                                       std::bit_cast<uint32_t>( allPathScaledResult.z ) ||
+                                   std::bit_cast<uint32_t>( establishedResult.w ) !=
+                                       std::bit_cast<uint32_t>( allPathScaledResult.w );
     REQUIRE( scaledPathDiffers );
 
     value.Normalise();
@@ -172,7 +174,7 @@ TEST_CASE( "Quaternion: Normalise resets a zero quaternion to identity" )
 
 TEST_CASE( "Quaternion: Normalise scales large finite values and resets nonfinite values" )
 {
-    const float largestFinite = (std::numeric_limits<float>::max)();
+    const float largestFinite = ( std::numeric_limits<float>::max )();
     Quaternion axis( -largestFinite, 0.0f, 0.0f, 0.0f );
 
     axis.Normalise();
@@ -340,8 +342,7 @@ TEST_CASE( "Quaternion behavior: arbitrary-axis point and orientation rotations 
     Quaternion orientation;
     orientation.RotateAboutAxis( axis, kHalfPi );
 
-    const Vector3 rotatedPoint =
-        SkullbonezCore::Math::Transformation::RotatePointAboutArbitrary( kHalfPi, axis, point );
+    const Vector3 rotatedPoint = SkullbonezCore::Math::Transformation::RotatePointAboutArbitrary( kHalfPi, axis, point );
     CheckVectorNear( rotatedPoint, orientation.GetOrientationMatrix() * point );
 }
 

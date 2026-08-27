@@ -292,6 +292,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Assets\AssetSystem.Rendering.cpp" />
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp" />
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp" />
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoVisualPass.cpp" />
@@ -471,6 +472,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPrediction.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayPredictionPresentation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionScheduling.cpp" />
