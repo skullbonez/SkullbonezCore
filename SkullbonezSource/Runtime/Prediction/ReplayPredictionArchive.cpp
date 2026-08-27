@@ -61,8 +61,18 @@ constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_HISTORICAL_LIGHTWEIGHT_SCHEMA = 3u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA = 4u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA = 5u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 6u;
-bool IsLightweightPredictionArchiveSchema( uint32_t schema );
-bool IsSectionedPredictionArchiveSchema( uint32_t schema );
+bool IsLightweightPredictionArchiveSchema( uint32_t schema )
+{
+    return ( schema >= REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA &&
+             schema <= REPLAY_PREDICTION_ARCHIVE_HISTORICAL_LIGHTWEIGHT_SCHEMA ) ||
+           schema == REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA;
+}
+
+bool IsSectionedPredictionArchiveSchema( uint32_t schema )
+{
+    return schema == REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA ||
+           schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA;
+}
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0u;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES = 7201u;
@@ -1002,18 +1012,6 @@ enum class ReplayPredictionArchiveSection : uint32_t
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_LOW = 1u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_HIGH = 2u;
 
-bool IsLightweightPredictionArchiveSchema( uint32_t schema )
-{
-    return ( schema >= REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA &&
-             schema <= REPLAY_PREDICTION_ARCHIVE_HISTORICAL_LIGHTWEIGHT_SCHEMA ) ||
-           schema == REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA;
-}
-
-bool IsSectionedPredictionArchiveSchema( uint32_t schema )
-{
-    return schema == REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA ||
-           schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA;
-}
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES = REPLAY_PREDICTION_MARKER_CAPACITY;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_CONTACTS = 1000000u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_PIPELINE_ROWS = 4000000u;

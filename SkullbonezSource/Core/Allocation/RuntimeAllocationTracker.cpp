@@ -47,6 +47,7 @@ namespace
 {
 using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
 using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
 using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle;
 
