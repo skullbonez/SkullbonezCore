@@ -241,6 +241,7 @@
     <ClCompile Include="SkullbonezTests\TestSleepController.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestRagdoll.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayPredictionReserve.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeDirection.cpp" />
