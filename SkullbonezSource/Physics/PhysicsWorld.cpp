@@ -868,7 +868,6 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore&
                   modelCount, colliderStore.Count(), buoyancyFacts.size() );
     }
 
-    const auto bodyRecords = bodyStore.Records();
     const bool timeStepChanged = !m_lastTimeRemainingStepValid || deltaSeconds != m_lastTimeRemainingStep;
 
     if ( static_cast<int>( m_timeRemaining.size() ) != modelCount || timeStepChanged )
