@@ -976,8 +976,8 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
         return false;
     }
 
-    physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld.physics,
-                                               MakePhysicsBodyCountFromNonNegativeInt( modelCount ) );
+    physicsEngine.CaptureReplaySimulationSnapshot( prediction.simulation.predictionWorld.physics,
+                                                   MakePhysicsBodyCountFromNonNegativeInt( modelCount ) );
 
     prediction.simulation.predictionTornadoGameplay.SetReplayState( tornadoGameplay.CaptureSeconds(),
                                                                     tornadoGameplay.EjectCooldownSeconds(),

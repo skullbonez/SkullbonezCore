@@ -377,7 +377,7 @@ std::size_t PhysicsWorld::PointJointCapacity() const noexcept
 
 
 void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount,
-                                                const PhysicsBodyStore& bodyStore ) const
+                                                const PhysicsBodyStore& bodyStore, bool capturePipelineTrace ) const
 {
     // Runtime allocation policy: replay recorder slots pre-reserve these
     // payload vectors outside gameplay. Capture clears the retained slot in
@@ -478,7 +478,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
 #undef CAPTURE_REPLAY_SOLVER_FIXED_LIST_FIELD
 
     m_sleepController.CaptureReplayState( outSnapshot );
-    m_stepDiagnostics.CaptureReplayState( outSnapshot );
+    m_stepDiagnostics.CaptureReplayState( outSnapshot, capturePipelineTrace );
     m_contactSolverStage.CaptureReplayState( outSnapshot );
 
     // Invariant: the requested replay prefix is a self-contained transaction,

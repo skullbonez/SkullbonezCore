@@ -52,7 +52,6 @@ namespace Vector = SkullbonezCore::Math::Vector;
 
 namespace
 {
-constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 constexpr float PHYSICS_FAST_SWEEP_MAX_RADIUS = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_MIN_DISTANCE = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_PAIR_SLOP = 1.0f;
@@ -291,6 +290,7 @@ struct PointJointCandidatePairPredicate
     }
 };
 
+#if defined( _DEBUG )
 void TryRecordSleepPrunedCandidatePair( Physics::PhysicsPipelineTraceRecorder& physicsPipelineTrace,
                                         const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                         const std::pair<int, int>& pair )
@@ -313,6 +313,7 @@ void TryRecordSleepPrunedCandidatePair( Physics::PhysicsPipelineTraceRecorder& p
     record.scalarA = 1.0f;
     physicsPipelineTrace.Record( record );
 }
+#endif
 
 bool TryRecordBroadphaseCandidatePair( Physics::PhysicsPipelineTraceRecorder& physicsPipelineTrace,
                                        const Physics::PhysicsBodyHotFieldsConstView& hotFields, int modelCount,

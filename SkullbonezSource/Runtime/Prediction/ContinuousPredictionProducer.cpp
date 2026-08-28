@@ -58,7 +58,8 @@ bool ContinuousPredictionBudgetExpired( const std::chrono::steady_clock::time_po
 
 std::size_t ContinuousPredictionWindowRowCapacity() noexcept
 {
-    return static_cast<std::size_t>( std::ceil( CONTINUOUS_PREDICTION_WINDOW_SECONDS / static_cast<double>( PHYSICS_FIXED_DT ) ) ) +
+    return static_cast<std::size_t>(
+               std::ceil( CONTINUOUS_PREDICTION_WINDOW_SECONDS / static_cast<double>( PHYSICS_FIXED_DT ) ) ) +
            1u;
 }
 
@@ -152,8 +153,8 @@ bool ContinuousPredictionProducer::CaptureSeed( const Physics::PhysicsEngine& li
         seed.fixed = hot.fixed[index] != 0u;
     }
 
-    liveEngine.CaptureReplaySolverSnapshot( m_solverSnapshot,
-                                            Physics::MakePhysicsBodyCountFromNonNegativeInt( m_modelCount ) );
+    liveEngine.CaptureReplaySimulationSnapshot( m_solverSnapshot,
+                                                Physics::MakePhysicsBodyCountFromNonNegativeInt( m_modelCount ) );
     return true;
 }
 
