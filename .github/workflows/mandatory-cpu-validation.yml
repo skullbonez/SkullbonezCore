@@ -483,6 +483,10 @@ jobs:
 
           $sceneStdout = Join-Path $evidenceDir "hosted-physics-scene-$env:PHYSICS_REPLICA.stdout.txt"
           $sceneStderr = Join-Path $evidenceDir "hosted-physics-scene-$env:PHYSICS_REPLICA.stderr.txt"
+          # The fixture owns Profile/varied_physics_perf_log.csv. Replica jobs
+          # download only the shared Debug artifact, so provision its output
+          # directory explicitly and keep runtime artifact failures fail-closed.
+          New-Item -ItemType Directory -Force -Path (Join-Path $env:GITHUB_WORKSPACE "Profile") | Out-Null
           $scene = Start-Process `
             -FilePath ".\Debug\SKULLBONEZ_CORE.exe" `
             -ArgumentList @(
