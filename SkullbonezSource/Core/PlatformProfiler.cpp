@@ -37,7 +37,9 @@ namespace
 {
 std::atomic<bool> g_enabled { false };
 std::atomic<bool> g_detailedRangesEnabled { false };
+#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
 thread_local int g_cpuDepth = 0;
+#endif
 
 enum class MarkerDomain
 {
@@ -331,7 +333,7 @@ const char* DecorateMarkerName( const char* name, const char* suffix, char* buff
     }
 
     const char* markerSuffix = suffix ? suffix : "";
-    _snprintf_s( buffer, bufferSize, _TRUNCATE, "%s%s", markerName, markerSuffix );
+    std::snprintf( buffer, bufferSize, "%s%s", markerName, markerSuffix );
     return buffer;
 }
 
