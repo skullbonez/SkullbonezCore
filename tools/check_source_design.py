@@ -38,7 +38,7 @@ FIRST_PARTY_PROJECTS = (
 APPLICATION_PROJECTS = {"SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_TESTS.vcxproj"}
 UNPACK_THRESHOLD = 4
 MATCH_COUNT_RE = re.compile(r"(?m)^(\d+) match(?:es)?\.$")
-UNPACK_FUNCTION_RE = re.compile(r'(?m)^(.+?):(\d+):\d+: note: "unpacking_function" binds here$')
+QUERY_ROOT_RE = re.compile(r'(?m)^(.+?):(\d+):\d+: note: "root" binds here$')
 
 TIDY_CONFIG = (
     "{CheckOptions: {"
@@ -71,7 +71,6 @@ QUERY_COMMANDS = {
         "forEachDescendant(varDecl(hasLocalStorage(), "
         "hasInitializer(ignoringParenImpCasts(memberExpr(hasObjectExpression("
         "ignoringParenImpCasts(declRefExpr(to(parmVarDecl())))))))).bind('unpacked_local')))"
-        ".bind('unpacking_function')"
     ),
 }
 
@@ -342,7 +341,7 @@ def clang_query_findings(
             raise RuntimeError(f"clang-query failed for {source}:\n{output}")
 
         if label == "parameter struct unpack":
-            locations = collections.Counter(UNPACK_FUNCTION_RE.findall(output))
+            locations = collections.Counter(QUERY_ROOT_RE.findall(output))
             grouped = [f"{path}:{line}" for (path, line), count in locations.items() if count >= UNPACK_THRESHOLD]
             if grouped:
                 findings[label] = grouped
