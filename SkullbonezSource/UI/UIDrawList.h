@@ -31,7 +31,6 @@ namespace UI
 class UIDrawList
 {
   public:
-
     // Concept: widgets record drawing intent; Runtime/Render later consumes a
     // bounded read-only view. The list never calls back into a backend owner.
     //
@@ -46,6 +45,7 @@ class UIDrawList
     static constexpr int MAX_COMMANDS = 2048;
     static constexpr int MAX_TEXT_BYTES = 16384;
     static constexpr int MAX_CLIP_DEPTH = 32;
+    static_assert( MAX_TEXT_BYTES > 0 );
 
     struct PreviewTargetId
     {

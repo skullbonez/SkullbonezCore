@@ -37,10 +37,7 @@ void UIDrawList::Clear()
     m_suppressedClipDepth = 0;
     m_maxClipDepth = 0;
 
-    if ( MAX_TEXT_BYTES > 0 )
-    {
-        m_text[0] = '\0';
-    }
+    m_text[0] = '\0';
 }
 
 
@@ -383,13 +380,8 @@ int UIDrawList::StoreText( const char* value )
     {
         m_textOverflow = true;
 
-        if ( MAX_TEXT_BYTES > 0 )
-        {
-            m_text[MAX_TEXT_BYTES - 1] = '\0';
-            return MAX_TEXT_BYTES - 1;
-        }
-
-        return 0;
+        m_text[MAX_TEXT_BYTES - 1] = '\0';
+        return MAX_TEXT_BYTES - 1;
     }
 
     int copied = 0;
