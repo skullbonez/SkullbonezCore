@@ -2937,6 +2937,10 @@ bool RunRuntimeFatalCase( const char* caseName )
 
 TEST_CASE( "Runtime diagnostics activates perf control only for an owned log artifact" )
 {
+    CHECK( SkullbonezCore::Runtime::ShouldApplyAuthoredScenePerfLog( nullptr ) );
+    CHECK( SkullbonezCore::Runtime::ShouldApplyAuthoredScenePerfLog( "" ) );
+    CHECK_FALSE( SkullbonezCore::Runtime::ShouldApplyAuthoredScenePerfLog( "Debug/physics.csv" ) );
+
     RunPerfLogState perfLog;
     perfLog.isPerfTest = true;
     CHECK_FALSE( RuntimeDiagnostics::OpenScenePerfLog( perfLog, "?:\\skullbonez_perf.csv", 0, nullptr ) );

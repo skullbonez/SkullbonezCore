@@ -87,7 +87,8 @@ void CaptureSceneDiagnosticsLoad( SceneLoadTransaction& transaction, Diagnostics
 
 
 bool ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reactions, DiagnosticsRuntime& diagnostics,
-                                     SceneController& sceneController, const SkullbonezCore::Core::EngineConfig& config )
+                                     bool applyAuthoredPerfLog, SceneController& sceneController,
+                                     const SkullbonezCore::Core::EngineConfig& config )
 {
 #ifndef _DEBUG
     (void)sceneController;
@@ -109,7 +110,10 @@ bool ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reacti
             diagnostics.ConfigurePerfLogFlush( reaction.enabled, reaction.value );
             break;
         case SceneDiagnosticsReactionKind::ApplyScenePerfLog:
-            succeeded = diagnostics.ApplyScenePerfLogOptions( reaction.path, reaction.value ) && succeeded;
+            if ( applyAuthoredPerfLog )
+            {
+                succeeded = diagnostics.ApplyScenePerfLogOptions( reaction.path, reaction.value ) && succeeded;
+            }
             break;
         case SceneDiagnosticsReactionKind::SetUiStressEnabled:
             diagnostics.UIStress().SetEnabled( reaction.enabled );
@@ -321,8 +325,11 @@ SkullbonezCore::Core::SbResult Run::LoadSceneRequest( SceneLoadTransaction& tran
                                                               m_startup, m_assets, m_workerPool, &renderer.RenderFrame(),
                                                               &renderer.RenderResources() );
 
+    // Invariant: the command-line artifact is the sole perf-log owner when
+    // supplied. A missing authored directory must not fail a valid override.
+    const bool applyAuthoredPerfLog = ShouldApplyAuthoredScenePerfLog( m_launchOptions.perfLogPath );
     bool diagnosticsSucceeded = ApplySceneDiagnosticsReactions( transaction.DiagnosticsReactions(), m_diagnosticsRuntime,
-                                                                m_sceneController, m_config );
+                                                                applyAuthoredPerfLog, m_sceneController, m_config );
 
     diagnosticsSucceeded = ApplyCommandLinePerfLogOverride( m_launchOptions, m_diagnosticsRuntime,
                                                             m_sceneController.PerfPass() ) &&
