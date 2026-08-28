@@ -41,15 +41,11 @@ struct Plane
 {
     Math::Vector::Vector3 m_normal;
     float m_distance;
-
-    Plane& operator=( const Plane& ) = default;
 };
 
 struct XZBounds
 {
     float m_xMin, m_xMax, m_zMin, m_zMax;
-
-    XZBounds& operator=( const XZBounds& ) = default;
 };
 
 struct Box
