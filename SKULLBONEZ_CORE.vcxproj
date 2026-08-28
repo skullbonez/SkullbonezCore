@@ -580,6 +580,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\SbDiagnosticStore.h" />
     <ClInclude Include="SkullbonezSource\Core\SbResult.h" />
     <ClInclude Include="SkullbonezSource\Core\AtomicTextFileWriter.h" />
+    <ClInclude Include="SkullbonezSource\Core\StdioFile.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\Run.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\InteractionAutomationApplication.h" />

@@ -34,6 +34,7 @@ Related:
 #include "TestFatalCases.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/StdioFile.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
@@ -362,7 +363,7 @@ void ExerciseOwnerRegistryCapacity()
     RuntimeReserveAllocator::ResetCounters();
     REQUIRE_FALSE( RuntimeReserveAllocator::HasPolicyViolations() );
     FILE* summaryFile = nullptr;
-    REQUIRE( tmpfile_s( &summaryFile ) == 0 );
+    REQUIRE( SkullbonezCore::Core::CreateTemporaryStdioFile( summaryFile ) == 0 );
     REQUIRE( summaryFile != nullptr );
     RuntimeReserveAllocator::PrintSummary( summaryFile );
     const std::string summary = ReadFileText( summaryFile );
@@ -373,7 +374,7 @@ void ExerciseOwnerRegistryCapacity()
     std::filesystem::create_directories( "TestOutput/validation", directoryError );
     REQUIRE_FALSE( directoryError );
     FILE* sentinelFile = nullptr;
-    REQUIRE( fopen_s( &sentinelFile, OWNER_REGISTRY_CHILD_SENTINEL_PATH, "wb" ) == 0 );
+    REQUIRE( SkullbonezCore::Core::OpenStdioFile( sentinelFile, OWNER_REGISTRY_CHILD_SENTINEL_PATH, "wb" ) == 0 );
     REQUIRE( sentinelFile != nullptr );
     const std::size_t sentinelSize = std::strlen( OWNER_REGISTRY_CHILD_SENTINEL_TEXT );
     REQUIRE( std::fwrite( OWNER_REGISTRY_CHILD_SENTINEL_TEXT, 1u, sentinelSize, sentinelFile ) == sentinelSize );
@@ -399,7 +400,8 @@ bool ConsumeOwnerRegistryCapacitySentinel()
 {
     FILE* sentinelFile = nullptr;
 
-    if ( fopen_s( &sentinelFile, OWNER_REGISTRY_CHILD_SENTINEL_PATH, "rb" ) != 0 || !sentinelFile )
+    if ( SkullbonezCore::Core::OpenStdioFile( sentinelFile, OWNER_REGISTRY_CHILD_SENTINEL_PATH, "rb" ) != 0 ||
+         !sentinelFile )
     {
         return false;
     }
@@ -567,7 +569,7 @@ TEST_CASE( "RuntimeAllocationTracker: measured allocations are attributed and fr
 
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
     FILE* output = nullptr;
-    REQUIRE( tmpfile_s( &output ) == 0 );
+    REQUIRE( SkullbonezCore::Core::CreateTemporaryStdioFile( output ) == 0 );
     REQUIRE( output != nullptr );
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Measure );
     SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
@@ -603,7 +605,7 @@ TEST_CASE( "RuntimeAllocationTracker: callsite rows retain owner identity and pu
     REQUIRE( secondOwner != INVALID_RUNTIME_RESERVE_OWNER );
     REQUIRE( concurrentOwner != INVALID_RUNTIME_RESERVE_OWNER );
     FILE* output = nullptr;
-    REQUIRE( tmpfile_s( &output ) == 0 );
+    REQUIRE( SkullbonezCore::Core::CreateTemporaryStdioFile( output ) == 0 );
     REQUIRE( output != nullptr );
 
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Measure );
@@ -666,7 +668,7 @@ TEST_CASE( "RuntimeAllocationTracker: callsite rows retain owner identity and pu
 TEST_CASE( "RuntimeAllocationTracker: gameplay guard reports a physics allocation violation" )
 {
     FILE* output = nullptr;
-    REQUIRE( tmpfile_s( &output ) == 0 );
+    REQUIRE( SkullbonezCore::Core::CreateTemporaryStdioFile( output ) == 0 );
     REQUIRE( output != nullptr );
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
     SetRuntimeAllocationPhase( RuntimeAllocationPhase::Physics );
@@ -1003,7 +1005,7 @@ TEST_CASE( "RuntimeAllocationTracker: stale frees cannot erase a new counter ses
     REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, stats ) );
     CHECK( stats.activeBytes == 24u );
     FILE* summaryFile = nullptr;
-    REQUIRE( tmpfile_s( &summaryFile ) == 0 );
+    REQUIRE( SkullbonezCore::Core::CreateTemporaryStdioFile( summaryFile ) == 0 );
     REQUIRE( summaryFile != nullptr );
     PrintRuntimeAllocationSummary( summaryFile );
     const std::string summary = ReadFileText( summaryFile );
@@ -1475,7 +1477,7 @@ TEST_CASE( "PhysicsFixedList: scene-load reserve fills exact runtime capacity th
     CHECK( nextScene->sessionHighWater == 1 );
 
     FILE* capacityLog = nullptr;
-    REQUIRE( tmpfile_s( &capacityLog ) == 0 );
+    REQUIRE( SkullbonezCore::Core::CreateTemporaryStdioFile( capacityLog ) == 0 );
     REQUIRE( capacityLog != nullptr );
     RuntimeReserveAllocator::PrintCapacityRows( capacityLog, "unit-capacity.scene", "scene_unload" );
     const std::string capacityText = ReadFileText( capacityLog );

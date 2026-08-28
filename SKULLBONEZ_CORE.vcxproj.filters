@@ -938,6 +938,9 @@
     <ClInclude Include="SkullbonezSource\Core\AtomicTextFileWriter.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Core\StdioFile.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\SbDiagnosticStore.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>

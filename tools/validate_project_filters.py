@@ -607,6 +607,7 @@ CORE_PREFIXES = (
     "SbDiagnosticStore",
     "SbResult",
     "SceneCapacity",
+    "StdioFile",
     "StringHash",
     "Timer",
     "TracyClientOwner",
