@@ -602,6 +602,13 @@ using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
 using SkullbonezCore::Threading::WorkerChunkRange;
 using SkullbonezCore::Threading::WorkerPool;
+using SkullbonezCore::Runtime::InteractionAutomationController;
+using SkullbonezCore::Runtime::InteractionAutomationReportWriter;
+using SkullbonezCore::Runtime::AdmitInteractionAutomationPressKeyOptions;
+using SkullbonezCore::Runtime::InteractionAutomationRunStatus;
+using SkullbonezCore::Runtime::RunPerfLogState;
+using SkullbonezCore::Runtime::RunInteractionAutomationAction;
+using SkullbonezCore::Runtime::RuntimeDiagnostics;
 
 namespace SkullbonezCore
 {
@@ -959,16 +966,17 @@ TEST_CASE( "World resource readiness rejects incomplete terrain and sky creation
     CHECK( TerrainRenderLifecycleTestAccess::PublicationPreservesExistingOnFailure( true, false ) );
     CHECK( TerrainRenderLifecycleTestAccess::PublicationMovesReadyCandidate() );
 
-    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+    SkullbonezCore::Core::SbDiagnosticStore resourceDiagnostics;
     std::array<bool, 6> skyMeshesReady = { true, true, true, true, true, true };
-    CHECK( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( diagnostics, skyMeshesReady, true ).Ok() );
-    CHECK_FALSE( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( diagnostics, skyMeshesReady, false ).Ok() );
+    CHECK( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, true ).Ok() );
+    CHECK_FALSE( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, false ).Ok() );
 
     for ( std::size_t failedFace = 0; failedFace < skyMeshesReady.size(); ++failedFace )
     {
         skyMeshesReady.fill( true );
         skyMeshesReady[failedFace] = false;
-        CHECK_FALSE( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( diagnostics, skyMeshesReady, true ).Ok() );
+        CHECK_FALSE(
+            SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, true ).Ok() );
     }
 }
 
@@ -1793,13 +1801,8 @@ void ExpectRuntimeFatalCase( const char* caseName, std::initializer_list<const c
     ExpectFatalCase( caseName, expectedDiagnostics );
 }
 
-bool RunRuntimeFatalCase( const char* caseName )
+bool RunRuntimeFatalStartupAndPrimitiveCase( const char* caseName )
 {
-    if ( RunRenderGraphFatalCase( caseName ) )
-    {
-        return true;
-    }
-
 #ifdef _DEBUG
 
     if ( std::strcmp( caseName, "replay-startup-illegal-transition" ) == 0 )
@@ -1995,6 +1998,11 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    return false;
+}
+
+bool RunRuntimeFatalResourceAndPhysicsCase( const char* caseName )
+{
     const bool skyBeforeInit = std::strcmp( caseName, "skybox-before-init" ) == 0;
     const bool skyAfterRelease = std::strcmp( caseName, "skybox-after-release" ) == 0;
 
@@ -2189,6 +2197,11 @@ bool RunRuntimeFatalCase( const char* caseName )
         recorder.RecordEvents( 1u );
     }
 
+    return false;
+}
+
+bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
+{
     if ( std::strcmp( caseName, "dx12-retirement-release-snapshot" ) == 0 )
     {
         SkullbonezCore::Rendering::Dx12RetirementDiagnosticState retirementDiagnostics;
@@ -2475,6 +2488,11 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    return false;
+}
+
+bool RunRuntimeFatalAllocationAndGridCase( const char* caseName )
+{
     if ( std::strcmp( caseName, "allocation-foreign-page-boundary" ) == 0 )
     {
         SYSTEM_INFO systemInfo = {};
@@ -2734,6 +2752,11 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    return false;
+}
+
+bool RunRuntimeFatalConcurrencyAndDiagnosticsCase( const char* caseName )
+{
     if ( std::strcmp( caseName, "amortized-task-in-flight-destroy" ) == 0 )
     {
         LockOrderValidator lockOrderValidator;
@@ -2904,6 +2927,14 @@ bool RunRuntimeFatalCase( const char* caseName )
     return false;
 }
 
+bool RunRuntimeFatalCase( const char* caseName )
+{
+    return RunRenderGraphFatalCase( caseName ) || RunRuntimeFatalStartupAndPrimitiveCase( caseName ) ||
+           RunRuntimeFatalResourceAndPhysicsCase( caseName ) || RunRuntimeFatalTransactionAndTerrainCase( caseName ) ||
+           RunRuntimeFatalAllocationAndGridCase( caseName ) ||
+           RunRuntimeFatalConcurrencyAndDiagnosticsCase( caseName );
+}
+
 TEST_CASE( "Runtime diagnostics activates perf control only for an owned log artifact" )
 {
     RunPerfLogState perfLog;
@@ -3033,7 +3064,7 @@ TEST_CASE( "Main memory dump reports incomplete write flush and close operations
 
     CHECK( runtime.WriteMainMemoryDump( replay, gameObjects, scene, "complete", 2.0 ) );
     std::ifstream input( dumpPath, std::ios::binary );
-    const std::string bytes( std::istreambuf_iterator<char>( input ), std::istreambuf_iterator<char>() );
+    const std::string bytes { std::istreambuf_iterator<char>( input ), std::istreambuf_iterator<char>() };
     CHECK( bytes.find( "skullbonez.main_memory.v1" ) != std::string::npos );
     input.close();
     CHECK( DeleteFileA( dumpPath ) != 0 );
@@ -4022,16 +4053,12 @@ TEST_CASE( "Operator UI projection maps detached render-target facts without bac
 }
 
 #ifdef _DEBUG
-TEST_CASE( "Replay startup probe continuation admits only serviced finite-state edges" )
+void CheckReplayStartupTransitionMatrix()
 {
     using Continuation = SkullbonezCore::Runtime::ReplayStartupProbeContinuation;
-    using ContinuationTestAccess = SkullbonezCore::Runtime::ReplayStartupProbeContinuationTestAccess;
-    using PendingAction = Continuation::PendingAction;
     using Phase = Continuation::Phase;
     constexpr std::array phases { Phase::Idle,     Phase::Running, Phase::AwaitingApplication, Phase::ApplicationApplied,
                                   Phase::Complete, Phase::Failed };
-    constexpr std::array actions { PendingAction::None, PendingAction::ActivateLoadedPresentation,
-                                   PendingAction::ApplyRestoredBranchTimeline };
 
     for ( Phase from : phases )
     {
@@ -4046,21 +4073,41 @@ TEST_CASE( "Replay startup probe continuation admits only serviced finite-state 
             CHECK( Continuation::IsLegalTransition( from, to ) == expected );
         }
     }
+}
 
-    for ( Phase phase : phases )
+void CheckReplayStartupApplicationMatrix()
+{
+    using Continuation = SkullbonezCore::Runtime::ReplayStartupProbeContinuation;
+    using PendingAction = Continuation::PendingAction;
+    using Phase = Continuation::Phase;
+    constexpr std::array phases { Phase::Idle,     Phase::Running, Phase::AwaitingApplication, Phase::ApplicationApplied,
+                                  Phase::Complete, Phase::Failed };
+    constexpr std::array actions { PendingAction::None, PendingAction::ActivateLoadedPresentation,
+                                   PendingAction::ApplyRestoredBranchTimeline };
+
+    constexpr std::size_t restoreStates = 2u;
+    constexpr std::size_t caseCount = phases.size() * actions.size() * restoreStates;
+    for ( std::size_t caseIndex = 0u; caseIndex < caseCount; ++caseIndex )
     {
-        for ( PendingAction action : actions )
-        {
-            for ( bool hasRestore : { false, true } )
-            {
-                const bool expected = phase == Phase::AwaitingApplication
-                                          ? action != PendingAction::None &&
-                                                ( action != PendingAction::ApplyRestoredBranchTimeline || hasRestore )
-                                          : action == PendingAction::None;
-                CHECK( Continuation::IsApplicationStateCoherent( phase, action, hasRestore ) == expected );
-            }
-        }
+        const Phase phase = phases[caseIndex / ( actions.size() * restoreStates )];
+        const PendingAction action = actions[( caseIndex / restoreStates ) % actions.size()];
+        const bool hasRestore = ( caseIndex % restoreStates ) != 0u;
+        const bool expected = phase == Phase::AwaitingApplication
+                                  ? action != PendingAction::None &&
+                                        ( action != PendingAction::ApplyRestoredBranchTimeline || hasRestore )
+                                  : action == PendingAction::None;
+        CHECK( Continuation::IsApplicationStateCoherent( phase, action, hasRestore ) == expected );
     }
+}
+
+TEST_CASE( "Replay startup probe continuation admits only serviced finite-state edges" )
+{
+    using Continuation = SkullbonezCore::Runtime::ReplayStartupProbeContinuation;
+    using ContinuationTestAccess = SkullbonezCore::Runtime::ReplayStartupProbeContinuationTestAccess;
+    using PendingAction = Continuation::PendingAction;
+    using Phase = Continuation::Phase;
+    CheckReplayStartupTransitionMatrix();
+    CheckReplayStartupApplicationMatrix();
 
     ExpectFatalCase( "replay-startup-illegal-transition",
                      { "FATAL[Runtime/ReplayStartupProbeContinuation]", "Illegal startup-probe continuation transition",
@@ -4136,8 +4183,8 @@ TEST_CASE( "Operator command transaction enforces every phase edge through fatal
 
 TEST_CASE( "SceneWorld deletion preserves the moved tornado body timer history" )
 {
-    SkullbonezCore::Core::SbDiagnosticStore diagnostics;
-    SkullbonezCore::Runtime::SceneWorld world( diagnostics );
+    SkullbonezCore::Core::SbDiagnosticStore worldDiagnostics;
+    SkullbonezCore::Runtime::SceneWorld world( worldDiagnostics );
     SkullbonezCore::Core::EngineConfig config;
     config.physicsExecution.parallel = false;
     world.ApplyRuntimeConfig( config );
