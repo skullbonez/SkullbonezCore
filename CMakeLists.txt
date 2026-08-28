@@ -226,7 +226,7 @@ function(skullbonez_apply_portable_compile_contract target)
             ${target}
             PRIVATE -ffp-contract=off -fno-exceptions -fno-rtti
                     -include "${SKULLBONEZ_FLOATING_POINT_CONTRACT}"
-                    -include "${SKULLBONEZ_STDIO_CONTRACT}")
+                    "-include${SKULLBONEZ_STDIO_CONTRACT}")
     endif()
 endfunction()
 
