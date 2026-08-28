@@ -844,32 +844,6 @@ void StoreSolverVectorDelta( ReplaySolverVectorDelta<T>& delta, const std::vecto
     }
 }
 
-template <typename T>
-bool ApplySolverVectorDelta( const ReplaySolverVectorDelta<T>& delta, std::vector<T>& target, ReplayFrameIndex frameIndex,
-                             const char* targetName )
-{
-    if ( delta.full )
-    {
-        ReserveReplayRecorderDeltaVector( target, delta.fullValues.size(), frameIndex, targetName );
-        target = delta.fullValues;
-        return true;
-    }
-
-    for ( const ReplaySolverIndexedValue<T>& changed : delta.changedValues )
-    {
-        const std::size_t index = static_cast<std::size_t>( changed.index );
-
-        if ( index >= target.size() )
-        {
-            return false;
-        }
-
-        target[index] = changed.value;
-    }
-
-    return true;
-}
-
 void CopySolverWorldSnapshotWithReserve( SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& target,
                                          const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& source,
                                          ReplayFrameIndex frameIndex, const char* targetName )
@@ -948,7 +922,7 @@ bool ApplySolverWorldDeltaFrame( const ReplaySolverWorldDeltaFrame& frame,
 {
     ApplySolverWorldScalarsToSnapshot( frame.scalarState, snapshot, frameIndex, "ReplaySolverWorldResolve::scalar" );
 #define APPLY_SOLVER_PHYSICS_DELTA_FIELD( field )                                                                           \
-    if ( !ApplySolverVectorDelta( frame.field, snapshot.physics.field, frameIndex, "ReplaySolverWorldResolve::" #field ) )  \
+    if ( !frame.field.ApplyTo( snapshot.physics.field, frameIndex, "ReplaySolverWorldResolve::" #field ) )                  \
     {                                                                                                                       \
         return false;                                                                                                       \
     }
@@ -956,7 +930,7 @@ bool ApplySolverWorldDeltaFrame( const ReplaySolverWorldDeltaFrame& frame,
     REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( APPLY_SOLVER_PHYSICS_DELTA_FIELD )
 #undef APPLY_SOLVER_PHYSICS_DELTA_FIELD
 #define APPLY_SOLVER_GAMEPLAY_DELTA_FIELD( field )                                                                          \
-    if ( !ApplySolverVectorDelta( frame.field, snapshot.field, frameIndex, "ReplaySolverWorldResolve::" #field ) )          \
+    if ( !frame.field.ApplyTo( snapshot.field, frameIndex, "ReplaySolverWorldResolve::" #field ) )                          \
     {                                                                                                                       \
         return false;                                                                                                       \
     }
@@ -1651,6 +1625,32 @@ ReplaySolverHashBreakdown BuildSolverHashBreakdown( const ReplayWorldPresentatio
     return result;
 }
 } // namespace
+
+template <typename T>
+bool SkullbonezCore::Runtime::ReplaySolverVectorDelta<T>::ApplyTo( std::vector<T>& target, ReplayFrameIndex frameIndex,
+                                                                   const char* targetName ) const
+{
+    if ( full )
+    {
+        ReserveReplayRecorderDeltaVector( target, fullValues.size(), frameIndex, targetName );
+        target = fullValues;
+        return true;
+    }
+
+    for ( const ReplaySolverIndexedValue<T>& changed : changedValues )
+    {
+        const std::size_t index = static_cast<std::size_t>( changed.index );
+
+        if ( index >= target.size() )
+        {
+            return false;
+        }
+
+        target[index] = changed.value;
+    }
+
+    return true;
+}
 
 uint64_t SkullbonezCore::Runtime::ReplaySolverHashForSample( const ReplaySolverFrameSample& sample ) noexcept
 {

@@ -295,6 +295,8 @@ template <typename T> struct ReplaySolverIndexedValue
 
 template <typename T> struct ReplaySolverVectorDelta
 {
+    bool ApplyTo( std::vector<T>& target, ReplayFrameIndex frameIndex, const char* targetName ) const;
+
     bool full = false;
     std::vector<T> fullValues;
     std::vector<ReplaySolverIndexedValue<T>> changedValues;
