@@ -245,7 +245,7 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
 }
 
 
-Dx12GeometryOwner::Dx12GeometryOwner()
+Dx12GeometryOwner::Dx12GeometryOwner() : m_retainedGeometryBuffers( std::make_unique<RetainedGeometryBufferStore>() )
 {
     // Runtime allocation policy: text, overlays, primitive batches, and tools
     // acquire generation-tagged handles from this bounded registry. Reserve
@@ -1064,7 +1064,7 @@ void Dx12GeometryOwner::Shutdown()
         slot.generation = generation;
     }
 
-    m_retainedGeometryBuffers = {};
+    *m_retainedGeometryBuffers = {};
     m_retainedGeometryCommandSignature.Reset();
 }
 
@@ -1205,7 +1205,7 @@ void Dx12GeometryOwner::DrawRetainedGeometryRibbon( std::span<const float> packe
     }
 
     const UINT frameIndex = m_resourceFrame->FrameIndex();
-    RetainedGeometryBufferDX12& buffer = m_retainedGeometryBuffers[frameIndex];
+    RetainedGeometryBufferDX12& buffer = ( *m_retainedGeometryBuffers )[frameIndex];
     uint8_t* retainedBytes = m_resourceFrame->Uploads().PersistentTailPointer( frameIndex );
     const D3D12_GPU_VIRTUAL_ADDRESS retainedAddress = m_resourceFrame->Uploads().PersistentTailAddress( frameIndex );
     const RetainedGeometryUploadPlan uploadPlan = BuildRetainedGeometryUploadPlan( buffer.streams[laneIndex],
@@ -1257,7 +1257,7 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
     }
 
     const UINT frameIndex = m_resourceFrame->FrameIndex();
-    RetainedGeometryBufferDX12& buffer = m_retainedGeometryBuffers[frameIndex];
+    RetainedGeometryBufferDX12& buffer = ( *m_retainedGeometryBuffers )[frameIndex];
     uint8_t* retainedBytes = m_resourceFrame->Uploads().PersistentTailPointer( frameIndex );
     const D3D12_GPU_VIRTUAL_ADDRESS retainedAddress = m_resourceFrame->Uploads().PersistentTailAddress( frameIndex );
     constexpr std::size_t compactFloatOffset = RETAINED_GEOMETRY_EXPANDED_FLOATS;
@@ -1396,7 +1396,7 @@ void Dx12GeometryOwner::DrawRetainedLinesColored( std::span<const float> packedV
     }
 
     const UINT frameIndex = m_resourceFrame->FrameIndex();
-    RetainedGeometryBufferDX12& buffer = m_retainedGeometryBuffers[frameIndex];
+    RetainedGeometryBufferDX12& buffer = ( *m_retainedGeometryBuffers )[frameIndex];
     uint8_t* retainedBytes = m_resourceFrame->Uploads().PersistentTailPointer( frameIndex );
     const D3D12_GPU_VIRTUAL_ADDRESS retainedAddress = m_resourceFrame->Uploads().PersistentTailAddress( frameIndex );
     const RetainedGeometryUploadPlan uploadPlan = BuildRetainedGeometryUploadPlan( buffer.streams[channelIndex],

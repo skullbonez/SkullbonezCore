@@ -308,8 +308,7 @@ class RuntimeInputContext
 class InputController
 {
   public:
-    static float ResolvePassiveCameraMinimumY( float terrainHeight, float fluidSurfaceHeight,
-                                                float clearance ) noexcept
+    static float ResolvePassiveCameraMinimumY( float terrainHeight, float fluidSurfaceHeight, float clearance ) noexcept
     {
         const float missingTerrain = -( std::numeric_limits<float>::max )();
 
@@ -322,8 +321,8 @@ class InputController
         return supportingSurface + clearance;
     }
 
-    static float ResolvePassiveCameraY( float currentY, float terrainHeight, float fluidSurfaceHeight,
-                                        float clearance, float maximumY ) noexcept
+    static float ResolvePassiveCameraY( float currentY, float terrainHeight, float fluidSurfaceHeight, float clearance,
+                                        float maximumY ) noexcept
     {
         const float minimumY = ResolvePassiveCameraMinimumY( terrainHeight, fluidSurfaceHeight, clearance );
         float resolvedY = currentY < minimumY ? minimumY : currentY;
@@ -344,6 +343,10 @@ class InputController
     static void ResetUnfocusedInput( CameraControlState& camera );
     static void ResetMouseLook( CameraControlState& camera );
     static void SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY );
+    static constexpr float ResolveMouseLookRadians( long screenDeltaPixels, float radiansPerPixel ) noexcept
+    {
+        return -static_cast<float>( screenDeltaPixels ) * radiansPerPixel;
+    }
     static RuntimeCameraInputFrameResult ApplyCameraInputFrame( CameraControlState& camera, bool appFocused,
                                                                 bool cameraMouseLookActive, bool mouseLookOwnsCursor,
                                                                 bool cameraKeyboardControlsActive,

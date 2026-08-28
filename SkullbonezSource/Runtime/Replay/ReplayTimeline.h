@@ -72,9 +72,6 @@ struct ReplayMemoryPolicyRequest
 
 inline constexpr int REPLAY_MEMORY_POLICY_MIN_SECONDS = 1;
 inline constexpr int REPLAY_MEMORY_POLICY_MAX_SECONDS = 600;
-inline constexpr int REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB = 32;
-inline constexpr int REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB = 512;
-
 namespace ReplayTimelineOperations
 {
 inline ReplayMemoryPreset ReplayMemoryPresetFromIndex( int presetIndex )
@@ -156,6 +153,34 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
                                                 REPLAY_MEMORY_POLICY_MAX_SECONDS );
     policy.presentationRetentionSeconds = std::clamp( policy.presentationRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS,
                                                       REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
+    policy.budgetClamped = policy.solverWindowReduced ||
+                           policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
+    return policy;
+}
+
+inline ReplayMemoryPolicy ResolveReplayMemoryPolicyForBodyCapacity( ReplayMemoryPolicy policy, int runtimeBodyCapacity )
+{
+    policy = ResolveReplayMemoryPolicy( policy );
+
+    // Why: retained body and solver-debug deltas vary with scene activity, but
+    // the configured body capacity is known before either ring is allocated.
+    // This conservative estimate includes both recorders and leaves one quarter
+    // of the requested budget for dictionaries, events, scratch, and vector
+    // replacement peaks. The final registered-owner cap remains authoritative.
+    constexpr uint64_t estimatedBytesPerBodyTick = 1024u;
+    constexpr uint64_t retainedBudgetNumerator = 3u;
+    constexpr uint64_t retainedBudgetDenominator = 4u;
+    const uint64_t bodyCapacity = static_cast<uint64_t>( (std::max)( 1, runtimeBodyCapacity ) );
+    const uint64_t requestedBytes = static_cast<uint64_t>( policy.requestedBudgetMiB ) * 1024u * 1024u;
+    const uint64_t retainedBytes = requestedBytes * retainedBudgetNumerator / retainedBudgetDenominator;
+    const uint64_t estimatedBytesPerSecond = bodyCapacity * static_cast<uint64_t>( REPLAY_CAPTURE_TICKS_PER_SECOND ) *
+                                             estimatedBytesPerBodyTick;
+    const int memoryLimitedSeconds = static_cast<int>(
+        (std::max)( uint64_t { 1u }, retainedBytes / estimatedBytesPerSecond ) );
+
+    policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds, memoryLimitedSeconds );
+    policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, memoryLimitedSeconds );
     policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
     policy.budgetClamped = policy.solverWindowReduced ||
                            policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;

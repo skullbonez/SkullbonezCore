@@ -313,6 +313,7 @@ double Run::BeginFrameTurn()
 {
     double secondsPerFrame = std::clamp( m_timers.BeginFrame(), 0.0, 0.05 );
     PROFILE_FRAME_BEGIN( m_profiler );
+    PROFILE_COUNTER( m_profiler, "Counter/Presentation/FrameIntervalMs", secondsPerFrame * 1000.0 );
 
     // Lifetime: every facet is a startup-owned borrow for this synchronous
     // frame turn. The Run-owned renderer epoch fails before any phase can

@@ -804,6 +804,7 @@ class Dx12GeometryOwner
     static constexpr size_t MAX_DYNAMIC_VERTEX_BUFFERS = 32;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
+    using RetainedGeometryBufferStore = std::array<RetainedGeometryBufferDX12, Dx12FrameOwner::MAX_FRAME_COUNT>;
 
     // Hazard: expanded ribbons/lines and compact ranges share one persistent
     // allocation. Their fixed physical slices must never alias.
@@ -814,7 +815,10 @@ class Dx12GeometryOwner
     size_t m_gridLinePSOCount = 0;
     std::array<std::unique_ptr<ShaderDX12>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
     RetainedGeometryCapacity m_retainedGeometryCapacity;
-    std::array<RetainedGeometryBufferDX12, Dx12FrameOwner::FRAME_COUNT> m_retainedGeometryBuffers = {};
+    // Why: each retained buffer contains thousands of range tokens. Keeping the
+    // fixed three-buffer store behind one startup allocation prevents ordinary
+    // test and tool owners from consuming most of the Windows thread stack.
+    std::unique_ptr<RetainedGeometryBufferStore> m_retainedGeometryBuffers;
     Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_retainedGeometryCommandSignature;
     Dx12RenderDevice* m_resourceDevice = nullptr;
     Dx12FrameOwner* m_resourceFrame = nullptr;
@@ -984,8 +988,8 @@ class Dx12RaytracingOwner
     uint32_t m_reflectionTextureHandle = 0;
     int m_reflectionWidth = 0;
     int m_reflectionHeight = 0;
-    std::array<ID3D12Resource*, Dx12FrameOwner::FRAME_COUNT> m_constantBuffers = {};
-    std::array<uint8_t*, Dx12FrameOwner::FRAME_COUNT> m_constantBufferMapped = {};
+    std::array<ID3D12Resource*, Dx12FrameOwner::MAX_FRAME_COUNT> m_constantBuffers = {};
+    std::array<uint8_t*, Dx12FrameOwner::MAX_FRAME_COUNT> m_constantBufferMapped = {};
     int m_maxInstances = 0;
     std::array<D3D12_RAYTRACING_INSTANCE_DESC, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS + 1> m_instances = {};
     BLAS m_terrainBlas;
@@ -1070,7 +1074,7 @@ class RenderBackendDX12
 
     // Lifetime: retainedGeometryShaderBaseName is consumed during cold shader
     // creation and is not stored by the backend.
-    SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height,
+    SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height, UINT frameCount,
                                          const char* retainedGeometryShaderBaseName );
     void Shutdown();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )

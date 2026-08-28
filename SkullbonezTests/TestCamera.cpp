@@ -37,6 +37,7 @@
 #include "../SkullbonezSource/Runtime/Camera/AttachedCameraController.InspectionPolicy.h"
 #include "../SkullbonezSource/Runtime/Camera/CameraCollection.h"
 #include "../SkullbonezSource/Runtime/Camera/CameraControlState.h"
+#include "../SkullbonezSource/Runtime/Input/InputController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.CameraSlots.h"
 
 #include <algorithm>
@@ -105,6 +106,35 @@ TEST_CASE( "Camera: zero authored up uses the deterministic world basis for pitc
     CHECK( cappedPole.y > 0.999f );
 }
 
+
+TEST_CASE( "Camera input: right and up mouse motion turns free and launcher cameras right and up" )
+{
+    CameraMovementSettings settings;
+    const float yaw = InputController::ResolveMouseLookRadians( 10, 0.01f );
+    const float pitch = InputController::ResolveMouseLookRadians( -10, 0.01f );
+    REQUIRE( yaw < 0.0f );
+    REQUIRE( pitch > 0.0f );
+
+    CameraCollection freeCameras;
+    freeCameras.ApplyMovementSettings( settings );
+    freeCameras.AddCamera( SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, 0.0f, -1.0f ),
+                           Vector3( 0.0f, 1.0f, 0.0f ), 0xCA24u );
+    freeCameras.RotatePrimary( yaw, pitch );
+    CHECK( freeCameras.GetCameraView().x > 0.0f );
+    CHECK( freeCameras.GetCameraView().y > 0.0f );
+
+    CameraCollection launcherCameras;
+    launcherCameras.ApplyMovementSettings( settings );
+    launcherCameras.AddCamera( Vector3( 0.0f, 0.0f, 10.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR,
+                               Vector3( 0.0f, 1.0f, 0.0f ), 0xCA25u );
+    launcherCameras.SetLockedMode( true );
+    launcherCameras.RotatePrimary( yaw, pitch );
+    launcherCameras.ApplyPrimaryMovementBuffer();
+    const Vector3 launcherViewDirection = launcherCameras.GetCameraView() - launcherCameras.GetCameraTranslation();
+    CHECK( launcherViewDirection.x > 0.0f );
+    CHECK( launcherViewDirection.y > 0.0f );
+}
+
 TEST_CASE( "Camera: locked dolly clamps the requested endpoint to orbit limits" )
 {
     CameraCollection cameras;
@@ -112,8 +142,8 @@ TEST_CASE( "Camera: locked dolly clamps the requested endpoint to orbit limits" 
     settings.minViewMag = 2.0f;
     settings.maxViewMag = 12.0f;
     cameras.ApplyMovementSettings( settings );
-    cameras.AddCamera( Vector3( 0.0f, 0.0f, 10.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR,
-                       Vector3( 0.0f, 1.0f, 0.0f ), 0xCA09u );
+    cameras.AddCamera( Vector3( 0.0f, 0.0f, 10.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR, Vector3( 0.0f, 1.0f, 0.0f ),
+                       0xCA09u );
     cameras.SetLockedMode( true );
 
     cameras.MovePrimary( Camera::TravelDirection::Forward, 5.0f );
@@ -264,10 +294,8 @@ TEST_CASE( "Camera: completed terrain-clamped tween retains its published endpoi
     settings.minCameraHeight = 1.5f;
     cameras.ApplyMovementSettings( settings );
     cameras.SetTerrain( &terrain );
-    cameras.AddCamera( Vector3( 0.0f, 20.0f, 10.0f ), Vector3( 0.0f, 20.0f, 0.0f ),
-                       Vector3( 0.0f, 1.0f, 0.0f ), 0xCA22u );
-    cameras.AddCamera( Vector3( 20.0f, 20.0f, 10.0f ), Vector3( 20.0f, 20.0f, 0.0f ),
-                       Vector3( 0.0f, 1.0f, 0.0f ), 0xCA23u );
+    cameras.AddCamera( Vector3( 0.0f, 20.0f, 10.0f ), Vector3( 0.0f, 20.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0xCA22u );
+    cameras.AddCamera( Vector3( 20.0f, 20.0f, 10.0f ), Vector3( 20.0f, 20.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0xCA23u );
     cameras.SetCamera();
 
     cameras.TweenPrimaryToPose( Vector3( 0.0f, 0.0f, 10.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR,

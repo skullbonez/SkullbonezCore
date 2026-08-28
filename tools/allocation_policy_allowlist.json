@@ -367,7 +367,7 @@
       "owner": "Replay recorder sample payloads",
       "phase": "replay",
       "reason": "Presentation and solver sample body vectors grow lazily under active scene size instead of startup game_model_capacity.",
-      "cap": "ReplayRetainedMemory policy registers replay_recorder_samples with a 32 MiB aggregate hard cap from the strict two-generation probe's 16,223,044-byte high-water; denial is fatal to prevent partial scrub state.",
+      "cap": "ReplayRetainedMemory registers replay_recorder_samples with a 512 MiB process-wide ceiling matching the largest supported replay-memory budget. ReplayTimeline sizes retained rings from the configured scene-body capacity and selected budget; the strict two-generation probe measured 16,223,044 bytes high-water, and denial remains fatal to prevent partial scrub state.",
       "removal_or_wrapper_plan": "Replace retained body vectors with a flat replay arena/body dictionary when replay memory tuning lands; keep recorder growth behind ReserveReplayRecorderSampleVector until then.",
       "match_mode": "exact_finding"
     },
@@ -399,8 +399,8 @@
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",
       "patterns": [
-        "{\"symbol\":\"RenderBackendDX12::Shutdown\",\"before\":[\"SIZE_T msgLen = 0;\",\"infoQueue->GetMessage( i, nullptr, &msgLen );\"],\"statement\":\"auto* msg = static_cast<D3D12_MESSAGE*>( malloc( msgLen ) );\",\"after\":[\"if ( msg )\",\"{\"]}",
-        "{\"symbol\":\"RenderBackendDX12::Shutdown\",\"before\":[\"}\",\"}\"],\"statement\":\"free( msg );\",\"after\":[\"}\",\"}\"]}"
+        "{\"symbol\":\"RenderBackendDX12::Shutdown\",\"before\":[\"SIZE_T msgLen = 0;\",\"infoQueue->GetMessage( i, nullptr, &msgLen );\"],\"statement\":\"auto* msg = static_cast<D3D12_MESSAGE*>( malloc( msgLen ) );\",\"after\":[\"if ( !msg )\",\"{\"]}",
+        "{\"symbol\":\"RenderBackendDX12::Shutdown\",\"before\":[\"fprintf( fp, , i, static_cast<int>( msg->ID ), msg->pDescription );\",\"}\"],\"statement\":\"free( msg );\",\"after\":[\"}\",\"if ( fp )\"]}"
       ],
       "owner": "DX12 info queue diagnostics",
       "phase": "backend_init_diagnostics",
@@ -1005,12 +1005,13 @@
       "patterns": [
         "{\"symbol\":\"Dx12GeometryOwner::CreateDynamicVB\",\"before\":[\"if ( slotIndex == m_dynamicVBs.size() )\",\"{\"],\"statement\":\"m_dynamicVBs.push_back( dvb );\",\"after\":[\"}\",\"else\"]}",
         "{\"symbol\":\"Dx12GeometryOwner::CreateInstancedMesh\",\"before\":[\"im.staticVBV.SizeInBytes = static_cast<UINT>( dataSize );\",\"im.staticVBV.StrideInBytes = static_cast<UINT>( im.staticStride );\"],\"statement\":\"m_instancedMeshes.push_back( im );\",\"after\":[\"return static_cast<uint32_t>( m_instancedMeshes.size() );\",\"}\"]}",
-        "{\"symbol\":\"Dx12GeometryOwner::Dx12GeometryOwner\",\"before\":[\"Dx12GeometryOwner::Dx12GeometryOwner()\",\"{\"],\"statement\":\"m_dynamicVBs.reserve( MAX_DYNAMIC_VERTEX_BUFFERS );\",\"after\":[\"}\",\"bool Dx12GeometryOwner::AttributeLayoutFits( std::span<const int> attributeSizes, std::size_t capacity ) noexcept\"]}"
+        "{\"symbol\":\"Dx12GeometryOwner::Dx12GeometryOwner\",\"before\":[\"return true;\",\"}\"],\"statement\":\"Dx12GeometryOwner::Dx12GeometryOwner() : m_retainedGeometryBuffers( std::make_unique<RetainedGeometryBufferStore>() )\",\"after\":[\"{\",\"m_dynamicVBs.reserve( MAX_DYNAMIC_VERTEX_BUFFERS );\"]}",
+        "{\"symbol\":\"Dx12GeometryOwner::Dx12GeometryOwner\",\"before\":[\"Dx12GeometryOwner::Dx12GeometryOwner() : m_retainedGeometryBuffers( std::make_unique<RetainedGeometryBufferStore>() )\",\"{\"],\"statement\":\"m_dynamicVBs.reserve( MAX_DYNAMIC_VERTEX_BUFFERS );\",\"after\":[\"}\",\"bool Dx12GeometryOwner::AttributeLayoutFits( std::span<const int> attributeSizes, std::size_t capacity ) noexcept\"]}"
       ],
       "owner": "Rendering backend/resource static STL surface",
       "phase": "startup_preallocation_backend_init_scene_resource_preallocation",
-      "reason": "The dynamic vertex-buffer handle registry reserves its fixed budget at backend owner construction; other rendering vectors cover generated mesh data and preallocated submission buffers outside unapproved steady allocation paths.",
-      "cap": "Dynamic vertex-buffer handles are capped at 32; other rows remain bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
+      "reason": "The dynamic vertex-buffer handle registry reserves its fixed budget at backend owner construction. The retained-geometry token cache uses one fixed three-buffer startup allocation so a stack-constructed test or tool owner does not approach the Windows thread-stack limit. Other rendering vectors cover generated mesh data and preallocated submission buffers outside unapproved steady allocation paths.",
+      "cap": "The retained-geometry cache has exactly three buffer rows and dynamic vertex-buffer handles are capped at 32; other rows remain bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns.",
       "match_mode": "exact_finding"
     },
@@ -1055,8 +1056,8 @@
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h",
       "patterns": [
-        "{\"symbol\":\"Active\",\"before\":[\"static constexpr size_t MAX_GRID_LINE_PSOS = 4;\",\"static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;\"],\"statement\":\"std::vector<DynamicVBDX12> m_dynamicVBs;\",\"after\":[\"std::vector<InstancedMeshDX12> m_instancedMeshes;\",\"std::unique_ptr<ShaderDX12> m_gridLineShader;\"]}",
-        "{\"symbol\":\"Active\",\"before\":[\"static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;\",\"std::vector<DynamicVBDX12> m_dynamicVBs;\"],\"statement\":\"std::vector<InstancedMeshDX12> m_instancedMeshes;\",\"after\":[\"std::unique_ptr<ShaderDX12> m_gridLineShader;\",\"std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};\"]}"
+        "{\"symbol\":\"Active\",\"before\":[\"static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;\",\"using RetainedGeometryBufferStore = std::array<RetainedGeometryBufferDX12, Dx12FrameOwner::MAX_FRAME_COUNT>;\"],\"statement\":\"std::vector<DynamicVBDX12> m_dynamicVBs;\",\"after\":[\"std::vector<InstancedMeshDX12> m_instancedMeshes;\",\"std::unique_ptr<ShaderDX12> m_gridLineShader;\"]}",
+        "{\"symbol\":\"Active\",\"before\":[\"using RetainedGeometryBufferStore = std::array<RetainedGeometryBufferDX12, Dx12FrameOwner::MAX_FRAME_COUNT>;\",\"std::vector<DynamicVBDX12> m_dynamicVBs;\"],\"statement\":\"std::vector<InstancedMeshDX12> m_instancedMeshes;\",\"after\":[\"std::unique_ptr<ShaderDX12> m_gridLineShader;\",\"std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};\"]}"
       ],
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
@@ -1572,7 +1573,7 @@
       "owner": "Replay recorder retained sample payloads",
       "phase": "replay",
       "reason": "ReplayRecorder retains presentation, solver, world-delta, event, and visual sample payloads under the registered replay_recorder_samples reserve owner.",
-      "cap": "All recorder vectors share replay_recorder_samples' aggregate 32 MiB hard cap; the strict two-generation probe measured 16,223,044 bytes high-water.",
+      "cap": "All recorder vectors share replay_recorder_samples' 512 MiB process-wide ceiling. ReplayTimeline sizes retained rings from scene-body capacity and the selected budget; the strict two-generation probe measured 16,223,044 bytes high-water.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file.",
       "match_mode": "exact_finding"
     },
@@ -1612,7 +1613,7 @@
       "owner": "Replay recorder retained sample payloads",
       "phase": "replay",
       "reason": "ReplayRecorder record types own retained presentation, solver, world-delta, event, and visual vectors whose growth is approved through replay_recorder_samples.",
-      "cap": "All recorder vectors share replay_recorder_samples' aggregate 32 MiB hard cap; the strict two-generation probe measured 16,223,044 bytes high-water.",
+      "cap": "All recorder vectors share replay_recorder_samples' 512 MiB process-wide ceiling. ReplayTimeline sizes retained rings from scene-body capacity and the selected budget; the strict two-generation probe measured 16,223,044 bytes high-water.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file.",
       "match_mode": "exact_finding"
     },

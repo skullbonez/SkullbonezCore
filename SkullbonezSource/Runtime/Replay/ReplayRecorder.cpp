@@ -57,7 +57,6 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
-constexpr int REPLAY_TICKS_PER_SECOND = 120;
 constexpr int REPLAY_MIN_SECONDS = 1;
 constexpr int REPLAY_MAX_SECONDS = 600;
 constexpr std::size_t REPLAY_LAUNCHER_RAY_LINE_CAPACITY = 64;
@@ -68,8 +67,8 @@ constexpr uint32_t REPLAY_INVALID_METADATA_INDEX = ( std::numeric_limits<uint32_
 
 // Runtime allocation policy: retained replay body payloads grow per active
 // scene size instead of preallocating every future slot at game_model_capacity.
-// Every retained recorder vector shares one aggregate 32 MiB owner cap. The
-// strict two-generation probe measured 16,223,044 bytes high-water; growth
+// ReplayTimeline bounds ring length from the selected byte budget before these
+// vectors grow; the shared owner ceiling is the final process-wide guard. Growth
 // count is telemetry, not a separate allowance per vector.
 constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT = CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint64_t FNV64_OFFSET = 14695981039346656037ull;
@@ -95,7 +94,8 @@ struct ReplayRecorderCapacities
 ReplayRecorderCapacities ReplayCapacitiesFromConfig( const ReplayRecorderConfig& config )
 {
     const int seconds = std::clamp( config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
-    const std::size_t samples = static_cast<std::size_t>( seconds ) * static_cast<std::size_t>( REPLAY_TICKS_PER_SECOND );
+    const std::size_t samples = static_cast<std::size_t>( seconds ) *
+                                static_cast<std::size_t>( REPLAY_CAPTURE_TICKS_PER_SECOND );
     const std::size_t interval = static_cast<std::size_t>( (std::max)( 1, config.checkpointIntervalFrames ) );
     return { samples, (std::max)( static_cast<std::size_t>( 2 ), samples / interval + 2 ) };
 }

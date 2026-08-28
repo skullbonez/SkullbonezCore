@@ -33,6 +33,7 @@ Related:
 
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Physics/PhysicsSolverSnapshot.h"
+#include "ReplayCaptureLimits.h"
 
 #include <array>
 #include <cstddef>
@@ -57,7 +58,8 @@ struct ReplayRetainedOwnershipRule
     bool durableArtifact;
 };
 
-inline constexpr std::array<ReplayRetainedOwnershipRule, 4> REPLAY_RETAINED_OWNERSHIP_RULES = { ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::PresentationRecorder, "ReplayPresentationSample",
+inline constexpr std::array<ReplayRetainedOwnershipRule, 4> REPLAY_RETAINED_OWNERSHIP_RULES =
+    { ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::PresentationRecorder, "ReplayPresentationSample",
                                     "ReplayRecorder", true, true },
       ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::SolverRecorder, "ReplaySolverFrameSample",
                                     "ReplaySolverRecorder", true, true },
@@ -84,9 +86,13 @@ struct ReplayGrowthOwnerPolicy
 inline constexpr const char* REPLAY_RECORDER_SAMPLE_RESERVE_OWNER = "replay_recorder_samples";
 
 // The strict two-generation prediction probe measured 16,223,044 aggregate
-// recorder bytes. Thirty-two MiB preserves 2.068319x measured headroom.
-inline constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES = 32 * 1024 * 1024;
-inline constexpr std::array<ReplayGrowthOwnerPolicy, 2> REPLAY_CORE_GROWTH_OWNER_POLICIES = { ReplayGrowthOwnerPolicy { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+// recorder bytes, while the ordinary 300-body generated demo legitimately
+// exceeds 32 MiB before its first second of history is complete. Keep the
+// process-wide ceiling aligned with the largest supported replay memory budget; individual
+// vectors remain bounded by the scene/body and source-owner limits.
+inline constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES = REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB * 1024 * 1024;
+inline constexpr std::array<ReplayGrowthOwnerPolicy, 2> REPLAY_CORE_GROWTH_OWNER_POLICIES =
+    { ReplayGrowthOwnerPolicy { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
                                 SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
                                 REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES, 16223044u,
                                 ReplayGrowthExhaustionRule::FatalRetainedState },

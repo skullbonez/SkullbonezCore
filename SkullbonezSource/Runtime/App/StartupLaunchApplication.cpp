@@ -789,15 +789,13 @@ bool ResolveInteractionRecordingLaunch( ParsedArgs& args )
 
     if ( !root.contains( "complete" ) || !root["complete"].is_boolean() || !root["complete"].get<bool>() ||
          !root.contains( "version" ) || !root["version"].is_number_integer() || root["version"] != 1 ||
-         !root.contains( "scene" ) ||
-         !root["scene"].is_object() || !root["scene"].contains( "path" ) || !root["scene"]["path"].is_string() ||
-         !root["scene"].contains( "sha256" ) || !root["scene"]["sha256"].is_string() )
+         !root.contains( "scene" ) || !root["scene"].is_object() || !root["scene"].contains( "path" ) ||
+         !root["scene"]["path"].is_string() || !root["scene"].contains( "sha256" ) || !root["scene"]["sha256"].is_string() )
     {
         return true; // Do not consume sidecars; Automation publishes the report failure.
     }
 
-    const auto resolveSidecar = [&]( const Json& sidecar, char* destination,
-                                     std::size_t destinationSize ) -> bool
+    const auto resolveSidecar = [&]( const Json& sidecar, char* destination, std::size_t destinationSize ) -> bool
     {
         const std::filesystem::path relative = sidecar["path"].get<std::string>();
 
@@ -892,6 +890,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.dumpTextureAssets = args.dumpAssets;
     launch.interactiveSceneRun = args.interactiveRun;
     launch.frameCountOverride = args.frameCountOverride;
+    strcpy_s( launch.perfLogPath, sizeof( launch.perfLogPath ), args.perfLogPath );
     launch.uiStress = args.uiStress;
     launch.uiStressSeed = args.uiStressSeed;
     launch.uiStressActions = args.uiStressActions;
@@ -1005,6 +1004,27 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               args.suppressExitDialog = true;
               fprintf( stdout, "[frames] Exit after %d frames.\n", args.frameCountOverride );
               return true;
+          } },
+        { "--frame-buffers",
+          "--frame_buffers",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int frameBuffers = 0;
+
+              if ( !ParseIntCommandLineToken( value, frameBuffers ) || ( frameBuffers != 2 && frameBuffers != 3 ) )
+              {
+                  return FailCommandLineParse( "--frame-buffers expects 2 or 3." );
+              }
+
+              args.renderFrameBufferCount = frameBuffers;
+              fprintf( stdout, "[render] Swap-chain buffers: %d.\n", args.renderFrameBufferCount );
+              return true;
+          } },
+        { "--perf-log",
+          "--perf_log",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              return CopyCommandLinePath( value, "--perf-log", args.perfLogPath, sizeof( args.perfLogPath ) );
           } },
         { "--allocation-guard",
           "--allocation_guard",

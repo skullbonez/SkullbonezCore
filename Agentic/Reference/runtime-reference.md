@@ -54,13 +54,15 @@ consumer parameter.
 | `--scene-load-only` | flag | Load queued scene files and exit before the frame loop. Alias: `--load-scenes-only`. Used by `tools\validate_scene_loads.bat`. |
 | `--scene-snapshot-out` | path | With exactly one loaded scene, load it, serialize the runtime state to the given `.scene.json` path, and exit before the frame loop. Alias: `--scene_snapshot_out`. |
 | `--vsync` | `on`, `off` | Override vsync from `engine.cfg`. |
+| `--frame-buffers` | `2`, `3` | Select the DXGI swap-chain buffer count; default is `2`. Triple buffering can smooth GPU-heavy VSync cadence at the cost of one more queued frame/resource set and potentially higher input latency. Alias: `--frame_buffers`. |
+| `--perf-log` | path | Write runtime timing counters to a CSV after each scene load, including generated and `--demohero` runs. Profile builds include CPU, presentation-interval, and timestamp-query GPU counters. Alias: `--perf_log`. |
 | `--dump-config` | flag | Print the resolved startup config after `engine.cfg` and command-line overrides. |
 | `--switch-interval` | retired | Rejected because DX12 is the only runtime renderer. |
 | `--time-scale` | float | Override simulation time multiplier. |
 | `--fixed-step` | flag | Explicitly select render-frame lockstep: deterministic physics ticks are driven by rendered frames instead of elapsed wall time. |
 | `--seed` | positive integer | Override the RNG seed for every loaded scene, including generated demo mode. Useful with launcher repro snapshots. |
-| `--replay` | optional `on`, `off` | Control bounded in-memory replay presentation capture. Generated/interactive runs enable the 30-second buffer by default; scene/suite automation opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. |
-| `--replay-seconds` | `1..600` | Retention window for replay capture; default is 30 seconds at 120 Hz. Alias: `--replay_seconds`. |
+| `--replay` | optional `on`, `off` | Control bounded in-memory replay presentation capture. Generated/interactive runs enable capture by default; scene/suite automation opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. |
+| `--replay-seconds` | `1..600` | Request a replay retention window; default is 60 seconds at 120 Hz. The effective presentation and solver windows are reduced when necessary to fit the selected memory budget and configured body capacity. Alias: `--replay_seconds`. |
 | `--replay-hashes` | path | Enable replay capture and write a CSV of replay frame hashes for render-frame-lockstep comparison runs. Alias: `--replay_hashes`. |
 | `--replay-scrub-test` | Debug flag | Enable the CLI-only replay scrub SkullScope probe, select an older retained sample, emit one `replay_scrub` row, and exit after the probe passes. |
 | `--replay-restore-test` | Debug flag | Enable the CLI-only retained solver restore SkullScope probe, restore an older retained solver frame, emit one `replay_restore` row, and exit after the hash-verified restore passes. |
@@ -167,6 +169,13 @@ Profile\SKULLBONEZ_CORE.exe --demohero
 
 `--demohero` is mutually exclusive with `--hero`, `--scene`, and `--suite`. It only applies `SkullbonezData\styles\low_poly_art_style.style.json` after generated demo objects are created, so it does not import the hero scene's camera, world settings, fixed set dressing, or object list.
 
+For a VSync-on cinematic cadence comparison, run the same bounded workload with two and three buffers and give each run a different CSV path:
+
+```bat
+Profile\SKULLBONEZ_CORE.exe --demohero --fixed-step --vsync on --frame-buffers 2 --frames 600 --perf-log TestOutput\demohero_double.csv
+Profile\SKULLBONEZ_CORE.exe --demohero --fixed-step --vsync on --frame-buffers 3 --frames 600 --perf-log TestOutput\demohero_triple.csv
+```
+
 ## Live Style Harness
 
 The live style harness is for look-dev: keep the game window running, edit a `.style.json` descriptor, then request screenshots without restarting the scene or resetting physics.
@@ -236,7 +245,7 @@ Interaction automation supports Director takes with `loadShotList`, `directorPla
 
 Outside launcher mode, `Ctrl+Left Click` selects a separate closest-approach target without replacing the replay path root. With mutual gravity and prediction enabled, GameUI shows either the closest miss distance and ETA or an intercept ETA. In launcher mode, `Ctrl+Left Click` retains its existing path-target selection behavior instead of firing.
 
-Replay capture keeps the last 30 seconds of presentation and solver samples in memory by default for generated and interactive runs. Scene/suite automation leaves replay off unless the command line opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. With the in-game UI minimized and editor mode off, move the mouse near the bottom edge to reveal the scrubber. Click-hold or drag a row thumb left to inspect earlier retained frames; physics pauses while a historical frame is selected. The active row is the only row whose thumb moves while dragging, and the opposite row is muted at its own stored position. Drag the active thumb back to the live end to resume simulation. Entering scrub inspection copies the current render camera once into the internal `CAMERA_FREE` camera, then leaves the camera completely user-controlled; retained replay camera poses are not applied during inspection preview. Press `P` to toggle replay play/pause through the shared transport command in live, predicted, historical, and inspection views. Space steps physics without clearing the current prediction drawing.
+Replay capture requests 60 seconds of presentation and solver samples by default for generated and interactive runs. Before allocating either ring, Replay resolves that request against the selected 32-512 MiB memory budget and configured body capacity. The default 256 MiB policy therefore retains one second (120 samples) for the maximum 2,048-body configuration and longer windows for smaller configurations; the owner remains bounded by the 512 MiB hard ceiling. Scene/suite automation leaves replay off unless the command line opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. With the in-game UI minimized and editor mode off, move the mouse near the bottom edge to reveal the scrubber. Click-hold or drag a row thumb left to inspect earlier retained frames; physics pauses while a historical frame is selected. The active row is the only row whose thumb moves while dragging, and the opposite row is muted at its own stored position. Drag the active thumb back to the live end to resume simulation. Entering scrub inspection copies the current render camera once into the internal `CAMERA_FREE` camera, then leaves the camera completely user-controlled; retained replay camera poses are not applied during inspection preview. Press `P` to toggle replay play/pause through the shared transport command in live, predicted, historical, and inspection views. Space steps physics without clearing the current prediction drawing.
 
 The top row is the presentation track: it previews camera/body presentation samples for inspection only. A loaded binary v2 artifact replaces that row with a `V2 FILE` source that scrubs the saved presentation track from start to end. The lower `SOLVER` row records body state plus the hidden sleep, contact-cache, persistent-contact, tornado, and launcher visual state needed to restore a retained fixed tick. While paused on a retained solver frame or loaded v2 file frame, press `Enter` or click `BRANCH` to make that target the new live branch. Retained solver branching restores directly from the in-memory solver snapshot. V2 file branching restores the nearest sparse checkpoint, replays typed events and fixed ticks forward, compares the saved target solver hash, then assigns a child branch id only after the hash matches.
 

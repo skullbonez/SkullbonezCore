@@ -9,7 +9,7 @@ Invariants:
     hash byte order remains unchanged.
   - Owner-action wire values never serialize domain enum ordinals.
   - Retained vector growth shares `replay_recorder_samples`; no record or vector
-    receives a private copy of the 32 MiB hard cap.
+    receives a private copy of the process-wide hard cap.
 */
 #pragma once
 
@@ -81,7 +81,7 @@ struct ReplayWorldPresentationSample
     float fluidDensity = 0.0f;
     bool waterHidden = false;
     bool terrainHidden = false;
-    bool fixedStep = false;         // Compatibility name: scene/capture lockstep request, not resolved pacing.
+    bool fixedStep = false; // Compatibility name: scene/capture lockstep request, not resolved pacing.
     bool scenePhysicsEnabled = true;
     bool sceneTextEnabled = true;
 };
@@ -428,7 +428,7 @@ struct ReplayRecorderConfig
     bool enabled = false;
     int retentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
     int checkpointIntervalFrames = 30;
-    int runtimeBodyCapacity = 0;    // Scene/run body cap for scratch reserves and retained-sample growth checks.
+    int runtimeBodyCapacity = 0; // Scene/run body cap for scratch reserves and retained-sample growth checks.
     std::string hashLogPath;
 };
 
@@ -456,7 +456,6 @@ class ReplayRecorder
     const ReplayPresentationSample* SampleAtNormalized( float normalized ) const;
 
   private:
-
     // Why: cold ArtifactIO must reconstruct compact deltas without making ring
     // internals public. Its commands accept this owner as const and publish only
     // copied chronological values.
@@ -623,7 +622,6 @@ class ReplaySolverRecorder
     const ReplaySolverFrameSample* SampleAtNormalized( float normalized ) const;
 
   private:
-
     // See ReplayRecorder: this is the same const-only cold materialization seam.
     friend class ReplayArtifactSource;
     std::size_t AcquireSampleSlotIndex();
@@ -698,7 +696,6 @@ class ReplayEventRecorder
     uint64_t CollectMemoryBytes() const;
 
   private:
-
     // See ReplayRecorder: event-ring order remains private to cold ArtifactIO.
     friend class ReplayArtifactSource;
     ReplayEventSample& AcquireEventSlot();

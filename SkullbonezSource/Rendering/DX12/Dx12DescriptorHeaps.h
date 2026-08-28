@@ -19,7 +19,7 @@ Invariants:
   - Heap publication is all-or-nothing for one device epoch.
   - Static and CPU output rows return only after covering-fence retirement.
   - Transient rows reset only for the allocator index whose fence completed.
-  - FRAME_COUNT remains owned by Dx12FrameOwner and is supplied at Init.
+  - Active frame count is supplied at Init and never exceeds the fixed storage capacity.
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.cpp

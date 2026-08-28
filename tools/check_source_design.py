@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import collections
 from dataclasses import dataclass
+import functools
 import os
 from pathlib import Path
 import re
@@ -128,6 +129,83 @@ def compile_arguments(repo: Path) -> list[str]:
     ]
 
 
+def _xml_local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def _expand_known_msbuild_properties(value: str, properties: dict[str, str]) -> str:
+    expanded = value
+    for _ in range(len(properties) + 1):
+        previous = expanded
+        for name, replacement in properties.items():
+            expanded = expanded.replace(f"$({name})", replacement)
+        if expanded == previous:
+            break
+    return expanded
+
+
+@functools.lru_cache(maxsize=None)
+def _repo_local_import_arguments(repo: Path, project_name: str, configuration_name: str) -> tuple[str, ...]:
+    """Read literal compile settings from active repo-local .props imports."""
+    configuration, platform = configuration_name.split("|", 1)
+    project_path = repo / project_name
+    project_root = ET.parse(project_path).getroot()
+    arguments: list[str] = []
+
+    for import_node in project_root:
+        if _xml_local_name(import_node.tag) != "Import" or not condition_matches(
+            import_node.get("Condition"), configuration, platform
+        ):
+            continue
+        import_value = import_node.get("Project", "").strip()
+        if not import_value or "$(" in import_value:
+            continue
+        props_path = (project_path.parent / import_value.replace("\\", os.sep)).resolve()
+        if not props_path.is_file() or props_path.suffix.casefold() != ".props":
+            continue
+
+        props_root = ET.parse(props_path).getroot()
+        properties = {
+            "MSBuildThisFileDirectory": str(props_path.parent) + os.sep,
+            "ProjectDir": str(project_path.parent) + os.sep,
+        }
+        for group in props_root:
+            if _xml_local_name(group.tag) != "PropertyGroup" or group.get("Condition"):
+                continue
+            for property_node in group:
+                if property_node.get("Condition"):
+                    continue
+                value = _expand_known_msbuild_properties(property_node.text or "", properties)
+                if "$(" not in value:
+                    properties[_xml_local_name(property_node.tag)] = value
+
+        for group in props_root:
+            if _xml_local_name(group.tag) != "ItemDefinitionGroup" or not condition_matches(
+                group.get("Condition"), configuration, platform
+            ):
+                continue
+            for compile_node in group:
+                if _xml_local_name(compile_node.tag) != "ClCompile":
+                    continue
+                for setting in compile_node:
+                    value = _expand_known_msbuild_properties(setting.text or "", properties)
+                    if _xml_local_name(setting.tag) == "PreprocessorDefinitions":
+                        for definition in value.split(";"):
+                            definition = definition.strip()
+                            if definition and "$(" not in definition and not definition.startswith("%("):
+                                arguments.append(f"-D{definition}")
+                    elif _xml_local_name(setting.tag) == "AdditionalIncludeDirectories":
+                        for include_directory in value.split(";"):
+                            include_directory = include_directory.strip()
+                            if not include_directory or "$(" in include_directory or include_directory.startswith("%("):
+                                continue
+                            path = Path(include_directory.replace("\\", os.sep))
+                            if not path.is_absolute():
+                                path = props_path.parent / path
+                            arguments.extend(("-I", str(path.resolve())))
+    return tuple(arguments)
+
+
 def _row_arguments(repo: Path, row: CompileRow) -> tuple[str, ...]:
     arguments = compile_arguments(repo)
     language = row.settings["LanguageStandard"].casefold()
@@ -163,12 +241,17 @@ def _row_arguments(repo: Path, row: CompileRow) -> tuple[str, ...]:
         arguments.extend(("-I", str(path)))
     if row.settings["ExceptionHandling"].casefold() == "false":
         arguments.append("-fno-exceptions")
+    arguments.extend(_repo_local_import_arguments(repo.resolve(), row.project, row.configuration))
     return tuple(arguments)
 
 
 def compile_contexts(repo: Path, source: Path, rows: list[CompileRow]) -> list[CompileContext]:
     """Use exact source settings or every distinct first-party header context."""
     relative = source.resolve().relative_to(repo.resolve()).as_posix().casefold()
+    source_text = source.read_text(encoding="utf-8", errors="replace") if source.is_file() else ""
+    development_only_header = source.suffix.lower() in {".h", ".hpp", ".inl"} and (
+        "DevelopmentToolsCapability.h" in source_text or "SKULLBONEZ_DEVELOPMENT_TOOLS" in source_text
+    )
     exact = [row for row in rows if row.file == relative]
     sibling_rows: list[CompileRow] = []
     if not exact and source.suffix.lower() in {".h", ".hpp", ".inl"}:
@@ -210,6 +293,8 @@ def compile_contexts(repo: Path, source: Path, rows: list[CompileRow]) -> list[C
         if configuration not in {"Debug", "Profile", "Automation"}:
             continue
         arguments = _row_arguments(repo, row)
+        if development_only_header and "-DSKULLBONEZ_DEVELOPMENT_TOOLS" not in arguments:
+            continue
         key = row.project, configuration, arguments
         contexts[key] = CompileContext(row.project, row.configuration, arguments)
     if not contexts:
@@ -445,6 +530,15 @@ def prove_compile_contexts(repo: Path) -> None:
     expected_include = str(repo / "ThirdPtySource/stb")
     if not all(expected_include in context.arguments for context in contexts):
         raise AssertionError("Assets source contexts omit the effective stb include directory")
+    imgui = repo / "SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.cpp"
+    imgui_contexts = compile_contexts(repo, imgui, rows)
+    imgui_header_contexts = compile_contexts(repo, imgui.with_suffix(".h"), rows)
+    expected_imgui_include = str(repo / "ThirdPtySource/imgui")
+    if not all(
+        "-DSKULLBONEZ_DEVELOPMENT_TOOLS" in context.arguments and expected_imgui_include in context.arguments
+        for context in imgui_contexts + imgui_header_contexts
+    ):
+        raise AssertionError("development source contexts omit imported ImGui compile settings")
     for root_name in ("Assets", "Gameplay"):
         header = repo / f"SkullbonezSource/{root_name}/ContextProbe.h"
         header_contexts = compile_contexts(repo, header, rows)

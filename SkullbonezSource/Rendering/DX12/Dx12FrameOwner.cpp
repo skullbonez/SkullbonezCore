@@ -216,9 +216,10 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
 
     if ( m_submittedWork.HasUnfencedOrUncertainWork() )
     {
-        return m_recording.RetainFailure( m_resultDiagnostics
-                                              .Failure( "Rendering/DX12",
-                                                        "Draw epoch blocked because submitted work lacks a trustworthy completion fence." ) );
+        return m_recording.RetainFailure(
+            m_resultDiagnostics
+                .Failure( "Rendering/DX12",
+                          "Draw epoch blocked because submitted work lacks a trustworthy completion fence." ) );
     }
 
     const UINT64 allocatorFence = m_frameFenceValues[m_allocatorIndex];
@@ -545,7 +546,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::WaitForGpu()
                   static_cast<unsigned long long>( fence ) );
     }
 
-    for ( int i = 0; i < FRAME_COUNT; ++i )
+    for ( int i = 0; i < MAX_FRAME_COUNT; ++i )
     {
         m_frameFenceValues[i] = 0;
     }
@@ -647,8 +648,10 @@ bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, Re
                                                                              RuntimeAllocationPhaseName( phase ),
                                                                          static_cast<unsigned long long>( size ),
                                                                          static_cast<unsigned long long>( stats.usedBytes ),
-                                                                         static_cast<unsigned long long>( stats.capacityBytes ),
-                                                                         static_cast<unsigned long long>( m_uploadFlushCount ) );
+                                                                         static_cast<unsigned long long>(
+                                                                             stats.capacityBytes ),
+                                                                         static_cast<unsigned long long>(
+                                                                             m_uploadFlushCount ) );
 
                                                        return FlushUploadBuffer().Ok() &&
                                                               m_uploads.CanAllocate( m_allocatorIndex, size, alignment );

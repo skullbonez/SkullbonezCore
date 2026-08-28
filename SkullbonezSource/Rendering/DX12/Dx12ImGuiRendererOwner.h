@@ -22,7 +22,7 @@ Glossary:
 
 Invariants:
   - This source is compiled only with SKULLBONEZ_DEVELOPMENT_TOOLS.
-  - FRAME_COUNT is exactly two for ImGui upload-buffer reuse.
+  - ImGui uses the device's immutable active frame count for upload-buffer reuse.
   - Context ownership remains in ImGuiEditorOwner; this owner stores no context.
   - Shutdown occurs after a GPU drain and before context or descriptor teardown.
   - World-render counters never include ImGui command lists or indexed draws.
