@@ -70,15 +70,6 @@ struct UIRadii
     float switchPill = 999.0f;
 };
 
-struct UITextStyle
-{
-    float titlePx = 13.0f;
-    float tabPx = 11.0f;
-    float labelPx = 10.5f;
-    float sectionPx = 13.0f;
-    float valuePx = 10.5f;
-};
-
 struct UIControlStyle
 {
     float sliderTrackHeight = 6.0f;

@@ -791,7 +791,7 @@ void SeedParallelDeterminismPointJoints( PhysicsEngine& engine )
 {
     constexpr std::pair<int, int> jointBodies[] = { { 512, 513 }, { 514, 515 } };
 
-    for ( const auto [bodyA, bodyB] : jointBodies )
+    for ( const auto& [bodyA, bodyB] : jointBodies )
     {
         SkullbonezCore::Physics::PhysicsPointJointCreateDesc joint;
         joint.bodyA = RequireBodyHandle( engine, bodyA );
