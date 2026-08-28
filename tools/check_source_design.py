@@ -99,10 +99,6 @@ def llvm_tool(name: str) -> Path:
 
 def msvc_tool(name: str) -> Path:
     """Find the native x64 MSVC compiler or linker used by project builds."""
-    found = shutil.which(name)
-    if found:
-        return Path(found)
-
     program_files = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
     candidates = sorted(
         program_files.glob(f"Microsoft Visual Studio/*/*/VC/Tools/MSVC/*/bin/Hostx64/x64/{name}.exe"),
@@ -110,6 +106,13 @@ def msvc_tool(name: str) -> Path:
     )
     if candidates:
         return candidates[0]
+
+    found = shutil.which(name)
+    if found:
+        candidate = Path(found).resolve()
+        normalized = candidate.as_posix().casefold()
+        if "/vc/tools/msvc/" in normalized and "/bin/hostx64/x64/" in normalized:
+            return candidate
     raise FileNotFoundError(f"required MSVC tool is unavailable: {name}")
 
 
