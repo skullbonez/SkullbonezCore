@@ -42,28 +42,14 @@ struct Plane
     Math::Vector::Vector3 m_normal;
     float m_distance;
 
-    Plane& operator=( Plane plane )
-    {
-        m_normal = plane.m_normal;
-        m_distance = plane.m_distance;
-
-        return *this;
-    }
+    Plane& operator=( const Plane& ) = default;
 };
 
 struct XZBounds
 {
     float m_xMin, m_xMax, m_zMin, m_zMax;
 
-    XZBounds& operator=( XZBounds bounds )
-    {
-        m_xMin = bounds.m_xMin;
-        m_xMax = bounds.m_xMax;
-        m_zMin = bounds.m_zMin;
-        m_zMax = bounds.m_zMax;
-
-        return *this;
-    }
+    XZBounds& operator=( const XZBounds& ) = default;
 };
 
 struct Box

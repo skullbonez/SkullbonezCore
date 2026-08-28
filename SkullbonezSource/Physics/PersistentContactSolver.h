@@ -33,6 +33,8 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
+class PhysicsContactSolverStage;
+
 // Invariant: object/object keys store two 15-bit body indices above the
 // 32-bit feature id. Widening this mask would consume bit 62, which
 // distinguishes terrain rows from object/object rows.

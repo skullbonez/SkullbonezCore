@@ -18,6 +18,7 @@ Invariants:
 */
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -256,7 +257,10 @@ inline PhysicsColliderCreateDesc MakeColliderCreateDesc( const Math::CollisionDe
 
     if ( contactMaterialName && contactMaterialName[0] != '\0' )
     {
-        strncpy_s( desc.contactMaterialName, sizeof( desc.contactMaterialName ), contactMaterialName, _TRUNCATE );
+        const std::size_t copiedChars =
+            ( std::min )( std::strlen( contactMaterialName ), sizeof( desc.contactMaterialName ) - 1u );
+        std::memcpy( desc.contactMaterialName, contactMaterialName, copiedChars );
+        desc.contactMaterialName[copiedChars] = '\0';
     }
 
     desc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( desc.shape );
