@@ -56,23 +56,6 @@ bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int body
     return hotFields.fixed[static_cast<std::size_t>( bodyIndex )] != 0u;
 }
 
-bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> pointJointConstraints,
-                           int bodyA, int bodyB )
-{
-    for ( const PointJointConstraint& constraint : pointJointConstraints )
-    {
-        const int a = constraint.BodyAIndex( bodyStore );
-        const int b = constraint.BodyBIndex( bodyStore );
-
-        if ( ( a == bodyA && b == bodyB ) || ( a == bodyB && b == bodyA ) )
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 } // namespace
 
 void SkullbonezCore::Physics::ValidateSleepSupportEdgeCount( std::size_t requested, std::size_t reservedCapacity,
@@ -424,9 +407,10 @@ void PhysicsSleepController::AppendPointJointSupportEdges( const PhysicsBodyStor
     }
 }
 
-void PhysicsSleepController::WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
-                                                            const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
-                                                            PhysicsContactCacheWakeAccess contactCache, std::span<const PointJointConstraint> pointJointConstraints, float dt )
+void PhysicsSleepController::WakePointJointConnectedBodies(
+    PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
+    const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
+    PhysicsContactCacheWakeAccess contactCache, std::span<const PointJointConstraint> pointJointConstraints, float dt )
 {
     if ( pointJointConstraints.empty() || m_sleepState.empty() )
     {
@@ -689,16 +673,16 @@ void PhysicsSleepController::RunIslandStageMode( PhysicsBodyStore& bodyStore, co
                                       m_sleepScratchFlags[x].pointJointBody != 0u;
 
         const bool pointJointIsland = m_sleepScratchFlags[root].islandHasPointJoint != 0u;
-        float quietLinearSq = sleepPolicy.linearSpeedSquared;
-        float quietAngularSq = sleepPolicy.angularSpeedSquared;
+        float linearThresholdScale = 1.0f;
+        float angularThresholdScale = 1.0f;
 
         if ( pointJointMember && pointJointIsland && islandHasSupportAnchor )
         {
-            quietLinearSq *= POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE * POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE;
-            quietAngularSq *= POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE * POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE;
+            linearThresholdScale = POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE;
+            angularThresholdScale = POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE;
         }
 
-        const bool quiet = speedSq < quietLinearSq && omegaSq < quietAngularSq;
+        const bool quiet = sleepPolicy.IsQuiet( speedSq, omegaSq, linearThresholdScale, angularThresholdScale );
         const bool pointJointAnchoredSupport = quiet && pointJointMember && pointJointIsland && islandHasSupportAnchor;
 
         if ( !supported && quiet && hasRestingObjectContact && islandHasSupportAnchor )
@@ -773,7 +757,7 @@ void PhysicsSleepController::ApplyTransitionsMode( PhysicsBodyStore& bodyStore, 
 
         if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] )
         {
-            if ( m_sleepCounter[x] < sleepPolicy.frameCount )
+            if ( sleepPolicy.NeedsMoreQuietFrames( m_sleepCounter[x] ) )
             {
                 ++m_sleepCounter[x];
             }
@@ -788,7 +772,7 @@ void PhysicsSleepController::ApplyTransitionsMode( PhysicsBodyStore& bodyStore, 
     {
         const int root = sleepIslands.Find( x );
 
-        if ( m_sleepCounter[x] < sleepPolicy.frameCount )
+        if ( sleepPolicy.NeedsMoreQuietFrames( m_sleepCounter[x] ) )
         {
             m_sleepIslandCanSleep[root] = 0;
         }
