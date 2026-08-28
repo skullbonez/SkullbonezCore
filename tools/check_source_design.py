@@ -66,8 +66,6 @@ QUERY_COMMANDS = {
     ),
     "parameter struct unpack": (
         "match functionDecl(isDefinition(), isExpansionInMainFile(), "
-        "hasAnyParameter(parmVarDecl(anyOf(hasType(recordType()), "
-        "hasType(referenceType(pointee(recordType())))))), "
         "forEachDescendant(varDecl(hasLocalStorage(), "
         "hasInitializer(ignoringParenImpCasts(memberExpr(hasObjectExpression("
         "ignoringParenImpCasts(declRefExpr(to(parmVarDecl())))))))).bind('unpacked_local')))"
