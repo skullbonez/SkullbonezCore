@@ -11,7 +11,10 @@ jobs:
   cpu-tests:
     name: Mandatory CPU lane (Windows hosted)
     runs-on: windows-latest
-    timeout-minutes: 45
+    # Hosted checkout has taken over seven minutes, while the complete CPU gate
+    # needs roughly forty minutes after setup. Preserve a bounded timeout without
+    # cancelling a healthy validation run before it can report a result.
+    timeout-minutes: 75
 
     steps:
       - name: Check out repository
