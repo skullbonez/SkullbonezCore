@@ -754,13 +754,46 @@ owning plan when not obvious from the API being used.
 ## After Editing
 
 Do not run validation scripts automatically after every edit. Formal repository
-validation runs only as a pre-commit/PR gate, or when the user explicitly asks
-for it. When preparing PR-bound work, choose the smallest cumulative set of
-scripts from `tools\` that matches the fix. Broad or uncertain PR scope means
-combining the affected focused gates; it does not authorize full validation.
-Use deep, perf, and UI validation only when the change actually needs them.
-Every DX12 modification also requires the mandatory bounded graphics-stress
-run defined below.
+validation runs only at a push, PR, or merge boundary, or when the user
+explicitly asks for it. A feature-branch push is an early CI handoff, not a
+claim that the change is merge-ready. Select the smallest local lane below,
+push once that lane is green, and let hosted CI run the deferred exhaustive
+matrix in parallel. Merge still requires every mapped mandatory check to pass.
+
+### Validation Lanes And The Push Boundary
+
+Every code-bearing lane compiles its changed production or test payload before
+push. Documentation-only work is exempt because it has no compiled payload.
+Never call a source inspection, formatter, or policy scan a successful lane
+when the affected code has not compiled.
+
+| Lane | Eligible work | Required before a feature-branch push | Required before merge |
+|---|---|---|---|
+| Fast | Mechanical refactor, struct unpacking, local rename, narrow test repair, or source-context-only policy refresh with unchanged behavior and authority | Diff/format checks, one relevant configuration of every directly affected first-party target, and the narrow test or checker that exercises the edit | Hosted mandatory builds and every mapped focused gate |
+| Standard | Behavior or API change contained within one subsystem | Fast-lane evidence plus the subsystem's mapped focused gate; the gate must compile its payload or be preceded by an explicit affected-target build | Hosted mandatory builds and all cumulative mapped gates |
+| Full | Cross-subsystem ownership, serialization/schema, allocation privilege, threading/lifetime, Physics result, renderer contract, golden/baseline, or otherwise uncertain change | Every cumulative focused gate justified by the changed risk; use plan-completion validation only when an entire plan is closing | Complete mandatory CI matrix and any owner-approved artifact or baseline evidence |
+
+The fast lane should normally finish within two to three minutes on an
+incremental tree. If a nominally simple change causes an exhaustive local scan
+or unrelated rebuild to exceed that budget, do not broaden local validation
+merely to reproduce CI serially. Compile the affected target, run the narrow
+behavioral or policy witness, push the feature branch or draft PR, and record
+the exact checks deferred to CI. Continue investigating a real local failure;
+the time budget never converts red evidence into a deferral.
+
+A change is not fast-lane eligible when it changes a public or binary contract,
+serialized layout, authored schema, dependency direction, project topology,
+allocation owner/phase/cap, thread or lifetime behavior, Physics output,
+renderer behavior, or an accepted baseline/golden. Moving source around an
+unchanged approved policy site may use the fast lane only after its owner,
+phase, cap, and operation have been compared and found unchanged.
+
+When preparing PR-bound work, choose the smallest cumulative set of scripts
+from `tools\` that matches the fix. Broad or uncertain PR scope means combining
+the affected focused gates; it does not authorize full validation. Use deep,
+perf, and UI validation only when the change actually needs them. Every DX12
+modification also requires the mandatory bounded graphics-stress run defined
+below.
 
 `validate_full.bat --plan-completion` and its
 `agent_validate.bat --plan-completion` alias are reserved for terminal
@@ -790,7 +823,7 @@ Coverage-floor enforcement has three invocation rules:
 | Documentation only | No validation required | N/A |
 | Main doctest unit tests only | `tools\validate_tests.bat` | build + console test runner |
 | Standalone/combined CPU test targets | `tools\validate_all_cpu_tests.bat` | incremental builds + 6 console test launches |
-| Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
+| Small refactor, no render or physics changes | Fast lane: compile every affected target in one relevant configuration, then run its focused test/check; hosted CI runs the broader mapped matrix | target 2-3 min incremental |
 | Shader or render backend | `tools\validate_dx12_renderer.bat`, then `tools\run_graphics_stress.bat 1` | ~3 min |
 | DX12 renderer validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat`, then `tools\run_graphics_stress.bat 1` | ~3 min |
 | Physics, collision, solver, or rigid body changes | `tools\validate_physics.bat` | 2 engine processes |
@@ -835,9 +868,10 @@ render, or tool gate; it does not replace it.
 | `tools/check_replay_visual_fidelity.py`, `tools/replay_query.py`, `tools/validate_replay_visual_fidelity.bat`, or `tools/validate_replay_scrub.bat` | `validate_fast`, then `validate_replay_visual_fidelity.bat` |
 | `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
 | `Core/Allocation/*` | `validate_perf` |
-| `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
+| `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | Compile affected code, then run `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change. A source-context-only refresh may use the fast lane after owner/phase/cap/operation are proved unchanged |
 | `tools/check_determinism_math_policy.py` | `validate_fast`, then `python tools\check_determinism_math_policy.py --self-test` and `python tools\check_determinism_math_policy.py --repo .` |
-| `tools/check_source_design.py`, changed C++ function signatures/shape, parameter structs, or local refactor cleanup | `validate_fast`, then `python tools\check_source_design.py --repo . --self-test` and `python tools\check_source_design.py --repo .` |
+| `tools/check_source_design.py` itself | Compile its fixtures, then run `python tools\check_source_design.py --repo . --self-test` and `python tools\check_source_design.py --repo .` |
+| Changed C++ function signatures/shape, parameter structs, or local refactor cleanup | Fast lane when otherwise eligible: compile every affected target and run `python tools\check_source_design.py --repo . --files <changed source paths>`; hosted CI owns the exhaustive repository scan |
 | `Agentic/Reference/engine-glossary.md`, `Agentic/Reference/comment-style-guide.md`, `Agentic/Skills/comment-style-audit/skill.md`, or `Agentic/Skills/rubber-duck/SKILL.md` glossary rules | Documentation-only changes require no repository validation; review touched glossary ownership and wording directly |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
 | `tools/check_build_config_consistency.py`, `tools/build_config_rulings.json`, or any root first-party `*.vcxproj` | `validate_fast`, then `python tools\check_build_config_consistency.py --self-test` and `python tools\check_build_config_consistency.py --repo .` |
@@ -863,13 +897,16 @@ owned paths and reject similarly suffixed files outside the hull directory.
 
 ## Rules
 
-- **Repository validation scripts are PR/commit gates.** Do not run `tools\validate_*` merely as you go. During iteration, use targeted builds, launches, focused tests, or inspections only when they answer a specific question about the fix.
+- **Feature-branch push and merge are separate gates.** Do not run every `tools\validate_*` command merely as you go. A green selected local lane permits a feature-branch push so hosted CI can run the exhaustive work in parallel. Merge requires the complete cumulative mapping.
 - **Full validation is a terminal plan gate.** Run `tools\agent_validate.bat --plan-completion` once only when an entire implementation plan is closing. Never run it for an intermediate task, ordinary commit/PR preparation, comment cleanup, documentation, or because scope is merely broad or uncertain.
 - **Renderer validation must fail fast.** `tools\validate_dx12_renderer.bat` builds `Profile` first and must stop before launching DX12 if compilation fails. Renderer launches in that script use PID-scoped timeouts, then `tools\check_dx12_baselines.py` handles image comparison artifacts.
 - **DX12-only validation is the production safety net.** `tools\validate_dx12_renderer.bat` builds `Profile`, launches only DX12, checks `dx12_validation.txt`, and compares captures against committed DX12 baselines.
 - **Every DX12 modification requires a crash-free stress run of at least 10 seconds.** This applies to DX12 runtime source, shaders, resource/binding contracts, and DX12 validation tooling. The standard bounded command is `tools\run_graphics_stress.bat 1` (one minute); record its command, measured runtime, and successful exit evidence. A shorter custom launch is acceptable only when its measured runtime is at least 10 seconds and the process exits without a crash.
 - **Never claim validation success without command output.** Paste the validation output when validation is required.
-- **Never skip required pre-commit/PR validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
+- **Never skip compilation in a code-bearing local lane.** Exhaustive platform,
+  configuration, and focused validation may be deferred from a feature-branch
+  push only when the selected lane allows it, the exact deferral is reported,
+  and mandatory CI runs it before merge.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
 ### Physics Golden Governance
 
