@@ -134,49 +134,6 @@ template <typename T> uint64_t ListCapacityBytes( const T& values )
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 
-float SolverBodyRadius( std::span<const ColliderRecord> colliderRecords, int bodyIndex )
-{
-    return colliderRecords[static_cast<size_t>( bodyIndex )].boundingRadius;
-}
-
-bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> pointJointConstraints,
-                           int bodyA, int bodyB )
-{
-    if ( bodyA < 0 || bodyB < 0 || bodyA == bodyB )
-    {
-        return false;
-    }
-
-    if ( bodyA > bodyB )
-    {
-        std::swap( bodyA, bodyB );
-    }
-
-    for ( const PointJointConstraint& constraint : pointJointConstraints )
-    {
-        int jointA = constraint.BodyAIndex( bodyStore );
-        int jointB = constraint.BodyBIndex( bodyStore );
-
-        if ( jointA < 0 || jointB < 0 )
-        {
-            continue;
-        }
-
-        if ( jointA > jointB )
-        {
-            std::swap( jointA, jointB );
-        }
-
-        if ( jointA == bodyA && jointB == bodyB )
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-
 CoreAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 {
     static const CoreAllocation::RuntimeReserveOwnerHandle owner = CoreAllocation::RuntimeReserveAllocator::RegisterOwner(
