@@ -1,4 +1,4 @@
 interface:
   display_name: "Parallel Orchestrator"
   short_description: "Fill safe slots across distinct subsystems"
-  default_prompt: "Use $parallel-orchestrator to fill worthwhile slots with one isolated worktree per worker, one active plan per subsystem, and eligible bugs from different unleased subsystems, then integrate through the main orchestrator."
+  default_prompt: "Use $parallel-orchestrator to fill worthwhile slots with one isolated worktree per worker, one active plan or cohesive bug batch per subsystem, and one consolidated review per bug batch, then integrate through the main orchestrator."
