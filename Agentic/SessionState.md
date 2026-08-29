@@ -2,14 +2,14 @@
 
 Date: 2026-08-30
 Branch: `codex/replay-capture-bugfixes`
-Status: Source Design Validation Throughput active; 131/135 implementation
+Status: Source Design Validation Throughput active; 132/135 implementation
 tasks complete; bug ledger 126/126 fixed
 
 ## Current State
 
 The owner reactivated two WNF plans for sequential implementation on the
 current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is complete at 4/4;
-`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is active at 1/5. The pre-existing
+`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is active at 2/5. The pre-existing
 uncommitted Physics solver experiment, its focused test, two sleep scenes, and
 local investigation report remain outside both plans and must not be staged or
 reformatted.
@@ -71,6 +71,17 @@ The refreshed runner is `windows-2022` image `20260824.284.2`; local LLVM is
 22.1.3. The self-test and a five-context live source scan pass with the new
 summary and zero findings or infrastructure errors. No test, coverage,
 Physics, or golden baseline changed.
+
+SDT1 batches the four unchanged Clang Query matchers into one parsed session
+per source/context. Explicit section and bound-location accounting rejects a
+missing rule, partial command stream, truncated match output, or malformed
+matcher as infrastructure failure. Independent fixtures cover each rule and
+multi-rule files. A planted all-four-rules comparison is byte-identical to the
+pre-change diagnostics at stderr SHA-256 `43e42af4a712ca0a920cef9785c2cec28a661dbd2afb5bb8cf7934709acc4404`.
+The exact 79-file/623-context reference passes with 623 Tidy plus 623 Query
+launches, zero findings/errors, and 1,480.681 seconds elapsed, down from the
+3,274.505-second first serial reference. No selection, compiler argument,
+matcher, threshold, failure class, test, coverage, or baseline changed.
 
 The ignored work ledger retains an unfinished 2026-08-28 goal from another
 Codex task (`GOV1`, `finding-fix-01`). The orchestrator refused to start a new
@@ -993,7 +1004,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Implement `SOURCE_DESIGN_THROUGHPUT` SDT1-SDT4 in order on the same branch.
+Implement `SOURCE_DESIGN_THROUGHPUT` SDT2-SDT4 in order on the same branch.
 
 ## Blockers
 

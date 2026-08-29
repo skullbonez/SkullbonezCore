@@ -406,28 +406,64 @@ def clang_tidy_findings(repo: Path, source: Path, tidy: Path, arguments: tuple[s
 
 
 def clang_query_findings(
-    repo: Path, source: Path, query: Path, arguments: tuple[str, ...] | None = None
+    repo: Path,
+    source: Path,
+    query: Path,
+    arguments: tuple[str, ...] | None = None,
+    commands: dict[str, str] | None = None,
 ) -> dict[str, list[str]]:
-    findings: dict[str, list[str]] = {}
-    for label, matcher in QUERY_COMMANDS.items():
-        result = run(
-            [str(query), "-c", matcher, str(source), "--", *(arguments or tuple(compile_arguments(repo)))],
-            repo,
+    active_commands = QUERY_COMMANDS if commands is None else commands
+    if tuple(active_commands) != tuple(QUERY_COMMANDS):
+        missing = sorted(set(QUERY_COMMANDS) - set(active_commands))
+        extra = sorted(set(active_commands) - set(QUERY_COMMANDS))
+        raise RuntimeError(f"clang-query command inventory is incomplete: missing={missing} extra={extra}")
+
+    command = [str(query)]
+    for matcher in active_commands.values():
+        command.extend(("-c", matcher))
+    command.extend((str(source), "--", *(arguments or tuple(compile_arguments(repo)))))
+    result = run(command, repo)
+    output = result.stdout + result.stderr
+    if result.returncode != 0:
+        raise RuntimeError(f"clang-query failed for {source}:\n{output}")
+
+    return parse_batched_query_output(source, output, tuple(active_commands))
+
+
+def parse_batched_query_output(
+    source: Path,
+    output: str,
+    expected_labels: tuple[str, ...] = tuple(QUERY_COMMANDS),
+) -> dict[str, list[str]]:
+    count_matches = list(MATCH_COUNT_RE.finditer(output))
+    if len(count_matches) != len(expected_labels):
+        raise RuntimeError(
+            f"clang-query completed {len(count_matches)}/{len(expected_labels)} rules for {source}: "
+            f"expected={list(expected_labels)}"
         )
-        output = result.stdout + result.stderr
-        if result.returncode != 0:
-            raise RuntimeError(f"clang-query failed for {source}:\n{output}")
+
+    findings: dict[str, list[str]] = {}
+    section_start = 0
+    for label, count_match in zip(expected_labels, count_matches, strict=True):
+        section = output[section_start : count_match.end()]
+        section_start = count_match.end()
+        count = int(count_match.group(1))
+        root_lines = [line for line in section.splitlines() if 'note: "root" binds here' in line]
+        if len(root_lines) != count:
+            raise RuntimeError(
+                f"clang-query reported {count} matches but {len(root_lines)} bound locations "
+                f"for {label!r} in {source}"
+            )
 
         if label == "parameter struct unpack":
-            locations = collections.Counter(QUERY_ROOT_RE.findall(output))
+            locations = collections.Counter(QUERY_ROOT_RE.findall(section))
             grouped = [f"{path}:{line}" for (path, line), count in locations.items() if count >= UNPACK_THRESHOLD]
             if grouped:
                 findings[label] = grouped
             continue
 
-        counts = [int(match.group(1)) for match in MATCH_COUNT_RE.finditer(output)]
-        if any(counts):
-            findings[label] = [line for line in output.splitlines() if 'note: "root" binds here' in line]
+        if count:
+            findings[label] = root_lines
     return findings
 
 
@@ -453,12 +489,13 @@ def measured_query_findings(
     query: Path,
     arguments: tuple[str, ...],
     measurements: SourceDesignMeasurements,
+    commands: dict[str, str] | None = None,
 ) -> dict[str, list[str]]:
     started = time.perf_counter()
-    measurements.query_process_count += len(QUERY_COMMANDS)
+    measurements.query_process_count += 1
     measurements.peak_workers = max(measurements.peak_workers, 1)
     try:
-        return clang_query_findings(repo, source, query, arguments)
+        return clang_query_findings(repo, source, query, arguments, commands)
     finally:
         measurements.query_seconds += time.perf_counter() - started
 
@@ -809,7 +846,7 @@ def prove_work_item_enumeration(repo: Path) -> None:
         source_count=2,
         context_count=5,
         tidy_process_count=5,
-        query_process_count=20,
+        query_process_count=5,
         peak_workers=1,
     ).summary()
     if "\n" in summary or not all(
@@ -819,7 +856,7 @@ def prove_work_item_enumeration(repo: Path) -> None:
             "sources=2",
             "contexts=5",
             "tidy_processes=5",
-            "query_processes=20",
+            "query_processes=5",
             "findings=0",
             "infrastructure_errors=0",
         )
@@ -854,7 +891,9 @@ def self_test(
         ),
         "nested.cpp": "int Helper(int v){if(v){if(v){if(v){if(v){if(v){if(v){return v;}}}}}}return 0;} int Root(int v){return Helper(v);}\n",
         "struct.cpp": "struct Values{int a;int b;int c;int d;}; int Read(Values v){const int a=v.a;const int b=v.b;const int c=v.c;const int d=v.d;return a+b+c+d;}\n",
-        "locals.cpp": "int Leftovers(const int& input){const int& alias=input;int m_local=alias;return m_local;}\n",
+        "member.cpp": "int MemberPrefix(){int m_local=1;return m_local;}\n",
+        "alias.cpp": "int Alias(const int& input){const int& alias=input;return alias;}\n",
+        "multi.cpp": "int Leftovers(const int& input){const int& alias=input;int m_local=alias;return m_local;}\n",
         "clean.cpp": "struct Values{int a;int b;}; int Read(const Values& v){return v.a+v.b;} int Sum(int a,int b){return a+b;}\n",
         "large.cpp": "int Large(int value) {\n" + "value += 1;\n" * 401 + "return value;\n}\n",
     }
@@ -892,14 +931,77 @@ def self_test(
         )
         if "parameter struct unpack" not in struct_findings:
             raise AssertionError("parameter-struct entry-unpack negative control was not rejected")
-        local_findings = measured_query_findings(
-            repo, paths["locals.cpp"], query, tuple(compile_arguments(repo)), measurements
+        member_findings = measured_query_findings(
+            repo, paths["member.cpp"], query, tuple(compile_arguments(repo)), measurements
         )
-        if "member-prefixed local" not in local_findings or "pure parameter alias" not in local_findings:
-            raise AssertionError("local-code negative controls were not rejected")
+        if set(member_findings) != {"member-prefixed local"}:
+            raise AssertionError(f"member-local batching lost rule attribution: {member_findings}")
+        alias_findings = measured_query_findings(
+            repo, paths["alias.cpp"], query, tuple(compile_arguments(repo)), measurements
+        )
+        if set(alias_findings) != {"pure parameter alias"}:
+            raise AssertionError(f"parameter-alias batching lost rule attribution: {alias_findings}")
+        multi_findings = measured_query_findings(
+            repo, paths["multi.cpp"], query, tuple(compile_arguments(repo)), measurements
+        )
+        if set(multi_findings) != {"member-prefixed local", "pure parameter alias"}:
+            raise AssertionError(f"multi-rule batching lost rule attribution: {multi_findings}")
         fixture_context = [CompileContext("fixture", "default", tuple(compile_arguments(repo)))]
         if inspect_source(repo, paths["clean.cpp"], tidy, query, fixture_context, measurements):
             raise AssertionError("clean compiler fixture produced a finding")
+
+        incomplete_commands = dict(list(QUERY_COMMANDS.items())[:-1])
+        try:
+            clang_query_findings(
+                repo,
+                paths["clean.cpp"],
+                query,
+                tuple(compile_arguments(repo)),
+                incomplete_commands,
+            )
+        except RuntimeError as error:
+            if "command inventory is incomplete" not in str(error):
+                raise AssertionError(f"missing-rule control reported the wrong error: {error}") from error
+        else:
+            raise AssertionError("missing Query rule was accepted")
+
+        partial_output = "\n".join("0 matches." for _ in range(len(QUERY_COMMANDS) - 1))
+        try:
+            parse_batched_query_output(paths["clean.cpp"], partial_output)
+        except RuntimeError as error:
+            if "3/4 rules" not in str(error):
+                raise AssertionError(f"partial-command control reported the wrong error: {error}") from error
+        else:
+            raise AssertionError("partial Query execution reported a clean result")
+
+        truncated_locations = (
+            f'{paths["clean.cpp"]}:1:1: note: "root" binds here\n'
+            "2 matches.\n0 matches.\n0 matches.\n0 matches."
+        )
+        try:
+            parse_batched_query_output(paths["clean.cpp"], truncated_locations)
+        except RuntimeError as error:
+            if "2 matches but 1 bound locations" not in str(error):
+                raise AssertionError(f"truncated-location control reported the wrong error: {error}") from error
+        else:
+            raise AssertionError("truncated Query locations reported a complete result")
+
+        malformed_commands = dict(QUERY_COMMANDS)
+        malformed_commands["wide declaration"] = "match functionDecl("
+        try:
+            measured_query_findings(
+                repo,
+                paths["clean.cpp"],
+                query,
+                tuple(compile_arguments(repo)),
+                measurements,
+                malformed_commands,
+            )
+        except RuntimeError as error:
+            if "clang-query failed" not in str(error):
+                raise AssertionError(f"malformed-command control reported the wrong error: {error}") from error
+        else:
+            raise AssertionError("malformed Query command reported a clean result")
 
     dead_code_started = time.perf_counter()
     prove_dead_code_elimination(clang_cl, linker)
@@ -918,16 +1020,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--files", nargs="*", type=Path)
+    parser.add_argument("--jobs", type=int, default=1)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     repo = args.repo.resolve()
-    measurements = SourceDesignMeasurements("self-test" if args.self_test else "live")
+    measurements = SourceDesignMeasurements(
+        "self-test" if args.self_test else "live",
+        configured_workers=args.jobs,
+    )
     total_started = time.perf_counter()
     exit_code = 2
     try:
+        if args.jobs != 1:
+            raise RuntimeError("--jobs supports only 1 until bounded concurrency is enabled")
         tidy = llvm_tool("clang-tidy")
         query = llvm_tool("clang-query")
         clang_cl = msvc_tool("cl")

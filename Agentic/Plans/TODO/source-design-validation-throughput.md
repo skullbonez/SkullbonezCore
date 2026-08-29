@@ -1,7 +1,7 @@
 # Source Design Validation Throughput
 
 Date: 2026-08-29
-Status: Active by owner direction on 2026-08-30. 1/5 phases complete
+Status: Active by owner direction on 2026-08-30. 2/5 phases complete
 Impact area: validation tooling and mandatory Windows CPU CI
 Owner: Validation tooling
 Priority: Second active plan
@@ -210,16 +210,16 @@ diagnostic only and never changes pass/fail.
   retain source count, context count, process count, findings, elapsed time, and
   peak memory as the before measurement.
 
-### SDT1 - Batch the four Clang Query matchers
+### SDT1 - Batch the four Clang Query matchers (complete 2026-08-30)
 
-- [ ] Replace four Query launches per context with one session executing all
+- [x] Replace four Query launches per context with one session executing all
   four unchanged matchers against one syntax tree.
-- [ ] Add negative fixtures where each rule fails independently and where
+- [x] Add negative fixtures where each rule fails independently and where
   several rules fail in the same file. Each label and location must remain
   attributable after batching.
-- [ ] Add malformed-command and partial-command controls proving a missing rule
+- [x] Add malformed-command and partial-command controls proving a missing rule
   cannot report a clean result.
-- [ ] Compare `--jobs 1` output, findings, contexts, and exit values against the
+- [x] Compare `--jobs 1` output, findings, contexts, and exit values against the
   pre-change serial reference. The expected process count for the recorded
   workload is 623 Tidy plus 623 Query launches.
 
