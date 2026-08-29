@@ -137,7 +137,7 @@ STAGE_MANIFEST = [
     {
         "id": "cpu.2_coverage",
         "parent": "full.2_cpu_tests",
-        "name": "CPU 2/6: Microsoft native coverage gate",
+        "name": "CPU 2/6: OpenCppCoverage coverage gate",
         "command": "tools\\validate_coverage.bat",
         "defect_class": "Line and branch test coverage floors",
         "blocking": True
