@@ -1,12 +1,12 @@
 # MASTER PLAN
 
 Date: 2026-08-30
-Status: Active plan; 134/135 tasks complete; bug ledger 126/126 fixed
+Status: No active plan; 135/135 tasks complete; bug ledger 126/126 fixed
 
 ## Owner Direction
 
 - Runtime Reserve Allocation Transaction completed at 4/4 on 2026-08-30.
-  Source Design Validation Throughput is active at 0/5 on the same
+  Source Design Validation Throughput then completed at 5/5 on the same
   `codex/replay-capture-bugfixes` branch, as directed by the owner.
 
 - Governance Simplification And Scar Removal completed after Recorded
@@ -321,9 +321,7 @@ Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
-| Plan | Status | Phases | File |
-|---|---|---:|---|
-| Source Design Validation Throughput | Active by owner direction 2026-08-30 | 4/5 | `TODO/source-design-validation-throughput.md` |
+No active plans.
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -356,9 +354,8 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`RESERVE_TRANSACTION` RAT0-RAT3 is complete.
-`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 now executes in strict internal order on
-`codex/replay-capture-bugfixes`.
+`RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
+complete on `codex/replay-capture-bugfixes`.
 
 `GOVERNANCE_SIMPLIFICATION` phases 1-5 are implemented and in terminal
 re-review. `RECORDED_CURSOR` RIC0-RIC3 is complete, and the bug ledger has no
@@ -389,7 +386,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-134/135 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
+135/135 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen

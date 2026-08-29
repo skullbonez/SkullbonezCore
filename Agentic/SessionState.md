@@ -2,14 +2,14 @@
 
 Date: 2026-08-30
 Branch: `codex/replay-capture-bugfixes`
-Status: Source Design Validation Throughput active; 134/135 implementation
-tasks complete; bug ledger 126/126 fixed
+Status: No active plan; 135/135 implementation tasks complete; bug ledger
+126/126 fixed
 
 ## Current State
 
 The owner reactivated two WNF plans for sequential implementation on the
-current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is complete at 4/4;
-`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is active at 4/5. The pre-existing
+current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is complete at 4/4 and
+`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is complete at 5/5. The pre-existing
 uncommitted Physics solver experiment, its focused test, two sleep scenes, and
 local investigation report remain outside both plans and must not be staged or
 reformatted.
@@ -106,6 +106,21 @@ the complete table at 94.557 seconds and retained the existing 22 findings.
 The plain-language prerequisite now passes after two wording-only repairs in an
 inactive WNF plan. No workflow split, scan duplication, context pruning, test,
 coverage, or baseline change occurred.
+
+SDT4 closes at exact measured implementation `4894b9f0`. The 79-file/623-context
+reference completes 623 Tidy and 623 batched Query analyses in 440.016 seconds
+with four workers, a 3.38-times improvement over the unchanged 1,488.086-second
+batched serial path. Stable output remains byte-identical. The final 21-file/154-
+context scan passes in 128.044 seconds, and hosted runs `33274650785` and
+`33274651985` complete source design in 177.089 and 218.936 seconds and their
+mandatory jobs in 18m15s and 20m14s. Independent review first found
+completion-order-dependent failure admission; fixed deterministic prefixes and
+the new fast/slow failure control closed it, and follow-up review is blocker-free.
+The exactly-once terminal lane passes builds, preflight, 893 discovered unit
+cases with 2,692,862 assertions, coverage, all CPU suites, Automation, and DX12
+InfoQueue before reproducing the exact pre-plan water/solver screenshot mismatch.
+No baseline was refreshed. Closure evidence is under
+`Agentic/Plans/Artifacts/source-design-validation-throughput/SDT4/`.
 
 The ignored work ledger retains an unfinished 2026-08-28 goal from another
 Codex task (`GOV1`, `finding-fix-01`). The orchestrator refused to start a new
@@ -1028,7 +1043,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Complete `SOURCE_DESIGN_THROUGHPUT` SDT4 on the same branch.
+No active plan. Await owner direction.
 
 ## Blockers
 
