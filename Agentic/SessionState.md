@@ -2,17 +2,27 @@
 
 Date: 2026-08-30
 Branch: `codex/replay-capture-bugfixes`
-Status: Runtime Reserve Allocation Transaction active; 126/135 implementation
+Status: Runtime Reserve Allocation Transaction active; 127/135 implementation
 tasks complete; bug ledger 126/126 fixed
 
 ## Current State
 
 The owner reactivated two WNF plans for sequential implementation on the
-current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is active at 0/4;
+current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is active at 1/4;
 `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is queued at 0/5 and begins only after
 RAT3 closes. The pre-existing uncommitted Physics solver experiment, its
 focused test, two sleep scenes, and local investigation report remain outside
 both plans and must not be staged or reformatted.
+
+RAT0 adds the non-copyable, non-movable Core
+`RuntimeReserveAllocationScope`. Its member order establishes phase, owner, and
+grant together and closes them in reverse order. Five focused cases cover
+context restoration, unused grant release, exact real-allocation consumption
+with the guard off, nested restoration, mismatched owner/phase rejection, and
+thread-local isolation without consuming more process-lifetime test-owner
+slots. The Profile test target compiled, the focused family passed 55/55
+assertions, the full suite passed 892/892 cases and 2,691,405 assertions, and
+format, allocation-policy, and compiler-backed source-design checks passed.
 
 The ignored work ledger retains an unfinished 2026-08-28 goal from another
 Codex task (`GOV1`, `finding-fix-01`). The orchestrator refused to start a new
@@ -935,8 +945,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Implement `RESERVE_TRANSACTION` RAT0, adding the composite Core allocation
-transaction and focused negative controls. Continue RAT1-RAT3 in order, then
+Implement `RESERVE_TRANSACTION` RAT1 by migrating the Physics and Replay
+allocation owners to the composite transaction. Continue RAT2-RAT3 in order, then
 implement `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 in order on the same branch.
 
 ## Blockers

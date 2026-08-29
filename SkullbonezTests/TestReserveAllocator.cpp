@@ -49,6 +49,7 @@ Related:
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <functional>
 #include <new>
 #include <ranges>
 #include <string>
@@ -73,6 +74,7 @@ using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+using SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope;
 using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
 using SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView;
 using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView;
@@ -101,12 +103,18 @@ using SkullbonezCore::Core::Allocation::TryAccountDevelopmentToolBackingMemory;
 
 static_assert( !std::is_copy_constructible_v<RuntimeReserveGrowthResult> );
 static_assert( !std::is_copy_assignable_v<RuntimeReserveGrowthResult> );
+static_assert( !std::is_copy_constructible_v<RuntimeReserveAllocationScope> );
+static_assert( !std::is_copy_assignable_v<RuntimeReserveAllocationScope> );
+static_assert( !std::is_move_constructible_v<RuntimeReserveAllocationScope> );
+static_assert( !std::is_move_assignable_v<RuntimeReserveAllocationScope> );
 
 namespace
 {
 constexpr const char*
     OWNER_REGISTRY_CHILD_SENTINEL_PATH = "TestOutput/validation/runtime_reserve_registry_capacity_child.ok";
 constexpr const char* OWNER_REGISTRY_CHILD_SENTINEL_TEXT = "CORE-002 runtime reserve registry capacity child passed\n";
+constexpr const char* TRANSACTION_PRIMARY_OWNER_NAME = "unit.reserve.e1.scope";
+constexpr const char* TRANSACTION_SECONDARY_OWNER_NAME = "unit.reserve.e1.grant";
 
 // Why: owner registration persists for the process lifetime; unique owner names
 // let ResetCounters() clear diagnostics between cases without a registry teardown.
@@ -884,6 +892,236 @@ TEST_CASE( "RuntimeReserveAllocator: replay growth scope approves only the grant
     // cannot reopen the allocation window.
     RuntimeReserveGrowthScope reusedScope( owner, RuntimeReservePhase::Replay, result );
     CHECK_FALSE( RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, 6 ) );
+}
+
+
+TEST_CASE( "RuntimeReserveAllocationScope: coherent context restores and releases an unused grant" )
+{
+    RuntimeReserveAllocator::ResetCounters();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::BackendInit );
+    const RuntimeReserveOwnerHandle outerOwner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( TRANSACTION_SECONDARY_OWNER_NAME ) );
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( TRANSACTION_PRIMARY_OWNER_NAME ) );
+    REQUIRE( outerOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
+    RuntimeReserveGrowthResult
+        result = RuntimeReserveAllocator::RequestGrowth( owner, MakeGrowthRequest( TRANSACTION_PRIMARY_OWNER_NAME, 4, 6,
+                                                                                   RuntimeReservePhase::Replay, 48u ) );
+    REQUIRE( result.granted );
+
+    RuntimeReserveOwnerStatsView stats = {};
+    REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, stats ) );
+    CHECK( stats.pendingReplayGrantBytes == 48u );
+
+    {
+        RuntimeReserveOwnerScope outerOwnerScope( outerOwner );
+        CHECK( RuntimeReserveAllocator::CurrentOwner() == outerOwner );
+        {
+            RuntimeReserveAllocationScope transaction( owner, RuntimeReservePhase::Replay, result );
+            CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay );
+            CHECK( RuntimeReserveAllocator::CurrentOwner() == owner );
+            CHECK( RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, 6 ) );
+        }
+        CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::BackendInit );
+        CHECK( RuntimeReserveAllocator::CurrentOwner() == outerOwner );
+    }
+
+    REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, stats ) );
+    CHECK( stats.pendingReplayGrantBytes == 0u );
+    CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::BackendInit );
+    CHECK( RuntimeReserveAllocator::CurrentOwner() == INVALID_RUNTIME_RESERVE_OWNER );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
+}
+
+
+TEST_CASE( "RuntimeReserveAllocationScope: an exact allocation consumes one grant with the guard off" )
+{
+    RuntimeReserveAllocator::ResetCounters();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( TRANSACTION_PRIMARY_OWNER_NAME ) );
+    REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
+    RuntimeReserveGrowthResult
+        result = RuntimeReserveAllocator::RequestGrowth( owner, MakeGrowthRequest( TRANSACTION_PRIMARY_OWNER_NAME, 4, 6,
+                                                                                   RuntimeReservePhase::Replay, 32u ) );
+    REQUIRE( result.granted );
+
+    void* allocation = nullptr;
+    RuntimeReserveOwnerStatsView baselineStats = {};
+    REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, baselineStats ) );
+    RuntimeReserveOwnerStatsView activeStats = {};
+    {
+        RuntimeReserveAllocationScope transaction( owner, RuntimeReservePhase::Replay, result );
+        allocation = ::operator new( 32u );
+        CHECK_FALSE( RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, 6 ) );
+        REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, activeStats ) );
+    }
+    CHECK( activeStats.allocations == 1u );
+    CHECK( activeStats.activeBytes == baselineStats.activeBytes + 32u );
+    CHECK( activeStats.pendingReplayGrantBytes == 0u );
+
+    {
+        RuntimeReserveAllocationScope reusedTransaction( owner, RuntimeReservePhase::Replay, result );
+        CHECK_FALSE( RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, 6 ) );
+    }
+    ::operator delete( allocation );
+
+    RuntimeReserveOwnerStatsView freedStats = {};
+    REQUIRE( RuntimeReserveAllocator::CopyOwnerStats( owner, freedStats ) );
+    CHECK( freedStats.activeBytes == baselineStats.activeBytes );
+    CHECK( freedStats.pendingReplayGrantBytes == 0u );
+}
+
+
+TEST_CASE( "RuntimeReserveAllocationScope: nested transactions restore the outer context and allowance" )
+{
+    RuntimeReserveAllocator::ResetCounters();
+    const RuntimeReserveOwnerHandle outerOwner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( TRANSACTION_PRIMARY_OWNER_NAME ) );
+    const RuntimeReserveOwnerHandle innerOwner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( TRANSACTION_SECONDARY_OWNER_NAME ) );
+    REQUIRE( outerOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    REQUIRE( innerOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    RuntimeReserveGrowthResult
+        outer = RuntimeReserveAllocator::RequestGrowth( outerOwner, MakeGrowthRequest( TRANSACTION_PRIMARY_OWNER_NAME, 4, 8,
+                                                                                       RuntimeReservePhase::Replay, 64u ) );
+    RuntimeReserveGrowthResult
+        inner = RuntimeReserveAllocator::RequestGrowth( innerOwner,
+                                                        MakeGrowthRequest( TRANSACTION_SECONDARY_OWNER_NAME, 4, 5,
+                                                                           RuntimeReservePhase::Replay, 16u ) );
+    REQUIRE( outer.granted );
+    REQUIRE( inner.granted );
+
+    uint64_t outerAccountingGeneration = 0u;
+    uint64_t innerAccountingGeneration = 0u;
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Render );
+    {
+        RuntimeReserveAllocationScope outerTransaction( outerOwner, RuntimeReservePhase::Replay, outer );
+        REQUIRE( RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( outerOwner, 6, 8u,
+                                                                                    &outerAccountingGeneration ) );
+        {
+            RuntimeReserveAllocationScope innerTransaction( innerOwner, RuntimeReservePhase::Replay, inner );
+            CHECK( RuntimeReserveAllocator::CurrentOwner() == innerOwner );
+            REQUIRE( RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( innerOwner, 6, 16u,
+                                                                                        &innerAccountingGeneration ) );
+        }
+        CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay );
+        CHECK( RuntimeReserveAllocator::CurrentOwner() == outerOwner );
+        CHECK( RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( outerOwner, 6, 56u ) );
+    }
+    CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Render );
+    CHECK( RuntimeReserveAllocator::CurrentOwner() == INVALID_RUNTIME_RESERVE_OWNER );
+    RuntimeReserveAllocator::RecordFree( outerOwner, 64u, outerAccountingGeneration );
+    RuntimeReserveAllocator::RecordFree( innerOwner, 16u, innerAccountingGeneration );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
+}
+
+
+TEST_CASE( "RuntimeReserveAllocationScope: mismatched context cannot manufacture approval" )
+{
+    RuntimeReserveAllocator::ResetCounters();
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( TRANSACTION_PRIMARY_OWNER_NAME ) );
+    const RuntimeReserveOwnerHandle wrongOwner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( TRANSACTION_SECONDARY_OWNER_NAME ) );
+    REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
+    REQUIRE( wrongOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    RuntimeReserveGrowthResult
+        ownerMismatch = RuntimeReserveAllocator::RequestGrowth( owner,
+                                                                MakeGrowthRequest( TRANSACTION_PRIMARY_OWNER_NAME, 4, 5,
+                                                                                   RuntimeReservePhase::Replay, 16u ) );
+    RuntimeReserveGrowthResult
+        phaseMismatch = RuntimeReserveAllocator::RequestGrowth( owner,
+                                                                MakeGrowthRequest( TRANSACTION_PRIMARY_OWNER_NAME, 5, 6,
+                                                                                   RuntimeReservePhase::Replay, 16u ) );
+    REQUIRE( ownerMismatch.granted );
+    REQUIRE( phaseMismatch.granted );
+
+    {
+        RuntimeReserveAllocationScope wrongOwnerTransaction( wrongOwner, RuntimeReservePhase::Replay, ownerMismatch );
+        CHECK_FALSE( RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( wrongOwner, 6 ) );
+        CHECK_FALSE( RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, 6 ) );
+    }
+    {
+        RuntimeReserveAllocationScope matchingOwnerTransaction( owner, RuntimeReservePhase::Replay, ownerMismatch );
+        CHECK( RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, 6 ) );
+    }
+    {
+        RuntimeReserveAllocationScope wrongPhaseTransaction( owner, RuntimeReservePhase::SceneLoad, phaseMismatch );
+        CHECK_FALSE( RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, 1 ) );
+        CHECK_FALSE( RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, 6 ) );
+    }
+    {
+        RuntimeReserveAllocationScope matchingPhaseTransaction( owner, RuntimeReservePhase::Replay, phaseMismatch );
+        CHECK( RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, 6 ) );
+    }
+}
+
+
+TEST_CASE( "RuntimeReserveAllocationScope: concurrent transactions retain thread-local context" )
+{
+    RuntimeReserveAllocator::ResetCounters();
+    const RuntimeReserveOwnerHandle firstOwner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( TRANSACTION_PRIMARY_OWNER_NAME ) );
+    const RuntimeReserveOwnerHandle secondOwner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( TRANSACTION_SECONDARY_OWNER_NAME ) );
+    REQUIRE( firstOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    REQUIRE( secondOwner != INVALID_RUNTIME_RESERVE_OWNER );
+    RuntimeReserveGrowthResult
+        firstResult = RuntimeReserveAllocator::RequestGrowth( firstOwner,
+                                                              MakeGrowthRequest( TRANSACTION_PRIMARY_OWNER_NAME, 4, 5,
+                                                                                 RuntimeReservePhase::Replay, 16u ) );
+    RuntimeReserveGrowthResult
+        secondResult = RuntimeReserveAllocator::RequestGrowth( secondOwner,
+                                                               MakeGrowthRequest( TRANSACTION_SECONDARY_OWNER_NAME, 4, 5,
+                                                                                  RuntimeReservePhase::Replay, 16u ) );
+    REQUIRE( firstResult.granted );
+    REQUIRE( secondResult.granted );
+    std::atomic<int> ready { 0 };
+    std::atomic<bool> inspect { false };
+    std::array<bool, 2> contextIsolated = {};
+    std::array<uint64_t, 2> accountingGenerations = {};
+
+    const auto runTransaction = [&]( int index, RuntimeReserveOwnerHandle owner, RuntimeReserveOwnerHandle otherOwner,
+                                     RuntimeReserveGrowthResult& result )
+    {
+        SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
+        {
+            RuntimeReserveAllocationScope transaction( owner, RuntimeReservePhase::Replay, result );
+            ready.fetch_add( 1, std::memory_order_release );
+            while ( !inspect.load( std::memory_order_acquire ) )
+            {
+                std::this_thread::yield();
+            }
+            contextIsolated[index] = GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay &&
+                                     RuntimeReserveAllocator::CurrentOwner() == owner &&
+                                     RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, 6 ) &&
+                                     !RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( otherOwner, 6 );
+            contextIsolated[index] = contextIsolated[index] &&
+                                     RuntimeReserveAllocator::
+                                         TryConsumeApprovedReplayGrowthAllocation( owner, 6, 16u,
+                                                                                   &accountingGenerations[index] );
+        }
+        contextIsolated[index] = contextIsolated[index] &&
+                                 GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Diagnostics &&
+                                 RuntimeReserveAllocator::CurrentOwner() == INVALID_RUNTIME_RESERVE_OWNER;
+        RuntimeReserveAllocator::RecordFree( owner, 16u, accountingGenerations[index] );
+    };
+
+    std::thread firstThread( runTransaction, 0, firstOwner, secondOwner, std::ref( firstResult ) );
+    std::thread secondThread( runTransaction, 1, secondOwner, firstOwner, std::ref( secondResult ) );
+    while ( ready.load( std::memory_order_acquire ) != 2 )
+    {
+        std::this_thread::yield();
+    }
+    inspect.store( true, std::memory_order_release );
+    firstThread.join();
+    secondThread.join();
+
+    CHECK( contextIsolated[0] );
+    CHECK( contextIsolated[1] );
 }
 
 

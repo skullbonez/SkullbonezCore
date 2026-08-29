@@ -1,7 +1,7 @@
 # Runtime Reserve Allocation Transaction
 
 Date: 2026-08-29
-Status: Active by owner direction on 2026-08-30. 0/4 tasks complete.
+Status: Active by owner direction on 2026-08-30. 1/4 tasks complete.
 Impact area: Core allocation policy, Physics capacity commits, Replay retained
 growth, Prediction retained growth, focused allocation tests, and cumulative
 allocation validation.
@@ -167,7 +167,7 @@ Do not add a regex count ratchet or allowlist to enforce that review rule.
 
 ## Tasks
 
-### RAT0 — Add the composite contract and focused negative controls
+### RAT0 — Add the composite contract and focused negative controls (complete 2026-08-30)
 
 - Add `RuntimeReserveAllocationScope` beside the existing reserve scope types in
   `Core/Allocation`.

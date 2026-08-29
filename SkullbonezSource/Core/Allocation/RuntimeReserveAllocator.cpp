@@ -571,6 +571,12 @@ RuntimeReserveOwnerScope::~RuntimeReserveOwnerScope() noexcept
     RuntimeReserveAllocator::SetCurrentOwner( m_previous );
 }
 
+RuntimeReserveAllocationScope::RuntimeReserveAllocationScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase,
+                                                              RuntimeReserveGrowthResult& result ) noexcept
+    : m_allocationScope( phase ), m_ownerScope( owner ), m_growthScope( owner, phase, result )
+{
+}
+
 RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeReserveOwnerDesc& desc ) noexcept
 {
     // Invariant: registration is a cold, process-lifetime transaction. Holding

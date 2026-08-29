@@ -203,6 +203,27 @@ class RuntimeReserveOwnerScope
     RuntimeReserveOwnerHandle m_previous;
 };
 
+// Invariant: one lexical transaction publishes a coherent allocation phase,
+// reserve owner, and one-use growth grant. Member order is activation order so
+// reverse destruction closes the grant before restoring the owner and phase.
+class RuntimeReserveAllocationScope
+{
+  public:
+    RuntimeReserveAllocationScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase,
+                                   RuntimeReserveGrowthResult& result ) noexcept;
+    ~RuntimeReserveAllocationScope() noexcept = default;
+
+    RuntimeReserveAllocationScope( const RuntimeReserveAllocationScope& ) = delete;
+    RuntimeReserveAllocationScope& operator=( const RuntimeReserveAllocationScope& ) = delete;
+    RuntimeReserveAllocationScope( RuntimeReserveAllocationScope&& ) = delete;
+    RuntimeReserveAllocationScope& operator=( RuntimeReserveAllocationScope&& ) = delete;
+
+  private:
+    RuntimeAllocationScope m_allocationScope;
+    RuntimeReserveOwnerScope m_ownerScope;
+    RuntimeReserveGrowthScope m_growthScope;
+};
+
 class RuntimeReserveAllocator
 {
   public:
