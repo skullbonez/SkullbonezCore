@@ -44,11 +44,12 @@ this plan.
 
 ### One Explicit Contact-Edge Classifier
 
-`PhysicsSleepStepPolicy` owns a deterministic contact-edge classification with
-three results:
+Physics owns one deterministic contact-edge classification with three results:
 
-1. `StableSupport`: the solver row permits resting policy and its normal has the
-   existing vertical-support magnitude. This edge may join sleep progress.
+1. `StableSupport`: the existing solver-produced support candidate joins sleep
+   progress only while both endpoints are quiet. A terrain-footprint veto
+   classifies that terrain edge; it does not poison a distinct object-support
+   edge at the same endpoint.
 2. `ImpulseTransfer`: the contact-point closing speed reaches the existing linear
    sleep threshold. This edge does not join quiet counters, but it is eligible to
    wake a sleeper.
@@ -56,12 +57,12 @@ three results:
    sub-threshold closing motion. It remains a solver contact but shares neither
    sleep progress nor wake authority.
 
-Classification order matters. A stable support row remains `StableSupport` even
-when its ordinary gravity-support impulse exceeds the quiet speed threshold; this
-prevents the gravity load itself from turning a settled stack into an impact edge.
-No new numeric threshold is introduced. The classifier reuses the vertical-support
-normal boundary already used by object support propagation and the configured
-linear sleep threshold already used by wake admission.
+Classification order matters. A support candidate admitted by current endpoint
+state remains `StableSupport` even when its ordinary gravity-support impulse
+exceeds the quiet speed threshold; this prevents the gravity load itself from
+turning a settled stack into an impact edge. No new numeric threshold is
+introduced. The support producer retains its existing geometric boundary, while
+the classifier reuses the configured linear sleep threshold for wake admission.
 
 ### Sleep Progress Components
 
@@ -85,14 +86,15 @@ sliding, rotating, toppling, or temporarily touching its side. A vertically load
 support chain still advances as one group, and a stretched point joint still blocks
 its complete joint component.
 
-An exact terrain manifold is a body-local fixed support anchor even when the narrow
-footprint vetoes rest-only physical policy. The footprint classification continues
-to own its existing solver-policy decisions; it does not erase a confirmed contact.
-Once a positive quiet counter has observed stable support, a quiet one-frame
-manifold gap may continue that run, but the body can transition only on a frame
-with current support.
-Nonquiet motion still resets the counter. This uses the existing counter as the
-history witness and adds no retained state or threshold.
+`supportsRestingPolicy` remains the terrain owner's sleep authority. An exact
+terrain manifold with a narrow-footprint veto cannot be promoted into a support
+anchor merely because contact exists. That veto does not suppress independent
+object or joint support at the same body. A quiet body may advance and transition
+while a raw terrain veto is present only when current propagated support proves
+that independent path. A quiet unsupported manifold gap holds rather than
+increments a positive counter, and the raw veto blocks its transition. Nonquiet
+motion resets the counter. This uses the existing counter as the history witness
+and adds no retained state or threshold.
 
 ### Meaningful Wake Transfer
 
@@ -118,17 +120,18 @@ permitted.
 ## Phases
 
 - [ ] **SSC0 — Lock the classifier and negative controls.** Add the named edge
-  enum and policy methods. Pin stable vertical support, unsupported vertical
-  contact, transient side contact, threshold-below, threshold-equal, and
+  enum and Physics-owned policy method. Pin admitted stable support, vetoed
+  support, transient contact, threshold-below, threshold-equal, and
   threshold-above cases. Prove classification does not read friction or change
   any configured value.
 - [ ] **SSC1 — Build sleep progress from stable constraints only.** Replace the
   unconditional persistent-contact union with quiet-endpoint `StableSupport`
   admission while retaining the complete directed graph for support propagation.
-  Retain point-joint and sleeping visual-id grouping. Add a three-body regression
+  Retain point-joint and sleeping visual-id grouping. Add a four-body regression
   in which a quiet supported pair advances while a moving vertical neighbor does
-  not join it. Pin terrain-manifold support plus quiet-gap progress, nonquiet reset,
-  and the requirement for current support at the actual sleep transition.
+  not join it and a terrain-vetoed endpoint retains an independent object-support
+  edge. Pin supported progress and transition during a raw terrain veto, the veto
+  on an unsupported transition, quiet unsupported-gap hold, and nonquiet reset.
 - [ ] **SSC2 — Require contact-point closing motion for persistent wake.** Measure
   manifold point velocity before waking a persistent overlap. Add normal-closing,
   angular-closing, tangent-only, separating, just-below, and exact-threshold
@@ -193,11 +196,11 @@ moving the target.
 
 - `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
 - `SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp`
-- `SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp`
+- `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h`
 - `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp`
-- `SkullbonezSource/Physics/PersistentContactSolver.cpp`
+- `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp`
+- `SkullbonezSource/Physics/SleepIslandSystem.h`
 - `SkullbonezSource/Physics/PhysicsWorld.cpp`
-- `SkullbonezTests/TestPersistentContactSolver.cpp`
 - `SkullbonezTests/TestPhysicsStageState.cpp`
 - `SkullbonezData/scenes/sleep_test_corner.scene.json`
 - `SkullbonezData/scenes/sleep_test_edge.scene.json`
