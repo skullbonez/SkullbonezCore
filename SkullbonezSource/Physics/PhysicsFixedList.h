@@ -256,8 +256,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
             FailReserveDenied( requested, phase );
         }
 
-        RuntimeReserveOwnerScope ownerScope( m_ownerHandle );
-        RuntimeReserveGrowthScope growthScope( m_ownerHandle, phase, growth );
+        RuntimeReserveAllocationScope allocationScope( m_ownerHandle, phase, growth );
         CommitBacking( requested );
         PublishUsage();
     }

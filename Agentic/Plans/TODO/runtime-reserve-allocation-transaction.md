@@ -1,7 +1,7 @@
 # Runtime Reserve Allocation Transaction
 
 Date: 2026-08-29
-Status: Active by owner direction on 2026-08-30. 1/4 tasks complete.
+Status: Active by owner direction on 2026-08-30. 2/4 tasks complete.
 Impact area: Core allocation policy, Physics capacity commits, Replay retained
 growth, Prediction retained growth, focused allocation tests, and cumulative
 allocation validation.
@@ -197,7 +197,7 @@ Acceptance:
   reusable, pending bytes leak, or context becomes process-global.
 - No allocation owner, cap, phase, or privilege changes.
 
-### RAT1 — Migrate Physics and Replay allocation owners
+### RAT1 — Migrate Physics and Replay allocation owners (complete 2026-08-30)
 
 - Replace direct owner/growth scope assembly in `PhysicsFixedList` and the scene
   vector reserve helper with the composite while preserving SceneLoad behavior.

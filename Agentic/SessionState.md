@@ -2,13 +2,13 @@
 
 Date: 2026-08-30
 Branch: `codex/replay-capture-bugfixes`
-Status: Runtime Reserve Allocation Transaction active; 127/135 implementation
+Status: Runtime Reserve Allocation Transaction active; 128/135 implementation
 tasks complete; bug ledger 126/126 fixed
 
 ## Current State
 
 The owner reactivated two WNF plans for sequential implementation on the
-current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is active at 1/4;
+current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is active at 2/4;
 `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is queued at 0/5 and begins only after
 RAT3 closes. The pre-existing uncommitted Physics solver experiment, its
 focused test, two sleep scenes, and local investigation report remain outside
@@ -23,6 +23,16 @@ thread-local isolation without consuming more process-lifetime test-owner
 slots. The Profile test target compiled, the focused family passed 55/55
 assertions, the full suite passed 892/892 cases and 2,691,405 assertions, and
 format, allocation-policy, and compiler-backed source-design checks passed.
+
+RAT1 replaces the five direct approved-allocation scope assemblies in Physics
+and Replay with the composite transaction. SceneLoad retains the same concrete
+Physics owners; solver snapshots retain one aggregate Replay grant; and both
+recorder vector helpers retain their existing owner, cap, byte request, and
+failure behavior. The nested Physics Replay reserve remains owner-only beneath
+the approved outer grant, while the recorder's Capture-owned cold path remains
+outside retained Replay authority. The Profile test target compiled, focused
+PhysicsFixedList, ReplayRecorder, and replay-solver families passed, and the
+allocation-policy and compiler-backed source-design checks passed.
 
 The ignored work ledger retains an unfinished 2026-08-28 goal from another
 Codex task (`GOV1`, `finding-fix-01`). The orchestrator refused to start a new
@@ -945,8 +955,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Implement `RESERVE_TRANSACTION` RAT1 by migrating the Physics and Replay
-allocation owners to the composite transaction. Continue RAT2-RAT3 in order, then
+Implement `RESERVE_TRANSACTION` RAT2 by migrating the Prediction allocation
+owners to the composite transaction. Continue RAT3 in order, then
 implement `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 in order on the same branch.
 
 ## Blockers

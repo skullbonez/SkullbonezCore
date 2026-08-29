@@ -457,9 +457,8 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
                                                       static_cast<std::size_t>( requestedSnapshotBytes ) );
         }
 
-        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-        CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-        CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
+        CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,
+                                                                       result );
 
         reserveSnapshotVectors();
     }

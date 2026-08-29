@@ -106,8 +106,7 @@ void ReservePhysicsSceneVector( std::vector<T>& values, std::size_t requestedCap
                   RuntimeReservePhaseName( phase ) );
     }
 
-    RuntimeReserveOwnerScope ownerScope( owner );
-    RuntimeReserveGrowthScope growthScope( owner, phase, growth );
+    RuntimeReserveAllocationScope allocationScope( owner, phase, growth );
     values.reserve( requestedCapacity );
 }
 } // namespace Physics

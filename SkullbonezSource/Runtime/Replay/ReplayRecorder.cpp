@@ -246,9 +246,8 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
-    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
+    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,
+                                                                   result );
     values.reserve( reserveCapacity );
 
     if ( requestedCapacity > values.capacity() )
@@ -312,9 +311,8 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
-    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
+    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,
+                                                                   result );
     values.reserve( reserveCapacity );
 
     if ( requestedCapacity > values.capacity() )
