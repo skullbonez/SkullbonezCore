@@ -286,7 +286,6 @@ int CountCallsiteRowsForOwner( const std::string& summary, RuntimeReserveOwnerHa
 void ExerciseOwnerRegistryCapacity()
 {
     constexpr std::size_t concurrentCallers = 8u;
-    constexpr const char* concurrentOwnerName = "unit.reserve.registry-capacity.concurrent";
     constexpr std::size_t registrationAttempts = 512u;
     std::array<std::thread, concurrentCallers> workers;
     std::array<RuntimeReserveOwnerHandle, concurrentCallers> concurrentHandles = {};
@@ -308,7 +307,7 @@ void ExerciseOwnerRegistryCapacity()
                 }
 
                 concurrentHandles[index] = RuntimeReserveAllocator::RegisterOwner(
-                    MakeReplayOwnerDesc( concurrentOwnerName ) );
+                    MakeReplayOwnerDesc( "unit.reserve.registry-capacity.concurrent" ) );
             } );
     }
 
