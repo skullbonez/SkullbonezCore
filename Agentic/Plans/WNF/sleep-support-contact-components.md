@@ -67,21 +67,32 @@ linear sleep threshold already used by wake admission.
 
 Build the sleep disjoint set from:
 
-- `StableSupport` object contacts;
+- `StableSupport` object contacts whose two endpoints currently pass the existing
+  linear/angular quiet gate;
 - point-joint constraints, because their error and motion are one constrained
   system; and
 - an existing positive sleeping visual id, so explicit wake and replay-restored
   sleeping membership retain their current deterministic grouping.
 
-Do not join `ImpulseTransfer` or `Transient` contacts. Support propagation remains
-directed from supporter to supported body and continues to decide whether a body
-has a credible support path. The disjoint set decides only which bodies must finish
-the same quiet run.
+Do not join `ImpulseTransfer`, `Transient`, or stable-support contacts with a moving
+endpoint. Support propagation still walks the complete directed `StableSupport`
+graph from supporter to supported body; endpoint quietness filters only disjoint-set
+membership. The support graph decides whether a body has a credible support path,
+while the disjoint set decides only which quiet bodies must finish the same run.
 
 This separation lets a supported quiet group advance while an adjacent brick is
 sliding, rotating, toppling, or temporarily touching its side. A vertically loaded
 support chain still advances as one group, and a stretched point joint still blocks
 its complete joint component.
+
+An exact terrain manifold is a body-local fixed support anchor even when the narrow
+footprint vetoes rest-only physical policy. The footprint classification continues
+to own its existing solver-policy decisions; it does not erase a confirmed contact.
+Once a positive quiet counter has observed stable support, a quiet one-frame
+manifold gap may continue that run, but the body can transition only on a frame
+with current support.
+Nonquiet motion still resets the counter. This uses the existing counter as the
+history witness and adds no retained state or threshold.
 
 ### Meaningful Wake Transfer
 
@@ -112,11 +123,12 @@ permitted.
   threshold-above cases. Prove classification does not read friction or change
   any configured value.
 - [ ] **SSC1 — Build sleep progress from stable constraints only.** Replace the
-  unconditional persistent-contact union with `StableSupport` admission. Retain
-  point-joint and sleeping visual-id grouping. Add a three-body regression in
-  which a quiet supported pair advances while a moving side neighbor does not
-  reset it, plus a control in which a vertically supported moving member still
-  blocks its support group.
+  unconditional persistent-contact union with quiet-endpoint `StableSupport`
+  admission while retaining the complete directed graph for support propagation.
+  Retain point-joint and sleeping visual-id grouping. Add a three-body regression
+  in which a quiet supported pair advances while a moving vertical neighbor does
+  not join it. Pin terrain-manifold support plus quiet-gap progress, nonquiet reset,
+  and the requirement for current support at the actual sleep transition.
 - [ ] **SSC2 — Require contact-point closing motion for persistent wake.** Measure
   manifold point velocity before waking a persistent overlap. Add normal-closing,
   angular-closing, tangent-only, separating, just-below, and exact-threshold
@@ -181,7 +193,11 @@ moving the target.
 
 - `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
 - `SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp`
+- `SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp`
 - `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp`
+- `SkullbonezSource/Physics/PersistentContactSolver.cpp`
+- `SkullbonezSource/Physics/PhysicsWorld.cpp`
+- `SkullbonezTests/TestPersistentContactSolver.cpp`
 - `SkullbonezTests/TestPhysicsStageState.cpp`
 - `SkullbonezData/scenes/sleep_test_corner.scene.json`
 - `SkullbonezData/scenes/sleep_test_edge.scene.json`
