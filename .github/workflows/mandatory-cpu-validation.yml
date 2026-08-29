@@ -177,6 +177,7 @@ jobs:
           name: mandatory-cpu-failure-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             TestOutput/validation/**
+            TestOutput/coverage/**
             Profile/*.log
             Profile/*.txt
             Agentic/Tests/**/x64/**/*.log

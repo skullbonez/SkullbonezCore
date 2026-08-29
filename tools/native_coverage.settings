@@ -6,6 +6,13 @@
     <EnableDynamicNativeInstrumentation>False</EnableDynamicNativeInstrumentation>
 
     <!--
+      Hosted runners can take longer than the collector's 60-second default to
+      finish and flush the fully instrumented native suite. Keep the transport
+      alive without changing which tests or source lines participate.
+    -->
+    <CommunicationTimeout>600000</CommunicationTimeout>
+
+    <!--
       The parent doctest process owns coverage. Some tests launch the same
       executable to prove fatal and startup boundaries; collecting those child
       processes would turn their deliberate termination into collector failures.
