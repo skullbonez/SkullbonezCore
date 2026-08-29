@@ -94,8 +94,8 @@ most one distinct active write phase/lane. Recompute leases at every phase
 boundary; future phases and read-only coverage do not hold production leases.
 Acquire exclusive resource leases only around their exact edit/command windows.
 Lanes whose current lease sets intersect remain serial even when their file
-lists do not. Remaining slots may run eligible bugs concurrently only in
-different, unleased owners.
+lists do not. Remaining slots may run eligible subsystem bug batches
+concurrently only in different, unleased owners.
 Binding order allocates scarce slots and orders fan-in; list position alone is
 not a dependency. Ignore `Agentic/Plans/WNF/` unless the owner reactivates an
 item, and re-read MASTER-PLAN after every pushed slice.
@@ -309,10 +309,10 @@ to a sub-agent.
 
 When the parallel orchestrator is active, its dispatch contract replaces that
 plain-mode implementation prohibition. It may use sub-agents for plan lanes and
-independent bugs, with exactly one isolated writable worktree per occupied
-agent slot, no two distinct active plans leasing the same subsystem, and no bug
-sharing a subsystem with an active plan or bug. The main orchestrator remains
-the sole integration owner.
+cohesive subsystem bug batches, with exactly one isolated writable worktree per
+occupied agent slot, no two distinct active plans leasing the same subsystem,
+and no bug batch sharing a subsystem with an active plan or batch. The main
+orchestrator remains the sole integration owner.
 
 Use hosted collaboration actions such as `spawn_agent`, `send_message`,
 `followup_task`, `wait_agent`, and `list_agents` for managed sub-agents. Use
@@ -352,6 +352,32 @@ same row separately retains main-agent orchestration usage, elapsed wall time,
 finding count, and verdict. Keep this accounting separate from SkullScope
 diagnostics accounting; it measures agent-session usage, not repository
 artifacts or validation logs.
+
+## Subsystem Bug Batches
+
+When an activated bug ledger or bug-fix campaign contains multiple open bugs,
+group eligible bugs by their canonical subsystem and treat each cohesive
+subsystem group as the default implementation and review unit. Diagnose, fix,
+and add focused evidence for the whole batch before opening its rubber-duck
+step. Do not run one rubber-duck pass per bug merely because the ledger has one
+row per finding.
+
+Keep a subsystem together when its bugs have compatible ownership, bounded
+combined scope, compatible acceptance evidence, and one understandable
+validation strategy. Split it into the fewest coherent batches when the full
+group would cross independent owners, mix incompatible high-risk contracts or
+baseline decisions, require unrelated exclusive facilities, create an
+unreviewably large change, or otherwise make one pass unsafe. Complexity is an
+escape hatch, not a reason to return automatically to one bug per batch.
+
+Use one independent read-only rubber-duck review after the complete subsystem
+batch is implemented. Give the reviewer every finding id, acceptance criterion,
+changed path, and focused witness; require a verdict for each bug plus any
+cross-bug interaction. Fix the batch's blocking findings together. Repeat the
+review only when those fixes materially change the reviewed risk area or the
+reviewer explicitly requires a follow-up. Preserve one finding identity per
+commit unless multiple bugs share one inseparable root cause and acceptance
+witness.
 
 ## Risk-Proportional Review And Validation
 

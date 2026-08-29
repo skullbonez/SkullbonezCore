@@ -1,6 +1,6 @@
 ---
 name: parallel-orchestrator
-description: Extend SkullbonezCore's repository orchestrator with a slot-saturating queue that runs at most one distinct plan per subsystem, supports multiple independent bugs across different unleased subsystems, and maps every active worker to an isolated branch and worktree before coordinator fan-in. Use when the user invokes the parallel orchestrator, asks to parallelize MASTER-PLAN or Agentic/Plans execution, requests multiple implementation agents or worktrees, asks to fix eligible master bug-report rows alongside planned work, or asks to reduce plan wall-clock time while preserving dependency, validation, review, commit, push, blocker, ledger, and handoff rules.
+description: Extend SkullbonezCore's repository orchestrator with a slot-saturating queue that runs at most one distinct plan or cohesive bug batch per subsystem and maps every active worker to an isolated branch and worktree before coordinator fan-in. Use when the user invokes the parallel orchestrator, asks to parallelize MASTER-PLAN or Agentic/Plans execution, requests multiple implementation agents or worktrees, asks to fix eligible master bug-report rows alongside planned work, or asks to reduce plan wall-clock time while preserving dependency, validation, review, commit, push, blocker, ledger, and handoff rules.
 ---
 
 # Parallel Orchestrator
@@ -31,9 +31,10 @@ Replace the base skill's plain one-plan queue and implementation-sub-agent
 prohibition with this rule:
 
 > Sub-agents may own separate dependency-ready plans, independent lanes within
-> one plan, or independent bug fixes. Every occupied agent slot owns exactly one
-> isolated writable worktree. Distinct active plans never share a subsystem
-> lease, and active bugs use different subsystems from every active plan and bug.
+> one plan, or cohesive subsystem bug batches. Every occupied agent slot owns
+> exactly one isolated writable worktree. Distinct active plans never share a
+> subsystem lease, and active bug batches use different subsystems from every
+> active plan and batch.
 > The coordinator maximizes useful occupancy while retaining dependency analysis,
 > file leases, integration, acceptance, validation selection, ledger truth, plan
 > progress, commits, pushes, blocker records, and final reporting.
@@ -119,8 +120,8 @@ terminal-validation resources merely because a future phase will use them.
   contract is frozen, write/test scopes are disjoint, and saved execution time
   is likely to exceed integration and cumulative-validation cost.
 - After assigning dependency-ready plans from unleased subsystems, fill useful
-  remaining slots with eligible bugs from different unleased subsystems. Run at
-  most one active bug per subsystem.
+  remaining slots with eligible cohesive bug batches from different unleased
+  subsystems. Run at most one active bug batch per subsystem.
 - Use a read-only investigation or evidence lane only when it advances a real
   acceptance decision. Never manufacture work merely to display full occupancy.
 
@@ -198,25 +199,31 @@ an accepted side branch lands.
 ## Concurrent Master Bug-Report Pool
 
 When `Agentic/Bugs/master_bug_report.csv` exists, use as many remaining worker
-slots for independent bug fixes as the subsystem leases and fan-in cost justify.
-Multiple bugs may run concurrently, but each must lease a different subsystem
-that is not leased by an active plan or another bug. A primary-plan blocker does
-not suspend otherwise eligible bugs in other subsystems. The pool is a side
-lane, not a second source of plan priority, and it has no fixed reserved size.
+slots for independent subsystem bug batches as the subsystem leases and fan-in
+cost justify. Multiple batches may run concurrently, but each must lease a
+different subsystem that is not leased by an active plan or another batch. A
+primary-plan blocker does not suspend otherwise eligible batches in other
+subsystems. The pool is a side lane, not a second source of plan priority, and
+it has no fixed reserved size.
 
-Run every bug through its own agent, fresh branch, and isolated worktree. Never
-execute a bug in the coordinator worktree or attach it to a plan worker's branch.
-When a bug finishes, preserve or integrate it at its declared checkpoint, then
-retriage the pool and refill any worthwhile safe slots.
+Run every cohesive subsystem batch through one agent, fresh branch, and
+isolated worktree. The worker implements every selected bug in that batch before
+one consolidated rubber-duck review; do not create a review lane per finding.
+Split a subsystem only under the base skill's complexity escape hatch. Never
+execute a batch in the coordinator worktree or attach it to a plan worker's
+branch. When a batch finishes, preserve or integrate it at its declared
+checkpoint, then retriage the pool and refill any worthwhile safe slots.
 
 Before using this pool, read `references/bug-pool.md` completely. It owns the
 eligibility forecast, ranking, coordinator-atomic assignment, lease-expansion
-stop, one-bug-per-branch execution contract, and safe checkpoint fan-in.
+stop, one-subsystem-batch-per-branch execution contract, and safe checkpoint
+fan-in.
 
-The coordinator assigns one exact finding and complete lease to each worker;
-workers never self-select from a shared pool. If the worker discovers another
-subsystem, it stops before editing that owner and requests expansion. Never fan
-in a bug while an overlapping plan is establishing behavior-sensitive evidence.
+The coordinator assigns one exact ordered finding set from one subsystem and
+its complete lease to each worker; workers never self-select from a shared
+pool. If the worker discovers another subsystem, it stops before editing that
+owner and requests expansion. Never fan in a batch while an overlapping plan is
+establishing behavior-sensitive evidence.
 
 ## Bootstrap Before Fan-Out
 
@@ -243,7 +250,7 @@ that every lane will use as its base.
 
 Treat the unfinished MASTER queue and each selected plan as one dependency
 graph. Fill worthwhile slots with the highest-priority ready plans from distinct
-subsystems, then safe lanes and bugs under the lease rules above. Do not
+subsystems, then safe lanes and bug batches under the lease rules above. Do not
 serialize plans merely because one appears later in MASTER, but never run two
 distinct plans from the same subsystem concurrently. Give each dispatched
 worker lane its own branch and writable worktree. A plan with multiple permitted
@@ -289,7 +296,8 @@ files, required evidence, and fan-in order.
 A lane may run concurrently only when:
 
 - every dependency that defines its inputs is already complete;
-- no distinct active plan or bug already leases any subsystem the lane needs;
+- no distinct active plan or bug batch already leases any subsystem the lane
+  needs;
 - its production write set is disjoint from every other active lane, or it is
   wholly read-only;
 - shared headers or value contracts it consumes are frozen at the base commit;
@@ -406,9 +414,9 @@ Base commit: <full hash>
 Integration branch: <branch>
 Worker branch/worktree: <branch and absolute path>
 Authority: <independent plan, plan lane, or master bug-report side lane>
-Tracking identity: <stable plan task id/title or bug finding id/title>
+Tracking identity: <stable plan task id/title or bug subsystem plus ordered finding ids/titles>
 Subsystem lease: <complete exclusive subsystem set for this lane>
-Commit convention: <resolved current DONE/TOTAL header or `BUG <FINDING_ID> — <ACTION SUMMARY>`>
+Commit convention: <resolved current DONE/TOTAL header or one `BUG <FINDING_ID> — <ACTION SUMMARY>` commit per unrelated finding>
 Lane kind and objective: <bounded outcome>
 Dependencies already satisfied: <commits/evidence>
 Reversible decision envelope: <choices the worker may make without waiting>
@@ -416,12 +424,12 @@ Allowed write scope: <exact files/directories>
 Prohibited shared scope: <exact files/directories>
 Required focused evidence: <commands/assertions/artifacts>
 Do not edit plan progress, SessionState, WORK_LEDGER, baselines, or other lanes.
-When the lane is complete, send the coordinator the complete proposed commit
+When the lane is complete, send the coordinator every complete proposed commit
 message with the base skill's six substantive body sections. Wait for explicit
-approval, run `work_ledger.bat verify-commit-message`, and commit from that same
-file with `git commit -F`. Never use a subject-only `-m` command. Return the full
-hash, changed-file list, validation output, residual risks, and actual
-thread/session id.
+approval, run `work_ledger.bat verify-commit-message` for each message, and
+commit from those same files with `git commit -F`. Never use a subject-only `-m`
+command. Return every full hash, changed-file list, validation output, residual
+risk, and actual thread/session id.
 ```
 
 Require every worker to inspect its own `git status` before editing and before
@@ -430,9 +438,12 @@ lane rather than overwriting them.
 
 Worker commits that do not close the selected task retain the current completed
 count in the required plan header. Only the coordinator's accepted closure
-commit advances the plan count. Master bug-report side-lane commits use exactly
-`BUG <FINDING_ID> — <ACTION SUMMARY>` and the same six-section substantive body;
-they never carry a plan progress header or bypass the message gate.
+commit advances the plan count. A subsystem batch preserves separate commits
+for unrelated findings, each using exactly
+`BUG <FINDING_ID> — <ACTION SUMMARY>` and the same six-section substantive body.
+Combine findings in one commit only when they share one inseparable root cause
+and acceptance witness, and name every covered id in that commit body. Bug
+commits never carry a plan progress header or bypass the message gate.
 
 ## Coordinator Work During The Worker Lane
 
@@ -489,8 +500,8 @@ coordinator should inspect its evidence, retry with a narrower lane when safe,
 or complete the work locally. When the underlying plan task is genuinely
 blocked, follow the base orchestrator's Blocker Continuation procedure and keep
 advancing only dependency-safe work. Stop conflicting plan lanes, but keep every
-eligible bug in an unleased subsystem working from its separate branch and
-worktree.
+eligible bug batch in an unleased subsystem working from its separate branch
+and worktree.
 
 Stop only the affected fan-out and return those plans to serial integration
 when the following applies; keep every unrelated ready plan running:
