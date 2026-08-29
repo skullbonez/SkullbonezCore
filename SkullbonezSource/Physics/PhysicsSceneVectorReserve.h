@@ -90,13 +90,14 @@ void ReservePhysicsSceneVector( std::vector<T>& values, std::size_t requestedCap
                   RuntimeReservePhaseName( phase ) );
     }
 
-    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { ownerName, RuntimeReserveSubsystem::Physics, RuntimeReservePhase::SceneLoad, 0, static_cast<int>( hardCapacity ),
-                                                                                      0, false, capacityReason } );
-    RuntimeReserveGrowthResult
-        growth = RuntimeReserveAllocator::RequestGrowth( owner, { ownerName, ownerName, phase, -1,
-                                                                  static_cast<int>( values.capacity() ),
-                                                                  static_cast<int>( requestedCapacity ),
-                                                                  static_cast<int>( sizeof( T ) ) } );
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+        { ownerName, RuntimeReserveSubsystem::Physics, RuntimeReservePhase::SceneLoad, 0, static_cast<int>( hardCapacity ),
+          0, false, capacityReason } );
+    RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( owner,
+                                                                                { ownerName, ownerName, phase, -1,
+                                                                                  static_cast<int>( values.capacity() ),
+                                                                                  static_cast<int>( requestedCapacity ),
+                                                                                  static_cast<int>( sizeof( T ) ) } );
 
     if ( !growth.granted )
     {

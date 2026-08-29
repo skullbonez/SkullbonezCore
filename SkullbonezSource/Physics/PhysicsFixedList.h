@@ -87,7 +87,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         : m_ownerName( ownerName ? ownerName : "PhysicsFixedList" ),
           m_capacityReason( capacityReason ? capacityReason : "Unspecified PhysicsFixedList capacity" ),
           m_ownerHandle( RegisterFixedOwner( m_ownerName, m_capacityReason ) ),
-          m_capacityPublisher( SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::ClaimCapacityPublisher( m_ownerHandle ) )
+          m_capacityPublisher(
+              SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::ClaimCapacityPublisher( m_ownerHandle ) )
     {
         if ( m_ownerHandle == SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER )
         {
@@ -108,7 +109,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         {
             SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::ReleaseCapacityPublisher( m_ownerHandle,
                                                                                                  m_capacityPublisher,
-                                                                                                 static_cast<int>( m_highWater ) );
+                                                                                                 static_cast<int>(
+                                                                                                     m_highWater ) );
             m_capacityPublisher = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
         }
     }
@@ -245,11 +247,12 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
             FailReserveDenied( requested, phase );
         }
 
-        RuntimeReserveGrowthResult
-            growth = RuntimeReserveAllocator::RequestGrowth( m_ownerHandle, { m_ownerName, m_ownerName, phase, -1,
-                                                                              static_cast<int>( m_runtimeCapacity ),
-                                                                              static_cast<int>( requested ),
-                                                                              static_cast<int>( sizeof( Storage ) ) } );
+        RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( m_ownerHandle,
+                                                                                    { m_ownerName, m_ownerName, phase, -1,
+                                                                                      static_cast<int>( m_runtimeCapacity ),
+                                                                                      static_cast<int>( requested ),
+                                                                                      static_cast<int>(
+                                                                                          sizeof( Storage ) ) } );
 
         if ( !growth.granted )
         {
@@ -573,7 +576,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
         SyncCapacitySession();
         SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::PublishCapacityUsage( m_ownerHandle, m_capacityPublisher,
-                                                                                         static_cast<int>( m_runtimeCapacity ),
+                                                                                         static_cast<int>(
+                                                                                             m_runtimeCapacity ),
                                                                                          static_cast<int>( m_count ),
                                                                                          static_cast<int>( m_highWater ) );
     }
@@ -603,7 +607,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     [[noreturn]] void FailCapacityExceeded( std::size_t requested, const char* ceiling ) const
     {
-        const char* phaseName = SkullbonezCore::Core::Allocation::RuntimeReservePhaseName( SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase() );
+        const char* phaseName = SkullbonezCore::Core::Allocation::RuntimeReservePhaseName(
+            SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase() );
         std::fprintf( stderr,
                       "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu runtime_capacity=%zu "
                       "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s phase=%s.\n",

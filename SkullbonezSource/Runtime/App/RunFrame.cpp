@@ -1348,12 +1348,13 @@ void Run::AfterPhysicsStep()
         // Why: ReplayRuntime owns probe sequencing and bounded failure state;
         // the application exit latch only preserves that first owned failure
         // while WM_QUIT unwinds the frame loop.
+        ReplayProbeRestoreCameraState probeRestoreCamera { m_camera, normalizedRestoreMode,
+                                                           m_attachedCamera.State().activeFollow };
         const ReplayProbeTickResult probeResult = m_replayRuntime.TickProbes( m_sceneController, presentationEdit.State(),
                                                                               m_editorTools, m_runtimeTools, m_config,
                                                                               m_assets, timelineReset, m_diagnosticsRuntime,
-                                                                              m_inputRouter, m_interaction, m_camera,
-                                                                              normalizedRestoreMode,
-                                                                              m_attachedCamera.State().activeFollow );
+                                                                              m_inputRouter, m_interaction,
+                                                                              probeRestoreCamera );
 
         if ( !probeResult.status.Ok() )
         {

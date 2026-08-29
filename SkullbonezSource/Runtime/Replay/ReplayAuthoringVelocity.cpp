@@ -470,8 +470,9 @@ ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( con
                 if ( scrubberOwner.SetLiveAdvanceHeld( true ) )
                 {
                     const ReplayScrubberView scrubber = scrubberOwner.View();
-                    const bool useInspectionCamera = ReplayScrubNeedsInspectionCamera(
-                        scrubber.liveAdvanceHeld, presentationOwner.CameraView().focusKind );
+                    const bool useInspectionCamera = ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld,
+                                                                                       presentationOwner.CameraView()
+                                                                                           .focusKind );
 
                     result.cameraAction = useInspectionCamera ? ReplayKeyboardVelocityEditCameraAction::EnterInspection
                                                               : ReplayKeyboardVelocityEditCameraAction::ExitInspection;
@@ -527,9 +528,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
     outResult = {};
     outInspectionCameraAction = ReplayInspectionCameraAction::None;
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Input" );
-    const bool leftDown = frame.leftDown;
-    const bool leftPressed = frame.leftPressed;
-    const bool leftReleased = frame.leftReleased;
     const auto velocityDragActive = [&]() { return frame.gesture.kind == ReplayToolGestureKind::VelocityDrag; };
 
     const auto finishVelocityDrag = [&]()
@@ -546,12 +544,9 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         return ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld, presentationOwner.CameraView().focusKind );
     };
 
-    const Vector3& rayOrigin = pointerRay.rayOrigin;
-    const Vector3& rayDirection = pointerRay.rayDirection;
-
     if ( !pointerRay.hasWorldRay )
     {
-        if ( velocityDragActive() && ( leftReleased || !leftDown ) )
+        if ( velocityDragActive() && ( frame.leftReleased || !frame.leftDown ) )
         {
             finishVelocityDrag();
         }
@@ -663,12 +658,12 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
     if ( velocityDragActive() )
     {
-        if ( leftDown && !uiBlocksMouse )
+        if ( frame.leftDown && !uiBlocksMouse )
         {
-            applyReplayVelocityEditDrag( rayOrigin, rayDirection );
+            applyReplayVelocityEditDrag( pointerRay.rayOrigin, pointerRay.rayDirection );
         }
 
-        if ( leftReleased || !leftDown )
+        if ( frame.leftReleased || !frame.leftDown )
         {
             finishVelocityDrag();
         }
@@ -678,10 +673,12 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
     ReplayVelocityBodyView hotBody;
     const bool hasHotBody = !uiBlocksMouse && tryResolveVelocityBody( hotBody );
-    const int hotAngularAxis = hasHotBody ? HitReplayVelocityAngularAxis( hotBody, rayOrigin, rayDirection ) : -1;
+    const int hotAngularAxis = hasHotBody
+                                   ? HitReplayVelocityAngularAxis( hotBody, pointerRay.rayOrigin, pointerRay.rayDirection )
+                                   : -1;
     const int hotLinearAxis = ( !hasHotBody || hotAngularAxis >= 0 )
                                   ? -1
-                                  : HitReplayVelocityLinearAxis( hotBody, rayOrigin, rayDirection );
+                                  : HitReplayVelocityLinearAxis( hotBody, pointerRay.rayOrigin, pointerRay.rayDirection );
 
     SetVelocityEditHoverAxes( hotLinearAxis, hotAngularAxis );
 
@@ -696,47 +693,52 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         }
     };
 
-    if ( !uiBlocksMouse && leftPressed )
+    // Invariant: angular and linear handles publish the same world-owner,
+    // inspection-camera, baseline, and gesture transition in that order.
+    const auto beginVelocityDrag = [&]( const ReplayVelocityBodyView& body, int axis, bool angular, float initialCoordinate )
+    {
+        outResult.enterInteractive = true;
+        if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !frame.replayToolOwnsWorld )
+        {
+            outResult.interaction.RequestWorldOwner( ReplayWorldOwnerRequest::Scrub );
+        }
+
+        outInspectionCameraAction = shouldUseInspectionCamera() ? ReplayInspectionCameraAction::Enter
+                                                                : ReplayInspectionCameraAction::Exit;
+
+        ReplayVelocityEditDragStart dragStart;
+        dragStart.targetId = path.targetId;
+        dragStart.linearVelocity = body.linearVelocity;
+        dragStart.angularVelocity = body.angularVelocity;
+        if ( angular )
+        {
+            dragStart.angle = initialCoordinate;
+        }
+        else
+        {
+            dragStart.axisT = initialCoordinate;
+        }
+
+        armBaselineComparisonForDrag();
+        BeginVelocityEditDrag( dragStart );
+        outResult.interaction.BeginVelocityDrag( frame.mouseX, frame.mouseY, body.body, axis, angular );
+        outResult.consumesMouse = true;
+    };
+
+    if ( !uiBlocksMouse && frame.leftPressed )
     {
         ReplayVelocityBodyView body;
 
         if ( frame.hasClientPosition && tryResolveVelocityBody( body ) && !body.fixed )
         {
-            const POINT mouse { frame.mouseX, frame.mouseY };
-
             if ( VelocityEdit().hotAngularAxis >= 0 )
             {
                 float startAngle = 0.0f;
 
-                if ( TryReplayVelocityAngularRayAngle( body, VelocityEdit().hotAngularAxis, rayOrigin, rayDirection,
-                                                       startAngle ) )
+                if ( TryReplayVelocityAngularRayAngle( body, VelocityEdit().hotAngularAxis, pointerRay.rayOrigin,
+                                                       pointerRay.rayDirection, startAngle ) )
                 {
-                    outResult.enterInteractive = true;
-
-                    if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !frame.replayToolOwnsWorld )
-                    {
-                        outResult.interaction.RequestWorldOwner( ReplayWorldOwnerRequest::Scrub );
-                    }
-
-                    if ( shouldUseInspectionCamera() )
-                    {
-                        outInspectionCameraAction = ReplayInspectionCameraAction::Enter;
-                    }
-                    else
-                    {
-                        outInspectionCameraAction = ReplayInspectionCameraAction::Exit;
-                    }
-
-                    ReplayVelocityEditDragStart dragStart;
-                    dragStart.targetId = path.targetId;
-                    dragStart.angle = startAngle;
-                    dragStart.linearVelocity = body.linearVelocity;
-                    dragStart.angularVelocity = body.angularVelocity;
-                    armBaselineComparisonForDrag();
-                    BeginVelocityEditDrag( dragStart );
-                    outResult.interaction.BeginVelocityDrag( mouse.x, mouse.y, body.body, VelocityEdit().hotAngularAxis,
-                                                             true );
-                    outResult.consumesMouse = true;
+                    beginVelocityDrag( body, VelocityEdit().hotAngularAxis, true, startAngle );
                     return true;
                 }
             }
@@ -744,35 +746,10 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
             {
                 float axisT = 0.0f;
 
-                if ( TryReplayVelocityAxisRayParameter( body, VelocityEdit().hotLinearAxis, rayOrigin, rayDirection,
-                                                        axisT ) )
+                if ( TryReplayVelocityAxisRayParameter( body, VelocityEdit().hotLinearAxis, pointerRay.rayOrigin,
+                                                        pointerRay.rayDirection, axisT ) )
                 {
-                    outResult.enterInteractive = true;
-
-                    if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !frame.replayToolOwnsWorld )
-                    {
-                        outResult.interaction.RequestWorldOwner( ReplayWorldOwnerRequest::Scrub );
-                    }
-
-                    if ( shouldUseInspectionCamera() )
-                    {
-                        outInspectionCameraAction = ReplayInspectionCameraAction::Enter;
-                    }
-                    else
-                    {
-                        outInspectionCameraAction = ReplayInspectionCameraAction::Exit;
-                    }
-
-                    ReplayVelocityEditDragStart dragStart;
-                    dragStart.targetId = path.targetId;
-                    dragStart.axisT = axisT;
-                    dragStart.linearVelocity = body.linearVelocity;
-                    dragStart.angularVelocity = body.angularVelocity;
-                    armBaselineComparisonForDrag();
-                    BeginVelocityEditDrag( dragStart );
-                    outResult.interaction.BeginVelocityDrag( mouse.x, mouse.y, body.body, VelocityEdit().hotLinearAxis,
-                                                             false );
-                    outResult.consumesMouse = true;
+                    beginVelocityDrag( body, VelocityEdit().hotLinearAxis, false, axisT );
                     return true;
                 }
             }
@@ -819,8 +796,8 @@ bool ReplayAuthoring::ApplyVelocityEditTargetPick( ReplayPresentation& presentat
     {
         outResult.enterInteractive = true;
         const ReplayScrubberView scrubber = scrubberOwner.View();
-        const bool shouldUseInspectionCamera = ReplayScrubNeedsInspectionCamera(
-            scrubber.liveAdvanceHeld, presentationOwner.CameraView().focusKind );
+        const bool shouldUseInspectionCamera = ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld,
+                                                                                 presentationOwner.CameraView().focusKind );
 
         if ( scrubberOwner.SetLiveAdvanceHeld( true ) && shouldUseInspectionCamera )
         {

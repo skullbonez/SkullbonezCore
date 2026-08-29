@@ -153,7 +153,7 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
     }
 
     policy.solverRetentionSeconds = std::clamp( policy.solverRetentionSeconds, REPLAY_SOLVER_MEMORY_POLICY_MIN_SECONDS,
-                                                 REPLAY_MEMORY_POLICY_MAX_SECONDS );
+                                                REPLAY_MEMORY_POLICY_MAX_SECONDS );
     policy.presentationRetentionSeconds = std::clamp( policy.presentationRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS,
                                                       REPLAY_MEMORY_POLICY_MAX_SECONDS );
     policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
@@ -182,11 +182,10 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicyForBodyCapacity( ReplayMemory
     const int solverMemoryLimitedSeconds = static_cast<int>(
         (std::max)( static_cast<uint64_t>( REPLAY_SOLVER_MEMORY_POLICY_MIN_SECONDS ),
                     retainedBytes / estimatedBytesPerSecond ) );
-    const int presentationMemoryLimitedSeconds = (std::max)( REPLAY_MEMORY_POLICY_MIN_SECONDS,
-                                                              solverMemoryLimitedSeconds );
+    const int presentationMemoryLimitedSeconds = (std::max)( REPLAY_MEMORY_POLICY_MIN_SECONDS, solverMemoryLimitedSeconds );
 
     policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds,
-                                                       presentationMemoryLimitedSeconds );
+                                                      presentationMemoryLimitedSeconds );
     policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, solverMemoryLimitedSeconds );
     policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
     policy.budgetClamped = policy.solverWindowReduced ||

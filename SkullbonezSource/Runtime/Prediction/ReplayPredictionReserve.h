@@ -63,7 +63,8 @@ struct RunReplayPredictionFrame;
 namespace ReplayPredictionReserveOperations
 {
 SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept;
-bool RequestReplayPredictionReserveGrowth( const char* targetName, int frameNumber, int oldCapacityBytes, int requestedCapacityBytes, int elementSizeBytes,
+bool RequestReplayPredictionReserveGrowth( const char* targetName, int frameNumber, int oldCapacityBytes,
+                                           int requestedCapacityBytes, int elementSizeBytes,
                                            SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult,
                                            uint64_t allocationBytes = 0u ) noexcept;
 

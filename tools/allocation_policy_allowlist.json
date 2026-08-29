@@ -172,7 +172,7 @@
     {
       "path": "SkullbonezSource/Physics/PhysicsFixedList.h",
       "patterns": [
-        "{\"symbol\":\"Reserve\",\"before\":[\"}\",\"RuntimeReserveGrowthResult\"],\"statement\":\"growth = RuntimeReserveAllocator::RequestGrowth( m_ownerHandle, { m_ownerName, m_ownerName, phase, -1,\",\"after\":[\"static_cast<int>( m_runtimeCapacity ),\",\"static_cast<int>( requested ),\"]}"
+        "{\"symbol\":\"Reserve\",\"before\":[\"FailReserveDenied( requested, phase );\",\"}\"],\"statement\":\"RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( m_ownerHandle,\",\"after\":[\"{ m_ownerName, m_ownerName, phase, -1,\",\"static_cast<int>( m_runtimeCapacity ),\"]}"
       ],
       "owner": "PhysicsFixedList scene-sized backing storage",
       "phase": "scene_load_or_approved_replay_prediction",
@@ -184,7 +184,7 @@
     {
       "path": "SkullbonezSource/Physics/PhysicsSceneVectorReserve.h",
       "patterns": [
-        "{\"symbol\":\"ReservePhysicsSceneVector\",\"before\":[\"0, false, capacityReason } );\",\"RuntimeReserveGrowthResult\"],\"statement\":\"growth = RuntimeReserveAllocator::RequestGrowth( owner, { ownerName, ownerName, phase, -1,\",\"after\":[\"static_cast<int>( values.capacity() ),\",\"static_cast<int>( requestedCapacity ),\"]}",
+        "{\"symbol\":\"ReservePhysicsSceneVector\",\"before\":[\"{ ownerName, RuntimeReserveSubsystem::Physics, RuntimeReservePhase::SceneLoad, 0, static_cast<int>( hardCapacity ),\",\"0, false, capacityReason } );\"],\"statement\":\"RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( owner,\",\"after\":[\"{ ownerName, ownerName, phase, -1,\",\"static_cast<int>( values.capacity() ),\"]}",
         "{\"symbol\":\"ReservePhysicsSceneVector\",\"before\":[\"}\",\"RuntimeReserveAllocationScope allocationScope( owner, phase, growth );\"],\"statement\":\"values.reserve( requestedCapacity );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"ReservePhysicsSceneVector\",\"before\":[\"}\",\"RuntimeReserveOwnerScope ownerScope( replayOwner );\"],\"statement\":\"values.reserve( requestedCapacity );\",\"after\":[\"return;\",\"}\"]}"
       ],
