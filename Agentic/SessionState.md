@@ -2,14 +2,14 @@
 
 Date: 2026-08-30
 Branch: `codex/replay-capture-bugfixes`
-Status: Source Design Validation Throughput active; 132/135 implementation
+Status: Source Design Validation Throughput active; 133/135 implementation
 tasks complete; bug ledger 126/126 fixed
 
 ## Current State
 
 The owner reactivated two WNF plans for sequential implementation on the
 current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is complete at 4/4;
-`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is active at 2/5. The pre-existing
+`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is active at 3/5. The pre-existing
 uncommitted Physics solver experiment, its focused test, two sleep scenes, and
 local investigation report remain outside both plans and must not be staged or
 reformatted.
@@ -82,6 +82,19 @@ The exact 79-file/623-context reference passes with 623 Tidy plus 623 Query
 launches, zero findings/errors, and 1,480.681 seconds elapsed, down from the
 3,274.505-second first serial reference. No selection, compiler argument,
 matcher, threshold, failure class, test, coverage, or baseline changed.
+
+SDT2 runs immutable source/context work items through a pool capped at four,
+with automatic selection `min(logical_processors, 4)`. Each worker runs Tidy
+then Query and returns a value; the coordinator alone admits work, aggregates
+measurements, and sorts diagnostics by source/project/configuration/rule/location.
+Planted delay, admission, policy, Tidy, Query, child-crash, and worker-exception
+controls pass. Clean and 70-finding planted scans retained byte-identical output
+and exact exit values at one, two, and automatic workers. The planted automatic
+scan fell from 8.981 to 3.669 seconds. A current 19-source/138-context scan used
+four workers and completed in 94.331 seconds with no infrastructure error; its
+22 findings belong to preserved user-owned Physics work and pre-existing Replay
+source, not SDT2. No selection, context, matcher, threshold, test, coverage, or
+baseline changed.
 
 The ignored work ledger retains an unfinished 2026-08-28 goal from another
 Codex task (`GOV1`, `finding-fix-01`). The orchestrator refused to start a new
@@ -1004,7 +1017,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Implement `SOURCE_DESIGN_THROUGHPUT` SDT2-SDT4 in order on the same branch.
+Implement `SOURCE_DESIGN_THROUGHPUT` SDT3-SDT4 in order on the same branch.
 
 ## Blockers
 

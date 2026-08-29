@@ -1,7 +1,7 @@
 # Source Design Validation Throughput
 
 Date: 2026-08-29
-Status: Active by owner direction on 2026-08-30. 2/5 phases complete
+Status: Active by owner direction on 2026-08-30. 3/5 phases complete
 Impact area: validation tooling and mandatory Windows CPU CI
 Owner: Validation tooling
 Priority: Second active plan
@@ -223,19 +223,19 @@ diagnostic only and never changes pass/fail.
   pre-change serial reference. The expected process count for the recorded
   workload is 623 Tidy plus 623 Query launches.
 
-### SDT2 - Add bounded deterministic concurrency
+### SDT2 - Add bounded deterministic concurrency (complete 2026-08-30)
 
-- [ ] Add `--jobs N` and the conservative automatic worker selection. Reject
+- [x] Add `--jobs N` and the conservative automatic worker selection. Reject
   zero, negative, nonnumeric, and above-cap values before launching a compiler.
-- [ ] Run whole source/context work items in a bounded pool; keep Tidy then Query
+- [x] Run whole source/context work items in a bounded pool; keep Tidy then Query
   sequencing within each work item unless measurements prove a different order
   is safer.
-- [ ] Add planted child delays and an active-child counter proving real overlap,
+- [x] Add planted child delays and an active-child counter proving real overlap,
   the configured maximum, and the absence of unbounded admission.
-- [ ] Add controls for a policy finding, Tidy parse failure, Query parse failure,
+- [x] Add controls for a policy finding, Tidy parse failure, Query parse failure,
   child crash, and worker exception. Prove deterministic diagnostics and exact
   failure classification under different completion orders.
-- [ ] Run identical clean and planted-failure scans with `--jobs 1`, `--jobs 2`,
+- [x] Run identical clean and planted-failure scans with `--jobs 1`, `--jobs 2`,
   and automatic jobs. Require byte-identical sorted findings and matching exit
   values.
 

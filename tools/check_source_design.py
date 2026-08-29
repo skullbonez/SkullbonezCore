@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import concurrent.futures
 from dataclasses import dataclass
 import functools
 import os
@@ -21,7 +22,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+from typing import Callable
 import xml.etree.ElementTree as ET
 
 from check_build_config_consistency import CompileRow, condition_matches, scan_repository
@@ -38,6 +41,7 @@ FIRST_PARTY_PROJECTS = (
 )
 APPLICATION_PROJECTS = {"SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_TESTS.vcxproj"}
 UNPACK_THRESHOLD = 4
+MAX_SOURCE_DESIGN_JOBS = 4
 MATCH_COUNT_RE = re.compile(r"(?m)^(\d+) match(?:es)?\.$")
 QUERY_ROOT_RE = re.compile(r'(?m)^(.+?):(\d+):\d+: note: "root" binds here$')
 
@@ -97,11 +101,30 @@ class SourceDesignWorkItem:
 
 
 @dataclass(frozen=True)
+class ContextDiagnostic:
+    rule: str
+    location: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContextAnalysisResult:
     work_item: SourceDesignWorkItem
-    diagnostics: tuple[str, ...]
-    tidy_seconds: float
-    query_seconds: float
+    diagnostics: tuple[ContextDiagnostic, ...] = ()
+    tidy_seconds: float = 0.0
+    query_seconds: float = 0.0
+    tidy_process_count: int = 0
+    query_process_count: int = 0
+    infrastructure_kind: str | None = None
+    infrastructure_error: str | None = None
+
+
+@dataclass(frozen=True)
+class WorkExecutionBatch:
+    results: tuple[ContextAnalysisResult, ...]
+    peak_workers: int
+    peak_in_flight: int
+    admitted_count: int
 
 
 @dataclass
@@ -131,6 +154,18 @@ class SourceDesignMeasurements:
             f"dead_code_seconds={self.dead_code_seconds:.3f} total_seconds={self.total_seconds:.3f} "
             f"findings={self.finding_count} infrastructure_errors={self.infrastructure_error_count}"
         )
+
+
+def parse_job_count(value: str) -> int:
+    if value.casefold() == "auto":
+        return min(max(os.cpu_count() or 1, 1), MAX_SOURCE_DESIGN_JOBS)
+    try:
+        jobs = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("--jobs must be 'auto' or an integer") from error
+    if not 1 <= jobs <= MAX_SOURCE_DESIGN_JOBS:
+        raise argparse.ArgumentTypeError(f"--jobs must be between 1 and {MAX_SOURCE_DESIGN_JOBS}")
+    return jobs
 
 
 def llvm_tool(name: str) -> Path:
@@ -500,6 +535,70 @@ def measured_query_findings(
         measurements.query_seconds += time.perf_counter() - started
 
 
+def analyze_work_item(
+    repo: Path,
+    tidy: Path,
+    query: Path,
+    work_item: SourceDesignWorkItem,
+) -> ContextAnalysisResult:
+    """Run one context without printing or mutating coordinator-owned state."""
+    tidy_started = time.perf_counter()
+    try:
+        tidy_output = clang_tidy_findings(repo, work_item.source, tidy, work_item.arguments)
+    except (OSError, RuntimeError) as error:
+        return ContextAnalysisResult(
+            work_item,
+            tidy_seconds=time.perf_counter() - tidy_started,
+            tidy_process_count=1,
+            infrastructure_kind="tidy",
+            infrastructure_error=str(error),
+        )
+    tidy_seconds = time.perf_counter() - tidy_started
+    diagnostics = []
+    for line in tidy_output.splitlines():
+        if "readability-function-size" not in line:
+            continue
+        location = re.split(r": (?:warning|error):", line, maxsplit=1)[0]
+        diagnostics.append(ContextDiagnostic("readability-function-size", location, line))
+
+    query_started = time.perf_counter()
+    try:
+        query_findings = clang_query_findings(repo, work_item.source, query, work_item.arguments)
+    except (OSError, RuntimeError) as error:
+        return ContextAnalysisResult(
+            work_item,
+            tuple(diagnostics),
+            tidy_seconds,
+            time.perf_counter() - query_started,
+            1,
+            1,
+            "query",
+            str(error),
+        )
+    query_seconds = time.perf_counter() - query_started
+    for label, locations in query_findings.items():
+        location_text = ", ".join(locations) if locations else str(work_item.source)
+        diagnostics.append(
+            ContextDiagnostic(
+                label,
+                locations[0] if locations else str(work_item.source),
+                f"{label}: {location_text}",
+            )
+        )
+
+    return ContextAnalysisResult(work_item, tuple(diagnostics), tidy_seconds, query_seconds, 1, 1)
+
+
+def _accumulate_context_measurements(
+    measurements: SourceDesignMeasurements,
+    result: ContextAnalysisResult,
+) -> None:
+    measurements.tidy_process_count += result.tidy_process_count
+    measurements.query_process_count += result.query_process_count
+    measurements.tidy_seconds += result.tidy_seconds
+    measurements.query_seconds += result.query_seconds
+
+
 def inspect_context(
     repo: Path,
     source: Path,
@@ -508,27 +607,16 @@ def inspect_context(
     context: CompileContext,
     measurements: SourceDesignMeasurements,
 ) -> ContextAnalysisResult:
-    prefix = f"{context.project} {context.configuration}"
-    tidy_started = time.perf_counter()
-    tidy_output = measured_tidy_findings(repo, source, tidy, context.arguments, measurements)
-    tidy_seconds = time.perf_counter() - tidy_started
-    diagnostics = [
-        f"{prefix}: {line}" for line in tidy_output.splitlines() if "readability-function-size" in line
-    ]
-
-    query_started = time.perf_counter()
-    query_findings = measured_query_findings(repo, source, query, context.arguments, measurements)
-    query_seconds = time.perf_counter() - query_started
-    for label, locations in query_findings.items():
-        location_text = ", ".join(locations) if locations else str(source)
-        diagnostics.append(f"{prefix}: {label}: {location_text}")
-
-    return ContextAnalysisResult(
-        SourceDesignWorkItem(source, context.project, context.configuration, context.arguments),
-        tuple(diagnostics),
-        tidy_seconds,
-        query_seconds,
-    )
+    work_item = SourceDesignWorkItem(source, context.project, context.configuration, context.arguments)
+    result = analyze_work_item(repo, tidy, query, work_item)
+    _accumulate_context_measurements(measurements, result)
+    measurements.peak_workers = max(measurements.peak_workers, 1)
+    if result.infrastructure_error:
+        raise RuntimeError(
+            f"{result.infrastructure_kind} infrastructure failure for {source} "
+            f"[{context.project} {context.configuration}]: {result.infrastructure_error}"
+        )
+    return result
 
 
 def inspect_source(
@@ -542,8 +630,143 @@ def inspect_source(
     active_measurements = measurements or SourceDesignMeasurements("focused")
     diagnostics: list[str] = []
     for context in contexts:
-        diagnostics.extend(inspect_context(repo, source, tidy, query, context, active_measurements).diagnostics)
+        result = inspect_context(repo, source, tidy, query, context, active_measurements)
+        diagnostics.extend(
+            f"{context.project} {context.configuration}: {diagnostic.text}"
+            for diagnostic in result.diagnostics
+        )
     return diagnostics
+
+
+def execute_work_items(
+    repo: Path,
+    work_items: list[SourceDesignWorkItem],
+    jobs: int,
+    worker: Callable[[SourceDesignWorkItem], ContextAnalysisResult],
+) -> WorkExecutionBatch:
+    """Admit at most jobs contexts and stop admission after an infrastructure failure."""
+    if not 1 <= jobs <= MAX_SOURCE_DESIGN_JOBS:
+        raise ValueError(f"jobs must be between 1 and {MAX_SOURCE_DESIGN_JOBS}")
+    if not work_items:
+        return WorkExecutionBatch((), 0, 0, 0)
+
+    active_workers = 0
+    peak_workers = 0
+    peak_in_flight = 0
+    admitted_count = 0
+    state_lock = threading.Lock()
+
+    def invoke(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+        nonlocal active_workers, peak_workers
+        with state_lock:
+            active_workers += 1
+            peak_workers = max(peak_workers, active_workers)
+        try:
+            return worker(work_item)
+        finally:
+            with state_lock:
+                active_workers -= 1
+
+    results: list[ContextAnalysisResult] = []
+    next_index = 0
+    first_failure = ""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs, thread_name_prefix="source-design") as executor:
+        active: dict[concurrent.futures.Future[ContextAnalysisResult], SourceDesignWorkItem] = {}
+
+        def admit() -> None:
+            nonlocal next_index, admitted_count, peak_in_flight
+            # Invariant: only this coordinator mutates admission state, and the
+            # executor never owns more than the configured number of work items.
+            while not first_failure and len(active) < jobs and next_index < len(work_items):
+                work_item = work_items[next_index]
+                next_index += 1
+                active[executor.submit(invoke, work_item)] = work_item
+                admitted_count += 1
+                peak_in_flight = max(peak_in_flight, len(active))
+
+        admit()
+        while active:
+            completed, _ = concurrent.futures.wait(active, return_when=concurrent.futures.FIRST_COMPLETED)
+            for future in sorted(completed, key=lambda item: active[item].identity(repo)):
+                work_item = active.pop(future)
+                try:
+                    result = future.result()
+                    if result.work_item != work_item:
+                        raise RuntimeError("worker returned a result for a different work item")
+                except ChildProcessError as error:
+                    result = ContextAnalysisResult(
+                        work_item,
+                        infrastructure_kind="child",
+                        infrastructure_error=f"{type(error).__name__}: {error}",
+                    )
+                except Exception as error:
+                    result = ContextAnalysisResult(
+                        work_item,
+                        infrastructure_kind="worker",
+                        infrastructure_error=f"{type(error).__name__}: {error}",
+                    )
+                results.append(result)
+                if result.infrastructure_error and not first_failure:
+                    relative = work_item.source.resolve().relative_to(repo.resolve()).as_posix()
+                    first_failure = f"{relative} [{work_item.project} {work_item.configuration}]"
+            admit()
+
+    # Hazard: silently dropping the tail would turn an incomplete scan into a
+    # plausible partial result. Name every context that was never admitted.
+    if first_failure:
+        for work_item in work_items[next_index:]:
+            results.append(
+                ContextAnalysisResult(
+                    work_item,
+                    infrastructure_kind="not-admitted",
+                    infrastructure_error=f"not admitted after infrastructure failure in {first_failure}",
+                )
+            )
+
+    ordered = tuple(sorted(results, key=lambda result: result.work_item.identity(repo)))
+    return WorkExecutionBatch(ordered, peak_workers, peak_in_flight, admitted_count)
+
+
+def render_context_diagnostics(repo: Path, results: tuple[ContextAnalysisResult, ...]) -> list[str]:
+    sortable = []
+    for result in results:
+        relative = result.work_item.source.resolve().relative_to(repo.resolve()).as_posix()
+        for diagnostic in result.diagnostics:
+            key = (
+                relative.casefold(),
+                result.work_item.project,
+                result.work_item.configuration,
+                diagnostic.rule,
+                diagnostic.location.casefold(),
+                diagnostic.text,
+            )
+            text = (
+                f"{relative}: {result.work_item.project} "
+                f"{result.work_item.configuration}: {diagnostic.text}"
+            )
+            sortable.append((key, text))
+    return [text for _, text in sorted(sortable)]
+
+
+def render_infrastructure_errors(repo: Path, results: tuple[ContextAnalysisResult, ...]) -> list[str]:
+    errors = []
+    for result in results:
+        if not result.infrastructure_error:
+            continue
+        relative = result.work_item.source.resolve().relative_to(repo.resolve()).as_posix()
+        errors.append(
+            f"{relative}: {result.work_item.project} {result.work_item.configuration}: "
+            f"{result.infrastructure_kind}: {result.infrastructure_error}"
+        )
+    return errors
+
+
+def classify_results(results: tuple[ContextAnalysisResult, ...]) -> int:
+    if any(result.infrastructure_error for result in results):
+        return 2
+    if any(result.diagnostics for result in results):
+        return 1
+    return 0
 
 
 def git_output(repo: Path, arguments: list[str]) -> list[str]:
@@ -864,6 +1087,145 @@ def prove_work_item_enumeration(repo: Path) -> None:
         raise AssertionError(f"source-design summary is incomplete or unbounded: {summary!r}")
 
 
+def prove_bounded_concurrency(repo: Path) -> None:
+    """Exercise bounded admission, overlap, ordering, and failure classes without LLVM."""
+    automatic_jobs = parse_job_count("auto")
+    if not 1 <= automatic_jobs <= MAX_SOURCE_DESIGN_JOBS:
+        raise AssertionError(f"automatic job selection escaped its cap: {automatic_jobs}")
+    for invalid in ("0", "-1", "nonnumeric", str(MAX_SOURCE_DESIGN_JOBS + 1)):
+        try:
+            parse_job_count(invalid)
+        except argparse.ArgumentTypeError:
+            pass
+        else:
+            raise AssertionError(f"invalid job value was accepted: {invalid}")
+
+    arguments = tuple(compile_arguments(repo))
+    work_items = [
+        SourceDesignWorkItem(
+            repo / f"SkullbonezSource/Core/ConcurrencyProbe{index}.cpp",
+            "SKULLBONEZ_CORE.vcxproj",
+            "Profile|x64",
+            arguments + (f"-DPROBE={index}",),
+        )
+        for index in range(6)
+    ]
+
+    def clean_worker(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+        return ContextAnalysisResult(work_item, tidy_process_count=1, query_process_count=1)
+
+    clean_outputs = []
+    for jobs in (1, 2, automatic_jobs):
+        batch = execute_work_items(repo, work_items, jobs, clean_worker)
+        clean_outputs.append((render_context_diagnostics(repo, batch.results), classify_results(batch.results)))
+    if any(output != ([], 0) for output in clean_outputs):
+        raise AssertionError(f"clean concurrency control changed result classification: {clean_outputs}")
+
+    def policy_worker(reverse: bool) -> Callable[[SourceDesignWorkItem], ContextAnalysisResult]:
+        def inspect(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+            index = int(work_item.source.stem.removeprefix("ConcurrencyProbe"))
+            time.sleep((5 - index if reverse else index) * 0.002)
+            diagnostics = ()
+            if index in {1, 4}:
+                location = f"{work_item.source}:1"
+                diagnostics = (ContextDiagnostic("fixture policy", location, f"fixture policy: {location}"),)
+            return ContextAnalysisResult(
+                work_item,
+                diagnostics,
+                tidy_process_count=1,
+                query_process_count=1,
+            )
+
+        return inspect
+
+    planted_outputs = []
+    for jobs, reverse in ((1, False), (2, True), (automatic_jobs, False)):
+        batch = execute_work_items(repo, work_items, jobs, policy_worker(reverse))
+        planted_outputs.append((render_context_diagnostics(repo, batch.results), classify_results(batch.results)))
+    if planted_outputs[0] != planted_outputs[1] or planted_outputs[0] != planted_outputs[2]:
+        raise AssertionError("policy diagnostics changed with worker count or completion order")
+    if planted_outputs[0][1] != 1:
+        raise AssertionError("planted policy finding did not retain policy exit classification")
+
+    active_children = 0
+    peak_children = 0
+    child_lock = threading.Lock()
+
+    def delayed_worker(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+        nonlocal active_children, peak_children
+        with child_lock:
+            active_children += 1
+            peak_children = max(peak_children, active_children)
+        try:
+            time.sleep(0.025)
+            return clean_worker(work_item)
+        finally:
+            with child_lock:
+                active_children -= 1
+
+    overlap = execute_work_items(repo, work_items, 2, delayed_worker)
+    if peak_children != 2 or overlap.peak_workers != 2 or overlap.peak_in_flight != 2:
+        raise AssertionError(
+            "bounded overlap control did not observe exactly two active children: "
+            f"child_peak={peak_children} worker_peak={overlap.peak_workers} "
+            f"in_flight_peak={overlap.peak_in_flight}"
+        )
+
+    started: set[int] = set()
+    started_lock = threading.Lock()
+
+    def admission_failure(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+        index = int(work_item.source.stem.removeprefix("ConcurrencyProbe"))
+        with started_lock:
+            started.add(index)
+        if index == 0:
+            time.sleep(0.005)
+            return ContextAnalysisResult(
+                work_item,
+                infrastructure_kind="tidy",
+                infrastructure_error="planted parse failure",
+            )
+        time.sleep(0.050)
+        return clean_worker(work_item)
+
+    stopped = execute_work_items(repo, work_items, 2, admission_failure)
+    skipped = [result for result in stopped.results if result.infrastructure_kind == "not-admitted"]
+    if stopped.admitted_count != 2 or started != {0, 1} or len(skipped) != 4 or classify_results(stopped.results) != 2:
+        raise AssertionError(
+            "infrastructure failure did not stop bounded admission: "
+            f"admitted={stopped.admitted_count} started={sorted(started)} skipped={len(skipped)}"
+        )
+
+    failure_kinds = ("tidy", "query", "child", "worker")
+
+    def failure_worker(reverse: bool) -> Callable[[SourceDesignWorkItem], ContextAnalysisResult]:
+        def inspect(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+            index = int(work_item.source.stem.removeprefix("ConcurrencyProbe"))
+            time.sleep((3 - index if reverse else index) * 0.003)
+            if index == 2:
+                raise ChildProcessError("planted child crash")
+            if index == 3:
+                raise RuntimeError("planted worker exception")
+            return ContextAnalysisResult(
+                work_item,
+                infrastructure_kind=failure_kinds[index],
+                infrastructure_error=f"planted {failure_kinds[index]} failure",
+            )
+
+        return inspect
+
+    failure_items = work_items[:4]
+    forward = execute_work_items(repo, failure_items, 4, failure_worker(False))
+    reverse = execute_work_items(repo, failure_items, 4, failure_worker(True))
+    forward_errors = render_infrastructure_errors(repo, forward.results)
+    reverse_errors = render_infrastructure_errors(repo, reverse.results)
+    if forward_errors != reverse_errors or classify_results(forward.results) != 2:
+        raise AssertionError("infrastructure diagnostics changed with completion order")
+    observed_kinds = {result.infrastructure_kind for result in forward.results}
+    if observed_kinds != set(failure_kinds):
+        raise AssertionError(f"infrastructure classifications are incomplete: {sorted(observed_kinds)}")
+
+
 def self_test(
     repo: Path,
     tidy: Path,
@@ -901,6 +1263,7 @@ def self_test(
     measurements.context_count = len(fixtures)
     context_started = time.perf_counter()
     prove_work_item_enumeration(repo)
+    prove_bounded_concurrency(repo)
     measurements.context_discovery_seconds += time.perf_counter() - context_started
     with tempfile.TemporaryDirectory(prefix="skore-source-design-") as temporary:
         root = Path(temporary)
@@ -1020,7 +1383,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--files", nargs="*", type=Path)
-    parser.add_argument("--jobs", type=int, default=1)
+    parser.add_argument(
+        "--jobs",
+        type=parse_job_count,
+        default="auto",
+        help=f"whole-context workers: auto or 1-{MAX_SOURCE_DESIGN_JOBS} (default: auto)",
+    )
     return parser.parse_args()
 
 
@@ -1034,8 +1402,6 @@ def main() -> int:
     total_started = time.perf_counter()
     exit_code = 2
     try:
-        if args.jobs != 1:
-            raise RuntimeError("--jobs supports only 1 until bounded concurrency is enabled")
         tidy = llvm_tool("clang-tidy")
         query = llvm_tool("clang-query")
         clang_cl = msvc_tool("cl")
@@ -1051,19 +1417,33 @@ def main() -> int:
                 else changed_sources(repo)
             )
             rows, _ = scan_repository(repo, FIRST_PARTY_PROJECTS)
-            source_contexts = [(source, compile_contexts(repo, source, rows)) for source in sources]
+            work_items = enumerate_work_items(repo, sources, rows)
             measurements.source_count = len(sources)
-            measurements.context_count = sum(len(contexts) for _, contexts in source_contexts)
+            measurements.context_count = len(work_items)
             measurements.context_discovery_seconds += time.perf_counter() - context_started
 
             dead_code_started = time.perf_counter()
             diagnostics = project_dead_code_findings(repo)
             measurements.dead_code_seconds += time.perf_counter() - dead_code_started
-            for source, contexts in source_contexts:
-                for finding in inspect_source(repo, source, tidy, query, contexts, measurements):
-                    diagnostics.append(f"{source.relative_to(repo).as_posix()}: {finding}")
+            worker = functools.partial(analyze_work_item, repo, tidy, query)
+            batch = execute_work_items(repo, work_items, args.jobs, worker)
+            measurements.peak_workers = batch.peak_workers
+            for result in batch.results:
+                _accumulate_context_measurements(measurements, result)
+            diagnostics.extend(render_context_diagnostics(repo, batch.results))
+            infrastructure_errors = render_infrastructure_errors(repo, batch.results)
             measurements.finding_count = len(diagnostics)
-            if diagnostics:
+            measurements.infrastructure_error_count = len(infrastructure_errors)
+            if infrastructure_errors:
+                print("ERROR: source-design infrastructure failures:", file=sys.stderr)
+                for diagnostic in infrastructure_errors:
+                    print(f"  {diagnostic}", file=sys.stderr)
+                if diagnostics:
+                    print("POLICY FINDINGS OBSERVED BEFORE INFRASTRUCTURE FAILURE:", file=sys.stderr)
+                    for diagnostic in diagnostics:
+                        print(f"  {diagnostic}", file=sys.stderr)
+                exit_code = 2
+            elif diagnostics:
                 print("FAIL: changed C++ source has design findings:", file=sys.stderr)
                 for diagnostic in diagnostics:
                     print(f"  {diagnostic}", file=sys.stderr)

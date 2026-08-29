@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-08-30
-Status: Active plan; 132/135 tasks complete; bug ledger 126/126 fixed
+Status: Active plan; 133/135 tasks complete; bug ledger 126/126 fixed
 
 ## Owner Direction
 
@@ -323,7 +323,7 @@ Completed plan files were deleted; git history is the archive.
 
 | Plan | Status | Phases | File |
 |---|---|---:|---|
-| Source Design Validation Throughput | Active by owner direction 2026-08-30 | 2/5 | `TODO/source-design-validation-throughput.md` |
+| Source Design Validation Throughput | Active by owner direction 2026-08-30 | 3/5 | `TODO/source-design-validation-throughput.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -389,7 +389,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-132/135 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
+133/135 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen
