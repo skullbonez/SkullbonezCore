@@ -59,6 +59,20 @@ Related:
 #include <process.h>
 #endif
 
+namespace SkullbonezCore::Core::Allocation
+{
+struct RuntimeReserveAllocationScopeTestAccess
+{
+    static constexpr bool MembersFollowActivationOrder() noexcept
+    {
+        return offsetof( RuntimeReserveAllocationScope, m_allocationScope ) <
+                   offsetof( RuntimeReserveAllocationScope, m_ownerScope ) &&
+               offsetof( RuntimeReserveAllocationScope, m_ownerScope ) <
+                   offsetof( RuntimeReserveAllocationScope, m_growthScope );
+    }
+};
+} // namespace SkullbonezCore::Core::Allocation
+
 using SkullbonezCore::Core::Allocation::GetRuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase;
 using SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
@@ -107,6 +121,8 @@ static_assert( !std::is_copy_constructible_v<RuntimeReserveAllocationScope> );
 static_assert( !std::is_copy_assignable_v<RuntimeReserveAllocationScope> );
 static_assert( !std::is_move_constructible_v<RuntimeReserveAllocationScope> );
 static_assert( !std::is_move_assignable_v<RuntimeReserveAllocationScope> );
+static_assert( std::is_standard_layout_v<RuntimeReserveAllocationScope> );
+static_assert( SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScopeTestAccess::MembersFollowActivationOrder() );
 
 namespace
 {

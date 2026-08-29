@@ -2,17 +2,17 @@
 
 Date: 2026-08-30
 Branch: `codex/replay-capture-bugfixes`
-Status: Runtime Reserve Allocation Transaction active; 129/135 implementation
+Status: Source Design Validation Throughput active; 130/135 implementation
 tasks complete; bug ledger 126/126 fixed
 
 ## Current State
 
 The owner reactivated two WNF plans for sequential implementation on the
-current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is active at 3/4;
-`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is queued at 0/5 and begins only after
-RAT3 closes. The pre-existing uncommitted Physics solver experiment, its
-focused test, two sleep scenes, and local investigation report remain outside
-both plans and must not be staged or reformatted.
+current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is complete at 4/4;
+`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is active at 0/5. The pre-existing
+uncommitted Physics solver experiment, its focused test, two sleep scenes, and
+local investigation report remain outside both plans and must not be staged or
+reformatted.
 
 RAT0 adds the non-copyable, non-movable Core
 `RuntimeReserveAllocationScope`. Its member order establishes phase, owner, and
@@ -43,6 +43,22 @@ the Core implementation and composite member. The Profile test target compiled,
 40 focused Prediction/evidence/trajectory/visual cases passed 18,669 assertions,
 the production prediction-engine seed case passed 645 assertions, and the
 allocation-policy and compiler-backed source-design checks passed.
+
+RAT3 closes the reserve transaction after a blocker-free independent re-review.
+The review first required a mechanically order-sensitive test and corrected an
+overbroad grant invariant; standard-layout `offsetof` assertions now fail if
+the phase, owner, and grant member order changes, and the invariant accurately
+distinguishes SceneLoad from Replay-approved growth. The focused composite
+family passes 5/5 cases and 55/55 assertions; compiler-backed source-design,
+allocation-policy, dependency proof/repository, and byte-exact Physics gates
+pass, with the accepted 44,401-line SHA unchanged. Debug, Profile, and
+Automation targets compile. Performance reproduces the pre-plan unavailable
+cause-row/track mismatch, and replay visual fidelity reproduces the pre-plan
+missing `full_reveal_probe_profile.json` after its 18/18 typed controls and
+scheduled engine exit. Fast validation and the single terminal
+`--plan-completion` run stop on the same three pre-plan plain-language findings;
+the terminal run first completes Debug, Physics, and Automation builds. No
+Physics, Replay, performance, or visual baseline was refreshed.
 
 The ignored work ledger retains an unfinished 2026-08-28 goal from another
 Codex task (`GOV1`, `finding-fix-01`). The orchestrator refused to start a new
@@ -965,8 +981,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Close `RESERVE_TRANSACTION` with RAT3 terminal review and validation, then
-implement `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 in order on the same branch.
+Implement `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 in order on the same branch.
 
 ## Blockers
 

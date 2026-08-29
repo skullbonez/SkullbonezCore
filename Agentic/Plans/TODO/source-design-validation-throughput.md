@@ -1,8 +1,7 @@
 # Source Design Validation Throughput
 
 Date: 2026-08-29
-Status: Active by owner direction on 2026-08-30; queued after
-`RESERVE_TRANSACTION`. 0/5 phases complete
+Status: Active by owner direction on 2026-08-30. 0/5 phases complete
 Impact area: validation tooling and mandatory Windows CPU CI
 Owner: Validation tooling
 Priority: Second active plan
