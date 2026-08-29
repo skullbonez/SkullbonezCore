@@ -78,9 +78,12 @@ token, then runs these owners in order:
 
 ## Unit Coverage Floors
 
-`validate_coverage.bat` builds the Debug doctest runner, captures product-line
-Cobertura XML with OpenCppCoverage, then applies the versioned tier map in
-`coverage_floors.json`. It is part of `validate_all_cpu_tests.bat`, so the
+`validate_coverage.bat` builds the Debug doctest runner with native static
+instrumentation, captures product-line Cobertura XML with
+Microsoft.CodeCoverage.Console, then applies the versioned tier map in
+`coverage_floors.json`. Child-process collection is disabled because fatal and
+startup probes deliberately terminate; the instrumented parent still runs and
+checks every probe. It is part of `validate_all_cpu_tests.bat`, so the
 terminal plan-completion gate enforces Tier 1 at 85%, Tier 2 at 70%, and Tier 3
 at 50%; whole-product coverage remains informational.
 

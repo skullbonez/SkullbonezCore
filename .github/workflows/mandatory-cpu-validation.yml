@@ -10,12 +10,7 @@ permissions:
 jobs:
   cpu-tests:
     name: Mandatory CPU lane (Windows hosted)
-    # OpenCppCoverage 0.9.9.0 cannot read the v145 PDBs emitted by the
-    # win25-vs2026 image: the tests pass, but every instrumented line is
-    # reported as uncovered. Keep only the coverage-owning lane on VS2022;
-    # the independent artifact and byte-evidence jobs below still exercise
-    # windows-latest and the repository's primary toolset.
-    runs-on: windows-2022
+    runs-on: windows-latest
     # Hosted checkout has taken over seven minutes, and compiler-backed design
     # checks scale with every changed translation unit (77 in the current PR).
     # Keep a bounded three-hour ceiling without killing an active clang-tidy scan.
@@ -91,67 +86,37 @@ jobs:
             Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci\hosted-runner.txt"
           )
 
-      - name: Install pinned OpenCppCoverage
+      - name: Verify Microsoft native coverage tool
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $coverageVersion = "0.9.9.0"
-
-          # Why not Chocolatey: the community feed served this package two
-          # different ways on 2026-08-15 — 504 Gateway Timeout, then not-found —
-          # and a mandatory gate must not depend on a third-party feed choosing to
-          # retain an exact version. The upstream release asset is
-          # version-addressed and content-verified below, so the pin cannot drift
-          # and no unpinned fallback is possible. A coverage gate that silently
-          # ran a different OpenCppCoverage build would be worse than a red lane.
-          $installerUrl = "https://github.com/OpenCppCoverage/OpenCppCoverage/releases/download/release-$coverageVersion/OpenCppCoverageSetup-x64-$coverageVersion.exe"
-          $expectedSha256 = "2295A733DA39412C61E4F478677519DD0BB1893D88313CE56B468C9E50517888"
-          $installer = Join-Path $env:RUNNER_TEMP "OpenCppCoverageSetup-x64-$coverageVersion.exe"
-
-          $attempts = 3
-          for ($attempt = 1; $attempt -le $attempts; $attempt++) {
-            try {
-              Invoke-WebRequest -Uri $installerUrl -OutFile $installer -UseBasicParsing
-              break
-            }
-            catch {
-              if ($attempt -eq $attempts) {
-                throw "Failed to download OpenCppCoverage $coverageVersion after $attempts attempts: $_"
-              }
-              $delaySeconds = 15 * $attempt
-              Write-Host "OpenCppCoverage download attempt $attempt failed; retrying in $delaySeconds s"
-              Start-Sleep -Seconds $delaySeconds
-            }
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path -LiteralPath $vswhere)) {
+            throw "Visual Studio locator was not found: $vswhere"
           }
-
-          # Hazard: never execute an unverified downloaded binary. This digest is
-          # the exact release asset's bytes; a mismatch means the pin no longer
-          # describes what upstream serves, which is a stop condition rather than
-          # something to retry around.
-          $actualSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash
-          if ($actualSha256 -ne $expectedSha256) {
-            throw "OpenCppCoverage installer digest mismatch. expected=$expectedSha256 actual=$actualSha256"
+          $installationPath = (& $vswhere -latest -products * -property installationPath | Out-String).Trim()
+          if (-not $installationPath) {
+            throw "No Visual Studio installation was found"
           }
-
-          # OpenCppCoverageSetup is an Inno Setup 6 package, so /VERYSILENT is the
-          # unattended switch and a successful install returns 0.
-          $installProcess = Start-Process -FilePath $installer `
-            -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
-          if ($installProcess.ExitCode -ne 0) {
-            throw "OpenCppCoverage $coverageVersion installer failed (exit $($installProcess.ExitCode))"
-          }
-          $coverageExe = "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe"
+          $coverageExe = Join-Path $installationPath "Common7\IDE\Extensions\Microsoft\CodeCoverage.Console\Microsoft.CodeCoverage.Console.exe"
           if (-not (Test-Path -LiteralPath $coverageExe)) {
-            throw "Pinned OpenCppCoverage executable was not installed: $coverageExe"
+            throw "Microsoft native coverage console was not installed: $coverageExe"
           }
-          $coverageHelp = & $coverageExe --help 2>&1
-          # OpenCppCoverage 0.9.9.0 prints valid help/version text but returns
-          # -1618178468 from its help-only path. The real coverage invocation
-          # still owns runtime health; this bootstrap probe verifies identity.
-          if (-not ($coverageHelp | Select-String -Quiet -Pattern "OpenCppCoverage Version: 0\.9\.9\.0")) {
-            throw "Installed OpenCppCoverage does not report pinned version 0.9.9.0"
+          $coverageVersion = (& $coverageExe --version 2>&1 | Out-String).Trim()
+          $coverageHelp = (& $coverageExe collect --help 2>&1 | Out-String)
+          if (-not $coverageVersion -or
+              $coverageHelp -notmatch "--output-format" -or
+              $coverageHelp -notmatch "cobertura") {
+            throw "Microsoft native coverage console lacks the required Cobertura interface"
           }
-          exit 0
+          "MICROSOFT_CODE_COVERAGE_EXE=$coverageExe" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          @(
+            "coverage_path=$coverageExe"
+            "coverage_version=$coverageVersion"
+          ) | Add-Content -Path (
+            Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci\hosted-runner.txt"
+          )
 
       - name: Run mandatory hosted CPU lane
         env:

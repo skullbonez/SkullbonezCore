@@ -27,7 +27,13 @@
 #define DOCTEST_CONFIG_IMPLEMENT
 #include "../ThirdPtySource/doctest/doctest.h"
 
+#include <array>
+#include <cstdlib>
 #include <cstring>
+
+#if defined( _MSC_VER ) && defined( _DEBUG )
+#include <crtdbg.h>
+#endif
 
 #if defined( SKULLBONEZ_RUNTIME_FATAL_TESTS )
 #include "TestFatalCases.h"
@@ -40,6 +46,31 @@ const char* g_executablePath = nullptr;
 
 const char* RuntimeTestExecutablePath()
 {
+    // Why: native static coverage rewrites the parent executable in place.
+    // Fatal child probes use an uninstrumented sibling so their deliberate
+    // abort cannot wait on collector shutdown and become a timeout failure.
+#if defined( _MSC_VER )
+    static const std::array<char, 4096> childOverride = []
+    {
+        std::array<char, 4096> value = {};
+        std::size_t requiredBytes = 0u;
+        getenv_s( &requiredBytes, value.data(), value.size(), "SKULLBONEZ_TEST_CHILD_EXE" );
+        return value;
+    }();
+
+    if ( childOverride[0] != '\0' )
+    {
+        return childOverride.data();
+    }
+#else
+    const char* childOverride = std::getenv( "SKULLBONEZ_TEST_CHILD_EXE" );
+
+    if ( childOverride && childOverride[0] != '\0' )
+    {
+        return childOverride;
+    }
+#endif
+
     return g_executablePath;
 }
 
@@ -49,6 +80,14 @@ int main( int argc, char** argv )
 #if defined( SKULLBONEZ_RUNTIME_FATAL_TESTS )
     if ( argc == 3 && std::strcmp( argv[1], "--fatal-case" ) == 0 )
     {
+#if defined( _MSC_VER ) && defined( _DEBUG )
+        // Why: named fatal children are noninteractive process probes. Route
+        // Debug CRT assertions to stderr and suppress Windows fault reporting
+        // so the parent observes termination instead of an assertion dialog.
+        _CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_FILE );
+        _CrtSetReportFile( _CRT_ASSERT, _CRTDBG_FILE_STDERR );
+        _set_abort_behavior( 0u, _WRITE_ABORT_MSG | _CALL_REPORTFAULT );
+#endif
         // A normal return means the named invariant failed to terminate.
         return RunRuntimeFatalCase( argv[2] ) ? 0 : 2;
     }

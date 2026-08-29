@@ -427,7 +427,7 @@ uint64_t ReplayPredictionArchiveCandidateAllocationBudgetBytes() noexcept
     // MSVC may request alignment bookkeeping beyond vector capacity bytes.
     // A bounded owner-local cushion covers every constructor reserve without
     // depending on one standard-library implementation's private layout.
-    constexpr uint64_t constructorAllocationHeadroomBytes = 1024u;
+    constexpr uint64_t constructorAllocationHeadroomBytes = 4096u;
     return sizeof( RunReplayPredictionState ) + sizeof( ReplayPredictionSolverEvidenceBanks ) +
            Gameplay::TornadoGameplay::InitialReserveBytes() +
            Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS * sizeof( Gameplay::TornadoVortexConfig ) +

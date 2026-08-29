@@ -72,6 +72,8 @@
     <OutDir>Debug\</OutDir>
     <IntDir>Debug\SKULLBONEZ_TESTS\</IntDir>
     <LinkIncremental>true</LinkIncremental>
+    <TargetName Condition="'$(SKULLBONEZ_COVERAGE_CHILD_BUILD)'=='1'">SKULLBONEZ_TESTS_COVERAGE_CHILD</TargetName>
+    <LinkIncremental Condition="'$(SKULLBONEZ_COVERAGE_BUILD)'=='1'">false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>Release\</OutDir>
@@ -103,11 +105,11 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)SKULLBONEZ_TESTS.exe</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>LIBC;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <ProgramDatabaseFile>$(OutDir)SKULLBONEZ_TESTS.pdb</ProgramDatabaseFile>
+      <ProgramDatabaseFile>$(OutDir)$(TargetName).pdb</ProgramDatabaseFile>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -199,6 +201,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <Profile Condition="'$(SKULLBONEZ_COVERAGE_BUILD)'=='1'">true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

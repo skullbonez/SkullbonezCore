@@ -5,9 +5,10 @@
 @rem   the versioned subsystem floors.
 @rem
 @rem Summary:
-@rem   OpenCppCoverage debugs one ordinary test process and exports the source
-@rem   lines observed through its program database. The Python checker owns all
-@rem   tier and exclusion policy so this wrapper stays mechanical.
+@rem   Microsoft.CodeCoverage.Console statically instruments one ordinary test
+@rem   process and exports the source lines observed through its program database.
+@rem   The Python checker owns all tier and exclusion policy so this wrapper
+@rem   stays mechanical.
 @rem
 @rem Glossary:
 @rem   Cobertura: XML coverage interchange format consumed by check_coverage.py.
@@ -19,6 +20,8 @@
 @rem   - Test and third-party lines never enter the product denominator.
 @rem   - Every doctest case participates; instrumentation-sensitive fixtures
 @rem     must be authored away from floating-point selection boundaries.
+@rem   - Child probes still run, but the collector observes only their parent;
+@rem     the children deliberately terminate to prove fatal boundaries.
 @rem   - Full child output stays in TestOutput/coverage to keep gate output bounded.
 @rem
 @rem Related:
@@ -35,6 +38,9 @@ set "COVERAGE_XML=%COVERAGE_DIR%\coverage.xml"
 set "COVERAGE_LOG=%COVERAGE_DIR%\test-output.txt"
 set "COVERAGE_SUMMARY=%COVERAGE_DIR%\summary.md"
 set "COVERAGE_TOOL_INFO=%COVERAGE_DIR%\tool-info.txt"
+set "COVERAGE_TOOL_LOG=%COVERAGE_DIR%\collector.log"
+set "DOCTEST_XML=%COVERAGE_DIR%\doctest.xml"
+set "COVERAGE_CHILD_EXE=%REPO%\Debug\SKULLBONEZ_TESTS_COVERAGE_CHILD.exe"
 
 if /I "%~1"=="--self-test" goto :self_test
 if not "%~1"=="" (
@@ -78,8 +84,17 @@ echo [1/4] Checking coverage policy self-tests...
 "%PYTHON_EXE%" "%~dp0check_coverage.py" --self-test
 if errorlevel 1 exit /b 1
 
-echo [2/4] Building SKULLBONEZ_TESTS %CONFIG%^|x64 %TOOLSET_ARG%...
-"%MSBUILD_EXE%" "%REPO%\SKULLBONEZ_TESTS.vcxproj" /p:Configuration=%CONFIG% /p:Platform=x64 %TOOLSET_ARG% /nologo /v:minimal /warnaserror
+echo [2/4] Building ordinary child probes and coverage parent %CONFIG%^|x64 %TOOLSET_ARG%...
+"%MSBUILD_EXE%" "%REPO%\SKULLBONEZ_TESTS.vcxproj" /p:Configuration=%CONFIG% /p:Platform=x64 /p:SKULLBONEZ_COVERAGE_CHILD_BUILD=1 %TOOLSET_ARG% /nologo /v:minimal /warnaserror
+if errorlevel 1 (
+    echo FAIL: Ordinary child-probe build failed.
+    exit /b 2
+)
+if not exist "%COVERAGE_CHILD_EXE%" (
+    echo FAIL: The ordinary child-probe executable was not produced.
+    exit /b 3
+)
+"%MSBUILD_EXE%" "%REPO%\SKULLBONEZ_TESTS.vcxproj" /p:Configuration=%CONFIG% /p:Platform=x64 /p:SKULLBONEZ_COVERAGE_BUILD=1 %TOOLSET_ARG% /nologo /v:minimal /warnaserror
 if errorlevel 1 (
     echo FAIL: SKULLBONEZ_TESTS Debug build failed.
     exit /b 2
@@ -88,23 +103,33 @@ if not exist "%REPO%\Debug\SKULLBONEZ_TESTS.exe" (
     echo FAIL: Debug\SKULLBONEZ_TESTS.exe was not produced.
     exit /b 3
 )
+set "SKULLBONEZ_TEST_CHILD_EXE=%COVERAGE_CHILD_EXE%"
 
 if not exist "%COVERAGE_DIR%" mkdir "%COVERAGE_DIR%"
 if exist "%COVERAGE_XML%" del /q "%COVERAGE_XML%"
 if exist "%COVERAGE_LOG%" del /q "%COVERAGE_LOG%"
+if exist "%COVERAGE_TOOL_LOG%" del /q "%COVERAGE_TOOL_LOG%"
+if exist "%DOCTEST_XML%" del /q "%DOCTEST_XML%"
 
 echo [3/4] Capturing Cobertura product coverage...
 echo       Full test output: %COVERAGE_LOG%
-"%OPENCPPCOVERAGE_EXE%" --quiet --modules "%REPO%\Debug\SKULLBONEZ_TESTS.exe" --sources "%REPO%\SkullbonezSource" --working_dir "%REPO%" --export_type "cobertura:%COVERAGE_XML%" -- "%REPO%\Debug\SKULLBONEZ_TESTS.exe" "--quiet" > "%COVERAGE_LOG%" 2>&1
+"%MICROSOFT_CODE_COVERAGE_EXE%" collect --settings "%~dp0native_coverage.settings" --include-files "%REPO%\Debug\SKULLBONEZ_TESTS.exe" --output "%COVERAGE_XML%" --output-format cobertura --log-file "%COVERAGE_TOOL_LOG%" --log-level Info -- "%REPO%\Debug\SKULLBONEZ_TESTS.exe" "--reporters=xml" "--out=%DOCTEST_XML%" > "%COVERAGE_LOG%" 2>&1
+set "COLLECT_EXIT=!errorlevel!"
+if not exist "%DOCTEST_XML%" (
+    echo FAIL: The parent doctest process did not publish a completion report.
+    echo Collector log: %COVERAGE_TOOL_LOG%
+    exit /b 4
+)
+"%PYTHON_EXE%" -c "import sys, xml.etree.ElementTree as ET; root=ET.parse(sys.argv[1]).getroot(); assertions=root.find('OverallResultsAsserts'); cases=root.find('OverallResultsTestCases'); sys.exit(0 if assertions is not None and cases is not None and assertions.get('failures') == '0' and cases.get('failures') == '0' and int(cases.get('successes', '0')) > 0 else 1)" "%DOCTEST_XML%"
 if errorlevel 1 (
-    echo FAIL: OpenCppCoverage or the Debug test process failed.
-    findstr /C:"FATAL ERROR:" /C:"Status:" "%COVERAGE_LOG%"
+    echo FAIL: The parent doctest process reported a test failure or incomplete run.
     exit /b 4
 )
 if not exist "%COVERAGE_XML%" (
     echo FAIL: Cobertura XML was not produced: %COVERAGE_XML%
     exit /b 5
 )
+if not "%COLLECT_EXIT%"=="0" echo INFO: Collector exit %COLLECT_EXIT% reflects deliberate nonzero fatal-child probes; parent doctest and Cobertura reports are complete.
 
 echo [4/4] Summarizing subsystem floors...
 pushd "%REPO%"
@@ -114,9 +139,9 @@ popd
 if not "%CHECK_EXIT%"=="0" exit /b 6
 
 echo.
-echo OpenCppCoverage tool:
-"%OPENCPPCOVERAGE_EXE%" --help > "%COVERAGE_TOOL_INFO%" 2>&1
-findstr /B /C:"OpenCppCoverage Version:" "%COVERAGE_TOOL_INFO%"
+echo Microsoft native coverage tool:
+"%MICROSOFT_CODE_COVERAGE_EXE%" --version > "%COVERAGE_TOOL_INFO%" 2>&1
+type "%COVERAGE_TOOL_INFO%"
 echo Coverage XML: %COVERAGE_XML%
 echo Coverage summary: %COVERAGE_SUMMARY%
 echo ========================================
@@ -131,15 +156,16 @@ if errorlevel 1 exit /b 99
 exit /b %errorlevel%
 
 :find_coverage_tool
-if defined OPENCPPCOVERAGE_EXE if exist "%OPENCPPCOVERAGE_EXE%" exit /b 0
-for %%E in (OpenCppCoverage.exe) do set "OPENCPPCOVERAGE_EXE=%%~$PATH:E"
-if defined OPENCPPCOVERAGE_EXE if exist "%OPENCPPCOVERAGE_EXE%" exit /b 0
-if exist "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe" (
-    set "OPENCPPCOVERAGE_EXE=C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe"
-    exit /b 0
+if defined MICROSOFT_CODE_COVERAGE_EXE if exist "%MICROSOFT_CODE_COVERAGE_EXE%" exit /b 0
+for %%E in (Microsoft.CodeCoverage.Console.exe) do set "MICROSOFT_CODE_COVERAGE_EXE=%%~$PATH:E"
+if defined MICROSOFT_CODE_COVERAGE_EXE if exist "%MICROSOFT_CODE_COVERAGE_EXE%" exit /b 0
+set "VSWHERE=C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+if exist "%VSWHERE%" (
+    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -find Common7\IDE\Extensions\Microsoft\CodeCoverage.Console\Microsoft.CodeCoverage.Console.exe`) do set "MICROSOFT_CODE_COVERAGE_EXE=%%i"
 )
-echo ERROR: OpenCppCoverage 0.9.9.0 or newer was not found.
-echo Install: winget install --id OpenCppCoverage.OpenCppCoverage --exact --accept-package-agreements --accept-source-agreements
+if defined MICROSOFT_CODE_COVERAGE_EXE if exist "%MICROSOFT_CODE_COVERAGE_EXE%" exit /b 0
+echo ERROR: Microsoft.CodeCoverage.Console was not found in the active Visual Studio installation.
+echo Install the Visual Studio native code coverage tools component.
 exit /b 1
 
 :find_toolset
