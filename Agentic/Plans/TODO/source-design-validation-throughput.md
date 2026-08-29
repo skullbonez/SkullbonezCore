@@ -1,7 +1,7 @@
 # Source Design Validation Throughput
 
 Date: 2026-08-29
-Status: Active by owner direction on 2026-08-30. 3/5 phases complete
+Status: Active by owner direction on 2026-08-30. 4/5 phases complete
 Impact area: validation tooling and mandatory Windows CPU CI
 Owner: Validation tooling
 Priority: Second active plan
@@ -239,17 +239,17 @@ diagnostic only and never changes pass/fail.
   and automatic jobs. Require byte-identical sorted findings and matching exit
   values.
 
-### SDT3 - Integrate phase evidence without duplicating validation
+### SDT3 - Integrate phase evidence without duplicating validation (complete 2026-08-30)
 
-- [ ] Keep `validate_fast`'s existing self-test group followed by live-scan
+- [x] Keep `validate_fast`'s existing self-test group followed by live-scan
   group. Do not add a second source-design scan elsewhere in the CPU lane.
-- [ ] Make the live scan use bounded automatic jobs while retaining an explicit
+- [x] Make the live scan use bounded automatic jobs while retaining an explicit
   serial command for diagnosis and parity evidence.
-- [ ] Emit source/context/process/worker/timing data into the GitHub step summary
+- [x] Emit source/context/process/worker/timing data into the GitHub step summary
   and the existing mandatory CPU log.
-- [ ] Confirm ordinary small diffs remain within the documented fast-lane intent
+- [x] Confirm ordinary small diffs remain within the documented fast-lane intent
   and broad diffs scale with contexts rather than five serial parses per context.
-- [ ] Do not split the workflow or prune header contexts if the two primary
+- [x] Do not split the workflow or prune header contexts if the two primary
   changes meet the hosted targets.
 
 ### SDT4 - Close with parity, resource, and hosted evidence

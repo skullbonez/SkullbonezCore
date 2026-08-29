@@ -2,14 +2,14 @@
 
 Date: 2026-08-30
 Branch: `codex/replay-capture-bugfixes`
-Status: Source Design Validation Throughput active; 133/135 implementation
+Status: Source Design Validation Throughput active; 134/135 implementation
 tasks complete; bug ledger 126/126 fixed
 
 ## Current State
 
 The owner reactivated two WNF plans for sequential implementation on the
 current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is complete at 4/4;
-`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is active at 3/5. The pre-existing
+`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is active at 4/5. The pre-existing
 uncommitted Physics solver experiment, its focused test, two sleep scenes, and
 local investigation report remain outside both plans and must not be staged or
 reformatted.
@@ -95,6 +95,17 @@ four workers and completed in 94.331 seconds with no infrastructure error; its
 22 findings belong to preserved user-owned Physics work and pre-existing Replay
 source, not SDT2. No selection, context, matcher, threshold, test, coverage, or
 baseline changed.
+
+SDT3 replaces `validate_fast`'s two opaque process one-liners with one direct
+retained-policy group runner used once for self-tests and once for live scans.
+It captures every child invocation once, always emits the bounded source-design
+summary into the existing mandatory CPU log stream, preserves failed output
+without replay, and writes the live source/context/process/worker/timing table
+to `GITHUB_STEP_SUMMARY`. The current 19-source/138-context failure path wrote
+the complete table at 94.557 seconds and retained the existing 22 findings.
+The plain-language prerequisite now passes after two wording-only repairs in an
+inactive WNF plan. No workflow split, scan duplication, context pruning, test,
+coverage, or baseline change occurred.
 
 The ignored work ledger retains an unfinished 2026-08-28 goal from another
 Codex task (`GOV1`, `finding-fix-01`). The orchestrator refused to start a new
@@ -1017,7 +1028,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Implement `SOURCE_DESIGN_THROUGHPUT` SDT3-SDT4 in order on the same branch.
+Complete `SOURCE_DESIGN_THROUGHPUT` SDT4 on the same branch.
 
 ## Blockers
 

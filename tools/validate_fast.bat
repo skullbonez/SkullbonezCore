@@ -81,12 +81,12 @@ REM Why: direct calls make each retained rule and failure visible without a
 REM checker that exists only to run other checkers. Review triggers report
 REM current structure; none is a ceiling or count allowance.
 REM Self-tests and live scans are two explicit phases. Independent commands in
-REM each phase run concurrently so deleting the old wrapper does not lengthen
-REM the fast gate; a failed child prints its exact direct command for replay.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$commands=@(@('%~dp0check_source_design.py','--repo','%~dp0..','--self-test'),@('%~dp0check_build_config_consistency.py','--self-test'),@('%~dp0check_determinism_math_policy.py','--self-test')); $processes=@(); foreach($command in $commands){$processes+=Start-Process -FilePath python -ArgumentList $command -PassThru -WindowStyle Hidden}; $failed=@(); for($index=0;$index -lt $processes.Count;++$index){$processes[$index].WaitForExit(); if($processes[$index].ExitCode -ne 0){$failedCommand=$commands[$index]; $failed+=('python '+($failedCommand -join ' ')); Write-Host ('Replaying failed ownership self-test with output: python '+($failedCommand -join ' ')); python $failedCommand}}; if($failed.Count){Write-Error ('FAILED ownership self-test(s): '+($failed -join '; ')); exit 8}"
+REM each phase run concurrently. The group runner captures every child once,
+REM exposes source-design measurements on success, and preserves failed output.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0run_retained_policy_group.ps1" -Mode SelfTest -Repo "%~dp0.."
 if errorlevel 1 exit /b 8
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$commands=@(@('%~dp0check_source_design.py','--repo','%~dp0..'),@('%~dp0check_build_config_consistency.py','--repo','%~dp0..','--format','json'),@('%~dp0check_determinism_math_policy.py','--repo','%~dp0..','--format','json')); $processes=@(); foreach($command in $commands){$processes+=Start-Process -FilePath python -ArgumentList $command -PassThru -WindowStyle Hidden}; $failed=@(); for($index=0;$index -lt $processes.Count;++$index){$processes[$index].WaitForExit(); if($processes[$index].ExitCode -ne 0){$failedCommand=$commands[$index]; $failed+=('python '+($failedCommand -join ' ')); Write-Host ('Replaying failed ownership scan with output: python '+($failedCommand -join ' ')); python $failedCommand}}; if($failed.Count){Write-Error ('FAILED ownership scan(s): '+($failed -join '; ')); exit 8}"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0run_retained_policy_group.ps1" -Mode Live -Repo "%~dp0.."
 if errorlevel 1 exit /b 8
 
 echo [7/9] Checking staged file sizes...

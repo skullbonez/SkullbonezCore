@@ -34,7 +34,7 @@ new changes, but they do not give the engine a complete readability pass:
 - A behavior-free record can reduce the visible parameter count while making
   every call site longer and less clear.
 - Several smaller reference-bearing records can collectively expose the same
-  broad owner surface as one large context bag.
+  broad owner surface as one large unrelated-value record.
 - Moving a function onto a large class can hide the parameter list through
   unrestricted member reach without improving ownership.
 - A single operation can contain independently meaningful configuration,
@@ -61,7 +61,7 @@ candidate rules below, then repair each confirmed design problem so that:
 6. Diagnostics and output dependencies are narrowed to the capability actually
    consumed.
 7. No repair introduces a callback pack, service locator, forwarding facade,
-   composition-root reach-back, or a differently named context bag.
+   composition-root reach-back, or a differently named unrelated-value record.
 
 Success is judged by cohesion and call-site readability, not fewer parameters
 or fewer lines. A longer implementation is acceptable when it makes ownership,
