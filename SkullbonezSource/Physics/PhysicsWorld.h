@@ -84,14 +84,12 @@ class DisjointSet;
 class PhysicsWorld
 {
   public:
-
     // Source-compatible type names only; storage and mutation authority belong
     // exclusively to PhysicsContactSolverStage.
     using PersistentContact = Physics::PersistentContact;
     using PersistentContactSolverStats = Physics::PersistentContactSolverStats;
 
   private:
-
     // Lifetime: startup-bound diagnostics borrow; stage operations never retain it.
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;
     PhysicsForceStage m_forceStage;
@@ -231,8 +229,8 @@ class PhysicsWorld
     bool UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc );
     bool DestroyConstraint( PhysicsConstraintHandle constraint );
     const PhysicsBodyRowList<PointJointConstraint>& GetPointJointConstraints() const;
-    void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount,
-                                      const PhysicsBodyStore& bodyStore ) const;
+    void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount, const PhysicsBodyStore& bodyStore,
+                                      bool capturePipelineTrace ) const;
     bool CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount,
                                          const PhysicsBodyStore& bodyStore ) const;
     bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount,

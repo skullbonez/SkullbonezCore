@@ -70,7 +70,7 @@ struct RuntimeReserveOwnerDesc
     RuntimeReservePhase initPhase;
     int initialCapacity;
     int hardCapacity;
-    int replayGrowthLimit;    // Negative means hard-cap-only; every growth is still counted.
+    int replayGrowthLimit; // Negative means hard-cap-only; every growth is still counted.
     bool allowReplayGrowth;
     const char* capacityReason;
 
@@ -79,7 +79,9 @@ struct RuntimeReserveOwnerDesc
     // ignore the permission; development builds still require the exact owner
     // scope before admitting third-party allocations.
     bool allowDevelopmentToolAllocations = false;
-    int elementSizeBytes = 0; // Nonzero owners appear in the fixed capacity-row readout.
+    // Nonzero owners express capacities in elements and appear in the fixed
+    // capacity-row readout. Zero means the capacity is already measured in bytes.
+    int elementSizeBytes = 0;
 };
 
 struct RuntimeReserveGrowthRequest
@@ -142,14 +144,14 @@ struct RuntimeReserveOwnerStatsView
     RuntimeReservePhase initPhase;
     const char* capacityReason;
     uint64_t allocations;
-    uint64_t activeBytes;     // Currently live allocation bytes attributed to this owner.
-    uint64_t highWaterBytes;  // Largest transient active-byte total since counters reset.
+    uint64_t activeBytes;             // Currently live allocation bytes attributed to this owner.
+    uint64_t highWaterBytes;          // Largest transient active-byte total since counters reset.
     uint64_t pendingReplayGrantBytes; // Issued replay bytes not yet allocated or released.
     uint64_t replayGrowths;
     uint64_t failedGrowths;
     int currentCapacity;
     int hardCapacity;
-    int highWaterCapacity;    // Owner capacity units; byte-budget owners use bytes.
+    int highWaterCapacity; // Owner capacity units; byte-budget owners use bytes.
     int lastGrowthFrame;
     bool allowReplayGrowth;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -214,8 +216,7 @@ class RuntimeReserveAllocator
     // IsApproved is a non-consuming preflight for fixed containers. The global
     // allocation hook must use TryConsume with its exact requested byte count.
     static bool IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
-    static bool TryConsumeApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex,
-                                                          uint64_t bytes,
+    static bool TryConsumeApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes,
                                                           uint64_t* outAccountingGeneration = nullptr ) noexcept;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     static bool IsApprovedDevelopmentToolAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
@@ -223,14 +224,12 @@ class RuntimeReserveAllocator
     // Reserves one vendor-owned backing range before an allocator maps it.
     // Unlike RecordAllocation(), this can reject the request without first
     // crossing the registered live-byte cap.
-    static bool TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex,
-                                                           uint64_t bytes,
+    static bool TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes,
                                                            uint64_t* outAccountingGeneration = nullptr ) noexcept;
 #endif
 
     static uint64_t RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
-    static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes,
-                            uint64_t accountingGeneration = 0u ) noexcept;
+    static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes, uint64_t accountingGeneration = 0u ) noexcept;
     static int CopyRecentGrowthEvents( RuntimeReserveGrowthEventView* outEvents, int maxEvents ) noexcept;
 
     // Copies one fixed-registry owner row without allocating. Name lookup lets

@@ -196,7 +196,7 @@ TEST_CASE( "Startup command line: primitive value parsers reject partial writes 
 TEST_CASE( "Startup launch values: every run directive family projects into owned state" )
 {
     const CommandLineView commandLine = View(
-        "--seed 17 --frames=9 --allocation_guard gameplay "
+        "--seed 17 --frames=9 --frame_buffers 3 --perf_log TestOutput/demohero.csv --allocation_guard gameplay "
         "--style-harness TestOutput/style --scene_snapshot_out TestOutput/scene.json "
         "--memory_dump TestOutput/memory.json --interaction_script script.json "
         "--interaction_report report.json --interaction_trace trace.jsonl "
@@ -217,6 +217,8 @@ TEST_CASE( "Startup launch values: every run directive family projects into owne
 
     CHECK( args.seedOverride == 17u );
     CHECK( args.frameCountOverride == 9 );
+    CHECK( args.renderFrameBufferCount == 3 );
+    CHECK( std::strcmp( args.perfLogPath, "TestOutput/demohero.csv" ) == 0 );
     CHECK( args.allocationGuardMode == RuntimeAllocationGuardMode::Gameplay );
     CHECK( std::strcmp( args.liveStyleControlDir, "TestOutput/style" ) == 0 );
     CHECK( std::strcmp( args.sceneSnapshotOutPath, "TestOutput/scene.json" ) == 0 );
@@ -254,6 +256,20 @@ TEST_CASE( "Startup launch values: every run directive family projects into owne
     CHECK( args.suppressExitDialog );
 }
 
+TEST_CASE( "Startup render buffering: defaults to two and accepts only two or three" )
+{
+    ParsedArgs defaults;
+    REQUIRE( ApplyRunCliValueDirectives( View( "--frames 1" ), defaults ) );
+    CHECK( defaults.renderFrameBufferCount == 2 );
+
+    ParsedArgs triple;
+    REQUIRE( ApplyRunCliValueDirectives( View( "--frame-buffers 3" ), triple ) );
+    CHECK( triple.renderFrameBufferCount == 3 );
+
+    CheckRunDirectiveFailure( "--frame-buffers 1", "--frame-buffers expects 2 or 3." );
+    CheckRunDirectiveFailure( "--frame_buffers 4", "--frame-buffers expects 2 or 3." );
+}
+
 TEST_CASE( "Startup launch values: malformed directives keep exact recoverable messages" )
 {
     struct FailureCase
@@ -264,6 +280,7 @@ TEST_CASE( "Startup launch values: malformed directives keep exact recoverable m
     const FailureCase cases[] = {
         { "--seed 0", "--seed expects a positive 32-bit integer." },
         { "--frames -1", "--frames expects a positive integer." },
+        { "--perf-log", "--perf-log requires an output path." },
         { "--allocation-guard fatal", "--allocation-guard expects off|measure|gameplay." },
         { "--live-style-control", "--live-style-control expects a directory path." },
         { "--scene-snapshot-out", "--scene-snapshot-out expects a file path." },
@@ -474,6 +491,7 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
     args.dumpAssets = true;
     args.interactiveRun = true;
     args.frameCountOverride = 10;
+    strcpy_s( args.perfLogPath, "profile.csv" );
     args.uiStress = true;
     args.graphicsStress = true;
     args.replayGuideArcsAtStartup = true;
@@ -516,6 +534,7 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
     CHECK( overrides.launch.dumpTextureAssets );
     CHECK( overrides.launch.interactiveSceneRun );
     CHECK( overrides.launch.frameCountOverride == 10 );
+    CHECK( std::strcmp( overrides.launch.perfLogPath, "profile.csv" ) == 0 );
     CHECK( overrides.launch.uiStress );
     CHECK( overrides.launch.graphicsStress );
     CHECK( overrides.launch.replayGuideArcsAtStartup );

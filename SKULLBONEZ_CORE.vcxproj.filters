@@ -228,6 +228,9 @@
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp">
       <Filter>Source Files\Assets</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Assets\AssetSystem.Rendering.cpp">
+      <Filter>Source Files\Assets</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp">
       <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
@@ -568,6 +571,9 @@
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPrediction.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionState.cpp">
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.cpp">
@@ -930,6 +936,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\AtomicTextFileWriter.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Core\StdioFile.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\SbDiagnosticStore.h">

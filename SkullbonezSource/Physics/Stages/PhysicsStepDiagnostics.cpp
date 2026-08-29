@@ -307,7 +307,7 @@ void PhysicsStepDiagnostics::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 #endif
 
-void PhysicsStepDiagnostics::CaptureReplayState( PhysicsSolverSnapshot& snapshot ) const
+void PhysicsStepDiagnostics::CaptureReplayState( PhysicsSolverSnapshot& snapshot, bool capturePipelineTrace ) const
 {
     snapshot.collisionVisualContacts.clear();
 
@@ -323,17 +323,20 @@ void PhysicsStepDiagnostics::CaptureReplayState( PhysicsSolverSnapshot& snapshot
         snapshot.debugContacts.push_back( contact );
     }
 
-    if ( m_pipelineTrace.Count() != m_pipelineTrace.Records().size() )
-    {
-        SB_FATAL( "Physics/PhysicsStepDiagnostics",
-                  "Replay capture requires full pipeline records for every counted event." );
-    }
-
     snapshot.pipelineTrace.clear();
 
-    for ( const PhysicsPipelineRecord& record : m_pipelineTrace.Records() )
+    if ( capturePipelineTrace )
     {
-        snapshot.pipelineTrace.push_back( record );
+        if ( m_pipelineTrace.Count() != m_pipelineTrace.Records().size() )
+        {
+            SB_FATAL( "Physics/PhysicsStepDiagnostics",
+                      "Replay capture requires full pipeline records for every counted event." );
+        }
+
+        for ( const PhysicsPipelineRecord& record : m_pipelineTrace.Records() )
+        {
+            snapshot.pipelineTrace.push_back( record );
+        }
     }
 
     snapshot.collisionVisualFrameActive = m_collisionVisualFrameActive;

@@ -385,6 +385,55 @@ TEST_CASE( "Physics motion eligibility: spheres use one squared radius boundary"
     CHECK( stage.Stats().demotionsThisStep == 1 );
 }
 
+Vector3 FindRequiredEdgeAxisTravel( const SkullbonezCore::Math::CollisionDetection::ConvexHullShape& hull )
+{
+    const std::span<const SkullbonezCore::Math::CollisionDetection::ConvexHullMotionAxis> axes = hull.GetMotionAxes();
+
+    for ( int ordinal = 0; ordinal < 11 * 11 * 11; ++ordinal )
+    {
+        const int x = ordinal / 121 - 5;
+        const int y = ( ordinal / 11 ) % 11 - 5;
+        const int z = ordinal % 11 - 5;
+        const Vector3 rawDirection( static_cast<float>( x ), static_cast<float>( y ), static_cast<float>( z ) );
+        const float directionLengthSquared = SkullbonezCore::Math::Vector::VectorMagSquared( rawDirection );
+
+        if ( directionLengthSquared <= 0.0f )
+        {
+            continue;
+        }
+
+        const Vector3 direction = rawDirection / std::sqrt( directionLengthSquared );
+        float faceBoundary = ( std::numeric_limits<float>::max )();
+        float completeBoundary = ( std::numeric_limits<float>::max )();
+
+        for ( std::size_t candidateIndex = 0; candidateIndex < axes.size(); ++candidateIndex )
+        {
+            const float projection = std::fabs(
+                SkullbonezCore::Math::Vector::Dot( direction, axes[candidateIndex].normalLocal ) );
+
+            if ( projection <= 1.0e-5f )
+            {
+                continue;
+            }
+
+            const float boundary = std::sqrt( axes[candidateIndex].halfWidthSquared ) / projection;
+            completeBoundary = (std::min)( completeBoundary, boundary );
+
+            if ( candidateIndex < hull.GetFaceCount() )
+            {
+                faceBoundary = (std::min)( faceBoundary, boundary );
+            }
+        }
+
+        if ( completeBoundary < faceBoundary * 0.99f )
+        {
+            return direction * ( 0.5f * ( completeBoundary + faceBoundary ) );
+        }
+    }
+
+    return SkullbonezCore::Math::Vector::ZERO_VECTOR;
+}
+
 TEST_CASE( "Physics motion eligibility: elongated boxes and hulls use the first reached local-axis radius" )
 {
     namespace Collision = SkullbonezCore::Math::CollisionDetection;
@@ -400,56 +449,8 @@ TEST_CASE( "Physics motion eligibility: elongated boxes and hulls use the first 
                                                                      "SkullbonezData/hulls/test_motion_tetrahedron.hull",
                                                                      diagonalHull ) );
 
-    Vector3 edgeAxisTravel = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    bool foundRequiredEdgeAxis = false;
-    const std::span<const Collision::ConvexHullMotionAxis> diagonalAxes = diagonalHull.GetMotionAxes();
-
-    for ( int x = -5; x <= 5 && !foundRequiredEdgeAxis; ++x )
-    {
-        for ( int y = -5; y <= 5 && !foundRequiredEdgeAxis; ++y )
-        {
-            for ( int z = -5; z <= 5 && !foundRequiredEdgeAxis; ++z )
-            {
-                const Vector3 rawDirection( static_cast<float>( x ), static_cast<float>( y ), static_cast<float>( z ) );
-                const float directionLengthSquared = SkullbonezCore::Math::Vector::VectorMagSquared( rawDirection );
-
-                if ( directionLengthSquared <= 0.0f )
-                {
-                    continue;
-                }
-
-                const Vector3 direction = rawDirection / std::sqrt( directionLengthSquared );
-                float faceBoundary = ( std::numeric_limits<float>::max )();
-                float completeBoundary = ( std::numeric_limits<float>::max )();
-
-                for ( std::size_t candidateIndex = 0; candidateIndex < diagonalAxes.size(); ++candidateIndex )
-                {
-                    const float projection = std::fabs( SkullbonezCore::Math::Vector::Dot( direction, diagonalAxes[candidateIndex].normalLocal ) );
-
-                    if ( projection <= 1.0e-5f )
-                    {
-                        continue;
-                    }
-
-                    const float boundary = std::sqrt( diagonalAxes[candidateIndex].halfWidthSquared ) / projection;
-                    completeBoundary = (std::min)( completeBoundary, boundary );
-
-                    if ( candidateIndex < diagonalHull.GetFaceCount() )
-                    {
-                        faceBoundary = (std::min)( faceBoundary, boundary );
-                    }
-                }
-
-                if ( completeBoundary < faceBoundary * 0.99f )
-                {
-                    edgeAxisTravel = direction * ( 0.5f * ( completeBoundary + faceBoundary ) );
-                    foundRequiredEdgeAxis = true;
-                }
-            }
-        }
-    }
-
-    REQUIRE( foundRequiredEdgeAxis );
+    const Vector3 edgeAxisTravel = FindRequiredEdgeAxisTravel( diagonalHull );
+    REQUIRE( SkullbonezCore::Math::Vector::VectorMagSquared( edgeAxisTravel ) > 0.0f );
 
     Collision::ConvexHullShape scaledDiagonalHull = diagonalHull;
     scaledDiagonalHull.ScaleAxis( 0, 0.001f );
@@ -689,13 +690,18 @@ TEST_CASE( "Physics motion eligibility: angular blade expansion retains a conser
     SkullbonezCore::Physics::BroadphaseSettings settings;
     settings.cellSize = 5.0f;
     const std::array<float, 2> noAngularExpansion = { 0.0f, 0.0f };
-    const auto rejectedPairs = broadphase->Run( bodies, colliders, settings, joints, sleep, awake, eligibility->State(),
-                                                noAngularExpansion, *diagnostics, 1.0f, 0.0f, 0.0f );
+    const SkullbonezCore::Physics::PhysicsBroadphaseStepInput rejectedInput {
+        settings, joints, sleep, awake, eligibility->State(), noAngularExpansion, *diagnostics, 1.0f, 0.0f, 0.0f
+    };
+    const auto rejectedPairs = broadphase->Run( bodies, colliders, rejectedInput );
     CHECK( rejectedPairs.empty() );
     broadphase->InvalidateBodyTopology();
     diagnostics->BeginStep( 2 );
-    const auto pairs = broadphase->Run( bodies, colliders, settings, joints, sleep, awake, eligibility->State(),
-                                        eligibility->AngularBroadphaseExpansion(), *diagnostics, 1.0f, 0.0f, 0.0f );
+    const SkullbonezCore::Physics::PhysicsBroadphaseStepInput expandedInput {
+        settings, joints, sleep, awake, eligibility->State(), eligibility->AngularBroadphaseExpansion(), *diagnostics,
+        1.0f, 0.0f, 0.0f
+    };
+    const auto pairs = broadphase->Run( bodies, colliders, expandedInput );
     CHECK( std::find( pairs.begin(), pairs.end(), std::make_pair( 0, 1 ) ) != pairs.end() );
 
     auto hot = bodies.MutableHotFields();
@@ -705,8 +711,11 @@ TEST_CASE( "Physics motion eligibility: angular blade expansion retains a conser
     REQUIRE_FALSE( std::isfinite( eligibility->AngularBroadphaseExpansion()[0] ) );
     broadphase->InvalidateBodyTopology();
     diagnostics->BeginStep( 2 );
-    const auto fallbackPairs = broadphase->Run( bodies, colliders, settings, joints, sleep, awake, eligibility->State(),
-                                                eligibility->AngularBroadphaseExpansion(), *diagnostics, 1.0f, 0.0f, 0.0f );
+    const SkullbonezCore::Physics::PhysicsBroadphaseStepInput fallbackInput {
+        settings, joints, sleep, awake, eligibility->State(), eligibility->AngularBroadphaseExpansion(), *diagnostics,
+        1.0f, 0.0f, 0.0f
+    };
+    const auto fallbackPairs = broadphase->Run( bodies, colliders, fallbackInput );
     CHECK( std::find( fallbackPairs.begin(), fallbackPairs.end(), std::make_pair( 0, 1 ) ) != fallbackPairs.end() );
 }
 
@@ -1272,58 +1281,64 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
     }
 }
 
-TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation while slack anchors remain eligible" )
+void CheckPointJointSleepCase( bool retainPipelineRecords, bool stretched )
 {
     // Concept: the pipeline decision row is the public diagnostic for why an
     // otherwise quiet, fixed-anchored island could not advance toward sleep.
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    PhysicsBodyCreateRecord anchor;
+    anchor.hot.fixed = true;
+    const auto anchorHandle = bodies.CreateBodyRecord( anchor );
+    PhysicsBodyCreateRecord dynamic;
+    dynamic.hot.position = Vector3( stretched ? 2.0f : 0.1f, 0.0f, 0.0f );
+    const auto dynamicHandle = bodies.CreateBodyRecord( dynamic );
+
+    SkullbonezCore::Physics::PointJointConstraint joint;
+    joint.SetBodies( anchorHandle, dynamicHandle );
+    joint.slack = 0.25f;
+    const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints = { joint };
+    const std::vector<SkullbonezCore::Physics::PersistentContact> contacts;
+    std::array<float, 2> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f };
+    std::array<uint16_t, 2> restingCounts = { 0u, 0u };
+    SkullbonezCore::Physics::PhysicsPipelineTraceRecorder pipeline;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        pipeline.Reserve();
+    }
+    pipeline.BeginStep( retainPipelineRecords );
+    PhysicsWorldForces worldForces;
+    std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
+    PhysicsSleepController controller;
+    ReserveTestSleepCapacity( controller );
+    controller.MirrorFlagsFrom( bodies, 2 );
+    const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 3u };
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
+
+    CHECK( pipeline.Count() == 1u );
+    const std::span<const SkullbonezCore::Physics::PhysicsPipelineRecord> records = pipeline.Records();
+    REQUIRE( records.size() == ( retainPipelineRecords ? 1u : 0u ) );
+
+    if ( retainPipelineRecords )
+    {
+        CHECK( records[0].stage == SkullbonezCore::Physics::PhysicsPipelineStage::SleepIslandDecision );
+        CHECK( records[0].bodyA == 1 );
+        CHECK( records[0].scalarB == doctest::Approx( 1.0f ) );
+        CHECK( records[0].scalarC == doctest::Approx( stretched ? 2.0f : 0.0f ) );
+    }
+
+    CHECK( controller.GetSleepCounters()[1] == ( stretched ? 0u : 1u ) );
+}
+
+TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation while slack anchors remain eligible" )
+{
     for ( const bool retainPipelineRecords : { true, false } )
     {
         for ( const bool stretched : { false, true } )
         {
-            PhysicsBodyStore& bodies = StageBodyStore();
-            ColliderStore& colliders = StageColliderStore();
-            PhysicsBodyCreateRecord anchor;
-            anchor.hot.fixed = true;
-            const auto anchorHandle = bodies.CreateBodyRecord( anchor );
-            PhysicsBodyCreateRecord dynamic;
-            dynamic.hot.position = Vector3( stretched ? 2.0f : 0.1f, 0.0f, 0.0f );
-            const auto dynamicHandle = bodies.CreateBodyRecord( dynamic );
-
-            SkullbonezCore::Physics::PointJointConstraint joint;
-            joint.SetBodies( anchorHandle, dynamicHandle );
-            joint.slack = 0.25f;
-            const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints = { joint };
-            const std::vector<SkullbonezCore::Physics::PersistentContact> contacts;
-            std::array<float, 2> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f };
-            std::array<uint16_t, 2> restingCounts = { 0u, 0u };
-            SkullbonezCore::Physics::PhysicsPipelineTraceRecorder pipeline;
-            {
-                SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-                pipeline.Reserve();
-            }
-            pipeline.BeginStep( retainPipelineRecords );
-            PhysicsWorldForces worldForces;
-            std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
-            PhysicsSleepController controller;
-            ReserveTestSleepCapacity( controller );
-            controller.MirrorFlagsFrom( bodies, 2 );
-            const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 3u };
-            controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                                       joints, pipeline, sleepPolicy );
-
-            CHECK( pipeline.Count() == 1u );
-            const std::span<const SkullbonezCore::Physics::PhysicsPipelineRecord> records = pipeline.Records();
-            REQUIRE( records.size() == ( retainPipelineRecords ? 1u : 0u ) );
-
-            if ( retainPipelineRecords )
-            {
-                CHECK( records[0].stage == SkullbonezCore::Physics::PhysicsPipelineStage::SleepIslandDecision );
-                CHECK( records[0].bodyA == 1 );
-                CHECK( records[0].scalarB == doctest::Approx( 1.0f ) );
-                CHECK( records[0].scalarC == doctest::Approx( stretched ? 2.0f : 0.0f ) );
-            }
-
-            CHECK( controller.GetSleepCounters()[1] == ( stretched ? 0u : 1u ) );
+            CheckPointJointSleepCase( retainPipelineRecords, stretched );
         }
     }
 }

@@ -591,11 +591,12 @@ bool SceneTargetPass::IsReady() const
 
 void ReflectionPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-    // Why: the reflection texture is intentionally supersampled relative to the
-    // window. Water can then sample it at grazing angles without making the
-    // mirrored scene look blocky.
-    const int fboW = resources.windowWidth * 2;
-    const int fboH = resources.windowHeight * 2;
+    // Why: water distortion already filters this image, while a 2x target made
+    // the procedural reflection sky shade four times as many pixels as the main
+    // view every frame. Native resolution preserves the authored reflection and
+    // post style without spending supersampling on a warped secondary image.
+    const int fboW = resources.windowWidth;
+    const int fboH = resources.windowHeight;
     const bool needsReflectionTarget = !m_resources.target || m_resources.target->GetWidth() != fboW ||
                                        m_resources.target->GetHeight() != fboH ||
                                        m_resources.target->GetColorFormat() !=
@@ -916,9 +917,8 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, Rendering:
         // Invariant: shadow collection always targets the frame-owned batches
         // reserved during RuntimeRenderResources construction. A stack fallback
         // would begin with zero-capacity vectors inside the render phase.
-        instanceRenderer.SubmitShadowCasterBatches( m_profiler, shadowShaderBaseName, objectCasters,
-                                                    shadowFrame.lightView, shadowFrame.lightProjection, &cinematic,
-                                                    visibilityView );
+        instanceRenderer.SubmitShadowCasterBatches( m_profiler, shadowShaderBaseName, objectCasters, shadowFrame.lightView,
+                                                    shadowFrame.lightProjection, &cinematic, visibilityView );
     }
 
     target.Unbind();
@@ -1078,6 +1078,7 @@ void SceneTargetPass::Begin( const RenderCameraLighting& camera,
 ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs )
 {
     ReflectionPassOutput output;
+    Rendering::RenderGpuTimingOwner* gpuTiming = inputs.gpuTiming;
 
     // Concept: two implementations, one water-pass contract. The planar path
     // renders the above-water scene from a mirrored camera into an FBO. The DXR
@@ -1086,14 +1087,12 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
     // Hazard: texture resolution and framebuffer creation have recoverable
     // early returns. A lexical scope keeps both profiler stacks balanced on
     // every exit instead of requiring each fallback to duplicate an end call.
-    PROFILE_GPU_SCOPED( inputs.gpuTiming, "Frame/Render/Reflection" );
+    PROFILE_GPU_SCOPED( gpuTiming, "Frame/Render/Reflection" );
     DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Render/Reflection" );
-    Rendering::Dx12RaytracingOwner& rayTracing = inputs.rayTracing;
-    const bool useDxrReflection = inputs.useDxrReflection;
 
-    output.usedDxr = useDxrReflection;
+    output.usedDxr = inputs.useDxrReflection;
 
-    if ( useDxrReflection )
+    if ( inputs.useDxrReflection )
     {
         // Lifetime: the DX12 backend owns the raytracing acceleration
         // structures. The prepared render store streams current per-model
@@ -1105,7 +1104,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
         // Terrain/sphere BLAS objects are owned by the DX12 backend, so the
         // runtime supplies only per-instance sphere transforms here.
-        rayTracing.BuildTLAS( std::span<const Matrix4>( m_dxrReflectionTransforms, static_cast<std::size_t>( ballCount ) ) );
+        inputs.rayTracing.BuildTLAS(
+            std::span<const Matrix4>( m_dxrReflectionTransforms, static_cast<std::size_t>( ballCount ) ) );
 
         // Ray generation reconstructs world-space rays from screen pixels, so
         // it needs the inverse of the main camera view-projection matrix.
@@ -1129,30 +1129,28 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
                                                  inputs.cinematic->skyHorizonB );
         }
 
-        Textures::TextureCollection& textures = inputs.textures;
-
-        if ( !ResolveRenderTextureHandle( textures, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/DXR",
+        if ( !ResolveRenderTextureHandle( inputs.textures, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/DXR",
                                           reflection.textures.sphere ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_GROUND, "Frame/Render/Reflection/DXR",
+             !ResolveRenderTextureHandle( inputs.textures, TEXTURE_GROUND, "Frame/Render/Reflection/DXR",
                                           reflection.textures.terrain ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_UP, "Frame/Render/Reflection/DXR",
+             !ResolveRenderTextureHandle( inputs.textures, TEXTURE_SKY_UP, "Frame/Render/Reflection/DXR",
                                           reflection.textures.skyUp ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_DOWN, "Frame/Render/Reflection/DXR",
+             !ResolveRenderTextureHandle( inputs.textures, TEXTURE_SKY_DOWN, "Frame/Render/Reflection/DXR",
                                           reflection.textures.skyDown ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_RIGHT, "Frame/Render/Reflection/DXR",
+             !ResolveRenderTextureHandle( inputs.textures, TEXTURE_SKY_RIGHT, "Frame/Render/Reflection/DXR",
                                           reflection.textures.skyRight ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_LEFT, "Frame/Render/Reflection/DXR",
+             !ResolveRenderTextureHandle( inputs.textures, TEXTURE_SKY_LEFT, "Frame/Render/Reflection/DXR",
                                           reflection.textures.skyLeft ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_FRONT, "Frame/Render/Reflection/DXR",
+             !ResolveRenderTextureHandle( inputs.textures, TEXTURE_SKY_FRONT, "Frame/Render/Reflection/DXR",
                                           reflection.textures.skyFront ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_BACK, "Frame/Render/Reflection/DXR",
+             !ResolveRenderTextureHandle( inputs.textures, TEXTURE_SKY_BACK, "Frame/Render/Reflection/DXR",
                                           reflection.textures.skyBack ) )
         {
             return output;
         }
 
-        rayTracing.DispatchReflectionRays( reflection );
-        output.reflectionTextureHandle = rayTracing.GetReflectionUAVTexture();
+        inputs.rayTracing.DispatchReflectionRays( reflection );
+        output.reflectionTextureHandle = inputs.rayTracing.GetReflectionUAVTexture();
         output.reflectionSampleViewProjection = inputs.camera.viewProjection;
     }
     else
@@ -1164,27 +1162,25 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
         // Invariant: the planar path binds only its own reflection target and
         // restores the viewport to the window size before water renders.
-        Rendering::Dx12TextureOwner& renderTextures = inputs.renderTextures;
-        Rendering::Dx12FrameOwner& renderFrame = inputs.renderFrame;
         m_resources.target->Bind();
-        renderFrame.SetViewport( 0, 0, m_resources.target->GetWidth(), m_resources.target->GetHeight() );
-        renderFrame.Clear( {} );
+        inputs.renderFrame.SetViewport( 0, 0, m_resources.target->GetWidth(), m_resources.target->GetHeight() );
+        inputs.renderFrame.Clear( {} );
 
         // Skybox reflected (XZ follows eye; Y anchored at runtime config).
         // Cinematic mode can reflect the generated sunset sky into the water
         // instead of the usual cube-map sky.
-        PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/Reflection/Skybox" );
+        PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/Reflection/Skybox" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Render/Reflection/Skybox" );
             m_skyPass.Render( inputs.camera, inputs.reflectionView, inputs.cinematic, inputs.renderGeometry,
                               inputs.renderTextures, SkyPassMode::CinematicIfEnabled );
         }
-        PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/Reflection/Skybox" );
+        PROFILE_GPU_END( gpuTiming, "Frame/Render/Reflection/Skybox" );
 
         // Why: clip at the water surface so the reflection texture contains only
         // the above-water portion of models. The water shader supplies the
         // below-surface visual from the main scene.
-        PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/Reflection/Balls" );
+        PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Render/Reflection/Balls" );
         inputs.primitiveRenderer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.waterY );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.waterY );
@@ -1193,15 +1189,14 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
         {
             // Pass contract: collision-state solids are vertex-colored and do
             // not sample textures.
-            ClearAllRenderTextureSlots( renderTextures );
+            ClearAllRenderTextureSlots( inputs.renderTextures );
 
             if ( HasCollisionVisualizerFrameView( inputs.models ) )
             {
                 const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
                 m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
                 m_collisionVisualizer.Render( inputs.renderGeometry, inputs.renderDiagnostics, frameView,
-                                              inputs.reflectionView,
-                                              inputs.camera.projection, inputs.camera.lightPosition );
+                                              inputs.reflectionView, inputs.camera.projection, inputs.camera.lightPosition );
 
                 m_collisionVisualizer.SetAlphaOverride( -1.0f );
             }
@@ -1210,7 +1205,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
         {
             // Pass contract: reflected lit models read material color from slot
             // 0 and optional shadow depth from slot 3.
-            ClearRenderTextureSlotsExcept( renderTextures,
+            ClearRenderTextureSlotsExcept( inputs.renderTextures,
                                            RENDER_TEXTURE_SLOT_0 |
                                                ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3
                                                                                                    : 0u ) );
@@ -1225,10 +1220,10 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
         inputs.primitiveRenderer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
-        PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/Reflection/Balls" );
+        PROFILE_GPU_END( gpuTiming, "Frame/Render/Reflection/Balls" );
 
         m_resources.target->Unbind();
-        renderFrame.SetViewport( 0, 0, inputs.windowWidth, inputs.windowHeight );
+        inputs.renderFrame.SetViewport( 0, 0, inputs.windowWidth, inputs.windowHeight );
         output.reflectionTextureHandle = m_resources.target->GetColorTextureHandle();
         output.reflectionSampleViewProjection = inputs.reflectionViewProjection;
     }
@@ -1259,8 +1254,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         {
             const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
             m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( inputs.renderGeometry, inputs.renderDiagnostics, frameView,
-                                          inputs.camera.baseView,
+            m_collisionVisualizer.Render( inputs.renderGeometry, inputs.renderDiagnostics, frameView, inputs.camera.baseView,
                                           inputs.camera.projection, inputs.camera.lightPosition );
 
             m_collisionVisualizer.SetAlphaOverride( -1.0f );
@@ -1415,21 +1409,20 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         return false;
     }
 
+    Rendering::RenderGpuTimingOwner* gpuTiming = inputs.gpuTiming;
     const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
 
     if ( detailMarkers )
     {
-        PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay" );
+        PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/DebugOverlay" );
     }
 
     DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Render/DebugOverlay" );
-    const DebugOverlaySnapshot& snapshot = inputs.snapshot;
-
-    if ( snapshot.broadphaseOverlayVisible )
+    if ( inputs.snapshot.broadphaseOverlayVisible )
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/Broadphase" );
+            PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/DebugOverlay/Broadphase" );
         }
 
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Broadphase" );
@@ -1441,40 +1434,40 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay/Broadphase" );
+            PROFILE_GPU_END( gpuTiming, "Frame/Render/DebugOverlay/Broadphase" );
         }
     }
 
-    if ( !snapshot.worldExtensionDebugLines.empty() )
+    if ( !inputs.snapshot.worldExtensionDebugLines.empty() )
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/WorldExtension" );
+            PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/DebugOverlay/WorldExtension" );
         }
 
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "WorldExtension" );
 
         if ( inputs.renderDiagnostics.GetCapabilities().supportsDebugLines )
         {
-            inputs.renderGeometry.DrawLinesColored( snapshot.worldExtensionDebugLines, inputs.camera.viewProjection,
+            inputs.renderGeometry.DrawLinesColored( inputs.snapshot.worldExtensionDebugLines, inputs.camera.viewProjection,
                                                     DEBUG_LINE_RASTER );
         }
 
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay/WorldExtension" );
+            PROFILE_GPU_END( gpuTiming, "Frame/Render/DebugOverlay/WorldExtension" );
         }
     }
 
     // Invariant: production submission and validation observe this same
     // replay-owned packet; neither may rebuild geometry from tracer internals.
-    PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
+    PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
     RenderReplayVisualPacket( inputs.replayVisualPacket, inputs.camera.viewProjection, inputs.renderGeometry );
-    PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
+    PROFILE_GPU_END( gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
 
     if ( inputs.retainedOverlay.HasGeometry() )
     {
-        PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/RetainedOverlay" );
+        PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/DebugOverlay/RetainedOverlay" );
 
         if ( !inputs.retainedOverlay.ribbonRanges.empty() )
         {
@@ -1497,7 +1490,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
                                                             inputs.camera.viewProjection, DEBUG_LINE_RASTER );
         }
 
-        PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay/RetainedOverlay" );
+        PROFILE_GPU_END( gpuTiming, "Frame/Render/DebugOverlay/RetainedOverlay" );
     }
 
     RenderLauncherShots( inputs );
@@ -1510,16 +1503,16 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
                                                         inputs.renderDiagnostics.GetCapabilities().supportsDebugLines );
     }
 
-    if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
+    if ( inputs.snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/PhysicsDebug" );
+            PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/DebugOverlay/PhysicsDebug" );
         }
 
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "PhysicsDebug" );
-        m_physicsDebugVisualizer.SetFlags( snapshot.physicsDebugFlags );
-        m_physicsDebugVisualizer.SetPipelineStageCursor( snapshot.physicsDebugPipelineStageCursor );
+        m_physicsDebugVisualizer.SetFlags( inputs.snapshot.physicsDebugFlags );
+        m_physicsDebugVisualizer.SetPipelineStageCursor( inputs.snapshot.physicsDebugPipelineStageCursor );
 
         if ( HasPhysicsDebugFrameView( inputs.models ) )
         {
@@ -1534,13 +1527,13 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay/PhysicsDebug" );
+            PROFILE_GPU_END( gpuTiming, "Frame/Render/DebugOverlay/PhysicsDebug" );
         }
     }
 
     if ( detailMarkers )
     {
-        PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay" );
+        PROFILE_GPU_END( gpuTiming, "Frame/Render/DebugOverlay" );
     }
 
     return true;

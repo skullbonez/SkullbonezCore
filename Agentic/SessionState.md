@@ -1,8 +1,8 @@
 # Session State
 
-Date: 2026-08-26
+Date: 2026-08-28
 Branch: `nightrunner-25th-AUG-26`
-Status: Governance De-Bureaucratization and Jargon Removal complete; 120/120 tasks complete; bug ledger 126/126 fixed
+Status: No active plan; 126/126 implementation tasks complete; bug ledger 126/126 fixed
 
 ## Rendering Bug Ledger Closure (2026-08-26)
 
@@ -242,7 +242,7 @@ releases the movable allocation exactly until Windows accepts ownership.
 Detached Windows fault operations cover every failure without touching the
 machine clipboard, including exact terminating-NUL and unlock-before-publish
 ordering. Two serial read-only reviews closed the null owner, portable CMake
-inventory, and false-pass terminator findings; the final pass is clean.
+inventory, and missing terminator-test findings; the final pass is clean.
 Validation was deferred by explicit owner direction; no build, test, scanner,
 or validation command ran.
 RENDER-001 is reconciled as already fixed by the current render boundary:
@@ -269,7 +269,7 @@ now closed: scene snapshots publish through a unique sibling only after the
 complete JSON has been written, flushed, and successfully closed, then replace
 the destination atomically. Focused write, flush, close, and replace regression
 cases cover prior-scene byte preservation and sibling cleanup. Two serial
-read-only reviews closed the initial false-pass and cleanup-evidence findings;
+read-only reviews closed the initial test-gap and cleanup-evidence findings;
 the final pass is clean. Validation was deferred by explicit owner direction;
 no build, test, scanner, or validation command ran. SCENE-007 is now closed:
 snapshot material rows retain every exact nonzero emissive-color component even
@@ -314,7 +314,7 @@ visual phase progression precise beyond that boundary. Solver snapshot v5 and
 prediction raw-v5/sectioned-v6 preserve the double clock while their historical
 read, write, and hash branches retain the legacy float layouts. Four serial
 read-only reviews closed replay/prediction propagation, visual compatibility,
-exact-float restore, archive-probe isolation, schema-negative, and false-pass
+exact-float restore, archive-probe isolation, schema-negative, and test-gap
 test findings; the final pass is clean. Dedicated historical sectioned-v4
 prediction and solver-v2-v4 byte fixtures remain deferred coverage; static
 review found their layout discrimination coherent. Validation was deferred by
@@ -324,7 +324,7 @@ four determinant expansion terms instead of an absolute world-unit cutoff.
 Finite small and translated scales therefore retain their reciprocal transform,
 while cancellation inside sixteen float epsilons and exact dependent rows keep
 the documented identity fallback. Two serial read-only reviews closed a
-false-pass gap with paired inside/outside cancellation fixtures; the final pass
+missing negative case with paired inside/outside cancellation fixtures; the final pass
 is clean. Validation was deferred by explicit owner direction; no build, test,
 scanner, or validation command ran. MATH-003 is now closed: `Vector3` retains
 the established arithmetic and exact output bytes when its squared magnitude
@@ -332,14 +332,14 @@ is finite, while large finite components whose square overflows are scaled by
 their largest absolute component before normalization. NaN and infinity are
 rejected before publication, and both normalization APIs preserve their source
 and output atomically on failure. Three serial read-only reviews closed the NaN
-class and byte-atomicity false-pass gaps; the final pass is clean. Validation
+class and byte-atomicity test gaps; the final pass is clean. Validation
 was deferred by explicit owner direction; no build, test, scanner, inventory,
 or validation command ran. MATH-007 is now closed: `Quaternion::Normalise`
 keeps its exact ordinary finite arithmetic, near-zero identity cutoff, and
 component order, while large finite values are scaled by their largest absolute
 component before normalization and NaN/infinity reset to identity. Three serial
 read-only reviews closed ordinary-byte, threshold-boundary, nonfinite-component,
-and hot-path false-pass findings; the final pass is clean. Validation was
+and hot-path test-gap findings; the final pass is clean. Validation was
 deferred by explicit owner direction; no build, test, scanner, inventory, or
 validation command ran. MATH-006 is now closed: ordinary finite half-space
 classification retains its exact float operation order, while overflowed
@@ -359,7 +359,7 @@ explicit owner direction; no build, test, scanner, inventory, or validation
 command ran. MATH-002 is now closed: equatorial element recovery selects its
 perifocal Y convention from the angular-momentum direction, preserving both
 prograde and retrograde circular and eccentric epoch states. Two serial
-read-only reviews closed a prograde-compatibility false-pass; the final pass is
+read-only reviews closed a prograde-compatibility test gap; the final pass is
 clean. The unchanged node-magnitude threshold remains optional boundary
 coverage. Validation was deferred by explicit owner direction; no build, test,
 scanner, inventory, or validation command ran. MATH-004 is now closed: ordinary
@@ -423,7 +423,7 @@ exceeds a valid shape width. SkullScope records per-frame and per-object policy 
 parked in `WNF/`. Runtime
 Boundary Separation And Project Topology RBS0-RBS7 is complete at 8/8. RBS7
 repaired the allocation rulings, replaced the Replay startup context with a
-finite-state continuation, moved Operator UI projection into Runtime/UI, and
+bounded startup state handler, moved Operator UI projection into Runtime/UI, and
 closed submission/command protocol ownership in the composition root.
 Strict Runtime enforcement now passes with zero forbidden sites, zero repair
 debt, zero reverse-App edges, and no multi-package SCC. Runtime/App alone
@@ -437,8 +437,8 @@ tests. Completed plan files remain deleted under the repository convention;
 Git history retains their phase evidence.
 
 Game UI Component Library Separation UI0-UI6 is complete at 7/7: all tracked
-UI files have
-binding dispositions; explicit stateless geometry/state contracts cover the
+UI files have documented ownership decisions; explicit stateless geometry and
+state contracts cover the
 proved shared component families; and the seven retained wrappers now route
 through those contracts without changing product fingerprints, command values,
 or interaction geometry. Repeated Replay/Planning controls and fitting Runtime
@@ -449,13 +449,41 @@ their Prediction and Replay/Planning owners. Its exactly-once plan-completion
 gate passed 760/760 cases and 2,685,294 assertions with unchanged baselines;
 the inherited causal-depth oracle and historical Physics performance baseline
 remain external recorded failures without refresh authority.
-Recorded Interaction Playback Cursor is parked at 3/4. RIC2 draws the
-Automation-owned frame value through one bounded Runtime/UI compositor and one
-honest App submission edge after GameUI, replay overlays, UI finalization, and
-ImGui but before screenshots and Present. The exact unchanged recording and
-native captures prove the marker appears before right-look, disappears during
-captured look, and returns afterward while GameUI remains minimized. Focused
-RIC0-RIC2 tests pass 9/9 cases and 204/204 assertions; RIC3 remains parked.
+Recorded Interaction Playback Cursor RIC0-RIC3 is complete at 4/4. The
+Automation-owned frame value crosses one bounded Runtime/UI compositor and one
+App submission edge after GameUI, replay overlays, UI finalization, and ImGui
+but before screenshots and Present. The exact unchanged 413-turn recording
+contains 256 visible turns and 157 cursorless right-look turns; command high
+water and capacity are both `2`; recorded coordinates and every legacy trace
+field remain unchanged. Focused tests pass 10/10 cases and 222/222 assertions,
+and independent review is blocker-free after requiring successful submission
+for observed visibility and correcting the sample/delta allocation inventory.
+The exactly-once plan-completion command rebuilt Automation cleanly and then
+stopped at the existing plain-language wording queued for the next governance
+task; it was not rerun. No golden, manifest, sidecar, or schema changed.
+
+Governance Simplification And Scar Removal is complete at 5/5 with
+blocker-free independent terminal review. Earlier DB work
+already removed most registry and meta-tool administration; this closure
+deleted the remaining deterministic-math source-fingerprint registry and empty
+native-diagnostics suppression file, repaired stale reviewer and validation
+metadata, and documented the guarded one-command Physics baseline updater as
+the core workflow. The four-configuration `/W4 /WX` build, byte-exact Physics
+matrix, all six CPU lanes, and the focused checker self-tests and live scans
+pass. The accepted Physics golden remains
+`1b98431012f632d66cb18c50e3f253cea4898b57bcb8e78cdadd0de3f065e387`.
+The branch-wide compiler-backed source-design scan passes all 30 changed source
+files after bounded DX12 direct draw operations, ordered
+interaction-automation dispatch, and scene-writer refactors; no exception or
+weaker selection was added. The
+historical ledger infographic remains intact apart from two stale review-term
+attributes, and no golden baseline changed. The exactly-once
+`tools\agent_validate.bat --plan-completion` run passed Debug, Physics, fast
+preflight, all six CPU lanes, and Automation, then stopped at the inherited
+DX12 terrain-baseline mismatch already recorded by run `20260827T174544Z`
+before the governance DX12 edit. The water output is byte-identical across the
+two failing runs, `space_three_body` remains byte-exact, the command was not
+rerun, and no visual baseline was refreshed.
 
 Real-Time Physics Pacing SP0-SP2 is complete. Live and unlimited scenes now
 schedule fixed-frequency Physics from elapsed wall time, while explicit startup
@@ -892,9 +920,8 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Begin the highest-priority unresolved entry in `Agentic/Bugs/master_bug_report.csv`.
-`RAGDOLL_PHYSICS` FP5-FP9 and
-`RECORDED_CURSOR` RIC3 remain parked and are not selectable.
+No plan is active. `RAGDOLL_PHYSICS` FP5-FP9 and the other WNF plans remain
+parked or backlogged and are not selectable without a new owner decision.
 
 ## Blockers
 
@@ -1082,7 +1109,7 @@ swap-last compaction so the moved stable body retains its exact timer history.
 
 One consolidated read-only rubber-duck review covered both Gameplay rows in
 task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found and closed three focused
-false-pass gaps plus one portable-test ownership issue. Final counts were 0
+test gaps plus one portable-test ownership issue. Final counts were 0
 blocking, 0 non-blocking, and 1 missing-evidence item. Per owner direction, no
 build, test, scanner, inventory, or validation command was run; compile/link
 and focused runtime behavior remain unexecuted evidence rather than claimed

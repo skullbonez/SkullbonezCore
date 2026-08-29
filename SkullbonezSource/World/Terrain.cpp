@@ -47,6 +47,7 @@ Related:
 #endif
 #include "../Core/SbResult.h"
 #include "../Core/SbDiagnosticStore.h"
+#include "../Core/StdioFile.h"
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 #include "../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../Rendering/DX12/MeshDX12.h"
@@ -70,7 +71,7 @@ using SkullbonezCore::Core::SbResult;
 
 namespace
 {
-using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
+using SkullbonezCore::Core::StdioFile;
 } // namespace
 
 
@@ -265,14 +266,13 @@ Terrain::TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagno
 
     const bool meshReady = terrain->m_terrainMesh != nullptr;
     const bool shaderReady = terrain->m_terrainShader != nullptr;
-    const RequiredRenderResourceFailure resourceFailure =
-        TryPublishRenderReadyCandidate( outTerrain, terrain, meshReady, shaderReady );
+    const RequiredRenderResourceFailure resourceFailure = TryPublishRenderReadyCandidate( outTerrain, terrain, meshReady,
+                                                                                          shaderReady );
 
     if ( resourceFailure != RequiredRenderResourceFailure::None )
     {
-        return diagnostics.Failure( "World/Terrain",
-                                    "Terrain mesh or shader creation failed. path=\"%s\" mesh=%d shader=%d", fileName,
-                                    meshReady ? 1 : 0, shaderReady ? 1 : 0 );
+        return diagnostics.Failure( "World/Terrain", "Terrain mesh or shader creation failed. path=\"%s\" mesh=%d shader=%d",
+                                    fileName, meshReady ? 1 : 0, shaderReady ? 1 : 0 );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -280,9 +280,9 @@ Terrain::TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagno
 #endif
 
 
-Terrain::RequiredRenderResourceFailure
-Terrain::TryPublishRenderReadyCandidate( std::unique_ptr<Terrain>& outTerrain, std::unique_ptr<Terrain>& candidate,
-                                         bool meshReady, bool shaderReady ) noexcept
+Terrain::RequiredRenderResourceFailure Terrain::TryPublishRenderReadyCandidate( std::unique_ptr<Terrain>& outTerrain,
+                                                                                std::unique_ptr<Terrain>& candidate,
+                                                                                bool meshReady, bool shaderReady ) noexcept
 {
     if ( !meshReady )
     {
@@ -649,14 +649,14 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::S
     }
 
     FILE* rawFile = nullptr;
-    fopen_s( &rawFile, fileName, "rb" );
+    SkullbonezCore::Core::OpenStdioFile( rawFile, fileName, "rb" );
 
     if ( !rawFile )
     {
         return diagnostics.Failure( "World/Terrain", "Height map file not found: %s", fileName );
     }
 
-    FileHandle file( rawFile, &fclose );
+    StdioFile file( rawFile );
 
     m_terrainData.resize( m_pixelCount );
 
@@ -677,8 +677,8 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::S
     if ( trailingByte != EOF )
     {
         m_terrainData.clear();
-        return diagnostics.Failure( "World/Terrain", "Height map '%s' contains more than the expected %zu bytes.",
-                                    fileName, expectedBytes );
+        return diagnostics.Failure( "World/Terrain", "Height map '%s' contains more than the expected %zu bytes.", fileName,
+                                    expectedBytes );
     }
 
     if ( ferror( file.get() ) )

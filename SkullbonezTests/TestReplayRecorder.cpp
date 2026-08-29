@@ -64,6 +64,7 @@ using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Runtime::ReplaySolverRecorder;
 using SkullbonezCore::Runtime::ReplayTimelineOperations::ReplayMemoryPresetPolicy;
 using SkullbonezCore::Runtime::ReplayTimelineOperations::ResolveReplayMemoryPolicy;
+using SkullbonezCore::Runtime::ReplayTimelineOperations::ResolveReplayMemoryPolicyForBodyCapacity;
 using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineGeneratedConfigFlags;
 using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineRecordsGeneratedConfig;
 using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineResetClearsBranch;
@@ -71,8 +72,6 @@ using namespace SkullbonezCore::Runtime;
 
 namespace
 {
-constexpr int kReplayTicksPerSecond = 120;
-
 ReplayRecorderConfig SmallRecorderConfig()
 {
     ReplayRecorderConfig config;
@@ -91,8 +90,8 @@ ReplaySolverFrameSample MakeSolverSample( ReplayFrameIndex frameIndex )
     sample.branch.parentBranchId = 3u;
     sample.eventCursor = 1000u + static_cast<uint32_t>( frameIndex );
     sample.sceneFrame = 200 + static_cast<int>( frameIndex );
-    sample.simulationSeconds = static_cast<double>( frameIndex ) / static_cast<double>( kReplayTicksPerSecond );
-    sample.physicsDt = 1.0f / static_cast<float>( kReplayTicksPerSecond );
+    sample.simulationSeconds = static_cast<double>( frameIndex ) / static_cast<double>( REPLAY_CAPTURE_TICKS_PER_SECOND );
+    sample.physicsDt = 1.0f / static_cast<float>( REPLAY_CAPTURE_TICKS_PER_SECOND );
     sample.world.gravity = -9.8f;
     sample.presentationHash = 0xCAFE0000ull + frameIndex;
     sample.contactCount = static_cast<uint16_t>( frameIndex % 5u );
@@ -117,7 +116,7 @@ ReplaySolverFrameSample MakeStableSolverSample( ReplayFrameIndex frameIndex, int
     ReplaySolverFrameSample sample;
     sample.frameIndex = frameIndex;
     sample.presentationHash = 0xBEEF0000ull + frameIndex;
-    sample.physicsDt = 1.0f / static_cast<float>( kReplayTicksPerSecond );
+    sample.physicsDt = 1.0f / static_cast<float>( REPLAY_CAPTURE_TICKS_PER_SECOND );
     sample.bodies.reserve( static_cast<std::size_t>( bodyCount ) );
     for ( int bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex )
     {
@@ -141,7 +140,7 @@ TEST_CASE( "Replay ArtifactIO: materialization hides presentation ring wrap" )
     REQUIRE( recorder.Configure( SmallRecorderConfig() ) );
     recorder.ResetTimeline( "unit-replay" );
     const std::size_t capacity = recorder.GetStats().sampleCapacity;
-    REQUIRE( capacity == static_cast<std::size_t>( kReplayTicksPerSecond ) );
+    REQUIRE( capacity == static_cast<std::size_t>( REPLAY_CAPTURE_TICKS_PER_SECOND ) );
 
     // Why: solver-sample mirroring hits the real presentation ring buffer while
     // avoiding the full live model/world capture path that belongs to integration tests.
@@ -184,8 +183,8 @@ TEST_CASE( "ReplayRecorder: Configure does not pre-reserve future sample payload
     REQUIRE( presentation.Configure( config ) );
     REQUIRE( solver.Configure( config ) );
 
-    CHECK( presentation.GetStats().sampleCapacity == static_cast<std::size_t>( kReplayTicksPerSecond ) );
-    CHECK( solver.GetStats().sampleCapacity == static_cast<std::size_t>( kReplayTicksPerSecond ) );
+    CHECK( presentation.GetStats().sampleCapacity == static_cast<std::size_t>( REPLAY_CAPTURE_TICKS_PER_SECOND ) );
+    CHECK( solver.GetStats().sampleCapacity == static_cast<std::size_t>( REPLAY_CAPTURE_TICKS_PER_SECOND ) );
     CHECK( presentation.GetStats().checkpointCapacity == 6u );
     CHECK( solver.GetStats().checkpointCapacity == 6u );
 
@@ -272,6 +271,18 @@ TEST_CASE( "ReplayRuntime: replay memory policy trims solver history before pres
     CHECK( defaultPolicy.solverRetentionSeconds == 60 );
     CHECK_FALSE( defaultPolicy.budgetClamped );
 
+    const ReplayMemoryPolicy generatedDemoPolicy = ResolveReplayMemoryPolicyForBodyCapacity( defaultPolicy, 300 );
+    CHECK( generatedDemoPolicy.requestedRetentionSeconds == 60 );
+    CHECK( generatedDemoPolicy.presentationRetentionSeconds == 5 );
+    CHECK( generatedDemoPolicy.solverRetentionSeconds == 5 );
+    CHECK( generatedDemoPolicy.budgetClamped );
+    CHECK( generatedDemoPolicy.solverWindowReduced );
+
+    const ReplayMemoryPolicy maximumScenePolicy = ResolveReplayMemoryPolicyForBodyCapacity( defaultPolicy, 2048 );
+    CHECK( maximumScenePolicy.presentationRetentionSeconds == 1 );
+    CHECK( maximumScenePolicy.solverRetentionSeconds == 1 );
+    CHECK( maximumScenePolicy.budgetClamped );
+
     ReplayMemoryPolicyRequest request;
     request.presetIndex = static_cast<int>( ReplayMemoryPreset::Compact );
     request.retentionSeconds = 60;
@@ -299,8 +310,8 @@ TEST_CASE( "ReplayRuntime: replay memory policy trims solver history before pres
     ReplaySolverRecorder solver;
     REQUIRE( presentation.Configure( presentationConfig ) );
     REQUIRE( solver.Configure( solverConfig ) );
-    CHECK( presentation.GetStats().sampleCapacity == static_cast<std::size_t>( 30 * kReplayTicksPerSecond ) );
-    CHECK( solver.GetStats().sampleCapacity == static_cast<std::size_t>( 5 * kReplayTicksPerSecond ) );
+    CHECK( presentation.GetStats().sampleCapacity == static_cast<std::size_t>( 30 * REPLAY_CAPTURE_TICKS_PER_SECOND ) );
+    CHECK( solver.GetStats().sampleCapacity == static_cast<std::size_t>( 5 * REPLAY_CAPTURE_TICKS_PER_SECOND ) );
 }
 
 
@@ -335,7 +346,7 @@ TEST_CASE( "ReplayRuntime: retained ownership and growth policies are complete a
     CHECK( REPLAY_GROWTH_OWNER_POLICIES[1].exhaustion == ReplayGrowthExhaustionRule::FatalRetainedState );
     CHECK( REPLAY_GROWTH_OWNER_POLICIES[2].exhaustion == ReplayGrowthExhaustionRule::CancelPredictionBuild );
 
-    CHECK( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES == 32 * 1024 * 1024 );
+    CHECK( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES == 512 * 1024 * 1024 );
     CHECK( PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES == 8 * 1024 * 1024 );
     CHECK( REPLAY_PREDICTION_RESERVE_HARD_BYTES == 960 * 1024 * 1024 );
     CHECK( REPLAY_GROWTH_OWNER_POLICIES[2].measuredHighWaterBytes == 653016512u );

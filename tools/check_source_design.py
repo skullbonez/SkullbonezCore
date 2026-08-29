@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import collections
 from dataclasses import dataclass
+import functools
 import os
 from pathlib import Path
 import re
@@ -35,21 +36,9 @@ FIRST_PARTY_PROJECTS = (
     "SKULLBONEZ_UI.vcxproj",
 )
 APPLICATION_PROJECTS = {"SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_TESTS.vcxproj"}
-SOURCE_PROJECTS = {
-    "assets": "SKULLBONEZ_CORE.vcxproj",
-    "core": "SKULLBONEZ_CORE.vcxproj",
-    "gameplay": "SKULLBONEZ_CORE.vcxproj",
-    "runtime": "SKULLBONEZ_CORE.vcxproj",
-    "scene": "SKULLBONEZ_CORE.vcxproj",
-    "world": "SKULLBONEZ_CORE.vcxproj",
-    "maths": "SKULLBONEZ_MATHS.vcxproj",
-    "physics": "SKULLBONEZ_PHYSICS.vcxproj",
-    "rendering": "SKULLBONEZ_RENDERING.vcxproj",
-    "ui": "SKULLBONEZ_UI.vcxproj",
-}
 UNPACK_THRESHOLD = 4
 MATCH_COUNT_RE = re.compile(r"(?m)^(\d+) match(?:es)?\.$")
-UNPACK_FUNCTION_RE = re.compile(r'(?m)^(.+?):(\d+):\d+: note: "unpacking_function" binds here$')
+QUERY_ROOT_RE = re.compile(r'(?m)^(.+?):(\d+):\d+: note: "root" binds here$')
 
 TIDY_CONFIG = (
     "{CheckOptions: {"
@@ -77,12 +66,9 @@ QUERY_COMMANDS = {
     ),
     "parameter struct unpack": (
         "match functionDecl(isDefinition(), isExpansionInMainFile(), "
-        "hasAnyParameter(parmVarDecl(anyOf(hasType(recordType()), "
-        "hasType(referenceType(pointee(recordType()))))).bind('bag')), "
         "forEachDescendant(varDecl(hasLocalStorage(), "
         "hasInitializer(ignoringParenImpCasts(memberExpr(hasObjectExpression("
-        "ignoringParenImpCasts(declRefExpr(to(equalsBoundNode('bag'))))))))).bind('unpacked_local')))"
-        ".bind('unpacking_function')"
+        "ignoringParenImpCasts(declRefExpr(to(parmVarDecl())))))))).bind('unpacked_local')))"
     ),
 }
 
@@ -113,10 +99,6 @@ def llvm_tool(name: str) -> Path:
 
 def msvc_tool(name: str) -> Path:
     """Find the native x64 MSVC compiler or linker used by project builds."""
-    found = shutil.which(name)
-    if found:
-        return Path(found)
-
     program_files = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
     candidates = sorted(
         program_files.glob(f"Microsoft Visual Studio/*/*/VC/Tools/MSVC/*/bin/Hostx64/x64/{name}.exe"),
@@ -124,6 +106,13 @@ def msvc_tool(name: str) -> Path:
     )
     if candidates:
         return candidates[0]
+
+    found = shutil.which(name)
+    if found:
+        candidate = Path(found).resolve()
+        normalized = candidate.as_posix().casefold()
+        if "/vc/tools/msvc/" in normalized and "/bin/hostx64/x64/" in normalized:
+            return candidate
     raise FileNotFoundError(f"required MSVC tool is unavailable: {name}")
 
 
@@ -140,16 +129,81 @@ def compile_arguments(repo: Path) -> list[str]:
     ]
 
 
-def _source_project(source: Path, repo: Path) -> str | None:
-    try:
-        parts = source.resolve().relative_to(repo.resolve()).parts
-    except ValueError:
-        return None
-    if len(parts) >= 2 and parts[0].casefold() == "skullbonezsource":
-        return SOURCE_PROJECTS.get(parts[1].casefold())
-    if parts and parts[0].casefold() == "skullboneztests":
-        return "SKULLBONEZ_TESTS.vcxproj"
-    return None
+def _xml_local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def _expand_known_msbuild_properties(value: str, properties: dict[str, str]) -> str:
+    expanded = value
+    for _ in range(len(properties) + 1):
+        previous = expanded
+        for name, replacement in properties.items():
+            expanded = expanded.replace(f"$({name})", replacement)
+        if expanded == previous:
+            break
+    return expanded
+
+
+@functools.lru_cache(maxsize=None)
+def _repo_local_import_arguments(repo: Path, project_name: str, configuration_name: str) -> tuple[str, ...]:
+    """Read literal compile settings from active repo-local .props imports."""
+    configuration, platform = configuration_name.split("|", 1)
+    project_path = repo / project_name
+    project_root = ET.parse(project_path).getroot()
+    arguments: list[str] = []
+
+    for import_node in project_root:
+        if _xml_local_name(import_node.tag) != "Import" or not condition_matches(
+            import_node.get("Condition"), configuration, platform
+        ):
+            continue
+        import_value = import_node.get("Project", "").strip()
+        if not import_value or "$(" in import_value:
+            continue
+        props_path = (project_path.parent / import_value.replace("\\", os.sep)).resolve()
+        if not props_path.is_file() or props_path.suffix.casefold() != ".props":
+            continue
+
+        props_root = ET.parse(props_path).getroot()
+        properties = {
+            "MSBuildThisFileDirectory": str(props_path.parent) + os.sep,
+            "ProjectDir": str(project_path.parent) + os.sep,
+        }
+        for group in props_root:
+            if _xml_local_name(group.tag) != "PropertyGroup" or group.get("Condition"):
+                continue
+            for property_node in group:
+                if property_node.get("Condition"):
+                    continue
+                value = _expand_known_msbuild_properties(property_node.text or "", properties)
+                if "$(" not in value:
+                    properties[_xml_local_name(property_node.tag)] = value
+
+        for group in props_root:
+            if _xml_local_name(group.tag) != "ItemDefinitionGroup" or not condition_matches(
+                group.get("Condition"), configuration, platform
+            ):
+                continue
+            for compile_node in group:
+                if _xml_local_name(compile_node.tag) != "ClCompile":
+                    continue
+                for setting in compile_node:
+                    value = _expand_known_msbuild_properties(setting.text or "", properties)
+                    if _xml_local_name(setting.tag) == "PreprocessorDefinitions":
+                        for definition in value.split(";"):
+                            definition = definition.strip()
+                            if definition and "$(" not in definition and not definition.startswith("%("):
+                                arguments.append(f"-D{definition}")
+                    elif _xml_local_name(setting.tag) == "AdditionalIncludeDirectories":
+                        for include_directory in value.split(";"):
+                            include_directory = include_directory.strip()
+                            if not include_directory or "$(" in include_directory or include_directory.startswith("%("):
+                                continue
+                            path = Path(include_directory.replace("\\", os.sep))
+                            if not path.is_absolute():
+                                path = props_path.parent / path
+                            arguments.extend(("-I", str(path.resolve())))
+    return tuple(arguments)
 
 
 def _row_arguments(repo: Path, row: CompileRow) -> tuple[str, ...]:
@@ -187,22 +241,61 @@ def _row_arguments(repo: Path, row: CompileRow) -> tuple[str, ...]:
         arguments.extend(("-I", str(path)))
     if row.settings["ExceptionHandling"].casefold() == "false":
         arguments.append("-fno-exceptions")
+    arguments.extend(_repo_local_import_arguments(repo.resolve(), row.project, row.configuration))
     return tuple(arguments)
 
 
 def compile_contexts(repo: Path, source: Path, rows: list[CompileRow]) -> list[CompileContext]:
-    """Use the source owner's effective Debug and production compile settings."""
+    """Use exact source settings or every distinct first-party header context."""
     relative = source.resolve().relative_to(repo.resolve()).as_posix().casefold()
-    project = _source_project(source, repo)
+    source_text = source.read_text(encoding="utf-8", errors="replace") if source.is_file() else ""
+    development_only_header = source.suffix.lower() in {".h", ".hpp", ".inl"} and (
+        "DevelopmentToolsCapability.h" in source_text or "SKULLBONEZ_DEVELOPMENT_TOOLS" in source_text
+    )
     exact = [row for row in rows if row.file == relative]
-    candidates = exact or ([row for row in rows if row.project == project] if project else [])
-    contexts: dict[tuple[str, tuple[str, ...]], CompileContext] = {}
+    sibling_rows: list[CompileRow] = []
+    if not exact and source.suffix.lower() in {".h", ".hpp", ".inl"}:
+        sibling_names = {
+            source.with_suffix(suffix).resolve().relative_to(repo.resolve()).as_posix().casefold()
+            for suffix in (".cpp", ".c")
+        }
+        sibling_rows = [row for row in rows if row.file in sibling_names]
+    first_party_rows = [
+        row
+        for row in rows
+        if row.project in FIRST_PARTY_PROJECTS
+        and (
+            row.file.startswith("skullbonezsource/")
+            or row.file.startswith("skullboneztests/")
+        )
+    ]
+    # Headers can be compiled by projects other than the physical source-root
+    # owner. Use each project's most common effective context per configuration;
+    # this preserves project macros and forced includes without treating
+    # unrelated per-file metadata as a header requirement. An exact sibling is
+    # retained in addition to those project contexts.
+    grouped_rows: dict[tuple[str, str], dict[tuple[str, ...], list[CompileRow]]] = collections.defaultdict(
+        lambda: collections.defaultdict(list)
+    )
+    for row in first_party_rows:
+        grouped_rows[(row.project, row.configuration)][_row_arguments(repo, row)].append(row)
+    representative_rows = [
+        min(argument_rows, key=lambda row: row.file)
+        for argument_groups in grouped_rows.values()
+        for argument_rows in [
+            max(argument_groups.values(), key=lambda group: (len(group), tuple(sorted(row.file for row in group))))
+        ]
+    ]
+    candidates = exact or (sibling_rows + representative_rows)
+    contexts: dict[tuple[str, str, tuple[str, ...]], CompileContext] = {}
     for row in candidates:
         configuration = row.configuration.split("|", 1)[0]
         if configuration not in {"Debug", "Profile", "Automation"}:
             continue
         arguments = _row_arguments(repo, row)
-        key = configuration, arguments
+        if development_only_header and "-DSKULLBONEZ_DEVELOPMENT_TOOLS" not in arguments:
+            continue
+        key = row.project, configuration, arguments
         contexts[key] = CompileContext(row.project, row.configuration, arguments)
     if not contexts:
         return [CompileContext("fixture", "default", tuple(compile_arguments(repo)))]
@@ -220,6 +313,7 @@ def clang_tidy_findings(repo: Path, source: Path, tidy: Path, arguments: tuple[s
             str(source),
             "--checks=-*,readability-function-size",
             f"--config={TIDY_CONFIG}",
+            "--exclude-header-filter=.*ThirdPtySource.*",
             "--warnings-as-errors=readability-function-size",
             "--",
             *(arguments or tuple(compile_arguments(repo))),
@@ -248,7 +342,7 @@ def clang_query_findings(
             raise RuntimeError(f"clang-query failed for {source}:\n{output}")
 
         if label == "parameter struct unpack":
-            locations = collections.Counter(UNPACK_FUNCTION_RE.findall(output))
+            locations = collections.Counter(QUERY_ROOT_RE.findall(output))
             grouped = [f"{path}:{line}" for (path, line), count in locations.items() if count >= UNPACK_THRESHOLD]
             if grouped:
                 findings[label] = grouped
@@ -436,11 +530,77 @@ def prove_compile_contexts(repo: Path) -> None:
     expected_include = str(repo / "ThirdPtySource/stb")
     if not all(expected_include in context.arguments for context in contexts):
         raise AssertionError("Assets source contexts omit the effective stb include directory")
+    imgui = repo / "SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.cpp"
+    imgui_contexts = compile_contexts(repo, imgui, rows)
+    imgui_header_contexts = compile_contexts(repo, imgui.with_suffix(".h"), rows)
+    expected_imgui_include = str(repo / "ThirdPtySource/imgui")
+    if not all(
+        "-DSKULLBONEZ_DEVELOPMENT_TOOLS" in context.arguments and expected_imgui_include in context.arguments
+        for context in imgui_contexts + imgui_header_contexts
+    ):
+        raise AssertionError("development source contexts omit imported ImGui compile settings")
     for root_name in ("Assets", "Gameplay"):
         header = repo / f"SkullbonezSource/{root_name}/ContextProbe.h"
         header_contexts = compile_contexts(repo, header, rows)
         if any(context.project == "fixture" for context in header_contexts):
             raise AssertionError(f"{root_name} headers fell back to the synthetic fixture context")
+    reserve_header = repo / "SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
+    reserve_contexts = compile_contexts(repo, reserve_header, rows)
+    if any(
+        "DevelopmentToolsCapability.h" in argument
+        for context in reserve_contexts
+        for argument in context.arguments
+    ):
+        raise AssertionError("header context leaked unrelated third-party per-file metadata")
+
+    sibling_row = next(
+        row
+        for row in rows
+        if row.project == "SKULLBONEZ_CORE.vcxproj" and row.configuration == "Profile|x64"
+    )
+    consumer_row = next(
+        row
+        for row in rows
+        if row.project == "SKULLBONEZ_TESTS.vcxproj" and row.configuration == "Profile|x64"
+    )
+    probe_header = repo / "SkullbonezSource/Core/HeaderContextProbe.h"
+    probe_rows = [
+        CompileRow(
+            file="skullbonezsource/core/headercontextprobe.cpp",
+            project=sibling_row.project,
+            configuration=sibling_row.configuration,
+            settings={
+                **sibling_row.settings,
+                "PreprocessorDefinitions": sibling_row.settings["PreprocessorDefinitions"] + ";SIBLING_CONTEXT=1",
+            },
+        ),
+        CompileRow(
+            file="skullbonezsource/core/headercontextconsumer.cpp",
+            project=consumer_row.project,
+            configuration=consumer_row.configuration,
+            settings={
+                **consumer_row.settings,
+                "PreprocessorDefinitions": consumer_row.settings["PreprocessorDefinitions"] + ";CONSUMER_CONTEXT=1",
+            },
+        ),
+    ]
+    probe_contexts = compile_contexts(repo, probe_header, probe_rows)
+    probe_definitions = {
+        argument
+        for context in probe_contexts
+        for argument in context.arguments
+        if argument in {"-DSIBLING_CONTEXT=1", "-DCONSUMER_CONTEXT=1"}
+    }
+    if probe_definitions != {"-DSIBLING_CONTEXT=1", "-DCONSUMER_CONTEXT=1"}:
+        raise AssertionError(
+            "header contexts dropped a non-sibling first-party consumer: "
+            f"actual={sorted(probe_definitions)}"
+        )
+    if {context.project for context in probe_contexts} != {
+        "SKULLBONEZ_CORE.vcxproj",
+        "SKULLBONEZ_TESTS.vcxproj",
+    }:
+        raise AssertionError("header contexts did not preserve distinct first-party consumer projects")
 
 
 def self_test(repo: Path, tidy: Path, query: Path, clang_cl: Path, linker: Path) -> None:

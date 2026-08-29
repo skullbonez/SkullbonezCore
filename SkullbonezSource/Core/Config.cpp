@@ -34,7 +34,9 @@ Related:
 */
 #include "Common.h"
 #include "Config.h"
+#include "PlatformWin32.h"
 #include "SbDiagnosticStore.h"
+#include "StdioFile.h"
 #include <cerrno>
 #include <climits>
 #include <cstdlib>
@@ -65,8 +67,6 @@ struct ConfigSetting
     bool ( *apply )( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line );
     void ( *dump )( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting );
 };
-
-using FileHandle = std::unique_ptr<FILE, decltype( &fclose )>;
 
 #if defined( SKULLBONEZ_RENDER_FREE_TESTS )
 thread_local int s_settingsReadFailureAfterLineForTest = -1;
@@ -170,13 +170,15 @@ bool ParseConfigBoolValue( const char* value, const ConfigSetting& setting, cons
         return false;
     }
 
-    if ( _stricmp( value, "true" ) == 0 || _stricmp( value, "on" ) == 0 || _stricmp( value, "yes" ) == 0 )
+    if ( Platform::CompareCaseInsensitive( value, "true" ) == 0 || Platform::CompareCaseInsensitive( value, "on" ) == 0 ||
+         Platform::CompareCaseInsensitive( value, "yes" ) == 0 )
     {
         out = true;
         return true;
     }
 
-    if ( _stricmp( value, "false" ) == 0 || _stricmp( value, "off" ) == 0 || _stricmp( value, "no" ) == 0 )
+    if ( Platform::CompareCaseInsensitive( value, "false" ) == 0 || Platform::CompareCaseInsensitive( value, "off" ) == 0 ||
+         Platform::CompareCaseInsensitive( value, "no" ) == 0 )
     {
         out = false;
         return true;
@@ -775,16 +777,17 @@ template <typename Visitor> bool VisitConfigSettingsInOrder( Visitor&& visitor )
 const ConfigSetting* FindConfigSetting( const char* name )
 {
     const ConfigSetting* found = nullptr;
-    VisitConfigSettingsInOrder( [name, &found]( const ConfigSetting& setting )
-                                {
-                                    if ( strcmp( setting.name, name ) != 0 )
-                                    {
-                                        return true;
-                                    }
+    VisitConfigSettingsInOrder(
+        [name, &found]( const ConfigSetting& setting )
+        {
+            if ( strcmp( setting.name, name ) != 0 )
+            {
+                return true;
+            }
 
-                                    found = &setting;
-                                    return false;
-                                } );
+            found = &setting;
+            return false;
+        } );
 
     return found;
 }
@@ -793,15 +796,14 @@ SbResult OpenOptionalConfigFile( SbDiagnosticStore& diagnostics, const char* pat
 {
     outFile = nullptr;
     outMissing = false;
-    errno = 0;
-    const errno_t openError = fopen_s( &outFile, path, "rb" );
+    const int openError = OpenStdioFile( outFile, path, "rb" );
 
     if ( openError == 0 && outFile )
     {
         return SbResult::Success();
     }
 
-    const int error = openError != 0 ? static_cast<int>( openError ) : errno;
+    const int error = openError != 0 ? openError : errno;
     if ( error == ENOENT )
     {
         outMissing = true;
@@ -821,8 +823,8 @@ SbResult RequireCompleteConfigRead( SbDiagnosticStore& diagnostics, FILE* file, 
     }
 
     const int error = errno;
-    return diagnostics.Failure( "Core/EngineConfig", "Unable to complete engine config %s read: %s (error %d).", pass,
-                                path, error );
+    return diagnostics.Failure( "Core/EngineConfig", "Unable to complete engine config %s read: %s (error %d).", pass, path,
+                                error );
 }
 
 SbResult RejectTruncatedConfigLine( SbDiagnosticStore& diagnostics, FILE* file, const char* path, int lineNumber,
@@ -882,15 +884,15 @@ SbResult RejectEmbeddedConfigNul( SbDiagnosticStore& diagnostics, FILE* file, co
     clearerr( file );
     if ( fseek( file, 0, SEEK_SET ) != 0 )
     {
-        return diagnostics.Failure( "Core/EngineConfig", "Unable to restart engine config after binary preflight: %s.", path );
+        return diagnostics.Failure( "Core/EngineConfig", "Unable to restart engine config after binary preflight: %s.",
+                                    path );
     }
     return SbResult::Success();
 }
 
 // Invariant: version validation is a separate read pass. A future file must
 // fail before even one otherwise-valid setting mutates the destination object.
-SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, FILE* file, const char* path,
-                                  unsigned int& outVersion )
+SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, FILE* file, const char* path, unsigned int& outVersion )
 {
     outVersion = 0;
 
@@ -1023,7 +1025,7 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
         return SbResult::Success();
     }
 
-    FileHandle file( rawFile, &fclose );
+    StdioFile file( rawFile );
     const SbResult binaryResult = RejectEmbeddedConfigNul( diagnostics, file.get(), path );
     if ( !binaryResult.Ok() )
     {
@@ -1068,8 +1070,8 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
         }
 
         ++lineNumber;
-        const SbResult lineResult =
-            RejectTruncatedConfigLine( diagnostics, file.get(), path, lineNumber, line, sizeof( line ) );
+        const SbResult lineResult = RejectTruncatedConfigLine( diagnostics, file.get(), path, lineNumber, line,
+                                                               sizeof( line ) );
         if ( !lineResult.Ok() )
         {
             return lineResult;
@@ -1131,8 +1133,7 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
         setting->apply( candidate, value, *setting, path, lineNumber );
     }
 
-    const SbResult readResult =
-        RequireCompleteConfigRead( diagnostics, file.get(), path, "settings", injectedReadFailure );
+    const SbResult readResult = RequireCompleteConfigRead( diagnostics, file.get(), path, "settings", injectedReadFailure );
     if ( !readResult.Ok() )
     {
         // Invariant: an I/O failure cannot publish the valid prefix. Keep the
@@ -1153,10 +1154,11 @@ void EngineConfig::Dump( FILE* out ) const
     }
 
     fprintf( out, "[config]\n" );
-    VisitConfigSettingsInOrder( [this, out]( const ConfigSetting& setting )
-                                {
-                                    setting.dump( *this, out, setting );
+    VisitConfigSettingsInOrder(
+        [this, out]( const ConfigSetting& setting )
+        {
+            setting.dump( *this, out, setting );
 
-                                    return true;
-                                } );
+            return true;
+        } );
 }

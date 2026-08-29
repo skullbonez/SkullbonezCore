@@ -51,9 +51,13 @@ Related:
 #include <thread>
 #include <vector>
 
+#if defined( _MSC_VER )
 #pragma warning( push, 0 )
+#endif
 #include "../../ThirdPtySource/nlohmann/json.hpp"
+#if defined( _MSC_VER )
 #pragma warning( pop )
+#endif
 
 namespace SkullbonezCore
 {
@@ -306,7 +310,8 @@ inline bool EditorTreeNamesShareInstancePrefix( const char* a, const char* b, si
 
 inline bool IsReleasableTreeSceneHull( const char* hullPath )
 {
-    return SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease( SkullbonezCore::Assets::EditorHullAssetFromToken( hullPath ) );
+    return SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease(
+        SkullbonezCore::Assets::EditorHullAssetFromToken( hullPath ) );
 }
 
 
@@ -439,7 +444,8 @@ template <typename THull> void ApplyRootedTreeCompatibilityClearanceToHulls( std
     {
         const float liftY = SkullbonezCore::Assets::EditorTreeRootedAboveRootLiftY( root.name );
         const float legacyRootToTrunkY = SkullbonezCore::Assets::EditorTreeRootedLegacyRootToTrunkDeltaY( root.name );
-        const SkullbonezCore::Assets::EditorHullAsset rootAsset = SkullbonezCore::Assets::EditorHullAssetFromToken( root.hullPath );
+        const SkullbonezCore::Assets::EditorHullAsset rootAsset = SkullbonezCore::Assets::EditorHullAssetFromToken(
+            root.hullPath );
 
         if ( liftY <= 0.0f || legacyRootToTrunkY <= 0.0f ||
              ( rootAsset != SkullbonezCore::Assets::EditorHullAsset::TREE_ROOT_SMALL &&
@@ -459,7 +465,8 @@ template <typename THull> void ApplyRootedTreeCompatibilityClearanceToHulls( std
 
         for ( const THull& candidate : hulls )
         {
-            const SkullbonezCore::Assets::EditorHullAsset asset = SkullbonezCore::Assets::EditorHullAssetFromToken( candidate.hullPath );
+            const SkullbonezCore::Assets::EditorHullAsset asset = SkullbonezCore::Assets::EditorHullAssetFromToken(
+                candidate.hullPath );
 
             if ( ( asset == SkullbonezCore::Assets::EditorHullAsset::TREE_TRUNK_SMALL_FACETED ||
                    asset == SkullbonezCore::Assets::EditorHullAsset::TREE_TRUNK_FACETED ) &&
@@ -477,7 +484,8 @@ template <typename THull> void ApplyRootedTreeCompatibilityClearanceToHulls( std
 
         for ( THull& candidate : hulls )
         {
-            const SkullbonezCore::Assets::EditorHullAsset asset = SkullbonezCore::Assets::EditorHullAssetFromToken( candidate.hullPath );
+            const SkullbonezCore::Assets::EditorHullAsset asset = SkullbonezCore::Assets::EditorHullAssetFromToken(
+                candidate.hullPath );
 
             if ( candidate.isFixed && asset != SkullbonezCore::Assets::EditorHullAsset::TREE_ROOT_SMALL &&
                  asset != SkullbonezCore::Assets::EditorHullAsset::TREE_ROOT_LARGE &&
@@ -1057,9 +1065,8 @@ inline float ParseMaterialModeValue( const Json& value, const std::string& path,
     {
         const double numericMode = value.get<double>();
 
-        if ( !std::isfinite( numericMode ) ||
-             numericMode < -static_cast<double>( (std::numeric_limits<float>::max)() ) ||
-             numericMode > static_cast<double>( (std::numeric_limits<float>::max)() ) )
+        if ( !std::isfinite( numericMode ) || numericMode < -static_cast<double>( ( std::numeric_limits<float>::max )() ) ||
+             numericMode > static_cast<double>( ( std::numeric_limits<float>::max )() ) )
         {
             Fail( path, std::string( context ) + " must fit a finite float" );
             return 0.0f;

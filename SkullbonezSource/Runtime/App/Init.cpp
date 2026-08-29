@@ -132,14 +132,14 @@ void AttachParentConsole()
 
 
 SkullbonezCore::Core::SbResult InitRenderBackend( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window,
-                                                  std::unique_ptr<RenderBackendDX12>& outBackend )
+                                                  UINT frameCount, std::unique_ptr<RenderBackendDX12>& outBackend )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>( diagnostics );
     RenderBackendDX12* renderBackend = backend.get();
     const SkullbonezCore::Core::SbResult
         renderInitResult = renderBackend->Init( window->NativeWindowHandle(), window->NativeDeviceContext(),
-                                                window->ClientWidth(), window->ClientHeight(),
+                                                window->ClientWidth(), window->ClientHeight(), frameCount,
                                                 ReplayOverlay::PREDICTION_RETAINED_RIBBON_SHADER_BASE_NAME );
 
     if ( !renderInitResult.Ok() )
@@ -153,7 +153,8 @@ SkullbonezCore::Core::SbResult InitRenderBackend( SkullbonezCore::Core::SbDiagno
     // Invariant: Prediction owns the logical record layout and configures the
     // generic retained-geometry lane while BackendInit still owns all cold
     // allocation. Frame code receives the geometry owner only after this succeeds.
-    if ( !renderBackend->Geometry().ConfigureRetainedGeometryCapacity( ReplayOverlay::PredictionRetainedGeometryCapacity() ) )
+    if ( !renderBackend->Geometry().ConfigureRetainedGeometryCapacity(
+             ReplayOverlay::PredictionRetainedGeometryCapacity() ) )
     {
         return diagnostics.Failure( "Runtime/Prediction",
                                     "Retained geometry capacity exceeds the renderer's cold safety maximum" );
@@ -235,14 +236,15 @@ int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window
 
         if ( !cRun->LastSceneLoadResult().Ok() )
         {
-            const SkullbonezCore::Core::SbResult startupExit =
-                cRun->FinalizeInteractionAutomationReport( cRun->LastSceneLoadResult() );
+            const SkullbonezCore::Core::SbResult startupExit = cRun->FinalizeInteractionAutomationReport(
+                cRun->LastSceneLoadResult() );
             return reportRunResult( startupExit );
         }
 
         if ( args.sceneLoadOnly )
         {
-            const SkullbonezCore::Core::SbResult sceneLoadOnlyResult = cRun->RunSceneLoadOnly( args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
+            const SkullbonezCore::Core::SbResult sceneLoadOnlyResult = cRun->RunSceneLoadOnly(
+                args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
 
             if ( !sceneLoadOnlyResult.Ok() )
             {
@@ -470,26 +472,25 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
     std::unique_ptr<RenderBackendDX12> renderBackend;
     SkullbonezCore::Hardware::Input::BindNativeWindow( nativeWindow );
     SkullbonezCore::Hardware::Input::BindCallbackBridge( nativeWindow );
-    const SkullbonezCore::Core::SbResult rawMouseResult =
-        SkullbonezCore::Hardware::Input::RegisterRawMouseInput( diagnostics, nativeWindow );
+    const SkullbonezCore::Core::SbResult
+        rawMouseResult = SkullbonezCore::Hardware::Input::RegisterRawMouseInput( diagnostics, nativeWindow );
     const auto shutdownDevelopmentTools = [&]()
     {
 #if defined( TRACY_ENABLE )
         tracyClientOwner.Shutdown();
 #endif
     };
-    const SkullbonezCore::Core::SbResult rendererStartupResult =
-        SkullbonezCore::Runtime::StartRendererAfterRawMouseRegistration(
-            rawMouseResult,
-            []( const SkullbonezCore::Core::SbResult& failure, const char* title )
-            { ReportStartupFailure( failure, title ); },
-            [&]() { workerPool.Shutdown(); }, shutdownDevelopmentTools,
+    const SkullbonezCore::Core::SbResult
+        rendererStartupResult = SkullbonezCore::Runtime::StartRendererAfterRawMouseRegistration(
+            rawMouseResult, []( const SkullbonezCore::Core::SbResult& failure, const char* title )
+            { ReportStartupFailure( failure, title ); }, [&]() { workerPool.Shutdown(); }, shutdownDevelopmentTools,
             [&]() { CleanupWindow( window, instance, renderBackend ); }, []() { CoUninitialize(); },
             [&]()
             {
                 SkullbonezCore::Hardware::Input::SetSystemCursorVisible( false );
                 window->AcquireDeviceContext();
-                return InitRenderBackend( diagnostics, window, renderBackend );
+                return InitRenderBackend( diagnostics, window, static_cast<UINT>( args.renderFrameBufferCount ),
+                                          renderBackend );
             } );
 
     if ( !rendererStartupResult.Ok() )

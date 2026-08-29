@@ -43,7 +43,6 @@ using namespace SkullbonezCore::Runtime::ReplayVisualPacketOperations;
 namespace SkullbonezCore::Runtime
 {
 ReplayPredictionIsolatedSimulation::~ReplayPredictionIsolatedSimulation() = default;
-RunReplayPredictionState::RunReplayPredictionState() = default;
 RunReplayPredictionState::~RunReplayPredictionState() = default;
 } // namespace SkullbonezCore::Runtime
 
@@ -1031,8 +1030,9 @@ TEST_CASE( "Replay prediction archive keeps one coherent pending publication" )
     visibleKey.lane = ReplayTrajectoryLane::FutureChildIncoming;
     visibleKey.branchOrdinal = static_cast<uint16_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY );
     REQUIRE( state->trajectoryStore.ReserveRecords( 2u, 0 ) );
-    ReplayTrajectoryRecord* visibleRecord = state->trajectoryStore.BeginReplaceRecord(
-        visibleKey, 7u, state->simulation.targetId, 1, 10u, true, 1u );
+    ReplayTrajectoryRecord* visibleRecord = state->trajectoryStore.BeginReplaceRecord( visibleKey, 7u,
+                                                                                       state->simulation.targetId, 1, 10u,
+                                                                                       true, 1u );
     REQUIRE( visibleRecord );
     REQUIRE( state->trajectoryStore.ReserveRecordPoints( *visibleRecord, 1u, 0 ) );
     REQUIRE( state->trajectoryStore.TryAppendPoint( *visibleRecord, { 10u, { 3.0f, 4.0f, 5.0f } } ) );
@@ -1041,8 +1041,9 @@ TEST_CASE( "Replay prediction archive keeps one coherent pending publication" )
     ReplayTrajectoryRecordKey inactiveKey = visibleKey;
     inactiveKey.bodyId.value = 53u;
     inactiveKey.branchOrdinal = 0u;
-    ReplayTrajectoryRecord* inactiveRecord = state->trajectoryStore.BeginReplaceRecord(
-        inactiveKey, 9u, state->simulation.targetId, 1, 10u, true, 1u );
+    ReplayTrajectoryRecord* inactiveRecord = state->trajectoryStore.BeginReplaceRecord( inactiveKey, 9u,
+                                                                                        state->simulation.targetId, 1, 10u,
+                                                                                        true, 1u );
     REQUIRE( inactiveRecord );
     REQUIRE( state->trajectoryStore.ReserveRecordPoints( *inactiveRecord, 1u, 0 ) );
     REQUIRE( state->trajectoryStore.TryAppendPoint( *inactiveRecord, { 10u, { 90.0f, 91.0f, 92.0f } } ) );
@@ -1074,9 +1075,9 @@ TEST_CASE( "Replay prediction archive keeps one coherent pending publication" )
     visibleBuild.topologyVersion = state->futureNodeCache.futureNodesTopologyVersion;
     visibleBuild.valid = true;
     state->committedPublication.visibleFutureNodes.reserve( 1u );
-    REQUIRE( state->committedPublication.Begin( visibleBuild, state->futureNodeCache, 4u,
-                                                state->build.buildFrames.size(), state->simulation.targetModelRow, true,
-                                                true, state->build.buildFrames.size(),
+    REQUIRE( state->committedPublication.Begin( visibleBuild, state->futureNodeCache, 4u, state->build.buildFrames.size(),
+                                                state->simulation.targetModelRow, true, true,
+                                                state->build.buildFrames.size(),
                                                 state->trajectoryStore.publicationVersion ) );
 
     // Hazard: worker setup may immediately repurpose the live cache and the
@@ -1091,17 +1092,19 @@ TEST_CASE( "Replay prediction archive keeps one coherent pending publication" )
     RunReplayPathVisualizerState pathVisualizer;
     auto evidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();
     std::vector<uint8_t> archiveBytes;
-    REQUIRE( ReplayPredictionArchiveOperations::BuildReplayPredictionArchive(
-        pathVisualizer, *state, ReplayPredictionDetailMode::Low, evidence->Committed(), archiveBytes ) );
+    REQUIRE( ReplayPredictionArchiveOperations::BuildReplayPredictionArchive( pathVisualizer, *state,
+                                                                              ReplayPredictionDetailMode::Low,
+                                                                              evidence->Committed(), archiveBytes ) );
 
     RunReplayPathVisualizerState restoredPathVisualizer;
     auto restored = std::make_unique<RunReplayPredictionState>();
     auto restoredEvidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();
     ReplayPredictionArchiveDetailCapability restoredCapability = ReplayPredictionArchiveDetailCapability::High;
     char reason[256] = {};
-    REQUIRE( ReplayPredictionArchiveOperations::LoadReplayPredictionArchive(
-        archiveBytes, restoredPathVisualizer, *restored, *restoredEvidence, ReplayPredictionDetailMode::Low,
-        restoredCapability, reason, sizeof( reason ) ) );
+    REQUIRE(
+        ReplayPredictionArchiveOperations::LoadReplayPredictionArchive( archiveBytes, restoredPathVisualizer, *restored,
+                                                                        *restoredEvidence, ReplayPredictionDetailMode::Low,
+                                                                        restoredCapability, reason, sizeof( reason ) ) );
     CHECK( restoredCapability == ReplayPredictionArchiveDetailCapability::Low );
 
     const ReplayTrajectoryRecord* restoredRecord = restored->trajectoryStore.FindRecord( visibleKey );

@@ -87,7 +87,8 @@ void CaptureSceneDiagnosticsLoad( SceneLoadTransaction& transaction, Diagnostics
 
 
 bool ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reactions, DiagnosticsRuntime& diagnostics,
-                                     SceneController& sceneController, const SkullbonezCore::Core::EngineConfig& config )
+                                     bool applyAuthoredPerfLog, SceneController& sceneController,
+                                     const SkullbonezCore::Core::EngineConfig& config )
 {
 #ifndef _DEBUG
     (void)sceneController;
@@ -109,7 +110,10 @@ bool ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reacti
             diagnostics.ConfigurePerfLogFlush( reaction.enabled, reaction.value );
             break;
         case SceneDiagnosticsReactionKind::ApplyScenePerfLog:
-            succeeded = diagnostics.ApplyScenePerfLogOptions( reaction.path, reaction.value ) && succeeded;
+            if ( applyAuthoredPerfLog )
+            {
+                succeeded = diagnostics.ApplyScenePerfLogOptions( reaction.path, reaction.value ) && succeeded;
+            }
             break;
         case SceneDiagnosticsReactionKind::SetUiStressEnabled:
             diagnostics.UIStress().SetEnabled( reaction.enabled );
@@ -143,6 +147,19 @@ bool ApplySceneDiagnosticsReactions( const SceneDiagnosticsReactionBatch& reacti
     }
 
     return succeeded;
+}
+
+bool ApplyCommandLinePerfLogOverride( const RunLaunchOptions& launchOptions, DiagnosticsRuntime& diagnostics, int perfPass )
+{
+    if ( launchOptions.perfLogPath[0] == '\0' )
+    {
+        return true;
+    }
+
+    // Why: a command-line capture must work for generated scenes such as
+    // demohero, which have no authored logging block. It deliberately replaces
+    // a scene path after the scene reaction has completed so one file owns the run.
+    return diagnostics.ClosePerfLog() && diagnostics.OpenScenePerfLog( launchOptions.perfLogPath, perfPass );
 }
 
 
@@ -308,9 +325,15 @@ SkullbonezCore::Core::SbResult Run::LoadSceneRequest( SceneLoadTransaction& tran
                                                               m_startup, m_assets, m_workerPool, &renderer.RenderFrame(),
                                                               &renderer.RenderResources() );
 
-    const bool diagnosticsSucceeded =
-        ApplySceneDiagnosticsReactions( transaction.DiagnosticsReactions(), m_diagnosticsRuntime, m_sceneController,
-                                        m_config );
+    // Invariant: the command-line artifact is the sole perf-log owner when
+    // supplied. A missing authored directory must not fail a valid override.
+    const bool applyAuthoredPerfLog = ShouldApplyAuthoredScenePerfLog( m_launchOptions.perfLogPath );
+    bool diagnosticsSucceeded = ApplySceneDiagnosticsReactions( transaction.DiagnosticsReactions(), m_diagnosticsRuntime,
+                                                                applyAuthoredPerfLog, m_sceneController, m_config );
+
+    diagnosticsSucceeded = ApplyCommandLinePerfLogOverride( m_launchOptions, m_diagnosticsRuntime,
+                                                            m_sceneController.PerfPass() ) &&
+                           diagnosticsSucceeded;
 
     result = ApplySceneLoadDiagnosticsStatus( m_resultDiagnostics, m_applicationExit, result, diagnosticsSucceeded );
 
@@ -358,13 +381,15 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
         {
         case SceneRequestType::LoadBrowserIndex:
             accepted = LoadSceneRequest( transaction, transaction
-                                                          .NavigationForFollowingRequest( CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) )
+                                                          .NavigationForFollowingRequest( CaptureSceneLoadNavigationState(
+                                                              m_operatorUi->SceneNavigation() ) )
                                                           .LoadSceneFromBrowserIndex( request.index, m_sceneController ) )
                            .Ok();
             break;
         case SceneRequestType::LoadDemoScene:
             accepted = LoadSceneRequest( transaction, transaction
-                                                          .NavigationForFollowingRequest( CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) )
+                                                          .NavigationForFollowingRequest( CaptureSceneLoadNavigationState(
+                                                              m_operatorUi->SceneNavigation() ) )
                                                           .LoadDemoScene( m_sceneController ) )
                            .Ok();
             break;
@@ -385,11 +410,14 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
         {
             const ScenePresentationValues
                 presentation = transaction
-                                   .PresentationForFollowingRequest( ProjectScenePresentationValues( m_overlayDiagnostics->PresentationSnapshot() ),
+                                   .PresentationForFollowingRequest( ProjectScenePresentationValues(
+                                                                         m_overlayDiagnostics->PresentationSnapshot() ),
                                                                      m_sceneController.LifecyclePacket() );
-            const SceneLoadNavigationState& navigation = transaction.NavigationForFollowingRequest( CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) );
-            const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView { presentation, transaction.RenderPolicy(), transaction.CurrentCamera(),
-                                                                                                                             navigation.overrides } );
+            const SceneLoadNavigationState& navigation = transaction.NavigationForFollowingRequest(
+                CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) );
+            const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
+                SceneDefaultsSaveView { presentation, transaction.RenderPolicy(), transaction.CurrentCamera(),
+                                        navigation.overrides } );
 
             if ( !saveResult.Ok() )
             {
@@ -432,9 +460,10 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
     for ( std::size_t index = 0; index < outputs.completedWorldChangeCount; ++index )
     {
         const SceneLoadCompletedWorldChange& change = outputs.completedWorldChanges[index];
-        m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity, change.previousFluidHeight,
-                                                                                       change.previousFluidDensity, change.gravity,
-                                                                                       change.fluidHeight, change.fluidDensity ) );
+        m_replayRuntime.SubmitEvent(
+            ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity, change.previousFluidHeight,
+                                                              change.previousFluidDensity, change.gravity,
+                                                              change.fluidHeight, change.fluidDensity ) );
     }
 
     m_runtimeTools.ObserveSceneLifecycle( lifecycle, m_inputRouter, m_interaction );
@@ -529,11 +558,12 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
             break;
         }
 
-        m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction, 0, true, SceneRequestFlags( request ),
-                                                                                 static_cast<int32_t>( eventCode ), request.index, 0, 0, 0,
-                                                                                 request.type == SceneRequestType::CreateScene
-                                                                                     ? request.text
-                                                                                     : ReplayOwnerEventName( eventCode ) ) );
+        m_replayRuntime.SubmitEvent(
+            ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction, 0, true, SceneRequestFlags( request ),
+                                                        static_cast<int32_t>( eventCode ), request.index, 0, 0, 0,
+                                                        request.type == SceneRequestType::CreateScene
+                                                            ? request.text
+                                                            : ReplayOwnerEventName( eventCode ) ) );
     }
 }
 

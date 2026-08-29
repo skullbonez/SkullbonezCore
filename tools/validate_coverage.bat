@@ -79,7 +79,7 @@ echo [1/4] Checking coverage policy self-tests...
 if errorlevel 1 exit /b 1
 
 echo [2/4] Building SKULLBONEZ_TESTS %CONFIG%^|x64 %TOOLSET_ARG%...
-"%MSBUILD_EXE%" "%REPO%\SKULLBONEZ_TESTS.vcxproj" /p:Configuration=%CONFIG% /p:Platform=x64 %TOOLSET_ARG% /nologo /v:minimal /warnaserror
+"%MSBUILD_EXE%" "%REPO%\SKULLBONEZ_TESTS.vcxproj" /p:Configuration=%CONFIG% /p:Platform=x64 /p:SkullbonezDeployDxcRuntime=true %TOOLSET_ARG% /nologo /v:minimal /warnaserror
 if errorlevel 1 (
     echo FAIL: SKULLBONEZ_TESTS Debug build failed.
     exit /b 2

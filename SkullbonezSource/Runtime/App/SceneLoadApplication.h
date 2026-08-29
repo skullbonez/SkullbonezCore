@@ -66,13 +66,17 @@ inline RuntimeSceneDiagnosticFacts ProjectSceneDiagnosticFacts( const SceneSessi
                                         scene.isTestComplete, scene.isFinishLogged );
 }
 
+inline bool ShouldApplyAuthoredScenePerfLog( const char* commandLinePerfLogPath ) noexcept
+{
+    return !commandLinePerfLogPath || commandLinePerfLogPath[0] == '\0';
+}
+
 inline SkullbonezCore::Core::SbResult ResolvePerfLogArtifactStatus( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                                     bool succeeded )
 {
-    return succeeded
-               ? SkullbonezCore::Core::SbResult::Success()
-               : diagnostics.Failure( "Runtime/Diagnostics",
-                                      "Performance CSV could not be completely written, flushed, and closed." );
+    return succeeded ? SkullbonezCore::Core::SbResult::Success()
+                     : diagnostics.Failure( "Runtime/Diagnostics",
+                                            "Performance CSV could not be completely written, flushed, and closed." );
 }
 
 inline SkullbonezCore::Core::SbResult ApplyPerfLogArtifactStatus( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
@@ -90,9 +94,10 @@ inline SkullbonezCore::Core::SbResult ApplyPerfLogArtifactStatus( SkullbonezCore
     return result;
 }
 
-inline SkullbonezCore::Core::SbResult
-ApplySceneLoadDiagnosticsStatus( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, ApplicationExitState& exitState,
-                                 const SkullbonezCore::Core::SbResult& sceneStatus, bool diagnosticsSucceeded )
+inline SkullbonezCore::Core::SbResult ApplySceneLoadDiagnosticsStatus( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                       ApplicationExitState& exitState,
+                                                                       const SkullbonezCore::Core::SbResult& sceneStatus,
+                                                                       bool diagnosticsSucceeded )
 {
     if ( diagnosticsSucceeded )
     {
@@ -179,7 +184,7 @@ enum class SceneAdvanceExitDisposition : uint8_t
 };
 
 constexpr SceneAdvanceExitDisposition ResolveSceneAdvanceExitDisposition( bool requestQuit, bool loadSucceeded,
-                                                                           bool quitIfLoadFails )
+                                                                          bool quitIfLoadFails )
 {
     // Invariant: a queued-load failure outranks a simultaneous normal quit so
     // App cannot convert incomplete automation into a successful process exit.
@@ -198,8 +203,8 @@ struct SceneAdvanceExitAction
 };
 
 inline SceneAdvanceExitAction ApplySceneAdvanceExitDisposition( SceneAdvanceExitDisposition disposition,
-                                                                 const SkullbonezCore::Core::SbResult& loadResult,
-                                                                 ApplicationExitState& applicationExit )
+                                                                const SkullbonezCore::Core::SbResult& loadResult,
+                                                                ApplicationExitState& applicationExit )
 {
     if ( disposition == SceneAdvanceExitDisposition::LoadFailure )
     {

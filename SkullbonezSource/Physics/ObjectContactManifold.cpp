@@ -226,6 +226,26 @@ float SquaredDistanceFromPointToBoxAtFraction( const Vector3& startLocal, const 
     return distanceSquared;
 }
 
+void SortSweepIntervalEdges( std::array<float, 8>& intervalEdges, int edgeCount )
+{
+    // Invariant: the sweep contributes two endpoints plus at most two crossings
+    // per axis. A bounded insertion sort keeps that eight-value limit visible to
+    // compilers instead of entering the standard sort's wider threshold path.
+    for ( int edgeIndex = 1; edgeIndex < edgeCount; ++edgeIndex )
+    {
+        const float edge = intervalEdges[edgeIndex];
+        int insertionIndex = edgeIndex;
+
+        while ( insertionIndex > 0 && edge < intervalEdges[insertionIndex - 1] )
+        {
+            intervalEdges[insertionIndex] = intervalEdges[insertionIndex - 1];
+            --insertionIndex;
+        }
+
+        intervalEdges[insertionIndex] = edge;
+    }
+}
+
 float SweepPointAgainstRoundedBox( const Vector3& startLocal, const Vector3& displacementLocal, const Vector3& halfExtents,
                                    float radius )
 {
@@ -266,7 +286,7 @@ float SweepPointAgainstRoundedBox( const Vector3& startLocal, const Vector3& dis
         }
     }
 
-    std::sort( intervalEdges.begin(), intervalEdges.begin() + edgeCount );
+    SortSweepIntervalEdges( intervalEdges, edgeCount );
 
     for ( int intervalIndex = 0; intervalIndex + 1 < edgeCount; ++intervalIndex )
     {
@@ -1224,75 +1244,71 @@ void AddPolyFace( PolytopeWorld& poly, const Vector3& normal, const uint16_t* in
     }
 }
 
-PolytopeWorld MakeBoxPolytope( const ObjectContactBodyView& body, const BoundingBox& box )
+void BuildBoxPolytopeVertices( PolytopeWorld& out, const BoxWorld& box )
 {
-    BoxWorld bw = MakeBoxWorld( body, box );
-    PolytopeWorld out;
-    out.center = bw.center;
-    out.vertexCount = 8;
-
     for ( uint16_t v = 0; v < 8; ++v )
     {
         const float sx = ( v & 1 ) ? 1.0f : -1.0f;
         const float sy = ( v & 2 ) ? 1.0f : -1.0f;
         const float sz = ( v & 4 ) ? 1.0f : -1.0f;
-        out.vertices[v] = bw.center + bw.axes[0] * ( sx * bw.halfExtents.x ) + bw.axes[1] * ( sy * bw.halfExtents.y ) +
-                          bw.axes[2] * ( sz * bw.halfExtents.z );
+        out.vertices[v] = box.center + box.axes[0] * ( sx * box.halfExtents.x ) + box.axes[1] * ( sy * box.halfExtents.y ) +
+                          box.axes[2] * ( sz * box.halfExtents.z );
     }
+}
 
+void BuildBoxPolytopeFaces( PolytopeWorld& out, const BoxWorld& box )
+{
     const uint16_t faceNegX[4] = { 0, 4, 6, 2 };
     const uint16_t facePosX[4] = { 1, 3, 7, 5 };
-
     const uint16_t faceNegY[4] = { 0, 1, 5, 4 };
-
     const uint16_t facePosY[4] = { 2, 6, 7, 3 };
-
     const uint16_t faceNegZ[4] = { 0, 2, 3, 1 };
-
     const uint16_t facePosZ[4] = { 4, 5, 7, 6 };
 
-    AddPolyFace( out, -bw.axes[0], faceNegX, 4, static_cast<uint16_t>( FaceId( 0, -1.0f ) ) );
-    AddPolyFace( out, bw.axes[0], facePosX, 4, static_cast<uint16_t>( FaceId( 0, 1.0f ) ) );
-    AddPolyFace( out, -bw.axes[1], faceNegY, 4, static_cast<uint16_t>( FaceId( 1, -1.0f ) ) );
-    AddPolyFace( out, bw.axes[1], facePosY, 4, static_cast<uint16_t>( FaceId( 1, 1.0f ) ) );
-    AddPolyFace( out, -bw.axes[2], faceNegZ, 4, static_cast<uint16_t>( FaceId( 2, -1.0f ) ) );
-    AddPolyFace( out, bw.axes[2], facePosZ, 4, static_cast<uint16_t>( FaceId( 2, 1.0f ) ) );
+    AddPolyFace( out, -box.axes[0], faceNegX, 4, static_cast<uint16_t>( FaceId( 0, -1.0f ) ) );
+    AddPolyFace( out, box.axes[0], facePosX, 4, static_cast<uint16_t>( FaceId( 0, 1.0f ) ) );
+    AddPolyFace( out, -box.axes[1], faceNegY, 4, static_cast<uint16_t>( FaceId( 1, -1.0f ) ) );
+    AddPolyFace( out, box.axes[1], facePosY, 4, static_cast<uint16_t>( FaceId( 1, 1.0f ) ) );
+    AddPolyFace( out, -box.axes[2], faceNegZ, 4, static_cast<uint16_t>( FaceId( 2, -1.0f ) ) );
+    AddPolyFace( out, box.axes[2], facePosZ, 4, static_cast<uint16_t>( FaceId( 2, 1.0f ) ) );
+}
 
-    for ( int axis = 0; axis < 3; ++axis )
+void BuildBoxPolytopeAxisEdges( PolytopeWorld& out, int axis )
+{
+    const int side0 = ( axis + 1 ) % 3;
+    const int side1 = ( axis + 2 ) % 3;
+
+    for ( int sign0 = -1; sign0 <= 1; sign0 += 2 )
     {
-        int side0 = ( axis + 1 ) % 3;
-        int side1 = ( axis + 2 ) % 3;
-
-        for ( int sign0 = -1; sign0 <= 1; sign0 += 2 )
+        for ( int sign1 = -1; sign1 <= 1; sign1 += 2 )
         {
-            for ( int sign1 = -1; sign1 <= 1; sign1 += 2 )
-            {
-                uint16_t a = 0;
-                uint16_t b = 0;
-
-                for ( uint16_t v = 0; v < 8; ++v )
-                {
-                    int signs[3] = { ( v & 1 ) ? 1 : -1, ( v & 2 ) ? 1 : -1, ( v & 4 ) ? 1 : -1 };
-
-                    if ( signs[side0] == sign0 && signs[side1] == sign1 )
-                    {
-                        if ( signs[axis] < 0 )
-                        {
-                            a = v;
-                        }
-                        else
-                        {
-                            b = v;
-                        }
-                    }
-                }
-
-                AddPolyEdge( out, a, b, static_cast<uint16_t>( EdgeId( axis, sign0, sign1 ) ),
-                             static_cast<uint16_t>( FaceId( side0, static_cast<float>( sign0 ) ) ),
-                             static_cast<uint16_t>( FaceId( side1, static_cast<float>( sign1 ) ) ) );
-            }
+            const uint16_t sideBits = static_cast<uint16_t>( ( sign0 > 0 ? 1u << side0 : 0u ) |
+                                                             ( sign1 > 0 ? 1u << side1 : 0u ) );
+            const uint16_t oppositeVertex = static_cast<uint16_t>( sideBits | ( 1u << axis ) );
+            AddPolyEdge( out, sideBits, oppositeVertex, static_cast<uint16_t>( EdgeId( axis, sign0, sign1 ) ),
+                         static_cast<uint16_t>( FaceId( side0, static_cast<float>( sign0 ) ) ),
+                         static_cast<uint16_t>( FaceId( side1, static_cast<float>( sign1 ) ) ) );
         }
     }
+}
+
+void BuildBoxPolytopeEdges( PolytopeWorld& out )
+{
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        BuildBoxPolytopeAxisEdges( out, axis );
+    }
+}
+
+PolytopeWorld MakeBoxPolytope( const ObjectContactBodyView& body, const BoundingBox& box )
+{
+    const BoxWorld boxWorld = MakeBoxWorld( body, box );
+    PolytopeWorld out;
+    out.center = boxWorld.center;
+    out.vertexCount = 8;
+    BuildBoxPolytopeVertices( out, boxWorld );
+    BuildBoxPolytopeFaces( out, boxWorld );
+    BuildBoxPolytopeEdges( out );
 
     return out;
 }
@@ -2061,21 +2077,22 @@ ObjectContactSweepResult SweepObjectContactImpl( const ObjectContactBodyView& a,
     const Vector3 targetOrigin = GetWorldShapeCenter( shapeB, b.position, rotationB ) - GetShapePosition( shapeB );
     const Ray targetRay( targetOrigin, linearVelocityB * changeInTime );
     const Ray focusRay( focusOrigin, linearVelocityA * changeInTime );
-    const float collisionTime = VisitCollisionShape( shapeA,
-                                                     [&]( const auto& concreteShapeA )
-                                                     {
-                                                     return VisitCollisionShape( shapeB,
-                                                     [&]( const auto& concreteShapeB )
-                                                     {
-                                                     using ConcreteShapeA = std::decay_t<decltype( concreteShapeA )>;
-                                                     using ConcreteShapeB = std::decay_t<decltype( concreteShapeB )>;
+    const float collisionTime = VisitCollisionShape(
+        shapeA,
+        [&]( const auto& concreteShapeA )
+        {
+            return VisitCollisionShape( shapeB,
+                                        [&]( const auto& concreteShapeB )
+                                        {
+                                            using ConcreteShapeA = std::decay_t<decltype( concreteShapeA )>;
+                                            using ConcreteShapeB = std::decay_t<decltype( concreteShapeB )>;
 
-                                                     if constexpr ( std::is_same_v<ConcreteShapeA, BoundingSphere> &&
-                                                     std::is_same_v<ConcreteShapeB, BoundingBox> )
-                                                     {
-                                                     return SweepSphereAgainstBox( a, concreteShapeA, linearVelocityA, b,
-                                                     concreteShapeB, linearVelocityB,
-                                                     changeInTime );
+                                            if constexpr ( std::is_same_v<ConcreteShapeA, BoundingSphere> &&
+                                                           std::is_same_v<ConcreteShapeB, BoundingBox> )
+                                            {
+                                                return SweepSphereAgainstBox( a, concreteShapeA, linearVelocityA, b,
+                                                                              concreteShapeB, linearVelocityB,
+                                                                              changeInTime );
                                             }
                                             else if constexpr ( std::is_same_v<ConcreteShapeA, BoundingBox> &&
                                                                 std::is_same_v<ConcreteShapeB, BoundingSphere> )
@@ -2246,8 +2263,9 @@ bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler*, const Obje
 }
 } // namespace
 
-ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact( const ObjectContactBodyView& a, const CollisionShape& shapeA, const Vector3& linearVelocityA,
-                                                                      const ObjectContactBodyView& b, const CollisionShape& shapeB, const Vector3& linearVelocityB, float changeInTime )
+ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact(
+    const ObjectContactBodyView& a, const CollisionShape& shapeA, const Vector3& linearVelocityA,
+    const ObjectContactBodyView& b, const CollisionShape& shapeB, const Vector3& linearVelocityB, float changeInTime )
 {
     return SweepObjectContactImpl( a, shapeA, linearVelocityA, b, shapeB, linearVelocityB, changeInTime );
 }

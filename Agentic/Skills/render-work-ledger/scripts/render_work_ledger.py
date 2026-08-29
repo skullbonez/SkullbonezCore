@@ -72,9 +72,14 @@ class ParallelTimeline:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Render a WORK_LEDGER.csv infographic fragment.")
+    parser = argparse.ArgumentParser(description="Render a WORK_LEDGER.csv infographic.")
     parser.add_argument("--ledger", type=Path, help="CSV ledger to render")
-    parser.add_argument("--output", type=Path, help="HTML fragment path")
+    parser.add_argument("--output", type=Path, help="HTML output path")
+    parser.add_argument(
+        "--standalone",
+        action="store_true",
+        help="Wrap the infographic in a self-contained UTF-8 HTML document",
+    )
     parser.add_argument("--self-test", action="store_true", help="Run a deterministic smoke test")
     return parser.parse_args()
 
@@ -102,6 +107,9 @@ def format_duration(seconds: int, *, compact: bool = False) -> str:
     hours, remainder = divmod(seconds, 3600)
     minutes, _ = divmod(remainder, 60)
     if compact:
+        days, day_hours = divmod(hours, 24)
+        if days:
+            return f"{days}d {day_hours}h {minutes:02d}m"
         return f"{hours}h {minutes:02d}m"
     return f"{hours:02d}:{minutes:02d}"
 
@@ -196,7 +204,7 @@ def task_stream(task_id: str) -> str:
     return "Bug fixes"
 
 
-def group_task_costs(tasks: Iterable[Task], *, individual_limit: int = 6) -> list[tuple[str, float, int]]:
+def group_task_costs(tasks: Iterable[Task], *, individual_limit: int = 9) -> list[tuple[str, float, int]]:
     """Keep the expensive tasks legible and combine the long cheap tail."""
     paid = sorted((task for task in tasks if task.cost_usd > 0.0), key=lambda task: (-task.cost_usd, task.task_id))
     groups = [(task_code(task.task_id), task.cost_usd, 1) for task in paid[:individual_limit]]
@@ -279,12 +287,12 @@ def build_css() -> str:
 #work-ledger-infographic{color:var(--foreground);font-family:inherit;width:100%;padding:4px 0 10px}
 #work-ledger-infographic *{box-sizing:border-box}
 #work-ledger-infographic h1,#work-ledger-infographic h2,#work-ledger-infographic p{margin-top:0}
-#work-ledger-infographic .masthead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:end;padding-bottom:18px;border-bottom:1px solid var(--border)}
+#work-ledger-infographic .masthead{display:grid;grid-template-columns:minmax(320px,.85fr) minmax(0,1.15fr);gap:32px;align-items:end;padding-bottom:18px;border-bottom:1px solid var(--border)}
 #work-ledger-infographic .eyebrow{color:var(--viz-series-1);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
 #work-ledger-infographic h1{margin-bottom:6px}
 #work-ledger-infographic .subtitle,#work-ledger-infographic .muted{color:var(--muted-foreground)}
 #work-ledger-infographic .subtitle{margin-bottom:0}
-#work-ledger-infographic .status{display:flex;align-items:center;gap:10px;white-space:nowrap}
+#work-ledger-infographic .status{display:flex;align-items:flex-start;gap:10px;min-width:0}
 #work-ledger-infographic .dot{width:12px;height:12px;border-radius:50%;background:var(--viz-series-1);box-shadow:0 0 0 6px color-mix(in srgb,var(--viz-series-1) 16%,transparent)}
 #work-ledger-infographic .status strong{display:block;font-weight:500}
 #work-ledger-infographic .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0 26px}
@@ -337,7 +345,7 @@ def build_css() -> str:
 #work-ledger-infographic .portfolio-bar{flex:1;height:8px;min-width:120px;background:var(--muted);border-radius:999px;overflow:hidden}
 #work-ledger-infographic .portfolio-bar span{display:block;width:var(--portfolio);height:100%;background:var(--viz-series-1)}
 #work-ledger-infographic .source{white-space:nowrap}
-@media(max-width:760px){#work-ledger-infographic .stats{grid-template-columns:repeat(2,minmax(0,1fr))}#work-ledger-infographic .cost-visual{grid-template-columns:1fr}#work-ledger-infographic .lane-row,#work-ledger-infographic .overlap-row{grid-template-columns:128px minmax(0,1fr) 62px;gap:8px}#work-ledger-infographic .axis{margin-left:136px;margin-right:66px}#work-ledger-infographic .stream-legend{margin-left:136px;margin-right:66px}#work-ledger-infographic .axis span:nth-child(even){visibility:hidden}}
+@media(max-width:760px){#work-ledger-infographic .masthead{grid-template-columns:1fr;align-items:start}#work-ledger-infographic .stats{grid-template-columns:repeat(2,minmax(0,1fr))}#work-ledger-infographic .cost-visual{grid-template-columns:1fr}#work-ledger-infographic .lane-row,#work-ledger-infographic .overlap-row{grid-template-columns:128px minmax(0,1fr) 62px;gap:8px}#work-ledger-infographic .axis{margin-left:136px;margin-right:66px}#work-ledger-infographic .stream-legend{margin-left:136px;margin-right:66px}#work-ledger-infographic .axis span:nth-child(even){visibility:hidden}}
 @media(max-width:480px){#work-ledger-infographic .masthead{grid-template-columns:1fr;align-items:start}#work-ledger-infographic .stats{grid-template-columns:1fr}#work-ledger-infographic .section-head{display:block}#work-ledger-infographic .section-head span{display:block;margin-top:4px}#work-ledger-infographic .axis{display:none}#work-ledger-infographic .lane-row,#work-ledger-infographic .overlap-row{grid-template-columns:minmax(0,1fr);padding-bottom:5px}#work-ledger-infographic .track{grid-row:2}#work-ledger-infographic .duration{display:none}#work-ledger-infographic .stream-legend{margin:0 0 22px}#work-ledger-infographic .cost-visual{gap:16px}#work-ledger-infographic .cost-legend{grid-template-columns:1fr}#work-ledger-infographic footer{grid-template-columns:1fr}#work-ledger-infographic .portfolio{display:grid;grid-template-columns:auto minmax(0,1fr)}#work-ledger-infographic .portfolio>span:last-child{grid-column:1/-1}#work-ledger-infographic .source{white-space:normal;overflow-wrap:anywhere}}
 """
 
@@ -465,7 +473,7 @@ def build_fragment(ledger: Path, goal: dict[str, str], tasks: list[Task]) -> tup
 </header>
 <section class="stats" aria-label="Run totals">
   <div class="card viz-stat"><div class="text-muted">Tasks closed</div><div class="viz-stat-value">{len(completed)}</div><div class="text-small text-muted">{commits} commits · peak {parallel.peak_concurrency} parallel</div></div>
-  <div class="card viz-stat"><div class="text-muted">Validation</div><div class="viz-stat-value">{format_duration(validation_seconds, compact=True)}</div><div class="text-small text-muted">{validation_percent:.1f}% of completed task time</div></div>
+  <div class="card viz-stat"><div class="text-muted">Total time</div><div class="viz-stat-value">{format_duration(completed_elapsed, compact=True)}</div><div class="text-small text-muted">{format_duration(other_seconds, compact=True)} tasks · {format_duration(validation_seconds, compact=True)} validation</div></div>
   <div class="card viz-stat"><div class="text-muted">Model traffic</div><div class="viz-stat-value">{compact_number(goal_input)} in</div><div class="text-small text-muted">{compact_number(goal_output)} out · {cache_percent:.1f}% cached</div></div>
   <div class="card viz-stat"><div class="text-muted">Recorded API cost</div><div class="viz-stat-value">${goal_cost:,.2f}</div><div class="text-small text-muted">{esc(pricing or 'ledger pricing basis')}</div></div>
 </section>
@@ -477,7 +485,7 @@ def build_fragment(ledger: Path, goal: dict[str, str], tasks: list[Task]) -> tup
   </div>
   <div class="stream-legend text-small">{stream_legend}</div>
 </section>
-<section class="cost-section" aria-labelledby="ledger-cost-title"><div class="section-head"><h2 id="ledger-cost-title">Cost by task</h2><span class="muted">six most expensive shown individually · inexpensive tail grouped</span></div>
+<section class="cost-section" aria-labelledby="ledger-cost-title"><div class="section-head"><h2 id="ledger-cost-title">Cost by task</h2><span class="muted">nine most expensive shown individually · inexpensive tail grouped</span></div>
   <div class="cost-visual">
     <svg class="cost-pie" viewBox="0 0 300 300" role="img" aria-label="Recorded API cost distribution by task">{''.join(pie_shapes)}
       <circle cx="150" cy="150" r="64" fill="var(--background)"></circle>
@@ -488,7 +496,7 @@ def build_fragment(ledger: Path, goal: dict[str, str], tasks: list[Task]) -> tup
 </section>
 <section class="effort-section" aria-label="Effort and review details">
   <div><div class="section-head"><h2>Where the run went</h2><span class="muted">completed task time · {format_duration(completed_elapsed, compact=True)}</span></div>
-    <div class="allocation" style="--validation:{validation_percent:.3f}%" role="img" aria-label="{format_duration(validation_seconds, compact=True)} validation and {format_duration(other_seconds, compact=True)} other task work"><span class="validation"></span><span class="other"></span></div>
+    <div class="allocation" style="--validation:{validation_percent:.3f}%" role="img" aria-label="{format_duration(other_seconds, compact=True)} task work and {format_duration(validation_seconds, compact=True)} validation"><span class="validation"></span><span class="other"></span></div>
     <div class="legend text-small"><span><i class="swatch"></i>Validation · {format_duration(validation_seconds, compact=True)}</span><span><i class="swatch other"></i>Implementation, review &amp; commits · {format_duration(other_seconds, compact=True)}</span></div>
     <div class="section-head" style="margin-top:24px"><h2>Review pressure</h2><span class="muted">recorded critique and repair</span></div>
     <div class="review"><div><strong>{duck_passes}</strong><span class="muted">duck passes</span></div><div><strong>{findings}</strong><span class="muted">findings</span></div><div><strong>{fix_cycles}</strong><span class="muted">fix cycles</span></div></div>
@@ -522,14 +530,66 @@ def build_fragment(ledger: Path, goal: dict[str, str], tasks: list[Task]) -> tup
     return fragment, summary
 
 
-def render(ledger: Path, output: Path) -> dict[str, object]:
+def build_standalone_document(fragment: str, run_id: str) -> str:
+    """Supply the host theme that an exported ledger needs outside Codex."""
+    shell_css = r"""
+:root {
+  color-scheme: dark;
+  --background:#08111f;
+  --foreground:#eef5ff;
+  --muted:#152238;
+  --muted-foreground:#95a7c2;
+  --border:#263853;
+  --viz-series-1:#55d6be;
+  --viz-series-2:#8bd450;
+  --viz-series-3:#ffca5c;
+  --viz-series-4:#ff7aa2;
+  --viz-series-5:#b69cff;
+  --viz-series-6:#66a8ff;
+}
+html { background:var(--background); }
+body {
+  margin:0;
+  padding:40px;
+  background:
+    radial-gradient(circle at 12% 0%,color-mix(in srgb,var(--viz-series-6) 12%,transparent),transparent 32rem),
+    var(--background);
+  color:var(--foreground);
+  font:15px/1.45 "Segoe UI",Inter,Arial,sans-serif;
+}
+main { max-width:1440px; margin:0 auto; }
+h1 { font-size:clamp(2rem,3vw,3.25rem); line-height:1.05; letter-spacing:-.035em; }
+h2 { font-size:1.45rem; letter-spacing:-.015em; }
+.text-small { font-size:.82rem; }
+.text-muted { color:var(--muted-foreground); }
+.card {
+  min-height:112px;
+  padding:18px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:color-mix(in srgb,var(--muted) 72%,transparent);
+}
+.viz-stat-value { margin:5px 0 3px; font-size:1.8rem; font-weight:650; letter-spacing:-.025em; }
+@media(max-width:760px) { body { padding:22px; } }
+"""
+    return (
+        "<!doctype html>\n<html lang=\"en\">\n<head>\n"
+        "<meta charset=\"utf-8\">\n"
+        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+        f"<title>Work Ledger · Run {esc(run_id)}</title>\n"
+        f"<style>{shell_css}</style>\n</head>\n<body>\n<main>\n{fragment}\n</main>\n</body>\n</html>\n"
+    )
+
+
+def render(ledger: Path, output: Path, *, standalone: bool = False) -> dict[str, object]:
     goal, tasks = load_run(ledger)
     fragment, summary = build_fragment(ledger, goal, tasks)
 
-    # Invariant: write a fragment, not a standalone document. The conversation
-    # visualization host supplies the document shell and theme variables.
+    # Invariant: fragment mode inherits the conversation host's theme. Durable
+    # repository artifacts carry the same visual through a self-contained shell.
+    rendered = build_standalone_document(fragment, str(summary["run_id"])) if standalone else fragment
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(fragment, encoding="utf-8", newline="\n")
+    output.write_text(rendered, encoding="utf-8", newline="\n")
     summary["output"] = str(output.resolve())
     return summary
 
@@ -580,8 +640,11 @@ def self_test() -> None:
             writer.writerows(rows)
         summary = render(ledger, output)
         rendered = output.read_text(encoding="utf-8")
+        standalone_output = Path(temp_dir) / "ledger-standalone.html"
+        render(ledger, standalone_output, standalone=True)
+        standalone_rendered = standalone_output.read_text(encoding="utf-8")
         _, parsed_tasks = load_run(ledger)
-        cost_fixture = [replace(parsed_tasks[0], task_id=f"COST_PLAN-T{index}", cost_usd=float(index + 1)) for index in range(8)]
+        cost_fixture = [replace(parsed_tasks[0], task_id=f"COST_PLAN-T{index}", cost_usd=float(index + 1)) for index in range(12)]
         grouped_costs = group_task_costs(cost_fixture)
         checks = [
             summary["run_id"] == "test-run",
@@ -601,10 +664,18 @@ def self_test() -> None:
             "Close <unsafe> task" not in rendered,
             "$12.50" in rendered,
             "90.0% cached" in rendered,
-            len(grouped_costs) == 7,
+            "Total time" in rendered,
+            "2h 00m" in rendered,
+            "1h 30m tasks · 0h 30m validation" in rendered,
+            format_duration(115 * 3600 + 32 * 60, compact=True) == "4d 19h 32m",
+            standalone_rendered.startswith("<!doctype html>"),
+            '<meta charset="utf-8">' in standalone_rendered,
+            "--viz-series-6:#66a8ff" in standalone_rendered,
+            "Close &lt;unsafe&gt; task" in standalone_rendered,
+            len(grouped_costs) == 10,
             grouped_costs[-1][0] == "Other tasks",
-            grouped_costs[-1][2] == 2,
-            abs(sum(cost for _, cost, _ in grouped_costs) - 36.0) < 0.000001,
+            grouped_costs[-1][2] == 3,
+            abs(sum(cost for _, cost, _ in grouped_costs) - 78.0) < 0.000001,
         ]
         if not all(checks):
             raise AssertionError("Self-test output did not preserve the expected ledger contract.")
@@ -618,7 +689,7 @@ def main() -> int:
         return 0
     if args.ledger is None or args.output is None:
         raise SystemExit("--ledger and --output are required unless --self-test is used.")
-    summary = render(args.ledger.resolve(), args.output.resolve())
+    summary = render(args.ledger.resolve(), args.output.resolve(), standalone=args.standalone)
     print(json.dumps(summary, indent=2))
     return 0
 

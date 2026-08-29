@@ -210,6 +210,11 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions&
         target.frameCountOverride = (std::max)( 1, launch.frameCountOverride );
     }
 
+    if ( launch.perfLogPath[0] != '\0' )
+    {
+        strcpy_s( target.perfLogPath, sizeof( target.perfLogPath ), launch.perfLogPath );
+    }
+
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     target.developmentUiMode = launch.developmentUiMode;
     target.developmentUiModeExplicit = launch.developmentUiModeExplicit;
@@ -349,8 +354,7 @@ SkullbonezCore::Core::SbResult Run::ResolveExecuteExit( int messageExitCode )
     // Invariant: every Execute return closes the required perf artifact before
     // ApplicationExitState resolves process success. Buffered write, flush, or
     // close failures therefore outrank a normal WM_QUIT code.
-    (void)ApplyPerfLogArtifactStatus( m_resultDiagnostics, m_applicationExit,
-                                      m_diagnosticsRuntime.ClosePerfLog() );
+    (void)ApplyPerfLogArtifactStatus( m_resultDiagnostics, m_applicationExit, m_diagnosticsRuntime.ClosePerfLog() );
 
     const SkullbonezCore::Core::SbResult processStatus = m_applicationExit.Resolve( messageExitCode );
     const SkullbonezCore::Core::SbResult automationStatus = FinalizeInteractionAutomationReport( processStatus );
@@ -360,33 +364,35 @@ SkullbonezCore::Core::SbResult Run::ResolveExecuteExit( int messageExitCode )
         m_applicationExit.RequestOwnedFailure( automationStatus );
     }
 
-    return ResolveRunExitAfterInteractionRecording( m_interactionRecorder, m_resultDiagnostics, m_applicationExit,
-                                                     messageExitCode,
-                                                     []( void* context )
-                                                     {
-                                                         // Orderly exit can follow the F8 arm edge before the next
-                                                         // frame boundary while every baseline source is still live.
-                                                         static_cast<Run*>( context )->AdvanceInteractionRecordingBoundary();
-                                                     },
-                                                     this );
+    return ResolveRunExitAfterInteractionRecording(
+        m_interactionRecorder, m_resultDiagnostics, m_applicationExit, messageExitCode,
+        []( void* context )
+        {
+            // Orderly exit can follow the F8 arm edge before the next
+            // frame boundary while every baseline source is still live.
+            static_cast<Run*>( context )->AdvanceInteractionRecordingBoundary();
+        },
+        this );
 }
 
-SkullbonezCore::Core::SbResult Run::FinalizeInteractionAutomationReport(
-    const SkullbonezCore::Core::SbResult& processStatus )
+SkullbonezCore::Core::SbResult
+Run::FinalizeInteractionAutomationReport( const SkullbonezCore::Core::SbResult& processStatus )
 {
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     return ResolveInteractionAutomationReportForExit(
         m_interactionAutomation, processStatus,
-        []( void* context,
-            InteractionAutomationRunStatus& status ) -> SkullbonezCore::Core::SbResult
+        []( void* context, InteractionAutomationRunStatus& status ) -> SkullbonezCore::Core::SbResult
         {
             Run& run = *static_cast<Run*>( context );
             const ReplayAutomationView replay = run.m_replayRuntime.BuildAutomationView();
-            return run.m_interactionAutomation.reportWriter.Write(
-                status, run.m_sceneController.Scene(), run.m_sceneController.State(),
-                run.m_sceneController.CurrentPath() ? run.m_sceneController.CurrentPath()->c_str() : nullptr,
-                run.m_editorTools, run.m_runtimeTools, replay, run.m_interaction, run.m_camera, *run.m_operatorUi,
-                run.Renderer().FrameGraphSnapshot() );
+            return run.m_interactionAutomation.reportWriter.Write( status, run.m_sceneController.Scene(),
+                                                                   run.m_sceneController.State(),
+                                                                   run.m_sceneController.CurrentPath()
+                                                                       ? run.m_sceneController.CurrentPath()->c_str()
+                                                                       : nullptr,
+                                                                   run.m_editorTools, run.m_runtimeTools, replay,
+                                                                   run.m_interaction, run.m_camera, *run.m_operatorUi,
+                                                                   run.Renderer().FrameGraphSnapshot() );
         },
         this );
 #else
@@ -432,12 +438,13 @@ Run::~Run()
     {
         m_diagnosticsRuntime
             .WriteMainMemoryDump( m_replayRuntime.CollectMemoryStats(),
-                                  CollectSceneMemoryStats( SceneMemoryDiagnosticsView { m_sceneController.Scene().Entities().CapacityBytes(),
-                                                                                        m_sceneController.Scene().CollectGameplayMemoryBytes(),
-                                                                                        m_sceneController.Scene()
-                                                                                            .CollectGameplayDebugMemoryBytes(),
-                                                                                        m_sceneController.Scene().Physics(),
-                                                                                        m_sceneController.Scene().RenderInstances() } ),
+                                  CollectSceneMemoryStats(
+                                      SceneMemoryDiagnosticsView { m_sceneController.Scene().Entities().CapacityBytes(),
+                                                                   m_sceneController.Scene().CollectGameplayMemoryBytes(),
+                                                                   m_sceneController.Scene()
+                                                                       .CollectGameplayDebugMemoryBytes(),
+                                                                   m_sceneController.Scene().Physics(),
+                                                                   m_sceneController.Scene().RenderInstances() } ),
                                   ProjectSceneDiagnosticFacts( m_sceneController.State() ), "shutdown",
                                   m_timers.SimulationTotalSeconds() );
     }
@@ -476,10 +483,11 @@ Run::~Run()
     // its first release so no owner can destroy resources after a failed wait.
     const SkullbonezCore::Core::SbResult
         releaseResult = Renderer( "Shutdown" )
-                            .ReleaseBackendOwnedRuntimeResources( RuntimeRenderer::BackendResourceReleaseContext { "shutdown_release",
-                                                                                                                   m_sceneController.Scene()
-                                                                                                                       .Terrain()
-                                                                                                                       .Get() } );
+                            .ReleaseBackendOwnedRuntimeResources(
+                                RuntimeRenderer::BackendResourceReleaseContext { "shutdown_release",
+                                                                                 m_sceneController.Scene()
+                                                                                     .Terrain()
+                                                                                     .Get() } );
 
     if ( !releaseResult.Ok() )
     {
@@ -584,15 +592,16 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                               m_camera.director.grabbed, m_interaction, m_inputRouter );
     }
 
-    m_replayRuntime.ConfigureStartupWorkflows( ReplayStartupRequest { overrides.replayLoadPath, overrides.replayLoadProbe,
-                                       #ifdef _DEBUG
-                                                                      overrides.replayRestoreFileProbePath, overrides.replayRestoreTargetFileProbePath,
-                                                                      overrides.replayRestoreBranchFileProbePath, overrides.replayRestoreFailureFileProbePath,
-                                                                      overrides.replayScrubProbe, overrides.replayScrubProbeNormalized,
-                                                                      overrides.replayRestoreProbe, overrides.replayRestoreProbeNormalized,
-                                                                      overrides.replaySaveProbe, overrides.replaySaveProbePath
-                                       #endif
-                                               } );
+    m_replayRuntime.ConfigureStartupWorkflows(
+        ReplayStartupRequest { overrides.replayLoadPath, overrides.replayLoadProbe,
+#ifdef _DEBUG
+                               overrides.replayRestoreFileProbePath, overrides.replayRestoreTargetFileProbePath,
+                               overrides.replayRestoreBranchFileProbePath, overrides.replayRestoreFailureFileProbePath,
+                               overrides.replayScrubProbe, overrides.replayScrubProbeNormalized,
+                               overrides.replayRestoreProbe, overrides.replayRestoreProbeNormalized,
+                               overrides.replaySaveProbe, overrides.replaySaveProbePath
+#endif
+        } );
 
     const StartupOperatorUiPolicy startupUiPolicy = m_overlayDiagnostics->ApplyStartupPolicy( overrides, m_launchOptions );
 
@@ -783,7 +792,8 @@ void Run::Initialise()
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
 
     // Build renderer-owned resources from source asset records.
-    const SkullbonezCore::Core::SbResult rebuildResourcesResult = Renderer().ResourceLifecycle().InitialiseProcessResources( m_launchOptions.dumpTextureAssets );
+    const SkullbonezCore::Core::SbResult rebuildResourcesResult = Renderer().ResourceLifecycle().InitialiseProcessResources(
+        m_launchOptions.dumpTextureAssets );
 
     if ( !rebuildResourcesResult.Ok() )
     {

@@ -141,7 +141,7 @@ class PhysicsStepDiagnostics
     void SetPhysicsDiagnosticsRunId( const char* runId );
 #endif
 
-    void CaptureReplayState( PhysicsSolverSnapshot& snapshot ) const;
+    void CaptureReplayState( PhysicsSolverSnapshot& snapshot, bool capturePipelineTrace ) const;
 
     // Invariant: diagnostics rows join the same all-or-nothing solver restore.
     bool CanRestoreReplayState( const PhysicsSolverSnapshot& snapshot, int modelCount ) const noexcept;

@@ -31,6 +31,7 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Core/StdioFile.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -71,7 +72,7 @@ bool WriteTextFile( const char* path, const char* text )
 {
     FILE* file = nullptr;
 
-    if ( fopen_s( &file, path, "wb" ) != 0 || !file )
+    if ( SkullbonezCore::Core::OpenStdioFile( file, path, "wb" ) != 0 || !file )
     {
         return false;
     }
@@ -84,7 +85,7 @@ bool WriteTextFile( const char* path, const char* text )
 bool WriteBytes( const char* path, const std::string& bytes )
 {
     FILE* file = nullptr;
-    if ( fopen_s( &file, path, "wb" ) != 0 || !file )
+    if ( SkullbonezCore::Core::OpenStdioFile( file, path, "wb" ) != 0 || !file )
     {
         return false;
     }
@@ -96,7 +97,7 @@ bool DumpConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     FILE* file = nullptr;
 
-    if ( fopen_s( &file, kConfigDumpPath, "wb" ) != 0 || !file )
+    if ( SkullbonezCore::Core::OpenStdioFile( file, kConfigDumpPath, "wb" ) != 0 || !file )
     {
         return false;
     }

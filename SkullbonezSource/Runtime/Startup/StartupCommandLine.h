@@ -62,9 +62,10 @@ struct ParsedArgs
     // omitted flags producing these exact policies.
     std::vector<std::string> sceneList;
     bool isSuiteOrSceneMode = false;
-    float timeScaleOverride = 0.0f;      // 0 = not set
-    bool fixedStep = false;              // Explicit startup render-frame-lockstep request (flag or deterministic diagnostic/probe policy).
-    unsigned int seedOverride = 0;       // 0 = not set
+    float timeScaleOverride = 0.0f; // 0 = not set
+    bool
+        fixedStep = false; // Explicit startup render-frame-lockstep request (flag or deterministic diagnostic/probe policy).
+    unsigned int seedOverride = 0; // 0 = not set
     bool noWater = false;
     bool noSleep = false;
     bool hasTornadoOverride = false;
@@ -76,6 +77,8 @@ struct ParsedArgs
     bool cinematicShadows = false;
     bool interactiveRun = false;
     int frameCountOverride = -1;
+    int renderFrameBufferCount = 2; // DXGI swap-chain buffers; accepted values are 2 and 3.
+    char perfLogPath[256] = {};     // CLI profiling output override applied after each scene load.
     bool sceneLoadOnly = false;
     bool demoHeroStyle = false;
     bool uiStress = false;
@@ -90,7 +93,7 @@ struct ParsedArgs
         allocationGuardMode = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off;
     bool replayRecording = true;
     bool replayExplicit = false;
-    int replaySeconds = 0;               // 0 = Replay owner resolves its default before Run construction.
+    int replaySeconds = 0; // 0 = Replay owner resolves its default before Run construction.
     bool replayScrubProbe = false;
     float replayScrubProbeNormalized = 0.25f;
     bool replayRestoreProbe = false;
@@ -122,8 +125,8 @@ struct ParsedArgs
     // profiling session reaches worker simulation without manual UI steps.
     // Empty means the flag was omitted; --predict-seconds is ignored then.
     char predictTargetName[64] = {};
-    float predictHorizonSeconds = 0.0f;  // 0 = keep the prediction owner's default horizon.
-    bool predictPauseOnStart = true;     // --predict-running leaves the simulation advancing.
+    float predictHorizonSeconds = 0.0f; // 0 = keep the prediction owner's default horizon.
+    bool predictPauseOnStart = true;    // --predict-running leaves the simulation advancing.
     bool suppressExitDialog = false;
     bool automationWindowHidden = false;
     bool showProfiler = false;

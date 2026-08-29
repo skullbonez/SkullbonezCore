@@ -59,6 +59,20 @@ static_assert( std::is_nothrow_copy_constructible_v<SbResult> && std::is_nothrow
 static_assert( std::is_nothrow_move_constructible_v<SbResult> && std::is_nothrow_move_assignable_v<SbResult> );
 static_assert( std::is_nothrow_destructible_v<SbResult> );
 
+namespace
+{
+void ApplyCopyAssignment( SbResult& destination, const SbResult& source ) noexcept
+{
+    destination = source;
+}
+
+
+void ApplyMoveAssignment( SbResult& destination, SbResult& source ) noexcept
+{
+    destination = std::move( source );
+}
+} // namespace
+
 
 TEST_CASE( "SbResult success is a compact store-free sentinel" )
 {
@@ -135,8 +149,10 @@ TEST_CASE( "SbResult copy and move operations retain or transfer exactly one lea
         CHECK( assigned.DiagnosticIdentity().token == identity.token );
         CHECK( store.ActiveEntryCount() == 1u );
 
-        copy = copy;
-        copy = std::move( copy );
+        // Why: passing both aliases through ordinary assignment helpers keeps the
+        // deliberate self-assignment contract warning-clean on GCC and Clang.
+        ApplyCopyAssignment( copy, copy );
+        ApplyMoveAssignment( copy, copy );
         CHECK( copy.DiagnosticIdentity().token == identity.token );
 
         SbResult moved = std::move( assigned );

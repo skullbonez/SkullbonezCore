@@ -89,11 +89,11 @@ constexpr bool DevelopmentUiModeShowsImGui( DevelopmentUiMode mode ) noexcept
 
 struct RunLaunchOptions
 {
-    float timeScaleOverride = 0.0f;                                                              // CLI --time-scale override applied after each scene load (0 = not set)
-    bool fixedStep = false;                                                                      // Explicit startup render-frame-lockstep request (flag or deterministic diagnostic/probe policy)
-    unsigned int seedOverride = 0;                                                               // CLI --seed override applied after each scene load (0 = not set)
-    bool noWater = false;                                                                        // CLI --no-water starts fluid below terrain
-    bool noSleep = false;                                                                        // Startup CLI --no-sleep request; live policy can still be toggled from the Physics tab
+    float timeScaleOverride = 0.0f; // CLI --time-scale override applied after each scene load (0 = not set)
+    bool fixedStep = false; // Explicit startup render-frame-lockstep request (flag or deterministic diagnostic/probe policy)
+    unsigned int seedOverride = 0; // CLI --seed override applied after each scene load (0 = not set)
+    bool noWater = false;          // CLI --no-water starts fluid below terrain
+    bool noSleep = false;          // Startup CLI --no-sleep request; live policy can still be toggled from the Physics tab
     bool hasTornadoOverride = false;
     bool tornadoEnabled = false;
     bool tornadoVectors = false;
@@ -101,28 +101,29 @@ struct RunLaunchOptions
     bool cinematicRendering = false;
     bool hasCinematicShadowsOverride = false;
     bool cinematicShadows = false;
-    bool demoHeroStyle = false;                                                                  // CLI --demohero applies the low-poly hero look to generated demo mode
-    bool dumpTextureAssets = false;                                                              // CLI --dump-assets prints the startup-built texture registry once.
-    bool interactiveSceneRun = false;                                                            // CLI --interactive/--hold keeps scene automation from quitting the app
-    int frameCountOverride = -1;                                                                 // CLI --frames override applied after each scene load
-    bool uiStress = false;                                                                       // CLI --ui-stress enables generated/demo stress without a scene file
-    unsigned int uiStressSeed = 0;                                                               // CLI --ui-stress-seed
-    int uiStressActions = 5;                                                                     // CLI --ui-stress-actions
-    bool graphicsStress = false;                                                                 // CLI --graphics-stress enables render-setting and scene-load churn
-    unsigned int graphicsStressSeed = 0;                                                         // CLI --graphics-stress-seed
-    int graphicsStressActions = 12;                                                              // CLI --graphics-stress-actions
-    int graphicsStressSceneIntervalFrames = 45;                                                  // CLI --graphics-stress-scene-interval
-    int graphicsStressMemoryIntervalFrames = 1800;                                               // CLI --graphics-stress-memory-interval
-    bool replayGuideArcsAtStartup = false;                                                       // CLI --guide-arcs re-enables the default-off GameUI guide after scene load.
-    int interactionRecordMaxMinutes = 1;                                                         // F8 tape hard limit; 1..60 minute chunks.
+    bool demoHeroStyle = false;                    // CLI --demohero applies the low-poly hero look to generated demo mode
+    bool dumpTextureAssets = false;                // CLI --dump-assets prints the startup-built texture registry once.
+    bool interactiveSceneRun = false;              // CLI --interactive/--hold keeps scene automation from quitting the app
+    int frameCountOverride = -1;                   // CLI --frames override applied after each scene load
+    char perfLogPath[256] = {};                    // CLI --perf-log override reapplied after each scene load
+    bool uiStress = false;                         // CLI --ui-stress enables generated/demo stress without a scene file
+    unsigned int uiStressSeed = 0;                 // CLI --ui-stress-seed
+    int uiStressActions = 5;                       // CLI --ui-stress-actions
+    bool graphicsStress = false;                   // CLI --graphics-stress enables render-setting and scene-load churn
+    unsigned int graphicsStressSeed = 0;           // CLI --graphics-stress-seed
+    int graphicsStressActions = 12;                // CLI --graphics-stress-actions
+    int graphicsStressSceneIntervalFrames = 45;    // CLI --graphics-stress-scene-interval
+    int graphicsStressMemoryIntervalFrames = 1800; // CLI --graphics-stress-memory-interval
+    bool replayGuideArcsAtStartup = false; // CLI --guide-arcs re-enables the default-off GameUI guide after scene load.
+    int interactionRecordMaxMinutes = 1;   // F8 tape hard limit; 1..60 minute chunks.
 
     // Concept: a prediction launch request, not live prediction authority.
     // ReplayPrediction still owns enablement, horizon, and the build; Run only
     // replays the operator's scrubber/predict/target/pause sequence once the
     // scene has bodies. Empty predictTargetName means --predict was omitted.
-    char predictTargetName[64] = {};                                                             // CLI --predict <body display name>
-    float predictHorizonSeconds = 0.0f;                                                          // CLI --predict-seconds (0 = owner default)
-    bool predictPauseOnStart = true;                                                             // CLI --predict-running clears this
+    char predictTargetName[64] = {};    // CLI --predict <body display name>
+    float predictHorizonSeconds = 0.0f; // CLI --predict-seconds (0 = owner default)
+    bool predictPauseOnStart = true;    // CLI --predict-running clears this
 
     // Runtime allocation policy: startup selects measurement/fatal behavior
     // before owner registration and steady gameplay begin.
@@ -154,14 +155,14 @@ struct RunStartupOverrides
     // synchronous apply call; Run-owned systems copy or consume paths before it
     // returns.
     RunLaunchOptions launch;
-    const char* liveStyleControlDirectory = nullptr;                                             // CLI --live-style-control-dir
-    const char* mainMemoryDumpPath = nullptr;                                                    // CLI --memory-dump
-    const char* interactionScriptPath = nullptr;                                                 // CLI interaction harness script copied by its owner.
-    const char* interactionReportPath = nullptr;                                                 // Optional interaction report destination.
-    const char* interactionTracePath = nullptr;                                                  // Optional incremental JSONL turn trace.
-    const char* interactionRecordPath = nullptr;                                                 // CLI --record-automation output destination.
-    int interactionRecordMaxMinutes = 1;                                                         // CLI recorder startup copy of the same launch limit.
-    bool configureReplayRecording = false;                                                       // True when replay capture or hash logging must be configured
+    const char* liveStyleControlDirectory = nullptr; // CLI --live-style-control-dir
+    const char* mainMemoryDumpPath = nullptr;        // CLI --memory-dump
+    const char* interactionScriptPath = nullptr;     // CLI interaction harness script copied by its owner.
+    const char* interactionReportPath = nullptr;     // Optional interaction report destination.
+    const char* interactionTracePath = nullptr;      // Optional incremental JSONL turn trace.
+    const char* interactionRecordPath = nullptr;     // CLI --record-automation output destination.
+    int interactionRecordMaxMinutes = 1;             // CLI recorder startup copy of the same launch limit.
+    bool configureReplayRecording = false;           // True when replay capture or hash logging must be configured
     bool replayRecordingEnabled = true;
     int replayRetentionSeconds = 0;
     const char* replayHashLogPath = nullptr;
@@ -188,7 +189,7 @@ struct RunStartupOverrides
     const char* physicsRegressionLogPath = nullptr;
     const char* physicsCollisionTimeLogPath = nullptr;
     const char* physicsDiagnosticsPath = nullptr;
-    bool physicsDiagnosticsRenderFrameLockstepForced = false;                                    // True when --physics-diag supplied the explicit
+    bool physicsDiagnosticsRenderFrameLockstepForced = false; // True when --physics-diag supplied the explicit
 
     // render-frame-lockstep request.
 #endif

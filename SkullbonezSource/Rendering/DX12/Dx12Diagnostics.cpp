@@ -96,9 +96,9 @@ RenderMemoryStats Dx12Diagnostics::GetRenderMemoryStats() const
     stats.srvTransientDescriptorsCapacityPerFrame = srvStats.transientCapacityPerFrame;
     stats.srvTransientDescriptorsPeakThisRun = srvStats.transientPeakThisRun;
 
-    for ( int frameIndex = 0; frameIndex < Dx12FrameOwner::FRAME_COUNT; ++frameIndex )
+    for ( UINT frameIndex = 0; frameIndex < m_device->FrameCount(); ++frameIndex )
     {
-        const Dx12UploadArenaStats uploadStats = m_frame->Uploads().GetStats( static_cast<UINT>( frameIndex ) );
+        const Dx12UploadArenaStats uploadStats = m_frame->Uploads().GetStats( frameIndex );
         stats.uploadCapacityBytes += uploadStats.capacityBytes;
         stats.uploadUsedBytes += uploadStats.usedBytes;
         stats.uploadPeakBytes = (std::max)( stats.uploadPeakBytes, uploadStats.peakBytes );
@@ -163,9 +163,11 @@ RenderMemoryStats Dx12Diagnostics::GetRenderMemoryStats() const
 
             DXGI_QUERY_VIDEO_MEMORY_INFO nonLocalInfo = {};
 
-            const bool localAvailable = SUCCEEDED( activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo ) );
+            const bool localAvailable = SUCCEEDED(
+                activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo ) );
 
-            const bool nonLocalAvailable = SUCCEEDED( activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo ) );
+            const bool nonLocalAvailable = SUCCEEDED(
+                activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo ) );
 
             stats.adapterMemoryAvailable = localAvailable || nonLocalAvailable;
 
@@ -361,7 +363,8 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
 
         if ( end > begin && m_gpuTimers.frequency > 0 )
         {
-            m_gpuTimers.resultMilliseconds[markerIndex] = static_cast<float>( static_cast<double>( end - begin ) / static_cast<double>( m_gpuTimers.frequency ) * 1000.0 );
+            m_gpuTimers.resultMilliseconds[markerIndex] = static_cast<float>(
+                static_cast<double>( end - begin ) / static_cast<double>( m_gpuTimers.frequency ) * 1000.0 );
 
             m_gpuTimers.resultValid[markerIndex] = true;
         }
@@ -539,9 +542,9 @@ void Dx12Diagnostics::ReportArchitectureStats( const char* reason, const Dx12Des
     UINT64 uploadPeakBytes = 0;
     uint64_t categoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {};
 
-    for ( int frameIndex = 0; frameIndex < Dx12FrameOwner::FRAME_COUNT; ++frameIndex )
+    for ( UINT frameIndex = 0; frameIndex < frame.FrameCount(); ++frameIndex )
     {
-        const Dx12UploadArenaStats uploadStats = frame.Uploads().GetStats( static_cast<UINT>( frameIndex ) );
+        const Dx12UploadArenaStats uploadStats = frame.Uploads().GetStats( frameIndex );
         uploadCapacityBytes += uploadStats.capacityBytes;
         uploadPeakBytes = (std::max)( uploadPeakBytes, uploadStats.peakBytes );
 
@@ -568,11 +571,16 @@ void Dx12Diagnostics::ReportArchitectureStats( const char* reason, const Dx12Des
                       descriptorStats.transientCapacityPerFrame, DrawCallHighWater(),
                       static_cast<unsigned long long>( uploadPeakBytes ),
                       static_cast<unsigned long long>( uploadCapacityBytes ),
-                      static_cast<unsigned long long>( categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::Constants )] ),
-                      static_cast<unsigned long long>( categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::DynamicVertex )] ),
-                      static_cast<unsigned long long>( categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::InstanceData )] ),
-                      static_cast<unsigned long long>( categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::TextureRows )] ),
-                      static_cast<unsigned long long>( categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::RetainedGeometry )] ),
+                      static_cast<unsigned long long>(
+                          categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::Constants )] ),
+                      static_cast<unsigned long long>(
+                          categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::DynamicVertex )] ),
+                      static_cast<unsigned long long>(
+                          categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::InstanceData )] ),
+                      static_cast<unsigned long long>(
+                          categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::TextureRows )] ),
+                      static_cast<unsigned long long>(
+                          categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::RetainedGeometry )] ),
                       static_cast<unsigned long long>( frame.UploadFlushCount() ),
                       static_cast<unsigned long long>( frame.UploadDropCount() ) );
 }

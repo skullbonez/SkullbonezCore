@@ -54,7 +54,7 @@ ReplayRecordingConfigResult ReplayTimeline::ConfigureRecording( bool enabled, in
     m_recordingRuntimeBodyCapacity = runtimeBodyCapacity;
     m_recordingHashLogPath = hashLogPath ? hashLogPath : "";
     m_memoryPolicy.requestedRetentionSeconds = (std::max)( 1, retentionSeconds );
-    m_memoryPolicy = ResolveReplayMemoryPolicy( m_memoryPolicy );
+    m_memoryPolicy = ResolveReplayMemoryPolicyForBodyCapacity( m_memoryPolicy, runtimeBodyCapacity );
 
     ReplayRecorderConfig replayConfig;
     replayConfig.enabled = m_recordingEnabled;
@@ -117,7 +117,7 @@ ReplayMemoryPolicyApplyResult ReplayTimeline::ApplyMemoryPolicyRequest( const Re
         nextPolicy.requestedBudgetMiB = request.budgetMiB;
     }
 
-    nextPolicy = ResolveReplayMemoryPolicy( nextPolicy );
+    nextPolicy = ResolveReplayMemoryPolicyForBodyCapacity( nextPolicy, m_recordingRuntimeBodyCapacity );
 
     if ( nextPolicy.preset == m_memoryPolicy.preset &&
          nextPolicy.requestedRetentionSeconds == m_memoryPolicy.requestedRetentionSeconds &&

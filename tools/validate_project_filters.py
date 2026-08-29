@@ -110,6 +110,7 @@ MATH_PREFIXES = (
     "OrbitalMechanics",
     "Quaternion",
     "RotationMatrix",
+    "ScalarMath",
     "Vector3",
 )
 
@@ -355,6 +356,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "InteractionAutomationRecorder",
     "InteractionAutomationReportWriter",
     "InteractionRecordingBrowser",
+    "InteractionRecordingSidecarDigest",
     "RecordedCursorFrame",
     "ReplayAutomationView",
     "ReplayAutomationPackets",
@@ -425,6 +427,7 @@ RUNTIME_PREDICTION_PREFIXES = (
     "ReplayPredictionRetainedMemory",
     "ReplayPredictionScheduling",
     "ReplayPredictionSolverEvidenceStore",
+    "ReplayPredictionState",
     "ReplayPredictionTopologyPublication",
     "ReplayPredictionView",
     "TrajectoryStore",
@@ -460,6 +463,7 @@ RUNTIME_APP_PREFIXES = (
     "ReplayRuntime",
     "ReplayScrubberTools",
     "ReplayValidation",
+    "StartupInputApplication",
 )
 
 RUNTIME_DEVELOPMENT_TOOLS_PREFIXES = (
@@ -603,6 +607,7 @@ CORE_PREFIXES = (
     "SbDiagnosticStore",
     "SbResult",
     "SceneCapacity",
+    "StdioFile",
     "StringHash",
     "Timer",
     "TracyClientOwner",
@@ -963,7 +968,7 @@ def expected_filter_for(item: ProjectItem, project_flat_area: str | None = None)
             return PROJECT_FILTER
         if lower.startswith("thirdptysource\\"):
             return EXTERNAL_FILTER
-        if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".dxil", ".json"}:
+        if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".hlsli", ".dxil", ".json"}:
             return SHADER_FILTER
         if lower.startswith("skullbonezdata\\scenes\\") and (lower.endswith(".scene.json") or lower.endswith(".suite.json")):
             return SCENE_FILTER

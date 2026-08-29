@@ -86,8 +86,6 @@ Dx12ImGuiRendererOwner::Dx12ImGuiRendererOwner( SkullbonezCore::Core::SbDiagnost
     : m_resultDiagnostics( resultDiagnostics ), m_device( device ), m_descriptors( descriptors ), m_frame( frame ),
       m_pipeline( pipeline ), m_textures( textures )
 {
-    static_assert( Dx12FrameOwner::FRAME_COUNT == 2,
-                   "Dear ImGui frame resources must match the engine's two-frame reuse contract." );
 }
 
 SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext& context )
@@ -109,7 +107,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
     ImGui_ImplDX12_InitInfo info;
     info.Device = m_device.Device();
     info.CommandQueue = m_device.GraphicsQueue();
-    info.NumFramesInFlight = Dx12FrameOwner::FRAME_COUNT;
+    info.NumFramesInFlight = m_device.FrameCount();
     info.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     info.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     info.UserData = &m_descriptors;
@@ -137,7 +135,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
     m_gameViewportDescriptor = m_descriptors.AllocateDevelopmentUi();
 
     const Dx12DevelopmentUiDescriptorStats descriptorStats = m_descriptors.DevelopmentUiStats();
-    printf( "[imgui-dx12] Renderer ready frames=%d descriptors=%u/%u.\n", Dx12FrameOwner::FRAME_COUNT, descriptorStats.used,
+    printf( "[imgui-dx12] Renderer ready frames=%u descriptors=%u/%u.\n", m_device.FrameCount(), descriptorStats.used,
             descriptorStats.capacity );
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -202,8 +200,9 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
     // this copied image with sampled alpha. Treat the captured world as the
     // opaque surface it is so translucent/additive world overlays retain their
     // RGB color instead of being darkened a second time by ImGui blending.
-    srv.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING( D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1,
-                                                                           D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2, D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1 );
+    srv.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+        D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1,
+        D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2, D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1 );
 
     srv.Texture2D.MipLevels = 1u;
     m_device.Device()->CreateShaderResourceView( candidate, &srv, m_gameViewportDescriptor.cpuHandle );

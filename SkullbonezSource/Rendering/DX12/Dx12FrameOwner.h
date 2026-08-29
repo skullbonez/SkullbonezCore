@@ -12,7 +12,8 @@ Summary:
   timing/fault operations.
 
 Invariants:
-  - FRAME_COUNT remains two unless profiling explicitly justifies added queued latency.
+  - Active frame count is selected once at device startup; storage remains bounded
+    to MAX_FRAME_COUNT so two- and three-buffer measurements use identical code.
   - Allocators, upload bytes, resources, and borrowed descriptor rows are never reused before their covering fence.
   - Backbuffer access advances only after the corresponding native barrier emits.
   - The first recording/device failure is sticky until a new device lifecycle resets the owner.
@@ -63,7 +64,7 @@ struct InstancedMeshDX12;
 struct DeferredResourceReleaseDX12
 {
     ID3D12Resource* resource = nullptr;
-    UINT staticDescriptorIndex = UINT_MAX;                                 // Optional persistent row released by the same covering fence.
+    UINT staticDescriptorIndex = UINT_MAX; // Optional persistent row released by the same covering fence.
     Dx12CpuDescriptorKind cpuDescriptorKind = Dx12CpuDescriptorKind::None; // Typed route back to the descriptor owner.
     UINT cpuDescriptorIndex = UINT_MAX;
     UINT64 fenceValue = 0;
@@ -163,7 +164,6 @@ class Dx12RetirementDiagnosticState
 class Dx12DeferredReleaseOwner
 {
   public:
-
     // Bounded above the 128 static-row heap so every row can retire alongside
     // a resource while leaving headroom for resource-only readbacks/uploads.
     // The stress churn is the runtime high-water proof for this fixed queue.
@@ -361,15 +361,13 @@ class Dx12DiagnosticsFrame
 class Dx12FrameOwner
 {
   public:
+    // Capacity: DXGI presentation can select two or three active frames at
+    // startup. Arrays use the maximum, while every reuse loop consults the
+    // immutable device frame count so inactive storage is never addressed.
+    static constexpr int MAX_FRAME_COUNT = 3;
 
-    // Why: two frame owners bound uncapped input-to-display latency and restore
-    // the smoother camera pacing observed before the three-frame experiment.
-    // Raise this to three only if profiling proves allocator-reuse waits are
-    // limiting a GPU-heavy workload enough to justify the extra queued frame.
-    static constexpr int FRAME_COUNT = 2;
-
-    // Capacity: each frame owns 32 MiB, so the two-frame configuration reserves
-    // 64 MiB. Steady runtime drops a bounded draw instead of growing this arena.
+    // Capacity: each active frame owns 32 MiB. Steady runtime drops a bounded
+    // draw instead of growing this arena.
     static constexpr UINT64 UPLOAD_BUFFER_SIZE = 32ull * 1024ull * 1024ull;
     static constexpr int PROFILER_STACK_CAPACITY = 64;
 
@@ -500,6 +498,10 @@ class Dx12FrameOwner
     {
         return m_allocatorIndex;
     }
+    UINT FrameCount() const
+    {
+        return m_device.FrameCount();
+    }
     UINT64 FrameFenceValue( UINT index ) const
     {
         return m_frameFenceValues[index];
@@ -601,8 +603,8 @@ class Dx12FrameOwner
     std::array<Dx12PlatformProfilerGpuScopeDX12, PROFILER_STACK_CAPACITY> m_profilerScopes = {};
     Dx12FrameUploadSystem m_uploads;
     Dx12DeferredReleaseOwner m_retirement;
-    ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
-    UINT64 m_frameFenceValues[FRAME_COUNT] = {};
+    ID3D12Resource* m_renderTargets[MAX_FRAME_COUNT] = {};
+    UINT64 m_frameFenceValues[MAX_FRAME_COUNT] = {};
     UINT m_allocatorIndex = 0;
     UINT m_frameIndex = 0;
     RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;

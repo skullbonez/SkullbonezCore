@@ -66,8 +66,14 @@ owner/phase/cap/counter inventory.
 
 ## Validation
 
-Validation scripts are pre-commit/PR gates, not routine iteration. Ordinary
-commits use the cumulative focused gates mapped in `../AGENTS.md`.
+Validation uses the fast, standard, and full lanes defined in `../AGENTS.md`.
+Every code-bearing lane compiles its affected payload. A green selected local
+lane permits a feature-branch push so hosted CI can run deferred exhaustive
+checks in parallel; it does not make the change merge-ready. Merge requires the
+complete cumulative mapping. Mechanical refactors and unchanged source-context
+policy refreshes may use the fast lane; behavior, authority, layout, lifetime,
+Physics, renderer, and baseline changes select the stronger lane.
+
 `validate_full --plan-completion` is reserved for terminal closure of an entire
 implementation plan; it runs the mandatory CPU umbrella before either runtime
 lane. That umbrella runs `validate_coverage` and enforces the ratified

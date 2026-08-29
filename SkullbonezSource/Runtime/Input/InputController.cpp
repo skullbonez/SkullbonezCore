@@ -286,8 +286,12 @@ void InputController::ApplyCameraMovement( CameraControlState& camera, Environme
         if ( ( !input.editorModeEnabled || input.editorViewportLookActive ) &&
              ( camera.inputXMove != 0 || camera.inputYMove != 0 ) )
         {
-            cameras.RotatePrimary( camera.inputXMove * input.mouseMovementQuantity,
-                                   camera.inputYMove * input.mouseMovementQuantity );
+            // Why: Win32 mouse deltas describe screen motion (right and down are
+            // positive), while Camera rotates world vectors with the engine's
+            // right-handed active convention. Inverse radians make both free
+            // look and locked launcher orbit follow the pointer on screen.
+            cameras.RotatePrimary( ResolveMouseLookRadians( camera.inputXMove, input.mouseMovementQuantity ),
+                                   ResolveMouseLookRadians( camera.inputYMove, input.mouseMovementQuantity ) );
         }
 
         const float travelQuantity = input.keyMovementQuantity * camera.travelSpeedMultiplier;
@@ -319,13 +323,12 @@ void InputController::ApplyCameraMovement( CameraControlState& camera, Environme
     if ( !input.manualControlsActive && !input.editorViewportLookActive && !input.authoredScene )
     {
         const Math::Vector::Vector3 translatedCameraPosition = cameras.GetCameraTranslation();
-        const float terrainHeight =
-            terrain.GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, false );
+        const float terrainHeight = terrain.GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z,
+                                                                false );
         // The world owner may move water after startup; the frame input carries
         // that live plane so passive cameras do not consult Terrain's config-era copy.
-        const float resolvedY = ResolvePassiveCameraY( translatedCameraPosition.y, terrainHeight,
-                                                       input.fluidSurfaceHeight, input.minCameraHeight,
-                                                       input.maxCameraHeight );
+        const float resolvedY = ResolvePassiveCameraY( translatedCameraPosition.y, terrainHeight, input.fluidSurfaceHeight,
+                                                       input.minCameraHeight, input.maxCameraHeight );
 
         if ( resolvedY != translatedCameraPosition.y )
         {

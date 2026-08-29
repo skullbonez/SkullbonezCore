@@ -141,6 +141,7 @@ set(SKULLBONEZ_PORTABLE_TEST_SOURCES
 
 set(SKULLBONEZ_WINDOWS_TEST_SOURCES
     SkullbonezTests/TestPlatformWin32.cpp
+    SkullbonezTests/TracyClientOwnerLinkStubs.cpp
 )
 
 function(skullbonez_require_complete_domain domain)
@@ -201,6 +202,8 @@ endforeach()
 
 set(SKULLBONEZ_FLOATING_POINT_CONTRACT
     "${CMAKE_CURRENT_SOURCE_DIR}/SkullbonezSource/Core/FloatingPointContract.h")
+set(SKULLBONEZ_STDIO_CONTRACT
+    "${CMAKE_CURRENT_SOURCE_DIR}/SkullbonezSource/Core/StdioFile.h")
 
 function(skullbonez_apply_portable_compile_contract target)
     target_compile_definitions(
@@ -222,7 +225,8 @@ function(skullbonez_apply_portable_compile_contract target)
         target_compile_options(
             ${target}
             PRIVATE -ffp-contract=off -fno-exceptions -fno-rtti
-                    -include "${SKULLBONEZ_FLOATING_POINT_CONTRACT}")
+                    -include "${SKULLBONEZ_FLOATING_POINT_CONTRACT}"
+                    "-include${SKULLBONEZ_STDIO_CONTRACT}")
     endif()
 endfunction()
 

@@ -26,6 +26,16 @@ executable is retained as the old-behavior comparison executable for the next
 transition. Use `git add -f` only for explicitly retained `SKULLBONEZ_*.exe`
 and `SKULLBONEZ_*.dll` files hidden by global artifact ignore rules.
 
+For the core Physics CSV, the supported entry point creates, validates, stages,
+and checks this complete bundle in one command:
+
+```bat
+python tools\update_baselines.py --physics
+```
+
+The remaining schema and low-level guard commands document the integrity
+contract and support domain-specific non-core writers.
+
 ## Manifest Schema
 
 Each transition directory contains `manifest.json`. For a new transition,
@@ -104,7 +114,8 @@ bundle.
 
 ## Core Physics Command
 
-The core varied-scene writer has no interactive lane:
+The core varied-scene writer has no interactive lane. The command above is the
+normal workflow; its underlying guard invocation is:
 
 ```bat
 python tools\check_physics_baseline_guard.py --repo . ^

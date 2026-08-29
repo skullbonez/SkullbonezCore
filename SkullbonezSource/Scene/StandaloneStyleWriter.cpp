@@ -33,9 +33,13 @@ Related:
 #include <cstring>
 #include <sstream>
 
+#if defined( _MSC_VER )
 #pragma warning( push, 0 )
+#endif
 #include "../../ThirdPtySource/nlohmann/json.hpp"
+#if defined( _MSC_VER )
 #pragma warning( pop )
+#endif
 
 namespace SkullbonezCore::Scene
 {
@@ -311,7 +315,8 @@ Json BuildDocument( const StandaloneStyleSnapshot& snapshot )
     cinematic["terrainGrid"] = Vec2( c.terrainGridScale, c.terrainGridStrength );
     cinematic["waterTint"] = Vec3( c.waterTintR, c.waterTintG, c.waterTintB );
     cinematic["waterProfile"] = Vec3( c.waterAlpha, c.waterReflectionStrength, c.waterGlintStrength );
-    cinematic["basinMask"] = Json::array( { c.basinCenterX, c.basinCenterZ, c.basinRadiusX, c.basinRadiusZ, c.basinFeather } );
+    cinematic["basinMask"] = Json::array(
+        { c.basinCenterX, c.basinCenterZ, c.basinRadiusX, c.basinRadiusZ, c.basinFeather } );
     cinematic["shadows"] = c.shadow.enabled;
     cinematic["shadowMapSize"] = c.shadow.mapSize;
     cinematic["shadowPcfRadius"] = c.shadow.pcfRadius;
@@ -320,7 +325,8 @@ Json BuildDocument( const StandaloneStyleSnapshot& snapshot )
     cinematic["shadowDepthBias"] = c.shadow.depthBias;
     cinematic["shadowSlopeBias"] = c.shadow.slopeBias;
     cinematic["shadowMaxDistance"] = c.shadow.maxDistance;
-    cinematic["shadowParticipation"] = Json::array( { c.shadow.terrainCasts, c.shadow.objectsCast, c.shadow.terrainReceives, c.shadow.objectsReceive } );
+    cinematic["shadowParticipation"] = Json::array(
+        { c.shadow.terrainCasts, c.shadow.objectsCast, c.shadow.terrainReceives, c.shadow.objectsReceive } );
     root["cinematic"] = std::move( cinematic );
     root["objectMaterials"] = Json::array();
 

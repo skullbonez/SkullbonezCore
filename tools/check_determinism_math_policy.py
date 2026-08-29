@@ -1,39 +1,9 @@
 #!/usr/bin/env python3
-"""
-File: tools/check_determinism_math_policy.py
-Purpose:
-  Inventory implementation-defined math entry-point uses in Physics and Maths.
-
-Summary:
-  The checker strips comments and literals, identifies C/C++ math entry-point
-  references, and reconciles every non-certified use against an exact
-  current-source review decision. It reports current structure; review records
-  document review rather than creating a numerical allowance or count budget.
-
-Glossary:
-  Certified call: Exact or correctly-rounded operation admitted directly by the
-    tier-2 determinism envelope.
-  Source fingerprint: SHA-256 of the normalized statement containing a call;
-    comment, whitespace, and physical line movement do not change it.
-
-Invariants:
-  - Scan roots are both SkullbonezSource/Physics and SkullbonezSource/Maths.
-  - Unruled findings, stale rulings, malformed rulings, and missing repair plans
-    fail the command.
-  - Explicit fused multiply-add calls always require a ruling even though the
-    operation itself is correctly rounded.
-  - The tool never mutates the repository.
-
-Related:
-  - tools/determinism_math_rulings.json
-  - Agentic/Reference/physics-overview.md
-  - tools/validate_fast.bat
-"""
+"""Reject nonportable math in Physics except in named presentation-only Maths owners."""
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 import sys
@@ -45,15 +15,18 @@ from typing import Iterable
 
 SOURCE_ROOTS = ("SkullbonezSource/Physics", "SkullbonezSource/Maths")
 SOURCE_SUFFIXES = {".cpp", ".h", ".hpp", ".inl"}
-RULING_DISPOSITIONS = {"retain-owner", "repair-plan"}
-REQUIRED_RULING_FIELDS = (
-    "path",
-    "call",
-    "source_fingerprint",
-    "occurrence",
-    "disposition",
-    "owner",
-    "reason",
+PRESENTATION_ONLY_FILES = {
+    "SkullbonezSource/Maths/OrbitalMechanics.cpp": "Planning orbital mechanics",
+}
+PRESENTATION_ONLY_FUNCTIONS = {
+    "SkullbonezSource/Maths/Matrix4.cpp": ("PerspectiveZeroToOne",),
+    "SkullbonezSource/Maths/RotationMatrix.h": ("RotatePointAboutArbitrary",),
+}
+PHYSICS_FORBIDDEN_PRESENTATION_TOKENS = (
+    "Orbital",
+    "OrbitalMechanics",
+    "PerspectiveZeroToOne",
+    "RotatePointAboutArbitrary",
 )
 
 # IEEE/basic operations and exact classification are certified directly. Both
@@ -187,9 +160,6 @@ STD_NAMESPACE_ALIAS_PATTERN = re.compile(
 )
 MACRO_DEFINITION_PATTERN = re.compile(r"(?m)^[ \t]*#\s*define\b(?:[^\n]*\\[ \t]*\n)*[^\n]*$")
 TOKEN_PATTERN = re.compile(r"\b(?P<call>[A-Za-z_]\w*)\b")
-FINGERPRINT_PATTERN = re.compile(r"[0-9a-f]{64}")
-
-
 @dataclass(frozen=True)
 class Finding:
     path: str
@@ -198,20 +168,15 @@ class Finding:
     call: str
     kind: str
     source: str
-    source_fingerprint: str
-    occurrence: int
-
-    @property
-    def identity(self) -> tuple[str, str, str, int]:
-        return (self.path, self.call, self.source_fingerprint, self.occurrence)
+    owner: str | None
 
 
 def normalize_path(path: Path | str) -> str:
     return str(path).replace("\\", "/")
 
 
-# Invariant: replacing ignored bytes one-for-one preserves line and column
-# coordinates, which are part of each ruling's exact current-source identity.
+# Invariant: ignored bytes are replaced one-for-one so line and column remain
+# useful diagnostics without becoming policy identity.
 def strip_comments_and_literals(source: str) -> str:
     result: list[str] = []
     index = 0
@@ -275,20 +240,48 @@ def strip_comments_and_literals(source: str) -> str:
     return "".join(result)
 
 
-def source_fingerprint(stripped_source: str, offset: int) -> str:
-    # Why: source coordinates are useful diagnostics but unstable policy keys.
-    # The nearest statement/block delimiters retain enough semantic context to
-    # invalidate edited arithmetic while ignoring comments and physical layout.
-    previous_delimiters = [stripped_source.rfind(delimiter, 0, offset) for delimiter in ";{}"]
-    start = max(previous_delimiters) + 1
-    following_delimiters = [
-        position
-        for delimiter in ";{}"
-        if (position := stripped_source.find(delimiter, offset)) >= 0
-    ]
-    end = min(following_delimiters) + 1 if following_delimiters else len(stripped_source)
-    normalized = " ".join(stripped_source[start:end].split())
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+def offset_is_in_named_function(source: str, offset: int, function_name: str) -> bool:
+    for match in re.finditer(rf"\b{re.escape(function_name)}\s*\(", source):
+        parameter_opening = source.find("(", match.start(), match.end())
+        depth = 0
+        parameter_closing = -1
+        for index in range(parameter_opening, len(source)):
+            if source[index] == "(":
+                depth += 1
+            elif source[index] == ")":
+                depth -= 1
+                if depth == 0:
+                    parameter_closing = index
+                    break
+        if parameter_closing < 0:
+            continue
+        opening = parameter_closing + 1
+        while opening < len(source) and source[opening].isspace():
+            opening += 1
+        # A named function owner is granted only by its definition. A call in
+        # another function must not borrow the name and widen that function.
+        if opening >= len(source) or source[opening] != "{":
+            continue
+        depth = 0
+        for index in range(opening, len(source)):
+            if source[index] == "{":
+                depth += 1
+            elif source[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    if opening <= offset <= index:
+                        return True
+                    break
+    return False
+
+
+def presentation_owner(relative_path: str, source: str, offset: int) -> str | None:
+    if relative_path in PRESENTATION_ONLY_FILES:
+        return PRESENTATION_ONLY_FILES[relative_path]
+    for function_name in PRESENTATION_ONLY_FUNCTIONS.get(relative_path, ()):
+        if offset_is_in_named_function(source, offset, function_name):
+            return function_name
+    return None
 
 
 def findings_in_text(relative_path: str, source: str) -> list[Finding]:
@@ -315,7 +308,6 @@ def findings_in_text(relative_path: str, source: str) -> list[Finding]:
             candidates.add((macro_match.start() + token_match.start("call"), token_match.group("call")))
 
     findings: list[Finding] = []
-    occurrence_counts: dict[tuple[str, str], int] = {}
     for offset, call in sorted(candidates):
         if call not in KNOWN_MATH_CALLS or call in CERTIFIED_CALLS:
             continue
@@ -325,10 +317,6 @@ def findings_in_text(relative_path: str, source: str) -> list[Finding]:
         stripped_line = stripped_lines[line_number - 1]
         original = original_lines[line_number - 1] if line_number <= len(original_lines) else stripped_line
         kind = "explicit-fma" if call in EXPLICIT_FMA_CALLS else "implementation-defined"
-        fingerprint = source_fingerprint(stripped, offset)
-        occurrence_key = (call, fingerprint)
-        occurrence = occurrence_counts.get(occurrence_key, 0) + 1
-        occurrence_counts[occurrence_key] = occurrence
         findings.append(
             Finding(
                 relative_path,
@@ -337,8 +325,7 @@ def findings_in_text(relative_path: str, source: str) -> list[Finding]:
                 call,
                 kind,
                 original.strip(),
-                fingerprint,
-                occurrence,
+                presentation_owner(relative_path, stripped, offset),
             )
         )
     return findings
@@ -365,85 +352,41 @@ def scan_repository(repo: Path) -> tuple[list[Finding], int]:
     return findings, scanned
 
 
-def load_rulings(path: Path) -> tuple[list[dict[str, object]], list[str]]:
-    if not path.exists():
-        return [], [f"rulings file not found: {path}"]
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        return [], [f"failed to read rulings: {error}"]
-    if not isinstance(data, dict) or data.get("version") != 2 or not isinstance(data.get("rulings"), list):
-        return [], ["rulings file must contain version 2 and a rulings array"]
-    return data["rulings"], []
-
-
-def validate_ruling(row: object, index: int, repo: Path) -> list[str]:
-    if not isinstance(row, dict):
-        return [f"ruling {index} must be an object"]
+def policy_errors(repo: Path, findings: list[Finding]) -> list[str]:
     errors: list[str] = []
-    for retired_field in ("line", "column"):
-        if retired_field in row:
-            errors.append(f"ruling {index} must not pin physical source {retired_field}")
-    for field in REQUIRED_RULING_FIELDS:
-        value = row.get(field)
-        if field == "occurrence":
-            if not isinstance(value, int) or isinstance(value, bool) or value < 1:
-                errors.append(f"ruling {index} has invalid {field}")
-        elif not isinstance(value, str) or not value.strip():
-            errors.append(f"ruling {index} missing {field}")
-    disposition = row.get("disposition")
-    if disposition not in RULING_DISPOSITIONS:
-        errors.append(f"ruling {index} has invalid disposition: {disposition}")
-    fingerprint = row.get("source_fingerprint")
-    if isinstance(fingerprint, str) and FINGERPRINT_PATTERN.fullmatch(fingerprint) is None:
-        errors.append(f"ruling {index} has invalid source_fingerprint")
-    path = row.get("path")
-    if isinstance(path, str) and normalize_path(path) != path:
-        errors.append(f"ruling {index} path must use forward slashes: {path}")
-    if disposition == "repair-plan":
-        plan = row.get("plan")
-        if not isinstance(plan, str) or not plan.startswith("Agentic/Plans/TODO/") or not plan.endswith(".md"):
-            errors.append(f"ruling {index} repair-plan must name a canonical TODO Markdown plan")
-        elif not (repo / plan).is_file():
-            errors.append(f"ruling {index} repair plan does not exist: {plan}")
-    return errors
-
-
-def ruling_identity(row: dict[str, object]) -> tuple[object, object, object, object]:
-    return (row.get("path"), row.get("call"), row.get("source_fingerprint"), row.get("occurrence"))
-
-
-def reconcile(
-    findings: list[Finding], rulings: list[dict[str, object]], repo: Path
-) -> tuple[list[str], list[Finding], list[dict[str, object]]]:
-    # Invariant: passing requires a one-to-one join between live findings and
-    # structurally valid rulings. Historical rows cannot satisfy current code.
-    errors: list[str] = []
-    valid_rulings: list[dict[str, object]] = []
-    seen: set[tuple[object, object, object, object, object]] = set()
-    for index, row in enumerate(rulings):
-        row_errors = validate_ruling(row, index, repo)
-        errors.extend(row_errors)
-        if row_errors:
+    for finding in findings:
+        if finding.kind == "explicit-fma":
+            reason = "explicit fused arithmetic is outside the repository floating-point contract"
+        elif finding.path.startswith("SkullbonezSource/Physics/"):
+            reason = "implementation-defined math is forbidden in Physics"
+        elif finding.owner is None:
+            reason = "call is outside a named presentation-only Maths owner"
+        else:
             continue
-        identity = ruling_identity(row)
-        if identity in seen:
-            errors.append(f"duplicate ruling identity: {identity}")
-            continue
-        seen.add(identity)
-        valid_rulings.append(row)
-
-    findings_by_identity = {finding.identity: finding for finding in findings}
-    rulings_by_identity = {ruling_identity(row): row for row in valid_rulings}
-    unruled = [finding for finding in findings if finding.identity not in rulings_by_identity]
-    stale = [row for row in valid_rulings if ruling_identity(row) not in findings_by_identity]
-    for finding in unruled:
-        errors.append(f"{finding.path}:{finding.line}:{finding.column + 1}: unruled {finding.kind} call {finding.call}")
-    for row in stale:
         errors.append(
-            f"{row['path']}: stale ruling for {row['call']} occurrence={row['occurrence']}"
+            f"{finding.path}:{finding.line}:{finding.column + 1}: {reason}: {finding.call}"
         )
-    return errors, unruled, stale
+
+    physics_root = repo / "SkullbonezSource/Physics"
+    if physics_root.exists():
+        for path in sorted(physics_root.rglob("*")):
+            if not path.is_file() or path.suffix.lower() not in SOURCE_SUFFIXES:
+                continue
+            raw_source = path.read_text(encoding="utf-8", errors="replace")
+            source = strip_comments_and_literals(raw_source)
+            for token in PHYSICS_FORBIDDEN_PRESENTATION_TOKENS:
+                match = re.search(rf"\b{re.escape(token)}\b", source)
+                if match is None:
+                    match = re.search(
+                        rf"(?m)^\s*#\s*include[^\n]*\b{re.escape(token)}\b", raw_source
+                    )
+                if match:
+                    line = raw_source.count("\n", 0, match.start()) + 1
+                    relative = normalize_path(path.relative_to(repo))
+                    errors.append(
+                        f"{relative}:{line}: Physics must not reference presentation-only Maths owner {token}"
+                    )
+    return errors
 
 
 def run_self_tests() -> int:
@@ -486,67 +429,6 @@ float member_call(auto& value) { return value.remainder(); }
 
     with tempfile.TemporaryDirectory() as directory:
         repo = Path(directory)
-        plan = repo / "Agentic/Plans/TODO/synthetic.md"
-        plan.parent.mkdir(parents=True)
-        plan.write_text("# Synthetic\n", encoding="utf-8")
-        rulings: list[dict[str, object]] = []
-        for finding in findings:
-            disposition = "repair-plan" if finding.call == "acosf" else "retain-owner"
-            row: dict[str, object] = {
-                "path": finding.path,
-                "call": finding.call,
-                "source_fingerprint": finding.source_fingerprint,
-                "occurrence": finding.occurrence,
-                "disposition": disposition,
-                "owner": "synthetic owner",
-                "reason": "synthetic current-source review",
-            }
-            if disposition == "repair-plan":
-                row["plan"] = "Agentic/Plans/TODO/synthetic.md"
-            rulings.append(row)
-
-        errors, unruled, stale = reconcile(findings, rulings, repo)
-        if errors or unruled or stale:
-            print("SELF_TEST_FAIL: exact current rulings did not pass", file=sys.stderr)
-            return 1
-
-        shifted_findings = findings_in_text(
-            "SkullbonezSource/Maths/Synthetic.cpp",
-            "\n// A location-only edit must not invalidate reviewed calls.\n" + synthetic,
-        )
-        errors, unruled, stale = reconcile(shifted_findings, rulings, repo)
-        if errors or unruled or stale:
-            print("SELF_TEST_FAIL: comment and line movement invalidated content rulings", file=sys.stderr)
-            return 1
-
-        pinned = list(rulings)
-        pinned[0] = dict(pinned[0], line=findings[0].line)
-        errors, _, _ = reconcile(findings, pinned, repo)
-        if not any("must not pin physical source line" in error for error in errors):
-            print("SELF_TEST_FAIL: a physical source line was accepted as ruling data", file=sys.stderr)
-            return 1
-
-        errors, unruled, _ = reconcile(findings, rulings[:-1], repo)
-        if len(unruled) != 1 or not errors:
-            print("SELF_TEST_FAIL: an unruled call did not fail", file=sys.stderr)
-            return 1
-
-        missing_plan = list(rulings)
-        missing_plan[1] = dict(missing_plan[1])
-        missing_plan[1]["plan"] = "Agentic/Plans/TODO/missing.md"
-        errors, _, _ = reconcile(findings, missing_plan, repo)
-        if not any("repair plan does not exist" in error for error in errors):
-            print("SELF_TEST_FAIL: a missing repair plan did not fail", file=sys.stderr)
-            return 1
-
-        edited = list(rulings)
-        edited[0] = dict(edited[0])
-        edited[0]["source_fingerprint"] = "0" * 64
-        errors, unruled, stale = reconcile(findings, edited, repo)
-        if len(unruled) != 1 or len(stale) != 1 or not errors:
-            print("SELF_TEST_FAIL: an edited source fingerprint did not fail currentness", file=sys.stderr)
-            return 1
-
         maths_source = repo / "SkullbonezSource/Maths/Root.h"
         physics_source = repo / "SkullbonezSource/Physics/Root.cpp"
         maths_source.parent.mkdir(parents=True)
@@ -562,20 +444,62 @@ float member_call(auto& value) { return value.remainder(); }
             print("SELF_TEST_FAIL: both required roots or bypass forms were not scanned", file=sys.stderr)
             return 1
 
-    print("SELF_TEST_PASS: math references, both roots, exact rulings, and currentness are enforced.")
+        if not any("forbidden in Physics" in error for error in policy_errors(repo, root_findings)):
+            print("SELF_TEST_FAIL: Physics implementation-defined math was accepted", file=sys.stderr)
+            return 1
+
+        orbital_source = "double Angle(double x) { return std::atan2(x, 1.0); }\n"
+        orbital_findings = findings_in_text(
+            "SkullbonezSource/Maths/OrbitalMechanics.cpp", orbital_source
+        )
+        if policy_errors(repo, orbital_findings):
+            print("SELF_TEST_FAIL: the named Planning orbital owner was rejected", file=sys.stderr)
+            return 1
+
+        matrix_source = """
+float Matrix4::PerspectiveZeroToOne(float x) { return std::tan(x); }
+float Matrix4::Unrelated(float x) { return std::tan(x); }
+"""
+        matrix_findings = findings_in_text("SkullbonezSource/Maths/Matrix4.cpp", matrix_source)
+        matrix_errors = policy_errors(repo, matrix_findings)
+        if len(matrix_errors) != 1 or "outside a named" not in matrix_errors[0]:
+            print("SELF_TEST_FAIL: function-scoped presentation ownership widened", file=sys.stderr)
+            return 1
+
+        call_before_unrelated = """
+float Call(float x) { return Matrix4::PerspectiveZeroToOne(x); }
+float Unrelated(float x) { return std::tan(x); }
+"""
+        call_findings = findings_in_text(
+            "SkullbonezSource/Maths/Matrix4.cpp", call_before_unrelated
+        )
+        call_errors = policy_errors(repo, call_findings)
+        if len(call_errors) != 1 or "outside a named" not in call_errors[0]:
+            print("SELF_TEST_FAIL: a function call widened presentation ownership", file=sys.stderr)
+            return 1
+
+        physics_source.write_text('#include "Maths/OrbitalMechanics.h"\n', encoding="utf-8")
+        if not any("must not reference" in error for error in policy_errors(repo, [])):
+            print("SELF_TEST_FAIL: Physics presentation-owner reference was accepted", file=sys.stderr)
+            return 1
+        physics_source.write_text(
+            "float Use(auto x) { return Math::Orbital::PropagateToTime(x); }\n",
+            encoding="utf-8",
+        )
+        if not any("owner Orbital" in error for error in policy_errors(repo, [])):
+            print("SELF_TEST_FAIL: Physics orbital namespace reference was accepted", file=sys.stderr)
+            return 1
+
+    print("SELF_TEST_PASS: math references and function-scoped domain ownership are enforced.")
     return 0
 
 
-def render_text(
-    findings: list[Finding], scanned: int, rulings: list[dict[str, object]], errors: list[str], unruled: list[Finding], stale: list[dict[str, object]]
-) -> str:
+def render_text(findings: list[Finding], scanned: int, errors: list[str]) -> str:
     lines = [
         "Determinism math policy inventory",
         f"source files: {scanned}",
         f"policy findings: {len(findings)}",
-        f"current rulings: {len(findings) - len(unruled)}",
-        f"unruled findings: {len(unruled)}",
-        f"stale rulings: {len(stale)}",
+        f"named presentation-owner findings: {sum(finding.owner is not None for finding in findings)}",
         f"blocking diagnostics: {len(errors)}",
     ]
     for finding in findings:
@@ -588,8 +512,7 @@ def render_text(
 def main() -> int:
     parser = argparse.ArgumentParser(description="Inventory non-certified math calls in Physics and Maths.")
     parser.add_argument("--repo", default=".", help="repository root")
-    parser.add_argument("--rulings", help="rulings JSON; defaults to tools/determinism_math_rulings.json")
-    parser.add_argument("--self-test", action="store_true", help="run bounded parser/currentness fixtures")
+    parser.add_argument("--self-test", action="store_true", help="run bounded parser and ownership fixtures")
     parser.add_argument("--format", choices=("text", "json"), default="text")
     args = parser.parse_args()
 
@@ -597,24 +520,21 @@ def main() -> int:
         return run_self_tests()
 
     repo = Path(args.repo).resolve()
-    rulings_path = Path(args.rulings).resolve() if args.rulings else repo / "tools/determinism_math_rulings.json"
     findings, scanned = scan_repository(repo)
-    rulings, load_errors = load_rulings(rulings_path)
-    errors, unruled, stale = reconcile(findings, rulings, repo)
-    errors = load_errors + errors
+    errors = policy_errors(repo, findings)
 
     if args.format == "json":
         payload = {
             "source_files": scanned,
             "findings": [asdict(finding) for finding in findings],
-            "rulings": len(rulings),
-            "unruled": len(unruled),
-            "stale": len(stale),
+            "named_presentation_owner_findings": sum(
+                finding.owner is not None for finding in findings
+            ),
             "errors": errors,
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
-        print(render_text(findings, scanned, rulings, errors, unruled, stale))
+        print(render_text(findings, scanned, errors))
     return 1 if errors else 0
 
 

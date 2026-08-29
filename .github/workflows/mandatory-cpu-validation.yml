@@ -10,8 +10,16 @@ permissions:
 jobs:
   cpu-tests:
     name: Mandatory CPU lane (Windows hosted)
-    runs-on: windows-latest
-    timeout-minutes: 45
+    # OpenCppCoverage 0.9.9.0 cannot read the v145 PDBs emitted by the
+    # win25-vs2026 image: the tests pass, but every instrumented line is
+    # reported as uncovered. Keep only the coverage-owning lane on VS2022;
+    # the independent artifact and byte-evidence jobs below still exercise
+    # windows-latest and the repository's primary toolset.
+    runs-on: windows-2022
+    # Hosted checkout has taken over seven minutes, and compiler-backed design
+    # checks scale with every changed translation unit (77 in the current PR).
+    # Keep a bounded three-hour ceiling without killing an active clang-tidy scan.
+    timeout-minutes: 180
 
     steps:
       - name: Check out repository
@@ -204,6 +212,7 @@ jobs:
           name: mandatory-cpu-failure-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             TestOutput/validation/**
+            TestOutput/coverage/**
             Profile/*.log
             Profile/*.txt
             Agentic/Tests/**/x64/**/*.log
@@ -483,6 +492,10 @@ jobs:
 
           $sceneStdout = Join-Path $evidenceDir "hosted-physics-scene-$env:PHYSICS_REPLICA.stdout.txt"
           $sceneStderr = Join-Path $evidenceDir "hosted-physics-scene-$env:PHYSICS_REPLICA.stderr.txt"
+          # The fixture owns Profile/varied_physics_perf_log.csv. Replica jobs
+          # download only the shared Debug artifact, so provision its output
+          # directory explicitly and keep runtime artifact failures fail-closed.
+          New-Item -ItemType Directory -Force -Path (Join-Path $env:GITHUB_WORKSPACE "Profile") | Out-Null
           $scene = Start-Process `
             -FilePath ".\Debug\SKULLBONEZ_CORE.exe" `
             -ArgumentList @(

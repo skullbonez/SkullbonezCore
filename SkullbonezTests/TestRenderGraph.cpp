@@ -95,10 +95,9 @@ void CheckTransientAllocation( const RenderGraphTransientAllocationDesc& allocat
 
 RenderGraphTransientResourceDesc MakeFullyDescribedTransient()
 {
-    // Why: all four logical descriptor bits let each compatibility variant
-    // flip exactly one field while retaining a nonzero descriptor set. This
-    // CPU compiler test never asks the backend to materialize the synthetic
-    // combination.
+    // A color target cannot also own a depth-stencil view. Compatibility tests
+    // swap that descriptor family as a valid pair instead of fabricating a
+    // description the production graph correctly rejects.
     RenderGraphTransientResourceDesc desc;
     desc.kind = RenderGraphResourceKind::Texture2D;
     desc.format = RenderGraphResourceFormat::RGBA16F;
@@ -106,7 +105,7 @@ RenderGraphTransientResourceDesc MakeFullyDescribedTransient()
     desc.height = 64u;
     desc.mipLevels = 1u;
     desc.descriptors.renderTarget = true;
-    desc.descriptors.depthStencil = true;
+    desc.descriptors.depthStencil = false;
     desc.descriptors.shaderResource = true;
     desc.descriptors.unorderedAccess = true;
     return desc;
@@ -152,8 +151,8 @@ bool RunRenderGraphFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "render-graph-incompatible-same-pass-use" ) == 0 )
     {
         RenderGraph graph;
-        const RenderGraphResourceHandle texture =
-            graph.AddExternalResource( "SamePassTexture", RenderGraphResourceAccess::PixelShaderResource );
+        const RenderGraphResourceHandle
+            texture = graph.AddExternalResource( "SamePassTexture", RenderGraphResourceAccess::PixelShaderResource );
         const uint32_t pass = graph.AddPass( "ImpossiblePass" );
         graph.AddRead( pass, texture, RenderGraphResourceAccess::PixelShaderResource );
         graph.AddWrite( pass, texture, RenderGraphResourceAccess::RenderTarget );
@@ -405,8 +404,8 @@ TEST_CASE( "Render graph emits one UAV ordering edge per later pass without inve
 {
     RenderGraph graph;
     const RenderGraphNativeResourceToken nativeResource { 0xFA01u };
-    const RenderGraphResourceHandle texture =
-        graph.AddExternalResource( "UavTexture", RenderGraphResourceAccess::Unknown, nativeResource );
+    const RenderGraphResourceHandle texture = graph.AddExternalResource( "UavTexture", RenderGraphResourceAccess::Unknown,
+                                                                         nativeResource );
 
     const uint32_t produce = graph.AddPass( "Produce" );
     graph.AddWrite( produce, texture, RenderGraphResourceAccess::UnorderedAccess );
@@ -425,8 +424,8 @@ TEST_CASE( "Render graph emits one UAV ordering edge per later pass without inve
     CheckUavBarrier( compiled.uavBarriers[0], update, texture, nativeResource );
     CheckUavBarrier( compiled.uavBarriers[1], continueWrite, texture, nativeResource );
     REQUIRE( compiled.transitions.size() == 2u );
-    CheckTransition( compiled.transitions[0], sample, texture, nativeResource,
-                     RenderGraphResourceAccess::UnorderedAccess, RenderGraphResourceAccess::PixelShaderResource );
+    CheckTransition( compiled.transitions[0], sample, texture, nativeResource, RenderGraphResourceAccess::UnorderedAccess,
+                     RenderGraphResourceAccess::PixelShaderResource );
     CheckTransition( compiled.transitions[1], writeAgain, texture, nativeResource,
                      RenderGraphResourceAccess::PixelShaderResource, RenderGraphResourceAccess::UnorderedAccess );
     CHECK( graph.DumpText().find( "UavBarriers:" ) != std::string::npos );
@@ -437,13 +436,13 @@ TEST_CASE( "Compiled UAV dispatch routes external and transient ordering to thei
 {
     RenderGraph graph;
     const RenderGraphNativeResourceToken nativeResource { 0xFB01u };
-    const RenderGraphResourceHandle external =
-        graph.AddExternalResource( "ExternalUav", RenderGraphResourceAccess::Unknown, nativeResource );
+    const RenderGraphResourceHandle external = graph.AddExternalResource( "ExternalUav", RenderGraphResourceAccess::Unknown,
+                                                                          nativeResource );
     RenderGraphTransientResourceDesc transientDesc = MakeSingleDescriptorTransient();
     transientDesc.descriptors.renderTarget = false;
     transientDesc.descriptors.unorderedAccess = true;
-    const RenderGraphResourceHandle transient =
-        graph.AddTransientResource( "TransientUav", transientDesc, RenderGraphResourceAccess::Unknown );
+    const RenderGraphResourceHandle transient = graph.AddTransientResource( "TransientUav", transientDesc,
+                                                                            RenderGraphResourceAccess::Unknown );
 
     const uint32_t produce = graph.AddPass( "ProduceBoth" );
     graph.AddWrite( produce, external, RenderGraphResourceAccess::UnorderedAccess );
@@ -454,34 +453,37 @@ TEST_CASE( "Compiled UAV dispatch routes external and transient ordering to thei
     const RenderGraphCompileResult compiled = graph.Compile();
 
     size_t externalCallbacks = 0;
-    const size_t externalDispatches = DispatchCompiledUavBarriersForPass(
-        graph, compiled, continueBoth, true,
-        [&]( const RenderGraphUavBarrierDesc& barrier, const RenderGraphResourceDesc& resource )
-        {
-            ++externalCallbacks;
-            CHECK( barrier.resource.index == external.index );
-            CHECK( resource.external );
-            CHECK( barrier.nativeResource.value == nativeResource.value );
-            return true;
-        } );
+    const size_t externalDispatches = DispatchCompiledUavBarriersForPass( graph, compiled, continueBoth, true,
+                                                                          [&]( const RenderGraphUavBarrierDesc& barrier,
+                                                                               const RenderGraphResourceDesc& resource )
+                                                                          {
+                                                                              ++externalCallbacks;
+                                                                              CHECK( barrier.resource.index ==
+                                                                                     external.index );
+                                                                              CHECK( resource.external );
+                                                                              CHECK( barrier.nativeResource.value ==
+                                                                                     nativeResource.value );
+                                                                              return true;
+                                                                          } );
     size_t transientCallbacks = 0;
-    const size_t transientDispatches = DispatchCompiledUavBarriersForPass(
-        graph, compiled, continueBoth, false,
-        [&]( const RenderGraphUavBarrierDesc& barrier, const RenderGraphResourceDesc& resource )
-        {
-            ++transientCallbacks;
-            CHECK( barrier.resource.index == transient.index );
-            CHECK_FALSE( resource.external );
-            return true;
-        } );
+    const size_t transientDispatches = DispatchCompiledUavBarriersForPass( graph, compiled, continueBoth, false,
+                                                                           [&]( const RenderGraphUavBarrierDesc& barrier,
+                                                                                const RenderGraphResourceDesc& resource )
+                                                                           {
+                                                                               ++transientCallbacks;
+                                                                               CHECK( barrier.resource.index ==
+                                                                                      transient.index );
+                                                                               CHECK_FALSE( resource.external );
+                                                                               return true;
+                                                                           } );
 
     CHECK( externalDispatches == 1u );
     CHECK( externalCallbacks == 1u );
     CHECK( transientDispatches == 1u );
     CHECK( transientCallbacks == 1u );
-    CHECK( DispatchCompiledUavBarriersForPass(
-               graph, compiled, produce, true,
-               []( const RenderGraphUavBarrierDesc&, const RenderGraphResourceDesc& ) { return true; } ) == 0u );
+    CHECK( DispatchCompiledUavBarriersForPass( graph, compiled, produce, true,
+                                               []( const RenderGraphUavBarrierDesc&, const RenderGraphResourceDesc& )
+                                               { return true; } ) == 0u );
 }
 
 TEST_CASE( "Render graph divergent numeric states converge in deterministic stored order" )
@@ -581,14 +583,14 @@ TEST_CASE( "Render graph transient lifetimes require non-overlap before compatib
     CheckLifetime( compiled.resourceLifetimes[3], disjoint, disjointOnly, disjointOnly, true );
 
     REQUIRE( compiled.transientAllocations.size() == 3u );
-    CheckTransientAllocation( compiled.transientAllocations[0], spanning, 0u, spanningBegin, spanningEnd, 4u, false );
-    CheckTransientAllocation( compiled.transientAllocations[1], nested, 1u, nestedOnly, nestedOnly, 4u, false );
-    CheckTransientAllocation( compiled.transientAllocations[2], disjoint, 0u, disjointOnly, disjointOnly, 4u, true );
+    CheckTransientAllocation( compiled.transientAllocations[0], spanning, 0u, spanningBegin, spanningEnd, 3u, false );
+    CheckTransientAllocation( compiled.transientAllocations[1], nested, 1u, nestedOnly, nestedOnly, 3u, false );
+    CheckTransientAllocation( compiled.transientAllocations[2], disjoint, 0u, disjointOnly, disjointOnly, 3u, true );
     CHECK( compiled.transientDiagnostics.allocationCount == 3u );
     CHECK( compiled.transientDiagnostics.reuseCount == 1u );
     CHECK( compiled.transientDiagnostics.releaseCount == 3u );
     CHECK( compiled.transientDiagnostics.highWaterResources == 2u );
-    CHECK( compiled.transientDiagnostics.highWaterDescriptors == 8u );
+    CHECK( compiled.transientDiagnostics.highWaterDescriptors == 6u );
 }
 
 TEST_CASE( "Render graph transient alias compatibility compares every compatibility field" )
@@ -608,10 +610,11 @@ TEST_CASE( "Render graph transient alias compatibility compares every compatibil
     variants[3].height = 65u;
     variants[4].mipLevels = 2u;
     variants[5].descriptors.renderTarget = false;
-    variants[6].descriptors.depthStencil = false;
+    variants[6].descriptors.renderTarget = false;
+    variants[6].descriptors.depthStencil = true;
     variants[7].descriptors.shaderResource = false;
     variants[8].descriptors.unorderedAccess = false;
-    constexpr std::array<uint32_t, 9> EXPECTED_DESCRIPTOR_COUNTS = { 4u, 4u, 4u, 4u, 4u, 3u, 3u, 3u, 3u };
+    constexpr std::array<uint32_t, 9> EXPECTED_DESCRIPTOR_COUNTS = { 3u, 3u, 3u, 3u, 3u, 2u, 3u, 2u, 2u };
     std::array<RenderGraphResourceHandle, 9> variantResources;
 
     for ( size_t index = 0; index < variants.size(); ++index )
@@ -637,8 +640,8 @@ TEST_CASE( "Render graph transient alias compatibility compares every compatibil
     REQUIRE( compiled.transientAllocations.size() == 11u );
     CheckLifetime( compiled.resourceLifetimes[0], base, basePass, basePass, true );
     CheckLifetime( compiled.resourceLifetimes[1], compatible, compatiblePass, compatiblePass, true );
-    CheckTransientAllocation( compiled.transientAllocations[0], base, 0u, basePass, basePass, 4u, false );
-    CheckTransientAllocation( compiled.transientAllocations[1], compatible, 0u, compatiblePass, compatiblePass, 4u, true );
+    CheckTransientAllocation( compiled.transientAllocations[0], base, 0u, basePass, basePass, 3u, false );
+    CheckTransientAllocation( compiled.transientAllocations[1], compatible, 0u, compatiblePass, compatiblePass, 3u, true );
 
     for ( size_t index = 0; index < variantResources.size(); ++index )
     {
@@ -654,7 +657,7 @@ TEST_CASE( "Render graph transient alias compatibility compares every compatibil
     CHECK( compiled.transientDiagnostics.reuseCount == 1u );
     CHECK( compiled.transientDiagnostics.releaseCount == 11u );
     CHECK( compiled.transientDiagnostics.highWaterResources == 1u );
-    CHECK( compiled.transientDiagnostics.highWaterDescriptors == 4u );
+    CHECK( compiled.transientDiagnostics.highWaterDescriptors == 3u );
 
     ExpectRuntimeFatalCase( "render-graph-unused-transient",
                             { "FATAL[RenderGraph]",

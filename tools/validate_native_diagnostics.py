@@ -1,34 +1,4 @@
-"""
-File: tools/validate_native_diagnostics.py
-Purpose:
-  Runs the bounded native lifetime-safety lane: AddressSanitizer over the main
-  CPU test project and MSVC static analysis over the engine maths library.
-
-Summary:
-  The normal lane imports temporary MSBuild settings from ignored TestOutput,
-  so diagnostic binaries never replace the developer's Debug/Profile outputs.
-  An explicit proof mode also creates a short-lived faulty project, verifies
-  that AddressSanitizer identifies its heap use-after-free, and deletes it.
-
-Glossary:
-  ASan (AddressSanitizer): Compiler instrumentation that reports invalid memory
-    accesses with allocation and free-site evidence.
-  Static-analysis baseline: Exact warning exceptions that may pass the lane;
-    each exception must identify its owner and removal condition.
-  Proof fixture: Intentionally faulty source generated only for a detector
-    self-test and never compiled by a normal repository build.
-
-Invariants:
-  - Normal builds cannot reach the proof fixture; it exists only in a temporary
-    directory while --prove-asan-fixture is running.
-  - Diagnostic artifacts remain under ignored TestOutput/validation and logs
-    are bounded before they are written.
-  - Suppressions match one exact path and warning code, carry complete ownership
-    metadata, and fail when stale; blanket warning disables are not accepted.
-
-Related:
-  - tools/native_diagnostics_suppressions.json
-"""
+"""Run bounded ASan and MSVC analysis lanes; every parsed warning is blocking."""
 
 from __future__ import annotations
 
@@ -46,7 +16,6 @@ from typing import Iterable
 
 REPO = Path(__file__).resolve().parents[1]
 ARTIFACT_ROOT = REPO / "TestOutput" / "validation" / "native_diagnostics"
-SUPPRESSION_PATH = REPO / "tools" / "native_diagnostics_suppressions.json"
 VSWHERE = Path(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe")
 MAX_LOG_CHARS = 240_000
 LOG_HEAD_CHARS = 160_000
@@ -348,34 +317,6 @@ def write_static_analysis_props(path: Path) -> None:
     )
 
 
-def load_suppressions() -> list[dict[str, str]]:
-    try:
-        payload = json.loads(SUPPRESSION_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise NativeDiagnosticsError(f"Cannot read suppression baseline: {exc}") from exc
-    if payload.get("schemaVersion") != 1 or not isinstance(payload.get("suppressions"), list):
-        raise NativeDiagnosticsError("Suppression baseline must use schemaVersion 1 and a suppressions list.")
-
-    required = ("path", "code", "owner", "reason", "deletionCondition", "reviewEvidence")
-    validated: list[dict[str, str]] = []
-    for index, raw in enumerate(payload["suppressions"]):
-        if not isinstance(raw, dict) or any(not str(raw.get(field, "")).strip() for field in required):
-            raise NativeDiagnosticsError(
-                f"Suppression {index} must name path, code, owner, reason, deletionCondition, and reviewEvidence."
-            )
-        path = str(raw["path"]).replace("\\", "/")
-        code = str(raw["code"]).upper()
-        if any(token in path for token in ("*", "?", "[")) or not re.fullmatch(r"C\d+", code):
-            raise NativeDiagnosticsError(
-                f"Suppression {index} must use an exact path and one exact MSVC warning code."
-            )
-        entry = {field: str(raw[field]).strip() for field in required}
-        entry["path"] = path
-        entry["code"] = code
-        validated.append(entry)
-    return validated
-
-
 def repo_relative_diagnostic_path(text: str) -> str:
     candidate = Path(text.strip())
     try:
@@ -399,9 +340,8 @@ def parsed_warnings(output: str) -> list[dict[str, str]]:
 
 
 def reject_unparsed_warning_lines(output: str) -> None:
-    # Hazard: governed suppressions require an exact source path and C-code.
-    # Any differently formatted compiler, linker, or MSBuild warning must fail
-    # closed instead of disappearing outside the suppression matcher.
+    # Hazard: differently formatted compiler, linker, or MSBuild warnings must
+    # fail closed instead of disappearing outside the parser.
     unexpected = [
         line.strip()
         for line in output.splitlines()
@@ -428,6 +368,13 @@ def run_self_tests() -> list[str]:
     try:
         reject_unparsed_warning_lines("LINK : warning LNK4099: missing debug symbols")
         failures.append("unclassified linker warning did not fail closed")
+    except NativeDiagnosticsError:
+        pass
+
+    evaluate_warnings([])
+    try:
+        evaluate_warnings(warnings)
+        failures.append("parsed static-analysis warning did not fail")
     except NativeDiagnosticsError:
         pass
 
@@ -498,43 +445,17 @@ def run_self_tests() -> list[str]:
     return failures
 
 
-def evaluate_warnings(warnings: Iterable[dict[str, str]], suppressions: list[dict[str, str]]) -> None:
-    used: set[int] = set()
-    unsuppressed: list[dict[str, str]] = []
+def evaluate_warnings(warnings: Iterable[dict[str, str]]) -> None:
     warning_list = list(warnings)
-    for warning in warning_list:
-        match_index = next(
-            (
-                index
-                for index, suppression in enumerate(suppressions)
-                if suppression["code"] == warning["code"]
-                and suppression["path"].casefold() == warning["path"].casefold()
-            ),
-            None,
-        )
-        if match_index is None:
-            unsuppressed.append(warning)
-        else:
-            used.add(match_index)
-            owner = suppressions[match_index]["owner"]
-            print(f"  SUPPRESSED: {warning['path']}:{warning['line']} {warning['code']} owner={owner}")
-
-    stale = [suppressions[index] for index in range(len(suppressions)) if index not in used]
-    if stale:
-        details = ", ".join(f"{entry['path']} {entry['code']}" for entry in stale)
-        raise NativeDiagnosticsError(f"Static-analysis suppression baseline contains stale entries: {details}")
-    if unsuppressed:
+    if warning_list:
         details = "\n".join(
             f"    {item['path']}:{item['line']} {item['code']}: {item['message']}"
-            for item in unsuppressed[:20]
+            for item in warning_list[:20]
         )
         raise NativeDiagnosticsError(
-            f"Static analysis reported {len(unsuppressed)} unsuppressed warning(s):\n{details}"
+            f"Static analysis reported {len(warning_list)} warning(s):\n{details}"
         )
-    print(
-        f"  Static-analysis baseline: {len(warning_list)} warning(s), "
-        f"{len(suppressions)} governed suppression(s)."
-    )
+    print("  Static analysis reported 0 warnings.")
 
 
 def run_asan_tests(msbuild: Path, *, report_durations: bool = False) -> float:
@@ -707,9 +628,8 @@ def run_static_analysis(msbuild: Path) -> float:
     toolset = choose_toolset(msbuild, project)
     props = ARTIFACT_ROOT / "static_analysis" / "static_analysis_settings.props"
     write_static_analysis_props(props)
-    # Why: static-analysis findings are governed below by exact source/code
-    # rows. Leaving MSBuild's blanket warnings-as-errors switch enabled would
-    # make an approved row impossible to use even after it matched.
+    # Why: parsing below keeps diagnostics bounded and gives consistent failure
+    # text even when MSBuild reports warnings without failing compilation.
     command = msbuild_base(msbuild, project, toolset, warnings_as_errors=False)
     command.extend(
         [
@@ -725,7 +645,7 @@ def run_static_analysis(msbuild: Path) -> float:
     )
     reject_unparsed_warning_lines(output)
     warnings = parsed_warnings(output)
-    evaluate_warnings(warnings, load_suppressions())
+    evaluate_warnings(warnings)
     if return_code != 0:
         print(output[-6000:])
         raise NativeDiagnosticsError("MSVC static-analysis build failed.")

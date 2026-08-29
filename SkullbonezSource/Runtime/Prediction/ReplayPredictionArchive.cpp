@@ -61,12 +61,22 @@ constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_HISTORICAL_LIGHTWEIGHT_SCHEMA = 3u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA = 4u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA = 5u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 6u;
-bool IsLightweightPredictionArchiveSchema( uint32_t schema );
-bool IsSectionedPredictionArchiveSchema( uint32_t schema );
+bool IsLightweightPredictionArchiveSchema( uint32_t schema )
+{
+    return ( schema >= REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA &&
+             schema <= REPLAY_PREDICTION_ARCHIVE_HISTORICAL_LIGHTWEIGHT_SCHEMA ) ||
+           schema == REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA;
+}
+
+bool IsSectionedPredictionArchiveSchema( uint32_t schema )
+{
+    return schema == REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA || schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA;
+}
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0u;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES = 7201u;
-constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_BODIES = static_cast<uint32_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_BODIES = static_cast<uint32_t>(
+    SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS = REPLAY_PREDICTION_MARKER_CAPACITY * 8u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_POINTS = 4000000u;
 constexpr std::size_t REPLAY_PREDICTION_ARCHIVE_MAX_BYTES = 128u * 1024u * 1024u;
@@ -412,6 +422,18 @@ bool ReplayPredictionArchivePathPresentationMatchesRecords( const RunReplayPredi
 
 namespace ReplayPredictionArchiveOperations
 {
+uint64_t ReplayPredictionArchiveCandidateAllocationBudgetBytes() noexcept
+{
+    // MSVC may request alignment bookkeeping beyond vector capacity bytes.
+    // A bounded owner-local cushion covers every constructor reserve without
+    // depending on one standard-library implementation's private layout.
+    constexpr uint64_t constructorAllocationHeadroomBytes = 4096u;
+    return sizeof( RunReplayPredictionState ) + sizeof( ReplayPredictionSolverEvidenceBanks ) +
+           Gameplay::TornadoGameplay::InitialReserveBytes() +
+           Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS * sizeof( Gameplay::TornadoVortexConfig ) +
+           2u * SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * sizeof( float ) + constructorAllocationHeadroomBytes;
+}
+
 bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisualizerState& pathVisualizer,
                                                       const RunReplayPredictionState& prediction, uint32_t schema,
                                                       std::vector<uint8_t>& outBytes )
@@ -430,9 +452,8 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
                                                                                    .visibleTrajectoryBuild
                                                                              : prediction.trajectoryBuild;
 
-    if ( !IsLightweightPredictionArchiveSchema( schema ) ||
-         prediction.build.building || !prediction.build.complete || committedFrames.size() < 2u ||
-         committedFrames.size() > REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES ||
+    if ( !IsLightweightPredictionArchiveSchema( schema ) || prediction.build.building || !prediction.build.complete ||
+         committedFrames.size() < 2u || committedFrames.size() > REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES ||
          presentation.retainedMarkers.size() > REPLAY_PREDICTION_MARKER_CAPACITY ||
          prediction.trajectoryStore.RecordCount() > REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS ||
          !ReplayPredictionArchivePathPresentationMatchesRecords( prediction ) )
@@ -508,9 +529,10 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
     const uint32_t canonicalNextTopologyVersion = canonicalTopologyVersion != 0u ? 2u : 1u;
     writer.Scalar( canonicalTopologyVersion );
     writer.Scalar( canonicalNextTopologyVersion );
-    const bool presentedFutureNodesBuiltRagdollVisuals =
-        usingVisibleSnapshot ? prediction.committedPublication.visibleFutureNodesBuiltRagdollVisuals
-                             : prediction.futureNodeCache.futureNodesBuiltRagdollVisuals;
+    const bool presentedFutureNodesBuiltRagdollVisuals = usingVisibleSnapshot
+                                                             ? prediction.committedPublication
+                                                                   .visibleFutureNodesBuiltRagdollVisuals
+                                                             : prediction.futureNodeCache.futureNodesBuiltRagdollVisuals;
     writer.Boolean( presentedFutureNodesBuiltRagdollVisuals );
     writer.Scalar( static_cast<uint32_t>( presentation.futureNodes.size() ) );
 
@@ -526,8 +548,9 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
         WriteMarker( writer, marker );
     }
 
-    const uint32_t canonicalTrajectoryVersionCount =
-        CountCanonicalTrajectoryVersions( prediction.trajectoryStore, presentedTrajectory.usingBuildFrames );
+    const uint32_t canonicalTrajectoryVersionCount = CountCanonicalTrajectoryVersions( prediction.trajectoryStore,
+                                                                                       presentedTrajectory
+                                                                                           .usingBuildFrames );
     writer.Scalar( canonicalTrajectoryVersionCount + 1u );
     writer.Scalar( static_cast<uint32_t>( prediction.trajectoryStore.RecordCount() ) );
     uint64_t totalPointCount = 0;
@@ -544,9 +567,8 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
             // constant; the reader layout and record-count contract stay intact.
             writer.Scalar( static_cast<uint32_t>( 0u ) );
             writer.Scalar( static_cast<uint8_t>( ReplayTrajectoryLane::FutureChildIncoming ) );
-            const uint16_t inactiveBankSentinel = presentedTrajectory.usingBuildFrames
-                                                      ? REPLAY_TRAJECTORY_COMMITTED_BRANCH
-                                                      : REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
+            const uint16_t inactiveBankSentinel = presentedTrajectory.usingBuildFrames ? REPLAY_TRAJECTORY_COMMITTED_BRANCH
+                                                                                       : REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
             writer.Scalar( inactiveBankSentinel );
             writer.Scalar( static_cast<uint32_t>( 0u ) );
             writer.Scalar( static_cast<uint32_t>( 0u ) );
@@ -632,8 +654,8 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
 static bool BuildLegacyReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
                                                 const RunReplayPredictionState& prediction, std::vector<uint8_t>& outBytes )
 {
-    return BuildReplayPredictionArchiveForSchemaValidation(
-        pathVisualizer, prediction, REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA, outBytes );
+    return BuildReplayPredictionArchiveForSchemaValidation( pathVisualizer, prediction,
+                                                            REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA, outBytes );
 }
 
 static bool LoadLegacyReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathVisualizerState& pathVisualizer,
@@ -656,10 +678,10 @@ static bool LoadLegacyReplayPredictionArchive( std::span<const uint8_t> bytes, R
     pathVisualizer.targetName[0] = '\0';
 
     if ( !reader.Scalar( magic ) || !reader.Scalar( schema ) || magic != REPLAY_PREDICTION_ARCHIVE_MAGIC ||
-         !IsLightweightPredictionArchiveSchema( schema ) ||
-         !reader.Boolean( archivedHasTarget ) || !reader.Boolean( archivedPastPathVisible ) ||
-         !reader.Scalar( pathVisualizer.targetId.value ) || !reader.Scalar( pathVisualizer.targetModelRow.value ) ||
-         !reader.Scalar( targetNameLength ) || targetNameLength >= sizeof( pathVisualizer.targetName ) )
+         !IsLightweightPredictionArchiveSchema( schema ) || !reader.Boolean( archivedHasTarget ) ||
+         !reader.Boolean( archivedPastPathVisible ) || !reader.Scalar( pathVisualizer.targetId.value ) ||
+         !reader.Scalar( pathVisualizer.targetModelRow.value ) || !reader.Scalar( targetNameLength ) ||
+         targetNameLength >= sizeof( pathVisualizer.targetName ) )
     {
         WriteReason( outReason, reasonSize, "invalid prediction archive header" );
         return false;
@@ -1002,18 +1024,6 @@ enum class ReplayPredictionArchiveSection : uint32_t
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_LOW = 1u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SECTION_COUNT_HIGH = 2u;
 
-bool IsLightweightPredictionArchiveSchema( uint32_t schema )
-{
-    return ( schema >= REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA &&
-             schema <= REPLAY_PREDICTION_ARCHIVE_HISTORICAL_LIGHTWEIGHT_SCHEMA ) ||
-           schema == REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA;
-}
-
-bool IsSectionedPredictionArchiveSchema( uint32_t schema )
-{
-    return schema == REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA ||
-           schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA;
-}
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES = REPLAY_PREDICTION_MARKER_CAPACITY;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_CONTACTS = 1000000u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_PIPELINE_ROWS = 4000000u;
@@ -1479,13 +1489,8 @@ void CommitArchivePayload( RunReplayPathVisualizerState& destinationPath, RunRep
 bool AllocateArchiveCandidates( std::unique_ptr<RunReplayPredictionState>& prediction,
                                 std::unique_ptr<ReplayPredictionSolverEvidenceBanks>& evidence )
 {
-    // RunReplayPredictionState's constructor reserves these three retained
-    // vectors. Budget the complete constructor footprint so the one-use grant
-    // cannot be order-dependently borrowed between object and vector backing.
-    const uint64_t requestedBytes = sizeof( RunReplayPredictionState ) + sizeof( ReplayPredictionSolverEvidenceBanks ) +
-                                    Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS *
-                                        sizeof( Gameplay::TornadoVortexConfig ) +
-                                    2u * SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * sizeof( float );
+    const uint64_t
+        requestedBytes = ReplayPredictionArchiveOperations::ReplayPredictionArchiveCandidateAllocationBudgetBytes();
     Core::Allocation::RuntimeReserveGrowthResult result = {};
 
     if ( requestedBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
@@ -1694,7 +1699,8 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
         ArchiveWriter legacyWriter( lightweightSchema );
         legacyWriter.Scalar( REPLAY_PREDICTION_ARCHIVE_MAGIC );
         legacyWriter.Scalar( lightweightSchema );
-        legacyWriter.Bytes( bytes.subspan( static_cast<std::size_t>( sections[0].offset ), static_cast<std::size_t>( sections[0].size ) ) );
+        legacyWriter.Bytes(
+            bytes.subspan( static_cast<std::size_t>( sections[0].offset ), static_cast<std::size_t>( sections[0].size ) ) );
         reconstructedLegacy = legacyWriter.Finish();
         lightweightBytes = reconstructedLegacy;
 

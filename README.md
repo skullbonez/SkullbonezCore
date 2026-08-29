@@ -218,21 +218,21 @@ Profile\SKULLBONEZ_CORE.exe --fixed-step --scene SkullbonezData\scenes\perf_test
 
 ## Validate
 
-Validation scripts are pre-commit and PR gates, not routine as-you-go checks. Pick the
-smallest script that covers what changed:
+Validation is risk-proportional. A feature-branch push is allowed after the
+smallest applicable local lane passes so CI can run the exhaustive matrix in
+parallel; merge still requires the complete mapped CI evidence. Every
+code-bearing lane compiles the affected payload locally.
 
-| Change | Command |
+| Change | Local push lane |
 |---|---|
 | Documentation only | none required |
-| Small refactor | `tools\validate_fast.bat` |
-| Physics, collision, solver, determinism | `tools\validate_physics.bat` |
-| Renderer or shaders | `tools\validate_dx12_renderer.bat` + `tools\run_graphics_stress.bat 1` |
-| Hot path or allocation | `tools\validate_perf.bat` |
-| Broad, or unsure | `tools\validate_fast.bat` plus every affected focused gate |
+| Mechanical refactor or struct unpacking | Fast: affected-target compile plus the narrow focused test/check; exhaustive scans run in CI |
+| Single-subsystem behavior/API change | Standard: affected-target compile plus the subsystem's mapped focused gate |
+| Physics, renderer, serialization, allocation privilege, threading, baseline, or broad/uncertain change | Full: affected builds plus every cumulative risk-mapped gate |
 | Entire implementation plan is complete | `tools\agent_validate.bat --plan-completion` |
 
-The complete file-to-gate mapping is in `AGENTS.md`; per-script detail is in
-`tools/README.md`. Physics golden changes are behaviour changes. Active Physics
+The complete lane eligibility and file-to-gate mapping is in `AGENTS.md`;
+per-script detail is in `tools/README.md`. Physics golden changes are behaviour changes. Active Physics
 plans follow the approved golden-update policy when the exact candidate hash
 and append-only old/new executable bundle pass the guard; no separate interactive
 approval is required. Every corresponding gate is rerun after the update.

@@ -29,6 +29,9 @@ Related:
 */
 #include "ApplicationExitState.h"
 
+#include "InteractionAutomationApplication.h"
+#include "../Automation/InteractionAutomationRecorder.h"
+
 #include "../../Core/FatalError.h"
 
 namespace SkullbonezCore
@@ -106,5 +109,41 @@ SkullbonezCore::Core::SbResult ApplicationExitState::Resolve( int messageExitCod
 
     return SkullbonezCore::Core::SbResult::Success();
 }
+
+
+#if !defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+SkullbonezCore::Core::SbResult
+ResolveRunExitAfterInteractionRecording( InteractionAutomationRecorder& recorder,
+                                         SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                         ApplicationExitState& applicationExit, int messageExitCode,
+                                         InteractionRecordingBoundaryOperation captureArmedBoundary, void* captureContext )
+{
+    if ( recorder.IsArmed() )
+    {
+        if ( !captureArmedBoundary )
+        {
+            applicationExit.RequestOwnedFailure(
+                diagnostics.Failure( "InteractionRecorder", "Orderly exit could not capture the armed baseline." ) );
+            return applicationExit.Resolve( messageExitCode );
+        }
+
+        captureArmedBoundary( captureContext );
+    }
+
+    if ( recorder.IsActive() )
+    {
+        const SkullbonezCore::Core::SbResult save = recorder.StopAndSave( diagnostics, "shutdown", true );
+
+        if ( !save.Ok() )
+        {
+            // Invariant: the recorder's owned diagnostic outranks a normal
+            // WM_QUIT code and remains leased through the returned result.
+            applicationExit.RequestOwnedFailure( save );
+        }
+    }
+
+    return applicationExit.Resolve( messageExitCode );
+}
+#endif
 } // namespace Runtime
 } // namespace SkullbonezCore

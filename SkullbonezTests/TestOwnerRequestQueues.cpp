@@ -396,20 +396,24 @@ TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detac
 TEST_CASE( "Physics debug cycle preserves terrain and pipeline overlays" )
 {
     OverlayDebugState debug;
-    constexpr uint32_t retained = Physics::PHYSICS_DEBUG_TERRAIN_CONTACT | Physics::PHYSICS_DEBUG_PIPELINE;
+    int cameraTrackBallIndex = -1;
+    constexpr uint32_t retained = SkullbonezCore::Physics::PHYSICS_DEBUG_TERRAIN_CONTACT |
+                                  SkullbonezCore::Physics::PHYSICS_DEBUG_PIPELINE;
     debug.physicsDebugFlags = retained;
 
     constexpr uint32_t expectedCycle[] = {
-        Physics::PHYSICS_DEBUG_AXES,
-        Physics::PHYSICS_DEBUG_CONTACTS,
-        Physics::PHYSICS_DEBUG_SLEEP,
-        Physics::PHYSICS_DEBUG_AXES | Physics::PHYSICS_DEBUG_CONTACTS | Physics::PHYSICS_DEBUG_SLEEP,
-        Physics::PHYSICS_DEBUG_NONE,
+        SkullbonezCore::Physics::PHYSICS_DEBUG_AXES,
+        SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS,
+        SkullbonezCore::Physics::PHYSICS_DEBUG_SLEEP,
+        SkullbonezCore::Physics::PHYSICS_DEBUG_AXES | SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS |
+            SkullbonezCore::Physics::PHYSICS_DEBUG_SLEEP,
+        SkullbonezCore::Physics::PHYSICS_DEBUG_NONE,
     };
 
     for ( const uint32_t expected : expectedCycle )
     {
-        CHECK( HandleDiagnosticsKeyboardShortcut( debug, DiagnosticsKeyboardCommand::CyclePhysicsDebugOverlay ) );
+        CHECK( HandleDiagnosticsKeyboardShortcut( debug, cameraTrackBallIndex, 0, false, false, 0.0,
+                                                  DiagnosticsKeyboardCommand::CyclePhysicsDebugOverlay, true ) );
         CHECK( debug.physicsDebugFlags == ( retained | expected ) );
     }
 }

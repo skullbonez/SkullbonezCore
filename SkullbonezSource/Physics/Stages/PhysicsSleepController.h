@@ -70,7 +70,6 @@ class PhysicsSleepController;
 class PhysicsNarrowphaseWakeAccess
 {
   private:
-
     // Lifetime: the sleep controller and body stores are borrowed only for one
     // synchronous wake pass. Consumers receive behavior, never raw sleep rows.
     PhysicsSleepController& m_sleepController;
@@ -93,7 +92,6 @@ class PhysicsNarrowphaseWakeAccess
     friend class PhysicsSleepController;
 
   public:
-
     // Read-only pair queries preserve the sleep controller as sole row owner;
     // this capability borrow remains scoped to one synchronous narrowphase pass.
     int SleepRowCount() const;
@@ -107,6 +105,20 @@ struct PhysicsSleepStepPolicy
     float linearSpeedSquared = 0.0f;
     float angularSpeedSquared = 0.0f;
     uint8_t frameCount = 1;
+
+    bool IsQuiet( float bodyLinearSpeedSquared, float bodyAngularSpeedSquared, float linearThresholdScale = 1.0f,
+                  float angularThresholdScale = 1.0f ) const
+    {
+        // Invariant: scales apply to speed thresholds, so squared comparisons
+        // receive the squared scale as well.
+        return bodyLinearSpeedSquared < linearSpeedSquared * linearThresholdScale * linearThresholdScale &&
+               bodyAngularSpeedSquared < angularSpeedSquared * angularThresholdScale * angularThresholdScale;
+    }
+
+    bool NeedsMoreQuietFrames( uint8_t quietFrameCount ) const
+    {
+        return quietFrameCount < frameCount;
+    }
 };
 
 // Concept: related one-bit scratch decisions share one byte per model row.
@@ -131,7 +143,6 @@ class PhysicsSleepController
     friend struct PhysicsSleepControllerTestAccess;
 
   private:
-
     // Why: Debug validates the derived awake-list membership with this pure
     // classifier; Release retains the zero-cost trusted traversal.
     static constexpr bool IsAwakeListEntryConsistent( bool fixed, bool sleeping ) noexcept

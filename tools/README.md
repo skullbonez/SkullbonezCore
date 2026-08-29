@@ -1,9 +1,11 @@
 # Validation Tools
 
-Scripts for validating SkullbonezCore changes. These are formal pre-commit/PR
-gates, not routine as-you-go checks. Run from the repo root or from within this
-directory when PR-bound work is ready, or when the user explicitly asks for
-validation.
+Scripts for validating SkullbonezCore changes. `AGENTS.md` defines the fast,
+standard, and full lanes and separates the feature-branch push boundary from
+the merge boundary. Every code-bearing local lane compiles its affected
+payload before push. Exhaustive checks may run in hosted CI when the selected
+lane permits that deferral; merge still requires the complete mapped evidence.
+Run from the repo root or from within this directory.
 
 ## Quick Reference
 
@@ -11,7 +13,7 @@ validation.
 |--------|----------|---------|
 | `agent_validate.bat --plan-completion` | Terminal gate after an entire implementation plan is complete | CPU tests + 5 engine processes |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
-| `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~3.2m preflight / ~4m with tests |
+| `validate_fast.bat` | Exhaustive repository preflight plus the doctest runner; CI composition or an explicitly selected broader local check, not the default mechanical-refactor fast lane | ~3.2m preflight / ~4m with tests |
 | `validate_all_cpu_tests.bat` | Run every mandatory CPU test and coverage gate with fail-fast attribution | incremental builds + 7 console launches |
 | `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
 | `validate_coverage.bat` | Build the Debug doctest runner, export Cobertura product coverage, and report/check versioned subsystem floors | incremental Debug build + console test runner |
@@ -124,10 +126,8 @@ not replaced. Use `--prove-asan-fixture` only to self-test the detector: that
 mode generates a temporary heap-use-after-free, requires the exact sanitizer
 diagnostic, and removes the faulty source and executable before returning.
 
-Static-analysis exceptions live in
-`tools\native_diagnostics_suppressions.json`. Each row must match one exact
-path/code and name its owner, reason, deletion condition, and review evidence;
-stale rows fail the lane.
+Every parsed static-analysis warning is blocking. The lane has no warning
+suppression database.
 
 `tools\validate_native_diagnostics.bat --self-test` exercises warning
 classification and bounded-log guards without invoking Visual Studio.
@@ -231,7 +231,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
 | `check_dx12_baselines.py` | Compare DX12 captures with committed DX12 baselines and write manifest/summary artifacts |
 | `check_physics_regression.py` | Byte-exact core physics CSV diff, with `--deep` for the broader CSV set |
-| `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines`; do not use for physics CSV or SkullScope baselines |
+| `update_baselines.bat` | Update visual/perf artifacts, or run the guarded one-command core Physics transition with `--physics` |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
 | `bake_shaders.bat` | Bake all shipping raster, compute, and DXR-library shaders with pinned DXC and generate fixed reflection POD metadata; `--check` verifies source/include hashes, bytecode, and metadata freshness |
 
@@ -267,23 +267,19 @@ as an exact SHA-256 signature in `physics_known_issue_signatures.json`.
 The normal core golden is bound to the compatibility record
 `tools/physics_baseline_approval.json` by SHA-256. Do not copy over it directly.
 An active Physics plan has standing authority to accept an explained golden
-transition without a per-update owner prompt. First create the append-only
-old/new runtime bundle and schema-1 `manifest.json` described by
-`Agentic/Plans/Artifacts/README.md`, then invoke the content-bound writer:
+transition without a per-update owner prompt. After the Debug Physics gate has
+produced a real changed candidate, use the single guarded workflow:
 
 ```bat
-python tools\check_physics_baseline_guard.py --repo . ^
-  --automated-override-output Debug\physics_regression_varied.csv ^
-  --candidate-sha256 <exact-candidate-sha256> ^
-  --artifact-manifest <transition-manifest.json>
+python tools\update_baselines.py --physics
 ```
 
-That command verifies the candidate SHA-256, both golden hashes, every retained
-executable/DLL hash and size, and the byte-identical copy of the new producing
-Debug executable before it writes. It replaces the golden, updates the tracked
-acceptance record, and creates a local receipt for the exact staged set. Stage
-the golden, record, and complete transition bundle together, then rerun the
-matching gate:
+That command creates the append-only schema-2 old/new runtime bundle described
+by `Agentic/Plans/Artifacts/README.md`, verifies all hashes and first-party
+dependencies through `check_physics_baseline_guard.py`, updates the golden and
+acceptance record, stages the complete set, and verifies the staged index. The
+guard's lower-level writer remains available for non-core or domain-specific
+automation. Rerun the matching gate after the transition:
 
 ```bat
 tools\validate_physics.bat

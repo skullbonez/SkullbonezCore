@@ -25,9 +25,14 @@ Related:
 */
 #pragma once
 
+#include "../../Physics/PhysicsTimestep.h"
+
 namespace SkullbonezCore::Runtime
 {
 inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
+inline constexpr int REPLAY_CAPTURE_TICKS_PER_SECOND = static_cast<int>( PHYSICS_FIXED_TICKS_PER_SECOND );
+inline constexpr int REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB = 32;
+inline constexpr int REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB = 512;
 inline constexpr float REPLAY_FUTURE_DEFAULT_SECONDS = 20.0f;
 inline constexpr float REPLAY_FUTURE_MAX_SECONDS = 120.0f;
 } // namespace SkullbonezCore::Runtime

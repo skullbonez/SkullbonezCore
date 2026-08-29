@@ -140,16 +140,12 @@ contained:
   parameter. This is how a function body lifted out of a god class avoids being
   rewritten for its new owner, and it lies about lifetime: `m_x` reads as owner
   state when it is a borrow that expires at the next `return`.
-- An operation with 12 or more parameters lacks a current qualitative ruling
-  that names its concrete owner or active repair plan. Twelve starts mandatory
-  review; it is not a maximum, an allowance, or an automatic defect. A current
-  ruling is evidence to challenge against the source, not immunity.
-- A function at 400 body lines or brace depth 6 lacks an exact current-body
-  qualitative ruling, or its ruling does not prove one cohesive owner or active
-  repair plan. Either signal starts mandatory review; neither is a maximum,
-  allowance, target, or automatic defect. Moving the same body into a helper
-  called once immediately does not move responsibility and does not close the
-  finding.
+- A changed operation has 12 or more parameters. The compiler-backed finding is
+  blocking; name the concrete ownership defect and require a real responsibility
+  repair rather than a permission record or parameter reshuffle.
+- A changed function reaches 400 body lines or brace depth 6. The
+  compiler-backed finding is blocking. Moving the same body into a helper called
+  once immediately does not move responsibility and does not close it.
 - A deleted banned shape reappeared under a different suffix, or a header states
   an invariant, ownership, or sequencing fact the current source does not hold.
 - A test file is named for a coverage gate, a metric, or a plan rather than the
@@ -157,16 +153,18 @@ contained:
 - Plans are ticked without matching source changes, validation evidence, and
   independent review.
 
-Evidence for struct, local-code, wide-operation, and function-shape findings
-comes from the compiler-backed changed-source report:
+Evidence for local-code, wide-operation, and function-shape findings comes from
+the compiler-backed changed-source report:
 
 ```bash
 python tools/check_source_design.py --repo .
 ```
 
 The report has no permission ledger. A finding in changed source is blocking;
-repair the operation, struct, or local code directly and report the concrete
-design issue rather than a count.
+repair the operation or local code directly and report the concrete design
+issue rather than a count. Behavior-free aggregates, nominal capability bags,
+and missing ownership invariants remain manual review questions; the compiler
+report does not classify arbitrary structs.
 
 Verdict caps:
 
@@ -180,8 +178,8 @@ Verdict caps:
 - A serious ownership leak from physics/render into runtime policy caps
   encapsulation at `2 / 5`.
 - A data-only struct with no enforced invariant, nominal capability slice,
-  incomplete extraction, or missing/stale wide-signature or function-complexity
-  review caps encapsulation at `3 / 5`. A rename, parameter reshuffle, or one-call
+  incomplete extraction, or unresolved wide-signature or function-shape finding
+  caps encapsulation at `3 / 5`. A rename, parameter reshuffle, or one-call
   helper split does not lift the cap; only an owned invariant/current review
   or a real responsibility move does.
 

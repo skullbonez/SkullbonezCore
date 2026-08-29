@@ -33,6 +33,8 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
+class PhysicsContactSolverStage;
+
 // Invariant: object/object keys store two 15-bit body indices above the
 // 32-bit feature id. Widening this mask would consume bit 62, which
 // distinguishes terrain rows from object/object rows.
@@ -119,10 +121,10 @@ struct PersistentContactSolverStepPolicy
     float objectFrictionCoefficient = 0.0f;
     float terrainFrictionCoefficient = 0.0f;
     float rollingFrictionCoefficient = 0.0f;
-    float spinFrictionCoefficient = 0.0f;        // Effective contact-patch length in engine distance units.
-    float sleepLinearSpeed = 0.0f;               // Raw authored values used by legacy relative-motion limits.
+    float spinFrictionCoefficient = 0.0f; // Effective contact-patch length in engine distance units.
+    float sleepLinearSpeed = 0.0f;        // Raw authored values used by legacy relative-motion limits.
     float sleepAngularSpeed = 0.0f;
-    float nonNegativeSleepLinearSpeed = 0.0f;    // Normalized values used by the quiet-body gate.
+    float nonNegativeSleepLinearSpeed = 0.0f; // Normalized values used by the quiet-body gate.
     float nonNegativeSleepAngularSpeed = 0.0f;
     float gravityMagnitude = 0.0f;
 

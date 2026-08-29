@@ -48,6 +48,7 @@ enum class ReplayPredictionDetailMode : uint8_t;
 
 namespace ReplayPredictionArchiveOperations
 {
+uint64_t ReplayPredictionArchiveCandidateAllocationBudgetBytes() noexcept;
 bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
                                    const RunReplayPredictionState& prediction, ReplayPredictionDetailMode detailMode,
                                    const ReplayPredictionSolverEvidenceStore& evidence, std::vector<uint8_t>& outBytes );

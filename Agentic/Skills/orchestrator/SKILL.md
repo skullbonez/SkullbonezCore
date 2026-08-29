@@ -252,6 +252,24 @@ basis, and official pricing URL in the CSV. Unknown models are blockers rather
 than occasions to guess a rate. The embedded state survives context compaction
 and process restart.
 
+### Completion Ledger Artifacts
+
+After `finish-goal` closes a completed orchestration run and before the final
+handoff, use `Agentic/Skills/render-work-ledger/SKILL.md` with its standalone
+HTML mode to render the final live ledger as both HTML and PNG. Store both
+tracked artifacts in `Agentic/Ledgers/` with the current branch as their shared
+filename stem. Make the stem lowercase and replace `/`, `\\`, spaces, and
+unsupported filename characters with hyphens; for example, `codex/Replay Fix`
+becomes `codex-replay-fix.html` and `codex-replay-fix.png`.
+
+Refresh the live CSV with `work_ledger.bat show`, reconcile the renderer's JSON
+summary against that CSV, render the HTML at a wide desktop viewport, and
+visually inspect the PNG for clipping or unreadable labels. Stage both artifacts
+and create and push one terminal ledger-artifact commit after the completed goal
+commit; never stage the ignored `Agentic/Plans/WORK_LEDGER.csv`. Report clickable
+paths to both artifacts in the final handoff. If the run stops without completing
+the goal, preserve the live CSV state but do not publish completion artifacts.
+
 ## Blocker Continuation
 
 Do not stop the orchestration run when one item is blocked. First exhaust safe,
@@ -541,5 +559,7 @@ Report:
   reviewer splits; Standard/Short API-cost estimate and rates; overall and
   active-plan progress; duck passes; fix cycles; findings; cumulative
   validation time; outcomes; and full commit hashes.
+- The tracked branch-named HTML and PNG completion ledger paths under
+  `Agentic/Ledgers/` and the terminal artifact commit hash.
 - Rubber-duck verdicts keyed to their ledger step ids. If no review was
   appropriate, report the task's zero duck-pass count from the ledger.

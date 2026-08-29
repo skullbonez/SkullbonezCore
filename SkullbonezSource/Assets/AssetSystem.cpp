@@ -31,13 +31,6 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/FatalError.h"
 
-// Why: the standalone CPU test executable compiles source-registry behavior
-// without linking DX12 object code. Product builds retain the concrete shader path.
-#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
-#include "../Rendering/DX12/Dx12ResourceBuilder.h"
-#include "../Rendering/DX12/ShaderDX12.h"
-#endif
-
 #include <cstring>
 #include <utility>
 
@@ -102,8 +95,7 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
 
 bool IsAbsolutePath( const std::string& path )
 {
-    const bool hasWindowsDriveRoot =
-        path.size() >= 3 && path[1] == ':' && ( path[2] == '/' || path[2] == '\\' );
+    const bool hasWindowsDriveRoot = path.size() >= 3 && path[1] == ':' && ( path[2] == '/' || path[2] == '\\' );
 
     // Invariant: "C:asset" is drive-relative, not absolute. Let it follow the
     // data-root rule so resolution never depends on the process's per-drive directory.
@@ -470,17 +462,6 @@ ShaderSourceRequest AssetSystem::ResolveShaderSourceRequest( const char* logical
     request.contractBaseName = ResolveShaderBaseName( logicalNameOrBaseName );
     return request;
 }
-
-
-#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
-std::unique_ptr<Rendering::ShaderDX12> AssetSystem::CreateShader( Rendering::Dx12ResourceBuilder& renderResources,
-                                                                  const char* logicalNameOrBaseName ) const
-{
-    const ShaderSourceRequest request = ResolveShaderSourceRequest( logicalNameOrBaseName );
-    return renderResources.CreateShaderFromResolvedBasePath( request.resolvedBasePath.c_str(),
-                                                              request.contractBaseName.c_str() );
-}
-#endif
 
 
 const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( const char* logicalName,

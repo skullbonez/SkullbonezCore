@@ -45,7 +45,6 @@
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
-#include "../SkullbonezSource/Runtime/App/ReplayRuntime.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
 #include "../SkullbonezSource/World/Terrain.h"
@@ -77,18 +76,6 @@ namespace
 {
 SkullbonezCore::Core::SbDiagnosticStore diagnostics;
 }
-
-namespace SkullbonezCore::Runtime
-{
-struct ReplayRuntimeTestAccess
-{
-    static bool SaveWithFallbackPredictionState( const ReplayRuntime& runtime, const char* path, ReplayV2SaveResult* result,
-                                                 std::span<const ReplayVisualArchiveSample> visualPackets )
-    {
-        return runtime.SavePresentationWithSolverHashes( path, result, visualPackets, {} );
-    }
-};
-} // namespace SkullbonezCore::Runtime
 
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
 using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
@@ -294,13 +281,14 @@ void DowngradePresentationQuaternionsToV3( std::vector<uint8_t>& bytes,
     {
         REQUIRE( canonical.bodies.size() == 1u );
         ReplayPresentationSample legacy = canonical;
-        SkullbonezCore::Math::Orientation::ConjugateQuaternionVectorPart(
-            legacy.bodies[0].orientation[0], legacy.bodies[0].orientation[1], legacy.bodies[0].orientation[2] );
+        SkullbonezCore::Math::Orientation::ConjugateQuaternionVectorPart( legacy.bodies[0].orientation[0],
+                                                                          legacy.bodies[0].orientation[1],
+                                                                          legacy.bodies[0].orientation[2] );
         legacy.stateHash = ReplayRecorderOperations::ComputePresentationStateHash( legacy );
         WriteValue<uint64_t>( bytes, frameOffset + kPresentationStateHashOffset, legacy.stateHash );
 
-        const std::size_t orientationOffset =
-            frameOffset + kPresentationFrameHeaderBytes + kPresentationBodyOrientationOffset;
+        const std::size_t orientationOffset = frameOffset + kPresentationFrameHeaderBytes +
+                                              kPresentationBodyOrientationOffset;
         WriteValue<float>( bytes, orientationOffset + 0u, legacy.bodies[0].orientation[0] );
         WriteValue<float>( bytes, orientationOffset + 4u, legacy.bodies[0].orientation[1] );
         WriteValue<float>( bytes, orientationOffset + 8u, legacy.bodies[0].orientation[2] );
@@ -363,8 +351,8 @@ TEST_CASE( "Replay artifact codec: presentation round-trip is complete and byte-
 TEST_CASE( "Replay artifact codec: cold save does not inherit steady gameplay allocation policy" )
 {
     using SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase;
-    using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount;
     using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount;
     using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
     using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
     using SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase;
@@ -490,7 +478,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     PhysicsEngine& engine = *engineStorage;
     engine.Clear();
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 2, 2, 0, 0, 1 );
     }
 
@@ -505,7 +494,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
     SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration registration;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         registration = engine.RegisterAuthoredBody( bodyDesc, colliderDesc );
     }
     REQUIRE( registration.IsValid() );
@@ -631,8 +621,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
                                tornadoGameplay, BuildEntityDisplayNames( entities, entityDisplayNames ) );
     REQUIRE( hashVerifier.LatestSample() != nullptr );
     CHECK( hashVerifier.LatestSample()->solverHash != capturedSolverHash );
-    REQUIRE( engine.RestoreReplaySolverSnapshot(
-        sample->worldSnapshot.physics, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( sample->worldSnapshot.physics,
+                                                 SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
 
     auto changedMotionSnapshot = sample->worldSnapshot.physics;
     changedMotionSnapshot.motionEligibilityState[0] ^= 1u;
@@ -659,8 +649,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     changedDeltaSnapshot.motionEligibilityState[0] ^= 1u;
     const float changedDeltaImpulse = changedDeltaSnapshot.pointJoints[0].accumulatedImpulse;
     const std::vector<uint8_t> changedDeltaMotionEligibilityState = changedDeltaSnapshot.motionEligibilityState;
-    REQUIRE( engine.RestoreReplaySolverSnapshot(
-        changedDeltaSnapshot, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( changedDeltaSnapshot,
+                                                 SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
     solver.CaptureFrame( captureBranch, 4u, 21, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
                          tornadoGameplay, BuildEntityDisplayNames( entities, entityDisplayNames ) );
 
@@ -674,8 +664,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     const ReplaySolverFrameSample* resolvedDelta = solver.SampleAtNormalized( 1.0f );
     REQUIRE( resolvedDelta != nullptr );
     REQUIRE( resolvedDelta->worldSnapshot.physics.pointJoints.size() == 1u );
-    CHECK( std::memcmp( &resolvedDelta->worldSnapshot.physics.pointJoints[0].accumulatedImpulse,
-                        &changedDeltaImpulse, sizeof( changedDeltaImpulse ) ) == 0 );
+    CHECK( std::memcmp( &resolvedDelta->worldSnapshot.physics.pointJoints[0].accumulatedImpulse, &changedDeltaImpulse,
+                        sizeof( changedDeltaImpulse ) ) == 0 );
     CHECK( resolvedDelta->worldSnapshot.physics.motionEligibilityState == changedDeltaMotionEligibilityState );
 
     for ( ReplayFrameIndex frame = 0u; frame < 2u; ++frame )
@@ -695,28 +685,28 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     guardedVisualPackets[0].schemaVersion = REPLAY_VISUAL_PACKET_SCHEMA_VERSION;
     ReplayV2SaveResult guardedSave;
     const std::string guardedPath = ArtifactPath( "guarded_runtime_style_save.skreplay" );
-    SkullbonezCore::Runtime::RuntimeTools runtimeTools( diagnostics );
-    SkullbonezCore::Runtime::ReplayRuntime replayRuntime( diagnostics, nullptr );
-    {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-        const ReplayRecordingActivationResult activation = replayRuntime.ConfigureRecording( true, 1, nullptr, 2 );
-        REQUIRE( activation.configuration.presentationConfig.enabled );
-        REQUIRE( activation.configuration.solverConfig.enabled );
-    }
-    replayRuntime.CaptureFrame( 21, 1.0f / 120.0f, captureWorld, captureCamera, engine, tornadoGameplay, entities,
-                                runtimeTools );
 
     SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
         SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
     SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
         SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
-    const uint64_t guardedViolationsBefore =
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
-    const bool guardedSaved = SkullbonezCore::Runtime::ReplayRuntimeTestAccess::SaveWithFallbackPredictionState(
-        replayRuntime, guardedPath.c_str(), &guardedSave, guardedVisualPackets );
-    const uint64_t guardedViolationsAfter =
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    const uint64_t guardedViolationsBefore = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    bool fallbackBuiltInCapturePhase = false;
+    const bool guardedSaved = ReplayArtifactOperations::SaveColdWithOptionalPredictionState(
+        guardedVisualPackets, {},
+        [&]( std::vector<uint8_t>& fallbackPredictionState )
+        {
+            fallbackBuiltInCapturePhase = SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase() ==
+                                          SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture;
+            fallbackPredictionState.assign( { 0x52u, 0x50u, 0x53u, 0x31u } );
+            return true;
+        },
+        [&]( std::span<const uint8_t> predictionState )
+        {
+            return ReplayV2Artifact::SavePresentationWithSolverHashes( presentation, solver, events, guardedVisualPackets,
+                                                                       predictionState, guardedPath.c_str(), &guardedSave );
+        } );
+    const uint64_t guardedViolationsAfter = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
     const auto guardedRestoredPhase = SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase();
     SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
         SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Startup );
@@ -724,6 +714,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
         SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
 
     CHECK( guardedSaved );
+    CHECK( fallbackBuiltInCapturePhase );
     CHECK( guardedRestoredPhase == SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
     CHECK( guardedViolationsAfter == guardedViolationsBefore );
     CHECK( guardedSave.visualPacketCount == guardedVisualPackets.size() );
@@ -737,12 +728,10 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
         SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
     SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
         SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
-    const uint64_t directViolationsBefore =
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
-    const bool directSaved =
-        ReplayV2Artifact::SavePresentationWithSolverHashes( presentation, solver, events, path.c_str(), &save );
-    const uint64_t directViolationsAfter =
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    const uint64_t directViolationsBefore = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    const bool directSaved = ReplayV2Artifact::SavePresentationWithSolverHashes( presentation, solver, events, path.c_str(),
+                                                                                 &save );
+    const uint64_t directViolationsAfter = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
     const auto directRestoredPhase = SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase();
     SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
         SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Startup );
@@ -782,12 +771,11 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     CHECK( checkpoints[0].launcherVisual.laserShots.size() == 1u );
     CHECK( checkpoints[0].worldSnapshot.tornadoSystemElapsedSeconds == kPreciseTornadoSeconds );
     SkullbonezCore::Gameplay::TornadoGameplay restoredTornadoGameplay;
-    restoredTornadoGameplay.SetReplayState(
-        checkpoints[0].worldSnapshot.tornadoCaptureSeconds,
-        checkpoints[0].worldSnapshot.tornadoEjectCooldownSeconds,
-        checkpoints[0].worldSnapshot.tornadoConfig,
-        checkpoints[0].worldSnapshot.tornadoSystemConfig,
-        checkpoints[0].worldSnapshot.tornadoSystemElapsedSeconds );
+    restoredTornadoGameplay.SetReplayState( checkpoints[0].worldSnapshot.tornadoCaptureSeconds,
+                                            checkpoints[0].worldSnapshot.tornadoEjectCooldownSeconds,
+                                            checkpoints[0].worldSnapshot.tornadoConfig,
+                                            checkpoints[0].worldSnapshot.tornadoSystemConfig,
+                                            checkpoints[0].worldSnapshot.tornadoSystemElapsedSeconds );
     CHECK( restoredTornadoGameplay.GetSystemElapsedSeconds() == kPreciseTornadoSeconds );
     REQUIRE( checkpoints[0].worldSnapshot.physics.pointJoints.size() == 1u );
     CHECK( checkpoints[0].worldSnapshot.physics.motionEligibilityState == capturedMotionEligibilityState );
@@ -809,8 +797,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     // Clear, apply the loaded body/solver state, and require the next step to
     // match the original handle epoch bit-for-bit.
     const ReplaySolverFrameSample loadedCheckpoint = checkpoints[0];
-    const auto applyLoadedBodies = [&]( SkullbonezCore::Physics::PhysicsBodyHandle bodyA,
-                                        SkullbonezCore::Physics::PhysicsBodyHandle bodyB )
+    const auto applyLoadedBodies =
+        [&]( SkullbonezCore::Physics::PhysicsBodyHandle bodyA, SkullbonezCore::Physics::PhysicsBodyHandle bodyB )
     {
         const SkullbonezCore::Physics::PhysicsBodyHandle handles[2] = { bodyA, bodyB };
 
@@ -822,8 +810,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
                 body.id,
                 body.fixed,
                 body.position,
-                SkullbonezCore::Math::Orientation::Quaternion( body.orientation[0], body.orientation[1],
-                                                               body.orientation[2], body.orientation[3] ),
+                SkullbonezCore::Math::Orientation::Quaternion( body.orientation[0], body.orientation[1], body.orientation[2],
+                                                               body.orientation[3] ),
                 body.linearVelocity,
                 body.angularVelocity,
                 body.mass,
@@ -836,15 +824,15 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     };
 
     applyLoadedBodies( registration.body, secondRegistration.body );
-    REQUIRE( engine.RestoreReplaySolverSnapshot(
-        loadedCheckpoint.worldSnapshot.physics, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( loadedCheckpoint.worldSnapshot.physics,
+                                                 SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
     engine.Step( 1.0f / 120.0f, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
     ReplaySolverRecorder expectedAfterRestoreRecorder;
     REQUIRE( expectedAfterRestoreRecorder.Configure( config ) );
     expectedAfterRestoreRecorder.ResetTimeline( "coverage-floor-cold-restore-expected" );
-    expectedAfterRestoreRecorder.CaptureFrame(
-        captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine, tornadoGameplay,
-        BuildEntityDisplayNames( entities, entityDisplayNames ) );
+    expectedAfterRestoreRecorder.CaptureFrame( captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher,
+                                               engine, tornadoGameplay,
+                                               BuildEntityDisplayNames( entities, entityDisplayNames ) );
     REQUIRE( expectedAfterRestoreRecorder.LatestSample() != nullptr );
     const uint64_t expectedAfterRestoreHash = expectedAfterRestoreRecorder.LatestSample()->solverHash;
 
@@ -868,8 +856,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     CHECK( registration.body != originalBodyA );
     CHECK( secondRegistration.body != originalBodyB );
     applyLoadedBodies( registration.body, secondRegistration.body );
-    REQUIRE( engine.RestoreReplaySolverSnapshot(
-        loadedCheckpoint.worldSnapshot.physics, SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( loadedCheckpoint.worldSnapshot.physics,
+                                                 SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
     engine.Step( 1.0f / 120.0f, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
     entities.Clear();
     entity.sceneObjectId = bodyDesc.sceneObjectId;
@@ -883,9 +871,9 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     ReplaySolverRecorder recreatedAfterRestoreRecorder;
     REQUIRE( recreatedAfterRestoreRecorder.Configure( config ) );
     recreatedAfterRestoreRecorder.ResetTimeline( "coverage-floor-cold-restore-recreated" );
-    recreatedAfterRestoreRecorder.CaptureFrame(
-        captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine, tornadoGameplay,
-        BuildEntityDisplayNames( entities, entityDisplayNames ) );
+    recreatedAfterRestoreRecorder.CaptureFrame( captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher,
+                                                engine, tornadoGameplay,
+                                                BuildEntityDisplayNames( entities, entityDisplayNames ) );
     REQUIRE( recreatedAfterRestoreRecorder.LatestSample() != nullptr );
     CHECK( recreatedAfterRestoreRecorder.LatestSample()->solverHash == expectedAfterRestoreHash );
 

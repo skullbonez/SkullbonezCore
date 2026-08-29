@@ -7972,9 +7972,9 @@
       "mass": 1.0,
       "restitution": 0.0,
       "inertia": [
-        0.0,
-        0.0,
-        0.0
+        1.0,
+        1.0,
+        1.0
       ],
       "fixed": true,
       "sleeping": true

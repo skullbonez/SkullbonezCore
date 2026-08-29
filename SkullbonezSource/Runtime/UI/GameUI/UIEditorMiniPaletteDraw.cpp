@@ -629,7 +629,7 @@ void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimiz
     char shapeLabel[64] = {};
     snprintf( shapeLabel, sizeof( shapeLabel ), "%s", EditorTab::ObjectLabel( data.editorObjectType ) );
 
-    if ( layout.labelMaxW >= UIFontMetrics::MeasureText( 12.0f, "..." ) )
+    if ( layout.labelMaxW > 0.0f && layout.labelMaxW >= UIFontMetrics::MeasureText( 12.0f, "..." ) )
     {
         Chrome::FitTitleText( shapeLabel, sizeof( shapeLabel ), 12.0f, layout.labelMaxW );
         draw.Text( layout.labelX, minimized.y + 13.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g,

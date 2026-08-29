@@ -1,30 +1,5 @@
-#
-# File: tools/check_physics_regression.py
-# Purpose:
-#   Documents and runs the check_physics_regression.py developer/validation helper script.
-#
-# Summary:
-#   The checker canonicalizes repeated complete runs, rejects inconsistent
-#   repetitions, and compares each generated CSV byte-for-byte with its golden.
-#   It reports only the first bounded differences and never updates behavior.
-#
-# Glossary:
-#   CSV (Comma-Separated Values): Text table format used for byte-exact physics
-#   regression output.
-#   Validation gate: Repository script that proves a class of changes before
-#   commit or PR.
-#
-# Invariants:
-#   - Tool output should be bounded and readable because agents and humans use
-#   it for decisions.
-#   - This comparator is read-only; only the content-bound, artifact-retaining
-#     Physics baseline guard may replace the committed core golden.
-#
-# Related:
-#   - AGENTS.md
-#   - tools/check_physics_baseline_guard.py
-#
-#
+# Compare generated Physics CSVs byte-for-byte and report one bounded first
+# divergence. Baseline updates belong to update_baselines.py, never this tool.
 """
 Compare physics CSV output against committed baselines.
 
@@ -203,6 +178,22 @@ def compare_worker_matrix_payloads(outputs, baseline_data):
     return rows, baseline_run_count, failures
 
 
+def first_worker_matrix_difference(rows, baseline_data):
+    try:
+        baseline, _ = canonical_complete_run(baseline_data, "physics_regression_varied.csv")
+    except ValueError:
+        return None
+    for label, current, _ in rows:
+        if current != baseline:
+            return f"committed baseline vs {label}", baseline, current
+    if rows:
+        reference_label, reference, _ = rows[0]
+        for label, current, _ in rows[1:]:
+            if current != reference:
+                return f"{reference_label} vs {label}", reference, current
+    return None
+
+
 def run_worker_matrix():
     baseline_path = os.path.join(BASELINE_DIR, "physics_regression_varied.csv")
     if not os.path.exists(baseline_path):
@@ -229,6 +220,10 @@ def run_worker_matrix():
     if failures:
         for failure in failures[:8]:
             print(f"  FAIL: {failure}")
+        diagnostic = first_worker_matrix_difference(rows, baseline_data)
+        if diagnostic:
+            label, expected, current = diagnostic
+            print_first_csv_difference(label, expected, current)
         return 1
 
     canonical = rows[0][1]
@@ -259,6 +254,13 @@ def run_self_test():
     _, _, failures = compare_worker_matrix_payloads(mutated_outputs, complete)
     if not any("workers=4 differs byte-for-byte" in failure for failure in failures):
         raise RuntimeError("self-test accepted a participating worker payload mutation")
+    mutated_rows, _, _ = compare_worker_matrix_payloads(mutated_outputs, complete)
+    worker_diagnostic = first_worker_matrix_difference(mutated_rows, complete)
+    if not worker_diagnostic or "workers=4" not in worker_diagnostic[0]:
+        raise RuntimeError("self-test did not select the divergent worker payload")
+    worker_difference = first_csv_difference(worker_diagnostic[1], worker_diagnostic[2])
+    if not worker_difference or worker_difference["frame"] != "1":
+        raise RuntimeError("self-test worker diagnostic did not report the first divergent frame")
 
     divergent_repeat = complete + b"frame,value\n0,alpha\n1,gamma\n"
     divergent_outputs = list(identical_outputs)
@@ -310,10 +312,8 @@ def main():
         print("usage: check_physics_regression.py [--deep | --worker-matrix | --self-test]")
         if "--update" in args:
             print(
-                "Physics-plan baseline updates require the archived automated lane: "
-                "python tools/check_physics_baseline_guard.py --automated-override-output "
-                "Debug/physics_regression_varied.csv --candidate-sha256 <sha256> "
-                "--artifact-manifest <manifest.json>"
+                "Physics-plan baseline updates use the single guarded workflow: "
+                "python tools/update_baselines.py --physics"
             )
         return 2
 

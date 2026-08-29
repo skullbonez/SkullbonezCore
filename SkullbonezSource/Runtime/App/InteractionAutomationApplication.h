@@ -34,7 +34,7 @@ namespace Core
 {
 class EngineConfig;
 class SbDiagnosticStore;
-}
+} // namespace Core
 namespace Rendering
 {
 class Dx12BackbufferCapture;
@@ -59,8 +59,8 @@ struct CameraControlState;
 struct ContinuousOrbitalForecastView;
 
 using InteractionRecordingBoundaryOperation = void ( * )( void* context );
-using InteractionAutomationReportExitOperation = SkullbonezCore::Core::SbResult ( * )(
-    void* context, InteractionAutomationRunStatus& status );
+using InteractionAutomationReportExitOperation =
+    SkullbonezCore::Core::SbResult ( * )( void* context, InteractionAutomationRunStatus& status );
 
 // Production and focused tests share the exact structural-admission boundaries
 // and stable authored-order sort used by the first automation turn.
@@ -76,12 +76,10 @@ inline bool AdmitInteractionAutomationScriptRoot( InteractionAutomationControlle
 }
 
 inline bool AdmitInteractionRecordingBaselineContainers( InteractionAutomationController& state, bool cameraIsObject,
-                                                          bool interactionIsObject, bool toolsIsObject,
-                                                          bool uiIsObject, bool replayIsObject,
-                                                          bool causeInspectionIsObject )
+                                                         bool interactionIsObject, bool toolsIsObject, bool uiIsObject,
+                                                         bool replayIsObject, bool causeInspectionIsObject )
 {
-    if ( cameraIsObject && interactionIsObject && toolsIsObject && uiIsObject && replayIsObject &&
-         causeInspectionIsObject )
+    if ( cameraIsObject && interactionIsObject && toolsIsObject && uiIsObject && replayIsObject && causeInspectionIsObject )
     {
         return true;
     }
@@ -91,7 +89,7 @@ inline bool AdmitInteractionRecordingBaselineContainers( InteractionAutomationCo
 }
 
 inline bool AdmitInteractionAutomationPressKeyOptions( bool pressKeyIsString, bool controlTypeIsValid,
-                                                        bool holdFramesTypeIsValid, std::string& outError )
+                                                       bool holdFramesTypeIsValid, std::string& outError )
 {
     if ( pressKeyIsString && controlTypeIsValid && holdFramesTypeIsValid )
     {
@@ -107,16 +105,17 @@ inline void SortInteractionAutomationActions( std::vector<RunInteractionAutomati
     // Invariant: frame grouping never changes the authored order within a turn;
     // order-dependent commands therefore replay exactly as serialized.
     std::stable_sort( actions.begin(), actions.end(),
-                      []( const RunInteractionAutomationAction& lhs,
-                          const RunInteractionAutomationAction& rhs ) { return lhs.frame < rhs.frame; } );
+                      []( const RunInteractionAutomationAction& lhs, const RunInteractionAutomationAction& rhs )
+                      { return lhs.frame < rhs.frame; } );
 }
 
 // Finalizes the required report without replacing an earlier process failure.
 // Run supplies the concrete owner-composition operation; tests can exercise the
 // same precedence boundary with the writer's atomic publication seam.
-inline SkullbonezCore::Core::SbResult ResolveInteractionAutomationReportForExit(
-    InteractionAutomationController& state, const SkullbonezCore::Core::SbResult& processStatus,
-    InteractionAutomationReportExitOperation writeReport, void* writeContext )
+inline SkullbonezCore::Core::SbResult
+ResolveInteractionAutomationReportForExit( InteractionAutomationController& state,
+                                           const SkullbonezCore::Core::SbResult& processStatus,
+                                           InteractionAutomationReportExitOperation writeReport, void* writeContext )
 {
     if ( !state.enabled || state.reportWriter.Written() )
     {
@@ -132,10 +131,9 @@ inline SkullbonezCore::Core::SbResult ResolveInteractionAutomationReportForExit(
 
     if ( !writeReport )
     {
-        return processStatus.Ok()
-                   ? state.resultDiagnostics.Failure( "InteractionAutomation",
-                                                      "required interaction report operation is unavailable" )
-                   : processStatus;
+        return processStatus.Ok() ? state.resultDiagnostics.Failure( "InteractionAutomation",
+                                                                     "required interaction report operation is unavailable" )
+                                  : processStatus;
     }
 
     const SkullbonezCore::Core::SbResult reportStatus = writeReport( writeContext, state.status );
@@ -144,10 +142,11 @@ inline SkullbonezCore::Core::SbResult ResolveInteractionAutomationReportForExit(
 
 // Captures an armed baseline, then converts an active recorder's final save
 // result into the process-owned exit state before Run::Execute returns.
-SkullbonezCore::Core::SbResult ResolveRunExitAfterInteractionRecording(
-    InteractionAutomationRecorder& recorder, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-    ApplicationExitState& applicationExit, int messageExitCode,
-    InteractionRecordingBoundaryOperation captureArmedBoundary, void* captureContext );
+SkullbonezCore::Core::SbResult
+ResolveRunExitAfterInteractionRecording( InteractionAutomationRecorder& recorder,
+                                         SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                         ApplicationExitState& applicationExit, int messageExitCode,
+                                         InteractionRecordingBoundaryOperation captureArmedBoundary, void* captureContext );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 InteractionAutomationDevelopmentUiApplyResult
@@ -156,17 +155,5 @@ ApplyInteractionAutomationDevelopmentUiCommands( const InteractionAutomationCont
                                                  DevelopmentTools::ImGuiEditorOwner& editor );
 #endif
 
-InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& window, const SkullbonezCore::Core::EngineConfig& config,
-                                                                       SceneController& scene, const RuntimeFrameMetricsSnapshot& timers, CameraControlState& camera, InputRouter& inputRouter,
-                                                                       RuntimeInteractionController& interaction, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
-                                                                       SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView,
-                                                                       const Rendering::RenderSceneSnapshot& renderSnapshot );
-
-InteractionAutomationFrameResult TickInteractionAutomationAfterRender( InteractionAutomationController& state, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
-                                                                       RuntimeInteractionController& interaction, InputRouter& inputRouter, CameraControlState& camera,
-                                                                       SkullbonezCore::UI::InGameUI& ui, SceneController& scene, const ReplayAutomationView& replayView,
-                                                                       const InteractionAutomationDevelopmentUiView& developmentUiView, const ContinuousOrbitalForecastView& forecastView,
-                                                                       const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
-                                                                       Rendering::Dx12BackbufferCapture& backbufferCapture );
 } // namespace Runtime
 } // namespace SkullbonezCore
