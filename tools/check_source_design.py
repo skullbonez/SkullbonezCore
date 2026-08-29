@@ -644,7 +644,7 @@ def execute_work_items(
     jobs: int,
     worker: Callable[[SourceDesignWorkItem], ContextAnalysisResult],
 ) -> WorkExecutionBatch:
-    """Admit at most jobs contexts and stop admission after an infrastructure failure."""
+    """Run deterministic context batches and stop after a batch reports infrastructure failure."""
     if not 1 <= jobs <= MAX_SOURCE_DESIGN_JOBS:
         raise ValueError(f"jobs must be between 1 and {MAX_SOURCE_DESIGN_JOBS}")
     if not work_items:
@@ -671,24 +671,20 @@ def execute_work_items(
     next_index = 0
     first_failure = ""
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs, thread_name_prefix="source-design") as executor:
-        active: dict[concurrent.futures.Future[ContextAnalysisResult], SourceDesignWorkItem] = {}
+        while not first_failure and next_index < len(work_items):
+            batch_items = work_items[next_index : next_index + jobs]
+            next_index += len(batch_items)
+            active = {executor.submit(invoke, work_item): work_item for work_item in batch_items}
+            admitted_count += len(active)
+            peak_in_flight = max(peak_in_flight, len(active))
 
-        def admit() -> None:
-            nonlocal next_index, admitted_count, peak_in_flight
-            # Invariant: only this coordinator mutates admission state, and the
-            # executor never owns more than the configured number of work items.
-            while not first_failure and len(active) < jobs and next_index < len(work_items):
-                work_item = work_items[next_index]
-                next_index += 1
-                active[executor.submit(invoke, work_item)] = work_item
-                admitted_count += 1
-                peak_in_flight = max(peak_in_flight, len(active))
-
-        admit()
-        while active:
-            completed, _ = concurrent.futures.wait(active, return_when=concurrent.futures.FIRST_COMPLETED)
-            for future in sorted(completed, key=lambda item: active[item].identity(repo)):
-                work_item = active.pop(future)
+            # Hazard: replenishing a partially completed batch lets scheduling
+            # decide which later contexts run before an active failure arrives.
+            # The coordinator admits the next prefix only after this whole
+            # prefix completes, so failures always leave the same unexamined tail.
+            concurrent.futures.wait(active)
+            for future in sorted(active, key=lambda item: active[item].identity(repo)):
+                work_item = active[future]
                 try:
                     result = future.result()
                     if result.work_item != work_item:
@@ -709,7 +705,6 @@ def execute_work_items(
                 if result.infrastructure_error and not first_failure:
                     relative = work_item.source.resolve().relative_to(repo.resolve()).as_posix()
                     first_failure = f"{relative} [{work_item.project} {work_item.configuration}]"
-            admit()
 
     # Hazard: silently dropping the tail would turn an incomplete scan into a
     # plausible partial result. Name every context that was never admitted.
@@ -1171,29 +1166,62 @@ def prove_bounded_concurrency(repo: Path) -> None:
             f"in_flight_peak={overlap.peak_in_flight}"
         )
 
-    started: set[int] = set()
-    started_lock = threading.Lock()
+    def admission_failure(
+        failure_delay: float, success_delay: float, started: set[int], started_lock: threading.Lock
+    ) -> Callable[[SourceDesignWorkItem], ContextAnalysisResult]:
+        def inspect(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+            index = int(work_item.source.stem.removeprefix("ConcurrencyProbe"))
+            with started_lock:
+                started.add(index)
+            if index == 0:
+                time.sleep(failure_delay)
+                return ContextAnalysisResult(
+                    work_item,
+                    infrastructure_kind="tidy",
+                    infrastructure_error="planted parse failure",
+                )
+            time.sleep(success_delay)
+            return clean_worker(work_item)
 
-    def admission_failure(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
-        index = int(work_item.source.stem.removeprefix("ConcurrencyProbe"))
-        with started_lock:
-            started.add(index)
-        if index == 0:
-            time.sleep(0.005)
-            return ContextAnalysisResult(
-                work_item,
-                infrastructure_kind="tidy",
-                infrastructure_error="planted parse failure",
+        return inspect
+
+    admission_runs = []
+    for failure_delay, success_delay in ((0.005, 0.050), (0.050, 0.005)):
+        started: set[int] = set()
+        started_lock = threading.Lock()
+        stopped = execute_work_items(
+            repo,
+            work_items,
+            2,
+            admission_failure(failure_delay, success_delay, started, started_lock),
+        )
+        skipped_identities = tuple(
+            result.work_item.identity(repo)
+            for result in stopped.results
+            if result.infrastructure_kind == "not-admitted"
+        )
+        process_counts = (
+            sum(result.tidy_process_count for result in stopped.results),
+            sum(result.query_process_count for result in stopped.results),
+        )
+        admission_runs.append(
+            (
+                render_infrastructure_errors(repo, stopped.results),
+                classify_results(stopped.results),
+                stopped.admitted_count,
+                tuple(sorted(started)),
+                skipped_identities,
+                process_counts,
             )
-        time.sleep(0.050)
-        return clean_worker(work_item)
-
-    stopped = execute_work_items(repo, work_items, 2, admission_failure)
-    skipped = [result for result in stopped.results if result.infrastructure_kind == "not-admitted"]
-    if stopped.admitted_count != 2 or started != {0, 1} or len(skipped) != 4 or classify_results(stopped.results) != 2:
+        )
+    if admission_runs[0] != admission_runs[1]:
+        raise AssertionError(f"infrastructure admission changed with completion order: {admission_runs}")
+    errors, classification, admitted, started, skipped, process_counts = admission_runs[0]
+    if classification != 2 or admitted != 2 or started != (0, 1) or len(skipped) != 4 or process_counts != (1, 1):
         raise AssertionError(
-            "infrastructure failure did not stop bounded admission: "
-            f"admitted={stopped.admitted_count} started={sorted(started)} skipped={len(skipped)}"
+            "infrastructure failure did not stop deterministic prefix admission: "
+            f"errors={len(errors)} admitted={admitted} started={started} "
+            f"skipped={len(skipped)} processes={process_counts}"
         )
 
     failure_kinds = ("tidy", "query", "child", "worker")
