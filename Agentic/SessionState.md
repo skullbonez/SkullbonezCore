@@ -2,14 +2,14 @@
 
 Date: 2026-08-30
 Branch: `codex/replay-capture-bugfixes`
-Status: Source Design Validation Throughput active; 130/135 implementation
+Status: Source Design Validation Throughput active; 131/135 implementation
 tasks complete; bug ledger 126/126 fixed
 
 ## Current State
 
 The owner reactivated two WNF plans for sequential implementation on the
 current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is complete at 4/4;
-`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is active at 0/5. The pre-existing
+`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is active at 1/5. The pre-existing
 uncommitted Physics solver experiment, its focused test, two sleep scenes, and
 local investigation report remain outside both plans and must not be staged or
 reformatted.
@@ -59,6 +59,18 @@ scheduled engine exit. Fast validation and the single terminal
 `--plan-completion` run stop on the same three pre-plan plain-language findings;
 the terminal run first completes Debug, Physics, and Automation builds. No
 Physics, Replay, performance, or visual baseline was refreshed.
+
+SDT0 pins immutable source/context work-item identity and adds structured
+context result, timing, and bounded summary values without changing source
+selection, compiler arguments, findings, or exit classification. The exact PR
+162 reference regenerates 79 files and 623 contexts at identity SHA-256
+`d9e4b117d81e3ae8ca5f29376335f7c219bdc47cd94c4438d4cb4a7a0da5db77`.
+Two clean serial runs both pass all 3,115 LLVM launches in 3,274.505 and
+3,275.521 seconds, with 669,978,624 and 669,888,512 peak committed bytes.
+The refreshed runner is `windows-2022` image `20260824.284.2`; local LLVM is
+22.1.3. The self-test and a five-context live source scan pass with the new
+summary and zero findings or infrastructure errors. No test, coverage,
+Physics, or golden baseline changed.
 
 The ignored work ledger retains an unfinished 2026-08-28 goal from another
 Codex task (`GOV1`, `finding-fix-01`). The orchestrator refused to start a new
@@ -981,7 +993,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Implement `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 in order on the same branch.
+Implement `SOURCE_DESIGN_THROUGHPUT` SDT1-SDT4 in order on the same branch.
 
 ## Blockers
 

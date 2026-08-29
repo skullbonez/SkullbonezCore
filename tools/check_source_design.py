@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 
 from check_build_config_consistency import CompileRow, condition_matches, scan_repository
@@ -78,6 +79,58 @@ class CompileContext:
     project: str
     configuration: str
     arguments: tuple[str, ...]
+
+
+WorkItemIdentity = tuple[str, str, str, tuple[str, ...]]
+
+
+@dataclass(frozen=True)
+class SourceDesignWorkItem:
+    source: Path
+    project: str
+    configuration: str
+    arguments: tuple[str, ...]
+
+    def identity(self, repo: Path) -> WorkItemIdentity:
+        relative = self.source.resolve().relative_to(repo.resolve()).as_posix()
+        return relative.casefold(), self.project, self.configuration, self.arguments
+
+
+@dataclass(frozen=True)
+class ContextAnalysisResult:
+    work_item: SourceDesignWorkItem
+    diagnostics: tuple[str, ...]
+    tidy_seconds: float
+    query_seconds: float
+
+
+@dataclass
+class SourceDesignMeasurements:
+    mode: str
+    source_count: int = 0
+    context_count: int = 0
+    tidy_process_count: int = 0
+    query_process_count: int = 0
+    configured_workers: int = 1
+    peak_workers: int = 0
+    context_discovery_seconds: float = 0.0
+    tidy_seconds: float = 0.0
+    query_seconds: float = 0.0
+    dead_code_seconds: float = 0.0
+    total_seconds: float = 0.0
+    finding_count: int = 0
+    infrastructure_error_count: int = 0
+
+    def summary(self) -> str:
+        return (
+            f"source_design_summary mode={self.mode} sources={self.source_count} "
+            f"contexts={self.context_count} tidy_processes={self.tidy_process_count} "
+            f"query_processes={self.query_process_count} jobs={self.configured_workers} "
+            f"peak_workers={self.peak_workers} context_seconds={self.context_discovery_seconds:.3f} "
+            f"tidy_seconds={self.tidy_seconds:.3f} query_seconds={self.query_seconds:.3f} "
+            f"dead_code_seconds={self.dead_code_seconds:.3f} total_seconds={self.total_seconds:.3f} "
+            f"findings={self.finding_count} infrastructure_errors={self.infrastructure_error_count}"
+        )
 
 
 def llvm_tool(name: str) -> Path:
@@ -302,6 +355,30 @@ def compile_contexts(repo: Path, source: Path, rows: list[CompileRow]) -> list[C
     return sorted(contexts.values(), key=lambda context: (context.configuration, context.project))
 
 
+def enumerate_work_items(
+    repo: Path,
+    sources: list[Path],
+    rows: list[CompileRow],
+    context_loader=compile_contexts,
+) -> list[SourceDesignWorkItem]:
+    """Return immutable source/context identities without launching LLVM."""
+    unique: dict[WorkItemIdentity, SourceDesignWorkItem] = {}
+    for source in sources:
+        resolved_source = source.resolve()
+        for context in context_loader(repo, resolved_source, rows):
+            work_item = SourceDesignWorkItem(
+                resolved_source,
+                context.project,
+                context.configuration,
+                context.arguments,
+            )
+            unique[work_item.identity(repo)] = work_item
+
+    # Invariant: scheduling may change later, but admission identity and its
+    # canonical order do not depend on caller order or duplicated contexts.
+    return [unique[identity] for identity in sorted(unique)]
+
+
 def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, cwd=cwd, text=True, capture_output=True, encoding="utf-8", errors="replace")
 
@@ -354,24 +431,81 @@ def clang_query_findings(
     return findings
 
 
+def measured_tidy_findings(
+    repo: Path,
+    source: Path,
+    tidy: Path,
+    arguments: tuple[str, ...],
+    measurements: SourceDesignMeasurements,
+) -> str:
+    started = time.perf_counter()
+    measurements.tidy_process_count += 1
+    measurements.peak_workers = max(measurements.peak_workers, 1)
+    try:
+        return clang_tidy_findings(repo, source, tidy, arguments)
+    finally:
+        measurements.tidy_seconds += time.perf_counter() - started
+
+
+def measured_query_findings(
+    repo: Path,
+    source: Path,
+    query: Path,
+    arguments: tuple[str, ...],
+    measurements: SourceDesignMeasurements,
+) -> dict[str, list[str]]:
+    started = time.perf_counter()
+    measurements.query_process_count += len(QUERY_COMMANDS)
+    measurements.peak_workers = max(measurements.peak_workers, 1)
+    try:
+        return clang_query_findings(repo, source, query, arguments)
+    finally:
+        measurements.query_seconds += time.perf_counter() - started
+
+
+def inspect_context(
+    repo: Path,
+    source: Path,
+    tidy: Path,
+    query: Path,
+    context: CompileContext,
+    measurements: SourceDesignMeasurements,
+) -> ContextAnalysisResult:
+    prefix = f"{context.project} {context.configuration}"
+    tidy_started = time.perf_counter()
+    tidy_output = measured_tidy_findings(repo, source, tidy, context.arguments, measurements)
+    tidy_seconds = time.perf_counter() - tidy_started
+    diagnostics = [
+        f"{prefix}: {line}" for line in tidy_output.splitlines() if "readability-function-size" in line
+    ]
+
+    query_started = time.perf_counter()
+    query_findings = measured_query_findings(repo, source, query, context.arguments, measurements)
+    query_seconds = time.perf_counter() - query_started
+    for label, locations in query_findings.items():
+        location_text = ", ".join(locations) if locations else str(source)
+        diagnostics.append(f"{prefix}: {label}: {location_text}")
+
+    return ContextAnalysisResult(
+        SourceDesignWorkItem(source, context.project, context.configuration, context.arguments),
+        tuple(diagnostics),
+        tidy_seconds,
+        query_seconds,
+    )
+
+
 def inspect_source(
     repo: Path,
     source: Path,
     tidy: Path,
     query: Path,
     contexts: list[CompileContext],
+    measurements: SourceDesignMeasurements | None = None,
 ) -> list[str]:
+    active_measurements = measurements or SourceDesignMeasurements("focused")
     diagnostics: list[str] = []
     for context in contexts:
-        prefix = f"{context.project} {context.configuration}"
-        tidy_output = clang_tidy_findings(repo, source, tidy, context.arguments)
-        if tidy_output:
-            diagnostics.extend(
-                f"{prefix}: {line}" for line in tidy_output.splitlines() if "readability-function-size" in line
-            )
-        for label, locations in clang_query_findings(repo, source, query, context.arguments).items():
-            location_text = ", ".join(locations) if locations else str(source)
-            diagnostics.append(f"{prefix}: {label}: {location_text}")
+        diagnostics.extend(inspect_context(repo, source, tidy, query, context, active_measurements).diagnostics)
     return diagnostics
 
 
@@ -603,7 +737,104 @@ def prove_compile_contexts(repo: Path) -> None:
         raise AssertionError("header contexts did not preserve distinct first-party consumer projects")
 
 
-def self_test(repo: Path, tidy: Path, query: Path, clang_cl: Path, linker: Path) -> None:
+def prove_work_item_enumeration(repo: Path) -> None:
+    """Pin source/context identity, ordering, and deduplication without LLVM."""
+    header = repo / "SkullbonezSource/Core/SourceDesignWorkItemProbe.h"
+    source = repo / "SkullbonezSource/Core/SourceDesignWorkItemProbe.cpp"
+    common_arguments = tuple(compile_arguments(repo))
+    contexts = {
+        header.name: [
+            CompileContext("SKULLBONEZ_TESTS.vcxproj", "Profile|x64", common_arguments + ("-DHEADER_TEST",)),
+            CompileContext("SKULLBONEZ_CORE.vcxproj", "Debug|x64", common_arguments + ("-DHEADER_CORE",)),
+            CompileContext("SKULLBONEZ_TESTS.vcxproj", "Profile|x64", common_arguments + ("-DHEADER_TEST",)),
+        ],
+        source.name: [
+            CompileContext("SKULLBONEZ_CORE.vcxproj", "Profile|x64", common_arguments + ("-DSOURCE_B",)),
+            CompileContext("SKULLBONEZ_CORE.vcxproj", "Automation|x64", common_arguments + ("-DSOURCE_AUTO",)),
+            CompileContext("SKULLBONEZ_CORE.vcxproj", "Profile|x64", common_arguments + ("-DSOURCE_A",)),
+            CompileContext("SKULLBONEZ_CORE.vcxproj", "Profile|x64", common_arguments + ("-DSOURCE_A",)),
+        ],
+    }
+
+    def fixture_contexts(_repo: Path, fixture_source: Path, _rows: list[CompileRow]) -> list[CompileContext]:
+        return contexts[fixture_source.name]
+
+    work_items = enumerate_work_items(repo, [source, header, source], [], fixture_contexts)
+    expected = sorted(
+        {
+            (
+                "skullbonezsource/core/sourcedesignworkitemprobe.h",
+                "SKULLBONEZ_TESTS.vcxproj",
+                "Profile|x64",
+                common_arguments + ("-DHEADER_TEST",),
+            ),
+            (
+                "skullbonezsource/core/sourcedesignworkitemprobe.h",
+                "SKULLBONEZ_CORE.vcxproj",
+                "Debug|x64",
+                common_arguments + ("-DHEADER_CORE",),
+            ),
+            (
+                "skullbonezsource/core/sourcedesignworkitemprobe.cpp",
+                "SKULLBONEZ_CORE.vcxproj",
+                "Automation|x64",
+                common_arguments + ("-DSOURCE_AUTO",),
+            ),
+            (
+                "skullbonezsource/core/sourcedesignworkitemprobe.cpp",
+                "SKULLBONEZ_CORE.vcxproj",
+                "Profile|x64",
+                common_arguments + ("-DSOURCE_A",),
+            ),
+            (
+                "skullbonezsource/core/sourcedesignworkitemprobe.cpp",
+                "SKULLBONEZ_CORE.vcxproj",
+                "Profile|x64",
+                common_arguments + ("-DSOURCE_B",),
+            ),
+        }
+    )
+    actual = [work_item.identity(repo) for work_item in work_items]
+    if actual != expected:
+        raise AssertionError(f"work-item identity ordering or deduplication changed: actual={actual}")
+    try:
+        work_items[0].project = "mutated"  # type: ignore[misc]
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("work-item identity is mutable")
+
+    summary = SourceDesignMeasurements(
+        "fixture",
+        source_count=2,
+        context_count=5,
+        tidy_process_count=5,
+        query_process_count=20,
+        peak_workers=1,
+    ).summary()
+    if "\n" in summary or not all(
+        token in summary
+        for token in (
+            "mode=fixture",
+            "sources=2",
+            "contexts=5",
+            "tidy_processes=5",
+            "query_processes=20",
+            "findings=0",
+            "infrastructure_errors=0",
+        )
+    ):
+        raise AssertionError(f"source-design summary is incomplete or unbounded: {summary!r}")
+
+
+def self_test(
+    repo: Path,
+    tidy: Path,
+    query: Path,
+    clang_cl: Path,
+    linker: Path,
+    measurements: SourceDesignMeasurements,
+) -> None:
     fixtures = {
         "wide.cpp": (
             "struct BodyStore{}; struct ColliderStore{}; struct Settings{};\n"
@@ -627,6 +858,11 @@ def self_test(repo: Path, tidy: Path, query: Path, clang_cl: Path, linker: Path)
         "clean.cpp": "struct Values{int a;int b;}; int Read(const Values& v){return v.a+v.b;} int Sum(int a,int b){return a+b;}\n",
         "large.cpp": "int Large(int value) {\n" + "value += 1;\n" * 401 + "return value;\n}\n",
     }
+    measurements.source_count = len(fixtures)
+    measurements.context_count = len(fixtures)
+    context_started = time.perf_counter()
+    prove_work_item_enumeration(repo)
+    measurements.context_discovery_seconds += time.perf_counter() - context_started
     with tempfile.TemporaryDirectory(prefix="skore-source-design-") as temporary:
         root = Path(temporary)
         paths: dict[str, Path] = {}
@@ -635,33 +871,45 @@ def self_test(repo: Path, tidy: Path, query: Path, clang_cl: Path, linker: Path)
             path.write_text(text, encoding="utf-8", newline="\n")
             paths[name] = path
 
-        wide = clang_tidy_findings(repo, paths["wide.cpp"], tidy)
+        wide = measured_tidy_findings(repo, paths["wide.cpp"], tidy, tuple(compile_arguments(repo)), measurements)
         if "12 parameters" not in wide:
             raise AssertionError("12-parameter negative control was not rejected")
-        if "wide declaration" not in clang_query_findings(repo, paths["wide.cpp"], query):
+        if "wide declaration" not in measured_query_findings(
+            repo, paths["wide.cpp"], query, tuple(compile_arguments(repo)), measurements
+        ):
             raise AssertionError("12-parameter syntax-tree negative control was not rejected")
-        nested = clang_tidy_findings(repo, paths["nested.cpp"], tidy)
+        nested = measured_tidy_findings(
+            repo, paths["nested.cpp"], tidy, tuple(compile_arguments(repo)), measurements
+        )
         if "nesting level" not in nested:
             raise AssertionError("nested once-called helper negative control was not rejected")
-        large = clang_tidy_findings(repo, paths["large.cpp"], tidy)
+        large = measured_tidy_findings(repo, paths["large.cpp"], tidy, tuple(compile_arguments(repo)), measurements)
         if "lines including whitespace and comments (threshold 400)" not in large:
             raise AssertionError("400-line function negative control was not rejected")
 
-        struct_findings = clang_query_findings(repo, paths["struct.cpp"], query)
+        struct_findings = measured_query_findings(
+            repo, paths["struct.cpp"], query, tuple(compile_arguments(repo)), measurements
+        )
         if "parameter struct unpack" not in struct_findings:
             raise AssertionError("parameter-struct entry-unpack negative control was not rejected")
-        local_findings = clang_query_findings(repo, paths["locals.cpp"], query)
+        local_findings = measured_query_findings(
+            repo, paths["locals.cpp"], query, tuple(compile_arguments(repo)), measurements
+        )
         if "member-prefixed local" not in local_findings or "pure parameter alias" not in local_findings:
             raise AssertionError("local-code negative controls were not rejected")
         fixture_context = [CompileContext("fixture", "default", tuple(compile_arguments(repo)))]
-        if inspect_source(repo, paths["clean.cpp"], tidy, query, fixture_context):
+        if inspect_source(repo, paths["clean.cpp"], tidy, query, fixture_context, measurements):
             raise AssertionError("clean compiler fixture produced a finding")
 
+    dead_code_started = time.perf_counter()
     prove_dead_code_elimination(clang_cl, linker)
     if project_dead_code_findings(repo):
         raise AssertionError("repository project dead-code settings do not pass their positive control")
     prove_project_dead_code_evaluation(repo)
+    measurements.dead_code_seconds += time.perf_counter() - dead_code_started
+    context_started = time.perf_counter()
     prove_compile_contexts(repo)
+    measurements.context_discovery_seconds += time.perf_counter() - context_started
     print("PASS: compiler-backed source-design and linker negative controls")
 
 
@@ -676,31 +924,54 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     repo = args.repo.resolve()
+    measurements = SourceDesignMeasurements("self-test" if args.self_test else "live")
+    total_started = time.perf_counter()
+    exit_code = 2
     try:
         tidy = llvm_tool("clang-tidy")
         query = llvm_tool("clang-query")
         clang_cl = msvc_tool("cl")
         linker = msvc_tool("link")
         if args.self_test:
-            self_test(repo, tidy, query, clang_cl, linker)
-            return 0
+            self_test(repo, tidy, query, clang_cl, linker, measurements)
+            exit_code = 0
+        else:
+            context_started = time.perf_counter()
+            sources = (
+                [path if path.is_absolute() else repo / path for path in args.files]
+                if args.files
+                else changed_sources(repo)
+            )
+            rows, _ = scan_repository(repo, FIRST_PARTY_PROJECTS)
+            source_contexts = [(source, compile_contexts(repo, source, rows)) for source in sources]
+            measurements.source_count = len(sources)
+            measurements.context_count = sum(len(contexts) for _, contexts in source_contexts)
+            measurements.context_discovery_seconds += time.perf_counter() - context_started
 
-        sources = [path if path.is_absolute() else repo / path for path in args.files] if args.files else changed_sources(repo)
-        rows, _ = scan_repository(repo, FIRST_PARTY_PROJECTS)
-        diagnostics = project_dead_code_findings(repo)
-        for source in sources:
-            for finding in inspect_source(repo, source, tidy, query, compile_contexts(repo, source, rows)):
-                diagnostics.append(f"{source.relative_to(repo).as_posix()}: {finding}")
-        if diagnostics:
-            print("FAIL: changed C++ source has design findings:", file=sys.stderr)
-            for diagnostic in diagnostics:
-                print(f"  {diagnostic}", file=sys.stderr)
-            return 1
-        print(f"PASS: compiler-backed source-design check files={len(sources)}")
-        return 0
+            dead_code_started = time.perf_counter()
+            diagnostics = project_dead_code_findings(repo)
+            measurements.dead_code_seconds += time.perf_counter() - dead_code_started
+            for source, contexts in source_contexts:
+                for finding in inspect_source(repo, source, tidy, query, contexts, measurements):
+                    diagnostics.append(f"{source.relative_to(repo).as_posix()}: {finding}")
+            measurements.finding_count = len(diagnostics)
+            if diagnostics:
+                print("FAIL: changed C++ source has design findings:", file=sys.stderr)
+                for diagnostic in diagnostics:
+                    print(f"  {diagnostic}", file=sys.stderr)
+                exit_code = 1
+            else:
+                print(f"PASS: compiler-backed source-design check files={len(sources)}")
+                exit_code = 0
+
     except (FileNotFoundError, RuntimeError, AssertionError) as error:
+        measurements.infrastructure_error_count += 1
         print(f"ERROR: {error}", file=sys.stderr)
-        return 2
+        exit_code = 2
+    finally:
+        measurements.total_seconds = time.perf_counter() - total_started
+        print(measurements.summary())
+    return exit_code
 
 
 if __name__ == "__main__":

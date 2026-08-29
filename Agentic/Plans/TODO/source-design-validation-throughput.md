@@ -1,7 +1,7 @@
 # Source Design Validation Throughput
 
 Date: 2026-08-29
-Status: Active by owner direction on 2026-08-30. 0/5 phases complete
+Status: Active by owner direction on 2026-08-30. 1/5 phases complete
 Impact area: validation tooling and mandatory Windows CPU CI
 Owner: Validation tooling
 Priority: Second active plan
@@ -195,18 +195,18 @@ diagnostic only and never changes pass/fail.
 
 ## Phases
 
-### SDT0 - Pin reference selection, findings, and timings
+### SDT0 - Pin reference selection, findings, and timings (complete 2026-08-30)
 
-- [ ] Add focused self-test seams that enumerate immutable work-item identities
+- [x] Add focused self-test seams that enumerate immutable work-item identities
   without launching LLVM. Prove ordering and deduplication across source files,
   headers, projects, configurations, and compiler arguments.
-- [ ] Record the exact 79-file/623-context workload derived from pull request
+- [x] Record the exact 79-file/623-context workload derived from pull request
   162 at `26baa61e8` as benchmark evidence generated from Git, not as a permanent
   source-coordinate allowlist.
-- [ ] Add timing/result value types and a bounded summary. Confirm that
+- [x] Add timing/result value types and a bounded summary. Confirm that
   instrumentation does not change existing stdout diagnostics or exit codes
   except for the deliberate appended summary.
-- [ ] Run the existing serial checker twice on a clean representative diff and
+- [x] Run the existing serial checker twice on a clean representative diff and
   retain source count, context count, process count, findings, elapsed time, and
   peak memory as the before measurement.
 
@@ -333,7 +333,7 @@ complete CPU matrix. Do not run coverage separately after
   and the complete mandatory Windows CPU job within 30 minutes.
 - [ ] Coverage, tests, build warnings, Physics evidence, and golden files are
   unchanged by the validation-tool optimization.
-- [ ] Independent review finds no false pass, nondeterministic result ordering,
+- [ ] Independent review finds no lost finding, nondeterministic result ordering,
   unbounded child-process fan-out, or lost diagnostic.
 
 ## Reactivation Condition
