@@ -3153,6 +3153,16 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
     CHECK( DeleteFileA( scriptPath ) != 0 );
 }
 
+TEST_CASE( "Recorded interaction playback owns free-running presentation pacing" )
+{
+    using SkullbonezCore::Runtime::RecordedInteractionRequiresFreeRunningPresent;
+
+    CHECK_FALSE( RecordedInteractionRequiresFreeRunningPresent( false, false ) );
+    CHECK_FALSE( RecordedInteractionRequiresFreeRunningPresent( true, false ) );
+    CHECK_FALSE( RecordedInteractionRequiresFreeRunningPresent( false, true ) );
+    CHECK( RecordedInteractionRequiresFreeRunningPresent( true, true ) );
+}
+
 TEST_CASE( "Interaction automation recovers malformed JSON and preserves equal-frame order" )
 {
     SkullbonezCore::Core::SbDiagnosticStore automationDiagnostics;

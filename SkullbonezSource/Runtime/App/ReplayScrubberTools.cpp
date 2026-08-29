@@ -1955,13 +1955,14 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
     const auto setCursor = [&]( float normalized )
     {
         const bool loaded = HasLoadedPresentation();
-
-        const RunReplayTrack track = loaded ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
-        const std::size_t retainedCount = loaded ? m_timeline.LoadedPresentation().samples.size()
-                                                 : m_timeline.Solver().GetStats().sampleCount;
-
         const bool predictionAvailable = !loaded && ( m_predictionOwner.ActiveFrames().size() >= 2u ||
                                                       m_predictionOwner.State().BuildPrefixShouldBePresented() );
+        const RunReplayTrack track = loaded || !predictionAvailable ? RunReplayTrack::Presentation
+                                                                     : RunReplayTrack::Solver;
+        const std::size_t retainedCount = track == RunReplayTrack::Presentation
+                                              ? ( loaded ? m_timeline.LoadedPresentation().samples.size()
+                                                         : m_timeline.Presentation().GetStats().sampleCount )
+                                              : m_timeline.Solver().GetStats().sampleCount;
 
         if ( retainedCount < 2u && !predictionAvailable )
         {
@@ -2332,8 +2333,8 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
 
     scrubber = m_scrubberOwner.View();
 
-    if ( scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld ||
-         m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None )
+    if ( ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld,
+                                           m_visualPresentation.CameraView().focusKind ) )
     {
         hostAction = ReplayInspectionCameraAction::Enter;
     }

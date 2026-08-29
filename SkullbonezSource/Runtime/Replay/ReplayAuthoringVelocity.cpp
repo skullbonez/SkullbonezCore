@@ -470,9 +470,8 @@ ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( con
                 if ( scrubberOwner.SetLiveAdvanceHeld( true ) )
                 {
                     const ReplayScrubberView scrubber = scrubberOwner.View();
-                    const bool useInspectionCamera = scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld ||
-                                                     presentationOwner.CameraView().focusKind !=
-                                                         RunReplayCameraFocusKind::None;
+                    const bool useInspectionCamera = ReplayScrubNeedsInspectionCamera(
+                        scrubber.liveAdvanceHeld, presentationOwner.CameraView().focusKind );
 
                     result.cameraAction = useInspectionCamera ? ReplayKeyboardVelocityEditCameraAction::EnterInspection
                                                               : ReplayKeyboardVelocityEditCameraAction::ExitInspection;
@@ -544,8 +543,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
     {
         const ReplayScrubberView scrubber = scrubberOwner.View();
 
-        return scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld ||
-               presentationOwner.CameraView().focusKind != RunReplayCameraFocusKind::None;
+        return ReplayScrubNeedsInspectionCamera( scrubber.liveAdvanceHeld, presentationOwner.CameraView().focusKind );
     };
 
     const Vector3& rayOrigin = pointerRay.rayOrigin;
@@ -821,8 +819,8 @@ bool ReplayAuthoring::ApplyVelocityEditTargetPick( ReplayPresentation& presentat
     {
         outResult.enterInteractive = true;
         const ReplayScrubberView scrubber = scrubberOwner.View();
-        const bool shouldUseInspectionCamera = scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld ||
-                                               presentationOwner.CameraView().focusKind != RunReplayCameraFocusKind::None;
+        const bool shouldUseInspectionCamera = ReplayScrubNeedsInspectionCamera(
+            scrubber.liveAdvanceHeld, presentationOwner.CameraView().focusKind );
 
         if ( scrubberOwner.SetLiveAdvanceHeld( true ) && shouldUseInspectionCamera )
         {

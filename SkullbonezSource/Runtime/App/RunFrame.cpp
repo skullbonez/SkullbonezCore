@@ -959,6 +959,16 @@ void Run::PresentFramePhase()
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
 
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+        if ( RecordedInteractionRequiresFreeRunningPresent( m_interactionAutomation.enabled,
+                                                            m_interactionAutomation.recordedManifest ) )
+        {
+            // Invariant: every recorded input turn is still rendered and traced once;
+            // only display-refresh pacing is removed from command-line playback.
+            Renderer().RenderDevice().SetVsyncEnabled( false );
+        }
+#endif
+
         // Invariant: the production graph has one declaration-only Present edge;
         // finalize it before the swap-chain owner submits this frame.
         Renderer().FinalizeFrameGraph();

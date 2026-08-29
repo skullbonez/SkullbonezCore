@@ -70,7 +70,10 @@ struct ReplayMemoryPolicyRequest
     int budgetMiB = -1;
 };
 
-inline constexpr int REPLAY_MEMORY_POLICY_MIN_SECONDS = 1;
+// Invariant: automatic capture always keeps enough history for a useful rewind.
+// The registered replay reserve owner remains the final byte ceiling.
+inline constexpr int REPLAY_MEMORY_POLICY_MIN_SECONDS = 20;
+inline constexpr int REPLAY_SOLVER_MEMORY_POLICY_MIN_SECONDS = 1;
 inline constexpr int REPLAY_MEMORY_POLICY_MAX_SECONDS = 600;
 namespace ReplayTimelineOperations
 {
@@ -149,8 +152,8 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
         policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds, 30 );
     }
 
-    policy.solverRetentionSeconds = std::clamp( policy.solverRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS,
-                                                REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.solverRetentionSeconds = std::clamp( policy.solverRetentionSeconds, REPLAY_SOLVER_MEMORY_POLICY_MIN_SECONDS,
+                                                 REPLAY_MEMORY_POLICY_MAX_SECONDS );
     policy.presentationRetentionSeconds = std::clamp( policy.presentationRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS,
                                                       REPLAY_MEMORY_POLICY_MAX_SECONDS );
     policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
@@ -176,11 +179,15 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicyForBodyCapacity( ReplayMemory
     const uint64_t retainedBytes = requestedBytes * retainedBudgetNumerator / retainedBudgetDenominator;
     const uint64_t estimatedBytesPerSecond = bodyCapacity * static_cast<uint64_t>( REPLAY_CAPTURE_TICKS_PER_SECOND ) *
                                              estimatedBytesPerBodyTick;
-    const int memoryLimitedSeconds = static_cast<int>(
-        (std::max)( uint64_t { 1u }, retainedBytes / estimatedBytesPerSecond ) );
+    const int solverMemoryLimitedSeconds = static_cast<int>(
+        (std::max)( static_cast<uint64_t>( REPLAY_SOLVER_MEMORY_POLICY_MIN_SECONDS ),
+                    retainedBytes / estimatedBytesPerSecond ) );
+    const int presentationMemoryLimitedSeconds = (std::max)( REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                              solverMemoryLimitedSeconds );
 
-    policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds, memoryLimitedSeconds );
-    policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, memoryLimitedSeconds );
+    policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds,
+                                                       presentationMemoryLimitedSeconds );
+    policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, solverMemoryLimitedSeconds );
     policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
     policy.budgetClamped = policy.solverWindowReduced ||
                            policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;

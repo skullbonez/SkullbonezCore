@@ -273,13 +273,13 @@ TEST_CASE( "ReplayRuntime: replay memory policy trims solver history before pres
 
     const ReplayMemoryPolicy generatedDemoPolicy = ResolveReplayMemoryPolicyForBodyCapacity( defaultPolicy, 300 );
     CHECK( generatedDemoPolicy.requestedRetentionSeconds == 60 );
-    CHECK( generatedDemoPolicy.presentationRetentionSeconds == 5 );
+    CHECK( generatedDemoPolicy.presentationRetentionSeconds == 20 );
     CHECK( generatedDemoPolicy.solverRetentionSeconds == 5 );
     CHECK( generatedDemoPolicy.budgetClamped );
     CHECK( generatedDemoPolicy.solverWindowReduced );
 
     const ReplayMemoryPolicy maximumScenePolicy = ResolveReplayMemoryPolicyForBodyCapacity( defaultPolicy, 2048 );
-    CHECK( maximumScenePolicy.presentationRetentionSeconds == 1 );
+    CHECK( maximumScenePolicy.presentationRetentionSeconds == 20 );
     CHECK( maximumScenePolicy.solverRetentionSeconds == 1 );
     CHECK( maximumScenePolicy.budgetClamped );
 
@@ -435,8 +435,8 @@ TEST_CASE( "Coverage floor contract: replay timeline applies retention and seque
     const ReplayRecordingConfigResult configured = timeline->ConfigureRecording( true, 12, nullptr, 2 );
     CHECK( timeline->RecordingConfigured() );
     CHECK( timeline->RecordingEnabled() );
-    CHECK( configured.presentationConfig.retentionSeconds == 12 );
-    CHECK( configured.solverConfig.retentionSeconds == 12 );
+    CHECK( configured.presentationConfig.retentionSeconds == 20 );
+    CHECK( configured.solverConfig.retentionSeconds == 20 );
     CHECK( configured.eventStats.enabled );
 
     timeline->Reset( "coverage-timeline" );
