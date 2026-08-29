@@ -156,10 +156,6 @@ jobs:
       - name: Run mandatory hosted CPU lane
         env:
           SKORE_SIZE_DIFF_BASE: ${{ github.event.pull_request.base.sha || '' }}
-          # OpenCppCoverage 0.9.9 uses the v142-era DIA reader. Keep only its
-          # Debug measurement build on the image's installed v142 toolset;
-          # ordinary validation remains on the repository's current compiler.
-          SKULLBONEZ_COVERAGE_PLATFORM_TOOLSET: v142
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"

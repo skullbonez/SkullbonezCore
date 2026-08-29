@@ -60,27 +60,17 @@ if errorlevel 1 exit /b 99
 
 set "TOOLSET_ARG="
 set "FALLBACK_TOOLSET=v143"
-if not "%SKULLBONEZ_COVERAGE_PLATFORM_TOOLSET%"=="" (
-    call :find_toolset "%SKULLBONEZ_COVERAGE_PLATFORM_TOOLSET%"
+findstr /C:"<PlatformToolset>v145</PlatformToolset>" "%REPO%\SKULLBONEZ_TESTS.vcxproj" >nul
+if not errorlevel 1 (
+    call :find_toolset v145
     if errorlevel 1 (
-        echo ERROR: Requested coverage platform toolset %SKULLBONEZ_COVERAGE_PLATFORM_TOOLSET% not found.
-        exit /b 99
-    )
-    set "TOOLSET_ARG=/p:PlatformToolset=%SKULLBONEZ_COVERAGE_PLATFORM_TOOLSET%"
-    echo INFO: Coverage build uses requested platform toolset %SKULLBONEZ_COVERAGE_PLATFORM_TOOLSET%.
-) else (
-    findstr /C:"<PlatformToolset>v145</PlatformToolset>" "%REPO%\SKULLBONEZ_TESTS.vcxproj" >nul
-    if not errorlevel 1 (
-        call :find_toolset v145
+        call :find_toolset %FALLBACK_TOOLSET%
         if errorlevel 1 (
-            call :find_toolset %FALLBACK_TOOLSET%
-            if errorlevel 1 (
-                echo ERROR: Platform toolset v145 not found, and fallback %FALLBACK_TOOLSET% is not installed.
-                exit /b 99
-            )
-            set "TOOLSET_ARG=/p:PlatformToolset=%FALLBACK_TOOLSET%"
-            echo INFO: Platform toolset v145 not found; falling back to VS2022 toolset %FALLBACK_TOOLSET%.
+            echo ERROR: Platform toolset v145 not found, and fallback %FALLBACK_TOOLSET% is not installed.
+            exit /b 99
         )
+        set "TOOLSET_ARG=/p:PlatformToolset=%FALLBACK_TOOLSET%"
+        echo INFO: Platform toolset v145 not found; falling back to VS2022 toolset %FALLBACK_TOOLSET%.
     )
 )
 
