@@ -1,13 +1,12 @@
 # Runtime Reserve Allocation Transaction
 
 Date: 2026-08-29
-Status: WNF — owner requested plan only; restore to `TODO/` only by explicit
-owner decision. 0/4 tasks complete.
+Status: Active by owner direction on 2026-08-30. 0/4 tasks complete.
 Impact area: Core allocation policy, Physics capacity commits, Replay retained
 growth, Prediction retained growth, focused allocation tests, and cumulative
 allocation validation.
 Owner: Core allocation policy owner
-Priority: Parked readability and misuse-resistance follow-up
+Priority: First active plan
 Commit name: `RESERVE_TRANSACTION`
 
 ## Owner Direction
@@ -17,9 +16,9 @@ sequence with one composite transaction. Keep `RuntimeReserveAllocator` generic:
 this plan does not introduce owner-specific pools, allocators, or container
 types.
 
-This plan is parked under `WNF/`. It grants no production-edit, baseline, or
-validation-policy authority until the owner moves it to `TODO/` and registers
-it in `Agentic/Plans/MASTER-PLAN.md`.
+The owner reactivated this plan on 2026-08-30, directed it to run first on
+`codex/replay-capture-bugfixes`, and authorized registration in
+`Agentic/Plans/MASTER-PLAN.md`.
 
 ## Problem
 
@@ -317,7 +316,5 @@ The plan is complete only when all of the following are true:
 
 ## Reactivation Condition
 
-Move this file from `WNF/` to `TODO/` and register it in
-`Agentic/Plans/MASTER-PLAN.md` only when the owner explicitly asks to implement
-the composite reserve-allocation transaction. Until then, agents must ignore it
-for plan selection and make no production changes from it.
+Satisfied by explicit owner direction on 2026-08-30. The plan is active under
+`TODO/` and registered in `Agentic/Plans/MASTER-PLAN.md`.

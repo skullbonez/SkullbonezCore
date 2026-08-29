@@ -1,9 +1,15 @@
 # MASTER PLAN
 
-Date: 2026-08-28
-Status: No active plan; 126/126 implementation tasks complete; bug ledger 126/126 fixed
+Date: 2026-08-30
+Status: Active plan; 126/135 tasks complete; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- Runtime Reserve Allocation Transaction and Source Design Validation
+  Throughput were reactivated by explicit owner direction on 2026-08-30 for
+  sequential implementation on `codex/replay-capture-bugfixes`.
+  `RESERVE_TRANSACTION` RAT0-RAT3 runs first; `SOURCE_DESIGN_THROUGHPUT`
+  SDT0-SDT4 begins only after reserve-transaction closure.
 
 - Governance Simplification And Scar Removal completed after Recorded
   Interaction Playback Cursor RIC3. Its five implementation phases
@@ -317,7 +323,10 @@ Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
-No plan is active.
+| Plan | Status | Phases | File |
+|---|---|---:|---|
+| Runtime Reserve Allocation Transaction | Active by owner direction 2026-08-30 | 0/4 | `TODO/runtime-reserve-allocation-transaction.md` |
+| Source Design Validation Throughput | Queued after `RESERVE_TRANSACTION` | 0/5 | `TODO/source-design-validation-throughput.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -350,6 +359,10 @@ One detail in that table is recorded:
 
 ## Binding Order
 
+`RESERVE_TRANSACTION` RAT0-RAT3 executes first in strict internal order.
+`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 follows in strict internal order after
+RAT3 closes. Both plans stay on `codex/replay-capture-bugfixes`.
+
 `GOVERNANCE_SIMPLIFICATION` phases 1-5 are implemented and in terminal
 re-review. `RECORDED_CURSOR` RIC0-RIC3 is complete, and the bug ledger has no
 unresolved row.
@@ -379,7 +392,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-126/126 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
+126/135 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen

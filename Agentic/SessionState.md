@@ -1,8 +1,23 @@
 # Session State
 
-Date: 2026-08-28
-Branch: `nightrunner-25th-AUG-26`
-Status: No active plan; 126/126 implementation tasks complete; bug ledger 126/126 fixed
+Date: 2026-08-30
+Branch: `codex/replay-capture-bugfixes`
+Status: Runtime Reserve Allocation Transaction active; 126/135 implementation
+tasks complete; bug ledger 126/126 fixed
+
+## Current State
+
+The owner reactivated two WNF plans for sequential implementation on the
+current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is active at 0/4;
+`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is queued at 0/5 and begins only after
+RAT3 closes. The pre-existing uncommitted Physics solver experiment, its
+focused test, two sleep scenes, and local investigation report remain outside
+both plans and must not be staged or reformatted.
+
+The ignored work ledger retains an unfinished 2026-08-28 goal from another
+Codex task (`GOV1`, `finding-fix-01`). The orchestrator refused to start a new
+goal row, so the current run preserves that ledger unchanged and records its
+goal/task usage through the active Codex goal instead.
 
 ## Rendering Bug Ledger Closure (2026-08-26)
 
@@ -920,8 +935,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-No plan is active. `RAGDOLL_PHYSICS` FP5-FP9 and the other WNF plans remain
-parked or backlogged and are not selectable without a new owner decision.
+Implement `RESERVE_TRANSACTION` RAT0, adding the composite Core allocation
+transaction and focused negative controls. Continue RAT1-RAT3 in order, then
+implement `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 in order on the same branch.
 
 ## Blockers
 

@@ -1,10 +1,11 @@
 # Source Design Validation Throughput
 
 Date: 2026-08-29
-Status: WNF - owner requested plan only; 0/5 phases complete
+Status: Active by owner direction on 2026-08-30; queued after
+`RESERVE_TRANSACTION`. 0/5 phases complete
 Impact area: validation tooling and mandatory Windows CPU CI
 Owner: Validation tooling
-Priority: Parked until explicitly moved out of `WNF/`
+Priority: Second active plan
 Commit name: `SOURCE_DESIGN_THROUGHPUT`
 
 ## Owner Direction
@@ -13,9 +14,8 @@ Reduce the mandatory Windows CPU lane's wall time without weakening the
 compiler-backed source-design rules, changing the supported toolchain, or
 hiding work in a differently named job.
 
-This file is parked under `WNF/`. Do not register it in `MASTER-PLAN.md`,
-`WORK_LEDGER.csv`, or `SessionState.md`, and do not treat it as implementation
-authority until the owner explicitly moves it to `TODO/`.
+The owner reactivated this plan on 2026-08-30 and directed it to run after
+`RESERVE_TRANSACTION` on `codex/replay-capture-bugfixes`.
 
 ## Measured Problem
 
@@ -339,9 +339,8 @@ complete CPU matrix. Do not run coverage separately after
 
 ## Reactivation Condition
 
-Move this file from `WNF/` to `TODO/` only when the owner explicitly selects
-source-design validation throughput for implementation. At activation, refresh
-the workflow timings, changed-source/context counts, LLVM version, runner image,
-and current checker behavior before editing. If the current source-design phase
+Satisfied by explicit owner direction on 2026-08-30. Before source edits,
+refresh the workflow timings, changed-source/context counts, LLVM version,
+runner image, and current checker behavior. If the current source-design phase
 already satisfies the target, close or replace this plan instead of implementing
 obsolete optimization work.
