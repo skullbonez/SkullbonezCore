@@ -211,7 +211,7 @@
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h",
       "patterns": [
         "{\"symbol\":\"ReserveReplayPredictionFramePayloadVectors\",\"before\":[\"for ( std::size_t i = 0; i < requestedFrameCount; ++i )\",\"{\"],\"statement\":\"( frames[i].*member ).reserve( requestedCapacityPerFrame );\",\"after\":[\"}\",\"return true;\"]}",
-        "{\"symbol\":\"ReserveReplayPredictionVector\",\"before\":[\"SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope\",\"growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"values.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= values.capacity();\",\"}\"]}"
+        "{\"symbol\":\"ReserveReplayPredictionVector\",\"before\":[\"SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope\",\"allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"values.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= values.capacity();\",\"}\"]}"
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
@@ -303,9 +303,9 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
       "patterns": [
-        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsureContactSegments\",\"before\":[\"Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"m_contactSegments[m_contactSegmentCount] = std::make_unique<ContactSegment>();\",\"after\":[\"++m_contactSegmentCount;\",\"RefreshLifetimePeak();\"]}",
-        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsureFrameSegments\",\"before\":[\"Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"m_frameSegments[m_frameSegmentCount] = std::make_unique<FrameSegment>();\",\"after\":[\"++m_frameSegmentCount;\",\"RefreshLifetimePeak();\"]}",
-        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsurePipelineSegments\",\"before\":[\"Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"m_pipelineSegments[m_pipelineSegmentCount] = std::make_unique<PipelineSegment>();\",\"after\":[\"++m_pipelineSegmentCount;\",\"RefreshLifetimePeak();\"]}"
+        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsureContactSegments\",\"before\":[\"Core::Allocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"m_contactSegments[m_contactSegmentCount] = std::make_unique<ContactSegment>();\",\"after\":[\"++m_contactSegmentCount;\",\"RefreshLifetimePeak();\"]}",
+        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsureFrameSegments\",\"before\":[\"Core::Allocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"m_frameSegments[m_frameSegmentCount] = std::make_unique<FrameSegment>();\",\"after\":[\"++m_frameSegmentCount;\",\"RefreshLifetimePeak();\"]}",
+        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsurePipelineSegments\",\"before\":[\"Core::Allocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"m_pipelineSegments[m_pipelineSegmentCount] = std::make_unique<PipelineSegment>();\",\"after\":[\"++m_pipelineSegmentCount;\",\"RefreshLifetimePeak();\"]}"
       ],
       "owner": "ReplayPrediction exact solver-evidence banks",
       "phase": "replay",
@@ -1620,8 +1620,8 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp",
       "patterns": [
-        "{\"symbol\":\"AllocateArchiveCandidates\",\"before\":[\"Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay, result );\",\"prediction = std::make_unique<RunReplayPredictionState>();\"],\"statement\":\"evidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\",\"after\":[\"return prediction && evidence;\",\"}\"]}",
-        "{\"symbol\":\"AllocateArchiveCandidates\",\"before\":[\"Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );\",\"Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"prediction = std::make_unique<RunReplayPredictionState>();\",\"after\":[\"evidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\",\"return prediction && evidence;\"]}",
+        "{\"symbol\":\"AllocateArchiveCandidates\",\"before\":[\"result );\",\"prediction = std::make_unique<RunReplayPredictionState>();\"],\"statement\":\"evidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\",\"after\":[\"return prediction && evidence;\",\"}\"]}",
+        "{\"symbol\":\"AllocateArchiveCandidates\",\"before\":[\"Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, Core::Allocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"prediction = std::make_unique<RunReplayPredictionState>();\",\"after\":[\"evidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\",\"return prediction && evidence;\"]}",
         "{\"symbol\":\"Bytes\",\"before\":[\"return;\",\"}\"],\"statement\":\"m_bytes.insert( m_bytes.end(), bytes.begin(), bytes.end() );\",\"after\":[\"}\",\"std::size_t Size() const noexcept\"]}",
         "{\"symbol\":\"Finish\",\"before\":[\"}\",\"private:\"],\"statement\":\"std::vector<uint8_t> m_bytes;\",\"after\":[\"uint32_t m_schema = REPLAY_PREDICTION_ARCHIVE_SCHEMA;\",\"bool m_overflow = false;\"]}",
         "{\"symbol\":\"LoadLegacyReplayPredictionArchive\",\"before\":[\"record.key.lane = static_cast<ReplayTrajectoryLane>( lane );\",\"record.publishedPointCount = publishedPointCount;\"],\"statement\":\"record.points.resize( pointCount );\",\"after\":[\"for ( ReplayTrajectoryPoint& point : record.points )\",\"{\"]}",
@@ -1892,8 +1892,8 @@
       "path": "SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp",
       "patterns": [
         "{\"symbol\":\"ReplayTrajectoryStore::BeginReplaceRecord\",\"before\":[\"return nullptr;\",\"}\"],\"statement\":\"records.emplace_back();\",\"after\":[\"record = &records.back();\",\"++activeRecordCount;\"]}",
-        "{\"symbol\":\"ReplayTrajectoryStore::ReserveRecordPoints\",\"before\":[\"SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope\",\"growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"record.points.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= record.points.capacity();\",\"}\"]}",
-        "{\"symbol\":\"ReplayTrajectoryStore::ReserveRecords\",\"before\":[\"SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope\",\"growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"records.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= records.capacity();\",\"}\"]}",
+        "{\"symbol\":\"ReplayTrajectoryStore::ReserveRecordPoints\",\"before\":[\"SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope\",\"allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"record.points.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= record.points.capacity();\",\"}\"]}",
+        "{\"symbol\":\"ReplayTrajectoryStore::ReserveRecords\",\"before\":[\"SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope\",\"allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"records.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= records.capacity();\",\"}\"]}",
         "{\"symbol\":\"ReplayTrajectoryStore::TryAppendPoint\",\"before\":[\"return false;\",\"}\"],\"statement\":\"record.points.push_back( point );\",\"after\":[\"return true;\",\"}\"]}"
       ],
       "owner": "Replay static STL storage/growth surface",

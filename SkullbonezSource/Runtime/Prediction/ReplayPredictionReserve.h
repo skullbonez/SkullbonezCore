@@ -160,10 +160,8 @@ bool ReserveReplayPredictionVector( std::vector<T>& values, std::size_t requeste
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
-    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope
-        growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope
+        allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
     values.reserve( requestedCapacity );
     return requestedCapacity <= values.capacity();
 }
@@ -238,10 +236,8 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames, std
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
-    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope
-        growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope
+        allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
 
     for ( std::size_t i = 0; i < requestedFrameCount; ++i )
     {

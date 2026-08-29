@@ -364,11 +364,8 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
-
-    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope
-        growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope
+        allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
 
     records.reserve( requestedCapacity );
     return requestedCapacity <= records.capacity();
@@ -416,11 +413,8 @@ bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
-
-    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope
-        growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope
+        allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
 
     record.points.reserve( requestedCapacity );
     return requestedCapacity <= record.points.capacity();

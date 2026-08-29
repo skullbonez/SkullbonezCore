@@ -227,10 +227,8 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
-    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope
-        growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope
+        allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
 
     if ( replaceDestination )
     {

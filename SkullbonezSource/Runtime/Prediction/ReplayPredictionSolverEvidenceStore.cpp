@@ -353,10 +353,9 @@ bool ReplayPredictionSolverEvidenceStore::EnsureFrameSegments( std::size_t requi
         }
 
         const Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-        Core::Allocation::RuntimeAllocationScope allocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
-        Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-        Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay,
-                                                                 result );
+        Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner,
+                                                                         Core::Allocation::RuntimeReservePhase::Replay,
+                                                                         result );
         m_frameSegments[m_frameSegmentCount] = std::make_unique<FrameSegment>();
         ++m_frameSegmentCount;
         RefreshLifetimePeak();
@@ -389,10 +388,9 @@ bool ReplayPredictionSolverEvidenceStore::EnsureContactSegments( std::size_t req
         }
 
         const Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-        Core::Allocation::RuntimeAllocationScope allocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
-        Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-        Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay,
-                                                                 result );
+        Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner,
+                                                                         Core::Allocation::RuntimeReservePhase::Replay,
+                                                                         result );
         m_contactSegments[m_contactSegmentCount] = std::make_unique<ContactSegment>();
         ++m_contactSegmentCount;
         RefreshLifetimePeak();
@@ -425,10 +423,9 @@ bool ReplayPredictionSolverEvidenceStore::EnsurePipelineSegments( std::size_t re
         }
 
         const Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-        Core::Allocation::RuntimeAllocationScope allocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
-        Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-        Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay,
-                                                                 result );
+        Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner,
+                                                                         Core::Allocation::RuntimeReservePhase::Replay,
+                                                                         result );
         m_pipelineSegments[m_pipelineSegmentCount] = std::make_unique<PipelineSegment>();
         ++m_pipelineSegmentCount;
         RefreshLifetimePeak();

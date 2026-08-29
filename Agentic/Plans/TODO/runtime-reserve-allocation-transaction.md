@@ -217,7 +217,7 @@ Acceptance:
   bytes, failure behavior, and growth-counter order.
 - SceneLoad and Capture allocations retain their existing attribution.
 
-### RAT2 — Migrate Prediction allocation owners and remove production ceremony
+### RAT2 — Migrate Prediction allocation owners and remove production ceremony (complete 2026-08-30)
 
 - Replace direct three-scope assembly in prediction reserve helpers,
   trajectory storage, archive candidate construction, and all three solver-

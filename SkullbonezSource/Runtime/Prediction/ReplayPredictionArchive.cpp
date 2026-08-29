@@ -1503,9 +1503,8 @@ bool AllocateArchiveCandidates( std::unique_ptr<RunReplayPredictionState>& predi
 
     const Core::Allocation::RuntimeReserveOwnerHandle
         owner = ReplayPredictionReserveOperations::ReplayPredictionReserveOwner();
-    Core::Allocation::RuntimeAllocationScope allocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
-    Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-    Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay, result );
+    Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, Core::Allocation::RuntimeReservePhase::Replay,
+                                                                     result );
     prediction = std::make_unique<RunReplayPredictionState>();
     evidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();
     return prediction && evidence;

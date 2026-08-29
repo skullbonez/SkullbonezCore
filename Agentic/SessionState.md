@@ -2,13 +2,13 @@
 
 Date: 2026-08-30
 Branch: `codex/replay-capture-bugfixes`
-Status: Runtime Reserve Allocation Transaction active; 128/135 implementation
+Status: Runtime Reserve Allocation Transaction active; 129/135 implementation
 tasks complete; bug ledger 126/126 fixed
 
 ## Current State
 
 The owner reactivated two WNF plans for sequential implementation on the
-current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is active at 2/4;
+current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is active at 3/4;
 `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is queued at 0/5 and begins only after
 RAT3 closes. The pre-existing uncommitted Physics solver experiment, its
 focused test, two sleep scenes, and local investigation report remain outside
@@ -32,6 +32,16 @@ failure behavior. The nested Physics Replay reserve remains owner-only beneath
 the approved outer grant, while the recorder's Capture-owned cold path remains
 outside retained Replay authority. The Profile test target compiled, focused
 PhysicsFixedList, ReplayRecorder, and replay-solver families passed, and the
+allocation-policy and compiler-backed source-design checks passed.
+
+RAT2 replaces the nine direct approved-allocation scope assemblies in
+Prediction reserve helpers, archive candidates, solver-evidence segment stores,
+and trajectory storage. Existing batched grants retain their allocation order
+and aggregate byte boundaries. Production callers no longer construct
+`RuntimeReserveGrowthScope` directly; its remaining production references are
+the Core implementation and composite member. The Profile test target compiled,
+40 focused Prediction/evidence/trajectory/visual cases passed 18,669 assertions,
+the production prediction-engine seed case passed 645 assertions, and the
 allocation-policy and compiler-backed source-design checks passed.
 
 The ignored work ledger retains an unfinished 2026-08-28 goal from another
@@ -955,8 +965,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Implement `RESERVE_TRANSACTION` RAT2 by migrating the Prediction allocation
-owners to the composite transaction. Continue RAT3 in order, then
+Close `RESERVE_TRANSACTION` with RAT3 terminal review and validation, then
 implement `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 in order on the same branch.
 
 ## Blockers
