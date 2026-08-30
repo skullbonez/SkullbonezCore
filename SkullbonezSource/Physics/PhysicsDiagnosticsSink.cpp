@@ -205,14 +205,50 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
     const auto& sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
     const auto& sleepState = diagnosticsView.sleepState;
     const auto& sleepInhibitedThisFrame = diagnosticsView.sleepInhibitedThisFrame;
+    const auto& sleepCounter = diagnosticsView.sleepCounter;
+    const auto& sleepIslandParents = diagnosticsView.sleepIslandParent;
+    const auto& sleepIslandEligible = diagnosticsView.sleepIslandEligible;
+    const auto& sleepIslandTopologyStable = diagnosticsView.sleepIslandTopologyStable;
+    const auto& sleepIslandCanSleep = diagnosticsView.sleepIslandCanSleep;
+    const auto& sleepBodyEligible = diagnosticsView.sleepBodyEligible;
+    const auto& sleepResetReason = diagnosticsView.sleepResetReason;
 
     const int modelCount = frame.bodyStore.Count();
+
+    std::fill_n( m_regressionContactMetrics.begin(), static_cast<std::size_t>( modelCount ),
+                 PhysicsRegressionContactMetrics {} );
+
+    for ( const PersistentContact& contact : diagnosticsView.persistentContacts )
+    {
+        const auto addContact = [&]( int bodyIndex )
+        {
+            if ( bodyIndex < 0 || bodyIndex >= modelCount )
+            {
+                return;
+            }
+
+            PhysicsRegressionContactMetrics& metrics = m_regressionContactMetrics[static_cast<std::size_t>( bodyIndex )];
+            ++metrics.rowCount;
+            metrics.maxPenetration = (std::max)( metrics.maxPenetration, contact.penetration );
+            metrics.maxSeparationBias = (std::max)( metrics.maxSeparationBias, fabsf( contact.separationBias ) );
+            metrics.maxClosingSpeed = (std::max)( metrics.maxClosingSpeed, fabsf( contact.preSolveClosingSpeed ) );
+            metrics.maxSlipSpeed = (std::max)( metrics.maxSlipSpeed, fabsf( contact.preSolveSlipSpeed ) );
+            metrics.maxImpulse = (std::max)( metrics.maxImpulse,
+                                             (std::max)( fabsf( contact.accN ),
+                                                         (std::max)( fabsf( contact.accT1 ), fabsf( contact.accT2 ) ) ) );
+        };
+
+        addContact( contact.bodyA );
+        addContact( contact.bodyB );
+    }
 
     if ( m_physicsRegressionLogFrame == 0 )
     {
         frame.csvWriter.Writef( m_physicsRegressionLogPath,
                                 "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,qX,"
-                                "qY,qZ,qW,grounded,sleeping,sleepInhibited\n" );
+                                "qY,qZ,qW,grounded,sleeping,sleepInhibited,sleepCounter,islandRoot,bodyEligible,"
+                                "islandEligible,topologyStable,islandCanSleep,contactRows,maxPenetration,"
+                                "maxSeparationBias,maxClosingSpeed,maxSlipSpeed,maxImpulse,resetReason\n" );
     }
 
     for ( int i = 0; i < modelCount; ++i )
@@ -232,13 +268,30 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
         int sleepSupported = sleepSupportedThisFrame[i];
         int sleeping = ( i < static_cast<int>( sleepState.size() ) ) ? sleepState[i] : 0;
         int sleepInhibited = ( i < static_cast<int>( sleepInhibitedThisFrame.size() ) ) ? sleepInhibitedThisFrame[i] : 0;
+        const int islandRoot = i < static_cast<int>( sleepIslandParents.size() ) ? sleepIslandParents[i] : i;
+        const int bodyEligible = i < static_cast<int>( sleepBodyEligible.size() ) ? sleepBodyEligible[i] : 0;
+        const int islandEligible = islandRoot >= 0 && islandRoot < static_cast<int>( sleepIslandEligible.size() )
+                                       ? sleepIslandEligible[islandRoot]
+                                       : 0;
+        const int topologyStable = islandRoot >= 0 && islandRoot < static_cast<int>( sleepIslandTopologyStable.size() )
+                                       ? sleepIslandTopologyStable[islandRoot]
+                                       : 0;
+        const int islandCanSleep = islandRoot >= 0 && islandRoot < static_cast<int>( sleepIslandCanSleep.size() )
+                                       ? sleepIslandCanSleep[islandRoot]
+                                       : 0;
+        const uint32_t quietFrames = i < static_cast<int>( sleepCounter.size() ) ? sleepCounter[i] : 0u;
+        const int resetReason = i < static_cast<int>( sleepResetReason.size() ) ? sleepResetReason[i] : 0;
+        const PhysicsRegressionContactMetrics& contactMetrics = m_regressionContactMetrics[static_cast<std::size_t>( i )];
 
-        frame.csvWriter
-            .Writef( m_physicsRegressionLogPath,
-                     "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n",
-                     m_physicsRegressionLogFrame, i, model.name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x,
-                     omega.y, omega.z, omegaMag, model.qx, model.qy, model.qz, model.qw, sleepSupported, sleeping,
-                     sleepInhibited );
+        frame.csvWriter.Writef( m_physicsRegressionLogPath,
+                                "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%"
+                                "d,%u,%d,%d,%d,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%d\n",
+                                m_physicsRegressionLogFrame, i, model.name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed,
+                                omega.x, omega.y, omega.z, omegaMag, model.qx, model.qy, model.qz, model.qw, sleepSupported,
+                                sleeping, sleepInhibited, quietFrames, islandRoot, bodyEligible, islandEligible,
+                                topologyStable, islandCanSleep, contactMetrics.rowCount, contactMetrics.maxPenetration,
+                                contactMetrics.maxSeparationBias, contactMetrics.maxClosingSpeed,
+                                contactMetrics.maxSlipSpeed, contactMetrics.maxImpulse, resetReason );
     }
 
     ++m_physicsRegressionLogFrame;
@@ -292,7 +345,8 @@ void PhysicsDiagnosticsSink::QueueCollisionTime( const char* type, int bodyA, in
                   COLLISION_TIME_EVENT_CAPACITY, m_collisionTimeEventHighWater );
     }
 
-    m_collisionTimeEvents[static_cast<std::size_t>( m_collisionTimeEventCount++ )] = PhysicsCollisionTimeEvent { type, bodyA, bodyB, collisionTime, availableTime };
+    m_collisionTimeEvents[static_cast<std::size_t>(
+        m_collisionTimeEventCount++ )] = PhysicsCollisionTimeEvent { type, bodyA, bodyB, collisionTime, availableTime };
 
     m_collisionTimeEventHighWater = (std::max)( m_collisionTimeEventHighWater, m_collisionTimeEventCount );
 #else

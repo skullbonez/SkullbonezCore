@@ -956,6 +956,381 @@ TEST_CASE( "Collider hull shape store: canonical identities share stable scene-l
                &store->RecordForHandle( recreated )->shape ) == sharedPointer );
 }
 
+namespace
+{
+struct ExpectedFixedRowGrowth
+{
+    const char* ownerName;
+    int requestedCapacity;
+};
+
+constexpr ExpectedFixedRowGrowth EXPECTED_PHYSICS_GROWTH[] = {
+    { "PhysicsEngine.m_authoredBodyDescs", 2000 },
+    { "PhysicsWorld.timeRemaining", 2000 },
+    { "PhysicsWorld.pointJointConstraints", 24 },
+    { "PhysicsForceStage.m_mutualGravityForces", 2000 },
+    { "PhysicsForceStage.m_mutualGravityPairForces", 130816 },
+    { "ExternalForceStage.fixedTreeReleaseWakeScratch", 2000 },
+    { "ExternalForceStage.releaseWakeBodies", 2000 },
+    { "PhysicsMotionEligibilityStage.state", 2000 },
+    { "PhysicsMotionEligibilityStage.linearTravelSquared", 2000 },
+    { "PhysicsMotionEligibilityStage.linearDirectionalBoundary", 2000 },
+    { "PhysicsMotionEligibilityStage.angularTravelSquared", 2000 },
+    { "PhysicsMotionEligibilityStage.angularBroadphaseExpansion", 2000 },
+    { "SpatialGrid.entries", 17024 },
+    { "SpatialGrid.overlayEntries", 16000 },
+    { "SpatialGrid.sweptFallbackBodies", 2000 },
+    { "SpatialGrid.bodyMemberships", 2000 },
+    { "SpatialGrid.pairSeen", 31235 },
+    { "SpatialGrid.candidatePairHeads", 2000 },
+    { "SpatialGrid.cellObjectSeen", 2000 },
+    { "PhysicsNarrowphaseStage.islands", 2000 },
+    { "PhysicsNarrowphaseStage.islandWriteOffsets", 2000 },
+    { "PhysicsNarrowphaseStage.parent", 2000 },
+    { "PhysicsNarrowphaseStage.rank", 2000 },
+    { "PhysicsNarrowphaseStage.rootToIsland", 2000 },
+    { "PhysicsContactSolverStage.persistentContacts", 147072 },
+    { "PhysicsContactSolverStage.persistentContactCache", 147072 },
+    { "PhysicsContactSolverStage.persistentContactCounts", 2000 },
+    { "PhysicsContactSolverStage.persistentRestingContactCounts", 2000 },
+    { "PhysicsContactSolverStage.solverBodies", 2000 },
+    { "PhysicsContactSolverStage.fixedContactBodies", 147072 },
+    { "PhysicsContactSolverStage.releaseWakeBodies", 2000 },
+    { "PhysicsContactSolverStage.fixedTreeReleases", 2000 },
+    { "PhysicsStepDiagnostics.collisionVisualContacts", 2000 },
+    { "PhysicsStepDiagnostics.physicsDebugContacts", 147072 },
+    { "PhysicsSleepController.m_sleepSupportedThisFrame", 2000 },
+    { "PhysicsSleepController.m_sleepInhibitedThisFrame", 2000 },
+    { "PhysicsSleepController.m_sleepState", 2000 },
+    { "PhysicsSleepController.m_sleepCounter", 2000 },
+    { "PhysicsSleepController.m_underwaterSleepLocked", 2000 },
+    { "PhysicsSleepController.m_sleepIslandVisualId", 2000 },
+    { "PhysicsSleepController.m_sleepIslandAssignedVisualId", 2000 },
+    { "PhysicsSleepController.m_sleepIslandParent", 2000 },
+    { "PhysicsSleepController.m_sleepIslandRank", 2000 },
+    { "PhysicsSleepController.m_sleepIslandHasAwake", 2000 },
+    { "PhysicsSleepController.m_sleepIslandHasSupportAnchor", 2000 },
+    { "PhysicsSleepController.m_sleepIslandEligible", 2000 },
+    { "PhysicsSleepController.m_sleepIslandTopologyStable", 2000 },
+    { "PhysicsSleepController.m_sleepIslandCanSleep", 2000 },
+    { "PhysicsSleepController.m_sleepBodyEligible", 2000 },
+    { "PhysicsSleepController.m_sleepResetReason", 2000 },
+    { "PhysicsSleepController.m_sleepPoseAnchors", 2000 },
+    { "PhysicsSleepController.m_sleepScratchFlags", 2000 },
+    { "PhysicsSleepController.m_sleepFirstBoxContactPartner", 2000 },
+    { "PhysicsSleepController.m_restingWakeQueueScratch", 2000 },
+    { "SimulationIslandSystem.previousJointEdges", 24 },
+    { "SimulationIslandSystem.activeJointEdges", 24 },
+    { "SimulationIslandSystem.previousStaticContacts", 2000 },
+    { "SimulationIslandSystem.activeStaticContacts", 2000 },
+    { "SimulationIslandSystem.topologyChangedBodies", 2000 },
+    { "PhysicsTerrainStage.detectionCandidates", 2000 },
+    { "PhysicsTerrainStage.contactManifolds", 2000 },
+};
+
+struct ExpectedRegisteredWithoutGrowth
+{
+    const char* ownerName;
+    const char* capacityReason;
+};
+
+const ExpectedRegisteredWithoutGrowth EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH[] = {
+    { "ColliderStore.hullShapes", SkullbonezCore::Physics::PhysicsCapacityReason::HullColliders },
+    { "PhysicsContactSolverStage.pipelineRecords", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
+    { "PhysicsStepDiagnostics.physicsPipelineTrace", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
+    { "PhysicsSleepController.m_sleepSupportEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+    { "SimulationIslandSystem.previousContactEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+    { "SimulationIslandSystem.activeContactEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+    { "PhysicsBroadphaseStage.candidatePairs", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+    { "PhysicsBroadphaseStage.collisionCellKeys", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+    { "SpatialGrid.candidatePairNodes", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes },
+    { "SpatialGrid.candidatePairSortKeys",
+      SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys },
+    { "SpatialGrid.candidatePairSortScratch",
+      SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortScratch },
+#if defined( _DEBUG )
+    { "PhysicsBroadphaseStage.sleepPrunedPairs", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+#endif
+    { "PhysicsNarrowphaseStage.events", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+    { "PhysicsNarrowphaseStage.islandPairIndices", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+    { "PhysicsContactSolverStage.collisionVisualBodies",
+      SkullbonezCore::Physics::PhysicsCapacityReason::CollisionVisualBodies },
+};
+
+void CheckPhysicsGrowthEventMetadata( const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView* events,
+                                     int eventCount )
+{
+    using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
+
+    REQUIRE( eventCount == 106 );
+    CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
+
+    for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
+    {
+        CHECK( events[eventIndex].granted );
+        RuntimeReserveOwnerStatsView ownerStats = {};
+        REQUIRE( RuntimeReserveAllocator::CopyOwnerStatsByName( events[eventIndex].ownerName, ownerStats ) );
+        CHECK( ownerStats.subsystem == RuntimeReserveSubsystem::Physics );
+        REQUIRE( ownerStats.capacityReason != nullptr );
+        CHECK( ownerStats.capacityReason[0] != '\0' );
+        CHECK( std::strcmp( ownerStats.capacityReason, "Scene-sized PhysicsFixedList backing storage" ) != 0 );
+        CHECK( std::strcmp( ownerStats.capacityReason, "unspecified" ) != 0 );
+
+        for ( int earlierIndex = 0; earlierIndex < eventIndex; ++earlierIndex )
+        {
+            CHECK( std::strcmp( events[eventIndex].ownerName, events[earlierIndex].ownerName ) != 0 );
+        }
+    }
+
+}
+
+const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView*
+FindPhysicsGrowthEvent( const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView* events, int eventCount,
+                        const char* ownerName )
+{
+    for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
+    {
+        if ( std::strcmp( events[eventIndex].ownerName, ownerName ) == 0 )
+        {
+            return events + eventIndex;
+        }
+    }
+    return nullptr;
+}
+
+void CheckExpectedPhysicsGrowth( const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView* events,
+                                 int eventCount )
+{
+    for ( const ExpectedFixedRowGrowth& expected : EXPECTED_PHYSICS_GROWTH )
+    {
+        const auto* event = FindPhysicsGrowthEvent( events, eventCount, expected.ownerName );
+        REQUIRE( event != nullptr );
+        CHECK( event->requestedCapacity == expected.requestedCapacity );
+    }
+}
+
+void CheckPhysicsRegisteredOwners( int eventCount )
+{
+    using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
+
+#if defined( _DEBUG )
+    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 121 );
+#else
+    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 120 );
+#endif
+
+    for ( const ExpectedRegisteredWithoutGrowth& expected : EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH )
+    {
+        RuntimeReserveOwnerStatsView ownerStats = {};
+        REQUIRE( RuntimeReserveAllocator::CopyOwnerStatsByName( expected.ownerName, ownerStats ) );
+        CHECK( ownerStats.subsystem == RuntimeReserveSubsystem::Physics );
+        CHECK( std::strcmp( ownerStats.capacityReason, expected.capacityReason ) == 0 );
+    }
+}
+
+void CheckPhysicsCapacityRows()
+{
+    using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
+    const auto capacityRows = RuntimeReserveAllocator::CapacityRows();
+    int physicsCapacityRowCount = 0;
+    const char* prefixes[] = {
+        "BuoyancySystem.",          "ColliderStore.",            "ExternalForceStage.",
+        "PhysicsBodyStore.",       "PhysicsBroadphaseStage.",   "PhysicsContactSolverStage.",
+        "PhysicsEngine",           "PhysicsForceStage.",        "PhysicsNarrowphaseStage.",
+        "PhysicsSleepController.", "PhysicsStepDiagnostics.",   "PhysicsTerrainStage.",
+        "PhysicsWorld.",           "SimulationIslandSystem.",   "SpatialGrid.",
+    };
+
+    for ( const auto& row : capacityRows )
+    {
+        if ( row.subsystem != RuntimeReserveSubsystem::Physics )
+        {
+            continue;
+        }
+        bool productionOwner = false;
+        for ( const char* prefix : prefixes )
+        {
+            if ( std::strncmp( row.ownerName, prefix, std::strlen( prefix ) ) == 0 )
+            {
+                productionOwner = true;
+                break;
+            }
+        }
+        if ( !productionOwner )
+        {
+            continue;
+        }
+
+        ++physicsCapacityRowCount;
+        REQUIRE( row.ownerName != nullptr );
+        REQUIRE( row.capacityReason != nullptr );
+        CHECK( row.elementSizeBytes > 0 );
+        CHECK( row.currentCapacity >= row.liveCount );
+        CHECK( row.sessionHighWater >= row.liveCount );
+        CHECK( row.residentBytes ==
+               static_cast<uint64_t>( row.currentCapacity ) * static_cast<uint64_t>( row.elementSizeBytes ) );
+    }
+
+#if defined( _DEBUG )
+    CHECK( physicsCapacityRowCount == 117 );
+#else
+    CHECK( physicsCapacityRowCount == 116 );
+#endif
+}
+
+void CheckPredictionSnapshotRejections( PhysicsEngine& predictionEngine,
+                                        const SkullbonezCore::Physics::PhysicsSolverSnapshot& solverSnapshot,
+                                        int bodyCount, float advancedJointImpulse )
+{
+    using SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt;
+
+    SkullbonezCore::Physics::PhysicsSolverSnapshot mismatchedTopology = solverSnapshot;
+    mismatchedTopology.pointJoints[0].localAnchorA.x += 0.125f;
+    const int preflightBodyCount = PhysicsEngine::ReadBodies( predictionEngine ).Count();
+    const int preflightColliderCount = PhysicsEngine::ReadColliders( predictionEngine ).Count();
+    const auto preflightJointHandle = PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].handle;
+    CHECK_FALSE( predictionEngine.CanRestoreReplaySolverSnapshot(
+        mismatchedTopology, MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    CHECK( PhysicsEngine::ReadBodies( predictionEngine ).Count() == preflightBodyCount );
+    CHECK( PhysicsEngine::ReadColliders( predictionEngine ).Count() == preflightColliderCount );
+    REQUIRE( PhysicsEngine::ReadPointJointConstraints( predictionEngine ).size() == 1u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].handle == preflightJointHandle );
+    CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
+                           advancedJointImpulse ) );
+    CHECK_FALSE( predictionEngine.RestoreReplaySolverSnapshot( mismatchedTopology,
+                                                               MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
+                           advancedJointImpulse ) );
+
+    const auto checkRejectedSnapshotLeavesStateUntouched = [&]( const auto& malformedSnapshot )
+    {
+        SkullbonezCore::Physics::PhysicsSolverSnapshot beforeReject;
+        predictionEngine.CaptureReplaySolverSnapshot( beforeReject, MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) );
+
+        CHECK_FALSE( predictionEngine.CanRestoreReplaySolverSnapshot(
+            malformedSnapshot, MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+        CHECK_FALSE( predictionEngine.RestoreReplaySolverSnapshot(
+            malformedSnapshot, MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+
+        SkullbonezCore::Physics::PhysicsSolverSnapshot afterReject;
+        predictionEngine.CaptureReplaySolverSnapshot( afterReject, MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) );
+        CHECK( afterReject.timeRemaining == beforeReject.timeRemaining );
+        CHECK( afterReject.motionEligibilityState == beforeReject.motionEligibilityState );
+        CHECK( afterReject.sleepState == beforeReject.sleepState );
+        CHECK( afterReject.sleepSupportEdges == beforeReject.sleepSupportEdges );
+        CHECK( afterReject.persistentContactCounts == beforeReject.persistentContactCounts );
+        CHECK( afterReject.collisionCellKeys == beforeReject.collisionCellKeys );
+        REQUIRE( PhysicsEngine::ReadPointJointConstraints( predictionEngine ).size() == 1u );
+        CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
+                               advancedJointImpulse ) );
+    };
+
+    auto malformedDenseRows = solverSnapshot;
+    REQUIRE_FALSE( malformedDenseRows.sleepState.empty() );
+    malformedDenseRows.sleepState.pop_back();
+    checkRejectedSnapshotLeavesStateUntouched( malformedDenseRows );
+
+    auto malformedEligibilityRows = solverSnapshot;
+    REQUIRE_FALSE( malformedEligibilityRows.motionEligibilityState.empty() );
+    malformedEligibilityRows.motionEligibilityState.pop_back();
+    checkRejectedSnapshotLeavesStateUntouched( malformedEligibilityRows );
+
+    auto malformedEligibilityBits = solverSnapshot;
+    REQUIRE_FALSE( malformedEligibilityBits.motionEligibilityState.empty() );
+    malformedEligibilityBits.motionEligibilityState[0] = 0x80u;
+    checkRejectedSnapshotLeavesStateUntouched( malformedEligibilityBits );
+
+    auto malformedSupportEdge = solverSnapshot;
+    malformedSupportEdge.sleepSupportEdges.emplace_back( 0, bodyCount );
+    checkRejectedSnapshotLeavesStateUntouched( malformedSupportEdge );
+
+    auto malformedIslandParent = solverSnapshot;
+    REQUIRE_FALSE( malformedIslandParent.sleepIslandParent.empty() );
+    malformedIslandParent.sleepIslandParent[0] = bodyCount;
+    checkRejectedSnapshotLeavesStateUntouched( malformedIslandParent );
+
+    auto malformedContactCache = solverSnapshot;
+    SkullbonezCore::Physics::PhysicsSolverContactCacheSample foreignCache;
+    foreignCache.key = static_cast<int64_t>( static_cast<uint64_t>( bodyCount ) << 32 );
+    malformedContactCache.persistentContactCache.push_back( foreignCache );
+    checkRejectedSnapshotLeavesStateUntouched( malformedContactCache );
+
+    auto malformedContactCounts = solverSnapshot;
+    REQUIRE_FALSE( malformedContactCounts.persistentContactCounts.empty() );
+    ++malformedContactCounts.persistentContactCounts[0];
+    checkRejectedSnapshotLeavesStateUntouched( malformedContactCounts );
+
+    REQUIRE( bodyCount >= 2 );
+    auto malformedRestingContactCounts = solverSnapshot;
+    SkullbonezCore::Physics::PhysicsSolverPersistentContactSample missingRestingCount;
+    missingRestingCount.bodyA = 0;
+    missingRestingCount.bodyB = 1;
+    missingRestingCount.featureId = 16u;
+    missingRestingCount.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 16u );
+    missingRestingCount.supportsRestingPolicy = true;
+    malformedRestingContactCounts.persistentContacts.push_back( missingRestingCount );
+    ++malformedRestingContactCounts.persistentContactCounts[0];
+    ++malformedRestingContactCounts.persistentContactCounts[1];
+    checkRejectedSnapshotLeavesStateUntouched( malformedRestingContactCounts );
+
+    auto malformedContactKey = solverSnapshot;
+    SkullbonezCore::Physics::PhysicsSolverPersistentContactSample incoherentContact;
+    incoherentContact.bodyA = 0;
+    incoherentContact.bodyB = 1;
+    incoherentContact.featureId = 17u;
+    incoherentContact.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 18u );
+    malformedContactKey.persistentContacts.push_back( incoherentContact );
+    ++malformedContactKey.persistentContactCounts[0];
+    ++malformedContactKey.persistentContactCounts[1];
+    checkRejectedSnapshotLeavesStateUntouched( malformedContactKey );
+
+    auto malformedTerrainFlag = solverSnapshot;
+    SkullbonezCore::Physics::PhysicsSolverPersistentContactSample incoherentTerrainFlag;
+    incoherentTerrainFlag.bodyA = 0;
+    incoherentTerrainFlag.bodyB = 1;
+    incoherentTerrainFlag.featureId = 19u;
+    incoherentTerrainFlag.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 19u );
+    incoherentTerrainFlag.isTerrain = true;
+    malformedTerrainFlag.persistentContacts.push_back( incoherentTerrainFlag );
+    ++malformedTerrainFlag.persistentContactCounts[0];
+    ++malformedTerrainFlag.persistentContactCounts[1];
+    checkRejectedSnapshotLeavesStateUntouched( malformedTerrainFlag );
+
+    auto unsortedContactCache = solverSnapshot;
+    unsortedContactCache.persistentContactCache.clear();
+    SkullbonezCore::Physics::PhysicsSolverContactCacheSample laterCache;
+    laterCache.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 2u );
+    SkullbonezCore::Physics::PhysicsSolverContactCacheSample earlierCache;
+    earlierCache.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 1u );
+    unsortedContactCache.persistentContactCache.push_back( laterCache );
+    unsortedContactCache.persistentContactCache.push_back( earlierCache );
+    checkRejectedSnapshotLeavesStateUntouched( unsortedContactCache );
+
+    auto duplicateContactCache = solverSnapshot;
+    duplicateContactCache.persistentContactCache.clear();
+    duplicateContactCache.persistentContactCache.push_back( earlierCache );
+    duplicateContactCache.persistentContactCache.push_back( earlierCache );
+    checkRejectedSnapshotLeavesStateUntouched( duplicateContactCache );
+
+    auto overCommittedCapacity = solverSnapshot;
+    overCommittedCapacity.collisionCellKeys.resize( 17u, 42 );
+    checkRejectedSnapshotLeavesStateUntouched( overCommittedCapacity );
+
+    SkullbonezCore::Physics::PhysicsSolverSnapshot legacySnapshot = solverSnapshot;
+    legacySnapshot.version = 2u;
+    legacySnapshot.pointJoints.clear();
+    legacySnapshot.motionEligibilityState.clear();
+    REQUIRE( predictionEngine.RestoreReplaySolverSnapshot( legacySnapshot,
+                                                           MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse == 0.0f );
+}
+} // namespace
+
 
 TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owner once" )
 {
@@ -1003,209 +1378,10 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
 
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
-#if defined( _DEBUG )
-    REQUIRE( eventCount == 98 );
-#else
-    REQUIRE( eventCount == 98 );
-#endif
-    CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
-
-    for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
-    {
-        CHECK( events[eventIndex].granted );
-        RuntimeReserveOwnerStatsView ownerStats = {};
-        REQUIRE( RuntimeReserveAllocator::CopyOwnerStatsByName( events[eventIndex].ownerName, ownerStats ) );
-        CHECK( ownerStats.subsystem == RuntimeReserveSubsystem::Physics );
-        REQUIRE( ownerStats.capacityReason != nullptr );
-        CHECK( ownerStats.capacityReason[0] != '\0' );
-        CHECK( std::strcmp( ownerStats.capacityReason, "Scene-sized PhysicsFixedList backing storage" ) != 0 );
-        CHECK( std::strcmp( ownerStats.capacityReason, "unspecified" ) != 0 );
-
-        for ( int earlierIndex = 0; earlierIndex < eventIndex; ++earlierIndex )
-        {
-            CHECK( std::strcmp( events[eventIndex].ownerName, events[earlierIndex].ownerName ) != 0 );
-        }
-    }
-
-    struct ExpectedFixedRowGrowth
-    {
-        const char* ownerName;
-        int requestedCapacity;
-    };
-    const ExpectedFixedRowGrowth expectedFixedRowGrowth[] = {
-        { "PhysicsEngine.m_authoredBodyDescs", 2000 },
-        { "PhysicsWorld.timeRemaining", 2000 },
-        { "PhysicsWorld.pointJointConstraints", 24 },
-        { "PhysicsForceStage.m_mutualGravityForces", 2000 },
-        { "PhysicsForceStage.m_mutualGravityPairForces", 130816 },
-        { "ExternalForceStage.fixedTreeReleaseWakeScratch", 2000 },
-        { "ExternalForceStage.releaseWakeBodies", 2000 },
-        { "PhysicsMotionEligibilityStage.state", 2000 },
-        { "PhysicsMotionEligibilityStage.linearTravelSquared", 2000 },
-        { "PhysicsMotionEligibilityStage.linearDirectionalBoundary", 2000 },
-        { "PhysicsMotionEligibilityStage.angularTravelSquared", 2000 },
-        { "PhysicsMotionEligibilityStage.angularBroadphaseExpansion", 2000 },
-        { "SpatialGrid.entries", 17024 },
-        { "SpatialGrid.overlayEntries", 16000 },
-        { "SpatialGrid.sweptFallbackBodies", 2000 },
-        { "SpatialGrid.bodyMemberships", 2000 },
-        { "SpatialGrid.pairSeen", 31235 },
-        { "SpatialGrid.candidatePairHeads", 2000 },
-        { "SpatialGrid.cellObjectSeen", 2000 },
-        { "PhysicsNarrowphaseStage.islands", 2000 },
-        { "PhysicsNarrowphaseStage.islandWriteOffsets", 2000 },
-        { "PhysicsNarrowphaseStage.parent", 2000 },
-        { "PhysicsNarrowphaseStage.rank", 2000 },
-        { "PhysicsNarrowphaseStage.rootToIsland", 2000 },
-        { "PhysicsContactSolverStage.persistentContacts", 147072 },
-        { "PhysicsContactSolverStage.persistentContactCache", 147072 },
-        { "PhysicsContactSolverStage.persistentContactCounts", 2000 },
-        { "PhysicsContactSolverStage.persistentRestingContactCounts", 2000 },
-        { "PhysicsContactSolverStage.solverBodies", 2000 },
-        { "PhysicsContactSolverStage.fixedContactBodies", 147072 },
-        { "PhysicsContactSolverStage.releaseWakeBodies", 2000 },
-        { "PhysicsContactSolverStage.fixedTreeReleases", 2000 },
-        { "PhysicsStepDiagnostics.collisionVisualContacts", 2000 },
-        { "PhysicsStepDiagnostics.physicsDebugContacts", 147072 },
-        { "PhysicsSleepController.m_sleepSupportedThisFrame", 2000 },
-        { "PhysicsSleepController.m_sleepInhibitedThisFrame", 2000 },
-        { "PhysicsSleepController.m_sleepState", 2000 },
-        { "PhysicsSleepController.m_sleepCounter", 2000 },
-        { "PhysicsSleepController.m_underwaterSleepLocked", 2000 },
-        { "PhysicsSleepController.m_sleepIslandVisualId", 2000 },
-        { "PhysicsSleepController.m_sleepIslandAssignedVisualId", 2000 },
-        { "PhysicsSleepController.m_sleepIslandParent", 2000 },
-        { "PhysicsSleepController.m_sleepIslandRank", 2000 },
-        { "PhysicsSleepController.m_sleepIslandHasAwake", 2000 },
-        { "PhysicsSleepController.m_sleepIslandHasSupportAnchor", 2000 },
-        { "PhysicsSleepController.m_sleepIslandEligible", 2000 },
-        { "PhysicsSleepController.m_sleepIslandCanSleep", 2000 },
-        { "PhysicsSleepController.m_sleepScratchFlags", 2000 },
-        { "PhysicsSleepController.m_sleepVisualIslandIds", 2000 },
-        { "PhysicsSleepController.m_sleepVisualIslandBodies", 2000 },
-        { "PhysicsSleepController.m_restingWakeQueueScratch", 2000 },
-        { "PhysicsTerrainStage.detectionCandidates", 2000 },
-        { "PhysicsTerrainStage.contactManifolds", 2000 },
-    };
-
-    for ( const ExpectedFixedRowGrowth& expected : expectedFixedRowGrowth )
-    {
-        int matchingEvents = 0;
-
-        for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
-        {
-
-            if ( std::strcmp( events[eventIndex].ownerName, expected.ownerName ) == 0 )
-            {
-                ++matchingEvents;
-                CHECK( events[eventIndex].requestedCapacity == expected.requestedCapacity );
-            }
-        }
-
-        CHECK( matchingEvents == 1 );
-    }
-
-    struct ExpectedRegisteredWithoutGrowth
-    {
-        const char* ownerName;
-        const char* capacityReason;
-    };
-    const ExpectedRegisteredWithoutGrowth expectedRegisteredWithoutGrowth[] = {
-        { "ColliderStore.hullShapes", SkullbonezCore::Physics::PhysicsCapacityReason::HullColliders },
-        { "PhysicsContactSolverStage.pipelineRecords", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
-        { "PhysicsStepDiagnostics.physicsPipelineTrace", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
-        { "PhysicsSleepController.m_sleepSupportEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
-        { "PhysicsBroadphaseStage.candidatePairs", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
-        { "PhysicsBroadphaseStage.collisionCellKeys", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
-        { "SpatialGrid.candidatePairNodes", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes },
-        { "SpatialGrid.candidatePairSortKeys",
-          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys },
-        { "SpatialGrid.candidatePairSortScratch",
-          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortScratch },
-#if defined( _DEBUG )
-        { "PhysicsBroadphaseStage.sleepPrunedPairs", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
-#endif
-        { "PhysicsNarrowphaseStage.events", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
-        { "PhysicsNarrowphaseStage.islandPairIndices", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
-        { "PhysicsContactSolverStage.collisionVisualBodies",
-          SkullbonezCore::Physics::PhysicsCapacityReason::CollisionVisualBodies },
-    };
-
-#if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 111 );
-#else
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 110 );
-#endif
-
-    for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
-    {
-        RuntimeReserveOwnerStatsView ownerStats = {};
-        REQUIRE( RuntimeReserveAllocator::CopyOwnerStatsByName( expected.ownerName, ownerStats ) );
-        CHECK( ownerStats.subsystem == RuntimeReserveSubsystem::Physics );
-        CHECK( std::strcmp( ownerStats.capacityReason, expected.capacityReason ) == 0 );
-    }
-
-    const std::span<const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView>
-        capacityRows = RuntimeReserveAllocator::CapacityRows();
-    int physicsCapacityRowCount = 0;
-    const char* productionPhysicsOwnerPrefixes[] = {
-        "BuoyancySystem.",
-        "ColliderStore.",
-        "ExternalForceStage.",
-        "PhysicsBodyStore.",
-        "PhysicsBroadphaseStage.",
-        "PhysicsContactSolverStage.",
-        "PhysicsEngine",
-        "PhysicsForceStage.",
-        "PhysicsNarrowphaseStage.",
-        "PhysicsSleepController.",
-        "PhysicsStepDiagnostics.",
-        "PhysicsTerrainStage.",
-        "PhysicsWorld.",
-        "SpatialGrid.",
-    };
-
-    for ( const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView& row : capacityRows )
-    {
-
-        if ( row.subsystem != RuntimeReserveSubsystem::Physics )
-        {
-            continue;
-        }
-
-        bool isProductionPhysicsOwner = false;
-
-        for ( const char* prefix : productionPhysicsOwnerPrefixes )
-        {
-            const size_t prefixLength = std::strlen( prefix );
-
-            if ( std::strncmp( row.ownerName, prefix, prefixLength ) == 0 )
-            {
-                isProductionPhysicsOwner = true;
-                break;
-            }
-        }
-
-        if ( !isProductionPhysicsOwner )
-        {
-            continue;
-        }
-
-        ++physicsCapacityRowCount;
-        REQUIRE( row.ownerName != nullptr );
-        REQUIRE( row.capacityReason != nullptr );
-        CHECK( row.elementSizeBytes > 0 );
-        CHECK( row.currentCapacity >= row.liveCount );
-        CHECK( row.sessionHighWater >= row.liveCount );
-        CHECK( row.residentBytes ==
-               static_cast<uint64_t>( row.currentCapacity ) * static_cast<uint64_t>( row.elementSizeBytes ) );
-    }
-
-#if defined( _DEBUG )
-    CHECK( physicsCapacityRowCount == 107 );
-#else
-    CHECK( physicsCapacityRowCount == 106 );
-#endif
+    CheckPhysicsGrowthEventMetadata( events, eventCount );
+    CheckExpectedPhysicsGrowth( events, eventCount );
+    CheckPhysicsRegisteredOwners( eventCount );
+    CheckPhysicsCapacityRows();
 
     CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );
     CHECK( PhysicsEngine::ReadColliders( *engine ).RecordCapacity() == 2000u );
@@ -1571,161 +1747,7 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     const float historicalJointImpulse = solverSnapshot.pointJoints[0].accumulatedImpulse;
     const float advancedJointImpulse = PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse;
     REQUIRE_FALSE( FloatBitsEqual( historicalJointImpulse, advancedJointImpulse ) );
-
-    SkullbonezCore::Physics::PhysicsSolverSnapshot mismatchedTopology = solverSnapshot;
-    mismatchedTopology.pointJoints[0].localAnchorA.x += 0.125f;
-    const int preflightBodyCount = PhysicsEngine::ReadBodies( predictionEngine ).Count();
-    const int preflightColliderCount = PhysicsEngine::ReadColliders( predictionEngine ).Count();
-    const auto preflightJointHandle = PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].handle;
-    CHECK_FALSE(
-        predictionEngine.CanRestoreReplaySolverSnapshot( mismatchedTopology,
-                                                         SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
-                                                             bodyCount ) ) );
-    CHECK( PhysicsEngine::ReadBodies( predictionEngine ).Count() == preflightBodyCount );
-    CHECK( PhysicsEngine::ReadColliders( predictionEngine ).Count() == preflightColliderCount );
-    REQUIRE( PhysicsEngine::ReadPointJointConstraints( predictionEngine ).size() == 1u );
-    CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].handle == preflightJointHandle );
-    CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
-                           advancedJointImpulse ) );
-    CHECK_FALSE(
-        predictionEngine.RestoreReplaySolverSnapshot( mismatchedTopology,
-                                                      SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
-                                                          bodyCount ) ) );
-    CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
-                           advancedJointImpulse ) );
-
-    const auto checkRejectedSnapshotLeavesStateUntouched = [&]( const auto& malformedSnapshot )
-    {
-        SkullbonezCore::Physics::PhysicsSolverSnapshot beforeReject;
-        predictionEngine.CaptureReplaySolverSnapshot( beforeReject,
-                                                      SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
-                                                          bodyCount ) );
-
-        CHECK_FALSE(
-            predictionEngine.CanRestoreReplaySolverSnapshot( malformedSnapshot,
-                                                             SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
-                                                                 bodyCount ) ) );
-        CHECK_FALSE(
-            predictionEngine.RestoreReplaySolverSnapshot( malformedSnapshot,
-                                                          SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
-                                                              bodyCount ) ) );
-
-        SkullbonezCore::Physics::PhysicsSolverSnapshot afterReject;
-        predictionEngine.CaptureReplaySolverSnapshot( afterReject,
-                                                      SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
-                                                          bodyCount ) );
-        CHECK( afterReject.timeRemaining == beforeReject.timeRemaining );
-        CHECK( afterReject.motionEligibilityState == beforeReject.motionEligibilityState );
-        CHECK( afterReject.sleepState == beforeReject.sleepState );
-        CHECK( afterReject.sleepSupportEdges == beforeReject.sleepSupportEdges );
-        CHECK( afterReject.persistentContactCounts == beforeReject.persistentContactCounts );
-        CHECK( afterReject.collisionCellKeys == beforeReject.collisionCellKeys );
-        REQUIRE( PhysicsEngine::ReadPointJointConstraints( predictionEngine ).size() == 1u );
-        CHECK( FloatBitsEqual( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse,
-                               advancedJointImpulse ) );
-    };
-
-    auto malformedDenseRows = solverSnapshot;
-    REQUIRE_FALSE( malformedDenseRows.sleepState.empty() );
-    malformedDenseRows.sleepState.pop_back();
-    checkRejectedSnapshotLeavesStateUntouched( malformedDenseRows );
-
-    auto malformedEligibilityRows = solverSnapshot;
-    REQUIRE_FALSE( malformedEligibilityRows.motionEligibilityState.empty() );
-    malformedEligibilityRows.motionEligibilityState.pop_back();
-    checkRejectedSnapshotLeavesStateUntouched( malformedEligibilityRows );
-
-    auto malformedEligibilityBits = solverSnapshot;
-    REQUIRE_FALSE( malformedEligibilityBits.motionEligibilityState.empty() );
-    malformedEligibilityBits.motionEligibilityState[0] = 0x80u;
-    checkRejectedSnapshotLeavesStateUntouched( malformedEligibilityBits );
-
-    auto malformedSupportEdge = solverSnapshot;
-    malformedSupportEdge.sleepSupportEdges.emplace_back( 0, bodyCount );
-    checkRejectedSnapshotLeavesStateUntouched( malformedSupportEdge );
-
-    auto malformedIslandParent = solverSnapshot;
-    REQUIRE_FALSE( malformedIslandParent.sleepIslandParent.empty() );
-    malformedIslandParent.sleepIslandParent[0] = bodyCount;
-    checkRejectedSnapshotLeavesStateUntouched( malformedIslandParent );
-
-    auto malformedContactCache = solverSnapshot;
-    SkullbonezCore::Physics::PhysicsSolverContactCacheSample foreignCache;
-    foreignCache.key = static_cast<int64_t>( static_cast<uint64_t>( bodyCount ) << 32 );
-    malformedContactCache.persistentContactCache.push_back( foreignCache );
-    checkRejectedSnapshotLeavesStateUntouched( malformedContactCache );
-
-    auto malformedContactCounts = solverSnapshot;
-    REQUIRE_FALSE( malformedContactCounts.persistentContactCounts.empty() );
-    ++malformedContactCounts.persistentContactCounts[0];
-    checkRejectedSnapshotLeavesStateUntouched( malformedContactCounts );
-
-    REQUIRE( bodyCount >= 2 );
-    auto malformedRestingContactCounts = solverSnapshot;
-    SkullbonezCore::Physics::PhysicsSolverPersistentContactSample missingRestingCount;
-    missingRestingCount.bodyA = 0;
-    missingRestingCount.bodyB = 1;
-    missingRestingCount.featureId = 16u;
-    missingRestingCount.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 16u );
-    missingRestingCount.supportsRestingPolicy = true;
-    malformedRestingContactCounts.persistentContacts.push_back( missingRestingCount );
-    ++malformedRestingContactCounts.persistentContactCounts[0];
-    ++malformedRestingContactCounts.persistentContactCounts[1];
-    checkRejectedSnapshotLeavesStateUntouched( malformedRestingContactCounts );
-
-    auto malformedContactKey = solverSnapshot;
-    SkullbonezCore::Physics::PhysicsSolverPersistentContactSample incoherentContact;
-    incoherentContact.bodyA = 0;
-    incoherentContact.bodyB = 1;
-    incoherentContact.featureId = 17u;
-    incoherentContact.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 18u );
-    incoherentContact.supportsRestingPolicy = false;
-    malformedContactKey.persistentContacts.push_back( incoherentContact );
-    ++malformedContactKey.persistentContactCounts[0];
-    ++malformedContactKey.persistentContactCounts[1];
-    checkRejectedSnapshotLeavesStateUntouched( malformedContactKey );
-
-    auto malformedTerrainFlag = solverSnapshot;
-    SkullbonezCore::Physics::PhysicsSolverPersistentContactSample incoherentTerrainFlag;
-    incoherentTerrainFlag.bodyA = 0;
-    incoherentTerrainFlag.bodyB = 1;
-    incoherentTerrainFlag.featureId = 19u;
-    incoherentTerrainFlag.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 19u );
-    incoherentTerrainFlag.isTerrain = true;
-    incoherentTerrainFlag.supportsRestingPolicy = false;
-    malformedTerrainFlag.persistentContacts.push_back( incoherentTerrainFlag );
-    ++malformedTerrainFlag.persistentContactCounts[0];
-    ++malformedTerrainFlag.persistentContactCounts[1];
-    checkRejectedSnapshotLeavesStateUntouched( malformedTerrainFlag );
-
-    auto unsortedContactCache = solverSnapshot;
-    unsortedContactCache.persistentContactCache.clear();
-    SkullbonezCore::Physics::PhysicsSolverContactCacheSample laterCache;
-    laterCache.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 2u );
-    SkullbonezCore::Physics::PhysicsSolverContactCacheSample earlierCache;
-    earlierCache.key = SkullbonezCore::Physics::MakePersistentContactCacheKey( 0, 1, 1u );
-    unsortedContactCache.persistentContactCache.push_back( laterCache );
-    unsortedContactCache.persistentContactCache.push_back( earlierCache );
-    checkRejectedSnapshotLeavesStateUntouched( unsortedContactCache );
-
-    auto duplicateContactCache = solverSnapshot;
-    duplicateContactCache.persistentContactCache.clear();
-    duplicateContactCache.persistentContactCache.push_back( earlierCache );
-    duplicateContactCache.persistentContactCache.push_back( earlierCache );
-    checkRejectedSnapshotLeavesStateUntouched( duplicateContactCache );
-
-    auto overCommittedCapacity = solverSnapshot;
-    overCommittedCapacity.collisionCellKeys.resize( 17u, 42 );
-    checkRejectedSnapshotLeavesStateUntouched( overCommittedCapacity );
-
-    SkullbonezCore::Physics::PhysicsSolverSnapshot legacySnapshot = solverSnapshot;
-    legacySnapshot.version = 2u;
-    legacySnapshot.pointJoints.clear();
-    legacySnapshot.motionEligibilityState.clear();
-    REQUIRE( predictionEngine.RestoreReplaySolverSnapshot( legacySnapshot,
-                                                           SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
-                                                               bodyCount ) ) );
-    CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse == 0.0f );
+    CheckPredictionSnapshotRejections( predictionEngine, solverSnapshot, bodyCount, advancedJointImpulse );
 
     // Invariant: restoring historical solver state replaces a later cache on
     // both the live and prediction engines. The following fixed step therefore

@@ -73,12 +73,21 @@ struct PhysicsDiagnosticsFrameInput
     PhysicsDiagnosticsCsvWriter csvWriter;
     float deltaSeconds = 0.0f;
 };
+
+struct PhysicsRegressionContactMetrics
+{
+    int rowCount = 0;
+    float maxPenetration = 0.0f;
+    float maxSeparationBias = 0.0f;
+    float maxClosingSpeed = 0.0f;
+    float maxSlipSpeed = 0.0f;
+    float maxImpulse = 0.0f;
+};
 #endif
 
 class PhysicsDiagnosticsSink
 {
   public:
-
     // One object event per bounded candidate pair plus one terrain event per
     // body. PhysicsWorld reserves four candidate pairs per model, so five rows
     // per model is the exact upstream maximum for one fixed step.
@@ -118,6 +127,8 @@ class PhysicsDiagnosticsSink
     int m_collisionTimeEventCount = 0;
     int m_collisionTimeEventHighWater = 0;
     std::array<const char*, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_diagnosticNames = {};
+    std::array<PhysicsRegressionContactMetrics, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_regressionContactMetrics = {};
     int m_diagnosticNameCount = 0;
     Diagnostics::SkullScope m_skullScope;
 #endif

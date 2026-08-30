@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import concurrent.futures
 from dataclasses import dataclass
 import functools
 import os
@@ -21,6 +22,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
+from typing import Callable
 import xml.etree.ElementTree as ET
 
 from check_build_config_consistency import CompileRow, condition_matches, scan_repository
@@ -37,6 +41,7 @@ FIRST_PARTY_PROJECTS = (
 )
 APPLICATION_PROJECTS = {"SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_TESTS.vcxproj"}
 UNPACK_THRESHOLD = 4
+MAX_SOURCE_DESIGN_JOBS = 4
 MATCH_COUNT_RE = re.compile(r"(?m)^(\d+) match(?:es)?\.$")
 QUERY_ROOT_RE = re.compile(r'(?m)^(.+?):(\d+):\d+: note: "root" binds here$')
 
@@ -78,6 +83,89 @@ class CompileContext:
     project: str
     configuration: str
     arguments: tuple[str, ...]
+
+
+WorkItemIdentity = tuple[str, str, str, tuple[str, ...]]
+
+
+@dataclass(frozen=True)
+class SourceDesignWorkItem:
+    source: Path
+    project: str
+    configuration: str
+    arguments: tuple[str, ...]
+
+    def identity(self, repo: Path) -> WorkItemIdentity:
+        relative = self.source.resolve().relative_to(repo.resolve()).as_posix()
+        return relative.casefold(), self.project, self.configuration, self.arguments
+
+
+@dataclass(frozen=True)
+class ContextDiagnostic:
+    rule: str
+    location: str
+    text: str
+
+
+@dataclass(frozen=True)
+class ContextAnalysisResult:
+    work_item: SourceDesignWorkItem
+    diagnostics: tuple[ContextDiagnostic, ...] = ()
+    tidy_seconds: float = 0.0
+    query_seconds: float = 0.0
+    tidy_process_count: int = 0
+    query_process_count: int = 0
+    infrastructure_kind: str | None = None
+    infrastructure_error: str | None = None
+
+
+@dataclass(frozen=True)
+class WorkExecutionBatch:
+    results: tuple[ContextAnalysisResult, ...]
+    peak_workers: int
+    peak_in_flight: int
+    admitted_count: int
+
+
+@dataclass
+class SourceDesignMeasurements:
+    mode: str
+    source_count: int = 0
+    context_count: int = 0
+    tidy_process_count: int = 0
+    query_process_count: int = 0
+    configured_workers: int = 1
+    peak_workers: int = 0
+    context_discovery_seconds: float = 0.0
+    tidy_seconds: float = 0.0
+    query_seconds: float = 0.0
+    dead_code_seconds: float = 0.0
+    total_seconds: float = 0.0
+    finding_count: int = 0
+    infrastructure_error_count: int = 0
+
+    def summary(self) -> str:
+        return (
+            f"source_design_summary mode={self.mode} sources={self.source_count} "
+            f"contexts={self.context_count} tidy_processes={self.tidy_process_count} "
+            f"query_processes={self.query_process_count} jobs={self.configured_workers} "
+            f"peak_workers={self.peak_workers} context_seconds={self.context_discovery_seconds:.3f} "
+            f"tidy_seconds={self.tidy_seconds:.3f} query_seconds={self.query_seconds:.3f} "
+            f"dead_code_seconds={self.dead_code_seconds:.3f} total_seconds={self.total_seconds:.3f} "
+            f"findings={self.finding_count} infrastructure_errors={self.infrastructure_error_count}"
+        )
+
+
+def parse_job_count(value: str) -> int:
+    if value.casefold() == "auto":
+        return min(max(os.cpu_count() or 1, 1), MAX_SOURCE_DESIGN_JOBS)
+    try:
+        jobs = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("--jobs must be 'auto' or an integer") from error
+    if not 1 <= jobs <= MAX_SOURCE_DESIGN_JOBS:
+        raise argparse.ArgumentTypeError(f"--jobs must be between 1 and {MAX_SOURCE_DESIGN_JOBS}")
+    return jobs
 
 
 def llvm_tool(name: str) -> Path:
@@ -302,6 +390,30 @@ def compile_contexts(repo: Path, source: Path, rows: list[CompileRow]) -> list[C
     return sorted(contexts.values(), key=lambda context: (context.configuration, context.project))
 
 
+def enumerate_work_items(
+    repo: Path,
+    sources: list[Path],
+    rows: list[CompileRow],
+    context_loader=compile_contexts,
+) -> list[SourceDesignWorkItem]:
+    """Return immutable source/context identities without launching LLVM."""
+    unique: dict[WorkItemIdentity, SourceDesignWorkItem] = {}
+    for source in sources:
+        resolved_source = source.resolve()
+        for context in context_loader(repo, resolved_source, rows):
+            work_item = SourceDesignWorkItem(
+                resolved_source,
+                context.project,
+                context.configuration,
+                context.arguments,
+            )
+            unique[work_item.identity(repo)] = work_item
+
+    # Invariant: scheduling may change later, but admission identity and its
+    # canonical order do not depend on caller order or duplicated contexts.
+    return [unique[identity] for identity in sorted(unique)]
+
+
 def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, cwd=cwd, text=True, capture_output=True, encoding="utf-8", errors="replace")
 
@@ -329,29 +441,182 @@ def clang_tidy_findings(repo: Path, source: Path, tidy: Path, arguments: tuple[s
 
 
 def clang_query_findings(
-    repo: Path, source: Path, query: Path, arguments: tuple[str, ...] | None = None
+    repo: Path,
+    source: Path,
+    query: Path,
+    arguments: tuple[str, ...] | None = None,
+    commands: dict[str, str] | None = None,
 ) -> dict[str, list[str]]:
-    findings: dict[str, list[str]] = {}
-    for label, matcher in QUERY_COMMANDS.items():
-        result = run(
-            [str(query), "-c", matcher, str(source), "--", *(arguments or tuple(compile_arguments(repo)))],
-            repo,
+    active_commands = QUERY_COMMANDS if commands is None else commands
+    if tuple(active_commands) != tuple(QUERY_COMMANDS):
+        missing = sorted(set(QUERY_COMMANDS) - set(active_commands))
+        extra = sorted(set(active_commands) - set(QUERY_COMMANDS))
+        raise RuntimeError(f"clang-query command inventory is incomplete: missing={missing} extra={extra}")
+
+    command = [str(query)]
+    for matcher in active_commands.values():
+        command.extend(("-c", matcher))
+    command.extend((str(source), "--", *(arguments or tuple(compile_arguments(repo)))))
+    result = run(command, repo)
+    output = result.stdout + result.stderr
+    if result.returncode != 0:
+        raise RuntimeError(f"clang-query failed for {source}:\n{output}")
+
+    return parse_batched_query_output(source, output, tuple(active_commands))
+
+
+def parse_batched_query_output(
+    source: Path,
+    output: str,
+    expected_labels: tuple[str, ...] = tuple(QUERY_COMMANDS),
+) -> dict[str, list[str]]:
+    count_matches = list(MATCH_COUNT_RE.finditer(output))
+    if len(count_matches) != len(expected_labels):
+        raise RuntimeError(
+            f"clang-query completed {len(count_matches)}/{len(expected_labels)} rules for {source}: "
+            f"expected={list(expected_labels)}"
         )
-        output = result.stdout + result.stderr
-        if result.returncode != 0:
-            raise RuntimeError(f"clang-query failed for {source}:\n{output}")
+
+    findings: dict[str, list[str]] = {}
+    section_start = 0
+    for label, count_match in zip(expected_labels, count_matches, strict=True):
+        section = output[section_start : count_match.end()]
+        section_start = count_match.end()
+        count = int(count_match.group(1))
+        root_lines = [line for line in section.splitlines() if 'note: "root" binds here' in line]
+        if len(root_lines) != count:
+            raise RuntimeError(
+                f"clang-query reported {count} matches but {len(root_lines)} bound locations "
+                f"for {label!r} in {source}"
+            )
 
         if label == "parameter struct unpack":
-            locations = collections.Counter(QUERY_ROOT_RE.findall(output))
+            locations = collections.Counter(QUERY_ROOT_RE.findall(section))
             grouped = [f"{path}:{line}" for (path, line), count in locations.items() if count >= UNPACK_THRESHOLD]
             if grouped:
                 findings[label] = grouped
             continue
 
-        counts = [int(match.group(1)) for match in MATCH_COUNT_RE.finditer(output)]
-        if any(counts):
-            findings[label] = [line for line in output.splitlines() if 'note: "root" binds here' in line]
+        if count:
+            findings[label] = root_lines
     return findings
+
+
+def measured_tidy_findings(
+    repo: Path,
+    source: Path,
+    tidy: Path,
+    arguments: tuple[str, ...],
+    measurements: SourceDesignMeasurements,
+) -> str:
+    started = time.perf_counter()
+    measurements.tidy_process_count += 1
+    measurements.peak_workers = max(measurements.peak_workers, 1)
+    try:
+        return clang_tidy_findings(repo, source, tidy, arguments)
+    finally:
+        measurements.tidy_seconds += time.perf_counter() - started
+
+
+def measured_query_findings(
+    repo: Path,
+    source: Path,
+    query: Path,
+    arguments: tuple[str, ...],
+    measurements: SourceDesignMeasurements,
+    commands: dict[str, str] | None = None,
+) -> dict[str, list[str]]:
+    started = time.perf_counter()
+    measurements.query_process_count += 1
+    measurements.peak_workers = max(measurements.peak_workers, 1)
+    try:
+        return clang_query_findings(repo, source, query, arguments, commands)
+    finally:
+        measurements.query_seconds += time.perf_counter() - started
+
+
+def analyze_work_item(
+    repo: Path,
+    tidy: Path,
+    query: Path,
+    work_item: SourceDesignWorkItem,
+) -> ContextAnalysisResult:
+    """Run one context without printing or mutating coordinator-owned state."""
+    tidy_started = time.perf_counter()
+    try:
+        tidy_output = clang_tidy_findings(repo, work_item.source, tidy, work_item.arguments)
+    except (OSError, RuntimeError) as error:
+        return ContextAnalysisResult(
+            work_item,
+            tidy_seconds=time.perf_counter() - tidy_started,
+            tidy_process_count=1,
+            infrastructure_kind="tidy",
+            infrastructure_error=str(error),
+        )
+    tidy_seconds = time.perf_counter() - tidy_started
+    diagnostics = []
+    for line in tidy_output.splitlines():
+        if "readability-function-size" not in line:
+            continue
+        location = re.split(r": (?:warning|error):", line, maxsplit=1)[0]
+        diagnostics.append(ContextDiagnostic("readability-function-size", location, line))
+
+    query_started = time.perf_counter()
+    try:
+        query_findings = clang_query_findings(repo, work_item.source, query, work_item.arguments)
+    except (OSError, RuntimeError) as error:
+        return ContextAnalysisResult(
+            work_item,
+            tuple(diagnostics),
+            tidy_seconds,
+            time.perf_counter() - query_started,
+            1,
+            1,
+            "query",
+            str(error),
+        )
+    query_seconds = time.perf_counter() - query_started
+    for label, locations in query_findings.items():
+        location_text = ", ".join(locations) if locations else str(work_item.source)
+        diagnostics.append(
+            ContextDiagnostic(
+                label,
+                locations[0] if locations else str(work_item.source),
+                f"{label}: {location_text}",
+            )
+        )
+
+    return ContextAnalysisResult(work_item, tuple(diagnostics), tidy_seconds, query_seconds, 1, 1)
+
+
+def _accumulate_context_measurements(
+    measurements: SourceDesignMeasurements,
+    result: ContextAnalysisResult,
+) -> None:
+    measurements.tidy_process_count += result.tidy_process_count
+    measurements.query_process_count += result.query_process_count
+    measurements.tidy_seconds += result.tidy_seconds
+    measurements.query_seconds += result.query_seconds
+
+
+def inspect_context(
+    repo: Path,
+    source: Path,
+    tidy: Path,
+    query: Path,
+    context: CompileContext,
+    measurements: SourceDesignMeasurements,
+) -> ContextAnalysisResult:
+    work_item = SourceDesignWorkItem(source, context.project, context.configuration, context.arguments)
+    result = analyze_work_item(repo, tidy, query, work_item)
+    _accumulate_context_measurements(measurements, result)
+    measurements.peak_workers = max(measurements.peak_workers, 1)
+    if result.infrastructure_error:
+        raise RuntimeError(
+            f"{result.infrastructure_kind} infrastructure failure for {source} "
+            f"[{context.project} {context.configuration}]: {result.infrastructure_error}"
+        )
+    return result
 
 
 def inspect_source(
@@ -360,19 +625,143 @@ def inspect_source(
     tidy: Path,
     query: Path,
     contexts: list[CompileContext],
+    measurements: SourceDesignMeasurements | None = None,
 ) -> list[str]:
+    active_measurements = measurements or SourceDesignMeasurements("focused")
     diagnostics: list[str] = []
     for context in contexts:
-        prefix = f"{context.project} {context.configuration}"
-        tidy_output = clang_tidy_findings(repo, source, tidy, context.arguments)
-        if tidy_output:
-            diagnostics.extend(
-                f"{prefix}: {line}" for line in tidy_output.splitlines() if "readability-function-size" in line
-            )
-        for label, locations in clang_query_findings(repo, source, query, context.arguments).items():
-            location_text = ", ".join(locations) if locations else str(source)
-            diagnostics.append(f"{prefix}: {label}: {location_text}")
+        result = inspect_context(repo, source, tidy, query, context, active_measurements)
+        diagnostics.extend(
+            f"{context.project} {context.configuration}: {diagnostic.text}"
+            for diagnostic in result.diagnostics
+        )
     return diagnostics
+
+
+def execute_work_items(
+    repo: Path,
+    work_items: list[SourceDesignWorkItem],
+    jobs: int,
+    worker: Callable[[SourceDesignWorkItem], ContextAnalysisResult],
+) -> WorkExecutionBatch:
+    """Run deterministic context batches and stop after a batch reports infrastructure failure."""
+    if not 1 <= jobs <= MAX_SOURCE_DESIGN_JOBS:
+        raise ValueError(f"jobs must be between 1 and {MAX_SOURCE_DESIGN_JOBS}")
+    if not work_items:
+        return WorkExecutionBatch((), 0, 0, 0)
+
+    active_workers = 0
+    peak_workers = 0
+    peak_in_flight = 0
+    admitted_count = 0
+    state_lock = threading.Lock()
+
+    def invoke(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+        nonlocal active_workers, peak_workers
+        with state_lock:
+            active_workers += 1
+            peak_workers = max(peak_workers, active_workers)
+        try:
+            return worker(work_item)
+        finally:
+            with state_lock:
+                active_workers -= 1
+
+    results: list[ContextAnalysisResult] = []
+    next_index = 0
+    first_failure = ""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs, thread_name_prefix="source-design") as executor:
+        while not first_failure and next_index < len(work_items):
+            batch_items = work_items[next_index : next_index + jobs]
+            next_index += len(batch_items)
+            active = {executor.submit(invoke, work_item): work_item for work_item in batch_items}
+            admitted_count += len(active)
+            peak_in_flight = max(peak_in_flight, len(active))
+
+            # Hazard: replenishing a partially completed batch lets scheduling
+            # decide which later contexts run before an active failure arrives.
+            # The coordinator admits the next prefix only after this whole
+            # prefix completes, so failures always leave the same unexamined tail.
+            concurrent.futures.wait(active)
+            for future in sorted(active, key=lambda item: active[item].identity(repo)):
+                work_item = active[future]
+                try:
+                    result = future.result()
+                    if result.work_item != work_item:
+                        raise RuntimeError("worker returned a result for a different work item")
+                except ChildProcessError as error:
+                    result = ContextAnalysisResult(
+                        work_item,
+                        infrastructure_kind="child",
+                        infrastructure_error=f"{type(error).__name__}: {error}",
+                    )
+                except Exception as error:
+                    result = ContextAnalysisResult(
+                        work_item,
+                        infrastructure_kind="worker",
+                        infrastructure_error=f"{type(error).__name__}: {error}",
+                    )
+                results.append(result)
+                if result.infrastructure_error and not first_failure:
+                    relative = work_item.source.resolve().relative_to(repo.resolve()).as_posix()
+                    first_failure = f"{relative} [{work_item.project} {work_item.configuration}]"
+
+    # Hazard: silently dropping the tail would turn an incomplete scan into a
+    # plausible partial result. Name every context that was never admitted.
+    if first_failure:
+        for work_item in work_items[next_index:]:
+            results.append(
+                ContextAnalysisResult(
+                    work_item,
+                    infrastructure_kind="not-admitted",
+                    infrastructure_error=f"not admitted after infrastructure failure in {first_failure}",
+                )
+            )
+
+    ordered = tuple(sorted(results, key=lambda result: result.work_item.identity(repo)))
+    return WorkExecutionBatch(ordered, peak_workers, peak_in_flight, admitted_count)
+
+
+def render_context_diagnostics(repo: Path, results: tuple[ContextAnalysisResult, ...]) -> list[str]:
+    sortable = []
+    for result in results:
+        relative = result.work_item.source.resolve().relative_to(repo.resolve()).as_posix()
+        for diagnostic in result.diagnostics:
+            key = (
+                relative.casefold(),
+                result.work_item.project,
+                result.work_item.configuration,
+                diagnostic.rule,
+                diagnostic.location.casefold(),
+                diagnostic.text,
+            )
+            text = (
+                f"{relative}: {result.work_item.project} "
+                f"{result.work_item.configuration}: {diagnostic.text}"
+            )
+            sortable.append((key, text))
+    return [text for _, text in sorted(sortable)]
+
+
+def render_infrastructure_errors(repo: Path, results: tuple[ContextAnalysisResult, ...]) -> list[str]:
+    errors = []
+    for result in results:
+        if not result.infrastructure_error:
+            continue
+        relative = result.work_item.source.resolve().relative_to(repo.resolve()).as_posix()
+        errors.append(
+            f"{relative}: {result.work_item.project} {result.work_item.configuration}: "
+            f"{result.infrastructure_kind}: {result.infrastructure_error}"
+        )
+    return errors
+
+
+def classify_results(results: tuple[ContextAnalysisResult, ...]) -> int:
+    if any(result.infrastructure_error for result in results):
+        return 2
+    if any(result.diagnostics for result in results):
+        return 1
+    return 0
 
 
 def git_output(repo: Path, arguments: list[str]) -> list[str]:
@@ -603,7 +992,276 @@ def prove_compile_contexts(repo: Path) -> None:
         raise AssertionError("header contexts did not preserve distinct first-party consumer projects")
 
 
-def self_test(repo: Path, tidy: Path, query: Path, clang_cl: Path, linker: Path) -> None:
+def prove_work_item_enumeration(repo: Path) -> None:
+    """Pin source/context identity, ordering, and deduplication without LLVM."""
+    header = repo / "SkullbonezSource/Core/SourceDesignWorkItemProbe.h"
+    source = repo / "SkullbonezSource/Core/SourceDesignWorkItemProbe.cpp"
+    common_arguments = tuple(compile_arguments(repo))
+    contexts = {
+        header.name: [
+            CompileContext("SKULLBONEZ_TESTS.vcxproj", "Profile|x64", common_arguments + ("-DHEADER_TEST",)),
+            CompileContext("SKULLBONEZ_CORE.vcxproj", "Debug|x64", common_arguments + ("-DHEADER_CORE",)),
+            CompileContext("SKULLBONEZ_TESTS.vcxproj", "Profile|x64", common_arguments + ("-DHEADER_TEST",)),
+        ],
+        source.name: [
+            CompileContext("SKULLBONEZ_CORE.vcxproj", "Profile|x64", common_arguments + ("-DSOURCE_B",)),
+            CompileContext("SKULLBONEZ_CORE.vcxproj", "Automation|x64", common_arguments + ("-DSOURCE_AUTO",)),
+            CompileContext("SKULLBONEZ_CORE.vcxproj", "Profile|x64", common_arguments + ("-DSOURCE_A",)),
+            CompileContext("SKULLBONEZ_CORE.vcxproj", "Profile|x64", common_arguments + ("-DSOURCE_A",)),
+        ],
+    }
+
+    def fixture_contexts(_repo: Path, fixture_source: Path, _rows: list[CompileRow]) -> list[CompileContext]:
+        return contexts[fixture_source.name]
+
+    work_items = enumerate_work_items(repo, [source, header, source], [], fixture_contexts)
+    expected = sorted(
+        {
+            (
+                "skullbonezsource/core/sourcedesignworkitemprobe.h",
+                "SKULLBONEZ_TESTS.vcxproj",
+                "Profile|x64",
+                common_arguments + ("-DHEADER_TEST",),
+            ),
+            (
+                "skullbonezsource/core/sourcedesignworkitemprobe.h",
+                "SKULLBONEZ_CORE.vcxproj",
+                "Debug|x64",
+                common_arguments + ("-DHEADER_CORE",),
+            ),
+            (
+                "skullbonezsource/core/sourcedesignworkitemprobe.cpp",
+                "SKULLBONEZ_CORE.vcxproj",
+                "Automation|x64",
+                common_arguments + ("-DSOURCE_AUTO",),
+            ),
+            (
+                "skullbonezsource/core/sourcedesignworkitemprobe.cpp",
+                "SKULLBONEZ_CORE.vcxproj",
+                "Profile|x64",
+                common_arguments + ("-DSOURCE_A",),
+            ),
+            (
+                "skullbonezsource/core/sourcedesignworkitemprobe.cpp",
+                "SKULLBONEZ_CORE.vcxproj",
+                "Profile|x64",
+                common_arguments + ("-DSOURCE_B",),
+            ),
+        }
+    )
+    actual = [work_item.identity(repo) for work_item in work_items]
+    if actual != expected:
+        raise AssertionError(f"work-item identity ordering or deduplication changed: actual={actual}")
+    try:
+        work_items[0].project = "mutated"  # type: ignore[misc]
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("work-item identity is mutable")
+
+    summary = SourceDesignMeasurements(
+        "fixture",
+        source_count=2,
+        context_count=5,
+        tidy_process_count=5,
+        query_process_count=5,
+        peak_workers=1,
+    ).summary()
+    if "\n" in summary or not all(
+        token in summary
+        for token in (
+            "mode=fixture",
+            "sources=2",
+            "contexts=5",
+            "tidy_processes=5",
+            "query_processes=5",
+            "findings=0",
+            "infrastructure_errors=0",
+        )
+    ):
+        raise AssertionError(f"source-design summary is incomplete or unbounded: {summary!r}")
+
+
+def prove_bounded_concurrency(repo: Path) -> None:
+    """Exercise bounded admission, overlap, ordering, and failure classes without LLVM."""
+    automatic_jobs = parse_job_count("auto")
+    if not 1 <= automatic_jobs <= MAX_SOURCE_DESIGN_JOBS:
+        raise AssertionError(f"automatic job selection escaped its cap: {automatic_jobs}")
+    for invalid in ("0", "-1", "nonnumeric", str(MAX_SOURCE_DESIGN_JOBS + 1)):
+        try:
+            parse_job_count(invalid)
+        except argparse.ArgumentTypeError:
+            pass
+        else:
+            raise AssertionError(f"invalid job value was accepted: {invalid}")
+
+    arguments = tuple(compile_arguments(repo))
+    work_items = [
+        SourceDesignWorkItem(
+            repo / f"SkullbonezSource/Core/ConcurrencyProbe{index}.cpp",
+            "SKULLBONEZ_CORE.vcxproj",
+            "Profile|x64",
+            arguments + (f"-DPROBE={index}",),
+        )
+        for index in range(6)
+    ]
+
+    def clean_worker(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+        return ContextAnalysisResult(work_item, tidy_process_count=1, query_process_count=1)
+
+    clean_outputs = []
+    for jobs in (1, 2, automatic_jobs):
+        batch = execute_work_items(repo, work_items, jobs, clean_worker)
+        clean_outputs.append((render_context_diagnostics(repo, batch.results), classify_results(batch.results)))
+    if any(output != ([], 0) for output in clean_outputs):
+        raise AssertionError(f"clean concurrency control changed result classification: {clean_outputs}")
+
+    def policy_worker(reverse: bool) -> Callable[[SourceDesignWorkItem], ContextAnalysisResult]:
+        def inspect(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+            index = int(work_item.source.stem.removeprefix("ConcurrencyProbe"))
+            time.sleep((5 - index if reverse else index) * 0.002)
+            diagnostics = ()
+            if index in {1, 4}:
+                location = f"{work_item.source}:1"
+                diagnostics = (ContextDiagnostic("fixture policy", location, f"fixture policy: {location}"),)
+            return ContextAnalysisResult(
+                work_item,
+                diagnostics,
+                tidy_process_count=1,
+                query_process_count=1,
+            )
+
+        return inspect
+
+    planted_outputs = []
+    for jobs, reverse in ((1, False), (2, True), (automatic_jobs, False)):
+        batch = execute_work_items(repo, work_items, jobs, policy_worker(reverse))
+        planted_outputs.append((render_context_diagnostics(repo, batch.results), classify_results(batch.results)))
+    if planted_outputs[0] != planted_outputs[1] or planted_outputs[0] != planted_outputs[2]:
+        raise AssertionError("policy diagnostics changed with worker count or completion order")
+    if planted_outputs[0][1] != 1:
+        raise AssertionError("planted policy finding did not retain policy exit classification")
+
+    active_children = 0
+    peak_children = 0
+    child_lock = threading.Lock()
+
+    def delayed_worker(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+        nonlocal active_children, peak_children
+        with child_lock:
+            active_children += 1
+            peak_children = max(peak_children, active_children)
+        try:
+            time.sleep(0.025)
+            return clean_worker(work_item)
+        finally:
+            with child_lock:
+                active_children -= 1
+
+    overlap = execute_work_items(repo, work_items, 2, delayed_worker)
+    if peak_children != 2 or overlap.peak_workers != 2 or overlap.peak_in_flight != 2:
+        raise AssertionError(
+            "bounded overlap control did not observe exactly two active children: "
+            f"child_peak={peak_children} worker_peak={overlap.peak_workers} "
+            f"in_flight_peak={overlap.peak_in_flight}"
+        )
+
+    def admission_failure(
+        failure_delay: float, success_delay: float, started: set[int], started_lock: threading.Lock
+    ) -> Callable[[SourceDesignWorkItem], ContextAnalysisResult]:
+        def inspect(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+            index = int(work_item.source.stem.removeprefix("ConcurrencyProbe"))
+            with started_lock:
+                started.add(index)
+            if index == 0:
+                time.sleep(failure_delay)
+                return ContextAnalysisResult(
+                    work_item,
+                    infrastructure_kind="tidy",
+                    infrastructure_error="planted parse failure",
+                )
+            time.sleep(success_delay)
+            return clean_worker(work_item)
+
+        return inspect
+
+    admission_runs = []
+    for failure_delay, success_delay in ((0.005, 0.050), (0.050, 0.005)):
+        started: set[int] = set()
+        started_lock = threading.Lock()
+        stopped = execute_work_items(
+            repo,
+            work_items,
+            2,
+            admission_failure(failure_delay, success_delay, started, started_lock),
+        )
+        skipped_identities = tuple(
+            result.work_item.identity(repo)
+            for result in stopped.results
+            if result.infrastructure_kind == "not-admitted"
+        )
+        process_counts = (
+            sum(result.tidy_process_count for result in stopped.results),
+            sum(result.query_process_count for result in stopped.results),
+        )
+        admission_runs.append(
+            (
+                render_infrastructure_errors(repo, stopped.results),
+                classify_results(stopped.results),
+                stopped.admitted_count,
+                tuple(sorted(started)),
+                skipped_identities,
+                process_counts,
+            )
+        )
+    if admission_runs[0] != admission_runs[1]:
+        raise AssertionError(f"infrastructure admission changed with completion order: {admission_runs}")
+    errors, classification, admitted, started, skipped, process_counts = admission_runs[0]
+    if classification != 2 or admitted != 2 or started != (0, 1) or len(skipped) != 4 or process_counts != (1, 1):
+        raise AssertionError(
+            "infrastructure failure did not stop deterministic prefix admission: "
+            f"errors={len(errors)} admitted={admitted} started={started} "
+            f"skipped={len(skipped)} processes={process_counts}"
+        )
+
+    failure_kinds = ("tidy", "query", "child", "worker")
+
+    def failure_worker(reverse: bool) -> Callable[[SourceDesignWorkItem], ContextAnalysisResult]:
+        def inspect(work_item: SourceDesignWorkItem) -> ContextAnalysisResult:
+            index = int(work_item.source.stem.removeprefix("ConcurrencyProbe"))
+            time.sleep((3 - index if reverse else index) * 0.003)
+            if index == 2:
+                raise ChildProcessError("planted child crash")
+            if index == 3:
+                raise RuntimeError("planted worker exception")
+            return ContextAnalysisResult(
+                work_item,
+                infrastructure_kind=failure_kinds[index],
+                infrastructure_error=f"planted {failure_kinds[index]} failure",
+            )
+
+        return inspect
+
+    failure_items = work_items[:4]
+    forward = execute_work_items(repo, failure_items, 4, failure_worker(False))
+    reverse = execute_work_items(repo, failure_items, 4, failure_worker(True))
+    forward_errors = render_infrastructure_errors(repo, forward.results)
+    reverse_errors = render_infrastructure_errors(repo, reverse.results)
+    if forward_errors != reverse_errors or classify_results(forward.results) != 2:
+        raise AssertionError("infrastructure diagnostics changed with completion order")
+    observed_kinds = {result.infrastructure_kind for result in forward.results}
+    if observed_kinds != set(failure_kinds):
+        raise AssertionError(f"infrastructure classifications are incomplete: {sorted(observed_kinds)}")
+
+
+def self_test(
+    repo: Path,
+    tidy: Path,
+    query: Path,
+    clang_cl: Path,
+    linker: Path,
+    measurements: SourceDesignMeasurements,
+) -> None:
     fixtures = {
         "wide.cpp": (
             "struct BodyStore{}; struct ColliderStore{}; struct Settings{};\n"
@@ -623,10 +1281,18 @@ def self_test(repo: Path, tidy: Path, query: Path, clang_cl: Path, linker: Path)
         ),
         "nested.cpp": "int Helper(int v){if(v){if(v){if(v){if(v){if(v){if(v){return v;}}}}}}return 0;} int Root(int v){return Helper(v);}\n",
         "struct.cpp": "struct Values{int a;int b;int c;int d;}; int Read(Values v){const int a=v.a;const int b=v.b;const int c=v.c;const int d=v.d;return a+b+c+d;}\n",
-        "locals.cpp": "int Leftovers(const int& input){const int& alias=input;int m_local=alias;return m_local;}\n",
+        "member.cpp": "int MemberPrefix(){int m_local=1;return m_local;}\n",
+        "alias.cpp": "int Alias(const int& input){const int& alias=input;return alias;}\n",
+        "multi.cpp": "int Leftovers(const int& input){const int& alias=input;int m_local=alias;return m_local;}\n",
         "clean.cpp": "struct Values{int a;int b;}; int Read(const Values& v){return v.a+v.b;} int Sum(int a,int b){return a+b;}\n",
         "large.cpp": "int Large(int value) {\n" + "value += 1;\n" * 401 + "return value;\n}\n",
     }
+    measurements.source_count = len(fixtures)
+    measurements.context_count = len(fixtures)
+    context_started = time.perf_counter()
+    prove_work_item_enumeration(repo)
+    prove_bounded_concurrency(repo)
+    measurements.context_discovery_seconds += time.perf_counter() - context_started
     with tempfile.TemporaryDirectory(prefix="skore-source-design-") as temporary:
         root = Path(temporary)
         paths: dict[str, Path] = {}
@@ -635,33 +1301,108 @@ def self_test(repo: Path, tidy: Path, query: Path, clang_cl: Path, linker: Path)
             path.write_text(text, encoding="utf-8", newline="\n")
             paths[name] = path
 
-        wide = clang_tidy_findings(repo, paths["wide.cpp"], tidy)
+        wide = measured_tidy_findings(repo, paths["wide.cpp"], tidy, tuple(compile_arguments(repo)), measurements)
         if "12 parameters" not in wide:
             raise AssertionError("12-parameter negative control was not rejected")
-        if "wide declaration" not in clang_query_findings(repo, paths["wide.cpp"], query):
+        if "wide declaration" not in measured_query_findings(
+            repo, paths["wide.cpp"], query, tuple(compile_arguments(repo)), measurements
+        ):
             raise AssertionError("12-parameter syntax-tree negative control was not rejected")
-        nested = clang_tidy_findings(repo, paths["nested.cpp"], tidy)
+        nested = measured_tidy_findings(
+            repo, paths["nested.cpp"], tidy, tuple(compile_arguments(repo)), measurements
+        )
         if "nesting level" not in nested:
             raise AssertionError("nested once-called helper negative control was not rejected")
-        large = clang_tidy_findings(repo, paths["large.cpp"], tidy)
+        large = measured_tidy_findings(repo, paths["large.cpp"], tidy, tuple(compile_arguments(repo)), measurements)
         if "lines including whitespace and comments (threshold 400)" not in large:
             raise AssertionError("400-line function negative control was not rejected")
 
-        struct_findings = clang_query_findings(repo, paths["struct.cpp"], query)
+        struct_findings = measured_query_findings(
+            repo, paths["struct.cpp"], query, tuple(compile_arguments(repo)), measurements
+        )
         if "parameter struct unpack" not in struct_findings:
             raise AssertionError("parameter-struct entry-unpack negative control was not rejected")
-        local_findings = clang_query_findings(repo, paths["locals.cpp"], query)
-        if "member-prefixed local" not in local_findings or "pure parameter alias" not in local_findings:
-            raise AssertionError("local-code negative controls were not rejected")
+        member_findings = measured_query_findings(
+            repo, paths["member.cpp"], query, tuple(compile_arguments(repo)), measurements
+        )
+        if set(member_findings) != {"member-prefixed local"}:
+            raise AssertionError(f"member-local batching lost rule attribution: {member_findings}")
+        alias_findings = measured_query_findings(
+            repo, paths["alias.cpp"], query, tuple(compile_arguments(repo)), measurements
+        )
+        if set(alias_findings) != {"pure parameter alias"}:
+            raise AssertionError(f"parameter-alias batching lost rule attribution: {alias_findings}")
+        multi_findings = measured_query_findings(
+            repo, paths["multi.cpp"], query, tuple(compile_arguments(repo)), measurements
+        )
+        if set(multi_findings) != {"member-prefixed local", "pure parameter alias"}:
+            raise AssertionError(f"multi-rule batching lost rule attribution: {multi_findings}")
         fixture_context = [CompileContext("fixture", "default", tuple(compile_arguments(repo)))]
-        if inspect_source(repo, paths["clean.cpp"], tidy, query, fixture_context):
+        if inspect_source(repo, paths["clean.cpp"], tidy, query, fixture_context, measurements):
             raise AssertionError("clean compiler fixture produced a finding")
 
+        incomplete_commands = dict(list(QUERY_COMMANDS.items())[:-1])
+        try:
+            clang_query_findings(
+                repo,
+                paths["clean.cpp"],
+                query,
+                tuple(compile_arguments(repo)),
+                incomplete_commands,
+            )
+        except RuntimeError as error:
+            if "command inventory is incomplete" not in str(error):
+                raise AssertionError(f"missing-rule control reported the wrong error: {error}") from error
+        else:
+            raise AssertionError("missing Query rule was accepted")
+
+        partial_output = "\n".join("0 matches." for _ in range(len(QUERY_COMMANDS) - 1))
+        try:
+            parse_batched_query_output(paths["clean.cpp"], partial_output)
+        except RuntimeError as error:
+            if "3/4 rules" not in str(error):
+                raise AssertionError(f"partial-command control reported the wrong error: {error}") from error
+        else:
+            raise AssertionError("partial Query execution reported a clean result")
+
+        truncated_locations = (
+            f'{paths["clean.cpp"]}:1:1: note: "root" binds here\n'
+            "2 matches.\n0 matches.\n0 matches.\n0 matches."
+        )
+        try:
+            parse_batched_query_output(paths["clean.cpp"], truncated_locations)
+        except RuntimeError as error:
+            if "2 matches but 1 bound locations" not in str(error):
+                raise AssertionError(f"truncated-location control reported the wrong error: {error}") from error
+        else:
+            raise AssertionError("truncated Query locations reported a complete result")
+
+        malformed_commands = dict(QUERY_COMMANDS)
+        malformed_commands["wide declaration"] = "match functionDecl("
+        try:
+            measured_query_findings(
+                repo,
+                paths["clean.cpp"],
+                query,
+                tuple(compile_arguments(repo)),
+                measurements,
+                malformed_commands,
+            )
+        except RuntimeError as error:
+            if "clang-query failed" not in str(error):
+                raise AssertionError(f"malformed-command control reported the wrong error: {error}") from error
+        else:
+            raise AssertionError("malformed Query command reported a clean result")
+
+    dead_code_started = time.perf_counter()
     prove_dead_code_elimination(clang_cl, linker)
     if project_dead_code_findings(repo):
         raise AssertionError("repository project dead-code settings do not pass their positive control")
     prove_project_dead_code_evaluation(repo)
+    measurements.dead_code_seconds += time.perf_counter() - dead_code_started
+    context_started = time.perf_counter()
     prove_compile_contexts(repo)
+    measurements.context_discovery_seconds += time.perf_counter() - context_started
     print("PASS: compiler-backed source-design and linker negative controls")
 
 
@@ -670,37 +1411,83 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--files", nargs="*", type=Path)
+    parser.add_argument(
+        "--jobs",
+        type=parse_job_count,
+        default="auto",
+        help=f"whole-context workers: auto or 1-{MAX_SOURCE_DESIGN_JOBS} (default: auto)",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     repo = args.repo.resolve()
+    measurements = SourceDesignMeasurements(
+        "self-test" if args.self_test else "live",
+        configured_workers=args.jobs,
+    )
+    total_started = time.perf_counter()
+    exit_code = 2
     try:
         tidy = llvm_tool("clang-tidy")
         query = llvm_tool("clang-query")
         clang_cl = msvc_tool("cl")
         linker = msvc_tool("link")
         if args.self_test:
-            self_test(repo, tidy, query, clang_cl, linker)
-            return 0
+            self_test(repo, tidy, query, clang_cl, linker, measurements)
+            exit_code = 0
+        else:
+            context_started = time.perf_counter()
+            sources = (
+                [path if path.is_absolute() else repo / path for path in args.files]
+                if args.files
+                else changed_sources(repo)
+            )
+            rows, _ = scan_repository(repo, FIRST_PARTY_PROJECTS)
+            work_items = enumerate_work_items(repo, sources, rows)
+            measurements.source_count = len(sources)
+            measurements.context_count = len(work_items)
+            measurements.context_discovery_seconds += time.perf_counter() - context_started
 
-        sources = [path if path.is_absolute() else repo / path for path in args.files] if args.files else changed_sources(repo)
-        rows, _ = scan_repository(repo, FIRST_PARTY_PROJECTS)
-        diagnostics = project_dead_code_findings(repo)
-        for source in sources:
-            for finding in inspect_source(repo, source, tidy, query, compile_contexts(repo, source, rows)):
-                diagnostics.append(f"{source.relative_to(repo).as_posix()}: {finding}")
-        if diagnostics:
-            print("FAIL: changed C++ source has design findings:", file=sys.stderr)
-            for diagnostic in diagnostics:
-                print(f"  {diagnostic}", file=sys.stderr)
-            return 1
-        print(f"PASS: compiler-backed source-design check files={len(sources)}")
-        return 0
+            dead_code_started = time.perf_counter()
+            diagnostics = project_dead_code_findings(repo)
+            measurements.dead_code_seconds += time.perf_counter() - dead_code_started
+            worker = functools.partial(analyze_work_item, repo, tidy, query)
+            batch = execute_work_items(repo, work_items, args.jobs, worker)
+            measurements.peak_workers = batch.peak_workers
+            for result in batch.results:
+                _accumulate_context_measurements(measurements, result)
+            diagnostics.extend(render_context_diagnostics(repo, batch.results))
+            infrastructure_errors = render_infrastructure_errors(repo, batch.results)
+            measurements.finding_count = len(diagnostics)
+            measurements.infrastructure_error_count = len(infrastructure_errors)
+            if infrastructure_errors:
+                print("ERROR: source-design infrastructure failures:", file=sys.stderr)
+                for diagnostic in infrastructure_errors:
+                    print(f"  {diagnostic}", file=sys.stderr)
+                if diagnostics:
+                    print("POLICY FINDINGS OBSERVED BEFORE INFRASTRUCTURE FAILURE:", file=sys.stderr)
+                    for diagnostic in diagnostics:
+                        print(f"  {diagnostic}", file=sys.stderr)
+                exit_code = 2
+            elif diagnostics:
+                print("FAIL: changed C++ source has design findings:", file=sys.stderr)
+                for diagnostic in diagnostics:
+                    print(f"  {diagnostic}", file=sys.stderr)
+                exit_code = 1
+            else:
+                print(f"PASS: compiler-backed source-design check files={len(sources)}")
+                exit_code = 0
+
     except (FileNotFoundError, RuntimeError, AssertionError) as error:
+        measurements.infrastructure_error_count += 1
         print(f"ERROR: {error}", file=sys.stderr)
-        return 2
+        exit_code = 2
+    finally:
+        measurements.total_seconds = time.perf_counter() - total_started
+        print(measurements.summary())
+    return exit_code
 
 
 if __name__ == "__main__":

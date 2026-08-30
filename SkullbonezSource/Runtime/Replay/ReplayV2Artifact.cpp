@@ -552,9 +552,12 @@ void AppendPersistentContact( std::vector<uint8_t>& out,
     AppendPod( out, contact.accT1 );
     AppendPod( out, contact.accT2 );
     const uint8_t flags[6] = {
-        contact.warmStarted ? 1u : 0u,           contact.isTerrain ? 1u : 0u,
-        contact.supportsRestingPolicy ? 1u : 0u, contact.allowsTangentFriction ? 1u : 0u,
-        contact.normalCoupledFriction ? 1u : 0u, contact.inhibitsSleep ? 1u : 0u,
+        static_cast<uint8_t>( contact.warmStarted ? 1u : 0u ),
+        static_cast<uint8_t>( contact.isTerrain ? 1u : 0u ),
+        static_cast<uint8_t>( contact.supportsRestingPolicy ? 1u : 0u ),
+        static_cast<uint8_t>( contact.allowsTangentFriction ? 1u : 0u ),
+        static_cast<uint8_t>( contact.normalCoupledFriction ? 1u : 0u ),
+        static_cast<uint8_t>( contact.inhibitsSleep ? 1u : 0u ),
     };
 
     const uint8_t reserved = 0;
@@ -715,6 +718,13 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const SkullbonezCore::Runt
     {
         AppendCountedPodVector( out, physics.motionEligibilityState );
     }
+
+    if ( physics.version >= 6u )
+    {
+        AppendCountedPodVector( out, physics.sleepPoseAnchorPosition );
+        AppendCountedPodVector( out, physics.sleepPoseAnchorOrientation );
+        AppendCountedPodVector( out, physics.sleepPoseAnchorValid );
+    }
 }
 
 bool AppendSolverBodyRecord( std::vector<uint8_t>& out, const std::vector<BodyDictionaryEntry>& dictionary,
@@ -728,8 +738,11 @@ bool AppendSolverBodyRecord( std::vector<uint8_t>& out, const std::vector<BodyDi
     }
 
     const uint8_t flags[5] = {
-        body.fixed ? 1u : 0u,          body.sleeping ? 1u : 0u,         body.sleepSupported ? 1u : 0u,
-        body.sleepInhibited ? 1u : 0u, body.collisionContact ? 1u : 0u,
+        static_cast<uint8_t>( body.fixed ? 1u : 0u ),
+        static_cast<uint8_t>( body.sleeping ? 1u : 0u ),
+        static_cast<uint8_t>( body.sleepSupported ? 1u : 0u ),
+        static_cast<uint8_t>( body.sleepInhibited ? 1u : 0u ),
+        static_cast<uint8_t>( body.collisionContact ? 1u : 0u ),
     };
 
     const uint8_t reserved[3] = {};
@@ -1455,6 +1468,38 @@ template <typename T> bool ReadCountedPodVector( ByteCursor& cursor, std::vector
     return true;
 }
 
+bool ReadSleepCounterVector( ByteCursor& cursor, uint32_t snapshotVersion, std::vector<uint32_t>& outValues )
+{
+    if ( snapshotVersion >= 6u )
+    {
+        return ReadCountedPodVector( cursor, outValues );
+    }
+
+    outValues.clear();
+    uint32_t count = 0;
+
+    if ( !ReadPod( cursor, count ) )
+    {
+        return false;
+    }
+
+    outValues.resize( count );
+
+    for ( uint32_t& value : outValues )
+    {
+        uint8_t legacyValue = 0u;
+
+        if ( !ReadPod( cursor, legacyValue ) )
+        {
+            return false;
+        }
+
+        value = legacyValue;
+    }
+
+    return true;
+}
+
 bool ReadCountedIntVector( ByteCursor& cursor, std::vector<int>& outValues )
 {
     outValues.clear();
@@ -1785,7 +1830,8 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
     if ( !ReadCountedPodVector( cursor, physics.timeRemaining ) ||
          !ReadCountedPodVector( cursor, physics.sleepSupportedThisFrame ) ||
          !ReadCountedPodVector( cursor, physics.sleepInhibitedThisFrame ) ||
-         !ReadCountedPodVector( cursor, physics.sleepState ) || !ReadCountedPodVector( cursor, physics.sleepCounter ) ||
+         !ReadCountedPodVector( cursor, physics.sleepState ) ||
+         !ReadSleepCounterVector( cursor, physics.version, physics.sleepCounter ) ||
          !ReadCountedPodVector( cursor, physics.underwaterSleepLocked ) ||
          !ReadCountedPodVector( cursor, outSnapshot.tornadoCaptureSeconds ) ||
          !ReadCountedPodVector( cursor, outSnapshot.tornadoEjectCooldownSeconds ) ||
@@ -1822,6 +1868,21 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
     if ( physics.version >= 4u && !ReadCountedPodVector( cursor, physics.motionEligibilityState ) )
     {
         return false;
+    }
+
+    if ( physics.version >= 6u && ( !ReadCountedPodVector( cursor, physics.sleepPoseAnchorPosition ) ||
+                                    !ReadCountedPodVector( cursor, physics.sleepPoseAnchorOrientation ) ||
+                                    !ReadCountedPodVector( cursor, physics.sleepPoseAnchorValid ) ) )
+    {
+        return false;
+    }
+
+    if ( physics.version < 6u )
+    {
+        const std::size_t legacyBodyCount = modelCount > 0 ? static_cast<std::size_t>( modelCount ) : 0u;
+        physics.sleepPoseAnchorPosition.assign( legacyBodyCount, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+        physics.sleepPoseAnchorOrientation.assign( legacyBodyCount, std::array<float, 4> { 0.0f, 0.0f, 0.0f, 1.0f } );
+        physics.sleepPoseAnchorValid.assign( legacyBodyCount, 0u );
     }
 
     physics.modelCount = modelCount;
@@ -2654,7 +2715,8 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
 
     if ( !eventCursorRecords.empty() )
     {
-        outChunks.push_back( MakeChunk( "ECUR", BuildEventCursorChunk( eventCursorRecords ), CheckedU32( eventCursorRecords.size() ) ) );
+        outChunks.push_back(
+            MakeChunk( "ECUR", BuildEventCursorChunk( eventCursorRecords ), CheckedU32( eventCursorRecords.size() ) ) );
     }
 
     if ( solverSamples && !solverSamples->empty() )
@@ -2669,12 +2731,14 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
 
     if ( !visualPackets.empty() )
     {
-        outChunks.push_back( MakeChunk( "RVIS", BuildVisualPacketChunk( visualPackets ), CheckedU32( visualPackets.size() ) ) );
+        outChunks.push_back(
+            MakeChunk( "RVIS", BuildVisualPacketChunk( visualPackets ), CheckedU32( visualPackets.size() ) ) );
     }
 
     if ( !visualPredictionState.empty() )
     {
-        outChunks.push_back( MakeChunk( "RVPD", std::vector<uint8_t>( visualPredictionState.begin(), visualPredictionState.end() ), 1u ) );
+        outChunks.push_back(
+            MakeChunk( "RVPD", std::vector<uint8_t>( visualPredictionState.begin(), visualPredictionState.end() ), 1u ) );
     }
 
     outChunks.push_back( MakeChunk( "INDX", BuildIndex( index ), CheckedU32( index.size() ) ) );

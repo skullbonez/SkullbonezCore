@@ -1007,10 +1007,11 @@ TEST_CASE( "Object contact manifold identity: a changed narrowphase feature miss
     cached.accN = 1.0f;
     cache.push_back( cached );
 
-    CHECK(
-        PersistentContactSolveTransaction::HasCachedImpulse( cache, faceX.bodyA, faceX.bodyB, faceX.points[0].featureId ) );
-    CHECK_FALSE(
-        PersistentContactSolveTransaction::HasCachedImpulse( cache, faceY.bodyA, faceY.bodyB, faceY.points[0].featureId ) );
+    const std::span<const PersistentContactCacheEntry> cacheRows( cache.data(), cache.size() );
+    CHECK( SkullbonezCore::Physics::PersistentContactCacheHasImpulse( cacheRows, faceX.bodyA, faceX.bodyB,
+                                                                      faceX.points[0].featureId ) );
+    CHECK_FALSE( SkullbonezCore::Physics::PersistentContactCacheHasImpulse( cacheRows, faceY.bodyA, faceY.bodyB,
+                                                                            faceY.points[0].featureId ) );
 }
 
 

@@ -393,11 +393,10 @@ struct SolverFixture
         worldForces.gravity = config.worldForces.gravity;
         diagnostics.SetPipelineTraceFullRecordConsumerActive( retainPipelineRecords );
         diagnostics.BeginStep( bodyStore.Count() );
-        auto policy = PhysicsContactSolverStage::ResolveStepPolicy( config, worldForces );
+        auto policy = PhysicsContactSolverStage::ResolveStepPolicy( config, worldForces, kSolverDt );
         policy.collectConvergenceDiagnostics = collectConvergenceDiagnostics;
         solver.Solve( bodyStore, colliderStore, policy, candidatePairs, sleepState, timeRemaining, sleepSupportEdges,
-                      terrainContactManifolds, terrainRestApplied, sleepSupportedThisFrame, diagnostics, kSolverDt,
-                      nullptr );
+                      terrainContactManifolds, terrainRestApplied, sleepSupportedThisFrame, diagnostics );
     }
 };
 
@@ -777,7 +776,7 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     PhysicsWorldForces worldForces;
     worldForces.mutualGravity.enabled = true;
     worldForces.mutualGravity.elasticCollisions = true;
-    auto policy = PhysicsContactSolverStage::ResolveStepPolicy( settings, worldForces );
+    auto policy = PhysicsContactSolverStage::ResolveStepPolicy( settings, worldForces, kSolverDt );
     CHECK( policy.objectSlop == 0.0f );
     CHECK( policy.objectBaumgarteBeta == 0.0f );
     CHECK( policy.objectPositionCorrectionPercent == 0.0f );
@@ -799,7 +798,7 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     settings.terrain.slop = 0.45f;
     settings.terrain.baumgarteBeta = 0.55f;
     settings.terrain.maxBaumgarteBias = 3.0f;
-    policy = PhysicsContactSolverStage::ResolveStepPolicy( settings, worldForces );
+    policy = PhysicsContactSolverStage::ResolveStepPolicy( settings, worldForces, kSolverDt );
     CHECK( policy.objectSlop == settings.solver.slop );
     CHECK( policy.objectBaumgarteBeta == settings.solver.baumgarteBeta );
     CHECK( policy.objectPositionCorrectionPercent == 1.0f );
@@ -1437,6 +1436,22 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     const float shorelineFinalVerticalVelocity = shoreline.bodyStore.HotFields().linearVelocityY[0];
     CHECK( fabsf( shorelineFinalVerticalVelocity ) <= 0.0002f );
 
+    SolverFixture slidingEdge;
+    slidingEdge.config.solver.iterations = 1;
+    TerrainContactManifold slidingEdgeManifold = buildUnsupportedTerrainEdge( slidingEdge, shorelineResidualSpeed );
+    constexpr float initialSlideSpeed = 1.0f;
+    slidingEdge.bodyStore.MutableHotFields().linearVelocityX[0] = initialSlideSpeed;
+    slidingEdge.terrainContactManifolds.push_back( slidingEdgeManifold );
+    slidingEdge.Solve();
+
+    REQUIRE( slidingEdge.solver.GetPersistentContacts().size() == slidingEdgeManifold.pointCount );
+    const auto& slidingHotFields = slidingEdge.bodyStore.HotFields();
+    CHECK( fabsf( slidingHotFields.linearVelocityX[0] ) < initialSlideSpeed );
+    CHECK( std::any_of( slidingEdge.solver.GetPersistentContacts().begin(),
+                        slidingEdge.solver.GetPersistentContacts().end(),
+                        []( const PersistentContact& contact )
+                        { return fabsf( contact.accT1 ) > 0.0f || fabsf( contact.accT2 ) > 0.0f; } ) );
+
     const auto& shorelinePipeline = shoreline.solver.GetSideEffects().pipelineRecords;
     const auto
         shorelineIteration = std::find_if( shorelinePipeline.begin(), shorelinePipeline.end(),
@@ -1448,7 +1463,7 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
                                                       record.iteration == 0;
                                            } );
     REQUIRE( shorelineIteration != shorelinePipeline.end() );
-    CHECK( fabsf( shorelineIteration->scalarA ) <= 0.00001f );
+    CHECK( fabsf( shorelineIteration->scalarA ) > 0.00001f );
 
     SolverFixture unseeded;
     unseeded.config.solver.iterations = 1;
@@ -1462,6 +1477,7 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     for ( const auto& contact : unseeded.solver.GetPersistentContacts() )
     {
         CHECK( contact.terrainWarmStart == 0.0f );
+        CHECK( contact.normalMass > 0.0f );
     }
 
     CHECK( unseeded.solver.GetStats().warmStartedRows == 0 );
@@ -1477,9 +1493,9 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
                                                      record.iteration == 0;
                                           } );
     REQUIRE( unseededIteration != unseededPipeline.end() );
-    CHECK( unseededIteration->scalarA == 0.0f );
+    CHECK( unseededIteration->scalarA > 0.0f );
     const float unseededFinalVerticalVelocity = unseeded.bodyStore.HotFields().linearVelocityY[0];
-    CHECK( unseededFinalVerticalVelocity == doctest::Approx( -shorelineResidualSpeed ).epsilon( 0.00001 ) );
+    CHECK( unseededFinalVerticalVelocity > -shorelineResidualSpeed );
     CHECK( fabsf( shorelineFinalVerticalVelocity ) < fabsf( unseededFinalVerticalVelocity ) );
 }
 
@@ -1963,7 +1979,7 @@ TEST_CASE( "Property invariant: friction and restitution outputs stay bounded [s
 }
 
 
-TEST_CASE( "Persistent contact solver: a box gains sleep support only after toppling from its edge" )
+TEST_CASE( "Persistent contact solver: box edge metadata does not disable ordinary resting response" )
 {
     constexpr float edgeRotation = 0.75f;
     constexpr float contactOverlap = 0.02f;
@@ -1994,8 +2010,14 @@ TEST_CASE( "Persistent contact solver: a box gains sleep support only after topp
 
     REQUIRE_FALSE( edge.solver.GetPersistentContacts().empty() );
     CHECK( edge.solver.GetPersistentContactCounts()[1] > 0u );
-    CHECK( edge.solver.GetPersistentRestingContactCounts()[1] == 0u );
-    CHECK( edge.sleepSupportEdges.empty() );
+    CHECK( edge.solver.GetPersistentRestingContactCounts()[1] > 0u );
+    CHECK( edge.sleepSupportEdges.size() == 1u );
+
+    for ( const PersistentContact& contact : edge.solver.GetPersistentContacts() )
+    {
+        CHECK( contact.supportsRestingPolicy );
+        CHECK( contact.inhibitsSleep );
+    }
 
     SolverFixture face;
     face.AddBox( Vector3( 0.0f, 0.0f, 0.0f ), 0.0f, true );
@@ -2006,4 +2028,10 @@ TEST_CASE( "Persistent contact solver: a box gains sleep support only after topp
     REQUIRE_FALSE( face.solver.GetPersistentContacts().empty() );
     CHECK( face.solver.GetPersistentRestingContactCounts()[1] > 0u );
     CHECK( face.sleepSupportEdges.size() == 1u );
+
+    for ( const PersistentContact& contact : face.solver.GetPersistentContacts() )
+    {
+        CHECK( contact.supportsRestingPolicy );
+        CHECK_FALSE( contact.inhibitsSleep );
+    }
 }

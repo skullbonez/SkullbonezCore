@@ -1,9 +1,13 @@
 # MASTER PLAN
 
-Date: 2026-08-28
-Status: No active plan; 126/126 implementation tasks complete; bug ledger 126/126 fixed
+Date: 2026-08-30
+Status: No active plan; 135/135 tasks complete; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- Runtime Reserve Allocation Transaction completed at 4/4 on 2026-08-30.
+  Source Design Validation Throughput then completed at 5/5 on the same
+  `codex/replay-capture-bugfixes` branch, as directed by the owner.
 
 - Governance Simplification And Scar Removal completed after Recorded
   Interaction Playback Cursor RIC3. Its five implementation phases
@@ -317,7 +321,7 @@ Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
-No plan is active.
+No active plans.
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -339,6 +343,10 @@ an owner decision, not a run decision.
 | Deterministic Collision Modes And Ragdoll Unification | Owner-parked 2026-08-25 | 5/10 | `WNF/ragdoll-physics-unification.md` |
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
+| Persistent Simulation-Island Sleep | Owner-accepted scoped implementation 2026-08-31 | Archived scope | `WNF/persistent-simulation-island-sleep.md` |
+| Convex Hull Collision Response And Sleep Quality | Owner-parked 2026-08-30 | 0/8 | `WNF/convex-hull-collision-response-and-sleep.md` |
+| Debug Panel Reorganization And Sleep Policy Controls | Owner-parked 2026-08-30 | 0/6 | `WNF/debug-panel-reorganization-and-sleep-policy.md` |
+| Move Semantics And Resource Ownership Hardening | Owner-parked 2026-08-30 | 0/6 | `WNF/move-semantics-and-resource-ownership-hardening.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
 
 One detail in that table is recorded:
@@ -349,6 +357,9 @@ One detail in that table is recorded:
   disagree with the directory. A review decision should settle which it is.
 
 ## Binding Order
+
+`RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
+complete on `codex/replay-capture-bugfixes`.
 
 `GOVERNANCE_SIMPLIFICATION` phases 1-5 are implemented and in terminal
 re-review. `RECORDED_CURSOR` RIC0-RIC3 is complete, and the bug ledger has no
@@ -379,7 +390,7 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-126/126 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
+135/135 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen

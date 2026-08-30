@@ -311,6 +311,13 @@ inline bool TryRetainInteractionShotListPath( RunInteractionAutomationAction& ac
     return true;
 }
 
+inline bool RecordedInteractionRequiresFreeRunningPresent( bool automationEnabled, bool recordedManifest ) noexcept
+{
+    // Why: a recorded turn already carries its own elapsed time. Coupling one
+    // turn to one display refresh stretches high-rate captures during playback.
+    return automationEnabled && recordedManifest;
+}
+
 struct InteractionAutomationFrameResult;
 
 struct InteractionAutomationController

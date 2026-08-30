@@ -42,6 +42,7 @@
 #include "../SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayPresentation.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h"
@@ -73,6 +74,15 @@ TEST_CASE( "Passive camera floor follows the live fluid surface without inventin
            doctest::Approx( 110.0f ) );
     CHECK( InputController::ResolvePassiveCameraY( 50.0f, missingTerrain, 20.0f, 1.5f, 110.0f ) ==
            doctest::Approx( 50.0f ) );
+}
+
+TEST_CASE( "Replay scrub camera policy ignores an ordinary historical cursor" )
+{
+    // Historical pause is deliberately absent from this policy boundary: a
+    // timeline drag may pause simulation but cannot select or tween a camera.
+    CHECK_FALSE( ReplayScrubNeedsInspectionCamera( false, RunReplayCameraFocusKind::None ) );
+    CHECK( ReplayScrubNeedsInspectionCamera( true, RunReplayCameraFocusKind::None ) );
+    CHECK( ReplayScrubNeedsInspectionCamera( false, RunReplayCameraFocusKind::Body ) );
 }
 
 namespace
@@ -778,6 +788,10 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     CHECK( loaded.scrubTrackDragEnabled );
     CHECK( loaded.branchTargetAvailable );
     CHECK_FALSE( loaded.hotZoneEnabled );
+
+    ReplayScrubberSurfaceInput livePast = DescribeReplayScrubberAvailability( scrubber, stats, false, false, false,
+                                                                               false, false, false );
+    CHECK( livePast.track == RunReplayTrack::Presentation );
 
     ReplayScrubberSurface loadedSurface;
     BuildReplayScrubberSurface( loaded, loadedSurface );

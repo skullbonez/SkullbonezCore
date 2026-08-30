@@ -1,12 +1,18 @@
 {
   "version": 1,
   "actions": [
+    { "frame": 6, "setDevelopmentUiSurface": "game" },
     { "frame": 45, "showReplayScrubber": true },
     { "frame": 60, "clickObject": "prediction_striker_ball", "button": "left" },
+    { "frame": 61, "setReplayPredictionHorizonSeconds": 1.0 },
     { "frame": 90, "assert": { "replayPathTarget": "prediction_striker_ball" } },
-    { "frame": 100, "scrubReplaySolverTrack": 0.8 },
-    { "frame": 102, "selectReplayCauseRow": 2 },
-    { "frame": 104, "assert": { "replayActiveTrack": "Solver" } },
+    { "frame": 95, "setReplayPredictionEnabled": true },
+    { "frame": 98, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 100, "scrubReplaySolverTrack": 0.84 },
+    { "frame": 102, "setReplayPredictionEnabled": false },
+    { "frame": 104, "assert": { "replayPredictionEnabled": false } },
+    { "frame": 106, "selectReplayCauseRow": 2 },
+    { "frame": 108, "assert": { "replayActiveTrack": "Solver" } },
     { "frame": 900, "scrollPoint": [1000, 300, -120] },
     { "frame": 1100, "assert": { "replayActiveTrack": "Solver" } }
   ]

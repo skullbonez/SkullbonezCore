@@ -44,17 +44,12 @@ namespace Vector = SkullbonezCore::Math::Vector;
 
 namespace
 {
-// Concept: wake energy uses the same quietness thresholds as sleep eligibility.
-// A body with enough linear or angular motion can wake a sleeping neighbor
-// during persistent-contact handling.
-bool HasWakeEnergy( const PhysicsBodyHotFieldsConstView& hotFields, int awakeIndex, float sleepLinearSq,
-                    float sleepAngularSq )
+// Concept: an awake body is active wake authority once narrowphase proves an
+// exact swept hit or persistent overlap. Sleep-speed thresholds do not veto
+// island activation at that point.
+bool IsAwakeContactAuthority( const PhysicsBodyHotFieldsConstView& hotFields, int awakeIndex )
 {
-    const Vector3 vel = PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( awakeIndex ) );
-    const Vector3 omega = PhysicsBodyAngularVelocity( hotFields, static_cast<size_t>( awakeIndex ) );
-    float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
-    float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
-    return speedSq >= sleepLinearSq || omegaSq >= sleepAngularSq;
+    return hotFields.awake[static_cast<std::size_t>( awakeIndex )] != 0u;
 }
 
 ObjectContactBodyView ObjectContactBodyViewAtTime( const PhysicsBodyHotFieldsConstView& hotFields, int index, float time )
@@ -277,282 +272,126 @@ void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEv
 }
 
 template <bool RetainPipelineRecords>
-void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
-                                                            std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs,
-                                                            PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const uint8_t> motionEligibilityState,
-                                                            const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )
+void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphaseIslandStage& step, int bodyA, int bodyB,
+                                                         int awakeIndex, int sleepingIndex, ObjectNarrowphaseEvent& event )
 {
-    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
-    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
-    const auto& cp = candidatePairs[static_cast<size_t>( pairIndex )];
-    const int x = cp.first;
-    const int y = cp.second;
+    const PhysicsBodyHotFieldsConstView hotFields = step.bodyStore.HotFields();
+    const std::span<const ColliderRecord> colliderRecords = step.colliderStore.Records();
+    const bool sleepingLocked = step.wakeAccess.IsUnderwaterSleepLocked( sleepingIndex );
+    bool wokeBySweptImpact = false;
 
-    // Wake a sleeping object only after an energetic awake neighbor proves
-    // an actual swept hit or persistent overlap. Underwater-locked sleepers
-    // still receive the swept hit timing, but remain static solver anchors.
-    if ( wakeAccess.IsSleeping( x ) || wakeAccess.IsSleeping( y ) )
+    if ( step.timeRemaining[awakeIndex] > 0.0f &&
+         ObjectPairNeedsSweptCcd( step.motionEligibilityState, awakeIndex, sleepingIndex, step.timeRemaining[awakeIndex] ) )
     {
-        // Quiet awake bodies cannot wake sleepers just by sharing a broadphase cell.
-        if ( wakeAccess.IsSleeping( x ) && !wakeAccess.IsSleeping( y ) )
+        const ObjectContactSweepResult sweep = SweepObjectPair( step.profiler, hotFields, colliderRecords, awakeIndex,
+                                                                sleepingIndex, step.timeRemaining[awakeIndex] );
+
+        if ( sweep.hit )
         {
-            const bool sleepingLocked = wakeAccess.IsUnderwaterSleepLocked( x );
+            const float availableTime = step.timeRemaining[awakeIndex];
+            const float collisionTime = RefineObjectSweepContactTime( step.profiler, hotFields, colliderRecords, awakeIndex,
+                                                                      sleepingIndex, sweep.collisionTime, availableTime,
+                                                                      step.policy.contactEpsilon );
 
-            if ( !HasWakeEnergy( hotFields, y, policy.sleepLinearSq, policy.sleepAngularSq ) )
+            if constexpr ( RetainPipelineRecords )
             {
-                return;
+                PhysicsPipelineRecord record;
+                record.stage = PhysicsPipelineStage::SweptObjectHit;
+                record.bodyA = awakeIndex;
+                record.bodyB = sleepingIndex;
+                record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) +
+                                 PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) *
+                               0.5f;
+                record.scalarA = collisionTime;
+                record.scalarB = availableTime;
+                RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
+            }
+            else
+            {
+                ObserveObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit );
             }
 
-            // Swept impact wakes immediately when time remains; persistent
-            // overlap wakes too so sleepers cannot stay frozen after a hit.
-            bool wokeBySweptImpact = false;
+            EmitObjectCollisionTimeEvent( event, awakeIndex, sleepingIndex, collisionTime, availableTime );
+            (void)step.bodyStore.IntegrateBodyPose( step.profiler, step.colliderStore, step.terrain,
+                                                    step.buoyancyFacts[static_cast<std::size_t>( awakeIndex )], awakeIndex,
+                                                    collisionTime );
+            step.timeRemaining[awakeIndex] = (std::max)( 0.0f, step.timeRemaining[awakeIndex] - collisionTime );
 
-            if ( timeRemaining[y] > 0.0f && ObjectPairNeedsSweptCcd( motionEligibilityState, y, x, timeRemaining[y] ) )
+            if ( !sleepingLocked )
             {
-                ObjectContactSweepResult sweep = SweepObjectPair( profiler, hotFields, colliderRecords, y, x,
-                                                                  timeRemaining[y] );
-
-                if ( sweep.hit )
-                {
-                    const float availableTime = timeRemaining[y];
-                    float colTime = RefineObjectSweepContactTime( profiler, hotFields, colliderRecords, y, x,
-                                                                  sweep.collisionTime, availableTime,
-                                                                  policy.contactEpsilon );
-
-                    if constexpr ( RetainPipelineRecords )
-                    {
-                        Physics::PhysicsPipelineRecord record;
-                        record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
-                        record.bodyA = y;
-                        record.bodyB = x;
-                        record.point = ( PhysicsBodyPosition( hotFields, static_cast<size_t>( y ) ) +
-                                         PhysicsBodyPosition( hotFields, static_cast<size_t>( x ) ) ) *
-                                       0.5f;
-
-                        record.scalarA = colTime;
-                        record.scalarB = availableTime;
-                        RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
-                    }
-                    else
-                    {
-                        ObserveObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit );
-                    }
-
-                    EmitObjectCollisionTimeEvent( event, y, x, colTime, availableTime );
-
-                    (void)bodyStore.IntegrateBodyPose( profiler, colliderStore, terrain,
-                                                       buoyancyFacts[static_cast<std::size_t>( y )], y, colTime );
-                    timeRemaining[y] = (std::max)( 0.0f, timeRemaining[y] - colTime );
-
-                    if ( !sleepingLocked )
-                    {
-                        wakeAccess.WakeBody( x );
-                    }
-
-                    wokeBySweptImpact = true;
-                    MarkObjectVisualEvent( event, x, y );
-                    WriteObjectCollisionCellEvent( event, hotFields, x, y, policy.invCellSize );
-                }
+                step.wakeAccess.WakeBody( sleepingIndex );
             }
 
-            if ( !wokeBySweptImpact &&
-                 HasPersistentWakeContact( profiler, hotFields, colliderRecords, y, x, policy.contactEpsilon ) )
-            {
-                if constexpr ( RetainPipelineRecords )
-                {
-                    Physics::PhysicsPipelineRecord record;
-
-                    record.stage = Physics::PhysicsPipelineStage::WakeDecision;
-                    record.bodyA = y;
-                    record.bodyB = x;
-                    record.point = ( PhysicsBodyPosition( hotFields, static_cast<size_t>( y ) ) +
-                                     PhysicsBodyPosition( hotFields, static_cast<size_t>( x ) ) ) *
-                                   0.5f;
-
-                    record.scalarA = sleepingLocked ? 0.0f : 1.0f;
-                    RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
-                }
-                else
-                {
-                    ObserveObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision );
-                }
-
-                if ( !sleepingLocked )
-                {
-                    wakeAccess.WakeBody( x );
-                }
-
-                MarkObjectVisualEvent( event, x, y );
-                WriteObjectCollisionCellEvent( event, hotFields, x, y, policy.invCellSize );
-            }
-
-            return;
-        }
-        else if ( wakeAccess.IsSleeping( y ) && !wakeAccess.IsSleeping( x ) )
-        {
-            const bool sleepingLocked = wakeAccess.IsUnderwaterSleepLocked( y );
-
-            if ( !HasWakeEnergy( hotFields, x, policy.sleepLinearSq, policy.sleepAngularSq ) )
-            {
-                return;
-            }
-
-            bool wokeBySweptImpact = false;
-
-            if ( timeRemaining[x] > 0.0f && ObjectPairNeedsSweptCcd( motionEligibilityState, x, y, timeRemaining[x] ) )
-            {
-                ObjectContactSweepResult sweep = SweepObjectPair( profiler, hotFields, colliderRecords, x, y,
-                                                                  timeRemaining[x] );
-
-                if ( sweep.hit )
-                {
-                    const float availableTime = timeRemaining[x];
-                    float colTime = RefineObjectSweepContactTime( profiler, hotFields, colliderRecords, x, y,
-                                                                  sweep.collisionTime, availableTime,
-                                                                  policy.contactEpsilon );
-
-                    if constexpr ( RetainPipelineRecords )
-                    {
-                        Physics::PhysicsPipelineRecord record;
-                        record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
-                        record.bodyA = x;
-                        record.bodyB = y;
-                        record.point = ( PhysicsBodyPosition( hotFields, static_cast<size_t>( x ) ) +
-                                         PhysicsBodyPosition( hotFields, static_cast<size_t>( y ) ) ) *
-                                       0.5f;
-
-                        record.scalarA = colTime;
-                        record.scalarB = availableTime;
-                        RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
-                    }
-                    else
-                    {
-                        ObserveObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit );
-                    }
-
-                    EmitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
-
-                    (void)bodyStore.IntegrateBodyPose( profiler, colliderStore, terrain,
-                                                       buoyancyFacts[static_cast<std::size_t>( x )], x, colTime );
-                    timeRemaining[x] = (std::max)( 0.0f, timeRemaining[x] - colTime );
-
-                    if ( !sleepingLocked )
-                    {
-                        wakeAccess.WakeBody( y );
-                    }
-
-                    wokeBySweptImpact = true;
-                    MarkObjectVisualEvent( event, x, y );
-                    WriteObjectCollisionCellEvent( event, hotFields, x, y, policy.invCellSize );
-                }
-            }
-
-            if ( !wokeBySweptImpact &&
-                 HasPersistentWakeContact( profiler, hotFields, colliderRecords, x, y, policy.contactEpsilon ) )
-            {
-                if constexpr ( RetainPipelineRecords )
-                {
-                    Physics::PhysicsPipelineRecord record;
-
-                    record.stage = Physics::PhysicsPipelineStage::WakeDecision;
-                    record.bodyA = x;
-                    record.bodyB = y;
-                    record.point = ( PhysicsBodyPosition( hotFields, static_cast<size_t>( x ) ) +
-                                     PhysicsBodyPosition( hotFields, static_cast<size_t>( y ) ) ) *
-                                   0.5f;
-
-                    record.scalarA = sleepingLocked ? 0.0f : 1.0f;
-                    RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
-                }
-                else
-                {
-                    ObserveObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision );
-                }
-
-                if ( !sleepingLocked )
-                {
-                    wakeAccess.WakeBody( y );
-                }
-
-                MarkObjectVisualEvent( event, x, y );
-                WriteObjectCollisionCellEvent( event, hotFields, x, y, policy.invCellSize );
-            }
-
-            return;
-        }
-        else
-        {
-            // Both bodies are sleeping; there is no awake energy to produce a wake event.
-            return;
+            wokeBySweptImpact = true;
+            MarkObjectVisualEvent( event, bodyA, bodyB );
+            WriteObjectCollisionCellEvent( event, hotFields, bodyA, bodyB, step.policy.invCellSize );
         }
     }
 
-    if ( timeRemaining[x] <= 0.0f || timeRemaining[y] <= 0.0f )
+    if ( wokeBySweptImpact || !HasPersistentWakeContact( step.profiler, hotFields, colliderRecords, awakeIndex,
+                                                         sleepingIndex, step.policy.contactEpsilon ) )
     {
         return;
     }
 
-    float availableTime = (std::min)( timeRemaining[x], timeRemaining[y] );
-
-    if ( !ObjectPairNeedsSweptCcd( motionEligibilityState, x, y, availableTime ) )
+    if constexpr ( RetainPipelineRecords )
     {
-        // Invariant: a Discrete pair performs no swept query and therefore emits
-        // neither a SweptObjectHit nor a misleading SweptObjectMiss event.
-        return;
-    }
-
-    ObjectContactSweepResult sweep = SweepObjectPair( profiler, hotFields, colliderRecords, x, y, availableTime );
-
-    if ( sweep.hit )
-    {
-        float colTime = RefineObjectSweepContactTime( profiler, hotFields, colliderRecords, x, y, sweep.collisionTime,
-                                                      availableTime, policy.contactEpsilon );
-
-        if constexpr ( RetainPipelineRecords )
-        {
-            Physics::PhysicsPipelineRecord record;
-            record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
-            record.bodyA = x;
-            record.bodyB = y;
-            record.point = ( PhysicsBodyPosition( hotFields, static_cast<size_t>( x ) ) +
-                             PhysicsBodyPosition( hotFields, static_cast<size_t>( y ) ) ) *
-                           0.5f;
-
-            record.scalarA = colTime;
-            record.scalarB = availableTime;
-            RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
-        }
-        else
-        {
-            ObserveObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit );
-        }
-
-        EmitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
-
-        (void)bodyStore.IntegrateBodyPose( profiler, colliderStore, terrain, buoyancyFacts[static_cast<std::size_t>( x )], x,
-                                           colTime );
-        (void)bodyStore.IntegrateBodyPose( profiler, colliderStore, terrain, buoyancyFacts[static_cast<std::size_t>( y )], y,
-                                           colTime );
-        timeRemaining[x] = (std::max)( 0.0f, timeRemaining[x] - colTime );
-        timeRemaining[y] = (std::max)( 0.0f, timeRemaining[y] - colTime );
-
-        // Object/object CCD only advances to the contact candidate. The
-        // persistent Catto rows below own velocity response and cache storage.
-        MarkObjectVisualEvent( event, x, y );
-        WriteObjectCollisionCellEvent( event, hotFields, x, y, policy.invCellSize );
+        PhysicsPipelineRecord record;
+        record.stage = PhysicsPipelineStage::WakeDecision;
+        record.bodyA = awakeIndex;
+        record.bodyB = sleepingIndex;
+        record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) +
+                         PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) *
+                       0.5f;
+        record.scalarA = sleepingLocked ? 0.0f : 1.0f;
+        RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
     }
     else
     {
+        ObserveObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision );
+    }
+
+    if ( !sleepingLocked )
+    {
+        step.wakeAccess.WakeBody( sleepingIndex );
+    }
+
+    MarkObjectVisualEvent( event, bodyA, bodyB );
+    WriteObjectCollisionCellEvent( event, hotFields, bodyA, bodyB, step.policy.invCellSize );
+}
+
+template <bool RetainPipelineRecords>
+void PhysicsNarrowphaseStage::ProcessAwakeObjectPair( const ObjectNarrowphaseIslandStage& step, int bodyA, int bodyB,
+                                                      ObjectNarrowphaseEvent& event )
+{
+    if ( step.timeRemaining[bodyA] <= 0.0f || step.timeRemaining[bodyB] <= 0.0f )
+    {
+        return;
+    }
+
+    const float availableTime = (std::min)( step.timeRemaining[bodyA], step.timeRemaining[bodyB] );
+
+    if ( !ObjectPairNeedsSweptCcd( step.motionEligibilityState, bodyA, bodyB, availableTime ) )
+    {
+        return;
+    }
+
+    const PhysicsBodyHotFieldsConstView hotFields = step.bodyStore.HotFields();
+    const std::span<const ColliderRecord> colliderRecords = step.colliderStore.Records();
+    const ObjectContactSweepResult sweep = SweepObjectPair( step.profiler, hotFields, colliderRecords, bodyA, bodyB,
+                                                            availableTime );
+
+    if ( !sweep.hit )
+    {
         if constexpr ( RetainPipelineRecords )
         {
-            Physics::PhysicsPipelineRecord record;
-            record.stage = Physics::PhysicsPipelineStage::SweptObjectMiss;
-            record.bodyA = x;
-            record.bodyB = y;
-            record.point = ( PhysicsBodyPosition( hotFields, static_cast<size_t>( x ) ) +
-                             PhysicsBodyPosition( hotFields, static_cast<size_t>( y ) ) ) *
+            PhysicsPipelineRecord record;
+            record.stage = PhysicsPipelineStage::SweptObjectMiss;
+            record.bodyA = bodyA;
+            record.bodyB = bodyB;
+            record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) +
+                             PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) *
                            0.5f;
-
             record.scalarA = availableTime;
             RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss, record );
         }
@@ -560,12 +399,76 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
         {
             ObserveObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss );
         }
+        return;
     }
+
+    const float collisionTime = RefineObjectSweepContactTime( step.profiler, hotFields, colliderRecords, bodyA, bodyB,
+                                                              sweep.collisionTime, availableTime,
+                                                              step.policy.contactEpsilon );
+
+    if constexpr ( RetainPipelineRecords )
+    {
+        PhysicsPipelineRecord record;
+        record.stage = PhysicsPipelineStage::SweptObjectHit;
+        record.bodyA = bodyA;
+        record.bodyB = bodyB;
+        record.point = ( PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyA ) ) +
+                         PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyB ) ) ) *
+                       0.5f;
+        record.scalarA = collisionTime;
+        record.scalarB = availableTime;
+        RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
+    }
+    else
+    {
+        ObserveObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit );
+    }
+
+    EmitObjectCollisionTimeEvent( event, bodyA, bodyB, collisionTime, availableTime );
+    (void)step.bodyStore.IntegrateBodyPose( step.profiler, step.colliderStore, step.terrain,
+                                            step.buoyancyFacts[static_cast<std::size_t>( bodyA )], bodyA, collisionTime );
+    (void)step.bodyStore.IntegrateBodyPose( step.profiler, step.colliderStore, step.terrain,
+                                            step.buoyancyFacts[static_cast<std::size_t>( bodyB )], bodyB, collisionTime );
+    step.timeRemaining[bodyA] = (std::max)( 0.0f, step.timeRemaining[bodyA] - collisionTime );
+    step.timeRemaining[bodyB] = (std::max)( 0.0f, step.timeRemaining[bodyB] - collisionTime );
+    MarkObjectVisualEvent( event, bodyA, bodyB );
+    WriteObjectCollisionCellEvent( event, hotFields, bodyA, bodyB, step.policy.invCellSize );
 }
 
-template void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair<true>( PhysicsBodyStore&, const ColliderStore&, PhysicsTerrainView, std::span<BuoyancyBodyFacts>,
-                                                                           std::span<const std::pair<int, int>>, PhysicsNarrowphaseWakeAccess, std::span<float>, std::span<const uint8_t>,
-                                                                           const ObjectNarrowphaseStepPolicy&, Core::Profiler*, int, ObjectNarrowphaseEvent& );
-template void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair<false>( PhysicsBodyStore&, const ColliderStore&, PhysicsTerrainView, std::span<BuoyancyBodyFacts>,
-                                                                            std::span<const std::pair<int, int>>, PhysicsNarrowphaseWakeAccess, std::span<float>, std::span<const uint8_t>,
-                                                                            const ObjectNarrowphaseStepPolicy&, Core::Profiler*, int, ObjectNarrowphaseEvent& );
+template <bool RetainPipelineRecords>
+void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowphaseIslandStage& step, int pairIndex,
+                                                            ObjectNarrowphaseEvent& event )
+{
+    const auto& pair = step.candidatePairs[static_cast<std::size_t>( pairIndex )];
+    const int bodyA = pair.first;
+    const int bodyB = pair.second;
+    const bool sleepingA = step.wakeAccess.IsSleeping( bodyA );
+    const bool sleepingB = step.wakeAccess.IsSleeping( bodyB );
+
+    if ( sleepingA || sleepingB )
+    {
+        if ( sleepingA != sleepingB )
+        {
+            const int awakeIndex = sleepingA ? bodyB : bodyA;
+            const int sleepingIndex = sleepingA ? bodyA : bodyB;
+
+            if ( IsAwakeContactAuthority( step.bodyStore.HotFields(), awakeIndex ) )
+            {
+                ProcessSleepingObjectPair<RetainPipelineRecords>( step, bodyA, bodyB, awakeIndex, sleepingIndex, event );
+            }
+        }
+        return;
+    }
+
+    ProcessAwakeObjectPair<RetainPipelineRecords>( step, bodyA, bodyB, event );
+}
+
+template <bool RetainPipelineRecords>
+void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::ProcessPair( int pairIndex, ObjectNarrowphaseEvent& event ) const
+{
+    stage.ProcessObjectNarrowphasePair<RetainPipelineRecords>( *this, pairIndex, event );
+}
+
+template void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::ProcessPair<true>( int, ObjectNarrowphaseEvent& ) const;
+template void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::ProcessPair<false>( int,
+                                                                                         ObjectNarrowphaseEvent& ) const;

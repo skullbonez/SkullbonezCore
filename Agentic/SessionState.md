@@ -1,8 +1,148 @@
 # Session State
 
-Date: 2026-08-28
-Branch: `nightrunner-25th-AUG-26`
-Status: No active plan; 126/126 implementation tasks complete; bug ledger 126/126 fixed
+Date: 2026-08-31
+Branch: `codex/replay-capture-bugfixes`
+Status: No active plan; accepted persistent-island sleep implementation ready
+for PR; all plans archived in WNF
+
+## Current State
+
+The owner visually accepted the persistent deterministic simulation-island
+sleep policy as-is. The scoped result makes a sphere on terrain steeper than
+five degrees sleep-ineligible, prevents a box from sleeping on one logical
+edge, replaces the three-body wall exception with pose/contact residual
+stability, and commits whole-island wake through the serial Physics path. The
+authored 0/1/4-worker matrix is byte-identical across two clean runs: the corner
+box topples before both bodies sleep, `ball_b` rolls into the basin near the
+other balls, and all 200 wall bricks finish asleep with a stable four-brick-high
+stack. Ragdoll quality remains explicitly out of scope.
+
+The Profile unit suite passes 907/907 cases and 2,694,564 assertions. Physics,
+Physics deep, replay-v2 artifact, authored sleep, allocation-policy,
+dependency, build-configuration, compiler-backed source-design, format, and
+plain-language validation pass. Governed Physics behavior, deep diagnostic,
+known-issue, and query baselines were refreshed with retained old/new Debug
+executables and manifests. The historical Physics benchmark reports
+`Frame/Physics/Step` at +4.9 percent, inside the sleep plan's five-percent
+bound. The full performance comparator still reports unrelated aggregate
+Frame/Input/Render/Vsync host-timing regressions against `3a4b52e94`; no
+performance baseline was refreshed.
+
+`RESERVE_TRANSACTION` RAT0-RAT3 is complete at 4/4 and
+`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is complete at 5/5.
+
+RAT0 adds the non-copyable, non-movable Core
+`RuntimeReserveAllocationScope`. Its member order establishes phase, owner, and
+grant together and closes them in reverse order. Five focused cases cover
+context restoration, unused grant release, exact real-allocation consumption
+with the guard off, nested restoration, mismatched owner/phase rejection, and
+thread-local isolation without consuming more process-lifetime test-owner
+slots. The Profile test target compiled, the focused family passed 55/55
+assertions, the full suite passed 892/892 cases and 2,691,405 assertions, and
+format, allocation-policy, and compiler-backed source-design checks passed.
+
+RAT1 replaces the five direct approved-allocation scope assemblies in Physics
+and Replay with the composite transaction. SceneLoad retains the same concrete
+Physics owners; solver snapshots retain one aggregate Replay grant; and both
+recorder vector helpers retain their existing owner, cap, byte request, and
+failure behavior. The nested Physics Replay reserve remains owner-only beneath
+the approved outer grant, while the recorder's Capture-owned cold path remains
+outside retained Replay authority. The Profile test target compiled, focused
+PhysicsFixedList, ReplayRecorder, and replay-solver families passed, and the
+allocation-policy and compiler-backed source-design checks passed.
+
+RAT2 replaces the nine direct approved-allocation scope assemblies in
+Prediction reserve helpers, archive candidates, solver-evidence segment stores,
+and trajectory storage. Existing batched grants retain their allocation order
+and aggregate byte boundaries. Production callers no longer construct
+`RuntimeReserveGrowthScope` directly; its remaining production references are
+the Core implementation and composite member. The Profile test target compiled,
+40 focused Prediction/evidence/trajectory/visual cases passed 18,669 assertions,
+the production prediction-engine seed case passed 645 assertions, and the
+allocation-policy and compiler-backed source-design checks passed.
+
+RAT3 closes the reserve transaction after a blocker-free independent re-review.
+The review first required a mechanically order-sensitive test and corrected an
+overbroad grant invariant; standard-layout `offsetof` assertions now fail if
+the phase, owner, and grant member order changes, and the invariant accurately
+distinguishes SceneLoad from Replay-approved growth. The focused composite
+family passes 5/5 cases and 55/55 assertions; compiler-backed source-design,
+allocation-policy, dependency proof/repository, and byte-exact Physics gates
+pass, with the accepted 44,401-line SHA unchanged. Debug, Profile, and
+Automation targets compile. Performance reproduces the pre-plan unavailable
+cause-row/track mismatch, and replay visual fidelity reproduces the pre-plan
+missing `full_reveal_probe_profile.json` after its 18/18 typed controls and
+scheduled engine exit. Fast validation and the single terminal
+`--plan-completion` run stop on the same three pre-plan plain-language findings;
+the terminal run first completes Debug, Physics, and Automation builds. No
+Physics, Replay, performance, or visual baseline was refreshed.
+
+SDT0 pins immutable source/context work-item identity and adds structured
+context result, timing, and bounded summary values without changing source
+selection, compiler arguments, findings, or exit classification. The exact PR
+162 reference regenerates 79 files and 623 contexts at identity SHA-256
+`d9e4b117d81e3ae8ca5f29376335f7c219bdc47cd94c4438d4cb4a7a0da5db77`.
+Two clean serial runs both pass all 3,115 LLVM launches in 3,274.505 and
+3,275.521 seconds, with 669,978,624 and 669,888,512 peak committed bytes.
+The refreshed runner is `windows-2022` image `20260824.284.2`; local LLVM is
+22.1.3. The self-test and a five-context live source scan pass with the new
+summary and zero findings or infrastructure errors. No test, coverage,
+Physics, or golden baseline changed.
+
+SDT1 batches the four unchanged Clang Query matchers into one parsed session
+per source/context. Explicit section and bound-location accounting rejects a
+missing rule, partial command stream, truncated match output, or malformed
+matcher as infrastructure failure. Independent fixtures cover each rule and
+multi-rule files. A planted all-four-rules comparison is byte-identical to the
+pre-change diagnostics at stderr SHA-256 `43e42af4a712ca0a920cef9785c2cec28a661dbd2afb5bb8cf7934709acc4404`.
+The exact 79-file/623-context reference passes with 623 Tidy plus 623 Query
+launches, zero findings/errors, and 1,480.681 seconds elapsed, down from the
+3,274.505-second first serial reference. No selection, compiler argument,
+matcher, threshold, failure class, test, coverage, or baseline changed.
+
+SDT2 runs immutable source/context work items through a pool capped at four,
+with automatic selection `min(logical_processors, 4)`. Each worker runs Tidy
+then Query and returns a value; the coordinator alone admits work, aggregates
+measurements, and sorts diagnostics by source/project/configuration/rule/location.
+Planted delay, admission, policy, Tidy, Query, child-crash, and worker-exception
+controls pass. Clean and 70-finding planted scans retained byte-identical output
+and exact exit values at one, two, and automatic workers. The planted automatic
+scan fell from 8.981 to 3.669 seconds. A current 19-source/138-context scan used
+four workers and completed in 94.331 seconds with no infrastructure error; its
+22 findings belong to preserved user-owned Physics work and pre-existing Replay
+source, not SDT2. No selection, context, matcher, threshold, test, coverage, or
+baseline changed.
+
+SDT3 replaces `validate_fast`'s two opaque process one-liners with one direct
+retained-policy group runner used once for self-tests and once for live scans.
+It captures every child invocation once, always emits the bounded source-design
+summary into the existing mandatory CPU log stream, preserves failed output
+without replay, and writes the live source/context/process/worker/timing table
+to `GITHUB_STEP_SUMMARY`. The current 19-source/138-context failure path wrote
+the complete table at 94.557 seconds and retained the existing 22 findings.
+The plain-language prerequisite now passes after two wording-only repairs in an
+inactive WNF plan. No workflow split, scan duplication, context pruning, test,
+coverage, or baseline change occurred.
+
+SDT4 closes at exact measured implementation `4894b9f0`. The 79-file/623-context
+reference completes 623 Tidy and 623 batched Query analyses in 440.016 seconds
+with four workers, a 3.38-times improvement over the unchanged 1,488.086-second
+batched serial path. Stable output remains byte-identical. The final 21-file/154-
+context scan passes in 128.044 seconds, and hosted runs `33274650785` and
+`33274651985` complete source design in 177.089 and 218.936 seconds and their
+mandatory jobs in 18m15s and 20m14s. Independent review first found
+completion-order-dependent failure admission; fixed deterministic prefixes and
+the new fast/slow failure control closed it, and follow-up review is blocker-free.
+The exactly-once terminal lane passes builds, preflight, 893 discovered unit
+cases with 2,692,862 assertions, coverage, all CPU suites, Automation, and DX12
+InfoQueue before reproducing the exact pre-plan water/solver screenshot mismatch.
+No baseline was refreshed. Closure evidence is under
+`Agentic/Plans/Artifacts/source-design-validation-throughput/SDT4/`.
+
+The ignored work ledger retains an unfinished 2026-08-28 goal from another
+Codex task (`GOV1`, `finding-fix-01`). The orchestrator refused to start a new
+goal row, so the current run preserves that ledger unchanged and records its
+goal/task usage through the active Codex goal instead.
 
 ## Rendering Bug Ledger Closure (2026-08-26)
 
@@ -920,8 +1060,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-No plan is active. `RAGDOLL_PHYSICS` FP5-FP9 and the other WNF plans remain
-parked or backlogged and are not selectable without a new owner decision.
+No active plan. Await owner direction.
 
 ## Blockers
 

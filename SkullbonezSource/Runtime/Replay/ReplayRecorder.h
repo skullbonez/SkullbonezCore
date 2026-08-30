@@ -311,7 +311,10 @@ struct ReplaySolverWorldDeltaFrame
     ReplaySolverVectorDelta<uint8_t> sleepSupportedThisFrame;
     ReplaySolverVectorDelta<uint8_t> sleepInhibitedThisFrame;
     ReplaySolverVectorDelta<uint8_t> sleepState;
-    ReplaySolverVectorDelta<uint8_t> sleepCounter;
+    ReplaySolverVectorDelta<uint32_t> sleepCounter;
+    ReplaySolverVectorDelta<Math::Vector::Vector3> sleepPoseAnchorPosition;
+    ReplaySolverVectorDelta<std::array<float, 4>> sleepPoseAnchorOrientation;
+    ReplaySolverVectorDelta<uint8_t> sleepPoseAnchorValid;
     ReplaySolverVectorDelta<uint8_t> underwaterSleepLocked;
     ReplaySolverVectorDelta<float> tornadoCaptureSeconds;
     ReplaySolverVectorDelta<float> tornadoEjectCooldownSeconds;

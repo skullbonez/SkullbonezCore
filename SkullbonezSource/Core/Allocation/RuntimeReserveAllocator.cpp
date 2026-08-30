@@ -58,7 +58,10 @@ using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
 using SkullbonezCore::Core::Allocation::RuntimeReservePhase;
 using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 
-constexpr int MAX_RUNTIME_RESERVE_OWNERS = 160;
+// Why: production fixed-capacity owners and the allocator's exhaustive test
+// probes share one process-lifetime registry. Keep deliberate headroom while
+// preserving a compile-time bounded, allocation-free table.
+constexpr int MAX_RUNTIME_RESERVE_OWNERS = 192;
 constexpr int MAX_RUNTIME_RESERVE_GROWTH_EVENTS = SkullbonezCore::Core::Allocation::RUNTIME_RESERVE_GROWTH_EVENT_HISTORY;
 constexpr RuntimeReserveOwnerHandle UNREGISTERED_OWNER = 0u;
 
@@ -569,6 +572,12 @@ RuntimeReserveOwnerScope::RuntimeReserveOwnerScope( RuntimeReserveOwnerHandle ow
 RuntimeReserveOwnerScope::~RuntimeReserveOwnerScope() noexcept
 {
     RuntimeReserveAllocator::SetCurrentOwner( m_previous );
+}
+
+RuntimeReserveAllocationScope::RuntimeReserveAllocationScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase,
+                                                              RuntimeReserveGrowthResult& result ) noexcept
+    : m_allocationScope( phase ), m_ownerScope( owner ), m_growthScope( owner, phase, result )
+{
 }
 
 RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeReserveOwnerDesc& desc ) noexcept

@@ -42,8 +42,12 @@ namespace Physics
 // constants; they describe Skullbonez policy for deciding whether a box/terrain
 // contact is credible enough to seed resting support and sleeping.
 static constexpr float BOX_TERRAIN_VERTEX_SUPPORT_SLACK = 0.15f;
-static constexpr float BOX_TERRAIN_STABLE_FACE_DOT = 0.95f;  // ~18 degrees from the contact plane normal.
-static constexpr float BOX_TERRAIN_STABLE_PATCH_DOT = 0.99f; // ~8 degrees from the terrain plane normal.
+static constexpr float BOX_TERRAIN_STABLE_FACE_DOT = 0.95f; // ~18 degrees from the contact plane normal.
+// A body may have one edge-classified row beside a wider object/terrain patch.
+// The aggregate pose still requires a face within 30 degrees of the contact
+// normal; more steeply balanced boxes need component support or remain awake.
+static constexpr float BOX_TERRAIN_AGGREGATE_FACE_DOT = 0.8660254f; // cos(30 degrees)
+static constexpr float BOX_TERRAIN_STABLE_PATCH_DOT = 0.99f;        // ~8 degrees from the terrain plane normal.
 
 struct BoxTerrainVertexSupportProbe
 {
@@ -248,8 +252,9 @@ inline float ComputeConvexHullTerrainBestFaceNormalDot( Core::Profiler*,
     return ComputeConvexHullTerrainBestFaceNormalDotImpl( hull, orientation, terrainNormal );
 }
 
-inline BoxTerrainVertexSupportProbe ProbeConvexHullTerrainVerticesImpl( const Math::CollisionDetection::ConvexHullShape& hull, const Math::Vector::Vector3& position,
-                                                                        const Math::Transformation::RotationMatrix& orientation, const PhysicsTerrainView& terrain, float contactEpsilon )
+inline BoxTerrainVertexSupportProbe ProbeConvexHullTerrainVerticesImpl(
+    const Math::CollisionDetection::ConvexHullShape& hull, const Math::Vector::Vector3& position,
+    const Math::Transformation::RotationMatrix& orientation, const PhysicsTerrainView& terrain, float contactEpsilon )
 {
     BoxTerrainVertexSupportProbe result;
     const Math::Vector::Vector3 hullCenter = position + ( orientation * hull.GetPosition() );

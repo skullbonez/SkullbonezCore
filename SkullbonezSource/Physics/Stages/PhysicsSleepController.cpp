@@ -4,12 +4,13 @@ Purpose:
   Implements deterministic sleep mirroring, wake propagation, and islands.
 
 Summary:
-  This file implements the serial sleep-island algorithms plus the ascending
-  dense awake index list updated at sleep/wake transitions. Thresholds, packed
-  contact traversal, and transition expressions remain unchanged.
+  This file implements body-local deactivation clocks, whole-island sleep
+  decisions, constraint-topology wake publication, and the ascending dense
+  awake index list updated at transitions.
 
 Glossary:
-  Credible support: Terrain, fixed, or previously proven sleeping island anchor.
+  Support diagnostic: Terrain, fixed, or previously sleeping anchor evidence;
+    it does not define simulation-island topology.
   Quiet-frame counter: Consecutive eligible ticks required before deactivation.
   Awake list position: Reverse map from dense body row to its slot in the
     ascending awake list, or -1 when fixed/dormant.
@@ -21,6 +22,8 @@ Invariants:
     records exist only when the step has a full-record consumer.
   - Ordinary fixed steps update awake indices only at explicit transitions;
     full rebuilds are limited to topology/replay/config cold boundaries.
+  - Static and terrain contacts anchor constraints without connecting dynamic
+    bodies through the static world.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
@@ -36,10 +39,12 @@ Related:
 #include "../ColliderStore.h"
 #include "../DisjointSet.h"
 #include "../PhysicsBodyStore.h"
+#include "../TerrainSupportClassifier.h"
 #include "../PhysicsWorldForces.h"
 #include "PhysicsStepDiagnostics.h"
 
 #include <algorithm>
+#include <cmath>
 
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -49,8 +54,6 @@ namespace
 {
 constexpr float POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE = 0.15f;
 constexpr float POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE = 0.75f;
-constexpr float POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE = 6.0f;
-constexpr float POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE = 6.0f;
 bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return hotFields.fixed[static_cast<std::size_t>( bodyIndex )] != 0u;
@@ -100,10 +103,13 @@ void PhysicsSleepController::ReserveBodyCapacity( std::size_t bodyCapacity, std:
     reserveBodyRows( m_sleepIslandHasAwake );
     reserveBodyRows( m_sleepIslandHasSupportAnchor );
     reserveBodyRows( m_sleepIslandEligible );
+    reserveBodyRows( m_sleepIslandTopologyStable );
     reserveBodyRows( m_sleepIslandCanSleep );
+    reserveBodyRows( m_sleepBodyEligible );
+    reserveBodyRows( m_sleepResetReason );
+    reserveBodyRows( m_sleepPoseAnchors );
     reserveBodyRows( m_sleepScratchFlags );
-    reserveBodyRows( m_sleepVisualIslandIds );
-    reserveBodyRows( m_sleepVisualIslandBodies );
+    reserveBodyRows( m_sleepFirstBoxContactPartner );
     reserveBodyRows( m_restingWakeQueueScratch );
 
     const std::size_t pairCapacity = (std::min)( bodyCapacity * ( bodyCapacity > 0u ? bodyCapacity - 1u : 0u ) / 2u,
@@ -114,6 +120,7 @@ void PhysicsSleepController::ReserveBodyCapacity( std::size_t bodyCapacity, std:
                                                     MAX_SLEEP_SUPPORT_EDGES );
 
     m_sleepSupportEdges.Reserve( supportCapacity );
+    m_simulationIslands.Reserve( bodyCapacity, supportCapacity, pointJointCapacity );
 
     m_awakeBodyIndices.Reserve( bodyCapacity );
     m_awakeListPositions.Reserve( bodyCapacity );
@@ -130,27 +137,32 @@ void PhysicsSleepController::Clear()
     m_sleepIslandVisualId.clear();
     m_sleepIslandAssignedVisualId.clear();
     m_sleepSupportEdges.clear();
+    m_simulationIslands.Clear();
     m_sleepIslandParent.clear();
     m_sleepIslandRank.clear();
     m_sleepIslandHasAwake.clear();
     m_sleepIslandHasSupportAnchor.clear();
     m_sleepIslandEligible.clear();
+    m_sleepIslandTopologyStable.clear();
     m_sleepIslandCanSleep.clear();
+    m_sleepBodyEligible.clear();
+    m_sleepResetReason.clear();
+    m_sleepPoseAnchors.clear();
     m_sleepScratchFlags.clear();
-    m_sleepVisualIslandIds.clear();
-    m_sleepVisualIslandBodies.clear();
+    m_sleepFirstBoxContactPartner.clear();
     m_restingWakeQueueScratch.clear();
     m_awakeBodyIndices.clear();
     m_awakeListPositions.clear();
-    m_pendingAwakeCount = 0;
+    m_pendingConstraintWakeBodyCount = 0;
     m_awakeListNeedsRebuild = true;
+    m_resetDenseSleepHistoryForBodyTopologyChange = false;
     m_nextSleepIslandVisualId = 1;
     m_awakeBodyCount = 0;
 }
 
 void PhysicsSleepController::ApplyRuntimeSettings( const SleepSettings& settings )
 {
-    m_seedSleepFrameCount = static_cast<uint8_t>( (std::max)( 0, (std::min)( settings.frames, 255 ) ) );
+    m_seedSleepFrameCount = static_cast<uint32_t>( (std::max)( 0, settings.frames ) );
 }
 
 PhysicsSleepStepPolicy PhysicsSleepController::ResolveStepPolicy( const SleepSettings& settings ) const
@@ -160,7 +172,18 @@ PhysicsSleepStepPolicy PhysicsSleepController::ResolveStepPolicy( const SleepSet
     const float linearSpeed = (std::max)( 0.0f, settings.linearSpeed );
     const float angularSpeed = (std::max)( 0.0f, settings.angularSpeed );
     return PhysicsSleepStepPolicy { linearSpeed * linearSpeed, angularSpeed * angularSpeed,
-                                    static_cast<uint8_t>( (std::max)( 1, (std::min)( settings.frames, 255 ) ) ) };
+                                    static_cast<uint32_t>( (std::max)( 1, settings.frames ) ) };
+}
+
+PhysicsSleepStepPolicy PhysicsSleepController::ResolveStepPolicy( const PhysicsRuntimeSettings& settings ) const
+{
+    PhysicsSleepStepPolicy policy = ResolveStepPolicy( settings.sleep );
+    const float contactSkin = (std::max)( 0.0f, settings.body.contactEpsilon );
+    policy.objectPenetrationLimit = contactSkin + (std::max)( 0.0f, settings.solver.slop );
+    policy.terrainPenetrationLimit = contactSkin + (std::max)( 0.0f, settings.terrain.slop );
+    policy.correctionSpeedSquared = policy.linearSpeedSquared;
+    policy.poseDriftLimit = (std::max)( policy.objectPenetrationLimit, policy.terrainPenetrationLimit );
+    return policy;
 }
 
 void PhysicsSleepController::EnsureUnderwaterSleepLockBuffer( int modelCount )
@@ -177,6 +200,35 @@ void PhysicsSleepController::EnsureScratchFlagsSize( int modelCount )
     {
         m_sleepScratchFlags.assign( static_cast<std::size_t>( modelCount ), PhysicsSleepScratchFlags {} );
     }
+}
+
+void PhysicsSleepController::RegisterBoxContactPartner( int bodyIndex, int partnerIndex )
+{
+    PhysicsSleepScratchFlags& flags = m_sleepScratchFlags[static_cast<std::size_t>( bodyIndex )];
+    int& firstPartner = m_sleepFirstBoxContactPartner[static_cast<std::size_t>( bodyIndex )];
+
+    if ( firstPartner == ( std::numeric_limits<int>::min )() )
+    {
+        firstPartner = partnerIndex;
+    }
+    else if ( firstPartner != partnerIndex )
+    {
+        flags.boxHasSecondContact = 1u;
+    }
+}
+
+void PhysicsSleepController::RegisterBoxSupportContact( int bodyIndex, int partnerIndex, bool facePatch )
+{
+    PhysicsSleepScratchFlags& flags = m_sleepScratchFlags[static_cast<std::size_t>( bodyIndex )];
+    RegisterBoxContactPartner( bodyIndex, partnerIndex );
+
+    if ( facePatch )
+    {
+        flags.boxHasFaceSupport = 1u;
+        return;
+    }
+
+    flags.boxHasNarrowSupport = 1u;
 }
 
 void PhysicsSleepController::EnsureVisualIdSize( int modelCount )
@@ -272,27 +324,111 @@ void PhysicsSleepController::RemoveAwakeBodyIndex( int index )
 
 void PhysicsSleepController::InvalidateBodyTopology()
 {
+    m_simulationIslands.Invalidate();
+    m_awakeListNeedsRebuild = true;
+    m_resetDenseSleepHistoryForBodyTopologyChange = true;
+}
+
+void PhysicsSleepController::QueueConstraintTopologyWake( PhysicsBodyHandle bodyA, PhysicsBodyHandle bodyB )
+{
+    const auto appendUnique = [&]( PhysicsBodyHandle body )
+    {
+        if ( !body.IsValid() )
+        {
+            return;
+        }
+
+        for ( int queuedIndex = 0; queuedIndex < m_pendingConstraintWakeBodyCount; ++queuedIndex )
+        {
+            if ( m_pendingConstraintWakeBodies[queuedIndex] == body )
+            {
+                return;
+            }
+        }
+
+        if ( m_pendingConstraintWakeBodyCount >= Scene::Capacity::MAX_SCENE_OBJECTS )
+        {
+            SB_FATAL( "Physics/PhysicsSleepController",
+                      "Constraint topology wake body capacity exceeded: requested=%d capacity=%d.",
+                      m_pendingConstraintWakeBodyCount + 1, Scene::Capacity::MAX_SCENE_OBJECTS );
+        }
+
+        m_pendingConstraintWakeBodies[m_pendingConstraintWakeBodyCount++] = body;
+    };
+
+    // Hazard: constraint authoring may occur while both endpoint islands are
+    // dormant. Retain stable handles until the next body-store mirror so only
+    // the old and new endpoint islands wake before solver pruning.
+    appendUnique( bodyA );
+    appendUnique( bodyB );
     m_awakeListNeedsRebuild = true;
 }
 
-void PhysicsSleepController::FlushPendingAwakeBodyIndices()
+void PhysicsSleepController::ApplyPendingConstraintTopologyWakes( PhysicsBodyStore& bodyStore, int modelCount )
 {
-    // Parallel wake workers publish only bounded body indices. The sequencer
-    // folds them into the sorted owner list after WorkerPool completion, so
-    // worker scheduling cannot affect later force/integration order.
-    std::atomic_ref<int> pendingAwakeCount( m_pendingAwakeCount );
-    const int pendingCount = pendingAwakeCount.exchange( 0, std::memory_order_acquire );
-
-    if ( pendingCount < 0 || pendingCount > Scene::Capacity::MAX_SCENE_OBJECTS )
+    if ( m_pendingConstraintWakeBodyCount == 0 )
     {
-        SB_FATAL( "Physics/PhysicsSleepController", "Pending awake queue count invalid: count=%d capacity=%d.", pendingCount,
-                  Scene::Capacity::MAX_SCENE_OBJECTS );
+        return;
     }
 
-    for ( int pendingIndex = 0; pendingIndex < pendingCount; ++pendingIndex )
+    const auto findRetainedRoot = [&]( int bodyIndex )
     {
-        AddAwakeBodyIndex( m_pendingAwakeIndices[pendingIndex] );
+        int root = bodyIndex;
+
+        for ( int hop = 0; hop < modelCount; ++hop )
+        {
+            if ( root < 0 || root >= static_cast<int>( m_sleepIslandParent.size() ) )
+            {
+                return bodyIndex;
+            }
+
+            const int parent = m_sleepIslandParent[static_cast<std::size_t>( root )];
+            if ( parent == root )
+            {
+                return root;
+            }
+            root = parent;
+        }
+        return bodyIndex;
+    };
+
+    m_restingWakeQueueScratch.clear();
+    for ( int queuedIndex = 0; queuedIndex < m_pendingConstraintWakeBodyCount; ++queuedIndex )
+    {
+        const int bodyIndex = bodyStore.ModelIndexForHandle( m_pendingConstraintWakeBodies[queuedIndex] );
+        if ( bodyIndex < 0 || bodyIndex >= modelCount )
+        {
+            continue;
+        }
+
+        const int root = findRetainedRoot( bodyIndex );
+        if ( std::find( m_restingWakeQueueScratch.begin(), m_restingWakeQueueScratch.end(), root ) ==
+             m_restingWakeQueueScratch.end() )
+        {
+            m_restingWakeQueueScratch.push_back( root );
+        }
     }
+
+    std::sort( m_restingWakeQueueScratch.begin(), m_restingWakeQueueScratch.end() );
+    for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
+    {
+        const int root = findRetainedRoot( bodyIndex );
+        if ( !std::binary_search( m_restingWakeQueueScratch.begin(), m_restingWakeQueueScratch.end(), root ) )
+        {
+            continue;
+        }
+
+        m_sleepState[bodyIndex] = 0u;
+        m_sleepCounter[bodyIndex] = 0u;
+        if ( bodyIndex < static_cast<int>( m_sleepPoseAnchors.size() ) )
+        {
+            m_sleepPoseAnchors[bodyIndex].flags &= static_cast<uint8_t>( ~SLEEP_POSE_ANCHOR_VALID_BIT );
+        }
+        m_underwaterSleepLocked[bodyIndex] = 0u;
+        m_sleepIslandVisualId[bodyIndex] = 0;
+    }
+
+    m_pendingConstraintWakeBodyCount = 0;
 }
 
 bool PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount )
@@ -310,6 +446,11 @@ bool PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
         m_sleepCounter.assign( modelCount, 0 );
     }
 
+    if ( static_cast<int>( m_sleepPoseAnchors.size() ) != modelCount )
+    {
+        m_sleepPoseAnchors.assign( modelCount, PhysicsSleepPoseAnchor {} );
+    }
+
     if ( rebuildAwakeList )
     {
         // Cold boundary: authored topology/body commands own the body-store
@@ -325,10 +466,32 @@ bool PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
     // this changes no solver decision or byte-exact physics value.
     EnsureVisualIdSize( modelCount );
 
+    if ( m_resetDenseSleepHistoryForBodyTopologyChange )
+    {
+        // Invariant: dense-row compaction can move an unrelated survivor into
+        // a removed row. The body store has already preserved sleep by stable
+        // handle, while index-keyed timers, parents, and diagnostic ids must reset.
+        std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), uint32_t { 0u } );
+        for ( PhysicsSleepPoseAnchor& anchor : m_sleepPoseAnchors )
+        {
+            anchor.flags = 0u;
+        }
+        std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
+        m_sleepIslandParent.clear();
+        m_sleepIslandRank.clear();
+        m_resetDenseSleepHistoryForBodyTopologyChange = false;
+    }
+
+    ApplyPendingConstraintTopologyWakes( bodyStore, modelCount );
+
     if ( !m_sleepEnabled )
     {
         std::fill( m_sleepState.begin(), m_sleepState.end(), static_cast<uint8_t>( 0 ) );
-        std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
+        std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), uint32_t { 0u } );
+        for ( PhysicsSleepPoseAnchor& anchor : m_sleepPoseAnchors )
+        {
+            anchor.flags = 0u;
+        }
         std::fill( m_underwaterSleepLocked.begin(), m_underwaterSleepLocked.end(), static_cast<uint8_t>( 0 ) );
         std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
     }
@@ -385,7 +548,7 @@ bool PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
 void PhysicsSleepController::PropagateSupport( const PhysicsBodyStore& bodyStore )
 {
     SleepSupportPropagationContext context { m_sleepState, m_sleepSupportEdges, m_sleepSupportedThisFrame };
-    m_sleepIslandSystem.PropagateSupport( context, bodyStore.HotFields() );
+    m_sleepSupportPropagation.PropagateSupport( context, bodyStore.HotFields() );
 }
 
 void PhysicsSleepController::AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore,
@@ -451,9 +614,24 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
             continue;
         }
 
-        m_sleepScratchFlags[a].pointJointBody = 1u;
-        m_sleepScratchFlags[b].pointJointBody = 1u;
-        sleepIslands.Unite( a, b );
+        const bool dynamicA = !IsSolverBodyFixed( hotRead, a );
+        const bool dynamicB = !IsSolverBodyFixed( hotRead, b );
+
+        if ( dynamicA )
+        {
+            m_sleepScratchFlags[a].pointJointBody = 1u;
+        }
+        if ( dynamicB )
+        {
+            m_sleepScratchFlags[b].pointJointBody = 1u;
+        }
+
+        // Invariant: fixed endpoints anchor their own constraint but cannot
+        // bridge two dynamic wake components through the static world.
+        if ( dynamicA && dynamicB )
+        {
+            sleepIslands.Unite( a, b );
+        }
     }
 
     for ( int i = 0; i < modelCount; ++i )
@@ -492,6 +670,393 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
     }
 }
 
+void PhysicsSleepController::PrepareIslandScratch( const ColliderStore& colliderStore, int modelCount )
+{
+    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
+    m_sleepIslandParent.assign( modelCount, 0 );
+    m_sleepIslandRank.assign( modelCount, 0 );
+    m_sleepIslandHasAwake.assign( modelCount, 0 );
+    m_sleepIslandHasSupportAnchor.assign( modelCount, 0 );
+    m_sleepIslandEligible.assign( modelCount, 1 );
+    m_sleepIslandTopologyStable.assign( modelCount, 1 );
+    m_sleepIslandCanSleep.assign( modelCount, 1 );
+    m_sleepBodyEligible.assign( modelCount, 1 );
+    m_sleepResetReason.assign( modelCount, static_cast<uint8_t>( PhysicsSleepResetReason::None ) );
+    EnsureScratchFlagsSize( modelCount );
+    m_sleepFirstBoxContactPartner.assign( modelCount, ( std::numeric_limits<int>::min )() );
+
+    if ( static_cast<int>( m_sleepPoseAnchors.size() ) != modelCount )
+    {
+        m_sleepPoseAnchors.assign( modelCount, PhysicsSleepPoseAnchor {} );
+    }
+
+    for ( PhysicsSleepScratchFlags& flags : m_sleepScratchFlags )
+    {
+        flags = PhysicsSleepScratchFlags {};
+        flags.islandPointJointsRelaxed = 1u;
+    }
+    for ( int bodyIndex = 0; bodyIndex < modelCount && bodyIndex < static_cast<int>( colliderRecords.size() ); ++bodyIndex )
+    {
+        m_sleepScratchFlags[static_cast<std::size_t>( bodyIndex )]
+            .boxBody = colliderRecords[static_cast<std::size_t>( bodyIndex )].shapeKind == ColliderShapeKind::Box ? 1u : 0u;
+    }
+    for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
+    {
+        m_sleepIslandParent[bodyIndex] = bodyIndex;
+    }
+}
+
+void PhysicsSleepController::BuildSimulationIslandTopology( const PhysicsBodyStore& bodyStore,
+                                                            std::span<const PersistentContact> persistentContacts,
+                                                            std::span<const PointJointConstraint> pointJointConstraints,
+                                                            const PhysicsBodyHotFieldsConstView& hotFields,
+                                                            DisjointSet& sleepIslands )
+{
+    m_simulationIslands.Rebuild( bodyStore, persistentContacts, pointJointConstraints, m_sleepState );
+    for ( const auto& edge : m_simulationIslands.ActiveContactEdges() )
+    {
+        if ( edge.second >= 0 && !IsSolverBodyFixed( hotFields, edge.first ) &&
+             !IsSolverBodyFixed( hotFields, edge.second ) )
+        {
+            sleepIslands.Unite( edge.first, edge.second );
+        }
+    }
+    for ( const SimulationIslandJointEdge& edge : m_simulationIslands.ActiveJointEdges() )
+    {
+        if ( !IsSolverBodyFixed( hotFields, edge.bodyA ) && !IsSolverBodyFixed( hotFields, edge.bodyB ) )
+        {
+            sleepIslands.Unite( edge.bodyA, edge.bodyB );
+        }
+    }
+}
+
+void PhysicsSleepController::ClassifyContactStability( const ColliderStore& colliderStore,
+                                                       const PhysicsWorldForces& worldForces,
+                                                       std::span<const PersistentContact> persistentContacts,
+                                                       const PhysicsSleepStepPolicy& sleepPolicy, int modelCount )
+{
+    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
+    for ( const PersistentContact& contact : persistentContacts )
+    {
+        const float penetrationLimit = contact.isTerrain ? sleepPolicy.terrainPenetrationLimit
+                                                         : sleepPolicy.objectPenetrationLimit;
+        const float correctionSpeedSquared = contact.separationBias * contact.separationBias;
+        const bool finite = std::isfinite( contact.penetration ) && std::isfinite( contact.separationBias ) &&
+                            std::isfinite( contact.preSolveClosingSpeed ) && std::isfinite( contact.preSolveSlipSpeed ) &&
+                            std::isfinite( contact.accN ) && std::isfinite( contact.accT1 ) &&
+                            std::isfinite( contact.accT2 );
+        const bool stable = finite && contact.penetration <= penetrationLimit &&
+                            correctionSpeedSquared < sleepPolicy.correctionSpeedSquared;
+
+        if ( contact.isTerrain && contact.bodyA >= 0 && contact.bodyA < modelCount &&
+             contact.bodyA < static_cast<int>( colliderRecords.size() ) && contact.inhibitsSleep &&
+             contact.supportsRestingPolicy &&
+             colliderRecords[static_cast<std::size_t>( contact.bodyA )].shapeKind == ColliderShapeKind::Sphere )
+        {
+            m_sleepScratchFlags[static_cast<std::size_t>( contact.bodyA )].steepSphereTerrain = 1u;
+        }
+
+        if ( stable )
+        {
+            if ( contact.bodyA >= 0 && contact.bodyA < modelCount &&
+                 m_sleepScratchFlags[static_cast<std::size_t>( contact.bodyA )].boxBody != 0u )
+            {
+                RegisterBoxContactPartner( contact.bodyA, contact.bodyB );
+            }
+            if ( !contact.isTerrain && contact.bodyB >= 0 && contact.bodyB < modelCount &&
+                 m_sleepScratchFlags[static_cast<std::size_t>( contact.bodyB )].boxBody != 0u )
+            {
+                RegisterBoxContactPartner( contact.bodyB, contact.bodyA );
+            }
+
+            int supportedBody = -1;
+            int supportPartner = -1;
+            if ( contact.isTerrain )
+            {
+                supportedBody = contact.bodyA;
+            }
+            else
+            {
+                const float gravityUpY = worldForces.gravity > 0.0f ? -1.0f : 1.0f;
+                const float supportDirection = contact.normal.y * gravityUpY;
+                if ( supportDirection > 0.25f )
+                {
+                    supportedBody = contact.bodyB;
+                    supportPartner = contact.bodyA;
+                }
+                else if ( supportDirection < -0.25f )
+                {
+                    supportedBody = contact.bodyA;
+                    supportPartner = contact.bodyB;
+                }
+            }
+            if ( supportedBody >= 0 && supportedBody < modelCount &&
+                 m_sleepScratchFlags[static_cast<std::size_t>( supportedBody )].boxBody != 0u )
+            {
+                RegisterBoxSupportContact( supportedBody, supportPartner, !contact.inhibitsSleep );
+            }
+        }
+        else
+        {
+            if ( contact.bodyA >= 0 && contact.bodyA < modelCount )
+            {
+                m_sleepBodyEligible[contact.bodyA] = 0u;
+                m_sleepResetReason[contact.bodyA] = static_cast<uint8_t>( PhysicsSleepResetReason::ContactStability );
+            }
+            if ( contact.bodyB >= 0 && contact.bodyB < modelCount )
+            {
+                m_sleepBodyEligible[contact.bodyB] = 0u;
+                m_sleepResetReason[contact.bodyB] = static_cast<uint8_t>( PhysicsSleepResetReason::ContactStability );
+            }
+        }
+    }
+}
+
+void PhysicsSleepController::ClassifyPointJointStability( const PhysicsBodyStore& bodyStore,
+                                                          std::span<const PointJointConstraint> pointJointConstraints,
+                                                          const PhysicsBodyHotFieldsConstView& hotFields,
+                                                          DisjointSet& sleepIslands, int modelCount )
+{
+    for ( const PointJointConstraint& constraint : pointJointConstraints )
+    {
+        const int a = constraint.BodyAIndex( bodyStore );
+        const int b = constraint.BodyBIndex( bodyStore );
+        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
+        {
+            continue;
+        }
+
+        const bool fixedA = IsSolverBodyFixed( hotFields, a );
+        const bool fixedB = IsSolverBodyFixed( hotFields, b );
+        if ( !fixedA )
+        {
+            m_sleepScratchFlags[a].pointJointBody = 1u;
+            if ( fixedB )
+            {
+                m_sleepIslandHasSupportAnchor[sleepIslands.Find( a )] = 1u;
+            }
+        }
+        if ( !fixedB )
+        {
+            m_sleepScratchFlags[b].pointJointBody = 1u;
+            if ( fixedA )
+            {
+                m_sleepIslandHasSupportAnchor[sleepIslands.Find( b )] = 1u;
+            }
+        }
+    }
+
+    const std::span<const uint8_t> topologyChangedBodies = m_simulationIslands.TopologyChangedBodies();
+    for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
+    {
+        const int root = sleepIslands.Find( bodyIndex );
+        if ( topologyChangedBodies[bodyIndex] != 0u )
+        {
+            m_sleepIslandTopologyStable[root] = 0u;
+        }
+        if ( IsSolverBodyFixed( hotFields, bodyIndex ) ||
+             ( bodyIndex < static_cast<int>( m_sleepState.size() ) && m_sleepState[bodyIndex] != 0 ) ||
+             ( bodyIndex < static_cast<int>( m_sleepSupportedThisFrame.size() ) &&
+               m_sleepSupportedThisFrame[bodyIndex] != 0 ) )
+        {
+            m_sleepIslandHasSupportAnchor[root] = 1u;
+        }
+        if ( m_sleepScratchFlags[bodyIndex].pointJointBody != 0u )
+        {
+            m_sleepScratchFlags[root].islandHasPointJoint = 1u;
+        }
+    }
+
+    for ( const PointJointConstraint& constraint : pointJointConstraints )
+    {
+        const int a = constraint.BodyAIndex( bodyStore );
+        const int b = constraint.BodyBIndex( bodyStore );
+        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
+        {
+            continue;
+        }
+
+        const auto rotA = PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( a ) ).GetOrientationMatrix();
+        const auto rotB = PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( b ) ).GetOrientationMatrix();
+        const Vector3 anchorA = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( a ) ) +
+                                rotA * constraint.localAnchorA;
+        const Vector3 anchorB = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( b ) ) +
+                                rotB * constraint.localAnchorB;
+        const float distance = Vector::VectorMag( anchorB - anchorA );
+        const float allowedDistance = constraint.slack +
+                                      (std::max)( POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE,
+                                                  constraint.slack * POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE );
+        if ( distance <= allowedDistance )
+        {
+            continue;
+        }
+
+        if ( !IsSolverBodyFixed( hotFields, a ) )
+        {
+            m_sleepScratchFlags[sleepIslands.Find( a )].islandPointJointsRelaxed = 0u;
+        }
+        if ( !IsSolverBodyFixed( hotFields, b ) )
+        {
+            m_sleepScratchFlags[sleepIslands.Find( b )].islandPointJointsRelaxed = 0u;
+        }
+    }
+}
+
+template <bool RetainPipelineRecords>
+void PhysicsSleepController::EvaluateAwakeBodyEligibility(
+    const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PhysicsWorldForces& worldForces,
+    std::span<const uint16_t> persistentRestingContactCounts, PhysicsPipelineTraceRecorder& physicsPipelineTrace,
+    const PhysicsSleepStepPolicy& sleepPolicy, DisjointSet& sleepIslands )
+{
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
+    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
+    const std::span<const int> awakeBodyIndices = GetAwakeBodyIndices();
+
+    if constexpr ( !RetainPipelineRecords )
+    {
+        physicsPipelineTrace.RecordEvents( awakeBodyIndices.size() );
+    }
+
+    for ( int bodyIndex : awakeBodyIndices )
+    {
+#if defined( _DEBUG )
+        assert( IsAwakeListEntryConsistent( IsSolverBodyFixed( hotFields, bodyIndex ), m_sleepState[bodyIndex] != 0u ) );
+#endif
+        const int root = sleepIslands.Find( bodyIndex );
+        m_sleepIslandHasAwake[root] = 1u;
+        const Vector3 velocity = PhysicsBodyLinearVelocity( hotFields, static_cast<std::size_t>( bodyIndex ) );
+        const Vector3 angularVelocity = PhysicsBodyAngularVelocity( hotFields, static_cast<std::size_t>( bodyIndex ) );
+        const float speedSquared = velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z;
+        const float angularSpeedSquared = angularVelocity.x * angularVelocity.x + angularVelocity.y * angularVelocity.y +
+                                          angularVelocity.z * angularVelocity.z;
+        bool supported = bodyIndex < static_cast<int>( m_sleepSupportedThisFrame.size() ) &&
+                         m_sleepSupportedThisFrame[bodyIndex] != 0u;
+        const bool hasRestingObjectContact = bodyIndex < static_cast<int>( persistentRestingContactCounts.size() ) &&
+                                             persistentRestingContactCounts[bodyIndex] > 0u;
+        const bool islandHasSupportAnchor = m_sleepIslandHasSupportAnchor[root] != 0u;
+        const bool pointJointMember = bodyIndex < static_cast<int>( m_sleepScratchFlags.size() ) &&
+                                      m_sleepScratchFlags[bodyIndex].pointJointBody != 0u;
+        const bool pointJointIsland = m_sleepScratchFlags[root].islandHasPointJoint != 0u;
+        const bool quiet = sleepPolicy.IsQuiet( speedSquared, angularSpeedSquared );
+        const bool pointJointAnchoredSupport = quiet && pointJointMember && pointJointIsland && islandHasSupportAnchor;
+
+        if ( !supported && quiet && hasRestingObjectContact && islandHasSupportAnchor )
+        {
+            m_sleepSupportedThisFrame[bodyIndex] = 1u;
+            supported = true;
+        }
+        if ( !supported && pointJointAnchoredSupport )
+        {
+            m_sleepSupportedThisFrame[bodyIndex] = 1u;
+            supported = true;
+        }
+
+        const PhysicsSleepScratchFlags& bodyFlags = m_sleepScratchFlags[static_cast<std::size_t>( bodyIndex )];
+        const bool boxSupportEligible = bodyFlags.boxBody == 0u || bodyFlags.boxHasFaceSupport != 0u ||
+                                        ( bodyFlags.boxHasNarrowSupport != 0u && bodyFlags.boxHasSecondContact != 0u ) ||
+                                        pointJointAnchoredSupport;
+        const bool unsupportedBoxSupport = bodyFlags.boxBody != 0u && !boxSupportEligible;
+        const bool steepSphereSlope = bodyFlags.steepSphereTerrain != 0u;
+        const bool terrainInhibitBlocksSleep = steepSphereSlope ||
+                                               ( m_sleepInhibitedThisFrame[bodyIndex] != 0u && !pointJointAnchoredSupport &&
+                                                 !( bodyFlags.boxBody != 0u && boxSupportEligible ) );
+        const bool unsupportedInGravity = fabsf( worldForces.gravity ) > TOLERANCE && !supported &&
+                                          !pointJointAnchoredSupport;
+        const bool pointJointErrorBlocksSleep = pointJointMember && root < static_cast<int>( m_sleepScratchFlags.size() ) &&
+                                                m_sleepScratchFlags[root].islandPointJointsRelaxed == 0u;
+
+        const std::size_t bodyRow = static_cast<std::size_t>( bodyIndex );
+        const Vector3 position = PhysicsBodyPosition( hotFields, bodyRow );
+        const auto orientation = PhysicsBodyOrientation( hotFields, bodyRow );
+        std::array<float, 4> orientationComponents = {};
+        orientation.GetComponents( orientationComponents[0], orientationComponents[1], orientationComponents[2],
+                                   orientationComponents[3] );
+
+        bool poseStable = true;
+        if ( ( m_sleepPoseAnchors[bodyRow].flags & SLEEP_POSE_ANCHOR_VALID_BIT ) == 0u || m_sleepCounter[bodyRow] == 0u )
+        {
+            m_sleepPoseAnchors[bodyRow].position = position;
+            m_sleepPoseAnchors[bodyRow].orientation = orientationComponents;
+            m_sleepPoseAnchors[bodyRow].flags |= SLEEP_POSE_ANCHOR_VALID_BIT;
+        }
+        else
+        {
+            const Vector3 translation = position - m_sleepPoseAnchors[bodyRow].position;
+            const std::array<float, 4>& anchorOrientation = m_sleepPoseAnchors[bodyRow].orientation;
+            const float orientationDot = std::clamp( fabsf( anchorOrientation[0] * orientationComponents[0] +
+                                                            anchorOrientation[1] * orientationComponents[1] +
+                                                            anchorOrientation[2] * orientationComponents[2] +
+                                                            anchorOrientation[3] * orientationComponents[3] ),
+                                                     0.0f, 1.0f );
+            const float maximumRadius = bodyRow < colliderRecords.size() ? colliderRecords[bodyRow].maximumCenterOfMassRadius
+                                                                         : hotFields.boundingRadius[bodyRow];
+            const float rotationalDrift = 2.0f * (std::max)( maximumRadius, 0.0f ) *
+                                          sqrtf( (std::max)( 0.0f, 1.0f - orientationDot * orientationDot ) );
+            const float poseDrift = Vector::VectorMag( translation ) + rotationalDrift;
+            poseStable = std::isfinite( poseDrift ) && poseDrift <= sleepPolicy.poseDriftLimit;
+        }
+
+        const bool bodyEligible = quiet && !terrainInhibitBlocksSleep && !unsupportedBoxSupport && !unsupportedInGravity &&
+                                  !pointJointErrorBlocksSleep && poseStable && m_sleepBodyEligible[bodyIndex] != 0u;
+        const bool holdBoxDeactivation = quiet && unsupportedBoxSupport && !terrainInhibitBlocksSleep &&
+                                         !unsupportedInGravity && !pointJointErrorBlocksSleep && poseStable &&
+                                         m_sleepBodyEligible[bodyIndex] != 0u;
+        m_sleepBodyEligible[bodyIndex] = bodyEligible ? 1u : 0u;
+
+        if ( !quiet )
+        {
+            m_sleepResetReason[bodyIndex] = static_cast<uint8_t>( PhysicsSleepResetReason::Motion );
+        }
+        else if ( m_sleepBodyEligible[bodyIndex] == 0u &&
+                  m_sleepResetReason[bodyIndex] == static_cast<uint8_t>( PhysicsSleepResetReason::ContactStability ) )
+        {
+            // Preserve the contact-row reason established by the contact phase.
+        }
+        else if ( steepSphereSlope )
+        {
+            m_sleepResetReason[bodyIndex] = static_cast<uint8_t>( PhysicsSleepResetReason::SteepSphereSlope );
+        }
+        else if ( unsupportedBoxSupport )
+        {
+            m_sleepResetReason[bodyIndex] = static_cast<uint8_t>( PhysicsSleepResetReason::UnsupportedBoxSupport );
+        }
+        else if ( terrainInhibitBlocksSleep || unsupportedInGravity )
+        {
+            m_sleepResetReason[bodyIndex] = static_cast<uint8_t>( PhysicsSleepResetReason::TerrainInhibition );
+        }
+        else if ( pointJointErrorBlocksSleep )
+        {
+            m_sleepResetReason[bodyIndex] = static_cast<uint8_t>( PhysicsSleepResetReason::PointJointError );
+        }
+        else if ( !poseStable )
+        {
+            m_sleepResetReason[bodyIndex] = static_cast<uint8_t>( PhysicsSleepResetReason::PoseDrift );
+        }
+
+        if ( !bodyEligible )
+        {
+            m_sleepIslandEligible[root] = 0u;
+            if ( !holdBoxDeactivation )
+            {
+                m_sleepPoseAnchors[bodyRow].flags &= static_cast<uint8_t>( ~SLEEP_POSE_ANCHOR_VALID_BIT );
+            }
+        }
+
+        if constexpr ( RetainPipelineRecords )
+        {
+            PhysicsPipelineRecord record;
+            record.stage = PhysicsPipelineStage::SleepIslandDecision;
+            record.bodyA = bodyIndex;
+            record.bodyB = root;
+            record.point = position;
+            record.scalarA = bodyEligible ? 1.0f : 0.0f;
+            record.scalarB = supported ? 1.0f : 0.0f;
+            record.scalarC = terrainInhibitBlocksSleep ? 1.0f : ( pointJointErrorBlocksSleep ? 3.0f : 0.0f );
+            physicsPipelineTrace.Record( record );
+        }
+    }
+}
+
 template <bool RetainPipelineRecords>
 void PhysicsSleepController::RunIslandStageMode( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                                  const PhysicsWorldForces& worldForces,
@@ -502,230 +1067,23 @@ void PhysicsSleepController::RunIslandStageMode( PhysicsBodyStore& bodyStore, co
                                                  PhysicsPipelineTraceRecorder& physicsPipelineTrace,
                                                  const PhysicsSleepStepPolicy& sleepPolicy )
 {
-    // Invariant: contact rows, point joints, and persisted visual ids are
-    // united in their original order before any eligibility decision is made.
+    // Invariant: canonical dynamic contacts and joints define membership.
+    // Visual ids remain diagnostic output and never become topology authority.
     const int modelCount = bodyStore.Count();
+    PrepareIslandScratch( colliderStore, modelCount );
 
-    const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
-    const std::span<const int> awakeBodyIndices = GetAwakeBodyIndices();
-    m_sleepIslandParent.assign( modelCount, 0 );
-    m_sleepIslandRank.assign( modelCount, 0 );
-    m_sleepIslandHasAwake.assign( modelCount, 0 );
-    m_sleepIslandHasSupportAnchor.assign( modelCount, 0 );
-    m_sleepIslandEligible.assign( modelCount, 1 );
-    m_sleepIslandCanSleep.assign( modelCount, 1 );
-    EnsureScratchFlagsSize( modelCount );
-
-    for ( PhysicsSleepScratchFlags& flags : m_sleepScratchFlags )
-    {
-        flags.pointJointBody = 0u;
-        flags.islandHasPointJoint = 0u;
-        flags.islandPointJointsRelaxed = 1u;
-    }
-
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        m_sleepIslandParent[i] = i;
-    }
-
-    // Concept: the controller makes one sleep decision for each connected
-    // contact/joint component, retaining the established deterministic order.
     DisjointSet sleepIslands( m_sleepIslandParent, m_sleepIslandRank, modelCount );
-
-    for ( const PersistentContact& contact : persistentContacts )
-    {
-        if ( contact.bodyA >= 0 && contact.bodyA < modelCount && contact.bodyB >= 0 && contact.bodyB < modelCount )
-        {
-            sleepIslands.Unite( contact.bodyA, contact.bodyB );
-        }
-    }
-
-    for ( const PointJointConstraint& constraint : pointJointConstraints )
-    {
-        const int a = constraint.BodyAIndex( bodyStore );
-        const int b = constraint.BodyBIndex( bodyStore );
-
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
-        {
-            continue;
-        }
-
-        m_sleepScratchFlags[a].pointJointBody = 1u;
-        m_sleepScratchFlags[b].pointJointBody = 1u;
-        sleepIslands.Unite( a, b );
-    }
-
-    m_sleepVisualIslandIds.clear();
-    m_sleepVisualIslandBodies.clear();
-
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        const int visualId = x < static_cast<int>( m_sleepIslandVisualId.size() ) ? m_sleepIslandVisualId[x] : 0;
-
-        if ( visualId <= 0 )
-        {
-            continue;
-        }
-
-        int visualSlot = -1;
-
-        for ( int i = 0; i < static_cast<int>( m_sleepVisualIslandIds.size() ); ++i )
-        {
-            if ( m_sleepVisualIslandIds[i] == visualId )
-            {
-                visualSlot = i;
-                break;
-            }
-        }
-
-        if ( visualSlot >= 0 )
-        {
-            sleepIslands.Unite( m_sleepVisualIslandBodies[visualSlot], x );
-        }
-        else
-        {
-            m_sleepVisualIslandIds.push_back( visualId );
-            m_sleepVisualIslandBodies.push_back( x );
-        }
-    }
-
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        const int root = sleepIslands.Find( x );
-
-        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( hotFields ), x ) ||
-             ( x < static_cast<int>( m_sleepState.size() ) && m_sleepState[x] != 0 ) ||
-             ( x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0 ) )
-        {
-            m_sleepIslandHasSupportAnchor[root] = 1;
-        }
-
-        if ( m_sleepScratchFlags[x].pointJointBody != 0u )
-        {
-            m_sleepScratchFlags[root].islandHasPointJoint = 1u;
-        }
-    }
-
-    for ( const PointJointConstraint& constraint : pointJointConstraints )
-    {
-        const int a = constraint.BodyAIndex( bodyStore );
-        const int b = constraint.BodyBIndex( bodyStore );
-
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
-        {
-            continue;
-        }
-
-        auto orientationA = PhysicsBodyOrientation( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( a ) );
-
-        auto orientationB = PhysicsBodyOrientation( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( b ) );
-
-        const auto rotA = orientationA.GetOrientationMatrix();
-        const auto rotB = orientationB.GetOrientationMatrix();
-        const Vector3 anchorA = PhysicsBodyPosition( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( a ) ) +
-                                rotA * constraint.localAnchorA;
-
-        const Vector3 anchorB = PhysicsBodyPosition( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( b ) ) +
-                                rotB * constraint.localAnchorB;
-
-        const float distance = Vector::VectorMag( anchorB - anchorA );
-        const float allowedDistance = constraint.slack +
-                                      (std::max)( POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE,
-                                                  constraint.slack * POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE );
-
-        if ( distance > allowedDistance )
-        {
-            m_sleepScratchFlags[sleepIslands.Find( a )].islandPointJointsRelaxed = 0u;
-        }
-    }
-
-    // Invariant: the awake list is ascending dense order, so this walk
-    // performs the same per-body arithmetic in the same order while skipping
-    // fixed and sleeping guard reads entirely.
-
-    // Why: the count lane records the known awake-row cardinality once; the
-    // compile-time branch removes all payload work from the following loop.
-    if constexpr ( !RetainPipelineRecords )
-    {
-        physicsPipelineTrace.RecordEvents( awakeBodyIndices.size() );
-    }
-
-    for ( int x : awakeBodyIndices )
-    {
-#if defined( _DEBUG )
-        assert( IsAwakeListEntryConsistent( IsSolverBodyFixed( ConstPhysicsBodyHotFields( hotFields ), x ),
-                                            m_sleepState[x] != 0u ) );
-#endif
-        const int root = sleepIslands.Find( x );
-        m_sleepIslandHasAwake[root] = 1;
-        const Vector3 vel = PhysicsBodyLinearVelocity( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( x ) );
-
-        const Vector3 omega = PhysicsBodyAngularVelocity( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( x ) );
-
-        const float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
-        const float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
-        bool supported = x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0;
-        const bool hasRestingObjectContact = x < static_cast<int>( persistentRestingContactCounts.size() ) &&
-                                             persistentRestingContactCounts[x] > 0;
-
-        const bool islandHasSupportAnchor = m_sleepIslandHasSupportAnchor[root] != 0;
-        const bool pointJointMember = x < static_cast<int>( m_sleepScratchFlags.size() ) &&
-                                      m_sleepScratchFlags[x].pointJointBody != 0u;
-
-        const bool pointJointIsland = m_sleepScratchFlags[root].islandHasPointJoint != 0u;
-        float linearThresholdScale = 1.0f;
-        float angularThresholdScale = 1.0f;
-
-        if ( pointJointMember && pointJointIsland && islandHasSupportAnchor )
-        {
-            linearThresholdScale = POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE;
-            angularThresholdScale = POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE;
-        }
-
-        const bool quiet = sleepPolicy.IsQuiet( speedSq, omegaSq, linearThresholdScale, angularThresholdScale );
-        const bool pointJointAnchoredSupport = quiet && pointJointMember && pointJointIsland && islandHasSupportAnchor;
-
-        if ( !supported && quiet && hasRestingObjectContact && islandHasSupportAnchor )
-        {
-            m_sleepSupportedThisFrame[x] = 1;
-            supported = true;
-        }
-
-        if ( !supported && pointJointAnchoredSupport )
-        {
-            m_sleepSupportedThisFrame[x] = 1;
-            supported = true;
-        }
-
-        const bool terrainInhibitBlocksSleep = m_sleepInhibitedThisFrame[x] != 0 &&
-                                               !( quiet && hasRestingObjectContact && islandHasSupportAnchor ) &&
-                                               !pointJointAnchoredSupport;
-
-        const bool pointJointErrorBlocksSleep = pointJointMember && root < static_cast<int>( m_sleepScratchFlags.size() ) &&
-                                                m_sleepScratchFlags[root].islandPointJointsRelaxed == 0u;
-
-        if ( !quiet || !supported || terrainInhibitBlocksSleep || pointJointErrorBlocksSleep )
-        {
-            m_sleepIslandEligible[root] = 0;
-        }
-
-        if constexpr ( RetainPipelineRecords )
-        {
-            PhysicsPipelineRecord record;
-            record.stage = PhysicsPipelineStage::SleepIslandDecision;
-            record.bodyA = x;
-            record.bodyB = root;
-            record.point = PhysicsBodyPosition( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( x ) );
-            record.scalarA = quiet ? 1.0f : 0.0f;
-            record.scalarB = supported ? 1.0f : 0.0f;
-            record.scalarC = terrainInhibitBlocksSleep ? 1.0f : ( pointJointErrorBlocksSleep ? 2.0f : 0.0f );
-            physicsPipelineTrace.Record( record );
-        }
-    }
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
+    BuildSimulationIslandTopology( bodyStore, persistentContacts, pointJointConstraints, hotFields, sleepIslands );
+    ClassifyContactStability( colliderStore, worldForces, persistentContacts, sleepPolicy, modelCount );
+    ClassifyPointJointStability( bodyStore, pointJointConstraints, hotFields, sleepIslands, modelCount );
+    EvaluateAwakeBodyEligibility<RetainPipelineRecords>( bodyStore, colliderStore, worldForces,
+                                                         persistentRestingContactCounts, physicsPipelineTrace, sleepPolicy,
+                                                         sleepIslands );
 
     if ( !m_sleepEnabled )
     {
-        std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
+        std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), uint32_t { 0u } );
         m_sleepIslandCanSleep.assign( modelCount, 0 );
         m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
         m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
@@ -744,8 +1102,10 @@ void PhysicsSleepController::ApplyTransitionsMode( PhysicsBodyStore& bodyStore, 
                                                    PhysicsPipelineTraceRecorder& physicsPipelineTrace,
                                                    const PhysicsSleepStepPolicy& sleepPolicy, DisjointSet& sleepIslands )
 {
-    // Invariant: RunIslandStage has already populated eligibility and support;
-    // this pass only advances counters and applies whole-island transitions.
+    // Invariant: each body advances its own deactivation clock, but transition
+    // authority remains island-wide. A noisy member cannot erase a stable
+    // neighbor's history, and the neighbor still cannot sleep alone while the
+    // active constraint graph connects them.
     const int modelCount = bodyStore.Count();
 
     const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
@@ -755,14 +1115,14 @@ void PhysicsSleepController::ApplyTransitionsMode( PhysicsBodyStore& bodyStore, 
     {
         const int root = sleepIslands.Find( x );
 
-        if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] )
+        if ( m_sleepIslandHasAwake[root] && m_sleepBodyEligible[x] != 0u )
         {
             if ( sleepPolicy.NeedsMoreQuietFrames( m_sleepCounter[x] ) )
             {
                 ++m_sleepCounter[x];
             }
         }
-        else
+        else if ( m_sleepResetReason[x] != static_cast<uint8_t>( PhysicsSleepResetReason::UnsupportedBoxSupport ) )
         {
             m_sleepCounter[x] = 0;
         }
@@ -772,7 +1132,7 @@ void PhysicsSleepController::ApplyTransitionsMode( PhysicsBodyStore& bodyStore, 
     {
         const int root = sleepIslands.Find( x );
 
-        if ( sleepPolicy.NeedsMoreQuietFrames( m_sleepCounter[x] ) )
+        if ( m_sleepBodyEligible[x] == 0u || sleepPolicy.NeedsMoreQuietFrames( m_sleepCounter[x] ) )
         {
             m_sleepIslandCanSleep[root] = 0;
         }

@@ -204,12 +204,13 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
     const std::size_t reserveCapacity = ReplayRecorderReserveCapacity( values.capacity(), requestedCapacity );
     const uint64_t oldBytes = ReplayRecorderVectorBytes<T>( values.capacity() );
     const uint64_t requestedBytes = ReplayRecorderVectorBytes<T>( reserveCapacity );
+    const uint64_t allocationBytes = CoreAllocation::RuntimeReserveDefaultVectorAllocationUpperBound( requestedBytes );
 
-    if ( requestedBytes > static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) ||
+    if ( allocationBytes > static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) ||
          oldBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
-         requestedBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
+         allocationBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
-        ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
+        ReportReplayRecorderReserveFailure( targetName, reserveCapacity, allocationBytes );
     }
 
     if ( CoreAllocation::GetRuntimeAllocationPhase() == CoreAllocation::RuntimeAllocationPhase::Capture )
@@ -235,8 +236,9 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
                                                                   CoreAllocation::RuntimeReservePhase::Replay,
                                                                   ReplayRecorderGrowthFrameNumber( frameIndex ),
                                                                   static_cast<int>( oldBytes ),
-                                                                  static_cast<int>( requestedBytes ),
-                                                                  1 };
+                                                                  static_cast<int>( allocationBytes ),
+                                                                  1,
+                                                                  allocationBytes };
 
     CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,
                                                                                                                 request );
@@ -246,9 +248,8 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requ
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
-    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
+    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,
+                                                                   result );
     values.reserve( reserveCapacity );
 
     if ( requestedCapacity > values.capacity() )
@@ -269,12 +270,13 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
     const std::size_t reserveCapacity = ReplayRecorderDeltaReserveCapacity( values.capacity(), requestedCapacity );
     const uint64_t oldBytes = ReplayRecorderVectorBytes<T>( values.capacity() );
     const uint64_t requestedBytes = ReplayRecorderVectorBytes<T>( reserveCapacity );
+    const uint64_t allocationBytes = CoreAllocation::RuntimeReserveDefaultVectorAllocationUpperBound( requestedBytes );
 
-    if ( requestedBytes > static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) ||
+    if ( allocationBytes > static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) ||
          oldBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) ||
-         requestedBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
+         allocationBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
-        ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
+        ReportReplayRecorderReserveFailure( targetName, reserveCapacity, allocationBytes );
     }
 
     if ( CoreAllocation::GetRuntimeAllocationPhase() == CoreAllocation::RuntimeAllocationPhase::Capture )
@@ -301,8 +303,9 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
                                                                   CoreAllocation::RuntimeReservePhase::Replay,
                                                                   ReplayRecorderGrowthFrameNumber( frameIndex ),
                                                                   static_cast<int>( oldBytes ),
-                                                                  static_cast<int>( requestedBytes ),
-                                                                  1 };
+                                                                  static_cast<int>( allocationBytes ),
+                                                                  1,
+                                                                  allocationBytes };
 
     CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,
                                                                                                                 request );
@@ -312,9 +315,8 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
-    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
+    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,
+                                                                   result );
     values.reserve( reserveCapacity );
 
     if ( requestedCapacity > values.capacity() )
@@ -360,6 +362,9 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     VISIT( sleepInhibitedThisFrame )                                                                                        \
     VISIT( sleepState )                                                                                                     \
     VISIT( sleepCounter )                                                                                                   \
+    VISIT( sleepPoseAnchorPosition )                                                                                        \
+    VISIT( sleepPoseAnchorOrientation )                                                                                     \
+    VISIT( sleepPoseAnchorValid )                                                                                           \
     VISIT( underwaterSleepLocked )                                                                                          \
     VISIT( collisionVisualContacts )                                                                                        \
     VISIT( sleepIslandVisualId )                                                                                            \
@@ -412,6 +417,9 @@ uint64_t SolverWorldSnapshotMemoryBytes( const SkullbonezCore::Runtime::ReplaySo
     bytes += VectorCapacityBytes( physics.sleepInhibitedThisFrame );
     bytes += VectorCapacityBytes( physics.sleepState );
     bytes += VectorCapacityBytes( physics.sleepCounter );
+    bytes += VectorCapacityBytes( physics.sleepPoseAnchorPosition );
+    bytes += VectorCapacityBytes( physics.sleepPoseAnchorOrientation );
+    bytes += VectorCapacityBytes( physics.sleepPoseAnchorValid );
     bytes += VectorCapacityBytes( physics.underwaterSleepLocked );
     bytes += VectorCapacityBytes( snapshot.tornadoCaptureSeconds );
     bytes += VectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
@@ -1087,6 +1095,20 @@ uint64_t HashUint16Vector( uint64_t hash, const std::vector<uint16_t>& values )
     return hash;
 }
 
+uint64_t HashSleepCounterVector( uint64_t hash, const std::vector<uint32_t>& values, uint32_t snapshotVersion )
+{
+    hash = HashSize( hash, values.size() );
+
+    for ( uint32_t value : values )
+    {
+        // Compatibility: v1-v5 artifacts encoded one byte per counter. Keep
+        // their historical fingerprint after widening the live v6 value.
+        hash = snapshotVersion >= 6u ? HashUint32( hash, value ) : HashByte( hash, static_cast<uint8_t>( value ) );
+    }
+
+    return hash;
+}
+
 uint64_t HashIntVector( uint64_t hash, const std::vector<int>& values )
 {
     hash = HashSize( hash, values.size() );
@@ -1534,7 +1556,7 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
     hash = HashUint8Vector( hash, physics.sleepSupportedThisFrame );
     hash = HashUint8Vector( hash, physics.sleepInhibitedThisFrame );
     hash = HashUint8Vector( hash, physics.sleepState );
-    hash = HashUint8Vector( hash, physics.sleepCounter );
+    hash = HashSleepCounterVector( hash, physics.sleepCounter, physics.version );
     hash = HashUint8Vector( hash, physics.underwaterSleepLocked );
     hash = HashFloatVector( hash, snapshot.tornadoCaptureSeconds );
     hash = HashFloatVector( hash, snapshot.tornadoEjectCooldownSeconds );
@@ -1578,6 +1600,28 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
         // Compatibility: v4 appends the eligibility bytes after v3's joint
         // rows. Earlier snapshot hashes must remain byte-for-byte unchanged.
         hash = HashUint8Vector( hash, physics.motionEligibilityState );
+    }
+
+    if ( physics.version >= 6u )
+    {
+        hash = HashSize( hash, physics.sleepPoseAnchorPosition.size() );
+
+        for ( const Vector3& position : physics.sleepPoseAnchorPosition )
+        {
+            hash = HashVector( hash, position );
+        }
+
+        hash = HashSize( hash, physics.sleepPoseAnchorOrientation.size() );
+
+        for ( const std::array<float, 4>& orientation : physics.sleepPoseAnchorOrientation )
+        {
+            for ( float component : orientation )
+            {
+                hash = HashFloat( hash, component );
+            }
+        }
+
+        hash = HashUint8Vector( hash, physics.sleepPoseAnchorValid );
     }
 
     hash = HashSolverStats( hash, physics.solverStats );

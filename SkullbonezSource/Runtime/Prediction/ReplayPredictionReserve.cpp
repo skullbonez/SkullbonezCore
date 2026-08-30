@@ -61,10 +61,11 @@ namespace ReplayPredictionReserveOperations
 SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept
 {
     static const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle
-        owner = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RegisterOwner( { REPLAY_PREDICTION_RESERVE_OWNER, SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem::Replay,
-                                                                                            SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, 0, REPLAY_PREDICTION_RESERVE_HARD_BYTES,
-                                                                                            REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT, true,
-                                                                                            "replay prediction supports large retained path visualization under a hard byte budget" } );
+        owner = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RegisterOwner(
+            { REPLAY_PREDICTION_RESERVE_OWNER, SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem::Replay,
+              SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, 0, REPLAY_PREDICTION_RESERVE_HARD_BYTES,
+              REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT, true,
+              "replay prediction supports large retained path visualization under a hard byte budget" } );
 
     return owner;
 }
@@ -83,7 +84,8 @@ bool RequestReplayPredictionReserveGrowth( const char* targetName, int frameNumb
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
+    const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthRequest request =
+        { REPLAY_PREDICTION_RESERVE_OWNER,
           targetName,
           SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
           frameNumber,
@@ -105,6 +107,9 @@ uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapsh
     bytes += ReplayPredictionVectorCapacityBytes( physics.sleepInhibitedThisFrame );
     bytes += ReplayPredictionVectorCapacityBytes( physics.sleepState );
     bytes += ReplayPredictionVectorCapacityBytes( physics.sleepCounter );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepPoseAnchorPosition );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepPoseAnchorOrientation );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepPoseAnchorValid );
     bytes += ReplayPredictionVectorCapacityBytes( physics.underwaterSleepLocked );
     bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoCaptureSeconds );
     bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
@@ -227,10 +232,8 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
-    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope
-        growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope
+        allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
 
     if ( replaceDestination )
     {

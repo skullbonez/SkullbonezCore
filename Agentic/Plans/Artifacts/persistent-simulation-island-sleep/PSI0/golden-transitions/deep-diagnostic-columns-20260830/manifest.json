@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/persistent-simulation-island-sleep.md",
+  "phase": "PSI0",
+  "transition_id": "deep-diagnostic-columns-20260830",
+  "source_commit": "25ecc9734c1c814201b974a2b769472cefa4f4a3",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/shooting_reaction_volley.csv",
+      "old_sha256": "3d6fd1f05eddba17713e611bad0203d41fc18163523855ad8765d6021cdfbcfd",
+      "new_sha256": "4aaa2200c60ee2bbc5d3033d0bb7c1e43db35a2e9715f539b7d400e5f0a85469"
+    },
+    {
+      "path": "TestOutput/baselines/space_three_body_chaos.csv",
+      "old_sha256": "ad7ca73f6b58e6fa6a495cb0c406d47094340b65c92c94da47502f50823cba1b",
+      "new_sha256": "ef3febc9d25889a2bd426362e91536ea51391db9ec9a1fc4953bb306ac4e25e0"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "8399b254999036e1cf7e63e0bdb141f7c3632035",
+    "golden_sha256": {
+      "TestOutput/baselines/shooting_reaction_volley.csv": "3d6fd1f05eddba17713e611bad0203d41fc18163523855ad8765d6021cdfbcfd",
+      "TestOutput/baselines/space_three_body_chaos.csv": "ad7ca73f6b58e6fa6a495cb0c406d47094340b65c92c94da47502f50823cba1b"
+    },
+    "executables": [
+      {
+        "configuration": "Debug|x64",
+        "path": "Agentic/Plans/Artifacts/persistent-simulation-island-sleep/PSI0/golden-transitions/deep-diagnostic-columns-20260830/old/SKULLBONEZ_CORE-Debug.exe",
+        "size": 14060544,
+        "sha256": "056a5c03aeb9d6a3570949ff0ddc650f76270f55a647801a80b47e8703e5993c",
+        "launch_command": "old/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/shooting_reaction_volley.scene.json --physics-regression-log Debug/shooting_reaction_volley.csv && old/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/three_body_chaos.scene.json --physics-regression-log Debug/space_three_body_chaos.csv",
+        "dependency_scan_command": "dumpbin /DEPENDENTS old/SKULLBONEZ_CORE-Debug.exe",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "25ecc9734c1c814201b974a2b769472cefa4f4a3",
+    "golden_sha256": {
+      "TestOutput/baselines/shooting_reaction_volley.csv": "4aaa2200c60ee2bbc5d3033d0bb7c1e43db35a2e9715f539b7d400e5f0a85469",
+      "TestOutput/baselines/space_three_body_chaos.csv": "ef3febc9d25889a2bd426362e91536ea51391db9ec9a1fc4953bb306ac4e25e0"
+    },
+    "executables": [
+      {
+        "configuration": "Debug|x64",
+        "path": "Agentic/Plans/Artifacts/persistent-simulation-island-sleep/PSI0/golden-transitions/deep-diagnostic-columns-20260830/new/SKULLBONEZ_CORE-Debug.exe",
+        "size": 14390784,
+        "sha256": "dd61d4b959c6a36e9771e7525f0ed1a41407afc7ab67ed06e9fcac9ab0579d1d",
+        "launch_command": "new/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/shooting_reaction_volley.scene.json --physics-regression-log Debug/shooting_reaction_volley.csv && new/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/three_body_chaos.scene.json --physics-regression-log Debug/space_three_body_chaos.csv",
+        "dependency_scan_command": "dumpbin /DEPENDENTS new/SKULLBONEZ_CORE-Debug.exe",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

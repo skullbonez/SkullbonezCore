@@ -201,14 +201,17 @@ bool ReplayPredictionSolverEvidenceStore::Reserve( std::size_t requiredFrameCoun
         return false;
     }
 
-    const uint64_t requiredFrameBytes = static_cast<uint64_t>( RequiredSegments( requiredFrameCount,
-                                                                                 REPLAY_PREDICTION_EVIDENCE_FRAME_SEGMENT_CAPACITY ) ) *
+    const uint64_t requiredFrameBytes = static_cast<uint64_t>(
+                                            RequiredSegments( requiredFrameCount,
+                                                              REPLAY_PREDICTION_EVIDENCE_FRAME_SEGMENT_CAPACITY ) ) *
                                         sizeof( FrameSegment );
-    const uint64_t requiredContactBytes = static_cast<uint64_t>( RequiredSegments( requiredContactCount,
-                                                                                   REPLAY_PREDICTION_EVIDENCE_CONTACT_SEGMENT_CAPACITY ) ) *
+    const uint64_t requiredContactBytes = static_cast<uint64_t>(
+                                              RequiredSegments( requiredContactCount,
+                                                                REPLAY_PREDICTION_EVIDENCE_CONTACT_SEGMENT_CAPACITY ) ) *
                                           sizeof( ContactSegment );
-    const uint64_t requiredPipelineBytes = static_cast<uint64_t>( RequiredSegments( requiredPipelineCount,
-                                                                                    REPLAY_PREDICTION_EVIDENCE_PIPELINE_SEGMENT_CAPACITY ) ) *
+    const uint64_t requiredPipelineBytes = static_cast<uint64_t>(
+                                               RequiredSegments( requiredPipelineCount,
+                                                                 REPLAY_PREDICTION_EVIDENCE_PIPELINE_SEGMENT_CAPACITY ) ) *
                                            sizeof( PipelineSegment );
 
     // Why: preflight the complete rounded segment set before allocating its
@@ -353,10 +356,9 @@ bool ReplayPredictionSolverEvidenceStore::EnsureFrameSegments( std::size_t requi
         }
 
         const Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-        Core::Allocation::RuntimeAllocationScope allocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
-        Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-        Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay,
-                                                                 result );
+        Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner,
+                                                                         Core::Allocation::RuntimeReservePhase::Replay,
+                                                                         result );
         m_frameSegments[m_frameSegmentCount] = std::make_unique<FrameSegment>();
         ++m_frameSegmentCount;
         RefreshLifetimePeak();
@@ -389,10 +391,9 @@ bool ReplayPredictionSolverEvidenceStore::EnsureContactSegments( std::size_t req
         }
 
         const Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-        Core::Allocation::RuntimeAllocationScope allocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
-        Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-        Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay,
-                                                                 result );
+        Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner,
+                                                                         Core::Allocation::RuntimeReservePhase::Replay,
+                                                                         result );
         m_contactSegments[m_contactSegmentCount] = std::make_unique<ContactSegment>();
         ++m_contactSegmentCount;
         RefreshLifetimePeak();
@@ -425,10 +426,9 @@ bool ReplayPredictionSolverEvidenceStore::EnsurePipelineSegments( std::size_t re
         }
 
         const Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-        Core::Allocation::RuntimeAllocationScope allocationScope( Core::Allocation::RuntimeAllocationPhase::Replay );
-        Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-        Core::Allocation::RuntimeReserveGrowthScope growthScope( owner, Core::Allocation::RuntimeReservePhase::Replay,
-                                                                 result );
+        Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner,
+                                                                         Core::Allocation::RuntimeReservePhase::Replay,
+                                                                         result );
         m_pipelineSegments[m_pipelineSegmentCount] = std::make_unique<PipelineSegment>();
         ++m_pipelineSegmentCount;
         RefreshLifetimePeak();
@@ -474,8 +474,9 @@ bool ReplayPredictionSolverEvidenceBanks::AppendBuildFrame( ReplayFrameIndex fra
            ReplayPredictionEvidenceAppendResult::Appended;
 }
 
-ReplayPredictionEvidenceAppendResult ReplayPredictionSolverEvidenceBanks::AppendBuildFrameResult( ReplayFrameIndex frame, uint32_t topologyVersion, uint64_t publicationVersion, ReplayPredictionContactSpan contacts,
-                                                                                                  ReplayPredictionPipelineSpan pipeline, int frameNumber )
+ReplayPredictionEvidenceAppendResult ReplayPredictionSolverEvidenceBanks::AppendBuildFrameResult(
+    ReplayFrameIndex frame, uint32_t topologyVersion, uint64_t publicationVersion, ReplayPredictionContactSpan contacts,
+    ReplayPredictionPipelineSpan pipeline, int frameNumber )
 {
     ReplayPredictionSolverEvidenceStore& build = m_banks[m_buildIndex];
     const ReplayPredictionEvidenceIdentity identity = { build.Generation(), build.Mode(),      build.BankEpoch(), frame,
@@ -543,8 +544,8 @@ ReplayPredictionSolverEvidenceBanksMemoryStats ReplayPredictionSolverEvidenceBan
 void ReplayPredictionSolverEvidenceBanks::SwapArchiveState( ReplayPredictionSolverEvidenceBanks& other ) noexcept
 {
     const uint64_t priorLifetimePeak = m_lifetimePeakCapacityBytes;
-    const auto swapStore = []( ReplayPredictionSolverEvidenceStore& destination,
-                              ReplayPredictionSolverEvidenceStore& candidate ) noexcept
+    const auto swapStore =
+        []( ReplayPredictionSolverEvidenceStore& destination, ReplayPredictionSolverEvidenceStore& candidate ) noexcept
     {
         const uint64_t combinedLifetimePeak = (std::max)( destination.m_lifetimePeakCapacityBytes,
                                                           candidate.m_lifetimePeakCapacityBytes );
@@ -553,7 +554,8 @@ void ReplayPredictionSolverEvidenceBanks::SwapArchiveState( ReplayPredictionSolv
         swap( destination.m_contactSegments, candidate.m_contactSegments );
         swap( destination.m_pipelineSegments, candidate.m_pipelineSegments );
 
-        const std::size_t published = destination.m_publishedFrameCount.exchange( candidate.m_publishedFrameCount.load( std::memory_order_acquire ),
+        const std::size_t published = destination.m_publishedFrameCount.exchange( candidate.m_publishedFrameCount.load(
+                                                                                      std::memory_order_acquire ),
                                                                                   std::memory_order_acq_rel );
         candidate.m_publishedFrameCount.store( published, std::memory_order_release );
         swap( destination.m_frameCount, candidate.m_frameCount );

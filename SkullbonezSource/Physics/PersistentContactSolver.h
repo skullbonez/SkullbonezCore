@@ -24,6 +24,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 #include "../Core/SceneCapacity.h"
 #include "../Maths/RotationMatrix.h"
@@ -127,6 +128,7 @@ struct PersistentContactSolverStepPolicy
     float nonNegativeSleepLinearSpeed = 0.0f; // Normalized values used by the quiet-body gate.
     float nonNegativeSleepAngularSpeed = 0.0f;
     float gravityMagnitude = 0.0f;
+    float stepDurationSeconds = 0.0f;
 
     float contactEpsilon = 0.0f;
     int iterations = 1;
@@ -148,6 +150,9 @@ struct PersistentContactCacheEntry
     float accT1 = 0.0f;
     float accT2 = 0.0f;
 };
+
+bool PersistentContactCacheHasImpulse( std::span<const PersistentContactCacheEntry> cache, int bodyA, int bodyB,
+                                       uint32_t featureId );
 
 struct SolverBodyState
 {

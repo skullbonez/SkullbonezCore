@@ -5,18 +5,17 @@
 //
 // Summary:
 //   Focused Physics-owned stores drive every public sleep wake path without a
-//   PhysicsWorld or scene owner. Tests distinguish visual membership, point-
-//   joint connectivity, resting-contact traversal, automatic same-step wake,
+//   PhysicsWorld or scene owner. Tests distinguish diagnostic ids, retained
+//   contact/joint connectivity, automatic same-step wake,
 //   underwater refusal/release, and the derived sorted awake index.
 //
 // Glossary:
 //   Visual island: Positive diagnostic id shared by bodies that slept together.
-//   Resting wake graph: Retained-contact/proximity graph traversed by explicit wake.
 
 // Invariants:
 //   - Test owners reserve once in scene-load phase and reset all retained rows per case.
-//   - Explicit wake reaches complete visual, point-joint, and resting components,
-//     while disconnected sleeping bodies remain asleep.
+//   - Explicit wake reaches the retained contact/joint component while visual
+//     ids and disconnected sleeping bodies cannot widen it.
 //   - Automatic point-joint wake resets the step clock and applies current-step
 //     forces exactly once before publishing sorted awake membership.
 //   - Awake membership excludes fixed and sleeping rows after remove, add, and
@@ -77,6 +76,11 @@ struct PhysicsSleepControllerTestAccess
     static bool IsAwakeListEntryConsistent( bool fixed, bool sleeping )
     {
         return PhysicsSleepController::IsAwakeListEntryConsistent( fixed, sleeping );
+    }
+
+    static void SetSleepIslandVisualId( PhysicsSleepController& controller, int bodyIndex, int visualId )
+    {
+        controller.m_sleepIslandVisualId[static_cast<std::size_t>( bodyIndex )] = visualId;
     }
 };
 } // namespace SkullbonezCore::Physics
@@ -217,7 +221,7 @@ bool ContainsSupportEdge( std::span<const std::pair<int, int>> edges, int suppor
 }
 } // namespace
 
-TEST_CASE( "Physics sleep controller: visual-island and explicit wakes publish exact sorted membership" )
+TEST_CASE( "Physics sleep controller: visual ids cannot widen explicit simulation-island wake" )
 {
     SleepFixture fixture;
 
@@ -239,23 +243,51 @@ TEST_CASE( "Physics sleep controller: visual-island and explicit wakes publish e
     fixture.owners.controller.RestoreReplayState( snapshot );
     REQUIRE( fixture.owners.controller.MirrorFlagsFrom( fixture.owners.bodies, 4 ) );
 
-    const std::array<PersistentContact, 0> noContacts = {};
-    const std::array<PointJointConstraint, 0> noJoints = {};
-    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), noContacts, noJoints, 0 );
+    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), 0 );
 
     const std::span<const uint8_t> afterVisualWake = fixture.owners.controller.GetSleepStates();
     CHECK( afterVisualWake[0] == 0u );
-    CHECK( afterVisualWake[1] == 0u );
+    CHECK( afterVisualWake[1] == 1u );
     CHECK( afterVisualWake[2] == 1u );
     CHECK( afterVisualWake[3] == 1u );
-    CheckAwakeIndices( fixture.owners.controller, { 0, 1 } );
+    CheckAwakeIndices( fixture.owners.controller, { 0 } );
 
-    // A zero visual id owns only the selected row. Far-separated sleepers make
-    // the resting-neighbor path a real negative control for accidental fan-out.
-    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), noContacts, noJoints, 3 );
+    // A zero visual id owns only the selected row as well.
+    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), 3 );
     CHECK( fixture.owners.controller.GetSleepStates()[2] == 1u );
     CHECK( fixture.owners.controller.GetSleepStates()[3] == 0u );
-    CheckAwakeIndices( fixture.owners.controller, { 0, 1, 3 } );
+    CheckAwakeIndices( fixture.owners.controller, { 0, 3 } );
+}
+
+TEST_CASE( "Physics sleep controller: dormant contact topology ignores visual ids" )
+{
+    SleepFixture fixture;
+    fixture.AddSphere( Vector3( 0.0f, 0.0f, 0.0f ) );
+    fixture.AddSphere( Vector3( 1.0f, 0.0f, 0.0f ) );
+    fixture.Mirror();
+    fixture.Sleep( 0 );
+    fixture.Sleep( 1 );
+
+    PersistentContact contact;
+    contact.bodyA = 0;
+    contact.bodyB = 1;
+    const std::array<PersistentContact, 1> contacts = { contact };
+    const std::array<PersistentContact, 0> noContacts = {};
+    const std::array<PointJointConstraint, 0> noJoints = {};
+    fixture.owners.controller.RestoreSimulationIslandTopology( fixture.owners.bodies, contacts, noJoints );
+
+    using SkullbonezCore::Physics::PhysicsSleepControllerTestAccess;
+    PhysicsSleepControllerTestAccess::SetSleepIslandVisualId( fixture.owners.controller, 0, 7 );
+    PhysicsSleepControllerTestAccess::SetSleepIslandVisualId( fixture.owners.controller, 1, 9 );
+
+    // Sleeping contacts do not re-enter the solver. A second topology pass must
+    // retain the exact dormant edge without consulting presentation identity.
+    fixture.owners.controller.RestoreSimulationIslandTopology( fixture.owners.bodies, noContacts, noJoints );
+    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), 0 );
+
+    CHECK( fixture.owners.controller.GetSleepStates()[0] == 0u );
+    CHECK( fixture.owners.controller.GetSleepStates()[1] == 0u );
+    CheckAwakeIndices( fixture.owners.controller, { 0, 1 } );
 }
 
 TEST_CASE( "Physics sleep controller: explicit point-joint wake reaches one complete component" )
@@ -276,7 +308,8 @@ TEST_CASE( "Physics sleep controller: explicit point-joint wake reaches one comp
 
     const std::array<PointJointConstraint, 2> joints = { fixture.Joint( 0, 1 ), fixture.Joint( 1, 2 ) };
     const std::array<PersistentContact, 0> noContacts = {};
-    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), noContacts, joints, 0 );
+    fixture.owners.controller.RestoreSimulationIslandTopology( fixture.owners.bodies, noContacts, joints );
+    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), 0 );
 
     CHECK( fixture.owners.controller.GetSleepStates()[0] == 0u );
     CHECK( fixture.owners.controller.GetSleepStates()[1] == 0u );
@@ -285,7 +318,7 @@ TEST_CASE( "Physics sleep controller: explicit point-joint wake reaches one comp
     CheckAwakeIndices( fixture.owners.controller, { 0, 1, 2 } );
 }
 
-TEST_CASE( "Physics sleep controller: resting-contact wake traverses transitively and excludes false neighbors" )
+TEST_CASE( "Physics sleep controller: retained-contact wake traverses transitively" )
 {
     SleepFixture fixture;
 
@@ -307,11 +340,11 @@ TEST_CASE( "Physics sleep controller: resting-contact wake traverses transitivel
     contacts[1].bodyA = 2;
     contacts[1].bodyB = 1;
     const std::array<PointJointConstraint, 0> noJoints = {};
-    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), contacts, noJoints, 0 );
+    fixture.owners.controller.RestoreSimulationIslandTopology( fixture.owners.bodies, contacts, noJoints );
+    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), 0 );
 
-    // The reversed 2->1 row proves retained contact edges are symmetric for
-    // wake traversal. Body 2 is two hops from the selected row; body 3 is far
-    // and disconnected, so the actual policy is transitive but bounded.
+    // The reversed 2->1 row proves retained contact edges are symmetric. Body
+    // 2 is two hops from the selected row; body 3 is disconnected.
     CHECK( fixture.owners.controller.GetSleepStates()[0] == 0u );
     CHECK( fixture.owners.controller.GetSleepStates()[1] == 0u );
     CHECK( fixture.owners.controller.GetSleepStates()[2] == 0u );
@@ -372,10 +405,8 @@ TEST_CASE( "Physics sleep controller: underwater lock refuses wake and disable-r
     CHECK( fixture.owners.controller.GetSleepStates()[0] == 1u );
     CHECK( fixture.owners.bodies.HotFields().awake[0] == 0u );
 
-    const std::array<PersistentContact, 0> noContacts = {};
-    const std::array<PointJointConstraint, 0> noJoints = {};
     fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.owners.colliders, worldForces, buoyancyFacts,
-                                         timeRemaining, fixture.WakeAccess(), noContacts, noJoints, 0 );
+                                         timeRemaining, fixture.WakeAccess(), 0 );
 
     CHECK( fixture.owners.controller.GetUnderwaterSleepLocks()[0] == 1u );
     CHECK( fixture.owners.controller.GetSleepStates()[0] == 1u );
@@ -394,7 +425,7 @@ TEST_CASE( "Physics sleep controller: underwater lock refuses wake and disable-r
     worldForces.fluidSurfaceHeight = -10.0f;
     fixture.Sleep( 0 );
     fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.owners.colliders, worldForces, buoyancyFacts,
-                                         timeRemaining, fixture.WakeAccess(), noContacts, noJoints, 0 );
+                                         timeRemaining, fixture.WakeAccess(), 0 );
 
     CHECK( fixture.owners.controller.GetUnderwaterSleepLocks()[0] == 0u );
     CHECK( fixture.owners.controller.GetSleepStates()[0] == 0u );
@@ -417,21 +448,55 @@ TEST_CASE( "Physics sleep controller: awake-list remove add and cold rebuild pre
     fixture.Sleep( 1 );
     CheckAwakeIndices( fixture.owners.controller, { 0, 2, 4 } );
 
-    const std::array<PersistentContact, 0> noContacts = {};
-    const std::array<PointJointConstraint, 0> noJoints = {};
-    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), noContacts, noJoints, 3 );
+    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), 3 );
     CheckAwakeIndices( fixture.owners.controller, { 0, 2, 3, 4 } );
-    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), noContacts, noJoints, 1 );
+    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), 1 );
     CheckAwakeIndices( fixture.owners.controller, { 0, 1, 2, 3, 4 } );
 
     // A same-count topology edit bypasses incremental add/remove. The cold
-    // rebuild must import body rows, exclude newly fixed body 2 and sleeping
-    // body 4, then repair every reverse list position.
+    // boundary imports stable-handle sleep state and discards dense-row timers
+    // because compaction may have replaced any row identity.
     fixture.owners.bodies.MutableHotFields().fixed[2] = 1u;
     REQUIRE( fixture.owners.bodies.SeedBodyAsleep( fixture.handles[4] ) );
     fixture.owners.controller.InvalidateBodyTopology();
     REQUIRE( fixture.owners.controller.MirrorFlagsFrom( fixture.owners.bodies, 5 ) );
     CheckAwakeIndices( fixture.owners.controller, { 0, 1, 3 } );
+}
+
+TEST_CASE( "Physics sleep controller: compacted queued wakes use stable handles only" )
+{
+    SleepFixture fixture;
+
+    for ( int bodyIndex = 0; bodyIndex < 4; ++bodyIndex )
+    {
+        fixture.AddSphere( Vector3( static_cast<float>( bodyIndex ), 0.0f, 0.0f ) );
+    }
+
+    fixture.Mirror();
+    for ( int bodyIndex = 0; bodyIndex < 4; ++bodyIndex )
+    {
+        fixture.Sleep( bodyIndex );
+    }
+
+    std::array<PersistentContact, 2> contacts;
+    contacts[0].bodyA = 0;
+    contacts[0].bodyB = 1;
+    contacts[1].bodyA = 2;
+    contacts[1].bodyB = 3;
+    const std::array<PointJointConstraint, 0> noJoints = {};
+    fixture.owners.controller.RestoreSimulationIslandTopology( fixture.owners.bodies, contacts, noJoints );
+    fixture.owners.controller.QueueConstraintTopologyWake( fixture.handles[0], fixture.handles[2] );
+
+    REQUIRE( fixture.owners.bodies.DestroyBodyRecord( fixture.handles[1] ) );
+    fixture.owners.controller.InvalidateBodyTopology();
+    REQUIRE( fixture.owners.controller.MirrorFlagsFrom( fixture.owners.bodies, 3 ) );
+
+    REQUIRE( fixture.owners.bodies.ModelIndexForHandle( fixture.handles[3] ) == 1 );
+    REQUIRE( fixture.owners.bodies.ModelIndexForHandle( fixture.handles[2] ) == 2 );
+    CHECK( fixture.owners.controller.GetSleepStates()[0] == 0u );
+    CHECK( fixture.owners.controller.GetSleepStates()[1] == 1u );
+    CHECK( fixture.owners.controller.GetSleepStates()[2] == 0u );
+    CheckAwakeIndices( fixture.owners.controller, { 0, 2 } );
 }
 
 

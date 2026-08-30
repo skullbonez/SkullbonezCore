@@ -898,6 +898,7 @@ void Run::Initialise()
     if ( replayStartup.status.Ok() )
     {
         ReplayStartupProbeContinuation continuation { startupApplicationTime };
+        ReplayStartupProbeSceneOverrides probeSceneOverrides { sceneOverrides, generatedObjectTypeOverride };
 
         while ( replayStartup.status.Ok() && !continuation.IsTerminal() )
         {
@@ -905,8 +906,8 @@ void Run::Initialise()
             replayStartup = m_replayRuntime.AdvanceStartupProbeWorkflows( continuation, m_sceneController,
                                                                           m_diagnosticsRuntime, presentationEdit.State(),
                                                                           m_editorTools, m_runtimeTools, m_simulation,
-                                                                          m_config, m_assets, m_workerPool, sceneOverrides,
-                                                                          generatedObjectTypeOverride );
+                                                                          m_config, m_assets, m_workerPool,
+                                                                          probeSceneOverrides );
 
             if ( replayStartup.status.Ok() &&
                  continuation.CurrentPhase() == ReplayStartupProbeContinuation::Phase::AwaitingApplication )

@@ -127,6 +127,13 @@ enum class RunReplayCameraFocusKind
     PredictionMotion
 };
 
+inline bool ReplayScrubNeedsInspectionCamera( bool liveAdvanceHeld, RunReplayCameraFocusKind focusKind ) noexcept
+{
+    // Invariant: moving the history cursor never changes the camera. Inspection
+    // is reserved for an active replay tool or an explicit focused target.
+    return liveAdvanceHeld || focusKind != RunReplayCameraFocusKind::None;
+}
+
 struct RunReplayCameraState
 {
     bool active = false;

@@ -82,19 +82,26 @@ def remove_if_exists(path):
 
 
 def validate_snapshot_query_versions():
-    # Test Probe: synthetic v1-v4 payloads pin the nested solver-snapshot tails
-    # and a v5 negative control without launching the runtime.
-    def make_fixture(version, point_joint_count, motion_eligibility_state):
+    # Synthetic v1-v6 payloads pin every nested solver-snapshot width change
+    # without launching the runtime. The v6 row exceeds the retired byte limit.
+    def make_fixture(version, point_joint_count, motion_eligibility_state, sleep_counters=()):
         raw = bytearray()
         raw.extend(struct.pack("<IiiBB2s", version, 0, 1, 1, 0, b"\0\0"))
         raw.extend(bytes(TORNADO_CONFIG.size))
         if version >= 2:
             raw.extend(bytes(TORNADO_SYSTEM_HEADER.size))
-            raw.extend(struct.pack("<f", 0.0))
+            raw.extend(struct.pack("<d" if version >= 5 else "<f", 0.0))
 
-        # Eighteen leading counted vectors, contact/cache counts, two counted
-        # contact-stat vectors, debug/pipeline counts, and collision-cell keys.
-        raw.extend(U32.pack(0) * 20)
+        raw.extend(U32.pack(0) * 4)
+        raw.extend(U32.pack(len(sleep_counters)))
+        counter_layout = U32 if version >= 6 else struct.Struct("<B")
+        for counter in sleep_counters:
+            raw.extend(counter_layout.pack(counter))
+        raw.extend(U32.pack(0) * 13)
+
+        # Contact/cache counts, two counted contact-stat vectors,
+        # debug/pipeline counts, and collision-cell keys.
+        raw.extend(U32.pack(0) * 2)
         raw.extend(bytes(SOLVER_STATS.size))
         raw.extend(U32.pack(0) * 5)
 
@@ -106,11 +113,20 @@ def validate_snapshot_query_versions():
         if version >= 4:
             raw.extend(U32.pack(len(motion_eligibility_state)))
             raw.extend(bytes(motion_eligibility_state))
+        if version >= 6:
+            raw.extend(U32.pack(0) * 3)
         return bytes(raw)
 
-    fixtures = ((1, 0, ()), (2, 0, ()), (3, 1, ()), (4, 1, (0, 1, 1)))
-    for version, expected_joint_count, expected_motion_state in fixtures:
-        raw = make_fixture(version, expected_joint_count, expected_motion_state)
+    fixtures = (
+        (1, 0, (), ()),
+        (2, 0, (), ()),
+        (3, 1, (), ()),
+        (4, 1, (0, 1, 1), ()),
+        (5, 1, (0, 1, 1), (255,)),
+        (6, 1, (0, 1, 1), (1000,)),
+    )
+    for version, expected_joint_count, expected_motion_state, expected_sleep_counters in fixtures:
+        raw = make_fixture(version, expected_joint_count, expected_motion_state, expected_sleep_counters)
         reader = ChunkReader(raw, f"snapshot-v{version}-fixture")
         summary = ReplayV2._parse_snapshot_summary(reader)
         if reader.offset != len(raw):
@@ -121,14 +137,16 @@ def validate_snapshot_query_versions():
             raise RuntimeError(f"snapshot v{version} fixture reported the wrong point-joint count")
         if int(summary.get("motionEligibilityStateCount") or 0) != len(expected_motion_state):
             raise RuntimeError(f"snapshot v{version} fixture reported the wrong motion-eligibility count")
+        if int(summary.get("sleepCounterCount") or 0) != len(expected_sleep_counters):
+            raise RuntimeError(f"snapshot v{version} fixture reported the wrong sleep-counter count")
 
-    future_reader = ChunkReader(make_fixture(5, 1, (1,)), "snapshot-v5-fixture")
+    future_reader = ChunkReader(make_fixture(7, 1, (1,), (1000,)), "snapshot-v7-fixture")
     try:
         ReplayV2._parse_snapshot_summary(future_reader)
     except ReplayQueryError:
         pass
     else:
-        raise RuntimeError("future solver snapshot v5 fixture was accepted")
+        raise RuntimeError("future solver snapshot v7 fixture was accepted")
 
 
 def run_checked(args, cwd):
@@ -1009,7 +1027,7 @@ def query_artifact():
     if int(first_checkpoint.get("bodyCount") or 0) <= 0 or not first_checkpoint.get("bodies"):
         raise RuntimeError("replay checkpoint query did not return solver body payloads")
     snapshot = first_checkpoint.get("snapshot") or {}
-    if int(snapshot.get("version") or 0) not in (1, 2, 3, 4):
+    if int(snapshot.get("version") or 0) not in (1, 2, 3, 4, 5, 6):
         raise RuntimeError("replay checkpoint query returned an unsupported snapshot version")
     if int(snapshot.get("modelCount") or 0) != int(first_checkpoint.get("bodyCount") or 0):
         raise RuntimeError("replay checkpoint snapshot model count did not match body count")

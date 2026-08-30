@@ -19,6 +19,8 @@ Invariants:
   - Snapshot compatibility is explicit and versioned when fields are added.
   - Version 5 lets the composed replay snapshot encode its Gameplay clock as
     double; version 4 artifacts retain their historical float payload.
+  - Version 6 widens body-local deactivation ticks to uint32; v1-v5 artifacts
+    convert their historical byte counters during load.
   - Version 4 stores exactly one valid motion-eligibility byte per body; older
     versions omit the field and restore cold classification state.
   - Restored snapshots contain enough state for the next fixed step to match.
@@ -37,6 +39,7 @@ Related:
 #include "PhysicsHandles.h"
 #include "../Maths/Vector3.h"
 
+#include <array>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -44,7 +47,7 @@ Related:
 namespace SkullbonezCore::Physics
 {
 inline constexpr const char* PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
-inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 5u;
+inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 6u;
 
 // Test probe: the strict two-generation prediction probe measured 3,401,552 bytes.
 // Eight MiB preserves 2.466112x measured headroom.
@@ -138,7 +141,10 @@ struct PhysicsSolverSnapshot
     std::vector<uint8_t> sleepSupportedThisFrame;
     std::vector<uint8_t> sleepInhibitedThisFrame;
     std::vector<uint8_t> sleepState;
-    std::vector<uint8_t> sleepCounter;
+    std::vector<uint32_t> sleepCounter;
+    std::vector<Math::Vector::Vector3> sleepPoseAnchorPosition;
+    std::vector<std::array<float, 4>> sleepPoseAnchorOrientation;
+    std::vector<uint8_t> sleepPoseAnchorValid;
     std::vector<uint8_t> underwaterSleepLocked;
     std::vector<uint8_t> collisionVisualContacts;
     std::vector<int> sleepIslandVisualId;
@@ -176,6 +182,9 @@ struct PhysicsSolverSnapshot
         sleepInhibitedThisFrame.clear();
         sleepState.clear();
         sleepCounter.clear();
+        sleepPoseAnchorPosition.clear();
+        sleepPoseAnchorOrientation.clear();
+        sleepPoseAnchorValid.clear();
         underwaterSleepLocked.clear();
         collisionVisualContacts.clear();
         sleepIslandVisualId.clear();

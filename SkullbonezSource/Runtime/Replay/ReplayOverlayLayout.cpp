@@ -482,7 +482,10 @@ ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrub
 {
     ReplayScrubberSurfaceInput input;
     input.loadedPresentation = loadedPresentation;
-    input.track = input.loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
+    // Why: ordinary rewind follows the longer presentation ring. Prediction
+    // supplies the only live surface that needs the solver track's future span.
+    input.track = input.loadedPresentation || !predictionTimelineAvailable ? RunReplayTrack::Presentation
+                                                                           : RunReplayTrack::Solver;
     const bool solverReplayEnabled = solverStats.enabled;
     const bool solverReplayAvailable = solverReplayEnabled && solverStats.sampleCount >= 2;
     input.solverToolsEnabled = !input.loadedPresentation && solverReplayAvailable;
