@@ -172,7 +172,6 @@ class PersistentContactSolveTransaction
     const SolverBodyState& Body( std::size_t index ) const;
 
     static int64_t MakeKey( int bodyA, int bodyB, uint32_t featureId );
-    static bool HasCachedImpulse( const PersistentContactCacheList& cache, int bodyA, int bodyB, uint32_t featureId );
     static float ConservativeContactRadius( const ColliderRecord& collider );
     Math::Vector::Vector3 ApplyInverseInertia( int bodyIndex, const Math::Vector::Vector3& value ) const;
     void ApplyImpulse( const PersistentContact& contact, const Math::Vector::Vector3& impulse );
@@ -201,6 +200,8 @@ class PersistentContactSolveTransaction
                          const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,
                          std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
                          std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler );
+    void PrecomputeTerrainAngularResistance( PersistentContact& contact, const ColliderRecord& collider,
+                                             const PersistentContactSolverStepPolicy& stepPolicy, float normalVelocity );
     template <bool CollectConvergenceDiagnostics, bool RetainPipelineRecords>
     void SolveRowsIterations( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                               const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity );
@@ -262,7 +263,6 @@ class PhysicsContactCacheWakeAccess
     PersistentContactCacheList& m_cache;
 
   public:
-
     // Lifetime: this narrow capability borrows the contact owner's cache only
     // for the synchronous wake operation that requested it.
     explicit PhysicsContactCacheWakeAccess( PersistentContactCacheList& cache ) : m_cache( cache )
@@ -305,14 +305,14 @@ class PhysicsContactSolverStage
     // live world-force policy. Tests use this seam to pin bounds without
     // recreating solver math.
     static PersistentContactSolverStepPolicy ResolveStepPolicy( const PhysicsRuntimeSettings& settings,
-                                                                const PhysicsWorldForces& worldForces ) noexcept;
+                                                                const PhysicsWorldForces& worldForces,
+                                                                float stepDurationSeconds ) noexcept;
     void Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                 const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs,
                 std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
                 PhysicsCandidatePairList& sleepSupportEdges,
                 PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied,
-                std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics, float dt,
-                Core::Profiler* profiler );
+                std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics );
     PhysicsContactCacheWakeAccess CreateWakeAccess();
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;

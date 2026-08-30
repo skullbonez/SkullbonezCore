@@ -198,9 +198,12 @@ struct PhysicsDiagnosticsView
     std::span<const uint8_t> sleepSupportedThisFrame;
     std::span<const uint8_t> sleepInhibitedThisFrame;
     std::span<const uint8_t> sleepState;
-    std::span<const uint8_t> sleepCounter;
+    std::span<const uint32_t> sleepCounter;
     std::span<const uint8_t> sleepIslandEligible;
+    std::span<const uint8_t> sleepIslandTopologyStable;
     std::span<const uint8_t> sleepIslandCanSleep;
+    std::span<const uint8_t> sleepBodyEligible;
+    std::span<const uint8_t> sleepResetReason;
     std::span<const PointJointConstraint> pointJointConstraints;
     const Math::CollisionDetection::SpatialGrid& spatialGrid;
     std::span<const std::pair<int, int>> candidatePairs;

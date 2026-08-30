@@ -6,14 +6,16 @@ Purpose:
 Summary:
   This physical unit keeps the cohesive PhysicsSleepController owner below the
   stage-size review target without creating a second owner. Replay operations
-  copy complete value state and invalidate derived awake indices for a cold
-  rebuild; view methods expose only synchronous bounded rows.
+  copy next-step state, rebuild derived indices, and reseed persistent island
+  topology from restored solver rows; view methods expose synchronous borrows.
 
 Glossary:
   Row view: Borrow of an owner-retained model-order buffer for one sequenced pass.
 
 Invariants:
-  - Replay capture and restore preserve every sleep-owned row in matching order.
+  - Replay capture and restore preserve every next-step sleep input in matching order.
+  - Persistent island topology is reseeded from restored contact and joint rows
+    before the next fixed step, so restore does not report false edge changes.
   - Mutable views never transfer capacity or lifetime ownership to consumers.
   - Memory accounting includes every construction-reserved sleep vector.
   - Replay restore never trusts a pre-restore dense awake index mapping.
@@ -25,6 +27,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsSleepController.h"
+#include "../DisjointSet.h"
 
 using namespace SkullbonezCore::Physics;
 
@@ -63,6 +66,15 @@ void PhysicsSleepController::CaptureReplayState( PhysicsSolverSnapshot& snapshot
     CaptureList( m_sleepInhibitedThisFrame, snapshot.sleepInhibitedThisFrame );
     CaptureList( m_sleepState, snapshot.sleepState );
     CaptureList( m_sleepCounter, snapshot.sleepCounter );
+    snapshot.sleepPoseAnchorPosition.clear();
+    snapshot.sleepPoseAnchorOrientation.clear();
+    snapshot.sleepPoseAnchorValid.clear();
+    for ( const PhysicsSleepPoseAnchor& anchor : m_sleepPoseAnchors )
+    {
+        snapshot.sleepPoseAnchorPosition.push_back( anchor.position );
+        snapshot.sleepPoseAnchorOrientation.push_back( anchor.orientation );
+        snapshot.sleepPoseAnchorValid.push_back( anchor.flags & SLEEP_POSE_ANCHOR_VALID_BIT );
+    }
     CaptureList( m_underwaterSleepLocked, snapshot.underwaterSleepLocked );
     CaptureList( m_sleepIslandVisualId, snapshot.sleepIslandVisualId );
     CaptureList( m_sleepIslandAssignedVisualId, snapshot.sleepIslandAssignedVisualId );
@@ -95,6 +107,9 @@ bool PhysicsSleepController::CanRestoreReplayState( const PhysicsSolverSnapshot&
     REQUIRE_SLEEP_BODY_ROWS( sleepInhibitedThisFrame, m_sleepInhibitedThisFrame )
     REQUIRE_SLEEP_BODY_ROWS( sleepState, m_sleepState )
     REQUIRE_SLEEP_BODY_ROWS( sleepCounter, m_sleepCounter )
+    REQUIRE_SLEEP_BODY_ROWS( sleepPoseAnchorPosition, m_sleepPoseAnchors )
+    REQUIRE_SLEEP_BODY_ROWS( sleepPoseAnchorOrientation, m_sleepPoseAnchors )
+    REQUIRE_SLEEP_BODY_ROWS( sleepPoseAnchorValid, m_sleepPoseAnchors )
     REQUIRE_SLEEP_BODY_ROWS( underwaterSleepLocked, m_underwaterSleepLocked )
     REQUIRE_SLEEP_BODY_ROWS( sleepIslandVisualId, m_sleepIslandVisualId )
     REQUIRE_SLEEP_BODY_ROWS( sleepIslandAssignedVisualId, m_sleepIslandAssignedVisualId )
@@ -128,6 +143,14 @@ bool PhysicsSleepController::CanRestoreReplayState( const PhysicsSolverSnapshot&
         }
     }
 
+    for ( uint8_t flags : snapshot.sleepPoseAnchorValid )
+    {
+        if ( ( flags & static_cast<uint8_t>( ~SLEEP_POSE_ANCHOR_VALID_BIT ) ) != 0u )
+        {
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -137,6 +160,14 @@ void PhysicsSleepController::RestoreReplayState( const PhysicsSolverSnapshot& sn
     RestoreList( snapshot.sleepInhibitedThisFrame, m_sleepInhibitedThisFrame );
     RestoreList( snapshot.sleepState, m_sleepState );
     RestoreList( snapshot.sleepCounter, m_sleepCounter );
+    m_sleepPoseAnchors.Reserve( snapshot.sleepPoseAnchorPosition.size() );
+    m_sleepPoseAnchors.clear();
+    for ( std::size_t index = 0; index < snapshot.sleepPoseAnchorPosition.size(); ++index )
+    {
+        m_sleepPoseAnchors.push_back( PhysicsSleepPoseAnchor { snapshot.sleepPoseAnchorPosition[index],
+                                                               snapshot.sleepPoseAnchorOrientation[index],
+                                                               snapshot.sleepPoseAnchorValid[index] } );
+    }
     RestoreList( snapshot.underwaterSleepLocked, m_underwaterSleepLocked );
     RestoreList( snapshot.sleepIslandVisualId, m_sleepIslandVisualId );
     RestoreList( snapshot.sleepIslandAssignedVisualId, m_sleepIslandAssignedVisualId );
@@ -155,8 +186,40 @@ void PhysicsSleepController::RestoreReplayState( const PhysicsSolverSnapshot& sn
     RestoreList( snapshot.sleepIslandCanSleep, m_sleepIslandCanSleep );
     m_nextSleepIslandVisualId = snapshot.nextSleepIslandVisualId;
     m_sleepEnabled = snapshot.sleepEnabled;
-    m_pendingAwakeCount = 0;
+    m_pendingConstraintWakeBodyCount = 0;
     m_awakeListNeedsRebuild = true;
+    m_simulationIslands.Invalidate();
+}
+
+void PhysicsSleepController::RestoreSimulationIslandTopology( const PhysicsBodyStore& bodyStore,
+                                                              std::span<const PersistentContact> persistentContacts,
+                                                              std::span<const PointJointConstraint> pointJointConstraints )
+{
+    // Invariant: the contact solver and point-joint owner have already restored
+    // their authoritative rows. Seed the persistent island owner from those
+    // exact rows so the first replayed tick compares like topology with like.
+    m_simulationIslands.Rebuild( bodyStore, persistentContacts, pointJointConstraints, m_sleepState );
+
+    const int modelCount = bodyStore.Count();
+    m_sleepIslandParent.assign( static_cast<std::size_t>( modelCount ), 0 );
+    m_sleepIslandRank.assign( static_cast<std::size_t>( modelCount ), 0u );
+    DisjointSet islands( m_sleepIslandParent, m_sleepIslandRank, modelCount );
+    islands.Reset();
+
+    for ( const auto& edge : m_simulationIslands.ActiveContactEdges() )
+    {
+        islands.Unite( edge.first, edge.second );
+    }
+
+    for ( const SimulationIslandJointEdge& edge : m_simulationIslands.ActiveJointEdges() )
+    {
+        islands.Unite( edge.bodyA, edge.bodyB );
+    }
+
+    for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
+    {
+        m_sleepIslandParent[static_cast<std::size_t>( bodyIndex )] = islands.Find( bodyIndex );
+    }
 }
 
 std::span<const uint8_t> PhysicsSleepController::GetSleepStates() const
@@ -209,7 +272,7 @@ std::span<const int> PhysicsSleepController::GetSleepIslandParents() const
 {
     return m_sleepIslandParent;
 }
-std::span<const uint8_t> PhysicsSleepController::GetSleepCounters() const
+std::span<const uint32_t> PhysicsSleepController::GetSleepCounters() const
 {
     return m_sleepCounter;
 }
@@ -229,9 +292,21 @@ std::span<const uint8_t> PhysicsSleepController::GetSleepIslandEligible() const
 {
     return m_sleepIslandEligible;
 }
+std::span<const uint8_t> PhysicsSleepController::GetSleepIslandTopologyStable() const
+{
+    return m_sleepIslandTopologyStable;
+}
 std::span<const uint8_t> PhysicsSleepController::GetSleepIslandCanSleep() const
 {
     return m_sleepIslandCanSleep;
+}
+std::span<const uint8_t> PhysicsSleepController::GetSleepBodyEligible() const
+{
+    return m_sleepBodyEligible;
+}
+std::span<const uint8_t> PhysicsSleepController::GetSleepResetReasons() const
+{
+    return m_sleepResetReason;
 }
 std::span<const uint8_t> PhysicsSleepController::GetUnderwaterSleepLockVector() const
 {
@@ -253,6 +328,10 @@ std::span<const uint8_t> PhysicsSleepController::GetSleepStateVector() const
 {
     return m_sleepState;
 }
+std::span<const PhysicsSleepPoseAnchor> PhysicsSleepController::GetSleepPoseAnchors() const
+{
+    return m_sleepPoseAnchors;
+}
 std::span<const uint8_t> PhysicsSleepController::GetSleepSupportedVector() const
 {
     return m_sleepSupportedThisFrame;
@@ -273,19 +352,23 @@ uint64_t PhysicsSleepController::CollectDynamicMemoryBytes() const
     bytes += ListCapacityBytes( m_sleepInhibitedThisFrame );
     bytes += ListCapacityBytes( m_sleepState );
     bytes += ListCapacityBytes( m_sleepCounter );
+    bytes += ListCapacityBytes( m_sleepPoseAnchors );
     bytes += ListCapacityBytes( m_underwaterSleepLocked );
     bytes += ListCapacityBytes( m_sleepIslandVisualId );
     bytes += ListCapacityBytes( m_sleepIslandAssignedVisualId );
     bytes += ListCapacityBytes( m_sleepSupportEdges );
+    bytes += m_simulationIslands.CollectDynamicMemoryBytes();
     bytes += ListCapacityBytes( m_sleepIslandParent );
     bytes += ListCapacityBytes( m_sleepIslandRank );
     bytes += ListCapacityBytes( m_sleepIslandHasAwake );
     bytes += ListCapacityBytes( m_sleepIslandHasSupportAnchor );
     bytes += ListCapacityBytes( m_sleepIslandEligible );
+    bytes += ListCapacityBytes( m_sleepIslandTopologyStable );
     bytes += ListCapacityBytes( m_sleepIslandCanSleep );
+    bytes += ListCapacityBytes( m_sleepBodyEligible );
+    bytes += ListCapacityBytes( m_sleepResetReason );
     bytes += ListCapacityBytes( m_sleepScratchFlags );
-    bytes += ListCapacityBytes( m_sleepVisualIslandIds );
-    bytes += ListCapacityBytes( m_sleepVisualIslandBodies );
+    bytes += ListCapacityBytes( m_sleepFirstBoxContactPartner );
     bytes += ListCapacityBytes( m_restingWakeQueueScratch );
     return bytes;
 }

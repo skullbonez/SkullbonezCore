@@ -48,6 +48,17 @@ namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Vector = SkullbonezCore::Math::Vector;
 
+bool SkullbonezCore::Physics::PersistentContactCacheHasImpulse( std::span<const PersistentContactCacheEntry> cache,
+                                                                int bodyA, int bodyB, uint32_t featureId )
+{
+    const int64_t key = MakePersistentContactCacheKey( bodyA, bodyB, featureId );
+    const auto cachedIt = std::lower_bound( cache.begin(), cache.end(), key,
+                                            []( const PersistentContactCacheEntry& entry, int64_t lookupKey )
+                                            { return entry.key < lookupKey; } );
+    return cachedIt != cache.end() && cachedIt->key == key &&
+           ( cachedIt->accN > 0.0f || fabsf( cachedIt->accT1 ) > TOLERANCE || fabsf( cachedIt->accT2 ) > TOLERANCE );
+}
+
 namespace
 {
 constexpr int TERRAIN_BODY_INDEX = -1;
@@ -137,11 +148,237 @@ float ResolveContactInterval( const PhysicsBodyHotFieldsConstView& hotFields, st
     includeDynamicParticipant( bodyB );
     return hasDynamicParticipant && contactInterval > TOLERANCE ? contactInterval : 0.0f;
 }
+
+bool ContactPatchHasArea( const ObjectContactManifold& manifold )
+{
+    if ( manifold.pointCount < 3u )
+    {
+        return false;
+    }
+
+    const Vector3 origin = manifold.points[0].point;
+
+    for ( uint8_t first = 1u; first + 1u < manifold.pointCount; ++first )
+    {
+        const Vector3 firstArm = manifold.points[first].point - origin;
+
+        for ( uint8_t second = static_cast<uint8_t>( first + 1u ); second < manifold.pointCount; ++second )
+        {
+            const Vector3 secondArm = manifold.points[second].point - origin;
+            const Vector3 patchNormal = Vector::CrossProduct( firstArm, secondArm );
+
+            if ( Vector::VectorMagSquared( patchNormal ) > TOLERANCE * TOLERANCE )
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool IsNarrowBoxSupportPatch( const ObjectContactManifold& manifold, bool shapeAIsBox, bool shapeBIsBox )
+{
+    if ( fabsf( manifold.normal.y ) <= 0.25f )
+    {
+        return false;
+    }
+
+    // Invariant: the manifold normal points from A to B. Positive world-Y
+    // therefore supports B; negative world-Y supports A. Two solver rows from
+    // one physical edge remain one narrow patch and never masquerade as two
+    // stabilizing contacts.
+    const bool supportedBodyIsBox = manifold.normal.y > 0.0f ? shapeBIsBox : shapeAIsBox;
+    return supportedBodyIsBox && !ContactPatchHasArea( manifold );
+}
+
+uint8_t SelectReducedObjectContactRows( const PersistentContactCacheList& cache, int bodyA, int bodyB,
+                                        const ObjectContactManifold& manifold, uint8_t* selectedPointIndices )
+{
+    const auto betterPenetrationTie = [&]( int lhs, int rhs )
+    {
+        if ( rhs < 0 )
+        {
+            return true;
+        }
+
+        const ObjectContactPoint& lhsPoint = manifold.points[lhs];
+        const ObjectContactPoint& rhsPoint = manifold.points[rhs];
+        if ( fabsf( lhsPoint.penetration - rhsPoint.penetration ) > 1.0e-5f )
+        {
+            return lhsPoint.penetration > rhsPoint.penetration;
+        }
+        return lhsPoint.featureId < rhsPoint.featureId;
+    };
+
+    int deepest = -1;
+    for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+    {
+        if ( betterPenetrationTie( pointIndex, deepest ) )
+        {
+            deepest = pointIndex;
+        }
+    }
+
+    if ( deepest < 0 )
+    {
+        return 0;
+    }
+
+    uint8_t cachedPointCount = 0;
+    for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+    {
+        cachedPointCount += PersistentContactCacheHasImpulse( std::span<const PersistentContactCacheEntry>( cache.data(),
+                                                                                                            cache.size() ),
+                                                              bodyA, bodyB, manifold.points[pointIndex].featureId );
+    }
+
+    if ( cachedPointCount < 2 )
+    {
+        return manifold.pointCount;
+    }
+
+    int secondary = -1;
+    bool secondaryUsesCache = false;
+    float bestDistanceSq = -1.0f;
+    const ObjectContactPoint& primaryPoint = manifold.points[deepest];
+
+    for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+    {
+        if ( pointIndex == deepest )
+        {
+            continue;
+        }
+
+        const ObjectContactPoint& candidate = manifold.points[pointIndex];
+        const Vector3 pointDelta = candidate.point - primaryPoint.point;
+        const float normalDistance = Dot( pointDelta, manifold.normal );
+        const Vector3 tangentDelta = pointDelta - manifold.normal * normalDistance;
+        const float tangentDistanceSq = Vector::VectorMagSquared( tangentDelta );
+        constexpr float duplicatePointDistanceSq = 1.0e-6f;
+
+        if ( tangentDistanceSq <= duplicatePointDistanceSq )
+        {
+            continue;
+        }
+
+        const bool usesCache = PersistentContactCacheHasImpulse( std::span<const PersistentContactCacheEntry>( cache.data(),
+                                                                                                               cache
+                                                                                                                   .size() ),
+                                                                 bodyA, bodyB, candidate.featureId );
+        bool replace = usesCache && !secondaryUsesCache;
+        if ( usesCache == secondaryUsesCache )
+        {
+            replace = tangentDistanceSq > bestDistanceSq + 1.0e-5f;
+            if ( !replace && fabsf( tangentDistanceSq - bestDistanceSq ) <= 1.0e-5f )
+            {
+                replace = betterPenetrationTie( pointIndex, secondary );
+            }
+        }
+
+        if ( replace )
+        {
+            secondary = pointIndex;
+            secondaryUsesCache = usesCache;
+            bestDistanceSq = tangentDistanceSq;
+        }
+    }
+
+    if ( secondary < 0 )
+    {
+        return manifold.pointCount;
+    }
+
+    selectedPointIndices[0] = static_cast<uint8_t>( deepest );
+    selectedPointIndices[1] = static_cast<uint8_t>( secondary );
+    if ( selectedPointIndices[1] < selectedPointIndices[0] )
+    {
+        std::swap( selectedPointIndices[0], selectedPointIndices[1] );
+    }
+    return 2;
+}
+
+float ResolveContactMassShare( std::span<const PhysicsBodyRecord> bodyRecords,
+                               const PhysicsBodyRowList<uint16_t>& contactCounts, const PersistentContact& contact )
+{
+    const uint16_t countA = contactCounts[contact.bodyA] > 0u ? contactCounts[contact.bodyA] : 1u;
+    float contactMass = bodyRecords[static_cast<std::size_t>( contact.bodyA )].mass / static_cast<float>( countA );
+
+    if ( !contact.isTerrain )
+    {
+        const uint16_t countB = contactCounts[contact.bodyB] > 0u ? contactCounts[contact.bodyB] : 1u;
+        const float bodyBContactMass = bodyRecords[static_cast<std::size_t>( contact.bodyB )].mass /
+                                       static_cast<float>( countB );
+        contactMass = (std::min)( contactMass, bodyBContactMass );
+    }
+    return contactMass;
+}
+
+void PrecomputeContactBias( PersistentContact& contact, std::span<const ColliderRecord> colliderRecords,
+                            const PersistentContactSolverStepPolicy& stepPolicy,
+                            const PreviousObjectContactLookup& previousObjectContact, float normalVelocity,
+                            float inverseContactInterval )
+{
+    contact.bias = 0.0f;
+    if ( contact.isTerrain )
+    {
+        if ( contact.supportsRestingPolicy && fabsf( normalVelocity ) < stepPolicy.contactRestitutionThreshold )
+        {
+            // Invariant: position correction owns quiet support overlap decay;
+            // the velocity row must not manufacture separation.
+            return;
+        }
+        if ( fabsf( normalVelocity ) < stepPolicy.contactRestitutionThreshold )
+        {
+            const float penetrationError = contact.penetration - stepPolicy.terrainSlop;
+            if ( penetrationError > 0.0f )
+            {
+                contact.bias = stepPolicy.terrainBaumgarteBeta * penetrationError * inverseContactInterval;
+                contact.bias = (std::min)( contact.bias, stepPolicy.maxBaumgarteBias );
+                contact.separationBias = contact.bias;
+            }
+            return;
+        }
+        if ( normalVelocity < -stepPolicy.contactRestitutionThreshold )
+        {
+            const float restitution = stepPolicy.elasticCollisions
+                                          ? 1.0f
+                                          : colliderRecords[static_cast<std::size_t>( contact.bodyA )].restitution;
+            contact.bias = -restitution * normalVelocity;
+        }
+        return;
+    }
+
+    const bool continuesLoadedContact = !stepPolicy.elasticCollisions && previousObjectContact.carriedLoad;
+    if ( normalVelocity < -stepPolicy.contactRestitutionThreshold && !continuesLoadedContact )
+    {
+        float restitution = 1.0f;
+        if ( !stepPolicy.elasticCollisions )
+        {
+            const float restitutionA = colliderRecords[static_cast<std::size_t>( contact.bodyA )].restitution;
+            const float restitutionB = colliderRecords[static_cast<std::size_t>( contact.bodyB )].restitution;
+            restitution = sqrtf( restitutionA * restitutionB );
+        }
+        contact.bias = -restitution * normalVelocity;
+        return;
+    }
+
+    const float penetrationError = contact.penetration - stepPolicy.objectSlop;
+    if ( penetrationError > 0.0f )
+    {
+        contact.bias = stepPolicy.objectBaumgarteBeta * penetrationError * inverseContactInterval;
+        if ( stepPolicy.maxBaumgarteBias > 0.0f )
+        {
+            contact.bias = (std::min)( contact.bias, stepPolicy.maxBaumgarteBias );
+        }
+        contact.separationBias = contact.bias;
+    }
+}
 } // namespace
 
-PersistentContactSolverStepPolicy
-PhysicsContactSolverStage::ResolveStepPolicy( const PhysicsRuntimeSettings& settings,
-                                              const PhysicsWorldForces& worldForces ) noexcept
+PersistentContactSolverStepPolicy PhysicsContactSolverStage::ResolveStepPolicy( const PhysicsRuntimeSettings& settings,
+                                                                                const PhysicsWorldForces& worldForces,
+                                                                                float stepDurationSeconds ) noexcept
 {
     // Invariant: these are the historical use-site guards, collected without
     // changing their bounds so every row in the solve shares one interpretation.
@@ -167,6 +404,7 @@ PhysicsContactSolverStage::ResolveStepPolicy( const PhysicsRuntimeSettings& sett
     policy.nonNegativeSleepAngularSpeed = (std::max)( 0.0f, settings.sleep.angularSpeed );
 
     policy.gravityMagnitude = fabsf( settings.worldForces.gravity );
+    policy.stepDurationSeconds = (std::max)( 0.0f, stepDurationSeconds );
     policy.contactEpsilon = settings.body.contactEpsilon;
     policy.iterations = (std::max)( 1, settings.solver.iterations );
     return policy;
@@ -214,22 +452,6 @@ void PersistentContactSolveTransaction::Complete()
 int64_t PersistentContactSolveTransaction::MakeKey( int bodyA, int bodyB, uint32_t featureId )
 {
     return MakePersistentContactCacheKey( bodyA, bodyB, featureId );
-}
-
-bool PersistentContactSolveTransaction::HasCachedImpulse( const PersistentContactCacheList& cache, int bodyA, int bodyB,
-                                                          uint32_t featureId )
-{
-    const int64_t key = MakeKey( bodyA, bodyB, featureId );
-    const auto cachedIt = std::lower_bound( cache.begin(), cache.end(), key,
-                                            []( const PersistentContactCacheEntry& entry, int64_t lookupKey )
-                                            { return entry.key < lookupKey; } );
-
-    if ( cachedIt == cache.end() || cachedIt->key != key )
-    {
-        return false;
-    }
-
-    return cachedIt->accN > 0.0f || fabsf( cachedIt->accT1 ) > TOLERANCE || fabsf( cachedIt->accT2 ) > TOLERANCE;
 }
 
 float PersistentContactSolveTransaction::ConservativeContactRadius( const ColliderRecord& collider )
@@ -473,118 +695,6 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
         return Vector::VectorMagSquared( solverA.angularVelocity ) <= angularLimitSq &&
                Vector::VectorMagSquared( solverB.angularVelocity ) <= angularLimitSq;
     };
-    auto reduceObjectContactRows = [&]( int bodyA, int bodyB, const ObjectContactManifold& manifold,
-                                        uint8_t* selectedPointIndices ) -> uint8_t
-    {
-        auto betterPenetrationTie = [&]( int lhs, int rhs ) -> bool
-        {
-            if ( rhs < 0 )
-            {
-                return true;
-            }
-
-            const ObjectContactPoint& lhsPoint = manifold.points[lhs];
-            const ObjectContactPoint& rhsPoint = manifold.points[rhs];
-
-            if ( fabsf( lhsPoint.penetration - rhsPoint.penetration ) > 1.0e-5f )
-            {
-                return lhsPoint.penetration > rhsPoint.penetration;
-            }
-
-            return lhsPoint.featureId < rhsPoint.featureId;
-        };
-
-        int deepest = -1;
-
-        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
-        {
-            if ( betterPenetrationTie( pointIndex, deepest ) )
-            {
-                deepest = pointIndex;
-            }
-        }
-
-        if ( deepest < 0 )
-        {
-            return 0;
-        }
-
-        uint8_t cachedPointCount = 0;
-
-        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
-        {
-            if ( HasCachedImpulse( stage.m_persistentContactCache, bodyA, bodyB, manifold.points[pointIndex].featureId ) )
-            {
-                ++cachedPointCount;
-            }
-        }
-
-        if ( cachedPointCount < 2 )
-        {
-            return manifold.pointCount;
-        }
-
-        int secondary = -1;
-        bool secondaryUsesCache = false;
-        float bestDistanceSq = -1.0f;
-        const ObjectContactPoint& primaryPoint = manifold.points[deepest];
-
-        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
-        {
-            if ( pointIndex == deepest )
-            {
-                continue;
-            }
-
-            const ObjectContactPoint& candidate = manifold.points[pointIndex];
-            const Vector3 pointDelta = candidate.point - primaryPoint.point;
-            const float normalDistance = Dot( pointDelta, manifold.normal );
-            const Vector3 tangentDelta = pointDelta - manifold.normal * normalDistance;
-            const float tangentDistanceSq = Vector::VectorMagSquared( tangentDelta );
-            constexpr float duplicatePointDistanceSq = 1.0e-6f;
-
-            if ( tangentDistanceSq <= duplicatePointDistanceSq )
-            {
-                continue;
-            }
-
-            const bool usesCache = HasCachedImpulse( stage.m_persistentContactCache, bodyA, bodyB, candidate.featureId );
-            bool replace = usesCache && !secondaryUsesCache;
-
-            if ( usesCache == secondaryUsesCache )
-            {
-                replace = tangentDistanceSq > bestDistanceSq + 1.0e-5f;
-
-                if ( !replace && fabsf( tangentDistanceSq - bestDistanceSq ) <= 1.0e-5f )
-                {
-                    replace = betterPenetrationTie( pointIndex, secondary );
-                }
-            }
-
-            if ( replace )
-            {
-                secondary = pointIndex;
-                secondaryUsesCache = usesCache;
-                bestDistanceSq = tangentDistanceSq;
-            }
-        }
-
-        if ( secondary < 0 )
-        {
-            return manifold.pointCount;
-        }
-
-        selectedPointIndices[0] = static_cast<uint8_t>( deepest );
-        selectedPointIndices[1] = static_cast<uint8_t>( secondary );
-
-        if ( selectedPointIndices[1] < selectedPointIndices[0] )
-        {
-            std::swap( selectedPointIndices[0], selectedPointIndices[1] );
-        }
-
-        return 2;
-    };
-
     // CATTO REF:
     //   Catto 2005, PDF p. 9, Section 4 "Contact Model" and Equation 16 require
     //   a contact point, a normal, and separation/penetration for each row.
@@ -675,34 +785,12 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
                 }
             }
 
-            bool boxHasOnlyEdgeSupport = false;
-
-            if ( !hasSphere && manifold.pointCount <= 2 && fabsf( manifold.normal.y ) > 0.25f )
-            {
-                const int supportedIndex = manifold.normal.y > 0.0f ? bIndex : aIndex;
-                const bool supportedBodyIsBox = manifold.normal.y > 0.0f ? shapeBIsBox : shapeAIsBox;
-
-                if ( supportedBodyIsBox )
-                {
-                    const auto rotation = PhysicsBodyOrientation( hotRead, static_cast<std::size_t>( supportedIndex ) )
-                                              .GetOrientationMatrix();
-
-                    const Vector3 supportNormal = manifold.normal.y > 0.0f ? manifold.normal : -manifold.normal;
-                    const float faceDotX = fabsf( Dot( ( rotation * Vector3( 1.0f, 0.0f, 0.0f ) ), supportNormal ) );
-                    const float faceDotY = fabsf( Dot( ( rotation * Vector3( 0.0f, 1.0f, 0.0f ) ), supportNormal ) );
-                    const float faceDotZ = fabsf( Dot( ( rotation * Vector3( 0.0f, 0.0f, 1.0f ) ), supportNormal ) );
-                    constexpr float stableFaceDot = 0.95f; // About 18 degrees from face-flat support.
-                    boxHasOnlyEdgeSupport = (std::max)( { faceDotX, faceDotY, faceDotZ } ) < stableFaceDot;
-                }
-            }
-
-            // Invariant: preserve the normal resting/sleep policy for every
-            // contact except a vertically supported box balanced on one edge.
-            // An edge has at most two manifold rows and no box face aligned
-            // with the support normal. Once it topples onto a face, this veto
-            // clears and the existing quiet-frame sleep gate applies again.
-            // Changing this classification affects byte-exact physics baselines.
-            hasRestingFootprint = ( !hasConvexHull || hasSphere || manifold.pointCount >= 2 ) && !boxHasOnlyEdgeSupport;
+            // Sleep geometry is deliberately separate from friction and warm
+            // starting. A narrow box patch still solves with ordinary resting
+            // policy; the sleep owner decides whether another logical contact
+            // stabilizes that edge.
+            const bool narrowBoxSupportPatch = IsNarrowBoxSupportPatch( manifold, shapeAIsBox, shapeBIsBox );
+            hasRestingFootprint = !hasConvexHull || hasSphere || manifold.pointCount >= 2;
             uint8_t selectedPointIndices[4] = { 0, 1, 2, 3 };
             uint8_t selectedPointCount = manifold.pointCount;
 
@@ -717,7 +805,8 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
                 // because their support footprint is less symmetric.
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ContactRowReduction" );
 
-                selectedPointCount = reduceObjectContactRows( aIndex, bIndex, manifold, selectedPointIndices );
+                selectedPointCount = SelectReducedObjectContactRows( stage.m_persistentContactCache, aIndex, bIndex,
+                                                                     manifold, selectedPointIndices );
             }
 
             for ( uint8_t selectedIndex = 0; selectedIndex < selectedPointCount; ++selectedIndex )
@@ -739,6 +828,7 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
                 c.penetration = point.penetration;
                 c.supportsRestingPolicy = hasRestingFootprint;
                 c.normalCoupledFriction = !hasRestingFootprint;
+                c.inhibitsSleep = narrowBoxSupportPatch;
                 c.manifoldPointCount = selectedPointCount;
                 stage.m_persistentContacts.push_back( c );
                 ++stage.m_persistentContactCounts[aIndex];
@@ -781,9 +871,10 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
 }
 
 template <bool RetainPipelineRecords>
-void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy,
-                                                          PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<const uint8_t> sleepState,
-                                                          std::span<const float> timeRemaining, int modelCount, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
+void PersistentContactSolveTransaction::BuildTerrainRows(
+    PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy,
+    PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<const uint8_t> sleepState,
+    std::span<const float> timeRemaining, int modelCount, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain" );
     PROFILE_SCOPED( "Frame/Physics/Terrain/Rows" );
@@ -903,6 +994,60 @@ void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverSt
     }
 }
 
+void PersistentContactSolveTransaction::PrecomputeTerrainAngularResistance(
+    PersistentContact& contact, const ColliderRecord& collider, const PersistentContactSolverStepPolicy& stepPolicy,
+    float normalVelocity )
+{
+    if ( !contact.isTerrain || !contact.supportsRestingPolicy || !contact.allowsTangentFriction ||
+         stepPolicy.elasticCollisions || normalVelocity <= -stepPolicy.contactRestitutionThreshold ||
+         ( stepPolicy.rollingFrictionCoefficient <= 0.0f && stepPolicy.spinFrictionCoefficient <= 0.0f ) )
+    {
+        return;
+    }
+
+    // Concept: rolling resistance is a bounded angular row in the same PGS
+    // owner as normal and tangent friction. The coupled tangent inverse stays
+    // separate from scalar spin about the contact normal.
+    const Vector3 inverseInertiaT1 = ApplyInverseInertia( contact.bodyA, contact.tangent1 );
+    const Vector3 inverseInertiaT2 = ApplyInverseInertia( contact.bodyA, contact.tangent2 );
+    const float k11 = Dot( contact.tangent1, inverseInertiaT1 );
+    const float k12 = Dot( contact.tangent1, inverseInertiaT2 );
+    const float k22 = Dot( contact.tangent2, inverseInertiaT2 );
+    const float determinant = k11 * k22 - k12 * k12;
+    const float spinInverseMass = Dot( contact.normal, ApplyInverseInertia( contact.bodyA, contact.normal ) );
+
+    if ( determinant > TOLERANCE * TOLERANCE )
+    {
+        const float inverseDeterminant = 1.0f / determinant;
+        contact.rollingMass11 = k22 * inverseDeterminant;
+        contact.rollingMass12 = -k12 * inverseDeterminant;
+        contact.rollingMass22 = k11 * inverseDeterminant;
+    }
+    if ( spinInverseMass > TOLERANCE )
+    {
+        contact.spinMass = 1.0f / spinInverseMass;
+    }
+
+    contact.rollingRadius = VisitCollisionShape( collider.shape,
+                                                 []( const auto& shape )
+                                                 {
+                                                     using ShapeT = std::decay_t<decltype( shape )>;
+                                                     if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                                                     {
+                                                         return shape.GetRadius();
+                                                     }
+                                                     else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                                                     {
+                                                         const Vector3& halfExtents = shape.GetHalfExtents();
+                                                         return ( halfExtents.x + halfExtents.y + halfExtents.z ) / 3.0f;
+                                                     }
+                                                     else
+                                                     {
+                                                         return shape.GetBoundingRadius() * 0.5f;
+                                                     }
+                                                 } );
+}
+
 template <bool RetainPipelineRecords>
 void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                                                         const ColliderStore& colliderStore,
@@ -918,8 +1063,6 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
     const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
     const SolverBodyState staticTerrainBody;
-    const float contactSlop = stepPolicy.objectSlop;
-
     // CATTO REF:
     //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
     //   Section 4.2, Equation 20. Reason: convert penetration error into a
@@ -927,11 +1070,6 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
     // Baumgarte bias is a gentle "please separate" velocity for bodies that are
     // already interpenetrating. It removes overlap over several ticks instead of
     // teleporting everything apart in one harsh correction.
-    const float baumgarteBeta = stepPolicy.objectBaumgarteBeta;
-    const float maxBaumgarteBias = stepPolicy.maxBaumgarteBias;
-    const bool elasticCollisions = stepPolicy.elasticCollisions;
-    const float restitutionThreshold = stepPolicy.contactRestitutionThreshold;
-    const float objectFrictionCoeff = stepPolicy.objectFrictionCoefficient;
     auto observePipelineEvent = [&]()
     {
         if constexpr ( RetainPipelineRecords )
@@ -1002,21 +1140,7 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         c.tangentMass2 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.tangent2, c.rA,
                                                                               c.rB, applyInvInertiaA, applyInvInertiaB );
 
-        uint16_t countA = ( stage.m_persistentContactCounts[c.bodyA] > 0 ) ? stage.m_persistentContactCounts[c.bodyA] : 1;
-        float contactMass = bodyRecords[static_cast<size_t>( c.bodyA )].mass / static_cast<float>( countA );
-
-        if ( !c.isTerrain )
-        {
-            uint16_t countB = ( stage.m_persistentContactCounts[c.bodyB] > 0 ) ? stage.m_persistentContactCounts[c.bodyB]
-                                                                               : 1;
-
-            float contactMassB = bodyRecords[static_cast<size_t>( c.bodyB )].mass / static_cast<float>( countB );
-
-            if ( contactMassB < contactMass )
-            {
-                contactMass = contactMassB;
-            }
-        }
+        const float contactMass = ResolveContactMassShare( bodyRecords, stage.m_persistentContactCounts, c );
 
         if ( !c.allowsTangentFriction )
         {
@@ -1030,56 +1154,7 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
 
         float vn = Dot( ( velB - velA ), c.normal );
 
-        if ( c.isTerrain && c.supportsRestingPolicy && c.allowsTangentFriction && !elasticCollisions &&
-             vn > -stepPolicy.contactRestitutionThreshold &&
-             ( stepPolicy.rollingFrictionCoefficient > 0.0f || stepPolicy.spinFrictionCoefficient > 0.0f ) )
-        {
-            // Concept: rolling resistance is a bounded angular row in the same
-            // PGS owner as normal and tangent friction. The 2x2 inverse keeps
-            // anisotropic world inertia coupled in the contact tangent plane;
-            // spin about the normal remains a separate scalar constraint. A
-            // material impact stays owned by restitution and impact friction.
-            const Vector3 inverseInertiaT1 = applyInvInertiaA( c.tangent1 );
-            const Vector3 inverseInertiaT2 = applyInvInertiaA( c.tangent2 );
-            const float k11 = Dot( c.tangent1, inverseInertiaT1 );
-            const float k12 = Dot( c.tangent1, inverseInertiaT2 );
-            const float k22 = Dot( c.tangent2, inverseInertiaT2 );
-            const float determinant = k11 * k22 - k12 * k12;
-            const float spinInverseMass = Dot( c.normal, applyInvInertiaA( c.normal ) );
-
-            if ( determinant > TOLERANCE * TOLERANCE )
-            {
-                const float inverseDeterminant = 1.0f / determinant;
-                c.rollingMass11 = k22 * inverseDeterminant;
-                c.rollingMass12 = -k12 * inverseDeterminant;
-                c.rollingMass22 = k11 * inverseDeterminant;
-            }
-
-            if ( spinInverseMass > TOLERANCE )
-            {
-                c.spinMass = 1.0f / spinInverseMass;
-            }
-
-            c.rollingRadius = VisitCollisionShape( colliderRecords[static_cast<size_t>( c.bodyA )].shape,
-                                                   []( const auto& shape ) -> float
-                                                   {
-                                                       using ShapeT = std::decay_t<decltype( shape )>;
-
-                                                       if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
-                                                       {
-                                                           return shape.GetRadius();
-                                                       }
-                                                       else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-                                                       {
-                                                           const Vector3& halfExtents = shape.GetHalfExtents();
-                                                           return ( halfExtents.x + halfExtents.y + halfExtents.z ) / 3.0f;
-                                                       }
-                                                       else
-                                                       {
-                                                           return shape.GetBoundingRadius() * 0.5f;
-                                                       }
-                                                   } );
-        }
+        PrecomputeTerrainAngularResistance( c, colliderRecords[static_cast<size_t>( c.bodyA )], stepPolicy, vn );
 
         // CATTO REF:
         //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
@@ -1088,106 +1163,20 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         //   Object/object swept detection no longer applies a competing
         //   immediate impulse. Dynamic bounce therefore belongs in the same
         //   persistent Catto rows as fixed-body impact and resting support.
-        c.bias = 0.0f;
-
-        if ( c.isTerrain )
-        {
-            const float terrainSlop = stepPolicy.terrainSlop;
-
-            if ( !c.supportsRestingPolicy && c.penetration <= terrainSlop && vn > -restitutionThreshold )
-            {
-                c.normalMass = 0.0f;
-                c.tangentMass1 = 0.0f;
-                c.tangentMass2 = 0.0f;
-            }
-            else if ( c.supportsRestingPolicy && fabsf( vn ) < restitutionThreshold )
-            {
-                // Invariant: stable support may cancel closing velocity, but it
-                // must not manufacture a separating velocity. PositionCorrection
-                // owns overlap decay for this quiet terrain row; giving the same
-                // penetration a velocity target can eject the body, clear the
-                // feature cache, and turn the return into a fresh impact.
-                c.bias = 0.0f;
-            }
-            else if ( fabsf( vn ) < restitutionThreshold )
-            {
-                float penetrationError = c.penetration - terrainSlop;
-
-                if ( penetrationError > 0.0f )
-                {
-                    c.bias = stepPolicy.terrainBaumgarteBeta * penetrationError * inverseContactInterval;
-
-                    if ( c.bias > stepPolicy.maxBaumgarteBias )
-                    {
-                        c.bias = stepPolicy.maxBaumgarteBias;
-                    }
-
-                    c.separationBias = c.bias;
-                }
-            }
-            else if ( vn < -restitutionThreshold )
-            {
-                const float restitution = elasticCollisions ? 1.0f
-                                                            : colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
-
-                // Invariant: restitution targets the separating speed at every
-                // retained contact point. Dividing by manifold row count makes
-                // byte-exact bounce behavior depend on terrain tessellation.
-                c.bias = -restitution * vn;
-            }
-        }
-        else
-        {
-            const bool continuesLoadedContact = !elasticCollisions && previousObjectContact.carriedLoad;
-
-            if ( vn < -restitutionThreshold && !continuesLoadedContact )
-            {
-                float restitution = 1.0f;
-
-                if ( !elasticCollisions )
-                {
-                    const float restitutionA = colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
-                    const float restitutionB = colliderRecords[static_cast<size_t>( c.bodyB )].restitution;
-                    restitution = sqrtf( restitutionA * restitutionB );
-                }
-
-                c.bias = -restitution * vn;
-            }
-            else
-            {
-                // Concept: restitution belongs to a new impact, not to rocking
-                // inside a contact feature that already carried support. Exact
-                // feature identity owns both warm-start compatibility and this
-                // lifetime proof; a different feature is fresh geometry and may
-                // receive restitution. A no-contact frame clears the cache and
-                // admits restitution on the next hit. Terrain and mutual-gravity
-                // elastic policy never enter here.
-                float penetrationError = c.penetration - contactSlop;
-
-                if ( penetrationError > 0.0f )
-                {
-                    c.bias = baumgarteBeta * penetrationError * inverseContactInterval;
-
-                    if ( maxBaumgarteBias > 0.0f && c.bias > maxBaumgarteBias )
-                    {
-                        c.bias = maxBaumgarteBias;
-                    }
-
-                    c.separationBias = c.bias;
-                }
-            }
-        }
+        // Restitution belongs to a new impact; exact feature cache identity
+        // proves whether an object contact already carried load.
+        PrecomputeContactBias( c, colliderRecords, stepPolicy, previousObjectContact, vn, inverseContactInterval );
 
         // CATTO REF:
         //   Catto 2005, PDF p. 12, Section 4.3, Equations 24-25 bound tangent
         //   lambdas by +/-mu*m_c*g. Reason: avoid coupling tangent friction to
         //   solved normal force while keeping static friction usable in games.
-        c.frictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
+        c.frictionLimit = ( stepPolicy.elasticCollisions || !c.allowsTangentFriction )
                               ? 0.0f
                               : ( c.isTerrain
                                       ? stepPolicy.terrainFrictionCoefficient * c.terrainWarmStart
                                       : ( c.normalCoupledFriction ? 0.0f
-                                                                  : objectFrictionCoeff * contactMass *
+                                                                  : stepPolicy.objectFrictionCoefficient * contactMass *
                                                                         stepPolicy.gravityMagnitude * contactInterval ) );
 
         // CATTO REF:
@@ -1199,7 +1188,7 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         // lookup does not linearly scan every previous-frame contact.
         // Why: warm-start cache is a stack-support tool. In elastic space it
         // can preserve last frame's push and make grazing bodies look glued.
-        const bool canUseCachedWarmStart = c.supportsRestingPolicy && !elasticCollisions;
+        const bool canUseCachedWarmStart = c.supportsRestingPolicy && !stepPolicy.elasticCollisions;
         const PersistentContactCacheEntry* cachedEntry = nullptr;
 
         if ( canUseCachedWarmStart )
@@ -1230,14 +1219,15 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
             c.accN = ( cachedEntry->accN > 0.0f ) ? cachedEntry->accN : 0.0f;
             c.accT1 = cachedEntry->accT1;
             c.accT2 = cachedEntry->accT2;
-            const float cachedFrictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
+            const float cachedFrictionLimit = ( stepPolicy.elasticCollisions || !c.allowsTangentFriction )
                                                   ? 0.0f
                                                   : ( c.isTerrain
                                                           ? stepPolicy.terrainFrictionCoefficient *
                                                                 ( ( c.accN > c.terrainWarmStart ) ? c.accN
                                                                                                   : c.terrainWarmStart )
-                                                          : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN
-                                                                                      : c.frictionLimit ) );
+                                                          : ( c.normalCoupledFriction
+                                                                  ? stepPolicy.objectFrictionCoefficient * c.accN
+                                                                  : c.frictionLimit ) );
 
             Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, cachedFrictionLimit );
             c.warmStarted = c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f;
@@ -1316,14 +1306,10 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
                                                              const PersistentContactSolverStepPolicy& stepPolicy,
                                                              std::size_t pipelineRecordCapacity )
 {
-    const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
     const SolverBodyState staticTerrainBody;
 
     // Why: mutual-gravity space has no ambient support surface. Contacts should
     // exchange momentum instead of cooling into friction or cached resting rows.
-    const int solverIterations = stepPolicy.iterations;
-    const bool elasticCollisions = stepPolicy.elasticCollisions;
-    const float objectFrictionCoeff = stepPolicy.objectFrictionCoefficient;
     auto observePipelineEvent = [&]()
     {
         if constexpr ( RetainPipelineRecords )
@@ -1346,7 +1332,7 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
     // In engine terms, each contact computes the extra impulse needed to reduce
     // its current violation, adds that to the accumulated total, clamps the total
     // to valid bounds, then applies only the difference.
-    for ( int iter = 0; iter < solverIterations; ++iter )
+    for ( int iter = 0; iter < stepPolicy.iterations; ++iter )
     {
         stage.m_persistentContactSolverStats.solverIterations = iter + 1;
         float iterImpulseSq = 0.0f;
@@ -1358,8 +1344,9 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
             diagnosticsStorage.value.iteration = iter + 1;
         }
 
-        for ( PersistentContact& c : stage.m_persistentContacts )
+        for ( std::size_t contactIndex = 0; contactIndex < stage.m_persistentContacts.size(); ++contactIndex )
         {
+            PersistentContact& c = stage.m_persistentContacts[contactIndex];
             SolverBodyState& a = Body( static_cast<std::size_t>( c.bodyA ) );
             const SolverBodyState& b = c.isTerrain ? staticTerrainBody : Body( static_cast<std::size_t>( c.bodyB ) );
             Vector3 velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
@@ -1394,7 +1381,8 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
                     // patch length, so multiplying by normal linear impulse is
                     // already an angular impulse. Rolling instead needs the
                     // body's effective radius because its coefficient is dimensionless.
-                    const float spinLimit = stepPolicy.spinFrictionCoefficient * supportingNormalImpulse;
+                    float spinLimit = supportingNormalImpulse;
+                    spinLimit *= stepPolicy.spinFrictionCoefficient;
 
                     c.accSpin += -c.spinMass * spinSpeed;
                     c.accSpin = std::clamp( c.accSpin, -spinLimit, spinLimit );
@@ -1409,7 +1397,8 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
                 const float oldAccRollingT1 = c.accRollingT1;
                 const float oldAccRollingT2 = c.accRollingT2;
                 const float supportingNormalImpulse = ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart;
-                const float rollingLimit = stepPolicy.rollingFrictionCoefficient * supportingNormalImpulse * c.rollingRadius;
+                float rollingLimit = supportingNormalImpulse * c.rollingRadius;
+                rollingLimit *= stepPolicy.rollingFrictionCoefficient;
 
                 c.accRollingT1 += lambdaRollingT1;
                 c.accRollingT2 += lambdaRollingT2;
@@ -1442,13 +1431,14 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
             // old per-axis clamp allowed diagonal friction to exceed the budget.
             c.accT1 = oldAccT1 + lambdaT1;
             c.accT2 = oldAccT2 + lambdaT2;
-            const float frictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
+            const float frictionLimit = ( stepPolicy.elasticCollisions || !c.allowsTangentFriction )
                                             ? 0.0f
                                             : ( c.isTerrain
                                                     ? stepPolicy.terrainFrictionCoefficient *
                                                           ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
-                                                    : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN
-                                                                                : c.frictionLimit ) );
+                                                    : ( c.normalCoupledFriction
+                                                            ? stepPolicy.objectFrictionCoefficient * c.accN
+                                                            : c.frictionLimit ) );
 
             Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, frictionLimit );
             float deltaT1 = c.accT1 - oldAccT1;
@@ -1516,7 +1506,7 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
                 record.bodyB = c.bodyB;
                 record.iteration = iter;
                 record.featureId = c.featureId;
-                record.point = PhysicsBodyPosition( hotRead, static_cast<size_t>( c.bodyA ) ) + c.rA;
+                record.point = PhysicsBodyPosition( bodyStore.HotFields(), static_cast<size_t>( c.bodyA ) ) + c.rA;
                 record.normal = c.normal;
                 record.scalarA = deltaN;
                 record.scalarB = c.accN;
@@ -1576,9 +1566,10 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
     }
 }
 
-void PersistentContactSolveTransaction::ApplyPointSupportInstability( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                                                      const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
-                                                                      std::span<const uint8_t> sleepSupportedThisFrame, int modelCount, float dt, Core::Profiler* )
+void PersistentContactSolveTransaction::ApplyPointSupportInstability(
+    PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+    const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
+    std::span<const uint8_t> sleepSupportedThisFrame, int modelCount, float dt, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PointSupportInstability" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::PointSupportInstability, "ApplyPointSupportInstability" );
@@ -1672,7 +1663,6 @@ void PersistentContactSolveTransaction::ApplyPointSupportInstability( PhysicsCon
         const float sleepAngular = stepPolicy.nonNegativeSleepAngularSpeed;
         const float speedSq = Dot( body.linearVelocity, body.linearVelocity );
         const float omegaSq = Dot( body.angularVelocity, body.angularVelocity );
-
         if ( speedSq > sleepLinear * sleepLinear || omegaSq > sleepAngular * sleepAngular )
         {
             continue;
@@ -1713,7 +1703,6 @@ void PersistentContactSolveTransaction::ApplyPointSupportInstability( PhysicsCon
 
         const uint32_t seed = c.featureId ^ ( static_cast<uint32_t>( c.bodyA + 1 ) * 0x9e3779b9u ) ^
                               ( static_cast<uint32_t>( c.bodyB + 17 ) * 0x85ebca6bu );
-
         const Vector3 axis = deterministicTangentAxis( supportNormal, seed );
         const float axisMagSq = Dot( axis, axis );
 
@@ -1728,8 +1717,9 @@ void PersistentContactSolveTransaction::ApplyPointSupportInstability( PhysicsCon
     }
 }
 
-void PersistentContactSolveTransaction::ApplyTerrainRestPolicy( const PhysicsBodyStore& bodyStore, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-                                                                std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount, Core::Profiler* )
+void PersistentContactSolveTransaction::ApplyTerrainRestPolicy(
+    const PhysicsBodyStore& bodyStore, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
+    std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain" );
     PROFILE_SCOPED( "Frame/Physics/Terrain/RestPolicy" );
@@ -2174,7 +2164,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                                        PhysicsCandidatePairList& sleepSupportEdges,
                                        PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
                                        std::span<uint8_t> terrainRestApplied, std::span<uint8_t> sleepSupportedThisFrame,
-                                       PhysicsStepDiagnostics& stepDiagnostics, float dt, Core::Profiler* profiler )
+                                       PhysicsStepDiagnostics& stepDiagnostics )
 {
     m_solveTransaction.BeginEntryPolicySetup();
 
@@ -2246,7 +2236,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
     m_persistentContacts.clear();
 
-    m_solveTransaction.SetupBodies( bodyStore, sleepState, modelCount, profiler );
+    m_solveTransaction.SetupBodies( bodyStore, sleepState, modelCount, nullptr );
 
     if ( m_persistentContactCache.size() > 1 )
     {
@@ -2265,16 +2255,18 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     if ( retainPipelineRecords )
     {
         m_solveTransaction.BuildManifolds<true>( *this, bodyStore, colliderStore, stepPolicy, candidatePairs, sleepState,
-                                                 sleepSupportEdges, modelCount, pipelineRecordCapacity, profiler );
+                                                 sleepSupportEdges, modelCount, pipelineRecordCapacity, nullptr );
         m_solveTransaction.BuildTerrainRows<true>( *this, bodyStore, stepPolicy, terrainContactManifolds, sleepState,
-                                                   timeRemaining, modelCount, pipelineRecordCapacity, dt, profiler );
+                                                   timeRemaining, modelCount, pipelineRecordCapacity,
+                                                   stepPolicy.stepDurationSeconds, nullptr );
     }
     else
     {
         m_solveTransaction.BuildManifolds<false>( *this, bodyStore, colliderStore, stepPolicy, candidatePairs, sleepState,
-                                                  sleepSupportEdges, modelCount, pipelineRecordCapacity, profiler );
+                                                  sleepSupportEdges, modelCount, pipelineRecordCapacity, nullptr );
         m_solveTransaction.BuildTerrainRows<false>( *this, bodyStore, stepPolicy, terrainContactManifolds, sleepState,
-                                                    timeRemaining, modelCount, pipelineRecordCapacity, dt, profiler );
+                                                    timeRemaining, modelCount, pipelineRecordCapacity,
+                                                    stepPolicy.stepDurationSeconds, nullptr );
     }
 
     if ( m_persistentContacts.empty() )
@@ -2290,45 +2282,46 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     if ( retainPipelineRecords )
     {
         m_solveTransaction.PrecomputeRows<true>( *this, bodyStore, colliderStore, stepPolicy, sleepState, timeRemaining,
-                                                 pipelineRecordCapacity, dt, profiler );
+                                                 pipelineRecordCapacity, stepPolicy.stepDurationSeconds, nullptr );
     }
     else
     {
         m_solveTransaction.PrecomputeRows<false>( *this, bodyStore, colliderStore, stepPolicy, sleepState, timeRemaining,
-                                                  pipelineRecordCapacity, dt, profiler );
+                                                  pipelineRecordCapacity, stepPolicy.stepDurationSeconds, nullptr );
     }
 
-    m_solveTransaction.SolveRows( *this, bodyStore, stepPolicy, retainPipelineRecords, pipelineRecordCapacity, profiler );
+    m_solveTransaction.SolveRows( *this, bodyStore, stepPolicy, retainPipelineRecords, pipelineRecordCapacity, nullptr );
     m_solveTransaction.ApplyPointSupportInstability( *this, bodyStore, colliderStore, stepPolicy, sleepState,
-                                                     sleepSupportedThisFrame, modelCount, dt, profiler );
+                                                     sleepSupportedThisFrame, modelCount, stepPolicy.stepDurationSeconds,
+                                                     nullptr );
 
     m_solveTransaction.ApplyTerrainRestPolicy( bodyStore, terrainContactManifolds, terrainRestApplied, sleepState,
-                                               modelCount, profiler );
+                                               modelCount, nullptr );
 
     if ( retainPipelineRecords )
     {
-        m_solveTransaction.WriteBack<true>( *this, bodyStore, sleepState, modelCount, pipelineRecordCapacity, profiler );
+        m_solveTransaction.WriteBack<true>( *this, bodyStore, sleepState, modelCount, pipelineRecordCapacity, nullptr );
     }
     else
     {
-        m_solveTransaction.WriteBack<false>( *this, bodyStore, sleepState, modelCount, pipelineRecordCapacity, profiler );
+        m_solveTransaction.WriteBack<false>( *this, bodyStore, sleepState, modelCount, pipelineRecordCapacity, nullptr );
     }
 
-    m_solveTransaction.PublishDebugContacts( *this, bodyStore, stepDiagnostics, profiler );
+    m_solveTransaction.PublishDebugContacts( *this, bodyStore, stepDiagnostics, nullptr );
 
     if ( retainPipelineRecords )
     {
         m_solveTransaction.CorrectPositions<true>( *this, bodyStore, stepPolicy, sleepState, pipelineRecordCapacity,
-                                                   profiler );
-        m_solveTransaction.StoreCache<true>( *this, bodyStore, pipelineRecordCapacity, profiler );
+                                                   nullptr );
+        m_solveTransaction.StoreCache<true>( *this, bodyStore, pipelineRecordCapacity, nullptr );
     }
     else
     {
         m_solveTransaction.CorrectPositions<false>( *this, bodyStore, stepPolicy, sleepState, pipelineRecordCapacity,
-                                                    profiler );
-        m_solveTransaction.StoreCache<false>( *this, bodyStore, pipelineRecordCapacity, profiler );
+                                                    nullptr );
+        m_solveTransaction.StoreCache<false>( *this, bodyStore, pipelineRecordCapacity, nullptr );
     }
 
-    m_solveTransaction.ReleaseFixedContacts( *this, bodyStore, modelCount, profiler );
+    m_solveTransaction.ReleaseFixedContacts( *this, bodyStore, modelCount, nullptr );
     m_solveTransaction.Complete();
 }

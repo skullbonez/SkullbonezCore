@@ -38,6 +38,21 @@ using RuntimeReserveCapacityPublisherToken = uint32_t;
 
 constexpr RuntimeReserveOwnerHandle INVALID_RUNTIME_RESERVE_OWNER = 0u;
 constexpr RuntimeReserveCapacityPublisherToken INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER = 0u;
+
+constexpr uint64_t RuntimeReserveDefaultVectorAllocationUpperBound( uint64_t payloadBytes ) noexcept
+{
+#if defined( _M_IX86 ) || defined( _M_X64 )
+    // Why: MSVC's default allocator wraps large vector payloads in a manually
+    // aligned backing block before it reaches global operator new. Reserve
+    // grants account for that bounded vendor padding because the allocation
+    // hook observes the backing request, not only the vector's payload bytes.
+    constexpr uint64_t vectorAlignmentThresholdBytes = 4096u;
+    constexpr uint64_t vectorBackingPaddingUpperBoundBytes = 64u;
+    return payloadBytes >= vectorAlignmentThresholdBytes ? payloadBytes + vectorBackingPaddingUpperBoundBytes : payloadBytes;
+#else
+    return payloadBytes;
+#endif
+}
 constexpr int RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED = -1;
 constexpr int RUNTIME_RESERVE_GROWTH_EVENT_HISTORY = 256;
 

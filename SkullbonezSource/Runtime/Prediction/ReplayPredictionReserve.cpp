@@ -107,6 +107,9 @@ uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapsh
     bytes += ReplayPredictionVectorCapacityBytes( physics.sleepInhibitedThisFrame );
     bytes += ReplayPredictionVectorCapacityBytes( physics.sleepState );
     bytes += ReplayPredictionVectorCapacityBytes( physics.sleepCounter );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepPoseAnchorPosition );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepPoseAnchorOrientation );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepPoseAnchorValid );
     bytes += ReplayPredictionVectorCapacityBytes( physics.underwaterSleepLocked );
     bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoCaptureSeconds );
     bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );

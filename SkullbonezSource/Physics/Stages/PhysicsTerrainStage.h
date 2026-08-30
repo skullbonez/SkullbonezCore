@@ -103,7 +103,7 @@ class PhysicsTerrainStage
                           const PhysicsBodyHotFieldsConstView& hotFields, std::span<const ColliderRecord> colliderRecords,
                           PhysicsTerrainView terrain, const PhysicsRuntimeSettings& settings,
                           std::span<const uint8_t> sleepState, std::span<const uint8_t> motionEligibilityState,
-                          std::span<const float> timeRemaining, Core::Profiler* profiler, int bodyIndex );
+                          std::span<const float> timeRemaining, int bodyIndex );
 
   public:
     PhysicsTerrainStage();
@@ -118,7 +118,7 @@ class PhysicsTerrainStage
                  std::span<const BuoyancyBodyFacts> buoyancyFacts, PhysicsTerrainView terrain,
                  const PhysicsRuntimeSettings& settings, std::span<const uint8_t> sleepState,
                  std::span<const uint8_t> motionEligibilityState, std::span<const float> timeRemaining,
-                 Core::Profiler* profiler, std::span<const int> awakeBodyIndices, const PhysicsExecutionSettings& execution,
+                 std::span<const int> awakeBodyIndices, const PhysicsExecutionSettings& execution,
                  Threading::WorkerPool& workerPool );
 
     // Invariant: prepare performs body integration and manifold construction;

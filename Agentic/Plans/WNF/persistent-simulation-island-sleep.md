@@ -1,8 +1,8 @@
 # Persistent Simulation-Island Sleep
 
 Date: 2026-08-30
-Status: WNF - owner-accepted scoped implementation archived 2026-08-31; the
-original six-phase model below remains a historical design record, not active work
+Status: WNF - owner-accepted scoped implementation complete; broader historical
+phase model parked unless the owner reactivates it
 Owner: Physics simulation-island sleep system
 Impact area: Physics contact and joint topology, deactivation, wake propagation, replay state, diagnostics, authored-scene validation, and performance
 Supersedes: `Agentic/Plans/WNF/sleep-support-contact-components.md`
@@ -102,10 +102,16 @@ repeats and worker counts.
 | `at_rest.scene.json` | 81,235 contiguous frames; all three named balls asleep; `ball_b` rolled 225.1197 m off the steep slope and reached the basin near the other balls. |
 
 The owner inspected the resulting behavior and accepted the policy as-is. The
-Profile unit suite passed 906/906 cases and 2,693,296 assertions. Replay v2
+Profile unit suite passed 907/907 cases and 2,694,564 assertions. Replay v2
 generation, compatibility, restore, and query validation passed, as did the
-strict two-generation replay allocation probe. The PR records the remaining
-terminal gate and baseline evidence at the implementation commit.
+strict two-generation replay allocation probe. Physics, Physics deep, format,
+dependency, allocation-policy, build-configuration, compiler-backed
+source-design, and plain-language validation passed. The retained historical
+Physics benchmark measured `Frame/Physics/Step` at +4.9 percent against the
+committed reference, inside this plan's five-percent bound. The broader full
+performance comparator remained red only on aggregate Frame/Input/Render/Vsync
+markers against the older `3a4b52e94` host timing reference; no performance
+baseline was refreshed.
 
 ## Failure Being Corrected
 

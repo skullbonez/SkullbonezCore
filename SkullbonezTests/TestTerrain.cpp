@@ -262,6 +262,7 @@ TEST_CASE( "Terrain: resting sphere sweep uses the same slope-normal pole as its
     REQUIRE( manifold.pointCount == 1u );
     CHECK( manifold.points[0].penetration == doctest::Approx( 0.0f ).epsilon( 0.0001 ) );
     CHECK( manifold.supportsRestingPolicy );
+    CHECK( manifold.inhibitsSleep );
 
     // A moving sphere must solve the same pole/plane equation at a nonzero
     // time, not merely inherit the resting fast path above.
@@ -278,6 +279,38 @@ TEST_CASE( "Terrain: resting sphere sweep uses the same slope-normal pole as its
     CHECK( movingManifold.normal.x == doctest::Approx( plane.m_normal.x ) );
     CHECK( movingManifold.normal.y == doctest::Approx( plane.m_normal.y ) );
     CHECK( movingManifold.normal.z == doctest::Approx( plane.m_normal.z ) );
+}
+
+TEST_CASE( "Terrain: sphere sleep slope allows five degrees and rejects the next steeper normal" )
+{
+    EngineConfig config;
+    Terrain terrain( 0.0f, 0.0f, 0.0f, config );
+    const CollisionShape sphere = SphereShape( 1.0f );
+    constexpr float fiveDegreesRadians = 5.0f * 3.14159265358979323846f / 180.0f;
+    const float boundaryY = std::cos( fiveDegreesRadians );
+
+    for ( const bool steeper : { false, true } )
+    {
+        const float normalY = steeper ? std::nextafter( boundaryY, 0.0f ) : boundaryY;
+        const float normalX = std::sqrt( (std::max)( 0.0f, 1.0f - normalY * normalY ) );
+        const Vector3 normal( normalX, normalY, 0.0f );
+
+        TerrainContactBodyView body;
+        body.position = normal;
+        body.terrain = terrain.PhysicsView();
+        body.boundingRadius = 1.0f;
+        body.contactEpsilon = 0.001f;
+
+        TerrainContactSweepResult sweep;
+        sweep.hit = true;
+        sweep.collidedPlane.m_normal = normal;
+        sweep.collidedPlane.m_distance = 0.0f;
+
+        TerrainContactManifold manifold;
+        REQUIRE( BuildTerrainContactManifold( body, sphere, 0, sweep, 1.0f / 120.0f, manifold ) );
+        CHECK( manifold.supportsRestingPolicy );
+        CHECK( manifold.inhibitsSleep == steeper );
+    }
 }
 
 
@@ -396,7 +429,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     const std::array<int, 1> awakeBodyIndices = { 0 };
 
     stage.Detect( bodies, colliders, buoyancyFacts, terrain.PhysicsView(), physicsSettings, sleepState, discreteState,
-                  timeRemaining, nullptr, awakeBodyIndices, execution, inlinePool );
+                  timeRemaining, awakeBodyIndices, execution, inlinePool );
 
     const auto candidates = stage.GetDetectionCandidates();
     REQUIRE( candidates.size() == 3u );
@@ -412,7 +445,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
         SkullbonezCore::Physics::PhysicsMotionEligibilityNone,
     };
     stage.Detect( bodies, colliders, buoyancyFacts, terrain.PhysicsView(), physicsSettings, sleepState, promotedState,
-                  timeRemaining, nullptr, awakeBodyIndices, execution, inlinePool );
+                  timeRemaining, awakeBodyIndices, execution, inlinePool );
 
     const auto promotedCandidates = stage.GetDetectionCandidates();
     REQUIRE( promotedCandidates.size() == 3u );

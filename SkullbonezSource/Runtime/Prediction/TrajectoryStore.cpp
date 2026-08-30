@@ -348,8 +348,11 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
     }
 
     const uint64_t requestedStoreBytes = oldStoreBytes - oldRecordBytes + requestedRecordBytes;
+    const uint64_t allocationBytes = SkullbonezCore::Core::Allocation::RuntimeReserveDefaultVectorAllocationUpperBound(
+        requestedRecordBytes );
+    const uint64_t reservationBytes = (std::max)( requestedStoreBytes, allocationBytes );
 
-    if ( !ByteCountFitsReserveRequest( requestedStoreBytes ) )
+    if ( !ByteCountFitsReserveRequest( reservationBytes ) )
     {
         return false;
     }
@@ -357,8 +360,8 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
 
     if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryStore::records", frameNumber,
-                                                static_cast<int>( oldStoreBytes ), static_cast<int>( requestedStoreBytes ),
-                                                1, result, requestedRecordBytes ) )
+                                                static_cast<int>( oldStoreBytes ), static_cast<int>( reservationBytes ), 1,
+                                                result, allocationBytes ) )
     {
         return false;
     }
@@ -397,8 +400,11 @@ bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
     }
 
     const uint64_t requestedStoreBytes = oldStoreBytes - oldPointBytes + requestedPointBytes;
+    const uint64_t allocationBytes = SkullbonezCore::Core::Allocation::RuntimeReserveDefaultVectorAllocationUpperBound(
+        requestedPointBytes );
+    const uint64_t reservationBytes = (std::max)( requestedStoreBytes, allocationBytes );
 
-    if ( !ByteCountFitsReserveRequest( requestedStoreBytes ) )
+    if ( !ByteCountFitsReserveRequest( reservationBytes ) )
     {
         return false;
     }
@@ -406,8 +412,8 @@ bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
 
     if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryRecord::points", frameNumber,
-                                                static_cast<int>( oldStoreBytes ), static_cast<int>( requestedStoreBytes ),
-                                                1, result, requestedPointBytes ) )
+                                                static_cast<int>( oldStoreBytes ), static_cast<int>( reservationBytes ), 1,
+                                                result, allocationBytes ) )
     {
         return false;
     }

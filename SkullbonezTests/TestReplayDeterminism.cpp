@@ -338,6 +338,12 @@ void CheckReplaySamplesExact( const ReplaySolverFrameSample& expected, const Rep
     CheckVectorExact( expected.worldSnapshot.physics.timeRemaining, actual.worldSnapshot.physics.timeRemaining );
     CheckVectorExact( expected.worldSnapshot.physics.sleepState, actual.worldSnapshot.physics.sleepState );
     CheckVectorExact( expected.worldSnapshot.physics.sleepCounter, actual.worldSnapshot.physics.sleepCounter );
+    CheckVectorExact( expected.worldSnapshot.physics.sleepPoseAnchorPosition,
+                      actual.worldSnapshot.physics.sleepPoseAnchorPosition );
+    CheckVectorExact( expected.worldSnapshot.physics.sleepPoseAnchorOrientation,
+                      actual.worldSnapshot.physics.sleepPoseAnchorOrientation );
+    CheckVectorExact( expected.worldSnapshot.physics.sleepPoseAnchorValid,
+                      actual.worldSnapshot.physics.sleepPoseAnchorValid );
     CheckVectorExact( expected.worldSnapshot.physics.collisionVisualContacts,
                       actual.worldSnapshot.physics.collisionVisualContacts );
     CheckVectorExact( expected.worldSnapshot.physics.sleepIslandParent,

@@ -1,0 +1,99 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "name": "Sleep Test Corner",
+  "cinematic": {},
+  "simulation": {
+    "seed": 60217,
+    "physics": true,
+    "text": false,
+    "timeScale": 1.0,
+    "world": {
+      "gravity": -32.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "frames": 3600,
+    "exitOnComplete": true,
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false,
+    "collisionVisualizer": false
+  },
+  "cameras": [
+    {
+      "name": "sleep_corner_overview",
+      "position": [
+        480.0,
+        12.0,
+        526.0
+      ],
+      "view": [
+        501.5,
+        2.0,
+        500.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "sleep_ground_brick",
+      "position": [
+        500.0,
+        1.0,
+        500.0
+      ],
+      "halfExtents": [
+        3.0,
+        1.0,
+        2.0
+      ],
+      "mass": 24.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "sleep_leaning_corner_brick",
+      "position": [
+        502.82,
+        5.08,
+        500.0
+      ],
+      "halfExtents": [
+        1.0,
+        3.0,
+        1.0
+      ],
+      "mass": 12.0,
+      "restitution": 0.08,
+      "fixed": false,
+      "euler": [
+        0.0,
+        0.0,
+        18.0
+      ]
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "baseline_path": "TestOutput/baselines/physics_regression_varied.csv",
-  "sha256": "1b98431012f632d66cb18c50e3f253cea4898b57bcb8e78cdadd0de3f065e387",
+  "sha256": "03088b30b8826f88a6193e511b7f4205aff9324d06ad08456610aac0e13a3f6b",
   "approved_by": "automated physics-plan override",
-  "approved_at_utc": "2026-08-25T11:08:46Z",
-  "source_commit": "8399b254999036e1cf7e63e0bdb141f7c3632035",
+  "approved_at_utc": "2026-08-30T14:35:45Z",
+  "source_commit": "25ecc9734c1c814201b974a2b769472cefa4f4a3",
   "reason": "Standing Physics-plan policy accepted the exact candidate with an immutable retained-runtime bundle."
 }

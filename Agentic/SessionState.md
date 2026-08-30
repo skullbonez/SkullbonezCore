@@ -1,18 +1,35 @@
 # Session State
 
-Date: 2026-08-30
+Date: 2026-08-31
 Branch: `codex/replay-capture-bugfixes`
-Status: No active plan; 135/135 implementation tasks complete; bug ledger
-126/126 fixed
+Status: No active plan; accepted persistent-island sleep implementation ready
+for PR; all plans archived in WNF
 
 ## Current State
 
-The owner reactivated two WNF plans for sequential implementation on the
-current branch. `RESERVE_TRANSACTION` RAT0-RAT3 is complete at 4/4 and
-`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is complete at 5/5. The pre-existing
-uncommitted Physics solver experiment, its focused test, two sleep scenes, and
-local investigation report remain outside both plans and must not be staged or
-reformatted.
+The owner visually accepted the persistent deterministic simulation-island
+sleep policy as-is. The scoped result makes a sphere on terrain steeper than
+five degrees sleep-ineligible, prevents a box from sleeping on one logical
+edge, replaces the three-body wall exception with pose/contact residual
+stability, and commits whole-island wake through the serial Physics path. The
+authored 0/1/4-worker matrix is byte-identical across two clean runs: the corner
+box topples before both bodies sleep, `ball_b` rolls into the basin near the
+other balls, and all 200 wall bricks finish asleep with a stable four-brick-high
+stack. Ragdoll quality remains explicitly out of scope.
+
+The Profile unit suite passes 907/907 cases and 2,694,564 assertions. Physics,
+Physics deep, replay-v2 artifact, authored sleep, allocation-policy,
+dependency, build-configuration, compiler-backed source-design, format, and
+plain-language validation pass. Governed Physics behavior, deep diagnostic,
+known-issue, and query baselines were refreshed with retained old/new Debug
+executables and manifests. The historical Physics benchmark reports
+`Frame/Physics/Step` at +4.9 percent, inside the sleep plan's five-percent
+bound. The full performance comparator still reports unrelated aggregate
+Frame/Input/Render/Vsync host-timing regressions against `3a4b52e94`; no
+performance baseline was refreshed.
+
+`RESERVE_TRANSACTION` RAT0-RAT3 is complete at 4/4 and
+`SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 is complete at 5/5.
 
 RAT0 adds the non-copyable, non-movable Core
 `RuntimeReserveAllocationScope`. Its member order establishes phase, owner, and

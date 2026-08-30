@@ -32,6 +32,7 @@ Related:
 #include "ContactSolverCommon.h"
 
 #include <algorithm>
+#include <cmath>
 #include <type_traits>
 #include <variant>
 
@@ -45,6 +46,8 @@ using namespace SkullbonezCore::Physics;
 
 namespace
 {
+constexpr float SPHERE_SLEEP_MAX_SLOPE_COS_SQUARED = 0.9924038765f; // cos(5 degrees)^2.
+
 RotationMatrix GetOrientationMatrix( const TerrainContactBodyView& body )
 {
     Quaternion q = body.orientation;
@@ -601,7 +604,17 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                                 terrainSupport.supportsRestingPolicy;
 
     out.allowsTangentFriction = !terrainSupport.isConvexHull || out.supportsRestingPolicy;
-    out.inhibitsSleep = !out.supportsRestingPolicy;
+
+    const bool sphere = GetShapeIf<BoundingSphere>( &shape ) != nullptr;
+    const float normalMagnitudeSquared = VectorMagSquared( planeNormal );
+    const bool sphereSlopeExceedsLimit = sphere && ( planeNormal.y <= 0.0f ||
+                                                     planeNormal.y * planeNormal.y <
+                                                         SPHERE_SLEEP_MAX_SLOPE_COS_SQUARED * normalMagnitudeSquared );
+
+    // Invariant: exactly five degrees remains eligible. A steeper sphere row
+    // keeps full collision and friction response but cannot authorize sleep,
+    // because gravity has a nonzero rolling component along the terrain.
+    out.inhibitsSleep = !out.supportsRestingPolicy || sphereSlopeExceedsLimit;
     return true;
 }
 } // namespace

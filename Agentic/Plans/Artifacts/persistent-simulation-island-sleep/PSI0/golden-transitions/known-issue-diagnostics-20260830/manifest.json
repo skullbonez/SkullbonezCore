@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/persistent-simulation-island-sleep.md",
+  "phase": "PSI0",
+  "transition_id": "known-issue-diagnostics-20260830",
+  "source_commit": "25ecc9734c1c814201b974a2b769472cefa4f4a3",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/physics_known_issue_signatures.json",
+      "old_sha256": "e50f56728d1daf1d278f40e8e2a74ab835378243dfe8e9c8b8757a2350483214",
+      "new_sha256": "e8969506482ae6f282823cb87f8fedfa07dfac245e003fdf7319fe7d93fb7ef3"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "8399b254999036e1cf7e63e0bdb141f7c3632035",
+    "golden_sha256": {
+      "TestOutput/baselines/physics_known_issue_signatures.json": "e50f56728d1daf1d278f40e8e2a74ab835378243dfe8e9c8b8757a2350483214"
+    },
+    "executables": [
+      {
+        "configuration": "Debug|x64",
+        "path": "Agentic/Plans/Artifacts/persistent-simulation-island-sleep/PSI0/golden-transitions/known-issue-diagnostics-20260830/old/SKULLBONEZ_CORE-Debug.exe",
+        "size": 14060544,
+        "sha256": "056a5c03aeb9d6a3570949ff0ddc650f76270f55a647801a80b47e8703e5993c",
+        "launch_command": "old/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_regression_solver.scene.json --physics-regression-log Debug/physics_regression_solver.csv && old/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/stacking.scene.json --physics-regression-log Debug/physics_known_stacking.csv && old/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/at_rest.scene.json --physics-regression-log Debug/physics_known_at_rest.csv && old/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/terrain_contact_probe_debug.scene.json --physics-regression-log Debug/physics_known_terrain_contact.csv",
+        "dependency_scan_command": "dumpbin /DEPENDENTS old/SKULLBONEZ_CORE-Debug.exe",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "25ecc9734c1c814201b974a2b769472cefa4f4a3",
+    "golden_sha256": {
+      "TestOutput/baselines/physics_known_issue_signatures.json": "e8969506482ae6f282823cb87f8fedfa07dfac245e003fdf7319fe7d93fb7ef3"
+    },
+    "executables": [
+      {
+        "configuration": "Debug|x64",
+        "path": "Agentic/Plans/Artifacts/persistent-simulation-island-sleep/PSI0/golden-transitions/known-issue-diagnostics-20260830/new/SKULLBONEZ_CORE-Debug.exe",
+        "size": 14390784,
+        "sha256": "dd61d4b959c6a36e9771e7525f0ed1a41407afc7ab67ed06e9fcac9ab0579d1d",
+        "launch_command": "new/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_regression_solver.scene.json --physics-regression-log Debug/physics_regression_solver.csv && new/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/stacking.scene.json --physics-regression-log Debug/physics_known_stacking.csv && new/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/at_rest.scene.json --physics-regression-log Debug/physics_known_at_rest.csv && new/SKULLBONEZ_CORE-Debug.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/terrain_contact_probe_debug.scene.json --physics-regression-log Debug/physics_known_terrain_contact.csv",
+        "dependency_scan_command": "dumpbin /DEPENDENTS new/SKULLBONEZ_CORE-Debug.exe",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

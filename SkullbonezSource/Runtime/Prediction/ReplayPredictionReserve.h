@@ -153,9 +153,11 @@ bool ReserveReplayPredictionVector( std::vector<T>& values, std::size_t requeste
     }
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
+    const uint64_t allocationBytes = SkullbonezCore::Core::Allocation::RuntimeReserveDefaultVectorAllocationUpperBound(
+        requestedBytes );
 
     if ( !RequestReplayPredictionReserveGrowth( targetName, frameNumber, static_cast<int>( oldBytes ),
-                                                static_cast<int>( requestedBytes ), 1, result, requestedBytes ) )
+                                                static_cast<int>( allocationBytes ), 1, result, allocationBytes ) )
     {
         return false;
     }
@@ -207,7 +209,8 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames, std
                 return false;
             }
 
-            allocationBytes += requestedFrameBytes;
+            allocationBytes += SkullbonezCore::Core::Allocation::RuntimeReserveDefaultVectorAllocationUpperBound(
+                requestedFrameBytes );
         }
     }
 
@@ -223,7 +226,10 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames, std
         return true;
     }
 
-    if ( requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) )
+    const uint64_t reservationBytes = (std::max)( requestedBytes, allocationBytes );
+
+    if ( reservationBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
+         reservationBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
         return false;
     }
@@ -231,7 +237,7 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames, std
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
 
     if ( !RequestReplayPredictionReserveGrowth( targetName, frameNumber, static_cast<int>( oldBytes ),
-                                                static_cast<int>( requestedBytes ), 1, result, allocationBytes ) )
+                                                static_cast<int>( reservationBytes ), 1, result, allocationBytes ) )
     {
         return false;
     }

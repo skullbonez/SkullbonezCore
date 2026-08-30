@@ -101,6 +101,7 @@ using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope;
 using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
 using SkullbonezCore::Core::Allocation::RuntimeReservePhase;
 using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
+using SkullbonezCore::Core::Allocation::RuntimeReserveDefaultVectorAllocationUpperBound;
 using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase;
 using SkullbonezCore::Physics::PhysicsFixedList;
@@ -123,6 +124,18 @@ static_assert( !std::is_move_constructible_v<RuntimeReserveAllocationScope> );
 static_assert( !std::is_move_assignable_v<RuntimeReserveAllocationScope> );
 static_assert( std::is_standard_layout_v<RuntimeReserveAllocationScope> );
 static_assert( SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScopeTestAccess::MembersFollowActivationOrder() );
+
+TEST_CASE( "RuntimeReserveAllocator: default vector backing allowance is bounded at the large-allocation boundary" )
+{
+    CHECK( RuntimeReserveDefaultVectorAllocationUpperBound( 4095u ) == 4095u );
+#if defined( _M_IX86 ) || defined( _M_X64 )
+    CHECK( RuntimeReserveDefaultVectorAllocationUpperBound( 4096u ) == 4160u );
+    CHECK( RuntimeReserveDefaultVectorAllocationUpperBound( 16384u ) == 16448u );
+#else
+    CHECK( RuntimeReserveDefaultVectorAllocationUpperBound( 4096u ) == 4096u );
+    CHECK( RuntimeReserveDefaultVectorAllocationUpperBound( 16384u ) == 16384u );
+#endif
+}
 
 namespace
 {
@@ -392,7 +405,7 @@ void ExerciseOwnerRegistryCapacity()
     RuntimeReserveAllocator::PrintSummary( summaryFile );
     const std::string summary = ReadFileText( summaryFile );
     std::fclose( summaryFile );
-    REQUIRE( summary.find( "registered_owners=159" ) != std::string::npos );
+    REQUIRE( summary.find( "registered_owners=191" ) != std::string::npos );
 
     std::error_code directoryError;
     std::filesystem::create_directories( "TestOutput/validation", directoryError );
