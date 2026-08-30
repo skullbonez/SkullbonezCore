@@ -1,7 +1,7 @@
 # Persistent Simulation-Island Sleep
 
 Date: 2026-08-30
-Status: WNF - owner-requested replacement design; 0/6 phases committed
+Status: Active owner-review implementation; 0/6 phases accepted; PSI0 next
 Owner: Physics simulation-island sleep system
 Impact area: Physics contact and joint topology, deactivation, wake propagation, replay state, diagnostics, authored-scene validation, and performance
 Supersedes: `Agentic/Plans/WNF/sleep-support-contact-components.md`
@@ -14,10 +14,12 @@ wall acceptance could report success with only 198 of 200 bodies sleeping. Its
 support-edge classifier, component rule, analyzer thresholds, and produced
 evidence are not an implementation baseline.
 
-Keep this replacement plan under `WNF/` on
-`codex/replay-capture-bugfixes`. Commit and push this document, then leave all
-implementation, tests, tools, scene-fixture promotion, and generated evidence
-uncommitted for owner review. Do not rewrite the rejected plan's history.
+The owner accepted the wall result on 2026-08-30 and requested a baseline refresh
+and pull request from `codex/replay-capture-bugfixes`. That instruction reactivates
+this plan under `TODO/` and permits the current implementation, tests, tools,
+scene fixtures, and governed Physics baseline transition to be committed for
+review. It does not mark any phase accepted or rewrite the rejected plan's
+history; the corner and edge investigations remain open acceptance work.
 
 Do not tune friction, damping, restitution, gravity, solver iterations, contact
 slop, or the configured sleep speed and duration values to make a scene pass.
