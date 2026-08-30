@@ -5,6 +5,12 @@ Status: WNF — owner-requested design record; 0/5 phases committed
 Owner: Physics sleep controller
 Impact area: Physics sleep grouping, contact wake admission, deterministic scenes, tests, diagnostics, and performance
 
+> Superseded on 2026-08-30 by
+> `Agentic/Plans/WNF/persistent-simulation-island-sleep.md`. The owner rejected
+> support-edge-defined sleep topology after the prototype froze an unstable
+> edge-balanced body while leaving neighbors active. This file remains only as
+> the historical rejected design record and must not guide implementation.
+
 ## Owner Direction
 
 Keep this plan under `WNF/`. The owner requested an uncommitted implementation
