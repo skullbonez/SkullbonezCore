@@ -343,6 +343,10 @@ an owner decision, not a run decision.
 | Deterministic Collision Modes And Ragdoll Unification | Owner-parked 2026-08-25 | 5/10 | `WNF/ragdoll-physics-unification.md` |
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
+| Persistent Simulation-Island Sleep | Owner-accepted scoped implementation 2026-08-31 | Archived scope | `WNF/persistent-simulation-island-sleep.md` |
+| Convex Hull Collision Response And Sleep Quality | Owner-parked 2026-08-30 | 0/8 | `WNF/convex-hull-collision-response-and-sleep.md` |
+| Debug Panel Reorganization And Sleep Policy Controls | Owner-parked 2026-08-30 | 0/6 | `WNF/debug-panel-reorganization-and-sleep-policy.md` |
+| Move Semantics And Resource Ownership Hardening | Owner-parked 2026-08-30 | 0/6 | `WNF/move-semantics-and-resource-ownership-hardening.md` |
 | Reversible GPU Fracture Replay | Backlog; blocked | 0/7 | `WNF/fracture-replay-feature.md` |
 
 One detail in that table is recorded:

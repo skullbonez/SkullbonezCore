@@ -1,7 +1,8 @@
 # Persistent Simulation-Island Sleep
 
 Date: 2026-08-30
-Status: Active owner-review implementation; 0/6 phases accepted; PSI0 next
+Status: WNF - owner-accepted scoped implementation archived 2026-08-31; the
+original six-phase model below remains a historical design record, not active work
 Owner: Physics simulation-island sleep system
 Impact area: Physics contact and joint topology, deactivation, wake propagation, replay state, diagnostics, authored-scene validation, and performance
 Supersedes: `Agentic/Plans/WNF/sleep-support-contact-components.md`
@@ -14,12 +15,18 @@ wall acceptance could report success with only 198 of 200 bodies sleeping. Its
 support-edge classifier, component rule, analyzer thresholds, and produced
 evidence are not an implementation baseline.
 
-The owner accepted the wall result on 2026-08-30 and requested a baseline refresh
-and pull request from `codex/replay-capture-bugfixes`. That instruction reactivates
-this plan under `TODO/` and permits the current implementation, tests, tools,
-scene fixtures, and governed Physics baseline transition to be committed for
-review. It does not mark any phase accepted or rewrite the rejected plan's
-history; the corner and edge investigations remain open acceptance work.
+The owner accepted the wall result on 2026-08-30, then visually accepted the
+current sleep policy on 2026-08-31 and requested a baseline refresh and pull
+request from `codex/replay-capture-bugfixes`. The accepted scope requires the
+at-rest slope ball to roll into the basin, the corner box to topple instead of
+sleeping on one unsupported edge, and the surviving 200-box wall to remain
+stacked four boxes high and finish asleep. Ragdoll quality is explicitly outside
+this acceptance.
+
+This plan is therefore archived in `WNF/`. The implementation, tests, tools,
+scene fixtures, and governed Physics baseline transition may be committed for
+review. Reactivating any unimplemented part of the broader original phase model
+requires a new owner decision.
 
 Do not tune friction, damping, restitution, gravity, solver iterations, contact
 slop, or the configured sleep speed and duration values to make a scene pass.
@@ -81,6 +88,24 @@ sets in this change. Unlike Bullet, it does not expose per-body activation modes
 as a public API. Those are storage mechanisms, not required policy. The adopted
 invariants are persistent constraint topology, all-member deactivation, and
 whole-island transitions.
+
+## Scoped Closure Evidence
+
+The authored regression command ran each accepted scene twice with Physics
+worker counts 0, 1, and 4. All 18 outputs passed and were byte-identical across
+repeats and worker counts.
+
+| Scene | Accepted result |
+|---|---|
+| `sleep_test_corner.scene.json` | 3,600 contiguous frames; both bodies asleep; top body changed orientation by 18.25093 degrees and translated 0.984785 m before reaching a supported pose. |
+| `prediction_ragdoll_wall_200.scene.json` | 2,000 contiguous frames; 200/200 wall bricks asleep; tallest retained stable stack is four bricks. Ragdoll behavior is not evaluated. |
+| `at_rest.scene.json` | 81,235 contiguous frames; all three named balls asleep; `ball_b` rolled 225.1197 m off the steep slope and reached the basin near the other balls. |
+
+The owner inspected the resulting behavior and accepted the policy as-is. The
+Profile unit suite passed 906/906 cases and 2,693,296 assertions. Replay v2
+generation, compatibility, restore, and query validation passed, as did the
+strict two-generation replay allocation probe. The PR records the remaining
+terminal gate and baseline evidence at the implementation commit.
 
 ## Failure Being Corrected
 
@@ -232,7 +257,11 @@ same island identities and wake decisions byte-for-byte. Bump the Physics solver
 snapshot version for any serialized layout change and retain prior-version
 conversion or rejection according to the existing replay compatibility contract.
 
-## Phases
+## Historical Phase Model
+
+The unchecked boxes below preserve the broader design that was drafted before
+the owner narrowed and accepted the implementation scope. They are not active
+tasks and are not claims that every original aspiration shipped.
 
 - [ ] **PSI0 - Plant hard failure controls and stability observations.** Add
   focused fixtures for an edge-balanced box, a quiet supported box, touching
@@ -282,7 +311,7 @@ conversion or rejection according to the existing replay compatibility contract.
   ownership and acceptance review. Do not refresh a golden baseline, commit the
   implementation, or mark the plan complete before owner review.
 
-## Hard Acceptance
+## Historical Hard Acceptance
 
 All tick values are fixed Physics steps at the existing 120 Hz rate. The command
 owns the exact expected body set and fails on a missing, duplicated, gapped,
