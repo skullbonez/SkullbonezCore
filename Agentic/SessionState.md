@@ -30,7 +30,15 @@ assertions, the renderer-free UI boundary, dependency, formatting,
 build-configuration, and source-design checks pass. DX12 produces all captures
 with zero InfoQueue errors; a detached pre-SC3 build proves the two committed
 screenshot-oracle mismatches are inherited, and no baseline was refreshed. SC4
-now reviews Runtime packages below App in dependency order. No baseline refresh
+now reviews Runtime packages below App in dependency order. The first SC4 slice
+gives Capture typed frame/schedule inputs and an explicit state update, gives
+replay scrubber availability one behavioral source-selection value, and gives
+UI interaction caching a behavioral signature value with the previous hash
+order preserved. The combined Profile build passes warning-clean, the complete
+suite passes 914 cases and 2,692,750 assertions, source-design passes 15 files
+and 96 contexts, and format, dependency, build-configuration, and whitespace
+checks pass. The next grouped slice repairs the UI/App coordinator structure
+exposed by the compiler gate. No baseline refresh
 is authorized. The live work ledger is temporarily owned by
 unfinished task `GOV1` in another Codex session, so this run cannot open its own
 ledger row until that external metadata owner finishes.

@@ -292,11 +292,11 @@ TEST_CASE( "UI position cache hashes pointer interaction in window-local coordin
     const UIRect firstBounds { 100.0f, 120.0f, 760.0f, 520.0f };
     const UIRect movedBounds { 140.0f, 160.0f, 760.0f, 520.0f };
     const uint32_t firstSignature =
-        BuildUIInteractionSignature( 130, 150, firstBounds, false, false, false, false, false, false, false, 0, 0 );
+        BuildUIInteractionSignature( { { 130, 150 }, firstBounds, 0u, 0, 0 } );
     const uint32_t movedSignature =
-        BuildUIInteractionSignature( 170, 190, movedBounds, false, false, false, false, false, false, false, 0, 0 );
+        BuildUIInteractionSignature( { { 170, 190 }, movedBounds, 0u, 0, 0 } );
     const uint32_t localPointerMove =
-        BuildUIInteractionSignature( 171, 190, movedBounds, false, false, false, false, false, false, false, 0, 0 );
+        BuildUIInteractionSignature( { { 171, 190 }, movedBounds, 0u, 0, 0 } );
     CHECK( firstSignature == movedSignature );
     CHECK( movedSignature != localPointerMove );
 
@@ -326,7 +326,7 @@ TEST_CASE( "UI position cache hashes pointer interaction in window-local coordin
     secondMovedKey.windowBounds = secondMovedBounds;
     secondMovedKey.contentSignature = 13u;
     secondMovedKey.interactionSignature =
-        BuildUIInteractionSignature( 210, 230, secondMovedBounds, false, false, false, false, false, false, false, 0, 0 );
+        BuildUIInteractionSignature( { { 210, 230 }, secondMovedBounds, 0u, 0, 0 } );
     cache.BeginFrame( secondMovedKey );
     CHECK( cache.CanReplayPositionOnly( secondMovedKey, true ) );
     CHECK( cache.ReplayOffsetX( secondMovedKey ) == doctest::Approx( 80.0f ) );

@@ -1405,12 +1405,12 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
     }
 
     const std::string* scenePath = m_sceneController.CurrentPath();
-    const RuntimeCaptureResult result = m_capture.TickScreenshots( m_sceneController.State().isSceneMode,
-                                                                   m_sceneController.State().isInteractiveRun,
-                                                                   m_sceneController.State().currentFrame,
-                                                                   m_timers.SceneElapsedSeconds() * 1000.0,
-                                                                   scenePath ? scenePath->c_str() : nullptr,
-                                                                   BackbufferCapture() );
+    const ScreenshotFrameInput captureFrame { m_sceneController.State().isSceneMode,
+                                              m_sceneController.State().isInteractiveRun,
+                                              m_sceneController.State().currentFrame,
+                                              m_timers.SceneElapsedSeconds() * 1000.0,
+                                              scenePath ? scenePath->c_str() : nullptr };
+    const RuntimeCaptureResult result = m_capture.TickScreenshots( captureFrame, BackbufferCapture() );
 
     if ( result.restartFrame )
     {
@@ -1525,12 +1525,21 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
         return;
     }
 
-    const RuntimeCaptureResult result = m_capture.TickAutoCycle( m_sceneController.State().isSceneMode,
-                                                                 m_sceneController.State().isInteractiveRun,
-                                                                 m_sceneController.Scene().SceneEntityCount(),
-                                                                 m_camera.autoCycleInterval, m_camera.autoCycleAccum,
-                                                                 m_camera.autoCycleShotsTaken, m_camera.trackBallRow.value,
-                                                                 BackbufferCapture() );
+    const AutoCycleCaptureInput captureInput { m_sceneController.State().isSceneMode,
+                                               m_sceneController.State().isInteractiveRun,
+                                               m_sceneController.Scene().SceneEntityCount(),
+                                               m_camera.autoCycleInterval,
+                                               m_camera.autoCycleAccum,
+                                               m_camera.autoCycleShotsTaken,
+                                               m_camera.trackBallRow.value };
+    AutoCycleCaptureUpdate captureUpdate;
+    const RuntimeCaptureResult result = m_capture.TickAutoCycle( captureInput, captureUpdate, BackbufferCapture() );
+    if ( captureUpdate.apply )
+    {
+        m_camera.autoCycleAccum = captureUpdate.accumulatedSeconds;
+        m_camera.autoCycleShotsTaken = captureUpdate.shotsTaken;
+        m_camera.trackBallRow.value = captureUpdate.trackedBallIndex;
+    }
 
     if ( !result.captureResult.Ok() )
     {

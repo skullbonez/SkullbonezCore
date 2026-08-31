@@ -710,8 +710,8 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     stats.enabled = true;
     stats.sampleCount = 2u;
 
-    ReplayScrubberSurfaceInput input = DescribeReplayScrubberAvailability( scrubber, stats, false, true, true, false, true,
-                                                                           true );
+    ReplayScrubberSurfaceInput input =
+        DescribeReplayScrubberAvailability( scrubber, stats, { false, true, true, false, true, true } );
     input.screenW = 1920;
     input.screenH = 1080;
     input.gesture = ReplayToolGestureKind::ScrubDrag;
@@ -779,8 +779,8 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     stats.enabled = true;
     stats.sampleCount = 1u;
 
-    ReplayScrubberSurfaceInput loaded = DescribeReplayScrubberAvailability( scrubber, stats, true, false, false, true, false,
-                                                                            false );
+    ReplayScrubberSurfaceInput loaded =
+        DescribeReplayScrubberAvailability( scrubber, stats, { true, false, false, true, false, false } );
     loaded.hotZoneEnabled = false;
     CHECK( loaded.track == RunReplayTrack::Presentation );
     CHECK_FALSE( loaded.solverToolsEnabled );
@@ -789,8 +789,8 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     CHECK( loaded.branchTargetAvailable );
     CHECK_FALSE( loaded.hotZoneEnabled );
 
-    ReplayScrubberSurfaceInput livePast = DescribeReplayScrubberAvailability( scrubber, stats, false, false, false,
-                                                                               false, false, false );
+    ReplayScrubberSurfaceInput livePast =
+        DescribeReplayScrubberAvailability( scrubber, stats, { false, false, false, false, false, false } );
     CHECK( livePast.track == RunReplayTrack::Presentation );
 
     ReplayScrubberSurface loadedSurface;
@@ -799,8 +799,8 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     REQUIRE( highDetail != nullptr );
     CHECK_FALSE( highDetail->visible );
 
-    ReplayScrubberSurfaceInput unavailable = DescribeReplayScrubberAvailability( scrubber, stats, false, false, false, false,
-                                                                                 false, false );
+    ReplayScrubberSurfaceInput unavailable =
+        DescribeReplayScrubberAvailability( scrubber, stats, { false, false, false, false, false, false } );
     unavailable.screenW = 1280;
     unavailable.screenH = 720;
     CHECK_FALSE( unavailable.solverToolsEnabled );

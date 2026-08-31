@@ -1041,15 +1041,19 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     cacheKey.contentSignature = BuildUIContentSignature( data );
     cacheKey.styleSignature = HashBool( HashBool( 2166136261u, widgets.blurPreviewEnabled ), widgets.hitboxOverlayEnabled );
 
-    cacheKey.interactionSignature = BuildUIInteractionSignature( widgets.mouseX, widgets.mouseY, windowBounds,
-                                                                 widgets.rendererCombo.IsOpen(),
-                                                                 widgets.reflectionCombo.IsOpen(),
-                                                                 widgets.sceneTab.combo.IsOpen(),
-                                                                 CinematicTab::IsComboOpen( widgets.cinematicTab ),
-                                                                 widgets.editorTab.objectCombo.IsOpen(),
-                                                                 widgets.renderTargetCombo.IsOpen(),
-                                                                 widgets.cameraModeCombo.IsOpen(),
-                                                                 widgets.selectedRenderTargetPreview, widgets.activeSlider );
+    uint32_t openControls = 0u;
+    openControls |= widgets.rendererCombo.IsOpen() ? UI_INTERACTION_RENDERER_OPEN : 0u;
+    openControls |= widgets.reflectionCombo.IsOpen() ? UI_INTERACTION_REFLECTION_OPEN : 0u;
+    openControls |= widgets.sceneTab.combo.IsOpen() ? UI_INTERACTION_SCENE_OPEN : 0u;
+    openControls |= CinematicTab::IsComboOpen( widgets.cinematicTab ) ? UI_INTERACTION_CINEMATIC_SCENE_OPEN : 0u;
+    openControls |= widgets.editorTab.objectCombo.IsOpen() ? UI_INTERACTION_EDITOR_OBJECT_OPEN : 0u;
+    openControls |= widgets.renderTargetCombo.IsOpen() ? UI_INTERACTION_RENDER_TARGET_OPEN : 0u;
+    openControls |= widgets.cameraModeCombo.IsOpen() ? UI_INTERACTION_CAMERA_MODE_OPEN : 0u;
+    cacheKey.interactionSignature = BuildUIInteractionSignature( { { widgets.mouseX, widgets.mouseY },
+                                                                   windowBounds,
+                                                                   openControls,
+                                                                   widgets.selectedRenderTargetPreview,
+                                                                   widgets.activeSlider } );
 
     // Why: Most UI frames only move the window/scroll offset. Replaying cached
     // draw commands keeps draw-call churn low while live render-target previews

@@ -201,6 +201,18 @@ inline ReplayOverlayControlId ReplayCauseWindowControlId( ReplayCauseWindowContr
 
 using ReplayCauseWindowSurface = ReplayOverlaySurface;
 
+struct ReplayScrubberSourceAvailability
+{
+    bool loadedPresentation = false;
+    bool pathTarget = false;
+    bool predictionTimeline = false;
+    bool currentPresentation = false;
+    bool currentSolver = false;
+    bool scenePhysics = false;
+
+    bool CurrentTrackAvailable( RunReplayTrack track ) const noexcept;
+};
+
 struct ReplayCauseWindowProjection
 {
     static constexpr std::size_t WORD_COUNT = ( REPLAY_CAUSE_TREE_ROW_CAPACITY + 63u ) / 64u;
@@ -216,10 +228,7 @@ struct ReplayCauseWindowProjection
 // one-frame screen, gesture, and pointer-blocking facts before surface layout.
 ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrubberView& scrubber,
                                                                const ReplayRecorderStats& solverStats,
-                                                               bool loadedPresentation, bool pathTargetAvailable,
-                                                               bool predictionTimelineAvailable,
-                                                               bool currentPresentationAvailable,
-                                                               bool currentSolverAvailable, bool scenePhysicsEnabled );
+                                                               const ReplayScrubberSourceAvailability& sources );
 void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface );
 void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface );
 

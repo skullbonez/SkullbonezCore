@@ -1206,6 +1206,25 @@ TEST_CASE( "Capture scheduling keeps same-frame one-shot and interval work indep
     CHECK( afterOneShot.intervalDue );
 }
 
+TEST_CASE( "Capture auto-cycle input validates schedule and population together" )
+{
+    AutoCycleCaptureInput input;
+    input.sceneMode = true;
+    input.ballCount = 3;
+    input.intervalSeconds = 2.0f;
+    input.accumulatedSeconds = 2.0f;
+    CHECK( input.Due() );
+
+    input.ballCount = 0;
+    CHECK_FALSE( input.Due() );
+    input.ballCount = 3;
+    input.sceneMode = false;
+    CHECK_FALSE( input.Due() );
+    input.sceneMode = true;
+    input.accumulatedSeconds = 1.99f;
+    CHECK_FALSE( input.Due() );
+}
+
 TEST_CASE( "Screenshot-and-exit naming honors the last separator of either kind" )
 {
     char output[256] = {};

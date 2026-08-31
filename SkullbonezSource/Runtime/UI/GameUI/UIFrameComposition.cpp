@@ -77,8 +77,7 @@ uint32_t HashFloat( uint32_t seed, float value, float scale )
 UIRect MinimizedCameraModeComboBounds( const UIRect& minimized )
 {
     constexpr float titleLeft = 32.0f;
-    const float availableW = (std::max)( 0.0f, minimized.w - titleLeft - MINIMIZED_CAMERA_MODE_GAP -
-                                                  MINIMIZED_RESTORE_W );
+    const float availableW = (std::max)( 0.0f, minimized.w - titleLeft - MINIMIZED_CAMERA_MODE_GAP - MINIMIZED_RESTORE_W );
     const float comboW = (std::min)( MINIMIZED_CAMERA_MODE_COMBO_W, availableW );
     const float comboRight = (std::max)( minimized.x, minimized.x + minimized.w - MINIMIZED_RESTORE_W );
     return { (std::max)( minimized.x, comboRight - comboW ), minimized.y + 6.0f, comboW, 24.0f };
@@ -531,25 +530,31 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 }
 
 
-uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, const UIRect& windowBounds, bool rendererOpen,
-                                      bool reflectionOpen, bool sceneOpen, bool cineSceneOpen, bool editorObjectOpen,
-                                      bool renderTargetOpen, bool cameraModeOpen, int selectedRenderTarget,
-                                      int activeSlider )
+int UIInteractionSignatureInput::LocalPointerX() const noexcept
+{
+    return static_cast<int>( std::lround( static_cast<float>( pointer.x ) - windowBounds.x ) );
+}
+
+
+int UIInteractionSignatureInput::LocalPointerY() const noexcept
+{
+    return static_cast<int>( std::lround( static_cast<float>( pointer.y ) - windowBounds.y ) );
+}
+
+
+uint32_t BuildUIInteractionSignature( const UIInteractionSignatureInput& input )
 {
     uint32_t hash = 2166136261u;
     // Invariant: pointer interaction is window-local. Moving a captured window
     // and pointer together changes only position, so retained commands replay.
-    hash = HashInt( hash, static_cast<int>( std::lround( static_cast<float>( mouseX ) - windowBounds.x ) ) );
-    hash = HashInt( hash, static_cast<int>( std::lround( static_cast<float>( mouseY ) - windowBounds.y ) ) );
-    hash = HashBool( hash, rendererOpen );
-    hash = HashBool( hash, reflectionOpen );
-    hash = HashBool( hash, sceneOpen );
-    hash = HashBool( hash, cineSceneOpen );
-    hash = HashBool( hash, editorObjectOpen );
-    hash = HashBool( hash, renderTargetOpen );
-    hash = HashBool( hash, cameraModeOpen );
-    hash = HashInt( hash, selectedRenderTarget );
-    hash = HashInt( hash, activeSlider );
+    hash = HashInt( hash, input.LocalPointerX() );
+    hash = HashInt( hash, input.LocalPointerY() );
+    for ( uint32_t control = UI_INTERACTION_RENDERER_OPEN; control <= UI_INTERACTION_CAMERA_MODE_OPEN; control <<= 1u )
+    {
+        hash = HashBool( hash, ( input.openControls & control ) != 0u );
+    }
+    hash = HashInt( hash, input.selectedRenderTarget );
+    hash = HashInt( hash, input.activeSlider );
     return hash;
 }
 

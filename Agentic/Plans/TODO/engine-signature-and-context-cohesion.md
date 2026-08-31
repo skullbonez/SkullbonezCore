@@ -677,6 +677,30 @@ baseline threshold. The screenshot mismatch is inherited and no baseline or
 golden was refreshed. Replay visual fidelity remains mapped to the SC6 terminal
 closure pass, where the plan concentrates heavy subsystem gates.
 
+## SC4 Runtime Capture And Presentation Slice Evidence
+
+The first SC4 slice repairs three related Runtime boundaries without retaining a
+broad context surface:
+
+- Capture receives a typed screenshot frame value and a typed auto-cycle input.
+  The schedule value owns the due check, including the non-zero ball-count
+  invariant, while Capture returns an explicit state update that App applies.
+- Replay scrubber availability receives one source-selection value whose
+  behavior identifies the current track instead of passing six independent
+  availability booleans through Planning, App, and tests.
+- UI interaction caching receives one interaction-signature value. Its methods
+  own the window-local pointer rules and its open-control flags preserve the
+  previous hash order exactly.
+
+The combined Profile solution build completed with zero warnings. The complete
+test executable passed 914 cases and 2,692,750 assertions. Compiler-backed
+source-design passed the 15 changed source-bearing files under 96 consumer
+contexts with no findings. Formatting, dependency/project ownership,
+build-configuration consistency, and whitespace checks pass. The touched
+coordinator functions expose separate pre-existing size and unpacking findings;
+their structural repair remains in the next grouped SC4/SC5 slice rather than
+being hidden behind another parameter record. No baseline or golden changed.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add

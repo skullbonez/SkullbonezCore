@@ -89,22 +89,17 @@ bool CaptureController::RequiresDeterministicPresentation( bool isSceneMode, int
 
 
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
-RuntimeCaptureResult CaptureController::TickScreenshots( bool isSceneMode, bool isInteractiveRun, int currentFrame,
-                                                         double elapsedMs, const char* currentScenePath,
+RuntimeCaptureResult CaptureController::TickScreenshots( const ScreenshotFrameInput& input,
                                                          Rendering::Dx12BackbufferCapture& backend )
 {
-    return CaptureSystem::TickScreenshots( m_diagnostics, m_screenshot, isSceneMode, isInteractiveRun, currentFrame,
-                                           elapsedMs, currentScenePath, *this, backend );
+    return CaptureSystem::TickScreenshots( m_diagnostics, m_screenshot, input, *this, backend );
 }
 
 
-RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode, bool isInteractiveRun, int ballCount,
-                                                       float& autoCycleInterval, float& autoCycleAccum,
-                                                       int& autoCycleShotsTaken, int& trackBallIndex,
+RuntimeCaptureResult CaptureController::TickAutoCycle( const AutoCycleCaptureInput& input, AutoCycleCaptureUpdate& update,
                                                        Rendering::Dx12BackbufferCapture& backend )
 {
-    return CaptureSystem::TickAutoCycle( isSceneMode, isInteractiveRun, ballCount, autoCycleInterval, autoCycleAccum,
-                                         autoCycleShotsTaken, trackBallIndex, *this, backend );
+    return CaptureSystem::TickAutoCycle( input, update, *this, backend );
 }
 #endif
 

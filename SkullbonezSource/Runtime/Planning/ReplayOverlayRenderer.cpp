@@ -565,15 +565,16 @@ void ReplayScrubberComposer::Compose()
 
 void ReplayScrubberComposer::BuildSurface( bool scenePhysicsEnabled )
 {
+    const ReplayScrubberSourceAvailability sources {
+        m_loadedPresentation,
+        m_presentation.PathVisualizer().hasTarget,
+        m_presentation.PredictionTimelineAvailable(),
+        m_presentation.Selection().currentPresentation != nullptr,
+        m_presentation.Selection().currentSolver != nullptr,
+        scenePhysicsEnabled,
+    };
     ReplayScrubberSurfaceInput input = DescribeReplayScrubberAvailability( m_scrubber, m_presentation.SolverStats(),
-                                                                           m_loadedPresentation,
-                                                                           m_presentation.PathVisualizer().hasTarget,
-                                                                           m_presentation.PredictionTimelineAvailable(),
-                                                                           m_presentation.Selection().currentPresentation !=
-                                                                               nullptr,
-                                                                           m_presentation.Selection().currentSolver !=
-                                                                               nullptr,
-                                                                           scenePhysicsEnabled );
+                                                                           sources );
     input.screenW = m_viewport.width;
     input.screenH = m_viewport.height;
     input.gesture = m_gesture.scrubDrag ? ReplayToolGestureKind::ScrubDrag

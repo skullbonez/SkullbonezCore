@@ -225,8 +225,9 @@ bool CaptureSystem::TryBuildScreenshotAndExitPath( const char* scenePath, char* 
 }
 
 
-SkullbonezCore::Core::SbResult CaptureSystem::SaveScreenshotBytesAtomic(
-    SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, std::span<const uint8_t> bytes )
+SkullbonezCore::Core::SbResult
+CaptureSystem::SaveScreenshotBytesAtomic( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
+                                          std::span<const uint8_t> bytes )
 {
     const std::string_view byteView = bytes.empty()
                                           ? std::string_view {}
@@ -419,25 +420,23 @@ bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState&
 
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
 RuntimeCaptureResult CaptureSystem::TickScreenshots( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                     RunScreenshotState& screenshot, bool isSceneMode,
-                                                     bool isInteractiveRun, int currentFrame, double elapsedMs,
-                                                     const char* currentScenePath, CaptureController& capture,
-                                                     Rendering::Dx12BackbufferCapture& backend )
+                                                     RunScreenshotState& screenshot, const ScreenshotFrameInput& input,
+                                                     CaptureController& capture, Rendering::Dx12BackbufferCapture& backend )
 {
-    if ( isSceneMode && screenshot.isScreenshotAndExit && currentFrame == 0 )
+    if ( input.sceneMode && screenshot.isScreenshotAndExit && input.frame == 0 )
     {
-        if ( !currentScenePath )
+        if ( !input.scenePath )
         {
             return {};
         }
 
         char outPath[256];
 
-        if ( !TryBuildScreenshotAndExitPath( currentScenePath, outPath, sizeof( outPath ) ) )
+        if ( !TryBuildScreenshotAndExitPath( input.scenePath, outPath, sizeof( outPath ) ) )
         {
             return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None,
                      diagnostics.Failure( "Runtime/CaptureSystem",
-                                          "Could not derive screenshot-and-exit path from scene: %s", currentScenePath ) };
+                                          "Could not derive screenshot-and-exit path from scene: %s", input.scenePath ) };
         }
 
         const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, outPath );
@@ -448,10 +447,11 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( SkullbonezCore::Core::SbDia
         }
 
         return { true, RuntimeCaptureCompletion::ScreenshotAndExit,
-                 CompletionAutomation( isInteractiveRun, RuntimeCaptureAutomation::Quit ) };
+                 CompletionAutomation( input.interactiveRun, RuntimeCaptureAutomation::Quit ) };
     }
 
-    const ScreenshotCapturePlan plan = BuildScreenshotCapturePlan( screenshot, isSceneMode, currentFrame, elapsedMs );
+    const ScreenshotCapturePlan plan = BuildScreenshotCapturePlan( screenshot, input.sceneMode, input.frame,
+                                                                   input.elapsedMs );
     RuntimeCaptureResult result;
 
     if ( plan.oneShotDue )
@@ -465,7 +465,7 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( SkullbonezCore::Core::SbDia
 
         screenshot.isScreenshotSaved = true;
         result = { true, RuntimeCaptureCompletion::Screenshot,
-                   CompletionAutomation( isInteractiveRun, RuntimeCaptureAutomation::AdvanceSceneOrQuit ) };
+                   CompletionAutomation( input.interactiveRun, RuntimeCaptureAutomation::AdvanceSceneOrQuit ) };
     }
 
     if ( plan.intervalDue )
@@ -495,18 +495,17 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( SkullbonezCore::Core::SbDia
     return result;
 }
 
-RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode, bool isInteractiveRun, int ballCount,
-                                                   float& autoCycleInterval, float& autoCycleAccum, int& autoCycleShotsTaken,
-                                                   int& trackBallIndex, CaptureController& capture,
-                                                   Rendering::Dx12BackbufferCapture& backend )
+RuntimeCaptureResult CaptureSystem::TickAutoCycle( const AutoCycleCaptureInput& input, AutoCycleCaptureUpdate& update,
+                                                   CaptureController& capture, Rendering::Dx12BackbufferCapture& backend )
 {
-    if ( !isSceneMode || autoCycleInterval <= 0.0f || autoCycleAccum < autoCycleInterval )
+    update = {};
+    if ( !input.Due() )
     {
         return {};
     }
 
     char shotPath[256];
-    sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", autoCycleShotsTaken );
+    sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", input.shotsTaken );
     const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, shotPath );
 
     if ( !captureResult.Ok() )
@@ -514,19 +513,21 @@ RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode, bool isInte
         return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
     }
 
-    fprintf( stdout, "Auto-shot %d: ball index %d -> %s\n", autoCycleShotsTaken, trackBallIndex, shotPath );
+    fprintf( stdout, "Auto-shot %d: ball index %d -> %s\n", input.shotsTaken, input.trackedBallIndex, shotPath );
     fflush( stdout );
 
-    ++autoCycleShotsTaken;
-    autoCycleAccum = 0.0f;
+    update.apply = true;
+    update.accumulatedSeconds = 0.0f;
+    update.shotsTaken = input.shotsTaken + 1;
+    update.trackedBallIndex = input.trackedBallIndex;
 
-    if ( autoCycleShotsTaken >= ballCount )
+    if ( update.shotsTaken >= input.ballCount )
     {
         return { false, RuntimeCaptureCompletion::AutoCycle,
-                 CompletionAutomation( isInteractiveRun, RuntimeCaptureAutomation::Quit ) };
+                 CompletionAutomation( input.interactiveRun, RuntimeCaptureAutomation::Quit ) };
     }
 
-    trackBallIndex = ( trackBallIndex + 1 ) % ballCount;
+    update.trackedBallIndex = ( input.trackedBallIndex + 1 ) % input.ballCount;
     return {};
 }
 #endif

@@ -1766,13 +1766,11 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     const bool scrubDragActive = frame.gesture == ReplayToolGestureKind::ScrubDrag;
     const bool horizonDragActive = frame.gesture == ReplayToolGestureKind::PredictionHorizonDrag;
 
-    ReplayScrubberSurfaceInput surfaceInput = DescribeReplayScrubberAvailability( View(), frame.solverStats,
-                                                                                  frame.loadedPresentation,
-                                                                                  frame.pathTargetAvailable,
-                                                                                  frame.predictionTimelineAvailable,
-                                                                                  frame.currentPresentationAvailable,
-                                                                                  frame.currentSolverAvailable,
-                                                                                  frame.scenePhysicsEnabled );
+    const ReplayScrubberSourceAvailability sources {
+        frame.loadedPresentation,           frame.pathTargetAvailable,    frame.predictionTimelineAvailable,
+        frame.currentPresentationAvailable, frame.currentSolverAvailable, frame.scenePhysicsEnabled,
+    };
+    ReplayScrubberSurfaceInput surfaceInput = DescribeReplayScrubberAvailability( View(), frame.solverStats, sources );
 
     surfaceInput.predictionEnabled = frame.predictionEnabled;
     surfaceInput.predictionHighDetail = frame.predictionHighDetail;
