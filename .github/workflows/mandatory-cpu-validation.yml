@@ -266,15 +266,19 @@ jobs:
           New-Item -ItemType Directory -Force -Path $evidence | Out-Null
           $env:SKULLBONEZ_PSO_CACHE_DIR = Join-Path $evidence "pso-cache"
           New-Item -ItemType Directory -Force -Path $env:SKULLBONEZ_PSO_CACHE_DIR | Out-Null
+          $stdout = Join-Path $evidence "process.stdout.log"
+          $stderr = Join-Path $evidence "process.stderr.log"
+          $executable = (Resolve-Path Debug\SKULLBONEZ_CORE.exe).Path
           if ($env:PHYSICS_CASE -eq "lifecycle-smoke") {
-            & .\Debug\SKULLBONEZ_CORE.exe --physics-standalone-smoke *> (Join-Path $evidence "process.log")
-            if ($LASTEXITCODE -ne 0) { throw "Lifecycle smoke failed (exit $LASTEXITCODE)" }
+            $process = Start-Process -FilePath $executable -ArgumentList @("--physics-standalone-smoke") -WorkingDirectory $env:GITHUB_WORKSPACE -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            if ($process.ExitCode -ne 0) { throw "Lifecycle smoke failed (exit $($process.ExitCode))" }
           }
           else {
             $regression = (Resolve-Path Debug).Path + "\physics_regression_varied.csv"
             $perf = (Resolve-Path $evidence).Path + "\perf.csv"
-            & .\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_bench_varied.scene.json --perf-log $perf --physics-regression-log $regression *> (Join-Path $evidence "process.log")
-            if ($LASTEXITCODE -ne 0) { throw "Varied scene failed (exit $LASTEXITCODE)" }
+            $arguments = @("--renderer", "dx12", "--vsync", "off", "--fixed-step", "--shadows", "off", "--scene", "SkullbonezData/scenes/physics_bench_varied.scene.json", "--perf-log", $perf, "--physics-regression-log", $regression)
+            $process = Start-Process -FilePath $executable -ArgumentList $arguments -WorkingDirectory $env:GITHUB_WORKSPACE -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            if ($process.ExitCode -ne 0) { throw "Varied scene failed (exit $($process.ExitCode))" }
             $env:SKORE_REPO = $env:GITHUB_WORKSPACE
             python tools\check_physics_regression.py
             if ($LASTEXITCODE -ne 0) { throw "Physics comparison failed (exit $LASTEXITCODE)" }
