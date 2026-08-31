@@ -1,9 +1,16 @@
 # MASTER PLAN
 
-Date: 2026-08-30
-Status: No active plan; 135/135 tasks complete; bug ledger 126/126 fixed
+Date: 2026-08-31
+Status: Engine Signature And Context Cohesion active; 136/142 tasks complete;
+bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- Engine Signature And Context Cohesion was activated by explicit owner
+  direction on 2026-08-31. SC0-SC6 refresh the whole-engine compiler inventory,
+  repair confirmed signature/context ownership defects in dependency order,
+  and close with one cumulative validation/review pass. Work proceeds in
+  cohesive owner-local batches rather than one build per small edit.
 
 - Runtime Reserve Allocation Transaction completed at 4/4 on 2026-08-30.
   Source Design Validation Throughput then completed at 5/5 on the same
@@ -321,7 +328,9 @@ Completed plan files were deleted; git history is the archive.
 
 ## Active Plans
 
-No active plans.
+| Plan | Status | Phases | File |
+|---|---|---|---|
+| Engine Signature And Context Cohesion | Active 2026-08-31 | 1/7 | `TODO/engine-signature-and-context-cohesion.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -358,6 +367,11 @@ One detail in that table is recorded:
 
 ## Binding Order
 
+`SIGNATURE_COHESION` SC0-SC6 is the sole active plan and executes in strict
+internal order. SC0's current inventory and coverage proof precede production
+edits; SC1-SC5 run as cohesive owner-local implementation batches; SC6 owns the
+final rescan, independent review, and terminal validation.
+
 `RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
 complete on `codex/replay-capture-bugfixes`.
 
@@ -390,7 +404,8 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-135/135 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
+136/142 implementation tasks complete, and all 126 bug-ledger rows are fixed. Engine
+Signature And Context Cohesion is active at 1/7. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen

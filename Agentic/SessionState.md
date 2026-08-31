@@ -1,11 +1,21 @@
 # Session State
 
 Date: 2026-08-31
-Branch: `codex/replay-capture-bugfixes`
-Status: No active plan; accepted persistent-island sleep implementation ready
-for PR; all plans archived in WNF
+Branch: `nightrunner-31st-AUG-26`
+Status: Engine Signature And Context Cohesion active at 1/7; portfolio 136/142
 
 ## Current State
+
+The owner activated `SIGNATURE_COHESION` SC0-SC6 on the current Night Runner
+branch and requested substantial related batches instead of a build after each
+small signature change. SC0 is complete: the advisory compiler scan covers 736
+first-party source/header files under 6,435 distinct compile contexts and
+reports 698 deterministic review candidates with zero infrastructure errors.
+SC1 now repairs the motivating Physics broadphase surface as one cohesive
+production/test batch before any build. No baseline refresh is authorized. The
+live work ledger is temporarily owned by unfinished task `GOV1` in another
+Codex session, so this run cannot open its own ledger row until that external
+metadata owner finishes.
 
 The owner visually accepted the persistent deterministic simulation-island
 sleep policy as-is. The scoped result makes a sphere on terrain steeper than

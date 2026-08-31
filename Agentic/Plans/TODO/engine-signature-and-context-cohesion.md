@@ -1,12 +1,11 @@
 # Engine Signature And Context Cohesion
 
-Date: 2026-08-29
-Status: WNF — owner-parked 2026-08-29; restore to `TODO/` only by explicit
-owner decision. 0/7 phases complete.
+Date: 2026-08-31
+Status: Active by explicit owner direction on 2026-08-31; 1/7 phases complete.
 Impact area: all first-party C++ engine packages, tests, compiler-backed source
 design inspection, dependency direction, and focused subsystem validation.
 Owner: Engine architecture owner
-Priority: Parked readability and ownership follow-up
+Priority: Current owner-selected plan
 Commit name: `SIGNATURE_COHESION`
 
 ## Owner Direction
@@ -18,9 +17,10 @@ struct. Operations should instead expose a small number of meaningful concepts:
 concrete owners, validated domain values, invariant-owning views, and genuinely
 independent phases.
 
-This plan is parked under `WNF/`. It grants no production-edit or validation-
-policy authority until the owner moves it to `TODO/` and registers it in the
-master plan. Drafting and inventory work do not authorize baseline changes.
+The owner activated this plan on `nightrunner-31st-AUG-26` and directed that
+related changes be implemented in substantial batches rather than building
+after each small signature edit. No phase authorizes a golden or baseline
+refresh.
 
 ## Problem
 
@@ -525,9 +525,35 @@ SC0 input even when not repeated in this table. SC0 must add a row when a
 consumer receives several of them together, when two duplicate fields, or when
 one is used only as forwarding storage.
 
+## SC0 Inventory Evidence
+
+The refreshed compiler-backed census covers 736 first-party source and header
+files under 6,435 distinct project/configuration contexts. It reports 698
+deduplicated review candidates: 517 operations with at least eight parameters
+and 181 context-family records with at least four fields. The run completed
+with zero parse or infrastructure errors. The deterministic output is frozen at
+`Artifacts/engine-signature-and-context-cohesion/sc0-source-design-inventory.txt`;
+the local execution logs remain under
+`TestOutput/validation/signature-context/`.
+
+The current-tree operation and aggregate tables above provide the qualitative
+package pass and initial decisions for Core, Maths, Physics, Gameplay, Assets,
+Rendering, Scene, World, UI, every Runtime sub-package, and Tests. Assets has no
+structural match in the current compiler census; its public surface remains in
+the qualitative review rather than being omitted. The candidate worksheet will
+gain final caller/lifetime/evidence decisions in each owning implementation
+phase, and SC6 will reconcile every frozen SC0 row against the final tree.
+
+Focused evidence mapped at activation is: source-design plus Physics
+determinism/allocation gates for SC1-SC2; source-design plus command/resource
+and shader-contract gates for SC3; source-design plus Replay fidelity,
+unchanged-manifest, allocation, and dependency gates for SC4-SC5; and the full
+validation map plus independent review for SC6. SC0 itself changes advisory
+tooling and documentation only, so no product build is required.
+
 ## Phases
 
-- [ ] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add
+- [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add
   or run the advisory compiler-backed inventory across all first-party
   translation units and distinct header-consumer contexts. Complete the
   qualitative package pass, populate the candidate worksheet, and record the
