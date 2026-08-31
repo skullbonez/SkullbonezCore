@@ -66,8 +66,15 @@ frame fields with eight cohesive detached sections while retaining the existing
 narrow tab projections. The Profile solution builds warning-clean; 913 cases
 and 2,692,662 assertions pass with one expected skip; source-design passes seven
 files under 41 consumer contexts; format, dependency/project ownership,
-build-configuration, and whitespace checks pass. The next batch reconciles the
-remaining SC4/SC5 inventory against the compiler census.
+build-configuration, and whitespace checks pass. The sixth grouped slice
+replaces Prediction topology publication's three-pointer context and one-use
+resolver-callback traversal with a scoped topology builder, typed node
+candidates, a concrete affected-marker input, and a target/budget overlay
+request. Profile builds warning-clean; 913 cases and 2,692,417 assertions pass
+with one expected skip; source-design passes three files under 20 consumer
+contexts; format, dependency/project ownership, build-configuration, and
+whitespace checks pass. The next batch reconciles the remaining SC4/SC5
+inventory against the compiler census.
 No baseline refresh
 is authorized. The live work ledger is temporarily owned by
 unfinished task `GOV1` in another Codex session, so this run cannot open its own

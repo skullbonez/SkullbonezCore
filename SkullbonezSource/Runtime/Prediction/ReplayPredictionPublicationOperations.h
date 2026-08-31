@@ -188,10 +188,11 @@ bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySa
 
 // Advances the production suffix scan to one coherent prefix. False means the
 // budget expired and the per-node cursors own the exact resume point.
-inline bool AdvanceReplayPredictionChildMarkerScan( ReplayPredictionChildMarkerScanState& scan, const RunReplayPredictionState& prediction,
-                                                    const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount, ReplayFrameIndex revealFrame,
-                                                    uint32_t generation, Physics::PhysicsSceneObjectId targetId, bool usingBuildFrames, bool bufferComplete,
-                                                    const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds );
+inline bool AdvanceReplayPredictionChildMarkerScan(
+    ReplayPredictionChildMarkerScanState& scan, const RunReplayPredictionState& prediction,
+    const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount, ReplayFrameIndex revealFrame,
+    uint32_t generation, Physics::PhysicsSceneObjectId targetId, bool usingBuildFrames, bool bufferComplete,
+    const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds );
 std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
                                                      std::size_t frameCount, ReplayFrameIndex revealFrame,
                                                      Physics::PhysicsSceneObjectId rootId, int rootModelIndex,
@@ -202,10 +203,18 @@ bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame
                                       Physics::PhysicsSceneObjectId id, int modelIndexHint,
                                       Math::Vector::Vector3& outPosition, Math::Orientation::Quaternion& outOrientation );
 void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction );
+
+struct ReplayPredictionOverlayRequest
+{
+    Physics::PhysicsSceneObjectId targetId;
+    Physics::ModelRowHint targetModelRow;
+    bool targetAvailable = false;
+    double budgetMilliseconds = 0.0;
+};
+
 void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, ReplayPredictionSceneView scene,
-                                     const Physics::ColliderStore& colliderStore, Physics::PhysicsSceneObjectId targetId,
-                                     Physics::ModelRowHint targetModelRow, bool targetAvailable, double budgetMilliseconds,
-                                     ReplayPredictionUpdateResult& result );
+                                     const Physics::ColliderStore& colliderStore,
+                                     const ReplayPredictionOverlayRequest& request, ReplayPredictionUpdateResult& result );
 } // namespace ReplayPredictionPublicationOperations
 } // namespace Runtime
 } // namespace SkullbonezCore

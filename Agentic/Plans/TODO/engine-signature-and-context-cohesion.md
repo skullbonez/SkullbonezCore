@@ -769,6 +769,23 @@ contexts with no findings. Formatting, dependency/project ownership,
 build-configuration consistency, and whitespace checks pass. No baseline or
 golden changed.
 
+The sixth grouped slice closes the seven SC0 candidates in Prediction topology
+publication. A scoped topology builder now owns the mutable future-node output
+and immutable scene/root policy; the redundant prediction pointer and optional
+node pointer are gone. Node admission consumes one typed candidate, and the
+builder directly owns its one contact traversal instead of receiving five
+resolver callbacks. Affected-marker publication receives one concrete input,
+while overlay preparation receives one target/availability/budget request.
+Budget resume cursors, contact precedence, ragdoll aggregation, topology
+versioning, and publication order remain unchanged.
+
+The Profile solution builds warning-clean. The normal test suite passes 913
+cases and 2,692,417 assertions with one expected skip. Compiler-backed
+source-design passes the three changed source-bearing files under 20 consumer
+contexts with no findings. Formatting, dependency/project ownership,
+build-configuration consistency, and whitespace checks pass. No baseline or
+golden changed.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add

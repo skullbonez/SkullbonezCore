@@ -1363,8 +1363,10 @@ void ReplayPrediction::PreparePresentation( ReplayPredictionSceneView scene, con
                                             ReplayPredictionUpdateResult& result )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay" );
-    PrepareReplayPredictionOverlay( m_state, scene, colliderStore, targetId, targetModelRow, targetAvailable,
-                                    budgetMilliseconds, result );
+    PrepareReplayPredictionOverlay( m_state, scene, colliderStore,
+                                    ReplayPredictionOverlayRequest { targetId, targetModelRow, targetAvailable,
+                                                                     budgetMilliseconds },
+                                    result );
 }
 void ReplayPrediction::MarkDirty() noexcept
 {
