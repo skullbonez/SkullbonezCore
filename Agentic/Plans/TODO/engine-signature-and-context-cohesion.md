@@ -801,6 +801,22 @@ contexts with no findings. Formatting and whitespace checks pass; dependency,
 project ownership, and build-configuration consistency are included in this
 slice's grouped closure checks. No baseline or golden changed.
 
+The eighth grouped slice removes the seven-field `RenderResourceContext` from
+ten render-pass resource operations. Fullscreen, sky, scene-target, reflection,
+shadow, object, terrain, water, volumetric, and tonemap setup now receive only
+the assets, resource builder, geometry owner, cinematic state, or window extent
+they consume. The debug-overlay resource ensure was a no-op and is deleted;
+the two forwarding accessors and the public context-construction seam are gone.
+`RuntimeRenderer` remains the resource-epoch sequencer and retains no duplicate
+pass-resource context.
+
+The Profile solution builds warning-clean. The normal test suite passes 913
+cases and 2,692,412 assertions with one expected skip. Compiler-backed
+source-design passes the four changed source-bearing files under 30 consumer
+contexts with no findings. Formatting, dependency/project ownership,
+build-configuration consistency, and whitespace checks pass. No baseline or
+golden changed.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add

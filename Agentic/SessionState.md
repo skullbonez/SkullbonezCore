@@ -80,8 +80,16 @@ their consuming owners. `RuntimeRenderer` retains only window, environment,
 and profiler, while `RenderResourceLifecycle` receives assets, configuration,
 and profiler directly. Profile builds warning-clean; 913 cases and 2,692,057
 assertions pass with one expected skip; source-design passes six files under 47
-consumer contexts. The next batch reconciles the remaining SC4/SC5 inventory
-against the compiler census. No baseline refresh
+consumer contexts. The eighth grouped slice removes the seven-field
+`RenderResourceContext` from ten pass-resource operations. Each pass now
+receives only its actual asset, resource-builder, geometry, cinematic, or extent
+inputs; the no-op debug ensure and forwarding helpers are gone.
+`RuntimeRenderer` remains the resource-epoch sequencer. Profile builds
+warning-clean; 913 cases and 2,692,412 assertions pass with one expected skip;
+source-design passes four files under 30 consumer contexts; format, dependency/
+project ownership, build-configuration, and whitespace checks pass. The next
+batch reconciles the remaining SC4/SC5 inventory against the compiler census.
+No baseline refresh
 is authorized. The live work ledger is temporarily owned by
 unfinished task `GOV1` in another Codex session, so this run cannot open its own
 ledger row until that external metadata owner finishes.

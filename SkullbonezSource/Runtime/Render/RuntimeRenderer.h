@@ -124,7 +124,6 @@ class RuntimeRenderer
         ResetDebugVisualizerTransientState( m_collisionVisualizer, m_physicsDebugVisualizer, m_broadphaseVisualizer );
     }
 
-    void EnsureFrameResources( const RenderResourceContext& resources );
     bool RenderFrameEntry( const FrameEntryContext& context );
     SkullbonezCore::Core::SbResult ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
     RenderResourceLifecycle& ResourceLifecycle()
@@ -281,9 +280,9 @@ class RuntimeRenderer
         const DebugOverlayPassInputs& pass;
         bool useCinematicTarget = false;
     };
+    void EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight );
     bool RenderPreparedFrame( const FrameEntryContext& context,
                               const SkullbonezCore::Core::CinematicRenderConfig& renderConfig, bool cinematicRender );
-    RenderResourceContext BuildRenderResourceContext( bool cinematicRender );
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
     void FinalizeFrameGraphInternal( const char* declarationOnlyPassName, bool appendPresent, bool releaseGraphStorage );

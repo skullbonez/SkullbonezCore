@@ -1805,18 +1805,6 @@ int RuntimeRenderer::EndUiTextFrame( int drawCallStart )
     m_resources.UiText().ReportRetainedDrawStats();
     return (std::max)( 0, m_resources.RenderDiagnostics().GetFrameDrawCallCount() - drawCallStart );
 }
-RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( bool cinematicRender )
-{
-    return RenderResourceContext { cinematicRender,
-                                   m_resources.Assets(),
-                                   m_resources.RenderResources(),
-                                   m_resources.RenderTextures(),
-                                   m_resources.RenderGeometry(),
-                                   (std::max)( 1, m_window.ClientWidth() ),
-                                   (std::max)( 1, m_window.ClientHeight() ) };
-}
-
-
 RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
                                   Rendering::RenderBackendDX12& backend, Assets::AssetSystem& assets, Window& window,
                                   SkullbonezCore::Core::EngineConfig& config,
@@ -1953,36 +1941,40 @@ RuntimeRenderer::CompileRenderPassGraph( SkullbonezCore::Rendering::RenderGraph&
 }
 
 
-void RuntimeRenderer::EnsureFrameResources( const RenderResourceContext& resources )
+void RuntimeRenderer::EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight )
 {
+    Assets::AssetSystem& assets = m_resources.Assets();
+    Rendering::Dx12ResourceBuilder& renderResources = m_resources.RenderResources();
+    Rendering::Dx12GeometryOwner& renderGeometry = m_resources.RenderGeometry();
+
     // Lifetime: the schedule publishes the cube-map world owner on every
     // resource epoch. Cinematic-only owners stay lazy until their path is live.
-    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::Sky, resources.cinematicEnabled ) )
+    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::Sky, cinematicRender ) )
     {
-        m_skyPass.EnsureGpuResources( resources );
+        m_skyPass.EnsureGpuResources( cinematicRender, assets, renderResources );
     }
 
-    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::FullscreenQuad, resources.cinematicEnabled ) )
+    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::FullscreenQuad, cinematicRender ) )
     {
         // Lifetime: cinematic resources are lazy. A window resize or backend
         // rebuild drops them; the next cinematic frame recreates the targets and
         // shader objects with the current window dimensions.
-        m_fullscreenQuadPass.EnsureGpuResources( resources );
+        m_fullscreenQuadPass.EnsureGpuResources( cinematicRender, renderGeometry );
     }
 
-    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::SceneTarget, resources.cinematicEnabled ) )
+    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::SceneTarget, cinematicRender ) )
     {
-        m_sceneTargetPass.EnsureGpuResources( resources );
+        m_sceneTargetPass.EnsureGpuResources( cinematicRender, renderResources, windowWidth, windowHeight );
     }
 
-    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::Volumetric, resources.cinematicEnabled ) )
+    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::Volumetric, cinematicRender ) )
     {
-        m_volumetricPass.EnsureGpuResources( resources );
+        m_volumetricPass.EnsureGpuResources( cinematicRender, assets, renderResources );
     }
 
-    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::Tonemap, resources.cinematicEnabled ) )
+    if ( RuntimeFrameResourcePassRequired( RuntimeFrameResourcePass::Tonemap, cinematicRender ) )
     {
-        m_tonemapPass.EnsureGpuResources( resources );
+        m_tonemapPass.EnsureGpuResources( cinematicRender, assets, renderResources );
     }
 }
 
@@ -2018,11 +2010,11 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     Rendering::Dx12Diagnostics& renderDiagnostics = m_resources.RenderDiagnostics();
 
     const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && !policy.textOnly;
-
-    const RenderResourceContext resourceContext = BuildRenderResourceContext( cinematicRender );
+    const int windowWidth = (std::max)( 1, m_window.ClientWidth() );
+    const int windowHeight = (std::max)( 1, m_window.ClientHeight() );
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-        EnsureFrameResources( resourceContext );
+        EnsureFrameResources( cinematicRender, windowWidth, windowHeight );
     }
 
     const bool useCinematicTarget = cinematicRender && m_sceneTargetPass.IsReady();
@@ -2041,8 +2033,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         camera.lightPosition[3] = 0.0f;
     }
 
-    const int windowWidth = (std::max)( 1, m_window.ClientWidth() );
-    const int windowHeight = (std::max)( 1, m_window.ClientHeight() );
     const float waterY = m_world.GetFluidSurfaceHeight();
     const Vector3 reflectionEye( camera.eye.x, 2.0f * waterY - camera.eye.y, camera.eye.z );
     const Vector3 reflectionCenter( camera.viewCenter.x, 2.0f * waterY - camera.viewCenter.y, camera.viewCenter.z );
@@ -2061,10 +2051,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // same resource generation selected for this frame.
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-        m_objectPass.EnsureGpuResources( resourceContext );
-        m_terrainPass.EnsureGpuResources( resourceContext, context.terrain );
-        m_waterPass.EnsureGpuResources( resourceContext );
-        m_debugOverlayPass.EnsureGpuResources( resourceContext );
+        m_objectPass.EnsureGpuResources( m_resources.Assets(), renderResources, renderGeometry );
+        m_terrainPass.EnsureGpuResources( context.terrain, m_resources.Assets(), renderResources );
+        m_waterPass.EnsureGpuResources( m_resources.Assets(), renderResources );
     }
 
     // Defer the first DX12 command-list open until after CPU-side model prep so
@@ -2093,7 +2082,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
             context.terrain->EnsureShadowDepthResources();
         }
 
-        m_shadowPass.EnsureGpuResources( resourceContext, *activeShadowConfig, context.terrain );
+        m_shadowPass.EnsureGpuResources( renderResources, *activeShadowConfig );
     }
 
     ShadowPassOutput shadowPass;
@@ -2171,7 +2160,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-            m_reflectionPass.EnsureGpuResources( resourceContext );
+            m_reflectionPass.EnsureGpuResources( renderResources, windowWidth, windowHeight );
         }
         const ReflectionPassInputs reflectionInputs { camera,
                                                       models,

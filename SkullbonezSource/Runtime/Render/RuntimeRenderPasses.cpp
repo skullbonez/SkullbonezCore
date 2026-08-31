@@ -300,16 +300,6 @@ void BindRenderTextureSlots( SkullbonezCore::Rendering::Dx12TextureOwner& render
     }
 }
 
-SkullbonezCore::Rendering::Dx12ResourceBuilder& RenderResources( const RenderResourceContext& resources )
-{
-    return resources.renderResources;
-}
-
-SkullbonezCore::Rendering::Dx12GeometryOwner& RenderGeometry( const RenderResourceContext& resources )
-{
-    return resources.renderGeometry;
-}
-
 bool ReportRenderTextureResult( const char* passName, const SkullbonezCore::Core::SbResult& result )
 {
     if ( result.Ok() )
@@ -479,9 +469,9 @@ void RenderResourceLifecycleLog::Write( const char* phase, const char* step ) co
 }
 
 
-void FullscreenQuadPass::EnsureGpuResources( const RenderResourceContext& resources )
+void FullscreenQuadPass::EnsureGpuResources( bool cinematicEnabled, Rendering::Dx12GeometryOwner& renderGeometry )
 {
-    if ( !resources.cinematicEnabled )
+    if ( !cinematicEnabled )
     {
         return;
     }
@@ -491,7 +481,7 @@ void FullscreenQuadPass::EnsureGpuResources( const RenderResourceContext& resour
         // Full-screen shaders draw one rectangle; each vertex stores screen xy
         // plus uv, and every pass gives that same geometry its own shader meaning.
         const int attribs[] = { 2, 2 };
-        m_resources.quadVB = RenderGeometry( resources ).CreateDynamicVB( attribs, 2, 6 );
+        m_resources.quadVB = renderGeometry.CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
@@ -507,14 +497,15 @@ void FullscreenQuadPass::ReleaseGpuResources( Rendering::Dx12GeometryOwner* rend
 }
 
 
-void SkyPass::EnsureGpuResources( const RenderResourceContext& resources )
+void SkyPass::EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets,
+                                  Rendering::Dx12ResourceBuilder& renderResources )
 {
     // Lifetime: frame-resource publication is also the world-view publication
     // boundary. ReleaseGpuResources closes this borrow before any backend-owned
     // state is torn down; a later rebuild observes the current scene owner.
     m_worldViewLease.Open( m_skyBox.get() );
 
-    if ( !resources.cinematicEnabled )
+    if ( !cinematicEnabled )
     {
         return;
     }
@@ -523,8 +514,7 @@ void SkyPass::EnsureGpuResources( const RenderResourceContext& resources )
     {
         // Procedural sky shader: draws generated sunset/cloud color when the
         // cinematic config opts out of the authored cube-map skybox.
-        m_skyResources.atmosphereShader = resources.assets.CreateShader( RenderResources( resources ),
-                                                                         "shader.sky_atmosphere" );
+        m_skyResources.atmosphereShader = assets.CreateShader( renderResources, "shader.sky_atmosphere" );
     }
 }
 
@@ -542,15 +532,16 @@ SkullbonezCore::Geometry::SkyBox& SkyPass::RequireWorldView( const char* operati
 }
 
 
-void SceneTargetPass::EnsureGpuResources( const RenderResourceContext& resources )
+void SceneTargetPass::EnsureGpuResources( bool cinematicEnabled, Rendering::Dx12ResourceBuilder& renderResources,
+                                          int windowWidth, int windowHeight )
 {
-    if ( !resources.cinematicEnabled )
+    if ( !cinematicEnabled )
     {
         return;
     }
 
-    const int w = resources.windowWidth;
-    const int h = resources.windowHeight;
+    const int w = windowWidth;
+    const int h = windowHeight;
     const bool needsSceneTarget = !m_resources.hdrTarget || m_resources.hdrTarget->GetWidth() != w ||
                                   m_resources.hdrTarget->GetHeight() != h ||
                                   m_resources.hdrTarget->GetColorFormat() !=
@@ -566,7 +557,7 @@ void SceneTargetPass::EnsureGpuResources( const RenderResourceContext& resources
         }
 
         m_resources.hdrTarget.reset();
-        m_resources.hdrTarget = RenderResources( resources )
+        m_resources.hdrTarget = renderResources
                                     .CreateFramebuffer( w, h, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
     }
 }
@@ -589,14 +580,14 @@ bool SceneTargetPass::IsReady() const
 }
 
 
-void ReflectionPass::EnsureGpuResources( const RenderResourceContext& resources )
+void ReflectionPass::EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources, int windowWidth, int windowHeight )
 {
     // Why: water distortion already filters this image, while a 2x target made
     // the procedural reflection sky shade four times as many pixels as the main
     // view every frame. Native resolution preserves the authored reflection and
     // post style without spending supersampling on a warped secondary image.
-    const int fboW = resources.windowWidth;
-    const int fboH = resources.windowHeight;
+    const int fboW = windowWidth;
+    const int fboH = windowHeight;
     const bool needsReflectionTarget = !m_resources.target || m_resources.target->GetWidth() != fboW ||
                                        m_resources.target->GetHeight() != fboH ||
                                        m_resources.target->GetColorFormat() !=
@@ -612,7 +603,7 @@ void ReflectionPass::EnsureGpuResources( const RenderResourceContext& resources 
         }
 
         m_resources.target.reset();
-        m_resources.target = RenderResources( resources ).CreateFramebuffer( fboW, fboH );
+        m_resources.target = renderResources.CreateFramebuffer( fboW, fboH );
     }
 }
 
@@ -632,9 +623,8 @@ void ReflectionPass::ReleaseGpuResources()
 }
 
 
-void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
-                                     const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                     Geometry::Terrain* /*terrain*/ )
+void ShadowPass::EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
+                                     const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     if ( !cinematic.shadow.enabled )
     {
@@ -657,7 +647,7 @@ void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
         if ( needsTarget )
         {
             target.reset();
-            target = RenderResources( resources ).CreateFramebuffer( mapSize, mapSize );
+            target = renderResources.CreateFramebuffer( mapSize, mapSize );
         }
     };
 
@@ -1287,17 +1277,14 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
 }
 
 
-void ObjectPass::EnsureGpuResources( const RenderResourceContext& resources )
+void ObjectPass::EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
+                                     Rendering::Dx12GeometryOwner& renderGeometry )
 {
     // Collision-state solids can be selected by the ordinary or reflection
     // object pass. Prepare their lazy backend objects here while the caller owns
     // the BackendInit allocation phase, before either guarded draw path.
     PrepareCollisionVisualizerResourcePhase(
-        [&]()
-        {
-            m_collisionVisualizer.EnsureGpuResources( resources.assets, resources.renderResources,
-                                                      resources.renderGeometry );
-        },
+        [&]() { m_collisionVisualizer.EnsureGpuResources( assets, renderResources, renderGeometry ); },
         [&]() { return m_collisionVisualizer.ResourcesReady(); } );
 }
 
@@ -1332,13 +1319,14 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
 }
 
 
-void TerrainPass::EnsureGpuResources( const RenderResourceContext& resources, Geometry::Terrain* terrain )
+void TerrainPass::EnsureGpuResources( Geometry::Terrain* terrain, Assets::AssetSystem& assets,
+                                      Rendering::Dx12ResourceBuilder& renderResources )
 {
     // Terrain mesh/material resources live on Terrain; this pass owns ordering
     // and the receiver texture-slot contract.
     if ( terrain )
     {
-        terrain->EnsureRenderResources( m_config, resources.assets, RenderResources( resources ) );
+        terrain->EnsureRenderResources( m_config, assets, renderResources );
     }
 }
 
@@ -1393,11 +1381,11 @@ void WaterPass::Render( const WaterPassInputs& inputs )
 }
 
 
-void WaterPass::EnsureGpuResources( const RenderResourceContext& resources )
+void WaterPass::EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources )
 {
     // Water shader/mesh resources are owned by WorldEnvironment; this pass
     // makes reflection input explicit and keeps water downstream of reflection.
-    m_world.EnsureRenderResources( m_config, resources.assets, RenderResources( resources ) );
+    m_world.EnsureRenderResources( m_config, assets, renderResources );
 }
 
 
@@ -1599,12 +1587,6 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
 }
 
 
-void DebugOverlayPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ )
-{
-    // Debug visualizers own their transient geometry; this pass owns late-frame
-    // ordering so diagnostics draw over production geometry.
-}
-
 DebugOverlayPass::~DebugOverlayPass() = default;
 
 void DebugOverlayPass::ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry )
@@ -1754,9 +1736,10 @@ void DebugOverlayPass::RenderLauncherShots( const DebugOverlayPassInputs& inputs
 }
 
 
-void VolumetricPass::EnsureGpuResources( const RenderResourceContext& resources )
+void VolumetricPass::EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets,
+                                         Rendering::Dx12ResourceBuilder& renderResources )
 {
-    if ( !resources.cinematicEnabled )
+    if ( !cinematicEnabled )
     {
         return;
     }
@@ -1765,8 +1748,7 @@ void VolumetricPass::EnsureGpuResources( const RenderResourceContext& resources 
     {
         // Half-resolution pass: creates warm light shafts that tonemap can add
         // without making every world shader understand volumetric lighting.
-        m_volumetricResources.shader = resources.assets.CreateShader( RenderResources( resources ),
-                                                                      "shader.post_volumetric_light" );
+        m_volumetricResources.shader = assets.CreateShader( renderResources, "shader.post_volumetric_light" );
     }
 }
 
@@ -1858,9 +1840,10 @@ bool VolumetricPass::Render( const RenderCameraLighting& camera,
 }
 
 
-void TonemapPass::EnsureGpuResources( const RenderResourceContext& resources )
+void TonemapPass::EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets,
+                                      Rendering::Dx12ResourceBuilder& renderResources )
 {
-    if ( !resources.cinematicEnabled )
+    if ( !cinematicEnabled )
     {
         return;
     }
@@ -1869,7 +1852,7 @@ void TonemapPass::EnsureGpuResources( const RenderResourceContext& resources )
     {
         // Final full-screen shader: combines HDR scene color, depth fog, bloom,
         // grade, vignette, and optional volumetric light into the backbuffer.
-        m_tonemapResources.shader = resources.assets.CreateShader( RenderResources( resources ), "shader.post_tonemap" );
+        m_tonemapResources.shader = assets.CreateShader( renderResources, "shader.post_tonemap" );
     }
 }
 
