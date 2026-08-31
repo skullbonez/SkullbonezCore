@@ -75,17 +75,16 @@ using SkullbonezCore::Core::StdioFile;
 } // namespace
 
 
-Terrain::Terrain( ValidatedHeightMapTag, const SkullbonezCore::Core::EngineConfig& config,
-                  SkullbonezCore::Assets::AssetSystem* assets, Dx12ResourceBuilder* resources, int mapSize, int stepSize,
-                  int textureWrap, std::size_t pixelCount, int postsPerSide, std::size_t postCount, std::size_t quadCount )
+Terrain::Terrain( ValidatedHeightMapGeometry geometry, const SkullbonezCore::Core::EngineConfig& config,
+                  SkullbonezCore::Assets::AssetSystem* assets, Dx12ResourceBuilder* resources )
 {
-    m_mapSize = mapSize;
-    m_stepSize = stepSize;
-    m_textureWrap = textureWrap;
-    m_postsPerSide = postsPerSide;
-    m_pixelCount = pixelCount;
-    m_postCount = postCount;
-    m_quadCount = quadCount;
+    m_mapSize = geometry.mapSize;
+    m_stepSize = geometry.stepSize;
+    m_textureWrap = geometry.textureWrap;
+    m_postsPerSide = geometry.postsPerSide;
+    m_pixelCount = geometry.pixelCount;
+    m_postCount = geometry.postCount;
+    m_quadCount = geometry.quadCount;
     m_isFlatSlope = false;
     m_slopeBaseY = 0.0f;
     m_slopeX = 0.0f;
@@ -106,15 +105,10 @@ Terrain::Terrain( ValidatedHeightMapTag, const SkullbonezCore::Core::EngineConfi
 
 
 SkullbonezCore::Core::SbResult Terrain::TryValidateHeightMapDimensions( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                        int mapSize, int stepSize,
-                                                                        std::size_t& outPixelCount, int& outPostsPerSide,
-                                                                        std::size_t& outPostCount,
-                                                                        std::size_t& outQuadCount )
+                                                                        int mapSize, int stepSize, int textureWrap,
+                                                                        ValidatedHeightMapGeometry& outGeometry )
 {
-    outPixelCount = 0u;
-    outPostsPerSide = 0;
-    outPostCount = 0u;
-    outQuadCount = 0u;
+    outGeometry = {};
 
     if ( mapSize <= 0 )
     {
@@ -174,10 +168,7 @@ SkullbonezCore::Core::SbResult Terrain::TryValidateHeightMapDimensions( Skullbon
                                     postsPerSide );
     }
 
-    outPixelCount = pixelCount;
-    outPostsPerSide = postsPerSide;
-    outPostCount = postCount;
-    outQuadCount = quadCount;
+    outGeometry = { mapSize, stepSize, textureWrap, pixelCount, postsPerSide, postCount, quadCount };
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -188,22 +179,16 @@ SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( Skullbone
                                                                        const SkullbonezCore::Core::EngineConfig& config,
                                                                        std::unique_ptr<Terrain>& outTerrain )
 {
-    std::size_t pixelCount = 0u;
-    int postsPerSide = 0;
-    std::size_t postCount = 0u;
-    std::size_t quadCount = 0u;
+    ValidatedHeightMapGeometry geometry;
     const SkullbonezCore::Core::SbResult shapeResult = TryValidateHeightMapDimensions( diagnostics, mapSize, stepSize,
-                                                                                       pixelCount, postsPerSide, postCount,
-                                                                                       quadCount );
+                                                                                       textureWrap, geometry );
 
     if ( !shapeResult.Ok() )
     {
         return shapeResult;
     }
 
-    std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( ValidatedHeightMapTag {}, config, nullptr, nullptr,
-                                                                  mapSize, stepSize, textureWrap, pixelCount, postsPerSide,
-                                                                  postCount, quadCount );
+    std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( geometry, config, nullptr, nullptr );
 
     const SkullbonezCore::Core::SbResult loadResult = terrain->LoadTerrainData( diagnostics, fileName );
 
@@ -230,22 +215,16 @@ Terrain::TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagno
     // Concept: RAW terrain files are external asset input. The factory keeps
     // a failed load out of the scene owner and report recoverable error instead of
     // letting constructor exceptions escape through scene startup.
-    std::size_t pixelCount = 0u;
-    int postsPerSide = 0;
-    std::size_t postCount = 0u;
-    std::size_t quadCount = 0u;
+    ValidatedHeightMapGeometry geometry;
     const SkullbonezCore::Core::SbResult shapeResult = TryValidateHeightMapDimensions( diagnostics, mapSize, stepSize,
-                                                                                       pixelCount, postsPerSide, postCount,
-                                                                                       quadCount );
+                                                                                       textureWrap, geometry );
 
     if ( !shapeResult.Ok() )
     {
         return shapeResult;
     }
 
-    std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( ValidatedHeightMapTag {}, config, &assets, &resources,
-                                                                  mapSize, stepSize, textureWrap, pixelCount, postsPerSide,
-                                                                  postCount, quadCount );
+    std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( geometry, config, &assets, &resources );
 
     const SkullbonezCore::Core::SbResult loadResult = terrain->LoadTerrainData( diagnostics, fileName );
 

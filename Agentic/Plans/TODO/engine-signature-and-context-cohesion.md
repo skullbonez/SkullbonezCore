@@ -1,7 +1,7 @@
 # Engine Signature And Context Cohesion
 
 Date: 2026-08-31
-Status: Active by explicit owner direction on 2026-08-31; 2/7 phases complete.
+Status: Active by explicit owner direction on 2026-08-31; 3/7 phases complete.
 Impact area: all first-party C++ engine packages, tests, compiler-backed source
 design inspection, dependency direction, and focused subsystem validation.
 Owner: Engine architecture owner
@@ -579,6 +579,53 @@ matrix remains byte-exact across 0/repeat/1/4 workers at 44,401 lines and
 SHA-256 `03088b30b8826f88a6193e511b7f4205aff9324d06ad08456610aac0e13a3f6b`.
 No baseline or golden changed.
 
+## SC2 Lower-package Decisions And Evidence
+
+The SC0 census contained 100 Maths, Physics, Gameplay, World, and Assets rows:
+85 wide operations and 15 context-family records. Assets had no structural row
+and its qualitative public-surface review found no positional or unrelated-
+borrow repair. The package review made these owner-level decisions:
+
+- `RotationMatrix` now constructs from three explicit basis rows instead of
+  nine adjacent floats. Quaternion and arbitrary-axis callers retain the exact
+  row-major arithmetic and make the matrix meaning visible.
+- Tornado visual vertices now serialize through one `FxVertex` value with named
+  color/UV/style fields. The oversized render operation is split into time
+  selection, active-vortex construction, ribbon emission, dust emission, and
+  draw submission while preserving vertex and command order.
+- Authored Physics refresh uses three aligned spans and rejects mismatched row
+  counts. Both mutable and const hot-field views expose and check their common
+  row domain before leaving `PhysicsBodyStore`.
+- Terrain closest-probe output references became an optional gap result;
+  external-force strongest-field output references became one typed sample;
+  and the ragdoll impulse helper became a two-body operation whose body value
+  applies the exact retained update/clamp sequence.
+- `PhysicsWorld` retains the validated runtime settings it applies, including
+  replay-prediction topology clones, instead of receiving the same settings on
+  every fixed step. Active external-force rows now validate their body count,
+  timer alignment, and finite non-negative timestep at the world boundary.
+- Height-map construction receives one factory-only validated geometry value.
+  Callers can no longer pair dimensions with stale derived pixel/post/quad
+  counts.
+
+The remaining lower-package wide rows are cohesive private SAT/clip, solver,
+force, sleep, terrain-contact, and grid kernels. Their operands are independently
+named algorithm inputs, several are intentionally direct to preserve arithmetic
+order, and no caller repeatedly rebuilds an unrelated owner surface. Wrapping
+those operands would add nominal bags without enforcing a new rule. Physics
+diagnostic and terrain snapshots remain complete synchronous values consumed by
+their owning emit/query operation. World render-facing rows are reviewed with
+their Rendering consumers in SC3 rather than introducing a downward Runtime or
+Rendering concept.
+
+Profile builds warning-clean. The 33 focused Maths/Physics/Gameplay/World cases
+pass 925 assertions. Compiler-backed source-design passes 24 files under 192
+distinct consumer contexts with no findings; dependency, formatting, and
+build-configuration checks pass. The clean-process Physics worker matrix remains
+byte-exact at 44,401 lines and SHA-256
+`03088b30b8826f88a6193e511b7f4205aff9324d06ad08456610aac0e13a3f6b`.
+No baseline or golden changed.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add
@@ -593,7 +640,7 @@ No baseline or golden changed.
   capability. Preserve candidate order, trace order, allocation behavior, and
   exact Physics output. Update the worksheet with before/after production and
   test calls.
-- [ ] **SC2 — Repair Maths, Physics, Gameplay, World, and Assets candidates.** Work
+- [x] **SC2 — Repair Maths, Physics, Gameplay, World, and Assets candidates.** Work
   in independently reviewable owner-local slices. Prioritize hot loops, solver
   stages, and APIs with same-type scalar runs. For every slice, preserve
   floating-point evaluation order and run the owning focused tests. Do not move

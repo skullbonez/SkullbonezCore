@@ -142,21 +142,19 @@ std::span<const int> ExternalForceStage::ReleaseFixedBodies( const ExternalForce
             continue;
         }
 
-        ExternalCylindricalForceField bestField;
-        float bestAccelerationSq = 0.0f;
-        const Vector3 acceleration = SampleAcceleration( input, PhysicsBodyPosition( hotRead, row ), bestField,
-                                                         bestAccelerationSq );
+        const AccelerationSample sample = SampleAcceleration( input, PhysicsBodyPosition( hotRead, row ) );
 
         const float releaseAcceleration = (std::max)( 16.0f, record.contactReleaseImpulseThreshold * 32.0f );
 
-        if ( bestAccelerationSq < releaseAcceleration * releaseAcceleration )
+        if ( sample.strongestAccelerationSquared < releaseAcceleration * releaseAcceleration )
         {
             continue;
         }
 
-        const Vector3 seedLinearVelocity = ClampVectorMagnitude( acceleration * 0.08f,
+        const Vector3 seedLinearVelocity = ClampVectorMagnitude( sample.acceleration * 0.08f,
                                                                  (std::max)( 10.0f,
-                                                                             bestField.maxDeltaVelocityMetersPerSecond *
+                                                                             sample.strongestField
+                                                                                     .maxDeltaVelocityMetersPerSecond *
                                                                                  1.5f ) );
 
         const Vector3 seedAngularVelocity( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
@@ -209,16 +207,16 @@ void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input, 
         }
 
         const Vector3 position = PhysicsBodyPosition( hotRead, row );
-        ExternalCylindricalForceField bestField;
-        float bestAccelerationSq = 0.0f;
-        Vector3 acceleration = SampleAcceleration( input, position, bestField, bestAccelerationSq );
+        const AccelerationSample sample = SampleAcceleration( input, position );
+        Vector3 acceleration = sample.acceleration;
+        const ExternalCylindricalForceField& bestField = sample.strongestField;
         const float dx = position.x - bestField.center.x;
         const float dz = position.z - bestField.center.z;
         const float horizontal = sqrtf( dx * dx + dz * dz );
         const float height = (std::max)( bestField.heightMeters, 1.0f );
         const float height01 = ( position.y - bestField.center.y ) / height;
 
-        if ( bestAccelerationSq <= TOLERANCE * TOLERANCE )
+        if ( sample.strongestAccelerationSquared <= TOLERANCE * TOLERANCE )
         {
             input.exposureSeconds[row] = 0.0f;
             input.repeatCooldownSeconds[row] = (std::max)( 0.0f, input.repeatCooldownSeconds[row] - input.stepSeconds );
@@ -292,13 +290,11 @@ uint64_t ExternalForceStage::CollectMemoryBytes() const
     return m_fixedTreeReleaseWakeScratch.committed_bytes() + m_releaseWakeBodies.committed_bytes();
 }
 
-Vector3 ExternalForceStage::SampleAcceleration( const ExternalForceFrameInput& input, const Vector3& position,
-                                                ExternalCylindricalForceField& outBestField,
-                                                float& outBestAccelerationSq ) const
+ExternalForceStage::AccelerationSample ExternalForceStage::SampleAcceleration( const ExternalForceFrameInput& input,
+                                                                               const Vector3& position ) const
 {
-    Vector3 acceleration = ZERO_VECTOR;
-    outBestField = input.fields.empty() ? ExternalCylindricalForceField {} : input.fields.front();
-    outBestAccelerationSq = 0.0f;
+    AccelerationSample result;
+    result.strongestField = input.fields.empty() ? ExternalCylindricalForceField {} : input.fields.front();
 
     // Invariant: strict-best selection and left-to-right accumulation preserve
     // the pre-extraction ejection owner and exact floating-point witness.
@@ -306,15 +302,15 @@ Vector3 ExternalForceStage::SampleAcceleration( const ExternalForceFrameInput& i
     {
         const Vector3 sample = SampleFieldAcceleration( field, position );
         const float sampleSq = Dot( sample, sample );
-        acceleration += sample;
+        result.acceleration += sample;
 
-        if ( sampleSq > outBestAccelerationSq )
+        if ( sampleSq > result.strongestAccelerationSquared )
         {
-            outBestAccelerationSq = sampleSq;
-            outBestField = field;
+            result.strongestAccelerationSquared = sampleSq;
+            result.strongestField = field;
         }
     }
 
-    return acceleration;
+    return result;
 }
 } // namespace SkullbonezCore::Physics

@@ -167,31 +167,48 @@ void ClampRagdollBodyVelocity( PhysicsBodyHotState& hot )
     hot.angularVelocity = ClampVectorMagnitude( hot.angularVelocity, RAGDOLL_JOINT_MAX_ANGULAR_SPEED );
 }
 
-void ApplyConstraintImpulse( PhysicsBodyRecord& a, PhysicsBodyRecord& b, PhysicsBodyHotState& hotA,
-                             PhysicsBodyHotState& hotB, const Vector3& rA, const Vector3& rB, const Vector3& impulse,
-                             float invMassA, float invMassB )
+struct ConstraintImpulseBody
 {
-    if ( invMassA > 0.0f )
+    PhysicsBodyRecord& record;
+    PhysicsBodyHotState& hot;
+    const Vector3& leverArm;
+    float inverseMass = 0.0f;
+
+    void ApplyPositive( const Vector3& impulse ) const
     {
-        hotA.linearVelocity += impulse * invMassA;
-        hotA.angularVelocity += ApplyRecordInvInertia( a, hotA, CrossProduct( rA, impulse ) );
+        if ( inverseMass > 0.0f )
+        {
+            hot.linearVelocity += impulse * inverseMass;
+            hot.angularVelocity += ApplyRecordInvInertia( record, hot, CrossProduct( leverArm, impulse ) );
+        }
     }
 
-    if ( invMassB > 0.0f )
+    void ApplyNegative( const Vector3& impulse ) const
     {
-        hotB.linearVelocity -= impulse * invMassB;
-        hotB.angularVelocity -= ApplyRecordInvInertia( b, hotB, CrossProduct( rB, impulse ) );
+        if ( inverseMass > 0.0f )
+        {
+            hot.linearVelocity -= impulse * inverseMass;
+            hot.angularVelocity -= ApplyRecordInvInertia( record, hot, CrossProduct( leverArm, impulse ) );
+        }
     }
 
-    if ( invMassA > 0.0f )
+    void ClampVelocity() const
     {
-        ClampRagdollBodyVelocity( hotA );
+        if ( inverseMass > 0.0f )
+        {
+            ClampRagdollBodyVelocity( hot );
+        }
     }
+};
 
-    if ( invMassB > 0.0f )
-    {
-        ClampRagdollBodyVelocity( hotB );
-    }
+void ApplyConstraintImpulse( const ConstraintImpulseBody& bodyA, const ConstraintImpulseBody& bodyB, const Vector3& impulse )
+{
+    // Invariant: A then B impulse application and A then B clamping preserve
+    // the established per-pair floating-point and saturation order.
+    bodyA.ApplyPositive( impulse );
+    bodyB.ApplyNegative( impulse );
+    bodyA.ClampVelocity();
+    bodyB.ClampVelocity();
 }
 
 
@@ -489,8 +506,8 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJoin
             //   freedom point-to-point block.
             if ( iteration == 0 && constraint.accumulatedImpulse != 0.0f )
             {
-                ApplyConstraintImpulse( bodyA, bodyB, hotA, hotB, rA, rB, axis * constraint.accumulatedImpulse, invMassA,
-                                        invMassB );
+                ApplyConstraintImpulse( { bodyA, hotA, rA, invMassA }, { bodyB, hotB, rB, invMassB },
+                                        axis * constraint.accumulatedImpulse );
             }
 
             const Vector3 velA = hotA.linearVelocity + CrossProduct( hotA.angularVelocity, rA );
@@ -503,15 +520,16 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJoin
             const float velocityTarget = std::clamp( ( relVel + biasSpeed ) * ( 1.0f + constraint.damping ),
                                                      -RAGDOLL_JOINT_MAX_BIAS_SPEED, RAGDOLL_JOINT_MAX_BIAS_SPEED );
 
-            const float effectiveMass = ContactSolver::ComputeTwoBodyEffectiveMass( invMassA, invMassB, axis, rA, rB, [&]( const Vector3& v )
-                                                                                    { return invMassA > 0.0f ? ApplyRecordInvInertia( bodyA, hotA, v ) : ZERO_VECTOR; }, [&]( const Vector3& v )
-                                                                                    { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, hotB, v ) : ZERO_VECTOR; } );
+            const float effectiveMass = ContactSolver::ComputeTwoBodyEffectiveMass(
+                invMassA, invMassB, axis, rA, rB, [&]( const Vector3& v )
+                { return invMassA > 0.0f ? ApplyRecordInvInertia( bodyA, hotA, v ) : ZERO_VECTOR; }, [&]( const Vector3& v )
+                { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, hotB, v ) : ZERO_VECTOR; } );
 
             if ( effectiveMass > 0.0f )
             {
                 const float impulseDelta = effectiveMass * velocityTarget;
                 constraint.accumulatedImpulse += impulseDelta;
-                ApplyConstraintImpulse( bodyA, bodyB, hotA, hotB, rA, rB, axis * impulseDelta, invMassA, invMassB );
+                ApplyConstraintImpulse( { bodyA, hotA, rA, invMassA }, { bodyB, hotB, rB, invMassB }, axis * impulseDelta );
             }
 
             if ( distanceError > TOLERANCE )

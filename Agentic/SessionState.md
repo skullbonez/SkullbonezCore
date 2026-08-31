@@ -2,23 +2,28 @@
 
 Date: 2026-08-31
 Branch: `nightrunner-31st-AUG-26`
-Status: Engine Signature And Context Cohesion active at 2/7; portfolio 137/142
+Status: Engine Signature And Context Cohesion active at 3/7; portfolio 138/142
 
 ## Current State
 
 The owner activated `SIGNATURE_COHESION` SC0-SC6 on the current Night Runner
 branch and requested substantial related batches instead of a build after each
-small signature change. SC0 and SC1 are complete. The compiler census covers
+small signature change. SC0 through SC2 are complete. The compiler census covers
 736 files/6,435 contexts with 698 candidates; the motivating broadphase bag is
 replaced by retained stage configuration, a checked activity view, a validated
 sweep/contact value, a synchronous pair filter, explicit joints, and direct
 trace capability. The Profile build and 39 focused cases/9,273 assertions pass;
 the Debug 0/repeat/1/4-worker matrix remains byte-exact at the accepted 44,401-
-line digest. SC2 now reviews and repairs the remaining Maths, Physics, Gameplay,
-World, and Assets candidates in substantial owner-local batches. No baseline
-refresh is authorized. The live work ledger is temporarily owned by unfinished
-task `GOV1` in another Codex session, so this run cannot open its own ledger row
-until that external metadata owner finishes.
+line digest. SC2 replaces nine-scalar rotation construction, tornado vertex
+serialization and oversized render orchestration, Physics authored/hot/force
+row bags, terrain output references, ragdoll impulse plumbing, per-step runtime
+settings, and unchecked height-map derived counts with named values, aligned
+views, typed results, and concrete owner phases. The 33 focused cases pass 925
+assertions, source-design passes 24 files/192 contexts, and the Physics digest
+is unchanged. SC3 now reviews Rendering, the UI library, and DX12 together. No
+baseline refresh is authorized. The live work ledger is temporarily owned by
+unfinished task `GOV1` in another Codex session, so this run cannot open its own
+ledger row until that external metadata owner finishes.
 
 The owner visually accepted the persistent deterministic simulation-island
 sleep policy as-is. The scoped result makes a sphere on terrain steeper than

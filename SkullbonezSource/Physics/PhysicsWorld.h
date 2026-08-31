@@ -165,11 +165,12 @@ class PhysicsWorld
     // diagnostic row and output sink belongs to its concrete owner.
     bool m_diagnosticsSuppressed = false;
 #endif
+    PhysicsRuntimeSettings m_runtimeSettings;
 
     void RunSolverPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                           std::span<BuoyancyBodyFacts> buoyancyFacts, float dt, const PhysicsRuntimeSettings& settings,
-                           const PhysicsWorldForces& worldForces, const ExternalForceFrameInput& externalForces,
-                           Threading::WorkerPool& workerPool, bool probeDormantUnderwaterLocks );
+                           std::span<BuoyancyBodyFacts> buoyancyFacts, float dt, const PhysicsWorldForces& worldForces,
+                           const ExternalForceFrameInput& externalForces, Threading::WorkerPool& workerPool,
+                           bool probeDormantUnderwaterLocks );
     void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                           std::span<BuoyancyBodyFacts> buoyancyFacts,
                                           const PhysicsWorldForces& worldForces );
@@ -192,9 +193,8 @@ class PhysicsWorld
     // Runs one fixed world step over the stores. Collision diagnostics append
     // fixed events only; name lookup and file output occur after the hot pass.
     void RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                     std::span<BuoyancyBodyFacts> buoyancyFacts, float deltaSeconds, const PhysicsRuntimeSettings& settings,
-                     const PhysicsWorldForces& worldForces, const ExternalForceFrameInput& externalForces,
-                     Threading::WorkerPool& workerPool );
+                     std::span<BuoyancyBodyFacts> buoyancyFacts, float deltaSeconds, const PhysicsWorldForces& worldForces,
+                     const ExternalForceFrameInput& externalForces, Threading::WorkerPool& workerPool );
 
     // Emits Debug-only regression and SkullScope records from the stores the
     // caller passes in. The diagnostics sink owns the registered cold name

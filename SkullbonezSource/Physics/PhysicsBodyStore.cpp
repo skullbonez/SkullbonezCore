@@ -44,6 +44,7 @@ Related:
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#include <optional>
 #include <type_traits>
 
 #include "../Core/Common.h"
@@ -145,23 +146,21 @@ const ColliderRecord* ColliderRecordForModelIndex( const ColliderStore& collider
 // Boxes and hulls should be lifted only by their deepest actual vertex
 // penetration. A center-height clamp would make tilted or uneven-terrain bodies
 // visibly float and would change the deterministic physics baseline.
-bool FindClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler*, const PhysicsTerrainView& terrain,
-                                  const PhysicsBodyHotState& hot, const BoundingBox& box, Vector3& outVertex,
-                                  float& outTerrainHeight, Plane& outPlane, float& outGap )
+std::optional<float> FindClosestBoxTerrainGap( SkullbonezCore::Core::Profiler*, const PhysicsTerrainView& terrain,
+                                               const PhysicsBodyHotState& hot, const BoundingBox& box )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain/BoxClosestVertexProbe" );
 
     if ( !terrain.IsValid() )
     {
-        return false;
+        return std::nullopt;
     }
 
     const Vector3& he = box.GetHalfExtents();
     auto orientation = hot.orientation;
     const RotationMatrix rotMat = orientation.GetOrientationMatrix();
 
-    bool found = false;
-    float bestGap = 1.0e30f;
+    std::optional<float> bestGap;
 
     for ( int v = 0; v < 8; ++v )
     {
@@ -178,37 +177,30 @@ bool FindClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler*, const Physics
         terrain.HeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
         const float gap = worldVertex.y - terrainHeight;
 
-        if ( !found || gap < bestGap )
+        if ( !bestGap || gap < *bestGap )
         {
-            found = true;
             bestGap = gap;
-            outVertex = worldVertex;
-            outTerrainHeight = terrainHeight;
-            outPlane = terrainPlane;
-            outGap = gap;
         }
     }
 
-    return found;
+    return bestGap;
 }
 
-bool FindClosestHullTerrainVertex( SkullbonezCore::Core::Profiler*, const PhysicsTerrainView& terrain,
-                                   const PhysicsBodyHotState& hot, const ConvexHullShape& hull, Vector3& outVertex,
-                                   float& outTerrainHeight, Plane& outPlane, float& outGap )
+std::optional<float> FindClosestHullTerrainGap( SkullbonezCore::Core::Profiler*, const PhysicsTerrainView& terrain,
+                                                const PhysicsBodyHotState& hot, const ConvexHullShape& hull )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain/HullClosestVertexProbe" );
 
     if ( !terrain.IsValid() )
     {
-        return false;
+        return std::nullopt;
     }
 
     auto orientation = hot.orientation;
     const RotationMatrix rotMat = orientation.GetOrientationMatrix();
     const Vector3 hullCenter = hot.position + ( rotMat * hull.GetPosition() );
 
-    bool found = false;
-    float bestGap = 1.0e30f;
+    std::optional<float> bestGap;
     const uint16_t vertexCount = hull.GetVertexCount();
 
     for ( uint16_t v = 0; v < vertexCount; ++v )
@@ -225,18 +217,13 @@ bool FindClosestHullTerrainVertex( SkullbonezCore::Core::Profiler*, const Physic
         terrain.HeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
         const float gap = worldVertex.y - terrainHeight;
 
-        if ( !found || gap < bestGap )
+        if ( !bestGap || gap < *bestGap )
         {
-            found = true;
             bestGap = gap;
-            outVertex = worldVertex;
-            outTerrainHeight = terrainHeight;
-            outPlane = terrainPlane;
-            outGap = gap;
         }
     }
 
-    return found;
+    return bestGap;
 }
 
 void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler, const PhysicsTerrainView& terrain,
@@ -254,16 +241,12 @@ void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler, const 
 
     if ( HoldsShape<BoundingBox>( collider.shape ) )
     {
-        Vector3 closestVertex;
-        float terrainHeight = 0.0f;
-        Plane terrainPlane;
-        float gap = 0.0f;
+        const std::optional<float> gap = FindClosestBoxTerrainGap( profiler, terrain, hot,
+                                                                   *GetShapeIf<BoundingBox>( &collider.shape ) );
 
-        if ( FindClosestBoxTerrainVertex( profiler, terrain, hot, *GetShapeIf<BoundingBox>( &collider.shape ), closestVertex,
-                                          terrainHeight, terrainPlane, gap ) &&
-             gap < 0.0f )
+        if ( gap && *gap < 0.0f )
         {
-            hot.position.y -= gap;
+            hot.position.y -= *gap;
         }
 
         return;
@@ -271,16 +254,12 @@ void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler, const 
 
     if ( HoldsShape<ConvexHullShape>( collider.shape ) )
     {
-        Vector3 closestVertex;
-        float terrainHeight = 0.0f;
-        Plane terrainPlane;
-        float gap = 0.0f;
+        const std::optional<float> gap = FindClosestHullTerrainGap( profiler, terrain, hot,
+                                                                    *GetShapeIf<ConvexHullShape>( &collider.shape ) );
 
-        if ( FindClosestHullTerrainVertex( profiler, terrain, hot, *GetShapeIf<ConvexHullShape>( &collider.shape ),
-                                           closestVertex, terrainHeight, terrainPlane, gap ) &&
-             gap < 0.0f )
+        if ( gap && *gap < 0.0f )
         {
-            hot.position.y -= gap;
+            hot.position.y -= *gap;
         }
 
         return;
@@ -1915,51 +1894,67 @@ std::span<PhysicsBodyRecord> PhysicsBodyStore::MutableRecords()
 
 SkullbonezCore::Physics::PhysicsBodyHotFieldsConstView PhysicsBodyStore::HotFields() const
 {
-    return { { m_positionX.data(), m_positionX.size() },
-             { m_positionY.data(), m_positionY.size() },
-             { m_positionZ.data(), m_positionZ.size() },
-             { m_orientationX.data(), m_orientationX.size() },
-             { m_orientationY.data(), m_orientationY.size() },
-             { m_orientationZ.data(), m_orientationZ.size() },
-             { m_orientationW.data(), m_orientationW.size() },
-             { m_linearVelocityX.data(), m_linearVelocityX.size() },
-             { m_linearVelocityY.data(), m_linearVelocityY.size() },
-             { m_linearVelocityZ.data(), m_linearVelocityZ.size() },
-             { m_angularVelocityX.data(), m_angularVelocityX.size() },
-             { m_angularVelocityY.data(), m_angularVelocityY.size() },
-             { m_angularVelocityZ.data(), m_angularVelocityZ.size() },
-             { m_inverseMass.data(), m_inverseMass.size() },
-             { m_inverseInertiaX.data(), m_inverseInertiaX.size() },
-             { m_inverseInertiaY.data(), m_inverseInertiaY.size() },
-             { m_inverseInertiaZ.data(), m_inverseInertiaZ.size() },
-             { m_boundingRadius.data(), m_boundingRadius.size() },
-             { m_fixed.data(), m_fixed.size() },
-             { m_awake.data(), m_awake.size() } };
+    const PhysicsBodyHotFieldsConstView fields { { m_positionX.data(), m_positionX.size() },
+                                                 { m_positionY.data(), m_positionY.size() },
+                                                 { m_positionZ.data(), m_positionZ.size() },
+                                                 { m_orientationX.data(), m_orientationX.size() },
+                                                 { m_orientationY.data(), m_orientationY.size() },
+                                                 { m_orientationZ.data(), m_orientationZ.size() },
+                                                 { m_orientationW.data(), m_orientationW.size() },
+                                                 { m_linearVelocityX.data(), m_linearVelocityX.size() },
+                                                 { m_linearVelocityY.data(), m_linearVelocityY.size() },
+                                                 { m_linearVelocityZ.data(), m_linearVelocityZ.size() },
+                                                 { m_angularVelocityX.data(), m_angularVelocityX.size() },
+                                                 { m_angularVelocityY.data(), m_angularVelocityY.size() },
+                                                 { m_angularVelocityZ.data(), m_angularVelocityZ.size() },
+                                                 { m_inverseMass.data(), m_inverseMass.size() },
+                                                 { m_inverseInertiaX.data(), m_inverseInertiaX.size() },
+                                                 { m_inverseInertiaY.data(), m_inverseInertiaY.size() },
+                                                 { m_inverseInertiaZ.data(), m_inverseInertiaZ.size() },
+                                                 { m_boundingRadius.data(), m_boundingRadius.size() },
+                                                 { m_fixed.data(), m_fixed.size() },
+                                                 { m_awake.data(), m_awake.size() } };
+
+    if ( !fields.IsAligned() || fields.RowCount() != m_bodies.size() )
+    {
+        SB_FATAL( "Physics/PhysicsBodyStore", "Const hot-field rows are misaligned: records=%zu position=%zu.",
+                  m_bodies.size(), fields.RowCount() );
+    }
+
+    return fields;
 }
 
 
 SkullbonezCore::Physics::PhysicsBodyHotFieldsView PhysicsBodyStore::MutableHotFields()
 {
-    return { { m_positionX.data(), m_positionX.size() },
-             { m_positionY.data(), m_positionY.size() },
-             { m_positionZ.data(), m_positionZ.size() },
-             { m_orientationX.data(), m_orientationX.size() },
-             { m_orientationY.data(), m_orientationY.size() },
-             { m_orientationZ.data(), m_orientationZ.size() },
-             { m_orientationW.data(), m_orientationW.size() },
-             { m_linearVelocityX.data(), m_linearVelocityX.size() },
-             { m_linearVelocityY.data(), m_linearVelocityY.size() },
-             { m_linearVelocityZ.data(), m_linearVelocityZ.size() },
-             { m_angularVelocityX.data(), m_angularVelocityX.size() },
-             { m_angularVelocityY.data(), m_angularVelocityY.size() },
-             { m_angularVelocityZ.data(), m_angularVelocityZ.size() },
-             { m_inverseMass.data(), m_inverseMass.size() },
-             { m_inverseInertiaX.data(), m_inverseInertiaX.size() },
-             { m_inverseInertiaY.data(), m_inverseInertiaY.size() },
-             { m_inverseInertiaZ.data(), m_inverseInertiaZ.size() },
-             { m_boundingRadius.data(), m_boundingRadius.size() },
-             { m_fixed.data(), m_fixed.size() },
-             { m_awake.data(), m_awake.size() } };
+    PhysicsBodyHotFieldsView fields { { m_positionX.data(), m_positionX.size() },
+                                      { m_positionY.data(), m_positionY.size() },
+                                      { m_positionZ.data(), m_positionZ.size() },
+                                      { m_orientationX.data(), m_orientationX.size() },
+                                      { m_orientationY.data(), m_orientationY.size() },
+                                      { m_orientationZ.data(), m_orientationZ.size() },
+                                      { m_orientationW.data(), m_orientationW.size() },
+                                      { m_linearVelocityX.data(), m_linearVelocityX.size() },
+                                      { m_linearVelocityY.data(), m_linearVelocityY.size() },
+                                      { m_linearVelocityZ.data(), m_linearVelocityZ.size() },
+                                      { m_angularVelocityX.data(), m_angularVelocityX.size() },
+                                      { m_angularVelocityY.data(), m_angularVelocityY.size() },
+                                      { m_angularVelocityZ.data(), m_angularVelocityZ.size() },
+                                      { m_inverseMass.data(), m_inverseMass.size() },
+                                      { m_inverseInertiaX.data(), m_inverseInertiaX.size() },
+                                      { m_inverseInertiaY.data(), m_inverseInertiaY.size() },
+                                      { m_inverseInertiaZ.data(), m_inverseInertiaZ.size() },
+                                      { m_boundingRadius.data(), m_boundingRadius.size() },
+                                      { m_fixed.data(), m_fixed.size() },
+                                      { m_awake.data(), m_awake.size() } };
+
+    if ( !fields.IsAligned() || fields.RowCount() != m_bodies.size() )
+    {
+        SB_FATAL( "Physics/PhysicsBodyStore", "Mutable hot-field rows are misaligned: records=%zu position=%zu.",
+                  m_bodies.size(), fields.RowCount() );
+    }
+
+    return fields;
 }
 
 

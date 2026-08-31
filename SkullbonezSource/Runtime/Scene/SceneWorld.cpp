@@ -185,11 +185,7 @@ bool SceneWorld::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
 
     const std::vector<ModelRowHint> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
     const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
-    PhysicsAuthoredBodyRefreshView refreshView;
-    refreshView.sceneObjectIds = sceneObjectIds.empty() ? nullptr : sceneObjectIds.data();
-    refreshView.fixedTreeReleaseRoots = fixedTreeReleaseRoots.empty() ? nullptr : fixedTreeReleaseRoots.data();
-    refreshView.diagnosticNames = diagnosticNames.empty() ? nullptr : diagnosticNames.data();
-    refreshView.bodyCount = MakePhysicsAuthoredBodyCountFromNonNegativeInt( SceneEntityCount() );
+    const PhysicsAuthoredBodyRefreshView refreshView { sceneObjectIds, fixedTreeReleaseRoots, diagnosticNames };
 
     if ( !m_physics.RefreshBodyStoreFromAuthoredDescriptors( refreshView ) )
     {
@@ -388,7 +384,8 @@ SkullbonezCore::Core::SbResult SceneWorld::CommitPhysicsSceneCapacity( int bodyC
 
     // Lifetime: SceneWorld coordinates one ordered commit while each concrete
     // Physics owner remains the authority for its own monotonic backing.
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     m_physics.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( bodyCount ), static_cast<std::size_t>( sphereCount ),
                                            static_cast<std::size_t>( boxCount ),
                                            static_cast<std::size_t>( hullVariantCapacity ),
@@ -416,7 +413,8 @@ SkullbonezCore::Core::SbResult SceneWorld::ReserveAdditionalPhysicsSceneCapacity
                       SceneEntityCount(), additionalBodies, m_activeSceneObjectCapacity );
     }
 
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     m_physics.ReserveAdditionalAuthoredCapacity( static_cast<std::size_t>( sphereCount ),
                                                  static_cast<std::size_t>( boxCount ), static_cast<std::size_t>( hullCount ),
                                                  static_cast<std::size_t>( pointJointCount ) );
@@ -501,7 +499,8 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
         // Cold editor and tool mutations may append beyond the load-time
         // topology. The initial scene commit makes this a no-op during loading;
         // later additions grow only the concrete body and shape owners needed.
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneMutationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneMutationScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         m_physics.ReserveAdditionalAuthoredBodyCapacity( colliderDesc );
     }
 
@@ -534,7 +533,8 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
                                              ? -1
                                              : ( entity.behaviorGroup.rootObjectId.value == entity.sceneObjectId.value
                                                      ? modelIndex
-                                                     : Entities().ResolveBehaviorGroupRootModelIndex( entity.behaviorGroup ) );
+                                                     : Entities().ResolveBehaviorGroupRootModelIndex(
+                                                           entity.behaviorGroup ) );
 
     // Lifetime: authored descriptors outlive this value-local entity packet.
     // Diagnostics receive stable SceneEntityStore names after the entity row
@@ -545,7 +545,8 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
         // Shape payload backing is scene topology, even when an editor command
         // appends it after startup. Attribute that cold mutation to scene load
         // so a newly introduced concrete shape kind can reserve its own store.
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneMutationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneMutationScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         registration = m_physics.RegisterAuthoredBody( bodyDesc, std::move( colliderDesc ) );
     }
 
