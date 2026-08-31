@@ -720,6 +720,22 @@ consumer contexts. The renderer-free UI boundary, formatting,
 dependency/project ownership, build-configuration consistency, and whitespace
 checks pass. No baseline or golden changed.
 
+The third grouped slice repairs the first App orchestration boundary exposed by
+that below-App work. `ApplyInputCommandsPhase` now sequences replay transport,
+forecast ownership, device/mode acceptance, editor-mode transitions, editor
+scene edits, runtime presentation, replay/physics tuning, generated-scene
+transactions, and world/cinematic completion as explicit phases. The command
+transaction and acceptance ledger retain their original ordering; helper
+operations borrow App owners only for the synchronous phase and retain no
+context record. The UI input seam now receives detached screen/timing,
+editor-mode, and camera-availability values instead of ten adjacent primitive
+arguments. The camera value omits the formerly unused selected-mode scalar.
+
+The combined Profile solution build completes warning-clean. The normal test
+suite passes 913 cases and 2,694,677 assertions with one expected skip.
+Compiler-backed source-design passes all seven changed source-bearing files
+under 53 consumer contexts with no findings. No baseline or golden changed.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add

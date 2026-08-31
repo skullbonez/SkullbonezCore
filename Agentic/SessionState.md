@@ -45,7 +45,16 @@ pose release recording; and splits operator draw-trace/profiler projection.
 Profile builds warning-clean, the normal suite passes 913 cases and 2,691,927
 assertions with one expected skip, source-design passes five files and 39
 contexts, and the renderer-free UI boundary plus lightweight gates pass. The
-next grouped slice proceeds into App orchestration and the typed UI input seam.
+following grouped slice moves into App orchestration and the typed UI input
+seam. It decomposes `ApplyInputCommandsPhase` into ordered replay,
+forecast, device/mode, editor, presentation, tuning, generated-scene, and
+world/cinematic phases. GameUI receives detached frame, editor-mode, and camera
+availability values instead of ten adjacent primitive arguments, and the
+unused selected-camera scalar is gone. The Profile solution builds
+warning-clean; 913 cases and 2,694,677 assertions pass with one expected skip;
+source-design passes seven files under 53 consumer contexts. The next large
+batch repairs the remaining App frame coordinators before the SC4/SC5 inventory
+is reconciled.
 No baseline refresh
 is authorized. The live work ledger is temporarily owned by
 unfinished task `GOV1` in another Codex session, so this run cannot open its own

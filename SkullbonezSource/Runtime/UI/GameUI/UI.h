@@ -118,7 +118,7 @@ struct UIProfilerMarkerOption
     const char* leafName = "";
     uint32_t hash = UI_PROFILER_FRAME_TOTAL_HASH;
     float cpuMs = 0.0f;
-    float cpuAverageMs = 0.0f;        // Same 500 ms moving average used by the profiler table.
+    float cpuAverageMs = 0.0f; // Same 500 ms moving average used by the profiler table.
 
     // Worker-thread time for the same marker. The histogram plots cpu+worker so
     // selecting a worker-owned marker graphs the work that marker actually did;
@@ -126,7 +126,7 @@ struct UIProfilerMarkerOption
     float workerMs = 0.0f;
     float workerAverageMs = 0.0f;
     float gpuMs = 0.0f;
-    float colorR = 0.0f;              // RGB borrowed from the profiler row palette for chart overlays.
+    float colorR = 0.0f; // RGB borrowed from the profiler row palette for chart overlays.
     float colorG = 0.0f;
     float colorB = 0.0f;
     bool hasGpu = false;
@@ -330,7 +330,7 @@ struct InGameUIFrameData
     float physicsMs = 0.0f;
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
-    float workerCoreTotalMs = 0.0f;   // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
+    float workerCoreTotalMs = 0.0f; // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
 
     // Lifetime: profiler and draw-trace names are borrowed for this immediate UI
     // pass. The profiler tab caches only bounded values needed for next-frame
@@ -373,7 +373,7 @@ struct InGameUIFrameData
     bool scenePhysicsEnabled = true;
     bool sceneTextEnabled = true;
     bool textOnly = false;
-    bool fixedStep = false;           // Scene/capture render-frame-lockstep request; Runtime resolves effective pacing.
+    bool fixedStep = false; // Scene/capture render-frame-lockstep request; Runtime resolves effective pacing.
     bool exitOnComplete = false;
     bool testComplete = false;
     bool vsyncEnabled = false;
@@ -507,16 +507,14 @@ class InGameUI
     // Returns the UI-owned automation pointer substitution by value so Runtime
     // can apply it while constructing the detached input snapshot.
     InputControl::UIPointerOverride InputOverride() const;
-    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
-                                     double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic,
-                                     bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask );
+    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, const UIInputFrameFacts& frame,
+                                     const UIEditorModeFacts& editor, const UICameraModeFacts& camera );
 
     // Builds one complete ordered frame of backend-neutral draw values. The
     // returned view remains valid until the next Draw call on this owner.
     const UIDrawList& Draw( const InGameUIFrameData& data );
 
   private:
-
     // Lifetime: Init owns this profiler beyond the cohesive UI owner; input and
     // draw paths borrow it without resolving process-global diagnostics state.
     Core::Profiler* m_profiler = nullptr;

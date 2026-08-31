@@ -916,15 +916,11 @@ InputControl::UIPointerOverride InGameUI::InputOverride() const
 }
 
 
-InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
-                                           double now, bool editorModeEnabled, bool editorPlacementMode,
-                                           bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex,
-                                           uint32_t cameraModeEnabledMask )
+InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& input, const UIInputFrameFacts& frame,
+                                           const UIEditorModeFacts& editor, const UICameraModeFacts& camera )
 {
     PROFILE_SCOPED( "Frame/UI/Input" );
-    return m_windowInteraction.UpdateInput( input, screenWidth, screenHeight, now, editorModeEnabled, editorPlacementMode,
-                                            editorPlaceStatic, editorTerrainAlign, cameraModeIndex, cameraModeEnabledMask,
-                                            m_sceneNavigation );
+    return m_windowInteraction.UpdateInput( input, frame, editor, camera, m_sceneNavigation );
 }
 const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 {

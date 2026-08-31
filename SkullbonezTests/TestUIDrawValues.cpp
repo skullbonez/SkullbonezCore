@@ -112,7 +112,7 @@ TEST_CASE( "UI window close hides the panel instead of minimizing it" )
     input.leftPressed = true;
 
     const SkullbonezCore::UI::SceneNavigationModel sceneNavigation;
-    owner.UpdateInput( input, 1920, 1080, 1.0, false, false, false, false, 0, 0xffffffffu, sceneNavigation );
+    owner.UpdateInput( input, { 1920, 1080, 1.0 }, {}, { 0xffffffffu }, sceneNavigation );
 
     CHECK_FALSE( owner.IsVisible() );
     CHECK( owner.IsMinimized() );
@@ -233,7 +233,7 @@ TEST_CASE( "UI narrow clients replace ordinary window minima with reachable boun
     resizeInput.mouseY = 179;
     resizeInput.leftDown = true;
     const SkullbonezCore::UI::SceneNavigationModel sceneNavigation;
-    owner.UpdateInput( resizeInput, 320, 180, 1.0, false, false, false, false, 0, 0xffffffffu, sceneNavigation );
+    owner.UpdateInput( resizeInput, { 320, 180, 1.0 }, {}, { 0xffffffffu }, sceneNavigation );
     CHECK( owner.Widgets().window.width <= 300 );
     CHECK( owner.Widgets().window.height <= 160 );
 
@@ -283,20 +283,17 @@ TEST_CASE( "UI narrow clients replace ordinary window minima with reachable boun
 
 TEST_CASE( "UI position cache hashes pointer interaction in window-local coordinates" )
 {
+    using SkullbonezCore::UI::UI_DIRTY_POSITION;
     using SkullbonezCore::UI::UICacheFrameKey;
     using SkullbonezCore::UI::UICacheState;
     using SkullbonezCore::UI::UIRect;
-    using SkullbonezCore::UI::UI_DIRTY_POSITION;
     using SkullbonezCore::UI::FrameComposition::BuildUIInteractionSignature;
 
     const UIRect firstBounds { 100.0f, 120.0f, 760.0f, 520.0f };
     const UIRect movedBounds { 140.0f, 160.0f, 760.0f, 520.0f };
-    const uint32_t firstSignature =
-        BuildUIInteractionSignature( { { 130, 150 }, firstBounds, 0u, 0, 0 } );
-    const uint32_t movedSignature =
-        BuildUIInteractionSignature( { { 170, 190 }, movedBounds, 0u, 0, 0 } );
-    const uint32_t localPointerMove =
-        BuildUIInteractionSignature( { { 171, 190 }, movedBounds, 0u, 0, 0 } );
+    const uint32_t firstSignature = BuildUIInteractionSignature( { { 130, 150 }, firstBounds, 0u, 0, 0 } );
+    const uint32_t movedSignature = BuildUIInteractionSignature( { { 170, 190 }, movedBounds, 0u, 0, 0 } );
+    const uint32_t localPointerMove = BuildUIInteractionSignature( { { 171, 190 }, movedBounds, 0u, 0, 0 } );
     CHECK( firstSignature == movedSignature );
     CHECK( movedSignature != localPointerMove );
 
@@ -325,8 +322,7 @@ TEST_CASE( "UI position cache hashes pointer interaction in window-local coordin
     UICacheFrameKey secondMovedKey = movedKey;
     secondMovedKey.windowBounds = secondMovedBounds;
     secondMovedKey.contentSignature = 13u;
-    secondMovedKey.interactionSignature =
-        BuildUIInteractionSignature( { { 210, 230 }, secondMovedBounds, 0u, 0, 0 } );
+    secondMovedKey.interactionSignature = BuildUIInteractionSignature( { { 210, 230 }, secondMovedBounds, 0u, 0, 0 } );
     cache.BeginFrame( secondMovedKey );
     CHECK( cache.CanReplayPositionOnly( secondMovedKey, true ) );
     CHECK( cache.ReplayOffsetX( secondMovedKey ) == doctest::Approx( 80.0f ) );
@@ -391,8 +387,8 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
     input.leftPressed = true;
     ui->SceneNavigation().browser.names.emplace_back( sceneOptions[0] );
     ui->SceneNavigation().browser.namePtrs.push_back( ui->SceneNavigation().browser.names[0].c_str() );
-    const InGameUIInputResult result = ui->UpdateInput( input, data->screenW, data->screenH, 1.0, false, false, true, false,
-                                                        0, 0xffffffffu );
+    const InGameUIInputResult result = ui->UpdateInput( input, { data->screenW, data->screenH, 1.0 },
+                                                        { false, false, true, false }, { 0xffffffffu } );
 
     CHECK( result.commands.forecast.type == UIForecastCommandType::ToggleContinuous );
     CHECK( result.commands.ui.userInteracted );
@@ -482,8 +478,7 @@ TEST_CASE( "UI preview values define unavailable fallback presentation" )
 {
     UIDrawList list;
     list.Clear();
-    list.AddPreviewImage( { 4, true }, { 10, 20, 300, 160 }, { 0.08f, 0.09f, 0.11f, 1.0f },
-                          "Preview unavailable" );
+    list.AddPreviewImage( { 4, true }, { 10, 20, 300, 160 }, { 0.08f, 0.09f, 0.11f, 1.0f }, "Preview unavailable" );
 
     const auto commands = list.Commands();
     REQUIRE( commands.size() == 1 );
@@ -538,8 +533,7 @@ TEST_CASE( "UI frame composition appends cached values without borrowing source 
     cached->Clear();
     cached->AddText( { 10, 20 }, 12, { 1, 1, 1, 1 }, "cached label" );
     cached->PushClip( { 5, 6, 100, 80 } );
-    cached->AddPreviewImage( { 2, true }, { 8, 9, 40, 30 }, { 0.1f, 0.2f, 0.3f, 1.0f },
-                             "Preview unavailable" );
+    cached->AddPreviewImage( { 2, true }, { 8, 9, 40, 30 }, { 0.1f, 0.2f, 0.3f, 1.0f }, "Preview unavailable" );
     cached->PopClip();
 
     auto frame = std::make_unique<UIDrawList>();
@@ -719,14 +713,14 @@ TEST_CASE( "GameUI gravity slider endpoints emit signed world acceleration from 
     const SkullbonezCore::UI::UIRect track = Widgets::SliderTrackBounds( state.worldGravitySlider.Bounds() );
 
     SkullbonezCore::UI::InGameUIInputResult minimumResult;
-    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY,
-                                             static_cast<int>( track.x ), minimumResult ) );
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x ),
+                                             minimumResult ) );
     CHECK( minimumResult.commands.water.requestWorldGravity );
     CHECK( minimumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MIN ) );
 
     SkullbonezCore::UI::InGameUIInputResult maximumResult;
-    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY,
-                                             static_cast<int>( track.x + track.w ), maximumResult ) );
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x + track.w ),
+                                             maximumResult ) );
     CHECK( maximumResult.commands.water.requestWorldGravity );
     CHECK( maximumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MAX ) );
 }

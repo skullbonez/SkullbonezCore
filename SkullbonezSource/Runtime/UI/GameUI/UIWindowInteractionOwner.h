@@ -53,6 +53,27 @@ namespace SkullbonezCore
 namespace UI
 {
 
+// Detached frame facts used only while the UI owner routes one input turn.
+struct UIInputFrameFacts
+{
+    int screenWidth = 1;
+    int screenHeight = 1;
+    double now = 0.0;
+};
+
+struct UIEditorModeFacts
+{
+    bool enabled = false;
+    bool placementMode = false;
+    bool placeStatic = false;
+    bool terrainAlign = false;
+};
+
+struct UICameraModeFacts
+{
+    uint32_t enabledMask = 0;
+};
+
 enum class InGameUITab;
 namespace FrameComposition
 {
@@ -168,9 +189,8 @@ class UIWindowInteractionOwner
 
     // Consumes one normalized input turn and explicit presentation facts. Scene
     // and runtime mutations are returned as commands rather than applied here.
-    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
-                                     double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic,
-                                     bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask,
+    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, const UIInputFrameFacts& frame,
+                                     const UIEditorModeFacts& editor, const UICameraModeFacts& camera,
                                      const SceneNavigationModel& sceneNavigation );
 
   private:

@@ -1685,30 +1685,25 @@ void UIWindowInteractionOwner::HandleWindowPress( const InputControl::UIInputSna
 }
 
 
-InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth,
-                                                           int screenHeight, double now, bool editorModeEnabled,
-                                                           bool editorPlacementMode, bool editorPlaceStatic,
-                                                           bool editorTerrainAlign, int cameraModeIndex,
-                                                           uint32_t cameraModeEnabledMask,
+InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input,
+                                                           const UIInputFrameFacts& frame, const UIEditorModeFacts& editor,
+                                                           const UICameraModeFacts& camera,
                                                            const SceneNavigationModel& sceneNavigation )
 {
     InGameUIInputResult result;
-    int screenW = screenWidth;
-    int screenH = screenHeight;
+    const int screenW = (std::max)( 1, frame.screenWidth );
+    const int screenH = (std::max)( 1, frame.screenHeight );
     const WindowOptionView options = BuildWindowOptionView( sceneNavigation );
 
     // Concept: UI input produces command intents and capture state. The run loop
     // owns applying scene, physics, renderer, and editor mutations.
-    cameraModeIndex = std::clamp( cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
-    cameraModeEnabledMask &= ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u;
+    const uint32_t cameraModeEnabledMask = camera.enabledMask & ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u );
     m_blocksCameraMouse = false;
     const int wheelDelta = input.wheelDelta;
     result.unhandledWheelDelta = wheelDelta;
     m_mouseX = input.mouseX;
     m_mouseY = input.mouseY;
 
-    screenW = (std::max)( 1, screenW );
-    screenH = (std::max)( 1, screenH );
     m_lastScreenW = screenW;
     m_lastScreenH = screenH;
     const bool leftNow = input.leftDown;
@@ -1756,11 +1751,11 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
 
     if ( m_window.isMinimized )
     {
-        return HandleMinimizedInput( input, screenW, screenH, now, editorModeEnabled, editorPlacementMode, editorPlaceStatic,
-                                     editorTerrainAlign, cameraModeEnabledMask );
+        return HandleMinimizedInput( input, screenW, screenH, frame.now, editor.enabled, editor.placementMode,
+                                     editor.placeStatic, editor.terrainAlign, cameraModeEnabledMask );
     }
 
-    const WindowPointerLayout layout = PrepareWindowPointerLayout( now );
+    const WindowPointerLayout layout = PrepareWindowPointerLayout( frame.now );
     if ( layout.inside )
     {
         result.unhandledWheelDelta = 0;
@@ -1772,11 +1767,11 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
         result.commands.ui.userInteracted = true;
     }
 
-    HandleWindowWheel( input, result, layout, options, now );
+    HandleWindowWheel( input, result, layout, options, frame.now );
 
     if ( input.leftPressed )
     {
-        HandleWindowPress( input, result, layout, options, screenW, screenH, now );
+        HandleWindowPress( input, result, layout, options, screenW, screenH, frame.now );
     }
 
     if ( leftNow && m_activeSlider != 0 )
@@ -1784,7 +1779,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
         UpdateActiveSliderInput( result );
     }
 
-    UpdateWindowDragAndResize( leftNow, screenW, screenH, now );
+    UpdateWindowDragAndResize( leftNow, screenW, screenH, frame.now );
 
     if ( input.leftReleased )
     {

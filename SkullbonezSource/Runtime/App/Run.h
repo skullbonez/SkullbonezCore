@@ -113,6 +113,9 @@ class WorkerPool;
 namespace UI
 {
 class InGameUI;
+struct InGameUICommands;
+struct OperatorEditorArbitrationResult;
+struct OperatorEditorCommandQueues;
 struct OperatorEditorFrameView;
 } // namespace UI
 namespace Runtime
@@ -130,6 +133,8 @@ struct RuntimeUiTextFrameFacts;
 struct OperatorUiProcessCommands;
 struct OperatorUiSecondaryDiagnosticsFacts;
 class SceneLoadTransaction;
+class OperatorCommandTransaction;
+struct OperatorCommandAcceptanceLedger;
 namespace ReplayOverlay
 {
 struct ReplayOverlayStateView;
@@ -290,6 +295,30 @@ class Run
     // domain operations they call receive concrete operands only.
     RuntimeUIFrameResult ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
                                                   const RuntimeInputFrameFacts& facts );
+    UI::OperatorEditorArbitrationResult PrepareOperatorInputCommands( RuntimeUIFrameResult& result,
+                                                                      const RuntimeInputFrameFacts& facts );
+    void ApplyReplayTransportCommand( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts,
+                                      const ReplayTransportCommand& command );
+    void ApplyReplayOperatorCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts,
+                                      const UI::OperatorEditorCommandQueues& commands );
+    void ApplyForecastOperatorCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts,
+                                        const UI::OperatorEditorCommandQueues& commands );
+    void RecordInputModeAction( RuntimeInputAction action, RuntimeInputActionSource source );
+    void ApplyEditorPlacementModeCommand( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts, bool toggle );
+    void ApplyEditorModeToggleCommand( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts,
+                                       RuntimeInputActionSource source );
+    void ApplyEditorModeCommands( RuntimeUIFrameResult& result, bool keyboardToggleEditorMode,
+                                  const RuntimeInputFrameFacts& facts, const UI::InGameUICommands& commands );
+    void ApplyEditorSceneCommands( RuntimeUIFrameResult& result, const UI::InGameUICommands& commands );
+    void ApplyRuntimePresentationCommands( RuntimeUIFrameResult& result, OperatorCommandTransaction& transaction,
+                                           const OperatorCommandAcceptanceLedger& acceptance );
+    void ApplyReplayAndPhysicsTuningCommands( const UI::InGameUICommands& commands, OperatorCommandTransaction& transaction,
+                                              const OperatorCommandAcceptanceLedger& acceptance );
+    bool ApplyGeneratedSceneCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts,
+                                      const OperatorCommandAcceptanceLedger& acceptance );
+    void ApplyWorldAndCinematicCommands( RuntimeUIFrameResult& result, const UI::InGameUICommands& commands,
+                                         OperatorCommandTransaction& transaction,
+                                         const OperatorCommandAcceptanceLedger& acceptance );
     RuntimeUIFrameResult BeginRuntimeUIFrame( const ReplayPathPickInput& replayPointerRay,
                                               const RuntimeInputFrameFacts& facts );
     RuntimePointerRouteResult RouteRuntimePointer( const RuntimePointerEvent& pointer, bool replayInspectionActive,
