@@ -49,6 +49,7 @@ Related:
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <span>
 
 using namespace SkullbonezCore::UI;
 using namespace SkullbonezCore::UI::Widgets;
@@ -193,6 +194,453 @@ UISceneTabFrameView InGameUIFrameData::SceneTabFrame() const
              fixedStep,
              testComplete };
 }
+
+namespace
+{
+using InGameUIWidgets = UIWindowInteractionOwner::WidgetView;
+
+void PublishDrawStats( InGameUITab activeTab, const UIDrawList& frame, const UIDrawList& histogram,
+                       const UIDrawList& memory )
+{
+    char drawStatsFlag[2] = {};
+    size_t drawStatsFlagLength = 0;
+    const bool requested = getenv_s( &drawStatsFlagLength, drawStatsFlag, sizeof( drawStatsFlag ), "SKORE_UI_DRAW_STATS" ) ==
+                               0 &&
+                           drawStatsFlag[0] != '\0';
+
+    if ( !requested )
+    {
+        return;
+    }
+
+    const UIDrawList::Stats frameStats = frame.GetStats();
+    const UIDrawList::Stats histogramStats = histogram.GetStats();
+    const UIDrawList::Stats memoryStats = memory.GetStats();
+    const auto overflowed = []( const UIDrawList::Stats& stats )
+    { return stats.commandOverflow || stats.textOverflow || stats.clipOverflow; };
+    const bool overflow = overflowed( frameStats ) || overflowed( histogramStats ) || overflowed( memoryStats );
+
+    std::fprintf( stderr, "[ui-draw-stats] tab=%d frame=%d/%d histogram=%d/%d memory=%d/%d clip=%d/%d/%d overflow=%d\n",
+                  static_cast<int>( activeTab ), frameStats.commandCount, frameStats.textBytes, histogramStats.commandCount,
+                  histogramStats.textBytes, memoryStats.commandCount, memoryStats.textBytes, frameStats.maxClipDepth,
+                  histogramStats.maxClipDepth, memoryStats.maxClipDepth, overflow ? 1 : 0 );
+}
+
+void AppendStandaloneOverlays( InGameUIWidgets& widgets, const InGameUIFrameData& data, UIDrawList& frame,
+                               UIDrawList& histogram, UIDrawList& memory, int screenW, int screenH, bool histogramEnabled,
+                               bool memoryEnabled )
+{
+    if ( histogramEnabled )
+    {
+        histogram.Clear();
+        const UIDrawContext draw( screenW, screenH, histogram );
+        ProfilerTab::DrawPerformanceHistogram( widgets.profilerTab, draw, data.ProfilerTabFrame() );
+        frame.Append( histogram );
+    }
+
+    if ( memoryEnabled )
+    {
+        // Why: allocator events are retained by memory level, not by sample
+        // index. Place this overlay under the histogram when both are visible.
+        memory.Clear();
+        const UIDrawContext draw( screenW, screenH, memory );
+        const float x = histogramEnabled ? widgets.profilerTab.histogramPanelX : 16.0f;
+        const float y = histogramEnabled ? widgets.profilerTab.histogramPanelY + widgets.profilerTab.histogramPanelH + 8.0f
+                                         : 16.0f;
+        MemoryTab::DrawOverlay( widgets.memoryOverlay, draw, data.MemoryTabFrame(), x, y );
+        frame.Append( memory );
+    }
+}
+
+void DrawMinimizedContent( InGameUIWidgets& widgets, const InGameUIFrameData& data, UIDrawList& drawList, int screenW,
+                           int screenH )
+{
+    drawList.Clear();
+    const UIDrawContext draw( screenW, screenH, drawList );
+
+    if ( widgets.window.animationActive && widgets.window.animationToMinimized )
+    {
+        Chrome::DrawWindowAnimationShell( draw, Chrome::CurrentWindowRect( widgets.window, data.now ) );
+        return;
+    }
+
+    char titleText[192] = {};
+    BuildWindowTitle( data, titleText, sizeof( titleText ) );
+
+    if ( !data.editorModeEnabled )
+    {
+        StripMinimizedRuntimeModeSuffix( data, titleText, sizeof( titleText ) );
+    }
+
+    widgets.window.minimizedWidth = data.editorModeEnabled
+                                        ? EditorMinimizedWidth( data.EditorTabFrame(), screenW )
+                                        : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ),
+                                                      MINIMIZED_RUN_MAX_W );
+    const UIRect minimized = Layout::MinimizedRect( screenW, screenH, widgets.window.minimizedWidth );
+
+    if ( data.editorModeEnabled )
+    {
+        const EditorMiniPaletteLayout layout = BuildEditorMiniPaletteLayout( screenW, screenH, minimized,
+                                                                             widgets.editorMiniPalettePressedEntry,
+                                                                             widgets.editorMiniPaletteFlyoutOpen );
+        DrawEditorMiniPalette( draw, layout, data.editorObjectType, data.editorPlaceStatic, widgets.mouseX, widgets.mouseY,
+                               widgets.editorMiniPalettePressedTreePlacement, widgets.editorMiniPalettePressedHoldMode,
+                               widgets.editorMiniPalettePressedEntry, screenW, screenH );
+        DrawEditorMinimizedWindow( draw, minimized, data.EditorTabFrame(), widgets.mouseX, widgets.mouseY );
+    }
+    else
+    {
+        const UIRect comboBounds = MinimizedCameraModeComboBounds( minimized );
+        widgets.cameraModeCombo.SetLabelVisible( false );
+        widgets.cameraModeCombo.SetBounds( comboBounds.x, comboBounds.y, comboBounds.w, comboBounds.h );
+        widgets.cameraModeCombo.SetDropUp( true );
+        const float titleMaxW = (std::max)( 0.0f, comboBounds.x - ( minimized.x + 32.0f ) - MINIMIZED_CAMERA_MODE_GAP );
+
+        if ( titleMaxW < UIFontMetrics::MeasureText( 12.5f, "..." ) )
+        {
+            titleText[0] = '\0';
+        }
+        else
+        {
+            Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, titleMaxW );
+        }
+
+        Chrome::DrawMinimizedWindow( draw, minimized, titleText );
+        const int cameraModeIndex = std::clamp( data.cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
+        const uint32_t disabledMask = ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) &
+                                      ~( data.cameraModeEnabledMask & ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) );
+        widgets.cameraModeCombo.Draw( draw, "",
+                                      { std::span<const char* const>( kCameraModeOptions ), cameraModeIndex, disabledMask },
+                                      { widgets.mouseX, widgets.mouseY } );
+    }
+
+    DrawEditorObjectCounter( draw, data, screenW, screenH );
+}
+
+void DrawRenderTabContent( InGameUIWidgets& widgets, const InGameUIFrameData& data, const UIDrawContext& draw,
+                           float contentX, float contentY, float contentW, float contentH, float scrolledY )
+{
+    char buffer[128];
+    const Style::UIPalette& palette = Style::Palette();
+    const float colW = (std::max)( 148.0f, contentW * 0.46f );
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Render" );
+    DrawContentToggle( draw, contentY, contentH, widgets.renderShadowToggle, contentX, scrolledY + UI_RENDER_FEATURE_START_Y,
+                       colW, "Shadows", data.ordinaryRender.shadow.enabled );
+    widgets.saveRenderDefaultsButton.SetBounds( contentX + contentW - UI_RENDER_SAVE_BUTTON_W,
+                                                scrolledY + UI_RENDER_FEATURE_START_Y, UI_RENDER_SAVE_BUTTON_W, 24.0f );
+
+    if ( IsRowVisible( contentY, contentH, scrolledY + UI_RENDER_FEATURE_START_Y, 24.0f ) )
+    {
+        widgets.saveRenderDefaultsButton.Draw( draw, "Save CFG", widgets.mouseX, widgets.mouseY );
+    }
+
+    static constexpr const char* labels[] = { "Main", "Reflection", "Terrain shadow", "Object shadow" };
+    char visibilityText[96];
+
+    for ( int viewIndex = 0; viewIndex < static_cast<int>( UIRenderVisibilityView::Count ); ++viewIndex )
+    {
+        const UIRenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
+        snprintf( visibilityText, sizeof( visibilityText ), "%d submitted, %d culled, %d draws", visibility.submitted,
+                  visibility.culled, visibility.draws );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 76.0f + static_cast<float>( viewIndex ) * 18.0f,
+                          labels[viewIndex], visibilityText, palette.accent.r, palette.accent.g, palette.accent.b );
+    }
+
+    const float baseY = scrolledY + UI_RENDER_START_Y;
+
+    for ( int index = 0; index < static_cast<int>( UIRenderParam::Count ); ++index )
+    {
+        const RenderSliderSpec& spec = kRenderSliderSpecs[index];
+        const float sliderY = RenderSliderY( index, baseY );
+
+        if ( RenderSliderStartsSection( index ) &&
+             IsRowVisible( contentY, contentH, sliderY - UI_RENDER_SECTION_H + 4.0f, 18.0f ) )
+        {
+            DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_RENDER_SECTION_H + 4.0f, 12.0f,
+                              UIRenderAuthoringSectionName( spec.section ) );
+
+            if ( spec.section == UIRenderAuthoringSection::PredictionPaths )
+            {
+                widgets.saveTrajectoryStyleButton.SetBounds( contentX + contentW - UI_TRAJECTORY_SAVE_BUTTON_W,
+                                                             sliderY - UI_RENDER_SECTION_H + 1.0f,
+                                                             UI_TRAJECTORY_SAVE_BUTTON_W, 20.0f );
+                widgets.saveTrajectoryStyleButton.Draw( draw, "Save Paths", widgets.mouseX, widgets.mouseY );
+            }
+        }
+
+        const float value = std::clamp( RenderValueForParam( data.ordinaryRender, spec.param ), spec.minValue,
+                                        spec.maxValue );
+        snprintf( buffer, sizeof( buffer ), spec.valueFormat, value );
+        widgets.renderSliders[index].SetBounds( contentX, sliderY, contentW, 34.0f );
+
+        if ( IsRowVisible( contentY, contentH, sliderY, 34.0f ) )
+        {
+            widgets.renderSliders[index].Draw( draw, spec.label, buffer, value, spec.minValue, spec.maxValue );
+        }
+    }
+}
+
+void DrawTargetsTabContent( InGameUIWidgets& widgets, const InGameUIFrameData& data, const UIDrawContext& draw,
+                            UIDrawList& drawList, float contentX, float contentY, float contentW, float contentH,
+                            float scrolledY )
+{
+    const int targetCount = RenderTargetPreviewCount( data );
+    const int selectedIndex = widgets.selectedRenderTargetPreview;
+    const bool hasSelection = selectedIndex >= 0 && selectedIndex < targetCount;
+    const UIRenderTargetPreviewResource* selected = hasSelection ? &data.renderTargetPreviews[selectedIndex] : nullptr;
+    const bool available = selected && selected->available && selected->width > 0 && selected->height > 0;
+    const Style::UIPalette& palette = Style::Palette();
+    const char* options[UI_RENDER_TARGET_PREVIEW_MAX] = {};
+    int liveCount = 0;
+
+    for ( int index = 0; index < targetCount; ++index )
+    {
+        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[index];
+        options[index] = resource.label;
+        liveCount += resource.available && resource.width > 0 && resource.height > 0 ? 1 : 0;
+    }
+
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Targets" );
+    char countText[64];
+    snprintf( countText, sizeof( countText ), "%d / %d live", liveCount, targetCount );
+
+    if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_META_Y - 24.0f, 18.0f ) )
+    {
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + UI_TARGETS_META_Y - 24.0f, "Resources", countText,
+                          palette.accent.r, palette.accent.g, palette.accent.b );
+    }
+
+    if ( selected )
+    {
+        char detailText[160];
+
+        if ( available )
+        {
+            snprintf( detailText, sizeof( detailText ), "%s, %d x %d, #%d", RenderTargetPreviewTypeText( *selected ),
+                      selected->width, selected->height, selectedIndex );
+        }
+        else
+        {
+            snprintf( detailText, sizeof( detailText ), "%s, n/a", RenderTargetPreviewTypeText( *selected ) );
+        }
+
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + UI_TARGETS_META_Y, "Selected", detailText,
+                          available ? palette.textPrimary.r : palette.textMuted.r,
+                          available ? palette.textPrimary.g : palette.textMuted.g,
+                          available ? palette.textPrimary.b : palette.textMuted.b );
+    }
+
+    const UIRect previewPanel = { contentX, scrolledY + UI_TARGETS_PREVIEW_Y, contentW, UI_TARGETS_PREVIEW_H };
+    const UIRect previewClip = { contentX, contentY, contentW, contentH };
+    UIRect previewImage = previewPanel;
+
+    if ( IsBlockVisible( contentY, contentH, previewPanel.y, previewPanel.h ) )
+    {
+        draw.RoundedPanel( previewPanel, Style::Radii().control, palette.windowSubtle, palette.innerBorder );
+        const UIRect inset = { previewPanel.x + 10.0f, previewPanel.y + 10.0f, (std::max)( 1.0f, previewPanel.w - 20.0f ),
+                               (std::max)( 1.0f, previewPanel.h - 20.0f ) };
+        previewImage = selected ? FitRectToAspect( inset, selected->width, selected->height ) : inset;
+        draw.RoundedRect( previewImage.x - 1.0f, previewImage.y - 1.0f, previewImage.w + 2.0f, previewImage.h + 2.0f,
+                          Style::Radii().control, 0.01f, 0.015f, 0.018f, 0.92f );
+    }
+
+    if ( available && IsBlockVisible( contentY, contentH, previewImage.y, previewImage.h ) )
+    {
+        drawList.PushClip( previewClip );
+        drawList.AddPreviewImage( { static_cast<uint16_t>( selectedIndex ), true }, previewImage, palette.windowSubtle,
+                                  "Preview unavailable" );
+        drawList.PopClip();
+    }
+    else if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_PREVIEW_Y + 116.0f, 18.0f ) )
+    {
+        draw.Text( previewPanel.x + 18.0f, previewPanel.y + 116.0f, 12.0f, palette.textMuted.r, palette.textMuted.g,
+                   palette.textMuted.b, "Not available this frame" );
+    }
+
+    if ( IsBlockVisible( contentY, contentH, previewPanel.y, previewPanel.h ) )
+    {
+        draw.Outline( previewImage.x, previewImage.y, previewImage.w, previewImage.h, palette.border.r, palette.border.g,
+                      palette.border.b, 0.72f );
+    }
+
+    const char* selectedText = selected ? selected->label : "No targets";
+    widgets.renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
+
+    if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_COMBO_Y, 24.0f ) )
+    {
+        widgets.renderTargetCombo.Draw( draw, "View",
+                                        { std::span<const char* const>( options, static_cast<std::size_t>( targetCount ) ),
+                                          selectedIndex, widgets.lastRenderTargetDisabledMask, selectedText },
+                                        { widgets.mouseX, widgets.mouseY } );
+    }
+}
+
+void DrawActiveTabContent( InGameUIWidgets& widgets, const InGameUIFrameData& data, const UIDrawContext& draw,
+                           UIDrawList& drawList, float contentX, float contentY, float contentW, float contentH,
+                           float scrolledY )
+{
+    switch ( widgets.activeTab )
+    {
+    case InGameUITab::Profiler:
+        ProfilerTab::Draw( widgets.profilerTab, draw, data.ProfilerTabFrame(), contentX, contentY, contentW, contentH,
+                           widgets.scrollY, widgets.activeSlider );
+        break;
+    case InGameUITab::Memory:
+        MemoryTab::Draw( draw, widgets.memoryOverlay, data.MemoryTabFrame(), contentX, contentY, contentW, contentH,
+                         scrolledY, widgets.activeSlider, widgets.mouseX, widgets.mouseY );
+        break;
+    case InGameUITab::Scene:
+        SceneTab::Draw( widgets.sceneTab, draw, data.SceneTabFrame(), contentX, contentY, contentW, contentH, scrolledY,
+                        widgets.mouseX, widgets.mouseY );
+        break;
+    case InGameUITab::Physics:
+        PhysicsTab::Draw( widgets.physicsTab, draw, data.PhysicsTabFrame(), contentX, contentY, contentW, contentH,
+                          scrolledY, widgets.activeSlider, widgets.mouseX, widgets.mouseY );
+        break;
+    case InGameUITab::Editor:
+        EditorTab::Draw( widgets.editorTab, draw, data.EditorTabFrame(), contentX, contentY, contentW, contentH, scrolledY,
+                         widgets.mouseX, widgets.mouseY );
+        break;
+    case InGameUITab::Options:
+        OptionsTab::Draw( widgets.optionsTab, draw, data.OptionsTabFrame(), contentX, contentY, contentW, contentH,
+                          scrolledY, widgets.activeSlider );
+        break;
+    case InGameUITab::Render:
+        DrawRenderTabContent( widgets, data, draw, contentX, contentY, contentW, contentH, scrolledY );
+        break;
+    case InGameUITab::Targets:
+        DrawTargetsTabContent( widgets, data, draw, drawList, contentX, contentY, contentW, contentH, scrolledY );
+        break;
+    case InGameUITab::Sky:
+        SkyTab::Draw( widgets.skyTab, draw, data.cinematic, contentX, contentY, contentW, contentH, scrolledY,
+                      widgets.mouseX, widgets.mouseY );
+        break;
+    case InGameUITab::Cinematic:
+        CinematicTab::Draw( widgets.cinematicTab, draw, data.CinematicTabFrame(), contentX, contentY, contentW, contentH,
+                            scrolledY, widgets.mouseX, widgets.mouseY );
+        break;
+    case InGameUITab::Keys:
+        ControlsTab::Draw( widgets.controlsTab, draw, data.ControlsTabFrame(), contentX, contentY, contentW, contentH,
+                           scrolledY );
+        break;
+    case InGameUITab::Count:
+        break;
+    }
+}
+
+UIRect DrawFooterContent( InGameUIWidgets& widgets, const InGameUIFrameData& data, const UIDrawContext& draw, float x,
+                          float y, float width, float height, float bottomHeight, float titleStatWidth, float titleStatX,
+                          const char* titleStat )
+{
+    const Style::UIPalette& palette = Style::Palette();
+    const float footerY = y + height - bottomHeight;
+    draw.Rect( x + 16.0f, footerY, width - 32.0f, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.14f );
+    const float footerPad = 18.0f;
+    const float footerGap = 16.0f;
+    const float footerX = x + footerPad;
+    const float footerWidth = (std::max)( 120.0f, width - footerPad * 2.0f );
+    const bool hasSeparateStats = footerWidth >= 560.0f;
+    const float controlsWidth = hasSeparateStats ? 462.0f : footerWidth;
+    const UIRect controlsBounds = { footerX, footerY + 16.0f, controlsWidth, 56.0f };
+    draw.RoundedPanel( controlsBounds, Style::Radii().control, palette.windowSubtle, palette.innerBorder );
+
+    const UIRect rendererBounds = FooterRendererComboBounds( x, footerY );
+    const UIRect waterBounds = FooterWaterComboBounds( x, footerY );
+    const UIRect blurBounds = FooterBlurBounds( x, footerY );
+    const UIRect vsyncBounds = FooterVsyncBounds( x, footerY );
+    const UIRect hitboxBounds = FooterHitboxBounds( x, footerY );
+    const UIRect timelineBounds = FooterTimelineBounds( x, footerY );
+    const UIRect performanceBounds = FooterPerfBounds( x, footerY );
+    widgets.rendererCombo.SetBounds( rendererBounds.x, rendererBounds.y, rendererBounds.w, rendererBounds.h );
+    widgets.rendererCombo.SetDropUp( true );
+    widgets.reflectionCombo.SetBounds( waterBounds.x, waterBounds.y, waterBounds.w, waterBounds.h );
+    widgets.reflectionCombo.SetDropUp( true );
+    widgets.blurToggle.SetBounds( blurBounds.x, blurBounds.y, blurBounds.w, blurBounds.h );
+    widgets.vsyncToggle.SetBounds( vsyncBounds.x, vsyncBounds.y, vsyncBounds.w, vsyncBounds.h );
+    widgets.hitboxToggle.SetBounds( hitboxBounds.x, hitboxBounds.y, hitboxBounds.w, hitboxBounds.h );
+    widgets.histogramToggle.SetBounds( performanceBounds.x, performanceBounds.y, performanceBounds.w, performanceBounds.h );
+    widgets.timelineToggle.SetBounds( timelineBounds.x, timelineBounds.y, timelineBounds.w, timelineBounds.h );
+
+    static const char* rendererOptions[] = { "DX12" };
+    static const char* reflectionOptions[] = { "FBO", "DXR", "None" };
+    widgets.rendererCombo.Draw( draw, "Renderer", { std::span<const char* const>( rendererOptions ), 0 },
+                                { widgets.mouseX, widgets.mouseY } );
+    DrawFooterToggle( draw, blurBounds, "Blur", widgets.blurPreviewEnabled );
+    DrawFooterToggle( draw, vsyncBounds, "VSync", data.vsyncEnabled );
+    DrawFooterToggle( draw, hitboxBounds, "Hitboxes", widgets.hitboxOverlayEnabled );
+    DrawFooterToggle( draw, performanceBounds, "Perf", ProfilerTab::PerformanceHistogramEnabled( widgets.profilerTab ) );
+    DrawFooterToggle( draw, timelineBounds, "Timeline", ProfilerTab::TimelineEnabled( widgets.profilerTab ) );
+    widgets.reflectionCombo.Draw( draw, "Water",
+                                  { std::span<const char* const>( reflectionOptions ), WaterReflectionModeFromData( data ),
+                                    ReflectionDisabledMask() },
+                                  { widgets.mouseX, widgets.mouseY } );
+
+    char status[128];
+    const float frameDisplayMs = data.fps > 0.0f ? 1000.0f / data.fps : 0.0f;
+    const int cpuPercent = static_cast<int>(
+        std::clamp( ( data.renderMs + data.physicsMs ) / 16.67f * 100.0f, 0.0f, 99.0f ) );
+    const int gpuPercent = static_cast<int>( std::clamp( data.renderMs / 16.67f * 100.0f, 0.0f, 99.0f ) );
+    const int drawCalls = data.drawCallsBeforeUI + data.UIDrawCalls;
+    snprintf( status, sizeof( status ), "%.0f", data.fps );
+
+    if ( hasSeparateStats )
+    {
+        const float statsX = footerX + controlsWidth + footerGap;
+        const float statsWidth = (std::max)( 120.0f, x + width - footerPad - statsX );
+        draw.RoundedPanel( { statsX, footerY + 16.0f, statsWidth, 56.0f }, Style::Radii().control, palette.windowSubtle,
+                           palette.innerBorder );
+
+        if ( statsWidth < 350.0f )
+        {
+            char fpsText[32];
+            char frameText[32];
+            char drawText[32];
+            snprintf( fpsText, sizeof( fpsText ), "%.0f", data.fps );
+            snprintf( frameText, sizeof( frameText ), "%.2f ms", frameDisplayMs );
+            snprintf( drawText, sizeof( drawText ), "%d/%d", drawCalls, data.UIDrawCalls );
+            DrawCompactFooterStat( draw, statsX, footerY + 23.0f, "FPS", fpsText, palette.accent.r, palette.accent.g,
+                                   palette.accent.b );
+            DrawCompactFooterStat( draw, statsX, footerY + 41.0f, "Frame", frameText, palette.textPrimary.r,
+                                   palette.textPrimary.g, palette.textPrimary.b );
+            DrawCompactFooterStat( draw, statsX, footerY + 59.0f, "Draw/UI", drawText, palette.textPrimary.r,
+                                   palette.textPrimary.g, palette.textPrimary.b );
+        }
+        else
+        {
+            DrawFooterStatCell( draw, statsX + 18.0f, footerY, "FPS", status, palette.accent.r, palette.accent.g,
+                                palette.accent.b );
+            DrawFooterStatDivider( draw, statsX + 78.0f, footerY );
+            snprintf( status, sizeof( status ), "%.2f ms", frameDisplayMs );
+            DrawFooterStatCell( draw, statsX + 100.0f, footerY, "Frame Time", status, palette.textPrimary.r,
+                                palette.textPrimary.g, palette.textPrimary.b );
+            DrawFooterStatDivider( draw, statsX + 190.0f, footerY );
+            snprintf( status, sizeof( status ), "%d%%", cpuPercent );
+            DrawFooterStatCell( draw, statsX + 212.0f, footerY, "CPU", status, palette.accent.r, palette.accent.g,
+                                palette.accent.b );
+            DrawFooterStatDivider( draw, statsX + 266.0f, footerY );
+            snprintf( status, sizeof( status ), "%d%%", gpuPercent );
+            DrawFooterStatCell( draw, statsX + 288.0f, footerY, "GPU", status, palette.accent.r, palette.accent.g,
+                                palette.accent.b );
+            DrawFooterStatDivider( draw, statsX + 342.0f, footerY );
+            snprintf( status, sizeof( status ), "%d / %d", drawCalls, data.UIDrawCalls );
+            DrawFooterStatCell( draw, statsX + statsWidth - 112.0f, footerY, "Draws / UI", status, palette.textPrimary.r,
+                                palette.textPrimary.g, palette.textPrimary.b );
+        }
+    }
+    else if ( titleStatWidth > 0.0f && titleStatX + titleStatWidth < x + width - 116.0f )
+    {
+        draw.Text( titleStatX, y + 17.0f, 10.5f, palette.accent.r, palette.accent.g, palette.accent.b, titleStat );
+    }
+
+    draw.Rect( x + width - 24.0f, y + height - 9.0f, 14.0f, 2.0f, palette.textMuted.r, palette.textMuted.g,
+               palette.textMuted.b, 0.58f );
+    draw.Rect( x + width - 18.0f, y + height - 15.0f, 8.0f, 2.0f, palette.textMuted.r, palette.textMuted.g,
+               palette.textMuted.b, 0.46f );
+    draw.Rect( x + width - 12.0f, y + height - 21.0f, 2.0f, 2.0f, palette.textMuted.r, palette.textMuted.g,
+               palette.textMuted.b, 0.38f );
+    return controlsBounds;
+}
+} // namespace
 
 
 bool InGameUI::IsVisible() const
@@ -484,45 +932,13 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     m_histogramDrawList.Clear();
     m_memoryOverlayDrawList.Clear();
     auto widgets = m_windowInteraction.Widgets();
-    const UIControlsTabFrameView controlsTabFrame = data.ControlsTabFrame();
-    const UIEditorTabFrameView editorTabFrame = data.EditorTabFrame();
-    const UICinematicTabFrameView cinematicTabFrame = data.CinematicTabFrame();
-    const UIOptionsTabFrameView optionsTabFrame = data.OptionsTabFrame();
-    const UIPhysicsTabFrameView physicsTabFrame = data.PhysicsTabFrame();
-    const UIProfilerTabFrameView profilerTabFrame = data.ProfilerTabFrame();
-    const UIMemoryTabFrameView memoryTabFrame = data.MemoryTabFrame();
-    const UISceneTabFrameView sceneTabFrame = data.SceneTabFrame();
     const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( widgets.profilerTab );
     const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( widgets.memoryOverlay );
     const auto finishDraw = [&]() -> const UIDrawList&
     {
         // Why: every exit path must publish capacity evidence. Hidden,
         // minimized, and cached frames are real retained-stream consumers too.
-        char drawStatsFlag[2] = {};
-
-        size_t drawStatsFlagLength = 0;
-        const bool drawStatsRequested = getenv_s( &drawStatsFlagLength, drawStatsFlag, sizeof( drawStatsFlag ),
-                                                  "SKORE_UI_DRAW_STATS" ) == 0 &&
-                                        drawStatsFlag[0] != '\0';
-
-        if ( drawStatsRequested )
-        {
-            const UIDrawList::Stats frameStats = m_frameDrawList.GetStats();
-            const UIDrawList::Stats histogramStats = m_histogramDrawList.GetStats();
-            const UIDrawList::Stats memoryStats = m_memoryOverlayDrawList.GetStats();
-            const auto overflowed = []( const UIDrawList::Stats& stats )
-            { return stats.commandOverflow || stats.textOverflow || stats.clipOverflow; };
-
-            const bool overflow = overflowed( frameStats ) || overflowed( histogramStats ) || overflowed( memoryStats );
-
-            std::fprintf( stderr,
-                          "[ui-draw-stats] tab=%d frame=%d/%d histogram=%d/%d memory=%d/%d clip=%d/%d/%d overflow=%d\n",
-                          static_cast<int>( widgets.activeTab ), frameStats.commandCount, frameStats.textBytes,
-                          histogramStats.commandCount, histogramStats.textBytes, memoryStats.commandCount,
-                          memoryStats.textBytes, frameStats.maxClipDepth, histogramStats.maxClipDepth,
-                          memoryStats.maxClipDepth, overflow ? 1 : 0 );
-        }
-
+        PublishDrawStats( widgets.activeTab, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList );
         return m_frameDrawList;
     };
 
@@ -548,63 +964,20 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     widgets.lastRenderTargetDisabledMask = RenderTargetPreviewDisabledMask( data );
     widgets.selectedRenderTargetPreview = ResolveRenderTargetPreviewSelection( data, widgets.selectedRenderTargetPreview );
 
-    auto drawHistogramOverlay = [&]()
-    {
-        if ( !histogramEnabled )
-        {
-            return;
-        }
-
-        // Why: the main diagnostics window can replay cached draw commands, but
-        // marker samples, selector state, and drag/resize feedback must rebuild
-        // every frame.
-        m_histogramDrawList.Clear();
-        const UIDrawContext histogramDraw( screenW, screenH, m_histogramDrawList );
-        ProfilerTab::DrawPerformanceHistogram( widgets.profilerTab, histogramDraw, profilerTabFrame );
-        m_frameDrawList.Append( m_histogramDrawList );
-    };
-
-    auto drawMemoryOverlay = [&]()
-    {
-        if ( !memoryOverlayEnabled )
-        {
-            return;
-        }
-
-        // Why: allocator events are retained by memory level, not by sample
-        // index. Draw it after the F5 panel so the F6 panel can anchor under
-        // the CPU histogram's current position when both are visible.
-        m_memoryOverlayDrawList.Clear();
-        const UIDrawContext memoryDraw( screenW, screenH, m_memoryOverlayDrawList );
-        const float memoryX = histogramEnabled ? widgets.profilerTab.histogramPanelX : 16.0f;
-        const float memoryY = histogramEnabled
-                                  ? widgets.profilerTab.histogramPanelY + widgets.profilerTab.histogramPanelH + 8.0f
-                                  : 16.0f;
-
-        MemoryTab::DrawOverlay( widgets.memoryOverlay, memoryDraw, memoryTabFrame, memoryX, memoryY );
-        m_frameDrawList.Append( m_memoryOverlayDrawList );
-    };
-
-    auto drawStandaloneOverlays = [&]()
-    {
-        drawHistogramOverlay();
-
-        drawMemoryOverlay();
-    };
-
     if ( histogramEnabled )
     {
-        ProfilerTab::PushPerformanceHistogramSample( widgets.profilerTab, profilerTabFrame );
+        ProfilerTab::PushPerformanceHistogramSample( widgets.profilerTab, data.ProfilerTabFrame() );
     }
 
     if ( memoryOverlayEnabled )
     {
-        MemoryTab::PushOverlayFrame( widgets.memoryOverlay, memoryTabFrame );
+        MemoryTab::PushOverlayFrame( widgets.memoryOverlay, data.MemoryTabFrame() );
     }
 
     if ( !widgets.window.isVisible )
     {
-        drawStandaloneOverlays();
+        AppendStandaloneOverlays( widgets, data, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList, screenW,
+                                  screenH, histogramEnabled, memoryOverlayEnabled );
         return finishDraw();
     }
 
@@ -612,84 +985,10 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     {
         widgets.cache.Reset();
         UIDrawList& drawList = widgets.cache.MutableDrawList();
-        drawList.Clear();
-        const UIDrawContext draw( screenW, screenH, drawList );
-
-        if ( widgets.window.animationActive && widgets.window.animationToMinimized )
-        {
-            const UIRect animBounds = Chrome::CurrentWindowRect( widgets.window, data.now );
-
-            if ( widgets.window.animationActive )
-            {
-                Chrome::DrawWindowAnimationShell( draw, animBounds );
-                m_frameDrawList.Append( drawList );
-                drawStandaloneOverlays();
-                return finishDraw();
-            }
-        }
-
-        char titleText[192] = {};
-        BuildWindowTitle( data, titleText, sizeof( titleText ) );
-
-        if ( !data.editorModeEnabled )
-        {
-            StripMinimizedRuntimeModeSuffix( data, titleText, sizeof( titleText ) );
-        }
-
-        widgets.window.minimizedWidth = data.editorModeEnabled
-                                            ? EditorMinimizedWidth( editorTabFrame, screenW )
-                                            : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ),
-                                                          MINIMIZED_RUN_MAX_W );
-
-        const UIRect minimized = Layout::MinimizedRect( screenW, screenH, widgets.window.minimizedWidth );
-
-        if ( data.editorModeEnabled )
-        {
-            const EditorMiniPaletteLayout
-                editorMiniPalette = BuildEditorMiniPaletteLayout( screenW, screenH, minimized,
-                                                                  widgets.editorMiniPalettePressedEntry,
-                                                                  widgets.editorMiniPaletteFlyoutOpen );
-
-            DrawEditorMiniPalette( draw, editorMiniPalette, data.editorObjectType, data.editorPlaceStatic, widgets.mouseX,
-                                   widgets.mouseY, widgets.editorMiniPalettePressedTreePlacement,
-                                   widgets.editorMiniPalettePressedHoldMode, widgets.editorMiniPalettePressedEntry, screenW,
-                                   screenH );
-
-            DrawEditorMinimizedWindow( draw, minimized, editorTabFrame, widgets.mouseX, widgets.mouseY );
-        }
-        else
-        {
-            const UIRect cameraModeComboBounds = MinimizedCameraModeComboBounds( minimized );
-            widgets.cameraModeCombo.SetLabelVisible( false );
-            widgets.cameraModeCombo.SetBounds( cameraModeComboBounds.x, cameraModeComboBounds.y, cameraModeComboBounds.w,
-                                               cameraModeComboBounds.h );
-
-            widgets.cameraModeCombo.SetDropUp( true );
-            const float titleMaxW = (std::max)( 0.0f, cameraModeComboBounds.x - ( minimized.x + 32.0f ) -
-                                                           MINIMIZED_CAMERA_MODE_GAP );
-
-            if ( titleMaxW < UIFontMetrics::MeasureText( 12.5f, "..." ) )
-            {
-                titleText[0] = '\0';
-            }
-            else
-            {
-                Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, titleMaxW );
-            }
-            Chrome::DrawMinimizedWindow( draw, minimized, titleText );
-            const int cameraModeIndex = std::clamp( data.cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
-            const uint32_t cameraModeDisabledMask = ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) &
-                                                    ~( data.cameraModeEnabledMask &
-                                                       ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) );
-
-            widgets.cameraModeCombo.Draw( draw, "", kCameraModeOptions, CAMERA_MODE_OPTION_COUNT, cameraModeIndex,
-                                          widgets.mouseX, widgets.mouseY, cameraModeDisabledMask );
-        }
-
-        DrawEditorObjectCounter( draw, data, screenW, screenH );
+        DrawMinimizedContent( widgets, data, drawList, screenW, screenH );
         m_frameDrawList.Append( drawList );
-
-        drawStandaloneOverlays();
+        AppendStandaloneOverlays( widgets, data, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList, screenW,
+                                  screenH, histogramEnabled, memoryOverlayEnabled );
         return finishDraw();
     }
 
@@ -760,14 +1059,14 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 
     const bool drawsLiveRenderTargetPreview = widgets.activeTab == InGameUITab::Targets;
 
-    if ( !drawsLiveRenderTargetPreview &&
-         widgets.cache.CanReplayPositionOnly( cacheKey, widgets.interaction.isDragging ) )
+    if ( !drawsLiveRenderTargetPreview && widgets.cache.CanReplayPositionOnly( cacheKey, widgets.interaction.isDragging ) )
     {
         const float replayOffsetX = widgets.cache.ReplayOffsetX( cacheKey );
         const float replayOffsetY = widgets.cache.ReplayOffsetY( cacheKey );
         m_frameDrawList.Append( widgets.cache.DrawList(), replayOffsetX, replayOffsetY );
 
-        drawStandaloneOverlays();
+        AppendStandaloneOverlays( widgets, data, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList, screenW,
+                                  screenH, histogramEnabled, memoryOverlayEnabled );
         // Lifetime: the cached commands remain in their original coordinate
         // space. Retain that source key so consecutive drag offsets stay total,
         // then rebuild from current content when capture ends.
@@ -802,350 +1101,20 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     draw.RoundedPanel( { contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f }, Style::Radii().window,
                        palette.windowSubtle, palette.innerBorder );
 
-    if ( widgets.activeTab == InGameUITab::Profiler )
-    {
-        ProfilerTab::Draw( widgets.profilerTab, draw, profilerTabFrame, contentX, contentY, contentW, contentH,
-                           widgets.scrollY, widgets.activeSlider );
-    }
-    else if ( widgets.activeTab == InGameUITab::Memory )
-    {
-        MemoryTab::Draw( draw, widgets.memoryOverlay, memoryTabFrame, contentX, contentY, contentW, contentH, scrolledY,
-                         widgets.activeSlider, widgets.mouseX, widgets.mouseY );
-    }
-    else if ( widgets.activeTab == InGameUITab::Scene )
-    {
-        SceneTab::Draw( widgets.sceneTab, draw, sceneTabFrame, contentX, contentY, contentW, contentH, scrolledY,
-                        widgets.mouseX, widgets.mouseY );
-    }
-    else if ( widgets.activeTab == InGameUITab::Physics )
-    {
-        PhysicsTab::Draw( widgets.physicsTab, draw, physicsTabFrame, contentX, contentY, contentW, contentH, scrolledY,
-                          widgets.activeSlider, widgets.mouseX, widgets.mouseY );
-    }
-    else if ( widgets.activeTab == InGameUITab::Editor )
-    {
-        EditorTab::Draw( widgets.editorTab, draw, editorTabFrame, contentX, contentY, contentW, contentH, scrolledY,
-                         widgets.mouseX, widgets.mouseY );
-    }
-    else if ( widgets.activeTab == InGameUITab::Options )
-    {
-        OptionsTab::Draw( widgets.optionsTab, draw, optionsTabFrame, contentX, contentY, contentW, contentH, scrolledY,
-                          widgets.activeSlider );
-    }
-    else if ( widgets.activeTab == InGameUITab::Render )
-    {
-        char buf[128];
-        const float colW = (std::max)( 148.0f, contentW * 0.46f );
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Render" );
-        DrawContentToggle( draw, contentY, contentH, widgets.renderShadowToggle, contentX,
-                           scrolledY + UI_RENDER_FEATURE_START_Y, colW, "Shadows", data.ordinaryRender.shadow.enabled );
-
-        widgets.saveRenderDefaultsButton.SetBounds( contentX + contentW - UI_RENDER_SAVE_BUTTON_W,
-                                                    scrolledY + UI_RENDER_FEATURE_START_Y, UI_RENDER_SAVE_BUTTON_W, 24.0f );
-
-        if ( IsRowVisible( contentY, contentH, scrolledY + UI_RENDER_FEATURE_START_Y, 24.0f ) )
-        {
-            widgets.saveRenderDefaultsButton.Draw( draw, "Save CFG", widgets.mouseX, widgets.mouseY );
-        }
-
-        static constexpr const char* visibilityLabels[] = { "Main", "Reflection", "Terrain shadow", "Object shadow" };
-        char visibilityText[96];
-
-        for ( int viewIndex = 0; viewIndex < static_cast<int>( UIRenderVisibilityView::Count ); ++viewIndex )
-        {
-            const UIRenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
-            snprintf( visibilityText, sizeof( visibilityText ), "%d submitted, %d culled, %d draws", visibility.submitted,
-                      visibility.culled, visibility.draws );
-
-            DrawLabelValueAt( draw, contentY, contentH, contentX,
-                              scrolledY + 76.0f + static_cast<float>( viewIndex ) * 18.0f, visibilityLabels[viewIndex],
-                              visibilityText, palette.accent.r, palette.accent.g, palette.accent.b );
-        }
-
-        const float baseY = scrolledY + UI_RENDER_START_Y;
-
-        for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
-        {
-            const RenderSliderSpec& spec = kRenderSliderSpecs[i];
-            const float sliderY = RenderSliderY( i, baseY );
-
-            if ( RenderSliderStartsSection( i ) &&
-                 IsRowVisible( contentY, contentH, sliderY - UI_RENDER_SECTION_H + 4.0f, 18.0f ) )
-            {
-                DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_RENDER_SECTION_H + 4.0f, 12.0f,
-                                  UIRenderAuthoringSectionName( spec.section ) );
-
-                if ( spec.section == UIRenderAuthoringSection::PredictionPaths )
-                {
-                    widgets.saveTrajectoryStyleButton.SetBounds( contentX + contentW - UI_TRAJECTORY_SAVE_BUTTON_W,
-                                                                 sliderY - UI_RENDER_SECTION_H + 1.0f,
-                                                                 UI_TRAJECTORY_SAVE_BUTTON_W, 20.0f );
-
-                    widgets.saveTrajectoryStyleButton.Draw( draw, "Save Paths", widgets.mouseX, widgets.mouseY );
-                }
-            }
-
-            const float value = std::clamp( RenderValueForParam( data.ordinaryRender, spec.param ), spec.minValue,
-                                            spec.maxValue );
-
-            snprintf( buf, sizeof( buf ), spec.valueFormat, value );
-            widgets.renderSliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
-
-            if ( IsRowVisible( contentY, contentH, sliderY, 34.0f ) )
-            {
-                widgets.renderSliders[i].Draw( draw, spec.label, buf, value, spec.minValue, spec.maxValue );
-            }
-        }
-    }
-    else if ( widgets.activeTab == InGameUITab::Targets )
-    {
-        const int targetCount = RenderTargetPreviewCount( data );
-        const int selectedIndex = widgets.selectedRenderTargetPreview;
-        const bool hasSelection = selectedIndex >= 0 && selectedIndex < targetCount;
-        const UIRenderTargetPreviewResource* selected = hasSelection ? &data.renderTargetPreviews[selectedIndex] : nullptr;
-
-        const bool selectedAvailable = selected && selected->available && selected->width > 0 && selected->height > 0;
-        const Style::UIPalette& targetPalette = Style::Palette();
-        const char* options[UI_RENDER_TARGET_PREVIEW_MAX] = {};
-
-        int liveCount = 0;
-
-        for ( int i = 0; i < targetCount; ++i )
-        {
-            const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
-            options[i] = resource.label;
-
-            if ( resource.available && resource.width > 0 && resource.height > 0 )
-            {
-                ++liveCount;
-            }
-        }
-
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Targets" );
-
-        char countText[64];
-        snprintf( countText, sizeof( countText ), "%d / %d live", liveCount, targetCount );
-
-        if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_META_Y - 24.0f, 18.0f ) )
-        {
-            DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + UI_TARGETS_META_Y - 24.0f, "Resources",
-                              countText, targetPalette.accent.r, targetPalette.accent.g, targetPalette.accent.b );
-        }
-
-        if ( selected )
-        {
-            char detailText[160];
-
-            if ( selectedAvailable )
-            {
-                snprintf( detailText, sizeof( detailText ), "%s, %d x %d, #%d", RenderTargetPreviewTypeText( *selected ),
-                          selected->width, selected->height, selectedIndex );
-            }
-            else
-            {
-                snprintf( detailText, sizeof( detailText ), "%s, n/a", RenderTargetPreviewTypeText( *selected ) );
-            }
-
-            DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + UI_TARGETS_META_Y, "Selected", detailText,
-                              selectedAvailable ? targetPalette.textPrimary.r : targetPalette.textMuted.r,
-                              selectedAvailable ? targetPalette.textPrimary.g : targetPalette.textMuted.g,
-                              selectedAvailable ? targetPalette.textPrimary.b : targetPalette.textMuted.b );
-        }
-
-        const UIRect previewPanel = { contentX, scrolledY + UI_TARGETS_PREVIEW_Y, contentW, UI_TARGETS_PREVIEW_H };
-        const UIRect previewClip = { contentX, contentY, contentW, contentH };
-
-        UIRect previewImage = previewPanel;
-
-        if ( IsBlockVisible( contentY, contentH, previewPanel.y, previewPanel.h ) )
-        {
-            draw.RoundedPanel( previewPanel, Style::Radii().control, targetPalette.windowSubtle, targetPalette.innerBorder );
-
-            const UIRect previewInset = { previewPanel.x + 10.0f, previewPanel.y + 10.0f,
-                                          (std::max)( 1.0f, previewPanel.w - 20.0f ),
-                                          (std::max)( 1.0f, previewPanel.h - 20.0f ) };
-
-            previewImage = selected ? FitRectToAspect( previewInset, selected->width, selected->height ) : previewInset;
-            draw.RoundedRect( previewImage.x - 1.0f, previewImage.y - 1.0f, previewImage.w + 2.0f, previewImage.h + 2.0f,
-                              Style::Radii().control, 0.01f, 0.015f, 0.018f, 0.92f );
-        }
-
-        if ( selectedAvailable && IsBlockVisible( contentY, contentH, previewImage.y, previewImage.h ) )
-        {
-            drawList.PushClip( previewClip.x, previewClip.y, previewClip.w, previewClip.h );
-            drawList.AddPreviewImage( { static_cast<uint16_t>( selectedIndex ), true }, previewImage.x, previewImage.y,
-                                      previewImage.w, previewImage.h, targetPalette.windowSubtle.r,
-                                      targetPalette.windowSubtle.g, targetPalette.windowSubtle.b,
-                                      targetPalette.windowSubtle.a, "Preview unavailable" );
-
-            drawList.PopClip();
-        }
-        else if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_PREVIEW_Y + 116.0f, 18.0f ) )
-        {
-            draw.Text( previewPanel.x + 18.0f, previewPanel.y + 116.0f, 12.0f, targetPalette.textMuted.r,
-                       targetPalette.textMuted.g, targetPalette.textMuted.b, "Not available this frame" );
-        }
-
-        if ( IsBlockVisible( contentY, contentH, previewPanel.y, previewPanel.h ) )
-        {
-            draw.Outline( previewImage.x, previewImage.y, previewImage.w, previewImage.h, targetPalette.border.r,
-                          targetPalette.border.g, targetPalette.border.b, 0.72f );
-        }
-
-        const char* selectedText = selected ? selected->label : "No targets";
-        widgets.renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
-
-        if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_COMBO_Y, 24.0f ) )
-        {
-            widgets.renderTargetCombo.Draw( draw, "View", selectedText, options, targetCount, selectedIndex, widgets.mouseX,
-                                            widgets.mouseY, widgets.lastRenderTargetDisabledMask );
-        }
-    }
-    else if ( widgets.activeTab == InGameUITab::Sky )
-    {
-        SkyTab::Draw( widgets.skyTab, draw, data.cinematic, contentX, contentY, contentW, contentH, scrolledY,
-                      widgets.mouseX, widgets.mouseY );
-    }
-    else if ( widgets.activeTab == InGameUITab::Cinematic )
-    {
-        CinematicTab::Draw( widgets.cinematicTab, draw, cinematicTabFrame, contentX, contentY, contentW, contentH, scrolledY,
-                            widgets.mouseX, widgets.mouseY );
-    }
-    else
-    {
-        ControlsTab::Draw( widgets.controlsTab, draw, controlsTabFrame, contentX, contentY, contentW, contentH, scrolledY );
-    }
+    DrawActiveTabContent( widgets, data, draw, drawList, contentX, contentY, contentW, contentH, scrolledY );
 
     widgets.scrollBar.SetBounds( x + w - 14.0f, contentY, 4.0f, contentH );
     widgets.scrollBar.Draw( draw, static_cast<float>( m_windowInteraction.ContentHeight() ), contentH, widgets.scrollY,
                             widgets.scrollbarVisibleUntil, data.now );
 
-    const float by = y + h - bottomH;
-    draw.Rect( x + 16.0f, by, w - 32.0f, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.14f );
-    const float footerPad = 18.0f;
-    const float footerGap = 16.0f;
-    const float footerX = x + footerPad;
-    const float footerW = (std::max)( 120.0f, w - footerPad * 2.0f );
-    const bool hasSeparateStats = footerW >= 560.0f;
-    const float controlsW = hasSeparateStats ? 462.0f : footerW;
-    draw.RoundedPanel( { footerX, by + 16.0f, controlsW, 56.0f }, Style::Radii().control, palette.windowSubtle,
-                       palette.innerBorder );
-
-    const UIRect rendererComboBounds = FooterRendererComboBounds( x, by );
-    const UIRect waterComboBounds = FooterWaterComboBounds( x, by );
-    const UIRect blurFooterBounds = FooterBlurBounds( x, by );
-    const UIRect vsyncFooterBounds = FooterVsyncBounds( x, by );
-    const UIRect hitboxFooterBounds = FooterHitboxBounds( x, by );
-    const UIRect timelineFooterBounds = FooterTimelineBounds( x, by );
-    const UIRect perfFooterBounds = FooterPerfBounds( x, by );
-    widgets.rendererCombo.SetBounds( rendererComboBounds.x, rendererComboBounds.y, rendererComboBounds.w,
-                                     rendererComboBounds.h );
-
-    widgets.rendererCombo.SetDropUp( true );
-    widgets.reflectionCombo.SetBounds( waterComboBounds.x, waterComboBounds.y, waterComboBounds.w, waterComboBounds.h );
-    widgets.reflectionCombo.SetDropUp( true );
-    widgets.blurToggle.SetBounds( blurFooterBounds.x, blurFooterBounds.y, blurFooterBounds.w, blurFooterBounds.h );
-    widgets.vsyncToggle.SetBounds( vsyncFooterBounds.x, vsyncFooterBounds.y, vsyncFooterBounds.w, vsyncFooterBounds.h );
-    widgets.hitboxToggle.SetBounds( hitboxFooterBounds.x, hitboxFooterBounds.y, hitboxFooterBounds.w, hitboxFooterBounds.h );
-
-    widgets.histogramToggle.SetBounds( perfFooterBounds.x, perfFooterBounds.y, perfFooterBounds.w, perfFooterBounds.h );
-    widgets.timelineToggle.SetBounds( timelineFooterBounds.x, timelineFooterBounds.y, timelineFooterBounds.w,
-                                      timelineFooterBounds.h );
-
-    static const char* kRendererOptions[] = { "DX12" };
-
-    static const char* kReflectionOptions[] = { "FBO", "DXR", "None" };
-
-    widgets.rendererCombo.Draw( draw, "Renderer", kRendererOptions, 1, 0, widgets.mouseX, widgets.mouseY );
-    DrawFooterToggle( draw, blurFooterBounds, "Blur", widgets.blurPreviewEnabled );
-    DrawFooterToggle( draw, vsyncFooterBounds, "VSync", data.vsyncEnabled );
-    DrawFooterToggle( draw, hitboxFooterBounds, "Hitboxes", widgets.hitboxOverlayEnabled );
-    DrawFooterToggle( draw, perfFooterBounds, "Perf", ProfilerTab::PerformanceHistogramEnabled( widgets.profilerTab ) );
-    DrawFooterToggle( draw, timelineFooterBounds, "Timeline", ProfilerTab::TimelineEnabled( widgets.profilerTab ) );
-    widgets.reflectionCombo.Draw( draw, "Water", kReflectionOptions, 3, WaterReflectionModeFromData( data ), widgets.mouseX,
-                                  widgets.mouseY, ReflectionDisabledMask() );
-
-    char status[128];
-    const float frameDisplayMs = data.fps > 0.0f ? 1000.0f / data.fps : 0.0f;
-    const int cpuPercent = static_cast<int>( std::clamp( ( data.renderMs + data.physicsMs ) / 16.67f * 100.0f, 0.0f, 99.0f ) );
-
-    const int gpuPercent = static_cast<int>( std::clamp( data.renderMs / 16.67f * 100.0f, 0.0f, 99.0f ) );
-    const int drawCalls = data.drawCallsBeforeUI + data.UIDrawCalls;
-    snprintf( status, sizeof( status ), "%.0f", data.fps );
-
-    if ( hasSeparateStats )
-    {
-        const float statsX = footerX + controlsW + footerGap;
-        const float statsW = (std::max)( 120.0f, x + w - footerPad - statsX );
-        draw.RoundedPanel( { statsX, by + 16.0f, statsW, 56.0f }, Style::Radii().control, palette.windowSubtle,
-                           palette.innerBorder );
-
-        if ( statsW < 350.0f )
-        {
-            char fpsText[32];
-            char frameText[32];
-            char drawText[32];
-            snprintf( fpsText, sizeof( fpsText ), "%.0f", data.fps );
-            snprintf( frameText, sizeof( frameText ), "%.2f ms", frameDisplayMs );
-            snprintf( drawText, sizeof( drawText ), "%d/%d", drawCalls, data.UIDrawCalls );
-            DrawCompactFooterStat( draw, statsX, by + 23.0f, "FPS", fpsText, palette.accent.r, palette.accent.g,
-                                   palette.accent.b );
-
-            DrawCompactFooterStat( draw, statsX, by + 41.0f, "Frame", frameText, palette.textPrimary.r,
-                                   palette.textPrimary.g, palette.textPrimary.b );
-
-            DrawCompactFooterStat( draw, statsX, by + 59.0f, "Draw/UI", drawText, palette.textPrimary.r,
-                                   palette.textPrimary.g, palette.textPrimary.b );
-        }
-        else
-        {
-            DrawFooterStatCell( draw, statsX + 18.0f, by, "FPS", status, palette.accent.r, palette.accent.g,
-                                palette.accent.b );
-
-            DrawFooterStatDivider( draw, statsX + 78.0f, by );
-            snprintf( status, sizeof( status ), "%.2f ms", frameDisplayMs );
-            DrawFooterStatCell( draw, statsX + 100.0f, by, "Frame Time", status, palette.textPrimary.r,
-                                palette.textPrimary.g, palette.textPrimary.b );
-
-            DrawFooterStatDivider( draw, statsX + 190.0f, by );
-            snprintf( status, sizeof( status ), "%d%%", cpuPercent );
-            DrawFooterStatCell( draw, statsX + 212.0f, by, "CPU", status, palette.accent.r, palette.accent.g,
-                                palette.accent.b );
-
-            DrawFooterStatDivider( draw, statsX + 266.0f, by );
-            snprintf( status, sizeof( status ), "%d%%", gpuPercent );
-            DrawFooterStatCell( draw, statsX + 288.0f, by, "GPU", status, palette.accent.r, palette.accent.g,
-                                palette.accent.b );
-
-            DrawFooterStatDivider( draw, statsX + 342.0f, by );
-            snprintf( status, sizeof( status ), "%d / %d", drawCalls, data.UIDrawCalls );
-            DrawFooterStatCell( draw, statsX + statsW - 112.0f, by, "Draws / UI", status, palette.textPrimary.r,
-                                palette.textPrimary.g, palette.textPrimary.b );
-        }
-    }
-    else
-    {
-        if ( titleStatW > 0.0f && titleStatX + titleStatW < x + w - 116.0f )
-        {
-            draw.Text( titleStatX, y + 17.0f, 10.5f, palette.accent.r, palette.accent.g, palette.accent.b, titleStat );
-        }
-    }
-
-    draw.Rect( x + w - 24.0f, y + h - 9.0f, 14.0f, 2.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
-               0.58f );
-
-    draw.Rect( x + w - 18.0f, y + h - 15.0f, 8.0f, 2.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
-               0.46f );
-
-    draw.Rect( x + w - 12.0f, y + h - 21.0f, 2.0f, 2.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
-               0.38f );
-
-    DrawHitboxOverlay( draw, data, windowBounds, { contentX, contentY, contentW, contentH },
-                       { footerX, by + 16.0f, controlsW, 56.0f } );
+    const UIRect footerBounds = DrawFooterContent( widgets, data, draw, x, y, w, h, bottomH, titleStatW, titleStatX,
+                                                   titleStat );
+    DrawHitboxOverlay( draw, data, windowBounds, { contentX, contentY, contentW, contentH }, footerBounds );
 
     PROFILE_END( "Frame/UI/DrawBuild" );
     m_frameDrawList.Append( drawList );
-    drawStandaloneOverlays();
+    AppendStandaloneOverlays( widgets, data, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList, screenW, screenH,
+                              histogramEnabled, memoryOverlayEnabled );
 
     if ( drawsLiveRenderTargetPreview )
     {

@@ -34,6 +34,7 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <span>
 
 using namespace SkullbonezCore::UI::GameLayout;
 using namespace SkullbonezCore::UI::OperatorControlPolicy;
@@ -564,12 +565,7 @@ bool HandleComboWheel( UISceneTabState& state, const char* const* sceneOptions, 
 bool HandleOpenComboClick( UISceneTabState& state, InGameUIInputResult& result, const char* const* sceneOptions,
                            int sceneOptionCount, int mouseX, int mouseY, float contentX, float rowBase, float contentW )
 {
-    UIComboBox& combo = state.combo;
-    UIButton& resetSceneButton = state.resetSceneButton;
-    UIButton& resetDefaultsButton = state.resetDefaultsButton;
-    UIButton& saveDefaultsButton = state.saveDefaultsButton;
-
-    if ( !combo.IsOpen() )
+    if ( !state.combo.IsOpen() )
     {
         return false;
     }
@@ -578,21 +574,22 @@ bool HandleOpenComboClick( UISceneTabState& state, InGameUIInputResult& result, 
     const int visibleSceneOptions = SceneComboVisibleCount( filteredSceneCount );
     const int sceneDrawOptions = filteredSceneCount > 0 ? visibleSceneOptions : ( state.filter[0] != '\0' ? 1 : 0 );
     state.comboScroll = ClampSceneComboScroll( state.comboScroll, filteredSceneCount );
-    SetSceneHeaderBounds( combo, resetSceneButton, resetDefaultsButton, saveDefaultsButton, contentX, rowBase, contentW );
+    SetSceneHeaderBounds( state.combo, state.resetSceneButton, state.resetDefaultsButton, state.saveDefaultsButton, contentX,
+                          rowBase, contentW );
 
-    const int option = combo.HitOption( mouseX, mouseY, sceneDrawOptions );
+    const int option = state.combo.HitOption( mouseX, mouseY, sceneDrawOptions );
 
-    if ( resetSceneButton.HitTest( mouseX, mouseY ) )
+    if ( state.resetSceneButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.resetScene = true;
         CloseCombo( state );
     }
-    else if ( resetDefaultsButton.HitTest( mouseX, mouseY ) )
+    else if ( state.resetDefaultsButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.resetSceneDefaults = true;
         CloseCombo( state );
     }
-    else if ( saveDefaultsButton.HitTest( mouseX, mouseY ) )
+    else if ( state.saveDefaultsButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.saveSceneDefaults = true;
         CloseCombo( state );
@@ -629,30 +626,26 @@ bool HandleOpenComboClick( UISceneTabState& state, InGameUIInputResult& result, 
 bool HandleHeaderClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
                         float rowBase, float contentW )
 {
-    UIComboBox& combo = state.combo;
-    UIButton& resetSceneButton = state.resetSceneButton;
-    UIButton& resetDefaultsButton = state.resetDefaultsButton;
-    UIButton& saveDefaultsButton = state.saveDefaultsButton;
-
     // Invariant: Scene selection, reset, and save buttons return command
     // intents. Scene load/reset side effects stay outside UI.
-    SetSceneHeaderBounds( combo, resetSceneButton, resetDefaultsButton, saveDefaultsButton, contentX, rowBase, contentW );
+    SetSceneHeaderBounds( state.combo, state.resetSceneButton, state.resetDefaultsButton, state.saveDefaultsButton, contentX,
+                          rowBase, contentW );
 
-    if ( resetSceneButton.HitTest( mouseX, mouseY ) )
+    if ( state.resetSceneButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.resetScene = true;
         CloseCombo( state );
         return true;
     }
 
-    if ( resetDefaultsButton.HitTest( mouseX, mouseY ) )
+    if ( state.resetDefaultsButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.resetSceneDefaults = true;
         CloseCombo( state );
         return true;
     }
 
-    if ( saveDefaultsButton.HitTest( mouseX, mouseY ) )
+    if ( state.saveDefaultsButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.saveSceneDefaults = true;
         CloseCombo( state );
@@ -774,7 +767,8 @@ bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, 
         state.previewPredictionReveal = state.predictionRevealSlider.ValueFromMouse( mouseX, 0.0f, 1.0f, 0.0f );
         result.commands.physics.requestPredictionRevealRate = true;
 
-        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized( state.previewPredictionReveal );
+        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized(
+            state.previewPredictionReveal );
 
         return true;
     }
@@ -812,7 +806,8 @@ bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, I
         state.previewPredictionReveal = state.predictionRevealSlider.ValueFromMouse( mouseX, 0.0f, 1.0f, 0.0f );
         result.commands.physics.requestPredictionRevealRate = true;
 
-        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized( state.previewPredictionReveal );
+        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized(
+            state.previewPredictionReveal );
 
         return true;
     }
@@ -842,7 +837,8 @@ bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInput
     {
         result.commands.physics.requestPredictionRevealRate = true;
 
-        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized( state.previewPredictionReveal );
+        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized(
+            state.previewPredictionReveal );
 
         return true;
     }
@@ -854,10 +850,6 @@ bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInput
 void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
 {
-    UIComboBox& combo = state.combo;
-    UIButton& resetSceneButton = state.resetSceneButton;
-    UIButton& resetDefaultsButton = state.resetDefaultsButton;
-    UIButton& saveDefaultsButton = state.saveDefaultsButton;
     char buf[160];
     char filterDisplay[80] = {};
 
@@ -901,7 +893,7 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         selectedSceneName = data.sceneOptions[data.selectedSceneOption];
     }
 
-    if ( combo.IsOpen() && sceneFilterActive )
+    if ( state.combo.IsOpen() && sceneFilterActive )
     {
         snprintf( filterDisplay, sizeof( filterDisplay ), "%s", state.filter );
         selectedSceneName = filterDisplay;
@@ -925,8 +917,8 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
     }
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene" );
-    SetSceneHeaderBounds( combo, resetSceneButton, resetDefaultsButton, saveDefaultsButton, contentX, scrolledY + 42.0f,
-                          contentW );
+    SetSceneHeaderBounds( state.combo, state.resetSceneButton, state.resetDefaultsButton, state.saveDefaultsButton, contentX,
+                          scrolledY + 42.0f, contentW );
     SetRecordingComboBounds( state.recordingCombo, contentX, scrolledY + 42.0f, contentW );
 
     if ( data.targetFrameCount > 0 )
@@ -941,7 +933,7 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         snprintf( buf, sizeof( buf ), "%d", data.currentFrame );
     }
 
-    if ( !combo.IsOpen() && !state.recordingCombo.IsOpen() )
+    if ( !state.combo.IsOpen() && !state.recordingCombo.IsOpen() )
     {
         const float sceneCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
         const Style::UIPalette& palette = Style::Palette();
@@ -1088,27 +1080,32 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
 
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )
     {
-        combo.Draw( draw, "Load scene", selectedSceneName, visibleSceneOptions, sceneDrawCount, sceneSelectedInSlice, mouseX,
-                    mouseY );
+        state.combo.Draw( draw, "Load scene",
+                          { std::span<const char* const>( visibleSceneOptions, static_cast<std::size_t>( sceneDrawCount ) ),
+                            sceneSelectedInSlice, 0u, selectedSceneName },
+                          { mouseX, mouseY } );
     }
 
 
-    if ( !combo.IsOpen() && IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_RECORDING_COMBO_Y, 24.0f ) )
+    if ( !state.combo.IsOpen() && IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_RECORDING_COMBO_Y, 24.0f ) )
     {
         const int selectedInSlice = data.selectedInteractionRecordingOption >= state.recordingComboScroll &&
                                             data.selectedInteractionRecordingOption <
                                                 state.recordingComboScroll + recordingVisibleCount
                                         ? data.selectedInteractionRecordingOption - state.recordingComboScroll
                                         : -1;
-        state.recordingCombo.Draw( draw, "Replay", selectedRecordingName, visibleRecordingOptions, recordingVisibleCount,
-                                   selectedInSlice, mouseX, mouseY );
+        state.recordingCombo.Draw( draw, "Replay",
+                                   { std::span<const char* const>( visibleRecordingOptions,
+                                                                   static_cast<std::size_t>( recordingVisibleCount ) ),
+                                     selectedInSlice, 0u, selectedRecordingName },
+                                   { mouseX, mouseY } );
     }
 
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )
     {
-        resetSceneButton.Draw( draw, "Reset", mouseX, mouseY );
-        resetDefaultsButton.Draw( draw, "Reset Defaults", mouseX, mouseY );
-        saveDefaultsButton.Draw( draw, "Save Defaults", mouseX, mouseY );
+        state.resetSceneButton.Draw( draw, "Reset", mouseX, mouseY );
+        state.resetDefaultsButton.Draw( draw, "Reset Defaults", mouseX, mouseY );
+        state.saveDefaultsButton.Draw( draw, "Save Defaults", mouseX, mouseY );
     }
 }
 

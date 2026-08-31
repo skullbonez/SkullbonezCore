@@ -2,7 +2,7 @@
 
 Date: 2026-08-31
 Branch: `nightrunner-31st-AUG-26`
-Status: Engine Signature And Context Cohesion active at 3/7; portfolio 138/142
+Status: Engine Signature And Context Cohesion active at 4/7; portfolio 139/142
 
 ## Current State
 
@@ -20,8 +20,18 @@ row bags, terrain output references, ragdoll impulse plumbing, per-step runtime
 settings, and unchecked height-map derived counts with named values, aligned
 views, typed results, and concrete owner phases. The 33 focused cases pass 925
 assertions, source-design passes 24 files/192 contexts, and the Physics digest
-is unchanged. SC3 now reviews Rendering, the UI library, and DX12 together. No
-baseline refresh is authorized. The live work ledger is temporarily owned by
+is unchanged. SC3 is complete. Rendering now uses validated mesh vertex/upload
+values, typed camera/light views, explicit model-selection modes, and typed
+shadow batch views. The UI library records named bounds/point/triangle/color
+values and uses a span-backed combo presentation view. Compiler-required
+repairs also split the touched GameUI and replay scrubber composers into
+concrete draw phases. Profile builds warning-clean; 912 cases/2,693,378
+assertions, the renderer-free UI boundary, dependency, formatting,
+build-configuration, and source-design checks pass. DX12 produces all captures
+with zero InfoQueue errors; a detached pre-SC3 build proves the two committed
+screenshot-oracle mismatches are inherited, and no baseline was refreshed. SC4
+now reviews Runtime packages below App in dependency order. No baseline refresh
+is authorized. The live work ledger is temporarily owned by
 unfinished task `GOV1` in another Codex session, so this run cannot open its own
 ledger row until that external metadata owner finishes.
 

@@ -1212,8 +1212,9 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
             if ( SelectRenderTexture( inputs.textures, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) )
             {
-                inputs.instanceRenderer.RenderReflectionModels( inputs.primitiveShaderBaseName, inputs.reflectionView,
-                                                                inputs.camera.projection, inputs.camera.lightPosition,
+                inputs.instanceRenderer.RenderReflectionModels( inputs.primitiveShaderBaseName,
+                                                                { inputs.reflectionView, inputs.camera.projection,
+                                                                  inputs.camera.lightPosition },
                                                                 inputs.cinematic, inputs.objectShadow, inputs.bodyAlpha );
             }
         }
@@ -1270,10 +1271,17 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
 
         if ( SelectRenderTexture( inputs.textures, TEXTURE_BOUNDING_SPHERE, passName ) )
         {
-            inputs.instanceRenderer.RenderModels( inputs.primitiveShaderBaseName, inputs.camera.baseView,
-                                                  inputs.camera.projection, inputs.camera.lightPosition, inputs.cinematic,
-                                                  inputs.shadow, inputs.bodyAlpha, inputs.modelMask,
-                                                  inputs.drawMaskedModels );
+            const Rendering::RenderModelSelection selection = !inputs.modelMask
+                                                                  ? Rendering::RenderModelSelection::All()
+                                                                  : ( inputs.drawMaskedModels
+                                                                          ? Rendering::RenderModelSelection::Marked(
+                                                                                *inputs.modelMask )
+                                                                          : Rendering::RenderModelSelection::Unmarked(
+                                                                                *inputs.modelMask ) );
+            inputs.instanceRenderer.RenderModels( inputs.primitiveShaderBaseName,
+                                                  { inputs.camera.baseView, inputs.camera.projection,
+                                                    inputs.camera.lightPosition },
+                                                  inputs.cinematic, inputs.shadow, inputs.bodyAlpha, selection );
         }
     }
 }

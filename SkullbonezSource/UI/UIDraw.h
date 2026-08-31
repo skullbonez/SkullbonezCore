@@ -41,6 +41,25 @@ struct UIRect
     bool Contains( int px, int py ) const;
 };
 
+struct UIPoint
+{
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
+struct UIPointerPosition
+{
+    int x = 0;
+    int y = 0;
+};
+
+struct UITriangle
+{
+    UIPoint first;
+    UIPoint second;
+    UIPoint third;
+};
+
 UIRect IntersectRect( const UIRect& left, const UIRect& right );
 
 class UIDrawList;
@@ -48,7 +67,6 @@ class UIDrawList;
 class UIDrawContext
 {
   public:
-
     // The dimensions identify the complete frame being authored. Geometry
     // remains in screen pixels, so recording does not need projection or
     // renderer state.

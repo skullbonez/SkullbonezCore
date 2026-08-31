@@ -1,7 +1,7 @@
 # Engine Signature And Context Cohesion
 
 Date: 2026-08-31
-Status: Active by explicit owner direction on 2026-08-31; 3/7 phases complete.
+Status: Active by explicit owner direction on 2026-08-31; 4/7 phases complete.
 Impact area: all first-party C++ engine packages, tests, compiler-backed source
 design inspection, dependency direction, and focused subsystem validation.
 Owner: Engine architecture owner
@@ -626,6 +626,57 @@ byte-exact at 44,401 lines and SHA-256
 `03088b30b8826f88a6193e511b7f4205aff9324d06ad08456610aac0e13a3f6b`.
 No baseline or golden changed.
 
+## SC3 Rendering, UI, And DX12 Decisions And Evidence
+
+The SC0 census contained 108 rows in this slice: 68 Rendering/DX12 rows and 40
+UI-library rows. The package review made these owner-level decisions:
+
+- Mesh creation now receives a validated packed vertex view and an in-bounds
+  upload slice that proves the CPU bytes, GPU address, byte count, and backing
+  resource belong together before any copy is recorded.
+- Instance rendering receives one synchronous camera/light view and a model
+  selection value with exactly three valid modes: all, marked, or unmarked.
+  Shadow submission reads typed batch views instead of unpacking the complete
+  batch record into local aliases.
+- Retained UI commands now accept bounds, points, triangles, and colors as named
+  values. Combo drawing receives one span-backed presentation view, so option
+  storage cannot disagree with a separate count and selection/disabled state
+  remains aligned with that storage.
+- Because the changed Runtime consumers are compiler-gated as complete
+  translation units, the oversized GameUI and replay scrubber composers were
+  repaired in this phase rather than left with new SC4 debt. GameUI now has
+  separate minimized, overlay, active-tab, render-authoring, target-preview,
+  and footer phases. Replay scrubber drawing now has separate surface, label,
+  header/edit, track, prediction-control, and status phases.
+
+Externally fixed D3D12 callbacks and ABI entry points remain direct. Private
+pipeline-state and command-recording kernels also remain direct where their
+operands are the actual algorithm and a wrapper would enforce no invariant.
+`UIDrawContext` remains the immediate-mode primitive authoring surface: its
+scalar geometry/color overloads immediately create typed retained
+`UIDrawList` commands and retain no ambiguous state. Render-graph and pipeline
+composition records remain complete synchronous values whose consumers already
+use behavioral subviews. These are concrete keep decisions, not exception rows.
+
+The Profile solution builds with zero warnings. The complete test executable
+passes 912 cases and 2,693,378 assertions; the renderer-free UI boundary probe
+builds and passes its deterministic fingerprints. Compiler-backed source-design
+passes 45 changed files under 347 distinct build contexts with no findings;
+dependency, formatting, and build-configuration checks pass. Baked shader
+freshness passes for all 44 stages. The broader advisory shader inventory still
+reports its inherited 22 manifest/resource-contract errors; no shader or shader
+manifest changed in SC3.
+
+Two live DX12 runs produce every expected capture and report zero InfoQueue
+errors. The committed screenshot oracle still rejects `water_ball_test` and
+`solver_smoke`, while `space_three_body` is pixel-exact. A detached build of the
+pre-SC3 commit reproduces those same oracle deltas. Current and pre-SC3 water
+and space captures are pixel-identical; solver differs in only 828 color
+channels with maximum delta 36, compared with roughly 397,000 channels over the
+baseline threshold. The screenshot mismatch is inherited and no baseline or
+golden was refreshed. Replay visual fidelity remains mapped to the SC6 terminal
+closure pass, where the plan concentrates heavy subsystem gates.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add
@@ -645,7 +696,7 @@ No baseline or golden changed.
   stages, and APIs with same-type scalar runs. For every slice, preserve
   floating-point evaluation order and run the owning focused tests. Do not move
   Runtime concepts downward to shorten an upper-layer call.
-- [ ] **SC3 — Repair Rendering, UI library, and DX12 candidates.** Separate
+- [x] **SC3 — Repair Rendering, UI library, and DX12 candidates.** Separate
   immutable resource descriptions, per-draw values, and lifecycle operations.
   Preserve C/DX12 callback and ABI signatures when externally fixed, and record
   that constraint rather than wrapping them. Prove command order, descriptor

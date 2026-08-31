@@ -30,6 +30,7 @@ Related:
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/UI/UIDraw.h"
 #include "../SkullbonezSource/UI/UIDrawList.h"
+#include "../SkullbonezSource/UI/UIComboBox.h"
 #include "../SkullbonezSource/UI/UIFontMetrics.h"
 #include "../SkullbonezSource/UI/UICache.h"
 #include "../SkullbonezSource/UI/UILayout.h"
@@ -307,7 +308,7 @@ TEST_CASE( "UI position cache hashes pointer interaction in window-local coordin
     firstKey.contentSignature = 11u;
     firstKey.interactionSignature = firstSignature;
     cache.BeginFrame( firstKey );
-    cache.MutableDrawList().AddRect( 100.0f, 120.0f, 20.0f, 20.0f, 1.0f, 1.0f, 1.0f, 1.0f );
+    cache.MutableDrawList().AddRect( { 100.0f, 120.0f, 20.0f, 20.0f }, { 1.0f, 1.0f, 1.0f, 1.0f } );
     cache.StoreFrame( firstKey );
 
     UICacheFrameKey movedKey = firstKey;
@@ -425,10 +426,10 @@ TEST_CASE( "UI draw values preserve primitive and text order" )
 {
     UIDrawList list;
     list.Clear();
-    list.AddRect( 1, 2, 3, 4, 0.1f, 0.2f, 0.3f, 0.4f );
-    list.AddRoundedRect( 5, 6, 7, 8, 2, 0.2f, 0.3f, 0.4f, 0.5f );
-    list.AddTriangle( 1, 2, 3, 4, 5, 6, 0.3f, 0.4f, 0.5f, 0.6f );
-    list.AddText( 7, 8, 12, 0.8f, 0.9f, 1.0f, "ordered" );
+    list.AddRect( { 1, 2, 3, 4 }, { 0.1f, 0.2f, 0.3f, 0.4f } );
+    list.AddRoundedRect( { 5, 6, 7, 8 }, 2, { 0.2f, 0.3f, 0.4f, 0.5f } );
+    list.AddTriangle( { { 1, 2 }, { 3, 4 }, { 5, 6 } }, { 0.3f, 0.4f, 0.5f, 0.6f } );
+    list.AddText( { 7, 8 }, 12, { 0.8f, 0.9f, 1.0f, 1.0f }, "ordered" );
 
     const auto commands = list.Commands();
     REQUIRE( commands.size() == 4 );
@@ -440,12 +441,28 @@ TEST_CASE( "UI draw values preserve primitive and text order" )
 }
 
 
+TEST_CASE( "UI combo presentation keeps options selection and disabled state aligned" )
+{
+    const char* options[] = { "First", "Second", "Third" };
+    SkullbonezCore::UI::UIComboPresentationView presentation { std::span<const char* const>( options ), 1, 1u << 1 };
+
+    CHECK( presentation.OptionCount() == 3 );
+    CHECK( std::strcmp( presentation.SelectedText(), "Second" ) == 0 );
+    CHECK_FALSE( presentation.SelectedOptionEnabled() );
+
+    presentation.selectedTextOverride = "Selected elsewhere";
+    CHECK( std::strcmp( presentation.SelectedText(), "Selected elsewhere" ) == 0 );
+    presentation.selectedIndex = -1;
+    CHECK( presentation.SelectedOptionEnabled() );
+}
+
+
 TEST_CASE( "UI draw values retain nested clips and report imbalance" )
 {
     UIDrawList list;
     list.Clear();
-    list.PushClip( 0, 0, 100, 100 );
-    list.PushClip( 10, 10, 20, 20 );
+    list.PushClip( { 0, 0, 100, 100 } );
+    list.PushClip( { 10, 10, 20, 20 } );
     list.PopClip();
     list.PopClip();
     list.PopClip();
@@ -465,7 +482,8 @@ TEST_CASE( "UI preview values define unavailable fallback presentation" )
 {
     UIDrawList list;
     list.Clear();
-    list.AddPreviewImage( { 4, true }, 10, 20, 300, 160, 0.08f, 0.09f, 0.11f, 1.0f, "Preview unavailable" );
+    list.AddPreviewImage( { 4, true }, { 10, 20, 300, 160 }, { 0.08f, 0.09f, 0.11f, 1.0f },
+                          "Preview unavailable" );
 
     const auto commands = list.Commands();
     REQUIRE( commands.size() == 1 );
@@ -483,7 +501,7 @@ TEST_CASE( "UI draw storage fails closed at fixed capacities" )
     list.Clear();
     for ( int index = 0; index < UIDrawList::MAX_COMMANDS + 1; ++index )
     {
-        list.AddRect( 0, 0, 1, 1, 1, 1, 1, 1 );
+        list.AddRect( { 0, 0, 1, 1 }, { 1, 1, 1, 1 } );
     }
     CHECK( list.Commands().size() == UIDrawList::MAX_COMMANDS );
     CHECK( list.GetStats().commandOverflow );
@@ -492,7 +510,7 @@ TEST_CASE( "UI draw storage fails closed at fixed capacities" )
     std::array<char, UIDrawList::MAX_TEXT_BYTES + 1> oversizedText {};
     oversizedText.fill( 'x' );
     oversizedText.back() = '\0';
-    list.AddText( 0, 0, 10, 1, 1, 1, oversizedText.data() );
+    list.AddText( { 0, 0 }, 10, { 1, 1, 1, 1 }, oversizedText.data() );
     CHECK( list.GetStats().textOverflow );
     REQUIRE( list.Commands().size() == 1 );
     CHECK( std::strlen( list.TextAt( list.Commands()[0].textOffset ) ) == UIDrawList::MAX_TEXT_BYTES - 1 );
@@ -500,7 +518,7 @@ TEST_CASE( "UI draw storage fails closed at fixed capacities" )
     list.Clear();
     for ( int depth = 0; depth < UIDrawList::MAX_CLIP_DEPTH + 1; ++depth )
     {
-        list.PushClip( 0, 0, 1, 1 );
+        list.PushClip( { 0, 0, 1, 1 } );
     }
     list.PopClip(); // Matches the rejected push and must not pop a retained clip.
     CHECK( list.Commands().size() == UIDrawList::MAX_CLIP_DEPTH );
@@ -518,14 +536,15 @@ TEST_CASE( "UI frame composition appends cached values without borrowing source 
 {
     auto cached = std::make_unique<UIDrawList>();
     cached->Clear();
-    cached->AddText( 10, 20, 12, 1, 1, 1, "cached label" );
-    cached->PushClip( 5, 6, 100, 80 );
-    cached->AddPreviewImage( { 2, true }, 8, 9, 40, 30, 0.1f, 0.2f, 0.3f, 1.0f, "Preview unavailable" );
+    cached->AddText( { 10, 20 }, 12, { 1, 1, 1, 1 }, "cached label" );
+    cached->PushClip( { 5, 6, 100, 80 } );
+    cached->AddPreviewImage( { 2, true }, { 8, 9, 40, 30 }, { 0.1f, 0.2f, 0.3f, 1.0f },
+                             "Preview unavailable" );
     cached->PopClip();
 
     auto frame = std::make_unique<UIDrawList>();
     frame->Clear();
-    frame->AddRect( 0, 0, 1, 1, 1, 0, 0, 1 );
+    frame->AddRect( { 0, 0, 1, 1 }, { 1, 0, 0, 1 } );
     frame->Append( *cached, 3, 4 );
     cached->Clear();
 

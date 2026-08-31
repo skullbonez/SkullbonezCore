@@ -35,6 +35,7 @@ Related:
 #include <string>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <vector>
 #include <wrl/client.h>
 
@@ -64,8 +65,8 @@ std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseN
 }
 
 
-std::unique_ptr<ShaderDX12>
-Dx12ResourceBuilder::CreateShaderFromResolvedBasePath( const char* resolvedBasePath, const char* contractBaseName )
+std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShaderFromResolvedBasePath( const char* resolvedBasePath,
+                                                                                   const char* contractBaseName )
 {
     const std::string hlslPath = ResolvedShaderHlslPath( resolvedBasePath );
     return CreateShaderFromHlslPath( hlslPath.c_str(), contractBaseName );
@@ -147,7 +148,15 @@ std::unique_ptr<MeshDX12> Dx12ResourceBuilder::CreateMesh( const float* data, in
         return nullptr;
     }
 
-    UINT64 dataSize = static_cast<UINT64>( vertexCount ) * floatsPerVert * sizeof( float );
+    const std::optional<MeshVertexDataView> vertices = MeshVertexDataView::TryCreate( data, vertexCount, floatsPerVert,
+                                                                                      format );
+
+    if ( !vertices )
+    {
+        return nullptr;
+    }
+
+    const UINT64 dataSize = vertices->ByteCount();
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = m_frame.UploadReservations().ReserveUpload( dataSize, 4,
                                                                                        RenderUploadCategory::DynamicVertex );
 
@@ -157,11 +166,18 @@ std::unique_ptr<MeshDX12> Dx12ResourceBuilder::CreateMesh( const float* data, in
     }
 
     uint8_t* uploadPtr = m_frame.UploadReservations().UploadPointer( uploadAddr );
+    const std::optional<Dx12MeshUploadSlice> upload = Dx12MeshUploadSlice::TryCreate( uploadAddr, uploadPtr, dataSize,
+                                                                                      m_frame.Uploads().Resource(
+                                                                                          m_frame.AllocatorIndex() ) );
+
+    if ( !upload )
+    {
+        return nullptr;
+    }
 
     auto mesh = std::make_unique<MeshDX12>( m_device, m_frame.DrawGate(), m_diagnostics );
 
-    if ( !mesh->Create( m_device.Device(), m_device.CommandList(), data, vertexCount, floatsPerVert, format, uploadAddr,
-                        uploadPtr, m_frame.Uploads().Resource( m_frame.AllocatorIndex() ) ) )
+    if ( !mesh->Create( *vertices, *upload ) )
     {
         return nullptr;
     }

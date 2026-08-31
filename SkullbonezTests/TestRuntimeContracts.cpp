@@ -93,6 +93,7 @@
 #include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
 #include "../SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h"
 #include "../SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"
+#include "../SkullbonezSource/Rendering/RenderInstanceRenderer.h"
 #include "../SkullbonezSource/Rendering/PrimitiveBatchRenderer.h"
 #include "../SkullbonezSource/Rendering/RenderMaterial.h"
 #include "../SkullbonezSource/Rendering/RenderInstanceStore.h"
@@ -141,6 +142,7 @@
 #include <initializer_list>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <thread>
@@ -4438,4 +4440,48 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     CHECK( comUninitializations == 1 );
     CHECK( rendererStarts == 1 );
     CHECK( startupSequence == std::vector<int> { 6 } );
+}
+
+
+TEST_CASE( "DX12 mesh vertex data validates one complete packed layout" )
+{
+    using SkullbonezCore::Rendering::Dx12MeshUploadSlice;
+    using SkullbonezCore::Rendering::MeshVertexDataView;
+    using SkullbonezCore::Rendering::VertexFormat12;
+
+    const float components[6] = {};
+    const std::optional<MeshVertexDataView> vertices =
+        MeshVertexDataView::TryCreate( components, 2, 3, VertexFormat12::Pos3 );
+    REQUIRE( vertices );
+    CHECK( vertices->Components().size() == 6u );
+    CHECK( vertices->ByteCount() == sizeof( components ) );
+    CHECK( vertices->VertexCount() == 2 );
+    CHECK( vertices->FloatsPerVertex() == 3 );
+    CHECK( vertices->Format() == VertexFormat12::Pos3 );
+
+    CHECK_FALSE( MeshVertexDataView::TryCreate( nullptr, 2, 3, VertexFormat12::Pos3 ) );
+    CHECK_FALSE( MeshVertexDataView::TryCreate( components, 0, 3, VertexFormat12::Pos3 ) );
+    CHECK_FALSE( MeshVertexDataView::TryCreate( components, 2, 0, VertexFormat12::Pos3 ) );
+    CHECK_FALSE( Dx12MeshUploadSlice::TryCreate( 0, nullptr, 0, nullptr ) );
+}
+
+
+TEST_CASE( "Render model selection encodes all marked and unmarked modes" )
+{
+    const std::vector<uint8_t> mask { 0u, 1u };
+    const SkullbonezCore::Rendering::RenderModelSelection all =
+        SkullbonezCore::Rendering::RenderModelSelection::All();
+    const SkullbonezCore::Rendering::RenderModelSelection marked =
+        SkullbonezCore::Rendering::RenderModelSelection::Marked( mask );
+    const SkullbonezCore::Rendering::RenderModelSelection unmarked =
+        SkullbonezCore::Rendering::RenderModelSelection::Unmarked( mask );
+
+    CHECK( all.Includes( 0 ) );
+    CHECK( all.Includes( 2 ) );
+    CHECK_FALSE( marked.Includes( 0 ) );
+    CHECK( marked.Includes( 1 ) );
+    CHECK_FALSE( marked.Includes( 2 ) );
+    CHECK( unmarked.Includes( 0 ) );
+    CHECK_FALSE( unmarked.Includes( 1 ) );
+    CHECK( unmarked.Includes( 2 ) );
 }

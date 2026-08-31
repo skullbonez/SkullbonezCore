@@ -32,6 +32,7 @@ namespace UI
 {
 
 class UICheckBox;
+struct UIComboPresentationView;
 
 namespace Widgets
 {
@@ -127,9 +128,8 @@ bool IsComboOptionEnabled( uint32_t disabledOptionMask, int optionIndex );
 void DrawComboField( const UIDrawContext& draw, const ComboLayout& layout, const char* label, const char* selectedText,
                      bool labelVisible, bool open, UIVisualState state, bool selectedEnabled = true,
                      ComponentAppearance appearance = ComponentAppearance::Adaptive );
-void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const char* const* options, int optionCount,
-                     int selectedIndex, int hoveredIndex, uint32_t disabledOptionMask, UIVisualState state,
-                     ComponentAppearance appearance = ComponentAppearance::Adaptive );
+void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const UIComboPresentationView& presentation,
+                     int hoveredIndex, UIVisualState state, ComponentAppearance appearance = ComponentAppearance::Adaptive );
 
 void DrawIconButton( const UIDrawContext& draw, const UIRect& bounds, ComponentIcon icon, UIVisualState state,
                      ComponentAppearance appearance = ComponentAppearance::Adaptive );

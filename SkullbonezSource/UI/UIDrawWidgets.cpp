@@ -24,6 +24,7 @@ Related:
 #include "UIDrawWidgets.h"
 #include "UIFontMetrics.h"
 #include "UICheckBox.h"
+#include "UIComboBox.h"
 #include "UIStyle.h"
 
 #include <algorithm>
@@ -697,10 +698,10 @@ void DrawComboField( const UIDrawContext& draw, const ComboLayout& layout, const
 }
 
 
-void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const char* const* options, int optionCount,
-                     int selectedIndex, int hoveredIndex, uint32_t disabledOptionMask, UIVisualState state,
-                     ComponentAppearance appearance )
+void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const UIComboPresentationView& presentation,
+                     int hoveredIndex, UIVisualState state, ComponentAppearance appearance )
 {
+    const int optionCount = presentation.OptionCount();
     const bool established = appearance == ComponentAppearance::Established;
 
     if ( !IsVisible( state ) || ( optionCount <= 0 && !established ) )
@@ -728,19 +729,14 @@ void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const
 
     for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
     {
-        if ( !options )
-        {
-            break;
-        }
-
         UIVisualState optionState = UIVisualState::Visible;
 
-        if ( IsEnabled( state ) && IsComboOptionEnabled( disabledOptionMask, optionIndex ) )
+        if ( IsEnabled( state ) && IsComboOptionEnabled( presentation.disabledOptionMask, optionIndex ) )
         {
             optionState |= UIVisualState::Enabled;
         }
 
-        if ( optionIndex == selectedIndex )
+        if ( optionIndex == presentation.selectedIndex )
         {
             optionState |= UIVisualState::Selected;
         }
@@ -775,7 +771,7 @@ void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const
                                                                         : palette.textSecondary ) ) )
                                                 : ControlText( optionState );
         draw.Text( layout.popupBounds.x + 10.0f, optionY + 4.0f, 10.5f, text.r, text.g, text.b,
-                   SafeText( options[optionIndex] ) );
+                   SafeText( presentation.options[static_cast<std::size_t>( optionIndex )] ) );
     }
 
     if ( !established )

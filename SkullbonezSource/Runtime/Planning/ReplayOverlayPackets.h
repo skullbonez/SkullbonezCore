@@ -71,6 +71,74 @@ struct ReplayOverlayGestureView
     bool predictionHorizonDrag = false;
 };
 
+// Lifetime: this synchronous subview borrows only the owners needed to draw
+// the replay scrubber. Intercept, trip-planning, porkchop, and cause surfaces
+// stay outside it, so the scrubber phase cannot reach unrelated overlay state.
+class ReplayScrubberPresentationView
+{
+  public:
+    ReplayScrubberPresentationView( ReplayScrubberView scrubber, ReplayPredictionPresentationView prediction,
+                                    const RunReplayPathVisualizerState& pathVisualizer,
+                                    const RunReplayVelocityEditState& velocityEdit, ReplayRecorderStats solverStats,
+                                    ReplayPresentationSelection selection,
+                                    const RunReplayPredictionFrame* selectedPrediction, bool predictionTimelineAvailable,
+                                    bool shouldRender ) noexcept
+        : m_scrubber( scrubber ), m_prediction( prediction ), m_pathVisualizer( pathVisualizer ),
+          m_velocityEdit( velocityEdit ), m_solverStats( solverStats ), m_selection( selection ),
+          m_selectedPrediction( selectedPrediction ), m_predictionTimelineAvailable( predictionTimelineAvailable ),
+          m_shouldRender( shouldRender )
+    {
+    }
+
+    const ReplayScrubberView& Scrubber() const noexcept
+    {
+        return m_scrubber;
+    }
+    const ReplayPredictionPresentationView& Prediction() const noexcept
+    {
+        return m_prediction;
+    }
+    const RunReplayPathVisualizerState& PathVisualizer() const noexcept
+    {
+        return m_pathVisualizer;
+    }
+    const RunReplayVelocityEditState& VelocityEdit() const noexcept
+    {
+        return m_velocityEdit;
+    }
+    const ReplayRecorderStats& SolverStats() const noexcept
+    {
+        return m_solverStats;
+    }
+    const ReplayPresentationSelection& Selection() const noexcept
+    {
+        return m_selection;
+    }
+    const RunReplayPredictionFrame* SelectedPrediction() const noexcept
+    {
+        return m_selectedPrediction;
+    }
+    bool PredictionTimelineAvailable() const noexcept
+    {
+        return m_predictionTimelineAvailable;
+    }
+    bool ShouldRender() const noexcept
+    {
+        return m_shouldRender;
+    }
+
+  private:
+    ReplayScrubberView m_scrubber;
+    ReplayPredictionPresentationView m_prediction;
+    const RunReplayPathVisualizerState& m_pathVisualizer;
+    const RunReplayVelocityEditState& m_velocityEdit;
+    ReplayRecorderStats m_solverStats;
+    ReplayPresentationSelection m_selection;
+    const RunReplayPredictionFrame* m_selectedPrediction = nullptr;
+    bool m_predictionTimelineAvailable = false;
+    bool m_shouldRender = false;
+};
+
 struct ReplayOverlayStateView
 {
     ReplayScrubberView scrubber;
@@ -98,6 +166,19 @@ struct ReplayOverlayStateView
     bool recordingConfigured = false;
     bool recordingEnabled = false;
     bool recordingLockedByHashLog = false;
+
+    ReplayScrubberPresentationView ScrubberPresentation() const noexcept
+    {
+        return { scrubber,
+                 prediction,
+                 pathVisualizer,
+                 velocityEdit,
+                 solverStats,
+                 selection,
+                 selectedPrediction,
+                 predictionTimelineAvailable,
+                 shouldRenderScrubber };
+    }
 };
 
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

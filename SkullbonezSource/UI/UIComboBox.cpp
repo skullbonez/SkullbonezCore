@@ -27,6 +27,30 @@ namespace SkullbonezCore
 namespace UI
 {
 
+int UIComboPresentationView::OptionCount() const noexcept
+{
+    return static_cast<int>( options.size() );
+}
+
+
+const char* UIComboPresentationView::SelectedText() const noexcept
+{
+    if ( selectedTextOverride )
+    {
+        return selectedTextOverride;
+    }
+
+    return selectedIndex >= 0 && selectedIndex < OptionCount() && options[static_cast<std::size_t>( selectedIndex )]
+               ? options[static_cast<std::size_t>( selectedIndex )]
+               : "";
+}
+
+
+bool UIComboPresentationView::SelectedOptionEnabled() const noexcept
+{
+    return selectedIndex < 0 || selectedIndex >= 32 || ( disabledOptionMask & ( 1u << selectedIndex ) ) == 0;
+}
+
 void UIComboBox::SetBounds( float x, float y, float w, float h )
 {
     m_bounds = { x, y, w, h };
@@ -97,44 +121,28 @@ void UIComboBox::Close()
 }
 
 
-void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* const* options, int optionCount,
-                       int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask ) const
+void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const UIComboPresentationView& presentation,
+                       UIPointerPosition pointer ) const
 {
-    const char* selectedText = "";
-
-    if ( selectedIndex >= 0 && selectedIndex < optionCount && options )
-    {
-        selectedText = options[selectedIndex];
-    }
-
-    Draw( draw, label, selectedText, options, optionCount, selectedIndex, mouseX, mouseY, disabledOptionMask );
-}
-
-
-void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* selectedText, const char* const* options,
-                       int optionCount, int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask ) const
-{
+    const int optionCount = presentation.OptionCount();
     const Widgets::ComboLayout layout = Widgets::ResolveComboLayout( m_bounds, m_labelVisible, m_dropUp, optionCount );
     UIVisualState state = UIVisualState::Visible | UIVisualState::Enabled;
 
-    if ( Widgets::ContainsComponent( layout.fieldBounds, state, mouseX, mouseY ) )
+    if ( Widgets::ContainsComponent( layout.fieldBounds, state, pointer.x, pointer.y ) )
     {
         state |= UIVisualState::Hovered;
     }
 
-    const bool selectedDisabled = selectedIndex >= 0 && selectedIndex < 32 &&
-                                  ( disabledOptionMask & ( 1u << selectedIndex ) ) != 0;
-    Widgets::DrawComboField( draw, layout, label, selectedText, m_labelVisible, m_isOpen, state, !selectedDisabled,
-                             Widgets::ComponentAppearance::Established );
+    Widgets::DrawComboField( draw, layout, label, presentation.SelectedText(), m_labelVisible, m_isOpen, state,
+                             presentation.SelectedOptionEnabled(), Widgets::ComponentAppearance::Established );
 
     if ( !m_isOpen )
     {
         return;
     }
 
-    const int hoveredOption = Widgets::ComboOptionAtPointer( layout.popupBounds, state, mouseX, mouseY, optionCount );
-    Widgets::DrawComboPopup( draw, layout, options, optionCount, selectedIndex, hoveredOption, disabledOptionMask, state,
-                             Widgets::ComponentAppearance::Established );
+    const int hoveredOption = Widgets::ComboOptionAtPointer( layout.popupBounds, state, pointer.x, pointer.y, optionCount );
+    Widgets::DrawComboPopup( draw, layout, presentation, hoveredOption, state, Widgets::ComponentAppearance::Established );
 }
 
 } // namespace UI
