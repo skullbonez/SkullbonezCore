@@ -8,6 +8,18 @@ and normal pushes are allowed without asking. Agents may submit or merge PRs onl
 when explicitly requested by the user. Direct commits or pushes on `main` still
 require explicit user confirmation.
 
+## Commit Message Evidence
+
+Every commit must have detailed notes; a subject-only commit is invalid. Write
+the message to a file, keep a blank line after the subject, and provide
+substantive `Why:`, `Ownership:`, `What:`, `Validation:`,
+`Baselines/Artifacts:`, and `Review:` sections in that order. Use `git commit
+-F <message-file>` rather than a subject-only `git commit -m`. Plan and bug work
+must additionally follow its owning skill's subject convention and message
+verifier. The repository-native `.githooks/commit-msg` hook is the mandatory
+backstop; do not bypass it with `--no-verify`. Run
+`python tools/check_commit_message.py --self-test` when changing this contract.
+
 ---
 
 ## Agent Startup Contract

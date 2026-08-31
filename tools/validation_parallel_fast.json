@@ -15,6 +15,17 @@
       ]
     },
     {
+      "id": "commit-message",
+      "name": "Detailed commit-note contract",
+      "steps": [
+        {
+          "id": "self-test",
+          "name": "Commit-message positive and negative controls",
+          "argv": ["${PYTHON}", "${TOOLS}\\check_commit_message.py", "--self-test"]
+        }
+      ]
+    },
+    {
       "id": "physics-golden",
       "name": "Physics golden and transition guard",
       "steps": [

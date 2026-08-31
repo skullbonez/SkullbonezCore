@@ -1,9 +1,13 @@
 # SkullbonezCore Pre-Commit Hooks
 
-Enforces code quality standards automatically on every commit. The native hook
-always protects the deterministic physics golden and runs the physics runtime
-gate for staged simulation-affecting inputs. A successful run is cached against
-the exact relevant Git-index blobs, so retrying the same commit is immediate.
+Enforces code quality and history evidence automatically on every commit. The
+native `commit-msg` hook rejects subject-only, short, or placeholder commit
+notes. Every commit must preserve substantive `Why:`, `Ownership:`, `What:`,
+`Validation:`, `Baselines/Artifacts:`, and `Review:` sections in that order.
+The native pre-commit hook also protects the deterministic physics golden and
+runs the physics runtime gate for staged simulation-affecting inputs. A
+successful run is cached against the exact relevant Git-index blobs, so
+retrying the same commit is immediate.
 
 ## Setup
 
@@ -22,6 +26,7 @@ python -m pip install pre-commit
 
 | Hook | Purpose |
 |------|---------|
+| `commit-msg` | Reject empty or non-substantive commit notes and require all six evidence sections |
 | `physics-baseline-transition` | Reject a changed Physics golden or retained bundle without exact content-bound transition evidence |
 | `physics-runtime-commit-gate` | Run byte-exact physics validation for the exact staged simulation inputs |
 | `trim-trailing-whitespace` | Remove trailing spaces |
@@ -41,10 +46,14 @@ python -m pre_commit run --files SkullbonezSource/SkullbonezRun.cpp
 
 # Inspect the accepted golden and immutable transition bundles without launching the engine
 python tools/check_physics_baseline_guard.py --repo .
+
+# Check detailed commit-note positive and negative controls
+python tools/check_commit_message.py --self-test
 ```
 
 ## Configuration
 
+- `.githooks/commit-msg` — Mandatory detailed commit-note gate
 - `.pre-commit-config.yaml` — Hook definitions
 - `.githooks/check-headers.py` — Header format validator
 - `.githooks/check-braces.py` — Brace rule enforcer

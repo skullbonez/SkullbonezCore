@@ -817,6 +817,31 @@ contexts with no findings. Formatting, dependency/project ownership,
 build-configuration consistency, and whitespace checks pass. No baseline or
 golden changed.
 
+### SC4 Commit-Note Recovery And Enforcement
+
+Eight published SC4 commits were incorrectly created with subject-only messages.
+Repository policy forbids rewriting those hashes, so this table is their durable
+recovery record; the detailed implementation and validation paragraphs above
+remain the authoritative evidence for each slice.
+
+| Commit | Recovered note |
+|---|---|
+| `8bfdc279ec` | Capture gained typed frame/schedule inputs and state output; Replay gained behavioral scrubber-source selection; UI caching gained an interaction signature. Profile, 914 cases/2,692,750 assertions, source-design 15 files/96 contexts, and lightweight ownership gates passed. |
+| `b3628b32ac` | UI window input, editor gizmo routing, and operator diagnostics were decomposed into ordered owner-local phases. Profile, 913 cases/2,691,927 assertions, source-design five files/39 contexts, renderer-free UI, and lightweight gates passed. |
+| `91da1aa82b` | App command application was split by replay, forecast, device/mode, editor, presentation, tuning, generated-scene, and world/cinematic ownership; GameUI received detached frame/mode/camera facts. Profile, 913 cases/2,694,677 assertions, and source-design seven files/53 contexts passed. |
+| `85454bffad` | App input and operator-UI coordinators were split into explicit ordered phases while preserving capture and presentation ordering. Profile, 913 cases/2,692,437 assertions, source-design three files/16 contexts, and lightweight gates passed. |
+| `903f8b56de` | The 115-field GameUI root frame became eight cohesive detached sections while narrow tab views remained unchanged. Profile, 913 cases/2,692,662 assertions, source-design seven files/41 contexts, and lightweight gates passed. |
+| `7347c098dd` | Prediction topology publication replaced its pointer bag and callback traversal with a scoped builder, typed candidates, marker input, and overlay request. Profile, 913 cases/2,692,417 assertions, source-design three files/20 contexts, and lightweight gates passed. |
+| `3726876f23` | Render startup deleted `RenderWorldView` and bound each dependency directly to `RuntimeRenderer` or `RenderResourceLifecycle`. Profile, 913 cases/2,692,057 assertions, source-design six files/47 contexts, lightweight gates, and the byte-exact Physics matrix passed. |
+| `8c6172103f` | Ten render-pass resource operations deleted `RenderResourceContext` and now receive only their consumed resource owners and values. Profile, 913 cases/2,692,412 assertions, source-design four files/30 contexts, lightweight gates, and the byte-exact Physics matrix passed. |
+
+The repository now requires every commit to carry substantive `Why:`,
+`Ownership:`, `What:`, `Validation:`, `Baselines/Artifacts:`, and `Review:`
+sections. `.githooks/commit-msg` invokes the tested repository checker and
+rejects subject-only, short, reordered, or placeholder bodies before Git writes
+the commit. `AGENTS.md`, `Agentic/README.md`, and the hook documentation all
+state the same mandatory file-backed commit workflow.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add

@@ -89,7 +89,12 @@ warning-clean; 913 cases and 2,692,412 assertions pass with one expected skip;
 source-design passes four files under 30 consumer contexts; format, dependency/
 project ownership, build-configuration, and whitespace checks pass. The next
 batch reconciles the remaining SC4/SC5 inventory against the compiler census.
-No baseline refresh
+Eight SC4 commits (`8bfdc279ec` through `8c6172103f`) were published with
+subject-only messages. History remains immutable; the owning plan now records
+the recovered per-hash implementation and validation evidence. A repository
+`commit-msg` hook plus self-tested checker rejects empty, short, reordered, or
+placeholder bodies and requires the six evidence sections documented in
+`AGENTS.md` and `Agentic/README.md`. No baseline refresh
 is authorized. The live work ledger is temporarily owned by
 unfinished task `GOV1` in another Codex session, so this run cannot open its own
 ledger row until that external metadata owner finishes.

@@ -29,6 +29,12 @@ for an unmet aggregate closure gate, and is deleted when that gate passes. Do no
 recreate `Done`, `Failed`, `Rejected`, `To_Eval`, `In_Progress`, or
 `awaiting_verification` plan folders.
 
+Commit bodies are mandatory evidence, not optional summaries. Every commit uses
+the six ordered sections defined by `../AGENTS.md`; `.githooks/commit-msg`
+rejects an empty, short, or placeholder body. Agents write the message to a file
+and commit with `git commit -F`; they never bypass the hook or use a subject-only
+`git commit -m`.
+
 ## Plan Quality
 
 - Use checked phase/file counts, not subjective percentages.

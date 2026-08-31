@@ -1,0 +1,7 @@
+#!/bin/sh
+# Commit notes are repository evidence. Reject subject-only or placeholder
+# messages before Git records history, regardless of which agent or tool commits.
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+exec python "$repo_root/tools/check_commit_message.py" --message-file "$1"
