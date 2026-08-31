@@ -1,4 +1,4 @@
-/*
+﻿/*
 File: SkullbonezSource/Runtime/UI/OperatorUiProjection.h
 Purpose:
   Declares UI-owned projection from detached Runtime facts into operator rows.
@@ -429,7 +429,8 @@ struct OperatorUiDiagnosticsFacts
     std::array<OperatorUiWorkerCoreFacts, UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES> workerSamples = {};
     std::array<Core::Allocation::RuntimeReserveGrowthEventView, UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX>
         reserveGrowthEvents = {};
-    std::array<Core::Allocation::RuntimeReserveCapacityView, UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX> reserveCapacityRows = {};
+    std::array<Core::Allocation::RuntimeReserveCapacityView, UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX> reserveCapacityRows =
+        {};
     int markerCount = 0;
     int workerSampleCount = 0;
     int reserveGrowthEventCount = 0;
@@ -515,32 +516,32 @@ void ProjectOperatorUiSettings( UI::InGameUIFrameData& uiData, const OperatorUiS
 void ProjectOperatorUiInteraction( UI::InGameUIFrameData& uiData, const OperatorUiInteractionFacts& facts );
 inline void ProjectOperatorUiViewport( UI::InGameUIFrameData& uiData, int width, int height )
 {
-    uiData.screenW = width;
-    uiData.screenH = height;
+    uiData.surface.screenW = width;
+    uiData.surface.screenH = height;
 }
 
 inline void ProjectOperatorUiRenderIdentity( UI::InGameUIFrameData& uiData, const char* rendererName, int drawCallsBeforeUi )
 {
-    uiData.rendererName = rendererName;
-    uiData.drawCallsBeforeUI = drawCallsBeforeUi;
+    uiData.surface.rendererName = rendererName;
+    uiData.surface.drawCallsBeforeUI = drawCallsBeforeUi;
 }
 
 inline void ProjectOperatorUiRecordingBrowser( UI::InGameUIFrameData& uiData, const char* const* options, int optionCount,
                                                int selectedOption )
 {
-    uiData.interactionRecordingOptions = options;
-    uiData.interactionRecordingOptionCount = optionCount;
-    uiData.selectedInteractionRecordingOption = selectedOption;
+    uiData.scene.interactionRecordingOptions = options;
+    uiData.scene.interactionRecordingOptionCount = optionCount;
+    uiData.scene.selectedInteractionRecordingOption = selectedOption;
 }
 
 inline void ProjectOperatorUiRenderTargets( UI::InGameUIFrameData& uiData, const OperatorUiRenderTargetListFacts& facts )
 {
-    uiData.renderTargetPreviewCount = facts.m_count;
+    uiData.renderTargets.count = facts.m_count;
 
-    for ( int index = 0; index < uiData.renderTargetPreviewCount; ++index )
+    for ( int index = 0; index < uiData.renderTargets.count; ++index )
     {
         const OperatorUiRenderTargetListFacts::Target& source = facts.m_targets[static_cast<std::size_t>( index )];
-        UI::UIRenderTargetPreviewResource& target = uiData.renderTargetPreviews[index];
+        UI::UIRenderTargetPreviewResource& target = uiData.renderTargets.previews[index];
         target = { source.label, source.width, source.height, source.available, source.depth, source.hdr };
     }
 }

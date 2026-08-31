@@ -1,4 +1,4 @@
-/*
+﻿/*
 File: SkullbonezTests/TestUIDrawValues.cpp
 Purpose:
   Locks the backend-neutral UI draw-stream and font-metric contracts.
@@ -363,12 +363,12 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
 
     const char* sceneOptions[] = { "solar_system.scene.json" };
     auto data = std::make_unique<InGameUIFrameData>();
-    data->screenW = 1920;
-    data->screenH = 1080;
-    data->sceneName = sceneOptions[0];
-    data->sceneOptions = sceneOptions;
-    data->sceneOptionCount = 1;
-    data->selectedSceneOption = 0;
+    data->surface.screenW = 1920;
+    data->surface.screenH = 1080;
+    data->surface.sceneName = sceneOptions[0];
+    data->scene.sceneOptions = sceneOptions;
+    data->scene.sceneOptionCount = 1;
+    data->scene.selectedSceneOption = 0;
 
     auto ui = std::make_unique<InGameUI>();
     ui->SetVisible( true );
@@ -387,7 +387,7 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
     input.leftPressed = true;
     ui->SceneNavigation().browser.names.emplace_back( sceneOptions[0] );
     ui->SceneNavigation().browser.namePtrs.push_back( ui->SceneNavigation().browser.names[0].c_str() );
-    const InGameUIInputResult result = ui->UpdateInput( input, { data->screenW, data->screenH, 1.0 },
+    const InGameUIInputResult result = ui->UpdateInput( input, { data->surface.screenW, data->surface.screenH, 1.0 },
                                                         { false, false, true, false }, { 0xffffffffu } );
 
     CHECK( result.commands.forecast.type == UIForecastCommandType::ToggleContinuous );
@@ -563,29 +563,29 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 
     const char* sceneOptions[] = { "ui_scene", "ui_scene_alt" };
     auto data = std::make_unique<InGameUIFrameData>();
-    data->screenW = 1920;
-    data->screenH = 1080;
-    data->rendererName = "DirectX 12";
-    data->sceneName = "UI production fingerprint";
-    data->sceneOptions = sceneOptions;
-    data->sceneOptionCount = static_cast<int>( std::size( sceneOptions ) );
-    data->selectedSceneOption = 0;
-    data->currentSceneIndex = 0;
-    data->sceneCount = data->sceneOptionCount;
-    data->sceneMode = true;
-    data->currentFrame = 20;
-    data->targetFrameCount = 120;
-    data->runtimeInputModeLabel = "Inspect";
-    data->fps = 60.0f;
-    data->renderMs = 4.0f;
-    data->physicsMs = 2.0f;
-    data->cpuFrameMs = 6.0f;
-    data->gpuFrameMs = 3.0f;
-    data->modelCount = 32;
-    data->workerThreadCount = 4;
-    data->maxWorkerThreadCount = 8;
-    data->renderTargetPreviewCount = 1;
-    data->renderTargetPreviews[0] = { "Scene HDR", 1920, 1080, false, false, true };
+    data->surface.screenW = 1920;
+    data->surface.screenH = 1080;
+    data->surface.rendererName = "DirectX 12";
+    data->surface.sceneName = "UI production fingerprint";
+    data->scene.sceneOptions = sceneOptions;
+    data->scene.sceneOptionCount = static_cast<int>( std::size( sceneOptions ) );
+    data->scene.selectedSceneOption = 0;
+    data->scene.currentSceneIndex = 0;
+    data->scene.sceneCount = data->scene.sceneOptionCount;
+    data->surface.sceneMode = true;
+    data->scene.currentFrame = 20;
+    data->scene.targetFrameCount = 120;
+    data->surface.runtimeInputModeLabel = "Inspect";
+    data->surface.fps = 60.0f;
+    data->surface.renderMs = 4.0f;
+    data->surface.physicsMs = 2.0f;
+    data->surface.cpuFrameMs = 6.0f;
+    data->surface.gpuFrameMs = 3.0f;
+    data->scene.modelCount = 32;
+    data->surface.workerThreadCount = 4;
+    data->surface.maxWorkerThreadCount = 8;
+    data->renderTargets.count = 1;
+    data->renderTargets.previews[0] = { "Scene HDR", 1920, 1080, false, false, true };
 
     constexpr InGameUITab tabs[] = {
         InGameUITab::Profiler, InGameUITab::Scene,     InGameUITab::Editor,  InGameUITab::Physics,
@@ -660,19 +660,19 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 TEST_CASE( "GameUI projects focused tab views from the root frame" )
 {
     auto data = std::make_unique<SkullbonezCore::UI::InGameUIFrameData>();
-    data->modelCapacity = 321;
-    data->rngSeed = 77u;
-    data->editorObjectType = 9;
-    data->selectedCineModeSceneOption = 3;
-    data->ordinaryRender.shadow.enabled = false;
-    data->cinematic.shadow.enabled = true;
+    data->scene.modelCapacity = 321;
+    data->scene.rngSeed = 77u;
+    data->editor.editorObjectType = 9;
+    data->scene.selectedCineModeSceneOption = 3;
+    data->rendering.ordinaryRender.shadow.enabled = false;
+    data->rendering.cinematic.shadow.enabled = true;
     data->operatorEditor.forecast.available = true;
     data->operatorEditor.forecast.simulatedSeconds = 12.5;
-    data->timeScale = 2.5f;
-    data->worldGravity = -12.0f;
-    data->profilerMarkerOptionCount = 4;
-    data->reserveGrowthEventTotalCount = 19u;
-    data->currentFrame = 42;
+    data->scene.timeScale = 2.5f;
+    data->world.worldGravity = -12.0f;
+    data->diagnostics.profilerMarkerOptionCount = 4;
+    data->diagnostics.reserveGrowthEventTotalCount = 19u;
+    data->scene.currentFrame = 42;
 
     const auto controls = data->ControlsTabFrame();
     const auto editor = data->EditorTabFrame();
@@ -687,15 +687,15 @@ TEST_CASE( "GameUI projects focused tab views from the root frame" )
     CHECK( controls.rngSeed == 77u );
     CHECK( editor.editorObjectType == 9 );
     CHECK( cinematic.selectedCineModeSceneOption == 3 );
-    CHECK( &cinematic.cinematic == &data->cinematic );
+    CHECK( &cinematic.cinematic == &data->rendering.cinematic );
     CHECK( options.timeScale == doctest::Approx( 2.5f ) );
     CHECK_FALSE( options.ordinaryShadowsEnabled );
     CHECK( options.cinematicShadowsEnabled );
     CHECK( physics.worldGravity == doctest::Approx( -12.0f ) );
-    CHECK( &physics.physicsDebug == &data->physicsDebug );
-    CHECK( profiler.markerOptions == data->profilerMarkerOptions );
+    CHECK( &physics.physicsDebug == &data->world.physicsDebug );
+    CHECK( profiler.markerOptions == data->diagnostics.profilerMarkerOptions );
     CHECK( profiler.markerOptionCount == 4 );
-    CHECK( &memory.mainMemory == &data->mainMemory );
+    CHECK( &memory.mainMemory == &data->diagnostics.mainMemory );
     CHECK( memory.reserveGrowthEventTotalCount == 19u );
     CHECK( scene.forecast.available );
     CHECK( scene.forecast.simulatedSeconds == doctest::Approx( 12.5 ) );
@@ -732,8 +732,8 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
 
     auto data = std::make_unique<InGameUIFrameData>();
     SkullbonezCore::UI::UIRuntimeReserveCapacityRow capacityRows[2] = {};
-    data->reserveCapacityRows = capacityRows;
-    data->reserveCapacityRowCount = 2;
+    data->diagnostics.reserveCapacityRows = capacityRows;
+    data->diagnostics.reserveCapacityRowCount = 2;
     strcpy_s( capacityRows[0].ownerName, "PhysicsBodyStore.bodies" );
     strcpy_s( capacityRows[0].capacityReason, "one row per loaded body" );
     strcpy_s( capacityRows[0].subsystemName, "physics" );

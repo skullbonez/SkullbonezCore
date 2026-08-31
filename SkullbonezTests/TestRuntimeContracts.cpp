@@ -238,13 +238,12 @@ struct Dx12GeometryOwnerTestAccess
     }
 
     static bool TryBuildInstancedAttributeLayout( std::span<const int> instanceAttributeSizes,
-                                                   std::span<const int> staticAttributeSizes,
-                                                   std::size_t& outInstanceCount, std::size_t& outStaticCount,
-                                                   std::size_t& outInputElementCount )
+                                                  std::span<const int> staticAttributeSizes, std::size_t& outInstanceCount,
+                                                  std::size_t& outStaticCount, std::size_t& outInputElementCount )
     {
         Dx12GeometryOwner::InstancedAttributeLayout layout;
         const bool accepted = Dx12GeometryOwner::TryBuildInstancedAttributeLayout( instanceAttributeSizes,
-                                                                                    staticAttributeSizes, layout );
+                                                                                   staticAttributeSizes, layout );
         outInstanceCount = layout.instanceCount;
         outStaticCount = layout.staticCount;
         outInputElementCount = layout.inputElementCount;
@@ -293,13 +292,12 @@ struct PrimitiveBatchRendererTestAccess
 
     static bool ResolveVisibleBatchReadiness( bool materialTableReady, bool& shaderPublicationCalled )
     {
-        return PrimitiveBatchRenderer::ResolveVisibleBatchReadiness(
-            [materialTableReady]() { return materialTableReady; },
-            [&shaderPublicationCalled]()
-            {
-                shaderPublicationCalled = true;
-                return true;
-            } );
+        return PrimitiveBatchRenderer::ResolveVisibleBatchReadiness( [materialTableReady]() { return materialTableReady; },
+                                                                     [&shaderPublicationCalled]()
+                                                                     {
+                                                                         shaderPublicationCalled = true;
+                                                                         return true;
+                                                                     } );
     }
 };
 } // namespace SkullbonezCore::Rendering
@@ -323,9 +321,9 @@ struct InputWindowBridgeTestAccess
         }
     };
 
-    static SkullbonezCore::Core::SbResult RegisterRawMouse(
-        SkullbonezCore::Core::SbDiagnosticStore& diagnostics, HWND window, bool callbackBridgeBound,
-        RawMouseRegistrationProbe& probe )
+    static SkullbonezCore::Core::SbResult RegisterRawMouse( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            HWND window, bool callbackBridgeBound,
+                                                            RawMouseRegistrationProbe& probe )
     {
         return Input::RegisterRawMouseInputWithOperation( diagnostics, window, callbackBridgeBound,
                                                           RawMouseRegistrationProbe::Invoke, &probe );
@@ -372,8 +370,9 @@ struct TerrainRenderLifecycleTestAccess
         std::unique_ptr<Terrain> candidate = std::make_unique<Terrain>( 2.0f, 0.0f, 0.0f, config );
         Terrain* const existingIdentity = existing.get();
         Terrain* const candidateIdentity = candidate.get();
-        const Terrain::RequiredRenderResourceFailure failure =
-            Terrain::TryPublishRenderReadyCandidate( existing, candidate, meshReady, shaderReady );
+        const Terrain::RequiredRenderResourceFailure failure = Terrain::TryPublishRenderReadyCandidate( existing, candidate,
+                                                                                                        meshReady,
+                                                                                                        shaderReady );
 
         return failure != Terrain::RequiredRenderResourceFailure::None && existing.get() == existingIdentity &&
                candidate.get() == candidateIdentity;
@@ -384,18 +383,17 @@ struct TerrainRenderLifecycleTestAccess
         std::unique_ptr<Terrain> existing = std::make_unique<Terrain>( 1.0f, 0.0f, 0.0f, config );
         std::unique_ptr<Terrain> candidate = std::make_unique<Terrain>( 2.0f, 0.0f, 0.0f, config );
         Terrain* const candidateIdentity = candidate.get();
-        const Terrain::RequiredRenderResourceFailure failure =
-            Terrain::TryPublishRenderReadyCandidate( existing, candidate, true, true );
+        const Terrain::RequiredRenderResourceFailure failure = Terrain::TryPublishRenderReadyCandidate( existing, candidate,
+                                                                                                        true, true );
 
-        return failure == Terrain::RequiredRenderResourceFailure::None && existing.get() == candidateIdentity &&
-               !candidate;
+        return failure == Terrain::RequiredRenderResourceFailure::None && existing.get() == candidateIdentity && !candidate;
     }
 };
 
 struct SkyBoxRenderLifecycleTestAccess
 {
-    static SkullbonezCore::Core::SbResult RequiredResourcesResult(
-        SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const std::array<bool, 6>& meshesReady, bool shaderReady )
+    static SkullbonezCore::Core::SbResult RequiredResourcesResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                   const std::array<bool, 6>& meshesReady, bool shaderReady )
     {
         return SkyBox::RequiredRenderResourcesResult( diagnostics, meshesReady, shaderReady );
     }
@@ -458,7 +456,8 @@ struct TextureCollectionTestAccess
 
         SkullbonezCore::Core::SbResult decodeFailure = TextureCollection::CreateOrReplaceTextureRecord(
             textures, original.legacyHash,
-            [&]( TextureCollection::GpuTextureRecord& ) {
+            [&]( TextureCollection::GpuTextureRecord& )
+            {
                 eventOrder = 1;
                 return diagnostics.Failure( "TextureCollectionTest", "planted decode failure" );
             },
@@ -475,7 +474,8 @@ struct TextureCollectionTestAccess
         eventOrder = 0;
         SkullbonezCore::Core::SbResult backendFailure = TextureCollection::CreateOrReplaceTextureRecord(
             textures, original.legacyHash,
-            [&]( TextureCollection::GpuTextureRecord& ) {
+            [&]( TextureCollection::GpuTextureRecord& )
+            {
                 eventOrder = 2;
                 return diagnostics.Failure( "TextureCollectionTest", "planted backend failure" );
             },
@@ -501,7 +501,8 @@ struct TextureCollectionTestAccess
 
         const SkullbonezCore::Core::SbResult success = TextureCollection::CreateOrReplaceTextureRecord(
             textures, original.legacyHash,
-            [&]( TextureCollection::GpuTextureRecord& loadedCandidate ) {
+            [&]( TextureCollection::GpuTextureRecord& loadedCandidate )
+            {
                 if ( destination.backendHandle != original.backendHandle )
                 {
                     return diagnostics.Failure( "TextureCollectionTest", "resident row changed before candidate load" );
@@ -511,7 +512,8 @@ struct TextureCollectionTestAccess
                 loadedCandidate = candidate;
                 return SkullbonezCore::Core::SbResult::Success();
             },
-            [&]( uint32_t handle ) {
+            [&]( uint32_t handle )
+            {
                 retiredHandle = handle;
 
                 if ( destination.backendHandle == candidate.backendHandle )
@@ -599,18 +601,18 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::AppendSleepSupportEdge;
 using SkullbonezCore::Physics::MAX_SLEEP_SUPPORT_EDGES;
 using SkullbonezCore::Physics::PhysicsEngine;
+using SkullbonezCore::Runtime::AdmitInteractionAutomationPressKeyOptions;
+using SkullbonezCore::Runtime::InteractionAutomationController;
+using SkullbonezCore::Runtime::InteractionAutomationReportWriter;
+using SkullbonezCore::Runtime::InteractionAutomationRunStatus;
+using SkullbonezCore::Runtime::RunInteractionAutomationAction;
+using SkullbonezCore::Runtime::RunPerfLogState;
+using SkullbonezCore::Runtime::RuntimeDiagnostics;
 using SkullbonezCore::Threading::AmortizedTask;
 using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
 using SkullbonezCore::Threading::WorkerChunkRange;
 using SkullbonezCore::Threading::WorkerPool;
-using SkullbonezCore::Runtime::InteractionAutomationController;
-using SkullbonezCore::Runtime::InteractionAutomationReportWriter;
-using SkullbonezCore::Runtime::AdmitInteractionAutomationPressKeyOptions;
-using SkullbonezCore::Runtime::InteractionAutomationRunStatus;
-using SkullbonezCore::Runtime::RunPerfLogState;
-using SkullbonezCore::Runtime::RunInteractionAutomationAction;
-using SkullbonezCore::Runtime::RuntimeDiagnostics;
 
 namespace SkullbonezCore
 {
@@ -781,12 +783,10 @@ TEST_CASE( "Legacy render material modes classify extreme numeric inputs without
     using SkullbonezCore::Rendering::RenderMaterialKind;
     using SkullbonezCore::Rendering::RenderMaterialKindFromLegacyMode;
 
-    CHECK( RenderMaterialKindFromLegacyMode( (std::numeric_limits<float>::max)() ) == RenderMaterialKind::Matte );
+    CHECK( RenderMaterialKindFromLegacyMode( ( std::numeric_limits<float>::max )() ) == RenderMaterialKind::Matte );
     CHECK( RenderMaterialKindFromLegacyMode( std::numeric_limits<float>::infinity() ) == RenderMaterialKind::Matte );
-    CHECK( RenderMaterialKindFromLegacyMode( -std::numeric_limits<float>::infinity() ) ==
-           RenderMaterialKind::Textured );
-    CHECK( RenderMaterialKindFromLegacyMode( std::numeric_limits<float>::quiet_NaN() ) ==
-           RenderMaterialKind::Textured );
+    CHECK( RenderMaterialKindFromLegacyMode( -std::numeric_limits<float>::infinity() ) == RenderMaterialKind::Textured );
+    CHECK( RenderMaterialKindFromLegacyMode( std::numeric_limits<float>::quiet_NaN() ) == RenderMaterialKind::Textured );
     CHECK( RenderMaterialKindFromLegacyMode( 13.0f ) == RenderMaterialKind::Pine );
 }
 
@@ -869,7 +869,7 @@ TEST_CASE( "SDF atlas contracts reject malformed metrics and incomplete publicat
 
     using GdiResults = Text2d::SdfGdiOperationResults;
     CHECK( Text2d::SdfGdiOperationsSucceeded( GdiResults {} ) );
-    const auto checkRejectedGdiFailure = []( bool GdiResults::*field )
+    const auto checkRejectedGdiFailure = []( bool GdiResults::* field )
     {
         GdiResults results;
         results.*field = false;
@@ -952,10 +952,10 @@ TEST_CASE( "DX12 shader requests distinguish default-root names from resolved as
 {
     CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::DefaultShaderHlslPath( "shaders/unit" ) ==
            std::string( DATA_ROOT ) + "shaders/unit.hlsl" );
-    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath(
-               "AlternateData/shaders/unit" ) == "AlternateData/shaders/unit.hlsl" );
-    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath(
-               "C:/ShaderRoot/absolute" ) == "C:/ShaderRoot/absolute.hlsl" );
+    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath( "AlternateData/shaders/unit" ) ==
+           "AlternateData/shaders/unit.hlsl" );
+    CHECK( SkullbonezCore::Rendering::Dx12ResourceBuilder::ResolvedShaderHlslPath( "C:/ShaderRoot/absolute" ) ==
+           "C:/ShaderRoot/absolute.hlsl" );
 }
 
 
@@ -971,7 +971,8 @@ TEST_CASE( "World resource readiness rejects incomplete terrain and sky creation
     SkullbonezCore::Core::SbDiagnosticStore resourceDiagnostics;
     std::array<bool, 6> skyMeshesReady = { true, true, true, true, true, true };
     CHECK( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, true ).Ok() );
-    CHECK_FALSE( SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, false ).Ok() );
+    CHECK_FALSE(
+        SkyBoxRenderLifecycleTestAccess::RequiredResourcesResult( resourceDiagnostics, skyMeshesReady, false ).Ok() );
 
     for ( std::size_t failedFace = 0; failedFace < skyMeshesReady.size(); ++failedFace )
     {
@@ -1048,31 +1049,33 @@ TEST_CASE( "DX12 geometry admits exact attribute capacities and rejects oversize
     std::size_t instanceCount = 0;
     std::size_t staticCount = 0;
     std::size_t inputElementCount = 0;
-    CHECK( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout(
-        exactInstance, exactStatic, instanceCount, staticCount, inputElementCount ) );
+    CHECK( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( exactInstance, exactStatic, instanceCount,
+                                                                          staticCount, inputElementCount ) );
     CHECK( instanceCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM );
     CHECK( staticCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM );
     CHECK( inputElementCount == MAX_DX12_INPUT_ELEMENTS );
 
     const std::array<int, 0> legacyStatic = {};
-    CHECK( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout(
-        exactInstance, legacyStatic, instanceCount, staticCount, inputElementCount ) );
+    CHECK( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( exactInstance, legacyStatic, instanceCount,
+                                                                          staticCount, inputElementCount ) );
     CHECK( instanceCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM );
     CHECK( staticCount == 0u );
     CHECK( inputElementCount == MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM + 1u );
 
     std::array<int, MAX_INSTANCED_VERTEX_ATTRIBUTES_PER_STREAM + 1u> oversizedInstance;
     oversizedInstance.fill( 4 );
-    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout(
-        oversizedInstance, exactStatic, instanceCount, staticCount, inputElementCount ) );
+    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( oversizedInstance, exactStatic,
+                                                                                instanceCount, staticCount,
+                                                                                inputElementCount ) );
     CHECK( instanceCount == 0u );
     CHECK( staticCount == 0u );
     CHECK( inputElementCount == 0u );
-    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout(
-        exactInstance, oversizedInstance, instanceCount, staticCount, inputElementCount ) );
+    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( exactInstance, oversizedInstance,
+                                                                                instanceCount, staticCount,
+                                                                                inputElementCount ) );
     const std::array invalidInstance = { 3, 0 };
-    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout(
-        invalidInstance, exactStatic, instanceCount, staticCount, inputElementCount ) );
+    CHECK_FALSE( Dx12GeometryOwnerTestAccess::TryBuildInstancedAttributeLayout( invalidInstance, exactStatic, instanceCount,
+                                                                                staticCount, inputElementCount ) );
 }
 
 TEST_CASE( "DX12 dynamic geometry reuses destroyed slots without reviving stale handles" )
@@ -1376,10 +1379,13 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
     Runtime::CollisionVisualizer collision;
     const uint8_t collisionContact = 1u;
     const uint8_t awake = 0u;
-    collision.Update( 0.0f,
-                      Runtime::CollisionVisualizerFrameView { bodies, colliders, renderInstances,
-                                                               std::span<const uint8_t>( &collisionContact, 1 ),
-                                                               std::span<const uint8_t>( &awake, 1 ), {}, 1 } );
+    collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { bodies,
+                                                                    colliders,
+                                                                    renderInstances,
+                                                                    std::span<const uint8_t>( &collisionContact, 1 ),
+                                                                    std::span<const uint8_t>( &awake, 1 ),
+                                                                    {},
+                                                                    1 } );
     CHECK( collision.DiagnosticTrackedModelCount() == 1u );
     CHECK( collision.DiagnosticCollisionAmount( 0u ) == doctest::Approx( 1.0f ) );
 
@@ -1388,16 +1394,15 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
            Runtime::PhysicsDebugVisualizer::DiagnosticRequiredLineFloatCapacity() );
     physicsDebug.SetFlags( Physics::PHYSICS_DEBUG_CONTACTS );
     physicsDebug.SetContactLingerSeconds( 0.0f );
-    std::vector<Physics::PhysicsDebugContact> contacts(
-        Runtime::PhysicsDebugVisualizer::DiagnosticTrackedContactCapacity() + 1u );
+    std::vector<Physics::PhysicsDebugContact> contacts( Runtime::PhysicsDebugVisualizer::DiagnosticTrackedContactCapacity() +
+                                                        1u );
 
     for ( std::size_t index = 0; index < contacts.size(); ++index )
     {
         contacts[index].featureId = static_cast<uint32_t>( index );
     }
 
-    physicsDebug.Update( 0.0f,
-                         Runtime::PhysicsDebugFrameView { bodies, colliders, {}, {}, {}, contacts, {}, 0 } );
+    physicsDebug.Update( 0.0f, Runtime::PhysicsDebugFrameView { bodies, colliders, {}, {}, {}, contacts, {}, 0 } );
     CHECK( physicsDebug.DiagnosticTrackedContactCount() ==
            Runtime::PhysicsDebugVisualizer::DiagnosticTrackedContactCapacity() );
     Runtime::RuntimeRenderer::ResetDebugVisualizerTransientState( collision, physicsDebug, broadphase );
@@ -1406,10 +1411,13 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
     CHECK( physicsDebug.DiagnosticTrackedContactCount() == 0u );
 
     const uint8_t noCollisionContact = 0u;
-    collision.Update( 0.0f,
-                      Runtime::CollisionVisualizerFrameView { bodies, colliders, renderInstances,
-                                                               std::span<const uint8_t>( &noCollisionContact, 1 ),
-                                                               std::span<const uint8_t>( &awake, 1 ), {}, 1 } );
+    collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { bodies,
+                                                                    colliders,
+                                                                    renderInstances,
+                                                                    std::span<const uint8_t>( &noCollisionContact, 1 ),
+                                                                    std::span<const uint8_t>( &awake, 1 ),
+                                                                    {},
+                                                                    1 } );
     CHECK( collision.DiagnosticCollisionAmount( 0u ) == doctest::Approx( 0.0f ) );
 
     bool resourcesReady = false;
@@ -1428,8 +1436,7 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
     CHECK( Runtime::ResolveCollisionVisualizerResourceAction( Runtime::CollisionVisualizerResourcePhase::Render,
                                                               resourcesReady ) ==
            Runtime::CollisionVisualizerResourceAction::Draw );
-    CHECK( Runtime::ResolveCollisionVisualizerResourceAction( Runtime::CollisionVisualizerResourcePhase::Render,
-                                                              false ) ==
+    CHECK( Runtime::ResolveCollisionVisualizerResourceAction( Runtime::CollisionVisualizerResourcePhase::Render, false ) ==
            Runtime::CollisionVisualizerResourceAction::Skip );
 }
 
@@ -1482,37 +1489,43 @@ TEST_CASE( "Tornado visual rotation preserves ordinary bytes and long-time progr
     constexpr float kRotationSpeed = 1.25f;
     constexpr int kSourceIndex = 2;
     constexpr float kCompatibleTime = 12.5f;
-    const float compatiblePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
-        static_cast<double>( kCompatibleTime ), kRotationSpeed, kSourceIndex );
+    const float
+        compatiblePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( static_cast<double>(
+                                                                                                    kCompatibleTime ),
+                                                                                                kRotationSpeed,
+                                                                                                kSourceIndex );
     CHECK( compatiblePhase == kCompatibleTime * kRotationSpeed + static_cast<float>( kSourceIndex ) * 1.73f );
-    const float roundedCompatiblePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
-        static_cast<double>( kCompatibleTime ) + 1.0e-9, kRotationSpeed, kSourceIndex );
+    const float roundedCompatiblePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::
+        RotationPhase( static_cast<double>( kCompatibleTime ) + 1.0e-9, kRotationSpeed, kSourceIndex );
     CHECK( roundedCompatiblePhase == compatiblePhase );
 
     constexpr double kFloatFixedStepBoundary = 262144.0;
     constexpr float kFixedStep = 1.0f / 120.0f;
     const double advancedTime = kFloatFixedStepBoundary + static_cast<double>( kFixedStep );
-    const float boundaryPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
-        kFloatFixedStepBoundary, kRotationSpeed, kSourceIndex );
-    const float advancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
-        advancedTime, kRotationSpeed, kSourceIndex );
+    const float
+        boundaryPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( kFloatFixedStepBoundary,
+                                                                                              kRotationSpeed, kSourceIndex );
+    const float advancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( advancedTime,
+                                                                                                      kRotationSpeed,
+                                                                                                      kSourceIndex );
     CHECK( advancedPhase != boundaryPhase );
 
     constexpr double kExactFloatRestoreTime = kFloatFixedStepBoundary * 2.0;
     const double exactFloatAdvancedTime = kExactFloatRestoreTime + static_cast<double>( kFixedStep );
     const double twiceAdvancedTime = exactFloatAdvancedTime + static_cast<double>( kFixedStep );
-    const float exactFloatRestorePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
-        kExactFloatRestoreTime, kRotationSpeed, kSourceIndex );
+    const float exactFloatRestorePhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::
+        RotationPhase( kExactFloatRestoreTime, kRotationSpeed, kSourceIndex );
     constexpr float kTwoPi = 6.28318530718f;
     const float expectedExactFloatRestorePhase = static_cast<float>(
         std::fmod( kExactFloatRestoreTime * static_cast<double>( kRotationSpeed ) +
                        static_cast<double>( kSourceIndex ) * 1.73,
                    static_cast<double>( kTwoPi ) ) );
     CHECK( exactFloatRestorePhase == expectedExactFloatRestorePhase );
-    const float exactFloatAdvancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
-        exactFloatAdvancedTime, kRotationSpeed, kSourceIndex );
-    const float twiceAdvancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase(
-        twiceAdvancedTime, kRotationSpeed, kSourceIndex );
+    const float exactFloatAdvancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::
+        RotationPhase( exactFloatAdvancedTime, kRotationSpeed, kSourceIndex );
+    const float twiceAdvancedPhase = SkullbonezCore::Gameplay::TornadoVisualPassTestAccess::RotationPhase( twiceAdvancedTime,
+                                                                                                           kRotationSpeed,
+                                                                                                           kSourceIndex );
     CHECK( exactFloatAdvancedPhase != exactFloatRestorePhase );
     CHECK( twiceAdvancedPhase != exactFloatAdvancedPhase );
 }
@@ -1600,17 +1613,28 @@ constexpr uint32_t FOREIGN_ALLOCATION_HEADER_MAGIC = 0xA110CA7Eu;
 
 // Compatibility: these child-case names are command-line values used by older
 // test launchers. Keep their exact bytes while using direct names in the code.
-constexpr const char* LEGACY_IH4_DX12_MISSED_FAILURE_CASE = "ih4-legacy-dx12-false-" "pass";
-constexpr const char* LEGACY_IH23_TORNADO_MISSED_FAILURE_CASE = "ih23-legacy-tornado-false-" "pass";
-constexpr const char* LEGACY_IH23_COLLIDER_MISSED_FAILURE_CASE = "ih23-legacy-collider-false-" "pass";
-constexpr const char* LEGACY_IH23_DISJOINT_SET_MISSED_FAILURE_CASE = "ih23-legacy-disjoint-set-false-" "pass";
-constexpr const char* LEGACY_IH23_PHYSICS_BODY_MISSED_FAILURE_CASE = "ih23-legacy-physics-body-false-" "pass";
-constexpr const char* LEGACY_IH4_PRIMITIVE_MISSED_FAILURE_CASE = "ih4-legacy-primitive-false-" "pass";
-constexpr const char* LEGACY_IH4_WORLD_MISSED_FAILURE_CASE = "ih4-legacy-world-false-" "pass";
-constexpr const char* LEGACY_IH4_PREVIEW_MISSED_FAILURE_CASE = "ih4-legacy-preview-false-" "pass";
-constexpr const char* LEGACY_IH5_SKY_MISSED_FAILURE_CASE = "ih5-legacy-sky-pass-false-" "pass";
-constexpr const char* LEGACY_IH5_RUN_RENDERER_MISSED_FAILURE_CASE = "ih5-legacy-run-renderer-false-" "pass";
-constexpr const char* LEGACY_IH5_UI_PROFILER_MISSED_FAILURE_CASE = "ih5-legacy-ui-profiler-false-" "pass";
+constexpr const char* LEGACY_IH4_DX12_MISSED_FAILURE_CASE = "ih4-legacy-dx12-false-"
+                                                            "pass";
+constexpr const char* LEGACY_IH23_TORNADO_MISSED_FAILURE_CASE = "ih23-legacy-tornado-false-"
+                                                                "pass";
+constexpr const char* LEGACY_IH23_COLLIDER_MISSED_FAILURE_CASE = "ih23-legacy-collider-false-"
+                                                                 "pass";
+constexpr const char* LEGACY_IH23_DISJOINT_SET_MISSED_FAILURE_CASE = "ih23-legacy-disjoint-set-false-"
+                                                                     "pass";
+constexpr const char* LEGACY_IH23_PHYSICS_BODY_MISSED_FAILURE_CASE = "ih23-legacy-physics-body-false-"
+                                                                     "pass";
+constexpr const char* LEGACY_IH4_PRIMITIVE_MISSED_FAILURE_CASE = "ih4-legacy-primitive-false-"
+                                                                 "pass";
+constexpr const char* LEGACY_IH4_WORLD_MISSED_FAILURE_CASE = "ih4-legacy-world-false-"
+                                                             "pass";
+constexpr const char* LEGACY_IH4_PREVIEW_MISSED_FAILURE_CASE = "ih4-legacy-preview-false-"
+                                                               "pass";
+constexpr const char* LEGACY_IH5_SKY_MISSED_FAILURE_CASE = "ih5-legacy-sky-pass-false-"
+                                                           "pass";
+constexpr const char* LEGACY_IH5_RUN_RENDERER_MISSED_FAILURE_CASE = "ih5-legacy-run-renderer-false-"
+                                                                    "pass";
+constexpr const char* LEGACY_IH5_UI_PROFILER_MISSED_FAILURE_CASE = "ih5-legacy-ui-profiler-false-"
+                                                                   "pass";
 
 FatalChildResult RunFatalChild( const char* caseName )
 {
@@ -2933,8 +2957,7 @@ bool RunRuntimeFatalCase( const char* caseName )
 {
     return RunRenderGraphFatalCase( caseName ) || RunRuntimeFatalStartupAndPrimitiveCase( caseName ) ||
            RunRuntimeFatalResourceAndPhysicsCase( caseName ) || RunRuntimeFatalTransactionAndTerrainCase( caseName ) ||
-           RunRuntimeFatalAllocationAndGridCase( caseName ) ||
-           RunRuntimeFatalConcurrencyAndDiagnosticsCase( caseName );
+           RunRuntimeFatalAllocationAndGridCase( caseName ) || RunRuntimeFatalConcurrencyAndDiagnosticsCase( caseName );
 }
 
 TEST_CASE( "Runtime diagnostics activates perf control only for an owned log artifact" )
@@ -2974,39 +2997,37 @@ TEST_CASE( "Runtime diagnostics fails required perf artifacts on write flush and
 
     RunPerfLogState perfLog;
     REQUIRE( RuntimeDiagnostics::OpenScenePerfLog( perfLog, perfLogPath, 0, nullptr ) );
-    SkullbonezCore::Runtime::SetRuntimePerfLogTestFailure(
-        SkullbonezCore::Runtime::RuntimePerfLogTestFailure::Write );
+    SkullbonezCore::Runtime::SetRuntimePerfLogTestFailure( SkullbonezCore::Runtime::RuntimePerfLogTestFailure::Write );
     CHECK_FALSE( RuntimeDiagnostics::TickPerfLog( perfLog, 1, 1, 0.001f, 0.002f, nullptr ) );
     CHECK_FALSE( RuntimeDiagnostics::PerfTestActive( perfLog ) );
     CHECK( perfLog.perfLogFile == nullptr );
 
     REQUIRE( RuntimeDiagnostics::OpenScenePerfLog( perfLog, perfLogPath, 0, nullptr ) );
     RuntimeDiagnostics::ConfigurePerfLogFlush( perfLog, true, 0 );
-    SkullbonezCore::Runtime::SetRuntimePerfLogTestFailure(
-        SkullbonezCore::Runtime::RuntimePerfLogTestFailure::Flush );
+    SkullbonezCore::Runtime::SetRuntimePerfLogTestFailure( SkullbonezCore::Runtime::RuntimePerfLogTestFailure::Flush );
     CHECK_FALSE( RuntimeDiagnostics::TickPerfLog( perfLog, 1, 1, 0.001f, 0.002f, nullptr ) );
     CHECK_FALSE( RuntimeDiagnostics::PerfTestActive( perfLog ) );
     CHECK( perfLog.perfLogFile == nullptr );
 
     REQUIRE( RuntimeDiagnostics::OpenScenePerfLog( perfLog, perfLogPath, 0, nullptr ) );
-    SkullbonezCore::Runtime::SetRuntimePerfLogTestFailure(
-        SkullbonezCore::Runtime::RuntimePerfLogTestFailure::Close );
+    SkullbonezCore::Runtime::SetRuntimePerfLogTestFailure( SkullbonezCore::Runtime::RuntimePerfLogTestFailure::Close );
     CHECK_FALSE( RuntimeDiagnostics::ClosePerfLog( perfLog ) );
 
     SkullbonezCore::Core::SbDiagnosticStore resultDiagnostics;
     SkullbonezCore::Runtime::ApplicationExitState exitState( resultDiagnostics );
-    const SkullbonezCore::Core::SbResult failure =
-        SkullbonezCore::Runtime::ApplyPerfLogArtifactStatus( resultDiagnostics, exitState, false );
+    const SkullbonezCore::Core::SbResult failure = SkullbonezCore::Runtime::ApplyPerfLogArtifactStatus( resultDiagnostics,
+                                                                                                        exitState, false );
     const SkullbonezCore::Core::SbResult resolved = exitState.Resolve( 0 );
     CHECK_FALSE( resolved.Ok() );
     CHECK( std::strcmp( resolved.ErrorOwner(), "Runtime/Diagnostics" ) == 0 );
     CHECK( std::strstr( resolved.ErrorMessage(), "written, flushed, and closed" ) != nullptr );
 
     SkullbonezCore::Runtime::ApplicationExitState combinedExitState( resultDiagnostics );
-    const SkullbonezCore::Core::SbResult sceneFailure =
-        resultDiagnostics.Failure( "Runtime/Scene", "scene population failed" );
-    const SkullbonezCore::Core::SbResult combinedResult = SkullbonezCore::Runtime::ApplySceneLoadDiagnosticsStatus(
-        resultDiagnostics, combinedExitState, sceneFailure, false );
+    const SkullbonezCore::Core::SbResult sceneFailure = resultDiagnostics.Failure( "Runtime/Scene",
+                                                                                   "scene population failed" );
+    const SkullbonezCore::Core::SbResult
+        combinedResult = SkullbonezCore::Runtime::ApplySceneLoadDiagnosticsStatus( resultDiagnostics, combinedExitState,
+                                                                                   sceneFailure, false );
     CHECK_FALSE( combinedResult.Ok() );
     CHECK( std::strcmp( combinedResult.ErrorOwner(), "Runtime/Scene" ) == 0 );
     const SkullbonezCore::Core::SbResult combinedExitResult = combinedExitState.Resolve( 0 );
@@ -3037,11 +3058,10 @@ TEST_CASE( "Scene memory diagnostics count complete Physics store capacity" )
     CHECK( stats.colliderStoreBytes == colliderBytes );
     CHECK( stats.physicsStoreBytes == sceneStoreBytes - colliderBytes );
 
-    const uint64_t retiredRecordOnlyBytes =
-        static_cast<uint64_t>( PhysicsEngine::ReadBodies( *physics ).RecordCapacity() ) *
-            sizeof( SkullbonezCore::Physics::PhysicsBodyRecord ) +
-        static_cast<uint64_t>( PhysicsEngine::ReadBuoyancyFactCapacity( *physics ) ) *
-            sizeof( SkullbonezCore::Physics::BuoyancyBodyFacts );
+    const uint64_t retiredRecordOnlyBytes = static_cast<uint64_t>( PhysicsEngine::ReadBodies( *physics ).RecordCapacity() ) *
+                                                sizeof( SkullbonezCore::Physics::PhysicsBodyRecord ) +
+                                            static_cast<uint64_t>( PhysicsEngine::ReadBuoyancyFactCapacity( *physics ) ) *
+                                                sizeof( SkullbonezCore::Physics::BuoyancyBodyFacts );
     CHECK( stats.physicsStoreBytes > retiredRecordOnlyBytes );
 }
 
@@ -3059,10 +3079,10 @@ TEST_CASE( "Main memory dump reports incomplete write flush and close operations
     const SkullbonezCore::Core::MainMemoryGameObjectStats gameObjects;
     const SkullbonezCore::Runtime::RuntimeSceneDiagnosticFacts scene( 0, 0, 0, 7, 10, 0 );
 
-    for ( const SkullbonezCore::Runtime::MainMemoryDumpTestFailure failure : {
-              SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Write,
-              SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Flush,
-              SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Close } )
+    for ( const SkullbonezCore::Runtime::MainMemoryDumpTestFailure failure :
+          { SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Write,
+            SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Flush,
+            SkullbonezCore::Runtime::MainMemoryDumpTestFailure::Close } )
     {
         SkullbonezCore::Runtime::SetMainMemoryDumpTestFailure( failure );
         CHECK_FALSE( runtime.WriteMainMemoryDump( replay, gameObjects, scene, "fault", 1.0 ) );
@@ -3106,8 +3126,8 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
     char copiedTracePath[MAX_PATH] = {};
     std::ofstream safeTrace;
     CHECK( PrepareInteractionAutomationOutputPaths( scriptPath, safeReportPath, safeTracePath, copiedScriptPath,
-                                                    sizeof( copiedScriptPath ), copiedTracePath,
-                                                    sizeof( copiedTracePath ), safeTrace, distinctWriter ) == nullptr );
+                                                    sizeof( copiedScriptPath ), copiedTracePath, sizeof( copiedTracePath ),
+                                                    safeTrace, distinctWriter ) == nullptr );
     CHECK( distinctWriter.OutputEnabled() );
     CHECK( safeTrace.is_open() );
     safeTrace.close();
@@ -3117,9 +3137,10 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
     char rejectedScriptPath[MAX_PATH] = {};
     char rejectedTracePath[MAX_PATH] = {};
     std::ofstream rejectedTrace;
-    const char* traceFailure = PrepareInteractionAutomationOutputPaths(
-        scriptPath, safeReportPath, canonicalAlias.c_str(), rejectedScriptPath, sizeof( rejectedScriptPath ),
-        rejectedTracePath, sizeof( rejectedTracePath ), rejectedTrace, traceWriter );
+    const char* traceFailure = PrepareInteractionAutomationOutputPaths( scriptPath, safeReportPath, canonicalAlias.c_str(),
+                                                                        rejectedScriptPath, sizeof( rejectedScriptPath ),
+                                                                        rejectedTracePath, sizeof( rejectedTracePath ),
+                                                                        rejectedTrace, traceWriter );
     REQUIRE( traceFailure != nullptr );
     CHECK( std::strcmp( traceFailure, "interaction trace path resolves to interaction script path" ) == 0 );
     CHECK( traceWriter.OutputEnabled() );
@@ -3132,9 +3153,12 @@ TEST_CASE( "Interaction automation rejects canonical output aliases before trunc
     char reportRejectedScriptPath[MAX_PATH] = {};
     char reportRejectedTracePath[MAX_PATH] = {};
     std::ofstream reportRejectedTrace;
-    const char* reportFailure = PrepareInteractionAutomationOutputPaths(
-        scriptPath, canonicalAlias.c_str(), nullptr, reportRejectedScriptPath, sizeof( reportRejectedScriptPath ),
-        reportRejectedTracePath, sizeof( reportRejectedTracePath ), reportRejectedTrace, reportWriter );
+    const char* reportFailure = PrepareInteractionAutomationOutputPaths( scriptPath, canonicalAlias.c_str(), nullptr,
+                                                                         reportRejectedScriptPath,
+                                                                         sizeof( reportRejectedScriptPath ),
+                                                                         reportRejectedTracePath,
+                                                                         sizeof( reportRejectedTracePath ),
+                                                                         reportRejectedTrace, reportWriter );
     REQUIRE( reportFailure != nullptr );
     CHECK( std::strcmp( reportFailure, "interaction report path resolves to interaction script path" ) == 0 );
     CHECK_FALSE( reportWriter.OutputEnabled() );
@@ -3175,13 +3199,11 @@ TEST_CASE( "Interaction automation recovers malformed JSON and preserves equal-f
 
     controller.status = {};
     CHECK_FALSE( AdmitInteractionRecordingBaselineContainers( controller, true, true, true, true, false, false ) );
-    CHECK( std::strcmp( controller.status.failure,
-                        "recorded manifest baseline state is incomplete or invalid" ) == 0 );
+    CHECK( std::strcmp( controller.status.failure, "recorded manifest baseline state is incomplete or invalid" ) == 0 );
 
     std::string pressKeyError;
     CHECK_FALSE( AdmitInteractionAutomationPressKeyOptions( true, true, false, pressKeyError ) );
-    CHECK( pressKeyError ==
-           "pressKey requires a string key, optional boolean control, and optional integer holdFrames" );
+    CHECK( pressKeyError == "pressKey requires a string key, optional boolean control, and optional integer holdFrames" );
 
     std::vector<RunInteractionAutomationAction> actions( 64u );
 
@@ -3193,8 +3215,8 @@ TEST_CASE( "Interaction automation recovers malformed JSON and preserves equal-f
 
     std::vector<RunInteractionAutomationAction> retiredUnstableOrder = actions;
     std::sort( retiredUnstableOrder.begin(), retiredUnstableOrder.end(),
-               []( const RunInteractionAutomationAction& lhs,
-                   const RunInteractionAutomationAction& rhs ) { return lhs.frame < rhs.frame; } );
+               []( const RunInteractionAutomationAction& lhs, const RunInteractionAutomationAction& rhs )
+               { return lhs.frame < rhs.frame; } );
     bool retiredPathDiffers = false;
 
     for ( std::size_t index = 0u; index < retiredUnstableOrder.size(); ++index )
@@ -3215,7 +3237,6 @@ TEST_CASE( "Interaction automation recovers malformed JSON and preserves equal-f
                                                    : static_cast<int>( ( index - 32u ) * 2u + 1u );
         CHECK( actions[index].integerValue == expectedAuthoredId );
     }
-
 }
 
 TEST_CASE( "Interaction report publication is atomic and replay artifact naming is disjoint" )
@@ -3224,8 +3245,7 @@ TEST_CASE( "Interaction report publication is atomic and replay artifact naming 
     const std::string replayNamed = "TestOutput/dotted.parent/interaction_report.skreplay";
     CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( extensionless ) ==
            extensionless + ".replay.skreplay" );
-    CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( replayNamed ) ==
-           replayNamed + ".replay.skreplay" );
+    CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( replayNamed ) == replayNamed + ".replay.skreplay" );
     CHECK( InteractionAutomationReportWriter::DeriveReplayArtifactPath( replayNamed ) != replayNamed );
 
     char temporaryDirectory[MAX_PATH] = {};
@@ -3254,10 +3274,8 @@ TEST_CASE( "Interaction report publication is atomic and replay artifact naming 
         REQUIRE( writer.ConfigurePathMetadata( reportPath, scriptPath ) );
         InteractionAutomationRunStatus status;
         SkullbonezCore::Core::SetAtomicTextFileTestFailure( failure );
-        const SkullbonezCore::Core::SbResult publication = writer.PublishReportBytes(
-            status, "replacement-report\n" );
-        SkullbonezCore::Core::SetAtomicTextFileTestFailure(
-            SkullbonezCore::Core::AtomicTextFileTestFailure::None );
+        const SkullbonezCore::Core::SbResult publication = writer.PublishReportBytes( status, "replacement-report\n" );
+        SkullbonezCore::Core::SetAtomicTextFileTestFailure( SkullbonezCore::Core::AtomicTextFileTestFailure::None );
         CHECK_FALSE( publication.Ok() );
         CHECK( status.failed );
         CHECK( writer.Written() );
@@ -3284,8 +3302,8 @@ TEST_CASE( "Interaction startup failure publishes its report without replacing p
     controller.enabled = true;
 
     SkullbonezCore::Core::SbDiagnosticStore startupDiagnostics;
-    const SkullbonezCore::Core::SbResult startupFailure =
-        startupDiagnostics.Failure( "Runtime/Scene", "recorded scene failed semantic validation" );
+    const SkullbonezCore::Core::SbResult
+        startupFailure = startupDiagnostics.Failure( "Runtime/Scene", "recorded scene failed semantic validation" );
     const SkullbonezCore::Core::SbResult resolved = ResolveInteractionAutomationReportForExit(
         controller, startupFailure,
         []( void* context, InteractionAutomationRunStatus& status ) -> SkullbonezCore::Core::SbResult
@@ -3866,12 +3884,10 @@ TEST_CASE( "Replay restore applies the recorded camera up vector with the full p
     using SkullbonezCore::Runtime::ReplayRestoreOperations;
 
     CameraCollection cameras;
-    cameras.AddCamera( Vector3( 4.0f, 5.0f, 6.0f ), Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ),
-                       0x5A11u );
+    cameras.AddCamera( Vector3( 4.0f, 5.0f, 6.0f ), Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ), 0x5A11u );
     cameras.SetCamera();
 
-    cameras.TweenPrimaryToPose( Vector3( 40.0f, 50.0f, 60.0f ), Vector3( 1.0f, 2.0f, 3.0f ),
-                                Vector3( 1.0f, 0.0f, 0.0f ) );
+    cameras.TweenPrimaryToPose( Vector3( 40.0f, 50.0f, 60.0f ), Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 1.0f, 0.0f, 0.0f ) );
     cameras.SetTweenProgress( 0.5f );
     cameras.SetCamera();
 
@@ -4047,13 +4063,13 @@ TEST_CASE( "Operator UI projection maps detached render-target facts without bac
     SkullbonezCore::UI::InGameUIFrameData frame;
     ProjectOperatorUiRenderTargets( frame, facts );
 
-    REQUIRE( frame.renderTargetPreviewCount == 2 );
-    CHECK( std::strcmp( frame.renderTargetPreviews[0].label, "color" ) == 0 );
-    CHECK( frame.renderTargetPreviews[0].available );
-    CHECK( frame.renderTargetPreviews[0].hdr );
-    CHECK( std::strcmp( frame.renderTargetPreviews[1].label, "depth" ) == 0 );
-    CHECK_FALSE( frame.renderTargetPreviews[1].available );
-    CHECK( frame.renderTargetPreviews[1].depth );
+    REQUIRE( frame.renderTargets.count == 2 );
+    CHECK( std::strcmp( frame.renderTargets.previews[0].label, "color" ) == 0 );
+    CHECK( frame.renderTargets.previews[0].available );
+    CHECK( frame.renderTargets.previews[0].hdr );
+    CHECK( std::strcmp( frame.renderTargets.previews[1].label, "depth" ) == 0 );
+    CHECK_FALSE( frame.renderTargets.previews[1].available );
+    CHECK( frame.renderTargets.previews[1].depth );
 
     for ( int index = 2; index < SkullbonezCore::UI::UI_RENDER_TARGET_PREVIEW_MAX; ++index )
     {
@@ -4062,7 +4078,7 @@ TEST_CASE( "Operator UI projection maps detached render-target facts without bac
 
     CHECK_FALSE( facts.Append( "overflow", 1, 1, true, false, false ) );
     ProjectOperatorUiRenderTargets( frame, facts );
-    CHECK( frame.renderTargetPreviewCount == SkullbonezCore::UI::UI_RENDER_TARGET_PREVIEW_MAX );
+    CHECK( frame.renderTargets.count == SkullbonezCore::UI::UI_RENDER_TARGET_PREVIEW_MAX );
 
     using AppendSignature = bool ( OperatorUiRenderTargetListFacts::* )( const char*, int, int, bool, bool, bool );
     static_assert( std::is_same_v<decltype( &OperatorUiRenderTargetListFacts::Append ), AppendSignature> );
@@ -4210,23 +4226,22 @@ TEST_CASE( "SceneWorld deletion preserves the moved tornado body timer history" 
     for ( std::size_t index = 0; index < bodyHandles.size(); ++index )
     {
         const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { static_cast<uint32_t>( 4100u + index ) };
-        const SkullbonezCore::Math::CollisionDetection::CollisionShape shape =
-            SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+        const SkullbonezCore::Math::CollisionDetection::CollisionShape
+            shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
         SkullbonezCore::Runtime::SceneEntityCreateDesc entity;
         entity.sceneObjectId = sceneObjectId;
         entity.SetName( "tornado-state-remap-body" );
 
-        auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
-            sceneObjectId, shape, Vector3( static_cast<float>( index ), 5.0f, 0.0f ),
-            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, Vector3( 0.0f, 0.0f, 0.0f ),
-            Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.4f, 0.4f, 0.4f ), 1.0f, 0.0f,
-            SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic, "tornado-state-remap-body" );
-        auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u,
-                                                                             "tornado-state-remap-body" );
+        auto bodyDesc = SkullbonezCore::Physics::
+            MakePhysicsBodyCreateDesc( sceneObjectId, shape, Vector3( static_cast<float>( index ), 5.0f, 0.0f ),
+                                       SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, Vector3( 0.0f, 0.0f, 0.0f ),
+                                       Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.4f, 0.4f, 0.4f ), 1.0f, 0.0f,
+                                       SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic, "tornado-state-remap-body" );
+        auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "tornado-state-remap-body" );
         colliderDesc.sceneObjectId = sceneObjectId;
 
-        const SkullbonezCore::Runtime::SceneEntityCreateResult created =
-            world.TryCreateSceneEntity( entity, bodyDesc, colliderDesc );
+        const SkullbonezCore::Runtime::SceneEntityCreateResult created = world.TryCreateSceneEntity( entity, bodyDesc,
+                                                                                                     colliderDesc );
         REQUIRE( created.status.Ok() );
         REQUIRE( created.body.IsValid() );
         bodyHandles[index] = created.body;
@@ -4298,8 +4313,10 @@ TEST_CASE( "Orderly exit returns the interaction recording save failure" )
 
     SkullbonezCore::Runtime::ApplicationExitState applicationExit( localDiagnostics );
     RuntimeAllocationScope shutdownScope( RuntimeAllocationPhase::Shutdown );
-    const SbResult result = SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording(
-        recorder, localDiagnostics, applicationExit, 0, captureArmedBoundary, &context );
+    const SbResult result = SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording( recorder, localDiagnostics,
+                                                                                              applicationExit, 0,
+                                                                                              captureArmedBoundary,
+                                                                                              &context );
 
     CHECK( context.attempts == 1 );
     CHECK( context.boundaryResult.Ok() );
@@ -4312,8 +4329,10 @@ TEST_CASE( "Orderly exit returns the interaction recording save failure" )
     REQUIRE( result.ErrorMessage() );
     CHECK( std::strstr( result.ErrorMessage(), "failed to hash the recorded scene snapshot" ) != nullptr );
 
-    const SbResult repeated = SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording(
-        recorder, localDiagnostics, applicationExit, 0, captureArmedBoundary, &context );
+    const SbResult repeated = SkullbonezCore::Runtime::ResolveRunExitAfterInteractionRecording( recorder, localDiagnostics,
+                                                                                                applicationExit, 0,
+                                                                                                captureArmedBoundary,
+                                                                                                &context );
     CHECK( context.attempts == 1 );
     REQUIRE_FALSE( repeated.Ok() );
     CHECK( std::strcmp( repeated.ErrorOwner(), "InteractionRecorder" ) == 0 );
@@ -4327,8 +4346,8 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     probe.error = ERROR_ACCESS_DENIED;
     const HWND window = reinterpret_cast<HWND>( static_cast<uintptr_t>( 1u ) );
 
-    const SbResult failure = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse(
-        localDiagnostics, window, true, probe );
+    const SbResult failure = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse( localDiagnostics,
+                                                                                                      window, true, probe );
     REQUIRE_FALSE( failure.Ok() );
     CHECK( probe.called );
     CHECK( probe.observed.usUsagePage == 0x01u );
@@ -4393,8 +4412,8 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     CHECK( startupSequence == std::vector<int> { 1, 2, 3, 4, 5 } );
 
     probe = {};
-    const SbResult success = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse(
-        localDiagnostics, window, true, probe );
+    const SbResult success = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse( localDiagnostics,
+                                                                                                      window, true, probe );
     CHECK( success.Ok() );
     CHECK( probe.called );
 
@@ -4450,8 +4469,8 @@ TEST_CASE( "DX12 mesh vertex data validates one complete packed layout" )
     using SkullbonezCore::Rendering::VertexFormat12;
 
     const float components[6] = {};
-    const std::optional<MeshVertexDataView> vertices =
-        MeshVertexDataView::TryCreate( components, 2, 3, VertexFormat12::Pos3 );
+    const std::optional<MeshVertexDataView> vertices = MeshVertexDataView::TryCreate( components, 2, 3,
+                                                                                      VertexFormat12::Pos3 );
     REQUIRE( vertices );
     CHECK( vertices->Components().size() == 6u );
     CHECK( vertices->ByteCount() == sizeof( components ) );
@@ -4469,12 +4488,11 @@ TEST_CASE( "DX12 mesh vertex data validates one complete packed layout" )
 TEST_CASE( "Render model selection encodes all marked and unmarked modes" )
 {
     const std::vector<uint8_t> mask { 0u, 1u };
-    const SkullbonezCore::Rendering::RenderModelSelection all =
-        SkullbonezCore::Rendering::RenderModelSelection::All();
-    const SkullbonezCore::Rendering::RenderModelSelection marked =
-        SkullbonezCore::Rendering::RenderModelSelection::Marked( mask );
-    const SkullbonezCore::Rendering::RenderModelSelection unmarked =
-        SkullbonezCore::Rendering::RenderModelSelection::Unmarked( mask );
+    const SkullbonezCore::Rendering::RenderModelSelection all = SkullbonezCore::Rendering::RenderModelSelection::All();
+    const SkullbonezCore::Rendering::RenderModelSelection marked = SkullbonezCore::Rendering::RenderModelSelection::Marked(
+        mask );
+    const SkullbonezCore::Rendering::RenderModelSelection
+        unmarked = SkullbonezCore::Rendering::RenderModelSelection::Unmarked( mask );
 
     CHECK( all.Includes( 0 ) );
     CHECK( all.Includes( 2 ) );

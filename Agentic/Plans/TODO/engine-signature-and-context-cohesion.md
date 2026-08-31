@@ -753,6 +753,22 @@ contexts with no findings. Formatting, dependency/project ownership,
 build-configuration consistency, and whitespace checks pass. No baseline or
 golden changed.
 
+The fifth grouped slice repairs the broad GameUI root frame without changing
+its narrow tab contracts. `InGameUIFrameData` now stores operator-editor,
+surface, diagnostics, scene, world, editor, rendering, and render-target facts
+as eight cohesive sections instead of exposing 115 unrelated flat fields.
+Projection owns construction of those detached sections, while each tab view
+continues to select only its consumed facts. The existing forecast projection
+still derives from the operator-editor snapshot, so the new storage does not
+duplicate or retain a second forecast value.
+
+The Profile solution builds warning-clean. The normal test suite passes 913
+cases and 2,692,662 assertions with one expected skip. Compiler-backed
+source-design passes the seven changed source-bearing files under 41 consumer
+contexts with no findings. Formatting, dependency/project ownership,
+build-configuration consistency, and whitespace checks pass. No baseline or
+golden changed.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add
