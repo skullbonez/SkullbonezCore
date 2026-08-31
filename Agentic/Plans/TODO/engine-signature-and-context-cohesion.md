@@ -1,7 +1,7 @@
 # Engine Signature And Context Cohesion
 
 Date: 2026-08-31
-Status: Active by explicit owner direction on 2026-08-31; 1/7 phases complete.
+Status: Active by explicit owner direction on 2026-08-31; 2/7 phases complete.
 Impact area: all first-party C++ engine packages, tests, compiler-backed source
 design inspection, dependency direction, and focused subsystem validation.
 Owner: Engine architecture owner
@@ -551,6 +551,34 @@ unchanged-manifest, allocation, and dependency gates for SC4-SC5; and the full
 validation map plus independent review for SC6. SC0 itself changes advisory
 tooling and documentation only, so no product build is required.
 
+## SC1 Broadphase Decision And Evidence
+
+`PhysicsBroadphaseStepInput` is deleted. Its settings, joints, four activity
+rows, diagnostics owner, and three scalars no longer travel as one positional
+record. `PhysicsBroadphaseStage::Run` now reads as the two stores being queried,
+explicit joint exclusions, a checked body-activity view, a validated
+sweep/contact envelope, and the exact pipeline-trace capability consumed.
+
+`BroadphaseBodyActivityView` enforces the dense body domain, optional row
+alignment, and ascending unique awake indices while preserving conservative
+fallback for intentionally absent motion/expansion rows.
+`BroadphaseSweepContactEnvelope` enforces finite non-negative timestep, skin,
+and epsilon. `BroadphasePairFilter` owns the synchronous store/activity/envelope
+relationship and provides the sleeping, geometry-only, and complete admission
+operations used by both `SpatialGrid` and fast-sweep augmentation. It retains
+nothing beyond the call. The stage retains its validated cell-size cap through
+`ApplyRuntimeSettings`; per-step callers no longer resend broadphase settings.
+
+Production and tests now construct the named values explicitly. Focused tests
+cover activity misalignment, duplicate indices, motion/expansion behavior,
+invalid scalar domains, static/swept boundaries, sleep pruning, angular reach,
+and all SpatialGrid paths. Profile builds warning-clean; 39 mapped cases pass
+with 9,273 assertions; source-design passes 11 files/70 contexts; dependency,
+format, and build-configuration checks pass. The clean-process Physics worker
+matrix remains byte-exact across 0/repeat/1/4 workers at 44,401 lines and
+SHA-256 `03088b30b8826f88a6193e511b7f4205aff9324d06ad08456610aac0e13a3f6b`.
+No baseline or golden changed.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add
@@ -559,7 +587,7 @@ tooling and documentation only, so no product build is required.
   qualitative package pass, populate the candidate worksheet, and record the
   focused validation mapped to every accepted repair. Prove the inventory has
   no parse or project-coverage gaps before editing production source.
-- [ ] **SC1 — Prove the repair model on Physics broadphase.** Replace the current
+- [x] **SC1 — Prove the repair model on Physics broadphase.** Replace the current
   broadphase bag/wide-call tradeoff with concrete configuration ownership,
   aligned activity behavior, named validated sweep values, and a narrow trace
   capability. Preserve candidate order, trace order, allocation behavior, and

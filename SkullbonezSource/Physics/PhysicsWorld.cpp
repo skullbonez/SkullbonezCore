@@ -1033,18 +1033,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     // Broadphase: sleeping membership remains resident, while awake rows update
     // their ranges and source awake-to-sleep wake-detection pairs.
     const float contactSkin = (std::max)( 0.0f, settings.body.contactEpsilon );
-    const PhysicsBroadphaseStepInput broadphaseInput { settings.broadphase,
-                                                       m_pointJointConstraints,
-                                                       sleepStates,
-                                                       awakeBodyIndices,
-                                                       m_motionEligibility.State(),
-                                                       m_motionEligibility.AngularBroadphaseExpansion(),
-                                                       m_stepDiagnostics,
-                                                       dt,
-                                                       contactSkin,
-                                                       settings.body.contactEpsilon };
-    const std::span<const std::pair<int, int>> candidatePairs = m_broadphase.Run( bodyStore, colliderStore,
-                                                                                  broadphaseInput );
+    const BroadphaseBodyActivityView broadphaseActivity( bodyStore.Count(), sleepStates, awakeBodyIndices,
+                                                         m_motionEligibility.State(),
+                                                         m_motionEligibility.AngularBroadphaseExpansion() );
+    const BroadphaseSweepContactEnvelope broadphaseEnvelope( dt, contactSkin, settings.body.contactEpsilon );
+    const std::span<const std::pair<int, int>> candidatePairs = m_broadphase
+                                                                    .Run( bodyStore, colliderStore, m_pointJointConstraints,
+                                                                          broadphaseActivity, broadphaseEnvelope,
+                                                                          m_stepDiagnostics.MutablePipelineTraceRecorder() );
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.

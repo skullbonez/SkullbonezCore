@@ -7,7 +7,7 @@ Summary:
   SpatialGrid provides locality candidates; this stage rejects pairs whose
   swept bounding spheres, including per-body angular reach, cannot touch during
   the current fixed tick and rejects dormant/dormant pairs before they enter
-  solver-visible work. The geometry-only predicate remains explicit so Debug
+  solver-visible work. The geometry-only filter operation remains explicit so Debug
   can preserve sleep-pruned diagnostics at the same admission boundary without
   restoring dormant solver work.
 
@@ -24,7 +24,7 @@ Invariants:
     exact stage can decide, while out-of-range indices are rejected.
   - False positives are allowed; false negatives can drop real collisions and
     break deterministic physics baselines.
-  - The geometry-only predicate remains available to Debug diagnostics so
+  - The geometry-only operation remains available to Debug diagnostics so
     SleepPrunedPair observes the admission boundary before sleep pruning.
 
 Related:
@@ -35,6 +35,7 @@ Related:
 #pragma once
 
 #include "ColliderStore.h"
+#include "PhysicsBroadphaseStepValues.h"
 #include "PhysicsBodyStore.h"
 #include "../Maths/MathsCommon.h"
 #include "../Maths/Vector3.h"
@@ -49,12 +50,6 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-inline bool BroadphaseCandidateBothSleeping( std::span<const uint8_t> sleepState, int a, int b )
-{
-    return a >= 0 && b >= 0 && a < static_cast<int>( sleepState.size() ) && b < static_cast<int>( sleepState.size() ) &&
-           sleepState[a] != 0u && sleepState[b] != 0u;
-}
-
 // Invariant: fixed-step candidate owners may append only inside construction-
 // reserved storage. Equality is already exhaustion because emplace_back would
 // otherwise trigger runtime growth.
@@ -79,62 +74,90 @@ inline float BroadphaseCandidateBodyRadius( std::span<const ColliderRecord> coll
 //
 // Invariant: this remains a broadphase test. It may keep false positives, but
 // it must not reject a pair whose exact shapes could touch during this fixed
-// tick; the relative-motion segment covers CCD and wakeup cases.
-inline bool BroadphaseCandidateGeometryCanTouch( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                                 float dt, float contactSkin, int a, int b,
-                                                 std::span<const float> angularBroadphaseExpansion = {} )
+// tick; the relative-motion segment covers CCD and wakeup cases. The filter is
+// a synchronous capability and never outlives the stores referenced below.
+class BroadphasePairFilter
 {
-    const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
+  private:
+    const PhysicsBodyStore& m_bodyStore;
+    const ColliderStore& m_colliderStore;
+    BroadphaseBodyActivityView m_activity;
+    BroadphaseSweepContactEnvelope m_envelope;
 
-    if ( a < 0 || b < 0 || a >= modelCount || b >= modelCount )
+  public:
+    BroadphasePairFilter( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                          BroadphaseBodyActivityView activity, BroadphaseSweepContactEnvelope envelope )
+        : m_bodyStore( bodyStore ), m_colliderStore( colliderStore ), m_activity( activity ), m_envelope( envelope )
     {
-        return false;
+        const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
+
+        if ( activity.BodyCount() != modelCount )
+        {
+            SB_FATAL( "Physics/BroadphasePairFilter",
+                      "Broadphase filter body domain mismatch: activity=%d bodies=%d colliders=%d.", activity.BodyCount(),
+                      bodyStore.Count(), colliderStore.Count() );
+        }
     }
 
-    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
-    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
-    const float expansionA = a < static_cast<int>( angularBroadphaseExpansion.size() )
-                                 ? angularBroadphaseExpansion[static_cast<std::size_t>( a )]
-                                 : 0.0f;
-    const float expansionB = b < static_cast<int>( angularBroadphaseExpansion.size() )
-                                 ? angularBroadphaseExpansion[static_cast<std::size_t>( b )]
-                                 : 0.0f;
-    const float radiusA = BroadphaseCandidateBodyRadius( colliderRecords, a ) + (std::max)( 0.0f, expansionA );
-    const float radiusB = BroadphaseCandidateBodyRadius( colliderRecords, b ) + (std::max)( 0.0f, expansionB );
-
-    if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || !std::isfinite( expansionA ) ||
-         !std::isfinite( expansionB ) || radiusA < 0.0f || radiusB < 0.0f )
+    bool BothSleeping( int a, int b ) const noexcept
     {
-        return true;
+        return a >= 0 && b >= 0 && a < m_activity.BodyCount() && b < m_activity.BodyCount() && m_activity.IsSleeping( a ) &&
+               m_activity.IsSleeping( b );
     }
 
-    const Math::Vector::Vector3 relativeStart = BroadphaseCandidateBodyPosition( hotFields, a ) -
-                                                BroadphaseCandidateBodyPosition( hotFields, b );
-    const Math::Vector::Vector3 relativeDisplacement = ( PhysicsBodyLinearVelocity( hotFields,
-                                                                                    static_cast<std::size_t>( a ) ) -
-                                                         PhysicsBodyLinearVelocity( hotFields,
-                                                                                    static_cast<std::size_t>( b ) ) ) *
-                                                       dt;
-    const float contactRadius = radiusA + radiusB + contactSkin;
-    const float contactRadiusSq = contactRadius * contactRadius;
-    const float relativeLengthSq = Math::Vector::VectorMagSquared( relativeDisplacement );
-
-    if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
+    int BodyCount() const noexcept
     {
-        return Math::Vector::VectorMagSquared( relativeStart ) <= contactRadiusSq;
+        return m_activity.BodyCount();
     }
 
-    float t = -( Dot( relativeStart, relativeDisplacement ) ) / relativeLengthSq;
-    t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
-    const Math::Vector::Vector3 closestRelative = relativeStart + relativeDisplacement * t;
-    return Math::Vector::VectorMagSquared( closestRelative ) <= contactRadiusSq;
-}
+    bool GeometryCanTouch( int a, int b ) const
+    {
+        const int modelCount = m_activity.BodyCount();
 
-inline bool BroadphaseCandidateCanTouch( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                         std::span<const uint8_t> sleepState, float dt, float contactSkin, int a, int b )
-{
-    return !BroadphaseCandidateBothSleeping( sleepState, a, b ) &&
-           BroadphaseCandidateGeometryCanTouch( bodyStore, colliderStore, dt, contactSkin, a, b );
-}
+        if ( a < 0 || b < 0 || a >= modelCount || b >= modelCount )
+        {
+            return false;
+        }
+
+        const PhysicsBodyHotFieldsConstView hotFields = m_bodyStore.HotFields();
+        const std::span<const ColliderRecord> colliderRecords = m_colliderStore.Records();
+        const float expansionA = m_activity.AngularExpansion( a );
+        const float expansionB = m_activity.AngularExpansion( b );
+        const float radiusA = BroadphaseCandidateBodyRadius( colliderRecords, a ) + (std::max)( 0.0f, expansionA );
+        const float radiusB = BroadphaseCandidateBodyRadius( colliderRecords, b ) + (std::max)( 0.0f, expansionB );
+
+        if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || !std::isfinite( expansionA ) ||
+             !std::isfinite( expansionB ) || radiusA < 0.0f || radiusB < 0.0f )
+        {
+            return true;
+        }
+
+        const Math::Vector::Vector3 relativeStart = BroadphaseCandidateBodyPosition( hotFields, a ) -
+                                                    BroadphaseCandidateBodyPosition( hotFields, b );
+        const Math::Vector::Vector3 relativeDisplacement = ( PhysicsBodyLinearVelocity( hotFields,
+                                                                                        static_cast<std::size_t>( a ) ) -
+                                                             PhysicsBodyLinearVelocity( hotFields,
+                                                                                        static_cast<std::size_t>( b ) ) ) *
+                                                           m_envelope.DeltaTime();
+        const float contactRadius = radiusA + radiusB + m_envelope.ContactSkin();
+        const float contactRadiusSq = contactRadius * contactRadius;
+        const float relativeLengthSq = Math::Vector::VectorMagSquared( relativeDisplacement );
+
+        if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
+        {
+            return Math::Vector::VectorMagSquared( relativeStart ) <= contactRadiusSq;
+        }
+
+        float t = -( Dot( relativeStart, relativeDisplacement ) ) / relativeLengthSq;
+        t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
+        const Math::Vector::Vector3 closestRelative = relativeStart + relativeDisplacement * t;
+        return Math::Vector::VectorMagSquared( closestRelative ) <= contactRadiusSq;
+    }
+
+    bool CanTouch( int a, int b ) const
+    {
+        return !BothSleeping( a, b ) && GeometryCanTouch( a, b );
+    }
+};
 } // namespace Physics
 } // namespace SkullbonezCore

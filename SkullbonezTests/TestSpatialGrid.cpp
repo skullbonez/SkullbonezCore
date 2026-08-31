@@ -22,11 +22,13 @@
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsSpatialCellKey.h"
+#include "../SkullbonezSource/Physics/SolverBroadphaseStage.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -34,6 +36,9 @@ using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::BroadphaseBodyActivityView;
+using SkullbonezCore::Physics::BroadphasePairFilter;
+using SkullbonezCore::Physics::BroadphaseSweepContactEnvelope;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::EncodeExactSpatialCellKey;
@@ -42,6 +47,16 @@ using SkullbonezCore::Physics::PhysicsBodyStore;
 
 namespace
 {
+BroadphasePairFilter PairFilter( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                 std::span<const uint8_t> sleepState, float deltaTime = 0.0f, float contactSkin = 0.0f,
+                                 std::span<const float> angularExpansion = {} )
+{
+    const int bodyCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
+    return BroadphasePairFilter( bodyStore, colliderStore,
+                                 BroadphaseBodyActivityView( bodyCount, sleepState, {}, {}, angularExpansion ),
+                                 BroadphaseSweepContactEnvelope( deltaTime, contactSkin, 0.0f ) );
+}
+
 std::vector<std::pair<int, int>> CandidatePairs( SpatialGrid& grid, int reserveCount = 16 )
 {
     std::vector<std::pair<int, int>> pairs;
@@ -525,7 +540,8 @@ TEST_CASE( "SpatialGrid: earliest eligible shared bucket projects out an earlier
     }
 
     const std::vector<uint8_t> sleepState( 2u, 0u );
-    grid.GetFilteredCandidatePairs( filteredPairs, *bodyStore, *colliderStore, sleepState, 0.0f, 0.0f, true );
+    const BroadphasePairFilter pairFilter = PairFilter( *bodyStore, *colliderStore, sleepState );
+    grid.GetFilteredCandidatePairs( filteredPairs, pairFilter, true );
     REQUIRE( filteredPairs.size() == 1u );
     CHECK( filteredPairs[0] == std::make_pair( 0, 1 ) );
 }
@@ -716,7 +732,8 @@ TEST_CASE( "SpatialGrid: reported XOR aliases retain exact cell identity" )
 
     const std::vector<uint8_t> sleepState( 2u, 0u );
     grid.MarkPairSourceCells( 0 );
-    grid.GetFilteredCandidatePairs( filteredPairs, *bodyStore, *colliderStore, sleepState, 0.0f, 0.0f, true );
+    const BroadphasePairFilter pairFilter = PairFilter( *bodyStore, *colliderStore, sleepState );
+    grid.GetFilteredCandidatePairs( filteredPairs, pairFilter, true );
     CHECK( filteredPairs.empty() );
 }
 
@@ -797,8 +814,7 @@ TEST_CASE( "SpatialGrid: overlong swept path takes deterministic complete-covera
 
 TEST_CASE( "SpatialGrid: simultaneous overlong sweeps fit the complete scene pair topology" )
 {
-    constexpr int kBodyCount =
-        static_cast<int>( SkullbonezCore::Physics::PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES );
+    constexpr int kBodyCount = static_cast<int>( SkullbonezCore::Physics::PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES );
     constexpr int kExpectedPairCount = kBodyCount * ( kBodyCount - 1 ) / 2;
     auto grid = std::make_unique<SpatialGrid>( SpatialGrid::MIN_CELL_SIZE );
     {
@@ -810,8 +826,7 @@ TEST_CASE( "SpatialGrid: simultaneous overlong sweeps fit the complete scene pai
     grid->BeginFrame( kBodyCount );
     for ( int body = 0; body < kBodyCount; ++body )
     {
-        grid->InsertSwept( body, Vector3( -100000.0f, 0.25f, 0.25f ), Vector3( 200000.0f, 0.0f, 0.0f ),
-                           0.0f );
+        grid->InsertSwept( body, Vector3( -100000.0f, 0.25f, 0.25f ), Vector3( 200000.0f, 0.0f, 0.0f ), 0.0f );
     }
 
     const auto pairs = CandidatePairs( *grid, kExpectedPairCount );
@@ -946,8 +961,8 @@ TEST_CASE( "SpatialGrid: filtered first-seen order stays observable when geometr
     }
 
     const std::vector<uint8_t> sleepState( 3u, 1u );
-    grid.GetFilteredCandidatePairs( candidatePairs, *bodyStore, *colliderStore, sleepState, 0.0f, 0.0f, sleepPrunedPairs,
-                                    false );
+    const BroadphasePairFilter pairFilter = PairFilter( *bodyStore, *colliderStore, sleepState );
+    grid.GetFilteredCandidatePairs( candidatePairs, pairFilter, sleepPrunedPairs, false );
 
     CHECK( candidatePairs.empty() );
     REQUIRE( sleepPrunedPairs.size() == 2u );
@@ -1018,7 +1033,8 @@ TEST_CASE( "SpatialGrid: canonical output reaches the current scene-index ceilin
         filteredPairs.Reserve( expected.size() );
     }
 
-    grid.GetFilteredCandidatePairs( filteredPairs, bodyStore, colliderStore, sleepState, 0.0f, 0.0f, false );
+    const BroadphasePairFilter pairFilter = PairFilter( bodyStore, colliderStore, sleepState );
+    grid.GetFilteredCandidatePairs( filteredPairs, pairFilter, false );
     REQUIRE( filteredPairs.size() == expected.size() );
 
     for ( size_t pairIndex = 0; pairIndex < expected.size(); ++pairIndex )

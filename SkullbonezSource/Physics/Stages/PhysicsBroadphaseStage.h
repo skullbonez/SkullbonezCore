@@ -43,6 +43,7 @@ Related:
 
 #include "../PhysicsDebugData.h"
 #include "../PhysicsBodyStore.h"
+#include "../PhysicsBroadphaseStepValues.h"
 #include "../PhysicsRuntimeSettings.h"
 #include "../PhysicsStageCapacity.h"
 #include "../Ragdoll.h"
@@ -56,23 +57,7 @@ class ColliderStore;
 class PhysicsBodyStore;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
-class PhysicsStepDiagnostics;
-
-// One fixed-step view keeps the stage's related policy, motion, clock, and
-// diagnostic values together. Every reference and span expires when Run returns.
-struct PhysicsBroadphaseStepInput
-{
-    const BroadphaseSettings& settings;
-    std::span<const PointJointConstraint> pointJointConstraints;
-    std::span<const uint8_t> sleepState;
-    std::span<const int> awakeBodyIndices;
-    std::span<const uint8_t> motionEligibilityState;
-    std::span<const float> angularExpansion;
-    PhysicsStepDiagnostics& diagnostics;
-    float dt = 0.0f;
-    float contactSkin = 0.0f;
-    float contactEpsilon = 0.0f;
-};
+class PhysicsPipelineTraceRecorder;
 
 class PhysicsBroadphaseStage
 {
@@ -84,6 +69,7 @@ class PhysicsBroadphaseStage
                                                       PhysicsCapacityReason::CandidatePairs };
     bool m_gridMembershipSeeded = false;
     int m_gridMembershipBodyCount = 0;
+    float m_configuredCellSize = 24.0f;
     float m_largestBroadphaseRadius = 0.0f;
     bool m_largestBroadphaseRadiusValid = false;
 #if defined( _DEBUG )
@@ -104,7 +90,9 @@ class PhysicsBroadphaseStage
     // Lifetime: every argument is borrowed for this synchronous fixed-step
     // call; only the stage-owned grid and bounded result buffers are retained.
     std::span<const std::pair<int, int>> Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                              const PhysicsBroadphaseStepInput& input );
+                                              std::span<const PointJointConstraint> pointJointConstraints,
+                                              BroadphaseBodyActivityView activity, BroadphaseSweepContactEnvelope envelope,
+                                              PhysicsPipelineTraceRecorder& physicsPipelineTrace );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     float GetCellSize() const;

@@ -2,20 +2,23 @@
 
 Date: 2026-08-31
 Branch: `nightrunner-31st-AUG-26`
-Status: Engine Signature And Context Cohesion active at 1/7; portfolio 136/142
+Status: Engine Signature And Context Cohesion active at 2/7; portfolio 137/142
 
 ## Current State
 
 The owner activated `SIGNATURE_COHESION` SC0-SC6 on the current Night Runner
 branch and requested substantial related batches instead of a build after each
-small signature change. SC0 is complete: the advisory compiler scan covers 736
-first-party source/header files under 6,435 distinct compile contexts and
-reports 698 deterministic review candidates with zero infrastructure errors.
-SC1 now repairs the motivating Physics broadphase surface as one cohesive
-production/test batch before any build. No baseline refresh is authorized. The
-live work ledger is temporarily owned by unfinished task `GOV1` in another
-Codex session, so this run cannot open its own ledger row until that external
-metadata owner finishes.
+small signature change. SC0 and SC1 are complete. The compiler census covers
+736 files/6,435 contexts with 698 candidates; the motivating broadphase bag is
+replaced by retained stage configuration, a checked activity view, a validated
+sweep/contact value, a synchronous pair filter, explicit joints, and direct
+trace capability. The Profile build and 39 focused cases/9,273 assertions pass;
+the Debug 0/repeat/1/4-worker matrix remains byte-exact at the accepted 44,401-
+line digest. SC2 now reviews and repairs the remaining Maths, Physics, Gameplay,
+World, and Assets candidates in substantial owner-local batches. No baseline
+refresh is authorized. The live work ledger is temporarily owned by unfinished
+task `GOV1` in another Codex session, so this run cannot open its own ledger row
+until that external metadata owner finishes.
 
 The owner visually accepted the persistent deterministic simulation-island
 sleep policy as-is. The scoped result makes a sphere on terrain steeper than

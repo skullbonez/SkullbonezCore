@@ -88,19 +88,20 @@ namespace
 {
 void ReserveTestSleepCapacity( PhysicsSleepController& controller )
 {
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     controller.ReserveBodyCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
-void CommitPendingWakeRequests( PhysicsSleepController& controller, PhysicsBodyStore& bodies,
-                                const ColliderStore& colliders, const PhysicsWorldForces& worldForces,
-                                std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining, float dt )
+void CommitPendingWakeRequests( PhysicsSleepController& controller, PhysicsBodyStore& bodies, const ColliderStore& colliders,
+                                const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                std::span<float> timeRemaining, float dt )
 {
-    SkullbonezCore::Physics::PersistentContactCacheList cache {
-        "TestPhysicsStageState.pendingWakeCache", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
-    controller.CommitPendingNarrowphaseWakes(
-        bodies, colliders, {}, worldForces, buoyancyFacts, timeRemaining,
-        SkullbonezCore::Physics::PhysicsContactCacheWakeAccess( cache ), dt );
+    SkullbonezCore::Physics::PersistentContactCacheList
+        cache { "TestPhysicsStageState.pendingWakeCache",
+                SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
+    controller.CommitPendingNarrowphaseWakes( bodies, colliders, {}, worldForces, buoyancyFacts, timeRemaining,
+                                              SkullbonezCore::Physics::PhysicsContactCacheWakeAccess( cache ), dt );
 }
 
 PhysicsBodyStore& StageBodyStore()
@@ -111,7 +112,8 @@ PhysicsBodyStore& StageBodyStore()
     static const std::unique_ptr<PhysicsBodyStore> store = std::make_unique<PhysicsBodyStore>();
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store->ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
     store->Clear();
@@ -125,7 +127,8 @@ ColliderStore& StageColliderStore()
     static const std::unique_ptr<ColliderStore> store = std::make_unique<ColliderStore>();
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store->ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         store->ReserveShapeCapacity( 512u, 512u, 16u );
     }
@@ -237,7 +240,8 @@ TEST_CASE( "Physics motion eligibility: exact radius boundary sleep wake and top
 
     SkullbonezCore::Physics::PhysicsMotionEligibilityStage stage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         stage.ReserveBodyCapacity( 5u );
     }
     std::array<uint8_t, 5> sleep = {};
@@ -334,7 +338,8 @@ TEST_CASE( "Physics motion eligibility: linear and angular travel scale with col
 
     SkullbonezCore::Physics::PhysicsMotionEligibilityStage stage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         stage.ReserveBodyCapacity( 4u );
     }
     const std::array<uint8_t, 4> sleep = {};
@@ -371,7 +376,8 @@ TEST_CASE( "Physics motion eligibility: spheres use one squared radius boundary"
 
     SkullbonezCore::Physics::PhysicsMotionEligibilityStage stage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         stage.ReserveBodyCapacity( 4u );
     }
     const std::array<uint8_t, 4> sleep = {};
@@ -519,7 +525,8 @@ TEST_CASE( "Physics motion eligibility: elongated boxes and hulls use the first 
 
     SkullbonezCore::Physics::PhysicsMotionEligibilityStage stage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         stage.ReserveBodyCapacity( 10u );
     }
     const std::array<uint8_t, 10> sleep = {};
@@ -600,7 +607,8 @@ TEST_CASE( "Physics motion eligibility: mixed-axis equality retains both previou
 
     SkullbonezCore::Physics::PhysicsMotionEligibilityStage stage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         stage.ReserveBodyCapacity( 2u );
     }
     const std::array<uint8_t, 2> sleep = {};
@@ -634,13 +642,15 @@ TEST_CASE( "Physics motion eligibility: dense-row removal cannot inherit retired
         ColliderRecord collider;
         collider.body = bodyHandles[static_cast<std::size_t>( bodyIndex )];
         collider.boundingRadius = 1.0f;
-        colliderHandles[static_cast<std::size_t>( bodyIndex )] = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere );
+        colliderHandles[static_cast<std::size_t>(
+            bodyIndex )] = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere );
         REQUIRE( colliderHandles[static_cast<std::size_t>( bodyIndex )].IsValid() );
     }
 
     SkullbonezCore::Physics::PhysicsMotionEligibilityStage stage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         stage.ReserveBodyCapacity( 2u );
     }
     const std::array<uint8_t, 2> initialSleep = {};
@@ -688,7 +698,8 @@ TEST_CASE( "Physics motion eligibility: angular blade expansion retains a conser
     auto broadphase = std::make_unique<SkullbonezCore::Physics::PhysicsBroadphaseStage>();
     auto diagnostics = std::make_unique<SkullbonezCore::Physics::PhysicsStepDiagnostics>();
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         eligibility->ReserveBodyCapacity( 2u );
         broadphase->ReserveSceneCapacity( 2u );
         diagnostics->ReserveSceneCapacity( 2u );
@@ -702,19 +713,20 @@ TEST_CASE( "Physics motion eligibility: angular blade expansion retains a conser
     const std::array<SkullbonezCore::Physics::PointJointConstraint, 0> joints;
     SkullbonezCore::Physics::BroadphaseSettings settings;
     settings.cellSize = 5.0f;
+    broadphase->ApplyRuntimeSettings( settings );
     const std::array<float, 2> noAngularExpansion = { 0.0f, 0.0f };
-    const SkullbonezCore::Physics::PhysicsBroadphaseStepInput rejectedInput {
-        settings, joints, sleep, awake, eligibility->State(), noAngularExpansion, *diagnostics, 1.0f, 0.0f, 0.0f
-    };
-    const auto rejectedPairs = broadphase->Run( bodies, colliders, rejectedInput );
+    const SkullbonezCore::Physics::BroadphaseSweepContactEnvelope envelope( 1.0f, 0.0f, 0.0f );
+    const SkullbonezCore::Physics::BroadphaseBodyActivityView rejectedActivity( 2, sleep, awake, eligibility->State(),
+                                                                                noAngularExpansion );
+    const auto rejectedPairs = broadphase->Run( bodies, colliders, joints, rejectedActivity, envelope,
+                                                diagnostics->MutablePipelineTraceRecorder() );
     CHECK( rejectedPairs.empty() );
     broadphase->InvalidateBodyTopology();
     diagnostics->BeginStep( 2 );
-    const SkullbonezCore::Physics::PhysicsBroadphaseStepInput expandedInput {
-        settings, joints, sleep, awake, eligibility->State(), eligibility->AngularBroadphaseExpansion(), *diagnostics,
-        1.0f, 0.0f, 0.0f
-    };
-    const auto pairs = broadphase->Run( bodies, colliders, expandedInput );
+    const SkullbonezCore::Physics::BroadphaseBodyActivityView expandedActivity( 2, sleep, awake, eligibility->State(),
+                                                                                eligibility->AngularBroadphaseExpansion() );
+    const auto pairs = broadphase->Run( bodies, colliders, joints, expandedActivity, envelope,
+                                        diagnostics->MutablePipelineTraceRecorder() );
     CHECK( std::find( pairs.begin(), pairs.end(), std::make_pair( 0, 1 ) ) != pairs.end() );
 
     auto hot = bodies.MutableHotFields();
@@ -724,11 +736,10 @@ TEST_CASE( "Physics motion eligibility: angular blade expansion retains a conser
     REQUIRE_FALSE( std::isfinite( eligibility->AngularBroadphaseExpansion()[0] ) );
     broadphase->InvalidateBodyTopology();
     diagnostics->BeginStep( 2 );
-    const SkullbonezCore::Physics::PhysicsBroadphaseStepInput fallbackInput {
-        settings, joints, sleep, awake, eligibility->State(), eligibility->AngularBroadphaseExpansion(), *diagnostics,
-        1.0f, 0.0f, 0.0f
-    };
-    const auto fallbackPairs = broadphase->Run( bodies, colliders, fallbackInput );
+    const SkullbonezCore::Physics::BroadphaseBodyActivityView fallbackActivity( 2, sleep, awake, eligibility->State(),
+                                                                                eligibility->AngularBroadphaseExpansion() );
+    const auto fallbackPairs = broadphase->Run( bodies, colliders, joints, fallbackActivity, envelope,
+                                                diagnostics->MutablePipelineTraceRecorder() );
     CHECK( std::find( fallbackPairs.begin(), fallbackPairs.end(), std::make_pair( 0, 1 ) ) != fallbackPairs.end() );
 }
 
@@ -872,7 +883,8 @@ TEST_CASE( "Physics pipeline recorder: count-only and full modes share exact sat
     PhysicsPipelineTraceRecorder fullRecorder;
     PhysicsPipelineTraceRecorder countOnlyRecorder;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         fullRecorder.Reserve();
         countOnlyRecorder.Reserve();
     }
@@ -991,7 +1003,8 @@ TEST_CASE( "Physics step diagnostics: consumer selection keeps counting active i
     static PhysicsStepDiagnostics diagnostics;
     diagnostics.Clear();
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         diagnostics.ReserveSceneCapacity( 0u );
     }
 
@@ -1100,8 +1113,7 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
     const auto wakeAccess = controller.CreateNarrowphaseWakeAccess( bodies );
     wakeAccess.WakeBody( 1 );
     CHECK( controller.GetAwakeBodyIndices().size() == 1u );
-    CommitPendingWakeRequests( controller, bodies, colliders, worldForces, buoyancyFacts, timeRemaining,
-                               1.0f / 120.0f );
+    CommitPendingWakeRequests( controller, bodies, colliders, worldForces, buoyancyFacts, timeRemaining, 1.0f / 120.0f );
     CHECK( std::vector<int>( controller.GetAwakeBodyIndices().begin(), controller.GetAwakeBodyIndices().end() ) ==
            std::vector<int> { 1, 2 } );
 
@@ -1123,8 +1135,8 @@ TEST_CASE( "Physics sleep counters: support diagnostics do not own deactivation 
         TerrainInhibition
     };
 
-    for ( const ResetCase resetCase : { ResetCase::SupportDiagnosticCleared, ResetCase::Motion,
-                                        ResetCase::TerrainInhibition } )
+    for ( const ResetCase resetCase :
+          { ResetCase::SupportDiagnosticCleared, ResetCase::Motion, ResetCase::TerrainInhibition } )
     {
         PhysicsBodyStore& bodies = StageBodyStore();
         ColliderStore& colliders = StageColliderStore();
@@ -1145,7 +1157,8 @@ TEST_CASE( "Physics sleep counters: support diagnostics do not own deactivation 
         const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
         SkullbonezCore::Physics::PhysicsPipelineTraceRecorder pipeline;
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             pipeline.Reserve();
         }
         PhysicsWorldForces worldForces;
@@ -1170,8 +1183,7 @@ TEST_CASE( "Physics sleep counters: support diagnostics do not own deactivation 
 
         controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
                                    joints, pipeline, sleepPolicy );
-        CHECK( controller.GetSleepCounters()[0] ==
-               ( resetCase == ResetCase::SupportDiagnosticCleared ? 2u : 0u ) );
+        CHECK( controller.GetSleepCounters()[0] == ( resetCase == ResetCase::SupportDiagnosticCleared ? 2u : 0u ) );
         CHECK( controller.GetSleepStates()[0] == 0u );
     }
 }
@@ -1208,25 +1220,25 @@ TEST_CASE( "Physics sleep islands: body-local clocks wait for every connected dy
     PhysicsWorldForces worldForces;
     const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.25f * 0.25f, 0.25f * 0.25f, 2u };
 
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 1u );
     CHECK( controller.GetSleepCounters()[1] == 0u );
     CHECK( controller.GetSleepStates()[0] == 0u );
     CHECK( controller.GetSleepStates()[1] == 0u );
 
     contacts.clear();
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 2u );
     CHECK( controller.GetSleepStates()[0] == 1u );
 
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 2u );
 
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepStates()[0] == 1u );
     CHECK( controller.GetSleepStates()[1] == 0u );
 }
@@ -1266,15 +1278,15 @@ TEST_CASE( "Physics sleep islands: quiet awake topology churn preserves deactiva
     PhysicsWorldForces worldForces;
     const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.25f * 0.25f, 0.25f * 0.25f, 4u };
 
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     REQUIRE( controller.GetSleepCounters()[0] == 1u );
     REQUIRE( controller.GetSleepCounters()[1] == 1u );
     REQUIRE( controller.GetSleepCounters()[2] == 1u );
 
     contacts.pop_back();
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
 
     CHECK( controller.GetSleepCounters()[0] == 2u );
     CHECK( controller.GetSleepCounters()[1] == 2u );
@@ -1404,8 +1416,9 @@ TEST_CASE( "Physics sleep stability: one box edge is one contact while a face or
         PhysicsBodyStore& bodies = StageBodyStore();
         ColliderStore& colliders = StageColliderStore();
         const int bodyCount = supportCase == SupportCase::EdgeAndSecondContact ? 2 : 1;
-        const CollisionShape box = SkullbonezCore::Math::CollisionDetection::BoundingBox(
-            Vector3( 1.0f, 1.0f, 1.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR );
+        const CollisionShape
+            box = SkullbonezCore::Math::CollisionDetection::BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ),
+                                                                         SkullbonezCore::Math::Vector::ZERO_VECTOR );
 
         for ( int bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex )
         {
@@ -1472,8 +1485,8 @@ TEST_CASE( "Physics sleep stability: one box edge is one contact while a face or
                 controller.MutableSupportedStatesForTerrain()[static_cast<std::size_t>( bodyIndex )] = 1u;
             }
             controller.MutableInhibitedStatesForTerrain()[0] = terrainSupport.inhibitsSleep ? 1u : 0u;
-            controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts,
-                                       restingCounts, joints, pipeline, sleepPolicy );
+            controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
+                                       joints, pipeline, sleepPolicy );
         }
 
         const uint8_t expectedSleep = supportCase == SupportCase::DuplicateEdgeRows ? 0u : 1u;
@@ -1495,8 +1508,9 @@ TEST_CASE( "Physics sleep stability: a quiet second-contact gap holds but never 
 {
     PhysicsBodyStore& bodies = StageBodyStore();
     ColliderStore& colliders = StageColliderStore();
-    const CollisionShape box = SkullbonezCore::Math::CollisionDetection::BoundingBox(
-        Vector3( 1.0f, 1.0f, 1.0f ), SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    const CollisionShape
+        box = SkullbonezCore::Math::CollisionDetection::BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ),
+                                                                     SkullbonezCore::Math::Vector::ZERO_VECTOR );
 
     PhysicsBodyCreateRecord dynamicBody;
     dynamicBody.cold.mass = 1.0f;
@@ -1545,21 +1559,21 @@ TEST_CASE( "Physics sleep stability: a quiet second-contact gap holds but never 
     sleepPolicy.poseDriftLimit = 0.05f;
 
     controller.MutableSupportedStatesForTerrain()[0] = 1u;
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     REQUIRE( controller.GetSleepCounters()[0] == 1u );
 
     contacts.pop_back();
     controller.MutableSupportedStatesForTerrain()[0] = 1u;
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 1u );
     CHECK( controller.GetSleepStates()[0] == 0u );
 
     contacts.push_back( secondContact );
     controller.MutableSupportedStatesForTerrain()[0] = 1u;
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 2u );
     CHECK( controller.GetSleepStates()[0] == 1u );
 }
@@ -1604,30 +1618,30 @@ TEST_CASE( "Physics sleep stability: pose drift and contact correction restart d
     sleepPolicy.correctionSpeedSquared = 0.25f * 0.25f;
     sleepPolicy.poseDriftLimit = 0.05f;
 
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     REQUIRE( controller.GetSleepCounters()[0] == 2u );
 
     bodies.MutableHotFields().positionX[0] += 0.051f;
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 0u );
     CHECK( controller.GetSleepResetReasons()[0] ==
            static_cast<uint8_t>( SkullbonezCore::Physics::PhysicsSleepResetReason::PoseDrift ) );
 
     contacts[0].preSolveSlipSpeed = ( std::numeric_limits<float>::infinity )();
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 0u );
     CHECK( controller.GetSleepResetReasons()[0] ==
            static_cast<uint8_t>( SkullbonezCore::Physics::PhysicsSleepResetReason::ContactStability ) );
 
     contacts[0].preSolveSlipSpeed = 0.0f;
     contacts[0].separationBias = 0.251f;
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 0u );
     CHECK( controller.GetSleepResetReasons()[0] ==
            static_cast<uint8_t>( SkullbonezCore::Physics::PhysicsSleepResetReason::ContactStability ) );
@@ -1695,16 +1709,14 @@ TEST_CASE( "Physics sleep islands: stable contact members sleep and wake as one 
             WorkerPool workerPool( lockOrderValidator );
             workerPool.Initialise( workerCount );
             workerPool.ParallelForNoAlloc(
-                0, 2, [&]( int bodyIndex ) { wakeAccess.WakeBody( bodyIndex ); }, 1,
-                "Test/Physics/Sleep/TwoSidedWake", 0u );
+                0, 2, [&]( int bodyIndex ) { wakeAccess.WakeBody( bodyIndex ); }, 1, "Test/Physics/Sleep/TwoSidedWake", 0u );
         }
 
         // Worker completion publishes requests only. The serial commit expands
         // both seeds through the same retained island in canonical body order.
         CHECK( controller.GetSleepStates()[0] == 1u );
         CHECK( controller.GetSleepStates()[1] == 1u );
-        CommitPendingWakeRequests( controller, bodies, colliders, worldForces, buoyancyFacts, timeRemaining,
-                                   1.0f / 120.0f );
+        CommitPendingWakeRequests( controller, bodies, colliders, worldForces, buoyancyFacts, timeRemaining, 1.0f / 120.0f );
         CHECK( controller.GetSleepStates()[0] == 0u );
         CHECK( controller.GetSleepStates()[1] == 0u );
         CHECK( std::vector<int>( controller.GetAwakeBodyIndices().begin(), controller.GetAwakeBodyIndices().end() ) ==
@@ -1758,8 +1770,8 @@ TEST_CASE( "Physics sleep islands: joint topology wakes only affected retained i
     }
     PhysicsWorldForces worldForces;
     const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.25f * 0.25f, 0.25f * 0.25f, 1u };
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     REQUIRE( std::all_of( controller.GetSleepStates().begin(), controller.GetSleepStates().end(),
                           []( uint8_t sleeping ) { return sleeping != 0u; } ) );
 
@@ -1808,13 +1820,13 @@ TEST_CASE( "Physics sleep wake: fixed joint anchors do not bridge dynamic island
     timeRemaining.fill( 1.0f / 120.0f );
     std::array<BuoyancyBodyFacts, 3> buoyancyFacts;
     PhysicsWorldForces worldForces;
-    SkullbonezCore::Physics::PersistentContactCacheList cache {
-        "TestPhysicsStageState.fixedJointWakeCache",
-        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
+    SkullbonezCore::Physics::PersistentContactCacheList
+        cache { "TestPhysicsStageState.fixedJointWakeCache",
+                SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
 
-    controller.WakePointJointConnectedBodies(
-        bodies, colliders, {}, worldForces, buoyancyFacts, timeRemaining,
-        SkullbonezCore::Physics::PhysicsContactCacheWakeAccess( cache ), joints, 1.0f / 120.0f );
+    controller.WakePointJointConnectedBodies( bodies, colliders, {}, worldForces, buoyancyFacts, timeRemaining,
+                                              SkullbonezCore::Physics::PhysicsContactCacheWakeAccess( cache ), joints,
+                                              1.0f / 120.0f );
 
     CHECK( controller.GetSleepStates()[2] == 1u );
     CHECK( bodies.HotFields().awake[2] == 0u );
@@ -1861,20 +1873,20 @@ TEST_CASE( "Physics sleep stability: unresolved penetration resets but sub-thres
     sleepPolicy.objectPenetrationLimit = 0.05f;
     sleepPolicy.correctionSpeedSquared = sleepPolicy.linearSpeedSquared;
 
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 0u );
     CHECK( controller.GetSleepCounters()[1] == 0u );
 
     contacts[0].penetration = 0.01f;
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 1u );
     CHECK( controller.GetSleepCounters()[1] == 1u );
 
     bodies.MutableHotFields().angularVelocityZ[0] = 0.2f;
-    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts,
-                               joints, pipeline, sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
     CHECK( controller.GetSleepCounters()[0] == 2u );
     CHECK( controller.GetSleepCounters()[1] == 2u );
 }
@@ -1910,8 +1922,7 @@ TEST_CASE( "Physics sleep wake: repeated material-impact requests publish one aw
     wakeAccess.WakeBody( 0 );
     wakeAccess.WakeBody( 0 );
     CHECK( controller.GetAwakeBodyIndices().empty() );
-    CommitPendingWakeRequests( controller, bodies, colliders, worldForces, buoyancyFacts, timeRemaining,
-                               1.0f / 120.0f );
+    CommitPendingWakeRequests( controller, bodies, colliders, worldForces, buoyancyFacts, timeRemaining, 1.0f / 120.0f );
     REQUIRE( controller.GetAwakeBodyIndices().size() == 1u );
     CHECK( controller.GetAwakeBodyIndices()[0] == 0 );
     CHECK( bodies.HotFields().awake[0] == 1u );
@@ -1991,7 +2002,8 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
     const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
     SkullbonezCore::Physics::PhysicsPipelineTraceRecorder pipeline;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         pipeline.Reserve();
     }
     PhysicsWorldForces worldForces;
@@ -2115,7 +2127,8 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     PhysicsNarrowphaseStage stage;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         stage.ReserveSceneCapacity( kBodyCount );
     }
 
@@ -2188,10 +2201,10 @@ TEST_CASE( "Physics narrowphase collision events preserve full-width spatial cel
     };
     const ObjectNarrowphaseStepPolicy policy { 0.05f, 2.0f, 1.0f / 120.0f, true, false, true };
     PhysicsNarrowphaseStage stage;
-    PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage step { stage,          bodies,        colliders,
-                                                                 {},             buoyancyFacts, candidatePairs,
-                                                                 wakeAccess,     timeRemaining, motionEligibilityState,
-                                                                 policy,         nullptr };
+    PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage step { stage,      bodies,        colliders,
+                                                                 {},         buoyancyFacts, candidatePairs,
+                                                                 wakeAccess, timeRemaining, motionEligibilityState,
+                                                                 policy,     nullptr };
     ObjectNarrowphaseEvent event;
     step.ProcessPair<true>( 0, event );
 
@@ -2245,10 +2258,10 @@ TEST_CASE( "Physics motion promotion: promoted swept impact wakes a sleeping tar
     };
     const ObjectNarrowphaseStepPolicy policy { 0.05f, 2.0f, 1.0f / 120.0f, true, false, true };
     PhysicsNarrowphaseStage stage;
-    PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage step { stage,          bodies,        colliders,
-                                                                 {},             buoyancyFacts, candidatePairs,
-                                                                 wakeAccess,     timeRemaining, motionEligibilityState,
-                                                                 policy,         nullptr };
+    PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage step { stage,      bodies,        colliders,
+                                                                 {},         buoyancyFacts, candidatePairs,
+                                                                 wakeAccess, timeRemaining, motionEligibilityState,
+                                                                 policy,     nullptr };
     ObjectNarrowphaseEvent event;
 
     step.ProcessPair<true>( 0, event );
