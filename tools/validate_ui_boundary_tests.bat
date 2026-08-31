@@ -29,6 +29,9 @@ setlocal enabledelayedexpansion
 set "REPO=%~dp0.."
 set "PROJECT=%REPO%\Agentic\Tests\UiBoundaryUnitTests\UiBoundaryUnitTests.vcxproj"
 set "EXE=%REPO%\Agentic\Tests\UiBoundaryUnitTests\x64\Release\UiBoundaryUnitTests.exe"
+set "TEST_WORKDIR=%REPO%"
+if defined SKULLBONEZ_TEST_WORKDIR if "%SKULLBONEZ_PARALLEL_VALIDATION%"=="1" set "TEST_WORKDIR=%SKULLBONEZ_TEST_WORKDIR%"
+if defined SKULLBONEZ_TEST_WORKDIR if not "%SKULLBONEZ_PARALLEL_VALIDATION%"=="1" exit /b 99
 
 call "%~dp0find_msbuild.bat"
 if errorlevel 1 exit /b 99
@@ -67,7 +70,7 @@ if errorlevel 1 (
 )
 
 echo Running renderer-free UI boundary tests...
-pushd "%REPO%"
+pushd "%TEST_WORKDIR%"
 "%EXE%"
 set "TEST_EXIT=%ERRORLEVEL%"
 popd

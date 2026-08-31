@@ -8,19 +8,10 @@ permissions:
   contents: read
 
 jobs:
-  cpu-tests:
-    name: Mandatory CPU lane (Windows hosted)
-    # OpenCppCoverage 0.9.9.0 cannot read the v145 PDBs emitted by the
-    # win25-vs2026 image: the tests pass, but every instrumented line is
-    # reported as uncovered. Keep only the coverage-owning lane on VS2022;
-    # the independent artifact and byte-evidence jobs below still exercise
-    # windows-latest and the repository's primary toolset.
-    runs-on: windows-2022
-    # Hosted checkout has taken over seven minutes, and compiler-backed design
-    # checks scale with every changed translation unit (77 in the current PR).
-    # Keep a bounded three-hour ceiling without killing an active clang-tidy scan.
+  cpu-preflight:
+    name: CPU preflight
+    runs-on: windows-latest
     timeout-minutes: 180
-
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -29,201 +20,152 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
-      - name: Record hosted-runner context
+      - name: Install pinned build prerequisites
+        uses: NuGet/setup-nuget@fd55a6f3b34392fa83fde1454582407d8c714123 # v4.0
+        with:
+          nuget-version: 6.14.3
+
+      - name: Restore PIX and install clang-format
         shell: pwsh
         run: |
-          $artifactDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci"
-          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
-          @(
-            "runner_name=$env:RUNNER_NAME"
-            "runner_os=$env:RUNNER_OS"
-            "runner_arch=$env:RUNNER_ARCH"
-            "image_os=$env:ImageOS"
-            "image_version=$env:ImageVersion"
-          ) | Set-Content -Path (Join-Path $artifactDir "hosted-runner.txt")
-
-      - name: Install pinned clang-format 21
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $llvmVersion = "21.1.8"
-
-          # Hazard: this pin used to come from the Chocolatey community feed,
-          # which proved unreliable on 2026-08-15. `choco upgrade llvm
-          # --version=21.1.8` reported "llvm was not found with the source(s)
-          # listed", upgraded 0/1 packages, and still exited 0, leaving the
-          # runner's pre-installed clang-format 20.1.8 in place; the same feed
-          # was returning 504 Gateway Timeout for another package minutes later,
-          # so whether the version was withdrawn or the feed was simply degraded
-          # was never established. Either way a silent wrong-version resolution
-          # is unacceptable for a formatting gate, and only the version assertion
-          # below caught it. The PyPI wheel ships the same official LLVM binary,
-          # is version-addressed, and installs in seconds rather than timing out.
-          # Downgrading the pin is not an option: .clang-format uses
-          # BinPackLongBracedList, which clang-format 20 rejects outright.
-          python -m pip install --disable-pip-version-check --quiet "clang-format==$llvmVersion"
-          if ($LASTEXITCODE -ne 0) {
-            throw "pip failed to install clang-format $llvmVersion (exit $LASTEXITCODE)"
-          }
-
+          nuget restore packages.config -PackagesDirectory packages -NonInteractive
+          if ($LASTEXITCODE -ne 0) { throw "NuGet restore failed (exit $LASTEXITCODE)" }
+          python -m pip install --disable-pip-version-check --quiet "clang-format==21.1.8"
+          if ($LASTEXITCODE -ne 0) { throw "clang-format install failed (exit $LASTEXITCODE)" }
           $formatter = & python -c "import clang_format, os; print(os.path.join(os.path.dirname(clang_format.__file__), 'data', 'bin', 'clang-format.exe'))"
-          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $formatter)) {
-            throw "Pinned clang-format executable was not installed: $formatter"
-          }
-          $versionText = (& $formatter --version 2>&1 | Out-String).Trim()
-          if ($LASTEXITCODE -ne 0 -or $versionText -notmatch "\bversion 21\.1\.8\b") {
-            throw "Installed formatter does not report clang-format 21.1.8: $versionText"
-          }
+          $version = (& $formatter --version 2>&1 | Out-String).Trim()
+          if ($version -notmatch "\bversion 21\.1\.8\b") { throw "Unexpected clang-format: $version" }
+          "SKULLBONEZ_CLANG_FORMAT=$formatter" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-          & $formatter --style=file --dump-config | Out-Null
-          if ($LASTEXITCODE -ne 0) {
-            throw "Pinned clang-format cannot parse the repository .clang-format"
-          }
-
-          @(
-            "CLANG_FMT=$formatter"
-            "SKULLBONEZ_CLANG_FORMAT=$formatter"
-          ) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          @(
-            "clang_format_path=$formatter"
-            "clang_format_version=$versionText"
-          ) | Add-Content -Path (
-            Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci\hosted-runner.txt"
-          )
-
-      - name: Install pinned OpenCppCoverage
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $coverageVersion = "0.9.9.0"
-
-          # Why not Chocolatey: the community feed served this package two
-          # different ways on 2026-08-15 — 504 Gateway Timeout, then not-found —
-          # and a mandatory gate must not depend on a third-party feed choosing to
-          # retain an exact version. The upstream release asset is
-          # version-addressed and content-verified below, so the pin cannot drift
-          # and no unpinned fallback is possible. A coverage gate that silently
-          # ran a different OpenCppCoverage build would be worse than a red lane.
-          $installerUrl = "https://github.com/OpenCppCoverage/OpenCppCoverage/releases/download/release-$coverageVersion/OpenCppCoverageSetup-x64-$coverageVersion.exe"
-          $expectedSha256 = "2295A733DA39412C61E4F478677519DD0BB1893D88313CE56B468C9E50517888"
-          $installer = Join-Path $env:RUNNER_TEMP "OpenCppCoverageSetup-x64-$coverageVersion.exe"
-
-          $attempts = 3
-          for ($attempt = 1; $attempt -le $attempts; $attempt++) {
-            try {
-              Invoke-WebRequest -Uri $installerUrl -OutFile $installer -UseBasicParsing
-              break
-            }
-            catch {
-              if ($attempt -eq $attempts) {
-                throw "Failed to download OpenCppCoverage $coverageVersion after $attempts attempts: $_"
-              }
-              $delaySeconds = 15 * $attempt
-              Write-Host "OpenCppCoverage download attempt $attempt failed; retrying in $delaySeconds s"
-              Start-Sleep -Seconds $delaySeconds
-            }
-          }
-
-          # Hazard: never execute an unverified downloaded binary. This digest is
-          # the exact release asset's bytes; a mismatch means the pin no longer
-          # describes what upstream serves, which is a stop condition rather than
-          # something to retry around.
-          $actualSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash
-          if ($actualSha256 -ne $expectedSha256) {
-            throw "OpenCppCoverage installer digest mismatch. expected=$expectedSha256 actual=$actualSha256"
-          }
-
-          # OpenCppCoverageSetup is an Inno Setup 6 package, so /VERYSILENT is the
-          # unattended switch and a successful install returns 0.
-          $installProcess = Start-Process -FilePath $installer `
-            -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
-          if ($installProcess.ExitCode -ne 0) {
-            throw "OpenCppCoverage $coverageVersion installer failed (exit $($installProcess.ExitCode))"
-          }
-          $coverageExe = "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe"
-          if (-not (Test-Path -LiteralPath $coverageExe)) {
-            throw "Pinned OpenCppCoverage executable was not installed: $coverageExe"
-          }
-          $coverageHelp = & $coverageExe --help 2>&1
-          # OpenCppCoverage 0.9.9.0 prints valid help/version text but returns
-          # -1618178468 from its help-only path. The real coverage invocation
-          # still owns runtime health; this bootstrap probe verifies identity.
-          if (-not ($coverageHelp | Select-String -Quiet -Pattern "OpenCppCoverage Version: 0\.9\.9\.0")) {
-            throw "Installed OpenCppCoverage does not report pinned version 0.9.9.0"
-          }
-          exit 0
-
-      - name: Run mandatory hosted CPU lane
+      - name: Run parallel mandatory preflight
         env:
           SKORE_SIZE_DIFF_BASE: ${{ github.event.pull_request.base.sha || '' }}
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
-          if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
-            $PSNativeCommandUseErrorActionPreference = $false
-          }
-          $artifactDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci"
-          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
-          $log = Join-Path $artifactDir "mandatory-cpu-lane.log"
-          $gates = @(
-            [pscustomobject]@{
-              Name = "plain-language scanner self-test"
-              Command = "python tools\check_plain_language.py --repo . --self-test"
-            }
-            [pscustomobject]@{
-              Name = "plain-language scanner repository scan"
-              Command = "python tools\check_plain_language.py --repo ."
-            }
-            [pscustomobject]@{
-              Name = "validate_fast.bat --preflight-only"
-              Command = "tools\validate_fast.bat --preflight-only"
-            }
-            [pscustomobject]@{
-              Name = "validate_all_cpu_tests.bat"
-              Command = "tools\validate_all_cpu_tests.bat"
-            }
-          )
+          tools\validate_fast.bat --preflight-only
+          if ($LASTEXITCODE -ne 0) { throw "CPU preflight failed (exit $LASTEXITCODE)" }
 
-          foreach ($gate in $gates) {
-            "=== $($gate.Name) ===" |
-              Tee-Object -FilePath $log -Append
-            & cmd.exe /d /c $gate.Command 2>&1 |
-              Tee-Object -FilePath $log -Append
-            $exitCode = $LASTEXITCODE
-            "child=$($gate.Name) exit_code=$exitCode" |
-              Tee-Object -FilePath $log -Append
-            if ($exitCode -ne 0) {
-              "mandatory_cpu_lane_failed=$($gate.Name)" |
-                Tee-Object -FilePath $log -Append
-              exit $exitCode
-            }
-            if ($gate.Name -eq "validate_fast.bat --preflight-only") {
-              $env:SKULLBONEZ_DEPENDENCY_GRAPH_ALREADY_VALIDATED = "1"
-            }
-          }
-
-          "mandatory_cpu_lane=PASS" |
-            Tee-Object -FilePath $log -Append
-
-      - name: Upload CPU failure evidence
+      - name: Upload preflight failure evidence
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: mandatory-cpu-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          name: cpu-preflight-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: TestOutput/validation/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  cpu-test-lanes:
+    name: CPU ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include:
+          - lane: tests
+            name: Profile doctest suite
+            os: windows-latest
+            command: tools\validate_tests.bat
+          - lane: coverage
+            name: Debug coverage
+            os: windows-2022
+            command: tools\validate_coverage.bat
+          - lane: runtime-interaction
+            name: runtime interaction
+            os: windows-latest
+            command: tools\validate_runtime_interaction_policy.bat
+          - lane: scene-parser
+            name: scene parser
+            os: windows-latest
+            command: tools\validate_scene_parser_tests.bat
+          - lane: ui-boundary
+            name: UI boundary
+            os: windows-latest
+            command: tools\validate_ui_boundary_tests.bat
+          - lane: dx12-architecture
+            name: DX12 architecture
+            os: windows-latest
+            command: tools\validate_dx12_arch_tests.bat
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Install pinned build prerequisites
+        uses: NuGet/setup-nuget@fd55a6f3b34392fa83fde1454582407d8c714123 # v4.0
+        with:
+          nuget-version: 6.14.3
+
+      - name: Restore PIX and install clang-format
+        shell: pwsh
+        run: |
+          nuget restore packages.config -PackagesDirectory packages -NonInteractive
+          if ($LASTEXITCODE -ne 0) { throw "NuGet restore failed (exit $LASTEXITCODE)" }
+          python -m pip install --disable-pip-version-check --quiet "clang-format==21.1.8"
+          if ($LASTEXITCODE -ne 0) { throw "clang-format install failed (exit $LASTEXITCODE)" }
+          $formatter = & python -c "import clang_format, os; print(os.path.join(os.path.dirname(clang_format.__file__), 'data', 'bin', 'clang-format.exe'))"
+          "SKULLBONEZ_CLANG_FORMAT=$formatter" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install pinned OpenCppCoverage
+        if: matrix.lane == 'coverage'
+        shell: pwsh
+        run: |
+          $coverageVersion = "0.9.9.0"
+          $url = "https://github.com/OpenCppCoverage/OpenCppCoverage/releases/download/release-$coverageVersion/OpenCppCoverageSetup-x64-$coverageVersion.exe"
+          $expected = "2295A733DA39412C61E4F478677519DD0BB1893D88313CE56B468C9E50517888"
+          $installer = Join-Path $env:RUNNER_TEMP "OpenCppCoverageSetup-x64-$coverageVersion.exe"
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+              Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+              break
+            }
+            catch {
+              if ($attempt -eq 3) { throw }
+              Start-Sleep -Seconds (15 * $attempt)
+            }
+          }
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash
+          if ($actual -ne $expected) { throw "Coverage installer digest mismatch. expected=$expected actual=$actual" }
+          $process = Start-Process -FilePath $installer -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Coverage install failed (exit $($process.ExitCode))" }
+
+      - name: Run isolated CPU lane
+        env:
+          CPU_LANE_COMMAND: ${{ matrix.command }}
+        shell: pwsh
+        run: |
+          & cmd.exe /d /c $env:CPU_LANE_COMMAND
+          if ($LASTEXITCODE -ne 0) { throw "${{ matrix.name }} failed (exit $LASTEXITCODE)" }
+
+      - name: Upload CPU lane failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cpu-${{ matrix.lane }}-failure-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            TestOutput/validation/**
-            TestOutput/coverage/**
+            TestOutput/**
             Profile/*.log
             Profile/*.txt
             Agentic/Tests/**/x64/**/*.log
           if-no-files-found: warn
           retention-days: 14
 
+  mandatory-cpu:
+    name: Mandatory CPU lane (Windows hosted)
+    needs: [cpu-preflight, cpu-test-lanes]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm all isolated CPU runners passed
+        run: echo "All mandatory CPU runners passed."
+
   physics-artifact:
     name: Build early shared Debug physics artifact
     runs-on: windows-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -232,151 +174,45 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
-      - name: Verify Physics golden transition integrity before setup
-        shell: pwsh
-        run: |
-          python tools/check_physics_baseline_guard.py --repo .
-          if ($LASTEXITCODE -ne 0) {
-            throw "Physics golden approval check failed (exit $LASTEXITCODE)"
-          }
-
-      - name: Install pinned NuGet client
+      - name: Install pinned build prerequisites
         uses: NuGet/setup-nuget@fd55a6f3b34392fa83fde1454582407d8c714123 # v4.0
         with:
           nuget-version: 6.14.3
 
-      - name: Restore pinned PIX runtime package
+      - name: Restore, verify golden, and build once
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
+          python tools\check_physics_baseline_guard.py --repo .
+          if ($LASTEXITCODE -ne 0) { throw "Physics golden check failed (exit $LASTEXITCODE)" }
           nuget restore packages.config -PackagesDirectory packages -NonInteractive
-          if ($LASTEXITCODE -ne 0) {
-            throw "Pinned PIX runtime restore failed (exit $LASTEXITCODE)"
-          }
-
-      - name: Install pinned shader formatter
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $llvmVersion = "21.1.8"
-
-          # BakeShippingShaders formats generated reflection metadata during a
-          # clean build, so this job needs the same verified formatter as the
-          # prerequisite lane rather than the hosted image's older LLVM tool.
-          python -m pip install --disable-pip-version-check --quiet "clang-format==$llvmVersion"
-          if ($LASTEXITCODE -ne 0) {
-            throw "pip failed to install clang-format $llvmVersion (exit $LASTEXITCODE)"
-          }
-
+          if ($LASTEXITCODE -ne 0) { throw "NuGet restore failed (exit $LASTEXITCODE)" }
+          python -m pip install --disable-pip-version-check --quiet "clang-format==21.1.8"
           $formatter = & python -c "import clang_format, os; print(os.path.join(os.path.dirname(clang_format.__file__), 'data', 'bin', 'clang-format.exe'))"
-          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $formatter)) {
-            throw "Pinned clang-format executable was not installed: $formatter"
-          }
-          $versionText = (& $formatter --version 2>&1 | Out-String).Trim()
-          if ($LASTEXITCODE -ne 0 -or $versionText -notmatch "\bversion 21\.1\.8\b") {
-            throw "Installed formatter does not report clang-format 21.1.8: $versionText"
-          }
-          & $formatter --style=file --dump-config | Out-Null
-          if ($LASTEXITCODE -ne 0) {
-            throw "Pinned clang-format cannot parse the repository .clang-format"
-          }
+          $env:SKULLBONEZ_CLANG_FORMAT = $formatter
+          tools\validate_build.bat Debug
+          if ($LASTEXITCODE -ne 0) { throw "Debug build failed (exit $LASTEXITCODE)" }
 
-          "SKULLBONEZ_CLANG_FORMAT=$formatter" |
-            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Build Debug artifact once
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
-            $PSNativeCommandUseErrorActionPreference = $false
-          }
-
-          $evidenceDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci"
-          $payloadDir = Join-Path $evidenceDir "shared-physics-runtime"
-          New-Item -ItemType Directory -Force -Path $payloadDir | Out-Null
-          $buildLog = Join-Path $evidenceDir "shared-physics-build.log"
-
-          & cmd.exe /d /c "tools\validate_build.bat Debug" 2>&1 |
-            Tee-Object -FilePath $buildLog
-          if ($LASTEXITCODE -ne 0) {
-            throw "Debug artifact build failed (exit $LASTEXITCODE)"
-          }
-
-          # Invariant: every execution replica receives these exact runtime
-          # bytes. Repository data, scenes, and baselines come from the same
-          # checked-out GITHUB_SHA, but no replica may rebuild this payload.
-          $runtimeSources = [ordered]@{
+          $payload = "TestOutput\validation\ci\shared-physics-runtime"
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          $files = [ordered]@{
             "SKULLBONEZ_CORE.exe" = "Debug\SKULLBONEZ_CORE.exe"
             "dxcompiler.dll" = "Debug\dxcompiler.dll"
             "dxil.dll" = "Debug\dxil.dll"
-            # The NuGet targets do not reliably copy this runtime DLL for the
-            # solution-level hosted build, so package the pinned restored byte.
             "WinPixEventRuntime.dll" = "packages\WinPixEventRuntime.1.0.240308001\bin\x64\WinPixEventRuntime.dll"
           }
-          foreach ($entry in $runtimeSources.GetEnumerator()) {
-            $name = $entry.Key
-            $source = Join-Path $env:GITHUB_WORKSPACE $entry.Value
-            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
-              throw "Artifact build did not produce or restore required runtime file: $source"
-            }
-            Copy-Item -LiteralPath $source -Destination (Join-Path $payloadDir $name)
+          foreach ($entry in $files.GetEnumerator()) {
+            Copy-Item -LiteralPath $entry.Value -Destination (Join-Path $payload $entry.Key)
           }
-
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsVersion = if (Test-Path -LiteralPath $vswhere) {
-            (& $vswhere -latest -products * -property installationVersion | Out-String).Trim()
-          }
-          else {
-            "unavailable"
-          }
-          $buildText = Get-Content -Raw -LiteralPath $buildLog
-          $effectiveToolset = if (
-            $buildText -match "falling back to VS2022 toolset ([A-Za-z0-9]+)"
-          ) {
-            $Matches[1]
-          }
-          else {
-            "v145"
-          }
-          $msvcToolVersions = @(
-            [regex]::Matches($buildText, "VC\\Tools\\MSVC\\([^\\\s]+)") |
-              ForEach-Object { $_.Groups[1].Value } |
-              Sort-Object -Unique
-          )
-
-          $hashes = @(
-            foreach ($name in $runtimeSources.Keys) {
-              $path = Join-Path $payloadDir $name
-              [ordered]@{
-                name = $name
-                sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash
-                bytes = (Get-Item -LiteralPath $path).Length
-              }
-            }
-          )
-          $processor = Get-CimInstance Win32_Processor | Select-Object -First 1
           $manifest = [ordered]@{
             schema = 1
             source_sha = $env:GITHUB_SHA
-            evidence_form = "one Debug build, byte-identical artifact executed on two fresh hosted runners"
-            build_runner = [ordered]@{
-              computer_name = $env:COMPUTERNAME
-              runner_name = $env:RUNNER_NAME
-              runner_os = $env:RUNNER_OS
-              runner_arch = $env:RUNNER_ARCH
-              image_os = $env:ImageOS
-              image_version = $env:ImageVersion
-              processor = $processor.Name
-              visual_studio_version = $vsVersion
-              platform_toolset = $effectiveToolset
-              msvc_tools_versions = $msvcToolVersions
-            }
-            files = $hashes
+            evidence_form = "one Debug build, isolated smoke and scene processes on four fresh hosted runners"
+            files = @($files.Keys | ForEach-Object {
+              $path = Join-Path $payload $_
+              [ordered]@{ name = $_; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash; bytes = (Get-Item $path).Length }
+            })
           }
-          $manifest |
-            ConvertTo-Json -Depth 6 |
-            Set-Content -Encoding utf8NoBOM -Path (Join-Path $payloadDir "manifest.json")
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8NoBOM -Path (Join-Path $payload "manifest.json")
 
       - name: Upload shared Debug physics artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -386,26 +222,17 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload artifact-build failure evidence
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: hosted-physics-build-failure-${{ github.run_id }}-${{ github.run_attempt }}
-          path: TestOutput/validation/ci/**
-          if-no-files-found: warn
-          retention-days: 14
-
   physics-byte-evidence:
-    name: Physics byte evidence (replica ${{ matrix.replica }})
+    name: Physics ${{ matrix.case }} (replica ${{ matrix.replica }})
     needs: physics-artifact
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
-      fail-fast: true
-      max-parallel: 2
+      fail-fast: false
+      max-parallel: 4
       matrix:
         replica: [1, 2]
-
+        case: [lifecycle-smoke, varied-scene]
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -420,127 +247,46 @@ jobs:
           name: hosted-physics-debug-${{ github.run_id }}-${{ github.run_attempt }}
           path: Debug
 
-      - name: Verify provenance and compare physics bytes
+      - name: Verify artifact and run isolated process
         env:
+          PHYSICS_CASE: ${{ matrix.case }}
           PHYSICS_REPLICA: ${{ matrix.replica }}
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
-          if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
-            $PSNativeCommandUseErrorActionPreference = $false
-          }
-
-          $manifestPath = Join-Path $env:GITHUB_WORKSPACE "Debug\manifest.json"
-          if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
-            throw "Downloaded artifact has no manifest: $manifestPath"
-          }
-          $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
-          if ($manifest.schema -ne 1) {
-            throw "Unsupported shared-artifact manifest schema: $($manifest.schema)"
-          }
-          if ($manifest.source_sha -ne $env:GITHUB_SHA) {
-            throw "Artifact source mismatch. expected=$env:GITHUB_SHA actual=$($manifest.source_sha)"
-          }
+          $manifest = Get-Content -Raw Debug\manifest.json | ConvertFrom-Json
+          if ($manifest.schema -ne 1 -or $manifest.source_sha -ne $env:GITHUB_SHA) { throw "Artifact provenance mismatch" }
           foreach ($file in $manifest.files) {
-            $path = Join-Path $env:GITHUB_WORKSPACE "Debug\$($file.name)"
-            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-              throw "Downloaded artifact is missing $($file.name)"
-            }
-            $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash
-            $actualBytes = (Get-Item -LiteralPath $path).Length
-            if ($actualHash -ne $file.sha256 -or $actualBytes -ne $file.bytes) {
-              throw "Downloaded artifact differs for $($file.name): expected_sha=$($file.sha256) actual_sha=$actualHash expected_bytes=$($file.bytes) actual_bytes=$actualBytes"
+            $path = Join-Path "Debug" $file.name
+            if ((Get-FileHash -Algorithm SHA256 $path).Hash -ne $file.sha256 -or (Get-Item $path).Length -ne $file.bytes) {
+              throw "Artifact bytes differ for $($file.name)"
             }
           }
 
-          $evidenceDir = Join-Path $env:GITHUB_WORKSPACE "TestOutput\validation\ci"
-          New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
-          $evidencePath = Join-Path $evidenceDir "hosted-physics-replica-$env:PHYSICS_REPLICA.txt"
-          $processor = Get-CimInstance Win32_Processor | Select-Object -First 1
-          @(
-            "evidence_form=$($manifest.evidence_form)"
-            "source_sha=$env:GITHUB_SHA"
-            "replica=$env:PHYSICS_REPLICA"
-            "computer_name=$env:COMPUTERNAME"
-            "runner_name=$env:RUNNER_NAME"
-            "runner_os=$env:RUNNER_OS"
-            "runner_arch=$env:RUNNER_ARCH"
-            "image_os=$env:ImageOS"
-            "image_version=$env:ImageVersion"
-            "processor_name=$($processor.Name)"
-            "processor_manufacturer=$($processor.Manufacturer)"
-            "processor_id=$($processor.ProcessorId)"
-            "executable_sha256=$((Get-FileHash -Algorithm SHA256 -LiteralPath 'Debug\SKULLBONEZ_CORE.exe').Hash)"
-          ) | Set-Content -Encoding utf8NoBOM -Path $evidencePath
-
-          $logPath = Join-Path $evidenceDir "hosted-physics-replica-$env:PHYSICS_REPLICA.log"
-          $smokeStdout = Join-Path $evidenceDir "hosted-physics-smoke-$env:PHYSICS_REPLICA.stdout.txt"
-          $smokeStderr = Join-Path $evidenceDir "hosted-physics-smoke-$env:PHYSICS_REPLICA.stderr.txt"
-          $smoke = Start-Process `
-            -FilePath ".\Debug\SKULLBONEZ_CORE.exe" `
-            -ArgumentList "--physics-standalone-smoke" `
-            -WorkingDirectory $env:GITHUB_WORKSPACE `
-            -RedirectStandardOutput $smokeStdout `
-            -RedirectStandardError $smokeStderr `
-            -Wait `
-            -PassThru
-          Get-Content -ErrorAction SilentlyContinue $smokeStdout, $smokeStderr |
-            Tee-Object -FilePath $logPath -Append
-          if ($smoke.ExitCode -ne 0) {
-            throw "PhysicsEngine lifecycle smoke failed (exit $($smoke.ExitCode))"
+          $evidence = "TestOutput\validation\ci\physics-$env:PHYSICS_CASE-$env:PHYSICS_REPLICA"
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          $env:SKULLBONEZ_PSO_CACHE_DIR = Join-Path $evidence "pso-cache"
+          New-Item -ItemType Directory -Force -Path $env:SKULLBONEZ_PSO_CACHE_DIR | Out-Null
+          if ($env:PHYSICS_CASE -eq "lifecycle-smoke") {
+            & .\Debug\SKULLBONEZ_CORE.exe --physics-standalone-smoke *> (Join-Path $evidence "process.log")
+            if ($LASTEXITCODE -ne 0) { throw "Lifecycle smoke failed (exit $LASTEXITCODE)" }
+          }
+          else {
+            $regression = (Resolve-Path Debug).Path + "\physics_regression_varied.csv"
+            $perf = (Resolve-Path $evidence).Path + "\perf.csv"
+            & .\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_bench_varied.scene.json --perf-log $perf --physics-regression-log $regression *> (Join-Path $evidence "process.log")
+            if ($LASTEXITCODE -ne 0) { throw "Varied scene failed (exit $LASTEXITCODE)" }
+            $env:SKORE_REPO = $env:GITHUB_WORKSPACE
+            python tools\check_physics_regression.py
+            if ($LASTEXITCODE -ne 0) { throw "Physics comparison failed (exit $LASTEXITCODE)" }
           }
 
-          $sceneStdout = Join-Path $evidenceDir "hosted-physics-scene-$env:PHYSICS_REPLICA.stdout.txt"
-          $sceneStderr = Join-Path $evidenceDir "hosted-physics-scene-$env:PHYSICS_REPLICA.stderr.txt"
-          # The fixture owns Profile/varied_physics_perf_log.csv. Replica jobs
-          # download only the shared Debug artifact, so provision its output
-          # directory explicitly and keep runtime artifact failures fail-closed.
-          New-Item -ItemType Directory -Force -Path (Join-Path $env:GITHUB_WORKSPACE "Profile") | Out-Null
-          $scene = Start-Process `
-            -FilePath ".\Debug\SKULLBONEZ_CORE.exe" `
-            -ArgumentList @(
-              "--renderer", "dx12",
-              "--vsync", "off",
-              "--fixed-step",
-              "--shadows", "off",
-              "--scene", "SkullbonezData/scenes/physics_bench_varied.scene.json",
-              "--physics-regression-log", "Debug/physics_regression_varied.csv"
-            ) `
-            -WorkingDirectory $env:GITHUB_WORKSPACE `
-            -RedirectStandardOutput $sceneStdout `
-            -RedirectStandardError $sceneStderr `
-            -Wait `
-            -PassThru
-          Get-Content -ErrorAction SilentlyContinue $sceneStdout, $sceneStderr |
-            Tee-Object -FilePath $logPath -Append
-          if ($scene.ExitCode -ne 0) {
-            throw "physics_bench_varied failed (exit $($scene.ExitCode))"
-          }
-
-          $env:SKORE_REPO = $env:GITHUB_WORKSPACE
-          & python tools/check_physics_regression.py 2>&1 |
-            Tee-Object -FilePath $logPath -Append
-          if ($LASTEXITCODE -ne 0) {
-            throw "Byte-exact physics comparison failed (exit $LASTEXITCODE)"
-          }
-
-          $actual = "Debug\physics_regression_varied.csv"
-          $baseline = "TestOutput\baselines\physics_regression_varied.csv"
-          @(
-            "actual_raw_sha256=$((Get-FileHash -Algorithm SHA256 -LiteralPath $actual).Hash)"
-            "actual_raw_bytes=$((Get-Item -LiteralPath $actual).Length)"
-            "baseline_raw_sha256=$((Get-FileHash -Algorithm SHA256 -LiteralPath $baseline).Hash)"
-            "baseline_raw_bytes=$((Get-Item -LiteralPath $baseline).Length)"
-            "byte_comparison=PASS"
-          ) | Add-Content -Encoding utf8NoBOM -Path $evidencePath
-
-      - name: Upload replica evidence
+      - name: Upload process evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: hosted-physics-evidence-replica-${{ matrix.replica }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: physics-${{ matrix.case }}-${{ matrix.replica }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            TestOutput/validation/ci/hosted-physics-replica-${{ matrix.replica }}.*
+            TestOutput/validation/ci/physics-${{ matrix.case }}-${{ matrix.replica }}/**
             Debug/physics_regression_varied.csv
           if-no-files-found: warn
           retention-days: 14

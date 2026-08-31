@@ -31,6 +31,21 @@ setlocal enabledelayedexpansion
 for %%I in ("%~dp0..") do set "REPO=%%~fI"
 set "CONFIG=Debug"
 set "COVERAGE_DIR=%REPO%\TestOutput\coverage"
+set "TEST_WORKDIR=%REPO%"
+if not defined SKULLBONEZ_TEST_WORKDIR goto :test_workdir_ready
+if not "%SKULLBONEZ_PARALLEL_VALIDATION%"=="1" (
+    echo ERROR: SKULLBONEZ_TEST_WORKDIR requires SKULLBONEZ_PARALLEL_VALIDATION=1.
+    exit /b 99
+)
+set "TEST_WORKDIR=%SKULLBONEZ_TEST_WORKDIR%"
+:test_workdir_ready
+if not defined SKULLBONEZ_COVERAGE_DIR goto :coverage_dir_ready
+if not "%SKULLBONEZ_PARALLEL_VALIDATION%"=="1" (
+    echo ERROR: SKULLBONEZ_COVERAGE_DIR requires SKULLBONEZ_PARALLEL_VALIDATION=1.
+    exit /b 99
+)
+set "COVERAGE_DIR=%SKULLBONEZ_COVERAGE_DIR%"
+:coverage_dir_ready
 set "COVERAGE_XML=%COVERAGE_DIR%\coverage.xml"
 set "COVERAGE_LOG=%COVERAGE_DIR%\test-output.txt"
 set "COVERAGE_SUMMARY=%COVERAGE_DIR%\summary.md"
@@ -95,7 +110,7 @@ if exist "%COVERAGE_LOG%" del /q "%COVERAGE_LOG%"
 
 echo [3/4] Capturing Cobertura product coverage...
 echo       Full test output: %COVERAGE_LOG%
-"%OPENCPPCOVERAGE_EXE%" --quiet --modules "%REPO%\Debug\SKULLBONEZ_TESTS.exe" --sources "%REPO%\SkullbonezSource" --working_dir "%REPO%" --export_type "cobertura:%COVERAGE_XML%" -- "%REPO%\Debug\SKULLBONEZ_TESTS.exe" "--quiet" > "%COVERAGE_LOG%" 2>&1
+"%OPENCPPCOVERAGE_EXE%" --quiet --modules "%REPO%\Debug\SKULLBONEZ_TESTS.exe" --sources "%REPO%\SkullbonezSource" --working_dir "%TEST_WORKDIR%" --export_type "cobertura:%COVERAGE_XML%" -- "%REPO%\Debug\SKULLBONEZ_TESTS.exe" "--quiet" > "%COVERAGE_LOG%" 2>&1
 if errorlevel 1 (
     echo FAIL: OpenCppCoverage or the Debug test process failed.
     findstr /C:"FATAL ERROR:" /C:"Status:" "%COVERAGE_LOG%"

@@ -7,6 +7,8 @@
 @rem   - Physics is the first runtime launch and follows only its required Debug build.
 @rem   - validate_fast runs in preflight-only mode so validate_tests runs exactly
 @rem   once through validate_all_cpu_tests.
+@rem   - Automation and DX12 renderer gates overlap only after their immutable
+@rem   Profile and Automation executables are ready.
 @rem   - Replay-prediction spike collection is full-only and non-blocking; a
 @rem   diagnostic failure is reported but never changes this script's exit code.
 
@@ -25,7 +27,10 @@ echo.
 set "PREVIOUS_SKIP_READY_BUILDS=%SKULLBONEZ_SKIP_READY_BUILDS%"
 set "PREVIOUS_ASSUME_PROFILE_BUILT=%SKULLBONEZ_ASSUME_PROFILE_BUILT%"
 set "PREVIOUS_ASSUME_DEBUG_BUILT=%SKULLBONEZ_ASSUME_DEBUG_BUILT%"
+set "PREVIOUS_ASSUME_AUTOMATION_BUILT=%SKULLBONEZ_ASSUME_AUTOMATION_BUILT%"
 set "SKULLBONEZ_SKIP_READY_BUILDS=1"
+call "%~dp0find_python.bat"
+if errorlevel 1 exit /b 99
 
 echo === Phase 0A: Build Debug Configuration ===
 call "%~dp0validate_build.bat" Debug
@@ -53,6 +58,7 @@ if errorlevel 1 (
     echo VALIDATE_FULL: FAILED at Automation reachability build.
     exit /b 1
 )
+set "SKULLBONEZ_ASSUME_AUTOMATION_BUILT=1"
 
 echo.
 echo === Phase 1: Mandatory CPU Preflight ===
@@ -77,25 +83,16 @@ if not "%CPU_TEST_EXIT%"=="0" (
 )
 
 echo.
-echo === Phase 3: Automation Build Boundary and Replay Prediction Smoke ===
-call "%~dp0validate_automation.bat"
+echo === Phase 3: Parallel Non-Performance Runtime Gates ===
+"%PYTHON_EXE%" "%~dp0run_parallel_validation.py" --repo "%~dp0.." --manifest "%~dp0validation_parallel_runtime_gates.json"
 if errorlevel 1 (
     echo.
-    echo VALIDATE_FULL: FAILED at automation validation.
+    echo VALIDATE_FULL: FAILED at Automation or DX12 renderer validation.
     exit /b 1
 )
 
 echo.
-echo === Phase 4: DX12 Renderer Validation ===
-call "%~dp0validate_dx12_renderer.bat"
-if errorlevel 1 (
-    echo.
-    echo VALIDATE_FULL: FAILED at DX12 renderer validation.
-    exit /b 1
-)
-
-echo.
-echo === Phase 5: Informational Replay Prediction Frame-Spike Diagnostic ===
+echo === Phase 4: Exclusive Informational Replay Prediction Frame-Spike Diagnostic ===
 call "%~dp0validate_replay_prediction_frame_spikes.bat"
 set "REPLAY_SPIKE_DIAGNOSTIC_EXIT=%ERRORLEVEL%"
 if not "%REPLAY_SPIKE_DIAGNOSTIC_EXIT%"=="0" (
@@ -108,6 +105,7 @@ echo.
 set "SKULLBONEZ_SKIP_READY_BUILDS=%PREVIOUS_SKIP_READY_BUILDS%"
 set "SKULLBONEZ_ASSUME_PROFILE_BUILT=%PREVIOUS_ASSUME_PROFILE_BUILT%"
 set "SKULLBONEZ_ASSUME_DEBUG_BUILT=%PREVIOUS_ASSUME_DEBUG_BUILT%"
+set "SKULLBONEZ_ASSUME_AUTOMATION_BUILT=%PREVIOUS_ASSUME_AUTOMATION_BUILT%"
 echo [ready] Profile, Automation, and Debug were built before validation.
 
 echo.

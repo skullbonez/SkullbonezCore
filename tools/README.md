@@ -11,10 +11,10 @@ Run from the repo root or from within this directory.
 
 | Script | Use When | Runtime |
 |--------|----------|---------|
-| `agent_validate.bat --plan-completion` | Terminal gate after an entire implementation plan is complete | CPU tests + 5 engine processes |
+| `agent_validate.bat --plan-completion` | Terminal gate after an entire implementation plan is complete | parallel CPU lanes + 9 engine processes |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
-| `validate_fast.bat` | Exhaustive repository preflight plus the doctest runner; CI composition or an explicitly selected broader local check, not the default mechanical-refactor fast lane | ~3.2m preflight / ~4m with tests |
-| `validate_all_cpu_tests.bat` | Run every mandatory CPU test and coverage gate with fail-fast attribution | incremental builds + 7 console launches |
+| `validate_fast.bat` | Parallel repository preflight plus the doctest runner; CI composition or an explicitly selected broader local check, not the default mechanical-refactor fast lane | bounded by the slowest check + build/tests |
+| `validate_all_cpu_tests.bat` | Run every mandatory CPU test and coverage gate with isolated logs and deterministic fan-in | six concurrent gates / 7 console launches |
 | `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
 | `validate_coverage.bat` | Build the Debug doctest runner, export Cobertura product coverage, and report/check versioned subsystem floors | incremental Debug build + console test runner |
 | `validate_runtime_interaction_policy.bat` | Build/run Debug and Release interaction-policy tests | 2 console test launches |
@@ -56,17 +56,16 @@ token, then runs these owners in order:
 1. A Debug build and `validate_physics.bat` run first. Golden tampering fails
    before the build; actual behavior drift is the first runtime result.
 2. The Automation build plus `validate_fast.bat --preflight-only` establish
-   current Debug/Automation/Profile reachability evidence and run formatting,
-   project metadata, dependency, governance, and staged-size checks.
-3. `validate_all_cpu_tests.bat` runs the doctest, enforced coverage floors,
+   current Debug/Automation/Profile reachability evidence. Independent format,
+   metadata, dependency, policy, and staged-size checks overlap before Profile builds.
+3. `validate_all_cpu_tests.bat` concurrently runs the doctest, enforced coverage floors,
    runtime-interaction, scene parser, renderer-free UI boundary, and DX12
    architecture targets.
-4. `validate_automation.bat` proves Profile rejects diagnostic scripts, builds
-   the dedicated Automation executable, and runs one combined replay/prediction
-   plus development-UI command smoke required on every broad pre-commit pass.
-5. `validate_dx12_renderer.bat` runs the final blocking runtime lane. Across
-   the gate, automation launches two engine processes, rendering one, and
-   physics its lifecycle smoke and regression scene, for five gated processes.
+4. `validate_automation.bat` and `validate_dx12_renderer.bat` overlap after both
+   immutable executables are ready. Automation's negative and positive processes
+   overlap inside isolated working directories; the DX12 suite owns its captures.
+5. Physics launches its lifecycle smoke first, then four isolated worker-matrix
+   games concurrently. Across the terminal gate there are nine engine processes.
 6. `validate_replay_prediction_frame_spikes.bat` then runs four completed
    120-second future-prediction generations and reports the largest frames. It
    is full-only and informational: missing artifacts, runner errors, and frame
@@ -194,7 +193,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `check_source_design.py --repo . [--self-test] [--files ...]` | Use Clang-Tidy and Clang Query on changed C++ translation units; reject wide or oversized functions, deep nesting, member-prefixed locals, pure parameter aliases, and immediate parameter-struct unpacking without a permission ledger |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
 | `validate_build_all.bat [--with-release]` | Build every ordinary development configuration (`Automation`, `Debug`, `Profile`); skips when `SKULLBONEZ_SKIP_READY_BUILDS=1` |
-| `validate_all_cpu_tests.bat` | Run all six first-party CPU/coverage gates, stop at the first failure, print a combined summary, and preserve the child exit code |
+| `validate_all_cpu_tests.bat` | Run all six first-party CPU/coverage gates concurrently, preserve per-lane logs/timings, and return the first manifest-order failure after every child finishes |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |

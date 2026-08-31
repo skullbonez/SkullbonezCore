@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "name": "fast-checks",
+  "max_parallel": 8,
+  "lanes": [
+    {
+      "id": "parallel-runner",
+      "name": "Parallel runner controls",
+      "steps": [
+        {
+          "id": "self-test",
+          "name": "Parallel runner self-test",
+          "argv": ["${PYTHON}", "${TOOLS}\\run_parallel_validation.py", "--self-test"]
+        }
+      ]
+    },
+    {
+      "id": "physics-golden",
+      "name": "Physics golden and transition guard",
+      "steps": [
+        {
+          "id": "guard",
+          "name": "Physics golden guard",
+          "argv": ["${PYTHON}", "${TOOLS}\\check_physics_baseline_guard.py", "--repo", "${REPO}"]
+        }
+      ]
+    },
+    {
+      "id": "plain-language",
+      "name": "Plain-language policy",
+      "steps": [
+        {
+          "id": "self-test",
+          "name": "Plain-language self-test",
+          "argv": ["${PYTHON}", "${TOOLS}\\check_plain_language.py", "--repo", "${REPO}", "--self-test"]
+        },
+        {
+          "id": "repository",
+          "name": "Plain-language repository scan",
+          "argv": ["${PYTHON}", "${TOOLS}\\check_plain_language.py", "--repo", "${REPO}"]
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "name": "Changed-source formatting",
+      "steps": [
+        {
+          "id": "validate",
+          "name": "Format validation",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${TOOLS}\\validate_format.bat"]
+        }
+      ]
+    },
+    {
+      "id": "project-filters",
+      "name": "Visual Studio project filters",
+      "steps": [
+        {
+          "id": "validate",
+          "name": "Project filter validation",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${TOOLS}\\validate_project_filters.bat"]
+        }
+      ]
+    },
+    {
+      "id": "dependency-graph",
+      "name": "Dependency graph and ownership",
+      "steps": [
+        {
+          "id": "validate",
+          "name": "Dependency graph validation",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${TOOLS}\\validate_dependency_graph.bat"]
+        }
+      ]
+    },
+    {
+      "id": "retained-policy",
+      "name": "Source design and retained policies",
+      "steps": [
+        {
+          "id": "self-test",
+          "name": "Retained-policy self-tests",
+          "argv": ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${TOOLS}\\run_retained_policy_group.ps1", "-Mode", "SelfTest", "-Repo", "${REPO}"]
+        },
+        {
+          "id": "live",
+          "name": "Retained-policy live scans",
+          "argv": ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${TOOLS}\\run_retained_policy_group.ps1", "-Mode", "Live", "-Repo", "${REPO}"]
+        }
+      ]
+    },
+    {
+      "id": "staged-size",
+      "name": "Staged file sizes",
+      "steps": [
+        {
+          "id": "validate",
+          "name": "Staged file size validation",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${TOOLS}\\validate_staged_file_sizes.bat"]
+        }
+      ]
+    }
+  ]
+}

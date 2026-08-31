@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "name": "runtime-gates",
+  "max_parallel": 2,
+  "lanes": [
+    {
+      "id": "automation",
+      "name": "Automation boundary and replay smoke",
+      "env": {
+        "SKULLBONEZ_ASSUME_PROFILE_BUILT": "1",
+        "SKULLBONEZ_ASSUME_AUTOMATION_BUILT": "1"
+      },
+      "steps": [
+        {
+          "id": "validate",
+          "name": "Automation validation",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${TOOLS}\\validate_automation.bat"]
+        }
+      ]
+    },
+    {
+      "id": "dx12-renderer",
+      "name": "DX12 renderer validation",
+      "env": {
+        "SKULLBONEZ_ASSUME_PROFILE_BUILT": "1"
+      },
+      "steps": [
+        {
+          "id": "validate",
+          "name": "DX12 renderer gate",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${TOOLS}\\validate_dx12_renderer.bat"]
+        }
+      ]
+    }
+  ]
+}

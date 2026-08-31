@@ -6,7 +6,7 @@
 @rem Summary:
 @rem   The accepted golden digest is checked before any build. The gate
 @rem   then builds or reuses Debug, proves the PhysicsEngine lifecycle, and runs
-@rem   one authored scene in four clean processes for a byte-exact worker matrix.
+@rem   one authored scene in four isolated concurrent processes.
 @rem
 @rem Glossary:
 @rem   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -19,8 +19,10 @@
 @rem Invariants:
 @rem   - A modified golden fails before build or launch unless its exact bytes
 @rem   have a content-bound transition receipt and immutable runtime archive.
-@rem   - The engine lifecycle smoke must run before the scene regression so
+@rem   - The engine lifecycle smoke must finish before the scene regression so
 @rem   owner-lifecycle failures are visible apart from scene loading or rendering.
+@rem   - Each scene process owns its working files and PSO cache; only its named
+@rem     regression CSV crosses back into the shared Debug artifact directory.
 @rem   - Commit-gate and parent full-gate calls defer ready-build restoration;
 @rem   their callers own any later build fan-in.
 @rem
@@ -94,32 +96,9 @@ if errorlevel 1 (
 
 echo [5/7] Running clean-process core physics worker matrix...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
-
-echo   Running physics_bench_varied with workers=0 ^(primary^)...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --workers 0 --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied.csv
+"%PYTHON_EXE%" "%~dp0run_parallel_validation.py" --repo "%REPO%" --manifest "%~dp0validation_parallel_physics.json"
 if errorlevel 1 (
-    echo FAIL: physics_bench_varied workers=0 primary crashed or errored.
-    exit /b 2
-)
-
-echo   Running physics_bench_varied with workers=0 ^(repeat^)...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --workers 0 --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied_workers_0_repeat.csv
-if errorlevel 1 (
-    echo FAIL: physics_bench_varied workers=0 repeat crashed or errored.
-    exit /b 2
-)
-
-echo   Running physics_bench_varied with workers=1...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --workers 1 --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied_workers_1.csv
-if errorlevel 1 (
-    echo FAIL: physics_bench_varied workers=1 crashed or errored.
-    exit /b 2
-)
-
-echo   Running physics_bench_varied with workers=4...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --workers 4 --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied_workers_4.csv
-if errorlevel 1 (
-    echo FAIL: physics_bench_varied workers=4 crashed or errored.
+    echo FAIL: one or more physics worker processes crashed or errored.
     exit /b 2
 )
 

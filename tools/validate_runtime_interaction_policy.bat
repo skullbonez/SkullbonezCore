@@ -32,6 +32,9 @@ set "REPO=%~dp0.."
 set "PROJECT=%REPO%\Agentic\Tests\RuntimeInteractionPolicyTests\RuntimeInteractionPolicyTests.vcxproj"
 set "DEBUG_EXE=%REPO%\Agentic\Tests\RuntimeInteractionPolicyTests\x64\Debug\RuntimeInteractionPolicyTests.exe"
 set "RELEASE_EXE=%REPO%\Agentic\Tests\RuntimeInteractionPolicyTests\x64\Release\RuntimeInteractionPolicyTests.exe"
+set "TEST_WORKDIR=%REPO%"
+if defined SKULLBONEZ_TEST_WORKDIR if "%SKULLBONEZ_PARALLEL_VALIDATION%"=="1" set "TEST_WORKDIR=%SKULLBONEZ_TEST_WORKDIR%"
+if defined SKULLBONEZ_TEST_WORKDIR if not "%SKULLBONEZ_PARALLEL_VALIDATION%"=="1" exit /b 99
 
 call "%~dp0find_msbuild.bat"
 if errorlevel 1 exit /b 99
@@ -70,7 +73,7 @@ if errorlevel 1 (
 )
 
 echo Running runtime interaction policy tests (Debug)...
-pushd "%REPO%"
+pushd "%TEST_WORKDIR%"
 "%DEBUG_EXE%"
 set "TEST_EXIT=%ERRORLEVEL%"
 popd
@@ -87,7 +90,7 @@ if errorlevel 1 (
 )
 
 echo Running runtime interaction policy tests (Release)...
-pushd "%REPO%"
+pushd "%TEST_WORKDIR%"
 "%RELEASE_EXE%"
 set "TEST_EXIT=%ERRORLEVEL%"
 popd
