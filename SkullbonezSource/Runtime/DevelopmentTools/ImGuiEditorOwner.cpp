@@ -174,6 +174,12 @@ void DrawDisabledWrapped( const char* text )
     ImGui::PopTextWrapPos();
 }
 
+bool DrawEditableCheckbox( const char* label, bool sourceValue, bool& editedValue )
+{
+    editedValue = sourceValue;
+    return ImGui::Checkbox( label, &editedValue );
+}
+
 const char* SceneDisplayName( const char* path ) noexcept
 {
     if ( !path || path[0] == '\0' )
@@ -273,8 +279,8 @@ ImGuiEditorOwner::~ImGuiEditorOwner()
 
 SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::Dx12ImGuiRendererOwner* renderer )
 {
-    const ImGuiEditorStartDisposition startDisposition =
-        ResolveImGuiEditorStartDisposition( m_context != nullptr, m_renderer != nullptr );
+    const ImGuiEditorStartDisposition startDisposition = ResolveImGuiEditorStartDisposition( m_context != nullptr,
+                                                                                             m_renderer != nullptr );
 
     if ( startDisposition == ImGuiEditorStartDisposition::ReturnReady )
     {
@@ -1078,6 +1084,268 @@ void ImGuiEditorOwner::BuildDefaultDockLayout( uint32_t rootDockId, float width,
             envelope.editorLeftWidth, envelope.utilityRightWidth, envelope.replayHeight, envelope.statusHeight );
 }
 
+void ImGuiEditorOwner::SubmitToolCommand( UI::OperatorEditorToolCommandType type, uint32_t sceneObjectId, int value,
+                                          bool enabled )
+{
+    if ( m_frameCommandStatus.Ok() )
+    {
+        m_frameCommandStatus.Record(
+            UI::SubmitOperatorEditorCommand( m_resultDiagnostics, m_frameCommands.operatorEditor.tools,
+                                             UI::OperatorEditorToolCommand { type, sceneObjectId, value, enabled } ) );
+    }
+}
+
+void ImGuiEditorOwner::SubmitPropertyCommand( UI::OperatorEditorPropertyCommandType type, float value, int integerValue,
+                                              UI::OperatorEditorEditPhase phase )
+{
+    if ( m_frameCommandStatus.Ok() )
+    {
+        m_frameCommandStatus.Record(
+            UI::SubmitOperatorEditorCommand( m_resultDiagnostics, m_frameCommands.operatorEditor.property,
+                                             UI::OperatorEditorPropertyCommand { type, value, integerValue, phase } ) );
+    }
+}
+
+void ImGuiEditorOwner::SubmitReplayCommand( UI::OperatorEditorReplayCommandType type, float value, int rowIndex,
+                                            bool enabled )
+{
+    if ( !m_frameCommandStatus.Ok() )
+    {
+        return;
+    }
+
+    UI::OperatorEditorReplayCommand command;
+    command.type = type;
+    command.value = value;
+    command.rowIndex = rowIndex;
+    command.enabled = enabled;
+    m_frameCommandStatus.Record(
+        UI::SubmitOperatorEditorCommand( m_resultDiagnostics, m_frameCommands.operatorEditor.replay, command ) );
+}
+
+void ImGuiEditorOwner::SubmitForecastCommand( UI::OperatorEditorForecastCommandType type )
+{
+    if ( m_frameCommandStatus.Ok() )
+    {
+        m_frameCommandStatus.Record( UI::SubmitOperatorEditorCommand( m_resultDiagnostics,
+                                                                      m_frameCommands.operatorEditor.forecast,
+                                                                      UI::OperatorEditorForecastCommand { type } ) );
+    }
+}
+
+void ImGuiEditorOwner::SubmitSceneCommand( const UI::OperatorEditorSceneCommand& command )
+{
+    if ( m_frameCommandStatus.Ok() )
+    {
+        m_frameCommandStatus.Record(
+            UI::SubmitOperatorEditorCommand( m_resultDiagnostics, m_frameCommands.operatorEditor.scene, command ) );
+    }
+}
+
+void ImGuiEditorOwner::SubmitRenderingCommand( const UI::OperatorEditorRenderingCommand& command )
+{
+    if ( m_frameCommandStatus.Ok() )
+    {
+        m_frameCommandStatus.Record(
+            UI::SubmitOperatorEditorCommand( m_resultDiagnostics, m_frameCommands.operatorEditor.rendering, command ) );
+    }
+}
+
+void ImGuiEditorOwner::SubmitDiagnosticsCommand( const UI::OperatorEditorDiagnosticsCommand& command )
+{
+    if ( m_frameCommandStatus.Ok() )
+    {
+        m_frameCommandStatus.Record(
+            UI::SubmitOperatorEditorCommand( m_resultDiagnostics, m_frameCommands.operatorEditor.diagnostics, command ) );
+    }
+}
+
+void ImGuiEditorOwner::DrawFloatPropertyEdit( const char* label, UI::OperatorEditorPropertyCommandType type,
+                                              float sourceValue, float speed, float minimum, float maximum,
+                                              const char* format )
+{
+    bool ownsPreview = m_propertyEdit.active && m_propertyEdit.type == type;
+    float preview = ownsPreview ? m_propertyEdit.floatValue : sourceValue;
+    ImGui::SetNextItemWidth( (std::max)( 108.0f, ImGui::GetContentRegionAvail().x * 0.48f ) );
+    const bool changed = ImGui::DragFloat( label, &preview, speed, minimum, maximum, format );
+
+    if ( ImGui::IsItemActivated() )
+    {
+        // Concept: only one pointer-driven scalar can be active. Its value is
+        // presentation state until release emits one owner-side commit.
+        m_propertyEdit = { type, sourceValue, 0, true };
+        ownsPreview = true;
+    }
+
+    if ( ownsPreview && changed )
+    {
+        m_propertyEdit.floatValue = preview;
+    }
+
+    const bool deactivated = ImGui::IsItemDeactivated();
+    const bool commit = ImGui::IsItemDeactivatedAfterEdit();
+
+    if ( ownsPreview && commit )
+    {
+        SubmitPropertyCommand( type, m_propertyEdit.floatValue );
+        m_propertyEdit.active = false;
+    }
+    else if ( ownsPreview && deactivated )
+    {
+        m_propertyEdit.active = false;
+    }
+    else if ( ownsPreview && changed )
+    {
+        SubmitPropertyCommand( type, m_propertyEdit.floatValue, 0, UI::OperatorEditorEditPhase::Preview );
+    }
+}
+
+void ImGuiEditorOwner::DrawIntegerPropertyEdit( const char* label, UI::OperatorEditorPropertyCommandType type,
+                                                int sourceValue, int minimum, int maximum )
+{
+    bool ownsPreview = m_propertyEdit.active && m_propertyEdit.type == type;
+    int preview = ownsPreview ? m_propertyEdit.integerValue : sourceValue;
+    ImGui::SetNextItemWidth( (std::max)( 108.0f, ImGui::GetContentRegionAvail().x * 0.48f ) );
+    const bool changed = ImGui::SliderInt( label, &preview, minimum, maximum );
+
+    if ( ImGui::IsItemActivated() )
+    {
+        m_propertyEdit = { type, 0.0f, sourceValue, true };
+        ownsPreview = true;
+    }
+
+    if ( ownsPreview && changed )
+    {
+        m_propertyEdit.integerValue = preview;
+    }
+
+    const bool deactivated = ImGui::IsItemDeactivated();
+    const bool commit = ImGui::IsItemDeactivatedAfterEdit();
+
+    if ( ownsPreview && commit )
+    {
+        SubmitPropertyCommand( type, 0.0f, m_propertyEdit.integerValue );
+        m_propertyEdit.active = false;
+    }
+    else if ( ownsPreview && deactivated )
+    {
+        m_propertyEdit.active = false;
+    }
+    else if ( ownsPreview && changed )
+    {
+        SubmitPropertyCommand( type, 0.0f, m_propertyEdit.integerValue, UI::OperatorEditorEditPhase::Preview );
+    }
+}
+
+void ImGuiEditorOwner::DrawRenderingParameterEdit( const char* label, UI::OperatorEditorRenderingCommandType type,
+                                                   int parameter, float sourceValue, float speed, float minimum,
+                                                   float maximum, const char* format )
+{
+    const int action = static_cast<int>( type );
+    bool ownsPreview = m_renderingEdit.active && m_renderingEdit.action == action && m_renderingEdit.parameter == parameter;
+    float preview = ownsPreview ? m_renderingEdit.value : sourceValue;
+    ImGui::SetNextItemWidth( (std::max)( 108.0f, ImGui::GetContentRegionAvail().x * 0.48f ) );
+    const bool changed = ImGui::DragFloat( label, &preview, speed, minimum, maximum, format );
+
+    if ( ImGui::IsItemActivated() )
+    {
+        m_renderingEdit = { action, parameter, -1, -1, sourceValue, true };
+        ownsPreview = true;
+    }
+
+    if ( ownsPreview && changed )
+    {
+        m_renderingEdit.value = preview;
+    }
+
+    const bool deactivated = ImGui::IsItemDeactivated();
+    const bool commit = ImGui::IsItemDeactivatedAfterEdit();
+
+    if ( ownsPreview && commit )
+    {
+        SubmitRenderingCommand( { type, parameter, m_renderingEdit.value, UI::OperatorEditorEditPhase::Commit } );
+        m_renderingEdit.active = false;
+    }
+    else if ( ownsPreview && deactivated )
+    {
+        m_renderingEdit.active = false;
+    }
+    else if ( ownsPreview && changed )
+    {
+        SubmitRenderingCommand( { type, parameter, m_renderingEdit.value, UI::OperatorEditorEditPhase::Preview } );
+    }
+}
+
+void ImGuiEditorOwner::DrawDiagnosticsScalarEdit( const char* label, UI::OperatorEditorDiagnosticsCommandType type,
+                                                  float sourceValue, float speed, float minimum, float maximum,
+                                                  const char* format )
+{
+    const int action = static_cast<int>( type );
+    bool ownsPreview = m_diagnosticsEdit.active && m_diagnosticsEdit.action == action;
+    float preview = ownsPreview ? m_diagnosticsEdit.value : sourceValue;
+    ImGui::SetNextItemWidth( (std::max)( 108.0f, ImGui::GetContentRegionAvail().x * 0.48f ) );
+    const bool changed = ImGui::DragFloat( label, &preview, speed, minimum, maximum, format );
+
+    if ( ImGui::IsItemActivated() )
+    {
+        m_diagnosticsEdit = { action, -1, -1, -1, sourceValue, true };
+        ownsPreview = true;
+    }
+
+    if ( ownsPreview && changed )
+    {
+        m_diagnosticsEdit.value = preview;
+    }
+
+    const bool deactivated = ImGui::IsItemDeactivated();
+    const bool commit = ImGui::IsItemDeactivatedAfterEdit();
+
+    if ( ownsPreview && commit )
+    {
+        SubmitDiagnosticsCommand( { type, 0u, 0, m_diagnosticsEdit.value, UI::OperatorEditorEditPhase::Commit } );
+        m_diagnosticsEdit.active = false;
+    }
+    else if ( ownsPreview && deactivated )
+    {
+        m_diagnosticsEdit.active = false;
+    }
+    else if ( ownsPreview && changed )
+    {
+        SubmitDiagnosticsCommand( { type, 0u, 0, m_diagnosticsEdit.value, UI::OperatorEditorEditPhase::Preview } );
+    }
+}
+
+void ImGuiEditorOwner::LaunchTracyViewer()
+{
+    char launchPath[512] = {};
+    const TracyViewerLaunchTarget launchTarget = ResolveTracyViewerLaunchPath( launchPath, sizeof( launchPath ) );
+
+    if ( launchTarget == TracyViewerLaunchTarget::Unavailable )
+    {
+        snprintf( m_tracyLaunchFeedback, sizeof( m_tracyLaunchFeedback ), "%s", "Tracy viewer launcher is unavailable" );
+        return;
+    }
+
+    if ( !m_frameInput.tracyInitialized )
+    {
+        // Presentation emits a value command; Runtime owns profiler startup.
+        m_frameCommands.requestTracyStandardCapture = true;
+    }
+
+    const char* launchParameters = launchTarget == TracyViewerLaunchTarget::Viewer ? "-a 127.0.0.1" : nullptr;
+    const HINSTANCE launch = ShellExecuteA( m_window, "open", launchPath, launchParameters, nullptr, SW_SHOWNORMAL );
+    const intptr_t launchCode = reinterpret_cast<intptr_t>( launch );
+    snprintf( m_tracyLaunchFeedback, sizeof( m_tracyLaunchFeedback ), "%s",
+              launchCode > 32
+                  ? ( launchTarget == TracyViewerLaunchTarget::Viewer
+                          ? ( m_frameInput.tracyInitialized ? "Tracy viewer launched; connection is automatic"
+                                                            : "Starting Standard capture; viewer connection is automatic" )
+                          : ( m_frameInput.tracyInitialized
+                                  ? "Building pinned Tracy viewer; it opens automatically when ready"
+                                  : "Starting Standard capture and building the pinned viewer" ) )
+                  : "Tracy viewer launch failed; inspect the launcher console" );
+}
+
 void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view,
                                          const ReplayOverlay::ReplayOverlayStateView& replay )
 {
@@ -1087,210 +1355,28 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     }
 
     m_sharedViewFingerprint = UI::FingerprintOperatorEditorFrameView( view );
-    const ImGuiEditorCausalityContext causality = BuildImGuiEditorCausalityContext( replay );
+    const ImGuiEditorCausalityProjection causality = BuildImGuiEditorCausalityProjection( replay );
 
-    const auto submit = [&]( auto& queue, const auto& command )
-    {
-        if ( m_frameCommandStatus.Ok() )
-        {
-            m_frameCommandStatus.Record( UI::SubmitOperatorEditorCommand( m_resultDiagnostics, queue, command ) );
-        }
-    };
+    BuildEditorMenuAndDockspace( view.scene, view.hierarchy, view.tools );
+    DrawSceneAndModesPanel( view.scene, view.tools );
+    DrawHierarchyPanel( view.hierarchy );
+    DrawAssetsCreatePanel( view.assets, view.tools );
+    DrawGameViewportPanel( view.rendering, view.viewport );
+    DrawInspectorPanel( view.inspector );
+    DrawWorldSimulationPanel( view.world );
+    DrawRenderingPanel( view.rendering );
+    DrawDiagnosticsPanel( view.diagnostics, view.rendering );
+    DrawCausalityPanel( causality, replay );
+    DrawCausalityDetailPanel( causality, replay );
+    DrawReplayPanel( view.forecast, replay );
+    DrawStatusPanel( view.lookLab, view.scene, view.tools );
+    ApplyPendingPanelFocus();
+}
 
-    const auto submitTool = [&]( UI::OperatorEditorToolCommandType type,
-                                uint32_t sceneObjectId = 0u, int value = 0, bool enabled = false )
-    {
-        submit( m_frameCommands.operatorEditor.tools,
-                UI::OperatorEditorToolCommand { type, sceneObjectId, value, enabled } );
-    };
-
-    const auto submitProperty = [&]( UI::OperatorEditorPropertyCommandType type, float value = 0.0f, int integerValue = 0,
-                                     UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
-    {
-        submit( m_frameCommands.operatorEditor.property,
-                UI::OperatorEditorPropertyCommand { type, value, integerValue, phase } );
-    };
-
-    const auto submitReplay = [&]( UI::OperatorEditorReplayCommandType type,
-                                  float value = 0.0f, int rowIndex = -1, bool enabled = false )
-    {
-        UI::OperatorEditorReplayCommand command;
-
-        command.type = type;
-        command.value = value;
-        command.rowIndex = rowIndex;
-        command.enabled = enabled;
-        submit( m_frameCommands.operatorEditor.replay, command );
-    };
-
-    const auto submitForecast = [&]( UI::OperatorEditorForecastCommandType type )
-    { submit( m_frameCommands.operatorEditor.forecast, UI::OperatorEditorForecastCommand { type } ); };
-
-    const auto editFloat = [&]( const char* label, UI::OperatorEditorPropertyCommandType type, float sourceValue,
-                                float speed, float minimum, float maximum, const char* format )
-    {
-        bool ownsPreview = m_propertyEdit.active && m_propertyEdit.type == type;
-
-        float preview = ownsPreview ? m_propertyEdit.floatValue : sourceValue;
-        ImGui::SetNextItemWidth( (std::max)( 108.0f, ImGui::GetContentRegionAvail().x * 0.48f ) );
-        const bool changed = ImGui::DragFloat( label, &preview, speed, minimum, maximum, format );
-
-        if ( ImGui::IsItemActivated() )
-        {
-            // Concept: only one pointer-driven scalar can be active. Its value
-            // is presentation state until release emits one owner-side commit.
-            m_propertyEdit.active = true;
-            m_propertyEdit.type = type;
-            m_propertyEdit.floatValue = sourceValue;
-            m_propertyEdit.integerValue = 0;
-            ownsPreview = true;
-        }
-
-        if ( ownsPreview && changed )
-        {
-            m_propertyEdit.floatValue = preview;
-        }
-
-        const bool deactivated = ImGui::IsItemDeactivated();
-        const bool commit = ImGui::IsItemDeactivatedAfterEdit();
-
-        if ( ownsPreview && commit )
-        {
-            submitProperty( type, m_propertyEdit.floatValue, 0, UI::OperatorEditorEditPhase::Commit );
-            m_propertyEdit.active = false;
-        }
-        else if ( ownsPreview && deactivated )
-        {
-            m_propertyEdit.active = false;
-        }
-        else if ( ownsPreview && changed )
-        {
-            submitProperty( type, m_propertyEdit.floatValue, 0, UI::OperatorEditorEditPhase::Preview );
-        }
-    };
-
-    const auto editInteger = [&]( const char* label,
-                                 UI::OperatorEditorPropertyCommandType type, int sourceValue, int minimum, int maximum )
-    {
-        bool ownsPreview = m_propertyEdit.active && m_propertyEdit.type == type;
-
-        int preview = ownsPreview ? m_propertyEdit.integerValue : sourceValue;
-        ImGui::SetNextItemWidth( (std::max)( 108.0f, ImGui::GetContentRegionAvail().x * 0.48f ) );
-        const bool changed = ImGui::SliderInt( label, &preview, minimum, maximum );
-
-        if ( ImGui::IsItemActivated() )
-        {
-            m_propertyEdit.active = true;
-            m_propertyEdit.type = type;
-            m_propertyEdit.floatValue = 0.0f;
-            m_propertyEdit.integerValue = sourceValue;
-            ownsPreview = true;
-        }
-
-        if ( ownsPreview && changed )
-        {
-            m_propertyEdit.integerValue = preview;
-        }
-
-        const bool deactivated = ImGui::IsItemDeactivated();
-        const bool commit = ImGui::IsItemDeactivatedAfterEdit();
-
-        if ( ownsPreview && commit )
-        {
-            submitProperty( type, 0.0f, m_propertyEdit.integerValue, UI::OperatorEditorEditPhase::Commit );
-            m_propertyEdit.active = false;
-        }
-        else if ( ownsPreview && deactivated )
-        {
-            m_propertyEdit.active = false;
-        }
-        else if ( ownsPreview && changed )
-        {
-            submitProperty( type, 0.0f, m_propertyEdit.integerValue, UI::OperatorEditorEditPhase::Preview );
-        }
-    };
-
-    const auto editParameterized = [&]( ImGuiEditorParameterizedEditState& state, const char* label, int action,
-                                        int parameter, int setIndex, int bandIndex, float sourceValue, float speed,
-                                        float minimum, float maximum, const char* format, const auto& submitValue )
-    {
-        // Invariant: action plus parameter/set/band is the complete edit
-        // identity. Values stay presentation-local until this exact item is
-        // released, preventing a rebuilt rail from committing stale state.
-        bool ownsPreview = state.active && state.action == action && state.parameter == parameter &&
-                           state.setIndex == setIndex && state.bandIndex == bandIndex;
-
-        float preview = ownsPreview ? state.value : sourceValue;
-        ImGui::SetNextItemWidth( (std::max)( 108.0f, ImGui::GetContentRegionAvail().x * 0.48f ) );
-        const bool changed = ImGui::DragFloat( label, &preview, speed, minimum, maximum, format );
-
-        if ( ImGui::IsItemActivated() )
-        {
-            state = { action, parameter, setIndex, bandIndex, sourceValue, true };
-
-            ownsPreview = true;
-        }
-
-        if ( ownsPreview && changed )
-        {
-            state.value = preview;
-        }
-
-        const bool deactivated = ImGui::IsItemDeactivated();
-        const bool commit = ImGui::IsItemDeactivatedAfterEdit();
-
-        if ( ownsPreview && commit )
-        {
-            submitValue( state.value, UI::OperatorEditorEditPhase::Commit );
-            state.active = false;
-        }
-        else if ( ownsPreview && deactivated )
-        {
-            state.active = false;
-        }
-        else if ( ownsPreview && changed )
-        {
-            submitValue( state.value, UI::OperatorEditorEditPhase::Preview );
-        }
-    };
-
-    const auto launchTracyViewer = [&]()
-    {
-        char launchPath[512] = {};
-
-        const TracyViewerLaunchTarget launchTarget = ResolveTracyViewerLaunchPath( launchPath, sizeof( launchPath ) );
-
-        if ( launchTarget == TracyViewerLaunchTarget::Unavailable )
-        {
-            snprintf( m_tracyLaunchFeedback, sizeof( m_tracyLaunchFeedback ), "%s", "Tracy viewer launcher is unavailable" );
-
-            return;
-        }
-
-        if ( !m_frameInput.tracyInitialized )
-        {
-            // Concept: ImGui emits a value command; the runtime composition
-            // boundary starts Tracy and recreates workers after this frame.
-            // Presentation never receives the profiler lifetime owner.
-            m_frameCommands.requestTracyStandardCapture = true;
-        }
-
-        // Why: the first click is a cold developer action. It may start the
-        // pinned viewer build in a console, but it must never block the frame.
-        const char* launchParameters = launchTarget == TracyViewerLaunchTarget::Viewer ? "-a 127.0.0.1" : nullptr;
-        const HINSTANCE launch = ShellExecuteA( m_window, "open", launchPath, launchParameters, nullptr, SW_SHOWNORMAL );
-
-        const intptr_t launchCode = reinterpret_cast<intptr_t>( launch );
-        snprintf( m_tracyLaunchFeedback, sizeof( m_tracyLaunchFeedback ), "%s",
-                  launchCode > 32 ? ( launchTarget == TracyViewerLaunchTarget::Viewer
-                                          ? ( m_frameInput.tracyInitialized
-                                                  ? "Tracy viewer launched; connection is automatic"
-                                                  : "Starting Standard capture; viewer connection is automatic" )
-                                          : ( m_frameInput.tracyInitialized
-                                                  ? "Building pinned Tracy viewer; it opens automatically when ready"
-                                                  : "Starting Standard capture and building the pinned viewer" ) )
-                                  : "Tracy viewer launch failed; inspect the launcher console" );
-    };
+void ImGuiEditorOwner::BuildEditorMenuAndDockspace( const UI::OperatorEditorSceneView& scene,
+                                                    const UI::OperatorEditorHierarchyView& hierarchy,
+                                                    const UI::OperatorEditorToolView& tools )
+{
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos( viewport->WorkPos );
@@ -1316,11 +1402,11 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     bool selectedEntityLocked = false;
 
-    for ( uint32_t index = 0u; index < view.hierarchy.rowCount; ++index )
+    for ( uint32_t index = 0u; index < hierarchy.rowCount; ++index )
     {
-        if ( view.hierarchy.rows[index].sceneObjectId == view.hierarchy.selectedSceneObjectId )
+        if ( hierarchy.rows[index].sceneObjectId == hierarchy.selectedSceneObjectId )
         {
-            selectedEntityLocked = view.hierarchy.rows[index].locked;
+            selectedEntityLocked = hierarchy.rows[index].locked;
             break;
         }
     }
@@ -1341,13 +1427,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 m_focusSceneFilter = true;
             }
 
-            if ( ImGui::MenuItem( "Save Scene", "Ctrl+S", false, view.scene.canSaveCurrentScene ) )
+            if ( ImGui::MenuItem( "Save Scene", "Ctrl+S", false, scene.canSaveCurrentScene ) )
             {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::SaveCurrentScene } );
+                SubmitSceneCommand( { UI::OperatorEditorSceneCommandType::SaveCurrentScene } );
             }
 
-            if ( !view.scene.canSaveCurrentScene )
+            if ( !scene.canSaveCurrentScene )
             {
                 DrawDisabledReason( "The generated demo has no authored scene path" );
             }
@@ -1356,14 +1441,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
             if ( ImGui::MenuItem( "Reset Current Scene" ) )
             {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
+                SubmitSceneCommand( { UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
             }
 
-            if ( ImGui::MenuItem( "Reset To Authored Defaults", nullptr, false, view.scene.canSaveCurrentScene ) )
+            if ( ImGui::MenuItem( "Reset To Authored Defaults", nullptr, false, scene.canSaveCurrentScene ) )
             {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::ResetSceneDefaults } );
+                SubmitSceneCommand( { UI::OperatorEditorSceneCommandType::ResetSceneDefaults } );
             }
 
             ImGui::EndMenu();
@@ -1371,39 +1454,39 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
         if ( ImGui::BeginMenu( "Edit" ) )
         {
-            if ( ImGui::MenuItem( "Undo", "Ctrl+Z", false, view.tools.editorModeEnabled && view.tools.undoDepth > 0 ) )
+            if ( ImGui::MenuItem( "Undo", "Ctrl+Z", false, tools.editorModeEnabled && tools.undoDepth > 0 ) )
             {
-                submitTool( UI::OperatorEditorToolCommandType::Undo );
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::Undo );
             }
 
-            if ( ImGui::MenuItem( "Redo", "Ctrl+Y", false, view.tools.editorModeEnabled && view.tools.redoDepth > 0 ) )
+            if ( ImGui::MenuItem( "Redo", "Ctrl+Y", false, tools.editorModeEnabled && tools.redoDepth > 0 ) )
             {
-                submitTool( UI::OperatorEditorToolCommandType::Redo );
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::Redo );
             }
 
-            const bool hasSelection = view.hierarchy.selectedSceneObjectId != 0u;
+            const bool hasSelection = hierarchy.selectedSceneObjectId != 0u;
             const bool hasMutableSelection = hasSelection && !selectedEntityLocked;
 
-            if ( ImGui::MenuItem( "Duplicate", "Ctrl+D", false, view.tools.editorModeEnabled && hasMutableSelection ) )
+            if ( ImGui::MenuItem( "Duplicate", "Ctrl+D", false, tools.editorModeEnabled && hasMutableSelection ) )
             {
-                submitTool( UI::OperatorEditorToolCommandType::DuplicateSelection );
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::DuplicateSelection );
             }
 
-            if ( ImGui::MenuItem( "Delete", "Del", false, view.tools.editorModeEnabled && hasMutableSelection ) )
+            if ( ImGui::MenuItem( "Delete", "Del", false, tools.editorModeEnabled && hasMutableSelection ) )
             {
-                submitTool( UI::OperatorEditorToolCommandType::DeleteSelection );
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::DeleteSelection );
             }
 
             ImGui::Separator();
 
-            if ( ImGui::MenuItem( view.tools.editorModeEnabled ? "Exit Edit Mode" : "Enter Edit Mode", "`" ) )
+            if ( ImGui::MenuItem( tools.editorModeEnabled ? "Exit Edit Mode" : "Enter Edit Mode", "`" ) )
             {
-                submitTool( UI::OperatorEditorToolCommandType::ToggleEditorMode );
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::ToggleEditorMode );
             }
 
-            if ( ImGui::MenuItem( "Placement Mode", "E", view.tools.placementModeEnabled, view.tools.editorModeEnabled ) )
+            if ( ImGui::MenuItem( "Placement Mode", "E", tools.placementModeEnabled, tools.editorModeEnabled ) )
             {
-                submitTool( UI::OperatorEditorToolCommandType::TogglePlacementMode );
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::TogglePlacementMode );
             }
 
             ImGui::EndMenu();
@@ -1455,7 +1538,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
             if ( ImGui::MenuItem( "Launch Tracy Viewer" ) )
             {
-                launchTracyViewer();
+                LaunchTracyViewer();
             }
 
             ImGui::TextDisabled( "%s", m_tracyLaunchFeedback );
@@ -1473,8 +1556,8 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         shellEnvelope = ResolveImGuiEditorLayoutEnvelope( static_cast<int>( ImGui::GetContentRegionAvail().x ),
                                                           static_cast<int>( ImGui::GetContentRegionAvail().y ) );
 
-    const char* modeLabel = view.tools.editorModeEnabled ? "EDIT" : "PLAY";
-    const char* placementLabel = view.tools.placementModeEnabled
+    const char* modeLabel = tools.editorModeEnabled ? "EDIT" : "PLAY";
+    const char* placementLabel = tools.placementModeEnabled
                                      ? ( shellEnvelope.compactToolbarLabels ? "PLACE*" : "PLACEMENT ACTIVE" )
                                      : ( shellEnvelope.compactToolbarLabels ? "PLACE" : "PLACEMENT" );
 
@@ -1485,61 +1568,61 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Button( modeLabel ) )
         {
-            submitTool( UI::OperatorEditorToolCommandType::ToggleEditorMode );
+            SubmitToolCommand( UI::OperatorEditorToolCommandType::ToggleEditorMode );
         }
 
         ImGui::SameLine();
-        ImGui::BeginDisabled( !view.tools.editorModeEnabled );
+        ImGui::BeginDisabled( !tools.editorModeEnabled );
 
         if ( ImGui::Button( placementLabel ) )
         {
-            submitTool( UI::OperatorEditorToolCommandType::TogglePlacementMode );
+            SubmitToolCommand( UI::OperatorEditorToolCommandType::TogglePlacementMode );
         }
 
         ImGui::EndDisabled();
         ImGui::SameLine();
-        ImGui::BeginDisabled( !view.tools.editorModeEnabled || view.tools.undoDepth <= 0 );
+        ImGui::BeginDisabled( !tools.editorModeEnabled || tools.undoDepth <= 0 );
 
         if ( ImGui::Button( "UNDO" ) )
         {
-            submitTool( UI::OperatorEditorToolCommandType::Undo );
+            SubmitToolCommand( UI::OperatorEditorToolCommandType::Undo );
         }
 
         ImGui::EndDisabled();
         ImGui::SameLine();
-        ImGui::BeginDisabled( !view.tools.editorModeEnabled || view.tools.redoDepth <= 0 );
+        ImGui::BeginDisabled( !tools.editorModeEnabled || tools.redoDepth <= 0 );
 
         if ( ImGui::Button( "REDO" ) )
         {
-            submitTool( UI::OperatorEditorToolCommandType::Redo );
+            SubmitToolCommand( UI::OperatorEditorToolCommandType::Redo );
         }
 
         ImGui::EndDisabled();
         ImGui::SameLine();
 
-        if ( ImGui::Button( view.tools.crossScenePauseLocked ? "PLAY" : "PAUSE" ) )
+        if ( ImGui::Button( tools.crossScenePauseLocked ? "PLAY" : "PAUSE" ) )
         {
-            submitTool( UI::OperatorEditorToolCommandType::ToggleCrossScenePause );
+            SubmitToolCommand( UI::OperatorEditorToolCommandType::ToggleCrossScenePause );
         }
 
         ImGui::SameLine();
-        ImGui::BeginDisabled( !view.tools.crossScenePauseLocked );
+        ImGui::BeginDisabled( !tools.crossScenePauseLocked );
 
         if ( ImGui::Button( "STEP" ) )
         {
-            submitTool( UI::OperatorEditorToolCommandType::StepPausedScene );
+            SubmitToolCommand( UI::OperatorEditorToolCommandType::StepPausedScene );
         }
 
         ImGui::EndDisabled();
         ImGui::SameLine();
-        ImGui::TextDisabled( "%s  |  frame %d  |  %.2fx", SceneDisplayName( view.scene.sceneName ), view.scene.currentFrame,
-                             view.scene.timeScale );
+        ImGui::TextDisabled( "%s  |  frame %d  |  %.2fx", SceneDisplayName( scene.sceneName ), scene.currentFrame,
+                             scene.timeScale );
 
         ImGui::SameLine();
 
         if ( ImGui::Button( m_frameInput.tracyViewerConnected ? "TRACY CONNECTED" : "OPEN TRACY" ) )
         {
-            launchTracyViewer();
+            LaunchTracyViewer();
         }
     }
 
@@ -1558,1631 +1641,1666 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     ImGui::DockSpace( rootDockId, dockSize );
     ImGui::End();
+}
 
-    if ( m_showSceneAndModes )
+void ImGuiEditorOwner::DrawSceneAndModesPanel( const UI::OperatorEditorSceneView& scene,
+                                               const UI::OperatorEditorToolView& tools )
+{
+    if ( !m_showSceneAndModes )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::SceneAndModes, &m_showSceneAndModes ) )
-        {
-            ImGui::TextUnformatted( "MODE" );
-
-            if ( ImGui::Button( view.tools.editorModeEnabled ? "EDIT ACTIVE" : "ENTER EDIT" ) )
-            {
-                submitTool( UI::OperatorEditorToolCommandType::ToggleEditorMode );
-            }
-
-            ImGui::SameLine();
-            ImGui::BeginDisabled( !view.tools.editorModeEnabled );
-
-            if ( ImGui::Button( view.tools.placementModeEnabled ? "PLACE ACTIVE" : "PLACE" ) )
-            {
-                submitTool( UI::OperatorEditorToolCommandType::TogglePlacementMode );
-            }
-
-            ImGui::EndDisabled();
-            ImGui::SameLine();
-
-            if ( ImGui::Button( view.tools.crossScenePauseLocked ? "RESUME" : "PAUSE" ) )
-            {
-                submitTool( UI::OperatorEditorToolCommandType::ToggleCrossScenePause );
-            }
-
-            ImGui::SameLine();
-            ImGui::BeginDisabled( !view.tools.crossScenePauseLocked );
-
-            if ( ImGui::Button( "STEP" ) )
-            {
-                submitTool( UI::OperatorEditorToolCommandType::StepPausedScene );
-            }
-
-            ImGui::EndDisabled();
-
-            ImGui::SeparatorText( "Scene" );
-            ImGui::Text( "%s%s", SceneDisplayName( view.scene.sceneName ), view.scene.dirty ? "  * modified" : "" );
-
-            if ( m_focusSceneFilter )
-            {
-                ImGui::SetKeyboardFocusHere();
-                m_focusSceneFilter = false;
-            }
-
-            ImGui::InputTextWithHint( "##SceneFilter", "Filter scenes", m_sceneFilter, sizeof( m_sceneFilter ) );
-            const char* activeScene = SceneDisplayName( view.scene.sceneName );
-
-            if ( ImGui::BeginCombo( "Active", activeScene ) )
-            {
-                bool anyVisible = false;
-
-                for ( int index = 0; index < view.scene.sceneCount && view.scene.sceneOptions; ++index )
-                {
-                    const char* label = view.scene.sceneOptions[index] ? view.scene.sceneOptions[index] : "Unnamed scene";
-
-                    if ( !ContainsAsciiInsensitive( label, m_sceneFilter ) )
-                    {
-                        continue;
-                    }
-
-                    anyVisible = true;
-
-                    if ( ImGui::Selectable( label, index == view.scene.currentSceneIndex ) )
-                    {
-                        submit( m_frameCommands.operatorEditor.scene,
-                                UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::SetCurrentSceneIndex,
-                                                                 index } );
-                    }
-                }
-
-                if ( !anyVisible )
-                {
-                    ImGui::TextDisabled( "No matching scenes" );
-                }
-
-                ImGui::EndCombo();
-            }
-
-            ImGui::BeginDisabled( !view.scene.canSaveCurrentScene );
-
-            if ( ImGui::Button( "Save" ) )
-            {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::SaveCurrentScene } );
-            }
-
-            ImGui::EndDisabled();
-
-            if ( !view.scene.canSaveCurrentScene )
-            {
-                DrawDisabledReason( "Generated demo scenes have no authored save path" );
-            }
-
-            ImGui::SameLine();
-
-            if ( ImGui::Button( "Reset Current Scene" ) )
-            {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
-            }
-
-            ImGui::SameLine();
-            ImGui::BeginDisabled( !view.scene.canSaveCurrentScene );
-
-            if ( ImGui::Button( "Defaults" ) )
-            {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::ResetSceneDefaults } );
-            }
-
-            ImGui::EndDisabled();
-            ImGui::SameLine();
-
-            if ( ImGui::Button( "Demo" ) )
-            {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::RequestDemoScene } );
-            }
-
-            ImGui::SeparatorText( "Create" );
-
-            if ( m_focusSceneCreate )
-            {
-                ImGui::SetKeyboardFocusHere();
-                m_focusSceneCreate = false;
-            }
-
-            ImGui::InputTextWithHint( "##NewSceneName", "New scene name", m_newSceneName, sizeof( m_newSceneName ) );
-            ImGui::SameLine();
-            ImGui::BeginDisabled( m_newSceneName[0] == '\0' );
-
-            if ( ImGui::Button( "Create Scene" ) )
-            {
-                UI::OperatorEditorSceneCommand create;
-                create.type = UI::OperatorEditorSceneCommandType::CreateScene;
-                strncpy_s( create.sceneName, m_newSceneName, _TRUNCATE );
-                submit( m_frameCommands.operatorEditor.scene, create );
-            }
-
-            ImGui::EndDisabled();
-            ImGui::TextDisabled( "Undo %d  |  Redo %d  |  %s", view.tools.undoDepth, view.tools.redoDepth,
-                                 view.scene.dirty ? "unsaved edits" : "clean" );
-        }
-
-        ImGui::End();
+        return;
     }
 
-    if ( m_showHierarchy )
+    if ( !ImGui::Begin( ImGuiEditorPanel::SceneAndModes, &m_showSceneAndModes ) )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::Hierarchy, &m_showHierarchy ) )
+        ImGui::End();
+        return;
+    }
+    ImGui::TextUnformatted( "MODE" );
+
+    if ( ImGui::Button( tools.editorModeEnabled ? "EDIT ACTIVE" : "ENTER EDIT" ) )
+    {
+        SubmitToolCommand( UI::OperatorEditorToolCommandType::ToggleEditorMode );
+    }
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled( !tools.editorModeEnabled );
+
+    if ( ImGui::Button( tools.placementModeEnabled ? "PLACE ACTIVE" : "PLACE" ) )
+    {
+        SubmitToolCommand( UI::OperatorEditorToolCommandType::TogglePlacementMode );
+    }
+
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+
+    if ( ImGui::Button( tools.crossScenePauseLocked ? "RESUME" : "PAUSE" ) )
+    {
+        SubmitToolCommand( UI::OperatorEditorToolCommandType::ToggleCrossScenePause );
+    }
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled( !tools.crossScenePauseLocked );
+
+    if ( ImGui::Button( "STEP" ) )
+    {
+        SubmitToolCommand( UI::OperatorEditorToolCommandType::StepPausedScene );
+    }
+
+    ImGui::EndDisabled();
+
+    ImGui::SeparatorText( "Scene" );
+    ImGui::Text( "%s%s", SceneDisplayName( scene.sceneName ), scene.dirty ? "  * modified" : "" );
+
+    if ( m_focusSceneFilter )
+    {
+        ImGui::SetKeyboardFocusHere();
+        m_focusSceneFilter = false;
+    }
+
+    ImGui::InputTextWithHint( "##SceneFilter", "Filter scenes", m_sceneFilter, sizeof( m_sceneFilter ) );
+    const char* activeScene = SceneDisplayName( scene.sceneName );
+
+    if ( ImGui::BeginCombo( "Active", activeScene ) )
+    {
+        bool anyVisible = false;
+
+        for ( int index = 0; index < scene.sceneCount && scene.sceneOptions; ++index )
         {
-            ImGui::Text( "%u / %u scene objects", view.hierarchy.rowCount, view.hierarchy.totalRowCount );
-            ImGui::InputTextWithHint( "##HierarchyFilter", "Filter by name", m_hierarchyFilter,
-                                      sizeof( m_hierarchyFilter ) );
+            const char* label = scene.sceneOptions[index] ? scene.sceneOptions[index] : "Unnamed scene";
 
-            ImGui::Separator();
-            ImGui::BeginChild( "##HierarchyRows", ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ),
-                               ImGuiChildFlags_Borders );
-
-            bool anyVisible = false;
-
-            for ( uint32_t index = 0u; index < view.hierarchy.rowCount; ++index )
+            if ( !ContainsAsciiInsensitive( label, m_sceneFilter ) )
             {
-                const UI::OperatorEditorHierarchyRow& row = view.hierarchy.rows[index];
-
-                if ( !ContainsAsciiInsensitive( row.displayName, m_hierarchyFilter ) )
-                {
-                    continue;
-                }
-
-                anyVisible = true;
-                ImGui::PushID( static_cast<int>( row.sceneObjectId ) );
-
-                if ( ImGui::SmallButton( row.visible ? "eye" : "hidden" ) )
-                {
-                    submitTool( UI::OperatorEditorToolCommandType::SetEntityVisible, row.sceneObjectId, 0, !row.visible );
-                }
-
-                ImGui::SameLine();
-
-                if ( ImGui::SmallButton( row.locked ? "locked" : "open" ) )
-                {
-                    submitTool( UI::OperatorEditorToolCommandType::SetEntityLocked, row.sceneObjectId, 0, !row.locked );
-                }
-
-                ImGui::SameLine();
-                const char* displayName = row.displayName && row.displayName[0] != '\0' ? row.displayName : "Unnamed object";
-
-                if ( ImGui::Selectable( displayName, row.selected, ImGuiSelectableFlags_AllowDoubleClick ) )
-                {
-                    submitTool( UI::OperatorEditorToolCommandType::SelectSceneObject, row.sceneObjectId );
-                }
-
-                if ( ImGui::BeginPopupContextItem( "##HierarchyContext" ) )
-                {
-                    if ( ImGui::MenuItem( "Select" ) )
-                    {
-                        submitTool( UI::OperatorEditorToolCommandType::SelectSceneObject, row.sceneObjectId );
-                    }
-
-                    if ( ImGui::MenuItem( row.visible ? "Hide" : "Show" ) )
-                    {
-                        submitTool( UI::OperatorEditorToolCommandType::SetEntityVisible, row.sceneObjectId, 0,
-                                    !row.visible );
-                    }
-
-                    if ( ImGui::MenuItem( row.locked ? "Unlock" : "Lock" ) )
-                    {
-                        submitTool( UI::OperatorEditorToolCommandType::SetEntityLocked, row.sceneObjectId, 0, !row.locked );
-                    }
-
-                    ImGui::BeginDisabled( row.locked || !row.selected );
-
-                    if ( ImGui::MenuItem( "Duplicate" ) )
-                    {
-                        submitTool( UI::OperatorEditorToolCommandType::DuplicateSelection );
-                    }
-
-                    if ( ImGui::MenuItem( "Delete" ) )
-                    {
-                        submitTool( UI::OperatorEditorToolCommandType::DeleteSelection );
-                    }
-
-                    ImGui::EndDisabled();
-                    ImGui::EndPopup();
-                }
-
-                if ( ImGui::IsItemHovered() && row.assetBacked )
-                {
-                    ImGui::SetTooltip( "Registered asset group root %u, part %d", row.groupRootObjectId,
-                                       row.groupPartIndex );
-                }
-
-                ImGui::PopID();
+                continue;
             }
 
-            if ( !anyVisible )
-            {
-                ImGui::TextDisabled( "No matching scene objects" );
-            }
+            anyVisible = true;
 
-            ImGui::EndChild();
-
-            if ( view.hierarchy.truncated )
+            if ( ImGui::Selectable( label, index == scene.currentSceneIndex ) )
             {
-                ImGui::TextDisabled( "Showing the first %u objects; narrow the filter after simplifying the scene.",
-                                     view.hierarchy.rowCount );
-            }
-            else
-            {
-                ImGui::TextDisabled( "Single selection uses stable scene identity; asset groups select as one root." );
+                SubmitSceneCommand( { UI::OperatorEditorSceneCommandType::SetCurrentSceneIndex, index } );
             }
         }
 
-        ImGui::End();
-    }
-
-    if ( m_showAssetsCreate )
-    {
-        if ( ImGui::Begin( ImGuiEditorPanel::AssetsCreate, &m_showAssetsCreate ) )
+        if ( !anyVisible )
         {
-            ImGui::InputTextWithHint( "##AssetFilter", "Search assets", m_assetFilter, sizeof( m_assetFilter ) );
-            bool placeStatic = view.tools.placeStaticObject;
-
-            if ( ImGui::Checkbox( "Static", &placeStatic ) )
-            {
-                submitTool( UI::OperatorEditorToolCommandType::SetPlaceStatic, 0u, 0, placeStatic );
-            }
-
-            ImGui::SameLine();
-            bool terrainAlign = view.tools.autoTerrainAlign;
-
-            if ( ImGui::Checkbox( "Align to terrain", &terrainAlign ) )
-            {
-                submitTool( UI::OperatorEditorToolCommandType::ToggleTerrainAlign );
-            }
-
-            ImGui::Separator();
-            ImGui::BeginChild( "##AssetRows", ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ), ImGuiChildFlags_Borders );
-
-            const char* previousCategory = nullptr;
-            bool anyVisible = false;
-
-            for ( int objectType = 0; objectType < view.assets.objectTypeCount; ++objectType )
-            {
-                const char* label = UI::EditorTab::ObjectLabel( objectType );
-
-                if ( !ContainsAsciiInsensitive( label, m_assetFilter ) )
-                {
-                    continue;
-                }
-
-                anyVisible = true;
-                const char* category = AssetCategoryForObjectType( objectType );
-
-                if ( previousCategory != category )
-                {
-                    ImGui::SeparatorText( category );
-                    previousCategory = category;
-                }
-
-                const bool registeredUnavailable = objectType >= UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP &&
-                                                   !view.assets.registeredLibraryAvailable;
-
-                ImGui::PushID( objectType );
-                ImGui::BeginDisabled( registeredUnavailable );
-
-                if ( ImGui::Selectable( label, objectType == view.assets.selectedObjectType ) )
-                {
-                    submitTool( UI::OperatorEditorToolCommandType::SetPlacementObjectType, 0u, objectType );
-                }
-
-                if ( ImGui::BeginDragDropSource( ImGuiDragDropFlags_SourceAllowNullID ) )
-                {
-                    ImGui::SetDragDropPayload( "SKORE_ASSET_OBJECT_TYPE", &objectType, sizeof( objectType ) );
-                    ImGui::Text( "Place %s", label );
-                    ImGui::EndDragDropSource();
-                }
-
-                ImGui::EndDisabled();
-
-                if ( registeredUnavailable && ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
-                {
-                    ImGui::SetTooltip( "Registered asset library assetlib.buildings is unavailable" );
-                }
-
-                ImGui::PopID();
-            }
-
-            if ( !anyVisible )
-            {
-                ImGui::TextDisabled( "No matching assets" );
-            }
-
-            ImGui::EndChild();
-            ImGui::TextDisabled( "Click or drag an asset to enter placement mode." );
+            ImGui::TextDisabled( "No matching scenes" );
         }
 
-        ImGui::End();
+        ImGui::EndCombo();
     }
 
+    ImGui::BeginDisabled( !scene.canSaveCurrentScene );
+
+    if ( ImGui::Button( "Save" ) )
+    {
+        SubmitSceneCommand( { UI::OperatorEditorSceneCommandType::SaveCurrentScene } );
+    }
+
+    ImGui::EndDisabled();
+
+    if ( !scene.canSaveCurrentScene )
+    {
+        DrawDisabledReason( "Generated demo scenes have no authored save path" );
+    }
+
+    ImGui::SameLine();
+
+    if ( ImGui::Button( "Reset Current Scene" ) )
+    {
+        SubmitSceneCommand( { UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
+    }
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled( !scene.canSaveCurrentScene );
+
+    if ( ImGui::Button( "Defaults" ) )
+    {
+        SubmitSceneCommand( { UI::OperatorEditorSceneCommandType::ResetSceneDefaults } );
+    }
+
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+
+    if ( ImGui::Button( "Demo" ) )
+    {
+        SubmitSceneCommand( { UI::OperatorEditorSceneCommandType::RequestDemoScene } );
+    }
+
+    ImGui::SeparatorText( "Create" );
+
+    if ( m_focusSceneCreate )
+    {
+        ImGui::SetKeyboardFocusHere();
+        m_focusSceneCreate = false;
+    }
+
+    ImGui::InputTextWithHint( "##NewSceneName", "New scene name", m_newSceneName, sizeof( m_newSceneName ) );
+    ImGui::SameLine();
+    ImGui::BeginDisabled( m_newSceneName[0] == '\0' );
+
+    if ( ImGui::Button( "Create Scene" ) )
+    {
+        UI::OperatorEditorSceneCommand create;
+        create.type = UI::OperatorEditorSceneCommandType::CreateScene;
+        strncpy_s( create.sceneName, m_newSceneName, _TRUNCATE );
+        SubmitSceneCommand( create );
+    }
+
+    ImGui::EndDisabled();
+    ImGui::TextDisabled( "Undo %d  |  Redo %d  |  %s", tools.undoDepth, tools.redoDepth,
+                         scene.dirty ? "unsaved edits" : "clean" );
+    ImGui::End();
+}
+
+void ImGuiEditorOwner::DrawHierarchyPanel( const UI::OperatorEditorHierarchyView& hierarchy )
+{
+    if ( !m_showHierarchy )
+    {
+        return;
+    }
+
+    if ( !ImGui::Begin( ImGuiEditorPanel::Hierarchy, &m_showHierarchy ) )
+    {
+        ImGui::End();
+        return;
+    }
+    ImGui::Text( "%u / %u scene objects", hierarchy.rowCount, hierarchy.totalRowCount );
+    ImGui::InputTextWithHint( "##HierarchyFilter", "Filter by name", m_hierarchyFilter, sizeof( m_hierarchyFilter ) );
+
+    ImGui::Separator();
+    ImGui::BeginChild( "##HierarchyRows", ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ), ImGuiChildFlags_Borders );
+
+    bool anyVisible = false;
+
+    for ( uint32_t index = 0u; index < hierarchy.rowCount; ++index )
+    {
+        const UI::OperatorEditorHierarchyRow& row = hierarchy.rows[index];
+
+        if ( !ContainsAsciiInsensitive( row.displayName, m_hierarchyFilter ) )
+        {
+            continue;
+        }
+
+        anyVisible = true;
+        ImGui::PushID( static_cast<int>( row.sceneObjectId ) );
+
+        if ( ImGui::SmallButton( row.visible ? "eye" : "hidden" ) )
+        {
+            SubmitToolCommand( UI::OperatorEditorToolCommandType::SetEntityVisible, row.sceneObjectId, 0, !row.visible );
+        }
+
+        ImGui::SameLine();
+
+        if ( ImGui::SmallButton( row.locked ? "locked" : "open" ) )
+        {
+            SubmitToolCommand( UI::OperatorEditorToolCommandType::SetEntityLocked, row.sceneObjectId, 0, !row.locked );
+        }
+
+        ImGui::SameLine();
+        const char* displayName = row.displayName && row.displayName[0] != '\0' ? row.displayName : "Unnamed object";
+
+        if ( ImGui::Selectable( displayName, row.selected, ImGuiSelectableFlags_AllowDoubleClick ) )
+        {
+            SubmitToolCommand( UI::OperatorEditorToolCommandType::SelectSceneObject, row.sceneObjectId );
+        }
+
+        if ( ImGui::BeginPopupContextItem( "##HierarchyContext" ) )
+        {
+            if ( ImGui::MenuItem( "Select" ) )
+            {
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::SelectSceneObject, row.sceneObjectId );
+            }
+
+            if ( ImGui::MenuItem( row.visible ? "Hide" : "Show" ) )
+            {
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::SetEntityVisible, row.sceneObjectId, 0, !row.visible );
+            }
+
+            if ( ImGui::MenuItem( row.locked ? "Unlock" : "Lock" ) )
+            {
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::SetEntityLocked, row.sceneObjectId, 0, !row.locked );
+            }
+
+            ImGui::BeginDisabled( row.locked || !row.selected );
+
+            if ( ImGui::MenuItem( "Duplicate" ) )
+            {
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::DuplicateSelection );
+            }
+
+            if ( ImGui::MenuItem( "Delete" ) )
+            {
+                SubmitToolCommand( UI::OperatorEditorToolCommandType::DeleteSelection );
+            }
+
+            ImGui::EndDisabled();
+            ImGui::EndPopup();
+        }
+
+        if ( ImGui::IsItemHovered() && row.assetBacked )
+        {
+            ImGui::SetTooltip( "Registered asset group root %u, part %d", row.groupRootObjectId, row.groupPartIndex );
+        }
+
+        ImGui::PopID();
+    }
+
+    if ( !anyVisible )
+    {
+        ImGui::TextDisabled( "No matching scene objects" );
+    }
+
+    ImGui::EndChild();
+
+    if ( hierarchy.truncated )
+    {
+        ImGui::TextDisabled( "Showing the first %u objects; narrow the filter after simplifying the scene.",
+                             hierarchy.rowCount );
+    }
+    else
+    {
+        ImGui::TextDisabled( "Single selection uses stable scene identity; asset groups select as one root." );
+    }
+    ImGui::End();
+}
+
+void ImGuiEditorOwner::DrawAssetsCreatePanel( const UI::OperatorEditorAssetView& assets,
+                                              const UI::OperatorEditorToolView& tools )
+{
+    if ( !m_showAssetsCreate )
+    {
+        return;
+    }
+
+    if ( !ImGui::Begin( ImGuiEditorPanel::AssetsCreate, &m_showAssetsCreate ) )
+    {
+        ImGui::End();
+        return;
+    }
+    ImGui::InputTextWithHint( "##AssetFilter", "Search assets", m_assetFilter, sizeof( m_assetFilter ) );
+    bool placeStatic = tools.placeStaticObject;
+
+    if ( ImGui::Checkbox( "Static", &placeStatic ) )
+    {
+        SubmitToolCommand( UI::OperatorEditorToolCommandType::SetPlaceStatic, 0u, 0, placeStatic );
+    }
+
+    ImGui::SameLine();
+    bool terrainAlign = tools.autoTerrainAlign;
+
+    if ( ImGui::Checkbox( "Align to terrain", &terrainAlign ) )
+    {
+        SubmitToolCommand( UI::OperatorEditorToolCommandType::ToggleTerrainAlign );
+    }
+
+    ImGui::Separator();
+    ImGui::BeginChild( "##AssetRows", ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ), ImGuiChildFlags_Borders );
+
+    const char* previousCategory = nullptr;
+    bool anyVisible = false;
+
+    for ( int objectType = 0; objectType < assets.objectTypeCount; ++objectType )
+    {
+        const char* label = UI::EditorTab::ObjectLabel( objectType );
+
+        if ( !ContainsAsciiInsensitive( label, m_assetFilter ) )
+        {
+            continue;
+        }
+
+        anyVisible = true;
+        const char* category = AssetCategoryForObjectType( objectType );
+
+        if ( previousCategory != category )
+        {
+            ImGui::SeparatorText( category );
+            previousCategory = category;
+        }
+
+        const bool registeredUnavailable = objectType >= UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP &&
+                                           !assets.registeredLibraryAvailable;
+
+        ImGui::PushID( objectType );
+        ImGui::BeginDisabled( registeredUnavailable );
+
+        if ( ImGui::Selectable( label, objectType == assets.selectedObjectType ) )
+        {
+            SubmitToolCommand( UI::OperatorEditorToolCommandType::SetPlacementObjectType, 0u, objectType );
+        }
+
+        if ( ImGui::BeginDragDropSource( ImGuiDragDropFlags_SourceAllowNullID ) )
+        {
+            ImGui::SetDragDropPayload( "SKORE_ASSET_OBJECT_TYPE", &objectType, sizeof( objectType ) );
+            ImGui::Text( "Place %s", label );
+            ImGui::EndDragDropSource();
+        }
+
+        ImGui::EndDisabled();
+
+        if ( registeredUnavailable && ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
+        {
+            ImGui::SetTooltip( "Registered asset library assetlib.buildings is unavailable" );
+        }
+
+        ImGui::PopID();
+    }
+
+    if ( !anyVisible )
+    {
+        ImGui::TextDisabled( "No matching assets" );
+    }
+
+    ImGui::EndChild();
+    ImGui::TextDisabled( "Click or drag an asset to enter placement mode." );
+    ImGui::End();
+}
+
+void ImGuiEditorOwner::DrawGameViewportPanel( const UI::OperatorEditorRenderingView& rendering,
+                                              const UI::OperatorEditorViewportView& viewport )
+{
     bool gameViewportHovered = false;
     bool gameViewportFocused = false;
     m_gameViewportRect = {};
 
-    if ( m_showGameViewport )
+    if ( !m_showGameViewport )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::GameViewport, &m_showGameViewport ) )
+        SetGameViewportInputState( false, false );
+        return;
+    }
+
+    if ( !ImGui::Begin( ImGuiEditorPanel::GameViewport, &m_showGameViewport ) )
+    {
+        ImGui::End();
+        SetGameViewportInputState( false, false );
+        return;
+    }
+    gameViewportFocused = ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows );
+    ImGui::TextDisabled( "Camera" );
+    ImGui::SameLine();
+    ImGui::TextUnformatted( viewport.cameraModeLabel ? viewport.cameraModeLabel : "unknown" );
+    ImGui::SameLine();
+    ImGui::TextDisabled( "| Gizmo" );
+    ImGui::SameLine();
+    ImGui::TextUnformatted( viewport.gizmoModeLabel ? viewport.gizmoModeLabel : "translate" );
+    ImGui::SameLine();
+    ImGui::TextDisabled( "| Snap free" );
+    ImGui::SameLine();
+
+    if ( ImGui::SmallButton( rendering.vsyncEnabled ? "VSync on" : "VSync off" ) )
+    {
+        SubmitRenderingCommand( { UI::OperatorEditorRenderingCommandType::ToggleVsync } );
+    }
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled();
+    ImGui::SmallButton( "Pop-out: single window" );
+    ImGui::EndDisabled();
+    DrawDisabledReason( "Native platform viewports are disabled; the editor owns one application window" );
+
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    const ImVec2 availableMin = ImGui::GetCursorScreenPos();
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    drawList->AddRectFilled( availableMin, ImVec2( availableMin.x + available.x, availableMin.y + available.y ),
+                             IM_COL32( 8, 10, 14, 255 ) );
+
+    const uint64_t textureId = m_renderer ? m_renderer->GameViewportTextureId() : 0u;
+    const int sourceWidth = m_renderer ? m_renderer->GameViewportWidth() : 0;
+    const int sourceHeight = m_renderer ? m_renderer->GameViewportHeight() : 0;
+
+    // Why: fitting the persistent full-client copy here keeps dock
+    // movement CPU-only. Picking receives the same value rectangle, so
+    // image pixels, world outlines, placement previews, and input agree.
+    m_gameViewportRect = ResolveImGuiGameViewportRect( availableMin.x, availableMin.y, available.x, available.y, sourceWidth,
+                                                       sourceHeight, m_frameInput.dpiScale );
+
+    if ( textureId != 0u && m_gameViewportRect.valid )
+    {
+        // Lifetime: textureId names the owner's stable descriptor row;
+        // the resource behind it may change only after a drained
+        // swap-chain resize, never while this draw list is in flight.
+        const ImVec2 imageMin( m_gameViewportRect.imageMinX, m_gameViewportRect.imageMinY );
+        const ImVec2 imageMax( imageMin.x + m_gameViewportRect.imageWidth, imageMin.y + m_gameViewportRect.imageHeight );
+        ImGui::SetCursorScreenPos( imageMin );
+        ImGui::InvisibleButton( "##GameViewportImage",
+                                ImVec2( m_gameViewportRect.imageWidth, m_gameViewportRect.imageHeight ) );
+
+        gameViewportHovered = ImGui::IsItemHovered();
+        drawList->AddImage( ImTextureRef( static_cast<ImTextureID>( textureId ) ), imageMin, imageMax );
+
+        if ( ImGui::BeginDragDropTarget() )
         {
-            gameViewportFocused = ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows );
-            ImGui::TextDisabled( "Camera" );
-            ImGui::SameLine();
-            ImGui::TextUnformatted( view.viewport.cameraModeLabel ? view.viewport.cameraModeLabel : "unknown" );
-            ImGui::SameLine();
-            ImGui::TextDisabled( "| Gizmo" );
-            ImGui::SameLine();
-            ImGui::TextUnformatted( view.viewport.gizmoModeLabel ? view.viewport.gizmoModeLabel : "translate" );
-            ImGui::SameLine();
-            ImGui::TextDisabled( "| Snap free" );
-            ImGui::SameLine();
-
-            if ( ImGui::SmallButton( view.rendering.vsyncEnabled ? "VSync on" : "VSync off" ) )
+            if ( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "SKORE_ASSET_OBJECT_TYPE" ) )
             {
-                submit( m_frameCommands.operatorEditor.rendering,
-                        UI::OperatorEditorRenderingCommand { UI::OperatorEditorRenderingCommandType::ToggleVsync } );
-            }
-
-            ImGui::SameLine();
-            ImGui::BeginDisabled();
-            ImGui::SmallButton( "Pop-out: single window" );
-            ImGui::EndDisabled();
-            DrawDisabledReason( "Native platform viewports are disabled; the editor owns one application window" );
-
-            const ImVec2 available = ImGui::GetContentRegionAvail();
-            const ImVec2 availableMin = ImGui::GetCursorScreenPos();
-            ImDrawList* drawList = ImGui::GetWindowDrawList();
-            drawList->AddRectFilled( availableMin, ImVec2( availableMin.x + available.x, availableMin.y + available.y ),
-                                     IM_COL32( 8, 10, 14, 255 ) );
-
-            const uint64_t textureId = m_renderer ? m_renderer->GameViewportTextureId() : 0u;
-            const int sourceWidth = m_renderer ? m_renderer->GameViewportWidth() : 0;
-            const int sourceHeight = m_renderer ? m_renderer->GameViewportHeight() : 0;
-
-            // Why: fitting the persistent full-client copy here keeps dock
-            // movement CPU-only. Picking receives the same value rectangle, so
-            // image pixels, world outlines, placement previews, and input agree.
-            m_gameViewportRect = ResolveImGuiGameViewportRect( availableMin.x, availableMin.y, available.x, available.y,
-                                                               sourceWidth, sourceHeight, m_frameInput.dpiScale );
-
-            if ( textureId != 0u && m_gameViewportRect.valid )
-            {
-                // Lifetime: textureId names the owner's stable descriptor row;
-                // the resource behind it may change only after a drained
-                // swap-chain resize, never while this draw list is in flight.
-                const ImVec2 imageMin( m_gameViewportRect.imageMinX, m_gameViewportRect.imageMinY );
-                const ImVec2 imageMax( imageMin.x + m_gameViewportRect.imageWidth,
-                                       imageMin.y + m_gameViewportRect.imageHeight );
-                ImGui::SetCursorScreenPos( imageMin );
-                ImGui::InvisibleButton( "##GameViewportImage",
-                                        ImVec2( m_gameViewportRect.imageWidth, m_gameViewportRect.imageHeight ) );
-
-                gameViewportHovered = ImGui::IsItemHovered();
-                drawList->AddImage( ImTextureRef( static_cast<ImTextureID>( textureId ) ), imageMin, imageMax );
-
-                if ( ImGui::BeginDragDropTarget() )
+                if ( payload->DataSize == sizeof( int ) )
                 {
-                    if ( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "SKORE_ASSET_OBJECT_TYPE" ) )
-                    {
-                        if ( payload->DataSize == sizeof( int ) )
-                        {
-                            submitTool( UI::OperatorEditorToolCommandType::SetPlacementObjectType, 0u,
-                                        *static_cast<const int*>( payload->Data ) );
-                        }
-                    }
-
-                    ImGui::EndDragDropTarget();
+                    SubmitToolCommand( UI::OperatorEditorToolCommandType::SetPlacementObjectType, 0u,
+                                       *static_cast<const int*>( payload->Data ) );
                 }
             }
-            else
-            {
-                ImGui::SetCursorScreenPos( ImVec2( availableMin.x + 18.0f, availableMin.y + 18.0f ) );
-                ImGui::TextDisabled( "DX12 game viewport image unavailable" );
-            }
-        }
 
-        ImGui::End();
+            ImGui::EndDragDropTarget();
+        }
     }
+    else
+    {
+        ImGui::SetCursorScreenPos( ImVec2( availableMin.x + 18.0f, availableMin.y + 18.0f ) );
+        ImGui::TextDisabled( "DX12 game viewport image unavailable" );
+    }
+    ImGui::End();
 
     SetGameViewportInputState( gameViewportHovered, gameViewportFocused );
+}
 
-    if ( m_showInspector )
+void ImGuiEditorOwner::DrawInspectorPanel( const UI::OperatorEditorInspectorView& inspector )
+{
+    if ( !m_showInspector )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::Inspector, &m_showInspector ) )
-        {
-            const UI::OperatorEditorInspectorView& inspector = view.inspector;
+        return;
+    }
 
-            if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::None )
+    if ( !ImGui::Begin( ImGuiEditorPanel::Inspector, &m_showInspector ) )
+    {
+        ImGui::End();
+        return;
+    }
+    if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::None )
+    {
+        ImGui::TextDisabled( "No selection" );
+        ImGui::Separator();
+        ImGui::TextWrapped( "Select one scene object in the hierarchy or game viewport to inspect it." );
+    }
+    else if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::Stale )
+    {
+        ImGui::TextColored( ImVec4( 1.0f, 0.55f, 0.28f, 1.0f ), "Selection is stale" );
+        ImGui::TextWrapped( "The selected stable identity no longer resolves in the current scene." );
+    }
+    else if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::Mixed )
+    {
+        ImGui::Text( "%u selected", inspector.selectionCount );
+        ImGui::SeparatorText( "Transform" );
+        ImGui::TextDisabled( "Mixed values" );
+        ImGui::SeparatorText( "Identity" );
+        ImGui::TextDisabled( "Mixed stable identities" );
+        ImGui::SeparatorText( "Render / Physics" );
+        ImGui::TextDisabled( "Mixed values" );
+    }
+    else
+    {
+        ImGui::Text( "%s",
+                     inspector.displayName && inspector.displayName[0] != '\0' ? inspector.displayName : "Unnamed object" );
+
+        ImGui::SameLine();
+        ImGui::TextDisabled( "#%u", inspector.sceneObjectId );
+        ImGui::TextDisabled( "%s | %s", inspector.visible ? "visible" : "hidden", inspector.locked ? "locked" : "editable" );
+
+        if ( ImGui::CollapsingHeader( "Transform", ImGuiTreeNodeFlags_DefaultOpen ) )
+        {
+            ImGui::Text( "Position  %.3f  %.3f  %.3f", inspector.position[0], inspector.position[1], inspector.position[2] );
+
+            ImGui::Text( "Rotation q  %.3f  %.3f  %.3f  %.3f", inspector.orientation[0], inspector.orientation[1],
+                         inspector.orientation[2], inspector.orientation[3] );
+
+            ImGui::TextDisabled( "Author with the viewport translate/rotate/scale gizmos." );
+        }
+
+        if ( ImGui::CollapsingHeader( "Identity", ImGuiTreeNodeFlags_DefaultOpen ) )
+        {
+            ImGui::Text( "Scene object  %u", inspector.sceneObjectId );
+            ImGui::Text( "Behavior group  %d  |  part %d", inspector.behaviorGroupKind, inspector.behaviorPartIndex );
+
+            ImGui::Text( "Source  %s", inspector.assetBacked ? "registered asset" : "standalone primitive" );
+        }
+
+        if ( ImGui::CollapsingHeader( "Render", ImGuiTreeNodeFlags_DefaultOpen ) )
+        {
+            ImGui::Text( "Material  %s", inspector.renderMaterialName && inspector.renderMaterialName[0] != '\0'
+                                             ? inspector.renderMaterialName
+                                             : "default" );
+
+            ImGui::Text( "RGBA  %.2f  %.2f  %.2f  %.2f", inspector.baseColor[0], inspector.baseColor[1],
+                         inspector.baseColor[2], inspector.baseColor[3] );
+
+            ImGui::Text( "Rough %.2f  Metal %.2f  Spec %.2f", inspector.roughness, inspector.metallic, inspector.specular );
+        }
+
+        if ( ImGui::CollapsingHeader( "Physics", ImGuiTreeNodeFlags_DefaultOpen ) )
+        {
+            ImGui::Text( "%s | %s", inspector.fixed ? "fixed" : "dynamic", inspector.sleeping ? "sleeping" : "awake" );
+
+            ImGui::Text( "Mass %.3f  Volume %.3f  Radius %.3f", inspector.mass, inspector.volume, inspector.boundingRadius );
+
+            ImGui::Text( "Friction %.3f  Restitution %.3f  Drag %.3f", inspector.friction, inspector.restitution,
+                         inspector.dragCoefficient );
+
+            ImGui::Text( "Linear v  %.3f  %.3f  %.3f", inspector.linearVelocity[0], inspector.linearVelocity[1],
+                         inspector.linearVelocity[2] );
+
+            ImGui::Text( "Angular v  %.3f  %.3f  %.3f", inspector.angularVelocity[0], inspector.angularVelocity[1],
+                         inspector.angularVelocity[2] );
+        }
+
+        if ( ImGui::CollapsingHeader( "Object-specific" ) )
+        {
+            static constexpr const char* shapeNames[] = { "sphere", "box", "convex hull" };
+            const char* shape = inspector.colliderShapeKind >= 0 && inspector.colliderShapeKind < 3
+                                    ? shapeNames[inspector.colliderShapeKind]
+                                    : "unknown";
+
+            ImGui::Text( "Shape  %s", shape );
+
+            if ( inspector.assetBacked )
             {
-                ImGui::TextDisabled( "No selection" );
-                ImGui::Separator();
-                ImGui::TextWrapped( "Select one scene object in the hierarchy or game viewport to inspect it." );
-            }
-            else if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::Stale )
-            {
-                ImGui::TextColored( ImVec4( 1.0f, 0.55f, 0.28f, 1.0f ), "Selection is stale" );
-                ImGui::TextWrapped( "The selected stable identity no longer resolves in the current scene." );
-            }
-            else if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::Mixed )
-            {
-                ImGui::Text( "%u selected", inspector.selectionCount );
-                ImGui::SeparatorText( "Transform" );
-                ImGui::TextDisabled( "Mixed values" );
-                ImGui::SeparatorText( "Identity" );
-                ImGui::TextDisabled( "Mixed stable identities" );
-                ImGui::SeparatorText( "Render / Physics" );
-                ImGui::TextDisabled( "Mixed values" );
+                ImGui::Text( "Asset  %s",
+                             inspector.assetName && inspector.assetName[0] != '\0' ? inspector.assetName : "unnamed" );
+
+                ImGui::Text( "Instance  %s", inspector.assetInstanceName && inspector.assetInstanceName[0] != '\0'
+                                                 ? inspector.assetInstanceName
+                                                 : "unnamed" );
+
+                ImGui::Text( "Part  %s", inspector.assetPartName && inspector.assetPartName[0] != '\0'
+                                             ? inspector.assetPartName
+                                             : "unnamed" );
             }
             else
             {
-                ImGui::Text( "%s", inspector.displayName && inspector.displayName[0] != '\0' ? inspector.displayName
-                                                                                             : "Unnamed object" );
-
-                ImGui::SameLine();
-                ImGui::TextDisabled( "#%u", inspector.sceneObjectId );
-                ImGui::TextDisabled( "%s | %s", inspector.visible ? "visible" : "hidden",
-                                     inspector.locked ? "locked" : "editable" );
-
-                if ( ImGui::CollapsingHeader( "Transform", ImGuiTreeNodeFlags_DefaultOpen ) )
-                {
-                    ImGui::Text( "Position  %.3f  %.3f  %.3f", inspector.position[0], inspector.position[1],
-                                 inspector.position[2] );
-
-                    ImGui::Text( "Rotation q  %.3f  %.3f  %.3f  %.3f", inspector.orientation[0], inspector.orientation[1],
-                                 inspector.orientation[2], inspector.orientation[3] );
-
-                    ImGui::TextDisabled( "Author with the viewport translate/rotate/scale gizmos." );
-                }
-
-                if ( ImGui::CollapsingHeader( "Identity", ImGuiTreeNodeFlags_DefaultOpen ) )
-                {
-                    ImGui::Text( "Scene object  %u", inspector.sceneObjectId );
-                    ImGui::Text( "Behavior group  %d  |  part %d", inspector.behaviorGroupKind,
-                                 inspector.behaviorPartIndex );
-
-                    ImGui::Text( "Source  %s", inspector.assetBacked ? "registered asset" : "standalone primitive" );
-                }
-
-                if ( ImGui::CollapsingHeader( "Render", ImGuiTreeNodeFlags_DefaultOpen ) )
-                {
-                    ImGui::Text( "Material  %s", inspector.renderMaterialName && inspector.renderMaterialName[0] != '\0'
-                                                     ? inspector.renderMaterialName
-                                                     : "default" );
-
-                    ImGui::Text( "RGBA  %.2f  %.2f  %.2f  %.2f", inspector.baseColor[0], inspector.baseColor[1],
-                                 inspector.baseColor[2], inspector.baseColor[3] );
-
-                    ImGui::Text( "Rough %.2f  Metal %.2f  Spec %.2f", inspector.roughness, inspector.metallic,
-                                 inspector.specular );
-                }
-
-                if ( ImGui::CollapsingHeader( "Physics", ImGuiTreeNodeFlags_DefaultOpen ) )
-                {
-                    ImGui::Text( "%s | %s", inspector.fixed ? "fixed" : "dynamic",
-                                 inspector.sleeping ? "sleeping" : "awake" );
-
-                    ImGui::Text( "Mass %.3f  Volume %.3f  Radius %.3f", inspector.mass, inspector.volume,
-                                 inspector.boundingRadius );
-
-                    ImGui::Text( "Friction %.3f  Restitution %.3f  Drag %.3f", inspector.friction, inspector.restitution,
-                                 inspector.dragCoefficient );
-
-                    ImGui::Text( "Linear v  %.3f  %.3f  %.3f", inspector.linearVelocity[0], inspector.linearVelocity[1],
-                                 inspector.linearVelocity[2] );
-
-                    ImGui::Text( "Angular v  %.3f  %.3f  %.3f", inspector.angularVelocity[0], inspector.angularVelocity[1],
-                                 inspector.angularVelocity[2] );
-                }
-
-                if ( ImGui::CollapsingHeader( "Object-specific" ) )
-                {
-                    static constexpr const char* shapeNames[] = { "sphere", "box", "convex hull" };
-                    const char* shape = inspector.colliderShapeKind >= 0 && inspector.colliderShapeKind < 3
-                                            ? shapeNames[inspector.colliderShapeKind]
-                                            : "unknown";
-
-                    ImGui::Text( "Shape  %s", shape );
-
-                    if ( inspector.assetBacked )
-                    {
-                        ImGui::Text( "Asset  %s", inspector.assetName && inspector.assetName[0] != '\0' ? inspector.assetName
-                                                                                                        : "unnamed" );
-
-                        ImGui::Text( "Instance  %s", inspector.assetInstanceName && inspector.assetInstanceName[0] != '\0'
-                                                         ? inspector.assetInstanceName
-                                                         : "unnamed" );
-
-                        ImGui::Text( "Part  %s", inspector.assetPartName && inspector.assetPartName[0] != '\0'
-                                                     ? inspector.assetPartName
-                                                     : "unnamed" );
-                    }
-                    else
-                    {
-                        ImGui::TextDisabled( "No registered asset affiliation" );
-                    }
-                }
+                ImGui::TextDisabled( "No registered asset affiliation" );
             }
         }
-
-        ImGui::End();
     }
+    ImGui::End();
+}
 
-    if ( m_showWorldSimulation )
+void ImGuiEditorOwner::DrawWorldSimulationPanel( const UI::OperatorEditorWorldView& world )
+{
+    if ( !m_showWorldSimulation )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::WorldSimulation, &m_showWorldSimulation ) )
-        {
-            const UI::OperatorEditorWorldView& world = view.world;
-            ImGui::TextDisabled( "Preview locally; commit once on release." );
-
-            if ( m_propertyEdit.active )
-            {
-                ImGui::SameLine();
-                ImGui::TextColored( ImVec4( 0.35f, 0.78f, 1.0f, 1.0f ), "PREVIEW" );
-            }
-
-            if ( ImGui::CollapsingHeader( "Simulation", ImGuiTreeNodeFlags_DefaultOpen ) )
-            {
-                bool captureLockstepRequested = world.fixedStep;
-
-                if ( ImGui::Checkbox( "Capture lockstep", &captureLockstepRequested ) )
-                {
-                    submitProperty( UI::OperatorEditorPropertyCommandType::ToggleFixedStep );
-                }
-
-                ImGui::SameLine();
-                bool sleepEnabled = world.physicsSleepEnabled;
-
-                if ( ImGui::Checkbox( "Sleep policy", &sleepEnabled ) )
-                {
-                    submitProperty( UI::OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy );
-                }
-
-                editFloat( "Time scale", UI::OperatorEditorPropertyCommandType::SetTimeScale, world.timeScale,
-                           UI::OperatorControlPolicy::UI_TIME_SCALE_STEP, UI::OperatorControlPolicy::UI_TIME_SCALE_MIN,
-                           UI::OperatorControlPolicy::UI_TIME_SCALE_MAX, "%.2fx" );
-            }
-
-            if ( ImGui::CollapsingHeader( "Population / seed", ImGuiTreeNodeFlags_DefaultOpen ) )
-            {
-                const int capacity = (std::max)( 0, world.modelCapacity );
-                editInteger( "Population", UI::OperatorEditorPropertyCommandType::SetModelCount, world.modelCount,
-                             UI::OperatorControlPolicy::UI_MODEL_COUNT_MIN, capacity );
-
-                editInteger( "Seed", UI::OperatorEditorPropertyCommandType::SetSeed, world.rngSeed,
-                             UI::OperatorControlPolicy::UI_SEED_MIN, UI::OperatorControlPolicy::UI_SEED_MAX );
-
-                editInteger( "Solver balls", UI::OperatorEditorPropertyCommandType::SetSolverBallCount,
-                             world.solverBallCount, UI::OperatorControlPolicy::UI_SOLVER_COUNT_MIN,
-                             (std::max)( 0, capacity - world.solverBoxCount ) );
-
-                editInteger( "Solver boxes", UI::OperatorEditorPropertyCommandType::SetSolverBoxCount, world.solverBoxCount,
-                             UI::OperatorControlPolicy::UI_SOLVER_COUNT_MIN,
-                             (std::max)( 0, capacity - world.solverBallCount ) );
-
-                ImGui::TextDisabled( "Population controls rebuild generated scene topology on commit." );
-            }
-
-            if ( ImGui::CollapsingHeader( "World forces / fluid", ImGuiTreeNodeFlags_DefaultOpen ) )
-            {
-                editFloat( "Gravity", UI::OperatorEditorPropertyCommandType::SetWorldGravity, world.gravity,
-                           UI::OperatorControlPolicy::UI_WORLD_GRAVITY_STEP,
-                           -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MAX,
-                           -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MIN, "%.2f m/s^2" );
-
-                editFloat( "Fluid surface", UI::OperatorEditorPropertyCommandType::SetWorldFluidHeight, world.fluidHeight,
-                           UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_STEP,
-                           UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MIN,
-                           UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MAX, "%.1f m" );
-
-                editFloat( "Fluid density", UI::OperatorEditorPropertyCommandType::SetWorldFluidDensity, world.fluidDensity,
-                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_STEP,
-                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MIN,
-                           UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MAX, "%.2f kg/m3" );
-            }
-
-            if ( ImGui::CollapsingHeader( "Contact friction", ImGuiTreeNodeFlags_DefaultOpen ) )
-            {
-                editFloat( "Terrain friction", UI::OperatorEditorPropertyCommandType::SetTerrainFriction,
-                           world.terrainFriction, UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP,
-                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
-                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX, "%.2f" );
-
-                editFloat( "Object friction", UI::OperatorEditorPropertyCommandType::SetObjectFriction, world.objectFriction,
-                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP,
-                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
-                           UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX, "%.2f" );
-
-                editFloat( "Rolling friction", UI::OperatorEditorPropertyCommandType::SetRollingFriction,
-                           world.rollingFriction, UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_STEP,
-                           UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MIN,
-                           UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MAX, "%.3f" );
-            }
-
-            if ( ImGui::CollapsingHeader( "Tornado / environment force", ImGuiTreeNodeFlags_DefaultOpen ) )
-            {
-                bool tornadoEnabled = world.tornadoEnabled;
-
-                if ( ImGui::Checkbox( "Enabled", &tornadoEnabled ) )
-                {
-                    submitProperty( UI::OperatorEditorPropertyCommandType::ToggleTornado );
-                }
-
-                editFloat( "Radius", UI::OperatorEditorPropertyCommandType::SetTornadoRadius, world.tornadoRadius,
-                           UI::OperatorControlPolicy::UI_TORNADO_RADIUS_STEP,
-                           UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MIN,
-                           UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MAX, "%.1f m" );
-
-                editFloat( "Height", UI::OperatorEditorPropertyCommandType::SetTornadoHeight, world.tornadoHeight,
-                           UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_STEP,
-                           UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MIN,
-                           UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MAX, "%.1f m" );
-
-                editFloat( "Inward", UI::OperatorEditorPropertyCommandType::SetTornadoInward, world.tornadoInward,
-                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_STEP,
-                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_MIN,
-                           UI::OperatorControlPolicy::UI_TORNADO_INWARD_MAX, "%.1f" );
-
-                editFloat( "Swirl", UI::OperatorEditorPropertyCommandType::SetTornadoSwirl, world.tornadoSwirl,
-                           UI::OperatorControlPolicy::UI_TORNADO_SWIRL_STEP, UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MIN,
-                           UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MAX, "%.1f" );
-
-                editFloat( "Lift", UI::OperatorEditorPropertyCommandType::SetTornadoLift, world.tornadoLift,
-                           UI::OperatorControlPolicy::UI_TORNADO_LIFT_STEP, UI::OperatorControlPolicy::UI_TORNADO_LIFT_MIN,
-                           UI::OperatorControlPolicy::UI_TORNADO_LIFT_MAX, "%.1f" );
-            }
-        }
-
-        ImGui::End();
+        return;
     }
 
-    if ( m_showRendering )
+    if ( !ImGui::Begin( ImGuiEditorPanel::WorldSimulation, &m_showWorldSimulation ) )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::Rendering, &m_showRendering ) )
-        {
-            if ( ImGui::BeginTabBar( "##RenderingTabs" ) )
-            {
-                if ( ImGui::BeginTabItem( "Rendering" ) )
-                {
-                    const auto submitRendering = [&]( UI::OperatorEditorRenderingCommandType type,
-                                                     int parameter = -1, float value = 0.0f,
-                             UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
-                    {
-                        submit( m_frameCommands.operatorEditor.rendering,
-                                UI::OperatorEditorRenderingCommand { type, parameter, value, phase } );
-                    };
-
-                    bool vsync = view.rendering.vsyncEnabled;
-
-                    if ( ImGui::Checkbox( "VSync", &vsync ) )
-                    {
-                        submitRendering( UI::OperatorEditorRenderingCommandType::ToggleVsync );
-                    }
-
-                    ImGui::SameLine();
-                    bool cinematic = view.rendering.cinematicRendering;
-
-                    if ( ImGui::Checkbox( "Cinematic", &cinematic ) )
-                    {
-                        submitRendering( UI::OperatorEditorRenderingCommandType::ToggleCinematicRendering );
-                    }
-
-                    ImGui::SameLine();
-
-                    if ( ImGui::SmallButton( "Save profile" ) )
-                    {
-                        submitRendering( cinematic ? UI::OperatorEditorRenderingCommandType::SaveSkyDefaults
-                                                   : UI::OperatorEditorRenderingCommandType::SaveOrdinaryDefaults );
-                    }
-
-                    ImGui::TextDisabled( "%s profile | preview locally, commit once on release",
-                                         cinematic ? "cinematic" : "ordinary" );
-
-                    // Concept: the shared section catalog changes presentation
-                    // topology only. Ordinary and cinematic values still travel
-                    // through their existing domain enums and runtime owners.
-                    for ( int rawSection = static_cast<int>( UI::UIRenderAuthoringSection::Lighting );
-                          rawSection <= static_cast<int>( UI::UIRenderAuthoringSection::PredictionPaths ); ++rawSection )
-                    {
-                        const UI::UIRenderAuthoringSection section = static_cast<UI::UIRenderAuthoringSection>( rawSection );
-
-                        const bool commonSection = section == UI::UIRenderAuthoringSection::Lighting ||
-                                                   section == UI::UIRenderAuthoringSection::Environment;
-
-                        const ImGuiTreeNodeFlags flags = commonSection ? ImGuiTreeNodeFlags_DefaultOpen : 0;
-
-                        if ( !ImGui::CollapsingHeader( UI::UIRenderAuthoringSectionName( section ), flags ) )
-                        {
-                            continue;
-                        }
-
-                        if ( section == UI::UIRenderAuthoringSection::Shadows )
-                        {
-                            bool shadows = view.rendering.shadowsEnabled;
-
-                            if ( ImGui::Checkbox( "Enabled##CanonicalShadows", &shadows ) )
-                            {
-                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleShadows );
-                            }
-                        }
-                        else if ( section == UI::UIRenderAuthoringSection::Water )
-                        {
-                            bool hidden = view.rendering.waterHidden;
-
-                            if ( ImGui::Checkbox( "Hidden", &hidden ) )
-                            {
-                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleWaterHidden );
-                            }
-
-                            ImGui::SameLine();
-                            bool frozen = view.rendering.waterFrozen;
-
-                            if ( ImGui::Checkbox( "Freeze", &frozen ) )
-                            {
-                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleWaterFreeze );
-                            }
-
-                            ImGui::SameLine();
-                            bool flat = view.rendering.waterFlat;
-
-                            if ( ImGui::Checkbox( "Flat", &flat ) )
-                            {
-                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleWaterFlat );
-                            }
-
-                            if ( ImGui::Button( view.rendering.waterReflectionMode == 0
-                                                    ? "Reflection: raster"
-                                                    : ( view.rendering.waterReflectionMode == 1 ? "Reflection: DXR"
-                                                                                                : "Reflection: off" ) ) )
-                            {
-                                submitRendering( UI::OperatorEditorRenderingCommandType::CycleWaterReflection );
-                            }
-                        }
-                        else if ( section == UI::UIRenderAuthoringSection::TerrainMaterials )
-                        {
-                            bool terrainHidden = view.rendering.terrainHidden;
-
-                            if ( ImGui::Checkbox( "Terrain hidden", &terrainHidden ) )
-                            {
-                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleTerrainHidden );
-                            }
-                        }
-
-                        ImGui::PushID( rawSection );
-                        ImGui::SeparatorText( "Ordinary" );
-
-                        for ( const UI::RenderSliderSpec& spec : UI::kRenderSliderSpecs )
-                        {
-                            if ( spec.section != section )
-                            {
-                                continue;
-                            }
-
-                            const int parameter = static_cast<int>( spec.param );
-                            ImGui::PushID( parameter );
-                            editParameterized( m_renderingEdit, spec.label,
-                                               static_cast<int>( UI::OperatorEditorRenderingCommandType::SetOrdinaryParameter ),
-                                               parameter, -1, -1, view.rendering.ordinaryParameters[parameter], spec.step,
-                                               spec.minValue, spec.maxValue, spec.valueFormat,
-                                               [&]( float value, UI::OperatorEditorEditPhase phase )
-                                               {
-                                                   submitRendering( UI::OperatorEditorRenderingCommandType::
-                                                                        SetOrdinaryParameter,
-                                                                    parameter, value, phase );
-                                               } );
-
-                            ImGui::PopID();
-                        }
-
-                        if ( section == UI::UIRenderAuthoringSection::PredictionPaths )
-                        {
-                            if ( ImGui::SmallButton( "Save path style" ) )
-                            {
-                                submitRendering( UI::OperatorEditorRenderingCommandType::SaveOrdinaryDefaults );
-                            }
-
-                            ImGui::PopID();
-                            continue;
-                        }
-
-                        ImGui::SeparatorText( "Cinematic" );
-
-                        for ( const UI::CinematicFeatureSpec& feature : UI::kCinematicFeatureSpecs )
-                        {
-                            if ( feature.section != section )
-                            {
-                                continue;
-                            }
-
-                            const int parameter = static_cast<int>( feature.feature );
-                            bool enabled = view.rendering.cinematicFeatures[parameter];
-                            ImGui::PushID( 1000 + parameter );
-
-                            if ( ImGui::Checkbox( feature.label, &enabled ) )
-                            {
-                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleCinematicFeature, parameter );
-                            }
-
-                            ImGui::PopID();
-                        }
-
-                        for ( const UI::CinematicSliderSpec& spec : UI::kCinematicSliderSpecs )
-                        {
-                            if ( spec.section != section )
-                            {
-                                continue;
-                            }
-
-                            const int parameter = static_cast<int>( spec.param );
-                            ImGui::PushID( 2000 + parameter );
-                            editParameterized( m_renderingEdit, spec.label,
-                                               static_cast<int>( UI::OperatorEditorRenderingCommandType::SetCinematicParameter ),
-                                               parameter, -1, -1, view.rendering.cinematicParameters[parameter], spec.step,
-                                               spec.minValue, spec.maxValue, spec.valueFormat,
-                                               [&]( float value, UI::OperatorEditorEditPhase phase )
-                                               {
-                                                   submitRendering( UI::OperatorEditorRenderingCommandType::
-                                                                        SetCinematicParameter,
-                                                                    parameter, value, phase );
-                                               } );
-
-                            ImGui::PopID();
-                        }
-
-                        ImGui::PopID();
-                    }
-
-                    ImGui::EndTabItem();
-                }
-
-                ImGui::EndTabBar();
-            }
-        }
-
         ImGui::End();
+        return;
     }
+    ImGui::TextDisabled( "Preview locally; commit once on release." );
 
-    if ( m_showDiagnostics )
+    if ( m_propertyEdit.active )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::Diagnostics, &m_showDiagnostics ) )
-        {
-            const UI::OperatorEditorDiagnosticsView& diagnostics = view.diagnostics;
-            const auto submitDiagnostics = [&]( UI::OperatorEditorDiagnosticsCommandType type,
-
-                                                uint32_t flag = 0u, int integerValue = 0, float value = 0.0f,
-                                                UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
-            {
-                submit( m_frameCommands.operatorEditor.diagnostics,
-                        UI::OperatorEditorDiagnosticsCommand { type, flag, integerValue, value, phase } );
-            };
-
-            // Why: retain domain counters and owner controls here while Tracy
-            // remains the sole generic timeline/histogram/percentile surface.
-            ImGui::Text( "Tracy %s", m_frameInput.tracyViewerConnected ? "connected" : "waiting" );
-            ImGui::TextDisabled( "Timeline, histograms, and percentiles live in Tracy." );
-
-            if ( ImGui::CollapsingHeader( "Physics overlays / pipeline", ImGuiTreeNodeFlags_DefaultOpen ) )
-            {
-                bool collision = diagnostics.collisionVisualizer;
-
-                if ( ImGui::Checkbox( "Collision visualizer", &collision ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer );
-                }
-
-                bool transparent = diagnostics.physicsDebugTransparent;
-
-                if ( ImGui::Checkbox( "Transparent volumes", &transparent ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugTransparent );
-                }
-
-                bool broadphase = diagnostics.broadphaseOverlay;
-
-                if ( ImGui::Checkbox( "Broadphase grid", &broadphase ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleBroadphaseOverlay );
-                }
-
-                const struct
-                {
-                    const char* label;
-                    uint32_t physicsFlag;
-                    UI::UIPhysicsDebugOverlay overlay;
-                } flagRows[] = {
-                    { "Axes", Physics::PHYSICS_DEBUG_AXES, UI::UIPhysicsDebugOverlay::Axes },
-                    { "Contacts", Physics::PHYSICS_DEBUG_CONTACTS, UI::UIPhysicsDebugOverlay::Contacts },
-                    { "Sleep state", Physics::PHYSICS_DEBUG_SLEEP, UI::UIPhysicsDebugOverlay::Sleep },
-                    { "Pipeline", Physics::PHYSICS_DEBUG_PIPELINE, UI::UIPhysicsDebugOverlay::Pipeline },
-                };
-
-                for ( const auto& row : flagRows )
-                {
-                    bool enabled = ( diagnostics.physicsDebugFlags & row.physicsFlag ) != 0u;
-                    ImGui::PushID( static_cast<int>( row.physicsFlag ) );
-
-                    if ( ImGui::Checkbox( row.label, &enabled ) )
-                    {
-                        submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
-                                           static_cast<uint32_t>( row.overlay ) );
-                    }
-
-                    ImGui::PopID();
-                }
-
-                bool tornadoShell = diagnostics.tornadoVisualShell;
-
-                if ( ImGui::Checkbox( "Tornado shell", &tornadoShell ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleTornadoVisualShell );
-                }
-
-                bool tornadoVectors = diagnostics.tornadoFieldVectors;
-
-                if ( ImGui::Checkbox( "Tornado vectors", &tornadoVectors ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleTornadoFieldVectors );
-                }
-
-                bool ray = diagnostics.rayCastVisualization;
-
-                if ( ImGui::Checkbox( "Ray casts", &ray ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleRayCastVisualization );
-                }
-
-                if ( ImGui::Button( "Toggle terrain contact probe" ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleTerrainContactProbe );
-                }
-
-                ImGui::Text( "Pipeline %d / %d: %s", diagnostics.physicsPipelineStageIndex + 1,
-                             diagnostics.physicsPipelineStageCount, diagnostics.physicsPipelineStageName );
-
-                if ( ImGui::Button( "Previous stage" ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::StepPhysicsPipelinePrevious );
-                }
-
-                ImGui::SameLine();
-
-                if ( ImGui::Button( "Next stage" ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::StepPhysicsPipelineNext );
-                }
-
-                struct DiagnosticScalar
-                {
-                    const char* label;
-                    UI::OperatorEditorDiagnosticsCommandType type;
-                    float value;
-                    const char* format;
-                } diagnosticScalars[] = {
-                    { "Volume alpha", UI::OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha,
-                      diagnostics.physicsDebugAlpha, "%.2f" },
-                    { "Contact linger", UI::OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger,
-                      diagnostics.physicsDebugContactLinger, "%.2fs" },
-                    { "Ray impulse", UI::OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength,
-                      diagnostics.rayCastImpulseStrength, "%.0f" },
-                    { "Projectile speed", UI::OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed,
-                      diagnostics.launcherProjectileSpeed, "%.0f" },
-                };
-
-                for ( const DiagnosticScalar& scalar : diagnosticScalars )
-                {
-                    const ImGuiEditorScalarControlPolicy policy = ResolveImGuiEditorDiagnosticsControlPolicy( scalar.type );
-                    const int action = static_cast<int>( scalar.type );
-                    ImGui::PushID( action );
-
-                    // Why: DragFloat speed controls pointer ergonomics, not
-                    // canonicalization; App snaps the submitted typed command.
-                    editParameterized( m_diagnosticsEdit, scalar.label, action, -1, -1, -1, scalar.value, policy.step,
-                                       policy.minValue, policy.maxValue, scalar.format,
-                                       [&]( float value, UI::OperatorEditorEditPhase phase )
-                                       { submitDiagnostics( scalar.type, 0u, 0, value, phase ); } );
-
-                    ImGui::PopID();
-                }
-            }
-
-            if ( ImGui::CollapsingHeader( "Renderer", ImGuiTreeNodeFlags_DefaultOpen ) )
-            {
-                ImGui::Text( "%s | draw %d + UI %d", diagnostics.rendererName, diagnostics.drawCalls,
-                             diagnostics.uiDrawCalls );
-
-                ImGui::Text( "Render %.2f ms | GPU %.2f ms | alpha %.3f", diagnostics.renderMs, diagnostics.gpuFrameMs,
-                             view.rendering.presentationAlpha );
-
-                if ( ImGui::CollapsingHeader( "Render Targets" ) )
-                {
-                    for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
-                    {
-                        const UI::OperatorEditorRenderTargetView& target = diagnostics.renderTargets[index];
-                        ImGui::Text( "%s  %dx%d  %s%s%s", target.label, target.width, target.height,
-                                     target.available ? "ready" : "unavailable", target.depth ? " depth" : "",
-                                     target.hdr ? " HDR" : "" );
-                    }
-
-                    if ( diagnostics.renderTargetCount == 0 )
-                    {
-                        ImGui::TextDisabled( "No render targets are currently published." );
-                    }
-                }
-            }
-
-            if ( ImGui::CollapsingHeader( "Engine Memory" ) )
-            {
-                ImGui::Text( "Tracked %.2f MiB | reconciled %.2f MiB", BytesToMiB( diagnostics.trackedEngineBytes ),
-                             BytesToMiB( diagnostics.reconciledTotalBytes ) );
-
-                ImGui::Text( "Upload %.2f / %.2f MiB", BytesToMiB( diagnostics.uploadUsedBytes ),
-                             BytesToMiB( diagnostics.uploadCapacityBytes ) );
-
-                ImGui::Text( "Replay reserve growth events %llu",
-                             static_cast<unsigned long long>( diagnostics.replayReserveGrowthEvents ) );
-
-                ImGui::TextDisabled( "Cached owner counters only; this panel does not trigger an unbounded scan." );
-            }
-
-            if ( ImGui::CollapsingHeader( "Workers" ) )
-            {
-                const char* preview = diagnostics.workerThreadCount == 0 ? "disabled" : "explicit";
-
-                if ( ImGui::BeginCombo( "Worker threads", preview ) )
-                {
-                    if ( ImGui::Selectable( "Auto", false ) )
-                    {
-                        submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, -1 );
-                    }
-
-                    if ( ImGui::Selectable( "Disabled", diagnostics.workerThreadCount == 0 ) )
-                    {
-                        submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, 0 );
-                    }
-
-                    for ( int count = 1; count <= diagnostics.maxWorkerThreadCount; ++count )
-                    {
-                        char label[24] = {};
-
-                        snprintf( label, sizeof( label ), "%d", count );
-
-                        if ( ImGui::Selectable( label, diagnostics.workerThreadCount == count ) )
-                        {
-                            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, count );
-                        }
-                    }
-
-                    ImGui::EndCombo();
-                }
-
-                ImGui::Text( "Current %d | worker core %.2f ms", diagnostics.workerThreadCount,
-                             diagnostics.workerCoreTotalMs );
-            }
-
-            if ( ImGui::CollapsingHeader( "UI" ) )
-            {
-                ImGui::Text( "%.1f FPS | CPU %.2f ms | physics %.2f ms", diagnostics.fps, diagnostics.cpuFrameMs,
-                             diagnostics.physicsMs );
-
-                ImGui::Text( "Frames %llu | messages %llu | suppressed mouse %llu / keyboard %llu",
-                             static_cast<unsigned long long>( m_completedFrames ),
-                             static_cast<unsigned long long>( m_platformMessages ),
-                             static_cast<unsigned long long>( m_suppressedMouseMessages ),
-                             static_cast<unsigned long long>( m_suppressedKeyboardMessages ) );
-
-                ImGui::TextDisabled( "%s", m_tracyLaunchFeedback );
-            }
-        }
-
-        ImGui::End();
+        ImGui::SameLine();
+        ImGui::TextColored( ImVec4( 0.35f, 0.78f, 1.0f, 1.0f ), "PREVIEW" );
     }
 
-    if ( m_showCausality )
+    if ( ImGui::CollapsingHeader( "Simulation", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::Causality, &m_showCausality ) )
+        bool captureLockstepRequested = world.fixedStep;
+
+        if ( ImGui::Checkbox( "Capture lockstep", &captureLockstepRequested ) )
         {
-            ImGui::Text( "Context: %s", ImGuiEditorCausalityStateName( causality.state ) );
-            ImGui::SameLine();
-
-            if ( ImGui::SmallButton( "Open Detail" ) )
-            {
-                m_showCausalityDetail = true;
-            }
-
-            if ( causality.hasReplayTick )
-            {
-                ImGui::Text( "Replay tick %llu | prediction %s", static_cast<unsigned long long>( causality.replayTick ),
-                             ImGuiEditorPredictionStateName( causality.predictionState ) );
-            }
-            else
-            {
-                ImGui::Text( "Replay tick -- | prediction %s", ImGuiEditorPredictionStateName( causality.predictionState ) );
-            }
-
-            if ( causality.selectedObjectRow )
-            {
-                ImGui::SeparatorText( "Selected object" );
-                ImGui::Text( "%s  [body %u]", causality.selectedObjectRow->name, causality.selectedObjectRow->id.value );
-
-                ImGui::TextWrapped( "%s", causality.selectedObjectRow->detail );
-
-                ImGui::SeparatorText( "Immediate cause / effect" );
-
-                if ( causality.immediateCauseRow )
-                {
-                    ImGui::Text( "Cause: %s", causality.immediateCauseRow->name );
-                }
-                else
-                {
-                    ImGui::TextDisabled( "Cause: root or retained live state" );
-                }
-
-                if ( causality.selectedRow )
-                {
-                    ImGui::Text( "Effect: %s", causality.selectedRow->name );
-
-                    if ( causality.selectedRow->detail[0] != '\0' )
-                    {
-                        ImGui::TextWrapped( "%s", causality.selectedRow->detail );
-                    }
-                }
-
-                ImGui::SeparatorText( "Relevant links" );
-
-                for ( std::size_t index = 0u; index < causality.relevantLinkCount; ++index )
-                {
-                    const RunReplayCauseTreeRow& row = *causality.relevantLinks[index];
-                    char linkLabel[160] = {};
-
-                    sprintf_s( linkLabel, "%s: %s###CauseLink%zu", ImGuiEditorCauseRowKindName( row.kind ), row.name,
-                               index );
-
-                    if ( ImGui::Selectable( linkLabel, false ) )
-                    {
-                        const std::ptrdiff_t rowIndex = causality.relevantLinks[index] - replay.causeTree.rows.data();
-                        submitReplay( UI::OperatorEditorReplayCommandType::SelectCauseRow, 0.0f,
-                                      static_cast<int>( rowIndex ) );
-                    }
-                }
-
-                if ( causality.compactScanTruncated )
-                {
-                    ImGui::TextDisabled( "Bounded compact list; open detail for all %zu rows.", causality.totalRowCount );
-                }
-            }
-            else if ( causality.state == ImGuiEditorCausalityState::CapacityLimited )
-            {
-                ImGui::TextWrapped( "The replay explanation exceeded its pre-reserved row capacity. "
-                                    "The GameUI overlay and editor both fail closed; reduce scene/contact scope." );
-            }
-            else if ( causality.state == ImGuiEditorCausalityState::Stale )
-            {
-                ImGui::TextWrapped( "The prior causal focus no longer resolves at this replay tick." );
-            }
-            else
-            {
-                ImGui::TextDisabled( "Select a replay path target to inspect causes and effects." );
-            }
+            SubmitPropertyCommand( UI::OperatorEditorPropertyCommandType::ToggleFixedStep );
         }
 
-        ImGui::End();
+        ImGui::SameLine();
+        bool sleepEnabled = world.physicsSleepEnabled;
+
+        if ( ImGui::Checkbox( "Sleep policy", &sleepEnabled ) )
+        {
+            SubmitPropertyCommand( UI::OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy );
+        }
+
+        DrawFloatPropertyEdit( "Time scale", UI::OperatorEditorPropertyCommandType::SetTimeScale, world.timeScale,
+                               UI::OperatorControlPolicy::UI_TIME_SCALE_STEP, UI::OperatorControlPolicy::UI_TIME_SCALE_MIN,
+                               UI::OperatorControlPolicy::UI_TIME_SCALE_MAX, "%.2fx" );
     }
 
-    if ( m_showCausalityDetail )
+    if ( ImGui::CollapsingHeader( "Population / seed", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        ImGui::SetNextWindowSize( ImVec2( 760.0f, 520.0f ), ImGuiCond_FirstUseEver );
+        const int capacity = (std::max)( 0, world.modelCapacity );
+        DrawIntegerPropertyEdit( "Population", UI::OperatorEditorPropertyCommandType::SetModelCount, world.modelCount,
+                                 UI::OperatorControlPolicy::UI_MODEL_COUNT_MIN, capacity );
 
-        if ( ImGui::Begin( ImGuiEditorPanel::CausalityDetail, &m_showCausalityDetail ) )
-        {
-            const RunReplayCauseTreeState& tree = replay.causeTree;
-            ImGui::Text( "%zu published rows | %s | prediction %s", tree.rows.size(),
-                         ImGuiEditorCausalityStateName( causality.state ),
-                         ImGuiEditorPredictionStateName( causality.predictionState ) );
+        DrawIntegerPropertyEdit( "Seed", UI::OperatorEditorPropertyCommandType::SetSeed, world.rngSeed,
+                                 UI::OperatorControlPolicy::UI_SEED_MIN, UI::OperatorControlPolicy::UI_SEED_MAX );
 
-            ImGui::TextDisabled( "Borrowed replay rows; no second tree, full-tree rescan, or scene serialization." );
+        DrawIntegerPropertyEdit( "Solver balls", UI::OperatorEditorPropertyCommandType::SetSolverBallCount,
+                                 world.solverBallCount, UI::OperatorControlPolicy::UI_SOLVER_COUNT_MIN,
+                                 (std::max)( 0, capacity - world.solverBoxCount ) );
 
-            if ( m_causalityDetailSelectedRow < 0 || m_causalityDetailSelectedRow >= static_cast<int>( tree.rows.size() ) )
-            {
-                m_causalityDetailSelectedRow = causality.selectedRowIndex;
-            }
+        DrawIntegerPropertyEdit( "Solver boxes", UI::OperatorEditorPropertyCommandType::SetSolverBoxCount,
+                                 world.solverBoxCount, UI::OperatorControlPolicy::UI_SOLVER_COUNT_MIN,
+                                 (std::max)( 0, capacity - world.solverBallCount ) );
 
-            const float detailHeight = m_causalityDetailSelectedRow >= 0 ? 250.0f : -1.0f;
-
-            if ( ImGui::BeginTable( "##CausalityRows", 6,
-                                    ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
-                                        ImGuiTableFlags_Resizable,
-                                    ImVec2( 0.0f, detailHeight ) ) )
-            {
-                ImGui::TableSetupScrollFreeze( 0, 1 );
-                ImGui::TableSetupColumn( "#", ImGuiTableColumnFlags_WidthFixed, 42.0f );
-                ImGui::TableSetupColumn( "Kind", ImGuiTableColumnFlags_WidthFixed, 108.0f );
-                ImGui::TableSetupColumn( "Object", ImGuiTableColumnFlags_WidthStretch, 0.23f );
-                ImGui::TableSetupColumn( "Parent", ImGuiTableColumnFlags_WidthFixed, 62.0f );
-                ImGui::TableSetupColumn( "First tick", ImGuiTableColumnFlags_WidthFixed, 82.0f );
-                ImGui::TableSetupColumn( "Detail", ImGuiTableColumnFlags_WidthStretch, 0.77f );
-                ImGui::TableHeadersRow();
-
-                // Invariant: the detail panel virtualizes the owner-published
-                // rows. Large cause trees cost only the visible table slice and
-                // never allocate or copy a replacement hierarchy.
-                ImGuiListClipper clipper;
-                clipper.Begin( static_cast<int>( tree.rows.size() ) );
-
-                while ( clipper.Step() )
-                {
-                    for ( int rowIndex = clipper.DisplayStart; rowIndex < clipper.DisplayEnd; ++rowIndex )
-                    {
-                        const RunReplayCauseTreeRow& row = tree.rows[static_cast<std::size_t>( rowIndex )];
-                        ImGui::PushID( rowIndex );
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex( 0 );
-                        char rowLabel[24] = {};
-
-                        sprintf_s( rowLabel, "%d", rowIndex );
-
-                        if ( ImGui::Selectable( rowLabel, rowIndex == m_causalityDetailSelectedRow,
-                                                ImGuiSelectableFlags_SpanAllColumns ) )
-                        {
-                            m_causalityDetailSelectedRow = rowIndex;
-                        }
-
-                        ImGui::TableSetColumnIndex( 1 );
-                        ImGui::TextUnformatted( ImGuiEditorCauseRowKindName( row.kind ) );
-                        ImGui::TableSetColumnIndex( 2 );
-                        ImGui::Indent( static_cast<float>( (std::max)( 0, row.depth ) ) * 10.0f );
-                        ImGui::TextUnformatted( row.name );
-                        ImGui::Unindent( static_cast<float>( (std::max)( 0, row.depth ) ) * 10.0f );
-                        ImGui::TableSetColumnIndex( 3 );
-                        ImGui::Text( "%u", row.parentId.value );
-                        ImGui::TableSetColumnIndex( 4 );
-                        ImGui::Text( "%llu", static_cast<unsigned long long>( row.firstFrame ) );
-                        ImGui::TableSetColumnIndex( 5 );
-                        ImGui::TextUnformatted( row.detail );
-                        ImGui::PopID();
-                    }
-                }
-
-                ImGui::EndTable();
-            }
-
-            if ( m_causalityDetailSelectedRow >= 0 && m_causalityDetailSelectedRow < static_cast<int>( tree.rows.size() ) )
-            {
-                const RunReplayCauseTreeRow& row = tree.rows[static_cast<std::size_t>( m_causalityDetailSelectedRow )];
-                ImGui::SeparatorText( "Selected row detail" );
-                ImGui::Text( "%s | body %u | parent %u | counterpart %u | depth %d", ImGuiEditorCauseRowKindName( row.kind ),
-                             row.id.value, row.parentId.value, row.counterpartId.value, row.depth );
-
-                ImGui::TextWrapped( "%s — %s", row.name, row.detail );
-                ImGui::Text( "model %d / counterpart %d | contact %d | solver %d | pipeline %d | feature %d",
-                             row.modelRow.value, row.counterpartModelRow.value, row.contactIndex, row.solverRowIndex,
-                             row.pipelineIndex, row.featureId );
-
-                ImGui::Text( "points %d | penetration %.4f | normal %.4f | tangent %.4f | warm %.4f", row.manifoldPointCount,
-                             row.penetration, row.normalImpulse, row.tangentImpulse, row.warmStartImpulse );
-
-                ImGui::Text( "bias %.4f | effective mass %.4f | friction limit %.4f | %s%s", row.bias, row.effectiveMass,
-                             row.frictionLimit, row.prediction ? "prediction " : "",
-                             row.terrain ? "terrain" : ( row.warmStarted ? "warm-started" : "" ) );
-
-                ImGui::Text( "point %.3f %.3f %.3f | normal %.3f %.3f %.3f | impulse %.3f %.3f %.3f", row.point.x,
-                             row.point.y, row.point.z, row.normal.x, row.normal.y, row.normal.z, row.impulse.x,
-                             row.impulse.y, row.impulse.z );
-            }
-        }
-
-        ImGui::End();
+        ImGui::TextDisabled( "Population controls rebuild generated scene topology on commit." );
     }
 
-    if ( m_showReplay )
+    if ( ImGui::CollapsingHeader( "World forces / fluid", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::Replay, &m_showReplay ) )
-        {
-            const ReplayPresentationSelection& selection = replay.selection;
-            const bool loaded = selection.loadedPresentation;
-            const bool hasRetainedTimeline = loaded ? selection.loadedSampleCount >= 2u
-                                                    : replay.solverStats.sampleCount >= 2u;
+        DrawFloatPropertyEdit( "Gravity", UI::OperatorEditorPropertyCommandType::SetWorldGravity, world.gravity,
+                               UI::OperatorControlPolicy::UI_WORLD_GRAVITY_STEP,
+                               -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MAX,
+                               -UI::OperatorControlPolicy::UI_WORLD_GRAVITY_MIN, "%.2f m/s^2" );
 
-            const bool hasTimeline = hasRetainedTimeline || replay.predictionTimelineAvailable;
-            const bool compact = ImGui::GetContentRegionAvail().x < 1180.0f * m_frameInput.dpiScale;
-            const float trackPosition = loaded ? replay.scrubber.presentationPosition : replay.scrubber.solverPosition;
-            ReplayFrameIndex selectedTick = 0;
-            bool hasSelectedTick = false;
+        DrawFloatPropertyEdit( "Fluid surface", UI::OperatorEditorPropertyCommandType::SetWorldFluidHeight,
+                               world.fluidHeight, UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_STEP,
+                               UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MIN,
+                               UI::OperatorControlPolicy::UI_WORLD_FLUID_HEIGHT_MAX, "%.1f m" );
 
-            if ( replay.selectedPrediction )
-            {
-                selectedTick = replay.selectedPrediction->frameIndex;
-                hasSelectedTick = true;
-            }
-            else if ( selection.selectedSolver )
-            {
-                selectedTick = selection.selectedSolver->frameIndex;
-                hasSelectedTick = true;
-            }
-            else if ( selection.selectedPresentation )
-            {
-                selectedTick = selection.selectedPresentation->frameIndex;
-                hasSelectedTick = true;
-            }
-
-            const bool recordingMutable = replay.recordingConfigured && !replay.recordingLockedByHashLog;
-            ImGui::BeginDisabled( !recordingMutable );
-
-            if ( ImGui::Button( replay.recordingEnabled ? "STOP" : "REC" ) )
-            {
-                submitReplay( UI::OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, !replay.recordingEnabled );
-            }
-
-            ImGui::EndDisabled();
-
-            if ( !recordingMutable && ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
-            {
-                ImGui::SetTooltip( "%s", replay.recordingLockedByHashLog
-                                             ? "Hash-log capture is fixed by launch policy"
-                                             : "Launch with replay enabled to reserve recording" );
-            }
-
-            ImGui::SameLine();
-            ImGui::BeginDisabled( !hasTimeline );
-
-            if ( ImGui::Button( "|<" ) )
-            {
-                submitReplay( UI::OperatorEditorReplayCommandType::JumpToStart );
-            }
-
-            ImGui::SameLine();
-
-            if ( ImGui::Button( "<" ) )
-            {
-                submitReplay( UI::OperatorEditorReplayCommandType::StepBackward );
-            }
-
-            ImGui::SameLine();
-            const char* playPauseLabel = replay.scrubber.historicalSamplePaused || replay.scrubber.liveAdvanceHeld
-                                             ? ( compact ? ">" : "PLAY" )
-                                             : ( compact ? "||" : "PAUSE" );
-            ImGui::BeginDisabled( replay.prediction.enabled );
-
-            if ( ImGui::Button( playPauseLabel ) )
-            {
-                submitReplay( UI::OperatorEditorReplayCommandType::TogglePlayPause );
-            }
-
-            ImGui::EndDisabled();
-
-            ImGui::SameLine();
-
-            if ( ImGui::Button( ">" ) )
-            {
-                submitReplay( UI::OperatorEditorReplayCommandType::StepForward );
-            }
-
-            ImGui::SameLine();
-
-            if ( ImGui::Button( ">|" ) )
-            {
-                submitReplay( UI::OperatorEditorReplayCommandType::JumpToEnd );
-            }
-
-            ImGui::EndDisabled();
-            ImGui::SameLine();
-
-            if ( ImGui::Button( compact ? "LIVE" : "RETURN LIVE" ) )
-            {
-                submitReplay( UI::OperatorEditorReplayCommandType::ReturnToLive );
-            }
-
-            ImGui::SameLine();
-
-            if ( hasSelectedTick )
-            {
-                ImGui::TextDisabled( "%s  tick %llu  %zu/%zu", loaded ? "FILE" : "SOLVER",
-                                     static_cast<unsigned long long>( selectedTick ),
-                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
-                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity );
-            }
-            else
-            {
-                ImGui::TextDisabled( "%s  tick --  %zu/%zu", loaded ? "FILE" : "SOLVER",
-                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
-                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity );
-            }
-
-            float scrubPosition = trackPosition;
-            ImGui::SetNextItemWidth( (std::max)( 320.0f, ImGui::GetContentRegionAvail().x * ( compact ? 0.62f : 0.72f ) ) );
-            ImGui::BeginDisabled( !hasTimeline );
-
-            if ( ImGui::SliderFloat( "##ReplayTransportTrack", &scrubPosition, 0.0f, 1.0f, "%.3f" ) )
-            {
-                submitReplay( UI::OperatorEditorReplayCommandType::Scrub, scrubPosition );
-            }
-
-            ImGui::EndDisabled();
-            const ImVec2 trackMin = ImGui::GetItemRectMin();
-            const ImVec2 trackMax = ImGui::GetItemRectMax();
-            const float presentPosition = loaded ? 1.0f : std::clamp( selection.solverPresentTrackPosition, 0.0f, 1.0f );
-
-            const float presentX = trackMin.x + ( trackMax.x - trackMin.x ) * presentPosition;
-
-            // Concept: the thin marker exposes the replay owner's live-present
-            // boundary without making this panel calculate timeline ranges.
-            ImGui::GetWindowDrawList()->AddLine( ImVec2( presentX, trackMin.y - 2.0f ),
-                                                 ImVec2( presentX, trackMax.y + 2.0f ), IM_COL32( 255, 196, 64, 255 ),
-                                                 2.0f );
-
-            ImGui::SameLine();
-            const char* predictionLabel = replay.prediction.building ? ( compact ? "BUILD" : "PREDICTING" )
-                                                                     : ( replay.prediction.enabled ? "PRED*" : "PRED" );
-
-            ImGui::BeginDisabled( !replay.prediction.generationPermitted );
-
-            if ( ImGui::Button( predictionLabel ) )
-            {
-                submitReplay( UI::OperatorEditorReplayCommandType::TogglePrediction );
-            }
-
-            ImGui::EndDisabled();
-            ImGui::SameLine();
-
-            if ( ImGui::Button( "MORE" ) )
-            {
-                ImGui::OpenPopup( "##ReplayMore" );
-            }
-
-            if ( ImGui::BeginPopup( "##ReplayMore" ) )
-            {
-                float revealSpeed = static_cast<float>( replay.prediction.revealSecondsPerSecond );
-
-                if ( ImGui::SliderFloat( "Reveal speed", &revealSpeed,
-                                         static_cast<float>( replay.prediction.revealRateMinimum ),
-                                         static_cast<float>( replay.prediction.revealRateMaximum ), "%.2fx" ) )
-                {
-                    submitReplay( UI::OperatorEditorReplayCommandType::SetRevealSpeed, revealSpeed );
-                }
-
-                float horizon = replay.prediction.horizonSeconds;
-
-                if ( ImGui::SliderFloat( "Prediction horizon", &horizon, replay.predictionHorizonMinimum,
-                                         replay.predictionHorizonMaximum, "%.1fs" ) )
-                {
-                    submitReplay( UI::OperatorEditorReplayCommandType::SetPredictionHorizon, horizon );
-                }
-
-                ImGui::BeginDisabled( !replay.scrubber.historicalSamplePaused );
-
-                if ( ImGui::MenuItem( "Restore as branch" ) )
-                {
-                    submitReplay( UI::OperatorEditorReplayCommandType::RestoreBranch );
-                }
-
-                ImGui::EndDisabled();
-
-                if ( ImGui::MenuItem( "Save replay" ) )
-                {
-                    submitReplay( UI::OperatorEditorReplayCommandType::Save );
-                }
-
-                if ( ImGui::MenuItem( "Load replay..." ) )
-                {
-                    submitReplay( UI::OperatorEditorReplayCommandType::Load );
-                }
-
-                if ( replay.causeTree.selectedRow >= 0 &&
-                     replay.causeTree.selectedRow < static_cast<int>( replay.causeTree.rows.size() ) )
-                {
-                    const RunReplayCauseTreeRow& row = replay.causeTree
-                                                           .rows[static_cast<std::size_t>( replay.causeTree.selectedRow )];
-
-                    ImGui::SeparatorText( "Selected cause" );
-                    ImGui::Text( "%s: %s", ImGuiEditorCauseRowKindName( row.kind ), row.name );
-                }
-
-                ImGui::EndPopup();
-            }
-
-            if ( replay.scrubber.saveMessage[0] != '\0' )
-            {
-                ImGui::SameLine();
-                ImGui::TextDisabled( "%s", replay.scrubber.saveMessage );
-            }
-            else if ( !hasTimeline )
-            {
-                ImGui::SameLine();
-                ImGui::TextDisabled( "NO REPLAY TIMELINE" );
-            }
-
-            ImGui::SeparatorText( "Continuous orbital forecast" );
-            const UI::OperatorEditorForecastView& forecast = view.forecast;
-            bool rollingPredictionEnabled = forecast.active;
-
-            if ( ImGui::Checkbox( "Rolling prediction", &rollingPredictionEnabled ) )
-            {
-                submitForecast( UI::OperatorEditorForecastCommandType::ToggleContinuous );
-            }
-
-            ImGui::SameLine();
-
-            if ( ImGui::Button( "Reset forecast" ) )
-            {
-                submitForecast( UI::OperatorEditorForecastCommandType::Reset );
-            }
-
-            ImGui::Text( "Simulated %.2fs | sim / real %.1fx | window %.2fs", forecast.simulatedSeconds,
-                         forecast.simulatedSecondsPerRealSecond, forecast.rollingWindowAgeSeconds );
-            ImGui::Text( "Producer %s / %s | tick %llu | retained %llu bytes",
-                         forecast.available ? "available" : "unavailable",
-                         forecast.failed ? "failed" : ( forecast.workerInFlight ? "running" : "idle" ),
-                         static_cast<unsigned long long>( forecast.newestAbsoluteTick ),
-                         static_cast<unsigned long long>( forecast.retainedBytes ) );
-
-            if ( forecast.configured )
-            {
-                ImGui::Text( "Stability numeric %s | system %s | auxiliary %s", forecast.numericalHealthy ? "ok" : "fail",
-                             forecast.systemOrbitalHealthy ? "ok" : "fail",
-                             forecast.auxiliaryOrbitalHealthy ? "ok" : "fail" );
-            }
-            else
-            {
-                ImGui::TextDisabled( "Stability not started" );
-            }
-
-            if ( forecast.firstFailureCause == UI::OperatorEditorForecastCause::None )
-            {
-                ImGui::TextDisabled( "First cause: none" );
-            }
-            else
-            {
-                ImGui::Text( "First cause: %s @ %.2fs (%u/%u)",
-                             UI::OperatorEditorForecastCauseName( forecast.firstFailureCause ), forecast.firstFailureSeconds,
-                             forecast.firstFailureSubject, forecast.firstFailureOther );
-            }
-
-            if ( forecast.energyDriftAvailable )
-            {
-                ImGui::Text( "Energy drift %.3e (max %.3e)", forecast.energyDrift, forecast.maximumAbsoluteEnergyDrift );
-            }
-            else
-            {
-                ImGui::TextDisabled( "Energy drift unavailable" );
-            }
-
-            if ( forecast.angularMomentumDriftAvailable )
-            {
-                ImGui::Text( "Angular-momentum drift %.3e (max %.3e)", forecast.angularMomentumDrift,
-                             forecast.maximumAngularMomentumDrift );
-            }
-            else
-            {
-                ImGui::TextDisabled( "Angular-momentum drift unavailable" );
-            }
-        }
-
-        ImGui::End();
+        DrawFloatPropertyEdit( "Fluid density", UI::OperatorEditorPropertyCommandType::SetWorldFluidDensity,
+                               world.fluidDensity, UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_STEP,
+                               UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MIN,
+                               UI::OperatorControlPolicy::UI_WORLD_FLUID_DENSITY_MAX, "%.2f kg/m3" );
     }
 
-    if ( m_showStatus )
+    if ( ImGui::CollapsingHeader( "Contact friction", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::Status, &m_showStatus,
-                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse ) )
-        {
-            const float framesPerSecond = m_frameInput.deltaSeconds > 0.0f ? 1.0f / m_frameInput.deltaSeconds : 0.0f;
-            ImGui::Text( "%s%s  |  %d objects  |  undo %d / redo %d  |  %.1f FPS  |  Tracy %s",
-                         view.tools.editorModeEnabled ? "EDIT" : "PLAY", view.tools.placementModeEnabled ? "/PLACE" : "",
-                         view.scene.modelCount, view.tools.undoDepth, view.tools.redoDepth, framesPerSecond,
-                         m_frameInput.tracyViewerConnected ? "connected" : "waiting" );
+        DrawFloatPropertyEdit( "Terrain friction", UI::OperatorEditorPropertyCommandType::SetTerrainFriction,
+                               world.terrainFriction, UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP,
+                               UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                               UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX, "%.2f" );
 
-            ImGui::Text( "Look Lab: F10 reroll | F11 save | %s%s%s%s", view.lookLab.detail.data(),
-                         view.lookLab.savePending ? " | capture pending" : "",
-                         view.lookLab.bundleDirectory[0] != '\0' ? " | " : "",
-                         view.lookLab.bundleDirectory[0] != '\0' ? view.lookLab.bundleDirectory.data() : "" );
-        }
+        DrawFloatPropertyEdit( "Object friction", UI::OperatorEditorPropertyCommandType::SetObjectFriction,
+                               world.objectFriction, UI::OperatorControlPolicy::UI_FRICTION_COEFF_STEP,
+                               UI::OperatorControlPolicy::UI_FRICTION_COEFF_MIN,
+                               UI::OperatorControlPolicy::UI_FRICTION_COEFF_MAX, "%.2f" );
 
-        ImGui::End();
+        DrawFloatPropertyEdit( "Rolling friction", UI::OperatorEditorPropertyCommandType::SetRollingFriction,
+                               world.rollingFriction, UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_STEP,
+                               UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MIN,
+                               UI::OperatorControlPolicy::UI_ROLLING_FRICTION_COEFF_MAX, "%.3f" );
     }
 
+    if ( ImGui::CollapsingHeader( "Tornado / environment force", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        bool tornadoEnabled = world.tornadoEnabled;
+
+        if ( ImGui::Checkbox( "Enabled", &tornadoEnabled ) )
+        {
+            SubmitPropertyCommand( UI::OperatorEditorPropertyCommandType::ToggleTornado );
+        }
+
+        DrawFloatPropertyEdit( "Radius", UI::OperatorEditorPropertyCommandType::SetTornadoRadius, world.tornadoRadius,
+                               UI::OperatorControlPolicy::UI_TORNADO_RADIUS_STEP,
+                               UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MIN,
+                               UI::OperatorControlPolicy::UI_TORNADO_RADIUS_MAX, "%.1f m" );
+
+        DrawFloatPropertyEdit( "Height", UI::OperatorEditorPropertyCommandType::SetTornadoHeight, world.tornadoHeight,
+                               UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_STEP,
+                               UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MIN,
+                               UI::OperatorControlPolicy::UI_TORNADO_HEIGHT_MAX, "%.1f m" );
+
+        DrawFloatPropertyEdit( "Inward", UI::OperatorEditorPropertyCommandType::SetTornadoInward, world.tornadoInward,
+                               UI::OperatorControlPolicy::UI_TORNADO_INWARD_STEP,
+                               UI::OperatorControlPolicy::UI_TORNADO_INWARD_MIN,
+                               UI::OperatorControlPolicy::UI_TORNADO_INWARD_MAX, "%.1f" );
+
+        DrawFloatPropertyEdit( "Swirl", UI::OperatorEditorPropertyCommandType::SetTornadoSwirl, world.tornadoSwirl,
+                               UI::OperatorControlPolicy::UI_TORNADO_SWIRL_STEP,
+                               UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MIN,
+                               UI::OperatorControlPolicy::UI_TORNADO_SWIRL_MAX, "%.1f" );
+
+        DrawFloatPropertyEdit( "Lift", UI::OperatorEditorPropertyCommandType::SetTornadoLift, world.tornadoLift,
+                               UI::OperatorControlPolicy::UI_TORNADO_LIFT_STEP,
+                               UI::OperatorControlPolicy::UI_TORNADO_LIFT_MIN,
+                               UI::OperatorControlPolicy::UI_TORNADO_LIFT_MAX, "%.1f" );
+    }
+    ImGui::End();
+}
+
+void ImGuiEditorOwner::DrawRenderingPanel( const UI::OperatorEditorRenderingView& rendering )
+{
+    if ( !m_showRendering )
+    {
+        return;
+    }
+
+    if ( !ImGui::Begin( ImGuiEditorPanel::Rendering, &m_showRendering ) )
+    {
+        ImGui::End();
+        return;
+    }
+    if ( ImGui::BeginTabBar( "##RenderingTabs" ) )
+    {
+        if ( ImGui::BeginTabItem( "Rendering" ) )
+        {
+            DrawRenderingAuthoringTab( rendering );
+            ImGui::EndTabItem();
+        }
+
+        ImGui::EndTabBar();
+    }
+    ImGui::End();
+}
+
+void ImGuiEditorOwner::DrawRenderingAuthoringTab( const UI::OperatorEditorRenderingView& rendering )
+{
+    const auto submitRendering = [&]( UI::OperatorEditorRenderingCommandType type, int parameter = -1, float value = 0.0f,
+                                      UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
+    { SubmitRenderingCommand( { type, parameter, value, phase } ); };
+
+    bool vsync;
+
+    if ( DrawEditableCheckbox( "VSync", rendering.vsyncEnabled, vsync ) )
+    {
+        submitRendering( UI::OperatorEditorRenderingCommandType::ToggleVsync );
+    }
+
+    ImGui::SameLine();
+    bool cinematic;
+
+    if ( DrawEditableCheckbox( "Cinematic", rendering.cinematicRendering, cinematic ) )
+    {
+        submitRendering( UI::OperatorEditorRenderingCommandType::ToggleCinematicRendering );
+    }
+
+    ImGui::SameLine();
+
+    if ( ImGui::SmallButton( "Save profile" ) )
+    {
+        submitRendering( cinematic ? UI::OperatorEditorRenderingCommandType::SaveSkyDefaults
+                                   : UI::OperatorEditorRenderingCommandType::SaveOrdinaryDefaults );
+    }
+
+    ImGui::TextDisabled( "%s profile | preview locally, commit once on release", cinematic ? "cinematic" : "ordinary" );
+
+    // Concept: the shared section catalog changes presentation
+    // topology only. Ordinary and cinematic values still travel
+    // through their existing domain enums and runtime owners.
+    for ( int rawSection = static_cast<int>( UI::UIRenderAuthoringSection::Lighting );
+          rawSection <= static_cast<int>( UI::UIRenderAuthoringSection::PredictionPaths ); ++rawSection )
+    {
+        const UI::UIRenderAuthoringSection section = static_cast<UI::UIRenderAuthoringSection>( rawSection );
+
+        const bool commonSection = section == UI::UIRenderAuthoringSection::Lighting ||
+                                   section == UI::UIRenderAuthoringSection::Environment;
+
+        const ImGuiTreeNodeFlags flags = commonSection ? ImGuiTreeNodeFlags_DefaultOpen : 0;
+
+        if ( !ImGui::CollapsingHeader( UI::UIRenderAuthoringSectionName( section ), flags ) )
+        {
+            continue;
+        }
+
+        if ( section == UI::UIRenderAuthoringSection::Shadows )
+        {
+            bool shadows;
+
+            if ( DrawEditableCheckbox( "Enabled##CanonicalShadows", rendering.shadowsEnabled, shadows ) )
+            {
+                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleShadows );
+            }
+        }
+        else if ( section == UI::UIRenderAuthoringSection::Water )
+        {
+            bool hidden;
+
+            if ( DrawEditableCheckbox( "Hidden", rendering.waterHidden, hidden ) )
+            {
+                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleWaterHidden );
+            }
+
+            ImGui::SameLine();
+            bool frozen;
+
+            if ( DrawEditableCheckbox( "Freeze", rendering.waterFrozen, frozen ) )
+            {
+                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleWaterFreeze );
+            }
+
+            ImGui::SameLine();
+            bool flat;
+
+            if ( DrawEditableCheckbox( "Flat", rendering.waterFlat, flat ) )
+            {
+                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleWaterFlat );
+            }
+
+            if ( ImGui::Button( rendering.waterReflectionMode == 0
+                                    ? "Reflection: raster"
+                                    : ( rendering.waterReflectionMode == 1 ? "Reflection: DXR" : "Reflection: off" ) ) )
+            {
+                submitRendering( UI::OperatorEditorRenderingCommandType::CycleWaterReflection );
+            }
+        }
+        else if ( section == UI::UIRenderAuthoringSection::TerrainMaterials )
+        {
+            bool terrainHidden;
+
+            if ( DrawEditableCheckbox( "Terrain hidden", rendering.terrainHidden, terrainHidden ) )
+            {
+                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleTerrainHidden );
+            }
+        }
+
+        ImGui::PushID( rawSection );
+        ImGui::SeparatorText( "Ordinary" );
+
+        for ( const UI::RenderSliderSpec& spec : UI::kRenderSliderSpecs )
+        {
+            if ( spec.section != section )
+            {
+                continue;
+            }
+
+            const int parameter = static_cast<int>( spec.param );
+            ImGui::PushID( parameter );
+            DrawRenderingParameterEdit( spec.label, UI::OperatorEditorRenderingCommandType::SetOrdinaryParameter, parameter,
+                                        rendering.ordinaryParameters[parameter], spec.step, spec.minValue, spec.maxValue,
+                                        spec.valueFormat );
+
+            ImGui::PopID();
+        }
+
+        if ( section == UI::UIRenderAuthoringSection::PredictionPaths )
+        {
+            if ( ImGui::SmallButton( "Save path style" ) )
+            {
+                submitRendering( UI::OperatorEditorRenderingCommandType::SaveOrdinaryDefaults );
+            }
+
+            ImGui::PopID();
+            continue;
+        }
+
+        ImGui::SeparatorText( "Cinematic" );
+
+        for ( const UI::CinematicFeatureSpec& feature : UI::kCinematicFeatureSpecs )
+        {
+            if ( feature.section != section )
+            {
+                continue;
+            }
+
+            const int parameter = static_cast<int>( feature.feature );
+            bool enabled;
+            ImGui::PushID( 1000 + parameter );
+
+            if ( DrawEditableCheckbox( feature.label, rendering.cinematicFeatures[parameter], enabled ) )
+            {
+                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleCinematicFeature, parameter );
+            }
+
+            ImGui::PopID();
+        }
+
+        for ( const UI::CinematicSliderSpec& spec : UI::kCinematicSliderSpecs )
+        {
+            if ( spec.section != section )
+            {
+                continue;
+            }
+
+            const int parameter = static_cast<int>( spec.param );
+            ImGui::PushID( 2000 + parameter );
+            DrawRenderingParameterEdit( spec.label, UI::OperatorEditorRenderingCommandType::SetCinematicParameter, parameter,
+                                        rendering.cinematicParameters[parameter], spec.step, spec.minValue, spec.maxValue,
+                                        spec.valueFormat );
+
+            ImGui::PopID();
+        }
+
+        ImGui::PopID();
+    }
+}
+
+void ImGuiEditorOwner::DrawDiagnosticsPanel( const UI::OperatorEditorDiagnosticsView& diagnostics,
+                                             const UI::OperatorEditorRenderingView& rendering )
+{
+    if ( !m_showDiagnostics )
+    {
+        return;
+    }
+
+    if ( !ImGui::Begin( ImGuiEditorPanel::Diagnostics, &m_showDiagnostics ) )
+    {
+        ImGui::End();
+        return;
+    }
+    const auto submitDiagnostics = [&]( UI::OperatorEditorDiagnosticsCommandType type,
+
+                                        uint32_t flag = 0u, int integerValue = 0, float value = 0.0f,
+                                        UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
+    { SubmitDiagnosticsCommand( { type, flag, integerValue, value, phase } ); };
+
+    // Why: retain domain counters and owner controls here while Tracy
+    // remains the sole generic timeline/histogram/percentile surface.
+    ImGui::Text( "Tracy %s", m_frameInput.tracyViewerConnected ? "connected" : "waiting" );
+    ImGui::TextDisabled( "Timeline, histograms, and percentiles live in Tracy." );
+
+    if ( ImGui::CollapsingHeader( "Physics overlays / pipeline", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        bool collision;
+
+        if ( DrawEditableCheckbox( "Collision visualizer", diagnostics.collisionVisualizer, collision ) )
+        {
+            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer );
+        }
+
+        bool transparent;
+
+        if ( DrawEditableCheckbox( "Transparent volumes", diagnostics.physicsDebugTransparent, transparent ) )
+        {
+            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugTransparent );
+        }
+
+        bool broadphase;
+
+        if ( DrawEditableCheckbox( "Broadphase grid", diagnostics.broadphaseOverlay, broadphase ) )
+        {
+            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleBroadphaseOverlay );
+        }
+
+        const struct
+        {
+            const char* label;
+            uint32_t physicsFlag;
+            UI::UIPhysicsDebugOverlay overlay;
+        } flagRows[] = {
+            { "Axes", Physics::PHYSICS_DEBUG_AXES, UI::UIPhysicsDebugOverlay::Axes },
+            { "Contacts", Physics::PHYSICS_DEBUG_CONTACTS, UI::UIPhysicsDebugOverlay::Contacts },
+            { "Sleep state", Physics::PHYSICS_DEBUG_SLEEP, UI::UIPhysicsDebugOverlay::Sleep },
+            { "Pipeline", Physics::PHYSICS_DEBUG_PIPELINE, UI::UIPhysicsDebugOverlay::Pipeline },
+        };
+
+        for ( const auto& row : flagRows )
+        {
+            bool enabled = ( diagnostics.physicsDebugFlags & row.physicsFlag ) != 0u;
+            ImGui::PushID( static_cast<int>( row.physicsFlag ) );
+
+            if ( ImGui::Checkbox( row.label, &enabled ) )
+            {
+                submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
+                                   static_cast<uint32_t>( row.overlay ) );
+            }
+
+            ImGui::PopID();
+        }
+
+        bool tornadoShell;
+
+        if ( DrawEditableCheckbox( "Tornado shell", diagnostics.tornadoVisualShell, tornadoShell ) )
+        {
+            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleTornadoVisualShell );
+        }
+
+        bool tornadoVectors;
+
+        if ( DrawEditableCheckbox( "Tornado vectors", diagnostics.tornadoFieldVectors, tornadoVectors ) )
+        {
+            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleTornadoFieldVectors );
+        }
+
+        bool ray;
+
+        if ( DrawEditableCheckbox( "Ray casts", diagnostics.rayCastVisualization, ray ) )
+        {
+            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleRayCastVisualization );
+        }
+
+        if ( ImGui::Button( "Toggle terrain contact probe" ) )
+        {
+            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleTerrainContactProbe );
+        }
+
+        ImGui::Text( "Pipeline %d / %d: %s", diagnostics.physicsPipelineStageIndex + 1,
+                     diagnostics.physicsPipelineStageCount, diagnostics.physicsPipelineStageName );
+
+        if ( ImGui::Button( "Previous stage" ) )
+        {
+            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::StepPhysicsPipelinePrevious );
+        }
+
+        ImGui::SameLine();
+
+        if ( ImGui::Button( "Next stage" ) )
+        {
+            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::StepPhysicsPipelineNext );
+        }
+
+        struct DiagnosticScalar
+        {
+            const char* label;
+            UI::OperatorEditorDiagnosticsCommandType type;
+            float value;
+            const char* format;
+        } diagnosticScalars[] = {
+            { "Volume alpha", UI::OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha, diagnostics.physicsDebugAlpha,
+              "%.2f" },
+            { "Contact linger", UI::OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger,
+              diagnostics.physicsDebugContactLinger, "%.2fs" },
+            { "Ray impulse", UI::OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength,
+              diagnostics.rayCastImpulseStrength, "%.0f" },
+            { "Projectile speed", UI::OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed,
+              diagnostics.launcherProjectileSpeed, "%.0f" },
+        };
+
+        for ( const DiagnosticScalar& scalar : diagnosticScalars )
+        {
+            const ImGuiEditorScalarControlPolicy policy = ResolveImGuiEditorDiagnosticsControlPolicy( scalar.type );
+            const int action = static_cast<int>( scalar.type );
+            ImGui::PushID( action );
+
+            // Why: DragFloat speed controls pointer ergonomics, not
+            // canonicalization; App snaps the submitted typed command.
+            DrawDiagnosticsScalarEdit( scalar.label, scalar.type, scalar.value, policy.step, policy.minValue,
+                                       policy.maxValue, scalar.format );
+
+            ImGui::PopID();
+        }
+    }
+
+    if ( ImGui::CollapsingHeader( "Renderer", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        ImGui::Text( "%s | draw %d + UI %d", diagnostics.rendererName, diagnostics.drawCalls, diagnostics.uiDrawCalls );
+
+        ImGui::Text( "Render %.2f ms | GPU %.2f ms | alpha %.3f", diagnostics.renderMs, diagnostics.gpuFrameMs,
+                     rendering.presentationAlpha );
+
+        if ( ImGui::CollapsingHeader( "Render Targets" ) )
+        {
+            for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
+            {
+                const UI::OperatorEditorRenderTargetView& target = diagnostics.renderTargets[index];
+                ImGui::Text( "%s  %dx%d  %s%s%s", target.label, target.width, target.height,
+                             target.available ? "ready" : "unavailable", target.depth ? " depth" : "",
+                             target.hdr ? " HDR" : "" );
+            }
+
+            if ( diagnostics.renderTargetCount == 0 )
+            {
+                ImGui::TextDisabled( "No render targets are currently published." );
+            }
+        }
+    }
+
+    if ( ImGui::CollapsingHeader( "Engine Memory" ) )
+    {
+        ImGui::Text( "Tracked %.2f MiB | reconciled %.2f MiB", BytesToMiB( diagnostics.trackedEngineBytes ),
+                     BytesToMiB( diagnostics.reconciledTotalBytes ) );
+
+        ImGui::Text( "Upload %.2f / %.2f MiB", BytesToMiB( diagnostics.uploadUsedBytes ),
+                     BytesToMiB( diagnostics.uploadCapacityBytes ) );
+
+        ImGui::Text( "Replay reserve growth events %llu",
+                     static_cast<unsigned long long>( diagnostics.replayReserveGrowthEvents ) );
+
+        ImGui::TextDisabled( "Cached owner counters only; this panel does not trigger an unbounded scan." );
+    }
+
+    if ( ImGui::CollapsingHeader( "Workers" ) )
+    {
+        const char* preview = diagnostics.workerThreadCount == 0 ? "disabled" : "explicit";
+
+        if ( ImGui::BeginCombo( "Worker threads", preview ) )
+        {
+            if ( ImGui::Selectable( "Auto", false ) )
+            {
+                submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, -1 );
+            }
+
+            if ( ImGui::Selectable( "Disabled", diagnostics.workerThreadCount == 0 ) )
+            {
+                submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, 0 );
+            }
+
+            for ( int count = 1; count <= diagnostics.maxWorkerThreadCount; ++count )
+            {
+                char label[24] = {};
+
+                snprintf( label, sizeof( label ), "%d", count );
+
+                if ( ImGui::Selectable( label, diagnostics.workerThreadCount == count ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, count );
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+
+        ImGui::Text( "Current %d | worker core %.2f ms", diagnostics.workerThreadCount, diagnostics.workerCoreTotalMs );
+    }
+
+    if ( ImGui::CollapsingHeader( "UI" ) )
+    {
+        ImGui::Text( "%.1f FPS | CPU %.2f ms | physics %.2f ms", diagnostics.fps, diagnostics.cpuFrameMs,
+                     diagnostics.physicsMs );
+
+        ImGui::Text( "Frames %llu | messages %llu | suppressed mouse %llu / keyboard %llu",
+                     static_cast<unsigned long long>( m_completedFrames ),
+                     static_cast<unsigned long long>( m_platformMessages ),
+                     static_cast<unsigned long long>( m_suppressedMouseMessages ),
+                     static_cast<unsigned long long>( m_suppressedKeyboardMessages ) );
+
+        ImGui::TextDisabled( "%s", m_tracyLaunchFeedback );
+    }
+    ImGui::End();
+}
+
+void ImGuiEditorOwner::DrawCausalityPanel( const ImGuiEditorCausalityProjection& causality,
+                                           const ReplayOverlay::ReplayOverlayStateView& replay )
+{
+    if ( !m_showCausality )
+    {
+        return;
+    }
+
+    if ( !ImGui::Begin( ImGuiEditorPanel::Causality, &m_showCausality ) )
+    {
+        ImGui::End();
+        return;
+    }
+    ImGui::Text( "Context: %s", ImGuiEditorCausalityStateName( causality.status.state ) );
+    ImGui::SameLine();
+
+    if ( ImGui::SmallButton( "Open Detail" ) )
+    {
+        m_showCausalityDetail = true;
+    }
+
+    if ( causality.status.hasReplayTick )
+    {
+        ImGui::Text( "Replay tick %llu | prediction %s", static_cast<unsigned long long>( causality.status.replayTick ),
+                     ImGuiEditorPredictionStateName( causality.status.predictionState ) );
+    }
+    else
+    {
+        ImGui::Text( "Replay tick -- | prediction %s", ImGuiEditorPredictionStateName( causality.status.predictionState ) );
+    }
+
+    if ( causality.selected.selectedObjectRow )
+    {
+        ImGui::SeparatorText( "Selected object" );
+        ImGui::Text( "%s  [body %u]", causality.selected.selectedObjectRow->name,
+                     causality.selected.selectedObjectRow->id.value );
+
+        ImGui::TextWrapped( "%s", causality.selected.selectedObjectRow->detail );
+
+        ImGui::SeparatorText( "Immediate cause / effect" );
+
+        if ( causality.selected.immediateCauseRow )
+        {
+            ImGui::Text( "Cause: %s", causality.selected.immediateCauseRow->name );
+        }
+        else
+        {
+            ImGui::TextDisabled( "Cause: root or retained live state" );
+        }
+
+        if ( causality.selected.selectedRow )
+        {
+            ImGui::Text( "Effect: %s", causality.selected.selectedRow->name );
+
+            if ( causality.selected.selectedRow->detail[0] != '\0' )
+            {
+                ImGui::TextWrapped( "%s", causality.selected.selectedRow->detail );
+            }
+        }
+
+        ImGui::SeparatorText( "Relevant links" );
+
+        std::size_t linkIndex = 0u;
+
+        for ( const RunReplayCauseTreeRow* rowPointer : causality.related.Rows() )
+        {
+            const RunReplayCauseTreeRow& row = *rowPointer;
+            char linkLabel[160] = {};
+
+            sprintf_s( linkLabel, "%s: %s###CauseLink%zu", ImGuiEditorCauseRowKindName( row.kind ), row.name, linkIndex );
+
+            if ( ImGui::Selectable( linkLabel, false ) )
+            {
+                const std::ptrdiff_t rowIndex = rowPointer - replay.causeTree.rows.data();
+                SubmitReplayCommand( UI::OperatorEditorReplayCommandType::SelectCauseRow, 0.0f,
+                                     static_cast<int>( rowIndex ) );
+            }
+
+            ++linkIndex;
+        }
+
+        if ( causality.status.compactScanTruncated )
+        {
+            ImGui::TextDisabled( "Bounded compact list; open detail for all %zu rows.", causality.status.totalRowCount );
+        }
+    }
+    else if ( causality.status.state == ImGuiEditorCausalityState::CapacityLimited )
+    {
+        ImGui::TextWrapped( "The replay explanation exceeded its pre-reserved row capacity. "
+                            "The GameUI overlay and editor both fail closed; reduce scene/contact scope." );
+    }
+    else if ( causality.status.state == ImGuiEditorCausalityState::Stale )
+    {
+        ImGui::TextWrapped( "The prior causal focus no longer resolves at this replay tick." );
+    }
+    else
+    {
+        ImGui::TextDisabled( "Select a replay path target to inspect causes and effects." );
+    }
+    ImGui::End();
+}
+
+void ImGuiEditorOwner::DrawCausalityDetailPanel( const ImGuiEditorCausalityProjection& causality,
+                                                 const ReplayOverlay::ReplayOverlayStateView& replay )
+{
+    if ( !m_showCausalityDetail )
+    {
+        return;
+    }
+
+    ImGui::SetNextWindowSize( ImVec2( 760.0f, 520.0f ), ImGuiCond_FirstUseEver );
+
+    if ( !ImGui::Begin( ImGuiEditorPanel::CausalityDetail, &m_showCausalityDetail ) )
+    {
+        ImGui::End();
+        return;
+    }
+    const RunReplayCauseTreeState& tree = replay.causeTree;
+    ImGui::Text( "%zu published rows | %s | prediction %s", tree.rows.size(),
+                 ImGuiEditorCausalityStateName( causality.status.state ),
+                 ImGuiEditorPredictionStateName( causality.status.predictionState ) );
+
+    ImGui::TextDisabled( "Borrowed replay rows; no second tree, full-tree rescan, or scene serialization." );
+
+    if ( m_causalityDetailSelectedRow < 0 || m_causalityDetailSelectedRow >= static_cast<int>( tree.rows.size() ) )
+    {
+        m_causalityDetailSelectedRow = causality.selected.selectedRowIndex;
+    }
+
+    const float detailHeight = m_causalityDetailSelectedRow >= 0 ? 250.0f : -1.0f;
+
+    if ( ImGui::BeginTable( "##CausalityRows", 6,
+                            ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
+                                ImGuiTableFlags_Resizable,
+                            ImVec2( 0.0f, detailHeight ) ) )
+    {
+        ImGui::TableSetupScrollFreeze( 0, 1 );
+        ImGui::TableSetupColumn( "#", ImGuiTableColumnFlags_WidthFixed, 42.0f );
+        ImGui::TableSetupColumn( "Kind", ImGuiTableColumnFlags_WidthFixed, 108.0f );
+        ImGui::TableSetupColumn( "Object", ImGuiTableColumnFlags_WidthStretch, 0.23f );
+        ImGui::TableSetupColumn( "Parent", ImGuiTableColumnFlags_WidthFixed, 62.0f );
+        ImGui::TableSetupColumn( "First tick", ImGuiTableColumnFlags_WidthFixed, 82.0f );
+        ImGui::TableSetupColumn( "Detail", ImGuiTableColumnFlags_WidthStretch, 0.77f );
+        ImGui::TableHeadersRow();
+
+        // Invariant: the detail panel virtualizes the owner-published
+        // rows. Large cause trees cost only the visible table slice and
+        // never allocate or copy a replacement hierarchy.
+        ImGuiListClipper clipper;
+        clipper.Begin( static_cast<int>( tree.rows.size() ) );
+
+        while ( clipper.Step() )
+        {
+            for ( int rowIndex = clipper.DisplayStart; rowIndex < clipper.DisplayEnd; ++rowIndex )
+            {
+                const RunReplayCauseTreeRow& row = tree.rows[static_cast<std::size_t>( rowIndex )];
+                ImGui::PushID( rowIndex );
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex( 0 );
+                char rowLabel[24] = {};
+
+                sprintf_s( rowLabel, "%d", rowIndex );
+
+                if ( ImGui::Selectable( rowLabel, rowIndex == m_causalityDetailSelectedRow,
+                                        ImGuiSelectableFlags_SpanAllColumns ) )
+                {
+                    m_causalityDetailSelectedRow = rowIndex;
+                }
+
+                ImGui::TableSetColumnIndex( 1 );
+                ImGui::TextUnformatted( ImGuiEditorCauseRowKindName( row.kind ) );
+                ImGui::TableSetColumnIndex( 2 );
+                ImGui::Indent( static_cast<float>( (std::max)( 0, row.depth ) ) * 10.0f );
+                ImGui::TextUnformatted( row.name );
+                ImGui::Unindent( static_cast<float>( (std::max)( 0, row.depth ) ) * 10.0f );
+                ImGui::TableSetColumnIndex( 3 );
+                ImGui::Text( "%u", row.parentId.value );
+                ImGui::TableSetColumnIndex( 4 );
+                ImGui::Text( "%llu", static_cast<unsigned long long>( row.firstFrame ) );
+                ImGui::TableSetColumnIndex( 5 );
+                ImGui::TextUnformatted( row.detail );
+                ImGui::PopID();
+            }
+        }
+
+        ImGui::EndTable();
+    }
+
+    if ( m_causalityDetailSelectedRow >= 0 && m_causalityDetailSelectedRow < static_cast<int>( tree.rows.size() ) )
+    {
+        const RunReplayCauseTreeRow& row = tree.rows[static_cast<std::size_t>( m_causalityDetailSelectedRow )];
+        ImGui::SeparatorText( "Selected row detail" );
+        ImGui::Text( "%s | body %u | parent %u | counterpart %u | depth %d", ImGuiEditorCauseRowKindName( row.kind ),
+                     row.id.value, row.parentId.value, row.counterpartId.value, row.depth );
+
+        ImGui::TextWrapped( "%s — %s", row.name, row.detail );
+        ImGui::Text( "model %d / counterpart %d | contact %d | solver %d | pipeline %d | feature %d", row.modelRow.value,
+                     row.counterpartModelRow.value, row.contactIndex, row.solverRowIndex, row.pipelineIndex, row.featureId );
+
+        ImGui::Text( "points %d | penetration %.4f | normal %.4f | tangent %.4f | warm %.4f", row.manifoldPointCount,
+                     row.penetration, row.normalImpulse, row.tangentImpulse, row.warmStartImpulse );
+
+        ImGui::Text( "bias %.4f | effective mass %.4f | friction limit %.4f | %s%s", row.bias, row.effectiveMass,
+                     row.frictionLimit, row.prediction ? "prediction " : "",
+                     row.terrain ? "terrain" : ( row.warmStarted ? "warm-started" : "" ) );
+
+        ImGui::Text( "point %.3f %.3f %.3f | normal %.3f %.3f %.3f | impulse %.3f %.3f %.3f", row.point.x, row.point.y,
+                     row.point.z, row.normal.x, row.normal.y, row.normal.z, row.impulse.x, row.impulse.y, row.impulse.z );
+    }
+    ImGui::End();
+}
+
+void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& forecast,
+                                        const ReplayOverlay::ReplayOverlayStateView& replay )
+{
+    if ( !m_showReplay )
+    {
+        return;
+    }
+
+    if ( !ImGui::Begin( ImGuiEditorPanel::Replay, &m_showReplay ) )
+    {
+        ImGui::End();
+        return;
+    }
+    const ReplayPresentationSelection& selection = replay.selection;
+    const bool loaded = selection.loadedPresentation;
+    const bool hasRetainedTimeline = loaded ? selection.loadedSampleCount >= 2u : replay.solverStats.sampleCount >= 2u;
+
+    const bool hasTimeline = hasRetainedTimeline || replay.predictionTimelineAvailable;
+    const bool compact = ImGui::GetContentRegionAvail().x < 1180.0f * m_frameInput.dpiScale;
+    const float trackPosition = loaded ? replay.scrubber.presentationPosition : replay.scrubber.solverPosition;
+    ReplayFrameIndex selectedTick = 0;
+    bool hasSelectedTick = false;
+
+    if ( replay.selectedPrediction )
+    {
+        selectedTick = replay.selectedPrediction->frameIndex;
+        hasSelectedTick = true;
+    }
+    else if ( selection.selectedSolver )
+    {
+        selectedTick = selection.selectedSolver->frameIndex;
+        hasSelectedTick = true;
+    }
+    else if ( selection.selectedPresentation )
+    {
+        selectedTick = selection.selectedPresentation->frameIndex;
+        hasSelectedTick = true;
+    }
+
+    const bool recordingMutable = replay.recordingConfigured && !replay.recordingLockedByHashLog;
+    ImGui::BeginDisabled( !recordingMutable );
+
+    if ( ImGui::Button( replay.recordingEnabled ? "STOP" : "REC" ) )
+    {
+        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, !replay.recordingEnabled );
+    }
+
+    ImGui::EndDisabled();
+
+    if ( !recordingMutable && ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
+    {
+        ImGui::SetTooltip( "%s", replay.recordingLockedByHashLog ? "Hash-log capture is fixed by launch policy"
+                                                                 : "Launch with replay enabled to reserve recording" );
+    }
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled( !hasTimeline );
+
+    if ( ImGui::Button( "|<" ) )
+    {
+        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::JumpToStart );
+    }
+
+    ImGui::SameLine();
+
+    if ( ImGui::Button( "<" ) )
+    {
+        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::StepBackward );
+    }
+
+    ImGui::SameLine();
+    const char* playPauseLabel = replay.scrubber.historicalSamplePaused || replay.scrubber.liveAdvanceHeld
+                                     ? ( compact ? ">" : "PLAY" )
+                                     : ( compact ? "||" : "PAUSE" );
+    ImGui::BeginDisabled( replay.prediction.enabled );
+
+    if ( ImGui::Button( playPauseLabel ) )
+    {
+        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::TogglePlayPause );
+    }
+
+    ImGui::EndDisabled();
+
+    ImGui::SameLine();
+
+    if ( ImGui::Button( ">" ) )
+    {
+        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::StepForward );
+    }
+
+    ImGui::SameLine();
+
+    if ( ImGui::Button( ">|" ) )
+    {
+        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::JumpToEnd );
+    }
+
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+
+    if ( ImGui::Button( compact ? "LIVE" : "RETURN LIVE" ) )
+    {
+        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::ReturnToLive );
+    }
+
+    ImGui::SameLine();
+
+    if ( hasSelectedTick )
+    {
+        ImGui::TextDisabled( "%s  tick %llu  %zu/%zu", loaded ? "FILE" : "SOLVER",
+                             static_cast<unsigned long long>( selectedTick ),
+                             loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
+                             loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity );
+    }
+    else
+    {
+        ImGui::TextDisabled( "%s  tick --  %zu/%zu", loaded ? "FILE" : "SOLVER",
+                             loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
+                             loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity );
+    }
+
+    float scrubPosition = trackPosition;
+    ImGui::SetNextItemWidth( (std::max)( 320.0f, ImGui::GetContentRegionAvail().x * ( compact ? 0.62f : 0.72f ) ) );
+    ImGui::BeginDisabled( !hasTimeline );
+
+    if ( ImGui::SliderFloat( "##ReplayTransportTrack", &scrubPosition, 0.0f, 1.0f, "%.3f" ) )
+    {
+        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::Scrub, scrubPosition );
+    }
+
+    ImGui::EndDisabled();
+    const ImVec2 trackMin = ImGui::GetItemRectMin();
+    const ImVec2 trackMax = ImGui::GetItemRectMax();
+    const float presentPosition = loaded ? 1.0f : std::clamp( selection.solverPresentTrackPosition, 0.0f, 1.0f );
+
+    const float presentX = trackMin.x + ( trackMax.x - trackMin.x ) * presentPosition;
+
+    // Concept: the thin marker exposes the replay owner's live-present
+    // boundary without making this panel calculate timeline ranges.
+    ImGui::GetWindowDrawList()->AddLine( ImVec2( presentX, trackMin.y - 2.0f ), ImVec2( presentX, trackMax.y + 2.0f ),
+                                         IM_COL32( 255, 196, 64, 255 ), 2.0f );
+
+    ImGui::SameLine();
+    const char* predictionLabel = replay.prediction.building ? ( compact ? "BUILD" : "PREDICTING" )
+                                                             : ( replay.prediction.enabled ? "PRED*" : "PRED" );
+
+    ImGui::BeginDisabled( !replay.prediction.generationPermitted );
+
+    if ( ImGui::Button( predictionLabel ) )
+    {
+        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::TogglePrediction );
+    }
+
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+
+    if ( ImGui::Button( "MORE" ) )
+    {
+        ImGui::OpenPopup( "##ReplayMore" );
+    }
+
+    if ( ImGui::BeginPopup( "##ReplayMore" ) )
+    {
+        float revealSpeed = static_cast<float>( replay.prediction.revealSecondsPerSecond );
+
+        if ( ImGui::SliderFloat( "Reveal speed", &revealSpeed, static_cast<float>( replay.prediction.revealRateMinimum ),
+                                 static_cast<float>( replay.prediction.revealRateMaximum ), "%.2fx" ) )
+        {
+            SubmitReplayCommand( UI::OperatorEditorReplayCommandType::SetRevealSpeed, revealSpeed );
+        }
+
+        float horizon = replay.prediction.horizonSeconds;
+
+        if ( ImGui::SliderFloat( "Prediction horizon", &horizon, replay.predictionHorizonMinimum,
+                                 replay.predictionHorizonMaximum, "%.1fs" ) )
+        {
+            SubmitReplayCommand( UI::OperatorEditorReplayCommandType::SetPredictionHorizon, horizon );
+        }
+
+        ImGui::BeginDisabled( !replay.scrubber.historicalSamplePaused );
+
+        if ( ImGui::MenuItem( "Restore as branch" ) )
+        {
+            SubmitReplayCommand( UI::OperatorEditorReplayCommandType::RestoreBranch );
+        }
+
+        ImGui::EndDisabled();
+
+        if ( ImGui::MenuItem( "Save replay" ) )
+        {
+            SubmitReplayCommand( UI::OperatorEditorReplayCommandType::Save );
+        }
+
+        if ( ImGui::MenuItem( "Load replay..." ) )
+        {
+            SubmitReplayCommand( UI::OperatorEditorReplayCommandType::Load );
+        }
+
+        if ( replay.causeTree.selectedRow >= 0 &&
+             replay.causeTree.selectedRow < static_cast<int>( replay.causeTree.rows.size() ) )
+        {
+            const RunReplayCauseTreeRow& row = replay.causeTree
+                                                   .rows[static_cast<std::size_t>( replay.causeTree.selectedRow )];
+
+            ImGui::SeparatorText( "Selected cause" );
+            ImGui::Text( "%s: %s", ImGuiEditorCauseRowKindName( row.kind ), row.name );
+        }
+
+        ImGui::EndPopup();
+    }
+
+    if ( replay.scrubber.saveMessage[0] != '\0' )
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled( "%s", replay.scrubber.saveMessage );
+    }
+    else if ( !hasTimeline )
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled( "NO REPLAY TIMELINE" );
+    }
+
+    ImGui::SeparatorText( "Continuous orbital forecast" );
+    bool rollingPredictionEnabled = forecast.active;
+
+    if ( ImGui::Checkbox( "Rolling prediction", &rollingPredictionEnabled ) )
+    {
+        SubmitForecastCommand( UI::OperatorEditorForecastCommandType::ToggleContinuous );
+    }
+
+    ImGui::SameLine();
+
+    if ( ImGui::Button( "Reset forecast" ) )
+    {
+        SubmitForecastCommand( UI::OperatorEditorForecastCommandType::Reset );
+    }
+
+    ImGui::Text( "Simulated %.2fs | sim / real %.1fx | window %.2fs", forecast.simulatedSeconds,
+                 forecast.simulatedSecondsPerRealSecond, forecast.rollingWindowAgeSeconds );
+    ImGui::Text( "Producer %s / %s | tick %llu | retained %llu bytes", forecast.available ? "available" : "unavailable",
+                 forecast.failed ? "failed" : ( forecast.workerInFlight ? "running" : "idle" ),
+                 static_cast<unsigned long long>( forecast.newestAbsoluteTick ),
+                 static_cast<unsigned long long>( forecast.retainedBytes ) );
+
+    if ( forecast.configured )
+    {
+        ImGui::Text( "Stability numeric %s | system %s | auxiliary %s", forecast.numericalHealthy ? "ok" : "fail",
+                     forecast.systemOrbitalHealthy ? "ok" : "fail", forecast.auxiliaryOrbitalHealthy ? "ok" : "fail" );
+    }
+    else
+    {
+        ImGui::TextDisabled( "Stability not started" );
+    }
+
+    if ( forecast.firstFailureCause == UI::OperatorEditorForecastCause::None )
+    {
+        ImGui::TextDisabled( "First cause: none" );
+    }
+    else
+    {
+        ImGui::Text( "First cause: %s @ %.2fs (%u/%u)", UI::OperatorEditorForecastCauseName( forecast.firstFailureCause ),
+                     forecast.firstFailureSeconds, forecast.firstFailureSubject, forecast.firstFailureOther );
+    }
+
+    if ( forecast.energyDriftAvailable )
+    {
+        ImGui::Text( "Energy drift %.3e (max %.3e)", forecast.energyDrift, forecast.maximumAbsoluteEnergyDrift );
+    }
+    else
+    {
+        ImGui::TextDisabled( "Energy drift unavailable" );
+    }
+
+    if ( forecast.angularMomentumDriftAvailable )
+    {
+        ImGui::Text( "Angular-momentum drift %.3e (max %.3e)", forecast.angularMomentumDrift,
+                     forecast.maximumAngularMomentumDrift );
+    }
+    else
+    {
+        ImGui::TextDisabled( "Angular-momentum drift unavailable" );
+    }
+    ImGui::End();
+}
+
+void ImGuiEditorOwner::DrawStatusPanel( const UI::OperatorEditorLookLabView& lookLab,
+                                        const UI::OperatorEditorSceneView& scene, const UI::OperatorEditorToolView& tools )
+{
+    if ( !m_showStatus )
+    {
+        return;
+    }
+
+    if ( !ImGui::Begin( ImGuiEditorPanel::Status, &m_showStatus,
+                        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse ) )
+    {
+        ImGui::End();
+        return;
+    }
+    const float framesPerSecond = m_frameInput.deltaSeconds > 0.0f ? 1.0f / m_frameInput.deltaSeconds : 0.0f;
+    ImGui::Text( "%s%s  |  %d objects  |  undo %d / redo %d  |  %.1f FPS  |  Tracy %s",
+                 tools.editorModeEnabled ? "EDIT" : "PLAY", tools.placementModeEnabled ? "/PLACE" : "", scene.modelCount,
+                 tools.undoDepth, tools.redoDepth, framesPerSecond,
+                 m_frameInput.tracyViewerConnected ? "connected" : "waiting" );
+
+    ImGui::Text( "Look Lab: F10 reroll | F11 save | %s%s%s%s", lookLab.detail.data(),
+                 lookLab.savePending ? " | capture pending" : "", lookLab.bundleDirectory[0] != '\0' ? " | " : "",
+                 lookLab.bundleDirectory[0] != '\0' ? lookLab.bundleDirectory.data() : "" );
+    ImGui::End();
+}
+
+void ImGuiEditorOwner::ApplyPendingPanelFocus()
+{
     if ( m_pendingFocusPanel != ImGuiEditorPanelId::Count )
     {
         const ImGuiEditorPanelId panel = m_pendingFocusPanel;

@@ -1530,3 +1530,21 @@ filesystem-preflight blockers. Final counts were 0 Blocking, 0 Non-blocking,
 and 1 Missing evidence. Per owner direction, no build, test, scanner, inventory,
 formatter, or repository validation was run; compile/link and focused runtime
 behavior therefore remain unexecuted evidence.
+
+## Engine Signature Cohesion SC4 DevelopmentTools Slice (2026-09-01)
+
+Branch `nightrunner-31st-AUG-26` and PR 165 remain active. The ninth SC4 slice
+replaces `ImGuiEditorCausalityContext` with separate selected-cause, bounded
+related-row, and status values. The editor presenter now sequences focused panel
+methods that receive exact detached UI slices, and the former 2,100-line shell
+operation no longer owns inline submission/edit helpers or a wide parameterized
+edit declaration. The existing Physics Solver filter rule now includes
+`PhysicsBroadphaseStepValues`.
+
+Profile builds warning-clean. The focused causality case passes 20 assertions;
+the complete test executable passes 913 cases and 2,692,462 assertions with one
+expected skip. Focused compiler-backed source-design passes four files under 29
+compile contexts with zero findings. Project filters, formatting, dependency
+direction, plain-language policy, commit-note policy, and whitespace checks pass.
+No baseline or golden changed. SC4 remains active; SC5 and the final SC6 closure
+still follow, corresponding to tasks 6/7 and 7/7.

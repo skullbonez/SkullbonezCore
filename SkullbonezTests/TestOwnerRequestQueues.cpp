@@ -2498,27 +2498,27 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     RunReplayVelocityEditState velocity;
     RunReplayCauseTreeState tree;
     ReplayRecorderStats solverStats;
-    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop, planner, path,
-                                    velocity, tree,       {},        solverStats, 1.0f,  120.0f };
+    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop,    planner, path,
+                                    velocity, tree,       {},        solverStats, 1.0f,    120.0f };
 
     CHECK( replay.prediction.revealRateMinimum == doctest::Approx( 1.0 ) );
     CHECK( replay.prediction.revealRateMaximum == doctest::Approx( 1000.0 ) );
     CHECK( replay.predictionHorizonMinimum == doctest::Approx( 1.0f ) );
     CHECK( replay.predictionHorizonMaximum == doctest::Approx( 120.0f ) );
 
-    ImGuiEditorCausalityContext context = BuildImGuiEditorCausalityContext( replay );
-    CHECK( context.state == ImGuiEditorCausalityState::Empty );
-    CHECK( context.relevantLinkCount == 0u );
+    ImGuiEditorCausalityProjection projection = BuildImGuiEditorCausalityProjection( replay );
+    CHECK( projection.status.state == ImGuiEditorCausalityState::Empty );
+    CHECK( projection.related.Rows().empty() );
 
     path.hasTarget = true;
     path.targetId.value = 17u;
-    context = BuildImGuiEditorCausalityContext( replay );
-    CHECK( context.state == ImGuiEditorCausalityState::CapacityLimited );
+    projection = BuildImGuiEditorCausalityProjection( replay );
+    CHECK( projection.status.state == ImGuiEditorCausalityState::CapacityLimited );
 
     tree.rows.reserve( 32u );
     tree.focusedId.value = 17u;
-    context = BuildImGuiEditorCausalityContext( replay );
-    CHECK( context.state == ImGuiEditorCausalityState::Stale );
+    projection = BuildImGuiEditorCausalityProjection( replay );
+    CHECK( projection.status.state == ImGuiEditorCausalityState::Stale );
 
     RunReplayCauseTreeRow root;
     root.id.value = 7u;
@@ -2543,15 +2543,15 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     replay.prediction.building = true;
     replay.prediction.targetId.value = 17u;
 
-    context = BuildImGuiEditorCausalityContext( replay );
-    REQUIRE( context.selectedObjectRow != nullptr );
-    REQUIRE( context.immediateCauseRow != nullptr );
-    CHECK( context.state == ImGuiEditorCausalityState::Ready );
-    CHECK( context.selectedObjectRow->id.value == 17u );
-    CHECK( context.immediateCauseRow->id.value == 7u );
-    CHECK( context.hasReplayTick );
-    CHECK( context.replayTick == 42u );
-    CHECK( context.predictionState == ImGuiEditorPredictionState::Building );
+    projection = BuildImGuiEditorCausalityProjection( replay );
+    REQUIRE( projection.selected.selectedObjectRow != nullptr );
+    REQUIRE( projection.selected.immediateCauseRow != nullptr );
+    CHECK( projection.status.state == ImGuiEditorCausalityState::Ready );
+    CHECK( projection.selected.selectedObjectRow->id.value == 17u );
+    CHECK( projection.selected.immediateCauseRow->id.value == 7u );
+    CHECK( projection.status.hasReplayTick );
+    CHECK( projection.status.replayTick == 42u );
+    CHECK( projection.status.predictionState == ImGuiEditorPredictionState::Building );
 
     for ( int index = 0; index < 12; ++index )
     {
@@ -2564,11 +2564,11 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
         tree.rows.push_back( detail );
     }
 
-    context = BuildImGuiEditorCausalityContext( replay );
-    CHECK( context.state == ImGuiEditorCausalityState::Truncated );
-    CHECK( context.relevantLinkCount == IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY );
-    CHECK( context.compactScanTruncated );
-    CHECK( context.totalRowCount == 14u );
+    projection = BuildImGuiEditorCausalityProjection( replay );
+    CHECK( projection.status.state == ImGuiEditorCausalityState::Truncated );
+    CHECK( projection.related.Rows().size() == IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY );
+    CHECK( projection.status.compactScanTruncated );
+    CHECK( projection.status.totalRowCount == 14u );
 }
 
 TEST_CASE( "Game viewport policy letterboxes and maps physical client pixels" )

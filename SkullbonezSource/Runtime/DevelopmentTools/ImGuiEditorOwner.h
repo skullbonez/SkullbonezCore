@@ -38,6 +38,8 @@ struct ReplayOverlayStateView;
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
 {
+struct ImGuiEditorCausalityProjection;
+
 enum class ImGuiEditorFontSource : uint8_t
 {
     None = 0,
@@ -214,16 +216,14 @@ enum class ImGuiEditorStartDisposition : uint8_t
     RestartIncomplete,
 };
 
-inline ImGuiEditorStartDisposition ResolveImGuiEditorStartDisposition( bool hasContext,
-                                                                       bool hasRendererBinding ) noexcept
+inline ImGuiEditorStartDisposition ResolveImGuiEditorStartDisposition( bool hasContext, bool hasRendererBinding ) noexcept
 {
     if ( !hasContext )
     {
         return ImGuiEditorStartDisposition::StartFresh;
     }
 
-    return hasRendererBinding ? ImGuiEditorStartDisposition::ReturnReady
-                              : ImGuiEditorStartDisposition::RestartIncomplete;
+    return hasRendererBinding ? ImGuiEditorStartDisposition::ReturnReady : ImGuiEditorStartDisposition::RestartIncomplete;
 }
 
 inline bool ShouldCaptureImGuiGameViewport( bool editorVisible, bool gameViewportPanelVisible ) noexcept
@@ -237,8 +237,7 @@ inline bool CanCompleteImGuiPanelFocus( bool panelVisible, bool windowExists, bo
 }
 
 inline ImGuiEditorPanelId ResolveImGuiPendingFocusAfterVisibility( ImGuiEditorPanelId pendingPanel,
-                                                                   ImGuiEditorPanelId changedPanel,
-                                                                   bool visible ) noexcept
+                                                                   ImGuiEditorPanelId changedPanel, bool visible ) noexcept
 {
     return !visible && pendingPanel == changedPanel ? ImGuiEditorPanelId::Count : pendingPanel;
 }
@@ -297,6 +296,48 @@ class ImGuiEditorOwner
     ImGuiEditorInputFrameState ConsumeInputFrameState() noexcept;
     void ApplyDpiStyle( float dpiScale );
     void BuildDefaultDockLayout( uint32_t rootDockId, float width, float height, bool requestedReset );
+    void SubmitToolCommand( UI::OperatorEditorToolCommandType type, uint32_t sceneObjectId = 0u, int value = 0,
+                            bool enabled = false );
+    void SubmitPropertyCommand( UI::OperatorEditorPropertyCommandType type, float value = 0.0f, int integerValue = 0,
+                                UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit );
+    void SubmitReplayCommand( UI::OperatorEditorReplayCommandType type, float value = 0.0f, int rowIndex = -1,
+                              bool enabled = false );
+    void SubmitForecastCommand( UI::OperatorEditorForecastCommandType type );
+    void SubmitSceneCommand( const UI::OperatorEditorSceneCommand& command );
+    void SubmitRenderingCommand( const UI::OperatorEditorRenderingCommand& command );
+    void SubmitDiagnosticsCommand( const UI::OperatorEditorDiagnosticsCommand& command );
+    void DrawFloatPropertyEdit( const char* label, UI::OperatorEditorPropertyCommandType type, float sourceValue,
+                                float speed, float minimum, float maximum, const char* format );
+    void DrawIntegerPropertyEdit( const char* label, UI::OperatorEditorPropertyCommandType type, int sourceValue,
+                                  int minimum, int maximum );
+    void DrawRenderingParameterEdit( const char* label, UI::OperatorEditorRenderingCommandType type, int parameter,
+                                     float sourceValue, float speed, float minimum, float maximum, const char* format );
+    void DrawDiagnosticsScalarEdit( const char* label, UI::OperatorEditorDiagnosticsCommandType type, float sourceValue,
+                                    float speed, float minimum, float maximum, const char* format );
+    void LaunchTracyViewer();
+    void BuildEditorMenuAndDockspace( const UI::OperatorEditorSceneView& scene,
+                                      const UI::OperatorEditorHierarchyView& hierarchy,
+                                      const UI::OperatorEditorToolView& tools );
+    void DrawSceneAndModesPanel( const UI::OperatorEditorSceneView& scene, const UI::OperatorEditorToolView& tools );
+    void DrawHierarchyPanel( const UI::OperatorEditorHierarchyView& hierarchy );
+    void DrawAssetsCreatePanel( const UI::OperatorEditorAssetView& assets, const UI::OperatorEditorToolView& tools );
+    void DrawGameViewportPanel( const UI::OperatorEditorRenderingView& rendering,
+                                const UI::OperatorEditorViewportView& viewport );
+    void DrawInspectorPanel( const UI::OperatorEditorInspectorView& inspector );
+    void DrawWorldSimulationPanel( const UI::OperatorEditorWorldView& world );
+    void DrawRenderingPanel( const UI::OperatorEditorRenderingView& rendering );
+    void DrawRenderingAuthoringTab( const UI::OperatorEditorRenderingView& rendering );
+    void DrawDiagnosticsPanel( const UI::OperatorEditorDiagnosticsView& diagnostics,
+                               const UI::OperatorEditorRenderingView& rendering );
+    void DrawCausalityPanel( const ImGuiEditorCausalityProjection& causality,
+                             const ReplayOverlay::ReplayOverlayStateView& replay );
+    void DrawCausalityDetailPanel( const ImGuiEditorCausalityProjection& causality,
+                                   const ReplayOverlay::ReplayOverlayStateView& replay );
+    void DrawReplayPanel( const UI::OperatorEditorForecastView& forecast,
+                          const ReplayOverlay::ReplayOverlayStateView& replay );
+    void DrawStatusPanel( const UI::OperatorEditorLookLabView& lookLab, const UI::OperatorEditorSceneView& scene,
+                          const UI::OperatorEditorToolView& tools );
+    void ApplyPendingPanelFocus();
     void ResetDefaultPanelVisibility() noexcept;
     uint32_t CopyPanelVisibilityMask() const noexcept;
     bool SetPanelVisibility( ImGuiEditorPanelId panel, bool visible ) noexcept;

@@ -162,6 +162,7 @@ PHYSICS_SOLVER_PREFIXES = (
     "ContactSolverCommon",
     "DisjointSet",
     "PersistentContactSolver",
+    "PhysicsBroadphaseStepValues",
     "PhysicsMotionEligibility",
     "SleepIslandSystem",
     "SolverBroadphaseStage",

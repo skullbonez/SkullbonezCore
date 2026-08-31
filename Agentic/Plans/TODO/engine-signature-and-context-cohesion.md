@@ -498,7 +498,7 @@ it is not an exception.
 | `Rendering/PrimitiveBatchRenderer.h:78-120` | `PrimitiveBatchRendererState` | Likely keep as owned renderer state, not a parameter bag; review whether unrelated sphere/box/pine resources should be child owners. |
 | `Rendering/RenderGraph.h:157-164` | `RenderGraphPassContext` | Likely keep as a checked graph/pass execution cursor; ensure passes cannot retain it and invalid pass index/graph combinations are rejected. |
 | `Rendering/WorldRenderExtension.h:70-81` | `WorldRenderExtensionFrameView` | Split camera values from live DX12 services; extension callbacks should receive a narrow extension draw interface or direct resources actually used. |
-| `Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:61-75` | `ImGuiEditorCausalityContext` | Replace pointer collection/count fields with a selected-cause value and bounded related-row span; keep projection statistics separate. |
+| `Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:32-101` | `ImGuiEditorCausalityProjection` | Repaired: selected-cause pointers, bounded related rows, and projection status are separate values. `BuildEditorShell` now delegates exact panel slices instead of unpacking the complete editor frame in one 2,100-line operation. |
 | `Runtime/Direction/LookLabController.h:77-87` | `LookLabSaveRequest` | Likely keep as one synchronous save request after validating/copied strings and timestamp/offset rules; it already names a concrete operation. |
 | `Runtime/Interaction/OperatorEditorExchange.h:81-385` | `OperatorEditorInspectorView` and all `OperatorEditor*View` siblings | Review as one surface. Keep detached presentation groups only where different consumers use different subsets; merge duplicates and prevent any operation from receiving the complete slice set. |
 | `Runtime/Planning/ReplayCauseInspection.h:166-197` | `ReplayCauseInspectionView` | Split transport/selection, solver-detail availability, and display metrics if consumers use them independently. |
@@ -816,6 +816,24 @@ source-design passes the four changed source-bearing files under 30 consumer
 contexts with no findings. Formatting, dependency/project ownership,
 build-configuration consistency, and whitespace checks pass. No baseline or
 golden changed.
+
+The ninth grouped slice repairs the DevelopmentTools causality projection and
+the oversized editor presenter exposed by that repair. Selected cause rows,
+bounded related rows, and causality status are separate values; no raw
+pointer-array/count pair remains. `BuildEditorShell` is now a short composition
+operation that passes each panel only its detached UI slice. Command submission,
+property edit lifecycles, rendering parameter edits, Tracy launch, focus
+completion, and each panel are named owner methods rather than one 2,100-line
+function or a replacement context record. The stale Physics project-filter rule
+now recognizes `PhysicsBroadphaseStepValues` in its existing Solver filter.
+
+The exact source builds Profile warning-clean. The focused causality test passes
+20 assertions, and the complete test executable passes 913 cases and 2,692,462
+assertions with one expected skip. Compiler-backed source-design passes the four
+touched C++ files under 29 compile contexts with zero findings. Formatting,
+project-filter, dependency/project ownership, plain-language, commit-note, and
+whitespace checks pass. The first broad preflight correctly exposed the editor
+shape findings before the structural split; no baseline or golden changed.
 
 ### SC4 Commit-Note Recovery And Enforcement
 
