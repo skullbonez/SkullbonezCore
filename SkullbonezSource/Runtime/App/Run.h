@@ -113,6 +113,8 @@ class WorkerPool;
 namespace UI
 {
 class InGameUI;
+struct InGameUIFrameData;
+struct InputCaptureIntent;
 struct InGameUICommands;
 struct OperatorEditorArbitrationResult;
 struct OperatorEditorCommandQueues;
@@ -123,6 +125,7 @@ namespace Runtime
 class Window;
 struct RunRendererLifecycleTestAccess;
 class RuntimeOverlayDiagnostics;
+class RuntimeOverlayPresentationEdit;
 struct RuntimeOverlayFramePolicy;
 class RuntimeValidationHarness;
 struct DemoDirectorTickResult;
@@ -130,8 +133,11 @@ struct InteractionAutomationFrameResult;
 struct ReplayPathPickInput;
 struct RuntimeRenderModelFrameView;
 struct RuntimeUiTextFrameFacts;
+struct OperatorUiDiagnosticsFacts;
+struct OperatorUiProjectionFacts;
 struct OperatorUiProcessCommands;
 struct OperatorUiSecondaryDiagnosticsFacts;
+class OperatorUiPhaseOwner;
 class SceneLoadTransaction;
 class OperatorCommandTransaction;
 struct OperatorCommandAcceptanceLedger;
@@ -267,6 +273,39 @@ class Run
 #endif
     SceneFrameProceedPolicy RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput,
                                            bool& gameUiActive );
+    SceneFrameProceedPolicy CompleteRuntimeInputPhase( bool& gameUiActive, bool requestDevelopmentUiSurfaceSwap );
+    RunCameraMode NormalizeInputCameraMode( RunCameraMode mode ) const;
+    uint32_t CurrentCameraModeEnabledMask() const;
+    void EnterInteractiveInputScene();
+    SkullbonezCore::Core::SbResult RunInputUiStressBatch( bool gameUiActive,
+                                                          RuntimeOverlayPresentationEdit& presentationEdit );
+    bool DrainInputCaptureRequests();
+    bool DrainInputRenderDefaultRequests();
+    void CommitInputPointerPresentation( const UI::InputCaptureIntent& externalUiCapture );
+    bool ExecuteInputSceneLoadRequest( const SceneLoadRequest& request, RuntimeOverlayPresentationEdit& presentationEdit );
+    bool ToggleInputInteractionRecording( const DeviceInputFrame& deviceFrame,
+                                          const UI::InputCaptureIntent& externalUiCapture );
+    bool HandlePreUiAuthoringAction( const InputActionEvent& event, const DeviceInputFrame& deviceFrame,
+                                     const UI::InputCaptureIntent& externalUiCapture, bool& keyboardToggleEditorMode );
+    bool HandlePreUiEditorAction( const InputActionEvent& event, const DeviceInputFrame& deviceFrame );
+    bool HandlePreUiCameraAction( const InputActionEvent& event );
+    bool HandlePreUiDirectorAction( const InputActionEvent& event, OverlayDebugState& debug );
+    bool HandlePreUiDiagnosticsAction( const InputActionEvent& event, OverlayDebugState& debug );
+    bool HandlePreUiReplayAction( const InputActionEvent& event, bool gameUiActive );
+    bool HandlePreUiSurfaceAction( const InputActionEvent& event, const DeviceInputFrame& deviceFrame, bool gameUiActive,
+                                   OverlayDebugState& debug, bool& requestDevelopmentUiSurfaceSwap );
+    bool HandlePreUiSceneNavigationAction( const InputActionEvent& event, RuntimeOverlayPresentationEdit& presentationEdit );
+    void ApplyKeyboardEditorReplayInput( const EditorKeyboardShortcutResult& shortcut );
+    RuntimeUIFrameResult RunOperatorInputFrame( const UI::InputCaptureIntent& externalUiCapture,
+                                                const UI::OperatorEditorCommandQueues& externalEditorCommands,
+                                                int requestedReplayCauseRow, bool gameUiActive,
+                                                bool keyboardToggleEditorMode,
+                                                RuntimeOverlayPresentationEdit& presentationEdit );
+    void ApplyInputReplayRestore( RuntimeUIFrameResult& result, OverlayDebugState& debug );
+    void PublishInputRecordingDiagnostics( OverlayDebugState& debug );
+    void ApplyInputCameraControls( const UI::InputCaptureIntent& externalUiCapture, InputActions& inputActions,
+                                   const RuntimeInputSnapshot& inputSnapshot );
+    void ApplyDeferredInputOwnerRequests( RuntimeOverlayPresentationEdit& presentationEdit );
     float RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy,
                               bool& capturePresentationPinned );
     float PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned, float interpolationAlpha );
@@ -277,6 +316,31 @@ class Run
                                                      float presentationAlpha, bool capturePresentationPinned,
                                                      double secondsPerFrame, bool gameUiActive,
                                                      const RuntimeFrameMetricsSnapshot& frameMetrics );
+    OperatorUiProjectionFacts SampleOperatorUiProjectionFacts( const RuntimeUiTextFrameFacts& uiTextFacts,
+                                                               const RuntimeFrameMetricsSnapshot& frameMetrics,
+                                                               const OverlayDebugState& debug );
+    void ProjectOperatorEditorPrimaryView( UI::OperatorEditorFrameView& view, const OperatorUiProjectionFacts& facts,
+                                           const RuntimeUiTextFrameFacts& uiTextFacts, bool secondarySurfaceVisible,
+                                           const OverlayDebugState& debug );
+    void ProjectOperatorEditorHierarchyView( UI::OperatorEditorFrameView& view );
+    void ProjectOperatorEditorInspectorView( UI::OperatorEditorFrameView& view );
+    void SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts,
+                                           const RuntimeRenderModelFrameView& renderModels, const ReplayHudStatus& replayHud,
+                                           const RuntimeFrameMetricsSnapshot& metrics );
+    void BuildOperatorGameUiData( UI::InGameUIFrameData& uiData, const OperatorUiProjectionFacts& projection,
+                                  const RuntimeRenderModelFrameView& renderModels,
+                                  const UI::OperatorEditorFrameView& operatorEditorView,
+                                  const RuntimeFrameMetricsSnapshot& metrics, const UiTextViewport& uiViewport,
+                                  int uiDrawCallStart, const OverlayDebugState& debug,
+                                  RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews );
+    int RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const OperatorUiProjectionFacts& projection,
+                                  const RuntimeRenderModelFrameView& renderModels,
+                                  const UI::OperatorEditorFrameView& operatorEditorView,
+                                  const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
+                                  RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, const OverlayDebugState& debug );
+    bool RenderDevelopmentOperatorUi( const UI::OperatorEditorFrameView& operatorEditorView,
+                                      const ReplayOverlay::ReplayOverlayStateView& replayOverlay, double secondsPerFrame,
+                                      bool& requestSurfaceSwap, bool& requestTracyStandardCapture );
     void SampleSecondaryOperatorDiagnostics( const RuntimeFrameMetricsSnapshot& frameMetrics,
                                              const RuntimeUiTextFrameFacts& uiTextFacts, const OverlayDebugState& debug,
                                              bool shadowsEnabled, bool cinematicRendering,

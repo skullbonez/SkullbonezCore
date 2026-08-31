@@ -736,6 +736,23 @@ suite passes 913 cases and 2,694,677 assertions with one expected skip.
 Compiler-backed source-design passes all seven changed source-bearing files
 under 53 consumer contexts with no findings. No baseline or golden changed.
 
+The fourth grouped slice repairs the two remaining oversized App frame
+coordinators exposed by the compiler gate. `RunInputPhase` now sequences
+capture/default draining, pre-UI action families, operator input, replay
+restore, recording diagnostics, camera control, and deferred owner requests as
+named operations. `RenderOperatorUiPhase` now samples one detached projection
+shared by GameUI and ImGui, then separately projects hierarchy, inspector,
+secondary diagnostics, GameUI data, text/GPU submission, and the development
+surface. These remain ordered composition-root phases; no helper retains a
+multi-owner context or moves frame orchestration below App.
+
+The Profile solution builds warning-clean. The normal test suite passes 913
+cases and 2,692,437 assertions with one expected skip. Compiler-backed
+source-design passes the three changed source-bearing files under 16 consumer
+contexts with no findings. Formatting, dependency/project ownership,
+build-configuration consistency, and whitespace checks pass. No baseline or
+golden changed.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add
