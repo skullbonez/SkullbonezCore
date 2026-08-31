@@ -40,17 +40,19 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace Rendering = SkullbonezCore::Rendering;
 
 RenderResourceLifecycle::RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                                  Rendering::RenderBackendDX12& backend, const RenderWorldView& world,
-                                                  int sceneIndex, int sceneLoadCount )
+                                                  Rendering::RenderBackendDX12& backend, Assets::AssetSystem& assets,
+                                                  SkullbonezCore::Core::EngineConfig& config,
+                                                  SkullbonezCore::Core::Profiler* profiler, int sceneIndex,
+                                                  int sceneLoadCount )
     : m_resultDiagnostics( resultDiagnostics ), m_renderDevice( backend.RenderDevice() ), m_renderFrame( backend.Frame() ),
       m_renderGraph( backend.GraphTransients() ), m_renderResources( backend.ResourceBuilder() ),
       m_renderTextures( backend.Textures() ), m_renderGeometry( backend.Geometry() ),
       m_renderDiagnostics( backend.Diagnostics() ), m_raytracing( backend.Raytracing() ),
       m_raytracingAvailable( backend.Diagnostics().GetCapabilities().supportsDxrReflection ),
-      m_lifecycleLog( &backend.RenderDevice(), sceneIndex, sceneLoadCount ), m_assets( world.assets ),
-      m_textures( resultDiagnostics ), m_config( world.config ),
+      m_lifecycleLog( &backend.RenderDevice(), sceneIndex, sceneLoadCount ), m_assets( assets ),
+      m_textures( resultDiagnostics ), m_config( config ),
       m_primitiveBatches( std::in_place, &backend.ResourceBuilder(), &backend.Textures(), &backend.Geometry() ),
-      m_gpuTiming( world.profiler, &backend.Diagnostics() ), m_uiTextPass( resultDiagnostics, world.profiler, m_gpuTiming )
+      m_gpuTiming( profiler, &backend.Diagnostics() ), m_uiTextPass( resultDiagnostics, profiler, m_gpuTiming )
 {
 }
 
@@ -148,8 +150,8 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( i
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     std::unique_ptr<Rendering::ShaderDX12> textShader = m_assets.CreateShader( m_renderResources, "shader.text" );
     std::unique_ptr<Rendering::ShaderDX12> solidShader = m_assets.CreateShader( m_renderResources, "shader.solid_color" );
-    std::unique_ptr<Rendering::ShaderDX12> solidBatchShader =
-        m_assets.CreateShader( m_renderResources, "shader.solid_color_batch" );
+    std::unique_ptr<Rendering::ShaderDX12> solidBatchShader = m_assets.CreateShader( m_renderResources,
+                                                                                     "shader.solid_color_batch" );
     return m_uiTextPass.EnsureGpuResources( m_renderTextures, m_renderGeometry, std::move( textShader ),
                                             std::move( solidShader ), std::move( solidBatchShader ), screenW, screenH );
 }

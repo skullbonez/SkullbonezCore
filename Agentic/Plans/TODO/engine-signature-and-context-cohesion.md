@@ -786,6 +786,21 @@ contexts with no findings. Formatting, dependency/project ownership,
 build-configuration consistency, and whitespace checks pass. No baseline or
 golden changed.
 
+The seventh grouped slice removes the render-startup service bag. `Run` now
+binds result diagnostics, backend, assets, window, render configuration, world
+environment, profiler, and scene generation facts directly to their consuming
+owners. `RuntimeRenderer` retains only its window, environment, and profiler
+dependencies, while `RenderResourceLifecycle` receives assets, configuration,
+and profiler directly. The deleted `RenderWorldView` no longer obscures which
+owner consumes each dependency, and no replacement context record was added.
+
+The Profile solution builds warning-clean. The normal test suite passes 913
+cases and 2,692,057 assertions with one expected skip. Compiler-backed
+source-design passes the six changed source-bearing files under 47 consumer
+contexts with no findings. Formatting and whitespace checks pass; dependency,
+project ownership, and build-configuration consistency are included in this
+slice's grouped closure checks. No baseline or golden changed.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add

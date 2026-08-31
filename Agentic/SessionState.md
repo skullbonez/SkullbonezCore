@@ -73,9 +73,15 @@ candidates, a concrete affected-marker input, and a target/budget overlay
 request. Profile builds warning-clean; 913 cases and 2,692,417 assertions pass
 with one expected skip; source-design passes three files under 20 consumer
 contexts; format, dependency/project ownership, build-configuration, and
-whitespace checks pass. The next batch reconciles the remaining SC4/SC5
-inventory against the compiler census.
-No baseline refresh
+whitespace checks pass. The seventh grouped slice removes the render-startup
+service bag and binds result diagnostics, backend, assets, window, render
+configuration, environment, profiler, and scene generation facts directly to
+their consuming owners. `RuntimeRenderer` retains only window, environment,
+and profiler, while `RenderResourceLifecycle` receives assets, configuration,
+and profiler directly. Profile builds warning-clean; 913 cases and 2,692,057
+assertions pass with one expected skip; source-design passes six files under 47
+consumer contexts. The next batch reconciles the remaining SC4/SC5 inventory
+against the compiler census. No baseline refresh
 is authorized. The live work ledger is temporarily owned by
 unfinished task `GOV1` in another Codex session, so this run cannot open its own
 ledger row until that external metadata owner finishes.

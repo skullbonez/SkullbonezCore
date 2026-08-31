@@ -321,10 +321,8 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
 
 SkullbonezCore::Core::SbResult Run::BindRenderBackend( Rendering::RenderBackendDX12& backend )
 {
-    auto renderer = std::make_unique<RuntimeRenderer>( m_resultDiagnostics, backend,
-                                                       RenderWorldView { m_assets, m_window, m_config,
-                                                                         m_sceneController.Scene().Environment(),
-                                                                         m_profiler },
+    auto renderer = std::make_unique<RuntimeRenderer>( m_resultDiagnostics, backend, m_assets, m_window, m_config,
+                                                       m_sceneController.Scene().Environment(), m_profiler,
                                                        m_sceneController.State().currentSceneIndex,
                                                        m_sceneController.State().loadCount );
     m_renderer = std::move( renderer );

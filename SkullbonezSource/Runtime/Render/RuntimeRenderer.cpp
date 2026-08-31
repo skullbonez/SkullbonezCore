@@ -1818,10 +1818,13 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( bool cinemati
 
 
 RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
-                                  Rendering::RenderBackendDX12& backend, const RenderWorldView& world, int sceneIndex,
-                                  int sceneLoadCount )
-    : m_resultDiagnostics( resultDiagnostics ), m_resources( resultDiagnostics, backend, world, sceneIndex, sceneLoadCount ),
-      m_window( world.window ), m_world( world.worldEnvironment ), m_profiler( world.profiler ),
+                                  Rendering::RenderBackendDX12& backend, Assets::AssetSystem& assets, Window& window,
+                                  SkullbonezCore::Core::EngineConfig& config,
+                                  Environment::WorldEnvironment& worldEnvironment, SkullbonezCore::Core::Profiler* profiler,
+                                  int sceneIndex, int sceneLoadCount )
+    : m_resultDiagnostics( resultDiagnostics ),
+      m_resources( resultDiagnostics, backend, assets, config, profiler, sceneIndex, sceneLoadCount ), m_window( window ),
+      m_world( worldEnvironment ), m_profiler( profiler ),
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
       m_developmentUiRenderer( &backend.DevelopmentUiRenderer() ),
 #endif
