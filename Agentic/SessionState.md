@@ -38,7 +38,15 @@ order preserved. The combined Profile build passes warning-clean, the complete
 suite passes 914 cases and 2,692,750 assertions, source-design passes 15 files
 and 96 contexts, and format, dependency, build-configuration, and whitespace
 checks pass. The next grouped slice repairs the UI/App coordinator structure
-exposed by the compiler gate. No baseline refresh
+exposed by the compiler gate. That below-App portion now splits the UI window
+input owner into derived-layout, minimized, chrome, popup, tab, footer, slider,
+drag/resize, and release phases; splits editor gizmo live drag from scale and
+pose release recording; and splits operator draw-trace/profiler projection.
+Profile builds warning-clean, the normal suite passes 913 cases and 2,691,927
+assertions with one expected skip, source-design passes five files and 39
+contexts, and the renderer-free UI boundary plus lightweight gates pass. The
+next grouped slice proceeds into App orchestration and the typed UI input seam.
+No baseline refresh
 is authorized. The live work ledger is temporarily owned by
 unfinished task `GOV1` in another Codex session, so this run cannot open its own
 ledger row until that external metadata owner finishes.

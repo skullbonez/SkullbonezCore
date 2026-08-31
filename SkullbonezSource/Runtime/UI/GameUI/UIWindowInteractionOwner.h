@@ -54,6 +54,10 @@ namespace UI
 {
 
 enum class InGameUITab;
+namespace FrameComposition
+{
+struct EditorMiniPaletteLayout;
+}
 
 class UIWindowInteractionOwner
 {
@@ -170,10 +174,94 @@ class UIWindowInteractionOwner
                                      const SceneNavigationModel& sceneNavigation );
 
   private:
+    struct MinimizedControlResult
+    {
+        bool handled = false;
+        bool inside = false;
+
+        bool BlocksCamera() const
+        {
+            return handled || inside;
+        }
+    };
+
+    // Invariant: all hit regions are derived from one animated window rectangle
+    // before any control handles the pointer turn.
+    struct WindowPointerLayout
+    {
+        UIRect hitBounds;
+        int inputX = 0;
+        int inputY = 0;
+        int inputW = 1;
+        int inputH = 1;
+        int contentY = 0;
+        int contentH = 1;
+        int bottomY = 0;
+        float maxScroll = 0.0f;
+        bool inside = false;
+        bool inTitle = false;
+        bool inTabs = false;
+        bool inResize = false;
+        bool inContent = false;
+
+        float ContentX() const;
+        float ContentWidth() const;
+        float RowBase( float scrollY ) const;
+        float ScrolledY( float scrollY ) const;
+        bool InFooter( int mouseY ) const;
+    };
+
+    // Lifetime: option labels borrow SceneNavigationModel only for this input
+    // turn; selected rows are captured from the same model generation.
+    struct WindowOptionView
+    {
+        std::span<const char* const> scenes;
+        std::span<const char* const> recordings;
+        int selectedScene = -1;
+        int selectedRecording = -1;
+    };
+
     void CloseSceneCombo();
     void CancelActiveSliderPreview();
     void CancelEditorMiniPaletteInteraction();
     void SetMaximized( bool maximized, int screenW, int screenH, double now );
+    InGameUIInputResult HandleMinimizedInput( const InputControl::UIInputSnapshot& input, int screenW, int screenH,
+                                              double now, bool editorModeEnabled, bool editorPlacementMode,
+                                              bool editorPlaceStatic, bool editorTerrainAlign,
+                                              uint32_t cameraModeEnabledMask );
+    MinimizedControlResult HandleMinimizedCameraMode( const InputControl::UIInputSnapshot& input, const UIRect& minimized,
+                                                      bool showEditorMiniPalette, uint32_t cameraModeEnabledMask,
+                                                      InGameUIInputResult& result );
+    MinimizedControlResult HandleMinimizedEditorStatus( const InputControl::UIInputSnapshot& input, const UIRect& minimized,
+                                                        bool editorPlacementMode, bool editorPlaceStatic,
+                                                        bool editorTerrainAlign, InGameUIInputResult& result );
+    MinimizedControlResult HandleEditorMiniPalette( const InputControl::UIInputSnapshot& input, int screenW, int screenH,
+                                                    const UIRect& minimized, double now, InGameUIInputResult& result );
+    bool BeginEditorMiniPalettePress( const FrameComposition::EditorMiniPaletteLayout& layout, double now,
+                                      InGameUIInputResult& result );
+    void FinishEditorMiniPalettePress( const FrameComposition::EditorMiniPaletteLayout& layout,
+                                       InGameUIInputResult& result );
+    void SelectEditorMiniPaletteObject( InGameUIInputResult& result, int objectType, bool requestPlaceStatic,
+                                        bool placeStatic );
+    void UpdateActiveSliderInput( InGameUIInputResult& result );
+    void UpdateWindowDragAndResize( bool leftNow, int screenW, int screenH, double now );
+    void FinishPointerRelease( InGameUIInputResult& result );
+    WindowPointerLayout PrepareWindowPointerLayout( double now );
+    WindowOptionView BuildWindowOptionView( const SceneNavigationModel& sceneNavigation ) const;
+    void HandleWindowWheel( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result,
+                            const WindowPointerLayout& layout, const WindowOptionView& options, double now );
+    void HandleWindowPress( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result,
+                            const WindowPointerLayout& layout, const WindowOptionView& options, int screenW, int screenH,
+                            double now );
+    bool HandleWindowChromePress( InGameUIInputResult& result, const WindowPointerLayout& layout, int screenW, int screenH,
+                                  double now );
+    bool HandleOpenControlPress( InGameUIInputResult& result, const WindowPointerLayout& layout,
+                                 const WindowOptionView& options );
+    bool HandleDiagnosticTabPress( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result,
+                                   const WindowPointerLayout& layout, const WindowOptionView& options, double now );
+    bool HandlePresentationTabPress( InGameUIInputResult& result, const WindowPointerLayout& layout );
+    bool HandleRenderTabPress( InGameUIInputResult& result, const WindowPointerLayout& layout );
+    void HandleWindowFallbackPress( InGameUIInputResult& result, const WindowPointerLayout& layout );
 
     UIWindowState m_window;
     UIInteractionState m_interaction;

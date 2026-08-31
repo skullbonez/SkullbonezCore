@@ -701,6 +701,25 @@ coordinator functions expose separate pre-existing size and unpacking findings;
 their structural repair remains in the next grouped SC4/SC5 slice rather than
 being hidden behind another parameter record. No baseline or golden changed.
 
+The second SC4 slice repairs the exposed below-App coordinator structure.
+`UIWindowInteractionOwner` now sequences separate histogram, minimized-camera,
+editor-status, editor-palette, window-layout, wheel, chrome, open-control,
+diagnostic-tab, presentation-tab, render-tab, footer, slider, drag/resize, and
+release operations. One derived window layout owns the animated hit regions,
+and one synchronous option view binds labels to the selected rows from the same
+navigation generation. Editor gizmo routing separately applies the live drag,
+records scale release, and records pose/group release. Operator diagnostics
+separately project frame metrics, draw attribution, and bounded profiler rows.
+The previous action order and capture transitions remain intact without a new
+multi-owner context.
+
+The Profile solution builds with zero warnings. The complete normal test run
+passes 913 cases and 2,691,927 assertions with its one expected skip. Compiler-
+backed source-design passes the five changed source-bearing files under 39
+consumer contexts. The renderer-free UI boundary, formatting,
+dependency/project ownership, build-configuration consistency, and whitespace
+checks pass. No baseline or golden changed.
+
 ## Phases
 
 - [x] **SC0 — Build the whole-engine inventory and lock behavior evidence.** Add

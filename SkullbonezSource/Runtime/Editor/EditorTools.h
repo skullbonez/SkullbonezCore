@@ -392,6 +392,12 @@ class EditorToolsOwner
                                 RuntimeInteractionController& interaction );
 
   private:
+    void ApplyEditorGizmoDrag( const EditorGizmoDragPointerInput& input, const RuntimeInteractionGesture& gesture,
+                               SceneWorld& world, RuntimeInteractionController& interaction );
+    void RecordEditorGizmoScaleRelease( const EditorGizmoDragPointerInput& input, SceneWorld& world,
+                                        const RuntimeInteractionGesture& gesture, ReplayEventCommandBatch& events );
+    void RecordEditorGizmoPoseRelease( const EditorGizmoDragPointerInput& input, SceneWorld& world,
+                                       ReplayEventCommandBatch& events );
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     RunEditorPlacementState m_editor;
     SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
