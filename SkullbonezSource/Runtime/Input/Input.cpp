@@ -251,9 +251,14 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
     }
     else
     {
-        frame.leftDown = frame.keys.IsDown( VK_LBUTTON );
-        frame.rightDown = frame.keys.IsDown( VK_RBUTTON );
-        frame.middleDown = frame.keys.IsDown( VK_MBUTTON );
+        // Why: GetKeyboardState reports the calling thread's queued message
+        // state. A render frame can sample between a native button message and
+        // that queue state update, dropping the held level that begins UI and
+        // replay drags. Async state is the authoritative physical level here;
+        // InputRouter still owns deterministic pressed/released edge creation.
+        frame.leftDown = ( GetAsyncKeyState( VK_LBUTTON ) & 0x8000 ) != 0;
+        frame.rightDown = ( GetAsyncKeyState( VK_RBUTTON ) & 0x8000 ) != 0;
+        frame.middleDown = ( GetAsyncKeyState( VK_MBUTTON ) & 0x8000 ) != 0;
         frame.wheelDelta = callbackWheelDelta;
         (void)ConsumeRawMouseDelta( frame.rawMouseX, frame.rawMouseY );
     }
@@ -340,16 +345,16 @@ bool Input::IsSystemCursorVisibleRequested()
 
 
 SkullbonezCore::Core::SbResult Input::RegisterRawMouseInput( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                            HWND window )
+                                                             HWND window )
 {
     return RegisterRawMouseInputWithOperation( diagnostics, window, IsCallbackBridgeBoundForWindow( window ),
                                                RegisterRawMouseDevice, nullptr );
 }
 
 
-SkullbonezCore::Core::SbResult Input::RegisterRawMouseInputWithOperation(
-    SkullbonezCore::Core::SbDiagnosticStore& diagnostics, HWND window, bool callbackBridgeBound,
-    RawMouseRegistrationOperation operation, void* context )
+SkullbonezCore::Core::SbResult
+Input::RegisterRawMouseInputWithOperation( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, HWND window,
+                                           bool callbackBridgeBound, RawMouseRegistrationOperation operation, void* context )
 {
     assert( callbackBridgeBound && "Raw mouse input must register through the bound callback bridge HWND" );
 
