@@ -637,39 +637,34 @@ void Run::ApplyReplayOperatorCommands( RuntimeUIFrameResult& result, const Runti
             continue;
         }
 
-        ReplayTransportCommand command;
-        command.value = source.value;
-        command.rowIndex = source.rowIndex;
-        command.enabled = source.enabled;
-
         switch ( source.type )
         {
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetRecordingEnabled:
-            command.action = ReplayTransportAction::SetRecordingEnabled;
+            ApplyReplayTransportCommand( result, facts, ReplaySetRecordingEnabledCommand { source.enabled } );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::JumpToStart:
-            command.action = ReplayTransportAction::JumpToStart;
+            ApplyReplayTransportCommand( result, facts, ReplayJumpToStartCommand {} );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::JumpToEnd:
-            command.action = ReplayTransportAction::JumpToEnd;
+            ApplyReplayTransportCommand( result, facts, ReplayJumpToEndCommand {} );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::TogglePlayPause:
-            command.action = ReplayTransportAction::TogglePlayPause;
+            ApplyReplayTransportCommand( result, facts, ReplayTogglePlayPauseCommand {} );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::StepBackward:
-            command.action = ReplayTransportAction::StepBackward;
+            ApplyReplayTransportCommand( result, facts, ReplayStepBackwardCommand {} );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::StepForward:
-            command.action = ReplayTransportAction::StepForward;
+            ApplyReplayTransportCommand( result, facts, ReplayStepForwardCommand {} );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetRevealSpeed:
-            command.action = ReplayTransportAction::SetRevealSpeed;
+            ApplyReplayTransportCommand( result, facts, ReplaySetRevealSpeedCommand { source.value } );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::Scrub:
-            command.action = ReplayTransportAction::Scrub;
+            ApplyReplayTransportCommand( result, facts, ReplayScrubCommand { source.value } );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::TogglePrediction:
-            command.action = ReplayTransportAction::TogglePrediction;
+            ApplyReplayTransportCommand( result, facts, ReplayTogglePredictionCommand {} );
 
             if ( !m_replayRuntime.BuildInputView().predictionEnabled )
             {
@@ -678,29 +673,27 @@ void Run::ApplyReplayOperatorCommands( RuntimeUIFrameResult& result, const Runti
 
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetPredictionHorizon:
-            command.action = ReplayTransportAction::SetPredictionHorizon;
+            ApplyReplayTransportCommand( result, facts, ReplaySetPredictionHorizonCommand { source.value } );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::RestoreBranch:
-            command.action = ReplayTransportAction::RestoreBranch;
+            ApplyReplayTransportCommand( result, facts, ReplayRestoreBranchCommand {} );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::Save:
-            command.action = ReplayTransportAction::Save;
+            ApplyReplayTransportCommand( result, facts, ReplaySaveCommand {} );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::Load:
-            command.action = ReplayTransportAction::Load;
+            ApplyReplayTransportCommand( result, facts, ReplayLoadCommand {} );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::ReturnToLive:
-            command.action = ReplayTransportAction::ReturnToLive;
+            ApplyReplayTransportCommand( result, facts, ReplayReturnToLiveCommand {} );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::SelectCauseRow:
-            command.action = ReplayTransportAction::SelectCauseRow;
+            ApplyReplayTransportCommand( result, facts, ReplaySelectCauseRowCommand { source.rowIndex } );
             break;
         case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetMemoryPolicy:
         default:
             continue;
         }
-
-        ApplyReplayTransportCommand( result, facts, command );
     }
 }
 
@@ -731,9 +724,7 @@ void Run::ApplyForecastOperatorCommands( RuntimeUIFrameResult& result, const Run
 
         if ( m_replayRuntime.BuildInputView().predictionEnabled )
         {
-            ReplayTransportCommand disablePrediction;
-            disablePrediction.action = ReplayTransportAction::TogglePrediction;
-            ApplyReplayTransportCommand( result, facts, disablePrediction );
+            ApplyReplayTransportCommand( result, facts, ReplayTogglePredictionCommand {} );
         }
 
         if ( !m_replayRuntime.BuildInputView().predictionEnabled )

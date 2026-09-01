@@ -801,7 +801,7 @@ bool Run::HandlePreUiReplayAction( const InputActionEvent& event, bool gameUiAct
     {
         ReplayWorkspaceOutput output;
         m_replayRuntime
-            .ApplyTransportCommand( ReplayTransportCommand { ReplayTransportAction::TogglePlayPause },
+            .ApplyTransportCommand( ReplayTogglePlayPauseCommand {},
                                     ReplayTransportHostContext { m_window.NativeWindowHandle(),
                                                                  NormalizeInputCameraMode( m_camera.mode ),
                                                                  NormalizeInputCameraMode(

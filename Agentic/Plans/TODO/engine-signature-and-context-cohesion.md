@@ -499,7 +499,7 @@ it is not an exception.
 | `Rendering/RenderGraph.h:157-164` | `RenderGraphPassContext` | Likely keep as a checked graph/pass execution cursor; ensure passes cannot retain it and invalid pass index/graph combinations are rejected. |
 | `Rendering/WorldRenderExtension.h:70-81` | `WorldRenderExtensionFrameView` | Split camera values from live DX12 services; extension callbacks should receive a narrow extension draw interface or direct resources actually used. |
 | `Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:32-101` | `ImGuiEditorCausalityProjection` | Repaired: selected-cause pointers, bounded related rows, and projection status are separate values. `BuildEditorShell` now delegates exact panel slices instead of unpacking the complete editor frame in one 2,100-line operation. |
-| `Runtime/Direction/LookLabController.h:77-87` | `LookLabSaveRequest` | Likely keep as one synchronous save request after validating/copied strings and timestamp/offset rules; it already names a concrete operation. |
+| `Runtime/Direction/LookLabController.h:77-87` | `LookLabSaveRequest` | Retained: one synchronous bundle-revision request. `BeginSave` validates bounded paths and UTC offset before the publication owner copies every string into controller-owned facts; focused failure/success tests prove no request borrow survives the call. |
 | `Runtime/Interaction/OperatorEditorExchange.h:81-385` | `OperatorEditorInspectorView` and all `OperatorEditor*View` siblings | Repaired: the duplicated App projection record is deleted. Selection, transform, identity, render material, and Physics are typed child views under the detached frame composition; each inspector section receives only its child values. |
 | `Runtime/Planning/ReplayCauseInspection.h:166-197` | `ReplayCauseInspectionView` | Repaired: transport, selection, solver evidence, and drawer display are typed child views. Runtime consumers receive only the child they use; the inherited flat value layout remains solely for stable automation serialization. |
 | `Runtime/Planning/ReplayOverlayPackets.h:74-101` | `ReplayOverlayStateView` | Repaired: timeline/scrubber, planning surfaces, and causality are separate child views under the App composition envelope. Intercept, trip-planner, porkchop, cause-tree, scrubber, and editor operations receive only their owned child values. |
@@ -511,9 +511,9 @@ it is not an exception.
 | `Runtime/Render/RuntimeRenderFrameValues.h:126-188` | `RuntimeRenderFrameViews` child views | Repaired: model presentation, broadphase debug, collision debug, Physics debug, world-extension debug, and diagnostics are separate consumer values. App alone holds the publication envelope and Render receives exact child views. |
 | `Runtime/Render/RuntimeRenderHost.h` | retired `RenderWorldView` | Reconciled as repaired: the constructor service bag no longer exists. App publishes `WorldFrameSubmission`; RuntimeRenderer and direct pass owners retain their stable render-domain dependencies. |
 | `Runtime/Render/RuntimeRenderPasses.h` | retired `RenderResourceContext` | Reconciled as repaired: the shared resource context no longer exists. Object, terrain, reflection, water, overlay, and other passes receive pass-specific input records and direct resources only where used. |
-| `Runtime/Replay/ReplayCoordination.h:82-283` | workspace, transport, input, `ReplayStartupRequest`, and reset records | Review collectively. Replace flag/path combinations with typed startup/transport variants; keep input/layout values separate from scene reset mutation. |
+| `Runtime/Replay/ReplayCoordination.h:82-370` | workspace, transport, input, `ReplayStartupRequest`, and reset records | Repaired and reconciled: transport is a closed typed variant, so actions cannot carry stale scalar/row/toggle payloads. Startup load, restore-file probes, normalized probes, and save probes are operation-specific values. The workspace input remains the value-only `TickWorkspace` snapshot, `ReplayInputView` remains its immutable publication, and scene reset facts remain separate from the begin/finish mutation operations. |
 | `Runtime/Replay/ReplayRuntimePackets.h:40-66` | `ReplayRenderTimeView`, `ReplayRenderFrameView` | Repaired: Gameplay time selection receives recorded/solver/prediction samples plus live-advance state; Render receives only the visual packet, focus mask, contact presentation, and fade decision. The unused prediction-enabled field is deleted. |
-| `Runtime/Scene/SceneController.h:97-105` | `SceneDefaultsSaveView` | Likely keep as one synchronous save snapshot if the writer consumes all fields and a focused test pins lifetime/serialization. |
+| `Runtime/Scene/SceneController.h:97-145` | retired `SceneDefaultsSaveView` | Repaired: App projects presentation, render policy, camera persistence values, and generated-count overrides into one owned `SceneDefaultsSaveSnapshot` before cold I/O. The writer cannot reach the live owners, and a focused test proves later source mutation cannot change the snapshot. |
 | `Runtime/Tools/RuntimeTools.h:200-241` | launcher repro capture request | Repaired: App supplies separate scene-capture, launch-policy, and presentation views. RuntimeTools captures one detached snapshot before file serialization, so the serializer cannot reach live `SceneWorld`, Physics, Terrain, camera, entity, or renderer owners. |
 | `Runtime/UI/GameUI/UI.h:139-468` | tab views and `InGameUIFrameData` | Repaired: the root is a top-level detached composition of surface, diagnostics, scene, world, editor, rendering, render-target, and operator-editor sections. Each tab receives its projected view; draw phases receive only active-tab, chrome, pointer, catalog, or control groups. |
 | `Runtime/UI/GameUI/UIWindowInteractionOwner.h:86-184` | grouped draw views | Repaired: the 53-reference flat `WidgetView` is replaced by chrome/cache, footer, render, catalog, tab, pointer, and mini-palette groups. Standalone overlays, minimized content, tab routing, render targets, footer composition, and tests consume their exact child groups. |
@@ -972,6 +972,28 @@ with zero findings. Formatting, dependency and project ownership,
 build-configuration consistency, project filters, plain-language, and
 whitespace checks pass. No baseline or golden changed. SC4 remains task 5/8;
 SC7 remains the required task 8/8 terminal closure.
+
+The eighteenth grouped SC4 slice closes the remaining below-App aggregate
+worksheet. Replay transport is now a closed variant of action-specific commands;
+recording, scalar, and row payloads cannot coexist with unrelated actions.
+Startup load, restore-file, normalized scrub/restore, and save probes are typed
+operation values rather than one flag/path record. The workspace input,
+immutable input publication, and scene-reset facts remain separate value
+boundaries around their existing owner operations. Scene defaults saving now
+receives an owned snapshot projected before cold I/O, so the writer cannot
+reach live presentation, render-policy, camera, or UI owners. The Look Lab save
+request is retained after its bounded path/UTC validation and copy-before-return
+tests were confirmed.
+
+Profile x64 builds with zero warnings and errors. Focused Replay coordination,
+Scene defaults snapshot, and Look Lab request tests pass 4 cases and 43
+assertions. Compiler-backed source-design passes 11 changed targets across 52
+compile contexts after the touched Scene load operation stopped unpacking
+transaction output and request aliases.
+Formatting, dependency/project ownership, build-configuration consistency,
+project filters, plain-language, and whitespace checks pass. No baseline or
+golden changed. SC4 remains task 5/8; SC7 remains the required task 8/8
+terminal closure.
 
 ### SC4 Commit-Note Recovery And Enforcement
 

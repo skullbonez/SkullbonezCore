@@ -2007,13 +2007,17 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
         feedback( "LIVE" );
     };
 
-    switch ( command.action )
+    const ReplayTransportAction action = ReplayTransportCommandAction( command );
+
+    switch ( action )
     {
     case ReplayTransportAction::SetRecordingEnabled:
+    {
+        const bool enabled = std::get<ReplaySetRecordingEnabledCommand>( command ).enabled;
 
-        if ( m_timeline.SetRecordingEnabled( command.enabled ) )
+        if ( m_timeline.SetRecordingEnabled( enabled ) )
         {
-            feedback( command.enabled ? "RECORDING" : "RECORDING STOPPED" );
+            feedback( enabled ? "RECORDING" : "RECORDING STOPPED" );
         }
         else if ( m_timeline.RecordingLockedByHashLog() )
         {
@@ -2025,6 +2029,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
         }
 
         break;
+    }
     case ReplayTransportAction::JumpToStart:
         (void)setCursor( 0.0f );
         break;
@@ -2050,7 +2055,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
             break;
         }
 
-        const float direction = command.action == ReplayTransportAction::StepBackward ? -1.0f : 1.0f;
+        const float direction = action == ReplayTransportAction::StepBackward ? -1.0f : 1.0f;
         const float step = direction / static_cast<float>( totalCount - 1u );
         (void)setCursor( m_scrubberOwner.View().position + step );
         break;
@@ -2066,11 +2071,11 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
 
         break;
     case ReplayTransportAction::SetRevealSpeed:
-        m_predictionOwner.SetRevealRatePreservingCursor( command.value );
+        m_predictionOwner.SetRevealRatePreservingCursor( std::get<ReplaySetRevealSpeedCommand>( command ).rate );
         feedback( "PREDICTION REVEAL SPEED UPDATED" );
         break;
     case ReplayTransportAction::Scrub:
-        (void)setCursor( command.value );
+        (void)setCursor( std::get<ReplayScrubCommand>( command ).normalized );
         break;
     case ReplayTransportAction::TogglePrediction:
         HandleReplayPredictionPressed( m_predictionOwner, m_scrubberOwner, solverPresent, interaction, host.now,
@@ -2079,8 +2084,9 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
         break;
     case ReplayTransportAction::SetPredictionDetailMode:
     {
-        const ReplayPredictionDetailMode requestedMode = command.enabled ? ReplayPredictionDetailMode::High
-                                                                         : ReplayPredictionDetailMode::Low;
+        const bool highDetail = std::get<ReplaySetPredictionDetailModeCommand>( command ).highDetail;
+        const ReplayPredictionDetailMode requestedMode = highDetail ? ReplayPredictionDetailMode::High
+                                                                    : ReplayPredictionDetailMode::Low;
         const ReplayPredictionDetailTransitionAction actions = ApplyPredictionDetailModeCommand( requestedMode );
 
         if ( ClearPredictionCauseWindowForDetailTransition( actions ) )
@@ -2093,8 +2099,8 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
         break;
     }
     case ReplayTransportAction::SetPredictionHorizon:
-        m_predictionOwner.SetHorizonSeconds(
-            std::clamp( command.value, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS ) );
+        m_predictionOwner.SetHorizonSeconds( std::clamp( std::get<ReplaySetPredictionHorizonCommand>( command ).seconds,
+                                                         REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS ) );
         KeepReplayScrubberVisible( m_scrubberOwner, host.now );
         break;
     case ReplayTransportAction::RestoreBranch:
@@ -2137,10 +2143,12 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
         returnToLive();
         break;
     case ReplayTransportAction::SelectCauseRow:
+    {
+        const int rowIndex = std::get<ReplaySelectCauseRowCommand>( command ).rowIndex;
 
-        if ( command.rowIndex >= 0 && command.rowIndex < static_cast<int>( m_authoring.CauseTree().rows.size() ) )
+        if ( rowIndex >= 0 && rowIndex < static_cast<int>( m_authoring.CauseTree().rows.size() ) )
         {
-            m_authoring.SetCauseTreeSelectedRow( command.rowIndex );
+            m_authoring.SetCauseTreeSelectedRow( rowIndex );
             enterReplayWorkspace();
         }
         else
@@ -2149,6 +2157,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
         }
 
         break;
+    }
     }
 }
 

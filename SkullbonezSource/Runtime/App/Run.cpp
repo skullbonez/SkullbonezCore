@@ -591,13 +591,17 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     }
 
     m_replayRuntime.ConfigureStartupWorkflows(
-        ReplayStartupRequest { overrides.replayLoadPath, overrides.replayLoadProbe,
+        ReplayStartupRequest { ReplayStartupLoadRequest { overrides.replayLoadPath, overrides.replayLoadProbe },
 #ifdef _DEBUG
-                               overrides.replayRestoreFileProbePath, overrides.replayRestoreTargetFileProbePath,
-                               overrides.replayRestoreBranchFileProbePath, overrides.replayRestoreFailureFileProbePath,
-                               overrides.replayScrubProbe, overrides.replayScrubProbeNormalized,
-                               overrides.replayRestoreProbe, overrides.replayRestoreProbeNormalized,
-                               overrides.replaySaveProbe, overrides.replaySaveProbePath
+                               ReplayStartupRestoreFileProbeRequests { overrides.replayRestoreFileProbePath,
+                                                                       overrides.replayRestoreTargetFileProbePath,
+                                                                       overrides.replayRestoreBranchFileProbePath,
+                                                                       overrides.replayRestoreFailureFileProbePath },
+                               ReplayStartupNormalizedProbeRequest { overrides.replayScrubProbe,
+                                                                     overrides.replayScrubProbeNormalized },
+                               ReplayStartupNormalizedProbeRequest { overrides.replayRestoreProbe,
+                                                                     overrides.replayRestoreProbeNormalized },
+                               ReplayStartupSaveProbeRequest { overrides.replaySaveProbe, overrides.replaySaveProbePath }
 #endif
         } );
 

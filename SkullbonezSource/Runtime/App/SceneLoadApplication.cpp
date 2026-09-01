@@ -415,9 +415,11 @@ bool Run::ExecutePendingSceneRequests( SceneLoadTransaction& transaction )
                                                                      m_sceneController.LifecyclePacket() );
             const SceneLoadNavigationState& navigation = transaction.NavigationForFollowingRequest(
                 CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) );
-            const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
-                SceneDefaultsSaveView { presentation, transaction.RenderPolicy(), transaction.CurrentCamera(),
-                                        navigation.overrides } );
+            const SceneDefaultsSaveSnapshot saveSnapshot = ProjectSceneDefaultsSaveSnapshot( presentation,
+                                                                                             transaction.RenderPolicy(),
+                                                                                             transaction.CurrentCamera(),
+                                                                                             navigation.overrides );
+            const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults( saveSnapshot );
 
             if ( !saveResult.Ok() )
             {

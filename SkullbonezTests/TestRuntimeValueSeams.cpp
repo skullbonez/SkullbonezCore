@@ -38,16 +38,19 @@
 
 #include "../SkullbonezSource/Runtime/App/InputFrame.h"
 #include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
+#include "../SkullbonezSource/Runtime/Camera/CameraControlState.h"
 #include "../SkullbonezSource/Runtime/Input/InputController.h"
 #include "../SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayCoordination.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayPresentation.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRuntimePackets.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneNavigationModel.h"
 #include "../SkullbonezSource/Runtime/UI/OperatorUiPhase.h"
 #include "../SkullbonezSource/Runtime/UI/RuntimeUiSurface.h"
 #include "../SkullbonezSource/UI/UIDrawList.h"
@@ -84,6 +87,88 @@ TEST_CASE( "Replay scrub camera policy ignores an ordinary historical cursor" )
     CHECK_FALSE( ReplayScrubNeedsInspectionCamera( false, RunReplayCameraFocusKind::None ) );
     CHECK( ReplayScrubNeedsInspectionCamera( true, RunReplayCameraFocusKind::None ) );
     CHECK( ReplayScrubNeedsInspectionCamera( false, RunReplayCameraFocusKind::Body ) );
+}
+
+TEST_CASE( "Replay coordination commands retain only their action payload" )
+{
+    const ReplayTransportCommand recording = ReplaySetRecordingEnabledCommand { true };
+    const ReplayTransportCommand scrub = ReplayScrubCommand { 0.375f };
+    const ReplayTransportCommand horizon = ReplaySetPredictionHorizonCommand { 42.0f };
+    const ReplayTransportCommand selection = ReplaySelectCauseRowCommand { 7 };
+
+    CHECK( ReplayTransportCommandAction( recording ) == ReplayTransportAction::SetRecordingEnabled );
+    CHECK( std::get<ReplaySetRecordingEnabledCommand>( recording ).enabled );
+    CHECK( ReplayTransportCommandAction( scrub ) == ReplayTransportAction::Scrub );
+    CHECK( std::get<ReplayScrubCommand>( scrub ).normalized == doctest::Approx( 0.375f ) );
+    CHECK( ReplayTransportCommandAction( horizon ) == ReplayTransportAction::SetPredictionHorizon );
+    CHECK( std::get<ReplaySetPredictionHorizonCommand>( horizon ).seconds == doctest::Approx( 42.0f ) );
+    CHECK( ReplayTransportCommandAction( selection ) == ReplayTransportAction::SelectCauseRow );
+    CHECK( std::get<ReplaySelectCauseRowCommand>( selection ).rowIndex == 7 );
+    CHECK_FALSE( std::holds_alternative<ReplayScrubCommand>( selection ) );
+
+    const ReplayStartupRequest startup {
+        ReplayStartupLoadRequest { "capture.sbrv2", true },
+#ifdef _DEBUG
+        ReplayStartupRestoreFileProbeRequests { "checkpoint.sbrv2", "target.sbrv2", "branch.sbrv2", "failure.sbrv2" },
+        ReplayStartupNormalizedProbeRequest { true, 0.25f },
+        ReplayStartupNormalizedProbeRequest { true, 0.75f },
+        ReplayStartupSaveProbeRequest { true, "saved.sbrv2" }
+#endif
+    };
+    CHECK( std::strcmp( startup.load.path, "capture.sbrv2" ) == 0 );
+    CHECK( startup.load.validationProbe );
+#ifdef _DEBUG
+    CHECK( std::strcmp( startup.restoreFiles.targetPath, "target.sbrv2" ) == 0 );
+    CHECK( startup.scrub.enabled );
+    CHECK( startup.scrub.normalized == doctest::Approx( 0.25f ) );
+    CHECK( startup.restore.normalized == doctest::Approx( 0.75f ) );
+    CHECK( std::strcmp( startup.save.path, "saved.sbrv2" ) == 0 );
+#endif
+}
+
+TEST_CASE( "Scene defaults save snapshot detaches every borrowed owner section" )
+{
+    ScenePresentationValues presentation;
+    presentation.textOnly = true;
+    presentation.waterFreeze = true;
+    presentation.terrainHidden = true;
+    presentation.physicsDebugFlags =
+        SkullbonezCore::Physics::PHYSICS_DEBUG_AXES | SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS;
+    presentation.physicsDebugTransparent = true;
+    presentation.physicsDebugAlpha = 0.625f;
+
+    SceneRenderPolicyState renderPolicy;
+    renderPolicy.vsyncEnabled = false;
+    renderPolicy.pipelineSyncEnabled = true;
+
+    CameraControlState camera;
+    camera.trackBallRow.value = 0;
+    camera.trackHeight = 123.0f;
+    camera.autoCycleInterval = 4.5f;
+
+    SkullbonezCore::UI::RunSceneUIOverrideState uiOverrides;
+    uiOverrides.modelCountOverride = 9;
+    const SceneDefaultsSaveSnapshot snapshot =
+        ProjectSceneDefaultsSaveSnapshot( presentation, renderPolicy, camera, uiOverrides );
+    presentation.textOnly = false;
+    renderPolicy.vsyncEnabled = true;
+    camera.trackHeight = 900.0f;
+    uiOverrides.modelCountOverride = 1;
+
+    CHECK( snapshot.presentation.textOnly );
+    CHECK( snapshot.presentation.waterFreeze );
+    CHECK( snapshot.presentation.terrainHidden );
+    CHECK( snapshot.presentation.physicsDebugFlags ==
+           ( SkullbonezCore::Physics::PHYSICS_DEBUG_AXES | SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS ) );
+    CHECK( snapshot.presentation.physicsDebugTransparent );
+    CHECK( snapshot.presentation.physicsDebugAlpha == doctest::Approx( 0.625f ) );
+    CHECK_FALSE( snapshot.renderPolicy.vsyncEnabled );
+    CHECK( snapshot.renderPolicy.pipelineSyncEnabled );
+    CHECK( snapshot.camera.writeTrackHeight );
+    CHECK( snapshot.camera.trackHeight == doctest::Approx( 123.0f ) );
+    CHECK( snapshot.camera.writeAutoCycleInterval );
+    CHECK( snapshot.camera.autoCycleInterval == doctest::Approx( 4.5f ) );
+    CHECK( snapshot.generatedCounts.modelCount == 9 );
 }
 
 namespace

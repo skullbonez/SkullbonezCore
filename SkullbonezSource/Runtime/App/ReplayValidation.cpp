@@ -1508,12 +1508,12 @@ bool ReplayProbeRunner::Configure( const ReplayStartupRequest& request )
         }
     };
 
-    copyPath( m_startup.loadPath, sizeof( m_startup.loadPath ), request.loadPath );
-    m_startup.loadProbe = request.loadProbe;
+    copyPath( m_startup.loadPath, sizeof( m_startup.loadPath ), request.load.path );
+    m_startup.loadProbe = request.load.validationProbe;
 #ifdef _DEBUG
     ConfigureDebug( request );
 #endif
-    return !request.loadProbe;
+    return !request.load.validationProbe;
 }
 
 

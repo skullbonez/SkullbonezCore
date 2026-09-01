@@ -1715,32 +1715,32 @@ void ReplayProbeRunner::ConfigureDebug( const ReplayStartupRequest& request )
         }
     };
 
-    copyPath( m_startup.checkpointProbePath, sizeof( m_startup.checkpointProbePath ), request.checkpointProbePath );
-    copyPath( m_startup.targetProbePath, sizeof( m_startup.targetProbePath ), request.targetProbePath );
-    copyPath( m_startup.branchProbePath, sizeof( m_startup.branchProbePath ), request.branchProbePath );
-    copyPath( m_startup.failureProbePath, sizeof( m_startup.failureProbePath ), request.failureProbePath );
+    copyPath( m_startup.checkpointProbePath, sizeof( m_startup.checkpointProbePath ), request.restoreFiles.checkpointPath );
+    copyPath( m_startup.targetProbePath, sizeof( m_startup.targetProbePath ), request.restoreFiles.targetPath );
+    copyPath( m_startup.branchProbePath, sizeof( m_startup.branchProbePath ), request.restoreFiles.branchPath );
+    copyPath( m_startup.failureProbePath, sizeof( m_startup.failureProbePath ), request.restoreFiles.failurePath );
 
     // Probe assertion lane: launch configuration is an owner command. Run
     // supplies value-only CLI facts and cannot mutate completion/failure state.
-    if ( request.scrubProbe )
+    if ( request.scrub.enabled )
     {
         m_probes.scrub.enabled = true;
         m_probes.scrub.completed = false;
-        m_probes.scrub.normalized = std::clamp( request.scrubProbeNormalized, 0.0f, 0.99f );
+        m_probes.scrub.normalized = std::clamp( request.scrub.normalized, 0.0f, 0.99f );
         printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_probes.scrub.normalized );
     }
 
-    if ( request.restoreProbe )
+    if ( request.restore.enabled )
     {
         m_probes.restore.enabled = true;
         m_probes.restore.completed = false;
-        m_probes.restore.normalized = std::clamp( request.restoreProbeNormalized, 0.0f, 0.99f );
+        m_probes.restore.normalized = std::clamp( request.restore.normalized, 0.0f, 0.99f );
         printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_probes.restore.normalized );
     }
 
-    if ( request.saveProbe )
+    if ( request.save.enabled )
     {
-        if ( !request.saveProbePath || request.saveProbePath[0] == '\0' )
+        if ( !request.save.path || request.save.path[0] == '\0' )
         {
             m_probes.RecordFailure(
                 m_resultDiagnostics.Failure( "ReplayProbe", "replay save probe requires an output path" ) );
@@ -1749,7 +1749,7 @@ void ReplayProbeRunner::ConfigureDebug( const ReplayStartupRequest& request )
         {
             m_probes.save.enabled = true;
             m_probes.save.completed = false;
-            strcpy_s( m_probes.save.path, sizeof( m_probes.save.path ), request.saveProbePath );
+            strcpy_s( m_probes.save.path, sizeof( m_probes.save.path ), request.save.path );
             printf( "[replay] Save probe enabled: path=%s\n", m_probes.save.path );
         }
     }

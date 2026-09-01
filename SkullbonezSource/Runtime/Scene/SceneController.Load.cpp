@@ -299,7 +299,8 @@ void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask,
 
     if ( ( touchedMask & SCENE_CINE_SHADOW_PARTICIPATION ) != 0 )
     {
-        cinematic["shadowParticipation"] = Json::array( { c.shadow.terrainCasts, c.shadow.objectsCast, c.shadow.terrainReceives, c.shadow.objectsReceive } );
+        cinematic["shadowParticipation"] = Json::array(
+            { c.shadow.terrainCasts, c.shadow.objectsCast, c.shadow.terrainReceives, c.shadow.objectsReceive } );
     }
 
     writeFloat( SCENE_CINE_FOG_COLOR_R, "fogColorR", c.fogColorR );
@@ -347,7 +348,8 @@ void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask,
 
     if ( ( touchedMask & SCENE_CINE_BASIN_MASK ) != 0 )
     {
-        cinematic["basinMask"] = Json::array( { c.basinCenterX, c.basinCenterZ, c.basinRadiusX, c.basinRadiusZ, c.basinFeather } );
+        cinematic["basinMask"] = Json::array(
+            { c.basinCenterX, c.basinCenterZ, c.basinRadiusX, c.basinRadiusZ, c.basinFeather } );
     }
 }
 
@@ -556,7 +558,8 @@ void SceneLoadTransaction::CaptureSubmittedState( const CameraControlState& came
     // Why: submitted navigation and presentation values own growable cold-load
     // storage. Attribute their copies to SceneLoad even when the transaction is
     // opened from the steady-gameplay frame boundary.
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
 
     if ( m_phase.Current() != SceneLoadPhaseCursor::Phase::Idle )
     {
@@ -787,9 +790,10 @@ void SceneLoadTransaction::ApplyAuthoredValues( SceneController& sceneController
 }
 
 
-SkullbonezCore::Core::SbResult SceneLoadTransaction::BuildAuthoredTerrain( SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                           SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, Assets::AssetSystem& assets,
-                                                                           const AuthoredScene& scene, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources )
+SkullbonezCore::Core::SbResult SceneLoadTransaction::BuildAuthoredTerrain(
+    SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+    SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, Assets::AssetSystem& assets,
+    const AuthoredScene& scene, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources )
 {
     SkullbonezCore::Core::SbResult terrainResult = SkullbonezCore::Core::SbResult::Success();
 
@@ -865,8 +869,9 @@ SkullbonezCore::Core::SbResult SceneLoadTransaction::BuildAuthoredTerrain( Scene
 }
 
 
-SkullbonezCore::Core::SbResult SceneLoadTransaction::PopulateAuthoredEntities( SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                               SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const AuthoredScene& scene )
+SkullbonezCore::Core::SbResult SceneLoadTransaction::PopulateAuthoredEntities(
+    SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+    SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const AuthoredScene& scene )
 {
     SceneAuthoredSetup::SetUpCameras( sceneController.Scene(), scene );
     const SceneLoadNavigationState& navigation = m_outputs.navigation;
@@ -1114,10 +1119,11 @@ void SceneLoadTransaction::FinalizeLoadedScene( SceneController& sceneController
 }
 
 
-SkullbonezCore::Core::SbResult SceneLoadTransaction::LoadAuthoredScene( SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                        SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const RunStartupState& startup,
-                                                                        Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, Rendering::Dx12FrameOwner* renderFrame,
-                                                                        Rendering::Dx12ResourceBuilder* renderResources, bool retainedPhysicsSleepEnabled )
+SkullbonezCore::Core::SbResult SceneLoadTransaction::LoadAuthoredScene(
+    SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+    SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const RunStartupState& startup,
+    Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, Rendering::Dx12FrameOwner* renderFrame,
+    Rendering::Dx12ResourceBuilder* renderResources, bool retainedPhysicsSleepEnabled )
 {
     SceneSessionState& sceneState = sceneController.State();
     sceneState.isSceneMode = true;
@@ -1174,11 +1180,12 @@ SkullbonezCore::Core::SbResult SceneLoadTransaction::LoadAuthoredScene( SceneCon
 }
 
 
-SkullbonezCore::Core::SbResult SceneLoadTransaction::LoadGeneratedScene( SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                                         SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
-                                                                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup,
-                                                                         Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, Rendering::Dx12FrameOwner* renderFrame,
-                                                                         Rendering::Dx12ResourceBuilder* renderResources )
+SkullbonezCore::Core::SbResult SceneLoadTransaction::LoadGeneratedScene(
+    SceneController& sceneController, SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+    SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
+    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup,
+    Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, Rendering::Dx12FrameOwner* renderFrame,
+    Rendering::Dx12ResourceBuilder* renderResources )
 {
     SceneSessionState& sceneState = sceneController.State();
     SceneLoadNavigationState& navigation = m_outputs.navigation;
@@ -1283,15 +1290,7 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
 
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "Load" );
     m_request = request;
-    SceneLoadResult& consumerOutputs = m_outputs;
-
-    // Lifetime: these aliases make cold scene mutation readable without
-    // recovering a retained context. They refer only to synchronously borrowed
-    // phase inputs or transaction-owned outputs and die with this call.
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::SceneLoad );
-    SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
-    ScenePresentationValues& presentation = consumerOutputs.presentation;
-    CameraControlState& camera = consumerOutputs.camera;
 
     // Operator sleep policy is physics-owned and survives ordinary scene
     // changes. The scene reset snapshot restores the same owner explicitly.
@@ -1316,12 +1315,6 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    const int index = request.index;
-    const bool preserveUIState = request.preserveUIState;
-    const bool suppressExitOnComplete = request.suppressExitOnComplete;
-    const bool preserveRuntimeState = request.preserveRuntimeState;
-    const auto SceneState = [&sceneController]() -> SceneSessionState& { return sceneController.State(); };
-
     SkullbonezCore::Core::SbResult lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
     const SceneLoadBeginResult& loadBegin = m_preparedLoad;
 
@@ -1339,13 +1332,14 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
         return lastSceneLoadResult;
     }
 
-    const SceneLifecycleBeginPolicy lifecyclePolicy { preserveUIState, preserveRuntimeState, suppressExitOnComplete,
-                                                      request.enterInteractiveSceneRun, request.markManualReset };
+    const SceneLifecycleBeginPolicy lifecyclePolicy { request.preserveUIState, request.preserveRuntimeState,
+                                                      request.suppressExitOnComplete, request.enterInteractiveSceneRun,
+                                                      request.markManualReset };
 
     // Invariant: generation begins only after preflight and GPU drain succeed,
     // but before any transaction phase mutates the active scene. Every event
     // emitted below therefore belongs to this exact load attempt.
-    sceneController.BeginLoadAttempt( index, lifecyclePolicy );
+    sceneController.BeginLoadAttempt( request.index, lifecyclePolicy );
     SceneLifecycleConsumerMask beforeUnloadConsumers = SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
 
     if ( !m_beforeUnloadDiagnosticsComplete )
@@ -1355,8 +1349,8 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
 
     beforeUnloadConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
-    CommitLoad( sceneController, sceneNavigation, loadBegin );
-    consumerOutputs.applyNavigation = true;
+    CommitLoad( sceneController, m_outputs.navigation, loadBegin );
+    m_outputs.applyNavigation = true;
 
     if ( request.markManualReset )
     {
@@ -1372,20 +1366,20 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
     const std::string& scenePath = *loadBegin.scenePath;
 
     // Reset scene-local state; operator HUD preferences are restored below.
-    SceneState().ResetForLoad( config.cinematicRender );
+    sceneController.State().ResetForLoad( config.cinematicRender );
     SceneDiagnosticsReaction resetDiagnostics;
     resetDiagnostics.kind = SceneDiagnosticsReactionKind::ResetForSceneLoad;
     resetDiagnostics.value = sceneController.PerfPass() + 1;
     AppendDiagnosticsReaction( resetDiagnostics );
     AppendCaptureReaction( { SceneCaptureReactionKind::ResetScreenshot } );
-    consumerOutputs.renderPolicy = { config.runtimeRender.vsyncEnabled, config.runtimeRender.forcePipelineSync };
+    m_outputs.renderPolicy = { config.runtimeRender.vsyncEnabled, config.runtimeRender.forcePipelineSync };
 
     sceneController.Scene().Cameras().Reset();
     sceneController.Scene().Clear();
     SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::BeginCapacitySession();
 
-    camera.ResetForSceneLoad( !scenePath.empty() );
-    presentation.ResetForSceneLoad();
+    m_outputs.camera.ResetForSceneLoad( !scenePath.empty() );
+    m_outputs.presentation.ResetForSceneLoad();
 
     // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
 
@@ -1420,10 +1414,11 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
     }
 
 #ifdef _DEBUG
-    const SimulationPacingPolicy diagnosticsPacingPolicy = ResolveSimulationPacingPolicy( launchOptions.fixedStep,
-                                                                                          SceneState().isFixedStep,
-                                                                                          SceneState().targetFrameCount,
-                                                                                          SceneState().isInteractiveRun );
+    const SimulationPacingPolicy
+        diagnosticsPacingPolicy = ResolveSimulationPacingPolicy( launchOptions.fixedStep,
+                                                                 sceneController.State().isFixedStep,
+                                                                 sceneController.State().targetFrameCount,
+                                                                 sceneController.State().isInteractiveRun );
     const bool effectiveRenderFrameLockstep = diagnosticsPacingPolicy == SimulationPacingPolicy::RenderFrameLockstep;
 
     // Compatibility: fixed_step remains in the event stream for existing
@@ -1432,11 +1427,13 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
         .WriteEventf( "scene_started index=%d load=%d path=\"%s\" renderer=\"%s\" target_frames=%d seed=%u "
                       "fixed_step=%d scene_session_render_frame_lockstep_requested=%d explicit_render_frame_lockstep=%d "
                       "effective_render_frame_lockstep=%d physics=%d text=%d models=%d",
-                      SceneState().currentSceneIndex, SceneState().loadCount,
-                      scenePath.empty() ? "generated" : scenePath.c_str(), m_rendererName, SceneState().targetFrameCount,
-                      SceneState().rngSeed, SceneState().isFixedStep ? 1 : 0, SceneState().isFixedStep ? 1 : 0,
+                      sceneController.State().currentSceneIndex, sceneController.State().loadCount,
+                      scenePath.empty() ? "generated" : scenePath.c_str(), m_rendererName,
+                      sceneController.State().targetFrameCount, sceneController.State().rngSeed,
+                      sceneController.State().isFixedStep ? 1 : 0, sceneController.State().isFixedStep ? 1 : 0,
                       launchOptions.fixedStep ? 1 : 0, effectiveRenderFrameLockstep ? 1 : 0,
-                      SceneState().isScenePhysics ? 1 : 0, SceneState().isSceneText ? 1 : 0, SceneState().modelCount );
+                      sceneController.State().isScenePhysics ? 1 : 0, sceneController.State().isSceneText ? 1 : 0,
+                      sceneController.State().modelCount );
 
     SceneDiagnosticsReaction beginDiagnostics;
     beginDiagnostics.kind = SceneDiagnosticsReactionKind::BeginPhysicsDiagnostics;
@@ -1449,8 +1446,8 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
 
     // App applies Render-owned cold activation synchronously, then calls
     // CompleteRenderActivation before the request may be recorded or followed by a save.
-    consumerOutputs.renderActivationSceneObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
-    consumerOutputs.renderActivationPending = true;
+    m_outputs.renderActivationSceneObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
+    m_outputs.renderActivationPending = true;
     lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
     return lastSceneLoadResult;
 }
@@ -1459,7 +1456,7 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
 // Concept: each save owner publishes only its own persisted fields. The
 // composed request is synchronous, is never retained, and does not let the
 // writer recover Run or collection-order identity.
-SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const
+SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveSnapshot& snapshot ) const
 {
     const std::string* scenePath = CurrentPath();
 
@@ -1473,9 +1470,9 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
         const SkullbonezCore::Core::SbResult
             saveResult = SaveEditableSceneBeforeReplacement( m_resultDiagnostics, scenePath->c_str(), Scene().GetSaveState(),
                                                              State().GetSaveState(),
-                                                             GameObjects::PresentationSaveState { view.presentation
+                                                             GameObjects::PresentationSaveState { snapshot.presentation
                                                                                                       .waterHidden,
-                                                                                                  view.presentation
+                                                                                                  snapshot.presentation
                                                                                                       .terrainHidden } );
 
         return saveResult;
@@ -1514,9 +1511,9 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
 
     simulation["physics"] = State().isScenePhysics;
     simulation["text"] = State().isSceneText;
-    simulation["textOnly"] = view.presentation.textOnly;
-    runtime["vsync"] = view.renderPolicy.vsyncEnabled;
-    runtime["pipelineSync"] = view.renderPolicy.pipelineSyncEnabled;
+    simulation["textOnly"] = snapshot.presentation.textOnly;
+    runtime["vsync"] = snapshot.renderPolicy.vsyncEnabled;
+    runtime["pipelineSync"] = snapshot.renderPolicy.pipelineSyncEnabled;
     playback["fixedStep"] = State().isFixedStep;
 
     if ( State().targetFrameCount > 0 )
@@ -1532,36 +1529,36 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     simulation["timeScale"] = State().timeScale;
     playback["exitOnComplete"] = State().isExitOnComplete;
 
-    physicsDebug["axes"] = ( view.presentation.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0;
-    physicsDebug["contacts"] = ( view.presentation.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0;
-    physicsDebug["sleep"] = ( view.presentation.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0;
-    physicsDebug["pipeline"] = ( view.presentation.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0;
-    physicsDebug["terrainContact"] = ( view.presentation.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0;
-    physicsDebug["transparent"] = view.presentation.physicsDebugTransparent;
-    physicsDebug["alpha"] = view.presentation.physicsDebugAlpha;
-    physicsDebug["contactLinger"] = view.presentation.physicsDebugContactLinger;
+    physicsDebug["axes"] = ( snapshot.presentation.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0;
+    physicsDebug["contacts"] = ( snapshot.presentation.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0;
+    physicsDebug["sleep"] = ( snapshot.presentation.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0;
+    physicsDebug["pipeline"] = ( snapshot.presentation.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0;
+    physicsDebug["terrainContact"] = ( snapshot.presentation.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0;
+    physicsDebug["transparent"] = snapshot.presentation.physicsDebugTransparent;
+    physicsDebug["alpha"] = snapshot.presentation.physicsDebugAlpha;
+    physicsDebug["contactLinger"] = snapshot.presentation.physicsDebugContactLinger;
 
-    debug["collisionVisualizer"] = view.presentation.collisionVisualizer;
-    debug["broadphaseOverlay"] = view.presentation.broadphaseOverlay;
-    debug["waterFreeze"] = view.presentation.waterFreeze;
-    debug["waterFlat"] = view.presentation.waterFlat;
-    debug["waterHidden"] = view.presentation.waterHidden;
-    debug["terrainHidden"] = view.presentation.terrainHidden;
-    debug["waterReflection"] = WaterReflectionJsonValue( view.presentation.waterNoReflect,
-                                                         view.presentation.waterRtReflect );
+    debug["collisionVisualizer"] = snapshot.presentation.collisionVisualizer;
+    debug["broadphaseOverlay"] = snapshot.presentation.broadphaseOverlay;
+    debug["waterFreeze"] = snapshot.presentation.waterFreeze;
+    debug["waterFlat"] = snapshot.presentation.waterFlat;
+    debug["waterHidden"] = snapshot.presentation.waterHidden;
+    debug["terrainHidden"] = snapshot.presentation.terrainHidden;
+    debug["waterReflection"] = WaterReflectionJsonValue( snapshot.presentation.waterNoReflect,
+                                                         snapshot.presentation.waterRtReflect );
 
-    if ( view.camera.trackBallRow.IsValid() && view.camera.trackHeight > 0.0f )
+    if ( snapshot.camera.writeTrackHeight )
     {
-        playback["trackHeight"] = view.camera.trackHeight;
+        playback["trackHeight"] = snapshot.camera.trackHeight;
     }
     else
     {
         playback.erase( "trackHeight" );
     }
 
-    if ( view.camera.autoCycleInterval > 0.0f )
+    if ( snapshot.camera.writeAutoCycleInterval )
     {
-        playback["autoCycleInterval"] = view.camera.autoCycleInterval;
+        playback["autoCycleInterval"] = snapshot.camera.autoCycleInterval;
     }
     else
     {
@@ -1589,13 +1586,13 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
 
     SetTouchedCinematicSceneProperties( root, State().uiCinematicOverrideMask, State().cinematicRender );
 
-    if ( view.uiOverrides.modelCountOverride >= 0 )
+    if ( snapshot.generatedCounts.modelCount >= 0 )
     {
-        simulation["solverBalls"] = view.uiOverrides.modelCountOverride;
+        simulation["solverBalls"] = snapshot.generatedCounts.modelCount;
         simulation.erase( "solverBoxes" );
     }
-    else if ( State().solverBallCount > 0 || State().solverBoxCount > 0 || view.uiOverrides.solverBallCountOverride >= 0 ||
-              view.uiOverrides.solverBoxCountOverride >= 0 )
+    else if ( State().solverBallCount > 0 || State().solverBoxCount > 0 || snapshot.generatedCounts.solverBallCount >= 0 ||
+              snapshot.generatedCounts.solverBoxCount >= 0 )
     {
         simulation["solverBalls"] = State().solverBallCount;
         simulation["solverBoxes"] = State().solverBoxCount;

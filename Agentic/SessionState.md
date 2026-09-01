@@ -1624,3 +1624,16 @@ source-design passes six targets across 35 contexts with zero findings.
 Formatting, dependency/project ownership, build-configuration, project-filter,
 plain-language, and whitespace checks pass. No baseline or golden changed. SC4
 remains task 5/8; SC7 remains the required task 8/8 terminal closure.
+
+The eighteenth SC4 slice closes the remaining below-App aggregate worksheet.
+Replay transport commands are a closed action-specific variant, Replay startup
+load/probe requests are grouped by operation, and the distinct workspace,
+immutable input-publication, and scene-reset values remain value-only owner
+boundaries. Scene defaults saving now consumes an owned snapshot projected
+before file I/O; focused tests prove the snapshot is detached. The Look Lab
+save request is retained after confirming its path/UTC validation and
+copy-before-return coverage. Profile builds warning-clean; the focused selection
+passes 4 cases and 43 assertions. Source-design passes 11 targets across 52
+compile contexts, and grouped ownership gates pass. No baseline or golden
+changed. SC4 remains task 5/8; SC7 remains the mandatory task 8/8 terminal
+closure.

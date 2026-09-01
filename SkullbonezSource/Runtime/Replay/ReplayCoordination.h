@@ -38,6 +38,8 @@ Related:
 #include "ReplayProbeState.h"
 
 #include <span>
+#include <type_traits>
+#include <variant>
 
 namespace SkullbonezCore
 {
@@ -100,9 +102,9 @@ struct ReplayWorkspaceFrameInput
     bool spaceDown = false;
     int screenWidth = 0;
     int screenHeight = 0;
-    float cameraMouseRadiansPerPixel = 0.0f;   // Cached config sample; replay never reopens device/config ownership.
+    float cameraMouseRadiansPerPixel = 0.0f; // Cached config sample; replay never reopens device/config ownership.
     double now = 0.0;
-    int requestedCauseRow = -1;                // Frame-local typed input; production pointer hit-testing publishes the same value.
+    int requestedCauseRow = -1; // Frame-local typed input; production pointer hit-testing publishes the same value.
 };
 
 struct ReplayWorkspaceOutput
@@ -147,13 +149,98 @@ enum class ReplayTransportAction : uint8_t
     SelectCauseRow
 };
 
-struct ReplayTransportCommand
+struct ReplaySetRecordingEnabledCommand
 {
-    ReplayTransportAction action = ReplayTransportAction::JumpToEnd;
-    float value = 0.0f;
-    int rowIndex = -1;
+    static constexpr ReplayTransportAction action = ReplayTransportAction::SetRecordingEnabled;
     bool enabled = false;
 };
+
+struct ReplayJumpToStartCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::JumpToStart;
+};
+struct ReplayJumpToEndCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::JumpToEnd;
+};
+struct ReplayTogglePlayPauseCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::TogglePlayPause;
+};
+struct ReplayStepBackwardCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::StepBackward;
+};
+struct ReplayStepForwardCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::StepForward;
+};
+struct ReplaySetRevealSpeedCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::SetRevealSpeed;
+    float rate = 0.0f;
+};
+struct ReplayScrubCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::Scrub;
+    float normalized = 0.0f;
+};
+struct ReplayTogglePredictionCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::TogglePrediction;
+};
+struct ReplaySetPredictionDetailModeCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::SetPredictionDetailMode;
+    bool highDetail = false;
+};
+struct ReplaySetPredictionHorizonCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::SetPredictionHorizon;
+    float seconds = 0.0f;
+};
+struct ReplayRestoreBranchCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::RestoreBranch;
+};
+struct ReplaySaveCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::Save;
+};
+struct ReplayLoadCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::Load;
+};
+struct ReplayReturnToLiveCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::ReturnToLive;
+};
+struct ReplaySelectCauseRowCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::SelectCauseRow;
+    int rowIndex = -1;
+};
+
+// Invariant: each transport alternative carries only the payload accepted by
+// that action. The dispatcher cannot observe a stale scalar, row, or toggle
+// value left behind by a different UI command.
+using ReplayTransportCommand = std::variant<ReplaySetRecordingEnabledCommand, ReplayJumpToStartCommand,
+                                            ReplayJumpToEndCommand, ReplayTogglePlayPauseCommand, ReplayStepBackwardCommand,
+                                            ReplayStepForwardCommand, ReplaySetRevealSpeedCommand, ReplayScrubCommand,
+                                            ReplayTogglePredictionCommand, ReplaySetPredictionDetailModeCommand,
+                                            ReplaySetPredictionHorizonCommand, ReplayRestoreBranchCommand, ReplaySaveCommand,
+                                            ReplayLoadCommand, ReplayReturnToLiveCommand, ReplaySelectCauseRowCommand>;
+
+inline ReplayTransportAction ReplayTransportCommandAction( const ReplayTransportCommand& command ) noexcept
+{
+    return std::visit(
+        []( const auto& value ) noexcept
+        {
+            using Command = std::remove_cvref_t<decltype( value )>;
+            return Command::action;
+        },
+        command );
+}
 
 struct ReplayTransportHostContext
 {
@@ -212,21 +299,42 @@ struct ReplayLiveRestoreOutcome
     char reason[160] = {};
 };
 
+struct ReplayStartupLoadRequest
+{
+    const char* path = nullptr;
+    bool validationProbe = false;
+};
+
+#ifdef _DEBUG
+struct ReplayStartupRestoreFileProbeRequests
+{
+    const char* checkpointPath = nullptr;
+    const char* targetPath = nullptr;
+    const char* branchPath = nullptr;
+    const char* failurePath = nullptr;
+};
+
+struct ReplayStartupNormalizedProbeRequest
+{
+    bool enabled = false;
+    float normalized = 0.25f;
+};
+
+struct ReplayStartupSaveProbeRequest
+{
+    bool enabled = false;
+    const char* path = nullptr;
+};
+#endif
+
 struct ReplayStartupRequest
 {
-    const char* loadPath = nullptr;
-    bool loadProbe = false;
+    ReplayStartupLoadRequest load;
 #ifdef _DEBUG
-    const char* checkpointProbePath = nullptr;
-    const char* targetProbePath = nullptr;
-    const char* branchProbePath = nullptr;
-    const char* failureProbePath = nullptr;
-    bool scrubProbe = false;
-    float scrubProbeNormalized = 0.25f;
-    bool restoreProbe = false;
-    float restoreProbeNormalized = 0.25f;
-    bool saveProbe = false;
-    const char* saveProbePath = nullptr;
+    ReplayStartupRestoreFileProbeRequests restoreFiles;
+    ReplayStartupNormalizedProbeRequest scrub;
+    ReplayStartupNormalizedProbeRequest restore;
+    ReplayStartupSaveProbeRequest save;
 #endif
 };
 
@@ -320,7 +428,7 @@ struct ReplaySceneTimelineResetResult
 struct ReplayKeyboardVelocityEditInput
 {
     bool altDown = false;
-    bool toggleAllowed = true;                 // False records the key edge while the editor owns Alt.
+    bool toggleAllowed = true; // False records the key edge while the editor owns Alt.
     bool velocityEditOwnsWorld = false;
     double now = 0.0;
 };
