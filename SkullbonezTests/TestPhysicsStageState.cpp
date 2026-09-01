@@ -2115,7 +2115,6 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     ReserveTestSleepCapacity( sleep );
     sleep.MirrorFlagsFrom( bodies, kBodyCount );
     std::vector<float> timeRemaining( kBodyCount, 1.0f / 120.0f );
-    PhysicsWorldForces worldForces;
     std::vector<BuoyancyBodyFacts> buoyancyFacts( kBodyCount );
     std::vector<uint8_t> motionEligibilityState( kBodyCount,
                                                  SkullbonezCore::Physics::PhysicsMotionEligibilityLinearPromoted );
@@ -2192,7 +2191,6 @@ TEST_CASE( "Physics narrowphase collision events preserve full-width spatial cel
     sleep.MirrorFlagsFrom( bodies, 2 );
     std::array<float, 2> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f };
     std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
-    PhysicsWorldForces worldForces;
     const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess( bodies );
     const std::array<std::pair<int, int>, 1> candidatePairs = { std::make_pair( 0, 1 ) };
     const std::array<uint8_t, 2> motionEligibilityState = {
