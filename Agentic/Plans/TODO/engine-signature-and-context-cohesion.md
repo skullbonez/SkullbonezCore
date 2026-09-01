@@ -512,7 +512,7 @@ it is not an exception.
 | `Runtime/Render/RuntimeRenderHost.h:92-99` | `RenderWorldView` | Definite constructor/service bag candidate: transfer stable assets/window/config/environment ownership explicitly to `RuntimeRenderHost` or direct child owners. |
 | `Runtime/Render/RuntimeRenderPasses.h:234-246` | `RenderResourceContext` | Split pass-specific resources or expose behavior on the owning renderer; do not give every pass all assets/resource/texture/geometry services. |
 | `Runtime/Replay/ReplayCoordination.h:82-283` | workspace, transport, input, `ReplayStartupRequest`, and reset records | Review collectively. Replace flag/path combinations with typed startup/transport variants; keep input/layout values separate from scene reset mutation. |
-| `Runtime/Replay/ReplayRuntimePackets.h:40-51` | `ReplayRenderFrameView` | Validate optional sample combinations and split recorded, solver, prediction, focus-mask, and contact presentation by actual render consumers. |
+| `Runtime/Replay/ReplayRuntimePackets.h:40-66` | `ReplayRenderTimeView`, `ReplayRenderFrameView` | Repaired: Gameplay time selection receives recorded/solver/prediction samples plus live-advance state; Render receives only the visual packet, focus mask, contact presentation, and fade decision. The unused prediction-enabled field is deleted. |
 | `Runtime/Scene/SceneController.h:97-105` | `SceneDefaultsSaveView` | Likely keep as one synchronous save snapshot if the writer consumes all fields and a focused test pins lifetime/serialization. |
 | `Runtime/Tools/RuntimeTools.h:200-216` | `LauncherReproSnapshotContext` | Definite repair: split scene snapshot, launch options, and captured runtime settings; the exporter consumes immutable values, not live `SceneWorld`. |
 | `Runtime/UI/GameUI/UI.h:139-441` | `UIMemoryTabFrameView`, `UISceneTabFrameView`, other tab views, and `InGameUIFrameData` | Definite family repair: remove the 115-field root record. Project per-tab detached views and provide only the active tab plus shared window/input values. |
@@ -852,6 +852,20 @@ passes 913 cases and 2,693,947 assertions with one expected skip. Compiler-backe
 source-design passes 11 changed source/header targets under 80 compile contexts
 with zero findings. Formatting, dependency/project ownership, project filters,
 plain-language, and whitespace checks pass. No baseline or golden changed.
+
+The eleventh grouped slice splits replay render publication by its two actual
+consumers. Gameplay receives recorded, solver, or prediction timing plus the
+live-advance decision through `ReplayRenderTimeView`. RuntimeRenderer keeps a
+compact overlay view containing only the visual packet, optional focus mask,
+contact presentation, and fade decision. The unused prediction-enabled field
+is deleted, and the existing oversized renderer coordinator is not reopened.
+
+The Profile x64 solution builds warning-clean. The focused replay render seam
+passes one case and five assertions. Compiler-backed source-design passes five
+changed source/header targets under 36 compile contexts with zero findings.
+Formatting and whitespace checks pass; the grouped dependency, project-filter,
+and plain-language checks close with this slice before commit. No baseline or
+golden changed.
 
 ### SC4 Commit-Note Recovery And Enforcement
 

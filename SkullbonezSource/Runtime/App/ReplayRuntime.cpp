@@ -1087,9 +1087,9 @@ void ReplayRuntime::PublishRenderPacket( EditorTracer& tracer, const Math::Vecto
 }
 
 
-ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayFrameSelection& selection, PhysicsEngine& physics,
-                                                           int modelCount, bool collisionVisualizer,
-                                                           bool debugTransparentBodyPass )
+ReplayRenderFrameViews ReplayRuntime::BuildRenderFrameViews( const ReplayFrameSelection& selection, PhysicsEngine& physics,
+                                                             int modelCount, bool collisionVisualizer,
+                                                             bool debugTransparentBodyPass )
 {
     const RunReplayPredictionFrame* predictionFrame = selection.selectedPrediction;
     const ReplayPresentationSample* presentationSample = selection.replay.currentPresentation;
@@ -1112,15 +1112,15 @@ ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayFrameSele
                                                                         focusNodes );
     }
 
-    return { presentationSample,
-             solverSample,
-             ( presentationSample || solverSample ) ? nullptr : predictionFrame,
-             &m_predictionPresentation.PublishedVisualPacketView(),
-             focusFadeActive ? &m_predictionPresentation.FocusModelMaskView() : nullptr,
-             causeInspection.detailVisible ? causeInspection.contactPresentation : Rendering::ContactManifoldPresentation {},
-             inputView.predictionEnabled,
-             inputView.liveAdvanceHeld,
-             focusFadeActive };
+    const ReplayRenderTimeView time { presentationSample, solverSample,
+                                      ( presentationSample || solverSample ) ? nullptr : predictionFrame,
+                                      inputView.liveAdvanceHeld };
+    const ReplayRenderFrameView render { &m_predictionPresentation.PublishedVisualPacketView(),
+                                         focusFadeActive ? &m_predictionPresentation.FocusModelMaskView() : nullptr,
+                                         causeInspection.detailVisible ? causeInspection.contactPresentation
+                                                                       : Rendering::ContactManifoldPresentation {},
+                                         focusFadeActive };
+    return { time, render };
 }
 
 void ReplayRuntime::CompleteRenderFrame( bool submissionRendered, int sceneFrame, uint64_t replayReserveGrowthEvents,

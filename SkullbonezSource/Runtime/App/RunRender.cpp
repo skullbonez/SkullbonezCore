@@ -198,36 +198,35 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
                                          m_sceneController.Scene().Cameras().GetRenderCameraTranslation(),
                                          m_sceneController.Scene().Cameras().GetRenderCameraUp(), replayGrowthEventCount );
 
-    const ReplayRenderFrameView replayFrame = m_replayRuntime.BuildRenderFrameView( replaySelection,
-                                                                                    m_sceneController.Scene().Physics(),
-                                                                                    renderFrame.modelPresentation.modelCount,
-                                                                                    debug.isCollisionVisualizer,
-                                                                                    debugTransparentBodyPass );
+    const ReplayRenderFrameViews
+        replayFrame = m_replayRuntime.BuildRenderFrameViews( replaySelection, m_sceneController.Scene().Physics(),
+                                                             renderFrame.modelPresentation.modelCount,
+                                                             debug.isCollisionVisualizer, debugTransparentBodyPass );
     const Rendering::RetainedGeometryPacket continuousOverlay = m_continuousForecast.PreparePresentation();
 
 
     Gameplay::TornadoVisualTimeCandidates visualTime;
     visualTime.simulationSourceSeconds = framePolicy.simulationSeconds;
-    visualTime.liveAdvanceHeld = replayFrame.liveAdvanceHeld;
+    visualTime.liveAdvanceHeld = replayFrame.time.liveAdvanceHeld;
 
-    if ( replayFrame.presentationSample )
+    if ( replayFrame.time.presentationSample )
     {
         visualTime.hasPresentation = true;
-        visualTime.presentationSeconds = replayFrame.presentationSample->simulationSeconds;
+        visualTime.presentationSeconds = replayFrame.time.presentationSample->simulationSeconds;
     }
 
-    if ( replayFrame.solverSample )
+    if ( replayFrame.time.solverSample )
     {
         visualTime.hasSolver = true;
-        visualTime.solverSeconds = replayFrame.solverSample->simulationSeconds;
-        visualTime.solverSystemSeconds = replayFrame.solverSample->worldSnapshot.tornadoSystemElapsedSeconds;
+        visualTime.solverSeconds = replayFrame.time.solverSample->simulationSeconds;
+        visualTime.solverSystemSeconds = replayFrame.time.solverSample->worldSnapshot.tornadoSystemElapsedSeconds;
     }
 
-    if ( replayFrame.predictionFrame )
+    if ( replayFrame.time.predictionFrame )
     {
         visualTime.hasPrediction = true;
-        visualTime.predictionSeconds = replayFrame.predictionFrame->simulationSeconds;
-        visualTime.predictionSystemSeconds = replayFrame.predictionFrame->tornadoSystemElapsedSeconds;
+        visualTime.predictionSeconds = replayFrame.time.predictionFrame->simulationSeconds;
+        visualTime.predictionSystemSeconds = replayFrame.time.predictionFrame->tornadoSystemElapsedSeconds;
     }
 
     Rendering::WorldRenderExtensionRegistration worldExtension;
@@ -244,7 +243,7 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
                                                                   activeCinematic,
                                                                   cinematicRequested };
     const RuntimeRenderer::OverlayFrameSubmission overlaySubmission { renderFrame.debug, renderFrame.worldExtensionDebug,
-                                                                      replayFrame, continuousOverlay, toolOverlay };
+                                                                      replayFrame.render, continuousOverlay, toolOverlay };
     const bool replaySubmissionRendered = renderer.RenderFrameEntry( worldSubmission, overlaySubmission );
 
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered, m_sceneController.State().currentFrame,

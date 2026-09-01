@@ -1551,3 +1551,9 @@ filters, formatting, dependency direction, plain-language policy, commit-note
 policy, and whitespace checks pass.
 No baseline or golden changed. SC4 remains active; SC5, SC6, and the final SC7
 closure still follow, corresponding to tasks 6/8, 7/8, and 8/8.
+
+The eleventh SC4 slice separates Replay render timing from renderer overlay
+submission. Profile builds warning-clean; the focused seam passes five
+assertions, and compiler-backed source-design passes five targets under 36
+contexts with zero findings. The renderer's pre-existing large coordinator was
+left untouched after the first scan correctly rejected reopening it.

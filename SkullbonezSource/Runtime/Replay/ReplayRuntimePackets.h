@@ -37,16 +37,25 @@ struct ReplayFrameSelection
     bool predictionTimelineAvailable = false;
 };
 
-struct ReplayRenderFrameView
+struct ReplayRenderTimeView
 {
     const ReplayPresentationSample* presentationSample = nullptr;
     const ReplaySolverFrameSample* solverSample = nullptr;
     const RunReplayPredictionFrame* predictionFrame = nullptr;
+    bool liveAdvanceHeld = false;
+};
+
+struct ReplayRenderFrameView
+{
     const ReplayVisualPacket* visualPacket = nullptr;
     const std::vector<uint8_t>* focusModelMask = nullptr;
     Rendering::ContactManifoldPresentation contactPresentation;
-    bool predictionEnabled = false;
-    bool liveAdvanceHeld = false;
     bool focusFadeActive = false;
+};
+
+struct ReplayRenderFrameViews
+{
+    ReplayRenderTimeView time;
+    ReplayRenderFrameView render;
 };
 } // namespace SkullbonezCore::Runtime

@@ -43,6 +43,7 @@
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayPresentation.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRuntimePackets.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h"
@@ -259,6 +260,19 @@ TEST_CASE( "Render policy: unavailable raytracing cannot select DXR reflection" 
     policy.waterNoReflect = false;
     CHECK_FALSE( ShouldUseDxrReflection( true, policy, true, false ) );
     CHECK_FALSE( ShouldUseDxrReflection( true, policy, false, true ) );
+}
+
+TEST_CASE( "Replay render publication keeps time and renderer consumers independent" )
+{
+    ReplayRenderFrameViews views {};
+    views.time.liveAdvanceHeld = true;
+    views.render.focusFadeActive = true;
+
+    CHECK( views.time.liveAdvanceHeld );
+    CHECK( views.render.focusFadeActive );
+    CHECK( views.time.presentationSample == nullptr );
+    CHECK( views.render.focusModelMask == nullptr );
+    CHECK( views.render.visualPacket == nullptr );
 }
 
 TEST_CASE( "Scene controller: one proceed policy governs the complete frame" )
