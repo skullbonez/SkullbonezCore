@@ -1,12 +1,12 @@
 # Session State
 
-Date: 2026-08-31
+Date: 2026-09-01
 Branch: `nightrunner-31st-AUG-26`
-Status: Engine Signature And Context Cohesion active at SC7 (task 8/8); portfolio 139/142
+Status: No active implementation plan; Engine Signature And Context Cohesion complete at 8/8; portfolio 143/143
 
 ## Current State
 
-The owner activated `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
+The owner completed `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
 branch and requested substantial related batches instead of a build after each
 small signature change. SC0 through SC2 are complete. The compiler census covers
 736 files/6,435 contexts with 698 candidates; the motivating broadphase bag is
@@ -1675,6 +1675,45 @@ whitespace checks pass. The manual regenerates to 60 pages and structural DOCX
 verification finds all current terms and no retired names. LibreOffice is not
 installed, so the document skill's page-image render was unavailable; this is
 recorded rather than represented as visual evidence. No baseline or golden
-changed. The branch is not complete until SC7 independent review, full
-validation, computer-control verification, closure commit/push, and PR 165
-update all succeed. Scrubber behavior remains deferred by owner direction.
+changed. SC7 supplies the terminal review, validation, computer-control,
+closure, and PR evidence below. Scrubber behavior remains deferred by owner
+direction.
+
+## Engine Signature Cohesion SC7 Terminal Closure (2026-09-01)
+
+SC7 task 8/8 is complete. The final all-first-party inventory covers 737 files
+and 6,449 compile contexts with 665 advisory candidates, a net reduction of 33
+from SC0, and zero infrastructure errors. Independent reviewer thread
+`01a05b08-6649-7be2-adcc-c8b4166cb795` returned CLEAN with zero blocking,
+non-blocking, or missing-evidence findings. Renderer transaction ordering,
+prediction policy ownership, direct UI member operations, stable camera
+configuration, and typed Replay transport are closed without a downward Replay
+edge or a new/expanded growth privilege.
+
+Implementation commit `964e7759c` and portability correction `50c623b14` are
+pushed. Portable Linux run 33474002031 passes Clang/GCC warning-clean, Clang
+ASan/UBSan, and GCC TSan. Profile and all focused camera, UI, renderer,
+transport, prediction, dependency, formatting, policy, and unchanged-manifest
+checks pass. Windows computer control proved the native top-right close button
+highlights red and closes the DX12 application.
+
+The exactly-once `tools\agent_validate.bat --plan-completion` run passed Debug,
+the byte-exact Physics 0/repeat/1/4 matrix, mandatory fast preflight,
+source-design/retained policy, Profile, all six CPU lanes, and Automation/replay
+smoke. It then failed closed on the inherited terrain-UV DX12 screenshot
+mismatch first recorded before this plan: water average delta 4.9171, solver
+4.0154, space pixel-exact, and zero InfoQueue errors. A focused rerun reproduced
+the same metrics. Comparison with the 2026-08-27 inherited captures shows only
+0.005790 average channel movement for water, 0.003872 for solver, and exact
+space output across SC7. The plan forbids baseline updates; no golden was
+refreshed, no gate was weakened, and the intentional World UV fix was not
+reverted. Replay visual fidelity still lacks its expected
+`full_reveal_probe_profile.json` report and is not claimed as passing. Scrubber
+click-hold behavior remains deferred and unclaimed.
+
+Permanent evidence is in
+`Agentic/Plans/Artifacts/engine-signature-and-context-cohesion/sc7-closure-evidence.md`.
+Every closure commit note must pass both detailed-message validators with
+substantive Why, Ownership, What, Validation, Baselines/Artifacts, and Review
+sections; empty or placeholder commit bodies fail closed. No implementation
+plan is active; await owner direction.
