@@ -1637,3 +1637,16 @@ passes 4 cases and 43 assertions. Source-design passes 11 targets across 52
 compile contexts, and grouped ownership gates pass. No baseline or golden
 changed. SC4 remains task 5/8; SC7 remains the mandatory task 8/8 terminal
 closure.
+
+SC5 task 6/8 is complete in the nineteenth grouped signature-cohesion slice.
+Camera movement is projected once into named `RuntimeCameraMovementInput`
+fields; graphics stress classifies every authored action into one concrete
+owner family and calls narrow owner operations; scene-load presentation is an
+explicit validation/render/window-UI/stress sequence at all seven callers. The
+Profile solution builds warning-clean. Six focused cases pass 124 assertions,
+source-design passes 11 targets/72 contexts, and the App advisory rescan covers
+47 targets/340 contexts with 119 fully reconciled candidates (seven fewer than
+the pre-edit scan). Format, dependency/project ownership, build configuration,
+project filters, plain language, and whitespace pass. No baseline or golden
+changed. SC6 task 7/8 and mandatory SC7 task 8/8 remain; scrubber behavior stays
+deferred by user direction.

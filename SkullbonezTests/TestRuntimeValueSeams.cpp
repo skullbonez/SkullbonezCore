@@ -37,6 +37,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/App/InputFrame.h"
+#include "../SkullbonezSource/Runtime/App/GraphicsStressApplication.h"
 #include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
 #include "../SkullbonezSource/Runtime/Camera/CameraControlState.h"
 #include "../SkullbonezSource/Runtime/Input/InputController.h"
@@ -64,6 +65,37 @@
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
+
+TEST_CASE( "Graphics stress routes every authored action to one concrete owner" )
+{
+    const std::array<GraphicsStressActionOwner, 32> expected = {
+        GraphicsStressActionOwner::Cinematic,           GraphicsStressActionOwner::Cinematic,
+        GraphicsStressActionOwner::Cinematic,           GraphicsStressActionOwner::SceneBrowser,
+        GraphicsStressActionOwner::Renderer,            GraphicsStressActionOwner::Renderer,
+        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::TimeScale,
+        GraphicsStressActionOwner::World,               GraphicsStressActionOwner::OperatorUi,
+        GraphicsStressActionOwner::GeneratedScene,      GraphicsStressActionOwner::Tornado,
+        GraphicsStressActionOwner::Tornado,             GraphicsStressActionOwner::OperatorUi,
+        GraphicsStressActionOwner::ScenePhysics,        GraphicsStressActionOwner::ScenePhysics,
+        GraphicsStressActionOwner::RuntimeOverlay,      GraphicsStressActionOwner::RuntimeOverlay,
+        GraphicsStressActionOwner::RuntimeTool,         GraphicsStressActionOwner::Camera,
+        GraphicsStressActionOwner::GeneratedScene,      GraphicsStressActionOwner::OperatorUi,
+        GraphicsStressActionOwner::OperatorUi,          GraphicsStressActionOwner::RuntimeOverlay,
+    };
+
+    for ( int action = 0; action < static_cast<int>( expected.size() ); ++action )
+    {
+        CAPTURE( action );
+        CHECK( GraphicsStressOwnerForAction( action ) == expected[static_cast<std::size_t>( action )] );
+    }
+
+    CHECK( GraphicsStressOwnerForAction( -1 ) == GraphicsStressActionOwner::Invalid );
+    CHECK( GraphicsStressOwnerForAction( 32 ) == GraphicsStressActionOwner::Invalid );
+}
 
 TEST_CASE( "Passive camera floor follows the live fluid surface without inventing out-of-bounds terrain" )
 {

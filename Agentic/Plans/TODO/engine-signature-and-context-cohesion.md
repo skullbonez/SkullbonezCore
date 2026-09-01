@@ -518,6 +518,31 @@ it is not an exception.
 | `Runtime/UI/GameUI/UI.h:139-468` | tab views and `InGameUIFrameData` | Repaired: the root is a top-level detached composition of surface, diagnostics, scene, world, editor, rendering, render-target, and operator-editor sections. Each tab receives its projected view; draw phases receive only active-tab, chrome, pointer, catalog, or control groups. |
 | `Runtime/UI/GameUI/UIWindowInteractionOwner.h:86-184` | grouped draw views | Repaired: the 53-reference flat `WidgetView` is replaced by chrome/cache, footer, render, catalog, tab, pointer, and mini-palette groups. Standalone overlays, minimized content, tab routing, render targets, footer composition, and tests consume their exact child groups. |
 | `Runtime/UI/OperatorUiProjection.h:48-208` | `OperatorUiSceneFacts`, retired `OperatorUiInspectorFacts` | Repaired: App now builds the canonical detached inspector value directly and projection assigns it without a 36-field copy. Typed selection, transform, identity, render-material, and Physics views feed their exact panel sections while the frame fingerprint retains its established flat semantic order. |
+
+### Runtime/App candidate reconciliation
+
+The SC5 App-only rescan covers 47 source/header targets under 340 distinct
+consumer contexts. It reports 119 advisory candidates, down from 126 before the
+grouped repair. Every remaining family has the decision below; the threshold is
+a review trigger, not a demand to hide direct composition behind a record.
+
+| App file/family | Final decision and evidence |
+|---|---|
+| `ApplicationExitState.h` | Retained: one fixed-size exit latch owns diagnostic precedence, stop intent, and the first leased failure. Its fields cannot be split without duplicating exit authority; focused exit-state tests cover precedence and lifetime. |
+| `ReplayPredictionDrawing.h:78` | Retained: `ReplayPredictionDrawListState` is the bounded retained cursor/capacity state for one draw-list build. Its reset invariant and fixed-capacity arrays are owned together; no runtime owner reference is stored. |
+| `ReplayRuntime.h:440` | Retained: `ReplayInteractionRecordingCauseState` is one serialized replay-inspection state machine. The fields are artifact-independent values restored together before input routing; no sibling owner is borrowed. |
+| `CameraFrameApplication.cpp` | Repaired in SC5: App now projects the named `RuntimeCameraMovementInput` once. Camera consumes that value plus Scene/attached-camera owners and no longer reopens `EngineConfig` or repeats editor/scene scalar flags. |
+| `GraphicsStressApplication.cpp/.h` | Repaired in SC5: all 32 authored actions map to one closed owner category and dispatch to narrow cinematic, browser, renderer, overlay, scene, UI, Physics, tool, or camera operations. A focused table test covers every action plus invalid bounds. |
+| `SceneLoadApplication.cpp/.h` | Repaired in SC5: the former ten-part presentation call is split into validation begin, render-device, window/UI, and graphics-stress phases. Each of the seven production call sites shows the exact sequence and closes the transaction explicitly. |
+| `Init.cpp` and the `Run` constructor | Retained: these are the process and App composition roots. Window, config, workers, profiler, backbuffer capture, and optional Tracy ownership are direct lifetime wiring; a `RunServices` or startup context would only obscure destruction order. |
+| `InputFrame.cpp/.h` and `InputRouter.Interactions.cpp` | Repaired/retained: prior slices introduced typed pointer results, input facts, transition commands, and ordered owner phases. Remaining advisory operations are synchronous App transitions with direct mutable owners; none stores or reconstructs the former broad input surface. |
+| `InteractionAutomationApplication.cpp` and `InteractionAutomationReportApplication.cpp` | Repaired/retained: Automation keeps one authored action traversal and action-specific handlers; the report writer owns filesystem publication and validated paths. Remaining Debug/Automation candidates are direct one-action or immutable-report boundaries compiled in one owning context, not reusable runtime contexts. |
+| `OperatorEditorFramePhase.cpp` | Repaired: primary, hierarchy, inspector, diagnostics, text, and secondary surfaces publish typed child values. The two remaining coordinators are App composition points that order those detached values and return typed commands. |
+| `ReplayAuthoringCauseTree.cpp/.h` and `ReplayCauseFocusSubmission.cpp` | Repaired/retained: Planning owns cause values and presentation packets; App performs bounded row/activation projection and submits a detached cause-focus presentation. Remaining operation counts describe one tree/row algorithm with direct values, not a multi-owner context. |
+| `ReplayPredictionDrawing.cpp` and its presentation/retained-geometry headers | Repaired/retained: trajectory, style, source, marker, geometry, and capacity inputs are separate child values after SC4. Remaining advisory signatures are bounded geometry algorithms over those values; they retain no Replay, Prediction, Scene, or renderer owner bag. |
+| `ReplayRuntime.cpp/.h` and `ReplayScrubberTools.cpp` | Repaired/retained: transport, capture, prediction, scene lifecycle, camera, and overlay interactions use typed commands/results and child views. Remaining candidates are ordered App state-machine transitions with direct owners. Per user direction, the behavioral scrubber issue is deferred and SC5 makes no scrubber-input behavior claim. |
+| `ReplayValidation.cpp` and `ReplayValidation.Probes.cpp` | Repaired/retained: startup load/restore/save inputs are operation-specific values and probes retain their own phase state. Remaining Debug-only candidates are validation algorithms whose explicit stores, hashes, clocks, and outputs compare one deterministic operation; no production context owner is introduced. |
+| `Run.h` UI/diagnostic operations | Repaired/retained: GameUI, editor, diagnostics, render targets, Replay overlay, and text receive detached child projections. Remaining advisory declarations are direct composition-root phases; moving their operands into `Run`-reachable bags would reduce signature length without reducing authority. |
 | `Scene/SceneSnapshotWriter.h:53-70` | `SceneWorldSaveState` | Likely keep as one serialization snapshot if construction validates joint pointer/count and the writer consumes the complete state synchronously. |
 
 Large non-borrowing planning and UI presentation records remain in the 296-row
@@ -995,6 +1020,25 @@ project filters, plain-language, and whitespace checks pass. No baseline or
 golden changed. SC4 remains task 5/8; SC7 remains the required task 8/8
 terminal closure.
 
+The nineteenth grouped slice closes SC5 App orchestration. Camera control now
+receives one named movement value projected at the App call site instead of
+reopening configuration and repeated UI/scene flags. Graphics stress maps all
+32 authored actions to one closed owner category and dispatches narrow
+owner-specific operations; the outer frame phase is again a readable named
+coordinator. Scene-load presentation is an explicit validation, render-device,
+window/UI, and stress sequence at all seven production call sites rather than a
+ten-part operation.
+
+The Profile x64 solution builds with zero warnings and errors. Focused camera,
+graphics-stress, scene-lifecycle, and scene-load tests pass 6 cases and 124
+assertions. Compiler-backed source-design passes 11 changed source/header/test
+targets across 72 compile contexts with zero findings. The App-only advisory
+rescan covers 47 targets/340 contexts and reports 119 accounted candidates,
+down from 126 before the slice. Formatting, dependency/project ownership,
+build-configuration consistency, project filters, plain-language policy, and
+whitespace checks pass. No baseline or golden changed. SC5 is task 6/8; SC6
+whole-engine reconciliation and mandatory SC7 closure remain.
+
 ### SC4 Commit-Note Recovery And Enforcement
 
 Eight published SC4 commits were incorrectly created with subject-only messages.
@@ -1044,13 +1088,13 @@ state the same mandatory file-backed commit workflow.
   Preserve C/DX12 callback and ABI signatures when externally fixed, and record
   that constraint rather than wrapping them. Prove command order, descriptor
   ownership, resource lifetime, and shader-contract behavior for changed calls.
-- [ ] **SC4 — Repair Runtime package candidates below App.** Review Input,
+- [x] **SC4 — Repair Runtime package candidates below App.** Review Input,
   Simulation, Scene, Replay, Prediction, Planning, Tools, Editor, Render,
   Diagnostics, DevelopmentTools, Capture, Direction, Automation, and Runtime UI
   in dependency order. Keep Replay/Prediction/Planning placement intact. Reject
   context slices that collectively expose several concrete owners to one
   operation.
-- [ ] **SC5 — Repair Runtime/App orchestration and test-call readability.** Treat
+- [x] **SC5 — Repair Runtime/App orchestration and test-call readability.** Treat
   `Run` and its sibling translation units as one surface. Split independently
   meaningful phases or move behavior to existing concrete owners; do not hide
   parameters through `Run` member reach. Update tests to show the real API with

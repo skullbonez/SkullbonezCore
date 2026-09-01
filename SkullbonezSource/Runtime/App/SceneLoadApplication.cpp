@@ -570,21 +570,28 @@ void Run::ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction )
 }
 
 
-void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& window, UI::InGameUI& operatorUi,
-                                 RuntimeValidationHarness& validationHarness, GraphicsStressController& graphicsStress,
-                                 SceneLifecycleGenerationObserver& graphicsStressSceneObserver,
-                                 const RunLaunchOptions& launchOptions, Rendering::Dx12RenderDevice* renderDevice,
-                                 bool rendererVsyncEnabled, SceneController& sceneController )
+const SceneLoadResult& BeginSceneLoadPresentation( SceneLoadTransaction& transaction,
+                                                   RuntimeValidationHarness& validationHarness,
+                                                   const SceneController& sceneController )
 {
     const SceneLoadResult& outputs = transaction.BeginPresentation();
     const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
     validationHarness.SceneGates().ObserveSceneLifecycle( lifecycle, transaction.TakeAutomationGates() );
+    return outputs;
+}
 
+void ApplySceneLoadRenderPresentation( const SceneLifecyclePacket& lifecycle, Rendering::Dx12RenderDevice* renderDevice,
+                                       bool rendererVsyncEnabled )
+{
     if ( renderDevice && SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
     {
         renderDevice->SetVsyncEnabled( rendererVsyncEnabled );
     }
+}
 
+
+void ApplySceneLoadWindowUiPresentation( const SceneLoadResult& outputs, Window& window, UI::InGameUI& operatorUi )
+{
     if ( outputs.windowTitle[0] != '\0' )
     {
         window.SetTitleText( outputs.windowTitle );
@@ -601,7 +608,14 @@ void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& wind
     }
 
     ApplySceneUiActivation( operatorUi, outputs.uiActivation );
+}
 
+
+void ApplySceneLoadGraphicsStressPresentation( const SceneLifecyclePacket& lifecycle,
+                                               GraphicsStressController& graphicsStress,
+                                               SceneLifecycleGenerationObserver& graphicsStressSceneObserver,
+                                               const RunLaunchOptions& launchOptions )
+{
     // Invariant: a reload may be sampled more than once, but the Capture-owned
     // random stream and cadence resume exactly once after population commits.
     if ( launchOptions.graphicsStress &&
@@ -610,8 +624,6 @@ void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& wind
         graphicsStress.ResumeAfterSceneLoad( launchOptions.graphicsStressSeed, launchOptions.graphicsStressActions,
                                              launchOptions.graphicsStressSceneIntervalFrames );
     }
-
-    transaction.CompletePresentation();
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

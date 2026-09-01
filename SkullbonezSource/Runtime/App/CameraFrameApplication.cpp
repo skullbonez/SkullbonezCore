@@ -111,43 +111,17 @@ void CameraControlState::AdvanceAutoCycleClock( bool sceneMode, float simulation
 
 
 void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCameraController& attachedCamera,
-                                       const SkullbonezCore::Core::EngineConfig& config, bool editorModeEnabled,
-                                       bool viewportLookActive, bool sceneMode, float cameraDt, float presentationAlpha )
+                                       const RuntimeCameraMovementInput& movement, float cameraDt, float presentationAlpha )
 {
     Environment::CameraCollection& cameras = world.Cameras();
     Geometry::Terrain& terrain = *world.Terrain().Get();
-    constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
-    mouseRadiansPerPixel = CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
-    const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( mode ) && attachedCamera.State().activeFollow &&
-                                         attachedCamera.State().submode != AttachedCameraSubmode::RagdollEyes;
-
-    InputController::ApplyCameraMovement( *this, cameras, terrain,
-                                          RuntimeCameraMovementInput { cameraDt * config.camera.keySpeed,
-                                                                       CAMERA_MOUSE_REFERENCE_DT *
-                                                                           config.camera.mouseSensitivity,
-                                                                       config.camera.minCameraHeight,
-                                                                       config.camera.maxCameraHeight,
-                                                                       world.Environment().GetFluidSurfaceHeight(),
-                                                                       attachedOrbitOwnsCamera,
-                                                                       RunCameraModeUsesFlyControls( mode,
-                                                                                                     attachedCamera.State()
-                                                                                                         .activeFollow,
-                                                                                                     director.grabbed ),
-                                                                       editorModeEnabled, viewportLookActive,
-                                                                       RunCameraModeUsesManualControls( mode,
-                                                                                                        attachedCamera
-                                                                                                            .State()
-                                                                                                            .activeFollow,
-                                                                                                        director.grabbed ),
-                                                                       sceneMode } );
+    mouseRadiansPerPixel = movement.mouseMovementQuantity;
+    InputController::ApplyCameraMovement( *this, cameras, terrain, movement );
 
     if ( RunCameraModeIsAttached( mode ) )
     {
-        const float orbitYawDelta = static_cast<float>( inputXMove ) * CAMERA_MOUSE_REFERENCE_DT *
-                                    config.camera.mouseSensitivity;
-
-        const float orbitPitchDelta = static_cast<float>( inputYMove ) * CAMERA_MOUSE_REFERENCE_DT *
-                                      config.camera.mouseSensitivity;
+        const float orbitYawDelta = static_cast<float>( inputXMove ) * movement.mouseMovementQuantity;
+        const float orbitPitchDelta = static_cast<float>( inputYMove ) * movement.mouseMovementQuantity;
 
         (void)attachedCamera.TickFollow( world, orbitYawDelta, orbitPitchDelta, presentationAlpha );
     }

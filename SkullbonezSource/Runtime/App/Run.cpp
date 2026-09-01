@@ -853,9 +853,16 @@ void Run::Initialise()
     ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
     ApplySceneLoadRuntimeReactions( sceneLoad );
 
-    ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
-                                Renderer().VsyncEnabled(), m_sceneController );
+    {
+        const SceneLoadResult& presentation = BeginSceneLoadPresentation( sceneLoad, *m_validationHarness,
+                                                                          m_sceneController );
+        const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+        ApplySceneLoadRenderPresentation( lifecycle, &Renderer().RenderDevice(), Renderer().VsyncEnabled() );
+        ApplySceneLoadWindowUiPresentation( presentation, m_window, *m_operatorUi );
+        ApplySceneLoadGraphicsStressPresentation( lifecycle, m_graphicsStress, m_graphicsStressSceneObserver,
+                                                  m_launchOptions );
+        sceneLoad.CompletePresentation();
+    }
 
     if ( !m_lastSceneLoadResult.Ok() )
     {
@@ -1050,9 +1057,16 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
         ApplySceneLoadRuntimeReactions( sceneLoad );
 
-        ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                    m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
-                                    Renderer().VsyncEnabled(), m_sceneController );
+        {
+            const SceneLoadResult& presentation = BeginSceneLoadPresentation( sceneLoad, *m_validationHarness,
+                                                                              m_sceneController );
+            const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+            ApplySceneLoadRenderPresentation( lifecycle, &Renderer().RenderDevice(), Renderer().VsyncEnabled() );
+            ApplySceneLoadWindowUiPresentation( presentation, m_window, *m_operatorUi );
+            ApplySceneLoadGraphicsStressPresentation( lifecycle, m_graphicsStress, m_graphicsStressSceneObserver,
+                                                      m_launchOptions );
+            sceneLoad.CompletePresentation();
+        }
 
         if ( !loadResult.Ok() )
         {

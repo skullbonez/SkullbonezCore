@@ -309,6 +309,7 @@ class Run
     float RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy,
                               bool& capturePresentationPinned );
     float PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned, float interpolationAlpha );
+    void ApplyGraphicsStressActions( GraphicsStressController& graphicsStress );
     RuntimeRenderFrameViews PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha );
 

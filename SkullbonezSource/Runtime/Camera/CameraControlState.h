@@ -60,7 +60,8 @@ class CameraCollection;
 namespace Runtime
 {
 class SceneWorld;
-}
+struct RuntimeCameraMovementInput;
+} // namespace Runtime
 namespace Geometry
 {
 class Terrain;
@@ -76,9 +77,9 @@ class AttachedCameraController;
 
 struct CameraControlState
 {
-    long inputXMove = 0;                                       // Mouse-look delta sampled for this camera frame.
+    long inputXMove = 0; // Mouse-look delta sampled for this camera frame.
     long inputYMove = 0;
-    bool inputMoveForward = false;                             // Movement levels sampled for this camera frame.
+    bool inputMoveForward = false; // Movement levels sampled for this camera frame.
     bool inputMoveBackward = false;
     bool inputMoveLeft = false;
     bool inputMoveRight = false;
@@ -87,18 +88,19 @@ struct CameraControlState
     RunCameraMode mode = RunCameraMode::Demo;                  // Explicit operator camera mode shown in the minimized HUD.
     RunCameraMode modeBeforeLauncher = RunCameraMode::Inspect; // N returns to the last non-launcher workspace.
     DemoDirectorPlaybackState director;                        // Fixed shot-list playback state for Director camera mode.
-    bool needsMouseLookReset = true;                           // Discard stale absolute mouse deltas after UI/focus/fly transitions
+    bool needsMouseLookReset = true; // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
-    bool mouseLookOwnsCursor = false;                          // Resolved post-UI pointer policy captured with this frame's camera input.
-    float travelSpeedMultiplier = 1.0f;                        // Captured Shift modifier; late camera update never reopens device state.
-    float mouseRadiansPerPixel = ( 1.0f / 60.0f ) * 0.2f;      // Last applied config sample reused by the earlier replay input turn.
-    float cameraTime = 0.0f;                                   // Camera helper clock
-    Physics::ModelRowHint trackBallRow;                        // Cache for camera tracking; never object identity.
-    float trackHeight = 300.0f;                                // Camera height above tracked ball
-    float autoCycleInterval = -1.0f;                           // Seconds between per-ball auto screenshots (-1 = disabled)
-    float autoCycleAccum = 0.0f;                               // Accumulated real-time seconds since last shot
-    int autoCycleShotsTaken = 0;                               // Number of per-ball screenshots taken so far
+    bool mouseLookOwnsCursor = false;   // Resolved post-UI pointer policy captured with this frame's camera input.
+    float travelSpeedMultiplier = 1.0f; // Captured Shift modifier; late camera update never reopens device state.
+    float mouseRadiansPerPixel = ( 1.0f / 60.0f ) *
+                                 0.2f;  // Last applied config sample reused by the earlier replay input turn.
+    float cameraTime = 0.0f;            // Camera helper clock
+    Physics::ModelRowHint trackBallRow; // Cache for camera tracking; never object identity.
+    float trackHeight = 300.0f;         // Camera height above tracked ball
+    float autoCycleInterval = -1.0f;    // Seconds between per-ball auto screenshots (-1 = disabled)
+    float autoCycleAccum = 0.0f;        // Accumulated real-time seconds since last shot
+    int autoCycleShotsTaken = 0;        // Number of per-ball screenshots taken so far
 
     void StopAutoCycle()
     {
@@ -137,8 +139,7 @@ struct CameraControlState
                                    Core::Profiler* profiler );
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
     void TickControls( Runtime::SceneWorld& world, AttachedCameraController& attachedCamera,
-                       const SkullbonezCore::Core::EngineConfig& config, bool editorModeEnabled, bool viewportLookActive,
-                       bool sceneMode, float cameraDt, float presentationAlpha );
+                       const RuntimeCameraMovementInput& movement, float cameraDt, float presentationAlpha );
 
   private:
     Environment::Timer m_cameraTimer;

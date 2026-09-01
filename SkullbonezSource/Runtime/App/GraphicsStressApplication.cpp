@@ -80,13 +80,11 @@ unsigned int NextStressRandom( unsigned int& state )
 
 } // namespace
 
-void SkullbonezCore::Runtime::ApplyGraphicsStressPresentationAction( int action, GraphicsStressController& stress, const SkullbonezCore::Assets::AssetSystem& assets,
-                                                                     RunLaunchOptions& launchOptions, SkullbonezCore::Core::EngineConfig& config, RuntimeOverlayDiagnostics& overlays,
-                                                                     SceneController& sceneController, const RuntimeFrameMetricsSnapshot& timers, SkullbonezCore::UI::InGameUI& ui,
-                                                                     const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, RuntimeRenderer& renderer )
+void SkullbonezCore::Runtime::ApplyGraphicsStressCinematicAction( int action, GraphicsStressController& stress,
+                                                                  RunLaunchOptions& launchOptions,
+                                                                  SkullbonezCore::Core::EngineConfig& config,
+                                                                  SceneController& sceneController )
 {
-    RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
-    OverlayDebugState& debug = presentationEdit.State();
     SceneSessionState& scene = sceneController.State();
 
     switch ( action )
@@ -110,7 +108,8 @@ void SkullbonezCore::Runtime::ApplyGraphicsStressPresentationAction( int action,
     case 1:
     {
         SkullbonezCore::Core::CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
-        const UICinematicFeature feature = static_cast<UICinematicFeature>( stress.NextInt( static_cast<int>( UICinematicFeature::Count ) ) );
+        const UICinematicFeature feature = static_cast<UICinematicFeature>(
+            stress.NextInt( static_cast<int>( UICinematicFeature::Count ) ) );
 
         if ( feature == UICinematicFeature::Shadows )
         {
@@ -123,27 +122,54 @@ void SkullbonezCore::Runtime::ApplyGraphicsStressPresentationAction( int action,
     case 2:
     {
         SkullbonezCore::Core::CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
-        const UICinematicParam param = static_cast<UICinematicParam>( stress.NextInt( static_cast<int>( UICinematicParam::Count ) ) );
+        const UICinematicParam param = static_cast<UICinematicParam>(
+            stress.NextInt( static_cast<int>( UICinematicParam::Count ) ) );
 
         ApplyCinematicUIParam( cinematic, scene, param, stress.RandomCinematicParamValue( param ) );
         break;
     }
-    case 3:
-    {
-        const int browserCount = static_cast<int>( ui.SceneNavigation().browser.paths.size() );
-        const int browserIndex = ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
-        (void)sceneController.ApplyCinematicBrowserStyle( launchOptions, ui.SceneNavigation().browser, assets,
-                                                          ActiveSceneCinematicConfig( scene, config ),
-                                                          defaultCinematicRender, browserIndex );
-
+    default:
         break;
     }
-    case 4:
+}
+
+
+void SkullbonezCore::Runtime::ApplyGraphicsStressSceneBrowserAction(
+    GraphicsStressController& stress, const SkullbonezCore::Assets::AssetSystem& assets, RunLaunchOptions& launchOptions,
+    SkullbonezCore::Core::EngineConfig& config, SceneController& sceneController, SkullbonezCore::UI::InGameUI& ui,
+    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender )
+{
+    SceneSessionState& scene = sceneController.State();
+    const int browserCount = static_cast<int>( ui.SceneNavigation().browser.paths.size() );
+    const int browserIndex = ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
+    (void)sceneController.ApplyCinematicBrowserStyle( launchOptions, ui.SceneNavigation().browser, assets,
+                                                      ActiveSceneCinematicConfig( scene, config ), defaultCinematicRender,
+                                                      browserIndex );
+}
+
+
+void SkullbonezCore::Runtime::ApplyGraphicsStressRendererAction( int action, RuntimeRenderer& renderer )
+{
+    if ( action == 4 )
+    {
         renderer.SetVsyncEnabled( !renderer.VsyncEnabled() );
-        break;
-    case 5:
+    }
+    else if ( action == 5 )
+    {
         renderer.SetPipelineSyncEnabled( !renderer.PipelineSyncEnabled() );
-        break;
+    }
+}
+
+
+void SkullbonezCore::Runtime::ApplyGraphicsStressPresentationOverlayAction( int action, GraphicsStressController& stress,
+                                                                            RuntimeOverlayDiagnostics& overlays,
+                                                                            const RuntimeFrameMetricsSnapshot& timers )
+{
+    RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
+    OverlayDebugState& debug = presentationEdit.State();
+
+    switch ( action )
+    {
     case 6:
         debug.isTerrainHidden = !debug.isTerrainHidden;
         break;
@@ -194,58 +220,55 @@ void SkullbonezCore::Runtime::ApplyGraphicsStressPresentationAction( int action,
     }
 }
 
-GraphicsStressRuntimeActionResult SkullbonezCore::Runtime::ApplyGraphicsStressRuntimeAction( int action, GraphicsStressController& stress, RunLaunchOptions& launchOptions, RuntimeOverlayDiagnostics& overlays,
-                                                                                             SceneController& sceneController, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui,
-                                                                                             SimulationSystem& simulation, RuntimeTools& runtimeTools )
+void SkullbonezCore::Runtime::ApplyGraphicsStressTimeScaleAction( GraphicsStressController& stress,
+                                                                  SceneController& sceneController,
+                                                                  SkullbonezCore::UI::InGameUI& ui,
+                                                                  SimulationSystem& simulation )
 {
-    GraphicsStressRuntimeActionResult result;
-    RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
-    OverlayDebugState& debug = presentationEdit.State();
     SceneSessionState& scene = sceneController.State();
+    const float timeScale = stress.NextFloat( 0.05f, 4.0f );
+    ui.SceneNavigation().overrides.timeScaleOverride = timeScale;
+    scene.timeScale = timeScale;
+    simulation.Reset();
+}
+
+
+GraphicsStressRuntimeActionResult SkullbonezCore::Runtime::ApplyGraphicsStressWorldAction( GraphicsStressController& stress,
+                                                                                           SceneController& sceneController )
+{
     SkullbonezCore::Environment::WorldEnvironment& world = sceneController.Scene().Environment();
+    const WorldOverrideChange change = world.ApplyOverride( -stress.NextFloat( 0.0f, 80.0f ),
+                                                            stress.NextFloat( -80.0f, 160.0f ),
+                                                            stress.NextFloat( 0.0f, 5.0f ) );
+    return { change.previousGravity,
+             change.previousFluidHeight,
+             change.previousFluidDensity,
+             change.gravity,
+             change.fluidHeight,
+             change.fluidDensity,
+             true };
+}
 
-    switch ( action )
-    {
-    case 15:
-    {
-        const float timeScale = stress.NextFloat( 0.05f, 4.0f );
-        ui.SceneNavigation().overrides.timeScaleOverride = timeScale;
-        scene.timeScale = timeScale;
-        simulation.Reset();
-        break;
-    }
-    case 16:
-    {
-        const WorldOverrideChange change = world.ApplyOverride( -stress.NextFloat( 0.0f, 80.0f ),
-                                                                stress.NextFloat( -80.0f, 160.0f ),
-                                                                stress.NextFloat( 0.0f, 5.0f ) );
 
-        result.previousGravity = change.previousGravity;
-        result.previousFluidHeight = change.previousFluidHeight;
-        result.previousFluidDensity = change.previousFluidDensity;
-        result.gravity = change.gravity;
-        result.fluidHeight = change.fluidHeight;
-        result.fluidDensity = change.fluidDensity;
-        result.worldOverrideChanged = true;
+void SkullbonezCore::Runtime::ApplyGraphicsStressGeneratedSceneAction( GraphicsStressController& stress,
+                                                                       RunLaunchOptions& launchOptions )
+{
+    launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
+}
 
-        break;
-    }
-    case 17:
-        ui.SceneNavigation().overrides.modelCountOverride = 32 + stress.NextInt( 512 );
-        break;
-    case 18:
-        launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
-        break;
-    case 19:
+
+void SkullbonezCore::Runtime::ApplyGraphicsStressTornadoAction( int action, GraphicsStressController& stress,
+                                                                SceneController& sceneController )
+{
+    if ( action == 19 )
     {
         SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = sceneController.Scene().Tornado().GetFieldConfig();
         tornadoField.enabled = stress.NextInt( 2 ) != 0;
         tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
         sceneController.Scene().Tornado().SetVisualEnabled( stress.NextInt( 2 ) != 0 );
         sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
-        break;
     }
-    case 20:
+    else if ( action == 20 )
     {
         SkullbonezCore::Gameplay::TornadoVisualSettings tornadoVisual = sceneController.Scene().Tornado().VisualSettings();
         tornadoVisual.shellAlpha = stress.NextFloat( 0.02f, 0.40f );
@@ -254,33 +277,21 @@ GraphicsStressRuntimeActionResult SkullbonezCore::Runtime::ApplyGraphicsStressRu
         tornadoVisual.ribbonCount = 1 + stress.NextInt( 10 );
         tornadoVisual.particleCount = 16 + stress.NextInt( 240 );
         sceneController.Scene().Tornado().SetVisualSettings( tornadoVisual );
-        break;
     }
+}
+
+
+void SkullbonezCore::Runtime::ApplyGraphicsStressOperatorUiAction( int action, GraphicsStressController& stress,
+                                                                   SkullbonezCore::UI::InGameUI& ui )
+{
+    switch ( action )
+    {
+    case 17:
+        ui.SceneNavigation().overrides.modelCountOverride = 32 + stress.NextInt( 512 );
+        break;
     case 21:
         ui.SetActiveTab( static_cast<InGameUITab>( stress.NextInt( static_cast<int>( InGameUITab::Count ) ) ) );
         ui.SetScrollY( stress.NextFloat( 0.0f, 1200.0f ) );
-        break;
-    case 22:
-        scene.isFixedStep = !scene.isFixedStep;
-        simulation.Reset();
-        break;
-    case 23:
-        sceneController.Scene().Physics().SetSleepEnabled( !sceneController.Scene().Physics().IsSleepEnabled() );
-        break;
-    case 24:
-        debug.isTopTextHidden = !debug.isTopTextHidden;
-        break;
-    case 25:
-        debug.overlayMode = static_cast<OverlayMode>( stress.NextInt( 6 ) );
-        break;
-    case 26:
-        runtimeTools.Laser().Update( 0.0f );
-        break;
-    case 27:
-        camera.trackHeight = stress.NextFloat( 8.0f, 500.0f );
-        break;
-    case 28:
-        launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
         break;
     case 29:
         ui.SetProfilerTimelineEnabled( stress.NextInt( 2 ) != 0 );
@@ -291,14 +302,60 @@ GraphicsStressRuntimeActionResult SkullbonezCore::Runtime::ApplyGraphicsStressRu
         ui.SetWaterComboOpen( stress.NextInt( 2 ) != 0 );
         ui.SetSceneComboOpen( stress.NextInt( 2 ) != 0 );
         break;
+    default:
+        break;
+    }
+}
+
+
+void SkullbonezCore::Runtime::ApplyGraphicsStressScenePhysicsAction( int action, SceneController& sceneController,
+                                                                     SimulationSystem& simulation )
+{
+    if ( action == 22 )
+    {
+        SceneSessionState& scene = sceneController.State();
+        scene.isFixedStep = !scene.isFixedStep;
+        simulation.Reset();
+    }
+    else if ( action == 23 )
+    {
+        sceneController.Scene().Physics().SetSleepEnabled( !sceneController.Scene().Physics().IsSleepEnabled() );
+    }
+}
+
+
+void SkullbonezCore::Runtime::ApplyGraphicsStressRuntimeToolAction( RuntimeTools& runtimeTools )
+{
+    runtimeTools.Laser().Update( 0.0f );
+}
+
+
+void SkullbonezCore::Runtime::ApplyGraphicsStressCameraAction( GraphicsStressController& stress, CameraControlState& camera )
+{
+    camera.trackHeight = stress.NextFloat( 8.0f, 500.0f );
+}
+
+
+void SkullbonezCore::Runtime::ApplyGraphicsStressRuntimeOverlayAction( int action, GraphicsStressController& stress,
+                                                                       RuntimeOverlayDiagnostics& overlays )
+{
+    RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
+    OverlayDebugState& debug = presentationEdit.State();
+
+    switch ( action )
+    {
+    case 24:
+        debug.isTopTextHidden = !debug.isTopTextHidden;
+        break;
+    case 25:
+        debug.overlayMode = static_cast<OverlayMode>( stress.NextInt( 6 ) );
+        break;
     case 31:
         debug.isUITestPattern = stress.NextInt( 2 ) != 0;
         break;
     default:
         break;
     }
-
-    return result;
 }
 
 
@@ -758,16 +815,17 @@ void SkullbonezCore::Runtime::FinishGraphicsStressFrame( GraphicsStressControlle
     const SkullbonezCore::Core::MainMemoryStats&
         memoryStats = diagnosticsRuntime
                           .RefreshMainMemoryStats( replayMemory,
-                                                   CollectSceneMemoryStats( SceneMemoryDiagnosticsView { sceneController.Scene()
-                                                                                                             .Entities()
-                                                                                                             .CapacityBytes(),
-                                                                                                         sceneController.Scene()
-                                                                                                             .CollectGameplayMemoryBytes(),
-                                                                                                         sceneController.Scene()
-                                                                                                             .CollectGameplayDebugMemoryBytes(),
-                                                                                                         sceneController.Scene().Physics(),
-                                                                                                         sceneController.Scene()
-                                                                                                             .RenderInstances() } ),
+                                                   CollectSceneMemoryStats(
+                                                       SceneMemoryDiagnosticsView { sceneController.Scene()
+                                                                                        .Entities()
+                                                                                        .CapacityBytes(),
+                                                                                    sceneController.Scene()
+                                                                                        .CollectGameplayMemoryBytes(),
+                                                                                    sceneController.Scene()
+                                                                                        .CollectGameplayDebugMemoryBytes(),
+                                                                                    sceneController.Scene().Physics(),
+                                                                                    sceneController.Scene()
+                                                                                        .RenderInstances() } ),
                                                    timers.simulationTotalSeconds, true );
 
     const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
@@ -803,11 +861,16 @@ void SkullbonezCore::Runtime::FinishGraphicsStressFrame( GraphicsStressControlle
             static_cast<unsigned long long>( renderStats.uploadUsedBytes ),
             static_cast<unsigned long long>( renderStats.uploadPeakBytes ),
             static_cast<unsigned long long>( renderStats.timerReadbackBytes ),
-            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::Constants )] ),
-            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::DynamicVertex )] ),
-            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::InstanceData )] ),
-            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::TextureRows )] ),
-            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::RetainedGeometry )] ),
+            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                SkullbonezCore::Rendering::RenderUploadCategory::Constants )] ),
+            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                SkullbonezCore::Rendering::RenderUploadCategory::DynamicVertex )] ),
+            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                SkullbonezCore::Rendering::RenderUploadCategory::InstanceData )] ),
+            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                SkullbonezCore::Rendering::RenderUploadCategory::TextureRows )] ),
+            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                SkullbonezCore::Rendering::RenderUploadCategory::RetainedGeometry )] ),
             static_cast<unsigned long long>( renderStats.uploadFlushCount ),
             static_cast<unsigned long long>( renderStats.uploadDropCount ), renderStats.textureRegistryCount,
             renderStats.textureRegistryCapacity, renderStats.psoCacheCount,

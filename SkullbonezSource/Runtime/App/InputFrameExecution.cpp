@@ -457,9 +457,16 @@ bool Run::ExecuteInputSceneLoadRequest( const SceneLoadRequest& request, Runtime
     const bool loaded = LoadSceneRequest( sceneLoad, request ).Ok();
     ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
     ApplySceneLoadRuntimeReactions( sceneLoad );
-    ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
-                                Renderer().VsyncEnabled(), m_sceneController );
+    {
+        const SceneLoadResult& presentation = BeginSceneLoadPresentation( sceneLoad, *m_validationHarness,
+                                                                          m_sceneController );
+        const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+        ApplySceneLoadRenderPresentation( lifecycle, &Renderer().RenderDevice(), Renderer().VsyncEnabled() );
+        ApplySceneLoadWindowUiPresentation( presentation, m_window, *m_operatorUi );
+        ApplySceneLoadGraphicsStressPresentation( lifecycle, m_graphicsStress, m_graphicsStressSceneObserver,
+                                                  m_launchOptions );
+        sceneLoad.CompletePresentation();
+    }
     presentationEdit.Refresh();
     return loaded;
 }
@@ -1201,9 +1208,16 @@ void Run::ApplyDeferredInputOwnerRequests( RuntimeOverlayPresentationEdit& prese
     (void)ExecutePendingSceneRequests( sceneLoad );
     ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
     ApplySceneLoadRuntimeReactions( sceneLoad );
-    ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
-                                Renderer().VsyncEnabled(), m_sceneController );
+    {
+        const SceneLoadResult& presentation = BeginSceneLoadPresentation( sceneLoad, *m_validationHarness,
+                                                                          m_sceneController );
+        const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+        ApplySceneLoadRenderPresentation( lifecycle, &Renderer().RenderDevice(), Renderer().VsyncEnabled() );
+        ApplySceneLoadWindowUiPresentation( presentation, m_window, *m_operatorUi );
+        ApplySceneLoadGraphicsStressPresentation( lifecycle, m_graphicsStress, m_graphicsStressSceneObserver,
+                                                  m_launchOptions );
+        sceneLoad.CompletePresentation();
+    }
     presentationEdit.Refresh();
 }
 
