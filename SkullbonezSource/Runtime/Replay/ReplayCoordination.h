@@ -242,14 +242,9 @@ inline ReplayTransportAction ReplayTransportCommandAction( const ReplayTransport
         command );
 }
 
-struct ReplayTransportHostContext
+struct ReplayTransportLoadResult
 {
-    HWND window = nullptr;
-    RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
-    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
-    bool attachedFollow = false;
-    bool directorGrabbed = false;
-    double now = 0.0;
+    bool activateLoadedPresentation = false;
 };
 
 // Concept: generic input routing consumes one immutable replay publication.

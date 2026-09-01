@@ -56,6 +56,52 @@ using SkullbonezCore::UI::UIDrawContext;
 using SkullbonezCore::UI::UIDrawList;
 using SkullbonezCore::UI::UIFontMetrics;
 
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+namespace SkullbonezCore::UI
+{
+struct UIWindowInteractionOwnerTestAccess
+{
+    static void ArmMemoryPreview( UIWindowInteractionOwner& owner )
+    {
+        owner.m_activeSlider = 901;
+        owner.m_memoryOverlay.previewRetentionSeconds = 93;
+        owner.m_memoryOverlay.previewBudgetMiB = 384;
+    }
+
+    static bool MemoryPreviewDiscarded( const UIWindowInteractionOwner& owner )
+    {
+        return owner.m_activeSlider == 0 && owner.m_memoryOverlay.previewRetentionSeconds == -1 &&
+               owner.m_memoryOverlay.previewBudgetMiB == -1;
+    }
+
+    static double ScrollbarVisibleUntil( const UIWindowInteractionOwner& owner )
+    {
+        return owner.m_scrollbarVisibleUntil;
+    }
+
+    static void BeginResize( UIWindowInteractionOwner& owner )
+    {
+        owner.m_interaction.isResizing = true;
+        owner.m_interaction.resizeStartMouseX = 300;
+        owner.m_interaction.resizeStartMouseY = 160;
+        owner.m_interaction.resizeStartW = 300;
+        owner.m_interaction.resizeStartH = 160;
+    }
+
+    static int WindowWidth( const UIWindowInteractionOwner& owner )
+    {
+        return owner.m_window.width;
+    }
+
+    static int WindowHeight( const UIWindowInteractionOwner& owner )
+    {
+        return owner.m_window.height;
+    }
+};
+} // namespace SkullbonezCore::UI
+using SkullbonezCore::UI::UIWindowInteractionOwnerTestAccess;
+#endif
+
 namespace
 {
 template <typename T>
@@ -73,11 +119,15 @@ concept HasForecastTickCapability = requires( const T& value ) { value.newestAbs
 template <typename T>
 concept HasForecastRetainedBytesCapability = requires( const T& value ) { value.retainedBytes; };
 
+template <typename T>
+concept HasCompleteWidgetSurface = requires( T& value ) { value.Widgets(); };
+
 static_assert( !HasOrdinaryRenderCapability<SkullbonezCore::UI::UIOptionsTabFrameView> );
 static_assert( !HasCinematicConfigCapability<SkullbonezCore::UI::UIOptionsTabFrameView> );
 static_assert( !HasOperatorEditorCapability<SkullbonezCore::UI::UISceneTabFrameView> );
 static_assert( !HasForecastTickCapability<SkullbonezCore::UI::UISceneForecastFrameView> );
 static_assert( !HasForecastRetainedBytesCapability<SkullbonezCore::UI::UISceneForecastFrameView> );
+static_assert( !HasCompleteWidgetSurface<SkullbonezCore::UI::UIWindowInteractionOwner> );
 
 int FindDrawTextIndex( const UIDrawList& list, const char* expected )
 {
@@ -112,7 +162,12 @@ TEST_CASE( "UI window close hides the panel instead of minimizing it" )
     input.leftPressed = true;
 
     const SkullbonezCore::UI::SceneNavigationModel sceneNavigation;
-    owner.UpdateInput( input, { 1920, 1080, 1.0 }, {}, { 0xffffffffu }, sceneNavigation );
+    const bool editorModeEnabled = false;
+    const bool placementModeEnabled = false;
+    const bool placeStaticObject = false;
+    const bool autoTerrainAlign = false;
+    owner.UpdateInput( input, sceneNavigation, 1920, 1080, 1.0, editorModeEnabled, placementModeEnabled,
+                       placeStaticObject, autoTerrainAlign, 0xffffffffu );
 
     CHECK_FALSE( owner.IsVisible() );
     CHECK( owner.IsMinimized() );
@@ -145,17 +200,11 @@ TEST_CASE( "UI capture cancellation discards deferred replay memory previews" )
 
     const auto armPreview = [&owner]()
     {
-        auto widgets = owner.Widgets();
-        widgets.pointer.activeSlider = 901;
-        widgets.tabs.memoryOverlay.previewRetentionSeconds = 93;
-        widgets.tabs.memoryOverlay.previewBudgetMiB = 384;
+        UIWindowInteractionOwnerTestAccess::ArmMemoryPreview( owner );
     };
     const auto checkDiscarded = [&owner]()
     {
-        auto widgets = owner.Widgets();
-        CHECK( widgets.pointer.activeSlider == 0 );
-        CHECK( widgets.tabs.memoryOverlay.previewRetentionSeconds == -1 );
-        CHECK( widgets.tabs.memoryOverlay.previewBudgetMiB == -1 );
+        CHECK( UIWindowInteractionOwnerTestAccess::MemoryPreviewDiscarded( owner ) );
     };
 
     armPreview();
@@ -183,14 +232,14 @@ TEST_CASE( "UI programmatic scroll reveal starts at the next visible draw" )
 
     owner.SetScrollY( 120.0f );
     owner.PrepareForDraw( 50.0 );
-    CHECK( owner.Widgets().pointer.scrollbarVisibleUntil == doctest::Approx( 51.2 ) );
+    CHECK( UIWindowInteractionOwnerTestAccess::ScrollbarVisibleUntil( owner ) == doctest::Approx( 51.2 ) );
 
     owner.PrepareForDraw( 70.0 );
-    CHECK( owner.Widgets().pointer.scrollbarVisibleUntil == doctest::Approx( 51.2 ) );
+    CHECK( UIWindowInteractionOwnerTestAccess::ScrollbarVisibleUntil( owner ) == doctest::Approx( 51.2 ) );
 
     owner.SetScrollY( 80.0f );
     owner.PrepareForDraw( 70.0 );
-    CHECK( owner.Widgets().pointer.scrollbarVisibleUntil == doctest::Approx( 71.2 ) );
+    CHECK( UIWindowInteractionOwnerTestAccess::ScrollbarVisibleUntil( owner ) == doctest::Approx( 71.2 ) );
 }
 
 TEST_CASE( "UI narrow clients replace ordinary window minima with reachable bounds" )
@@ -220,22 +269,20 @@ TEST_CASE( "UI narrow clients replace ordinary window minima with reachable boun
     SkullbonezCore::UI::UIWindowInteractionOwner owner;
     owner.SetVisible( true, 0.0 );
     owner.SetWindowBounds( 10, 10, 300, 160 );
-    {
-        auto widgets = owner.Widgets();
-        widgets.chrome.interaction.isResizing = true;
-        widgets.chrome.interaction.resizeStartMouseX = 300;
-        widgets.chrome.interaction.resizeStartMouseY = 160;
-        widgets.chrome.interaction.resizeStartW = 300;
-        widgets.chrome.interaction.resizeStartH = 160;
-    }
+    UIWindowInteractionOwnerTestAccess::BeginResize( owner );
     SkullbonezCore::UI::InputControl::UIInputSnapshot resizeInput;
     resizeInput.mouseX = 319;
     resizeInput.mouseY = 179;
     resizeInput.leftDown = true;
     const SkullbonezCore::UI::SceneNavigationModel sceneNavigation;
-    owner.UpdateInput( resizeInput, { 320, 180, 1.0 }, {}, { 0xffffffffu }, sceneNavigation );
-    CHECK( owner.Widgets().chrome.window.width <= 300 );
-    CHECK( owner.Widgets().chrome.window.height <= 160 );
+    const bool editorModeEnabled = false;
+    const bool placementModeEnabled = false;
+    const bool placeStaticObject = false;
+    const bool autoTerrainAlign = false;
+    owner.UpdateInput( resizeInput, sceneNavigation, 320, 180, 1.0, editorModeEnabled, placementModeEnabled,
+                       placeStaticObject, autoTerrainAlign, 0xffffffffu );
+    CHECK( UIWindowInteractionOwnerTestAccess::WindowWidth( owner ) <= 300 );
+    CHECK( UIWindowInteractionOwnerTestAccess::WindowHeight( owner ) <= 160 );
 
     SkullbonezCore::UI::UIEditorTabFrameView editor;
     const float minimizedWidth = EditorMinimizedWidth( editor, 320 );
@@ -387,8 +434,13 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
     input.leftPressed = true;
     ui->SceneNavigation().browser.names.emplace_back( sceneOptions[0] );
     ui->SceneNavigation().browser.namePtrs.push_back( ui->SceneNavigation().browser.names[0].c_str() );
-    const InGameUIInputResult result = ui->UpdateInput( input, { data->surface.screenW, data->surface.screenH, 1.0 },
-                                                        { false, false, true, false }, { 0xffffffffu } );
+    const bool editorModeEnabled = false;
+    const bool placementModeEnabled = false;
+    const bool placeStaticObject = true;
+    const bool autoTerrainAlign = false;
+    const InGameUIInputResult result =
+        ui->UpdateInput( input, data->surface.screenW, data->surface.screenH, 1.0, editorModeEnabled,
+                         placementModeEnabled, placeStaticObject, autoTerrainAlign, 0xffffffffu );
 
     CHECK( result.commands.forecast.type == UIForecastCommandType::ToggleContinuous );
     CHECK( result.commands.ui.userInteracted );

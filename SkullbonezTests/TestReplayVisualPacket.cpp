@@ -566,7 +566,7 @@ std::size_t RunCommittedTrajectorySchedule( RunReplayPredictionState& state,
         UpdateReplayPredictionTrajectoryStore( state, frames, frames.size(), false, rootId, budgetStart,
                                                budgetMilliseconds );
         const ReplayPredictionPresentationView beforeFlip = ReplayPrediction::PresentationViewFromState( state, true );
-        CHECK( beforeFlip.trajectory.pathPresentation == ReplayPredictionPathPresentation::SelectedCausalTree );
+        CHECK( beforeFlip.pathPresentation == ReplayPredictionPathPresentation::SelectedCausalTree );
         (void)TryFlipReplayPredictionCommittedPublication( state, rootId, frames.size(),
                                                            state.revealClock.presentedFrame, budgetStart,
                                                            budgetMilliseconds );
@@ -673,7 +673,7 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
     REQUIRE( PrepareCommittedTrajectoryScheduleState( *uninterrupted, frames, rootId, topologyVersion, nodeCount ) );
     const ReplayPredictionPresentationView pending = ReplayPrediction::PresentationViewFromState( *narrowSlices, true );
     CHECK( pending.topology.treeReady );
-    CHECK( pending.trajectory.pathPresentation == ReplayPredictionPathPresentation::SelectedCausalTree );
+    CHECK( pending.pathPresentation == ReplayPredictionPathPresentation::SelectedCausalTree );
     CHECK( pending.timeline.usingBuildFrames );
     CHECK( pending.markers.retainedMarkers.size() == 1u );
     const std::array<std::size_t, 1u> narrowSchedule { 1u };
@@ -766,8 +766,8 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
     const ReplayPredictionPresentationView variedView = ReplayPrediction::PresentationViewFromState( *variedSlices, true );
     CHECK( narrowView.topology.treeReady );
     CHECK( variedView.topology.treeReady );
-    CHECK( narrowView.trajectory.pathPresentation == ReplayPredictionPathPresentation::AllBodiesSpace );
-    CHECK( variedView.trajectory.pathPresentation == ReplayPredictionPathPresentation::AllBodiesSpace );
+    CHECK( narrowView.pathPresentation == ReplayPredictionPathPresentation::AllBodiesSpace );
+    CHECK( variedView.pathPresentation == ReplayPredictionPathPresentation::AllBodiesSpace );
     CHECK_FALSE( narrowView.timeline.usingBuildFrames );
     CHECK_FALSE( variedView.timeline.usingBuildFrames );
     CHECK( narrowView.topology.targetId.value == variedView.topology.targetId.value );

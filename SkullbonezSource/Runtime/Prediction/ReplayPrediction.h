@@ -936,7 +936,7 @@ class ReplayPrediction
                                                                           view.timeline.frames.size(),
                                                                           view.topology.futureNodes.size(),
                                                                           view.topology.version, view.topology.cacheValid );
-        view.trajectory.pathPresentation = presentedTrajectory.pathPresentation;
+        view.pathPresentation = presentedTrajectory.pathPresentation;
         view.topology.ragdollVisualsEnabled = predictionState.ragdollVisualsEnabled;
         view.baseline.valid = predictionState.baseline.valid;
         view.baseline.comparisonActive = predictionState.baseline.comparisonActive;

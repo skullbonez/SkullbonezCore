@@ -807,18 +807,8 @@ bool Run::HandlePreUiReplayAction( const InputActionEvent& event, bool gameUiAct
     case RuntimeInputAction::ToggleReplayPlayPause:
     {
         ReplayWorkspaceOutput output;
-        m_replayRuntime
-            .ApplyTransportCommand( ReplayTogglePlayPauseCommand {},
-                                    ReplayTransportHostContext { m_window.NativeWindowHandle(),
-                                                                 NormalizeInputCameraMode( m_camera.mode ),
-                                                                 NormalizeInputCameraMode(
-                                                                     m_replayRuntime.BuildInputView().restoreCameraMode ),
-                                                                 m_attachedCamera.State().activeFollow,
-                                                                 m_camera.director.grabbed,
-                                                                 m_timers.SimulationTotalSeconds() },
-                                    m_inputRouter, m_interaction, &m_sceneController.Scene().Cameras(),
-                                    m_sceneController.Scene().Terrain().Get(), m_camera, m_runtimeTools.MousePickup(),
-                                    output );
+        m_replayRuntime.ApplyTransportCommand( ReplayTogglePlayPauseCommand {}, m_inputRouter, m_interaction, m_camera,
+                                               m_timers.SimulationTotalSeconds(), output );
         if ( output.enterInteractive )
         {
             EnterInteractiveInputScene();

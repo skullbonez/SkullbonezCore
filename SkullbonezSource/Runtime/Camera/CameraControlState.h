@@ -24,8 +24,9 @@ Glossary:
 Invariants:
   - This shelf stores camera intent and helper timers, not authoritative camera
     pose; pose writes still go through CameraCollection.
-  - `input` contains only camera movement facts captured by InputController;
-    Camera never retains the broad device snapshot.
+  - App resolves device/UI policy before `TickControls`; this owner receives
+    direct frame facts and retains only the deltas and movement levels needed by
+    the next camera application turn.
   - App applies detached scene-camera state once per lifecycle generation.
 
 Related:
@@ -36,6 +37,7 @@ Related:
 */
 #pragma once
 
+#include "../../Core/Config.h"
 #include "../../Core/PlatformWin32.h"
 #include "../../Core/Timer.h"
 #include "../../Core/Common.h"
@@ -45,11 +47,13 @@ Related:
 #include "../../Assets/AssetKeys.h"
 
 #include <array>
+#include <cmath>
 
 namespace SkullbonezCore
 {
 namespace Core
 {
+struct CameraConfig;
 class EngineConfig;
 class Profiler;
 } // namespace Core
@@ -60,7 +64,6 @@ class CameraCollection;
 namespace Runtime
 {
 class SceneWorld;
-struct RuntimeCameraMovementInput;
 } // namespace Runtime
 namespace Geometry
 {
@@ -138,11 +141,36 @@ struct CameraControlState
                                    bool attachedActiveFollow, bool cameraLookCaptured, float presentationAlpha,
                                    Core::Profiler* profiler );
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
-    void TickControls( Runtime::SceneWorld& world, AttachedCameraController& attachedCamera,
-                       const RuntimeCameraMovementInput& movement, float cameraDt, float presentationAlpha );
+    bool ConfigureMovement( const Core::CameraConfig& config ) noexcept
+    {
+        if ( !std::isfinite( config.keySpeed ) || !std::isfinite( config.mouseSensitivity ) ||
+             !std::isfinite( config.minCameraHeight ) || !std::isfinite( config.maxCameraHeight ) ||
+             config.keySpeed < 0.0f || config.mouseSensitivity < 0.0f || config.minCameraHeight < 0.0f ||
+             config.maxCameraHeight < config.minCameraHeight )
+        {
+            return false;
+        }
+
+        // Invariant: reject the complete sample before publishing any field so
+        // a failed reload cannot leave mixed movement limits in this owner.
+        m_keySpeed = config.keySpeed;
+        m_mouseSensitivity = config.mouseSensitivity;
+        m_minCameraHeight = config.minCameraHeight;
+        m_maxCameraHeight = config.maxCameraHeight;
+        mouseRadiansPerPixel = ( 1.0f / 60.0f ) * m_mouseSensitivity;
+        return true;
+    }
+    void TickControls( Runtime::SceneWorld& world, AttachedCameraController& attachedCamera, float cameraDt,
+                       float presentationAlpha, float fluidSurfaceHeight, bool attachedOrbitOwnsCamera,
+                       bool flyControlsActive, bool editorModeEnabled, bool editorViewportLookActive,
+                       bool manualControlsActive, bool authoredScene );
 
   private:
     Environment::Timer m_cameraTimer;
+    float m_keySpeed = 200.0f;
+    float m_mouseSensitivity = 0.2f;
+    float m_minCameraHeight = 1.5f;
+    float m_maxCameraHeight = 110.0f;
 };
 
 } // namespace Runtime

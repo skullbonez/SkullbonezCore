@@ -20,7 +20,7 @@ Invariants:
   - Pass input/output structs borrow data for one frame only.
   - Pass constructors receive named long-lived owners; per-frame runtime data
     travels through explicit pass input structs.
-  - Pass order is owned by RuntimeRenderer::RenderPreparedFrame.
+  - Pass order is owned by RuntimeRenderer's world and overlay frame phases.
   - Debug contact packets are synchronous Rendering values, not Replay or Planning state.
   - RuntimeRenderTargetPreviewSnapshot owns its fixed-catalog append boundary;
     every renderer producer reaches fatal invariant before an overflow can index storage.
@@ -167,7 +167,7 @@ struct RunReplayPredictionFrame;
 
 // Concept: these private pass contracts are the extraction boundary.
 //
-// RuntimeRenderer::RenderPreparedFrame() owns pass order, and each pass receives a named
+// RuntimeRenderer's world and overlay phases own pass order, and each pass receives a named
 // input bundle or explicit long-lived resources. Frame references are rebuilt
 // each pass, while GPU resources stay in RuntimeRenderPassResources.
 enum class SkyPassMode
@@ -540,7 +540,7 @@ struct ShadowPassInputs
 struct ShadowPassOutput
 {
     // Borrowed pointers into ShadowPassResources. Receivers must consume
-    // them during the same RuntimeRenderer::RenderPreparedFrame() call; ShadowPass resource
+    // them during the same RuntimeRenderer world-phase call; ShadowPass resource
     // release and the next frame both invalidate them.
     const Rendering::ShadowFrameData* terrainShadow = nullptr;
     const Rendering::ShadowFrameData* objectShadow = nullptr;
@@ -675,7 +675,7 @@ Concept: ShadowPass
 
     Builds terrain/object shadow maps before receiver passes run. It owns
     the shadow targets and the per-frame receiver payloads that terrain and
-    object shaders borrow for the rest of RuntimeRenderer::RenderPreparedFrame().
+    object shaders borrow for the rest of RuntimeRenderer's world phase.
 */
 class ShadowPass
 {

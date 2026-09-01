@@ -416,7 +416,7 @@ bool ReplayPredictionArchivePathPresentationMatchesRecords( const RunReplayPredi
                                                    record.key.bodyId != presentation.trajectory.buildRootId );
     }
 
-    return ReplayPredictionPathPresentationShowsAllBodies( presentation.trajectory.pathPresentation ) == hasAdditionalRoot;
+    return ReplayPredictionPathPresentationShowsAllBodies( presentation.pathPresentation ) == hasAdditionalRoot;
 }
 } // namespace
 
@@ -1636,7 +1636,7 @@ bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisua
     writer.Scalar( REPLAY_PREDICTION_ARCHIVE_SCHEMA );
     writer.Scalar( static_cast<uint8_t>( highCapability ? ReplayPredictionArchiveDetailCapability::High
                                                         : ReplayPredictionArchiveDetailCapability::Low ) );
-    writer.Scalar( static_cast<uint8_t>( presentation.trajectory.pathPresentation ) );
+    writer.Scalar( static_cast<uint8_t>( presentation.pathPresentation ) );
     writer.Scalar( static_cast<uint16_t>( 0u ) );
     writer.Scalar( sectionCount );
     writer.Scalar( totalBytes );

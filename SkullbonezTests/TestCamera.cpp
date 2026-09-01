@@ -42,6 +42,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 using SkullbonezCore::Assets::AssetSystem;
 using SkullbonezCore::Core::EngineConfig;
@@ -51,6 +52,29 @@ using SkullbonezCore::Environment::CameraMovementSettings;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Math::Vector::Vector3;
 using namespace SkullbonezCore::Runtime;
+
+TEST_CASE( "Camera: movement configuration is accepted atomically by the camera owner" )
+{
+    EngineConfig config;
+    config.camera.mouseSensitivity = 0.35f;
+    config.camera.keySpeed = 240.0f;
+    config.camera.minCameraHeight = 2.0f;
+    config.camera.maxCameraHeight = 125.0f;
+
+    CameraControlState camera;
+    REQUIRE( camera.ConfigureMovement( config.camera ) );
+    const float acceptedRadiansPerPixel = camera.mouseRadiansPerPixel;
+    CHECK( acceptedRadiansPerPixel == doctest::Approx( ( 1.0f / 60.0f ) * 0.35f ) );
+
+    config.camera.maxCameraHeight = 1.0f;
+    CHECK_FALSE( camera.ConfigureMovement( config.camera ) );
+    CHECK( camera.mouseRadiansPerPixel == acceptedRadiansPerPixel );
+
+    config.camera.maxCameraHeight = 125.0f;
+    config.camera.keySpeed = std::numeric_limits<float>::quiet_NaN();
+    CHECK_FALSE( camera.ConfigureMovement( config.camera ) );
+    CHECK( camera.mouseRadiansPerPixel == acceptedRadiansPerPixel );
+}
 
 TEST_CASE( "Camera: authored zero up remains the SetAll sentinel" )
 {

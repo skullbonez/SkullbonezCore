@@ -533,8 +533,9 @@ class InGameUI
     // Returns the UI-owned automation pointer substitution by value so Runtime
     // can apply it while constructing the detached input snapshot.
     InputControl::UIPointerOverride InputOverride() const;
-    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, const UIInputFrameFacts& frame,
-                                     const UIEditorModeFacts& editor, const UICameraModeFacts& camera );
+    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
+                                     double now, bool editorModeEnabled, bool placementModeEnabled, bool placeStaticObject,
+                                     bool autoTerrainAlign, uint32_t cameraModeEnabledMask );
 
     // Builds one complete ordered frame of backend-neutral draw values. The
     // returned view remains valid until the next Draw call on this owner.
@@ -550,12 +551,6 @@ class InGameUI
     // Lifetime: the interaction owner holds every widget and gesture record
     // shared by hit testing and drawing. It never retains an InGameUI reach-back.
     UIWindowInteractionOwner m_windowInteraction;
-    UIDrawList m_frameDrawList;
-    UIDrawList m_histogramDrawList;
-    UIDrawList m_memoryOverlayDrawList;
-    void DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data,
-                            UIWindowInteractionOwner::WidgetView& widgets, const UIRect& windowBounds,
-                            const UIRect& contentBounds, const UIRect& footerBounds );
 };
 
 } // namespace UI

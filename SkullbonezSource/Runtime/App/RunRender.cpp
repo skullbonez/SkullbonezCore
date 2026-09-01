@@ -236,15 +236,22 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
     // allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
     const RuntimeRenderer::WorldFrameSubmission worldSubmission { renderFrame.modelPresentation,
+                                                                  renderFrame.debug.collision,
                                                                   renderCamera,
                                                                   m_sceneController.Scene().Terrain().Get(),
                                                                   framePolicy,
                                                                   worldExtension,
+                                                                  *replayFrame.render.visualPacket,
+                                                                  replayFrame.render.focusModelMask,
+                                                                  replayFrame.render.focusFadeActive,
                                                                   activeCinematic,
                                                                   cinematicRequested };
-    const RuntimeRenderer::OverlayFrameSubmission overlaySubmission { renderFrame.debug, renderFrame.worldExtensionDebug,
-                                                                      replayFrame.render, continuousOverlay, toolOverlay };
-    const bool replaySubmissionRendered = renderer.RenderFrameEntry( worldSubmission, overlaySubmission );
+    const RuntimeRenderer::OverlayFrameSubmission overlaySubmission { renderFrame.debug.physics,
+                                                                      renderFrame.worldExtensionDebug,
+                                                                      replayFrame.render.contactPresentation,
+                                                                      continuousOverlay, toolOverlay };
+    RuntimeRenderer::WorldOverlayTransaction worldOverlay = renderer.BeginWorldFrame( worldSubmission );
+    const bool replaySubmissionRendered = worldOverlay.SubmitOverlays( overlaySubmission );
 
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered, m_sceneController.State().currentFrame,
                                          replayGrowthEventCount, m_runtimeTools );

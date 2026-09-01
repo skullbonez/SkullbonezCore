@@ -841,8 +841,7 @@ void DrawReplayPredictionRootTrajectoryFromStore( const ReplayPredictionPresenta
         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
         [&]( const ReplayTrajectoryPoint& previous, const ReplayTrajectoryPoint& point, float& r, float& g, float& b )
         {
-            if ( !ReplayPredictionUsesAuthoredBodyColor( prediction.trajectory.pathPresentation,
-                                                         ReplayTrajectoryLane::FutureRoot ) ||
+            if ( !ReplayPredictionUsesAuthoredBodyColor( prediction.pathPresentation, ReplayTrajectoryLane::FutureRoot ) ||
                  !TryResolveReplayAuthoredPathColor( entities, rootId, r, g, b ) )
             {
                 ResolveReplayPathColor( colorMode, ReplayTrajectoryLane::FutureRoot, rootId, record->depth,
@@ -1307,7 +1306,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
     // Invariant: publication proves the future tree internally coherent, while
     // this submission seam still rejects a stale visualizer selection for a
     // different stable root id.
-    const bool drawFutureTree = !ReplayPredictionPathPresentationShowsAllBodies( prediction.trajectory.pathPresentation ) &&
+    const bool drawFutureTree = !ReplayPredictionPathPresentationShowsAllBodies( prediction.pathPresentation ) &&
                                 prediction.topology.treeReady &&
                                 prediction.topology.targetId.value == pathVisualizer.targetId.value;
 
@@ -1319,7 +1318,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
                                                         drawWindow.sampleStride, tracer, ribbonQuota );
     }
 
-    if ( !ReplayPredictionPathPresentationShowsAllBodies( prediction.trajectory.pathPresentation ) )
+    if ( !ReplayPredictionPathPresentationShowsAllBodies( prediction.pathPresentation ) )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawAffectedBodies" );
         DrawReplayPredictionAffectedBodyTrails( activePredictionFrames, activePredictionFrameCount, pathVisualizer.colorMode,
@@ -1334,7 +1333,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
                                                 drawWindow.revealFrame, modelCollection, tracer, ribbonQuota );
     }
 
-    if ( !ReplayPredictionPathPresentationShowsAllBodies( prediction.trajectory.pathPresentation ) )
+    if ( !ReplayPredictionPathPresentationShowsAllBodies( prediction.pathPresentation ) )
     {
         DrawReplayPredictionRetainedMarkers( prediction, pathVisualizer.colorMode, usingBuildFrames, drawWindow.revealFrame,
                                              drawWindow.lastFrame, colliderStore, tracer );
@@ -1899,7 +1898,7 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
                  state.velocityPreviewActive != prediction.dragPreview.active ||
                  state.velocityPreviewTargetId.value != prediction.dragPreview.targetId.value ||
                  state.usingBuildFrames != prediction.timeline.usingBuildFrames ||
-                 state.pathPresentation != prediction.trajectory.pathPresentation ||
+                 state.pathPresentation != prediction.pathPresentation ||
                  state.recordCursorCount > prediction.trajectory.records.size() ||
                  state.retainedMarkerCount > prediction.markers.retainedMarkers.size() ||
                  state.baselinePoseCount != prediction.baseline.bodyPoses.size() || state.sampleStride != sampleStride;
@@ -1966,7 +1965,7 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
         state.trajectoryBuildTopologyVersion = prediction.trajectory.topologyVersion;
         state.colorMode = pathVisualizer.colorMode;
         state.usingBuildFrames = prediction.timeline.usingBuildFrames;
-        state.pathPresentation = prediction.trajectory.pathPresentation;
+        state.pathPresentation = prediction.pathPresentation;
         state.velocityPreviewActive = prediction.dragPreview.active;
         state.sampleStride = sampleStride;
         state.valid = true;
@@ -1999,7 +1998,7 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
             cursor.key = record.key;
             cursor.recordVersion = record.version;
             cursor.sourceRecordIndex = recordIndex;
-            cursor.usesAuthoredColor = ReplayPredictionUsesAuthoredBodyColor( prediction.trajectory.pathPresentation,
+            cursor.usesAuthoredColor = ReplayPredictionUsesAuthoredBodyColor( prediction.pathPresentation,
                                                                               record.key.lane ) &&
                                        TryResolveReplayAuthoredPathColor( entities, record.key.bodyId, cursor.authoredColorR,
                                                                           cursor.authoredColorG, cursor.authoredColorB );
@@ -2012,10 +2011,10 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
                               record.key.branchOrdinal == activeRootBranch &&
                               record.key.bodyId.value == pathVisualizer.targetId.value;
 
-        const bool allBodyLane = ReplayPredictionDrawsAllBodyRecord( prediction.trajectory.pathPresentation, record.key,
+        const bool allBodyLane = ReplayPredictionDrawsAllBodyRecord( prediction.pathPresentation, record.key,
                                                                      activeRootBranch, pathVisualizer.targetId );
 
-        const bool childLane = ReplayPredictionDrawsCausalChildRecord( prediction.trajectory.pathPresentation, record.key,
+        const bool childLane = ReplayPredictionDrawsCausalChildRecord( prediction.pathPresentation, record.key,
                                                                        activeChildBranchBase, activeChildBranchEnd );
 
         const bool baselineLane = prediction.baseline.valid && record.key.lane == ReplayTrajectoryLane::BaselineRoot &&
@@ -2218,10 +2217,10 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
                               record.key.branchOrdinal == activeRootBranch &&
                               record.key.bodyId.value == pathVisualizer.targetId.value;
 
-        const bool allBodyLane = ReplayPredictionDrawsAllBodyRecord( prediction.trajectory.pathPresentation, record.key,
+        const bool allBodyLane = ReplayPredictionDrawsAllBodyRecord( prediction.pathPresentation, record.key,
                                                                      activeRootBranch, pathVisualizer.targetId );
 
-        const bool childLane = ReplayPredictionDrawsCausalChildRecord( prediction.trajectory.pathPresentation, record.key,
+        const bool childLane = ReplayPredictionDrawsCausalChildRecord( prediction.pathPresentation, record.key,
                                                                        activeChildBranchBase, activeChildBranchEnd );
 
         if ( !rootLane && !allBodyLane && !childLane )

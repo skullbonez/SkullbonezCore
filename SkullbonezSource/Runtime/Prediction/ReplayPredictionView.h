@@ -226,7 +226,6 @@ struct ReplayPredictionTrajectoryView
     uint64_t publicationVersion = 0; // O(1) invalidation token for retained trajectory draw lists.
     std::size_t builtNodeCount = 0;
     std::size_t childFrameCount = 0;
-    ReplayPredictionPathPresentation pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
     bool valid = false;
     bool usingBuildFrames = false;
 };
@@ -276,6 +275,9 @@ struct ReplayPredictionPresentationView
     ReplayVelocityDragPreviewView dragPreview;
     ReplayPredictionControlsView controls;
     ReplayPredictionDiagnosticsView diagnostics;
+    // Concept: path selection governs topology, trajectory, markers, and report
+    // policy together, so the presentation envelope owns this scalar directly.
+    ReplayPredictionPathPresentation pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
 };
 
 } // namespace SkullbonezCore::Runtime

@@ -4,16 +4,14 @@ Purpose:
   Composes in-engine UI drawing and preserves the public InGameUI command surface.
 
 Summary:
-  Records the current typed widget view into one complete
-  ordered frame and delegates persistent window/input state to
-  UIWindowInteractionOwner. Public wrappers preserve existing call
-  sites while authority lives in the concrete interaction owner.
+  UIWindowInteractionOwner records its own widgets into one ordered frame.
+  InGameUI keeps the public command surface and detached scene-navigation
+  composition without exposing the owner's complete widget storage.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
     constants.
-  - InGameUI never reaches into owner storage through friendship or a retained
-    pointer; WidgetView is borrowed only inside the current draw call.
+  - InGameUI never reconstructs or publishes the owner's complete widget surface.
   - Draw builds values only; Runtime/Render performs every flush, preview
     resolution, resource operation, and GPU timing scope.
 
@@ -199,15 +197,6 @@ UISceneTabFrameView InGameUIFrameData::SceneTabFrame() const
 
 namespace
 {
-using InGameUIWidgets = UIWindowInteractionOwner::WidgetView;
-using InGameUIChromeWidgets = UIWindowInteractionOwner::ChromeWidgetView;
-using InGameUIFooterWidgets = UIWindowInteractionOwner::FooterWidgetView;
-using InGameUIRenderWidgets = UIWindowInteractionOwner::RenderWidgetView;
-using InGameUIDrawCatalog = UIWindowInteractionOwner::DrawCatalogView;
-using InGameUITabWidgets = UIWindowInteractionOwner::TabWidgetView;
-using InGameUIPointerState = UIWindowInteractionOwner::PointerDrawStateView;
-using InGameUIMiniPaletteState = UIWindowInteractionOwner::EditorMiniPaletteView;
-
 void PublishDrawStats( InGameUITab activeTab, const UIDrawList& frame, const UIDrawList& histogram,
                        const UIDrawList& memory )
 {
@@ -235,15 +224,15 @@ void PublishDrawStats( InGameUITab activeTab, const UIDrawList& frame, const UID
                   histogramStats.maxClipDepth, memoryStats.maxClipDepth, overflow ? 1 : 0 );
 }
 
-void AppendStandaloneOverlays( InGameUITabWidgets& tabs, const InGameUIFrameData& data, UIDrawList& frame,
-                               UIDrawList& histogram, UIDrawList& memory, int screenW, int screenH, bool histogramEnabled,
-                               bool memoryEnabled )
+void AppendStandaloneOverlays( ProfilerTab::UIProfilerTabState& profiler, MemoryTab::UIMemoryOverlayState& memoryState,
+                               const InGameUIFrameData& data, UIDrawList& frame, UIDrawList& histogram, UIDrawList& memory,
+                               int screenW, int screenH, bool histogramEnabled, bool memoryEnabled )
 {
     if ( histogramEnabled )
     {
         histogram.Clear();
         const UIDrawContext draw( screenW, screenH, histogram );
-        ProfilerTab::DrawPerformanceHistogram( tabs.profilerTab, draw, data.ProfilerTabFrame() );
+        ProfilerTab::DrawPerformanceHistogram( profiler, draw, data.ProfilerTabFrame() );
         frame.Append( histogram );
     }
 
@@ -253,24 +242,24 @@ void AppendStandaloneOverlays( InGameUITabWidgets& tabs, const InGameUIFrameData
         // index. Place this overlay under the histogram when both are visible.
         memory.Clear();
         const UIDrawContext draw( screenW, screenH, memory );
-        const float x = histogramEnabled ? tabs.profilerTab.histogramPanelX : 16.0f;
-        const float y = histogramEnabled ? tabs.profilerTab.histogramPanelY + tabs.profilerTab.histogramPanelH + 8.0f
-                                         : 16.0f;
-        MemoryTab::DrawOverlay( tabs.memoryOverlay, draw, data.MemoryTabFrame(), x, y );
+        const float x = histogramEnabled ? profiler.histogramPanelX : 16.0f;
+        const float y = histogramEnabled ? profiler.histogramPanelY + profiler.histogramPanelH + 8.0f : 16.0f;
+        MemoryTab::DrawOverlay( memoryState, draw, data.MemoryTabFrame(), x, y );
         frame.Append( memory );
     }
 }
 
-void DrawMinimizedContent( InGameUIChromeWidgets& chrome, InGameUIFooterWidgets& footer, InGameUIPointerState& pointer,
-                           InGameUIMiniPaletteState& miniPalette, const InGameUIFrameData& data, UIDrawList& drawList,
-                           int screenW, int screenH )
+} // namespace
+
+void UIWindowInteractionOwner::DrawMinimizedContent( const InGameUIFrameData& data, UIDrawList& drawList, int screenW,
+                                                     int screenH )
 {
     drawList.Clear();
     const UIDrawContext draw( screenW, screenH, drawList );
 
-    if ( chrome.window.animationActive && chrome.window.animationToMinimized )
+    if ( m_window.animationActive && m_window.animationToMinimized )
     {
-        Chrome::DrawWindowAnimationShell( draw, Chrome::CurrentWindowRect( chrome.window, data.surface.now ) );
+        Chrome::DrawWindowAnimationShell( draw, Chrome::CurrentWindowRect( m_window, data.surface.now ) );
         return;
     }
 
@@ -282,29 +271,28 @@ void DrawMinimizedContent( InGameUIChromeWidgets& chrome, InGameUIFooterWidgets&
         StripMinimizedRuntimeModeSuffix( data, titleText, sizeof( titleText ) );
     }
 
-    chrome.window.minimizedWidth = data.editor.editorModeEnabled
-                                       ? EditorMinimizedWidth( data.EditorTabFrame(), screenW )
-                                       : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ),
-                                                     MINIMIZED_RUN_MAX_W );
-    const UIRect minimized = Layout::MinimizedRect( screenW, screenH, chrome.window.minimizedWidth );
+    m_window.minimizedWidth = data.editor.editorModeEnabled
+                                  ? EditorMinimizedWidth( data.EditorTabFrame(), screenW )
+                                  : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ),
+                                                MINIMIZED_RUN_MAX_W );
+    const UIRect minimized = Layout::MinimizedRect( screenW, screenH, m_window.minimizedWidth );
 
     if ( data.editor.editorModeEnabled )
     {
         const EditorMiniPaletteLayout layout = BuildEditorMiniPaletteLayout( screenW, screenH, minimized,
-                                                                             miniPalette.editorMiniPalettePressedEntry,
-                                                                             miniPalette.editorMiniPaletteFlyoutOpen );
-        DrawEditorMiniPalette( draw, layout, data.editor.editorObjectType, data.editor.editorPlaceStatic, pointer.mouseX,
-                               pointer.mouseY, miniPalette.editorMiniPalettePressedTreePlacement,
-                               miniPalette.editorMiniPalettePressedHoldMode, miniPalette.editorMiniPalettePressedEntry,
-                               screenW, screenH );
-        DrawEditorMinimizedWindow( draw, minimized, data.EditorTabFrame(), pointer.mouseX, pointer.mouseY );
+                                                                             m_editorMiniPalettePressedEntry,
+                                                                             m_editorMiniPaletteFlyoutOpen );
+        DrawEditorMiniPalette( draw, layout, data.editor.editorObjectType, data.editor.editorPlaceStatic, m_mouseX, m_mouseY,
+                               m_editorMiniPalettePressedTreePlacement, m_editorMiniPalettePressedHoldMode,
+                               m_editorMiniPalettePressedEntry, screenW, screenH );
+        DrawEditorMinimizedWindow( draw, minimized, data.EditorTabFrame(), m_mouseX, m_mouseY );
     }
     else
     {
         const UIRect comboBounds = MinimizedCameraModeComboBounds( minimized );
-        footer.cameraModeCombo.SetLabelVisible( false );
-        footer.cameraModeCombo.SetBounds( comboBounds.x, comboBounds.y, comboBounds.w, comboBounds.h );
-        footer.cameraModeCombo.SetDropUp( true );
+        m_cameraModeCombo.SetLabelVisible( false );
+        m_cameraModeCombo.SetBounds( comboBounds.x, comboBounds.y, comboBounds.w, comboBounds.h );
+        m_cameraModeCombo.SetDropUp( true );
         const float titleMaxW = (std::max)( 0.0f, comboBounds.x - ( minimized.x + 32.0f ) - MINIMIZED_CAMERA_MODE_GAP );
 
         if ( titleMaxW < UIFontMetrics::MeasureText( 12.5f, "..." ) )
@@ -320,30 +308,29 @@ void DrawMinimizedContent( InGameUIChromeWidgets& chrome, InGameUIFooterWidgets&
         const int cameraModeIndex = std::clamp( data.surface.cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
         const uint32_t disabledMask = ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) &
                                       ~( data.surface.cameraModeEnabledMask & ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) );
-        footer.cameraModeCombo.Draw( draw, "",
-                                     { std::span<const char* const>( kCameraModeOptions ), cameraModeIndex, disabledMask },
-                                     { pointer.mouseX, pointer.mouseY } );
+        m_cameraModeCombo.Draw( draw, "",
+                                { std::span<const char* const>( kCameraModeOptions ), cameraModeIndex, disabledMask },
+                                { m_mouseX, m_mouseY } );
     }
 
     DrawEditorObjectCounter( draw, data, screenW, screenH );
 }
 
-void DrawRenderTabContent( InGameUIRenderWidgets& render, InGameUIPointerState& pointer, const InGameUIFrameData& data,
-                           const UIDrawContext& draw, float contentX, float contentY, float contentW, float contentH,
-                           float scrolledY )
+void UIWindowInteractionOwner::DrawRenderTabContent( const InGameUIFrameData& data, const UIDrawContext& draw,
+                                                     const UIRect& content, float scrolledY )
 {
     char buffer[128];
     const Style::UIPalette& palette = Style::Palette();
-    const float colW = (std::max)( 148.0f, contentW * 0.46f );
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Render" );
-    DrawContentToggle( draw, contentY, contentH, render.renderShadowToggle, contentX, scrolledY + UI_RENDER_FEATURE_START_Y,
+    const float colW = (std::max)( 148.0f, content.w * 0.46f );
+    DrawSectionTitle( draw, content.x, content.y, content.h, scrolledY + 16.0f, 16.0f, "Render" );
+    DrawContentToggle( draw, content.y, content.h, m_renderShadowToggle, content.x, scrolledY + UI_RENDER_FEATURE_START_Y,
                        colW, "Shadows", data.rendering.ordinaryRender.shadow.enabled );
-    render.saveRenderDefaultsButton.SetBounds( contentX + contentW - UI_RENDER_SAVE_BUTTON_W,
-                                               scrolledY + UI_RENDER_FEATURE_START_Y, UI_RENDER_SAVE_BUTTON_W, 24.0f );
+    m_saveRenderDefaultsButton.SetBounds( content.x + content.w - UI_RENDER_SAVE_BUTTON_W,
+                                          scrolledY + UI_RENDER_FEATURE_START_Y, UI_RENDER_SAVE_BUTTON_W, 24.0f );
 
-    if ( IsRowVisible( contentY, contentH, scrolledY + UI_RENDER_FEATURE_START_Y, 24.0f ) )
+    if ( IsRowVisible( content.y, content.h, scrolledY + UI_RENDER_FEATURE_START_Y, 24.0f ) )
     {
-        render.saveRenderDefaultsButton.Draw( draw, "Save CFG", pointer.mouseX, pointer.mouseY );
+        m_saveRenderDefaultsButton.Draw( draw, "Save CFG", m_mouseX, m_mouseY );
     }
 
     static constexpr const char* labels[] = { "Main", "Reflection", "Terrain shadow", "Object shadow" };
@@ -354,7 +341,7 @@ void DrawRenderTabContent( InGameUIRenderWidgets& render, InGameUIPointerState& 
         const UIRenderVisibilityViewStats& visibility = data.surface.visibility.views[viewIndex];
         snprintf( visibilityText, sizeof( visibilityText ), "%d submitted, %d culled, %d draws", visibility.submitted,
                   visibility.culled, visibility.draws );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 76.0f + static_cast<float>( viewIndex ) * 18.0f,
+        DrawLabelValueAt( draw, content.y, content.h, content.x, scrolledY + 76.0f + static_cast<float>( viewIndex ) * 18.0f,
                           labels[viewIndex], visibilityText, palette.accent.r, palette.accent.g, palette.accent.b );
     }
 
@@ -366,38 +353,37 @@ void DrawRenderTabContent( InGameUIRenderWidgets& render, InGameUIPointerState& 
         const float sliderY = RenderSliderY( index, baseY );
 
         if ( RenderSliderStartsSection( index ) &&
-             IsRowVisible( contentY, contentH, sliderY - UI_RENDER_SECTION_H + 4.0f, 18.0f ) )
+             IsRowVisible( content.y, content.h, sliderY - UI_RENDER_SECTION_H + 4.0f, 18.0f ) )
         {
-            DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_RENDER_SECTION_H + 4.0f, 12.0f,
+            DrawSectionTitle( draw, content.x, content.y, content.h, sliderY - UI_RENDER_SECTION_H + 4.0f, 12.0f,
                               UIRenderAuthoringSectionName( spec.section ) );
 
             if ( spec.section == UIRenderAuthoringSection::PredictionPaths )
             {
-                render.saveTrajectoryStyleButton.SetBounds( contentX + contentW - UI_TRAJECTORY_SAVE_BUTTON_W,
-                                                            sliderY - UI_RENDER_SECTION_H + 1.0f,
-                                                            UI_TRAJECTORY_SAVE_BUTTON_W, 20.0f );
-                render.saveTrajectoryStyleButton.Draw( draw, "Save Paths", pointer.mouseX, pointer.mouseY );
+                m_saveTrajectoryStyleButton.SetBounds( content.x + content.w - UI_TRAJECTORY_SAVE_BUTTON_W,
+                                                       sliderY - UI_RENDER_SECTION_H + 1.0f, UI_TRAJECTORY_SAVE_BUTTON_W,
+                                                       20.0f );
+                m_saveTrajectoryStyleButton.Draw( draw, "Save Paths", m_mouseX, m_mouseY );
             }
         }
 
         const float value = std::clamp( RenderValueForParam( data.rendering.ordinaryRender, spec.param ), spec.minValue,
                                         spec.maxValue );
         snprintf( buffer, sizeof( buffer ), spec.valueFormat, value );
-        render.renderSliders[index].SetBounds( contentX, sliderY, contentW, 34.0f );
+        m_renderSliders[index].SetBounds( content.x, sliderY, content.w, 34.0f );
 
-        if ( IsRowVisible( contentY, contentH, sliderY, 34.0f ) )
+        if ( IsRowVisible( content.y, content.h, sliderY, 34.0f ) )
         {
-            render.renderSliders[index].Draw( draw, spec.label, buffer, value, spec.minValue, spec.maxValue );
+            m_renderSliders[index].Draw( draw, spec.label, buffer, value, spec.minValue, spec.maxValue );
         }
     }
 }
 
-void DrawTargetsTabContent( InGameUIRenderWidgets& render, InGameUIDrawCatalog& catalog, InGameUIPointerState& pointer,
-                            const InGameUIFrameData& data, const UIDrawContext& draw, UIDrawList& drawList, float contentX,
-                            float contentY, float contentW, float contentH, float scrolledY )
+void UIWindowInteractionOwner::DrawTargetsTabContent( const InGameUIFrameData& data, const UIDrawContext& draw,
+                                                      UIDrawList& drawList, const UIRect& content, float scrolledY )
 {
     const int targetCount = RenderTargetPreviewCount( data );
-    const int selectedIndex = catalog.selectedRenderTargetPreview;
+    const int selectedIndex = m_selectedRenderTargetPreview;
     const bool hasSelection = selectedIndex >= 0 && selectedIndex < targetCount;
     const UIRenderTargetPreviewResource* selected = hasSelection ? &data.renderTargets.previews[selectedIndex] : nullptr;
     const bool available = selected && selected->available && selected->width > 0 && selected->height > 0;
@@ -412,14 +398,14 @@ void DrawTargetsTabContent( InGameUIRenderWidgets& render, InGameUIDrawCatalog& 
         liveCount += resource.available && resource.width > 0 && resource.height > 0 ? 1 : 0;
     }
 
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Targets" );
+    DrawSectionTitle( draw, content.x, content.y, content.h, scrolledY + 16.0f, 16.0f, "Targets" );
     char countText[64];
     snprintf( countText, sizeof( countText ), "%d / %d live", liveCount, targetCount );
 
-    if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_META_Y - 24.0f, 18.0f ) )
+    if ( IsRowVisible( content.y, content.h, scrolledY + UI_TARGETS_META_Y - 24.0f, 18.0f ) )
     {
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + UI_TARGETS_META_Y - 24.0f, "Resources", countText,
-                          palette.accent.r, palette.accent.g, palette.accent.b );
+        DrawLabelValueAt( draw, content.y, content.h, content.x, scrolledY + UI_TARGETS_META_Y - 24.0f, "Resources",
+                          countText, palette.accent.r, palette.accent.g, palette.accent.b );
     }
 
     if ( selected )
@@ -436,17 +422,17 @@ void DrawTargetsTabContent( InGameUIRenderWidgets& render, InGameUIDrawCatalog& 
             snprintf( detailText, sizeof( detailText ), "%s, n/a", RenderTargetPreviewTypeText( *selected ) );
         }
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + UI_TARGETS_META_Y, "Selected", detailText,
+        DrawLabelValueAt( draw, content.y, content.h, content.x, scrolledY + UI_TARGETS_META_Y, "Selected", detailText,
                           available ? palette.textPrimary.r : palette.textMuted.r,
                           available ? palette.textPrimary.g : palette.textMuted.g,
                           available ? palette.textPrimary.b : palette.textMuted.b );
     }
 
-    const UIRect previewPanel = { contentX, scrolledY + UI_TARGETS_PREVIEW_Y, contentW, UI_TARGETS_PREVIEW_H };
-    const UIRect previewClip = { contentX, contentY, contentW, contentH };
+    const UIRect previewPanel = { content.x, scrolledY + UI_TARGETS_PREVIEW_Y, content.w, UI_TARGETS_PREVIEW_H };
+    const UIRect previewClip = content;
     UIRect previewImage = previewPanel;
 
-    if ( IsBlockVisible( contentY, contentH, previewPanel.y, previewPanel.h ) )
+    if ( IsBlockVisible( content.y, content.h, previewPanel.y, previewPanel.h ) )
     {
         draw.RoundedPanel( previewPanel, Style::Radii().control, palette.windowSubtle, palette.innerBorder );
         const UIRect inset = { previewPanel.x + 10.0f, previewPanel.y + 10.0f, (std::max)( 1.0f, previewPanel.w - 20.0f ),
@@ -456,121 +442,39 @@ void DrawTargetsTabContent( InGameUIRenderWidgets& render, InGameUIDrawCatalog& 
                           Style::Radii().control, 0.01f, 0.015f, 0.018f, 0.92f );
     }
 
-    if ( available && IsBlockVisible( contentY, contentH, previewImage.y, previewImage.h ) )
+    if ( available && IsBlockVisible( content.y, content.h, previewImage.y, previewImage.h ) )
     {
         drawList.PushClip( previewClip );
         drawList.AddPreviewImage( { static_cast<uint16_t>( selectedIndex ), true }, previewImage, palette.windowSubtle,
                                   "Preview unavailable" );
         drawList.PopClip();
     }
-    else if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_PREVIEW_Y + 116.0f, 18.0f ) )
+    else if ( IsRowVisible( content.y, content.h, scrolledY + UI_TARGETS_PREVIEW_Y + 116.0f, 18.0f ) )
     {
         draw.Text( previewPanel.x + 18.0f, previewPanel.y + 116.0f, 12.0f, palette.textMuted.r, palette.textMuted.g,
                    palette.textMuted.b, "Not available this frame" );
     }
 
-    if ( IsBlockVisible( contentY, contentH, previewPanel.y, previewPanel.h ) )
+    if ( IsBlockVisible( content.y, content.h, previewPanel.y, previewPanel.h ) )
     {
         draw.Outline( previewImage.x, previewImage.y, previewImage.w, previewImage.h, palette.border.r, palette.border.g,
                       palette.border.b, 0.72f );
     }
 
     const char* selectedText = selected ? selected->label : "No targets";
-    render.renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
+    m_renderTargetCombo.SetBounds( content.x, scrolledY + UI_TARGETS_COMBO_Y, content.w, 24.0f );
 
-    if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_COMBO_Y, 24.0f ) )
+    if ( IsRowVisible( content.y, content.h, scrolledY + UI_TARGETS_COMBO_Y, 24.0f ) )
     {
-        render.renderTargetCombo.Draw( draw, "View",
-                                       { std::span<const char* const>( options, static_cast<std::size_t>( targetCount ) ),
-                                         selectedIndex, catalog.lastRenderTargetDisabledMask, selectedText },
-                                       { pointer.mouseX, pointer.mouseY } );
+        m_renderTargetCombo.Draw( draw, "View",
+                                  { std::span<const char* const>( options, static_cast<std::size_t>( targetCount ) ),
+                                    selectedIndex, m_lastRenderTargetDisabledMask, selectedText },
+                                  { m_mouseX, m_mouseY } );
     }
 }
 
-struct UIActiveTabDrawContext
+namespace
 {
-    const UIDrawContext& draw;
-    UIDrawList& drawList;
-    UIRect content;
-    float scrolledY = 0.0f;
-};
-
-bool DrawDiagnosticTabContent( InGameUITab activeTab, InGameUITabWidgets& tabs, InGameUIPointerState& pointer,
-                               const InGameUIFrameData& data, const UIActiveTabDrawContext& context )
-{
-    const UIRect& content = context.content;
-    switch ( activeTab )
-    {
-    case InGameUITab::Profiler:
-        ProfilerTab::Draw( tabs.profilerTab, context.draw, data.ProfilerTabFrame(), content.x, content.y, content.w,
-                           content.h, pointer.scrollY, pointer.activeSlider );
-        return true;
-    case InGameUITab::Memory:
-        MemoryTab::Draw( context.draw, tabs.memoryOverlay, data.MemoryTabFrame(), content.x, content.y, content.w, content.h,
-                         context.scrolledY, pointer.activeSlider, pointer.mouseX, pointer.mouseY );
-        return true;
-    case InGameUITab::Scene:
-        SceneTab::Draw( tabs.sceneTab, context.draw, data.SceneTabFrame(), content.x, content.y, content.w, content.h,
-                        context.scrolledY, pointer.mouseX, pointer.mouseY );
-        return true;
-    case InGameUITab::Physics:
-        PhysicsTab::Draw( tabs.physicsTab, context.draw, data.PhysicsTabFrame(), content.x, content.y, content.w, content.h,
-                          context.scrolledY, pointer.activeSlider, pointer.mouseX, pointer.mouseY );
-        return true;
-    case InGameUITab::Editor:
-        EditorTab::Draw( tabs.editorTab, context.draw, data.EditorTabFrame(), content.x, content.y, content.w, content.h,
-                         context.scrolledY, pointer.mouseX, pointer.mouseY );
-        return true;
-    case InGameUITab::Options:
-        OptionsTab::Draw( tabs.optionsTab, context.draw, data.OptionsTabFrame(), content.x, content.y, content.w, content.h,
-                          context.scrolledY, pointer.activeSlider );
-        return true;
-    default:
-        return false;
-    }
-}
-
-void DrawAuthoringTabContent( InGameUITab activeTab, InGameUITabWidgets& tabs, InGameUIRenderWidgets& render,
-                              InGameUIDrawCatalog& catalog, InGameUIPointerState& pointer, const InGameUIFrameData& data,
-                              const UIActiveTabDrawContext& context )
-{
-    const UIRect& content = context.content;
-    switch ( activeTab )
-    {
-    case InGameUITab::Render:
-        DrawRenderTabContent( render, pointer, data, context.draw, content.x, content.y, content.w, content.h,
-                              context.scrolledY );
-        break;
-    case InGameUITab::Targets:
-        DrawTargetsTabContent( render, catalog, pointer, data, context.draw, context.drawList, content.x, content.y,
-                               content.w, content.h, context.scrolledY );
-        break;
-    case InGameUITab::Sky:
-        SkyTab::Draw( tabs.skyTab, context.draw, data.rendering.cinematic, content.x, content.y, content.w, content.h,
-                      context.scrolledY, pointer.mouseX, pointer.mouseY );
-        break;
-    case InGameUITab::Cinematic:
-        CinematicTab::Draw( tabs.cinematicTab, context.draw, data.CinematicTabFrame(), content.x, content.y, content.w,
-                            content.h, context.scrolledY, pointer.mouseX, pointer.mouseY );
-        break;
-    case InGameUITab::Keys:
-        ControlsTab::Draw( tabs.controlsTab, context.draw, data.ControlsTabFrame(), content.x, content.y, content.w,
-                           content.h, context.scrolledY );
-        break;
-    default:
-        break;
-    }
-}
-
-void DrawActiveTabContent( InGameUITab activeTab, InGameUITabWidgets& tabs, InGameUIRenderWidgets& render,
-                           InGameUIDrawCatalog& catalog, InGameUIPointerState& pointer, const InGameUIFrameData& data,
-                           const UIActiveTabDrawContext& context )
-{
-    if ( !DrawDiagnosticTabContent( activeTab, tabs, pointer, data, context ) )
-    {
-        DrawAuthoringTabContent( activeTab, tabs, render, catalog, pointer, data, context );
-    }
-}
 
 struct UIFooterDrawContext
 {
@@ -593,47 +497,6 @@ struct UIFooterGeometry
     float controlsWidth = 0.0f;
     bool hasSeparateStats = false;
 };
-
-UIRect DrawFooterControls( InGameUIChromeWidgets& chrome, InGameUIFooterWidgets& footer, InGameUITabWidgets& tabs,
-                           InGameUIPointerState& pointer, const InGameUIFrameData& data, const UIFooterDrawContext& context,
-                           const UIFooterGeometry& geometry )
-{
-    const UIRect controlsBounds = { geometry.footerX, geometry.footerY + 16.0f, geometry.controlsWidth, 56.0f };
-    context.draw.RoundedPanel( controlsBounds, Style::Radii().control, Style::Palette().windowSubtle,
-                               Style::Palette().innerBorder );
-    const UIRect rendererBounds = FooterRendererComboBounds( context.x, geometry.footerY );
-    const UIRect waterBounds = FooterWaterComboBounds( context.x, geometry.footerY );
-    const UIRect blurBounds = FooterBlurBounds( context.x, geometry.footerY );
-    const UIRect vsyncBounds = FooterVsyncBounds( context.x, geometry.footerY );
-    const UIRect hitboxBounds = FooterHitboxBounds( context.x, geometry.footerY );
-    const UIRect timelineBounds = FooterTimelineBounds( context.x, geometry.footerY );
-    const UIRect performanceBounds = FooterPerfBounds( context.x, geometry.footerY );
-    footer.rendererCombo.SetBounds( rendererBounds.x, rendererBounds.y, rendererBounds.w, rendererBounds.h );
-    footer.rendererCombo.SetDropUp( true );
-    footer.reflectionCombo.SetBounds( waterBounds.x, waterBounds.y, waterBounds.w, waterBounds.h );
-    footer.reflectionCombo.SetDropUp( true );
-    footer.blurToggle.SetBounds( blurBounds.x, blurBounds.y, blurBounds.w, blurBounds.h );
-    footer.vsyncToggle.SetBounds( vsyncBounds.x, vsyncBounds.y, vsyncBounds.w, vsyncBounds.h );
-    footer.hitboxToggle.SetBounds( hitboxBounds.x, hitboxBounds.y, hitboxBounds.w, hitboxBounds.h );
-    footer.histogramToggle.SetBounds( performanceBounds.x, performanceBounds.y, performanceBounds.w, performanceBounds.h );
-    footer.timelineToggle.SetBounds( timelineBounds.x, timelineBounds.y, timelineBounds.w, timelineBounds.h );
-
-    static const char* rendererOptions[] = { "DX12" };
-    static const char* reflectionOptions[] = { "FBO", "DXR", "None" };
-    footer.rendererCombo.Draw( context.draw, "Renderer", { std::span<const char* const>( rendererOptions ), 0 },
-                               { pointer.mouseX, pointer.mouseY } );
-    DrawFooterToggle( context.draw, blurBounds, "Blur", chrome.blurPreviewEnabled );
-    DrawFooterToggle( context.draw, vsyncBounds, "VSync", data.surface.vsyncEnabled );
-    DrawFooterToggle( context.draw, hitboxBounds, "Hitboxes", chrome.hitboxOverlayEnabled );
-    DrawFooterToggle( context.draw, performanceBounds, "Perf",
-                      ProfilerTab::PerformanceHistogramEnabled( tabs.profilerTab ) );
-    DrawFooterToggle( context.draw, timelineBounds, "Timeline", ProfilerTab::TimelineEnabled( tabs.profilerTab ) );
-    footer.reflectionCombo.Draw( context.draw, "Water",
-                                 { std::span<const char* const>( reflectionOptions ), WaterReflectionModeFromData( data ),
-                                   ReflectionDisabledMask() },
-                                 { pointer.mouseX, pointer.mouseY } );
-    return controlsBounds;
-}
 
 void DrawWideFooterStats( const InGameUIFrameData& data, const UIFooterDrawContext& context,
                           const UIFooterGeometry& geometry, float statsX, float statsWidth )
@@ -704,10 +567,14 @@ void DrawFooterStats( const InGameUIFrameData& data, const UIFooterDrawContext& 
     DrawWideFooterStats( data, context, geometry, statsX, statsWidth );
 }
 
-UIRect DrawFooterContent( InGameUIChromeWidgets& chrome, InGameUIFooterWidgets& footer, InGameUITabWidgets& tabs,
-                          InGameUIPointerState& pointer, const InGameUIFrameData& data, const UIFooterDrawContext& context )
+} // namespace
+
+UIRect UIWindowInteractionOwner::DrawFooterContent( const InGameUIFrameData& data, const UIDrawContext& draw, float x,
+                                                    float y, float width, float height, float bottomHeight,
+                                                    float titleStatWidth, float titleStatX, const char* titleStat )
 {
     const Style::UIPalette& palette = Style::Palette();
+    const UIFooterDrawContext context { draw, x, y, width, height, bottomHeight, titleStatWidth, titleStatX, titleStat };
     UIFooterGeometry geometry;
     geometry.footerY = context.y + context.height - context.bottomHeight;
     geometry.footerX = context.x + 18.0f;
@@ -716,7 +583,38 @@ UIRect DrawFooterContent( InGameUIChromeWidgets& chrome, InGameUIFooterWidgets& 
     geometry.controlsWidth = geometry.hasSeparateStats ? 462.0f : geometry.footerWidth;
     context.draw.Rect( context.x + 16.0f, geometry.footerY, context.width - 32.0f, 1.0f, palette.lineSoft.r,
                        palette.lineSoft.g, palette.lineSoft.b, 0.14f );
-    const UIRect controlsBounds = DrawFooterControls( chrome, footer, tabs, pointer, data, context, geometry );
+    const UIRect controlsBounds = { geometry.footerX, geometry.footerY + 16.0f, geometry.controlsWidth, 56.0f };
+    context.draw.RoundedPanel( controlsBounds, Style::Radii().control, palette.windowSubtle, palette.innerBorder );
+    const UIRect rendererBounds = FooterRendererComboBounds( context.x, geometry.footerY );
+    const UIRect waterBounds = FooterWaterComboBounds( context.x, geometry.footerY );
+    const UIRect blurBounds = FooterBlurBounds( context.x, geometry.footerY );
+    const UIRect vsyncBounds = FooterVsyncBounds( context.x, geometry.footerY );
+    const UIRect hitboxBounds = FooterHitboxBounds( context.x, geometry.footerY );
+    const UIRect timelineBounds = FooterTimelineBounds( context.x, geometry.footerY );
+    const UIRect performanceBounds = FooterPerfBounds( context.x, geometry.footerY );
+    m_rendererCombo.SetBounds( rendererBounds.x, rendererBounds.y, rendererBounds.w, rendererBounds.h );
+    m_rendererCombo.SetDropUp( true );
+    m_reflectionCombo.SetBounds( waterBounds.x, waterBounds.y, waterBounds.w, waterBounds.h );
+    m_reflectionCombo.SetDropUp( true );
+    m_blurToggle.SetBounds( blurBounds.x, blurBounds.y, blurBounds.w, blurBounds.h );
+    m_vsyncToggle.SetBounds( vsyncBounds.x, vsyncBounds.y, vsyncBounds.w, vsyncBounds.h );
+    m_hitboxToggle.SetBounds( hitboxBounds.x, hitboxBounds.y, hitboxBounds.w, hitboxBounds.h );
+    m_histogramToggle.SetBounds( performanceBounds.x, performanceBounds.y, performanceBounds.w, performanceBounds.h );
+    m_timelineToggle.SetBounds( timelineBounds.x, timelineBounds.y, timelineBounds.w, timelineBounds.h );
+
+    static const char* rendererOptions[] = { "DX12" };
+    static const char* reflectionOptions[] = { "FBO", "DXR", "None" };
+    m_rendererCombo.Draw( context.draw, "Renderer", { std::span<const char* const>( rendererOptions ), 0 },
+                          { m_mouseX, m_mouseY } );
+    DrawFooterToggle( context.draw, blurBounds, "Blur", m_blurPreviewEnabled );
+    DrawFooterToggle( context.draw, vsyncBounds, "VSync", data.surface.vsyncEnabled );
+    DrawFooterToggle( context.draw, hitboxBounds, "Hitboxes", m_hitboxOverlayEnabled );
+    DrawFooterToggle( context.draw, performanceBounds, "Perf", ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
+    DrawFooterToggle( context.draw, timelineBounds, "Timeline", ProfilerTab::TimelineEnabled( m_profilerTab ) );
+    m_reflectionCombo.Draw( context.draw, "Water",
+                            { std::span<const char* const>( reflectionOptions ), WaterReflectionModeFromData( data ),
+                              ReflectionDisabledMask() },
+                            { m_mouseX, m_mouseY } );
     DrawFooterStats( data, context, geometry );
     context.draw.Rect( context.x + context.width - 24.0f, context.y + context.height - 9.0f, 14.0f, 2.0f,
                        palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.58f );
@@ -726,7 +624,62 @@ UIRect DrawFooterContent( InGameUIChromeWidgets& chrome, InGameUIFooterWidgets& 
                        palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.38f );
     return controlsBounds;
 }
-} // namespace
+
+
+void UIWindowInteractionOwner::DrawActiveTabContent( const InGameUIFrameData& data, const UIDrawContext& draw,
+                                                     UIDrawList& drawList, const UIRect& content, float scrolledY )
+{
+    // Invariant: the selected branch is the only branch allowed to access its
+    // retained tab state. Adding a tab must not rebuild a complete reference
+    // surface at this dispatch boundary.
+    switch ( m_activeTab )
+    {
+    case InGameUITab::Profiler:
+        ProfilerTab::Draw( m_profilerTab, draw, data.ProfilerTabFrame(), content.x, content.y, content.w, content.h,
+                           m_scrollY, m_activeSlider );
+        break;
+    case InGameUITab::Memory:
+        MemoryTab::Draw( draw, m_memoryOverlay, data.MemoryTabFrame(), content.x, content.y, content.w, content.h, scrolledY,
+                         m_activeSlider, m_mouseX, m_mouseY );
+        break;
+    case InGameUITab::Scene:
+        SceneTab::Draw( m_sceneTab, draw, data.SceneTabFrame(), content.x, content.y, content.w, content.h, scrolledY,
+                        m_mouseX, m_mouseY );
+        break;
+    case InGameUITab::Physics:
+        PhysicsTab::Draw( m_physicsTab, draw, data.PhysicsTabFrame(), content.x, content.y, content.w, content.h, scrolledY,
+                          m_activeSlider, m_mouseX, m_mouseY );
+        break;
+    case InGameUITab::Editor:
+        EditorTab::Draw( m_editorTab, draw, data.EditorTabFrame(), content.x, content.y, content.w, content.h, scrolledY,
+                         m_mouseX, m_mouseY );
+        break;
+    case InGameUITab::Options:
+        OptionsTab::Draw( m_optionsTab, draw, data.OptionsTabFrame(), content.x, content.y, content.w, content.h, scrolledY,
+                          m_activeSlider );
+        break;
+    case InGameUITab::Render:
+        DrawRenderTabContent( data, draw, content, scrolledY );
+        break;
+    case InGameUITab::Targets:
+        DrawTargetsTabContent( data, draw, drawList, content, scrolledY );
+        break;
+    case InGameUITab::Sky:
+        SkyTab::Draw( m_skyTab, draw, data.rendering.cinematic, content.x, content.y, content.w, content.h, scrolledY,
+                      m_mouseX, m_mouseY );
+        break;
+    case InGameUITab::Cinematic:
+        CinematicTab::Draw( m_cinematicTab, draw, data.CinematicTabFrame(), content.x, content.y, content.w, content.h,
+                            scrolledY, m_mouseX, m_mouseY );
+        break;
+    case InGameUITab::Keys:
+        ControlsTab::Draw( m_controlsTab, draw, data.ControlsTabFrame(), content.x, content.y, content.w, content.h,
+                           scrolledY );
+        break;
+    default:
+        break;
+    }
+}
 
 
 bool InGameUI::IsVisible() const
@@ -849,30 +802,30 @@ void InGameUI::ResetPresentationState()
 {
     m_windowInteraction.ResetPresentationResources();
 }
-void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data,
-                                  UIWindowInteractionOwner::WidgetView& widgets, const UIRect& windowBounds,
-                                  const UIRect& contentBounds, const UIRect& footerBounds )
+void UIWindowInteractionOwner::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data,
+                                                  const UIRect& windowBounds, const UIRect& contentBounds,
+                                                  const UIRect& footerBounds )
 {
-    const UICinematicTabFrameView cinematicTabFrame = data.CinematicTabFrame();
-
-    if ( !widgets.chrome.hitboxOverlayEnabled )
+    if ( !m_hitboxOverlayEnabled )
     {
         return;
     }
 
+    DrawWindowHitboxes( draw, windowBounds, contentBounds );
+    DrawActiveTabHitboxes( draw, data );
+    DrawFooterHitboxes( draw, footerBounds );
+}
+
+
+void UIWindowInteractionOwner::DrawWindowHitboxes( const UIDrawContext& draw, const UIRect& windowBounds,
+                                                   const UIRect& contentBounds )
+{
     constexpr float chromeR = 0.16f;
     constexpr float chromeG = 0.86f;
     constexpr float chromeB = 1.00f;
     constexpr float contentR = 0.30f;
     constexpr float contentG = 1.00f;
     constexpr float contentB = 0.42f;
-    constexpr float footerR = 1.00f;
-    constexpr float footerG = 0.22f;
-    constexpr float footerB = 0.82f;
-    constexpr float buttonR = 1.00f;
-    constexpr float buttonG = 0.62f;
-    constexpr float buttonB = 0.18f;
-
     DrawHitboxRect( draw, windowBounds, chromeR, chromeG, chromeB, 0.018f, 0.44f );
 
     const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( windowBounds );
@@ -880,120 +833,134 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
     DrawHitboxRect( draw, titleButtons.maximize, chromeR, chromeG, chromeB, 0.050f, 0.86f );
     DrawHitboxRect( draw, titleButtons.close, chromeR, chromeG, chromeB, 0.050f, 0.86f );
 
-    if ( !widgets.chrome.window.isMaximized )
+    if ( !m_window.isMaximized )
     {
         DrawHitboxRect( draw,
                         { windowBounds.x + windowBounds.w - 26.0f, windowBounds.y + windowBounds.h - 26.0f, 26.0f, 26.0f },
                         chromeR, chromeG, chromeB, 0.050f, 0.86f );
     }
 
-    DrawTabHitboxes( draw, widgets.chrome.tabBar, static_cast<int>( InGameUITab::Count ) );
+    DrawTabHitboxes( draw, m_tabBar, static_cast<int>( InGameUITab::Count ) );
     DrawHitboxRect( draw, contentBounds, contentR, contentG, contentB, 0.018f, 0.48f );
 
-    switch ( widgets.chrome.activeTab )
+    if ( ContentHeight() > static_cast<int>( contentBounds.h ) )
+    {
+        DrawHitboxRect( draw, m_scrollBar.Bounds(), 0.18f, 0.82f, 0.95f, 0.060f, 0.86f );
+    }
+}
+
+
+void UIWindowInteractionOwner::DrawActiveTabHitboxes( const UIDrawContext& draw, const InGameUIFrameData& data )
+{
+    constexpr float contentR = 0.30f;
+    constexpr float contentG = 1.00f;
+    constexpr float contentB = 0.42f;
+    constexpr float buttonR = 1.00f;
+    constexpr float buttonG = 0.62f;
+    constexpr float buttonB = 0.18f;
+
+    switch ( m_activeTab )
     {
     case InGameUITab::Scene:
-        DrawComboHitboxes( draw, widgets.tabs.sceneTab.combo,
-                           SceneDropdownHitboxOptionCount( widgets.tabs.sceneTab, data.SceneTabFrame() ), contentR, contentG,
-                           contentB );
+        DrawComboHitboxes( draw, m_sceneTab.combo, SceneDropdownHitboxOptionCount( m_sceneTab, data.SceneTabFrame() ),
+                           contentR, contentG, contentB );
 
-        DrawHitboxRect( draw, widgets.tabs.sceneTab.resetSceneButton.Bounds(), buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, widgets.tabs.sceneTab.resetDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, widgets.tabs.sceneTab.saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, widgets.tabs.sceneTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_sceneTab.resetSceneButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_sceneTab.resetDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_sceneTab.saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_sceneTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Editor:
-        DrawHitboxRect( draw, widgets.tabs.editorTab.editorModeToggle.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.editorTab.placementModeToggle.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.editorTab.staticObjectToggle.Bounds(), contentR, contentG, contentB );
-        DrawComboHitboxes( draw, widgets.tabs.editorTab.objectCombo, EditorTab::OBJECT_TYPE_COUNT, contentR, contentG,
-                           contentB );
+        DrawHitboxRect( draw, m_editorTab.editorModeToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_editorTab.placementModeToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_editorTab.staticObjectToggle.Bounds(), contentR, contentG, contentB );
+        DrawComboHitboxes( draw, m_editorTab.objectCombo, EditorTab::OBJECT_TYPE_COUNT, contentR, contentG, contentB );
 
         break;
     case InGameUITab::Physics:
 
         for ( int i = 0; i < 13; ++i )
         {
-            DrawHitboxRect( draw, widgets.tabs.physicsTab.toggles[i].Bounds(), contentR, contentG, contentB );
+            DrawHitboxRect( draw, m_physicsTab.toggles[i].Bounds(), contentR, contentG, contentB );
         }
 
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.pipelinePrevButton, buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.pipelineNextButton, buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.alphaSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.contactLingerSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.rayImpulseSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.launcherProjectileSpeedSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.worldGravitySlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.terrainFrictionSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.objectFrictionSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.rollingFrictionSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.tornadoRadiusSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.tornadoHeightSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.tornadoInwardSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.pipelinePrevButton, buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_physicsTab.pipelineNextButton, buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_physicsTab.alphaSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.contactLingerSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.rayImpulseSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.launcherProjectileSpeedSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.worldGravitySlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.terrainFrictionSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.objectFrictionSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.rollingFrictionSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.tornadoRadiusSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.tornadoHeightSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.tornadoInwardSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Options:
 
         for ( int i = 0; i < 6; ++i )
         {
-            DrawHitboxRect( draw, widgets.tabs.optionsTab.toggles[i].Bounds(), contentR, contentG, contentB );
+            DrawHitboxRect( draw, m_optionsTab.toggles[i].Bounds(), contentR, contentG, contentB );
         }
 
-        DrawHitboxRect( draw, widgets.tabs.optionsTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.optionsTab.modelCountSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_optionsTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_optionsTab.modelCountSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Render:
-        DrawHitboxRect( draw, widgets.render.renderShadowToggle.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.render.saveRenderDefaultsButton.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_renderShadowToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_saveRenderDefaultsButton.Bounds(), contentR, contentG, contentB );
 
         for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
         {
-            DrawHitboxRect( draw, widgets.render.renderSliders[i].Bounds(), contentR, contentG, contentB );
+            DrawHitboxRect( draw, m_renderSliders[i].Bounds(), contentR, contentG, contentB );
         }
 
         break;
     case InGameUITab::Targets:
-        DrawComboHitboxes( draw, widgets.render.renderTargetCombo, widgets.catalog.lastRenderTargetPreviewCount, contentR,
-                           contentG, contentB );
+        DrawComboHitboxes( draw, m_renderTargetCombo, m_lastRenderTargetPreviewCount, contentR, contentG, contentB );
 
         break;
     case InGameUITab::Keys:
-        DrawHitboxRect( draw, widgets.tabs.controlsTab.seedSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.controlsTab.solverBallSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.controlsTab.solverBoxSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.controlsTab.worldFluidHeightSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.controlsTab.worldFluidDensitySlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_controlsTab.seedSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_controlsTab.solverBallSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_controlsTab.solverBoxSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_controlsTab.worldFluidHeightSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_controlsTab.worldFluidDensitySlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Sky:
-        SkyTab::DrawHitboxes( widgets.tabs.skyTab, draw, contentR, contentG, contentB );
+        SkyTab::DrawHitboxes( m_skyTab, draw, contentR, contentG, contentB );
         break;
     case InGameUITab::Cinematic:
-        CinematicTab::DrawHitboxes( widgets.tabs.cinematicTab, draw, cinematicTabFrame, contentR, contentG, contentB );
+        CinematicTab::DrawHitboxes( m_cinematicTab, draw, data.CinematicTabFrame(), contentR, contentG, contentB );
         break;
     case InGameUITab::Profiler:
-        DrawHitboxRect( draw, widgets.tabs.profilerTab.workerToggle.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, widgets.tabs.profilerTab.workerThreadSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_profilerTab.workerToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_profilerTab.workerThreadSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Memory:
         break;
     default:
         break;
     }
+}
 
-    if ( m_windowInteraction.ContentHeight() > static_cast<int>( contentBounds.h ) )
-    {
-        DrawHitboxRect( draw, widgets.chrome.scrollBar.Bounds(), 0.18f, 0.82f, 0.95f, 0.060f, 0.86f );
-    }
-
+void UIWindowInteractionOwner::DrawFooterHitboxes( const UIDrawContext& draw, const UIRect& footerBounds )
+{
+    constexpr float footerR = 1.00f;
+    constexpr float footerG = 0.22f;
+    constexpr float footerB = 0.82f;
     DrawHitboxRect( draw, footerBounds, footerR, footerG, footerB, 0.020f, 0.54f );
-    DrawComboHitboxes( draw, widgets.footer.rendererCombo, 1, footerR, footerG, footerB );
-    DrawComboHitboxes( draw, widgets.footer.reflectionCombo, 3, footerR, footerG, footerB );
-    DrawHitboxRect( draw, widgets.footer.blurToggle.Bounds(), footerR, footerG, footerB );
-    DrawHitboxRect( draw, widgets.footer.vsyncToggle.Bounds(), footerR, footerG, footerB );
-    DrawHitboxRect( draw, widgets.footer.histogramToggle.Bounds(), footerR, footerG, footerB );
-    DrawHitboxRect( draw, widgets.footer.timelineToggle.Bounds(), footerR, footerG, footerB );
-    DrawHitboxRect( draw, widgets.footer.hitboxToggle.Bounds(), footerR, footerG, footerB );
+    DrawComboHitboxes( draw, m_rendererCombo, 1, footerR, footerG, footerB );
+    DrawComboHitboxes( draw, m_reflectionCombo, 3, footerR, footerG, footerB );
+    DrawHitboxRect( draw, m_blurToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, m_vsyncToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, m_histogramToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, m_timelineToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, m_hitboxToggle.Bounds(), footerR, footerG, footerB );
 }
 
 
@@ -1003,89 +970,89 @@ InputControl::UIPointerOverride InGameUI::InputOverride() const
 }
 
 
-InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& input, const UIInputFrameFacts& frame,
-                                           const UIEditorModeFacts& editor, const UICameraModeFacts& camera )
+InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
+                                           double now, bool editorModeEnabled, bool placementModeEnabled,
+                                           bool placeStaticObject, bool autoTerrainAlign, uint32_t cameraModeEnabledMask )
 {
     PROFILE_SCOPED( "Frame/UI/Input" );
-    return m_windowInteraction.UpdateInput( input, frame, editor, camera, m_sceneNavigation );
+    return m_windowInteraction.UpdateInput( input, m_sceneNavigation, screenWidth, screenHeight, now, editorModeEnabled,
+                                            placementModeEnabled, placeStaticObject, autoTerrainAlign,
+                                            cameraModeEnabledMask );
 }
 const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
+{
+    return m_windowInteraction.Draw( data );
+}
+
+
+const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data )
 {
     m_frameDrawList.Clear();
     m_histogramDrawList.Clear();
     m_memoryOverlayDrawList.Clear();
-    auto widgets = m_windowInteraction.Widgets();
-    const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( widgets.tabs.profilerTab );
-    const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( widgets.tabs.memoryOverlay );
+    const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );
+    const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( m_memoryOverlay );
     const auto finishDraw = [&]() -> const UIDrawList&
     {
         // Why: every exit path must publish capacity evidence. Hidden,
         // minimized, and cached frames are real retained-stream consumers too.
-        PublishDrawStats( widgets.chrome.activeTab, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList );
+        PublishDrawStats( m_activeTab, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList );
         return m_frameDrawList;
     };
 
     // Why: input handling runs before the next draw, so the profiler tab keeps a
     // bounded copy of the latest frame snapshot for content height and hit tests.
-    ProfilerTab::SetFrameSnapshot( widgets.tabs.profilerTab, data.diagnostics.profiler );
+    ProfilerTab::SetFrameSnapshot( m_profilerTab, data.diagnostics.profiler );
 
-    if ( !widgets.chrome.window.isVisible && !histogramEnabled && !memoryOverlayEnabled )
+    if ( !m_window.isVisible && !histogramEnabled && !memoryOverlayEnabled )
     {
         return finishDraw();
     }
 
     const int screenW = (std::max)( 1, data.surface.screenW );
     const int screenH = (std::max)( 1, data.surface.screenH );
-    widgets.catalog.lastScreenW = screenW;
-    widgets.catalog.lastScreenH = screenH;
-    widgets.catalog.lastModelCapacity = std::clamp( data.scene.modelCapacity, 1,
-                                                    SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    widgets.catalog.lastSolverBallCount = std::clamp( data.scene.solverBallCount, UI_SOLVER_COUNT_MIN,
-                                                      widgets.catalog.lastModelCapacity );
-    widgets.catalog.lastSolverBoxCount = std::clamp( data.scene.solverBoxCount, UI_SOLVER_COUNT_MIN,
-                                                     widgets.catalog.lastModelCapacity );
-    widgets.catalog.lastMaxWorkerThreadCount = (std::max)( 1, data.surface.maxWorkerThreadCount );
-    widgets.catalog.lastWorkerThreadCount = std::clamp( data.surface.workerThreadCount, 0,
-                                                        widgets.catalog.lastMaxWorkerThreadCount );
-    widgets.catalog.lastRenderTargetPreviewCount = RenderTargetPreviewCount( data );
-    widgets.catalog.lastRenderTargetDisabledMask = RenderTargetPreviewDisabledMask( data );
-    widgets.catalog
-        .selectedRenderTargetPreview = ResolveRenderTargetPreviewSelection( data,
-                                                                            widgets.catalog.selectedRenderTargetPreview );
+    m_lastScreenW = screenW;
+    m_lastScreenH = screenH;
+    m_lastModelCapacity = std::clamp( data.scene.modelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_lastSolverBallCount = std::clamp( data.scene.solverBallCount, UI_SOLVER_COUNT_MIN, m_lastModelCapacity );
+    m_lastSolverBoxCount = std::clamp( data.scene.solverBoxCount, UI_SOLVER_COUNT_MIN, m_lastModelCapacity );
+    m_lastMaxWorkerThreadCount = (std::max)( 1, data.surface.maxWorkerThreadCount );
+    m_lastWorkerThreadCount = std::clamp( data.surface.workerThreadCount, 0, m_lastMaxWorkerThreadCount );
+    m_lastRenderTargetPreviewCount = RenderTargetPreviewCount( data );
+    m_lastRenderTargetDisabledMask = RenderTargetPreviewDisabledMask( data );
+    m_selectedRenderTargetPreview = ResolveRenderTargetPreviewSelection( data, m_selectedRenderTargetPreview );
 
     if ( histogramEnabled )
     {
-        ProfilerTab::PushPerformanceHistogramSample( widgets.tabs.profilerTab, data.ProfilerTabFrame() );
+        ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data.ProfilerTabFrame() );
     }
 
     if ( memoryOverlayEnabled )
     {
-        MemoryTab::PushOverlayFrame( widgets.tabs.memoryOverlay, data.MemoryTabFrame() );
+        MemoryTab::PushOverlayFrame( m_memoryOverlay, data.MemoryTabFrame() );
     }
 
-    if ( !widgets.chrome.window.isVisible )
+    if ( !m_window.isVisible )
     {
-        AppendStandaloneOverlays( widgets.tabs, data, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList, screenW,
-                                  screenH, histogramEnabled, memoryOverlayEnabled );
+        AppendStandaloneOverlays( m_profilerTab, m_memoryOverlay, data, m_frameDrawList, m_histogramDrawList,
+                                  m_memoryOverlayDrawList, screenW, screenH, histogramEnabled, memoryOverlayEnabled );
         return finishDraw();
     }
 
-    if ( widgets.chrome.window.isMinimized )
+    if ( m_window.isMinimized )
     {
-        widgets.chrome.cache.Reset();
-        UIDrawList& drawList = widgets.chrome.cache.MutableDrawList();
-        DrawMinimizedContent( widgets.chrome, widgets.footer, widgets.pointer, widgets.miniPalette, data, drawList, screenW,
-                              screenH );
+        m_cache.Reset();
+        UIDrawList& drawList = m_cache.MutableDrawList();
+        DrawMinimizedContent( data, drawList, screenW, screenH );
         m_frameDrawList.Append( drawList );
-        AppendStandaloneOverlays( widgets.tabs, data, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList, screenW,
-                                  screenH, histogramEnabled, memoryOverlayEnabled );
+        AppendStandaloneOverlays( m_profilerTab, m_memoryOverlay, data, m_frameDrawList, m_histogramDrawList,
+                                  m_memoryOverlayDrawList, screenW, screenH, histogramEnabled, memoryOverlayEnabled );
         return finishDraw();
     }
 
-    m_windowInteraction.PrepareForDraw( data.surface.now );
-
+    PrepareForDraw( data.surface.now );
     PROFILE_BEGIN( "Frame/UI/Layout" );
-    const UIRect windowBounds = Chrome::CurrentWindowRect( widgets.chrome.window, data.surface.now );
+    const UIRect windowBounds = Chrome::CurrentWindowRect( m_window, data.surface.now );
     const float x = windowBounds.x;
     const float y = windowBounds.y;
     const float w = windowBounds.w;
@@ -1098,7 +1065,7 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     const float contentY = y + titleH + tabH + 12.0f;
     const float contentW = w - pad * 2.0f - 8.0f;
     const float contentH = (std::max)( 30.0f, h - titleH - tabH - bottomH - pad );
-    const float scrolledY = contentY - widgets.pointer.scrollY;
+    const float scrolledY = contentY - m_scrollY;
     char titleText[192] = {};
 
     BuildWindowTitle( data, titleText, sizeof( titleText ) );
@@ -1118,72 +1085,66 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     }
 
     Chrome::FitTitleText( titleText, sizeof( titleText ), 15.5f, (std::max)( 40.0f, titleMaxW ) );
-    ProfilerTab::ApplyDefaultExpansion( widgets.tabs.profilerTab );
-    ProfilerTab::ApplyExpandAll( widgets.tabs.profilerTab );
+    ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
+    ProfilerTab::ApplyExpandAll( m_profilerTab );
 
     UICacheFrameKey cacheKey;
     cacheKey.screenW = screenW;
     cacheKey.screenH = screenH;
     cacheKey.windowBounds = windowBounds;
-    cacheKey.activeTab = static_cast<int>( widgets.chrome.activeTab );
-    cacheKey.scrollY = widgets.pointer.scrollY;
-    cacheKey.blurEnabled = widgets.chrome.blurPreviewEnabled;
+    cacheKey.activeTab = static_cast<int>( m_activeTab );
+    cacheKey.scrollY = m_scrollY;
+    cacheKey.blurEnabled = m_blurPreviewEnabled;
     cacheKey.contentSignature = BuildUIContentSignature( data );
-    cacheKey.styleSignature = HashBool( HashBool( 2166136261u, widgets.chrome.blurPreviewEnabled ),
-                                        widgets.chrome.hitboxOverlayEnabled );
+    cacheKey.styleSignature = HashBool( HashBool( 2166136261u, m_blurPreviewEnabled ), m_hitboxOverlayEnabled );
 
     uint32_t openControls = 0u;
-    openControls |= widgets.footer.rendererCombo.IsOpen() ? UI_INTERACTION_RENDERER_OPEN : 0u;
-    openControls |= widgets.footer.reflectionCombo.IsOpen() ? UI_INTERACTION_REFLECTION_OPEN : 0u;
-    openControls |= widgets.tabs.sceneTab.combo.IsOpen() ? UI_INTERACTION_SCENE_OPEN : 0u;
-    openControls |= CinematicTab::IsComboOpen( widgets.tabs.cinematicTab ) ? UI_INTERACTION_CINEMATIC_SCENE_OPEN : 0u;
-    openControls |= widgets.tabs.editorTab.objectCombo.IsOpen() ? UI_INTERACTION_EDITOR_OBJECT_OPEN : 0u;
-    openControls |= widgets.render.renderTargetCombo.IsOpen() ? UI_INTERACTION_RENDER_TARGET_OPEN : 0u;
-    openControls |= widgets.footer.cameraModeCombo.IsOpen() ? UI_INTERACTION_CAMERA_MODE_OPEN : 0u;
-    cacheKey.interactionSignature = BuildUIInteractionSignature( { { widgets.pointer.mouseX, widgets.pointer.mouseY },
-                                                                   windowBounds,
-                                                                   openControls,
-                                                                   widgets.catalog.selectedRenderTargetPreview,
-                                                                   widgets.pointer.activeSlider } );
+    openControls |= m_rendererCombo.IsOpen() ? UI_INTERACTION_RENDERER_OPEN : 0u;
+    openControls |= m_reflectionCombo.IsOpen() ? UI_INTERACTION_REFLECTION_OPEN : 0u;
+    openControls |= m_sceneTab.combo.IsOpen() ? UI_INTERACTION_SCENE_OPEN : 0u;
+    openControls |= CinematicTab::IsComboOpen( m_cinematicTab ) ? UI_INTERACTION_CINEMATIC_SCENE_OPEN : 0u;
+    openControls |= m_editorTab.objectCombo.IsOpen() ? UI_INTERACTION_EDITOR_OBJECT_OPEN : 0u;
+    openControls |= m_renderTargetCombo.IsOpen() ? UI_INTERACTION_RENDER_TARGET_OPEN : 0u;
+    openControls |= m_cameraModeCombo.IsOpen() ? UI_INTERACTION_CAMERA_MODE_OPEN : 0u;
+    cacheKey.interactionSignature = BuildUIInteractionSignature(
+        { { m_mouseX, m_mouseY }, windowBounds, openControls, m_selectedRenderTargetPreview, m_activeSlider } );
 
     // Why: Most UI frames only move the window/scroll offset. Replaying cached
     // draw commands keeps draw-call churn low while live render-target previews
     // still rebuild every frame.
-    widgets.chrome.cache.BeginFrame( cacheKey );
+    m_cache.BeginFrame( cacheKey );
     PROFILE_END( "Frame/UI/Layout" );
 
-    const bool drawsLiveRenderTargetPreview = widgets.chrome.activeTab == InGameUITab::Targets;
+    const bool drawsLiveRenderTargetPreview = m_activeTab == InGameUITab::Targets;
 
-    if ( !drawsLiveRenderTargetPreview &&
-         widgets.chrome.cache.CanReplayPositionOnly( cacheKey, widgets.chrome.interaction.isDragging ) )
+    if ( !drawsLiveRenderTargetPreview && m_cache.CanReplayPositionOnly( cacheKey, m_interaction.isDragging ) )
     {
-        const float replayOffsetX = widgets.chrome.cache.ReplayOffsetX( cacheKey );
-        const float replayOffsetY = widgets.chrome.cache.ReplayOffsetY( cacheKey );
-        m_frameDrawList.Append( widgets.chrome.cache.DrawList(), replayOffsetX, replayOffsetY );
+        const float replayOffsetX = m_cache.ReplayOffsetX( cacheKey );
+        const float replayOffsetY = m_cache.ReplayOffsetY( cacheKey );
+        m_frameDrawList.Append( m_cache.DrawList(), replayOffsetX, replayOffsetY );
 
-        AppendStandaloneOverlays( widgets.tabs, data, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList, screenW,
-                                  screenH, histogramEnabled, memoryOverlayEnabled );
+        AppendStandaloneOverlays( m_profilerTab, m_memoryOverlay, data, m_frameDrawList, m_histogramDrawList,
+                                  m_memoryOverlayDrawList, screenW, screenH, histogramEnabled, memoryOverlayEnabled );
         // Lifetime: the cached commands remain in their original coordinate
         // space. Retain that source key so consecutive drag offsets stay total,
         // then rebuild from current content when capture ends.
         return finishDraw();
     }
 
-    UIDrawList& drawList = widgets.chrome.cache.MutableDrawList();
+    UIDrawList& drawList = m_cache.MutableDrawList();
     drawList.Clear();
     const UIDrawContext draw( screenW, screenH, drawList );
     PROFILE_BEGIN( "Frame/UI/DrawBuild" );
 
     const UIRect blurBounds = { x, y, w, h };
     PROFILE_BEGIN( "Frame/UI/Blur" );
-    widgets.chrome.backdropBlur.Draw( draw, blurBounds, screenW, screenH, data.scene.currentFrame, data.surface.now,
-                                      widgets.chrome.blurPreviewEnabled );
+    m_backdropBlur.Draw( draw, blurBounds, screenW, screenH, data.scene.currentFrame, data.surface.now,
+                         m_blurPreviewEnabled );
     PROFILE_END( "Frame/UI/Blur" );
 
-    Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, widgets.chrome.blurPreviewEnabled, titleText );
+    Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
     const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( windowBounds );
-    Chrome::DrawTitleButtons( draw, titleButtons, widgets.chrome.window.isMaximized, widgets.pointer.mouseX,
-                              widgets.pointer.mouseY );
+    Chrome::DrawTitleButtons( draw, titleButtons, m_window.isMaximized, m_mouseX, m_mouseY );
     const UIRect objectCounterAvoidBounds = TitleButtonGroupBounds( titleButtons );
     DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
@@ -1192,36 +1153,34 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
-    widgets.chrome.tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
-    widgets.chrome.tabBar.Draw( draw, kTabs, tabCount, static_cast<int>( widgets.chrome.activeTab ) );
+    m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
+    m_tabBar.Draw( draw, kTabs, tabCount, static_cast<int>( m_activeTab ) );
 
     const Style::UIPalette& palette = Style::Palette();
     draw.RoundedPanel( { contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f }, Style::Radii().window,
                        palette.windowSubtle, palette.innerBorder );
 
-    DrawActiveTabContent( widgets.chrome.activeTab, widgets.tabs, widgets.render, widgets.catalog, widgets.pointer, data,
-                          { draw, drawList, { contentX, contentY, contentW, contentH }, scrolledY } );
+    DrawActiveTabContent( data, draw, drawList, { contentX, contentY, contentW, contentH }, scrolledY );
 
-    widgets.chrome.scrollBar.SetBounds( x + w - 14.0f, contentY, 4.0f, contentH );
-    widgets.chrome.scrollBar.Draw( draw, static_cast<float>( m_windowInteraction.ContentHeight() ), contentH,
-                                   widgets.pointer.scrollY, widgets.pointer.scrollbarVisibleUntil, data.surface.now );
+    m_scrollBar.SetBounds( x + w - 14.0f, contentY, 4.0f, contentH );
+    m_scrollBar.Draw( draw, static_cast<float>( ContentHeight() ), contentH, m_scrollY, m_scrollbarVisibleUntil,
+                      data.surface.now );
 
-    const UIRect footerBounds = DrawFooterContent( widgets.chrome, widgets.footer, widgets.tabs, widgets.pointer, data,
-                                                   { draw, x, y, w, h, bottomH, titleStatW, titleStatX, titleStat } );
-    DrawHitboxOverlay( draw, data, widgets, windowBounds, { contentX, contentY, contentW, contentH }, footerBounds );
+    const UIRect footerBounds = DrawFooterContent( data, draw, x, y, w, h, bottomH, titleStatW, titleStatX, titleStat );
+    DrawHitboxOverlay( draw, data, windowBounds, { contentX, contentY, contentW, contentH }, footerBounds );
 
     PROFILE_END( "Frame/UI/DrawBuild" );
     m_frameDrawList.Append( drawList );
-    AppendStandaloneOverlays( widgets.tabs, data, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList, screenW,
-                              screenH, histogramEnabled, memoryOverlayEnabled );
+    AppendStandaloneOverlays( m_profilerTab, m_memoryOverlay, data, m_frameDrawList, m_histogramDrawList,
+                              m_memoryOverlayDrawList, screenW, screenH, histogramEnabled, memoryOverlayEnabled );
 
     if ( drawsLiveRenderTargetPreview )
     {
-        widgets.chrome.cache.Reset();
+        m_cache.Reset();
     }
     else
     {
-        widgets.chrome.cache.StoreFrame( cacheKey );
+        m_cache.StoreFrame( cacheKey );
     }
 
     return finishDraw();

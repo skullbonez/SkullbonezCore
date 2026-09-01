@@ -466,7 +466,7 @@ must change in the same slice. Header-only additions have their own suggestion.
 | `Runtime/UI/GameUI/UITabProfiler.h:211,218,224` | Same profiler layout, pointer-wheel event, and worker range. |
 | `Runtime/UI/GameUI/UITabScene.h:96,99,109,111,113,116,124` | Same combo model/layout/event reuse and separate scene/recording/time-scale controls. |
 | `Runtime/UI/GameUI/UITabSky.h:55,61` | Same sky-tab layout/pointer and detached cinematic style. |
-| `Runtime/UI/GameUI/UIWindowInteractionOwner.h:167` | Same typed UI mode state; independently remove the 53-reference `WidgetView` below. |
+| `Runtime/UI/GameUI/UIWindowInteractionOwner.h` | Repaired in SC7: the complete 53-reference widget surface and every replacement reference-view bag are gone. Private owner operations use only the exact retained widgets needed by the selected draw phase. |
 | `Runtime/UI/OperatorUiProjection.h:466` | Same named replay-memory policy projection value. |
 | `Scene/AuthoredSceneParserSchema.h:1275` | Same validated asset-part identity/transform record. |
 | `UI/UIComboBox.h:43,45` | Same combo options/selection/pointer values and overload consolidation. |
@@ -504,10 +504,10 @@ it is not an exception.
 | `Runtime/Planning/ReplayCauseInspection.h:166-197` | `ReplayCauseInspectionView` | Repaired: transport, selection, solver evidence, and drawer display are typed child views. Runtime consumers receive only the child they use; the inherited flat value layout remains solely for stable automation serialization. |
 | `Runtime/Planning/ReplayOverlayPackets.h:74-101` | `ReplayOverlayStateView` | Repaired: timeline/scrubber, planning surfaces, and causality are separate child views under the App composition envelope. Intercept, trip-planner, porkchop, cause-tree, scrubber, and editor operations receive only their owned child values. |
 | `Runtime/Prediction/ReplayPredictionTopologyPublication.cpp` | retired `ReplayPredictionFutureContext` | Reconciled as repaired: the mutable three-owner context no longer exists. `ReplayPredictionFutureTopologyBuilder` owns topology construction and receives the node collection, detached scene facts, root identity, and ragdoll policy explicitly. |
-| `Runtime/Prediction/ReplayPredictionView.h` | `ReplayPredictionPresentationView` | Repaired: timeline, topology, trajectory, marker, baseline, drag-preview, controls, and diagnostics are separate immutable child views. App/UI alone carry the composition envelope; Planning entry points receive only timeline/topology/controls. |
+| `Runtime/Prediction/ReplayPredictionView.h` | `ReplayPredictionPresentationView` | Repaired: timeline, topology, trajectory, marker, baseline, drag-preview, controls, and diagnostics are separate immutable child views. The envelope directly owns the cross-child path-presentation policy; it is not duplicated in the trajectory child. App/UI alone carry the composition envelope, and Planning entry points receive only timeline/topology/controls. |
 | `Runtime/Render/CollisionVisualizer.h:69-77` | `CollisionVisualizerFrameView` | Repaired and retained as one aligned visualizer input. Publication clamps the shared model count to one Physics generation, update/render independently clamp the rows they index, and the unused live `PhysicsBodyStore` borrow is deleted. |
 | `Runtime/Render/PhysicsDebugVisualizer.h:55-89` | `PhysicsDebugFrameView` | Repaired: body geometry, contacts, sleep rows, and pipeline rows are separate views. The flag router holds only their composition; each overlay helper and the retained-contact update receive the exact child view they consume. |
-| `Runtime/Render/RuntimeRenderer.h:75-94` | `WorldFrameSubmission`, `OverlayFrameSubmission` | Repaired: world rendering receives model/camera/terrain/policy/world-extension/cinematic values; replay and tool overlays receive only debug, replay, retained geometry, and tool values. The deleted ten-part `FrameEntryContext` no longer crosses every phase. |
+| `Runtime/Render/RuntimeRenderer.h:75-150` | `WorldFrameSubmission`, `OverlayFrameSubmission`, `WorldOverlayTransaction` | Repaired in SC7: `BeginWorldFrame` executes world, reflection, body, terrain, water, extension, and replay-ghost passes immediately. Executed-pass diagnostics publish directly into the renderer-owned scene snapshot instead of crossing a relay record. The non-copyable world-to-overlay transaction owns only the camera, policy, and borrows required to continue into overlays; it retains no submission wrapper and does not claim later UI/capture frame-graph closure. `SubmitOverlays` receives only Physics/world-extension/tool/contact overlay values and records the overlay and cinematic-post phases. Focused fatal child probes construct the actual transaction and prove both abandoned and duplicate submission rejection. |
 | `Runtime/Render/RuntimeRenderFrameValues.h:126-188` | `RuntimeRenderFrameViews` child views | Repaired: model presentation, broadphase debug, collision debug, Physics debug, world-extension debug, and diagnostics are separate consumer values. App alone holds the publication envelope and Render receives exact child views. |
 | `Runtime/Render/RuntimeRenderHost.h` | retired `RenderWorldView` | Reconciled as repaired: the constructor service bag no longer exists. App publishes `WorldFrameSubmission`; RuntimeRenderer and direct pass owners retain their stable render-domain dependencies. |
 | `Runtime/Render/RuntimeRenderPasses.h` | retired `RenderResourceContext` | Reconciled as repaired: the shared resource context no longer exists. Object, terrain, reflection, water, overlay, and other passes receive pass-specific input records and direct resources only where used. |
@@ -515,8 +515,8 @@ it is not an exception.
 | `Runtime/Replay/ReplayRuntimePackets.h:40-66` | `ReplayRenderTimeView`, `ReplayRenderFrameView` | Repaired: Gameplay time selection receives recorded/solver/prediction samples plus live-advance state; Render receives only the visual packet, focus mask, contact presentation, and fade decision. The unused prediction-enabled field is deleted. |
 | `Runtime/Scene/SceneController.h:97-145` | retired `SceneDefaultsSaveView` | Repaired: App projects presentation, render policy, camera persistence values, and generated-count overrides into one owned `SceneDefaultsSaveSnapshot` before cold I/O. The writer cannot reach the live owners, and a focused test proves later source mutation cannot change the snapshot. |
 | `Runtime/Tools/RuntimeTools.h:200-241` | launcher repro capture request | Repaired: App supplies separate scene-capture, launch-policy, and presentation views. RuntimeTools captures one detached snapshot before file serialization, so the serializer cannot reach live `SceneWorld`, Physics, Terrain, camera, entity, or renderer owners. |
-| `Runtime/UI/GameUI/UI.h:139-468` | tab views and `InGameUIFrameData` | Repaired: the root is a top-level detached composition of surface, diagnostics, scene, world, editor, rendering, render-target, and operator-editor sections. Each tab receives its projected view; draw phases receive only active-tab, chrome, pointer, catalog, or control groups. |
-| `Runtime/UI/GameUI/UIWindowInteractionOwner.h:86-184` | grouped draw views | Repaired: the 53-reference flat `WidgetView` is replaced by chrome/cache, footer, render, catalog, tab, pointer, and mini-palette groups. Standalone overlays, minimized content, tab routing, render targets, footer composition, and tests consume their exact child groups. |
+| `Runtime/UI/GameUI/UI.h:139-468` | tab views and `InGameUIFrameData` | Repaired: the root is a top-level detached composition of surface, diagnostics, scene, world, editor, rendering, render-target, and operator-editor sections. Each tab receives its projected immutable frame view; retained widget state remains inside its concrete interaction/draw owner. |
+| `Runtime/UI/GameUI/UIWindowInteractionOwner.h` | retained UI draw ownership | Repaired in SC7: the 53-reference flat widget surface, its public accessor, and the interim chrome/footer/render/catalog/tab/pointer/mini-palette reference-view bags and factories are deleted. Private member operations use exact retained owners directly, and the active-tab switch accesses only the selected tab's state. |
 | `Runtime/UI/OperatorUiProjection.h:48-208` | `OperatorUiSceneFacts`, retired `OperatorUiInspectorFacts` | Repaired: App now builds the canonical detached inspector value directly and projection assigns it without a 36-field copy. Typed selection, transform, identity, render-material, and Physics views feed their exact panel sections while the frame fingerprint retains its established flat semantic order. |
 
 ### Runtime/App candidate reconciliation
@@ -531,7 +531,7 @@ a review trigger, not a demand to hide direct composition behind a record.
 | `ApplicationExitState.h` | Retained: one fixed-size exit latch owns diagnostic precedence, stop intent, and the first leased failure. Its fields cannot be split without duplicating exit authority; focused exit-state tests cover precedence and lifetime. |
 | `ReplayPredictionDrawing.h:78` | Retained: `ReplayPredictionDrawListState` is the bounded retained cursor/capacity state for one draw-list build. Its reset invariant and fixed-capacity arrays are owned together; no runtime owner reference is stored. |
 | `ReplayRuntime.h:440` | Retained: `ReplayInteractionRecordingCauseState` is one serialized replay-inspection state machine. The fields are artifact-independent values restored together before input routing; no sibling owner is borrowed. |
-| `CameraFrameApplication.cpp` | Repaired in SC5: App now projects the named `RuntimeCameraMovementInput` once. Camera consumes that value plus Scene/attached-camera owners and no longer reopens `EngineConfig` or repeats editor/scene scalar flags. |
+| `CameraFrameApplication.cpp` and `CameraControlState.h` | Repaired in SC7: `CameraControlState` atomically validates and retains stable movement configuration. App supplies direct frame-local movement and mode facts to `TickControls`; no broad device snapshot or movement-input bag crosses the camera boundary. Focused tests cover valid, inverted-height, and non-finite configuration samples. |
 | `GraphicsStressApplication.cpp/.h` | Repaired in SC5: all 32 authored actions map to one closed owner category and dispatch to narrow cinematic, browser, renderer, overlay, scene, UI, Physics, tool, or camera operations. A focused table test covers every action plus invalid bounds. |
 | `SceneLoadApplication.cpp/.h` | Repaired in SC5: the former ten-part presentation call is split into validation begin, render-device, window/UI, and graphics-stress phases. Each of the seven production call sites shows the exact sequence and closes the transaction explicitly. |
 | `Init.cpp` and the `Run` constructor | Retained: these are the process and App composition roots. Window, config, workers, profiler, backbuffer capture, and optional Tracy ownership are direct lifetime wiring; a `RunServices` or startup context would only obscure destruction order. |
@@ -755,9 +755,10 @@ scene edits, runtime presentation, replay/physics tuning, generated-scene
 transactions, and world/cinematic completion as explicit phases. The command
 transaction and acceptance ledger retain their original ordering; helper
 operations borrow App owners only for the synchronous phase and retain no
-context record. The UI input seam now receives detached screen/timing,
-editor-mode, and camera-availability values instead of ten adjacent primitive
-arguments. The camera value omits the formerly unused selected-mode scalar.
+context record. The UI input seam receives direct screen/timing, editor-mode,
+and camera-mask facts at the concrete interaction owner. Production and
+representative test calls name each Boolean role; no always-forwarded fact
+aggregate or anonymous Boolean run obscures the call.
 
 The combined Profile solution build completes warning-clean. The normal test
 suite passes 913 cases and 2,694,677 assertions with one expected skip.
@@ -923,15 +924,14 @@ whitespace checks close with this slice before commit. No baseline or golden
 changed.
 
 The fourteenth grouped slice repairs Runtime UI draw ownership. The former flat
-53-reference widget reconstruction is now seven cohesive groups for chrome/cache,
-footer controls, render controls, catalog counters, tabs, pointer draw state, and
-the editor mini-palette. Standalone overlays, minimized drawing, diagnostic tabs,
-authoring tabs, render targets, footer controls/stats, hitbox evidence, and focused
-tests consume the smallest applicable group. The active-tab router is split into
-diagnostic and authoring families; footer composition is split into controls,
-compact stats, wide stats, and final layout. The worksheet also reconciles the
-already-retired render host/resource contexts and the already-projected root UI
-frame.
+53-reference widget reconstruction and the interim reference-view bags are
+deleted. Private `UIWindowInteractionOwner` operations draw minimized chrome,
+the selected render/target tab, footer controls, and hitbox evidence directly
+from their exact retained widgets. The active-tab switch accesses only the
+selected tab's state; no helper reconstructs the complete owner surface. Footer
+statistics remain pure detached-value helpers. The worksheet also reconciles
+the already-retired render host/resource contexts and the already-projected root
+UI frame.
 
 The Profile x64 solution builds warning-clean. The focused UI selection passes
 84 cases and 2,608 assertions. Compiler-backed source-design passes five changed
@@ -1047,9 +1047,10 @@ participant surface merely renamed, sliced, or moved into member reach. The
 cleanup deletes the behavior-free `InputBindingContext` forwarding alias,
 refreshes 23 exact allocation-policy fingerprints relocated by accepted owner
 slices, and removes retired render/prediction bag terminology from the
-technical-manual source and generated DOCX. `ReplayStartupRequest` and the
-grouped UI `WidgetView` remain deliberate operation/composition values rather
-than flat owner bags.
+technical-manual source and generated DOCX. `ReplayStartupRequest` remains a
+deliberate operation value. SC7 subsequently deleted the grouped complete UI
+widget surface and replaced the renderer's nominal paired wrapper with real
+world and overlay phases.
 
 The Profile x64 solution builds warning-clean. All four runtime input-binding
 cases pass 1,204 assertions, and compiler-backed source-design passes the

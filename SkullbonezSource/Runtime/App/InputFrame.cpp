@@ -67,6 +67,7 @@ Related:
 #include <cstdio>
 #include <cstring>
 #include <span>
+#include <type_traits>
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
@@ -483,13 +484,11 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
                                                                                             m_inputRouter.UiSnapshot().mouse,
                                                                                             m_operatorUi->InputOverride() );
 
-    const UI::UIInputFrameFacts uiFrame { m_window.ClientWidth(), m_window.ClientHeight(),
-                                          m_timers.SimulationTotalSeconds() };
     const RunEditorPlacementState& editor = m_editorTools.Editor();
-    const UI::UIEditorModeFacts uiEditor { editor.editorModeEnabled, editor.placementModeEnabled, editor.placeStaticObject,
-                                           editor.autoTerrainAlign };
-    const UI::UICameraModeFacts uiCamera { facts.cameraModeEnabledMask };
-    InGameUIInputResult UIResult = m_operatorUi->UpdateInput( uiInput, uiFrame, uiEditor, uiCamera );
+    InGameUIInputResult UIResult = m_operatorUi->UpdateInput( uiInput, m_window.ClientWidth(), m_window.ClientHeight(),
+                                                              m_timers.SimulationTotalSeconds(), editor.editorModeEnabled,
+                                                              editor.placementModeEnabled, editor.placeStaticObject,
+                                                              editor.autoTerrainAlign, facts.cameraModeEnabledMask );
 
     switch ( UIResult.nativeMouseCapture )
     {
@@ -600,16 +599,76 @@ void Run::ApplyReplayTransportCommand( RuntimeUIFrameResult& result, const Runti
                                        const ReplayTransportCommand& command )
 {
     ReplayWorkspaceOutput transportOutput;
-    m_replayRuntime.ApplyTransportCommand( command,
-                                           ReplayTransportHostContext { m_window.NativeWindowHandle(),
-                                                                        facts.replayCurrentCameraMode,
-                                                                        facts.replayRestoreCameraMode,
-                                                                        m_attachedCamera.State().activeFollow,
-                                                                        m_camera.director.grabbed,
-                                                                        m_timers.SimulationTotalSeconds() },
-                                           m_inputRouter, m_interaction, &m_sceneController.Scene().Cameras(),
-                                           m_sceneController.Scene().Terrain().Get(), m_camera, m_runtimeTools.MousePickup(),
-                                           transportOutput );
+    const double now = m_timers.SimulationTotalSeconds();
+    std::visit(
+        [&]( const auto& typedCommand )
+        {
+            using Command = std::remove_cvref_t<decltype( typedCommand )>;
+
+            if constexpr ( std::is_same_v<Command, ReplaySetRecordingEnabledCommand> ||
+                           std::is_same_v<Command, ReplaySetRevealSpeedCommand> ||
+                           std::is_same_v<Command, ReplaySetPredictionHorizonCommand> )
+            {
+                m_replayRuntime.ApplyTransportCommand( typedCommand, now );
+            }
+            else if constexpr ( std::is_same_v<Command, ReplayJumpToStartCommand> ||
+                                std::is_same_v<Command, ReplayJumpToEndCommand> ||
+                                std::is_same_v<Command, ReplayStepBackwardCommand> ||
+                                std::is_same_v<Command, ReplayStepForwardCommand> ||
+                                std::is_same_v<Command, ReplayScrubCommand> ||
+                                std::is_same_v<Command, ReplayTogglePredictionCommand> ||
+                                std::is_same_v<Command, ReplayRestoreBranchCommand> ||
+                                std::is_same_v<Command, ReplaySelectCauseRowCommand> )
+            {
+                m_replayRuntime.ApplyTransportCommand( typedCommand, m_interaction, now, transportOutput );
+            }
+            else if constexpr ( std::is_same_v<Command, ReplayTogglePlayPauseCommand> )
+            {
+                m_replayRuntime.ApplyTransportCommand( typedCommand, m_inputRouter, m_interaction, m_camera, now,
+                                                       transportOutput );
+            }
+            else if constexpr ( std::is_same_v<Command, ReplaySetPredictionDetailModeCommand> )
+            {
+                m_replayRuntime.ApplyTransportCommand( typedCommand, &m_sceneController.Scene().Cameras(),
+                                                       m_sceneController.Scene().Terrain().Get(), m_camera,
+                                                       facts.replayRestoreCameraMode, m_attachedCamera.State().activeFollow,
+                                                       m_camera.director.grabbed, m_interaction, m_inputRouter, now );
+            }
+            else if constexpr ( std::is_same_v<Command, ReplaySaveCommand> )
+            {
+                m_replayRuntime.ApplyTransportCommand( typedCommand, now, transportOutput );
+            }
+            else if constexpr ( std::is_same_v<Command, ReplayLoadCommand> )
+            {
+                const ReplayTransportLoadResult load = m_replayRuntime.BeginTransportLoad( typedCommand,
+                                                                                           m_window.NativeWindowHandle(),
+                                                                                           now );
+
+                if ( load.activateLoadedPresentation )
+                {
+                    m_replayRuntime.ActivateLoadedTransport( &m_sceneController.Scene().Cameras(),
+                                                             m_sceneController.Scene().Terrain().Get(), m_camera,
+                                                             facts.replayCurrentCameraMode, facts.replayRestoreCameraMode,
+                                                             m_attachedCamera.State().activeFollow,
+                                                             m_camera.director.grabbed, m_interaction, m_inputRouter,
+                                                             m_runtimeTools.MousePickup(), now );
+                }
+            }
+            else if constexpr ( std::is_same_v<Command, ReplayReturnToLiveCommand> )
+            {
+                m_replayRuntime.ApplyTransportCommand( typedCommand, &m_sceneController.Scene().Cameras(),
+                                                       m_sceneController.Scene().Terrain().Get(), m_camera,
+                                                       facts.replayRestoreCameraMode, m_attachedCamera.State().activeFollow,
+                                                       m_camera.director.grabbed, m_interaction, m_inputRouter, now,
+                                                       transportOutput );
+            }
+            else
+            {
+                static_assert( std::is_same_v<Command, void>,
+                               "Every ReplayTransportCommand alternative requires an explicit App composition path." );
+            }
+        },
+        command );
     result.enterInteractiveScene = result.enterInteractiveScene || transportOutput.enterInteractive;
     if ( result.replayWorkspace.restoreRequest.kind == ReplayLiveRestoreKind::None &&
          transportOutput.restoreRequest.kind != ReplayLiveRestoreKind::None )

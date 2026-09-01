@@ -784,6 +784,14 @@ void Run::Initialise()
         return;
     }
 
+    if ( !m_camera.ConfigureMovement( m_config.camera ) )
+    {
+        m_lastSceneLoadResult = m_resultDiagnostics.Failure( "Runtime/Camera",
+                                                             "Camera movement configuration requires finite non-negative "
+                                                             "speeds and ordered heights." );
+        return;
+    }
+
     auto& renderResources = Renderer( "Initialise" ).RenderResources();
     const SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics = Renderer( "Initialise" ).RenderDiagnostics();
 

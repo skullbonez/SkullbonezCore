@@ -760,6 +760,19 @@ struct OperatorCommandTransactionTestAccess
     }
 };
 
+struct RuntimeRendererWorldOverlayTransactionTestAccess
+{
+    static RuntimeRenderer::WorldOverlayTransaction Open()
+    {
+        return RuntimeRenderer::WorldOverlayTransaction( nullptr );
+    }
+
+    static void SubmitOverlays( RuntimeRenderer::WorldOverlayTransaction& transaction )
+    {
+        transaction.BeginOverlaySubmissionOrFatal();
+    }
+};
+
 #ifdef _DEBUG
 struct ReplayStartupProbeContinuationTestAccess
 {
@@ -777,6 +790,24 @@ struct ReplayStartupProbeContinuationTestAccess
 #endif
 } // namespace Runtime
 } // namespace SkullbonezCore
+
+TEST_CASE( "Runtime renderer world-to-overlay transaction rejects abandonment and duplicate submission" )
+{
+    using Transaction = SkullbonezCore::Runtime::RuntimeRenderer::WorldOverlayTransaction;
+    using OverlaySubmission = SkullbonezCore::Runtime::RuntimeRenderer::OverlayFrameSubmission;
+
+    static_assert( !std::is_copy_constructible_v<Transaction> );
+    static_assert( !std::is_copy_assignable_v<Transaction> );
+    static_assert( !std::is_move_constructible_v<Transaction> );
+    static_assert( !std::is_move_assignable_v<Transaction> );
+    static_assert( std::is_same_v<decltype( &Transaction::SubmitOverlays ), bool ( Transaction::* )( const OverlaySubmission& )> );
+    CHECK( std::is_destructible_v<Transaction> );
+    ExpectRuntimeFatalCase( "renderer-frame-transaction-abandoned",
+                            { "FATAL[RunRender]", "ended before overlay submission" } );
+    ExpectRuntimeFatalCase( "renderer-frame-transaction-duplicate",
+                            { "FATAL[RunRender]", "received overlay submission twice" } );
+}
+
 
 TEST_CASE( "Legacy render material modes classify extreme numeric inputs without integer conversion" )
 {
@@ -2226,6 +2257,20 @@ bool RunRuntimeFatalResourceAndPhysicsCase( const char* caseName )
 
 bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
 {
+    if ( std::strcmp( caseName, "renderer-frame-transaction-abandoned" ) == 0 )
+    {
+        auto transaction = SkullbonezCore::Runtime::RuntimeRendererWorldOverlayTransactionTestAccess::Open();
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "renderer-frame-transaction-duplicate" ) == 0 )
+    {
+        auto transaction = SkullbonezCore::Runtime::RuntimeRendererWorldOverlayTransactionTestAccess::Open();
+        SkullbonezCore::Runtime::RuntimeRendererWorldOverlayTransactionTestAccess::SubmitOverlays( transaction );
+        SkullbonezCore::Runtime::RuntimeRendererWorldOverlayTransactionTestAccess::SubmitOverlays( transaction );
+        return true;
+    }
+
     if ( std::strcmp( caseName, "dx12-retirement-release-snapshot" ) == 0 )
     {
         SkullbonezCore::Rendering::Dx12RetirementDiagnosticState retirementDiagnostics;

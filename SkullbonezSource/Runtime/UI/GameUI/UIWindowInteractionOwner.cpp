@@ -7,12 +7,12 @@ Summary:
   This owner translates detached UI input snapshots into typed command values
   and retains the window, widget, tab, and gesture state shared with drawing.
   It also maps recording anchors through window-local normalized coordinates so
-  playback follows the same UI region after layout resize. InGameUI borrows only
-  a synchronous WidgetView and is never reachable from this owner.
+  playback follows the same UI region after layout resize. The owner also
+  records its widget state directly; no complete reference surface crosses out.
 
 Invariants:
   - Device input produces commands; runtime subsystem mutation remains outside UI.
-  - WidgetView is not retained beyond the caller's immediate draw operation.
+  - Private draw operations access retained state directly and never publish reference-view bags.
   - Layout bounds and hit-test bounds are the same widget state.
   - Anchor resolution uses current window bounds and never retains a viewport pointer.
 
@@ -58,26 +58,6 @@ void UIWindowInteractionOwner::ResetPresentationResources()
     m_cache.Reset();
 }
 
-UIWindowInteractionOwner::WidgetView UIWindowInteractionOwner::Widgets()
-{
-    // Lifetime: the draw composer borrows these references synchronously. The
-    // owner remains alive for the whole call and no reference may be retained.
-    return { { m_window, m_interaction, m_blurPreviewEnabled, m_activeTab, m_tabBar, m_backdropBlur, m_cache, m_scrollBar,
-               m_hitboxOverlayEnabled },
-             { m_blurToggle, m_vsyncToggle, m_timelineToggle, m_histogramToggle, m_hitboxToggle, m_rendererCombo,
-               m_reflectionCombo, m_cameraModeCombo },
-             { m_renderTargetCombo, m_cinematicMasterToggle, m_renderShadowToggle, m_saveRenderDefaultsButton,
-               m_saveTrajectoryStyleButton, m_renderSliders },
-             { m_lastScreenW, m_lastScreenH, m_lastModelCapacity, m_lastSolverBallCount, m_lastSolverBoxCount,
-               m_lastWorkerThreadCount, m_lastMaxWorkerThreadCount, m_lastRenderTargetPreviewCount,
-               m_lastRenderTargetDisabledMask, m_selectedRenderTargetPreview },
-             { m_controlsTab, m_editorTab, m_optionsTab, m_physicsTab, m_profilerTab, m_memoryOverlay, m_sceneTab, m_skyTab,
-               m_cinematicTab },
-             { m_mouseX, m_mouseY, m_scrollY, m_scrollbarVisibleUntil, m_activeSlider },
-             { m_editorMiniPalettePressActive, m_editorMiniPaletteFlyoutOpen, m_editorMiniPalettePressedEntry,
-               m_editorMiniPalettePressedObjectType, m_editorMiniPalettePressedTreePlacement,
-               m_editorMiniPalettePressedHoldMode, m_editorMiniPalettePressStart } };
-}
 bool UIWindowInteractionOwner::IsVisible() const
 {
     return m_window.isVisible;
@@ -1647,18 +1627,19 @@ void UIWindowInteractionOwner::HandleWindowPress( const InputControl::UIInputSna
 
 
 InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input,
-                                                           const UIInputFrameFacts& frame, const UIEditorModeFacts& editor,
-                                                           const UICameraModeFacts& camera,
-                                                           const SceneNavigationModel& sceneNavigation )
+                                                           const SceneNavigationModel& sceneNavigation, int screenWidth,
+                                                           int screenHeight, double now, bool editorModeEnabled,
+                                                           bool placementModeEnabled, bool placeStaticObject,
+                                                           bool autoTerrainAlign, uint32_t cameraModeEnabledMask )
 {
     InGameUIInputResult result;
-    const int screenW = (std::max)( 1, frame.screenWidth );
-    const int screenH = (std::max)( 1, frame.screenHeight );
+    const int screenW = (std::max)( 1, screenWidth );
+    const int screenH = (std::max)( 1, screenHeight );
     const WindowOptionView options = BuildWindowOptionView( sceneNavigation );
 
     // Concept: UI input produces command intents and capture state. The run loop
     // owns applying scene, physics, renderer, and editor mutations.
-    const uint32_t cameraModeEnabledMask = camera.enabledMask & ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u );
+    cameraModeEnabledMask &= ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u;
     m_blocksCameraMouse = false;
     const int wheelDelta = input.wheelDelta;
     result.unhandledWheelDelta = wheelDelta;
@@ -1712,11 +1693,11 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
 
     if ( m_window.isMinimized )
     {
-        return HandleMinimizedInput( input, screenW, screenH, frame.now, editor.enabled, editor.placementMode,
-                                     editor.placeStatic, editor.terrainAlign, cameraModeEnabledMask );
+        return HandleMinimizedInput( input, screenW, screenH, now, editorModeEnabled, placementModeEnabled,
+                                     placeStaticObject, autoTerrainAlign, cameraModeEnabledMask );
     }
 
-    const WindowPointerLayout layout = PrepareWindowPointerLayout( frame.now );
+    const WindowPointerLayout layout = PrepareWindowPointerLayout( now );
     if ( layout.inside )
     {
         result.unhandledWheelDelta = 0;
@@ -1728,11 +1709,11 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
         result.commands.ui.userInteracted = true;
     }
 
-    HandleWindowWheel( input, result, layout, options, frame.now );
+    HandleWindowWheel( input, result, layout, options, now );
 
     if ( input.leftPressed )
     {
-        HandleWindowPress( input, result, layout, options, screenW, screenH, frame.now );
+        HandleWindowPress( input, result, layout, options, screenW, screenH, now );
     }
 
     if ( leftNow && m_activeSlider != 0 )
@@ -1740,7 +1721,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
         UpdateActiveSliderInput( result );
     }
 
-    UpdateWindowDragAndResize( leftNow, screenW, screenH, frame.now );
+    UpdateWindowDragAndResize( leftNow, screenW, screenH, now );
 
     if ( input.leftReleased )
     {

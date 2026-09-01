@@ -1720,24 +1720,18 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlpha )
 {
     m_camera.AdvanceAutoCycleClock( m_sceneController.State().isSceneMode, simulationDt );
-    constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
     const AttachedCameraState& attachedState = m_attachedCamera.State();
-    RuntimeCameraMovementInput movement;
-    movement.keyMovementQuantity = cameraDt * m_config.camera.keySpeed;
-    movement.mouseMovementQuantity = CAMERA_MOUSE_REFERENCE_DT * m_config.camera.mouseSensitivity;
-    movement.minCameraHeight = m_config.camera.minCameraHeight;
-    movement.maxCameraHeight = m_config.camera.maxCameraHeight;
-    movement.fluidSurfaceHeight = m_sceneController.Scene().Environment().GetFluidSurfaceHeight();
-    movement.attachedOrbitOwnsCamera = RunCameraModeIsAttached( m_camera.mode ) && attachedState.activeFollow &&
-                                       attachedState.submode != AttachedCameraSubmode::RagdollEyes;
-    movement.flyControlsActive = RunCameraModeUsesFlyControls( m_camera.mode, attachedState.activeFollow,
-                                                               m_camera.director.grabbed );
-    movement.editorModeEnabled = m_editorTools.Editor().editorModeEnabled;
-    movement.editorViewportLookActive = m_editorTools.Editor().viewportLookActive;
-    movement.manualControlsActive = RunCameraModeUsesManualControls( m_camera.mode, attachedState.activeFollow,
-                                                                     m_camera.director.grabbed );
-    movement.authoredScene = m_sceneController.State().isSceneMode;
-    m_camera.TickControls( m_sceneController.Scene(), m_attachedCamera, movement, cameraDt, presentationAlpha );
+    const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( m_camera.mode ) && attachedState.activeFollow &&
+                                         attachedState.submode != AttachedCameraSubmode::RagdollEyes;
+    const bool flyControlsActive = RunCameraModeUsesFlyControls( m_camera.mode, attachedState.activeFollow,
+                                                                 m_camera.director.grabbed );
+    const bool manualControlsActive = RunCameraModeUsesManualControls( m_camera.mode, attachedState.activeFollow,
+                                                                       m_camera.director.grabbed );
+    m_camera.TickControls( m_sceneController.Scene(), m_attachedCamera, cameraDt, presentationAlpha,
+                           m_sceneController.Scene().Environment().GetFluidSurfaceHeight(), attachedOrbitOwnsCamera,
+                           flyControlsActive, m_editorTools.Editor().editorModeEnabled,
+                           m_editorTools.Editor().viewportLookActive, manualControlsActive,
+                           m_sceneController.State().isSceneMode );
 
     DemoDirectorPredictionView directorPrediction;
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();

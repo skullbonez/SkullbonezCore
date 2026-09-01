@@ -23,6 +23,7 @@ Invariants:
 #include "PhysicsDebugVisualizer.h"
 #include "RenderResourceLifecycle.h"
 #include "RenderPresentationSettings.h"
+#include "../../Core/FatalError.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderDiagnosticsTypes.h"
 #include "../../Rendering/RenderSceneSnapshot.h"
@@ -52,6 +53,7 @@ class Dx12ImGuiRendererOwner;
 #endif
 namespace Runtime
 {
+struct RuntimeRendererWorldOverlayTransactionTestAccess;
 struct RenderDiagnosticsReadout
 {
     // Detached UI-facing diagnostics. The renderer name is copied into bounded
@@ -63,6 +65,30 @@ struct RenderDiagnosticsReadout
 
 class RuntimeRenderer
 {
+  private:
+    class WorldOverlayPhaseCursor
+    {
+      public:
+        bool TrySubmitOverlays() noexcept
+        {
+            if ( m_overlaysSubmitted )
+            {
+                return false;
+            }
+
+            m_overlaysSubmitted = true;
+            return true;
+        }
+
+        bool IsComplete() const noexcept
+        {
+            return m_overlaysSubmitted;
+        }
+
+      private:
+        bool m_overlaysSubmitted = false;
+    };
+
   public:
     // Invariant: the terrain participant is released under the same named
     // backend lifecycle phase as the remaining renderer-owned resources.
@@ -75,21 +101,76 @@ class RuntimeRenderer
     struct WorldFrameSubmission
     {
         const RuntimeRenderModelPresentationView& models;
+        const RuntimeRenderCollisionDebugView& collisionDebug;
         const RenderCameraLighting& camera;
         Geometry::Terrain* terrain = nullptr;
         RuntimeRenderFramePolicy framePolicy;
         const Rendering::WorldRenderExtensionRegistration& worldExtension;
+        const ReplayVisualPacket& replayVisual;
+        const std::vector<uint8_t>* replayFocusModelMask = nullptr;
+        bool replayFocusFadeActive = false;
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
         bool cinematicRequested = false;
     };
 
     struct OverlayFrameSubmission
     {
-        const RuntimeRenderDebugViews& debug;
+        const RuntimeRenderPhysicsDebugView& physicsDebug;
         RuntimeRenderWorldExtensionDebugView worldExtensionDebug;
-        const ReplayRenderFrameView& replayFrame;
+        const Rendering::ContactManifoldPresentation& replayContactPresentation;
         const Rendering::RetainedGeometryPacket& retainedOverlay;
         const RenderToolOverlayView& toolOverlay;
+    };
+
+    class WorldOverlayTransaction
+    {
+      public:
+        WorldOverlayTransaction( const WorldOverlayTransaction& ) = delete;
+        WorldOverlayTransaction& operator=( const WorldOverlayTransaction& ) = delete;
+        WorldOverlayTransaction( WorldOverlayTransaction&& ) = delete;
+        WorldOverlayTransaction& operator=( WorldOverlayTransaction&& ) = delete;
+        ~WorldOverlayTransaction()
+        {
+            if ( !m_phase.IsComplete() )
+            {
+                SB_FATAL( "RunRender", "World-to-overlay transaction ended before overlay submission." );
+            }
+        }
+
+        // Invariant: overlay submission closes this world-to-overlay
+        // continuation exactly once. Destroying it open or submitting twice is
+        // fatal; later UI/capture passes still own final frame-graph closure.
+        bool SubmitOverlays( const OverlayFrameSubmission& overlays );
+
+      private:
+        friend class RuntimeRenderer;
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+        friend struct RuntimeRendererWorldOverlayTransactionTestAccess;
+        explicit WorldOverlayTransaction( std::nullptr_t ) noexcept : m_renderer( nullptr )
+        {
+        }
+#endif
+        WorldOverlayTransaction( RuntimeRenderer& renderer, const RenderCameraLighting& camera,
+                                 const WorldFrameSubmission& submission, int windowWidth, int windowHeight,
+                                 bool useCinematicTarget ) noexcept;
+        void BeginOverlaySubmissionOrFatal()
+        {
+            if ( !m_phase.TrySubmitOverlays() )
+            {
+                SB_FATAL( "RunRender", "World-to-overlay transaction received overlay submission twice." );
+            }
+        }
+
+        RuntimeRenderer* m_renderer = nullptr;
+        RenderCameraLighting m_camera;
+        SkullbonezCore::Core::CinematicRenderConfig m_cinematic;
+        RuntimeRenderFramePolicy m_policy;
+        Geometry::Terrain* m_terrain = nullptr;
+        const ReplayVisualPacket* m_replayVisual = nullptr;
+        int m_windowWidth = 1;
+        int m_windowHeight = 1;
+        bool m_useCinematicTarget = false;
+        WorldOverlayPhaseCursor m_phase;
     };
 
     RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::RenderBackendDX12& backend,
@@ -130,7 +211,7 @@ class RuntimeRenderer
         ResetDebugVisualizerTransientState( m_collisionVisualizer, m_physicsDebugVisualizer, m_broadphaseVisualizer );
     }
 
-    bool RenderFrameEntry( const WorldFrameSubmission& world, const OverlayFrameSubmission& overlays );
+    [[nodiscard]] WorldOverlayTransaction BeginWorldFrame( const WorldFrameSubmission& world );
     SkullbonezCore::Core::SbResult ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
     RenderResourceLifecycle& ResourceLifecycle()
     {
@@ -287,8 +368,8 @@ class RuntimeRenderer
         bool useCinematicTarget = false;
     };
     void EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight );
-    bool RenderPreparedFrame( const WorldFrameSubmission& world, const OverlayFrameSubmission& overlays,
-                              const SkullbonezCore::Core::CinematicRenderConfig& renderConfig, bool cinematicRender );
+    WorldOverlayTransaction RenderWorldFrame( const WorldFrameSubmission& world );
+    bool RenderFrameOverlays( const WorldOverlayTransaction& world, const OverlayFrameSubmission& overlays );
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
     void FinalizeFrameGraphInternal( const char* declarationOnlyPassName, bool appendPresent, bool releaseGraphStorage );
