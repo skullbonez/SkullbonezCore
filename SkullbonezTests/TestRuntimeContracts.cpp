@@ -1379,8 +1379,7 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
     Runtime::CollisionVisualizer collision;
     const uint8_t collisionContact = 1u;
     const uint8_t awake = 0u;
-    collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { bodies,
-                                                                    colliders,
+    collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { colliders,
                                                                     renderInstances,
                                                                     std::span<const uint8_t>( &collisionContact, 1 ),
                                                                     std::span<const uint8_t>( &awake, 1 ),
@@ -1402,7 +1401,7 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
         contacts[index].featureId = static_cast<uint32_t>( index );
     }
 
-    physicsDebug.Update( 0.0f, Runtime::PhysicsDebugFrameView { bodies, colliders, {}, {}, {}, contacts, {}, 0 } );
+    physicsDebug.Update( 0.0f, contacts );
     CHECK( physicsDebug.DiagnosticTrackedContactCount() ==
            Runtime::PhysicsDebugVisualizer::DiagnosticTrackedContactCapacity() );
     Runtime::RuntimeRenderer::ResetDebugVisualizerTransientState( collision, physicsDebug, broadphase );
@@ -1411,8 +1410,7 @@ TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" 
     CHECK( physicsDebug.DiagnosticTrackedContactCount() == 0u );
 
     const uint8_t noCollisionContact = 0u;
-    collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { bodies,
-                                                                    colliders,
+    collision.Update( 0.0f, Runtime::CollisionVisualizerFrameView { colliders,
                                                                     renderInstances,
                                                                     std::span<const uint8_t>( &noCollisionContact, 1 ),
                                                                     std::span<const uint8_t>( &awake, 1 ),

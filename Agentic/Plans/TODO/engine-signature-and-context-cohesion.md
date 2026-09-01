@@ -505,8 +505,8 @@ it is not an exception.
 | `Runtime/Planning/ReplayOverlayPackets.h:74-101` | `ReplayOverlayStateView` | Treat as top-level immutable overlay composition only; individual renderers consume their subview, never the full aggregate. |
 | `Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:445-452` | `ReplayPredictionFutureContext` | Definite repair: replace three mutable owner pointers with a topology builder method/owner and explicit collection input. |
 | `Runtime/Prediction/ReplayPredictionView.h:200-242` | `ReplayPredictionPresentationView` | Split trajectory, topology, marker, baseline-pose, and drag-preview views by renderer/planner consumer; retain one top-level composition only at App/UI projection. |
-| `Runtime/Render/CollisionVisualizer.h:69-78` | `CollisionVisualizerFrameView` | Keep only as an aligned visualizer input with model-count validation; prefer a Physics debug snapshot over live store borrows if already available. |
-| `Runtime/Render/PhysicsDebugVisualizer.h:55-65` | `PhysicsDebugFrameView` | Split contact, sleep, and pipeline overlays when independently enabled; each overlay receives only its rows. |
+| `Runtime/Render/CollisionVisualizer.h:69-77` | `CollisionVisualizerFrameView` | Repaired and retained as one aligned visualizer input. Publication clamps the shared model count to one Physics generation, update/render independently clamp the rows they index, and the unused live `PhysicsBodyStore` borrow is deleted. |
+| `Runtime/Render/PhysicsDebugVisualizer.h:55-89` | `PhysicsDebugFrameView` | Repaired: body geometry, contacts, sleep rows, and pipeline rows are separate views. The flag router holds only their composition; each overlay helper and the retained-contact update receive the exact child view they consume. |
 | `Runtime/Render/RuntimeRenderer.h:75-94` | `WorldFrameSubmission`, `OverlayFrameSubmission` | Repaired: world rendering receives model/camera/terrain/policy/world-extension/cinematic values; replay and tool overlays receive only debug, replay, retained geometry, and tool values. The deleted ten-part `FrameEntryContext` no longer crosses every phase. |
 | `Runtime/Render/RuntimeRenderFrameValues.h:126-188` | `RuntimeRenderFrameViews` child views | Repaired: model presentation, broadphase debug, collision debug, Physics debug, world-extension debug, and diagnostics are separate consumer values. App alone holds the publication envelope and Render receives exact child views. |
 | `Runtime/Render/RuntimeRenderHost.h:92-99` | `RenderWorldView` | Definite constructor/service bag candidate: transfer stable assets/window/config/environment ownership explicitly to `RuntimeRenderHost` or direct child owners. |
@@ -866,6 +866,20 @@ changed source/header targets under 36 compile contexts with zero findings.
 Formatting and whitespace checks pass; the grouped dependency, project-filter,
 and plain-language checks close with this slice before commit. No baseline or
 golden changed.
+
+The twelfth grouped slice repairs the Runtime render-debug presentation family.
+Physics debug body geometry, contacts, sleep state, and pipeline trace are now
+four typed child views; retained-contact update and every independently enabled
+overlay receive only their required rows. Collision debug no longer borrows the
+unused live `PhysicsBodyStore`. App publication validates one aligned model
+count, while collision update and render defensively clamp only the rows each
+phase indexes so optional color metadata keeps its established fallback.
+
+The Profile x64 solution builds warning-clean. The focused debug-visualizer
+contract passes one case and 17 assertions. Compiler-backed source-design passes
+nine targets under 63 compile contexts with zero findings. Formatting,
+dependency/project ownership, project filters, plain-language, and whitespace
+checks pass. No baseline or golden changed.
 
 ### SC4 Commit-Note Recovery And Enforcement
 

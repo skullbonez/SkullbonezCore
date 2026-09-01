@@ -257,32 +257,34 @@ int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstan
 
 bool HasCollisionVisualizerFrameView( const RuntimeRenderCollisionDebugView& collisionDebug )
 {
-    return collisionDebug.modelCount >= 0;
+    return collisionDebug.modelCount > 0;
 }
 
 CollisionVisualizerFrameView BuildCollisionVisualizerFrameView( const RuntimeRenderCollisionDebugView& collisionDebug )
 {
-    return CollisionVisualizerFrameView { collisionDebug.bodyStore,       collisionDebug.colliders,
-                                          collisionDebug.renderInstances, collisionDebug.collisionVisualContacts,
-                                          collisionDebug.sleepStates,     collisionDebug.sleepIslandVisualIds,
+    return CollisionVisualizerFrameView { collisionDebug.colliders,
+                                          collisionDebug.renderInstances,
+                                          collisionDebug.collisionVisualContacts,
+                                          collisionDebug.sleepStates,
+                                          collisionDebug.sleepIslandVisualIds,
                                           collisionDebug.modelCount };
 }
 
 bool HasPhysicsDebugFrameView( const RuntimeRenderPhysicsDebugView& physicsDebug )
 {
-    return physicsDebug.modelCount >= 0;
+    return physicsDebug.modelCount > 0;
 }
 
 PhysicsDebugFrameView BuildPhysicsDebugFrameView( const RuntimeRenderPhysicsDebugView& physicsDebug )
 {
-    return PhysicsDebugFrameView { physicsDebug.bodyStore,
-                                   physicsDebug.colliders,
-                                   physicsDebug.sleepStates,
-                                   physicsDebug.sleepSupportedStates,
-                                   physicsDebug.sleepInhibitedStates,
-                                   physicsDebug.physicsDebugContacts,
-                                   physicsDebug.physicsPipelineTrace,
-                                   physicsDebug.modelCount };
+    const PhysicsDebugBodyView bodies { physicsDebug.bodyStore, physicsDebug.colliders, physicsDebug.modelCount };
+    return PhysicsDebugFrameView {
+        bodies,
+        PhysicsDebugContactView { physicsDebug.bodyStore, physicsDebug.physicsDebugContacts },
+        PhysicsDebugSleepView { bodies, physicsDebug.sleepStates, physicsDebug.sleepSupportedStates,
+                                physicsDebug.sleepInhibitedStates },
+        PhysicsDebugPipelineView { physicsDebug.bodyStore, physicsDebug.physicsPipelineTrace },
+    };
 }
 
 void BindRenderTextureSlots( SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures, uint32_t slot0, uint32_t slot1,

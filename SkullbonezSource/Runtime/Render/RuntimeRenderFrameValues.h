@@ -141,7 +141,6 @@ struct RuntimeRenderBroadphaseDebugView
 
 struct RuntimeRenderCollisionDebugView
 {
-    const Physics::PhysicsBodyStore& bodyStore;
     const Physics::ColliderStore& colliders;
     Rendering::RenderInstanceStore& renderInstances;
     std::span<const uint8_t> collisionVisualContacts;

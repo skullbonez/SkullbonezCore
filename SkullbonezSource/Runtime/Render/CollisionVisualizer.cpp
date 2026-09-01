@@ -44,7 +44,6 @@ Related:
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/ConvexHullShape.h"
-#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/PrimitiveMeshBuilder.h"
 #include "../../Core/Common.h"
 
@@ -91,6 +90,22 @@ class CollisionVisualizerTraceScope
     Dx12Diagnostics& m_renderDiagnostics;
     uint32_t m_hash = 0;
 };
+
+int CollisionUpdateModelCount( const CollisionVisualizerFrameView& view )
+{
+    // Contact and sleep rows are the only retained-cache inputs. Island ids are
+    // optional display metadata, so a missing row keeps the established fallback.
+    return (std::max)( 0, (std::min)( { view.modelCount, static_cast<int>( view.collisionContacts.size() ),
+                                        static_cast<int>( view.sleepStates.size() ) } ) );
+}
+
+int CollisionRenderModelCount( const CollisionVisualizerFrameView& view )
+{
+    // Render requires aligned collider and instance rows. Contact, sleep, and
+    // island rows remain optional because their color paths have explicit defaults.
+    return (std::max)( 0, (std::min)( { view.modelCount, static_cast<int>( view.colliders.Records().size() ),
+                                        static_cast<int>( view.renderInstances.Records().size() ) } ) );
+}
 } // namespace
 
 CollisionVisualizer::CollisionVisualizer()
@@ -210,8 +225,9 @@ void CollisionVisualizer::BuildBoxMesh( Dx12GeometryOwner& renderGeometry )
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::BoxTriangleVertexCount() * 6 );
 
-    PrimitiveMeshes::EmitUnitBox( [&]( const PrimitiveMeshes::VertexPNUV& vertex )
-                                  { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz } ); } );
+    PrimitiveMeshes::EmitUnitBox(
+        [&]( const PrimitiveMeshes::VertexPNUV& vertex )
+        { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz } ); } );
 
     m_boxVertexCount = PrimitiveMeshes::BoxTriangleVertexCount();
 
@@ -226,8 +242,7 @@ void CollisionVisualizer::BuildBoxMesh( Dx12GeometryOwner& renderGeometry )
 }
 
 
-void CollisionVisualizer::EnsureGpuResources( Assets::AssetSystem& assets,
-                                              Rendering::Dx12ResourceBuilder& renderResources,
+void CollisionVisualizer::EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
                                               Rendering::Dx12GeometryOwner& renderGeometry )
 {
     // Lifetime: ObjectPass invokes this only inside the BackendInit allocation
@@ -285,7 +300,7 @@ void CollisionVisualizer::Update( float dt, const CollisionVisualizerFrameView& 
     //   sleeping object: collision flash forced to zero; sleep palette wins
     //   contact object:  collision amount snaps to 1.0
     //   otherwise:       collision amount fades back toward 0.0 over FADE_DURATION
-    const int modelCount = view.modelCount;
+    const int modelCount = CollisionUpdateModelCount( view );
 
     if ( static_cast<int>( m_models.size() ) != modelCount )
     {
@@ -503,7 +518,8 @@ void CollisionVisualizer::Render( Rendering::Dx12GeometryOwner& renderGeometry,
                                   Rendering::Dx12Diagnostics& renderDiagnostics, const CollisionVisualizerFrameView& view,
                                   const Matrix4& cameraView, const Matrix4& proj, const float lightPos[4] )
 {
-    if ( !m_enabled || view.modelCount <= 0 )
+    const int modelCount = CollisionRenderModelCount( view );
+    if ( !m_enabled || modelCount <= 0 )
     {
         return;
     }
@@ -523,9 +539,6 @@ void CollisionVisualizer::Render( Rendering::Dx12GeometryOwner& renderGeometry,
     // triangle data instead of reusing a cached static mesh.
     const auto colliders = view.colliders.Records();
     const auto instances = view.renderInstances.Records();
-    const int modelCount = (std::min)( view.modelCount, (std::min)( static_cast<int>( colliders.size() ),
-                                                                    static_cast<int>( instances.size() ) ) );
-
     for ( int i = 0; i < modelCount; ++i )
     {
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];

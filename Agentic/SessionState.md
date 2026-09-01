@@ -1557,3 +1557,15 @@ submission. Profile builds warning-clean; the focused seam passes five
 assertions, and compiler-backed source-design passes five targets under 36
 contexts with zero findings. The renderer's pre-existing large coordinator was
 left untouched after the first scan correctly rejected reopening it.
+
+The twelfth SC4 slice repairs Runtime render-debug presentation as one owner
+group. Physics body geometry, contact, sleep, and pipeline overlays now receive
+four exact child views, and retained-contact update cannot reach unrelated
+diagnostics. Collision visualization drops its unused live body-store borrow;
+App publication and the two collision phases clamp the model rows they index.
+Profile builds warning-clean and the focused debug-visualizer contract passes
+one case and 17 assertions. Compiler-backed source-design passes nine targets
+under 63 compile contexts with zero findings; format, dependency/project
+ownership, project-filter, and plain-language gates pass. SC4 remains task 5/8;
+SC7 remains the required closure and the stale active-goal label ending at SC6
+is not a completion gate.

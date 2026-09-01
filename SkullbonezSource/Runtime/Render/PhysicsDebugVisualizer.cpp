@@ -312,7 +312,7 @@ void PhysicsDebugVisualizer::EmitRingXZ( const Vector3& center, float radius, fl
     }
 }
 
-void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugFrameView& view )
+void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugBodyView& view )
 {
     const auto& bodies = view.bodies.Records();
     const auto hotFields = view.bodies.HotFields();
@@ -339,7 +339,7 @@ void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugFrameView& view )
     }
 }
 
-void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugFrameView& view )
+void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugBodyView& view )
 {
     const auto& bodies = view.bodies.Records();
     const auto hotFields = view.bodies.HotFields();
@@ -372,7 +372,7 @@ void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugFrameVi
     }
 }
 
-void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugFrameView& view )
+void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugContactView& view )
 {
     // Yellow cross = contact point. Cyan arrow = normal push direction. Orange
     // lines = the two sideways friction axes. A gray body-to-body line helps
@@ -402,7 +402,7 @@ void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugFrameView& view )
     }
 }
 
-void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugFrameView& view )
+void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugSleepView& view )
 {
     // Purple marks sleeping bodies, green marks credible support, and orange
     // marks sleep inhibition. This helps distinguish "touching" from "allowed
@@ -410,10 +410,10 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugFrameView& view )
     const auto sleepStates = view.sleepStates;
     const auto supportedStates = view.sleepSupportedStates;
     const auto inhibitedStates = view.sleepInhibitedStates;
-    const auto& bodies = view.bodies.Records();
-    const auto hotFields = view.bodies.HotFields();
-    const auto& colliders = view.colliders.Records();
-    const int count = (std::min)( view.modelCount,
+    const auto& bodies = view.bodies.bodies.Records();
+    const auto hotFields = view.bodies.bodies.HotFields();
+    const auto& colliders = view.bodies.colliders.Records();
+    const int count = (std::min)( view.bodies.modelCount,
                                   (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
 
     for ( int i = 0; i < count; ++i )
@@ -445,7 +445,7 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugFrameView& view )
     }
 }
 
-void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugFrameView& view )
+void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugPipelineView& view )
 {
     const auto records = view.pipelineTrace;
 
@@ -513,7 +513,7 @@ void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugFrameView& vie
     }
 }
 
-void PhysicsDebugVisualizer::EmitTerrainContactProbe( const PhysicsDebugFrameView& view, Geometry::Terrain* terrain )
+void PhysicsDebugVisualizer::EmitTerrainContactProbe( const PhysicsDebugBodyView& view, Geometry::Terrain* terrain )
 {
     if ( !terrain )
     {
@@ -583,7 +583,7 @@ void PhysicsDebugVisualizer::SetPipelineStageCursor( int cursor )
     m_pipelineStageCursor = cursor;
 }
 
-void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view )
+void PhysicsDebugVisualizer::Update( float dt, std::span<const PhysicsDebugContact> contacts )
 {
     // The C-key mode is bitmask based: axes, contacts, and sleep state can be
     // shown independently or together.  If contacts are disabled, discard the
@@ -593,8 +593,6 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
         m_trackedContacts.clear();
         return;
     }
-
-    const auto contacts = view.debugContacts;
 
     if ( m_contactLingerSeconds <= 0.0f )
     {
@@ -651,7 +649,7 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
 void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view, const Matrix4& viewProj,
                                      Dx12GeometryOwner& renderCommands, bool supportsDebugLines, Geometry::Terrain* terrain )
 {
-    if ( m_flags == PHYSICS_DEBUG_NONE || view.modelCount <= 0 || !supportsDebugLines )
+    if ( m_flags == PHYSICS_DEBUG_NONE || view.bodies.modelCount <= 0 || !supportsDebugLines )
     {
         return;
     }
@@ -663,28 +661,28 @@ void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view, const Ma
     // leave on while investigating solver state in large scenes.
     if ( ( m_flags & PHYSICS_DEBUG_AXES ) != 0 )
     {
-        EmitObjectAxes( view );
-        EmitConvexHullWireframes( view );
+        EmitObjectAxes( view.bodies );
+        EmitConvexHullWireframes( view.bodies );
     }
 
     if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) != 0 )
     {
-        EmitContacts( view );
+        EmitContacts( view.contacts );
     }
 
     if ( ( m_flags & PHYSICS_DEBUG_SLEEP ) != 0 )
     {
-        EmitSleepState( view );
+        EmitSleepState( view.sleep );
     }
 
     if ( ( m_flags & PHYSICS_DEBUG_PIPELINE ) != 0 )
     {
-        EmitPipelineStage( view );
+        EmitPipelineStage( view.pipeline );
     }
 
     if ( ( m_flags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0 )
     {
-        EmitTerrainContactProbe( view, terrain );
+        EmitTerrainContactProbe( view.bodies, terrain );
     }
 
     if ( !m_lineData.empty() )

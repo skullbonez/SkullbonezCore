@@ -52,16 +52,41 @@ class PhysicsBodyStore;
 namespace Runtime
 {
 
-struct PhysicsDebugFrameView
+struct PhysicsDebugBodyView
 {
     const Physics::PhysicsBodyStore& bodies;
     const Physics::ColliderStore& colliders;
+    int modelCount = 0;
+};
+
+struct PhysicsDebugContactView
+{
+    const Physics::PhysicsBodyStore& bodies;
+    std::span<const Physics::PhysicsDebugContact> contacts;
+};
+
+struct PhysicsDebugSleepView
+{
+    PhysicsDebugBodyView bodies;
     std::span<const uint8_t> sleepStates;
     std::span<const uint8_t> sleepSupportedStates;
     std::span<const uint8_t> sleepInhibitedStates;
-    std::span<const Physics::PhysicsDebugContact> debugContacts;
+};
+
+struct PhysicsDebugPipelineView
+{
+    const Physics::PhysicsBodyStore& bodies;
     std::span<const Physics::PhysicsPipelineRecord> pipelineTrace;
-    int modelCount = 0;
+};
+
+struct PhysicsDebugFrameView
+{
+    // Concept: this is composition for the flag router only. Each overlay below
+    // receives its exact detached rows and cannot reach sibling diagnostics.
+    PhysicsDebugBodyView bodies;
+    PhysicsDebugContactView contacts;
+    PhysicsDebugSleepView sleep;
+    PhysicsDebugPipelineView pipeline;
 };
 
 class PhysicsDebugVisualizer
@@ -71,8 +96,8 @@ class PhysicsDebugVisualizer
     // footprint. Other enabled layers share this staging and truncate only
     // visual output after it fills; they never grow storage during Render.
     static constexpr std::size_t LINE_FLOATS_PER_BODY_AXES = 3u * 3u * 12u;
-    static constexpr std::size_t LINE_FLOAT_CAPACITY =
-        static_cast<std::size_t>( Scene::Capacity::MAX_SCENE_OBJECTS ) * LINE_FLOATS_PER_BODY_AXES;
+    static constexpr std::size_t LINE_FLOAT_CAPACITY = static_cast<std::size_t>( Scene::Capacity::MAX_SCENE_OBJECTS ) *
+                                                       LINE_FLOATS_PER_BODY_AXES;
     static constexpr std::size_t TRACKED_CONTACT_CAPACITY = Scene::Capacity::MAX_SCENE_OBJECTS;
 
     struct TrackedContact
@@ -97,12 +122,12 @@ class PhysicsDebugVisualizer
     void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitContactGlyph( const Rendering::ContactPointPresentation& point, float normalImpulse, float fade );
     void EmitRingXZ( const Math::Vector::Vector3& center, float radius, float yOffset, float r, float g, float bl );
-    void EmitObjectAxes( const PhysicsDebugFrameView& view );
-    void EmitConvexHullWireframes( const PhysicsDebugFrameView& view );
-    void EmitContacts( const PhysicsDebugFrameView& view );
-    void EmitSleepState( const PhysicsDebugFrameView& view );
-    void EmitPipelineStage( const PhysicsDebugFrameView& view );
-    void EmitTerrainContactProbe( const PhysicsDebugFrameView& view, Geometry::Terrain* terrain );
+    void EmitObjectAxes( const PhysicsDebugBodyView& view );
+    void EmitConvexHullWireframes( const PhysicsDebugBodyView& view );
+    void EmitContacts( const PhysicsDebugContactView& view );
+    void EmitSleepState( const PhysicsDebugSleepView& view );
+    void EmitPipelineStage( const PhysicsDebugPipelineView& view );
+    void EmitTerrainContactProbe( const PhysicsDebugBodyView& view, Geometry::Terrain* terrain );
 
   public:
     PhysicsDebugVisualizer();
@@ -128,7 +153,7 @@ class PhysicsDebugVisualizer
     }
     void SetContactLingerSeconds( float seconds );
     void SetPipelineStageCursor( int cursor );
-    void Update( float dt, const PhysicsDebugFrameView& view );
+    void Update( float dt, std::span<const Physics::PhysicsDebugContact> contacts );
 
     std::size_t DiagnosticLineFloatCapacity() const
     {

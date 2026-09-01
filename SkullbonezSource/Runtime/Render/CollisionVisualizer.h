@@ -68,7 +68,6 @@ namespace Runtime
 
 struct CollisionVisualizerFrameView
 {
-    const Physics::PhysicsBodyStore& bodies;
     const Physics::ColliderStore& colliders;
     const Rendering::RenderInstanceStore& renderInstances;
     std::span<const uint8_t> collisionContacts;
@@ -90,13 +89,12 @@ enum class CollisionVisualizerResourceAction : uint8_t
     Draw,
 };
 
-constexpr CollisionVisualizerResourceAction ResolveCollisionVisualizerResourceAction(
-    CollisionVisualizerResourcePhase phase, bool resourcesReady )
+constexpr CollisionVisualizerResourceAction ResolveCollisionVisualizerResourceAction( CollisionVisualizerResourcePhase phase,
+                                                                                      bool resourcesReady )
 {
     if ( phase == CollisionVisualizerResourcePhase::BackendInit )
     {
-        return resourcesReady ? CollisionVisualizerResourceAction::Skip
-                              : CollisionVisualizerResourceAction::Prepare;
+        return resourcesReady ? CollisionVisualizerResourceAction::Skip : CollisionVisualizerResourceAction::Prepare;
     }
 
     return resourcesReady ? CollisionVisualizerResourceAction::Draw : CollisionVisualizerResourceAction::Skip;
@@ -131,7 +129,7 @@ class CollisionVisualizer
   private:
     struct TrackedModel
     {
-        float collisionAmount = 0.0f;                                                                          // 1=red contact highlight, 0=green idle; decays after contact stops.
+        float collisionAmount = 0.0f; // 1=red contact highlight, 0=green idle; decays after contact stops.
     };
 
     struct Color
@@ -140,7 +138,7 @@ class CollisionVisualizer
     };
 
     static constexpr float FADE_DURATION = 0.5f;
-    static constexpr int INSTANCE_FLOATS = 20;                                                                 // mat4 + rgba
+    static constexpr int INSTANCE_FLOATS = 20; // mat4 + rgba
 
     // Invariant: mirrors ConvexHullShape::MAX_FACES/MAX_FACE_VERTICES without
     // including the hull definition in this debug visualizer header.
@@ -159,10 +157,11 @@ class CollisionVisualizer
     int m_boxVertexCount = 0;
 
     std::vector<TrackedModel> m_models;
-    std::vector<int> m_sleepGroupSizes;                                                                        // Per-island body counts used to color sleep/debug groups.
-    std::vector<float> m_sphereInstanceData;                                                                   // CPU staging buffer for sphere instance matrices and colors.
-    std::vector<float> m_boxInstanceData;                                                                      // CPU staging buffer for box instance matrices and colors.
-    std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> m_hullDebugVertexData = {}; // CPU staging buffer for one convex-hull draw.
+    std::vector<int> m_sleepGroupSizes;      // Per-island body counts used to color sleep/debug groups.
+    std::vector<float> m_sphereInstanceData; // CPU staging buffer for sphere instance matrices and colors.
+    std::vector<float> m_boxInstanceData;    // CPU staging buffer for box instance matrices and colors.
+    std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> m_hullDebugVertexData =
+        {}; // CPU staging buffer for one convex-hull draw.
 
     void BuildSphereMesh( Rendering::Dx12GeometryOwner& renderGeometry );
     void BuildBoxMesh( Rendering::Dx12GeometryOwner& renderGeometry );

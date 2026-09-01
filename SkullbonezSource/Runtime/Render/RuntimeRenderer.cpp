@@ -1879,8 +1879,7 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
     PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
     m_collisionVisualizer.SetEnabled( policy.collisionVisualizer );
     m_collisionVisualizer.Update( secondsPerFrame,
-                                  CollisionVisualizerFrameView { debug.collision.bodyStore, debug.collision.colliders,
-                                                                 debug.collision.renderInstances,
+                                  CollisionVisualizerFrameView { debug.collision.colliders, debug.collision.renderInstances,
                                                                  debug.collision.collisionVisualContacts,
                                                                  debug.collision.sleepStates,
                                                                  debug.collision.sleepIslandVisualIds,
@@ -1891,13 +1890,7 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
     m_physicsDebugVisualizer.SetFlags( policy.physicsDebugFlags );
     m_physicsDebugVisualizer.SetContactLingerSeconds( policy.physicsDebugContactLinger );
     m_physicsDebugVisualizer.SetPipelineStageCursor( policy.physicsDebugPipelineStageCursor );
-    m_physicsDebugVisualizer.Update( secondsPerFrame,
-                                     PhysicsDebugFrameView { debug.physics.bodyStore, debug.physics.colliders,
-                                                             debug.physics.sleepStates, debug.physics.sleepSupportedStates,
-                                                             debug.physics.sleepInhibitedStates,
-                                                             debug.physics.physicsDebugContacts,
-                                                             debug.physics.physicsPipelineTrace,
-                                                             debug.physics.modelCount } );
+    m_physicsDebugVisualizer.Update( secondsPerFrame, debug.physics.physicsDebugContacts );
     PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
     PROFILE_END( "Frame/PostPhysics" );
