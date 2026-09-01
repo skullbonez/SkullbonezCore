@@ -1355,7 +1355,8 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     }
 
     m_sharedViewFingerprint = UI::FingerprintOperatorEditorFrameView( view );
-    const ImGuiEditorCausalityProjection causality = BuildImGuiEditorCausalityProjection( replay );
+    const ImGuiEditorCausalityProjection causality = BuildImGuiEditorCausalityProjection( replay.timeline,
+                                                                                          replay.causality );
 
     BuildEditorMenuAndDockspace( view.scene, view.hierarchy, view.tools );
     DrawSceneAndModesPanel( view.scene, view.tools );
@@ -1366,9 +1367,9 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     DrawWorldSimulationPanel( view.world );
     DrawRenderingPanel( view.rendering );
     DrawDiagnosticsPanel( view.diagnostics, view.rendering );
-    DrawCausalityPanel( causality, replay );
-    DrawCausalityDetailPanel( causality, replay );
-    DrawReplayPanel( view.forecast, replay );
+    DrawCausalityPanel( causality, replay.causality );
+    DrawCausalityDetailPanel( causality, replay.causality );
+    DrawReplayPanel( view.forecast, replay.timeline, replay.causality );
     DrawStatusPanel( view.lookLab, view.scene, view.tools );
     ApplyPendingPanelFocus();
 }
@@ -2777,7 +2778,7 @@ void ImGuiEditorOwner::DrawDiagnosticsPanel( const UI::OperatorEditorDiagnostics
 }
 
 void ImGuiEditorOwner::DrawCausalityPanel( const ImGuiEditorCausalityProjection& causality,
-                                           const ReplayOverlay::ReplayOverlayStateView& replay )
+                                           const ReplayOverlay::ReplayOverlayCausalityView& replayCausality )
 {
     if ( !m_showCausality )
     {
@@ -2849,7 +2850,7 @@ void ImGuiEditorOwner::DrawCausalityPanel( const ImGuiEditorCausalityProjection&
 
             if ( ImGui::Selectable( linkLabel, false ) )
             {
-                const std::ptrdiff_t rowIndex = rowPointer - replay.causeTree.rows.data();
+                const std::ptrdiff_t rowIndex = rowPointer - replayCausality.tree.rows.data();
                 SubmitReplayCommand( UI::OperatorEditorReplayCommandType::SelectCauseRow, 0.0f,
                                      static_cast<int>( rowIndex ) );
             }
@@ -2879,7 +2880,7 @@ void ImGuiEditorOwner::DrawCausalityPanel( const ImGuiEditorCausalityProjection&
 }
 
 void ImGuiEditorOwner::DrawCausalityDetailPanel( const ImGuiEditorCausalityProjection& causality,
-                                                 const ReplayOverlay::ReplayOverlayStateView& replay )
+                                                 const ReplayOverlay::ReplayOverlayCausalityView& replayCausality )
 {
     if ( !m_showCausalityDetail )
     {
@@ -2893,7 +2894,7 @@ void ImGuiEditorOwner::DrawCausalityDetailPanel( const ImGuiEditorCausalityProje
         ImGui::End();
         return;
     }
-    const RunReplayCauseTreeState& tree = replay.causeTree;
+    const RunReplayCauseTreeState& tree = replayCausality.tree;
     ImGui::Text( "%zu published rows | %s | prediction %s", tree.rows.size(),
                  ImGuiEditorCausalityStateName( causality.status.state ),
                  ImGuiEditorPredictionStateName( causality.status.predictionState ) );
@@ -2989,7 +2990,8 @@ void ImGuiEditorOwner::DrawCausalityDetailPanel( const ImGuiEditorCausalityProje
 }
 
 void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& forecast,
-                                        const ReplayOverlay::ReplayOverlayStateView& replay )
+                                        const ReplayOverlay::ReplayOverlayTimelineView& timeline,
+                                        const ReplayOverlay::ReplayOverlayCausalityView& causality )
 {
     if ( !m_showReplay )
     {
@@ -3001,19 +3003,19 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
         ImGui::End();
         return;
     }
-    const ReplayPresentationSelection& selection = replay.selection;
+    const ReplayPresentationSelection& selection = timeline.selection;
     const bool loaded = selection.loadedPresentation;
-    const bool hasRetainedTimeline = loaded ? selection.loadedSampleCount >= 2u : replay.solverStats.sampleCount >= 2u;
+    const bool hasRetainedTimeline = loaded ? selection.loadedSampleCount >= 2u : timeline.solverStats.sampleCount >= 2u;
 
-    const bool hasTimeline = hasRetainedTimeline || replay.predictionTimelineAvailable;
+    const bool hasTimeline = hasRetainedTimeline || timeline.predictionTimelineAvailable;
     const bool compact = ImGui::GetContentRegionAvail().x < 1180.0f * m_frameInput.dpiScale;
-    const float trackPosition = loaded ? replay.scrubber.presentationPosition : replay.scrubber.solverPosition;
+    const float trackPosition = loaded ? timeline.scrubber.presentationPosition : timeline.scrubber.solverPosition;
     ReplayFrameIndex selectedTick = 0;
     bool hasSelectedTick = false;
 
-    if ( replay.selectedPrediction )
+    if ( timeline.selectedPrediction )
     {
-        selectedTick = replay.selectedPrediction->frameIndex;
+        selectedTick = timeline.selectedPrediction->frameIndex;
         hasSelectedTick = true;
     }
     else if ( selection.selectedSolver )
@@ -3027,20 +3029,21 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
         hasSelectedTick = true;
     }
 
-    const bool recordingMutable = replay.recordingConfigured && !replay.recordingLockedByHashLog;
+    const bool recordingMutable = timeline.recordingConfigured && !timeline.recordingLockedByHashLog;
     ImGui::BeginDisabled( !recordingMutable );
 
-    if ( ImGui::Button( replay.recordingEnabled ? "STOP" : "REC" ) )
+    if ( ImGui::Button( timeline.recordingEnabled ? "STOP" : "REC" ) )
     {
-        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, !replay.recordingEnabled );
+        SubmitReplayCommand( UI::OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1,
+                             !timeline.recordingEnabled );
     }
 
     ImGui::EndDisabled();
 
     if ( !recordingMutable && ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
     {
-        ImGui::SetTooltip( "%s", replay.recordingLockedByHashLog ? "Hash-log capture is fixed by launch policy"
-                                                                 : "Launch with replay enabled to reserve recording" );
+        ImGui::SetTooltip( "%s", timeline.recordingLockedByHashLog ? "Hash-log capture is fixed by launch policy"
+                                                                   : "Launch with replay enabled to reserve recording" );
     }
 
     ImGui::SameLine();
@@ -3059,10 +3062,10 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
     }
 
     ImGui::SameLine();
-    const char* playPauseLabel = replay.scrubber.historicalSamplePaused || replay.scrubber.liveAdvanceHeld
+    const char* playPauseLabel = timeline.scrubber.historicalSamplePaused || timeline.scrubber.liveAdvanceHeld
                                      ? ( compact ? ">" : "PLAY" )
                                      : ( compact ? "||" : "PAUSE" );
-    ImGui::BeginDisabled( replay.prediction.controls.enabled );
+    ImGui::BeginDisabled( timeline.prediction.controls.enabled );
 
     if ( ImGui::Button( playPauseLabel ) )
     {
@@ -3099,14 +3102,14 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
     {
         ImGui::TextDisabled( "%s  tick %llu  %zu/%zu", loaded ? "FILE" : "SOLVER",
                              static_cast<unsigned long long>( selectedTick ),
-                             loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
-                             loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity );
+                             loaded ? selection.loadedSampleCount : timeline.solverStats.sampleCount,
+                             loaded ? selection.loadedSampleCount : timeline.solverStats.sampleCapacity );
     }
     else
     {
         ImGui::TextDisabled( "%s  tick --  %zu/%zu", loaded ? "FILE" : "SOLVER",
-                             loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
-                             loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity );
+                             loaded ? selection.loadedSampleCount : timeline.solverStats.sampleCount,
+                             loaded ? selection.loadedSampleCount : timeline.solverStats.sampleCapacity );
     }
 
     float scrubPosition = trackPosition;
@@ -3131,11 +3134,11 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
                                          IM_COL32( 255, 196, 64, 255 ), 2.0f );
 
     ImGui::SameLine();
-    const char* predictionLabel = replay.prediction.controls.building
+    const char* predictionLabel = timeline.prediction.controls.building
                                       ? ( compact ? "BUILD" : "PREDICTING" )
-                                      : ( replay.prediction.controls.enabled ? "PRED*" : "PRED" );
+                                      : ( timeline.prediction.controls.enabled ? "PRED*" : "PRED" );
 
-    ImGui::BeginDisabled( !replay.prediction.controls.generationPermitted );
+    ImGui::BeginDisabled( !timeline.prediction.controls.generationPermitted );
 
     if ( ImGui::Button( predictionLabel ) )
     {
@@ -3152,24 +3155,24 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
 
     if ( ImGui::BeginPopup( "##ReplayMore" ) )
     {
-        float revealSpeed = static_cast<float>( replay.prediction.controls.revealSecondsPerSecond );
+        float revealSpeed = static_cast<float>( timeline.prediction.controls.revealSecondsPerSecond );
 
         if ( ImGui::SliderFloat( "Reveal speed", &revealSpeed,
-                                 static_cast<float>( replay.prediction.controls.revealRateMinimum ),
-                                 static_cast<float>( replay.prediction.controls.revealRateMaximum ), "%.2fx" ) )
+                                 static_cast<float>( timeline.prediction.controls.revealRateMinimum ),
+                                 static_cast<float>( timeline.prediction.controls.revealRateMaximum ), "%.2fx" ) )
         {
             SubmitReplayCommand( UI::OperatorEditorReplayCommandType::SetRevealSpeed, revealSpeed );
         }
 
-        float horizon = replay.prediction.controls.horizonSeconds;
+        float horizon = timeline.prediction.controls.horizonSeconds;
 
-        if ( ImGui::SliderFloat( "Prediction horizon", &horizon, replay.predictionHorizonMinimum,
-                                 replay.predictionHorizonMaximum, "%.1fs" ) )
+        if ( ImGui::SliderFloat( "Prediction horizon", &horizon, timeline.predictionHorizonMinimum,
+                                 timeline.predictionHorizonMaximum, "%.1fs" ) )
         {
             SubmitReplayCommand( UI::OperatorEditorReplayCommandType::SetPredictionHorizon, horizon );
         }
 
-        ImGui::BeginDisabled( !replay.scrubber.historicalSamplePaused );
+        ImGui::BeginDisabled( !timeline.scrubber.historicalSamplePaused );
 
         if ( ImGui::MenuItem( "Restore as branch" ) )
         {
@@ -3183,16 +3186,14 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
             SubmitReplayCommand( UI::OperatorEditorReplayCommandType::Save );
         }
 
-        if ( ImGui::MenuItem( "Load replay..." ) )
+        if ( ImGui::MenuItem( "Load timeline..." ) )
         {
             SubmitReplayCommand( UI::OperatorEditorReplayCommandType::Load );
         }
 
-        if ( replay.causeTree.selectedRow >= 0 &&
-             replay.causeTree.selectedRow < static_cast<int>( replay.causeTree.rows.size() ) )
+        if ( causality.tree.selectedRow >= 0 && causality.tree.selectedRow < static_cast<int>( causality.tree.rows.size() ) )
         {
-            const RunReplayCauseTreeRow& row = replay.causeTree
-                                                   .rows[static_cast<std::size_t>( replay.causeTree.selectedRow )];
+            const RunReplayCauseTreeRow& row = causality.tree.rows[static_cast<std::size_t>( causality.tree.selectedRow )];
 
             ImGui::SeparatorText( "Selected cause" );
             ImGui::Text( "%s: %s", ImGuiEditorCauseRowKindName( row.kind ), row.name );
@@ -3201,10 +3202,10 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
         ImGui::EndPopup();
     }
 
-    if ( replay.scrubber.saveMessage[0] != '\0' )
+    if ( timeline.scrubber.saveMessage[0] != '\0' )
     {
         ImGui::SameLine();
-        ImGui::TextDisabled( "%s", replay.scrubber.saveMessage );
+        ImGui::TextDisabled( "%s", timeline.scrubber.saveMessage );
     }
     else if ( !hasTimeline )
     {

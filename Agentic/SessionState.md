@@ -1601,3 +1601,15 @@ across 90 contexts with zero remaining findings; formatting, dependency/project
 ownership, build-configuration, project-filter, plain-language, and whitespace
 checks pass. No baseline or golden changed. SC4 remains task 5/8; SC7 remains
 the required task 8/8 closure.
+
+The sixteenth SC4 slice separates Planning overlay reads into timeline/scrubber,
+planning-surface, and causality children. Cause inspection now exposes typed
+transport, selection, solver-evidence, and drawer-display projections while its
+flat inherited value layout preserves automation serialization. Individual
+renderers and editor panels no longer receive the complete overlay or cause
+inspection aggregate. Profile builds warning-clean; 40 focused cases and 703
+assertions pass; compiler-backed source-design passes 14 targets across 82
+contexts with zero findings. Formatting, dependency/project ownership,
+build-configuration, project-filter, plain-language, and whitespace checks
+pass. No baseline or golden changed. SC4 remains task 5/8; SC7 remains the
+required task 8/8 terminal closure.

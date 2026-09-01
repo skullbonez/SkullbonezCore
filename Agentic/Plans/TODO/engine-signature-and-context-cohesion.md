@@ -501,8 +501,8 @@ it is not an exception.
 | `Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:32-101` | `ImGuiEditorCausalityProjection` | Repaired: selected-cause pointers, bounded related rows, and projection status are separate values. `BuildEditorShell` now delegates exact panel slices instead of unpacking the complete editor frame in one 2,100-line operation. |
 | `Runtime/Direction/LookLabController.h:77-87` | `LookLabSaveRequest` | Likely keep as one synchronous save request after validating/copied strings and timestamp/offset rules; it already names a concrete operation. |
 | `Runtime/Interaction/OperatorEditorExchange.h:81-385` | `OperatorEditorInspectorView` and all `OperatorEditor*View` siblings | Review as one surface. Keep detached presentation groups only where different consumers use different subsets; merge duplicates and prevent any operation from receiving the complete slice set. |
-| `Runtime/Planning/ReplayCauseInspection.h:166-197` | `ReplayCauseInspectionView` | Split transport/selection, solver-detail availability, and display metrics if consumers use them independently. |
-| `Runtime/Planning/ReplayOverlayPackets.h:74-101` | `ReplayOverlayStateView` | Treat as top-level immutable overlay composition only; individual renderers consume their subview, never the full aggregate. |
+| `Runtime/Planning/ReplayCauseInspection.h:166-197` | `ReplayCauseInspectionView` | Repaired: transport, selection, solver evidence, and drawer display are typed child views. Runtime consumers receive only the child they use; the inherited flat value layout remains solely for stable automation serialization. |
+| `Runtime/Planning/ReplayOverlayPackets.h:74-101` | `ReplayOverlayStateView` | Repaired: timeline/scrubber, planning surfaces, and causality are separate child views under the App composition envelope. Intercept, trip-planner, porkchop, cause-tree, scrubber, and editor operations receive only their owned child values. |
 | `Runtime/Prediction/ReplayPredictionTopologyPublication.cpp` | retired `ReplayPredictionFutureContext` | Reconciled as repaired: the mutable three-owner context no longer exists. `ReplayPredictionFutureTopologyBuilder` owns topology construction and receives the node collection, detached scene facts, root identity, and ragdoll policy explicitly. |
 | `Runtime/Prediction/ReplayPredictionView.h` | `ReplayPredictionPresentationView` | Repaired: timeline, topology, trajectory, marker, baseline, drag-preview, controls, and diagnostics are separate immutable child views. App/UI alone carry the composition envelope; Planning entry points receive only timeline/topology/controls. |
 | `Runtime/Render/CollisionVisualizer.h:69-77` | `CollisionVisualizerFrameView` | Repaired and retained as one aligned visualizer input. Publication clamps the shared model count to one Physics generation, update/render independently clamp the rows they index, and the unused live `PhysicsBodyStore` borrow is deleted. |
@@ -939,6 +939,22 @@ findings (the full scan identified only the subsequently repaired test nesting,
 and its final two Debug/Profile contexts pass independently). Formatting,
 dependency/project ownership, build-configuration consistency, project filters,
 plain-language policy, and whitespace checks pass. No baseline or golden changed.
+
+The sixteenth grouped SC4 slice repairs Planning overlay read ownership. Cause
+inspection now exposes separate transport, selection, solver-evidence, and
+drawer-display views while retaining the flat automation value layout. Overlay
+composition is separated into timeline/scrubber, planning-surface, and
+causality views. Intercept, trip planner, porkchop, cause-tree, scrubber, and
+editor operations receive only their consumed child values; App alone carries
+the complete immutable overlay envelope.
+
+Profile x64 builds with zero warnings and errors. The focused cause, causality,
+Replay overlay, and Planning selection passes 40 cases and 703 assertions.
+Compiler-backed source-design passes all 14 changed source/header/test targets
+across 82 compile contexts with zero findings. Formatting, dependency and
+project ownership, build-configuration consistency, project filters,
+plain-language, and whitespace checks pass. No baseline or golden changed.
+SC4 remains task 5/8; SC7 remains the required task 8/8 terminal closure.
 
 ### SC4 Commit-Note Recovery And Enforcement
 

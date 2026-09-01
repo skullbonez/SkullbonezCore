@@ -619,7 +619,7 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
         };
         const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, seek, detailSource );
         const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
-        m_planningOwner.CauseInspection().PublishSolverDetail( inspection.generation, detail,
+        m_planningOwner.CauseInspection().PublishSolverDetail( inspection.Transport().generation, detail,
                                                                BuildReplayCauseContactPresentation( detail,
                                                                                                     *presentedSolver ) );
     }
@@ -637,7 +637,7 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
                                                                                                            *exactFrame )
                                                                     : Rendering::ContactManifoldPresentation {};
         const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
-        m_planningOwner.CauseInspection().PublishSolverDetail( inspection.generation, detail, manifold );
+        m_planningOwner.CauseInspection().PublishSolverDetail( inspection.Transport().generation, detail, manifold );
     }
 
     // Invariant: camera focus and transport generation begin in the same turn.
@@ -669,15 +669,16 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
     transition.Advance( input.now );
     const ReplayCauseInspectionView view = transition.View();
 
-    if ( view.mode == ReplayCauseInspectionMode::Transporting )
+    if ( view.Transport().mode == ReplayCauseInspectionMode::Transporting )
     {
         // Invariant: the same Planning-owned sample selects replay time and the
         // visible detail-camera pose. CameraCollection owns interpolation only.
-        world.Cameras().SetTweenProgress( view.easedProgress );
+        world.Cameras().SetTweenProgress( view.Transport().easedProgress );
     }
 
-    if ( view.mode == ReplayCauseInspectionMode::Transporting || view.mode == ReplayCauseInspectionMode::DetailPaused ||
-         view.mode == ReplayCauseInspectionMode::AftermathFollow )
+    if ( view.Transport().mode == ReplayCauseInspectionMode::Transporting ||
+         view.Transport().mode == ReplayCauseInspectionMode::DetailPaused ||
+         view.Transport().mode == ReplayCauseInspectionMode::AftermathFollow )
     {
         const float mouseScale = pointerBlocked ? 0.0f : input.cameraMouseRadiansPerPixel;
         const float yaw = static_cast<float>( camera.inputXMove ) * mouseScale;
@@ -713,7 +714,7 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
         // Planning retains only scalar availability facts for this generation.
         RunReplayCauseTreeRow selectedRow;
 
-        if ( sources.solverSample && m_authoring.TryGetCauseTreeRow( view.selectedRow, selectedRow ) )
+        if ( sources.solverSample && m_authoring.TryGetCauseTreeRow( view.Selection().selectedRow, selectedRow ) )
         {
             ReplayCauseSeekResult detailSeek;
             detailSeek.frame = selectedRow.firstFrame;
@@ -768,7 +769,7 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
     predictionSeek.availability = ReplayCauseSeekAvailability::Available;
     RunReplayCauseTreeRow selectedRow;
 
-    if ( m_authoring.TryGetCauseTreeRow( view.selectedRow, selectedRow ) )
+    if ( m_authoring.TryGetCauseTreeRow( view.Selection().selectedRow, selectedRow ) )
     {
         const ReplayPredictionCauseEvidencePacket& evidence = CopyPredictionCauseEvidence( selectedRow );
         const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, predictionSeek,
@@ -792,7 +793,7 @@ void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCa
 {
     ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
 
-    if ( requestedRow < 0 && exitCauseTreeInspection && inspection.mode == ReplayCauseInspectionMode::Inactive )
+    if ( requestedRow < 0 && exitCauseTreeInspection && inspection.Transport().mode == ReplayCauseInspectionMode::Inactive )
     {
         attachedCamera.EndFocusedInspection();
         ExitInspectionCamera( cameras, terrain, camera, input.normalizedRestoreMode, input.attachedFollow,
@@ -800,7 +801,7 @@ void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCa
         return;
     }
 
-    if ( ShouldBeginReplayCauseAftermath( inspection, input.spaceDown ) )
+    if ( ShouldBeginReplayCauseAftermath( inspection.Transport(), input.spaceDown ) )
     {
         bool releasePause = false;
 
@@ -823,7 +824,7 @@ void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCa
                            !causeInteractionActive;
     inspection = m_planningOwner.CauseInspectionView();
 
-    if ( !ShouldBeginReplayCauseReturn( inspection, nonSelectionClick || exitCauseTreeInspection, scrubExit ) )
+    if ( !ShouldBeginReplayCauseReturn( inspection.Transport(), nonSelectionClick || exitCauseTreeInspection, scrubExit ) )
     {
         return;
     }
@@ -895,9 +896,10 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     const ReplayCauseInspectionView preScrubberInspection = m_planningOwner.CauseInspection().View();
     const ReplayCauseInspectorLayout
-        preScrubberInspectorLayout = BuildReplayCauseInspectorLayout( preScrubberInspection, m_authoring.CauseTree(),
-                                                                      input.screenWidth, input.screenHeight,
-                                                                      preScrubberInspection.drawerProgress );
+        preScrubberInspectorLayout = BuildReplayCauseInspectorLayout( preScrubberInspection.SolverDetail(),
+                                                                      m_authoring.CauseTree(), input.screenWidth,
+                                                                      input.screenHeight,
+                                                                      preScrubberInspection.Display().drawerProgress );
     const RuntimePointerEvent& preScrubberPointer = inputRouter.RuntimeSnapshot().pointer;
     const bool pointerOverCauseWindow = causeWindowAvailable && preScrubberPointer.hasClientPosition &&
                                         ReplayCauseInspectorContainsPoint( preScrubberInspectorLayout,
@@ -980,15 +982,14 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     {
         const RuntimePointerEvent& pointer = inputRouter.RuntimeSnapshot().pointer;
         const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspection().View();
-        const ReplayCauseInspectorLayout inspectorLayout = BuildReplayCauseInspectorLayout( inspection,
-                                                                                            m_authoring.CauseTree(),
-                                                                                            input.screenWidth,
-                                                                                            input.screenHeight,
-                                                                                            inspection.drawerProgress );
+        const ReplayCauseInspectorLayout
+            inspectorLayout = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), m_authoring.CauseTree(),
+                                                               input.screenWidth, input.screenHeight,
+                                                               inspection.Display().drawerProgress );
         const RuntimeMouseEdges& pointerEdges = inputRouter.UiSnapshot().mouse;
 
-        if ( inspection.detailVisible && pointer.hasClientPosition && pointerEdges.leftPressed && !input.uiBlocksMouse &&
-             !scrubberOwnsMouse &&
+        if ( inspection.Display().detailVisible && pointer.hasClientPosition && pointerEdges.leftPressed &&
+             !input.uiBlocksMouse && !scrubberOwnsMouse &&
              ReplayCauseInspectorDrawerTitleContainsPoint( inspectorLayout, pointer.clientX, pointer.clientY ) )
         {
             RuntimeInteractionGesture gesture;
@@ -1255,8 +1256,8 @@ void ReplayRuntime::ApplyRestoredBranchTimeline( ReplayRestoreTransaction& trans
         if ( reset.preserveReplayInspection )
         {
             const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
-            reset.preserveReplaySourceTimeline = inspection.easedProgress < 1.0f ||
-                                                 inspection.transportFrame != inspection.targetFrame;
+            reset.preserveReplaySourceTimeline = inspection.Transport().easedProgress < 1.0f ||
+                                                 inspection.Transport().transportFrame != inspection.Transport().targetFrame;
         }
 
         SceneWorld& world = sceneController.Scene();

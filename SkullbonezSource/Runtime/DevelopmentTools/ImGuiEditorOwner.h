@@ -33,8 +33,10 @@ class Dx12ImGuiRendererOwner;
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+struct ReplayOverlayCausalityView;
 struct ReplayOverlayStateView;
-}
+struct ReplayOverlayTimelineView;
+} // namespace SkullbonezCore::Runtime::ReplayOverlay
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
 {
@@ -330,11 +332,12 @@ class ImGuiEditorOwner
     void DrawDiagnosticsPanel( const UI::OperatorEditorDiagnosticsView& diagnostics,
                                const UI::OperatorEditorRenderingView& rendering );
     void DrawCausalityPanel( const ImGuiEditorCausalityProjection& causality,
-                             const ReplayOverlay::ReplayOverlayStateView& replay );
+                             const ReplayOverlay::ReplayOverlayCausalityView& replayCausality );
     void DrawCausalityDetailPanel( const ImGuiEditorCausalityProjection& causality,
-                                   const ReplayOverlay::ReplayOverlayStateView& replay );
+                                   const ReplayOverlay::ReplayOverlayCausalityView& replayCausality );
     void DrawReplayPanel( const UI::OperatorEditorForecastView& forecast,
-                          const ReplayOverlay::ReplayOverlayStateView& replay );
+                          const ReplayOverlay::ReplayOverlayTimelineView& timeline,
+                          const ReplayOverlay::ReplayOverlayCausalityView& causality );
     void DrawStatusPanel( const UI::OperatorEditorLookLabView& lookLab, const UI::OperatorEditorSceneView& scene,
                           const UI::OperatorEditorToolView& tools );
     void ApplyPendingPanelFocus();

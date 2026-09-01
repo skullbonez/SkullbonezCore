@@ -241,7 +241,8 @@ ReplayCauseInspectionView ReplayPlanningRuntime::CauseInspectionView() const noe
 bool ReplayPlanningRuntime::HasActiveState() const noexcept
 {
     return m_interceptReadout.HasTarget() || m_guideArcs.Enabled() || m_porkchopPanel.Visible() ||
-           m_tripPlanner.RequiresLiveInput() || m_causeInspection.View().mode != ReplayCauseInspectionMode::Inactive;
+           m_tripPlanner.RequiresLiveInput() ||
+           m_causeInspection.View().Transport().mode != ReplayCauseInspectionMode::Inactive;
 }
 
 bool ReplayPlanningRuntime::HasInterceptTarget() const noexcept

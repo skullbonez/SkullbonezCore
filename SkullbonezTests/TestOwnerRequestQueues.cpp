@@ -113,7 +113,6 @@ struct SceneLoadTransactionTestAccess
         transaction.m_outputs.renderActivationSceneObjectCapacity = activationSceneObjectCapacity;
         transaction.m_outputs.renderActivationPending = activationPending;
     }
-
 };
 
 struct SceneGeneratedControlTransactionTestAccess
@@ -183,7 +182,7 @@ TEST_CASE( "Replay interaction requests own gesture and native-capture pairing" 
     CHECK_FALSE( request.RequestsNativeCapture() );
     CHECK_FALSE( request.ReleasesNativeCapture() );
 
-    const SkullbonezCore::Physics::PhysicsBodyHandle body{17u, 2u};
+    const SkullbonezCore::Physics::PhysicsBodyHandle body { 17u, 2u };
     request.RequestWorldOwner( ReplayWorldOwnerRequest::VelocityEdit );
     request.BeginVelocityDrag( 31, 47, body, 2, true );
     CHECK( request.WorldOwner() == ReplayWorldOwnerRequest::VelocityEdit );
@@ -216,7 +215,6 @@ TEST_CASE( "Runtime scene diagnostic facts reject invalid sentinel and count dom
     CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, 0, -1, 0, 0 ) );
     CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, 0, 0, -2, 0 ) );
     CHECK_FALSE( RuntimeSceneDiagnosticFacts::ValuesAreValid( 0, 0, 0, 0, 0, -1 ) );
-
 }
 
 
@@ -508,14 +506,16 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
 
     CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
-    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate, 0 );
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
-    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
     // Concept: the same index and unchanged entity count are still a distinct load attempt.
     scene.BeginLoadAttempt( 0, {} );
@@ -528,7 +528,8 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
                                 SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
 
     CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
-    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
     CHECK( clearObserver.LastAppliedGeneration() == 2 );
 }
 
@@ -993,11 +994,11 @@ TEST_CASE( "Generated-scene control transaction publishes follow-ups only for an
     CHECK( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.resetReplayTimeline );
     CHECK( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.scheduleProfileReset );
 
-    SceneGeneratedControlTransaction inactiveTransaction =
-        SceneGeneratedControlTransaction::ModelCount( 20, GeneratedObjectTypeOverride::Mixed, 100 );
+    SceneGeneratedControlTransaction
+        inactiveTransaction = SceneGeneratedControlTransaction::ModelCount( 20, GeneratedObjectTypeOverride::Mixed, 100 );
     REQUIRE( SceneGeneratedControlTransactionTestAccess::Resolve( inactiveTransaction, uiOverrides, sceneState ) );
     REQUIRE( SceneGeneratedControlTransactionTestAccess::RecordDrain( inactiveTransaction, false,
-                                                                       SkullbonezCore::Core::SbResult::Success() ) );
+                                                                      SkullbonezCore::Core::SbResult::Success() ) );
     REQUIRE( SceneGeneratedControlTransactionTestAccess::PublishAfterRepopulation( inactiveTransaction ) );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( inactiveTransaction ).action.clearToolRayHistory );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( inactiveTransaction ).action.resetReplayTimeline );
@@ -1228,12 +1229,12 @@ TEST_CASE( "Capture auto-cycle input validates schedule and population together"
 TEST_CASE( "Screenshot-and-exit naming honors the last separator of either kind" )
 {
     char output[256] = {};
-    REQUIRE( CaptureSystem::TryBuildScreenshotAndExitPath( "Scenes/recorded\\nested.scene.json", output,
-                                                           sizeof( output ) ) );
+    REQUIRE(
+        CaptureSystem::TryBuildScreenshotAndExitPath( "Scenes/recorded\\nested.scene.json", output, sizeof( output ) ) );
     CHECK_EQ( std::strcmp( output, "nested.scene.bmp" ), 0 );
 
-    REQUIRE( CaptureSystem::TryBuildScreenshotAndExitPath( "Scenes\\recorded/nested.scene.json", output,
-                                                           sizeof( output ) ) );
+    REQUIRE(
+        CaptureSystem::TryBuildScreenshotAndExitPath( "Scenes\\recorded/nested.scene.json", output, sizeof( output ) ) );
     CHECK_EQ( std::strcmp( output, "nested.scene.bmp" ), 0 );
 
     char tooSmall[4] = { 'x', 'x', 'x', '\0' };
@@ -1285,8 +1286,9 @@ TEST_CASE( "Screenshot byte publication preserves prior artifact on write and cl
     for ( const FailureCase& failure : failures )
     {
         SkullbonezCore::Core::SetAtomicTextFileTestFailure( failure.failure );
-        const SkullbonezCore::Core::SbResult result =
-            CaptureSystem::SaveScreenshotBytesAtomic( diagnostics, destinationText.c_str(), replacementBytes );
+        const SkullbonezCore::Core::SbResult result = CaptureSystem::SaveScreenshotBytesAtomic( diagnostics,
+                                                                                                destinationText.c_str(),
+                                                                                                replacementBytes );
         SkullbonezCore::Core::SetAtomicTextFileTestFailure( SkullbonezCore::Core::AtomicTextFileTestFailure::None );
         CHECK_FALSE( result.Ok() );
         CHECK_EQ( std::strcmp( result.ErrorOwner(), "Runtime/CaptureSystem" ), 0 );
@@ -1396,12 +1398,10 @@ TEST_CASE( "Scene render activation gates transition completion before a queued 
     CHECK_FALSE( SceneRenderActivationCompletesTransition( true, true, false ) );
     CHECK( SceneRenderActivationCompletesTransition( true, true, true ) );
 
-    CHECK_FALSE( SceneRequestBatchContinuesAfter(
-        SceneRequestType::LoadBrowserIndex,
-        SceneRenderActivationCompletesTransition( true, true, false ) ) );
-    CHECK( SceneRequestBatchContinuesAfter(
-        SceneRequestType::LoadBrowserIndex,
-        SceneRenderActivationCompletesTransition( true, true, true ) ) );
+    CHECK_FALSE( SceneRequestBatchContinuesAfter( SceneRequestType::LoadBrowserIndex,
+                                                  SceneRenderActivationCompletesTransition( true, true, false ) ) );
+    CHECK( SceneRequestBatchContinuesAfter( SceneRequestType::LoadBrowserIndex,
+                                            SceneRenderActivationCompletesTransition( true, true, true ) ) );
 }
 
 TEST_CASE( "Scene load transaction publishes detached render policy and activation capacity" )
@@ -1700,8 +1700,9 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
                                           { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
                  .Ok() );
 
-    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.rendering, { OperatorEditorRenderingCommandType::ToggleVsync } )
-                 .Ok() );
+    REQUIRE(
+        SubmitOperatorEditorCommand( diagnostics, secondary.rendering, { OperatorEditorRenderingCommandType::ToggleVsync } )
+            .Ok() );
 
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.replay,
                                           { OperatorEditorReplayCommandType::SetMemoryPolicy, 2, 45, 96 } )
@@ -1771,8 +1772,8 @@ TEST_CASE( "Operator editor queue rejects conflict and malformed surface values"
 TEST_CASE( "Operator editor replay transport validates values and arbitrates one owner action" )
 {
     using namespace SkullbonezCore::UI;
-    const auto replayCommand = []( OperatorEditorReplayCommandType type,
-                                  float value = 0.0f, int rowIndex = -1, bool enabled = false )
+    const auto replayCommand =
+        []( OperatorEditorReplayCommandType type, float value = 0.0f, int rowIndex = -1, bool enabled = false )
     {
         OperatorEditorReplayCommand command;
 
@@ -1784,9 +1785,10 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
     };
 
     OperatorEditorReplayCommandQueue valid;
-    CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
-                                        replayCommand( OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, true ) )
-               .Ok() );
+    CHECK(
+        SubmitOperatorEditorCommand( diagnostics, valid,
+                                     replayCommand( OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, true ) )
+            .Ok() );
 
     CHECK( SubmitOperatorEditorCommand( diagnostics, valid, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.5f ) )
                .Ok() );
@@ -1985,9 +1987,10 @@ TEST_CASE( "Operator editor world previews stay local and commits project to est
     CHECK( arbitration.coalescedDuplicateCommands == 20u );
 
     OperatorEditorPropertyCommandQueue invalid;
-    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
-                                              OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
-                     .Ok() );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( diagnostics, invalid,
+                                     OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
+            .Ok() );
 }
 
 TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
@@ -2079,9 +2082,8 @@ TEST_CASE( "ImGui diagnostics scalar controls project the shared operator policy
           Policy::UI_CONTACT_LINGER_MAX, Policy::UI_CONTACT_LINGER_STEP },
         { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, Policy::UI_RAY_IMPULSE_MIN,
           Policy::UI_RAY_IMPULSE_MAX, Policy::UI_RAY_IMPULSE_STEP },
-        { OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed,
-          Policy::UI_LAUNCHER_PROJECTILE_SPEED_MIN, Policy::UI_LAUNCHER_PROJECTILE_SPEED_MAX,
-          Policy::UI_LAUNCHER_PROJECTILE_SPEED_STEP },
+        { OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed, Policy::UI_LAUNCHER_PROJECTILE_SPEED_MIN,
+          Policy::UI_LAUNCHER_PROJECTILE_SPEED_MAX, Policy::UI_LAUNCHER_PROJECTILE_SPEED_STEP },
     };
 
     for ( const ExpectedPolicy& row : expected )
@@ -2093,9 +2095,8 @@ TEST_CASE( "ImGui diagnostics scalar controls project the shared operator policy
         CHECK( policy.step == doctest::Approx( row.step ) );
     }
 
-    CHECK_FALSE( ResolveImGuiEditorDiagnosticsControlPolicy(
-                     OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag )
-                     .valid );
+    CHECK_FALSE(
+        ResolveImGuiEditorDiagnosticsControlPolicy( OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag ).valid );
 }
 
 TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner projection" )
@@ -2147,9 +2148,10 @@ TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner pro
                                           { OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, 4 } )
                  .Ok() );
 
-    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.diagnostics,
-                                          { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0, 125.0f } )
-                 .Ok() );
+    REQUIRE(
+        SubmitOperatorEditorCommand( diagnostics, commits.diagnostics,
+                                     { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0, 125.0f } )
+            .Ok() );
 
     InGameUICommands projected;
     REQUIRE( ProjectOperatorEditorCommands( diagnostics, commits, projected ).Ok() );
@@ -2205,9 +2207,10 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     create.type = OperatorEditorSceneCommandType::CreateScene;
     strcpy_s( create.sceneName, "typed-editor-scene" );
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene, create ).Ok() );
-    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
-                                          OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
-                 .Ok() );
+    REQUIRE(
+        SubmitOperatorEditorCommand( diagnostics, secondary.scene,
+                                     OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
+            .Ok() );
 
     REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
                                           OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SaveCurrentScene } )
@@ -2254,14 +2257,16 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     CHECK( projected.editor.requestDeleteSelection );
 
     OperatorEditorToolCommandQueue malformed;
-    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
-                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 0u } )
-                     .Ok() );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( diagnostics, malformed,
+                                     OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 0u } )
+            .Ok() );
 
-    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
-                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u,
-                                                                          37 } )
-                     .Ok() );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( diagnostics, malformed,
+                                     OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u,
+                                                                 37 } )
+            .Ok() );
 }
 
 TEST_CASE( "Operator editor tool commands coalesce and project into established owner packets" )
@@ -2303,9 +2308,10 @@ TEST_CASE( "Operator editor tool commands coalesce and project into established 
     CHECK( gameUi.scene.requestSingleStep );
 
     OperatorEditorToolCommandQueue malformed;
-    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
-                                              OperatorEditorToolCommand { static_cast<OperatorEditorToolCommandType>( 255 ) } )
-                     .Ok() );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( diagnostics, malformed,
+                                     OperatorEditorToolCommand { static_cast<OperatorEditorToolCommandType>( 255 ) } )
+            .Ok() );
 
     CHECK( malformed.count == 0u );
 }
@@ -2374,20 +2380,18 @@ TEST_CASE( "Editor lifecycle policies retain acknowledged state and require comp
     const uint32_t requestedMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK &
                                    ~ImGuiEditorPanelBit( ImGuiEditorPanelId::GameViewport );
     CHECK( ResolveImGuiEditorPanelMaskAfterDockBuild( requestedMask ) == requestedMask );
-    CHECK( ResolveImGuiEditorPanelMaskAfterDockBuild( (std::numeric_limits<uint32_t>::max)() ) ==
+    CHECK( ResolveImGuiEditorPanelMaskAfterDockBuild( ( std::numeric_limits<uint32_t>::max )() ) ==
            IMGUI_EDITOR_ALL_PANEL_MASK );
 
-    const uint32_t staleMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK &
-                               ~ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics );
+    const uint32_t staleMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK & ~ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics );
     uint32_t resetThenHideGame = ResetImGuiEditorPanelMask();
-    resetThenHideGame =
-        ResolveImGuiEditorPanelVisibilityCommand( resetThenHideGame, ImGuiEditorPanelId::GameViewport, false );
+    resetThenHideGame = ResolveImGuiEditorPanelVisibilityCommand( resetThenHideGame, ImGuiEditorPanelId::GameViewport,
+                                                                  false );
     CHECK( ResolveImGuiEditorPanelMaskAfterDockBuild( resetThenHideGame ) == resetThenHideGame );
     CHECK( ( resetThenHideGame & ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics ) ) != 0u );
     CHECK( ( resetThenHideGame & ImGuiEditorPanelBit( ImGuiEditorPanelId::GameViewport ) ) == 0u );
 
-    uint32_t hideThenReset =
-        ResolveImGuiEditorPanelVisibilityCommand( staleMask, ImGuiEditorPanelId::GameViewport, false );
+    uint32_t hideThenReset = ResolveImGuiEditorPanelVisibilityCommand( staleMask, ImGuiEditorPanelId::GameViewport, false );
     hideThenReset = ResetImGuiEditorPanelMask();
     CHECK( hideThenReset == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
 
@@ -2404,8 +2408,8 @@ TEST_CASE( "Editor lifecycle policies retain acknowledged state and require comp
     const ImGuiEditorPanelId requestedFocus = ImGuiEditorPanelId::CausalityDetail;
     CHECK( ResolveImGuiPendingFocusAfterVisibility( requestedFocus, ImGuiEditorPanelId::Diagnostics, false ) ==
            requestedFocus );
-    const ImGuiEditorPanelId cancelledFocus =
-        ResolveImGuiPendingFocusAfterVisibility( requestedFocus, requestedFocus, false );
+    const ImGuiEditorPanelId cancelledFocus = ResolveImGuiPendingFocusAfterVisibility( requestedFocus, requestedFocus,
+                                                                                       false );
     CHECK( cancelledFocus == ImGuiEditorPanelId::Count );
     CHECK( ResolveImGuiPendingFocusAfterVisibility( cancelledFocus, requestedFocus, true ) == ImGuiEditorPanelId::Count );
 
@@ -2498,26 +2502,27 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     RunReplayVelocityEditState velocity;
     RunReplayCauseTreeState tree;
     ReplayRecorderStats solverStats;
-    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop,    planner, path,
-                                    velocity, tree,       {},        solverStats, 1.0f,    120.0f };
+    ReplayOverlayStateView replay { { scrubber, prediction, path, velocity, solverStats, 1.0f, 120.0f },
+                                    { intercept, porkchop, planner },
+                                    { tree, {}, ReplayPredictionDetailMode::High } };
 
-    CHECK( replay.prediction.controls.revealRateMinimum == doctest::Approx( 1.0 ) );
-    CHECK( replay.prediction.controls.revealRateMaximum == doctest::Approx( 1000.0 ) );
-    CHECK( replay.predictionHorizonMinimum == doctest::Approx( 1.0f ) );
-    CHECK( replay.predictionHorizonMaximum == doctest::Approx( 120.0f ) );
+    CHECK( replay.timeline.prediction.controls.revealRateMinimum == doctest::Approx( 1.0 ) );
+    CHECK( replay.timeline.prediction.controls.revealRateMaximum == doctest::Approx( 1000.0 ) );
+    CHECK( replay.timeline.predictionHorizonMinimum == doctest::Approx( 1.0f ) );
+    CHECK( replay.timeline.predictionHorizonMaximum == doctest::Approx( 120.0f ) );
 
-    ImGuiEditorCausalityProjection projection = BuildImGuiEditorCausalityProjection( replay );
+    ImGuiEditorCausalityProjection projection = BuildImGuiEditorCausalityProjection( replay.timeline, replay.causality );
     CHECK( projection.status.state == ImGuiEditorCausalityState::Empty );
     CHECK( projection.related.Rows().empty() );
 
     path.hasTarget = true;
     path.targetId.value = 17u;
-    projection = BuildImGuiEditorCausalityProjection( replay );
+    projection = BuildImGuiEditorCausalityProjection( replay.timeline, replay.causality );
     CHECK( projection.status.state == ImGuiEditorCausalityState::CapacityLimited );
 
     tree.rows.reserve( 32u );
     tree.focusedId.value = 17u;
-    projection = BuildImGuiEditorCausalityProjection( replay );
+    projection = BuildImGuiEditorCausalityProjection( replay.timeline, replay.causality );
     CHECK( projection.status.state == ImGuiEditorCausalityState::Stale );
 
     RunReplayCauseTreeRow root;
@@ -2538,12 +2543,12 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
 
     ReplaySolverFrameSample selectedSolver;
     selectedSolver.frameIndex = 42u;
-    replay.selection.selectedSolver = &selectedSolver;
-    replay.prediction.controls.enabled = true;
-    replay.prediction.controls.building = true;
-    replay.prediction.topology.targetId.value = 17u;
+    replay.timeline.selection.selectedSolver = &selectedSolver;
+    replay.timeline.prediction.controls.enabled = true;
+    replay.timeline.prediction.controls.building = true;
+    replay.timeline.prediction.topology.targetId.value = 17u;
 
-    projection = BuildImGuiEditorCausalityProjection( replay );
+    projection = BuildImGuiEditorCausalityProjection( replay.timeline, replay.causality );
     REQUIRE( projection.selected.selectedObjectRow != nullptr );
     REQUIRE( projection.selected.immediateCauseRow != nullptr );
     CHECK( projection.status.state == ImGuiEditorCausalityState::Ready );
@@ -2564,7 +2569,7 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
         tree.rows.push_back( detail );
     }
 
-    projection = BuildImGuiEditorCausalityProjection( replay );
+    projection = BuildImGuiEditorCausalityProjection( replay.timeline, replay.causality );
     CHECK( projection.status.state == ImGuiEditorCausalityState::Truncated );
     CHECK( projection.related.Rows().size() == IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY );
     CHECK( projection.status.compactScanTruncated );

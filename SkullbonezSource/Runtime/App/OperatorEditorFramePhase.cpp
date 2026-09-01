@@ -819,7 +819,7 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
                                         m_sceneController.CrossScenePauseLocked(),
                                         debug.isTopTextHidden,
                                         scene.isTestComplete,
-                                        replayOverlay.shouldRenderScrubber,
+                                        replayOverlay.timeline.shouldRenderScrubber,
                                         replayPathVisualizerHasTarget,
                                         ProjectUiCameraBadgeMode( m_camera.mode ) != UiCameraBadgeMode::Quiet };
 

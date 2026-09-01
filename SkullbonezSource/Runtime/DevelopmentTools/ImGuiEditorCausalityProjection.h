@@ -145,11 +145,12 @@ inline const char* ImGuiEditorCauseRowKindName( RunReplayCauseTreeRowKind kind )
 }
 
 inline ImGuiEditorCausalityProjection
-BuildImGuiEditorCausalityProjection( const ReplayOverlay::ReplayOverlayStateView& replay ) noexcept
+BuildImGuiEditorCausalityProjection( const ReplayOverlay::ReplayOverlayTimelineView& timeline,
+                                     const ReplayOverlay::ReplayOverlayCausalityView& causality ) noexcept
 {
     ImGuiEditorCausalityProjection projection;
-    const RunReplayCauseTreeState& tree = replay.causeTree;
-    const ReplayPresentationSelection& selection = replay.selection;
+    const RunReplayCauseTreeState& tree = causality.tree;
+    const ReplayPresentationSelection& selection = timeline.selection;
     projection.status.totalRowCount = tree.rows.size();
 
     const auto setTick = [&]( const auto* sample ) -> bool
@@ -164,28 +165,28 @@ BuildImGuiEditorCausalityProjection( const ReplayOverlay::ReplayOverlayStateView
         return true;
     };
 
-    if ( !setTick( replay.selectedPrediction ) && !setTick( selection.selectedSolver ) &&
+    if ( !setTick( timeline.selectedPrediction ) && !setTick( selection.selectedSolver ) &&
          !setTick( selection.selectedPresentation ) && !setTick( selection.currentSolver ) &&
          !setTick( selection.currentPresentation ) && !setTick( selection.latestSolver ) )
     {
         (void)setTick( selection.latestPresentation );
     }
 
-    if ( !projection.status.hasReplayTick && replay.prediction.timeline.sourceFrame != 0 )
+    if ( !projection.status.hasReplayTick && timeline.prediction.timeline.sourceFrame != 0 )
     {
-        projection.status.replayTick = replay.prediction.timeline.sourceFrame;
+        projection.status.replayTick = timeline.prediction.timeline.sourceFrame;
         projection.status.hasReplayTick = true;
     }
 
-    if ( !replay.prediction.controls.enabled )
+    if ( !timeline.prediction.controls.enabled )
     {
         projection.status.predictionState = ImGuiEditorPredictionState::Disabled;
     }
-    else if ( replay.prediction.topology.targetId.value == 0u )
+    else if ( timeline.prediction.topology.targetId.value == 0u )
     {
         projection.status.predictionState = ImGuiEditorPredictionState::AwaitingTarget;
     }
-    else if ( replay.prediction.controls.building || !replay.prediction.timeline.complete )
+    else if ( timeline.prediction.controls.building || !timeline.prediction.timeline.complete )
     {
         projection.status.predictionState = ImGuiEditorPredictionState::Building;
     }
@@ -197,14 +198,15 @@ BuildImGuiEditorCausalityProjection( const ReplayOverlay::ReplayOverlayStateView
     // Why: replay fails the full build closed when the pre-reserved row budget
     // cannot hold its estimate. Recompute only that constant-time size equation
     // so the compact UI can distinguish exhaustion from an ordinary empty tree.
-    const bool usePredictionNodes = replay.prediction.controls.enabled && replay.prediction.topology.targetId.value != 0u &&
-                                    replay.prediction.topology.targetId.value == replay.pathVisualizer.targetId.value;
-    const std::size_t nodeCount = usePredictionNodes ? replay.prediction.topology.futureNodes.size() : std::size_t { 0u };
+    const bool usePredictionNodes = timeline.prediction.controls.enabled &&
+                                    timeline.prediction.topology.targetId.value != 0u &&
+                                    timeline.prediction.topology.targetId.value == timeline.pathVisualizer.targetId.value;
+    const std::size_t nodeCount = usePredictionNodes ? timeline.prediction.topology.futureNodes.size() : std::size_t { 0u };
     const std::size_t contactCount = selection.currentSolver
                                          ? selection.currentSolver->worldSnapshot.physics.persistentContacts.size()
                                          : std::size_t { 0u };
     const std::size_t estimatedRows = 1u + ( usePredictionNodes ? nodeCount * 2u : nodeCount ) + contactCount * 3u;
-    const bool capacityLimited = replay.pathVisualizer.hasTarget && tree.rows.empty() &&
+    const bool capacityLimited = timeline.pathVisualizer.hasTarget && tree.rows.empty() &&
                                  estimatedRows > tree.rows.capacity();
 
     if ( capacityLimited )

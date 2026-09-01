@@ -485,7 +485,8 @@ bool ReplayRuntime::RestoreInteractionRecordingCauseBaseline( const ReplayIntera
 
     const ReplayCauseInspectionView selected = m_planningOwner.CauseInspectionView();
 
-    if ( selected.mode == ReplayCauseInspectionMode::Inactive || selected.selectedRow != baseline.selectedRow )
+    if ( selected.Transport().mode == ReplayCauseInspectionMode::Inactive ||
+         selected.Selection().selectedRow != baseline.selectedRow )
     {
         return false;
     }
@@ -926,25 +927,15 @@ ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView(
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
     const ReplayFrameSelection selection = BuildPresentationSelection();
 
-    return { scrubber,
-             m_predictionOwner.PresentationView(),
-             m_planningOwner.InterceptView(),
-             m_planningOwner.PorkchopView(),
-             m_planningOwner.TripPlannerView(),
-             m_visualPresentation.PathVisualizer(),
-             m_authoring.VelocityEdit(),
-             m_authoring.CauseTree(),
-             m_planningOwner.CauseInspectionView(),
-             m_timeline.Solver().GetStats(),
-             ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
-             ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS,
-             selection.replay,
-             selection.selectedPrediction,
-             selection.predictionTimelineAvailable,
-             ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ),
-             m_timeline.RecordingConfigured(),
-             m_timeline.RecordingEnabled(),
-             m_timeline.RecordingLockedByHashLog() };
+    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
+    return { { scrubber, prediction, m_visualPresentation.PathVisualizer(), m_authoring.VelocityEdit(),
+               m_timeline.Solver().GetStats(), ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
+               ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS, selection.replay, selection.selectedPrediction,
+               selection.predictionTimelineAvailable,
+               ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ), m_timeline.RecordingConfigured(),
+               m_timeline.RecordingEnabled(), m_timeline.RecordingLockedByHashLog() },
+             { m_planningOwner.InterceptView(), m_planningOwner.PorkchopView(), m_planningOwner.TripPlannerView() },
+             { m_authoring.CauseTree(), m_planningOwner.CauseInspectionView(), prediction.diagnostics.detailMode } };
 }
 
 const UI::UIDrawList& ReplayRuntime::ComposeOverlayDrawList( const ReplayOverlay::ReplayOverlayStateView& replay,
@@ -1117,8 +1108,9 @@ ReplayRenderFrameViews ReplayRuntime::BuildRenderFrameViews( const ReplayFrameSe
                                       inputView.liveAdvanceHeld };
     const ReplayRenderFrameView render { &m_predictionPresentation.PublishedVisualPacketView(),
                                          focusFadeActive ? &m_predictionPresentation.FocusModelMaskView() : nullptr,
-                                         causeInspection.detailVisible ? causeInspection.contactPresentation
-                                                                       : Rendering::ContactManifoldPresentation {},
+                                         causeInspection.Display().detailVisible
+                                             ? causeInspection.SolverDetail().contactPresentation
+                                             : Rendering::ContactManifoldPresentation {},
                                          focusFadeActive };
     return { time, render };
 }

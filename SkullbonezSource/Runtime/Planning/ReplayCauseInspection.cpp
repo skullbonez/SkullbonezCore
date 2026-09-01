@@ -242,17 +242,17 @@ void AddRawVector( ReplayCauseRawRecordProjection& projection, const char* label
 }
 } // namespace
 
-int ReplayCauseSolverDetailIterationCount( const ReplayCauseInspectionView& inspection, std::size_t contactRow ) noexcept
+int ReplayCauseSolverDetailIterationCount( const ReplayCauseSolverDetailView& solverDetail, std::size_t contactRow ) noexcept
 {
-    if ( contactRow >= inspection.solverDetailContacts.size() )
+    if ( contactRow >= solverDetail.solverDetailContacts.size() )
     {
         return 0;
     }
 
-    const uint32_t featureId = inspection.solverDetailContacts[contactRow].featureId;
+    const uint32_t featureId = solverDetail.solverDetailContacts[contactRow].featureId;
     int count = 0;
 
-    for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+    for ( const Physics::PhysicsPipelineRecord& record : solverDetail.solverDetailPipelineRecords )
     {
         if ( record.stage == Physics::PhysicsPipelineStage::SolverIteration && record.featureId == featureId )
         {
@@ -263,30 +263,30 @@ int ReplayCauseSolverDetailIterationCount( const ReplayCauseInspectionView& insp
     return count;
 }
 
-ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseInspectionView& inspection,
+ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseSolverDetailView& solverDetail,
                                                                   int rowIndex ) noexcept
 {
     ReplayCauseSolverPanelRowText text;
 
-    if ( rowIndex < 0 || static_cast<std::size_t>( rowIndex ) >= inspection.solverDetailContacts.size() )
+    if ( rowIndex < 0 || static_cast<std::size_t>( rowIndex ) >= solverDetail.solverDetailContacts.size() )
     {
         return text;
     }
 
     const Physics::PhysicsSolverPersistentContactSample&
-        contact = inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
+        contact = solverDetail.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
     Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
-    const bool hasPresentationPoint = static_cast<std::size_t>( rowIndex ) < inspection.contactPresentation.pointCount;
+    const bool hasPresentationPoint = static_cast<std::size_t>( rowIndex ) < solverDetail.contactPresentation.pointCount;
 
     if ( hasPresentationPoint )
     {
-        point = inspection.contactPresentation.points[static_cast<std::size_t>( rowIndex )].point;
+        point = solverDetail.contactPresentation.points[static_cast<std::size_t>( rowIndex )].point;
     }
 
     float previousNormalImpulse = 0.0f;
     bool hasPreviousNormalImpulse = false;
 
-    for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+    for ( const Physics::PhysicsPipelineRecord& record : solverDetail.solverDetailPipelineRecords )
     {
         if ( record.featureId != contact.featureId )
         {
@@ -320,17 +320,17 @@ ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCa
     return text;
 }
 
-ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseInspectionView& inspection, int rowIndex ) noexcept
+ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseSolverDetailView& solverDetail, int rowIndex ) noexcept
 {
     ReplayCauseSummaryText text;
 
-    if ( rowIndex < 0 || static_cast<std::size_t>( rowIndex ) >= inspection.solverDetailContacts.size() )
+    if ( rowIndex < 0 || static_cast<std::size_t>( rowIndex ) >= solverDetail.solverDetailContacts.size() )
     {
         return text;
     }
 
     const Physics::PhysicsSolverPersistentContactSample&
-        contact = inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
+        contact = solverDetail.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
     const float frictionMagnitude = std::sqrt( contact.accT1 * contact.accT1 + contact.accT2 * contact.accT2 );
 
     sprintf_s( text.normalImpulse, sizeof( text.normalImpulse ), "%.5f mass*u/s", contact.accN );
@@ -350,29 +350,30 @@ ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseInspectionV
     return text;
 }
 
-ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const ReplayCauseInspectionView& inspection,
+ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const ReplayCauseSolverDetailView& solverDetail,
+                                                                    const ReplayCauseTransportView& transport,
                                                                     int rowIndex ) noexcept
 {
     ReplayCauseRawRecordProjection projection;
 
-    if ( rowIndex < 0 || static_cast<std::size_t>( rowIndex ) >= inspection.solverDetailContacts.size() )
+    if ( rowIndex < 0 || static_cast<std::size_t>( rowIndex ) >= solverDetail.solverDetailContacts.size() )
     {
         return projection;
     }
 
     const Physics::PhysicsSolverPersistentContactSample&
-        contact = inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
+        contact = solverDetail.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
 
     Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
-    const bool hasPresentationPoint = static_cast<std::size_t>( rowIndex ) < inspection.contactPresentation.pointCount;
+    const bool hasPresentationPoint = static_cast<std::size_t>( rowIndex ) < solverDetail.contactPresentation.pointCount;
 
     if ( hasPresentationPoint )
     {
-        point = inspection.contactPresentation.points[static_cast<std::size_t>( rowIndex )].point;
+        point = solverDetail.contactPresentation.points[static_cast<std::size_t>( rowIndex )].point;
     }
     else
     {
-        for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+        for ( const Physics::PhysicsPipelineRecord& record : solverDetail.solverDetailPipelineRecords )
         {
             if ( record.stage == Physics::PhysicsPipelineStage::ManifoldRow && record.featureId == contact.featureId )
             {
@@ -389,9 +390,9 @@ ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const Replay
     AddRawInteger( projection, "Body A", contact.bodyA );
     AddRawInteger( projection, "Body B", contact.bodyB );
     AddRawInteger( projection, "Manifold Points", static_cast<unsigned>( contact.manifoldPointCount ) );
-    AddRawInteger( projection, "Source Frame", static_cast<unsigned long long>( inspection.targetFrame ) );
+    AddRawInteger( projection, "Source Frame", static_cast<unsigned long long>( transport.targetFrame ) );
     AddRawValue( projection, "Source Kind",
-                 inspection.seekSource == ReplayCauseSeekSource::Prediction ? "PREDICTION" : "RECORDED" );
+                 transport.seekSource == ReplayCauseSeekSource::Prediction ? "PREDICTION" : "RECORDED" );
 
     if ( contact.key != 0 )
     {
@@ -425,7 +426,7 @@ ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const Replay
     AddRawFloat( projection, "Bias Velocity", contact.bias, "u/s" );
     AddRawFloat( projection, "Friction Limit", contact.frictionLimit, "mass*u/s" );
 
-    for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+    for ( const Physics::PhysicsPipelineRecord& record : solverDetail.solverDetailPipelineRecords )
     {
         if ( record.featureId == contact.featureId && record.stage == Physics::PhysicsPipelineStage::PositionCorrection )
         {
@@ -507,25 +508,25 @@ bool SerializeReplayCauseRawRecord( const ReplayCauseRawRecordProjection& projec
     return writer.Valid();
 }
 
-ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const ReplayCauseInspectionView& inspection,
+ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const ReplayCauseSolverDetailView& solverDetail,
                                                                       int rowIndex ) noexcept
 {
     ReplayCauseIterationsProjection projection;
 
-    if ( inspection.solverDetailContacts.empty() || rowIndex < 0 ||
-         static_cast<std::size_t>( rowIndex ) >= inspection.solverDetailContacts.size() )
+    if ( solverDetail.solverDetailContacts.empty() || rowIndex < 0 ||
+         static_cast<std::size_t>( rowIndex ) >= solverDetail.solverDetailContacts.size() )
     {
         sprintf_s( projection.summary, sizeof( projection.summary ), "No contact selected" );
         return projection;
     }
 
     const Physics::PhysicsSolverPersistentContactSample&
-        contact = inspection.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
+        contact = solverDetail.solverDetailContacts[static_cast<std::size_t>( rowIndex )];
 
     sprintf_s( projection.summary, sizeof( projection.summary ), "Feature %u  Body %d <-> %d  limit=%.3g", contact.featureId,
                contact.bodyA, contact.bodyB, contact.frictionLimit );
 
-    for ( const Physics::PhysicsPipelineRecord& record : inspection.solverDetailPipelineRecords )
+    for ( const Physics::PhysicsPipelineRecord& record : solverDetail.solverDetailPipelineRecords )
     {
         if ( record.stage == Physics::PhysicsPipelineStage::VelocityWriteback )
         {
@@ -604,20 +605,20 @@ ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const Repl
     return projection;
 }
 
-bool ShouldBeginReplayCauseAftermath( const ReplayCauseInspectionView& inspection, bool spaceDown ) noexcept
+bool ShouldBeginReplayCauseAftermath( const ReplayCauseTransportView& transport, bool spaceDown ) noexcept
 {
-    return spaceDown && inspection.mode == ReplayCauseInspectionMode::DetailPaused;
+    return spaceDown && transport.mode == ReplayCauseInspectionMode::DetailPaused;
 }
 
 
-bool ShouldBeginReplayCauseReturn( const ReplayCauseInspectionView& inspection, bool nonSelectionClick,
+bool ShouldBeginReplayCauseReturn( const ReplayCauseTransportView& transport, bool nonSelectionClick,
                                    bool scrubExit ) noexcept
 {
-    return inspection.mode != ReplayCauseInspectionMode::Inactive &&
-           ( nonSelectionClick || scrubExit || inspection.mode == ReplayCauseInspectionMode::Returning );
+    return transport.mode != ReplayCauseInspectionMode::Inactive &&
+           ( nonSelectionClick || scrubExit || transport.mode == ReplayCauseInspectionMode::Returning );
 }
 
-ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseInspectionView& inspection,
+ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSolverDetailView& solverDetail,
                                                             const RunReplayCauseTreeState& causeTree, int screenWidth,
                                                             int screenHeight, float drawerProgress ) noexcept
 {
@@ -626,9 +627,9 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseIns
     ReplayCauseInspectorLayout layout;
     int maximumIterations = 0;
 
-    for ( std::size_t row = 0; row < inspection.solverDetailContacts.size(); ++row )
+    for ( std::size_t row = 0; row < solverDetail.solverDetailContacts.size(); ++row )
     {
-        maximumIterations = (std::max)( maximumIterations, ReplayCauseSolverDetailIterationCount( inspection, row ) );
+        maximumIterations = (std::max)( maximumIterations, ReplayCauseSolverDetailIterationCount( solverDetail, row ) );
     }
 
     const int iterationLines = ( maximumIterations + REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE - 1 ) /
@@ -695,8 +696,8 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseIns
                                (std::max)( 0.0f, layout.content.h - 22.0f ) };
     layout.iterationsVisibleRows = static_cast<int>( layout.iterationsTable.h / REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT );
 
-    const bool hasRows = inspection.solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available &&
-                         !inspection.solverDetailContacts.empty();
+    const bool hasRows = solverDetail.solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available &&
+                         !solverDetail.solverDetailContacts.empty();
 
     if ( hasRows )
     {
@@ -908,7 +909,8 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
         return ReplayCauseSolverDetailResult { .frame = row.firstFrame };
     }
 
-    const Physics::PhysicsSolverPersistentContactSample* anchorValue = result.SourceContactAt( static_cast<std::size_t>( row.contactIndex ) );
+    const Physics::PhysicsSolverPersistentContactSample* anchorValue = result.SourceContactAt(
+        static_cast<std::size_t>( row.contactIndex ) );
 
     if ( !anchorValue )
     {
@@ -938,7 +940,8 @@ ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCa
             return ReplayCauseSolverDetailResult { .frame = row.firstFrame };
         }
 
-        const Physics::PhysicsPipelineRecord* sequenceAnchor = result.SourcePipelineAt( static_cast<std::size_t>( row.pipelineIndex ) );
+        const Physics::PhysicsPipelineRecord* sequenceAnchor = result.SourcePipelineAt(
+            static_cast<std::size_t>( row.pipelineIndex ) );
 
         if ( !sequenceAnchor || !IsSolverDetailPipelineStage( sequenceAnchor->stage ) ||
              sequenceAnchor->featureId != anchor.featureId ||
@@ -1511,7 +1514,8 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
     }
 
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelInput" );
-    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( m_state, causeTree, screenWidth, screenHeight,
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( m_state.SolverDetail(), causeTree,
+                                                                               screenWidth, screenHeight,
                                                                                m_state.drawerProgress );
 
     if ( !ReplayCauseInspectorContainsPoint( layout, mouseX, mouseY ) ||
@@ -1551,7 +1555,9 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
             if ( outCommand )
             {
                 outCommand->kind = ReplayCauseInspectorCommandKind::CopyRecord;
-                const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( m_state, contactRow );
+                const ReplayCauseRawRecordProjection
+                    projection = BuildReplayCauseRawRecordProjection( m_state.SolverDetail(), m_state.Transport(),
+                                                                      contactRow );
                 SerializeReplayCauseRawRecord( projection, outCommand->text, sizeof( outCommand->text ) );
             }
 
@@ -1563,7 +1569,8 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
     {
         if ( m_state.activeTab == ReplayCauseInspectorTab::Iterations && layout.iterationsVisibleRows > 0 )
         {
-            const ReplayCauseIterationsProjection projection = BuildReplayCauseIterationsProjection( m_state, contactRow );
+            const ReplayCauseIterationsProjection projection = BuildReplayCauseIterationsProjection( m_state.SolverDetail(),
+                                                                                                     contactRow );
             const int direction = wheelDelta > 0 ? -1 : 1;
             const int wheelSteps = (std::max)( 1, std::abs( wheelDelta ) / 120 ) * 3;
             const int maximumFirstRow = (std::max)( 0,
@@ -1573,7 +1580,9 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
         }
         else if ( m_state.activeTab == ReplayCauseInspectorTab::RawRecord && layout.rawVisibleRows > 0 )
         {
-            const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( m_state, contactRow );
+            const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( m_state.SolverDetail(),
+                                                                                                   m_state.Transport(),
+                                                                                                   contactRow );
             const int direction = wheelDelta > 0 ? -1 : 1;
             const int wheelSteps = (std::max)( 1, std::abs( wheelDelta ) / 120 ) * 3;
             const int maximumFirstRow = (std::max)( 0, static_cast<int>( projection.rowCount ) - layout.rawVisibleRows );
