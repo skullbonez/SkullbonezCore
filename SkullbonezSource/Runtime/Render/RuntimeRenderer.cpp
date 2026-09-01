@@ -318,7 +318,7 @@ struct ReplayGhostGraphInvocation
     SkullbonezCore::Core::Profiler* profiler = nullptr;
     const ReplayVisualPacket* replayVisualPacket = nullptr;
     const RenderCameraLighting* camera = nullptr;
-    const RuntimeRenderModelFrameView* models = nullptr;
+    const RuntimeRenderModelPresentationView* models = nullptr;
     SkullbonezCore::Rendering::PrimitiveBatchRenderer* primitiveRenderer = nullptr;
     const SkullbonezCore::Core::OrdinaryRenderConfig* ordinaryLighting = nullptr;
     const char* primitiveShaderBaseName = nullptr;
@@ -456,7 +456,7 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
 }
 
 void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, SkullbonezCore::Core::Profiler*,
-                                   const RenderCameraLighting& camera, const RuntimeRenderModelFrameView& models,
+                                   const RenderCameraLighting& camera, const RuntimeRenderModelPresentationView& models,
                                    Rendering::PrimitiveBatchRenderer& primitiveRenderer,
                                    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting,
                                    const char* primitiveShaderBaseName, Textures::TextureCollection& textures,
@@ -1480,13 +1480,13 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayG
 }
 
 
-DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RuntimeRenderModelFrameView& models,
+DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( RuntimeRenderWorldExtensionDebugView worldExtensionDebug,
                                                                  const RenderToolOverlayView& toolOverlay,
                                                                  const RuntimeRenderFramePolicy& policy ) const
 {
     DebugOverlaySnapshot snapshot;
     snapshot.broadphaseOverlayVisible = policy.broadphaseOverlay;
-    snapshot.worldExtensionDebugLines = models.worldExtensionDebugLines;
+    snapshot.worldExtensionDebugLines = worldExtensionDebug.lines;
     snapshot.physicsDebugFlags = policy.physicsDebugFlags;
     snapshot.physicsDebugPipelineStageCursor = policy.physicsDebugPipelineStageCursor;
     snapshot.editorOverlayWorkVisible = toolOverlay.editorOverlayWorkVisible;
@@ -1852,7 +1852,7 @@ void RuntimeRenderer::BeginProfilerFrame()
 }
 
 
-void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderModelFrameView& models,
+void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderDebugViews& debug,
                                               const RuntimeRenderFramePolicy& policy )
 {
     PROFILE_BEGIN( "Frame/PostPhysics" );
@@ -1862,14 +1862,16 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
 
     if ( policy.broadphaseOverlay )
     {
-        m_broadphaseVisualizer.SetCellSize( Physics::PhysicsEngine::ReadBroadphaseCellSize( models.physicsEngine ) );
+        m_broadphaseVisualizer.SetCellSize(
+            Physics::PhysicsEngine::ReadBroadphaseCellSize( debug.broadphase.physicsEngine ) );
         Physics::PhysicsBroadphaseActiveCell activeCells[Physics::PHYSICS_BROADPHASE_ACTIVE_CELL_CAPACITY];
-        const int activeCellCount = Physics::PhysicsEngine::ReadBroadphaseActiveCells( models.physicsEngine, activeCells );
+        const int activeCellCount = Physics::PhysicsEngine::ReadBroadphaseActiveCells( debug.broadphase.physicsEngine,
+                                                                                       activeCells );
         m_broadphaseVisualizer.Update( secondsPerFrame,
                                        std::span<const Physics::PhysicsBroadphaseActiveCell>( activeCells,
                                                                                               static_cast<std::size_t>(
                                                                                                   activeCellCount ) ),
-                                       Physics::PhysicsEngine::ReadCollisionCellKeys( models.physicsEngine ) );
+                                       Physics::PhysicsEngine::ReadCollisionCellKeys( debug.broadphase.physicsEngine ) );
     }
 
     PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
@@ -1877,9 +1879,12 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
     PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
     m_collisionVisualizer.SetEnabled( policy.collisionVisualizer );
     m_collisionVisualizer.Update( secondsPerFrame,
-                                  CollisionVisualizerFrameView { models.bodyStore, models.colliders, models.renderInstances,
-                                                                 models.collisionVisualContacts, models.sleepStates,
-                                                                 models.sleepIslandVisualIds, models.modelCount } );
+                                  CollisionVisualizerFrameView { debug.collision.bodyStore, debug.collision.colliders,
+                                                                 debug.collision.renderInstances,
+                                                                 debug.collision.collisionVisualContacts,
+                                                                 debug.collision.sleepStates,
+                                                                 debug.collision.sleepIslandVisualIds,
+                                                                 debug.collision.modelCount } );
     PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
@@ -1887,10 +1892,12 @@ void RuntimeRenderer::UpdateDebugVisualizers( float secondsPerFrame, const Runti
     m_physicsDebugVisualizer.SetContactLingerSeconds( policy.physicsDebugContactLinger );
     m_physicsDebugVisualizer.SetPipelineStageCursor( policy.physicsDebugPipelineStageCursor );
     m_physicsDebugVisualizer.Update( secondsPerFrame,
-                                     PhysicsDebugFrameView { models.bodyStore, models.colliders, models.sleepStates,
-                                                             models.sleepSupportedStates, models.sleepInhibitedStates,
-                                                             models.physicsDebugContacts, models.physicsPipelineTrace,
-                                                             models.modelCount } );
+                                     PhysicsDebugFrameView { debug.physics.bodyStore, debug.physics.colliders,
+                                                             debug.physics.sleepStates, debug.physics.sleepSupportedStates,
+                                                             debug.physics.sleepInhibitedStates,
+                                                             debug.physics.physicsDebugContacts,
+                                                             debug.physics.physicsPipelineTrace,
+                                                             debug.physics.modelCount } );
     PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
     PROFILE_END( "Frame/PostPhysics" );
@@ -1979,7 +1986,7 @@ void RuntimeRenderer::EnsureFrameResources( bool cinematicRender, int windowWidt
 }
 
 
-bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
+bool RuntimeRenderer::RenderPreparedFrame( const WorldFrameSubmission& world, const OverlayFrameSubmission& overlays,
                                            const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
                                            bool cinematicRender )
 {
@@ -1991,8 +1998,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         SB_FATAL( "RunRender", "World rendering requires the current active frame graph." );
     }
 
-    const RuntimeRenderFramePolicy& policy = context.framePolicy;
-    const ReplayRenderFrameView& replayFrame = context.replayFrame;
+    const RuntimeRenderFramePolicy& policy = world.framePolicy;
+    const ReplayRenderFrameView& replayFrame = overlays.replayFrame;
     Rendering::Dx12RaytracingOwner& raytracing = m_resources.Raytracing();
     const bool raytracingAvailable = m_resources.RaytracingAvailable();
     m_resources.UiText().SetDxrReflectionPreviewTexture( raytracingAvailable ? raytracing.GetReflectionUAVTexture() : 0 );
@@ -2022,7 +2029,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // Invariant: sample the interpolated render camera after SetCamera().
     // Concrete phases borrow this owner-free value so sky, reflection, water,
     // and overlays cannot diverge during camera transitions.
-    RenderCameraLighting camera = context.camera;
+    RenderCameraLighting camera = world.camera;
 
     if ( cinematicRender )
     {
@@ -2040,7 +2047,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     const Vector3 reflectionUp( camera.up.x, -camera.up.y, camera.up.z );
     const Matrix4 reflectionView = Matrix4::LookAt( reflectionEye, reflectionCenter, reflectionUp );
     const Matrix4 reflectionViewProjection = camera.projection * reflectionView;
-    const RuntimeRenderModelFrameView& models = context.renderModels;
+    const RuntimeRenderModelPresentationView& models = world.models;
+    const RuntimeRenderCollisionDebugView& collisionDebug = overlays.debug.collision;
+    const RuntimeRenderPhysicsDebugView& physicsDebug = overlays.debug.physics;
     Rendering::PrimitiveBatchRenderer& primitiveRenderer = m_resources.PrimitiveBatches();
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting = m_resources.Config().ordinaryRender;
     const char* primitiveShaderBaseName = m_resources.Assets().ResolveShaderBaseName( "shader.lit_textured_instanced" );
@@ -2052,7 +2061,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         m_objectPass.EnsureGpuResources( m_resources.Assets(), renderResources, renderGeometry );
-        m_terrainPass.EnsureGpuResources( context.terrain, m_resources.Assets(), renderResources );
+        m_terrainPass.EnsureGpuResources( world.terrain, m_resources.Assets(), renderResources );
         m_waterPass.EnsureGpuResources( m_resources.Assets(), renderResources );
     }
 
@@ -2077,9 +2086,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         primitiveRenderer.EnsureShadowDepthPrimitiveResources( shadowShaderBaseName );
 
-        if ( context.terrain )
+        if ( world.terrain )
         {
-            context.terrain->EnsureShadowDepthResources();
+            world.terrain->EnsureShadowDepthResources();
         }
 
         m_shadowPass.EnsureGpuResources( renderResources, *activeShadowConfig );
@@ -2091,8 +2100,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     if ( activeShadowConfig )
     {
         const ShadowPassInputs shadowInputs { camera,
-                                              context.terrain,
+                                              world.terrain,
                                               models,
+                                              collisionDebug,
                                               instanceRenderer,
                                               primitiveRenderer,
                                               shadowShaderBaseName,
@@ -2164,6 +2174,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         }
         const ReflectionPassInputs reflectionInputs { camera,
                                                       models,
+                                                      collisionDebug,
                                                       instanceRenderer,
                                                       primitiveRenderer,
                                                       ordinaryLighting,
@@ -2205,6 +2216,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         const ObjectPassInputs objectInputs { camera,
                                               models,
+                                              collisionDebug,
                                               instanceRenderer,
                                               primitiveRenderer,
                                               ordinaryLighting,
@@ -2231,7 +2243,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // Terrain receives the broad shadow frame and provides the main world depth
     // that cinematic post passes read later.
     const TerrainPassInputs terrainInputs { camera,
-                                            context.terrain,
+                                            world.terrain,
                                             m_resources.Textures(),
                                             renderTextures,
                                             renderDiagnostics,
@@ -2263,13 +2275,14 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     ExecuteWaterThroughRenderGraph( { waterInputs, useCinematicTarget } );
 
     const bool worldExtensionRendered = ExecuteWorldExtensionThroughRenderGraph(
-        { camera, context.worldExtension, renderTextures, renderGeometry, renderDiagnostics, m_resources.GpuTiming(),
-          context.terrain, useCinematicTarget } );
+        { camera, world.worldExtension, renderTextures, renderGeometry, renderDiagnostics, m_resources.GpuTiming(),
+          world.terrain, useCinematicTarget } );
 
     if ( debugTransparentBodyPass )
     {
         const ObjectPassInputs transparentInputs { camera,
                                                    models,
+                                                   collisionDebug,
                                                    instanceRenderer,
                                                    primitiveRenderer,
                                                    ordinaryLighting,
@@ -2296,6 +2309,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         const ObjectPassInputs fadedInputs { camera,
                                              models,
+                                             collisionDebug,
                                              instanceRenderer,
                                              primitiveRenderer,
                                              ordinaryLighting,
@@ -2326,12 +2340,12 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                  useCinematicTarget, activeCinematic, objectShadowFrame } );
     }
 
-    const DebugOverlaySnapshot debugSnapshot = BuildDebugOverlaySnapshot( context.renderModels, context.toolOverlay,
+    const DebugOverlaySnapshot debugSnapshot = BuildDebugOverlaySnapshot( overlays.worldExtensionDebug, overlays.toolOverlay,
                                                                           policy );
 
     const DebugOverlayPassInputs debugInputs { camera,
-                                               context.terrain,
-                                               models,
+                                               world.terrain,
+                                               physicsDebug,
                                                m_resources.Assets(),
                                                renderResources,
                                                renderGeometry,
@@ -2339,7 +2353,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                &m_resources.GpuTiming(),
                                                debugSnapshot,
                                                *replayFrame.visualPacket,
-                                               context.retainedOverlay,
+                                               overlays.retainedOverlay,
                                                replayFrame.contactPresentation };
 
     const bool debugOverlayRendered = ExecuteDebugOverlayThroughRenderGraph( { debugInputs, useCinematicTarget } );
@@ -2616,20 +2630,20 @@ RenderDiagnosticsReadout RuntimeRenderer::BuildDiagnosticsReadout() const
 }
 
 
-bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
+bool RuntimeRenderer::RenderFrameEntry( const WorldFrameSubmission& world, const OverlayFrameSubmission& overlays )
 {
     m_resources.UiText().SetDxrReflectionPreviewTexture( 0 );
-    const RuntimeRenderFramePolicy& policy = context.framePolicy;
+    const RuntimeRenderFramePolicy& policy = world.framePolicy;
 
     if ( policy.textOnly )
     {
         return false;
     }
 
-    const bool cinematicRender = context.cinematicRequested && !policy.textOnly;
+    const bool cinematicRender = world.cinematicRequested && !policy.textOnly;
 
     // Why: persistent render owners are already members of RuntimeRenderer.
     // Only the top-level frame transaction and derived cinematic values cross
     // into pass sequencing; no duplicate service/input bag is constructed.
-    return RenderPreparedFrame( context, context.cinematic, cinematicRender );
+    return RenderPreparedFrame( world, overlays, world.cinematic, cinematicRender );
 }

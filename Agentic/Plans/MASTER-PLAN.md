@@ -7,7 +7,7 @@ bug ledger 126/126 fixed
 ## Owner Direction
 
 - Engine Signature And Context Cohesion was activated by explicit owner
-  direction on 2026-08-31. SC0-SC6 refresh the whole-engine compiler inventory,
+  direction on 2026-08-31. SC0-SC7 refresh the whole-engine compiler inventory,
   repair confirmed signature/context ownership defects in dependency order,
   and close with one cumulative validation/review pass. Work proceeds in
   cohesive owner-local batches rather than one build per small edit.
@@ -367,10 +367,11 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`SIGNATURE_COHESION` SC0-SC6 is the sole active plan and executes in strict
+`SIGNATURE_COHESION` SC0-SC7 is the sole active plan and executes in strict
 internal order. SC0's current inventory and coverage proof precede production
 edits; SC1-SC5 run as cohesive owner-local implementation batches; SC6 owns the
-final rescan, independent review, and terminal validation.
+final rescan and cleanup; SC7 owns independent review, terminal validation,
+the detailed closure commit, push, and PR handoff.
 
 `RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
 complete on `codex/replay-capture-bugfixes`.

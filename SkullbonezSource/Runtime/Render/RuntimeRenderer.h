@@ -72,18 +72,24 @@ class RuntimeRenderer
         Geometry::Terrain* terrain = nullptr;
     };
 
-    struct FrameEntryContext
+    struct WorldFrameSubmission
     {
-        const RuntimeRenderModelFrameView& renderModels;
+        const RuntimeRenderModelPresentationView& models;
         const RenderCameraLighting& camera;
         Geometry::Terrain* terrain = nullptr;
         RuntimeRenderFramePolicy framePolicy;
-        const ReplayRenderFrameView& replayFrame;
-        const Rendering::RetainedGeometryPacket& retainedOverlay;
-        const RenderToolOverlayView& toolOverlay;
         const Rendering::WorldRenderExtensionRegistration& worldExtension;
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
         bool cinematicRequested = false;
+    };
+
+    struct OverlayFrameSubmission
+    {
+        const RuntimeRenderDebugViews& debug;
+        RuntimeRenderWorldExtensionDebugView worldExtensionDebug;
+        const ReplayRenderFrameView& replayFrame;
+        const Rendering::RetainedGeometryPacket& retainedOverlay;
+        const RenderToolOverlayView& toolOverlay;
     };
 
     RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::RenderBackendDX12& backend,
@@ -95,7 +101,7 @@ class RuntimeRenderer
     // Runs after Core FrameBegin and before draw-call counters reset. This
     // reads completed GPU samples and publishes the preceding render counters.
     void BeginProfilerFrame();
-    void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderModelFrameView& models,
+    void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderDebugViews& debug,
                                  const RuntimeRenderFramePolicy& policy );
 
     const RenderPresentationSettings& PresentationSettings() const
@@ -124,7 +130,7 @@ class RuntimeRenderer
         ResetDebugVisualizerTransientState( m_collisionVisualizer, m_physicsDebugVisualizer, m_broadphaseVisualizer );
     }
 
-    bool RenderFrameEntry( const FrameEntryContext& context );
+    bool RenderFrameEntry( const WorldFrameSubmission& world, const OverlayFrameSubmission& overlays );
     SkullbonezCore::Core::SbResult ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
     RenderResourceLifecycle& ResourceLifecycle()
     {
@@ -265,7 +271,7 @@ class RuntimeRenderer
     struct ReplayGhostGraphInputs
     {
         const RenderCameraLighting& camera;
-        const RuntimeRenderModelFrameView& models;
+        const RuntimeRenderModelPresentationView& models;
         Rendering::PrimitiveBatchRenderer& primitiveRenderer;
         const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
         const char* primitiveShaderBaseName;
@@ -281,7 +287,7 @@ class RuntimeRenderer
         bool useCinematicTarget = false;
     };
     void EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight );
-    bool RenderPreparedFrame( const FrameEntryContext& context,
+    bool RenderPreparedFrame( const WorldFrameSubmission& world, const OverlayFrameSubmission& overlays,
                               const SkullbonezCore::Core::CinematicRenderConfig& renderConfig, bool cinematicRender );
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
@@ -301,7 +307,7 @@ class RuntimeRenderer
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     bool ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs );
-    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RuntimeRenderModelFrameView& models,
+    DebugOverlaySnapshot BuildDebugOverlaySnapshot( RuntimeRenderWorldExtensionDebugView worldExtensionDebug,
                                                     const RenderToolOverlayView& toolOverlay,
                                                     const RuntimeRenderFramePolicy& policy ) const;
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );

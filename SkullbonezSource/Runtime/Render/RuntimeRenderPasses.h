@@ -159,7 +159,9 @@ struct TonemapPassResources;
 struct VolumetricLightPassResources;
 struct ReplayHudStatus;
 struct ReplayVisualPacket;
-struct RuntimeRenderModelFrameView;
+struct RuntimeRenderModelPresentationView;
+struct RuntimeRenderCollisionDebugView;
+struct RuntimeRenderPhysicsDebugView;
 struct RuntimeFrameMetricsSnapshot;
 struct RunReplayPredictionFrame;
 
@@ -237,7 +239,8 @@ struct ObjectPassInputs
     // pass or the transparent debug pass, but target binding stays with the
     // caller.
     const RenderCameraLighting& camera;
-    const RuntimeRenderModelFrameView& models;
+    const RuntimeRenderModelPresentationView& models;
+    const RuntimeRenderCollisionDebugView& collisionDebug;
     Rendering::RenderInstanceRenderer& instanceRenderer;
     Rendering::PrimitiveBatchRenderer& primitiveRenderer;
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
@@ -284,7 +287,8 @@ struct ReflectionPassInputs
     // raytraced path or the mirrored-camera render-target path, but both
     // must return a texture handle and matching sample transform.
     const RenderCameraLighting& camera;
-    const RuntimeRenderModelFrameView& models;
+    const RuntimeRenderModelPresentationView& models;
+    const RuntimeRenderCollisionDebugView& collisionDebug;
     Rendering::RenderInstanceRenderer& instanceRenderer;
     Rendering::PrimitiveBatchRenderer& primitiveRenderer;
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
@@ -499,7 +503,7 @@ struct DebugOverlayPassInputs
     // ownership.
     const RenderCameraLighting& camera;
     Geometry::Terrain* terrain = nullptr;
-    const RuntimeRenderModelFrameView& models;
+    const RuntimeRenderPhysicsDebugView& physicsDebug;
     Assets::AssetSystem& assets;
     Rendering::Dx12ResourceBuilder& renderResources;
     Rendering::Dx12GeometryOwner& renderGeometry;
@@ -517,7 +521,8 @@ struct ShadowPassInputs
     // should be built and receivers should get null shadow outputs.
     const RenderCameraLighting& camera;
     Geometry::Terrain* terrain = nullptr;
-    const RuntimeRenderModelFrameView& models;
+    const RuntimeRenderModelPresentationView& models;
+    const RuntimeRenderCollisionDebugView& collisionDebug;
     Rendering::RenderInstanceRenderer& instanceRenderer;
     Rendering::PrimitiveBatchRenderer& primitiveRenderer;
     const char* shadowShaderBaseName;

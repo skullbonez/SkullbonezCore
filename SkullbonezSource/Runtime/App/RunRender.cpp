@@ -68,7 +68,7 @@ RuntimeRenderFramePolicy Run::ProjectRenderFramePolicy( const RuntimeOverlayFram
     return policy;
 }
 
-void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
+void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha )
 {
     // Fatal invariant: RuntimeRenderer is a mandatory composition owner. Require it once
     // before any render-phase state is prepared; there is no recoverable frame
@@ -135,7 +135,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
 
     const float rayLinger = (std::max)( 0.0f, debug.physicsDebugContactLinger );
     const bool editorOverlayWorkVisible = m_runtimeTools.HasLingeredRayCastLine( rayLinger ) ||
-                                          m_runtimeTools.HasSelectionOverlayWork( toolEditor, renderModels.modelCount,
+                                          m_runtimeTools.HasSelectionOverlayWork( toolEditor,
+                                                                                  renderFrame.modelPresentation.modelCount,
                                                                                   m_camera.mode ) ||
                                           m_runtimeTools.HasMousePickupOverlayWork( m_interaction.Gesture() ) ||
                                           replayInput.hasPathTarget || replayInput.hasCameraFocus ||
@@ -164,7 +165,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
         destination.hit = source.hit;
     }
 
-    const RuntimeRenderFramePolicy framePolicy = ProjectRenderFramePolicy( m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
+    const RuntimeRenderFramePolicy framePolicy = ProjectRenderFramePolicy(
+        m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
 
     // Invariant: Run owns the cross-domain ordering. Model interpolation must
     // finish before replay substitutes read-only historical/future poses, and
@@ -198,7 +200,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
 
     const ReplayRenderFrameView replayFrame = m_replayRuntime.BuildRenderFrameView( replaySelection,
                                                                                     m_sceneController.Scene().Physics(),
-                                                                                    renderModels.modelCount,
+                                                                                    renderFrame.modelPresentation.modelCount,
                                                                                     debug.isCollisionVisualizer,
                                                                                     debugTransparentBodyPass );
     const Rendering::RetainedGeometryPacket continuousOverlay = m_continuousForecast.PreparePresentation();
@@ -234,9 +236,16 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // maximum during owner construction. Steady rendering receives no
     // allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
-    const bool replaySubmissionRendered = renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, renderCamera, m_sceneController.Scene().Terrain().Get(),
-                                                                                                          framePolicy, replayFrame, continuousOverlay, toolOverlay, worldExtension,
-                                                                                                          activeCinematic, cinematicRequested } );
+    const RuntimeRenderer::WorldFrameSubmission worldSubmission { renderFrame.modelPresentation,
+                                                                  renderCamera,
+                                                                  m_sceneController.Scene().Terrain().Get(),
+                                                                  framePolicy,
+                                                                  worldExtension,
+                                                                  activeCinematic,
+                                                                  cinematicRequested };
+    const RuntimeRenderer::OverlayFrameSubmission overlaySubmission { renderFrame.debug, renderFrame.worldExtensionDebug,
+                                                                      replayFrame, continuousOverlay, toolOverlay };
+    const bool replaySubmissionRendered = renderer.RenderFrameEntry( worldSubmission, overlaySubmission );
 
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered, m_sceneController.State().currentFrame,
                                          replayGrowthEventCount, m_runtimeTools );

@@ -255,34 +255,34 @@ int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstan
     return modelCount;
 }
 
-bool HasCollisionVisualizerFrameView( const RuntimeRenderModelFrameView& models )
+bool HasCollisionVisualizerFrameView( const RuntimeRenderCollisionDebugView& collisionDebug )
 {
-    return models.modelCount >= 0;
+    return collisionDebug.modelCount >= 0;
 }
 
-CollisionVisualizerFrameView BuildCollisionVisualizerFrameView( const RuntimeRenderModelFrameView& models )
+CollisionVisualizerFrameView BuildCollisionVisualizerFrameView( const RuntimeRenderCollisionDebugView& collisionDebug )
 {
-    return CollisionVisualizerFrameView { models.bodyStore,       models.colliders,
-                                          models.renderInstances, models.collisionVisualContacts,
-                                          models.sleepStates,     models.sleepIslandVisualIds,
-                                          models.modelCount };
+    return CollisionVisualizerFrameView { collisionDebug.bodyStore,       collisionDebug.colliders,
+                                          collisionDebug.renderInstances, collisionDebug.collisionVisualContacts,
+                                          collisionDebug.sleepStates,     collisionDebug.sleepIslandVisualIds,
+                                          collisionDebug.modelCount };
 }
 
-bool HasPhysicsDebugFrameView( const RuntimeRenderModelFrameView& models )
+bool HasPhysicsDebugFrameView( const RuntimeRenderPhysicsDebugView& physicsDebug )
 {
-    return models.modelCount >= 0;
+    return physicsDebug.modelCount >= 0;
 }
 
-PhysicsDebugFrameView BuildPhysicsDebugFrameView( const RuntimeRenderModelFrameView& models )
+PhysicsDebugFrameView BuildPhysicsDebugFrameView( const RuntimeRenderPhysicsDebugView& physicsDebug )
 {
-    return PhysicsDebugFrameView { models.bodyStore,
-                                   models.colliders,
-                                   models.sleepStates,
-                                   models.sleepSupportedStates,
-                                   models.sleepInhibitedStates,
-                                   models.physicsDebugContacts,
-                                   models.physicsPipelineTrace,
-                                   models.modelCount };
+    return PhysicsDebugFrameView { physicsDebug.bodyStore,
+                                   physicsDebug.colliders,
+                                   physicsDebug.sleepStates,
+                                   physicsDebug.sleepSupportedStates,
+                                   physicsDebug.sleepInhibitedStates,
+                                   physicsDebug.physicsDebugContacts,
+                                   physicsDebug.physicsPipelineTrace,
+                                   physicsDebug.modelCount };
 }
 
 void BindRenderTextureSlots( SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures, uint32_t slot0, uint32_t slot1,
@@ -1181,9 +1181,9 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
             // not sample textures.
             ClearAllRenderTextureSlots( inputs.renderTextures );
 
-            if ( HasCollisionVisualizerFrameView( inputs.models ) )
+            if ( HasCollisionVisualizerFrameView( inputs.collisionDebug ) )
             {
-                const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
+                const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.collisionDebug );
                 m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
                 m_collisionVisualizer.Render( inputs.renderGeometry, inputs.renderDiagnostics, frameView,
                                               inputs.reflectionView, inputs.camera.projection, inputs.camera.lightPosition );
@@ -1241,9 +1241,9 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         // sample textures.
         ClearAllRenderTextureSlots( renderTextures );
 
-        if ( HasCollisionVisualizerFrameView( inputs.models ) )
+        if ( HasCollisionVisualizerFrameView( inputs.collisionDebug ) )
         {
-            const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.models );
+            const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.collisionDebug );
             m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
             m_collisionVisualizer.Render( inputs.renderGeometry, inputs.renderDiagnostics, frameView, inputs.camera.baseView,
                                           inputs.camera.projection, inputs.camera.lightPosition );
@@ -1510,9 +1510,9 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         m_physicsDebugVisualizer.SetFlags( inputs.snapshot.physicsDebugFlags );
         m_physicsDebugVisualizer.SetPipelineStageCursor( inputs.snapshot.physicsDebugPipelineStageCursor );
 
-        if ( HasPhysicsDebugFrameView( inputs.models ) )
+        if ( HasPhysicsDebugFrameView( inputs.physicsDebug ) )
         {
-            const PhysicsDebugFrameView frameView = BuildPhysicsDebugFrameView( inputs.models );
+            const PhysicsDebugFrameView frameView = BuildPhysicsDebugFrameView( inputs.physicsDebug );
 
             // Pass contract: physics debug owns diagnostic line generation,
             // while renderer readiness/capability stays with this frame pass.

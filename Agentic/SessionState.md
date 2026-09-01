@@ -2,11 +2,11 @@
 
 Date: 2026-08-31
 Branch: `nightrunner-31st-AUG-26`
-Status: Engine Signature And Context Cohesion active at 4/7; portfolio 139/142
+Status: Engine Signature And Context Cohesion active at SC4 (task 5/8); portfolio 139/142
 
 ## Current State
 
-The owner activated `SIGNATURE_COHESION` SC0-SC6 on the current Night Runner
+The owner activated `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
 branch and requested substantial related batches instead of a build after each
 small signature change. SC0 through SC2 are complete. The compiler census covers
 736 files/6,435 contexts with 698 candidates; the motivating broadphase bag is
@@ -1531,7 +1531,7 @@ and 1 Missing evidence. Per owner direction, no build, test, scanner, inventory,
 formatter, or repository validation was run; compile/link and focused runtime
 behavior therefore remain unexecuted evidence.
 
-## Engine Signature Cohesion SC4 DevelopmentTools Slice (2026-09-01)
+## Engine Signature Cohesion SC4 DevelopmentTools And Render Slices (2026-09-01)
 
 Branch `nightrunner-31st-AUG-26` and PR 165 remain active. The ninth SC4 slice
 replaces `ImGuiEditorCausalityContext` with separate selected-cause, bounded
@@ -1541,10 +1541,13 @@ operation no longer owns inline submission/edit helpers or a wide parameterized
 edit declaration. The existing Physics Solver filter rule now includes
 `PhysicsBroadphaseStepValues`.
 
-Profile builds warning-clean. The focused causality case passes 20 assertions;
-the complete test executable passes 913 cases and 2,692,462 assertions with one
-expected skip. Focused compiler-backed source-design passes four files under 29
-compile contexts with zero findings. Project filters, formatting, dependency
-direction, plain-language policy, commit-note policy, and whitespace checks pass.
-No baseline or golden changed. SC4 remains active; SC5 and the final SC6 closure
-still follow, corresponding to tasks 6/7 and 7/7.
+Profile builds warning-clean. The current render-frame slice deletes the
+19-field model frame bag and ten-part frame-entry bag in favor of consumer-owned
+model, broadphase, collision, Physics, world-extension, diagnostics, world, and
+overlay views. The complete test executable passes 913 cases and 2,693,947
+assertions with one expected skip. Focused compiler-backed source-design passes
+11 source/header targets under 80 compile contexts with zero findings. Project
+filters, formatting, dependency direction, plain-language policy, commit-note
+policy, and whitespace checks pass.
+No baseline or golden changed. SC4 remains active; SC5, SC6, and the final SC7
+closure still follow, corresponding to tasks 6/8, 7/8, and 8/8.

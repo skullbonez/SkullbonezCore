@@ -84,7 +84,7 @@ struct RunRayCastTestState;
 struct RunReplayPredictionFrame;
 struct RuntimeRenderPassResources;
 struct SceneSessionState;
-struct RuntimeRenderModelFrameView;
+struct RuntimeRenderFrameViews;
 
 struct RenderToolOverlayView
 {

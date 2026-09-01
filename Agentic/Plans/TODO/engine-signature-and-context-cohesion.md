@@ -1,7 +1,7 @@
 # Engine Signature And Context Cohesion
 
 Date: 2026-08-31
-Status: Active by explicit owner direction on 2026-08-31; 4/7 phases complete.
+Status: Active by explicit owner direction on 2026-08-31; 4/8 phases complete.
 Impact area: all first-party C++ engine packages, tests, compiler-backed source
 design inspection, dependency direction, and focused subsystem validation.
 Owner: Engine architecture owner
@@ -507,8 +507,8 @@ it is not an exception.
 | `Runtime/Prediction/ReplayPredictionView.h:200-242` | `ReplayPredictionPresentationView` | Split trajectory, topology, marker, baseline-pose, and drag-preview views by renderer/planner consumer; retain one top-level composition only at App/UI projection. |
 | `Runtime/Render/CollisionVisualizer.h:69-78` | `CollisionVisualizerFrameView` | Keep only as an aligned visualizer input with model-count validation; prefer a Physics debug snapshot over live store borrows if already available. |
 | `Runtime/Render/PhysicsDebugVisualizer.h:55-65` | `PhysicsDebugFrameView` | Split contact, sleep, and pipeline overlays when independently enabled; each overlay receives only its rows. |
-| `Runtime/Render/RuntimeRenderer.h:76-88` | `FrameEntryContext` | Definite repair: split frame begin, world draw, replay/tool overlay, and frame end; do not pass the same ten-part bag through all phases. |
-| `Runtime/Render/RuntimeRenderFrameValues.h:126-147` | `RuntimeRenderModelFrameView` | Split model presentation, Physics debug rows, and world-extension data. Replace live engine-owner references with detached render values where feasible. |
+| `Runtime/Render/RuntimeRenderer.h:75-94` | `WorldFrameSubmission`, `OverlayFrameSubmission` | Repaired: world rendering receives model/camera/terrain/policy/world-extension/cinematic values; replay and tool overlays receive only debug, replay, retained geometry, and tool values. The deleted ten-part `FrameEntryContext` no longer crosses every phase. |
+| `Runtime/Render/RuntimeRenderFrameValues.h:126-188` | `RuntimeRenderFrameViews` child views | Repaired: model presentation, broadphase debug, collision debug, Physics debug, world-extension debug, and diagnostics are separate consumer values. App alone holds the publication envelope and Render receives exact child views. |
 | `Runtime/Render/RuntimeRenderHost.h:92-99` | `RenderWorldView` | Definite constructor/service bag candidate: transfer stable assets/window/config/environment ownership explicitly to `RuntimeRenderHost` or direct child owners. |
 | `Runtime/Render/RuntimeRenderPasses.h:234-246` | `RenderResourceContext` | Split pass-specific resources or expose behavior on the owning renderer; do not give every pass all assets/resource/texture/geometry services. |
 | `Runtime/Replay/ReplayCoordination.h:82-283` | workspace, transport, input, `ReplayStartupRequest`, and reset records | Review collectively. Replace flag/path combinations with typed startup/transport variants; keep input/layout values separate from scene reset mutation. |
@@ -543,12 +543,15 @@ structural match in the current compiler census; its public surface remains in
 the qualitative review rather than being omitted. The candidate worksheet will
 gain final caller/lifetime/evidence decisions in each owning implementation
 phase, and SC6 will reconcile every frozen SC0 row against the final tree.
+SC7 owns independent review, the complete validation map, and the final
+commit/push/PR handoff after that reconciliation is clean.
 
 Focused evidence mapped at activation is: source-design plus Physics
 determinism/allocation gates for SC1-SC2; source-design plus command/resource
 and shader-contract gates for SC3; source-design plus Replay fidelity,
-unchanged-manifest, allocation, and dependency gates for SC4-SC5; and the full
-validation map plus independent review for SC6. SC0 itself changes advisory
+unchanged-manifest, allocation, and dependency gates for SC4-SC5; whole-engine
+inventory reconciliation for SC6; and the full validation map plus independent
+review for SC7. SC0 itself changes advisory
 tooling and documentation only, so no product build is required.
 
 ## SC1 Broadphase Decision And Evidence
@@ -674,7 +677,7 @@ pre-SC3 commit reproduces those same oracle deltas. Current and pre-SC3 water
 and space captures are pixel-identical; solver differs in only 828 color
 channels with maximum delta 36, compared with roughly 397,000 channels over the
 baseline threshold. The screenshot mismatch is inherited and no baseline or
-golden was refreshed. Replay visual fidelity remains mapped to the SC6 terminal
+golden was refreshed. Replay visual fidelity remains mapped to the SC7 terminal
 closure pass, where the plan concentrates heavy subsystem gates.
 
 ## SC4 Runtime Capture And Presentation Slice Evidence
@@ -835,6 +838,21 @@ project-filter, dependency/project ownership, plain-language, commit-note, and
 whitespace checks pass. The first broad preflight correctly exposed the editor
 shape findings before the structural split; no baseline or golden changed.
 
+The tenth grouped slice deletes the 19-field `RuntimeRenderModelFrameView` and
+the ten-part `FrameEntryContext`. Scene publication now emits model
+presentation, broadphase debug, collision debug, Physics debug, world-extension
+debug, and diagnostic values. The renderer and individual object, reflection,
+shadow, and debug-overlay passes receive only the child views they consume.
+World rendering and replay/tool overlay submission are separate public values;
+the App composition root is the only code that holds their publication envelope.
+The generated manual now describes those concrete boundaries.
+
+The Profile x64 solution builds warning-clean. The complete test executable
+passes 913 cases and 2,693,947 assertions with one expected skip. Compiler-backed
+source-design passes 11 changed source/header targets under 80 compile contexts
+with zero findings. Formatting, dependency/project ownership, project filters,
+plain-language, and whitespace checks pass. No baseline or golden changed.
+
 ### SC4 Commit-Note Recovery And Enforcement
 
 Eight published SC4 commits were incorrectly created with subject-only messages.
@@ -896,13 +914,17 @@ state the same mandatory file-backed commit workflow.
   parameters through `Run` member reach. Update tests to show the real API with
   named values. Test fixtures may supply legitimate defaults, but must not be
   the only way an unreadable production call can be understood.
-- [ ] **SC6 — Rescan, remove obsolete bags, and close with independent review.**
+- [ ] **SC6 — Rescan and remove obsolete bags.**
   Run the whole-engine inventory again and account for every original and newly
   exposed candidate. Delete superseded behavior-free records and forwarding
-  helpers. Obtain independent ownership/readability review of representative
-  production and test calls, then run the complete validation map. Any finding
-  that the same participant surface was merely renamed, sliced, or moved into
-  member reach reopens the owning phase.
+  helpers. Any finding that the same participant surface was merely renamed,
+  sliced, or moved into member reach reopens the owning phase.
+- [ ] **SC7 — Review, validate, and close the branch and PR.** Obtain independent
+  ownership/readability review of representative production and test calls,
+  resolve every material finding, then run the complete validation map. Record
+  detailed file-backed commit notes, commit and push the accepted closure, and
+  update the pull request with final evidence. SC7 is the terminal phase; work
+  does not stop at SC6 or at an intermediate commit.
 
 ## Slice Validation
 
@@ -923,7 +945,7 @@ moving to the next owner:
 - allocation policy validation when a view, result, or phase changes retained
   or temporary storage.
 
-At terminal closure, run `validate_fast`, the complete test suite, portable
+At SC7 terminal closure, run `validate_fast`, the complete test suite, portable
 Linux diagnostics, and every mapped subsystem gate. No baseline update command
 is part of this plan.
 

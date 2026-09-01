@@ -38,7 +38,7 @@ class SceneWorld;
 
 // Lifetime: the returned record borrows from scene, physics, and worker owners;
 // consume it synchronously during the frame and never retain it.
-RuntimeRenderModelFrameView PublishRenderModelFrame( SceneWorld& scene, Threading::WorkerPool& workerPool,
-                                                     const Core::EngineConfig& config );
+RuntimeRenderFrameViews PublishRenderModelFrame( SceneWorld& scene, Threading::WorkerPool& workerPool,
+                                                 const Core::EngineConfig& config );
 } // namespace Runtime
 } // namespace SkullbonezCore

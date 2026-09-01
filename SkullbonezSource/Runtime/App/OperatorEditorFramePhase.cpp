@@ -595,8 +595,7 @@ void Run::ProjectOperatorEditorInspectorView( UI::OperatorEditorFrameView& view 
 #endif
 }
 
-void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts,
-                                            const RuntimeRenderModelFrameView& renderModels,
+void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts, const RuntimeRenderFrameViews& renderFrame,
                                             const ReplayHudStatus& replayHud, const RuntimeFrameMetricsSnapshot& metrics )
 {
     RuntimeRenderer& renderer = Renderer();
@@ -672,12 +671,13 @@ void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts,
 
     if ( memoryTabActive && replayHud.memoryStatsValid )
     {
-        facts.mainMemory = m_diagnosticsRuntime.RefreshMainMemoryStats( replayHud.memoryStats, renderModels.gameObjectMemory,
-                                                                        facts.now, false, false );
+        facts.mainMemory = m_diagnosticsRuntime.RefreshMainMemoryStats( replayHud.memoryStats,
+                                                                        renderFrame.diagnostics.gameObjectMemory, facts.now,
+                                                                        false, false );
     }
     else if ( memoryOverlayEnabled )
     {
-        facts.mainMemory = SampleMainMemoryOverlayStats( m_diagnosticsRuntime, renderModels.gameObjectMemory );
+        facts.mainMemory = SampleMainMemoryOverlayStats( m_diagnosticsRuntime, renderFrame.diagnostics.gameObjectMemory );
     }
 
     if ( memoryTabActive || memoryOverlayEnabled )
@@ -705,7 +705,7 @@ void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts,
 }
 
 void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData, const OperatorUiProjectionFacts& projection,
-                                   const RuntimeRenderModelFrameView& renderModels,
+                                   const RuntimeRenderFrameViews& renderFrame,
                                    const UI::OperatorEditorFrameView& operatorEditorView,
                                    const RuntimeFrameMetricsSnapshot& metrics, const UiTextViewport& uiViewport,
                                    int uiDrawCallStart, const OverlayDebugState& debug,
@@ -713,7 +713,7 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData, const Operator
 {
     UI::UIRuntimeReserveCapacityRow reserveCapacityRows[UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX] = {};
     OperatorUiDiagnosticsFacts diagnostics;
-    SampleOperatorUiDiagnosticsFacts( diagnostics, renderModels, projection.replayHud, metrics );
+    SampleOperatorUiDiagnosticsFacts( diagnostics, renderFrame, projection.replayHud, metrics );
     ProjectOperatorUiDiagnostics( uiData, diagnostics, reserveCapacityRows );
 
     const SceneWorld& sceneWorld = m_sceneController.Scene();
@@ -802,7 +802,7 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData, const Operator
 }
 
 int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const OperatorUiProjectionFacts& projection,
-                                   const RuntimeRenderModelFrameView& renderModels,
+                                   const RuntimeRenderFrameViews& renderFrame,
                                    const UI::OperatorEditorFrameView& operatorEditorView,
                                    const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
                                    RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, const OverlayDebugState& debug )
@@ -886,8 +886,8 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
         renderer.PrepareOperatorUiSubmission( viewport, debug.isUITestPattern );
         OperatorUiProjectionFacts gameUiProjection = projection;
         gameUiProjection.replayHud = replayHud;
-        BuildOperatorGameUiData( uiData, gameUiProjection, renderModels, operatorEditorView, metrics, viewport,
-                                 drawCallStart, debug, renderTargetPreviews );
+        BuildOperatorGameUiData( uiData, gameUiProjection, renderFrame, operatorEditorView, metrics, viewport, drawCallStart,
+                                 debug, renderTargetPreviews );
         const UI::UIDrawList& drawList = ui.Draw( uiData );
         renderer.SubmitOperatorUiDrawList( drawList, renderTargetPreviews, m_assets, viewport );
     }
@@ -978,10 +978,9 @@ bool Run::RenderDevelopmentOperatorUi( const UI::OperatorEditorFrameView& operat
     return true;
 }
 
-OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
-                                                      float presentationAlpha, bool capturePresentationPinned,
-                                                      double secondsPerFrame, bool gameUiActive,
-                                                      const RuntimeFrameMetricsSnapshot& frameMetrics )
+OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha,
+                                                      bool capturePresentationPinned, double secondsPerFrame,
+                                                      bool gameUiActive, const RuntimeFrameMetricsSnapshot& frameMetrics )
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Invariant: copy the completed world backbuffer before either operator
@@ -1034,7 +1033,8 @@ OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderModelFr
         replayOverlay = m_replayRuntime.BuildOverlayStateView( m_editorTools.Editor().editorModeEnabled,
                                                                m_operatorUi->IsVisible(), m_operatorUi->IsMinimized(),
                                                                m_interaction.Gesture().kind,
-                                                               renderModels.presentationRecords, renderModels.bodyStore );
+                                                               renderFrame.modelPresentation.presentationRecords,
+                                                               renderFrame.debug.physics.bodyStore );
 
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();
@@ -1063,7 +1063,7 @@ OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderModelFr
                               debug.overlayMode == OverlayMode::BarsAbsolute;
     operatorUiPhase.Compose( debug.isTextOnly, m_operatorUi->NeedsUiTextPass(), m_operatorUi->IsVisible(), profilerBars );
 
-    const int gameUiDrawCalls = RenderOperatorUiTextPass( operatorUiPhase, projection, renderModels, operatorEditorView,
+    const int gameUiDrawCalls = RenderOperatorUiTextPass( operatorUiPhase, projection, renderFrame, operatorEditorView,
                                                           replayOverlay, renderTargetPreviews, debug );
     operatorUiPhase.RecordGpuSubmission( gameUiDrawCalls );
     m_timers.RecordUiDrawCalls( operatorUiPhase.GameUiDrawCalls() );

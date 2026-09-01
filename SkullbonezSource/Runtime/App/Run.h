@@ -131,7 +131,7 @@ class RuntimeValidationHarness;
 struct DemoDirectorTickResult;
 struct InteractionAutomationFrameResult;
 struct ReplayPathPickInput;
-struct RuntimeRenderModelFrameView;
+struct RuntimeRenderFrameViews;
 struct RuntimeUiTextFrameFacts;
 struct OperatorUiDiagnosticsFacts;
 struct OperatorUiProjectionFacts;
@@ -309,13 +309,12 @@ class Run
     float RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy,
                               bool& capturePresentationPinned );
     float PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned, float interpolationAlpha );
-    RuntimeRenderModelFrameView PublishRenderModelsPhase();
-    void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
+    RuntimeRenderFrameViews PublishRenderModelsPhase();
+    void RenderWorldPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha );
 
-    OperatorUiProcessCommands RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
-                                                     float presentationAlpha, bool capturePresentationPinned,
-                                                     double secondsPerFrame, bool gameUiActive,
-                                                     const RuntimeFrameMetricsSnapshot& frameMetrics );
+    OperatorUiProcessCommands RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha,
+                                                     bool capturePresentationPinned, double secondsPerFrame,
+                                                     bool gameUiActive, const RuntimeFrameMetricsSnapshot& frameMetrics );
     OperatorUiProjectionFacts SampleOperatorUiProjectionFacts( const RuntimeUiTextFrameFacts& uiTextFacts,
                                                                const RuntimeFrameMetricsSnapshot& frameMetrics,
                                                                const OverlayDebugState& debug );
@@ -324,17 +323,16 @@ class Run
                                            const OverlayDebugState& debug );
     void ProjectOperatorEditorHierarchyView( UI::OperatorEditorFrameView& view );
     void ProjectOperatorEditorInspectorView( UI::OperatorEditorFrameView& view );
-    void SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts,
-                                           const RuntimeRenderModelFrameView& renderModels, const ReplayHudStatus& replayHud,
-                                           const RuntimeFrameMetricsSnapshot& metrics );
+    void SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts, const RuntimeRenderFrameViews& renderFrame,
+                                           const ReplayHudStatus& replayHud, const RuntimeFrameMetricsSnapshot& metrics );
     void BuildOperatorGameUiData( UI::InGameUIFrameData& uiData, const OperatorUiProjectionFacts& projection,
-                                  const RuntimeRenderModelFrameView& renderModels,
+                                  const RuntimeRenderFrameViews& renderFrame,
                                   const UI::OperatorEditorFrameView& operatorEditorView,
                                   const RuntimeFrameMetricsSnapshot& metrics, const UiTextViewport& uiViewport,
                                   int uiDrawCallStart, const OverlayDebugState& debug,
                                   RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews );
     int RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const OperatorUiProjectionFacts& projection,
-                                  const RuntimeRenderModelFrameView& renderModels,
+                                  const RuntimeRenderFrameViews& renderFrame,
                                   const UI::OperatorEditorFrameView& operatorEditorView,
                                   const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
                                   RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, const OverlayDebugState& debug );
@@ -400,7 +398,7 @@ class Run
     void ApplySceneLoadRuntimeReactions( SceneLoadTransaction& transaction );
     SkullbonezCore::Core::SbResult RunUIStressActions();
 
-    void Render( const RuntimeRenderModelFrameView& renderModels,
+    void Render( const RuntimeRenderFrameViews& renderFrame,
                  float presentationAlpha ); // Skips 3D in text-only runs, then records passes for the current camera state.
     void UpdateLogic( float simulationDt, float cameraDt,
                       float presentationAlpha ); // Scaled frame logic and unscaled camera time; any solver ticks have

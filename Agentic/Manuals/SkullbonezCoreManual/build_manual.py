@@ -695,7 +695,7 @@ def chapter_specs() -> list[ChapterSpec]:
                     "The Composition Root",
                     [
                         "Run owns the long-lived runtime graph: native window access, config, scene queue, cameras, world environment, game models, UI, replay, capture, diagnostics, and the renderer host. It is still broad, but the code now labels its borrowed boundaries so future extraction work has real names.",
-                        "The key habit is to read ownership before reading behavior. EngineContext is a bound view over Run-owned systems. RuntimeRenderModelFrameView publishes scene-owned render values for one call, while RuntimeRenderer keeps its concrete resource owners. PhysicsModelAccess is the model-owner sync boundary between legacy GameModel storage and physics stores.",
+                        "The key habit is to read ownership before reading behavior. EngineContext is a bound view over Run-owned systems. RuntimeRenderFrameViews publishes consumer-specific scene render values for one call, while RuntimeRenderer keeps its concrete resource owners. PhysicsModelAccess is the model-owner sync boundary between legacy GameModel storage and physics stores.",
                         "That pattern lets the engine modernize without pretending the old global shape vanished overnight. A facade is useful only when it tells the truth about ownership and lifetime.",
                     ],
                     bullets=[
@@ -726,7 +726,7 @@ def chapter_specs() -> list[ChapterSpec]:
                     bullets=[
                         "Authoritative legacy storage: GameModel vector inside GameModelCollection.",
                         "Physics hot path: aligned body-field arrays, collider records, body streams, solver scratch, side-effect buffers.",
-                        "Render path: render instance streams and per-frame RuntimeRenderModelFrameView values.",
+                        "Render path: render instance streams and per-frame RuntimeRenderFrameViews child values.",
                         "Diagnostics path: bounded pipeline records and queryable SkullScope traces.",
                     ],
                 ),
@@ -808,7 +808,7 @@ def chapter_specs() -> list[ChapterSpec]:
                     [
                         "GameModelCollection is where authored objects become a deterministic order that physics, rendering, replay, and diagnostics can agree on. It is not merely a container; it is the model-owner boundary.",
                         "PhysicsModelAccess exposes the operations physics is allowed to perform: reload bodies, refresh colliders, write back one body or all bodies, access streams, and invalidate stream caches after solver mutation.",
-                        "Render code does not need the entire collection as an owner; it needs per-frame views and render instances. That is why GameModelStreamProvider and RuntimeRenderModelFrameView matter: they mark the path from historical objects toward view-shaped data.",
+                        "Render code does not need the entire collection as an owner; it needs per-frame views and render instances. That is why GameModelStreamProvider and RuntimeRenderFrameViews matter: they mark the path from historical objects toward consumer-specific data.",
                     ],
                     bullets=[
                         "Preserve model insertion order for deterministic solver and replay behavior.",
@@ -1436,7 +1436,7 @@ def worked_guides() -> list[SectionSpec]:
         SectionSpec(
             "Follow a Render Pass",
             [
-                "Start from Run::Render. Confirm replay preview state is applied only for the draw and restored afterward. Then follow FrameEntryContext into BuildRenderFrameContext to see which scene values cross the frame boundary and which resources remain owned by RuntimeRenderer.",
+                "Start from Run::Render. Confirm replay preview state is applied only for the draw and restored afterward. Then follow WorldFrameSubmission and OverlayFrameSubmission into RenderPreparedFrame to see which scene values cross each frame boundary and which resources remain owned by RuntimeRenderer.",
                 "Inside RuntimeRenderer, find whether the pass is callback-owned through RenderGraph or still executes through a direct pass method. The difference affects where resources are declared, where barriers are emitted, and which diagnostics represent the pass.",
                 "For a DX12 issue, keep two maps in your head: the logical render graph resource state and the concrete ID3D12Resource state. The graph should explain intent; RenderBackendDX12 should translate that intent into exactly the barriers DX12 needs.",
             ],

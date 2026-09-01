@@ -839,12 +839,12 @@ float Run::PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned
     return presentationAlpha;
 }
 
-RuntimeRenderModelFrameView Run::PublishRenderModelsPhase()
+RuntimeRenderFrameViews Run::PublishRenderModelsPhase()
 {
     return PublishRenderModelFrame( m_sceneController.Scene(), m_workerPool, m_config );
 }
 
-void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
+void Run::RenderWorldPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha )
 {
     PROFILE_BEGIN( "Frame/Render" );
     {
@@ -854,7 +854,7 @@ void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, flo
         // Invariant: graph ownership begins before Render can take its text-only
         // path. World, UI, capture, and Present close the same graph exactly once.
         Renderer().BeginFrameGraph();
-        Render( renderModels, presentationAlpha );
+        Render( renderFrame, presentationAlpha );
     }
     PROFILE_END( "Frame/Render" );
 }
@@ -1083,17 +1083,17 @@ SkullbonezCore::Core::SbResult Run::Execute()
             return ResolveExecuteExit( 0 );
         }
 
-        RuntimeRenderModelFrameView models = PublishRenderModelsPhase();
+        RuntimeRenderFrameViews renderFrame = PublishRenderModelsPhase();
         const RuntimeRenderFramePolicy debugFramePolicy = ProjectRenderFramePolicy(
             m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
-        Renderer().UpdateDebugVisualizers( static_cast<float>( secondsPerFrame ), models, debugFramePolicy );
+        Renderer().UpdateDebugVisualizers( static_cast<float>( secondsPerFrame ), renderFrame.debug, debugFramePolicy );
 
         // Fixed boundary: diagnostics advance once from completed frame-model
         // facts before Render or either optional UI surface can branch.
-        m_timers.SampleFrame( { secondsPerFrame, models.sceneKineticEnergy } );
+        m_timers.SampleFrame( { secondsPerFrame, renderFrame.diagnostics.sceneKineticEnergy } );
         const RuntimeFrameMetricsSnapshot frameMetrics = m_timers.Publish();
-        RenderWorldPhase( models, presentationAlpha );
-        const OperatorUiProcessCommands operatorUiCommands = RenderOperatorUiPhase( models, presentationAlpha,
+        RenderWorldPhase( renderFrame, presentationAlpha );
+        const OperatorUiProcessCommands operatorUiCommands = RenderOperatorUiPhase( renderFrame, presentationAlpha,
                                                                                     capturePresentationPinned,
                                                                                     secondsPerFrame, gameUiActive,
                                                                                     frameMetrics );
