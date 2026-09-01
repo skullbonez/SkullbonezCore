@@ -1569,3 +1569,11 @@ under 63 compile contexts with zero findings; format, dependency/project
 ownership, project-filter, and plain-language gates pass. SC4 remains task 5/8;
 SC7 remains the required closure and the stale active-goal label ending at SC6
 is not a completion gate.
+
+The thirteenth SC4 slice replaces the 17-field launcher repro context with
+separate scene-capture, launch-policy, and presentation views. RuntimeTools now
+captures one detached snapshot before file serialization; the writer cannot
+reach live scene, physics, terrain, camera, entity, or renderer owners. Debug
+builds warning-clean, and compiler-backed source-design passes three targets
+under 20 compile contexts with zero findings. SC4 remains task 5/8; the required
+finish is still SC7 task 8/8.

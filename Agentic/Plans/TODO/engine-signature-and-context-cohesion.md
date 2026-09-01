@@ -514,7 +514,7 @@ it is not an exception.
 | `Runtime/Replay/ReplayCoordination.h:82-283` | workspace, transport, input, `ReplayStartupRequest`, and reset records | Review collectively. Replace flag/path combinations with typed startup/transport variants; keep input/layout values separate from scene reset mutation. |
 | `Runtime/Replay/ReplayRuntimePackets.h:40-66` | `ReplayRenderTimeView`, `ReplayRenderFrameView` | Repaired: Gameplay time selection receives recorded/solver/prediction samples plus live-advance state; Render receives only the visual packet, focus mask, contact presentation, and fade decision. The unused prediction-enabled field is deleted. |
 | `Runtime/Scene/SceneController.h:97-105` | `SceneDefaultsSaveView` | Likely keep as one synchronous save snapshot if the writer consumes all fields and a focused test pins lifetime/serialization. |
-| `Runtime/Tools/RuntimeTools.h:200-216` | `LauncherReproSnapshotContext` | Definite repair: split scene snapshot, launch options, and captured runtime settings; the exporter consumes immutable values, not live `SceneWorld`. |
+| `Runtime/Tools/RuntimeTools.h:200-241` | launcher repro capture request | Repaired: App supplies separate scene-capture, launch-policy, and presentation views. RuntimeTools captures one detached snapshot before file serialization, so the serializer cannot reach live `SceneWorld`, Physics, Terrain, camera, entity, or renderer owners. |
 | `Runtime/UI/GameUI/UI.h:139-441` | `UIMemoryTabFrameView`, `UISceneTabFrameView`, other tab views, and `InGameUIFrameData` | Definite family repair: remove the 115-field root record. Project per-tab detached views and provide only the active tab plus shared window/input values. |
 | `Runtime/UI/GameUI/UIWindowInteractionOwner.h:61-117` | `WidgetView` (53 references) | Definite repair: make the interaction owner own cohesive widget groups or use narrow handlers; never reconstruct the entire UI object through references. |
 | `Runtime/UI/OperatorUiProjection.h:48-208` | `OperatorUiSceneFacts`, `OperatorUiInspectorFacts` | Consolidate duplicated fields with the corresponding detached UI views; split selection identity, material, transform/physics, and navigation projections by consumer. |
@@ -880,6 +880,22 @@ contract passes one case and 17 assertions. Compiler-backed source-design passes
 nine targets under 63 compile contexts with zero findings. Formatting,
 dependency/project ownership, project filters, plain-language, and whitespace
 checks pass. No baseline or golden changed.
+
+The thirteenth grouped slice repairs the launcher repro capture and serialization
+boundary. App now supplies separate scene-capture, launch-policy, and presentation
+views instead of one 17-field context. RuntimeTools captures session, launch,
+runtime, target physics, diagnostics, shape, and terrain values into an owned
+snapshot before serialization. File writers receive only detached strings and
+scalars, so no live SceneWorld, Physics, Terrain, camera, entity, or renderer
+owner is reachable after capture. The established output keys, order, precision,
+command hints, target selection, and no-target/write-failure statuses remain
+unchanged.
+
+The Debug x64 solution builds warning-clean. Compiler-backed source-design passes
+three changed source/header targets under 20 compile contexts with zero findings.
+Formatting, dependency/project ownership, project filters, plain-language, and
+whitespace checks close with this slice before commit. No baseline or golden
+changed.
 
 ### SC4 Commit-Note Recovery And Enforcement
 

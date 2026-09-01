@@ -194,25 +194,39 @@ struct ToolEditorOverlayValues
 };
 
 #ifdef _DEBUG
-// Lifetime: a synchronous Debug dump borrows SceneWorld once and resolves its
-// cameras, terrain, entities, and physics rows locally. Scalar process policy
-// values are copied or borrowed only until the file write returns.
-struct LauncherReproSnapshotContext
+struct LauncherReproSceneCaptureView
 {
     SceneWorld& world;
     const SceneSessionState& sceneState;
     const std::string* currentScenePath;
+};
+
+struct LauncherReproLaunchView
+{
     const RunLaunchOptions& launchOptions;
     bool physicsSleepEnabled;
+    float contactEpsilon; // Physics contact tolerance captured from Run config for repro output.
+    float frictionCoeff;  // Physics friction setting captured from Run config for repro output.
+};
+
+struct LauncherReproPresentationView
+{
     bool vsyncEnabled;
     bool pipelineSyncEnabled;
-    float contactEpsilon;             // Physics contact tolerance captured from Run config for repro output.
-    float frictionCoeff;              // Physics friction setting captured from Run config for repro output.
     bool waterHidden;
     bool terrainHidden;
     bool collisionVisualizer;
     const char* rendererName;
     double simulationSeconds;
+};
+
+struct LauncherReproSnapshotRequest
+{
+    // Lifetime: capture borrows these three owner-specific views only until it
+    // has built one detached immutable snapshot; file serialization sees no owner.
+    LauncherReproSceneCaptureView scene;
+    LauncherReproLaunchView launch;
+    LauncherReproPresentationView presentation;
 };
 
 enum class LauncherReproSnapshotStatus
@@ -244,8 +258,8 @@ struct RunMousePickupState
 
 struct MousePickupPointerResult
 {
-    bool consumed = false;            // Prevents later world owners from seeing this pointer gesture.
-    bool enteredInteractive = false;  // Composition disables automation quit after a successful grab begins.
+    bool consumed = false;           // Prevents later world owners from seeing this pointer gesture.
+    bool enteredInteractive = false; // Composition disables automation quit after a successful grab begins.
 };
 
 struct LauncherPointerInput
@@ -307,9 +321,9 @@ class RuntimeTools
 #ifdef _DEBUG
     bool PickLauncherReproTarget( const SceneWorld& world, int& outIndex, float& outRayT,
                                   float& outCrosshairDistance ) const;
-    LauncherReproSnapshotStatus WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const;
+    LauncherReproSnapshotStatus WriteLauncherReproSnapshot( const LauncherReproSnapshotRequest& request ) const;
     LauncherReproSnapshotResult
-    WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context ) const;
+    WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotRequest& request ) const;
 #endif
 
     LauncherLaser& Laser();

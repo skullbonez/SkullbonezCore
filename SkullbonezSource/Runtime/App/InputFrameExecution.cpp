@@ -645,11 +645,11 @@ bool Run::HandlePreUiDirectorAction( const InputActionEvent& event, OverlayDebug
         if ( RunCameraModeUsesLauncher( m_camera.mode ) && !m_replayRuntime.BuildInputView().restoreConsumedThisFrame )
         {
             const LauncherReproSnapshotResult result = m_runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
-                { m_sceneController.Scene(), m_sceneController.State(), m_sceneController.CurrentPath(), m_launchOptions,
-                  m_sceneController.Scene().Physics().IsSleepEnabled(), Renderer().VsyncEnabled(),
-                  Renderer().PipelineSyncEnabled(), m_config.bodySimulation.contactEpsilon,
-                  m_config.physicsMaterial.frictionCoeff, debug.isWaterHidden, debug.isTerrainHidden,
-                  debug.isCollisionVisualizer, Renderer().RendererName(), m_timers.SceneElapsedSeconds() } );
+                { { m_sceneController.Scene(), m_sceneController.State(), m_sceneController.CurrentPath() },
+                  { m_launchOptions, m_sceneController.Scene().Physics().IsSleepEnabled(),
+                    m_config.bodySimulation.contactEpsilon, m_config.physicsMaterial.frictionCoeff },
+                  { Renderer().VsyncEnabled(), Renderer().PipelineSyncEnabled(), debug.isWaterHidden, debug.isTerrainHidden,
+                    debug.isCollisionVisualizer, Renderer().RendererName(), m_timers.SceneElapsedSeconds() } } );
             sprintf_s( debug.reproSnapshotMessage, sizeof( debug.reproSnapshotMessage ), "%s", result.message.data() );
             debug.reproSnapshotMessageUntil = result.messageUntil;
         }
