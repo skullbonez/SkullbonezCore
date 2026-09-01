@@ -1103,8 +1103,8 @@ ReplayRenderFrameViews ReplayRuntime::BuildRenderFrameViews( const ReplayFrameSe
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
-        const std::span<const RunReplayPathTraceNode> focusNodes = prediction.enabled
-                                                                       ? prediction.futureNodes
+        const std::span<const RunReplayPathTraceNode> focusNodes = prediction.controls.enabled
+                                                                       ? prediction.topology.futureNodes
                                                                        : std::span<const RunReplayPathTraceNode> {};
 
         focusFadeActive = m_predictionPresentation.BuildFocusModelMask( m_visualPresentation.PathVisualizer(),
@@ -2030,10 +2030,10 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
     const ReplayPlanningSceneView planningScene = BuildReplayPlanningSceneView( entities,
                                                                                 m_planningOwner.InterceptView().targetId );
+    const ReplayPredictionPresentationView predictionBeforeFrame = m_predictionOwner.PresentationView();
     (void)ApplyPlanningVelocityMutation( physics,
                                          m_planningOwner.BeginFrameBeforePrediction( physics, planningScene, worldForces,
-                                                                                     path,
-                                                                                     m_predictionOwner.PresentationView(),
+                                                                                     path, predictionBeforeFrame.controls,
                                                                                      scrubber.liveAdvanceHeld ) );
 
     const ReplaySolverFrameSample* latestSolverSample = m_timeline.Solver().LatestSample();
@@ -2090,10 +2090,13 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
 
     ApplyPredictionUpdateResult( result );
     PreparePredictionPresentation( physics, entities );
+    const ReplayPredictionPresentationView predictionAfterFrame = m_predictionOwner.PresentationView();
     (void)ApplyPlanningVelocityMutation( physics,
                                          m_planningOwner.FinishFrameAfterPrediction( physics, planningScene, worldForces,
                                                                                      simulationTotalTime, path,
-                                                                                     m_predictionOwner.PresentationView(),
+                                                                                     predictionAfterFrame.timeline,
+                                                                                     predictionAfterFrame.topology,
+                                                                                     predictionAfterFrame.controls,
                                                                                      scrubber.liveAdvanceHeld ) );
 }
 
@@ -2214,7 +2217,7 @@ void ReplayRuntime::PreparePredictionPresentation( PhysicsEngine& physics, const
 
     ApplyPredictionUpdateResult( result );
 
-    if ( m_predictionOwner.PresentationView().generationPermitted )
+    if ( m_predictionOwner.PresentationView().controls.generationPermitted )
     {
         ApplyPastTrajectoryUpdate( RefreshReplayPastTrajectory( m_predictionOwner, m_timeline.Solver(),
                                                                 m_visualPresentation.PastTrajectoryView() ) );

@@ -879,7 +879,8 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     const bool predictionCauseRows = !m_authoring.CauseTree().rows.empty() &&
                                      m_authoring.CauseTree().rows.front().prediction;
     const bool causeWindowAvailable = !m_authoring.CauseTree().rows.empty() &&
-                                      ReplayPredictionCauseWindowAvailable( m_predictionOwner.PresentationView().detailMode,
+                                      ReplayPredictionCauseWindowAvailable( m_predictionOwner.PresentationView()
+                                                                                .diagnostics.detailMode,
                                                                             predictionCauseRows );
 
     // Invariant: reserve the complete target drawer before any pointer phase.
@@ -1872,7 +1873,8 @@ ReplayPredictionDetailTransitionAction
 ReplayRuntime::ApplyPredictionDetailModeCommand( ReplayPredictionDetailMode requestedMode )
 {
     const ReplayPredictionDetailTransitionAction
-        expectedActions = EvaluateReplayPredictionDetailTransition( m_predictionOwner.PresentationView().detailMode,
+        expectedActions = EvaluateReplayPredictionDetailTransition( m_predictionOwner.PresentationView()
+                                                                        .diagnostics.detailMode,
                                                                     requestedMode );
     const bool releasesEvidence = ReplayPredictionDetailTransitionHas( expectedActions,
                                                                        ReplayPredictionDetailTransitionAction::
@@ -2181,7 +2183,8 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
     pointerFrame.loadedPresentation = loadedPresentation;
     pointerFrame.pathTargetAvailable = m_visualPresentation.PathVisualizer().hasTarget;
     pointerFrame.predictionEnabled = m_predictionOwner.State().enabled;
-    pointerFrame.predictionHighDetail = m_predictionOwner.PresentationView().detailMode == ReplayPredictionDetailMode::High;
+    pointerFrame.predictionHighDetail = m_predictionOwner.PresentationView().diagnostics.detailMode ==
+                                        ReplayPredictionDetailMode::High;
     pointerFrame.predictionTimelineAvailable = m_predictionOwner.ActiveFrames().size() >= 2 ||
                                                m_predictionOwner.State().BuildPrefixShouldBePresented();
 
@@ -2238,7 +2241,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
     }
     case ReplayScrubberAction::SetPredictionDetailMode:
     {
-        const ReplayPredictionDetailMode requestedMode = m_predictionOwner.PresentationView().detailMode ==
+        const ReplayPredictionDetailMode requestedMode = m_predictionOwner.PresentationView().diagnostics.detailMode ==
                                                                  ReplayPredictionDetailMode::High
                                                              ? ReplayPredictionDetailMode::Low
                                                              : ReplayPredictionDetailMode::High;

@@ -183,7 +183,7 @@ void PrepareReplayProbePredictionPresentation( ReplayTimeline& timeline, ReplayS
 
     ApplyReplayProbePredictionResult( result, timeline, scrubber, presentation, prediction, predictionPresentation );
 
-    if ( prediction.PresentationView().generationPermitted )
+    if ( prediction.PresentationView().controls.generationPermitted )
     {
         const ReplayPastTrajectoryUpdate update = RefreshReplayPastTrajectory( prediction, timeline.Solver(),
                                                                                presentation.PastTrajectoryView() );

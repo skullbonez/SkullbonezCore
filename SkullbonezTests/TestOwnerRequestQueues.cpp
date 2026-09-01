@@ -2501,8 +2501,8 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop,    planner, path,
                                     velocity, tree,       {},        solverStats, 1.0f,    120.0f };
 
-    CHECK( replay.prediction.revealRateMinimum == doctest::Approx( 1.0 ) );
-    CHECK( replay.prediction.revealRateMaximum == doctest::Approx( 1000.0 ) );
+    CHECK( replay.prediction.controls.revealRateMinimum == doctest::Approx( 1.0 ) );
+    CHECK( replay.prediction.controls.revealRateMaximum == doctest::Approx( 1000.0 ) );
     CHECK( replay.predictionHorizonMinimum == doctest::Approx( 1.0f ) );
     CHECK( replay.predictionHorizonMaximum == doctest::Approx( 120.0f ) );
 
@@ -2539,9 +2539,9 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     ReplaySolverFrameSample selectedSolver;
     selectedSolver.frameIndex = 42u;
     replay.selection.selectedSolver = &selectedSolver;
-    replay.prediction.enabled = true;
-    replay.prediction.building = true;
-    replay.prediction.targetId.value = 17u;
+    replay.prediction.controls.enabled = true;
+    replay.prediction.controls.building = true;
+    replay.prediction.topology.targetId.value = 17u;
 
     projection = BuildImGuiEditorCausalityProjection( replay );
     REQUIRE( projection.selected.selectedObjectRow != nullptr );

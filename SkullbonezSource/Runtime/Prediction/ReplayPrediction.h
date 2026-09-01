@@ -141,7 +141,7 @@ struct RunReplayPredictionRevealClock
     // down for a deliberate unfold.
     // Invariant: overlay pacing never feeds physics, replay samples, or solver
     // restores, so steady_clock here cannot affect deterministic simulation.
-    double secondsPerSecond = 1000.0;        // Causal-unfold speed; 1.0 = real-time, large = effectively immediate.
+    double secondsPerSecond = 1000.0; // Causal-unfold speed; 1.0 = real-time, large = effectively immediate.
     std::chrono::steady_clock::time_point anchor = {};
     ReplayFrameIndex presentedFrame = 0;     // Last common reveal clamp consumed by replay presentation.
     ReplayFrameIndex deterministicFrame = 0; // Automation-owned cursor; ignored outside fidelity capture.
@@ -524,7 +524,7 @@ struct ReplayPredictionCommittedPublicationState
 struct RunReplayPredictionBuildState
 {
     bool dirty = true;
-    uint32_t generationBeginCount = 0;       // Successful future-simulation generations in this process.
+    uint32_t generationBeginCount = 0; // Successful future-simulation generations in this process.
 
     // Concept: dirty requests do not form a queue. While a worker job is in
     // flight, this bit remembers only that the newest source state needs one
@@ -590,7 +590,7 @@ struct ReplayPredictionIsolatedSimulation
     // deletion condition: none, this is the end-state isolation boundary;
     // checker budget: 960 MiB hard cap registered by ReplayPredictionReserveOwner().
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
-    int predictionEngineReserveBytes = 0;    // Monotonic approved byte budget retained with predictionEngine.
+    int predictionEngineReserveBytes = 0; // Monotonic approved byte budget retained with predictionEngine.
     Gameplay::TornadoGameplay predictionTornadoGameplay;
     Physics::PhysicsWorldForces predictionWorldForces;
     bool predictionEngineReady = false;
@@ -844,8 +844,8 @@ class ReplayPrediction
     ReplayPredictionPresentationView PresentationView() const noexcept
     {
         ReplayPredictionPresentationView view = PresentationViewFromState( m_state, m_generationPermitted );
-        view.detailMode = m_detailMode;
-        view.archiveDetailCapability = ArchiveDetailCapability();
+        view.diagnostics.detailMode = m_detailMode;
+        view.diagnostics.archiveDetailCapability = ArchiveDetailCapability();
         return view;
     }
 
@@ -861,14 +861,15 @@ class ReplayPrediction
                                                                                  ? predictionState.committedPublication
                                                                                        .visibleTrajectoryBuild
                                                                                  : predictionState.trajectoryBuild;
-        view.usingBuildFrames = presentingBuildPrefix || ( usingVisibleSnapshot && presentedTrajectory.usingBuildFrames );
+        view.timeline.usingBuildFrames = presentingBuildPrefix ||
+                                         ( usingVisibleSnapshot && presentedTrajectory.usingBuildFrames );
 
         if ( presentingBuildPrefix )
         {
             const std::size_t presentedFrameCount = predictionState.build.presentationPublication
                                                         .PresentedCount( predictionState.PublishedBuildFrameCount(),
                                                                          predictionState.build.buildFrames.size() );
-            view.frames = { predictionState.build.buildFrames.data(), presentedFrameCount };
+            view.timeline.frames = { predictionState.build.buildFrames.data(), presentedFrameCount };
         }
         else if ( usingVisibleSnapshot )
         {
@@ -876,18 +877,21 @@ class ReplayPrediction
                 visibleBank = predictionState.committedPublication.visibleFramesUseBuildBank
                                   ? std::span<const RunReplayPredictionFrame>( predictionState.build.buildFrames )
                                   : predictionState.CommittedFrames();
-            view.frames = visibleBank.first( (std::min)( predictionState.committedPublication.visibleFrameCount, visibleBank.size() ) );
+            view.timeline.frames = visibleBank.first(
+                (std::min)( predictionState.committedPublication.visibleFrameCount, visibleBank.size() ) );
         }
         else
         {
-            view.frames = predictionState.CommittedFrames();
+            view.timeline.frames = predictionState.CommittedFrames();
         }
 
-        view.futureNodes = usingVisibleSnapshot
-                               ? std::span<const RunReplayPathTraceNode>( predictionState.committedPublication.visibleFutureNodes )
-                               : std::span<const RunReplayPathTraceNode>( predictionState.futureNodeCache.futureNodes );
-        view.trajectoryRecords = predictionState.trajectoryStore.ActiveRecords();
-        view.retainedMarkers = usingVisibleSnapshot
+        view.topology.futureNodes = usingVisibleSnapshot ? std::span<const RunReplayPathTraceNode>(
+                                                               predictionState.committedPublication.visibleFutureNodes )
+                                                         : std::span<const RunReplayPathTraceNode>(
+                                                               predictionState.futureNodeCache.futureNodes );
+        view.trajectory.records = predictionState.trajectoryStore.ActiveRecords();
+        view.markers
+            .retainedMarkers = usingVisibleSnapshot
                                    ? std::span<const ReplayPredictionRetainedMarker>( predictionState.committedPublication
                                                                                           .visibleRetainedMarkers.data(),
                                                                                       predictionState.committedPublication
@@ -896,46 +900,48 @@ class ReplayPrediction
                                                                                           .retainedMarkers.data(),
                                                                                       predictionState.futureNodeCache
                                                                                           .retainedMarkerCount );
-        view.baselineBodyPoses = predictionState.baseline.bodyPoses;
-        view.velocityDragPreview.targetId = predictionState.velocityDragPreview.targetId;
-        view.velocityDragPreview.velocityDelta = predictionState.velocityDragPreview.velocityDelta;
-        view.velocityDragPreview.active = predictionState.velocityDragPreview.active;
-        view.targetId = usingVisibleSnapshot ? presentedTrajectory.rootId : predictionState.simulation.targetId;
-        view.baselineRootId = predictionState.baseline.rootId;
-        view.trajectoryBuildRootId = presentedTrajectory.rootId;
-        view.sourceFrame = predictionState.simulation.sourceFrameIndex;
-        view.revealFrame = predictionState.revealClock.presentedFrame;
-        view.generation = predictionState.build.generationBeginCount;
-        view.topologyVersion = usingVisibleSnapshot ? predictionState.committedPublication.visibleTopologyVersion
-                                                    : predictionState.futureNodeCache.futureNodesTopologyVersion;
-        view.trajectoryBuildTopologyVersion = presentedTrajectory.topologyVersion;
-        view.trajectoryPublicationVersion = usingVisibleSnapshot
-                                                ? predictionState.committedPublication.visibleTrajectoryPublicationVersion
-                                                : predictionState.trajectoryStore.publicationVersion;
-        view.trajectoryBuiltNodeCount = presentedTrajectory.builtNodeCount;
-        view.trajectoryChildFrameCount = presentedTrajectory.childFrameCount;
-        view.buildMode = predictionState.build.buildMode;
-        view.horizonSeconds = predictionState.simulation.horizonSeconds;
-        view.revealSecondsPerSecond = predictionState.revealClock.secondsPerSecond;
-        view.measuredTicksPerMs = predictionState.simulation.measuredTicksPerMs.load( std::memory_order_acquire );
-        view.lastBuildWallMs = predictionState.build.lastBuildWallMs;
-        view.enabled = predictionState.enabled;
-        view.building = predictionState.build.building;
-        view.complete = predictionState.build.complete;
-        view.futureNodesCacheValid = usingVisibleSnapshot ? predictionState.committedPublication.visibleFutureNodesCacheValid
-                                                          : predictionState.futureNodeCache.futureNodesCacheValid;
-        view.trajectoryBuildValid = presentedTrajectory.valid;
-        view.trajectoryBuildUsingBuildFrames = presentedTrajectory.usingBuildFrames;
-        view.futureTreeReady = predictionState.FutureTreeReadyForDraw( presentedTrajectory, view.targetId,
-                                                                       view.usingBuildFrames, view.frames.size(),
-                                                                       view.futureNodes.size(), view.topologyVersion,
-                                                                       view.futureNodesCacheValid );
-        view.pathPresentation = presentedTrajectory.pathPresentation;
-        view.ragdollVisualsEnabled = predictionState.ragdollVisualsEnabled;
-        view.baselineValid = predictionState.baseline.valid;
-        view.baselineComparisonActive = predictionState.baseline.comparisonActive;
-        view.deterministicRevealEnabled = predictionState.revealClock.deterministicFrameEnabled;
-        view.generationPermitted = generationPermitted;
+        view.baseline.bodyPoses = predictionState.baseline.bodyPoses;
+        view.dragPreview.targetId = predictionState.velocityDragPreview.targetId;
+        view.dragPreview.velocityDelta = predictionState.velocityDragPreview.velocityDelta;
+        view.dragPreview.active = predictionState.velocityDragPreview.active;
+        view.topology.targetId = usingVisibleSnapshot ? presentedTrajectory.rootId : predictionState.simulation.targetId;
+        view.baseline.rootId = predictionState.baseline.rootId;
+        view.trajectory.buildRootId = presentedTrajectory.rootId;
+        view.timeline.sourceFrame = predictionState.simulation.sourceFrameIndex;
+        view.timeline.revealFrame = predictionState.revealClock.presentedFrame;
+        view.timeline.generation = predictionState.build.generationBeginCount;
+        view.topology.version = usingVisibleSnapshot ? predictionState.committedPublication.visibleTopologyVersion
+                                                     : predictionState.futureNodeCache.futureNodesTopologyVersion;
+        view.trajectory.topologyVersion = presentedTrajectory.topologyVersion;
+        view.trajectory.publicationVersion = usingVisibleSnapshot
+                                                 ? predictionState.committedPublication.visibleTrajectoryPublicationVersion
+                                                 : predictionState.trajectoryStore.publicationVersion;
+        view.trajectory.builtNodeCount = presentedTrajectory.builtNodeCount;
+        view.trajectory.childFrameCount = presentedTrajectory.childFrameCount;
+        view.diagnostics.buildMode = predictionState.build.buildMode;
+        view.controls.horizonSeconds = predictionState.simulation.horizonSeconds;
+        view.controls.revealSecondsPerSecond = predictionState.revealClock.secondsPerSecond;
+        view.diagnostics.measuredTicksPerMs = predictionState.simulation.measuredTicksPerMs.load(
+            std::memory_order_acquire );
+        view.diagnostics.lastBuildWallMs = predictionState.build.lastBuildWallMs;
+        view.controls.enabled = predictionState.enabled;
+        view.controls.building = predictionState.build.building;
+        view.timeline.complete = predictionState.build.complete;
+        view.topology.cacheValid = usingVisibleSnapshot ? predictionState.committedPublication.visibleFutureNodesCacheValid
+                                                        : predictionState.futureNodeCache.futureNodesCacheValid;
+        view.trajectory.valid = presentedTrajectory.valid;
+        view.trajectory.usingBuildFrames = presentedTrajectory.usingBuildFrames;
+        view.topology.treeReady = predictionState.FutureTreeReadyForDraw( presentedTrajectory, view.topology.targetId,
+                                                                          view.timeline.usingBuildFrames,
+                                                                          view.timeline.frames.size(),
+                                                                          view.topology.futureNodes.size(),
+                                                                          view.topology.version, view.topology.cacheValid );
+        view.trajectory.pathPresentation = presentedTrajectory.pathPresentation;
+        view.topology.ragdollVisualsEnabled = predictionState.ragdollVisualsEnabled;
+        view.baseline.valid = predictionState.baseline.valid;
+        view.baseline.comparisonActive = predictionState.baseline.comparisonActive;
+        view.timeline.deterministicRevealEnabled = predictionState.revealClock.deterministicFrameEnabled;
+        view.controls.generationPermitted = generationPermitted;
         return view;
     }
 
@@ -1095,7 +1101,6 @@ class ReplayPrediction
     void CancelSolverEvidenceBuild() noexcept;
 
   private:
-
     // Lifetime: startup-bound diagnostics borrow; worker slices retain no owner state.
     Core::Profiler* m_profiler;
     RunReplayPredictionState m_state;

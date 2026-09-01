@@ -503,8 +503,8 @@ it is not an exception.
 | `Runtime/Interaction/OperatorEditorExchange.h:81-385` | `OperatorEditorInspectorView` and all `OperatorEditor*View` siblings | Review as one surface. Keep detached presentation groups only where different consumers use different subsets; merge duplicates and prevent any operation from receiving the complete slice set. |
 | `Runtime/Planning/ReplayCauseInspection.h:166-197` | `ReplayCauseInspectionView` | Split transport/selection, solver-detail availability, and display metrics if consumers use them independently. |
 | `Runtime/Planning/ReplayOverlayPackets.h:74-101` | `ReplayOverlayStateView` | Treat as top-level immutable overlay composition only; individual renderers consume their subview, never the full aggregate. |
-| `Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:445-452` | `ReplayPredictionFutureContext` | Definite repair: replace three mutable owner pointers with a topology builder method/owner and explicit collection input. |
-| `Runtime/Prediction/ReplayPredictionView.h:200-242` | `ReplayPredictionPresentationView` | Split trajectory, topology, marker, baseline-pose, and drag-preview views by renderer/planner consumer; retain one top-level composition only at App/UI projection. |
+| `Runtime/Prediction/ReplayPredictionTopologyPublication.cpp` | retired `ReplayPredictionFutureContext` | Reconciled as repaired: the mutable three-owner context no longer exists. `ReplayPredictionFutureTopologyBuilder` owns topology construction and receives the node collection, detached scene facts, root identity, and ragdoll policy explicitly. |
+| `Runtime/Prediction/ReplayPredictionView.h` | `ReplayPredictionPresentationView` | Repaired: timeline, topology, trajectory, marker, baseline, drag-preview, controls, and diagnostics are separate immutable child views. App/UI alone carry the composition envelope; Planning entry points receive only timeline/topology/controls. |
 | `Runtime/Render/CollisionVisualizer.h:69-77` | `CollisionVisualizerFrameView` | Repaired and retained as one aligned visualizer input. Publication clamps the shared model count to one Physics generation, update/render independently clamp the rows they index, and the unused live `PhysicsBodyStore` borrow is deleted. |
 | `Runtime/Render/PhysicsDebugVisualizer.h:55-89` | `PhysicsDebugFrameView` | Repaired: body geometry, contacts, sleep rows, and pipeline rows are separate views. The flag router holds only their composition; each overlay helper and the retained-contact update receive the exact child view they consume. |
 | `Runtime/Render/RuntimeRenderer.h:75-94` | `WorldFrameSubmission`, `OverlayFrameSubmission` | Repaired: world rendering receives model/camera/terrain/policy/world-extension/cinematic values; replay and tool overlays receive only debug, replay, retained geometry, and tool values. The deleted ten-part `FrameEntryContext` no longer crosses every phase. |
@@ -913,6 +913,32 @@ The Profile x64 solution builds warning-clean. The focused UI selection passes
 source/test targets under 40 compile contexts with zero findings. Formatting,
 dependency/project ownership, project filters, plain-language, and whitespace
 checks pass. No baseline or golden changed.
+
+The fifteenth grouped SC4 slice repairs Prediction presentation ownership. The
+former flat `ReplayPredictionPresentationView` is now an App/UI composition of
+eight immutable child views: timeline, topology, trajectory, retained markers,
+baseline poses, velocity-drag preview, operator controls, and diagnostics.
+Planning no longer receives that envelope; its before/after prediction entry
+points accept only the controls, timeline, and topology values they consume.
+Archive, overlay, renderer, scrubber, editor, and focused test consumers now
+name the owning child view explicitly. The stale `ReplayPredictionFutureContext`
+inventory row is reconciled against current source: that three-owner mutable
+record was already retired in favor of `ReplayPredictionFutureTopologyBuilder`
+with explicit collection and detached scene inputs.
+
+The compiler gate exposed four touched translation-unit functions that exceeded
+the repository shape rules. Cause-focus submission now routes body, solver
+manifold, and predicted-contact work through focused operations. Retained marker,
+baseline, and causal-trail publication is separate from the primary trajectory
+draw-list pass. Two large Prediction regression cases delegate schedule,
+trajectory comparison, legacy marker scan, and orientation checks to focused
+oracles. Profile builds warning-clean. The final sequential focused selection
+passes 57 cases and 4,907 assertions. Compiler-backed source-design closes all
+16 changed source/header targets across 90 build contexts with zero remaining
+findings (the full scan identified only the subsequently repaired test nesting,
+and its final two Debug/Profile contexts pass independently). Formatting,
+dependency/project ownership, build-configuration consistency, project filters,
+plain-language policy, and whitespace checks pass. No baseline or golden changed.
 
 ### SC4 Commit-Note Recovery And Enforcement
 

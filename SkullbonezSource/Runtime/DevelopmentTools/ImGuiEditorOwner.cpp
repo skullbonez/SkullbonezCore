@@ -3062,7 +3062,7 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
     const char* playPauseLabel = replay.scrubber.historicalSamplePaused || replay.scrubber.liveAdvanceHeld
                                      ? ( compact ? ">" : "PLAY" )
                                      : ( compact ? "||" : "PAUSE" );
-    ImGui::BeginDisabled( replay.prediction.enabled );
+    ImGui::BeginDisabled( replay.prediction.controls.enabled );
 
     if ( ImGui::Button( playPauseLabel ) )
     {
@@ -3131,10 +3131,11 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
                                          IM_COL32( 255, 196, 64, 255 ), 2.0f );
 
     ImGui::SameLine();
-    const char* predictionLabel = replay.prediction.building ? ( compact ? "BUILD" : "PREDICTING" )
-                                                             : ( replay.prediction.enabled ? "PRED*" : "PRED" );
+    const char* predictionLabel = replay.prediction.controls.building
+                                      ? ( compact ? "BUILD" : "PREDICTING" )
+                                      : ( replay.prediction.controls.enabled ? "PRED*" : "PRED" );
 
-    ImGui::BeginDisabled( !replay.prediction.generationPermitted );
+    ImGui::BeginDisabled( !replay.prediction.controls.generationPermitted );
 
     if ( ImGui::Button( predictionLabel ) )
     {
@@ -3151,15 +3152,16 @@ void ImGuiEditorOwner::DrawReplayPanel( const UI::OperatorEditorForecastView& fo
 
     if ( ImGui::BeginPopup( "##ReplayMore" ) )
     {
-        float revealSpeed = static_cast<float>( replay.prediction.revealSecondsPerSecond );
+        float revealSpeed = static_cast<float>( replay.prediction.controls.revealSecondsPerSecond );
 
-        if ( ImGui::SliderFloat( "Reveal speed", &revealSpeed, static_cast<float>( replay.prediction.revealRateMinimum ),
-                                 static_cast<float>( replay.prediction.revealRateMaximum ), "%.2fx" ) )
+        if ( ImGui::SliderFloat( "Reveal speed", &revealSpeed,
+                                 static_cast<float>( replay.prediction.controls.revealRateMinimum ),
+                                 static_cast<float>( replay.prediction.controls.revealRateMaximum ), "%.2fx" ) )
         {
             SubmitReplayCommand( UI::OperatorEditorReplayCommandType::SetRevealSpeed, revealSpeed );
         }
 
-        float horizon = replay.prediction.horizonSeconds;
+        float horizon = replay.prediction.controls.horizonSeconds;
 
         if ( ImGui::SliderFloat( "Prediction horizon", &horizon, replay.predictionHorizonMinimum,
                                  replay.predictionHorizonMaximum, "%.1fs" ) )

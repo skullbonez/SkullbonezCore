@@ -171,21 +171,21 @@ BuildImGuiEditorCausalityProjection( const ReplayOverlay::ReplayOverlayStateView
         (void)setTick( selection.latestPresentation );
     }
 
-    if ( !projection.status.hasReplayTick && replay.prediction.sourceFrame != 0 )
+    if ( !projection.status.hasReplayTick && replay.prediction.timeline.sourceFrame != 0 )
     {
-        projection.status.replayTick = replay.prediction.sourceFrame;
+        projection.status.replayTick = replay.prediction.timeline.sourceFrame;
         projection.status.hasReplayTick = true;
     }
 
-    if ( !replay.prediction.enabled )
+    if ( !replay.prediction.controls.enabled )
     {
         projection.status.predictionState = ImGuiEditorPredictionState::Disabled;
     }
-    else if ( replay.prediction.targetId.value == 0u )
+    else if ( replay.prediction.topology.targetId.value == 0u )
     {
         projection.status.predictionState = ImGuiEditorPredictionState::AwaitingTarget;
     }
-    else if ( replay.prediction.building || !replay.prediction.complete )
+    else if ( replay.prediction.controls.building || !replay.prediction.timeline.complete )
     {
         projection.status.predictionState = ImGuiEditorPredictionState::Building;
     }
@@ -197,9 +197,9 @@ BuildImGuiEditorCausalityProjection( const ReplayOverlay::ReplayOverlayStateView
     // Why: replay fails the full build closed when the pre-reserved row budget
     // cannot hold its estimate. Recompute only that constant-time size equation
     // so the compact UI can distinguish exhaustion from an ordinary empty tree.
-    const bool usePredictionNodes = replay.prediction.enabled && replay.prediction.targetId.value != 0u &&
-                                    replay.prediction.targetId.value == replay.pathVisualizer.targetId.value;
-    const std::size_t nodeCount = usePredictionNodes ? replay.prediction.futureNodes.size() : std::size_t { 0u };
+    const bool usePredictionNodes = replay.prediction.controls.enabled && replay.prediction.topology.targetId.value != 0u &&
+                                    replay.prediction.topology.targetId.value == replay.pathVisualizer.targetId.value;
+    const std::size_t nodeCount = usePredictionNodes ? replay.prediction.topology.futureNodes.size() : std::size_t { 0u };
     const std::size_t contactCount = selection.currentSolver
                                          ? selection.currentSolver->worldSnapshot.physics.persistentContacts.size()
                                          : std::size_t { 0u };

@@ -80,7 +80,7 @@ bool ReplayPredictionContactsIncomplete( const ReplayPredictionPresentationView&
     // Concept: contact payloads are optional prediction evidence. The root path
     // can still be correct when contact-tree rows are partial, but the overlay
     // should label that loss instead of implying a complete causal tree.
-    for ( const RunReplayPredictionFrame& frame : prediction.frames )
+    for ( const RunReplayPredictionFrame& frame : prediction.timeline.frames )
     {
         if ( frame.contactsIncomplete )
         {
@@ -580,8 +580,8 @@ void ReplayScrubberComposer::BuildSurface( bool scenePhysicsEnabled )
     input.gesture = m_gesture.scrubDrag ? ReplayToolGestureKind::ScrubDrag
                                         : ( m_gesture.predictionHorizonDrag ? ReplayToolGestureKind::PredictionHorizonDrag
                                                                             : ReplayToolGestureKind::None );
-    input.predictionEnabled = m_presentation.Prediction().enabled;
-    input.predictionHighDetail = m_presentation.Prediction().detailMode == ReplayPredictionDetailMode::High;
+    input.predictionEnabled = m_presentation.Prediction().controls.enabled;
+    input.predictionHighDetail = m_presentation.Prediction().diagnostics.detailMode == ReplayPredictionDetailMode::High;
     BuildReplayScrubberSurface( input, m_surface );
     m_surface.ResolvePointer( m_scrubber.mouseX, m_scrubber.mouseY );
 }
@@ -829,7 +829,7 @@ void ReplayScrubberComposer::DrawPredictionToggleAndHorizon()
     const UI::UIRect horizon = Control( ReplayScrubberControl::PredictionHorizon ).drawRect;
     const bool hover = m_predictionToolsEnabled &&
                        ( IsHot( ReplayScrubberControl::PredictionHorizon ) || m_gesture.predictionHorizonDrag );
-    const bool enabled = m_predictionToolsEnabled && m_presentation.Prediction().enabled;
+    const bool enabled = m_predictionToolsEnabled && m_presentation.Prediction().controls.enabled;
     const UI::Style::UIColor& toggleFill = m_predictionToolsEnabled && IsHot( ReplayScrubberControl::PredictionToggle )
                                                ? m_palette.controlHover
                                                : m_palette.control;
@@ -860,7 +860,7 @@ void ReplayScrubberComposer::DrawPredictionToggleAndHorizon()
     m_draw.Outline( panel.x, panel.y, panel.w, panel.h, m_palette.accent.r, m_palette.accent.g, m_palette.accent.b,
                     FadeA( m_predictionToolsEnabled ? ( hover || enabled ? 0.72f : 0.34f ) : 0.14f ) );
 
-    const float seconds = std::clamp( m_presentation.Prediction().horizonSeconds, REPLAY_PREDICTION_MIN_SECONDS,
+    const float seconds = std::clamp( m_presentation.Prediction().controls.horizonSeconds, REPLAY_PREDICTION_MIN_SECONDS,
                                       REPLAY_PREDICTION_MAX_SECONDS );
     char secondsLabel[16] = {};
     sprintf_s( secondsLabel, sizeof( secondsLabel ), "%.0fs", static_cast<double>( seconds ) );
@@ -882,7 +882,7 @@ void ReplayScrubberComposer::DrawPredictionToggleAndHorizon()
 
 void ReplayScrubberComposer::DrawRagdollAndPathControls()
 {
-    const bool ragdollEnabled = m_predictionToolsEnabled && m_presentation.Prediction().ragdollVisualsEnabled;
+    const bool ragdollEnabled = m_predictionToolsEnabled && m_presentation.Prediction().topology.ragdollVisualsEnabled;
     const bool pathToolsEnabled = m_solverToolsEnabled && m_presentation.PathVisualizer().hasTarget;
     const bool pathEnabled = pathToolsEnabled && m_presentation.PathVisualizer().pastPathVisible;
     DrawCheckControl( Control( ReplayScrubberControl::RagdollVisuals ).drawRect, ReplayScrubberControl::RagdollVisuals,
@@ -920,18 +920,18 @@ void ReplayScrubberComposer::DrawCheckControl( const UI::UIRect& bounds, ReplayS
 void ReplayScrubberComposer::DrawPredictionStatus()
 {
     const UI::UIRect panel = Control( ReplayScrubberControl::PredictionPanel ).drawRect;
-    const bool enabled = m_predictionToolsEnabled && m_presentation.Prediction().enabled;
+    const bool enabled = m_predictionToolsEnabled && m_presentation.Prediction().controls.enabled;
     const char* colorMode = ReplayPathColorModeName( m_presentation.PathVisualizer().colorMode );
 
     if ( enabled )
     {
         const ReplayPredictionPresentationView& prediction = m_presentation.Prediction();
-        const char* buildMode = prediction.buildMode == ReplayPredictionBuildMode::Instant     ? "Instant"
-                                : prediction.buildMode == ReplayPredictionBuildMode::Amortized ? "Amortized"
-                                                                                               : "Measuring";
+        const char* buildMode = prediction.diagnostics.buildMode == ReplayPredictionBuildMode::Instant     ? "Instant"
+                                : prediction.diagnostics.buildMode == ReplayPredictionBuildMode::Amortized ? "Amortized"
+                                                                                                           : "Measuring";
         char scheduling[128] = {};
         sprintf_s( scheduling, sizeof( scheduling ), "Prediction: %s | Color: %s | %.0f ticks/ms | %.1f ms rebuild",
-                   buildMode, colorMode, prediction.measuredTicksPerMs, prediction.lastBuildWallMs );
+                   buildMode, colorMode, prediction.diagnostics.measuredTicksPerMs, prediction.diagnostics.lastBuildWallMs );
         DrawText( panel.x, panel.y + 27.0f, 8.0f, m_palette.textSecondary, scheduling );
     }
 
@@ -1256,7 +1256,7 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
     const bool predictionRows = !replay.causeTree.rows.empty() && replay.causeTree.rows.front().prediction;
 
     if ( screenW <= 0 || screenH <= 0 || replay.causeTree.rows.empty() ||
-         !ReplayPredictionCauseWindowAvailable( replay.prediction.detailMode, predictionRows ) )
+         !ReplayPredictionCauseWindowAvailable( replay.prediction.diagnostics.detailMode, predictionRows ) )
     {
         return;
     }

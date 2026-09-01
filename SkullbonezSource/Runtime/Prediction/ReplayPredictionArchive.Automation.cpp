@@ -224,7 +224,8 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
     // once after the sole live capture, and never touches steady gameplay,
     // presentation, or a second prediction path. RunReplayPathVisualizerState is
     // only 160 bytes and stays on the stack.
-    CoreAllocation::RuntimeAllocationScope verificationAllocationScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+    CoreAllocation::RuntimeAllocationScope verificationAllocationScope(
+        CoreAllocation::RuntimeAllocationPhase::Diagnostics );
 
     RunReplayPathVisualizerState restoredPathVisualizer;
     const auto restoredPredictionStorage = std::make_unique<RunReplayPredictionState>();
@@ -372,10 +373,10 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
 
         if ( lightweightSchema == 5u )
         {
-            const std::span<const RunReplayPredictionFrame> expectedFrames =
-                ReplayPrediction::PresentationViewFromState( restoredPrediction, false ).frames;
-            const std::span<const RunReplayPredictionFrame> migratedFrames =
-                ReplayPrediction::PresentationViewFromState( migratedPrediction, false ).frames;
+            const std::span<const RunReplayPredictionFrame>
+                expectedFrames = ReplayPrediction::PresentationViewFromState( restoredPrediction, false ).timeline.frames;
+            const std::span<const RunReplayPredictionFrame>
+                migratedFrames = ReplayPrediction::PresentationViewFromState( migratedPrediction, false ).timeline.frames;
 
             if ( expectedFrames.empty() || expectedFrames.size() != migratedFrames.size() )
             {

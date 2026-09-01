@@ -1586,3 +1586,18 @@ signature debt. Profile builds warning-clean; the focused UI selection passes
 84 cases and 2,608 assertions; compiler-backed source-design passes five targets
 under 40 compile contexts with zero findings. SC4 remains task 5/8, and SC7
 remains the required terminal closure.
+
+The fifteenth SC4 slice replaces the flat Prediction presentation record with
+timeline, topology, trajectory, retained-marker, baseline, drag-preview,
+controls, and diagnostics child views. App/UI retain the composition envelope;
+Planning receives only controls before prediction and timeline/topology/controls
+after publication. The stale `ReplayPredictionFutureContext` inventory row is
+reconciled as already retired by the explicit topology builder. Cause-focus,
+retained-evidence publication, and two regression oracles were split when the
+compiler gate exposed their touched function-shape debt. Profile builds with
+zero warnings/errors; the final sequential Prediction/Replay/Planning selection
+passes 57 cases and 4,907 assertions. Source-design closes the 16 changed targets
+across 90 contexts with zero remaining findings; formatting, dependency/project
+ownership, build-configuration, project-filter, plain-language, and whitespace
+checks pass. No baseline or golden changed. SC4 remains task 5/8; SC7 remains
+the required task 8/8 closure.
