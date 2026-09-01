@@ -2,7 +2,7 @@
 
 Date: 2026-08-31
 Branch: `nightrunner-31st-AUG-26`
-Status: Engine Signature And Context Cohesion active at SC4 (task 5/8); portfolio 139/142
+Status: Engine Signature And Context Cohesion active at SC7 (task 8/8); portfolio 139/142
 
 ## Current State
 
@@ -1650,3 +1650,31 @@ the pre-edit scan). Format, dependency/project ownership, build configuration,
 project filters, plain language, and whitespace pass. No baseline or golden
 changed. SC6 task 7/8 and mandatory SC7 task 8/8 remain; scrubber behavior stays
 deferred by user direction.
+
+## Engine Signature Cohesion SC6 Whole-Engine Reconciliation (2026-09-01)
+
+SC6 task 7/8 is complete; SC7 task 8/8 is the active terminal phase. The final
+whole-engine advisory rescan covers 737 files and 6,449 compile contexts with
+zero infrastructure errors. It accounts for 667 candidates against the frozen
+SC0 count of 698, a net reduction of 31 across 71 changed file/kind rows. The
+qualitative pass found no old participant surface reconstructed through a
+rename, a nominal slice, forwarding member reach, or a new generic owner bag.
+
+The grouped cleanup deletes the behavior-free `InputBindingContext` alias,
+refreshes 23 exact allocation-policy fingerprints relocated by accepted source
+slices, and updates the technical-manual source plus generated DOCX to describe
+the current named pass inputs, `RuntimeRenderPassResources`, and
+`RenderResourceLifecycle`. Current `ReplayStartupRequest` and grouped UI
+`WidgetView` values remain legitimate operation/composition boundaries.
+
+Profile x64 builds with zero warnings/errors. The four exact runtime input-
+binding cases pass 1,204 assertions; source-design passes one changed source
+across five compile contexts. Allocation, format, dependency/project ownership,
+build-configuration consistency, project filters, plain language, and
+whitespace checks pass. The manual regenerates to 60 pages and structural DOCX
+verification finds all current terms and no retired names. LibreOffice is not
+installed, so the document skill's page-image render was unavailable; this is
+recorded rather than represented as visual evidence. No baseline or golden
+changed. The branch is not complete until SC7 independent review, full
+validation, computer-control verification, closure commit/push, and PR 165
+update all succeed. Scrubber behavior remains deferred by owner direction.

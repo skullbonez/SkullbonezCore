@@ -33,31 +33,37 @@ namespace Runtime
 {
 namespace
 {
-using InputBindingContext = RuntimeInputBindingContext;
-constexpr RuntimeInputContextMask kKeyboardUnblockedContext = RuntimeInputContextBit( InputBindingContext::KeyboardUnblocked );
-constexpr RuntimeInputContextMask kAfterUIUpdateContext = RuntimeInputContextBit( InputBindingContext::AfterUIUpdate );
-constexpr RuntimeInputContextMask kCaptureContext = RuntimeInputContextBit( InputBindingContext::Capture );
+constexpr RuntimeInputContextMask kKeyboardUnblockedContext = RuntimeInputContextBit(
+    RuntimeInputBindingContext::KeyboardUnblocked );
+constexpr RuntimeInputContextMask kAfterUIUpdateContext = RuntimeInputContextBit(
+    RuntimeInputBindingContext::AfterUIUpdate );
+constexpr RuntimeInputContextMask kCaptureContext = RuntimeInputContextBit( RuntimeInputBindingContext::Capture );
 
-const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = { { VK_OEM_3, RuntimeInputAction::ToggleEditor, kKeyboardUnblockedContext },
+const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] =
+    { { VK_OEM_3, RuntimeInputAction::ToggleEditor, kKeyboardUnblockedContext },
       { VK_TAB, RuntimeInputAction::CycleCameraMode, kKeyboardUnblockedContext },
       { 'F', RuntimeInputAction::ToggleFlyCamera, kKeyboardUnblockedContext },
       { 'N', RuntimeInputAction::ToggleLauncher, kKeyboardUnblockedContext },
-      { 'M', RuntimeInputAction::CycleLauncherFireMode, kKeyboardUnblockedContext | InputBindingContext::Launcher },
+      { 'M', RuntimeInputAction::CycleLauncherFireMode, kKeyboardUnblockedContext | RuntimeInputBindingContext::Launcher },
       { VK_F1, RuntimeInputAction::CycleAttachedCameraSubmode,
-        kKeyboardUnblockedContext | InputBindingContext::AttachedCamera },
+        kKeyboardUnblockedContext | RuntimeInputBindingContext::AttachedCamera },
       { VK_RETURN, RuntimeInputAction::ToggleAttachedCameraPin,
-        kKeyboardUnblockedContext | InputBindingContext::AttachedCamera },
-      { 'B', RuntimeInputAction::ToggleDirectorGrab, kKeyboardUnblockedContext | InputBindingContext::Director },
-      { 'J', RuntimeInputAction::SetDirectorPhasePose, kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
-      { 'K', RuntimeInputAction::StepDirectorPhase, kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
-      { 'L', RuntimeInputAction::SaveDirectorShotList, kKeyboardUnblockedContext | InputBindingContext::DirectorAuthoring },
+        kKeyboardUnblockedContext | RuntimeInputBindingContext::AttachedCamera },
+      { 'B', RuntimeInputAction::ToggleDirectorGrab, kKeyboardUnblockedContext | RuntimeInputBindingContext::Director },
+      { 'J', RuntimeInputAction::SetDirectorPhasePose,
+        kKeyboardUnblockedContext | RuntimeInputBindingContext::DirectorAuthoring },
+      { 'K', RuntimeInputAction::StepDirectorPhase,
+        kKeyboardUnblockedContext | RuntimeInputBindingContext::DirectorAuthoring },
+      { 'L', RuntimeInputAction::SaveDirectorShotList,
+        kKeyboardUnblockedContext | RuntimeInputBindingContext::DirectorAuthoring },
       { VK_RETURN, RuntimeInputAction::WriteLauncherReproSnapshot,
-        kKeyboardUnblockedContext | InputBindingContext::Launcher | InputBindingContext::ReplayRestoreNotConsumed |
-            InputBindingContext::DebugOnly },
+        kKeyboardUnblockedContext | RuntimeInputBindingContext::Launcher |
+            RuntimeInputBindingContext::ReplayRestoreNotConsumed | RuntimeInputBindingContext::DebugOnly },
       { VK_MENU, RuntimeInputAction::ToggleEditorTool, kKeyboardUnblockedContext },
-      { 'Z', RuntimeInputAction::UndoEditor, kKeyboardUnblockedContext | InputBindingContext::Editor },
-      { 'Y', RuntimeInputAction::RedoEditor, kKeyboardUnblockedContext | InputBindingContext::Editor },
-      { VK_DELETE, RuntimeInputAction::DeleteEditorSelection, kKeyboardUnblockedContext | InputBindingContext::Editor },
+      { 'Z', RuntimeInputAction::UndoEditor, kKeyboardUnblockedContext | RuntimeInputBindingContext::Editor },
+      { 'Y', RuntimeInputAction::RedoEditor, kKeyboardUnblockedContext | RuntimeInputBindingContext::Editor },
+      { VK_DELETE, RuntimeInputAction::DeleteEditorSelection,
+        kKeyboardUnblockedContext | RuntimeInputBindingContext::Editor },
       { '1', RuntimeInputAction::ToggleWaterFreeze, kKeyboardUnblockedContext },
       { '2', RuntimeInputAction::CycleWaterReflection, kKeyboardUnblockedContext },
       { '3', RuntimeInputAction::ToggleWaterFlat, kKeyboardUnblockedContext },
@@ -85,11 +91,12 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = { { VK_OEM_3, Runtim
       { VK_F11, RuntimeInputAction::SaveLookLabBundle, kKeyboardUnblockedContext },
       { VK_LEFT, RuntimeInputAction::NavigateScenePrevious, kKeyboardUnblockedContext },
       { VK_RIGHT, RuntimeInputAction::NavigateSceneNext, kKeyboardUnblockedContext },
-      { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI, kAfterUIUpdateContext | InputBindingContext::UINotInteracted },
+      { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI,
+        kAfterUIUpdateContext | RuntimeInputBindingContext::UINotInteracted },
       { VK_F2, RuntimeInputAction::SaveSceneSnapshot, kCaptureContext },
       { VK_F3, RuntimeInputAction::SaveScreenshot, kCaptureContext },
       { 'R', RuntimeInputAction::ResetScene, kAfterUIUpdateContext },
-      { VK_BACK, RuntimeInputAction::ResetSceneFromBackspace, kAfterUIUpdateContext | InputBindingContext::Scene } };
+      { VK_BACK, RuntimeInputAction::ResetSceneFromBackspace, kAfterUIUpdateContext | RuntimeInputBindingContext::Scene } };
 constexpr std::size_t kTakeInputKeyboardBindingCount = sizeof( kTakeInputKeyboardBindings ) /
                                                        sizeof( kTakeInputKeyboardBindings[0] );
 } // namespace

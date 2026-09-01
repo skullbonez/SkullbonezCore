@@ -1039,6 +1039,28 @@ build-configuration consistency, project filters, plain-language policy, and
 whitespace checks pass. No baseline or golden changed. SC5 is task 6/8; SC6
 whole-engine reconciliation and mandatory SC7 closure remain.
 
+SC6 task 7/8 is complete. The unchanged whole-engine advisory inventory covers
+737 files and 6,449 distinct compile contexts with zero infrastructure errors.
+It reports 667 reconciled candidates versus the frozen SC0 count of 698, a net
+reduction of 31; 71 file/kind rows changed, and the qualitative pass found no
+participant surface merely renamed, sliced, or moved into member reach. The
+cleanup deletes the behavior-free `InputBindingContext` forwarding alias,
+refreshes 23 exact allocation-policy fingerprints relocated by accepted owner
+slices, and removes retired render/prediction bag terminology from the
+technical-manual source and generated DOCX. `ReplayStartupRequest` and the
+grouped UI `WidgetView` remain deliberate operation/composition values rather
+than flat owner bags.
+
+The Profile x64 solution builds warning-clean. All four runtime input-binding
+cases pass 1,204 assertions, and compiler-backed source-design passes the
+changed source across five compile contexts with zero findings. Allocation,
+formatting, dependency/project ownership, build-configuration consistency,
+project filters, plain-language, and whitespace gates pass. The 60-page manual
+regenerates and its DOCX structure contains the current pass-resource terms and
+none of the retired names; LibreOffice is not installed on this host, so DOCX
+page-image rendering is unavailable. No baseline or golden changed. SC7 task
+8/8 remains mandatory and is now the active terminal phase.
+
 ### SC4 Commit-Note Recovery And Enforcement
 
 Eight published SC4 commits were incorrectly created with subject-only messages.
@@ -1100,7 +1122,7 @@ state the same mandatory file-backed commit workflow.
   parameters through `Run` member reach. Update tests to show the real API with
   named values. Test fixtures may supply legitimate defaults, but must not be
   the only way an unreadable production call can be understood.
-- [ ] **SC6 — Rescan and remove obsolete bags.**
+- [x] **SC6 — Rescan and remove obsolete bags.**
   Run the whole-engine inventory again and account for every original and newly
   exposed candidate. Delete superseded behavior-free records and forwarding
   helpers. Any finding that the same participant surface was merely renamed,

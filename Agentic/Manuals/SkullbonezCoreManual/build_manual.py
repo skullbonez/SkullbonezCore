@@ -982,11 +982,11 @@ def chapter_specs() -> list[ChapterSpec]:
                     [
                         "RuntimeRenderer owns pass instances and the stable pass order: full-screen helpers, sky, scene target, shadows, reflection, objects, terrain, water, tornado visuals, debug overlays, volumetric light, tonemap, and UI text.",
                         "Run prepares the active camera and replay render state, checks that the process-bound backend is ready, narrows the backend into command/resource/diagnostic/raytracing facets, and calls RuntimeRenderer::RenderFrame with per-frame borrowed inputs.",
-                        "Passes should not store broad runtime state. RenderFrameContext and RenderResourceContext separate per-frame drawing data from create/rebuild-only resource access.",
+                        "Passes should not store broad runtime state. RuntimeRenderer projects exact per-pass input values, while RenderResourceLifecycle owns create/rebuild-only resource access.",
                     ],
                     bullets=[
-                        "RenderFrameContext carries matrices, light vector, water height, scene view, backend facets, and dimensions.",
-                        "RenderResourceContext is for resize-sensitive resources and lazy creation.",
+                        "Named pass inputs carry only the camera, scene, backend facets, resources, dimensions, and policy consumed by that pass.",
+                        "RuntimeRenderPassResources owns resize-sensitive GPU resources, and RenderResourceLifecycle coordinates their creation and release.",
                         "UI text may use the optional DXR facet when the active backend publishes it.",
                     ],
                     equation="eq_render_transform",
