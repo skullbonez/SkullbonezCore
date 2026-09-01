@@ -83,13 +83,21 @@ struct EditorMiniPaletteLayout;
 class UIWindowInteractionOwner
 {
   public:
-    struct WidgetView
+    struct ChromeWidgetView
     {
         UIWindowState& window;
         UIInteractionState& interaction;
         bool& blurPreviewEnabled;
         InGameUITab& activeTab;
         UITabBar& tabBar;
+        UIBackdropBlur& backdropBlur;
+        UICacheState& cache;
+        UIScrollBar& scrollBar;
+        bool& hitboxOverlayEnabled;
+    };
+
+    struct FooterWidgetView
+    {
         UICheckBox& blurToggle;
         UICheckBox& vsyncToggle;
         UICheckBox& timelineToggle;
@@ -97,18 +105,21 @@ class UIWindowInteractionOwner
         UICheckBox& hitboxToggle;
         UIComboBox& rendererCombo;
         UIComboBox& reflectionCombo;
-        UIComboBox& renderTargetCombo;
         UIComboBox& cameraModeCombo;
+    };
+
+    struct RenderWidgetView
+    {
+        UIComboBox& renderTargetCombo;
         UICheckBox& cinematicMasterToggle;
         UICheckBox& renderShadowToggle;
         UIButton& saveRenderDefaultsButton;
         UIButton& saveTrajectoryStyleButton;
         UISlider ( &renderSliders )[static_cast<int>( UIRenderParam::Count )];
-        UIBackdropBlur& backdropBlur;
-        UICacheState& cache;
-        UIScrollBar& scrollBar;
-        int& mouseX;
-        int& mouseY;
+    };
+
+    struct DrawCatalogView
+    {
         int& lastScreenW;
         int& lastScreenH;
         int& lastModelCapacity;
@@ -119,6 +130,10 @@ class UIWindowInteractionOwner
         int& lastRenderTargetPreviewCount;
         uint32_t& lastRenderTargetDisabledMask;
         int& selectedRenderTargetPreview;
+    };
+
+    struct TabWidgetView
+    {
         ControlsTab::UIControlsTabState& controlsTab;
         EditorTab::UIEditorTabState& editorTab;
         OptionsTab::UIOptionsTabState& optionsTab;
@@ -128,10 +143,19 @@ class UIWindowInteractionOwner
         SceneTab::UISceneTabState& sceneTab;
         SkyTab::UISkyTabState& skyTab;
         CinematicTab::UICinematicTabState& cinematicTab;
+    };
+
+    struct PointerDrawStateView
+    {
+        int& mouseX;
+        int& mouseY;
         float& scrollY;
         double& scrollbarVisibleUntil;
         int& activeSlider;
-        bool& hitboxOverlayEnabled;
+    };
+
+    struct EditorMiniPaletteView
+    {
         bool& editorMiniPalettePressActive;
         bool& editorMiniPaletteFlyoutOpen;
         int& editorMiniPalettePressedEntry;
@@ -139,6 +163,19 @@ class UIWindowInteractionOwner
         int& editorMiniPalettePressedTreePlacement;
         int& editorMiniPalettePressedHoldMode;
         double& editorMiniPalettePressStart;
+    };
+
+    // Lifetime: this top-level composition exists only inside InGameUI::Draw.
+    // Draw phases receive the exact child group they use and never retain it.
+    struct WidgetView
+    {
+        ChromeWidgetView chrome;
+        FooterWidgetView footer;
+        RenderWidgetView render;
+        DrawCatalogView catalog;
+        TabWidgetView tabs;
+        PointerDrawStateView pointer;
+        EditorMiniPaletteView miniPalette;
     };
 
     UIWindowInteractionOwner();

@@ -509,14 +509,14 @@ it is not an exception.
 | `Runtime/Render/PhysicsDebugVisualizer.h:55-89` | `PhysicsDebugFrameView` | Repaired: body geometry, contacts, sleep rows, and pipeline rows are separate views. The flag router holds only their composition; each overlay helper and the retained-contact update receive the exact child view they consume. |
 | `Runtime/Render/RuntimeRenderer.h:75-94` | `WorldFrameSubmission`, `OverlayFrameSubmission` | Repaired: world rendering receives model/camera/terrain/policy/world-extension/cinematic values; replay and tool overlays receive only debug, replay, retained geometry, and tool values. The deleted ten-part `FrameEntryContext` no longer crosses every phase. |
 | `Runtime/Render/RuntimeRenderFrameValues.h:126-188` | `RuntimeRenderFrameViews` child views | Repaired: model presentation, broadphase debug, collision debug, Physics debug, world-extension debug, and diagnostics are separate consumer values. App alone holds the publication envelope and Render receives exact child views. |
-| `Runtime/Render/RuntimeRenderHost.h:92-99` | `RenderWorldView` | Definite constructor/service bag candidate: transfer stable assets/window/config/environment ownership explicitly to `RuntimeRenderHost` or direct child owners. |
-| `Runtime/Render/RuntimeRenderPasses.h:234-246` | `RenderResourceContext` | Split pass-specific resources or expose behavior on the owning renderer; do not give every pass all assets/resource/texture/geometry services. |
+| `Runtime/Render/RuntimeRenderHost.h` | retired `RenderWorldView` | Reconciled as repaired: the constructor service bag no longer exists. App publishes `WorldFrameSubmission`; RuntimeRenderer and direct pass owners retain their stable render-domain dependencies. |
+| `Runtime/Render/RuntimeRenderPasses.h` | retired `RenderResourceContext` | Reconciled as repaired: the shared resource context no longer exists. Object, terrain, reflection, water, overlay, and other passes receive pass-specific input records and direct resources only where used. |
 | `Runtime/Replay/ReplayCoordination.h:82-283` | workspace, transport, input, `ReplayStartupRequest`, and reset records | Review collectively. Replace flag/path combinations with typed startup/transport variants; keep input/layout values separate from scene reset mutation. |
 | `Runtime/Replay/ReplayRuntimePackets.h:40-66` | `ReplayRenderTimeView`, `ReplayRenderFrameView` | Repaired: Gameplay time selection receives recorded/solver/prediction samples plus live-advance state; Render receives only the visual packet, focus mask, contact presentation, and fade decision. The unused prediction-enabled field is deleted. |
 | `Runtime/Scene/SceneController.h:97-105` | `SceneDefaultsSaveView` | Likely keep as one synchronous save snapshot if the writer consumes all fields and a focused test pins lifetime/serialization. |
 | `Runtime/Tools/RuntimeTools.h:200-241` | launcher repro capture request | Repaired: App supplies separate scene-capture, launch-policy, and presentation views. RuntimeTools captures one detached snapshot before file serialization, so the serializer cannot reach live `SceneWorld`, Physics, Terrain, camera, entity, or renderer owners. |
-| `Runtime/UI/GameUI/UI.h:139-441` | `UIMemoryTabFrameView`, `UISceneTabFrameView`, other tab views, and `InGameUIFrameData` | Definite family repair: remove the 115-field root record. Project per-tab detached views and provide only the active tab plus shared window/input values. |
-| `Runtime/UI/GameUI/UIWindowInteractionOwner.h:61-117` | `WidgetView` (53 references) | Definite repair: make the interaction owner own cohesive widget groups or use narrow handlers; never reconstruct the entire UI object through references. |
+| `Runtime/UI/GameUI/UI.h:139-468` | tab views and `InGameUIFrameData` | Repaired: the root is a top-level detached composition of surface, diagnostics, scene, world, editor, rendering, render-target, and operator-editor sections. Each tab receives its projected view; draw phases receive only active-tab, chrome, pointer, catalog, or control groups. |
+| `Runtime/UI/GameUI/UIWindowInteractionOwner.h:86-184` | grouped draw views | Repaired: the 53-reference flat `WidgetView` is replaced by chrome/cache, footer, render, catalog, tab, pointer, and mini-palette groups. Standalone overlays, minimized content, tab routing, render targets, footer composition, and tests consume their exact child groups. |
 | `Runtime/UI/OperatorUiProjection.h:48-208` | `OperatorUiSceneFacts`, `OperatorUiInspectorFacts` | Consolidate duplicated fields with the corresponding detached UI views; split selection identity, material, transform/physics, and navigation projections by consumer. |
 | `Scene/SceneSnapshotWriter.h:53-70` | `SceneWorldSaveState` | Likely keep as one serialization snapshot if construction validates joint pointer/count and the writer consumes the complete state synchronously. |
 
@@ -896,6 +896,23 @@ three changed source/header targets under 20 compile contexts with zero findings
 Formatting, dependency/project ownership, project filters, plain-language, and
 whitespace checks close with this slice before commit. No baseline or golden
 changed.
+
+The fourteenth grouped slice repairs Runtime UI draw ownership. The former flat
+53-reference widget reconstruction is now seven cohesive groups for chrome/cache,
+footer controls, render controls, catalog counters, tabs, pointer draw state, and
+the editor mini-palette. Standalone overlays, minimized drawing, diagnostic tabs,
+authoring tabs, render targets, footer controls/stats, hitbox evidence, and focused
+tests consume the smallest applicable group. The active-tab router is split into
+diagnostic and authoring families; footer composition is split into controls,
+compact stats, wide stats, and final layout. The worksheet also reconciles the
+already-retired render host/resource contexts and the already-projected root UI
+frame.
+
+The Profile x64 solution builds warning-clean. The focused UI selection passes
+84 cases and 2,608 assertions. Compiler-backed source-design passes five changed
+source/test targets under 40 compile contexts with zero findings. Formatting,
+dependency/project ownership, project filters, plain-language, and whitespace
+checks pass. No baseline or golden changed.
 
 ### SC4 Commit-Note Recovery And Enforcement
 

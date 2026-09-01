@@ -146,16 +146,16 @@ TEST_CASE( "UI capture cancellation discards deferred replay memory previews" )
     const auto armPreview = [&owner]()
     {
         auto widgets = owner.Widgets();
-        widgets.activeSlider = 901;
-        widgets.memoryOverlay.previewRetentionSeconds = 93;
-        widgets.memoryOverlay.previewBudgetMiB = 384;
+        widgets.pointer.activeSlider = 901;
+        widgets.tabs.memoryOverlay.previewRetentionSeconds = 93;
+        widgets.tabs.memoryOverlay.previewBudgetMiB = 384;
     };
     const auto checkDiscarded = [&owner]()
     {
         auto widgets = owner.Widgets();
-        CHECK( widgets.activeSlider == 0 );
-        CHECK( widgets.memoryOverlay.previewRetentionSeconds == -1 );
-        CHECK( widgets.memoryOverlay.previewBudgetMiB == -1 );
+        CHECK( widgets.pointer.activeSlider == 0 );
+        CHECK( widgets.tabs.memoryOverlay.previewRetentionSeconds == -1 );
+        CHECK( widgets.tabs.memoryOverlay.previewBudgetMiB == -1 );
     };
 
     armPreview();
@@ -183,14 +183,14 @@ TEST_CASE( "UI programmatic scroll reveal starts at the next visible draw" )
 
     owner.SetScrollY( 120.0f );
     owner.PrepareForDraw( 50.0 );
-    CHECK( owner.Widgets().scrollbarVisibleUntil == doctest::Approx( 51.2 ) );
+    CHECK( owner.Widgets().pointer.scrollbarVisibleUntil == doctest::Approx( 51.2 ) );
 
     owner.PrepareForDraw( 70.0 );
-    CHECK( owner.Widgets().scrollbarVisibleUntil == doctest::Approx( 51.2 ) );
+    CHECK( owner.Widgets().pointer.scrollbarVisibleUntil == doctest::Approx( 51.2 ) );
 
     owner.SetScrollY( 80.0f );
     owner.PrepareForDraw( 70.0 );
-    CHECK( owner.Widgets().scrollbarVisibleUntil == doctest::Approx( 71.2 ) );
+    CHECK( owner.Widgets().pointer.scrollbarVisibleUntil == doctest::Approx( 71.2 ) );
 }
 
 TEST_CASE( "UI narrow clients replace ordinary window minima with reachable bounds" )
@@ -222,11 +222,11 @@ TEST_CASE( "UI narrow clients replace ordinary window minima with reachable boun
     owner.SetWindowBounds( 10, 10, 300, 160 );
     {
         auto widgets = owner.Widgets();
-        widgets.interaction.isResizing = true;
-        widgets.interaction.resizeStartMouseX = 300;
-        widgets.interaction.resizeStartMouseY = 160;
-        widgets.interaction.resizeStartW = 300;
-        widgets.interaction.resizeStartH = 160;
+        widgets.chrome.interaction.isResizing = true;
+        widgets.chrome.interaction.resizeStartMouseX = 300;
+        widgets.chrome.interaction.resizeStartMouseY = 160;
+        widgets.chrome.interaction.resizeStartW = 300;
+        widgets.chrome.interaction.resizeStartH = 160;
     }
     SkullbonezCore::UI::InputControl::UIInputSnapshot resizeInput;
     resizeInput.mouseX = 319;
@@ -234,8 +234,8 @@ TEST_CASE( "UI narrow clients replace ordinary window minima with reachable boun
     resizeInput.leftDown = true;
     const SkullbonezCore::UI::SceneNavigationModel sceneNavigation;
     owner.UpdateInput( resizeInput, { 320, 180, 1.0 }, {}, { 0xffffffffu }, sceneNavigation );
-    CHECK( owner.Widgets().window.width <= 300 );
-    CHECK( owner.Widgets().window.height <= 160 );
+    CHECK( owner.Widgets().chrome.window.width <= 300 );
+    CHECK( owner.Widgets().chrome.window.height <= 160 );
 
     SkullbonezCore::UI::UIEditorTabFrameView editor;
     const float minimizedWidth = EditorMinimizedWidth( editor, 320 );

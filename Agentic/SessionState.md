@@ -1577,3 +1577,12 @@ reach live scene, physics, terrain, camera, entity, or renderer owners. Debug
 builds warning-clean, and compiler-backed source-design passes three targets
 under 20 compile contexts with zero findings. SC4 remains task 5/8; the required
 finish is still SC7 task 8/8.
+
+The fourteenth SC4 slice replaces the flat 53-reference UI widget reconstruction
+with seven owner-cohesive draw groups and routes minimized, tab, target, footer,
+overlay, hitbox, and test consumers through their exact groups. The active-tab
+and footer composers were split when the compiler gate exposed their size and
+signature debt. Profile builds warning-clean; the focused UI selection passes
+84 cases and 2,608 assertions; compiler-backed source-design passes five targets
+under 40 compile contexts with zero findings. SC4 remains task 5/8, and SC7
+remains the required terminal closure.

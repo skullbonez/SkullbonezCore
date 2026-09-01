@@ -553,7 +553,8 @@ class InGameUI
     UIDrawList m_frameDrawList;
     UIDrawList m_histogramDrawList;
     UIDrawList m_memoryOverlayDrawList;
-    void DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data, const UIRect& windowBounds,
+    void DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data,
+                            UIWindowInteractionOwner::WidgetView& widgets, const UIRect& windowBounds,
                             const UIRect& contentBounds, const UIRect& footerBounds );
 };
 
