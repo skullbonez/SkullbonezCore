@@ -488,7 +488,7 @@ void Run::ProjectOperatorEditorInspectorView( UI::OperatorEditorFrameView& view 
     const SceneWorld& sceneWorld = m_sceneController.Scene();
     const SceneEntityStore& entities = sceneWorld.Entities();
     const int selectedRow = PeekSelectedEditorModelIndex( editor, sceneWorld.BodyStore() );
-    OperatorUiInspectorFacts inspector;
+    UI::OperatorEditorInspectorView inspector;
 
     if ( editor.selectedBody.IsValid() && selectedRow < 0 )
     {

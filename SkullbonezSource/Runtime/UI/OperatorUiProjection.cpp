@@ -295,51 +295,11 @@ void ProjectOperatorEditorSurfaces( UI::OperatorEditorFrameView& view, bool prim
 }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view, const OperatorUiInspectorFacts& inspector,
+void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
+                                             const UI::OperatorEditorInspectorView& inspector,
                                              const OperatorUiWorldFacts& world )
 {
-    UI::OperatorEditorInspectorView& target = view.inspector;
-    target.displayName = inspector.displayName;
-    target.renderMaterialName = inspector.renderMaterialName;
-    target.contactMaterialName = inspector.contactMaterialName;
-    target.assetName = inspector.assetName;
-    target.assetInstanceName = inspector.assetInstanceName;
-    target.assetPartName = inspector.assetPartName;
-    target.selectionState = inspector.selectionState;
-    target.sceneObjectId = inspector.sceneObjectId;
-    target.selectionCount = inspector.selectionCount;
-    target.renderMaterialKind = inspector.renderMaterialKind;
-    target.colliderShapeKind = inspector.colliderShapeKind;
-    target.behaviorGroupKind = inspector.behaviorGroupKind;
-    target.behaviorPartIndex = inspector.behaviorPartIndex;
-
-    for ( int channel = 0; channel < 3; ++channel )
-    {
-        target.position[channel] = inspector.position[channel];
-        target.linearVelocity[channel] = inspector.linearVelocity[channel];
-        target.angularVelocity[channel] = inspector.angularVelocity[channel];
-    }
-
-    for ( int channel = 0; channel < 4; ++channel )
-    {
-        target.orientation[channel] = inspector.orientation[channel];
-        target.baseColor[channel] = inspector.baseColor[channel];
-    }
-
-    target.mass = inspector.mass;
-    target.volume = inspector.volume;
-    target.boundingRadius = inspector.boundingRadius;
-    target.dragCoefficient = inspector.dragCoefficient;
-    target.friction = inspector.friction;
-    target.restitution = inspector.restitution;
-    target.roughness = inspector.roughness;
-    target.metallic = inspector.metallic;
-    target.specular = inspector.specular;
-    target.visible = inspector.visible;
-    target.locked = inspector.locked;
-    target.fixed = inspector.fixed;
-    target.sleeping = inspector.sleeping;
-    target.assetBacked = inspector.assetBacked;
+    view.inspector = inspector;
 
     view.world = { world.modelCount,
                    world.modelCapacity,

@@ -500,7 +500,7 @@ it is not an exception.
 | `Rendering/WorldRenderExtension.h:70-81` | `WorldRenderExtensionFrameView` | Split camera values from live DX12 services; extension callbacks should receive a narrow extension draw interface or direct resources actually used. |
 | `Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:32-101` | `ImGuiEditorCausalityProjection` | Repaired: selected-cause pointers, bounded related rows, and projection status are separate values. `BuildEditorShell` now delegates exact panel slices instead of unpacking the complete editor frame in one 2,100-line operation. |
 | `Runtime/Direction/LookLabController.h:77-87` | `LookLabSaveRequest` | Likely keep as one synchronous save request after validating/copied strings and timestamp/offset rules; it already names a concrete operation. |
-| `Runtime/Interaction/OperatorEditorExchange.h:81-385` | `OperatorEditorInspectorView` and all `OperatorEditor*View` siblings | Review as one surface. Keep detached presentation groups only where different consumers use different subsets; merge duplicates and prevent any operation from receiving the complete slice set. |
+| `Runtime/Interaction/OperatorEditorExchange.h:81-385` | `OperatorEditorInspectorView` and all `OperatorEditor*View` siblings | Repaired: the duplicated App projection record is deleted. Selection, transform, identity, render material, and Physics are typed child views under the detached frame composition; each inspector section receives only its child values. |
 | `Runtime/Planning/ReplayCauseInspection.h:166-197` | `ReplayCauseInspectionView` | Repaired: transport, selection, solver evidence, and drawer display are typed child views. Runtime consumers receive only the child they use; the inherited flat value layout remains solely for stable automation serialization. |
 | `Runtime/Planning/ReplayOverlayPackets.h:74-101` | `ReplayOverlayStateView` | Repaired: timeline/scrubber, planning surfaces, and causality are separate child views under the App composition envelope. Intercept, trip-planner, porkchop, cause-tree, scrubber, and editor operations receive only their owned child values. |
 | `Runtime/Prediction/ReplayPredictionTopologyPublication.cpp` | retired `ReplayPredictionFutureContext` | Reconciled as repaired: the mutable three-owner context no longer exists. `ReplayPredictionFutureTopologyBuilder` owns topology construction and receives the node collection, detached scene facts, root identity, and ragdoll policy explicitly. |
@@ -517,7 +517,7 @@ it is not an exception.
 | `Runtime/Tools/RuntimeTools.h:200-241` | launcher repro capture request | Repaired: App supplies separate scene-capture, launch-policy, and presentation views. RuntimeTools captures one detached snapshot before file serialization, so the serializer cannot reach live `SceneWorld`, Physics, Terrain, camera, entity, or renderer owners. |
 | `Runtime/UI/GameUI/UI.h:139-468` | tab views and `InGameUIFrameData` | Repaired: the root is a top-level detached composition of surface, diagnostics, scene, world, editor, rendering, render-target, and operator-editor sections. Each tab receives its projected view; draw phases receive only active-tab, chrome, pointer, catalog, or control groups. |
 | `Runtime/UI/GameUI/UIWindowInteractionOwner.h:86-184` | grouped draw views | Repaired: the 53-reference flat `WidgetView` is replaced by chrome/cache, footer, render, catalog, tab, pointer, and mini-palette groups. Standalone overlays, minimized content, tab routing, render targets, footer composition, and tests consume their exact child groups. |
-| `Runtime/UI/OperatorUiProjection.h:48-208` | `OperatorUiSceneFacts`, `OperatorUiInspectorFacts` | Consolidate duplicated fields with the corresponding detached UI views; split selection identity, material, transform/physics, and navigation projections by consumer. |
+| `Runtime/UI/OperatorUiProjection.h:48-208` | `OperatorUiSceneFacts`, retired `OperatorUiInspectorFacts` | Repaired: App now builds the canonical detached inspector value directly and projection assigns it without a 36-field copy. Typed selection, transform, identity, render-material, and Physics views feed their exact panel sections while the frame fingerprint retains its established flat semantic order. |
 | `Scene/SceneSnapshotWriter.h:53-70` | `SceneWorldSaveState` | Likely keep as one serialization snapshot if construction validates joint pointer/count and the writer consumes the complete state synchronously. |
 
 Large non-borrowing planning and UI presentation records remain in the 296-row
@@ -955,6 +955,23 @@ across 82 compile contexts with zero findings. Formatting, dependency and
 project ownership, build-configuration consistency, project filters,
 plain-language, and whitespace checks pass. No baseline or golden changed.
 SC4 remains task 5/8; SC7 remains the required task 8/8 terminal closure.
+
+The seventeenth grouped SC4 slice repairs the operator editor inspector
+boundary. The duplicated 36-field `OperatorUiInspectorFacts` record and its
+field-by-field copy are deleted. The canonical detached inspector value now
+exposes selection, transform, identity, render-material, and Physics child
+views. App builds that value directly, projection assigns it as one value, and
+the ImGui panel delegates each collapsible section to its exact child view. The
+existing flat semantic field layout remains available to the frame fingerprint,
+so its hashing order and behavior do not change.
+
+Profile x64 builds with zero warnings and errors. The focused operator-editor
+selection passes 10 cases and 225 assertions. Compiler-backed source-design
+passes all six changed source/header/test targets across 35 compile contexts
+with zero findings. Formatting, dependency and project ownership,
+build-configuration consistency, project filters, plain-language, and
+whitespace checks pass. No baseline or golden changed. SC4 remains task 5/8;
+SC7 remains the required task 8/8 terminal closure.
 
 ### SC4 Commit-Note Recovery And Enforcement
 

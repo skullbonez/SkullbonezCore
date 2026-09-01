@@ -169,44 +169,6 @@ struct OperatorUiHierarchyEntityFacts
     bool locked = false;
 };
 
-// Invariant: all fields describe one selected entity observation; label borrows
-// expire with the synchronous operator projection.
-struct OperatorUiInspectorFacts
-{
-    const char* displayName = "";
-    const char* renderMaterialName = "";
-    const char* contactMaterialName = "";
-    const char* assetName = "";
-    const char* assetInstanceName = "";
-    const char* assetPartName = "";
-    UI::OperatorEditorInspectorSelectionState selectionState = UI::OperatorEditorInspectorSelectionState::None;
-    uint32_t sceneObjectId = 0u;
-    uint32_t selectionCount = 0u;
-    int renderMaterialKind = 0;
-    int colliderShapeKind = 0;
-    int behaviorGroupKind = 0;
-    int behaviorPartIndex = -1;
-    float position[3] = {};
-    float orientation[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-    float linearVelocity[3] = {};
-    float angularVelocity[3] = {};
-    float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    float mass = 0.0f;
-    float volume = 0.0f;
-    float boundingRadius = 0.0f;
-    float dragCoefficient = 0.0f;
-    float friction = 0.0f;
-    float restitution = 0.0f;
-    float roughness = 0.0f;
-    float metallic = 0.0f;
-    float specular = 0.0f;
-    bool visible = true;
-    bool locked = false;
-    bool fixed = false;
-    bool sleeping = false;
-    bool assetBacked = false;
-};
-
 // Invariant: world controls and physics policy come from one sampled Scene
 // generation and contain no mutable World or Physics owner.
 struct OperatorUiWorldFacts
@@ -503,7 +465,8 @@ inline void AppendOperatorEditorHierarchyRow( UI::OperatorEditorFrameView& view,
     }
 }
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view, const OperatorUiInspectorFacts& inspector,
+void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
+                                             const UI::OperatorEditorInspectorView& inspector,
                                              const OperatorUiWorldFacts& world );
 #endif
 void ProjectOperatorEditorDiagnostics( UI::OperatorEditorFrameView& view, const OperatorUiSecondaryDiagnosticsFacts& facts );

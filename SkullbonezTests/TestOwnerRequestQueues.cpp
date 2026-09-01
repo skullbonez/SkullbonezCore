@@ -2061,6 +2061,24 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
 }
 
+TEST_CASE( "Operator editor inspector typed views retain the flat frame values" )
+{
+    using namespace SkullbonezCore::UI;
+
+    OperatorEditorInspectorView inspector;
+    inspector.Selection().sceneObjectId = 91u;
+    inspector.Transform().position[1] = 2.5f;
+    inspector.Identity().behaviorPartIndex = 3;
+    inspector.Render().roughness = 0.4f;
+    inspector.Physics().mass = 12.0f;
+
+    CHECK( inspector.sceneObjectId == 91u );
+    CHECK( inspector.position[1] == doctest::Approx( 2.5f ) );
+    CHECK( inspector.behaviorPartIndex == 3 );
+    CHECK( inspector.roughness == doctest::Approx( 0.4f ) );
+    CHECK( inspector.mass == doctest::Approx( 12.0f ) );
+}
+
 TEST_CASE( "ImGui diagnostics scalar controls project the shared operator policy" )
 {
     using SkullbonezCore::Runtime::DevelopmentTools::ResolveImGuiEditorDiagnosticsControlPolicy;

@@ -1613,3 +1613,14 @@ contexts with zero findings. Formatting, dependency/project ownership,
 build-configuration, project-filter, plain-language, and whitespace checks
 pass. No baseline or golden changed. SC4 remains task 5/8; SC7 remains the
 required task 8/8 terminal closure.
+
+The seventeenth SC4 slice deletes the duplicated 36-field operator inspector
+projection record and its field-by-field copy. The canonical detached inspector
+value now exposes selection, transform, identity, render-material, and Physics
+children; App builds it directly and ImGui delegates each section to the exact
+child it presents. The established flat fingerprint values remain intact.
+Profile builds warning-clean; 10 focused cases and 225 assertions pass;
+source-design passes six targets across 35 contexts with zero findings.
+Formatting, dependency/project ownership, build-configuration, project-filter,
+plain-language, and whitespace checks pass. No baseline or golden changed. SC4
+remains task 5/8; SC7 remains the required task 8/8 terminal closure.

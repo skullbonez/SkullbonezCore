@@ -2093,6 +2093,112 @@ void ImGuiEditorOwner::DrawGameViewportPanel( const UI::OperatorEditorRenderingV
     SetGameViewportInputState( gameViewportHovered, gameViewportFocused );
 }
 
+namespace
+{
+void DrawInspectorTransform( const UI::OperatorEditorInspectorTransformView& transform )
+{
+    if ( !ImGui::CollapsingHeader( "Transform", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        return;
+    }
+
+    ImGui::Text( "Position  %.3f  %.3f  %.3f", transform.position[0], transform.position[1], transform.position[2] );
+    ImGui::Text( "Rotation q  %.3f  %.3f  %.3f  %.3f", transform.orientation[0], transform.orientation[1],
+                 transform.orientation[2], transform.orientation[3] );
+    ImGui::TextDisabled( "Author with the viewport translate/rotate/scale gizmos." );
+}
+
+void DrawInspectorIdentity( const UI::OperatorEditorInspectorSelectionView& selection,
+                            const UI::OperatorEditorInspectorIdentityView& identity )
+{
+    if ( !ImGui::CollapsingHeader( "Identity", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        return;
+    }
+
+    ImGui::Text( "Scene object  %u", selection.sceneObjectId );
+    ImGui::Text( "Behavior group  %d  |  part %d", identity.behaviorGroupKind, identity.behaviorPartIndex );
+    ImGui::Text( "Source  %s", identity.assetBacked ? "registered asset" : "standalone primitive" );
+}
+
+void DrawInspectorRender( const UI::OperatorEditorInspectorRenderView& render )
+{
+    if ( !ImGui::CollapsingHeader( "Render", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        return;
+    }
+
+    ImGui::Text( "Material  %s",
+                 render.renderMaterialName && render.renderMaterialName[0] != '\0' ? render.renderMaterialName : "default" );
+    ImGui::Text( "RGBA  %.2f  %.2f  %.2f  %.2f", render.baseColor[0], render.baseColor[1], render.baseColor[2],
+                 render.baseColor[3] );
+    ImGui::Text( "Rough %.2f  Metal %.2f  Spec %.2f", render.roughness, render.metallic, render.specular );
+}
+
+void DrawInspectorPhysics( const UI::OperatorEditorInspectorPhysicsView& physics )
+{
+    if ( !ImGui::CollapsingHeader( "Physics", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        return;
+    }
+
+    ImGui::Text( "%s | %s", physics.fixed ? "fixed" : "dynamic", physics.sleeping ? "sleeping" : "awake" );
+    ImGui::Text( "Mass %.3f  Volume %.3f  Radius %.3f", physics.mass, physics.volume, physics.boundingRadius );
+    ImGui::Text( "Friction %.3f  Restitution %.3f  Drag %.3f", physics.friction, physics.restitution,
+                 physics.dragCoefficient );
+    ImGui::Text( "Linear v  %.3f  %.3f  %.3f", physics.linearVelocity[0], physics.linearVelocity[1],
+                 physics.linearVelocity[2] );
+    ImGui::Text( "Angular v  %.3f  %.3f  %.3f", physics.angularVelocity[0], physics.angularVelocity[1],
+                 physics.angularVelocity[2] );
+}
+
+void DrawInspectorObjectSpecific( const UI::OperatorEditorInspectorIdentityView& identity,
+                                  const UI::OperatorEditorInspectorPhysicsView& physics )
+{
+    if ( !ImGui::CollapsingHeader( "Object-specific" ) )
+    {
+        return;
+    }
+
+    static constexpr const char* shapeNames[] = { "sphere", "box", "convex hull" };
+    const char* shape = physics.colliderShapeKind >= 0 && physics.colliderShapeKind < 3
+                            ? shapeNames[physics.colliderShapeKind]
+                            : "unknown";
+    ImGui::Text( "Shape  %s", shape );
+
+    if ( !identity.assetBacked )
+    {
+        ImGui::TextDisabled( "No registered asset affiliation" );
+        return;
+    }
+
+    ImGui::Text( "Asset  %s", identity.assetName && identity.assetName[0] != '\0' ? identity.assetName : "unnamed" );
+    ImGui::Text( "Instance  %s", identity.assetInstanceName && identity.assetInstanceName[0] != '\0'
+                                     ? identity.assetInstanceName
+                                     : "unnamed" );
+    ImGui::Text( "Part  %s",
+                 identity.assetPartName && identity.assetPartName[0] != '\0' ? identity.assetPartName : "unnamed" );
+}
+
+void DrawSelectedInspector( const UI::OperatorEditorInspectorSelectionView& selection,
+                            const UI::OperatorEditorInspectorTransformView& transform,
+                            const UI::OperatorEditorInspectorIdentityView& identity,
+                            const UI::OperatorEditorInspectorRenderView& render,
+                            const UI::OperatorEditorInspectorPhysicsView& physics )
+{
+    ImGui::Text( "%s",
+                 selection.displayName && selection.displayName[0] != '\0' ? selection.displayName : "Unnamed object" );
+    ImGui::SameLine();
+    ImGui::TextDisabled( "#%u", selection.sceneObjectId );
+    ImGui::TextDisabled( "%s | %s", selection.visible ? "visible" : "hidden", selection.locked ? "locked" : "editable" );
+    DrawInspectorTransform( transform );
+    DrawInspectorIdentity( selection, identity );
+    DrawInspectorRender( render );
+    DrawInspectorPhysics( physics );
+    DrawInspectorObjectSpecific( identity, physics );
+}
+} // namespace
+
 void ImGuiEditorOwner::DrawInspectorPanel( const UI::OperatorEditorInspectorView& inspector )
 {
     if ( !m_showInspector )
@@ -2105,20 +2211,20 @@ void ImGuiEditorOwner::DrawInspectorPanel( const UI::OperatorEditorInspectorView
         ImGui::End();
         return;
     }
-    if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::None )
+    if ( inspector.Selection().selectionState == UI::OperatorEditorInspectorSelectionState::None )
     {
         ImGui::TextDisabled( "No selection" );
         ImGui::Separator();
         ImGui::TextWrapped( "Select one scene object in the hierarchy or game viewport to inspect it." );
     }
-    else if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::Stale )
+    else if ( inspector.Selection().selectionState == UI::OperatorEditorInspectorSelectionState::Stale )
     {
         ImGui::TextColored( ImVec4( 1.0f, 0.55f, 0.28f, 1.0f ), "Selection is stale" );
         ImGui::TextWrapped( "The selected stable identity no longer resolves in the current scene." );
     }
-    else if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::Mixed )
+    else if ( inspector.Selection().selectionState == UI::OperatorEditorInspectorSelectionState::Mixed )
     {
-        ImGui::Text( "%u selected", inspector.selectionCount );
+        ImGui::Text( "%u selected", inspector.Selection().selectionCount );
         ImGui::SeparatorText( "Transform" );
         ImGui::TextDisabled( "Mixed values" );
         ImGui::SeparatorText( "Identity" );
@@ -2128,86 +2234,8 @@ void ImGuiEditorOwner::DrawInspectorPanel( const UI::OperatorEditorInspectorView
     }
     else
     {
-        ImGui::Text( "%s",
-                     inspector.displayName && inspector.displayName[0] != '\0' ? inspector.displayName : "Unnamed object" );
-
-        ImGui::SameLine();
-        ImGui::TextDisabled( "#%u", inspector.sceneObjectId );
-        ImGui::TextDisabled( "%s | %s", inspector.visible ? "visible" : "hidden", inspector.locked ? "locked" : "editable" );
-
-        if ( ImGui::CollapsingHeader( "Transform", ImGuiTreeNodeFlags_DefaultOpen ) )
-        {
-            ImGui::Text( "Position  %.3f  %.3f  %.3f", inspector.position[0], inspector.position[1], inspector.position[2] );
-
-            ImGui::Text( "Rotation q  %.3f  %.3f  %.3f  %.3f", inspector.orientation[0], inspector.orientation[1],
-                         inspector.orientation[2], inspector.orientation[3] );
-
-            ImGui::TextDisabled( "Author with the viewport translate/rotate/scale gizmos." );
-        }
-
-        if ( ImGui::CollapsingHeader( "Identity", ImGuiTreeNodeFlags_DefaultOpen ) )
-        {
-            ImGui::Text( "Scene object  %u", inspector.sceneObjectId );
-            ImGui::Text( "Behavior group  %d  |  part %d", inspector.behaviorGroupKind, inspector.behaviorPartIndex );
-
-            ImGui::Text( "Source  %s", inspector.assetBacked ? "registered asset" : "standalone primitive" );
-        }
-
-        if ( ImGui::CollapsingHeader( "Render", ImGuiTreeNodeFlags_DefaultOpen ) )
-        {
-            ImGui::Text( "Material  %s", inspector.renderMaterialName && inspector.renderMaterialName[0] != '\0'
-                                             ? inspector.renderMaterialName
-                                             : "default" );
-
-            ImGui::Text( "RGBA  %.2f  %.2f  %.2f  %.2f", inspector.baseColor[0], inspector.baseColor[1],
-                         inspector.baseColor[2], inspector.baseColor[3] );
-
-            ImGui::Text( "Rough %.2f  Metal %.2f  Spec %.2f", inspector.roughness, inspector.metallic, inspector.specular );
-        }
-
-        if ( ImGui::CollapsingHeader( "Physics", ImGuiTreeNodeFlags_DefaultOpen ) )
-        {
-            ImGui::Text( "%s | %s", inspector.fixed ? "fixed" : "dynamic", inspector.sleeping ? "sleeping" : "awake" );
-
-            ImGui::Text( "Mass %.3f  Volume %.3f  Radius %.3f", inspector.mass, inspector.volume, inspector.boundingRadius );
-
-            ImGui::Text( "Friction %.3f  Restitution %.3f  Drag %.3f", inspector.friction, inspector.restitution,
-                         inspector.dragCoefficient );
-
-            ImGui::Text( "Linear v  %.3f  %.3f  %.3f", inspector.linearVelocity[0], inspector.linearVelocity[1],
-                         inspector.linearVelocity[2] );
-
-            ImGui::Text( "Angular v  %.3f  %.3f  %.3f", inspector.angularVelocity[0], inspector.angularVelocity[1],
-                         inspector.angularVelocity[2] );
-        }
-
-        if ( ImGui::CollapsingHeader( "Object-specific" ) )
-        {
-            static constexpr const char* shapeNames[] = { "sphere", "box", "convex hull" };
-            const char* shape = inspector.colliderShapeKind >= 0 && inspector.colliderShapeKind < 3
-                                    ? shapeNames[inspector.colliderShapeKind]
-                                    : "unknown";
-
-            ImGui::Text( "Shape  %s", shape );
-
-            if ( inspector.assetBacked )
-            {
-                ImGui::Text( "Asset  %s",
-                             inspector.assetName && inspector.assetName[0] != '\0' ? inspector.assetName : "unnamed" );
-
-                ImGui::Text( "Instance  %s", inspector.assetInstanceName && inspector.assetInstanceName[0] != '\0'
-                                                 ? inspector.assetInstanceName
-                                                 : "unnamed" );
-
-                ImGui::Text( "Part  %s", inspector.assetPartName && inspector.assetPartName[0] != '\0'
-                                             ? inspector.assetPartName
-                                             : "unnamed" );
-            }
-            else
-            {
-                ImGui::TextDisabled( "No registered asset affiliation" );
-            }
-        }
+        DrawSelectedInspector( inspector.Selection(), inspector.Transform(), inspector.Identity(), inspector.Render(),
+                               inspector.Physics() );
     }
     ImGui::End();
 }
