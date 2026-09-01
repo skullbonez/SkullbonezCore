@@ -105,6 +105,7 @@ using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
+using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Runtime::ReplayRestoreOperations;
@@ -400,6 +401,8 @@ TEST_CASE( "Physics body SoA: aligned hot fields are the sole hot-state authorit
 
     const auto hot = static_cast<const PhysicsBodyStore&>( store ).HotFields();
     REQUIRE( hot.positionX.size() == 1u );
+    CHECK( hot.RowCount() == 1u );
+    CHECK( hot.IsAligned() );
     CHECK( reinterpret_cast<std::uintptr_t>( hot.positionX.data() ) % 32u == 0u );
     CHECK( reinterpret_cast<std::uintptr_t>( hot.positionY.data() ) % 32u == 0u );
     CHECK( reinterpret_cast<std::uintptr_t>( hot.positionZ.data() ) % 32u == 0u );
@@ -427,6 +430,8 @@ TEST_CASE( "Physics body SoA: aligned hot fields are the sole hot-state authorit
     CHECK( hot.inverseInertiaY[0] == initial.hot.inverseRotationalInertia.y );
 
     auto mutableHot = store.MutableHotFields();
+    CHECK( mutableHot.RowCount() == 1u );
+    CHECK( mutableHot.IsAligned() );
     mutableHot.positionX[0] = -11.5f;
     mutableHot.linearVelocityY[0] = 12.25f;
     mutableHot.awake[0] = 0u;
@@ -440,6 +445,44 @@ TEST_CASE( "Physics body SoA: aligned hot fields are the sole hot-state authorit
     const auto refreshedHot = static_cast<const PhysicsBodyStore&>( store ).HotFields();
     CHECK( refreshedHot.angularVelocityZ[0] == -6.5f );
     CHECK( refreshedHot.inverseMass[0] == 0.125f );
+
+    auto misalignedHot = refreshedHot;
+    misalignedHot.awake = {};
+    CHECK_FALSE( misalignedHot.IsAligned() );
+}
+
+
+TEST_CASE( "Physics aligned views reject mismatched authored and force rows" )
+{
+    using SkullbonezCore::Physics::ExternalForceFrameInput;
+    using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
+
+    const PhysicsSceneObjectId sceneObjectIds[] = { MakePhysicsSceneObjectId( 101u ),
+                                                    MakePhysicsSceneObjectId( 202u ) };
+    const ModelRowHint releaseRoots[] = { SkullbonezCore::Physics::MakeModelRowHint( 0 ),
+                                          SkullbonezCore::Physics::MakeModelRowHint( 1 ) };
+    const char* diagnosticNames[] = { "first", "second" };
+
+    PhysicsAuthoredBodyRefreshView refresh { sceneObjectIds, releaseRoots, diagnosticNames };
+    CHECK( refresh.IsAligned() );
+    refresh.diagnosticNames = std::span<const char* const>( diagnosticNames, 1u );
+    CHECK_FALSE( refresh.IsAligned() );
+
+    float exposureSeconds[2] = {};
+    float repeatCooldownSeconds[2] = {};
+    SkullbonezCore::Physics::ExternalCylindricalForceField field;
+    ExternalForceFrameInput forces;
+    forces.fields = std::span<const SkullbonezCore::Physics::ExternalCylindricalForceField>( &field, 1u );
+    forces.exposureSeconds = exposureSeconds;
+    forces.repeatCooldownSeconds = repeatCooldownSeconds;
+    forces.stepSeconds = 1.0f / 120.0f;
+    CHECK( forces.IsValidForBodyCount( 2 ) );
+
+    forces.repeatCooldownSeconds = std::span<float>( repeatCooldownSeconds, 1u );
+    CHECK_FALSE( forces.IsValidForBodyCount( 2 ) );
+    forces.repeatCooldownSeconds = repeatCooldownSeconds;
+    forces.stepSeconds = std::numeric_limits<float>::quiet_NaN();
+    CHECK_FALSE( forces.IsValidForBodyCount( 2 ) );
 }
 
 

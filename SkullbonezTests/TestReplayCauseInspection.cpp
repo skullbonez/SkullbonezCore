@@ -69,22 +69,22 @@ TEST_CASE( "Cause inspection recording restore preserves detached transition sta
 
     inspection.RestoreInteractionRecordingBaseline( baseline, 10.0 );
     const ReplayCauseInspectionView restored = inspection.View();
-    CHECK( restored.mode == ReplayCauseInspectionMode::Transporting );
-    CHECK( restored.activeTab == ReplayCauseInspectorTab::Iterations );
-    CHECK( restored.selectedRow == 3 );
-    CHECK( restored.selectedDetailContactRow == 2 );
-    CHECK( restored.solverDetailFirstRow == 4 );
-    CHECK( restored.rawRecordFirstRow == 5 );
-    CHECK( restored.iterationsFirstRow == 6 );
-    CHECK( restored.sourceFrame == 20u );
-    CHECK( restored.targetFrame == 80u );
-    CHECK( restored.presentedFrame == 45u );
-    CHECK( restored.detailVisible );
-    CHECK( restored.ownsPause );
-    CHECK_FALSE( restored.transportInFlight );
-    CHECK( restored.transportPending );
-    CHECK( restored.easedProgress == doctest::Approx( 0.5f ) );
-    CHECK( restored.drawerProgress == doctest::Approx( 0.4f ) );
+    CHECK( restored.Transport().mode == ReplayCauseInspectionMode::Transporting );
+    CHECK( restored.Display().activeTab == ReplayCauseInspectorTab::Iterations );
+    CHECK( restored.Selection().selectedRow == 3 );
+    CHECK( restored.Selection().selectedDetailContactRow == 2 );
+    CHECK( restored.Display().solverDetailFirstRow == 4 );
+    CHECK( restored.Display().rawRecordFirstRow == 5 );
+    CHECK( restored.Display().iterationsFirstRow == 6 );
+    CHECK( restored.Transport().sourceFrame == 20u );
+    CHECK( restored.Transport().targetFrame == 80u );
+    CHECK( restored.Transport().presentedFrame == 45u );
+    CHECK( restored.Display().detailVisible );
+    CHECK( restored.Transport().ownsPause );
+    CHECK_FALSE( restored.Transport().transportInFlight );
+    CHECK( restored.Transport().transportPending );
+    CHECK( restored.Transport().easedProgress == doctest::Approx( 0.5f ) );
+    CHECK( restored.Display().drawerProgress == doctest::Approx( 0.4f ) );
 
     ReplayCauseTransportRequest reissued;
     REQUIRE( inspection.TakeTransportRequest( reissued ) );
@@ -206,7 +206,8 @@ TEST_CASE( "Cause hierarchy inspector target: one anchor controls flush drawer m
     state.height = 500;
 
     const ReplayCauseInspectionView inspection;
-    const ReplayCauseInspectorLayout summary = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout summary = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), state, 1920, 1080,
+                                                                                1.0f );
     CHECK( summary.targetDrawer.x + summary.targetDrawer.w == doctest::Approx( summary.hierarchy.x ) );
     CHECK( summary.drawer.y == doctest::Approx( summary.hierarchy.y ) );
     CHECK( summary.drawer.h == doctest::Approx( summary.hierarchy.h ) );
@@ -218,7 +219,8 @@ TEST_CASE( "Cause hierarchy inspector target: one anchor controls flush drawer m
 
     state.x += 73;
     state.y += 41;
-    const ReplayCauseInspectorLayout moved = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout moved = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), state, 1920, 1080,
+                                                                              1.0f );
     CHECK( moved.hierarchy.x - summary.hierarchy.x == doctest::Approx( 73.0f ) );
     CHECK( moved.drawer.x - summary.drawer.x == doctest::Approx( 73.0f ) );
     CHECK( moved.hierarchy.y - summary.hierarchy.y == doctest::Approx( 41.0f ) );
@@ -235,11 +237,12 @@ TEST_CASE( "Cause hierarchy inspector target: compact geometry and 180 ms ease h
     compact.height = 520;
 
     const ReplayCauseInspectionView inspection;
-    const ReplayCauseInspectorLayout closed = BuildReplayCauseInspectorLayout( inspection, compact, 931, 643,
+    const ReplayCauseInspectorLayout closed = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), compact, 931, 643,
                                                                                CauseInspectorTargetDrawerEase( 0.0 ) );
-    const ReplayCauseInspectorLayout midpoint = BuildReplayCauseInspectorLayout( inspection, compact, 931, 643,
+    const ReplayCauseInspectorLayout midpoint = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), compact, 931,
+                                                                                 643,
                                                                                  CauseInspectorTargetDrawerEase( 0.09 ) );
-    const ReplayCauseInspectorLayout open = BuildReplayCauseInspectorLayout( inspection, compact, 931, 643,
+    const ReplayCauseInspectorLayout open = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), compact, 931, 643,
                                                                              CauseInspectorTargetDrawerEase( 0.18 ) );
     CHECK( closed.visibleDrawer.w == doctest::Approx( 0.0f ) );
     CHECK( midpoint.visibleDrawer.w == doctest::Approx( 455.0f ) );
@@ -274,7 +277,8 @@ TEST_CASE( "Cause hierarchy inspector layout: compound clamping preserves reacha
     ReplayOverlay::ClampReplayCauseWindow( compact, 931, 643, REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
                                            REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
     const ReplayCauseInspectionView inspection;
-    const ReplayCauseInspectorLayout topLeft = BuildReplayCauseInspectorLayout( inspection, compact, 931, 643, 1.0f );
+    const ReplayCauseInspectorLayout topLeft = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), compact, 931, 643,
+                                                                                1.0f );
     CHECK( topLeft.targetCompound.x == doctest::Approx( 8.0f ) );
     CHECK( topLeft.targetCompound.y == doctest::Approx( 84.0f ) );
     CHECK( topLeft.drawerClose.x + topLeft.drawerClose.w <= topLeft.hierarchy.x );
@@ -284,7 +288,8 @@ TEST_CASE( "Cause hierarchy inspector layout: compound clamping preserves reacha
     compact.y = 9000;
     ReplayOverlay::ClampReplayCauseWindow( compact, 931, 643, REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
                                            REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
-    const ReplayCauseInspectorLayout bottomRight = BuildReplayCauseInspectorLayout( inspection, compact, 931, 643, 1.0f );
+    const ReplayCauseInspectorLayout bottomRight = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), compact, 931,
+                                                                                    643, 1.0f );
     CHECK( bottomRight.targetCompound.x >= 8.0f );
     CHECK( bottomRight.compound.x + bottomRight.compound.w <= 923.0f );
     CHECK( bottomRight.compound.y + bottomRight.compound.h <= 635.0f );
@@ -296,7 +301,8 @@ TEST_CASE( "Cause hierarchy inspector layout: drawer-title drag and resize mutat
     ReplayOverlay::EnsureReplayCauseWindowPlacement( state, 1920, 1080, REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
                                                      REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
     const ReplayCauseInspectionView inspection;
-    const ReplayCauseInspectorLayout before = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout before = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), state, 1920, 1080,
+                                                                               1.0f );
     const int drawerTitleX = static_cast<int>( before.drawerTitle.x + 20.0f );
     const int drawerTitleY = static_cast<int>( before.drawerTitle.y + 16.0f );
 
@@ -304,7 +310,8 @@ TEST_CASE( "Cause hierarchy inspector layout: drawer-title drag and resize mutat
     state.dragOffsetY = drawerTitleY - state.y;
     ReplayOverlay::MoveReplayCauseWindow( state, drawerTitleX - 73, drawerTitleY + 41, 1920, 1080,
                                           REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH, REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
-    const ReplayCauseInspectorLayout moved = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout moved = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), state, 1920, 1080,
+                                                                              1.0f );
     CHECK( moved.hierarchy.x - before.hierarchy.x == doctest::Approx( -73.0f ) );
     CHECK( moved.targetDrawer.x - before.targetDrawer.x == doctest::Approx( -73.0f ) );
     CHECK( moved.hierarchy.y - before.hierarchy.y == doctest::Approx( 41.0f ) );
@@ -318,7 +325,8 @@ TEST_CASE( "Cause hierarchy inspector layout: drawer-title drag and resize mutat
     state.resizeStartHeight = state.height;
     ReplayOverlay::ResizeReplayCauseWindow( state, resizeX + 50, resizeY - 20, 1920, 1080,
                                             REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH, REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
-    const ReplayCauseInspectorLayout resized = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout resized = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), state, 1920, 1080,
+                                                                                1.0f );
     CHECK( resized.targetDrawer.x == doctest::Approx( moved.targetDrawer.x ) );
     CHECK( resized.targetDrawer.h == doctest::Approx( resized.hierarchy.h ) );
     CHECK( resized.hierarchy.w - moved.hierarchy.w == doctest::Approx( 50.0f ) );
@@ -348,8 +356,8 @@ TEST_CASE( "Cause hierarchy inspector negative control: legacy detached panel fa
 {
     std::array<SkullbonezCore::Physics::PhysicsSolverPersistentContactSample, 1> contacts;
     ReplayCauseInspectionView inspection;
-    inspection.solverDetailAvailability = ReplayCauseSolverDetailAvailability::Available;
-    inspection.solverDetailContacts = contacts;
+    inspection.SolverDetail().solverDetailAvailability = ReplayCauseSolverDetailAvailability::Available;
+    inspection.SolverDetail().solverDetailContacts = contacts;
 
     RunReplayCauseTreeState state;
     state.hasWindowPlacement = true;
@@ -358,7 +366,8 @@ TEST_CASE( "Cause hierarchy inspector negative control: legacy detached panel fa
     state.width = 380;
     state.height = 500;
 
-    const ReplayCauseInspectorLayout target = BuildReplayCauseInspectorLayout( inspection, state, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout target = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), state, 1920, 1080,
+                                                                               1.0f );
     const SkullbonezCore::UI::UIRect legacy { state.x - 10.0f - CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH,
                                               static_cast<float>( state.y ), CAUSE_INSPECTOR_TARGET_DRAWER_WIDTH, 226.0f };
     CHECK_FALSE( legacy.x == doctest::Approx( target.targetDrawer.x ) ); // Legacy kept a 10 px gutter.
@@ -497,10 +506,10 @@ TEST_CASE( "Replay cause solver detail: exact frame publishes every row and matc
 
     ReplayCauseInspection inspection;
     REQUIRE( inspection.Select( 4, seek, 88u, false, 1.0 ) );
-    inspection.PublishSolverDetail( inspection.View().generation, detail );
-    CHECK( inspection.View().solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available );
-    CHECK( inspection.View().solverDetailContactRowCount == 2u );
-    CHECK( inspection.View().solverDetailPipelineRecordCount == 7u );
+    inspection.PublishSolverDetail( inspection.View().Transport().generation, detail );
+    CHECK( inspection.View().SolverDetail().solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available );
+    CHECK( inspection.View().SolverDetail().solverDetailContactRowCount == 2u );
+    CHECK( inspection.View().SolverDetail().solverDetailPipelineRecordCount == 7u );
 }
 
 TEST_CASE( "Replay cause solver detail: unavailable states never substitute diagnostics" )
@@ -667,10 +676,10 @@ TEST_CASE( "Replay cause solver detail: predicted rows require the exact immutab
     REQUIRE( inspection.TakeTransportRequest( transport ) );
     inspection.PublishSolverDetail( transport.generation, exact, manifold );
     inspection.CompleteTransport( transport.generation, true );
-    CHECK( inspection.View().detailVisible );
-    CHECK( inspection.View().solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available );
-    CHECK( inspection.View().solverDetailContactRowCount == 2u );
-    CHECK( inspection.View().solverDetailPipelineRecordCount == 3u );
+    CHECK( inspection.View().Display().detailVisible );
+    CHECK( inspection.View().SolverDetail().solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available );
+    CHECK( inspection.View().SolverDetail().solverDetailContactRowCount == 2u );
+    CHECK( inspection.View().SolverDetail().solverDetailPipelineRecordCount == 3u );
 
     const auto rejected = [&]( RunReplayCauseTreeRow candidate,
                                ReplayCauseSolverDetailSource candidateSource = ReplayCauseSolverDetailSource {} )
@@ -774,12 +783,12 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     records[0].scalarA = 88.0f;
     inspection.CompleteTransport( request.generation, true );
     const ReplayCauseInspectionView published = inspection.View();
-    REQUIRE( published.detailVisible );
-    REQUIRE( published.solverDetailContacts.size() == 6u );
-    REQUIRE( published.solverDetailPipelineRecords.size() == 6u );
-    CHECK( published.solverDetailContacts[0].accN == doctest::Approx( 1.0f ) );
-    CHECK( published.solverDetailPipelineRecords[0].scalarA == doctest::Approx( 0.25f ) );
-    CHECK( ReplayCauseSolverDetailIterationCount( published, 0u ) == 1 );
+    REQUIRE( published.Display().detailVisible );
+    REQUIRE( published.SolverDetail().solverDetailContacts.size() == 6u );
+    REQUIRE( published.SolverDetail().solverDetailPipelineRecords.size() == 6u );
+    CHECK( published.SolverDetail().solverDetailContacts[0].accN == doctest::Approx( 1.0f ) );
+    CHECK( published.SolverDetail().solverDetailPipelineRecords[0].scalarA == doctest::Approx( 0.25f ) );
+    CHECK( ReplayCauseSolverDetailIterationCount( published.SolverDetail(), 0u ) == 1 );
 
     RunReplayCauseTreeState causeTree;
     causeTree.hasWindowPlacement = true;
@@ -787,7 +796,8 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     causeTree.y = 100;
     causeTree.width = 380;
     causeTree.height = 520;
-    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( published, causeTree, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( published.SolverDetail(), causeTree, 1920,
+                                                                               1080, 1.0f );
     CHECK( layout.targetDrawer.w == doctest::Approx( 520.0f ) );
     CHECK( layout.visibleRows == 4 );
     CHECK( layout.content.h >= layout.rowHeight * 4.0f );
@@ -798,21 +808,22 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     causeTree.y = 140;
     causeTree.width = 430;
     causeTree.height = 500;
-    const ReplayCauseInspectorLayout moved = BuildReplayCauseInspectorLayout( published, causeTree, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout moved = BuildReplayCauseInspectorLayout( published.SolverDetail(), causeTree, 1920,
+                                                                              1080, 1.0f );
     CHECK( moved.targetDrawer.x == doctest::Approx( 660.0f ) );
     CHECK( moved.targetDrawer.y == doctest::Approx( 140.0f ) );
     CHECK( moved.targetDrawer.h == doctest::Approx( moved.hierarchy.h ) );
 
     ReplayCauseInspectionView unavailable = published;
-    unavailable.solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
-    unavailable.solverDetailContacts = {};
-    unavailable.solverDetailPipelineRecords = {};
+    unavailable.SolverDetail().solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
+    unavailable.SolverDetail().solverDetailContacts = {};
+    unavailable.SolverDetail().solverDetailPipelineRecords = {};
     causeTree.x = 528;
     causeTree.y = 84;
     causeTree.width = 380;
     causeTree.height = 520;
-    const ReplayCauseInspectorLayout compactUnavailable = BuildReplayCauseInspectorLayout( unavailable, causeTree, 931, 643,
-                                                                                           1.0f );
+    const ReplayCauseInspectorLayout compactUnavailable = BuildReplayCauseInspectorLayout( unavailable.SolverDetail(),
+                                                                                           causeTree, 931, 643, 1.0f );
     CHECK( compactUnavailable.targetDrawer.w == doctest::Approx( REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH ) );
     CHECK( compactUnavailable.targetDrawer.h == doctest::Approx( 520.0f ) );
     CHECK( compactUnavailable.targetCompound.x == doctest::Approx( 8.0f ) );
@@ -827,11 +838,11 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     const int panelX = static_cast<int>( moved.content.x + 20.0f );
     const int panelY = static_cast<int>( moved.content.y + 20.0f );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
-    CHECK( inspection.View().solverDetailFirstRow == 1 );
+    CHECK( inspection.View().Display().solverDetailFirstRow == 1 );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
-    CHECK( inspection.View().solverDetailFirstRow == 2 );
+    CHECK( inspection.View().Display().solverDetailFirstRow == 2 );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
-    CHECK( inspection.View().solverDetailFirstRow == 3 );
+    CHECK( inspection.View().Display().solverDetailFirstRow == 3 );
     CHECK_FALSE( inspection.TickSolverDetailPanelInput( causeTree, 1919, 1079, true, false, false, -120, 1920, 1080 ) );
 }
 
@@ -910,8 +921,8 @@ TEST_CASE( "Replay cause manifold presentation: exact records and event poses fo
 
     ReplayCauseInspection inspection;
     REQUIRE( inspection.Select( 4, seek, 88u, false, 1.0 ) );
-    inspection.PublishSolverDetail( inspection.View().generation, detail, presentation );
-    CHECK( inspection.View().contactPresentation.pointCount == 2u );
+    inspection.PublishSolverDetail( inspection.View().Transport().generation, detail, presentation );
+    CHECK( inspection.View().SolverDetail().contactPresentation.pointCount == 2u );
 }
 
 TEST_CASE( "Contact manifold presentation: capacity publishes a truthful truncated prefix" )
@@ -986,15 +997,15 @@ TEST_CASE( "Replay solver panel: value mapping includes exact values units and s
     pipelineRecords[1].scalarB = 99.0f;
 
     ReplayCauseInspectionView inspection;
-    inspection.detailVisible = true;
-    inspection.targetFrame = 84u;
-    inspection.solverDetailAvailability = ReplayCauseSolverDetailAvailability::Available;
-    inspection.solverDetailContacts = contacts;
-    inspection.solverDetailPipelineRecords = pipelineRecords;
-    inspection.contactPresentation.pointCount = 1u;
-    inspection.contactPresentation.points[0].point = Vector3( 7.0f, 8.0f, 9.0f );
-    const ReplayCauseSolverPanelRowText values = BuildReplayCauseSolverPanelRowText( inspection, 0 );
-    const ReplayCauseSummaryText summary = BuildReplayCauseSummaryText( inspection, 0 );
+    inspection.Display().detailVisible = true;
+    inspection.Transport().targetFrame = 84u;
+    inspection.SolverDetail().solverDetailAvailability = ReplayCauseSolverDetailAvailability::Available;
+    inspection.SolverDetail().solverDetailContacts = contacts;
+    inspection.SolverDetail().solverDetailPipelineRecords = pipelineRecords;
+    inspection.SolverDetail().contactPresentation.pointCount = 1u;
+    inspection.SolverDetail().contactPresentation.points[0].point = Vector3( 7.0f, 8.0f, 9.0f );
+    const ReplayCauseSolverPanelRowText values = BuildReplayCauseSolverPanelRowText( inspection.SolverDetail(), 0 );
+    const ReplayCauseSummaryText summary = BuildReplayCauseSummaryText( inspection.SolverDetail(), 0 );
 
     CHECK( std::strcmp( REPLAY_CAUSE_SOLVER_PANEL_UNITS,
                         "UNITS: vectors/penetration/correction = scene units; bias/linear writeback = u/s;" ) == 0 );
@@ -1035,20 +1046,20 @@ TEST_CASE( "Replay cause inspector drawer: total elapsed easing is cadence indep
     seek.frame = 12u;
 
     REQUIRE( inspection.Select( 0, seek, 20u, false, 10.0 ) );
-    CHECK( inspection.View().detailVisible );
-    CHECK( inspection.View().drawerProgress == doctest::Approx( 0.0f ) );
+    CHECK( inspection.View().Display().detailVisible );
+    CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 0.0f ) );
     inspection.Advance( 10.09 );
-    CHECK( inspection.View().drawerProgress == doctest::Approx( 0.875f ).epsilon( 0.001 ) );
+    CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 0.875f ).epsilon( 0.001 ) );
     inspection.Advance( 10.18 );
-    CHECK( inspection.View().drawerProgress == doctest::Approx( 1.0f ) );
+    CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 1.0f ) );
 
     REQUIRE( inspection.BeginReturn().apply );
     inspection.Advance( 10.27 );
-    CHECK( inspection.View().detailVisible );
-    CHECK( inspection.View().drawerProgress == doctest::Approx( 0.125f ).epsilon( 0.001 ) );
+    CHECK( inspection.View().Display().detailVisible );
+    CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 0.125f ).epsilon( 0.001 ) );
     inspection.Advance( 10.36 );
-    CHECK_FALSE( inspection.View().detailVisible );
-    CHECK( inspection.View().drawerProgress == doctest::Approx( 0.0f ) );
+    CHECK_FALSE( inspection.View().Display().detailVisible );
+    CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 0.0f ) );
 }
 
 TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-flight restore" )
@@ -1074,9 +1085,9 @@ TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-fl
 
     inspection.CompleteTransport( first.generation, true );
     const ReplayCauseInspectionView waiting = inspection.View();
-    CHECK( waiting.mode == ReplayCauseInspectionMode::Transporting );
-    CHECK( waiting.transportPending );
-    CHECK( waiting.selectedRow == 2 );
+    CHECK( waiting.Transport().mode == ReplayCauseInspectionMode::Transporting );
+    CHECK( waiting.Transport().transportPending );
+    CHECK( waiting.Selection().selectedRow == 2 );
 
     ReplayCauseTransportRequest newest;
     REQUIRE( inspection.TakeTransportRequest( newest ) );
@@ -1085,10 +1096,10 @@ TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-fl
     CHECK( newest.targetFrame == 85u );
 
     inspection.CompleteTransport( first.generation, false );
-    CHECK( inspection.View().mode == ReplayCauseInspectionMode::Transporting );
+    CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Transporting );
     inspection.CompleteTransport( newest.generation, true );
-    CHECK( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
-    CHECK( inspection.View().detailVisible );
+    CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::DetailPaused );
+    CHECK( inspection.View().Display().detailVisible );
 }
 
 TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, failure, and return" )
@@ -1109,10 +1120,10 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
         bool releasePause = false;
         REQUIRE( inspection.BeginAftermath( releasePause ) );
         CHECK( releasePause );
-        CHECK( inspection.View().mode == ReplayCauseInspectionMode::AftermathFollow );
-        CHECK( inspection.View().detailVisible );
+        CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::AftermathFollow );
+        CHECK( inspection.View().Display().detailVisible );
         inspection.Advance( 2.68 );
-        CHECK_FALSE( inspection.View().detailVisible );
+        CHECK_FALSE( inspection.View().Display().detailVisible );
 
         // Invariant: direct retargeting from aftermath reacquires only the pause released
         // above and keeps the same bounded transition owner.
@@ -1120,7 +1131,7 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
         retarget.frame = 15u;
         REQUIRE( inspection.Select( 1, retarget, 13u, false, 3.0 ) );
         inspection.Advance( 4.5 );
-        CHECK( inspection.View().ownsPause );
+        CHECK( inspection.View().Transport().ownsPause );
         ReplayCauseTransportRequest retargetRequest;
         REQUIRE( inspection.TakeTransportRequest( retargetRequest ) );
         inspection.CompleteTransport( retargetRequest.generation, true );
@@ -1129,7 +1140,7 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
         CHECK( exit.apply );
         CHECK( exit.releasePause );
         inspection.CompleteReturn();
-        CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
+        CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Inactive );
     }
 
     SUBCASE( "click or scrub return from aftermath does not release an external pause" )
@@ -1157,11 +1168,11 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
         ReplayCauseTransportRequest request;
         REQUIRE( inspection.TakeTransportRequest( request ) );
         inspection.CompleteTransport( request.generation, false );
-        CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
-        CHECK_FALSE( inspection.View().ownsPause );
+        CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Returning );
+        CHECK_FALSE( inspection.View().Transport().ownsPause );
 
         inspection.CompleteReturn();
-        CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
+        CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Inactive );
     }
 }
 
@@ -1198,16 +1209,16 @@ TEST_CASE( "Replay cause inspection: focused panel and manifold clear together a
         REQUIRE( inspection.TakeTransportRequest( request ) );
         inspection.PublishSolverDetail( request.generation, detail, presentation );
         inspection.CompleteTransport( request.generation, true );
-        REQUIRE( inspection.View().detailVisible );
-        REQUIRE( inspection.View().solverDetailContacts.size() == 1u );
-        REQUIRE( inspection.View().contactPresentation.HasGeometry() );
+        REQUIRE( inspection.View().Display().detailVisible );
+        REQUIRE( inspection.View().SolverDetail().solverDetailContacts.size() == 1u );
+        REQUIRE( inspection.View().SolverDetail().contactPresentation.HasGeometry() );
     };
     const auto checkEvidenceCleared = []( const ReplayCauseInspectionView& view )
     {
-        CHECK( view.solverDetailContacts.empty() );
-        CHECK( view.solverDetailPipelineRecords.empty() );
-        CHECK_FALSE( view.contactPresentation.HasGeometry() );
-        CHECK( view.solverDetailFirstRow == 0 );
+        CHECK( view.SolverDetail().solverDetailContacts.empty() );
+        CHECK( view.SolverDetail().solverDetailPipelineRecords.empty() );
+        CHECK_FALSE( view.SolverDetail().contactPresentation.HasGeometry() );
+        CHECK( view.Display().solverDetailFirstRow == 0 );
     };
 
     SUBCASE( "Space aftermath drops every visible value while camera follow state survives" )
@@ -1216,11 +1227,11 @@ TEST_CASE( "Replay cause inspection: focused panel and manifold clear together a
         publishFocusedSurface( inspection );
         bool releasePause = false;
         REQUIRE( inspection.BeginAftermath( releasePause ) );
-        CHECK( inspection.View().mode == ReplayCauseInspectionMode::AftermathFollow );
-        CHECK( inspection.View().detailVisible );
+        CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::AftermathFollow );
+        CHECK( inspection.View().Display().detailVisible );
         checkEvidenceCleared( inspection.View() );
         inspection.Advance( 2.68 );
-        CHECK_FALSE( inspection.View().detailVisible );
+        CHECK_FALSE( inspection.View().Display().detailVisible );
     }
 
     SUBCASE( "direct retarget hides the old surface before the new transport" )
@@ -1230,9 +1241,9 @@ TEST_CASE( "Replay cause inspection: focused panel and manifold clear together a
         ReplayCauseSeekResult retarget = seek;
         retarget.frame = 15u;
         REQUIRE( inspection.Select( 4, retarget, 12u, true, 3.0 ) );
-        CHECK( inspection.View().selectedRow == 4 );
-        CHECK( inspection.View().targetFrame == 15u );
-        CHECK( inspection.View().detailVisible );
+        CHECK( inspection.View().Selection().selectedRow == 4 );
+        CHECK( inspection.View().Transport().targetFrame == 15u );
+        CHECK( inspection.View().Display().detailVisible );
         checkEvidenceCleared( inspection.View() );
     }
 
@@ -1241,11 +1252,11 @@ TEST_CASE( "Replay cause inspection: focused panel and manifold clear together a
         ReplayCauseInspection inspection;
         publishFocusedSurface( inspection );
         REQUIRE( inspection.BeginReturn().apply );
-        CHECK( inspection.View().detailVisible );
+        CHECK( inspection.View().Display().detailVisible );
         checkEvidenceCleared( inspection.View() );
         inspection.CompleteReturn();
-        CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
-        CHECK_FALSE( inspection.View().detailVisible );
+        CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Inactive );
+        CHECK_FALSE( inspection.View().Display().detailVisible );
         checkEvidenceCleared( inspection.View() );
     }
 }
@@ -1267,10 +1278,10 @@ TEST_CASE( "Replay cause inspection: cancellation invalidates an interrupted tra
     CHECK( exit.releasePause );
 
     inspection.CompleteTransport( request.generation, true );
-    CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
-    CHECK( inspection.View().detailVisible );
+    CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Returning );
+    CHECK( inspection.View().Display().detailVisible );
     inspection.Advance( 1.68 );
-    CHECK_FALSE( inspection.View().detailVisible );
+    CHECK_FALSE( inspection.View().Display().detailVisible );
 }
 
 TEST_CASE( "Replay cause inspection: click or scrub return is accepted during entry and aftermath" )
@@ -1285,11 +1296,11 @@ TEST_CASE( "Replay cause inspection: click or scrub return is accepted during en
         {
             ReplayCauseInspection inspection;
             REQUIRE( inspection.Select( 0, seek, 20u, false, 1.0 ) );
-            REQUIRE( ShouldBeginReplayCauseReturn( inspection.View(), !scrubExit, scrubExit ) );
+            REQUIRE( ShouldBeginReplayCauseReturn( inspection.View().Transport(), !scrubExit, scrubExit ) );
             const ReplayCauseExitAction exit = inspection.BeginReturn();
             CHECK( exit.apply );
             CHECK( exit.releasePause );
-            CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
+            CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Returning );
         }
     }
 
@@ -1303,15 +1314,15 @@ TEST_CASE( "Replay cause inspection: click or scrub return is accepted during en
             ReplayCauseTransportRequest request;
             REQUIRE( inspection.TakeTransportRequest( request ) );
             inspection.CompleteTransport( request.generation, true );
-            REQUIRE( ShouldBeginReplayCauseAftermath( inspection.View(), true ) );
+            REQUIRE( ShouldBeginReplayCauseAftermath( inspection.View().Transport(), true ) );
             bool releasePause = false;
             REQUIRE( inspection.BeginAftermath( releasePause ) );
-            CHECK( inspection.View().detailVisible );
-            REQUIRE( ShouldBeginReplayCauseReturn( inspection.View(), !scrubExit, scrubExit ) );
+            CHECK( inspection.View().Display().detailVisible );
+            REQUIRE( ShouldBeginReplayCauseReturn( inspection.View().Transport(), !scrubExit, scrubExit ) );
             const ReplayCauseExitAction exit = inspection.BeginReturn();
             CHECK( exit.apply );
             CHECK_FALSE( exit.releasePause );
-            CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
+            CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Returning );
         }
     }
 }
@@ -1369,8 +1380,8 @@ TEST_CASE( "Cause hierarchy inspector: Raw Record tab projects complete grouped 
     using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
 
     ReplayCauseInspectionView view;
-    view.targetFrame = 95u;
-    view.seekSource = ReplayCauseSeekSource::SolverHistory;
+    view.Transport().targetFrame = 95u;
+    view.Transport().seekSource = ReplayCauseSeekSource::SolverHistory;
 
     std::array<PhysicsSolverPersistentContactSample, 1> contacts;
     contacts[0].bodyA = 3;
@@ -1408,21 +1419,24 @@ TEST_CASE( "Cause hierarchy inspector: Raw Record tab projects complete grouped 
     records[1].featureId = 42u;
     records[1].scalarA = 0.005f;
 
-    view.solverDetailContacts = contacts;
-    view.solverDetailPipelineRecords = records;
+    view.SolverDetail().solverDetailContacts = contacts;
+    view.SolverDetail().solverDetailPipelineRecords = records;
 
     SUBCASE( "invalid row index returns empty projection" )
     {
-        const ReplayCauseRawRecordProjection emptyNeg = BuildReplayCauseRawRecordProjection( view, -1 );
+        const ReplayCauseRawRecordProjection emptyNeg = BuildReplayCauseRawRecordProjection( view.SolverDetail(),
+                                                                                             view.Transport(), -1 );
         CHECK( emptyNeg.rowCount == 0u );
 
-        const ReplayCauseRawRecordProjection emptyHigh = BuildReplayCauseRawRecordProjection( view, 5 );
+        const ReplayCauseRawRecordProjection emptyHigh = BuildReplayCauseRawRecordProjection( view.SolverDetail(),
+                                                                                              view.Transport(), 5 );
         CHECK( emptyHigh.rowCount == 0u );
     }
 
     SUBCASE( "valid row index projects all sections and values correctly" )
     {
-        const ReplayCauseRawRecordProjection proj = BuildReplayCauseRawRecordProjection( view, 0 );
+        const ReplayCauseRawRecordProjection proj = BuildReplayCauseRawRecordProjection( view.SolverDetail(),
+                                                                                         view.Transport(), 0 );
         REQUIRE( proj.rowCount > 0u );
         CHECK( proj.rowCount <= REPLAY_CAUSE_RAW_RECORD_ROW_CAPACITY );
 
@@ -1446,23 +1460,65 @@ TEST_CASE( "Cause hierarchy inspector: Raw Record tab projects complete grouped 
             const auto& row = proj.rows[i];
             if ( row.kind == ReplayCauseRawRecordRowKind::Section )
             {
-                if ( std::strcmp( row.label, "IDENTITY" ) == 0 ) foundIdentity = true;
-                if ( std::strcmp( row.label, "GEOMETRY" ) == 0 ) foundGeometry = true;
-                if ( std::strcmp( row.label, "CONTACT BASIS" ) == 0 ) foundBasis = true;
-                if ( std::strcmp( row.label, "SOLVER VALUES" ) == 0 ) foundSolver = true;
-                if ( std::strcmp( row.label, "ACCUMULATED IMPULSES" ) == 0 ) foundImpulses = true;
-                if ( std::strcmp( row.label, "FLAGS & POLICY" ) == 0 ) foundFlags = true;
+                if ( std::strcmp( row.label, "IDENTITY" ) == 0 )
+                {
+                    foundIdentity = true;
+                }
+                if ( std::strcmp( row.label, "GEOMETRY" ) == 0 )
+                {
+                    foundGeometry = true;
+                }
+                if ( std::strcmp( row.label, "CONTACT BASIS" ) == 0 )
+                {
+                    foundBasis = true;
+                }
+                if ( std::strcmp( row.label, "SOLVER VALUES" ) == 0 )
+                {
+                    foundSolver = true;
+                }
+                if ( std::strcmp( row.label, "ACCUMULATED IMPULSES" ) == 0 )
+                {
+                    foundImpulses = true;
+                }
+                if ( std::strcmp( row.label, "FLAGS & POLICY" ) == 0 )
+                {
+                    foundFlags = true;
+                }
             }
             else
             {
-                if ( std::strcmp( row.label, "Row Index" ) == 0 && std::strcmp( row.value, "0" ) == 0 ) foundRowIndex = true;
-                if ( std::strcmp( row.label, "Feature ID" ) == 0 && std::strcmp( row.value, "42" ) == 0 ) foundFeature = true;
-                if ( std::strcmp( row.label, "Body A" ) == 0 && std::strcmp( row.value, "3" ) == 0 ) foundBodyA = true;
-                if ( std::strcmp( row.label, "Body B" ) == 0 && std::strcmp( row.value, "7" ) == 0 ) foundBodyB = true;
-                if ( std::strcmp( row.label, "Contact Point" ) == 0 ) foundPoint = true;
-                if ( std::strcmp( row.label, "Normal n" ) == 0 ) foundNormal = true;
-                if ( std::strcmp( row.label, "Normal Impulse accN" ) == 0 ) foundAccN = true;
-                if ( std::strcmp( row.label, "Warm Started" ) == 0 && std::strcmp( row.value, "YES" ) == 0 ) foundWarm = true;
+                if ( std::strcmp( row.label, "Row Index" ) == 0 && std::strcmp( row.value, "0" ) == 0 )
+                {
+                    foundRowIndex = true;
+                }
+                if ( std::strcmp( row.label, "Feature ID" ) == 0 && std::strcmp( row.value, "42" ) == 0 )
+                {
+                    foundFeature = true;
+                }
+                if ( std::strcmp( row.label, "Body A" ) == 0 && std::strcmp( row.value, "3" ) == 0 )
+                {
+                    foundBodyA = true;
+                }
+                if ( std::strcmp( row.label, "Body B" ) == 0 && std::strcmp( row.value, "7" ) == 0 )
+                {
+                    foundBodyB = true;
+                }
+                if ( std::strcmp( row.label, "Contact Point" ) == 0 )
+                {
+                    foundPoint = true;
+                }
+                if ( std::strcmp( row.label, "Normal n" ) == 0 )
+                {
+                    foundNormal = true;
+                }
+                if ( std::strcmp( row.label, "Normal Impulse accN" ) == 0 )
+                {
+                    foundAccN = true;
+                }
+                if ( std::strcmp( row.label, "Warm Started" ) == 0 && std::strcmp( row.value, "YES" ) == 0 )
+                {
+                    foundWarm = true;
+                }
             }
         }
 
@@ -1497,7 +1553,8 @@ TEST_CASE( "Cause hierarchy inspector: Raw Record tab projects complete grouped 
 
     SUBCASE( "serialization handles edge cases and buffer limits" )
     {
-        const ReplayCauseRawRecordProjection proj = BuildReplayCauseRawRecordProjection( view, 0 );
+        const ReplayCauseRawRecordProjection proj = BuildReplayCauseRawRecordProjection( view.SolverDetail(),
+                                                                                         view.Transport(), 0 );
         char tinyBuffer[16] = {};
         CHECK_FALSE( SerializeReplayCauseRawRecord( proj, tinyBuffer, sizeof( tinyBuffer ) ) );
         CHECK_FALSE( SerializeReplayCauseRawRecord( proj, nullptr, 100u ) );
@@ -1545,7 +1602,8 @@ TEST_CASE( "Cause hierarchy inspector: Raw Record input handles copy command and
     inspection.PublishSolverDetail( request.generation, detail );
     inspection.CompleteTransport( request.generation, true );
 
-    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection.View(), treeState, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), treeState,
+                                                                               1920, 1080, 1.0f );
     CHECK( layout.rawTable.h > 0.0f );
     CHECK( layout.rawCopy.h == doctest::Approx( REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT ) );
     CHECK( layout.rawVisibleRows > 0 );
@@ -1556,13 +1614,14 @@ TEST_CASE( "Cause hierarchy inspector: Raw Record input handles copy command and
         const int tabX = static_cast<int>( layout.tabs[1].x + layout.tabs[1].w * 0.5f );
         const int tabY = static_cast<int>( layout.tabs[1].y + layout.tabs[1].h * 0.5f );
         CHECK( inspection.TickSolverDetailPanelInput( treeState, tabX, tabY, true, false, true, 0, 1920, 1080 ) );
-        CHECK( inspection.View().activeTab == ReplayCauseInspectorTab::RawRecord );
+        CHECK( inspection.View().Display().activeTab == ReplayCauseInspectorTab::RawRecord );
 
         // Click Copy button
         const int copyX = static_cast<int>( layout.rawCopy.x + layout.rawCopy.w * 0.5f );
         const int copyY = static_cast<int>( layout.rawCopy.y + layout.rawCopy.h * 0.5f );
         ReplayCauseInspectorCommand command;
-        CHECK( inspection.TickSolverDetailPanelInput( treeState, copyX, copyY, true, false, true, 0, 1920, 1080, &command ) );
+        CHECK(
+            inspection.TickSolverDetailPanelInput( treeState, copyX, copyY, true, false, true, 0, 1920, 1080, &command ) );
         CHECK( command.kind == ReplayCauseInspectorCommandKind::CopyRecord );
         CHECK( std::strstr( command.text, "[IDENTITY]" ) != nullptr );
         CHECK( std::strstr( command.text, "Feature ID: 5" ) != nullptr );
@@ -1578,14 +1637,14 @@ TEST_CASE( "Cause hierarchy inspector: Raw Record input handles copy command and
         const int insideX = static_cast<int>( layout.rawTable.x + 10.0f );
         const int insideY = static_cast<int>( layout.rawTable.y + 10.0f );
 
-        CHECK( inspection.View().rawRecordFirstRow == 0 );
+        CHECK( inspection.View().Display().rawRecordFirstRow == 0 );
         // Scroll down
         (void)inspection.TickSolverDetailPanelInput( treeState, insideX, insideY, true, false, false, -120, 1920, 1080 );
-        CHECK( inspection.View().rawRecordFirstRow >= 0 );
+        CHECK( inspection.View().Display().rawRecordFirstRow >= 0 );
 
         // Scroll up
         (void)inspection.TickSolverDetailPanelInput( treeState, insideX, insideY, true, false, false, 120, 1920, 1080 );
-        CHECK( inspection.View().rawRecordFirstRow == 0 );
+        CHECK( inspection.View().Display().rawRecordFirstRow == 0 );
     }
 }
 
@@ -1597,8 +1656,8 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab projects exact pipeline st
     using SkullbonezCore::Physics::PhysicsSolverPersistentContactSample;
 
     ReplayCauseInspectionView view;
-    view.targetFrame = 120u;
-    view.seekSource = ReplayCauseSeekSource::SolverHistory;
+    view.Transport().targetFrame = 120u;
+    view.Transport().seekSource = ReplayCauseSeekSource::SolverHistory;
 
     std::array<PhysicsSolverPersistentContactSample, 1> contacts;
     contacts[0].bodyA = 2;
@@ -1654,22 +1713,22 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab projects exact pipeline st
     records[5].scalarA = 3.2f;
     records[5].scalarB = 0.8f;
 
-    view.solverDetailContacts = contacts;
-    view.solverDetailPipelineRecords = records;
+    view.SolverDetail().solverDetailContacts = contacts;
+    view.SolverDetail().solverDetailPipelineRecords = records;
 
     SUBCASE( "invalid row index returns empty projection" )
     {
-        const ReplayCauseIterationsProjection emptyNeg = BuildReplayCauseIterationsProjection( view, -1 );
+        const ReplayCauseIterationsProjection emptyNeg = BuildReplayCauseIterationsProjection( view.SolverDetail(), -1 );
         CHECK( emptyNeg.rowCount == 0u );
         CHECK( std::strstr( emptyNeg.summary, "No contact" ) != nullptr );
 
-        const ReplayCauseIterationsProjection emptyHigh = BuildReplayCauseIterationsProjection( view, 4 );
+        const ReplayCauseIterationsProjection emptyHigh = BuildReplayCauseIterationsProjection( view.SolverDetail(), 4 );
         CHECK( emptyHigh.rowCount == 0u );
     }
 
     SUBCASE( "valid contact projects all pipeline stages accurately" )
     {
-        const ReplayCauseIterationsProjection proj = BuildReplayCauseIterationsProjection( view, 0 );
+        const ReplayCauseIterationsProjection proj = BuildReplayCauseIterationsProjection( view.SolverDetail(), 0 );
         REQUIRE( proj.rowCount == 6u );
         CHECK( std::strstr( proj.summary, "Feature 99" ) != nullptr );
 
@@ -1764,7 +1823,8 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab input and interaction hand
     inspection.PublishSolverDetail( request.generation, detail );
     inspection.CompleteTransport( request.generation, true );
 
-    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection.View(), treeState, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), treeState,
+                                                                               1920, 1080, 1.0f );
     CHECK( layout.iterationsTable.h > 0.0f );
     CHECK( layout.iterationsVisibleRows > 0 );
 
@@ -1774,26 +1834,27 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab input and interaction hand
         const int tabX = static_cast<int>( layout.tabs[2].x + layout.tabs[2].w * 0.5f );
         const int tabY = static_cast<int>( layout.tabs[2].y + layout.tabs[2].h * 0.5f );
         CHECK( inspection.TickSolverDetailPanelInput( treeState, tabX, tabY, true, false, true, 0, 1920, 1080 ) );
-        CHECK( inspection.View().activeTab == ReplayCauseInspectorTab::Iterations );
+        CHECK( inspection.View().Display().activeTab == ReplayCauseInspectorTab::Iterations );
 
         const int insideX = static_cast<int>( layout.iterationsTable.x + 10.0f );
         const int insideY = static_cast<int>( layout.iterationsTable.y + 10.0f );
 
-        CHECK( inspection.View().iterationsFirstRow == 0 );
+        CHECK( inspection.View().Display().iterationsFirstRow == 0 );
         // Scroll down
         (void)inspection.TickSolverDetailPanelInput( treeState, insideX, insideY, true, false, false, -120, 1920, 1080 );
-        CHECK( inspection.View().iterationsFirstRow >= 0 );
+        CHECK( inspection.View().Display().iterationsFirstRow >= 0 );
 
         // Scroll up
         (void)inspection.TickSolverDetailPanelInput( treeState, insideX, insideY, true, false, false, 120, 1920, 1080 );
-        CHECK( inspection.View().iterationsFirstRow == 0 );
+        CHECK( inspection.View().Display().iterationsFirstRow == 0 );
 
         // Switch to Summary tab (tabs[0]) resets iterationsFirstRow
         const int summaryTabX = static_cast<int>( layout.tabs[0].x + layout.tabs[0].w * 0.5f );
         const int summaryTabY = static_cast<int>( layout.tabs[0].y + layout.tabs[0].h * 0.5f );
-        CHECK( inspection.TickSolverDetailPanelInput( treeState, summaryTabX, summaryTabY, true, false, true, 0, 1920, 1080 ) );
-        CHECK( inspection.View().activeTab == ReplayCauseInspectorTab::Summary );
-        CHECK( inspection.View().iterationsFirstRow == 0 );
+        CHECK(
+            inspection.TickSolverDetailPanelInput( treeState, summaryTabX, summaryTabY, true, false, true, 0, 1920, 1080 ) );
+        CHECK( inspection.View().Display().activeTab == ReplayCauseInspectorTab::Summary );
+        CHECK( inspection.View().Display().iterationsFirstRow == 0 );
     }
 
     SUBCASE( "clicking close button initiates return" )
@@ -1801,16 +1862,16 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab input and interaction hand
         const int closeX = static_cast<int>( layout.drawerClose.x + layout.drawerClose.w * 0.5f );
         const int closeY = static_cast<int>( layout.drawerClose.y + layout.drawerClose.h * 0.5f );
         CHECK( inspection.TickSolverDetailPanelInput( treeState, closeX, closeY, true, false, true, 0, 1920, 1080 ) );
-        CHECK( inspection.View().mode == ReplayCauseInspectionMode::Returning );
+        CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Returning );
     }
 }
 
 TEST_CASE( "Cause hierarchy inspector: lifecycle non-selection click protection and interaction routing" )
 {
     ReplayCauseInspectionView view;
-    view.mode = ReplayCauseInspectionMode::DetailPaused;
-    view.detailVisible = true;
-    view.drawerProgress = 1.0f;
+    view.Transport().mode = ReplayCauseInspectionMode::DetailPaused;
+    view.Display().detailVisible = true;
+    view.Display().drawerProgress = 1.0f;
 
     SUBCASE( "active UI/drawer/hierarchy clicks do not trigger inspection return" )
     {
@@ -1822,7 +1883,7 @@ TEST_CASE( "Cause hierarchy inspector: lifecycle non-selection click protection 
         const bool nonSelectionClick = requestedRowNegative && leftPressed && !causeInteractionActive;
 
         CHECK_FALSE( nonSelectionClick );
-        CHECK_FALSE( ShouldBeginReplayCauseReturn( view, nonSelectionClick, false ) );
+        CHECK_FALSE( ShouldBeginReplayCauseReturn( view.Transport(), nonSelectionClick, false ) );
     }
 
     SUBCASE( "genuine outside clicks in the 3D scene do trigger inspection return" )
@@ -1835,7 +1896,7 @@ TEST_CASE( "Cause hierarchy inspector: lifecycle non-selection click protection 
         const bool nonSelectionClick = requestedRowNegative && leftPressed && !causeInteractionActive;
 
         CHECK( nonSelectionClick );
-        CHECK( ShouldBeginReplayCauseReturn( view, nonSelectionClick, false ) );
+        CHECK( ShouldBeginReplayCauseReturn( view.Transport(), nonSelectionClick, false ) );
     }
 }
 
@@ -1917,27 +1978,29 @@ TEST_CASE( "Cause hierarchy inspector: multi-contact selection assigns and consu
     inspection.CompleteTransport( transportReq.generation, true );
 
     const ReplayCauseInspectionView view = inspection.View();
-    CHECK( view.selectedDetailContactRow == 1 );
+    CHECK( view.Selection().selectedDetailContactRow == 1 );
 
     // Summary text for selected row 1 vs row 0
-    const ReplayCauseSummaryText summary0 = BuildReplayCauseSummaryText( view, 0 );
-    const ReplayCauseSummaryText summary1 = BuildReplayCauseSummaryText( view, 1 );
+    const ReplayCauseSummaryText summary0 = BuildReplayCauseSummaryText( view.SolverDetail(), 0 );
+    const ReplayCauseSummaryText summary1 = BuildReplayCauseSummaryText( view.SolverDetail(), 1 );
     CHECK( std::strstr( summary0.identity, "FEATURE 201" ) != nullptr );
     CHECK( std::strstr( summary1.identity, "FEATURE 202" ) != nullptr );
     CHECK( std::strcmp( summary1.normalImpulse, "25.00000 mass*u/s" ) == 0 );
 
     // Iterations projection for selected row 1
-    const ReplayCauseIterationsProjection iterations1 = BuildReplayCauseIterationsProjection( view, 1 );
+    const ReplayCauseIterationsProjection iterations1 = BuildReplayCauseIterationsProjection( view.SolverDetail(), 1 );
     REQUIRE( iterations1.rowCount == 1u );
     CHECK( std::strstr( iterations1.summary, "Feature 202" ) != nullptr );
     CHECK( std::strcmp( iterations1.rows[0].accNormal, "25" ) == 0 );
 
     // Raw record projection for selected row 1
-    const ReplayCauseRawRecordProjection raw1 = BuildReplayCauseRawRecordProjection( view, 1 );
+    const ReplayCauseRawRecordProjection raw1 = BuildReplayCauseRawRecordProjection( view.SolverDetail(), view.Transport(),
+                                                                                     1 );
     REQUIRE( raw1.rowCount > 0u );
 
     // Copy command in Raw Record tab copies selected row 1 (Feature 202, not Feature 201)
-    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( view, treeState, 1920, 1080, 1.0f );
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( view.SolverDetail(), treeState, 1920, 1080,
+                                                                               1.0f );
     const int rawTabX = static_cast<int>( layout.tabs[1].x + layout.tabs[1].w * 0.5f );
     const int rawTabY = static_cast<int>( layout.tabs[1].y + layout.tabs[1].h * 0.5f );
     CHECK( inspection.TickSolverDetailPanelInput( treeState, rawTabX, rawTabY, true, false, true, 0, 1920, 1080 ) );

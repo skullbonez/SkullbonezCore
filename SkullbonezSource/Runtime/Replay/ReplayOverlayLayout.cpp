@@ -473,32 +473,34 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
     }
 }
 
+bool ReplayScrubberSourceAvailability::CurrentTrackAvailable( RunReplayTrack track ) const noexcept
+{
+    return track == RunReplayTrack::Presentation ? currentPresentation : currentSolver;
+}
+
+
 ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrubberView& scrubber,
                                                                const ReplayRecorderStats& solverStats,
-                                                               bool loadedPresentation, bool pathTargetAvailable,
-                                                               bool predictionTimelineAvailable,
-                                                               bool currentPresentationAvailable,
-                                                               bool currentSolverAvailable, bool scenePhysicsEnabled )
+                                                               const ReplayScrubberSourceAvailability& sources )
 {
     ReplayScrubberSurfaceInput input;
-    input.loadedPresentation = loadedPresentation;
+    input.loadedPresentation = sources.loadedPresentation;
     // Why: ordinary rewind follows the longer presentation ring. Prediction
     // supplies the only live surface that needs the solver track's future span.
-    input.track = input.loadedPresentation || !predictionTimelineAvailable ? RunReplayTrack::Presentation
-                                                                           : RunReplayTrack::Solver;
+    input.track = input.loadedPresentation || !sources.predictionTimeline ? RunReplayTrack::Presentation
+                                                                          : RunReplayTrack::Solver;
     const bool solverReplayEnabled = solverStats.enabled;
     const bool solverReplayAvailable = solverReplayEnabled && solverStats.sampleCount >= 2;
     input.solverToolsEnabled = !input.loadedPresentation && solverReplayAvailable;
-    input.predictionToolsEnabled = !input.loadedPresentation && solverReplayEnabled && scenePhysicsEnabled;
-    input.pastPathToolsEnabled = input.solverToolsEnabled && pathTargetAvailable;
+    input.predictionToolsEnabled = !input.loadedPresentation && solverReplayEnabled && sources.scenePhysics;
+    input.pastPathToolsEnabled = input.solverToolsEnabled && sources.pathTarget;
     input.scrubTrackDragEnabled = input.loadedPresentation || input.solverToolsEnabled ||
-                                  ( input.predictionToolsEnabled && predictionTimelineAvailable );
+                                  ( input.predictionToolsEnabled && sources.predictionTimeline );
 
-    input.branchTargetAvailable = scrubber.historicalSamplePaused &&
-                                  ( ( input.loadedPresentation && scrubber.activeTrack == RunReplayTrack::Presentation &&
-                                      currentPresentationAvailable ) ||
-                                    ( input.solverToolsEnabled && scrubber.activeTrack == RunReplayTrack::Solver &&
-                                      currentSolverAvailable ) );
+    const bool activeTrackOwned = scrubber.activeTrack == RunReplayTrack::Presentation ? input.loadedPresentation
+                                                                                       : input.solverToolsEnabled;
+    input.branchTargetAvailable = scrubber.historicalSamplePaused && activeTrackOwned &&
+                                  sources.CurrentTrackAvailable( scrubber.activeTrack );
 
     return input;
 }

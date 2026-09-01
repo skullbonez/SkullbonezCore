@@ -1,4 +1,4 @@
-/*
+﻿/*
 File: UIFrameComposition.cpp
 Purpose:
   Implements stateless UI frame signatures, preview-catalog policy, and
@@ -77,8 +77,7 @@ uint32_t HashFloat( uint32_t seed, float value, float scale )
 UIRect MinimizedCameraModeComboBounds( const UIRect& minimized )
 {
     constexpr float titleLeft = 32.0f;
-    const float availableW = (std::max)( 0.0f, minimized.w - titleLeft - MINIMIZED_CAMERA_MODE_GAP -
-                                                  MINIMIZED_RESTORE_W );
+    const float availableW = (std::max)( 0.0f, minimized.w - titleLeft - MINIMIZED_CAMERA_MODE_GAP - MINIMIZED_RESTORE_W );
     const float comboW = (std::min)( MINIMIZED_CAMERA_MODE_COMBO_W, availableW );
     const float comboRight = (std::max)( minimized.x, minimized.x + minimized.w - MINIMIZED_RESTORE_W );
     return { (std::max)( minimized.x, comboRight - comboW ), minimized.y + 6.0f, comboW, 24.0f };
@@ -110,31 +109,32 @@ void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize 
         return;
     }
 
-    if ( data.sceneMode && data.sceneName && data.sceneName[0] != '\0' )
+    if ( data.surface.sceneMode && data.surface.sceneName && data.surface.sceneName[0] != '\0' )
     {
-        const int displayedFrame = ( data.testComplete && data.targetFrameCount > 0 &&
-                                     data.currentFrame > data.targetFrameCount )
-                                       ? data.targetFrameCount
-                                       : data.currentFrame;
+        const int displayedFrame = ( data.scene.testComplete && data.scene.targetFrameCount > 0 &&
+                                     data.scene.currentFrame > data.scene.targetFrameCount )
+                                       ? data.scene.targetFrameCount
+                                       : data.scene.currentFrame;
 
-        if ( data.testComplete )
+        if ( data.scene.testComplete )
         {
-            if ( data.targetFrameCount > 0 )
+            if ( data.scene.targetFrameCount > 0 )
             {
-                snprintf( out, outSize, "%s  %d/%d complete", data.sceneName, displayedFrame, data.targetFrameCount );
+                snprintf( out, outSize, "%s  %d/%d complete", data.surface.sceneName, displayedFrame,
+                          data.scene.targetFrameCount );
             }
             else
             {
-                snprintf( out, outSize, "%s  complete", data.sceneName );
+                snprintf( out, outSize, "%s  complete", data.surface.sceneName );
             }
         }
-        else if ( data.targetFrameCount > 0 )
+        else if ( data.scene.targetFrameCount > 0 )
         {
-            snprintf( out, outSize, "%s  %d/%d", data.sceneName, displayedFrame, data.targetFrameCount );
+            snprintf( out, outSize, "%s  %d/%d", data.surface.sceneName, displayedFrame, data.scene.targetFrameCount );
         }
         else
         {
-            snprintf( out, outSize, "%s", data.sceneName );
+            snprintf( out, outSize, "%s", data.surface.sceneName );
         }
     }
     else
@@ -143,7 +143,7 @@ void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize 
     }
 
     out[outSize - 1] = '\0';
-    const char* runtimeMode = data.runtimeInputModeLabel ? data.runtimeInputModeLabel : "";
+    const char* runtimeMode = data.surface.runtimeInputModeLabel ? data.surface.runtimeInputModeLabel : "";
 
     if ( runtimeMode[0] != '\0' && std::strcmp( runtimeMode, "Scene" ) != 0 )
     {
@@ -162,7 +162,7 @@ void StripMinimizedRuntimeModeSuffix( const InGameUIFrameData& data, char* title
         return;
     }
 
-    const char* runtimeMode = data.runtimeInputModeLabel ? data.runtimeInputModeLabel : "";
+    const char* runtimeMode = data.surface.runtimeInputModeLabel ? data.surface.runtimeInputModeLabel : "";
 
     if ( runtimeMode[0] == '\0' || std::strcmp( runtimeMode, "Scene" ) == 0 )
     {
@@ -183,12 +183,12 @@ void StripMinimizedRuntimeModeSuffix( const InGameUIFrameData& data, char* title
 
 uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData& data )
 {
-    const int count = std::clamp( data.renderTargetPreviewCount, 0, UI_RENDER_TARGET_PREVIEW_MAX );
+    const int count = std::clamp( data.renderTargets.count, 0, UI_RENDER_TARGET_PREVIEW_MAX );
     hash = HashInt( hash, count );
 
     for ( int i = 0; i < count; ++i )
     {
-        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
+        const UIRenderTargetPreviewResource& resource = data.renderTargets.previews[i];
         hash = HashTextValue( hash, resource.label );
         hash = HashInt( hash, resource.width );
         hash = HashInt( hash, resource.height );
@@ -270,46 +270,46 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     // Include every frame-data value that can change visible UI text, controls,
     // preview resources, or hit-test-derived drawing.
     uint32_t hash = 2166136261u;
-    hash = HashTextValue( hash, data.rendererName );
-    hash = HashTextValue( hash, data.sceneName );
-    hash = HashInt( hash, data.sceneOptionCount );
-    hash = HashInt( hash, data.selectedSceneOption );
-    hash = HashInt( hash, data.selectedCineModeSceneOption );
+    hash = HashTextValue( hash, data.surface.rendererName );
+    hash = HashTextValue( hash, data.surface.sceneName );
+    hash = HashInt( hash, data.scene.sceneOptionCount );
+    hash = HashInt( hash, data.scene.selectedSceneOption );
+    hash = HashInt( hash, data.scene.selectedCineModeSceneOption );
 
-    for ( int i = 0; i < data.sceneOptionCount && data.sceneOptions; ++i )
+    for ( int i = 0; i < data.scene.sceneOptionCount && data.scene.sceneOptions; ++i )
     {
-        hash = HashTextValue( hash, data.sceneOptions[i] );
+        hash = HashTextValue( hash, data.scene.sceneOptions[i] );
     }
 
-    hash = HashInt( hash, data.selectedInteractionRecordingOption );
-    hash = HashInt( hash, data.interactionRecordingOptionCount );
+    hash = HashInt( hash, data.scene.selectedInteractionRecordingOption );
+    hash = HashInt( hash, data.scene.interactionRecordingOptionCount );
 
-    for ( int i = 0; i < data.interactionRecordingOptionCount && data.interactionRecordingOptions; ++i )
+    for ( int i = 0; i < data.scene.interactionRecordingOptionCount && data.scene.interactionRecordingOptions; ++i )
     {
-        hash = HashTextValue( hash, data.interactionRecordingOptions[i] );
+        hash = HashTextValue( hash, data.scene.interactionRecordingOptions[i] );
     }
 
-    hash = HashInt( hash, data.drawCallsBeforeUI );
-    hash = HashInt( hash, data.UIDrawCalls );
+    hash = HashInt( hash, data.surface.drawCallsBeforeUI );
+    hash = HashInt( hash, data.surface.UIDrawCalls );
 
     // Invariant: visibility rows are live diagnostics. Hash every field so a
     // retained UI draw cannot display the preceding frame's culling result.
     for ( int viewIndex = 0; viewIndex < static_cast<int>( UIRenderVisibilityView::Count ); ++viewIndex )
     {
-        const UIRenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
+        const UIRenderVisibilityViewStats& visibility = data.surface.visibility.views[viewIndex];
         hash = HashInt( hash, visibility.candidates );
         hash = HashInt( hash, visibility.submitted );
         hash = HashInt( hash, visibility.culled );
         hash = HashInt( hash, visibility.draws );
     }
 
-    hash = HashInt( hash, data.reserveCapacityRowCount );
+    hash = HashInt( hash, data.diagnostics.reserveCapacityRowCount );
 
-    for ( int rowIndex = 0; data.reserveCapacityRows && rowIndex < data.reserveCapacityRowCount &&
+    for ( int rowIndex = 0; data.diagnostics.reserveCapacityRows && rowIndex < data.diagnostics.reserveCapacityRowCount &&
                             rowIndex < UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX;
           ++rowIndex )
     {
-        const UIRuntimeReserveCapacityRow& row = data.reserveCapacityRows[rowIndex];
+        const UIRuntimeReserveCapacityRow& row = data.diagnostics.reserveCapacityRows[rowIndex];
         hash = HashTextValue( hash, row.ownerName );
         hash = HashTextValue( hash, row.capacityReason );
         hash = HashTextValue( hash, row.subsystemName );
@@ -321,13 +321,15 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
         hash = HashInt( hash, static_cast<int>( row.residentBytes >> 32u ) );
     }
 
-    hash = HashInt( hash, static_cast<int>( data.reserveGrowthEventTotalCount ) );
-    hash = HashInt( hash, data.reserveGrowthEventCount );
+    hash = HashInt( hash, static_cast<int>( data.diagnostics.reserveGrowthEventTotalCount ) );
+    hash = HashInt( hash, data.diagnostics.reserveGrowthEventCount );
 
-    for ( int eventIndex = 0; eventIndex < data.reserveGrowthEventCount && eventIndex < UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX;
+    for ( int eventIndex = 0;
+          eventIndex < data.diagnostics.reserveGrowthEventCount && eventIndex < UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX;
           ++eventIndex )
     {
-        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event = data.reserveGrowthEvents[eventIndex];
+        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event = data.diagnostics
+                                                                                           .reserveGrowthEvents[eventIndex];
 
         hash = HashTextValue( hash, event.targetName );
         hash = HashInt( hash, event.frameNumber );
@@ -336,227 +338,233 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
         hash = HashBool( hash, event.granted );
     }
 
-    hash = HashFloat( hash, data.fps );
-    hash = HashFloat( hash, data.renderMs, 1000.0f );
-    hash = HashFloat( hash, data.physicsMs, 1000.0f );
-    hash = HashFloat( hash, data.cpuFrameMs, 1000.0f );
-    hash = HashFloat( hash, data.gpuFrameMs, 1000.0f );
-    hash = HashFloat( hash, data.workerCoreTotalMs, 1000.0f );
-    hash = HashProfilerFrameSnapshot( hash, data.profiler );
-    hash = HashInt( hash, data.modelCount );
-    hash = HashInt( hash, data.modelCapacity );
-    hash = HashInt( hash, data.workerThreadCount );
-    hash = HashInt( hash, data.maxWorkerThreadCount );
-    hash = HashInt( hash, data.currentFrame );
-    hash = HashInt( hash, data.targetFrameCount );
-    hash = HashInt( hash, static_cast<int>( data.rngSeed ) );
-    hash = HashInt( hash, data.solverBallCount );
-    hash = HashInt( hash, data.solverBoxCount );
-    hash = HashInt( hash, data.currentSceneIndex );
-    hash = HashInt( hash, data.sceneCount );
-    hash = HashInt( hash, static_cast<int>( std::round( data.now * 1000.0 ) ) );
-    hash = HashBool( hash, data.sceneMode );
-    hash = HashBool( hash, data.scenePhysicsEnabled );
-    hash = HashBool( hash, data.sceneTextEnabled );
-    hash = HashBool( hash, data.textOnly );
-    hash = HashBool( hash, data.fixedStep );
-    hash = HashBool( hash, data.exitOnComplete );
-    hash = HashBool( hash, data.testComplete );
-    hash = HashBool( hash, data.vsyncEnabled );
-    hash = HashBool( hash, data.pipelineSyncEnabled );
-    hash = HashFloat( hash, data.sceneEnergy, 1000.0f );
-    hash = HashFloat( hash, data.timeScale, 1000.0f );
-    hash = HashBool( hash, data.presentationInterpolation );
-    hash = HashBool( hash, data.presentationPinned );
-    hash = HashFloat( hash, data.presentationAlpha, 1000.0f );
-    hash = HashFloat( hash, data.trackHeight, 1000.0f );
-    hash = HashFloat( hash, data.autoCycleInterval, 1000.0f );
-    hash = HashFloat( hash, data.worldGravity, 1000.0f );
-    hash = HashFloat( hash, data.worldFluidHeight, 1000.0f );
-    hash = HashFloat( hash, data.worldFluidDensity, 1000.0f );
-    hash = HashInt( hash, static_cast<int>( data.physicsDebug.activeFlags ) );
-    hash = HashTextValue( hash, data.physicsDebug.pipelineStageName );
-    hash = HashInt( hash, data.physicsDebug.pipelineStageIndex );
-    hash = HashInt( hash, data.physicsDebug.pipelineStageCount );
-    hash = HashFloat( hash, data.physicsDebug.alpha, 1000.0f );
-    hash = HashFloat( hash, data.physicsDebug.contactLinger, 1000.0f );
-    hash = HashBool( hash, data.physicsSleepEnabled );
-    hash = HashBool( hash, data.physicsDebug.collisionVisualizer );
-    hash = HashBool( hash, data.physicsDebug.transparent );
-    hash = HashBool( hash, data.physicsDebug.broadphase );
-    hash = HashBool( hash, data.tornadoEnabled );
-    hash = HashBool( hash, data.tornadoVisualShell );
-    hash = HashBool( hash, data.tornadoFieldVectors );
-    hash = HashBool( hash, data.rayCastVisualization );
-    hash = HashFloat( hash, data.tornadoRadius, 100.0f );
-    hash = HashFloat( hash, data.tornadoHeight, 100.0f );
-    hash = HashFloat( hash, data.tornadoInwardAcceleration, 100.0f );
-    hash = HashFloat( hash, data.tornadoSwirlAcceleration, 100.0f );
-    hash = HashFloat( hash, data.tornadoLiftAcceleration, 100.0f );
-    hash = HashFloat( hash, data.rayCastImpulseStrength, 100.0f );
-    hash = HashFloat( hash, data.launcherProjectileSpeed, 100.0f );
-    hash = HashFloat( hash, data.terrainFrictionCoeff, 1000.0f );
-    hash = HashFloat( hash, data.objectFrictionCoeff, 1000.0f );
-    hash = HashFloat( hash, data.rollingFrictionCoeff, 1000.0f );
-    hash = HashBool( hash, data.waterFreezeDebug );
-    hash = HashBool( hash, data.waterFlatDebug );
-    hash = HashBool( hash, data.terrainHidden );
-    hash = HashBool( hash, data.waterHidden );
-    hash = HashBool( hash, data.waterNoReflect );
-    hash = HashBool( hash, data.waterRTReflect );
-    hash = HashBool( hash, data.cameraMouseActive );
-    hash = HashBool( hash, data.nativeCursorVisible );
-    hash = HashTextValue( hash, data.runtimeInputModeLabel );
-    hash = HashInt( hash, data.cameraModeIndex );
+    hash = HashFloat( hash, data.surface.fps );
+    hash = HashFloat( hash, data.surface.renderMs, 1000.0f );
+    hash = HashFloat( hash, data.surface.physicsMs, 1000.0f );
+    hash = HashFloat( hash, data.surface.cpuFrameMs, 1000.0f );
+    hash = HashFloat( hash, data.surface.gpuFrameMs, 1000.0f );
+    hash = HashFloat( hash, data.surface.workerCoreTotalMs, 1000.0f );
+    hash = HashProfilerFrameSnapshot( hash, data.diagnostics.profiler );
+    hash = HashInt( hash, data.scene.modelCount );
+    hash = HashInt( hash, data.scene.modelCapacity );
+    hash = HashInt( hash, data.surface.workerThreadCount );
+    hash = HashInt( hash, data.surface.maxWorkerThreadCount );
+    hash = HashInt( hash, data.scene.currentFrame );
+    hash = HashInt( hash, data.scene.targetFrameCount );
+    hash = HashInt( hash, static_cast<int>( data.scene.rngSeed ) );
+    hash = HashInt( hash, data.scene.solverBallCount );
+    hash = HashInt( hash, data.scene.solverBoxCount );
+    hash = HashInt( hash, data.scene.currentSceneIndex );
+    hash = HashInt( hash, data.scene.sceneCount );
+    hash = HashInt( hash, static_cast<int>( std::round( data.surface.now * 1000.0 ) ) );
+    hash = HashBool( hash, data.surface.sceneMode );
+    hash = HashBool( hash, data.surface.scenePhysicsEnabled );
+    hash = HashBool( hash, data.surface.sceneTextEnabled );
+    hash = HashBool( hash, data.surface.textOnly );
+    hash = HashBool( hash, data.scene.fixedStep );
+    hash = HashBool( hash, data.scene.exitOnComplete );
+    hash = HashBool( hash, data.scene.testComplete );
+    hash = HashBool( hash, data.surface.vsyncEnabled );
+    hash = HashBool( hash, data.surface.pipelineSyncEnabled );
+    hash = HashFloat( hash, data.scene.sceneEnergy, 1000.0f );
+    hash = HashFloat( hash, data.scene.timeScale, 1000.0f );
+    hash = HashBool( hash, data.scene.presentationInterpolation );
+    hash = HashBool( hash, data.scene.presentationPinned );
+    hash = HashFloat( hash, data.scene.presentationAlpha, 1000.0f );
+    hash = HashFloat( hash, data.surface.trackHeight, 1000.0f );
+    hash = HashFloat( hash, data.surface.autoCycleInterval, 1000.0f );
+    hash = HashFloat( hash, data.world.worldGravity, 1000.0f );
+    hash = HashFloat( hash, data.world.worldFluidHeight, 1000.0f );
+    hash = HashFloat( hash, data.world.worldFluidDensity, 1000.0f );
+    hash = HashInt( hash, static_cast<int>( data.world.physicsDebug.activeFlags ) );
+    hash = HashTextValue( hash, data.world.physicsDebug.pipelineStageName );
+    hash = HashInt( hash, data.world.physicsDebug.pipelineStageIndex );
+    hash = HashInt( hash, data.world.physicsDebug.pipelineStageCount );
+    hash = HashFloat( hash, data.world.physicsDebug.alpha, 1000.0f );
+    hash = HashFloat( hash, data.world.physicsDebug.contactLinger, 1000.0f );
+    hash = HashBool( hash, data.world.physicsSleepEnabled );
+    hash = HashBool( hash, data.world.physicsDebug.collisionVisualizer );
+    hash = HashBool( hash, data.world.physicsDebug.transparent );
+    hash = HashBool( hash, data.world.physicsDebug.broadphase );
+    hash = HashBool( hash, data.world.tornadoEnabled );
+    hash = HashBool( hash, data.world.tornadoVisualShell );
+    hash = HashBool( hash, data.world.tornadoFieldVectors );
+    hash = HashBool( hash, data.world.rayCastVisualization );
+    hash = HashFloat( hash, data.world.tornadoRadius, 100.0f );
+    hash = HashFloat( hash, data.world.tornadoHeight, 100.0f );
+    hash = HashFloat( hash, data.world.tornadoInwardAcceleration, 100.0f );
+    hash = HashFloat( hash, data.world.tornadoSwirlAcceleration, 100.0f );
+    hash = HashFloat( hash, data.world.tornadoLiftAcceleration, 100.0f );
+    hash = HashFloat( hash, data.world.rayCastImpulseStrength, 100.0f );
+    hash = HashFloat( hash, data.world.launcherProjectileSpeed, 100.0f );
+    hash = HashFloat( hash, data.world.terrainFrictionCoeff, 1000.0f );
+    hash = HashFloat( hash, data.world.objectFrictionCoeff, 1000.0f );
+    hash = HashFloat( hash, data.world.rollingFrictionCoeff, 1000.0f );
+    hash = HashBool( hash, data.world.waterFreezeDebug );
+    hash = HashBool( hash, data.world.waterFlatDebug );
+    hash = HashBool( hash, data.world.terrainHidden );
+    hash = HashBool( hash, data.world.waterHidden );
+    hash = HashBool( hash, data.world.waterNoReflect );
+    hash = HashBool( hash, data.world.waterRTReflect );
+    hash = HashBool( hash, data.surface.cameraMouseActive );
+    hash = HashBool( hash, data.surface.nativeCursorVisible );
+    hash = HashTextValue( hash, data.surface.runtimeInputModeLabel );
+    hash = HashInt( hash, data.surface.cameraModeIndex );
 
-    hash = HashInt( hash, static_cast<int>( data.cameraModeEnabledMask ) );
-    hash = HashBool( hash, data.editorModeEnabled );
-    hash = HashBool( hash, data.editorPlacementMode );
-    hash = HashBool( hash, data.editorPlaceStatic );
-    hash = HashBool( hash, data.editorTerrainAlign );
-    hash = HashBool( hash, data.editorViewportLookActive );
-    hash = HashInt( hash, data.editorObjectType );
-    hash = HashInt( hash, data.editorUndoDepth );
-    hash = HashInt( hash, data.editorRedoDepth );
-    hash = HashBool( hash, data.canSaveSceneDefaults );
-    hash = HashBool( hash, data.cinematicRendering );
-    hash = HashBool( hash, data.ordinaryRender.shadow.enabled );
-    hash = HashFloat( hash, data.ordinaryRender.sunIntensity, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.sunColorR, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.sunColorG, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.sunColorB, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.ambientStrength, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.skyAmbientR, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.skyAmbientG, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.skyAmbientB, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.groundAmbientR, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.groundAmbientG, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.groundAmbientB, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadow.strength, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadow.softness, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadow.depthBias, 100000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadow.slopeBias, 100000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterTintR, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterTintG, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterTintB, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterAlpha, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterReflectionStrength, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterFresnelF0, 10000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.ballRoughnessScale, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.ballSpecularScale, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.boxRoughnessScale, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.boxSpecularScale, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.futureWidth, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.futureAlpha, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.futureEdgeFeather, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.causalWidth, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.causalAlpha, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.causalEdgeFeather, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.baselineWidth, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.baselineAlpha, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.baselineEdgeFeather, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.markerWidth, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.markerAlpha, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.markerEdgeFeather, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.replayTrajectory.selectedEmphasis, 1000.0f );
-    hash = HashBool( hash, data.cinematic.enabled );
-    hash = HashBool( hash, data.cinematic.skyAtmosphereEnabled );
-    hash = HashBool( hash, data.cinematic.cloudsEnabled );
-    hash = HashBool( hash, data.cinematic.godRaysEnabled );
-    hash = HashBool( hash, data.cinematic.volumetricLightingEnabled );
-    hash = HashBool( hash, data.cinematic.bloomEnabled );
-    hash = HashBool( hash, data.cinematic.fogEnabled );
-    hash = HashBool( hash, data.cinematic.terrainReliefEnabled );
-    hash = HashBool( hash, data.cinematic.shadow.enabled );
-    hash = HashFloat( hash, data.cinematic.exposure, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.gamma, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunAzimuth, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunElevation, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunColorR, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunColorG, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunColorB, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunIntensity, 100.0f );
-    hash = HashFloat( hash, data.cinematic.skyGlowStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.cloudCoverage, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.cloudSoftness, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.cloudScale, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.cloudIntensity, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunShaftStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunShaftFalloff, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.volumetricStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.volumetricDensity, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.volumetricDecay, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.bloomThreshold, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.bloomKnee, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.bloomStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.bloomRadius, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainRelief, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.basinDepth, 100.0f );
-    hash = HashFloat( hash, data.cinematic.basinRimLift, 100.0f );
-    hash = HashFloat( hash, data.cinematic.fogColorR, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.fogColorG, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.fogColorB, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.fogStart, 10.0f );
-    hash = HashFloat( hash, data.cinematic.fogEnd, 10.0f );
-    hash = HashFloat( hash, data.cinematic.fogDensity, 100000.0f );
-    hash = HashFloat( hash, data.cinematic.fogMaxOpacity, 1000.0f );
-    hash = HashInt( hash, data.cinematic.skyMode );
-    hash = HashInt( hash, data.cinematic.terrainMode );
-    hash = HashInt( hash, data.cinematic.objectStyle );
-    hash = HashInt( hash, data.cinematic.waterMode );
-    hash = HashFloat( hash, data.cinematic.styleSaturation, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.styleContrast, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.styleVignette, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainTintR, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainTintG, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainTintB, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainAccentR, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainAccentG, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainAccentB, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainGridScale, 100.0f );
-    hash = HashFloat( hash, data.cinematic.terrainGridStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterTintR, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterTintG, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterTintB, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterAlpha, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterReflectionStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterGlintStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.basinCenterX, 10.0f );
-    hash = HashFloat( hash, data.cinematic.basinCenterZ, 10.0f );
-    hash = HashFloat( hash, data.cinematic.basinRadiusX, 10.0f );
-    hash = HashFloat( hash, data.cinematic.basinRadiusZ, 10.0f );
-    hash = HashFloat( hash, data.cinematic.basinFeather, 1000.0f );
+    hash = HashInt( hash, static_cast<int>( data.surface.cameraModeEnabledMask ) );
+    hash = HashBool( hash, data.editor.editorModeEnabled );
+    hash = HashBool( hash, data.editor.editorPlacementMode );
+    hash = HashBool( hash, data.editor.editorPlaceStatic );
+    hash = HashBool( hash, data.editor.editorTerrainAlign );
+    hash = HashBool( hash, data.editor.editorViewportLookActive );
+    hash = HashInt( hash, data.editor.editorObjectType );
+    hash = HashInt( hash, data.editor.editorUndoDepth );
+    hash = HashInt( hash, data.editor.editorRedoDepth );
+    hash = HashBool( hash, data.scene.canSaveSceneDefaults );
+    hash = HashBool( hash, data.rendering.cinematicRendering );
+    hash = HashBool( hash, data.rendering.ordinaryRender.shadow.enabled );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.sunIntensity, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.sunColorR, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.sunColorG, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.sunColorB, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.ambientStrength, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.skyAmbientR, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.skyAmbientG, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.skyAmbientB, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.groundAmbientR, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.groundAmbientG, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.groundAmbientB, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.shadow.strength, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.shadow.softness, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.shadow.depthBias, 100000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.shadow.slopeBias, 100000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.waterTintR, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.waterTintG, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.waterTintB, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.waterAlpha, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.waterReflectionStrength, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.waterFresnelF0, 10000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.ballRoughnessScale, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.ballSpecularScale, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.boxRoughnessScale, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.boxSpecularScale, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.futureWidth, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.futureAlpha, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.futureEdgeFeather, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.causalWidth, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.causalAlpha, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.causalEdgeFeather, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.baselineWidth, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.baselineAlpha, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.baselineEdgeFeather, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.markerWidth, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.markerAlpha, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.markerEdgeFeather, 1000.0f );
+    hash = HashFloat( hash, data.rendering.ordinaryRender.replayTrajectory.selectedEmphasis, 1000.0f );
+    hash = HashBool( hash, data.rendering.cinematic.enabled );
+    hash = HashBool( hash, data.rendering.cinematic.skyAtmosphereEnabled );
+    hash = HashBool( hash, data.rendering.cinematic.cloudsEnabled );
+    hash = HashBool( hash, data.rendering.cinematic.godRaysEnabled );
+    hash = HashBool( hash, data.rendering.cinematic.volumetricLightingEnabled );
+    hash = HashBool( hash, data.rendering.cinematic.bloomEnabled );
+    hash = HashBool( hash, data.rendering.cinematic.fogEnabled );
+    hash = HashBool( hash, data.rendering.cinematic.terrainReliefEnabled );
+    hash = HashBool( hash, data.rendering.cinematic.shadow.enabled );
+    hash = HashFloat( hash, data.rendering.cinematic.exposure, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.gamma, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.sunAzimuth, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.sunElevation, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.sunColorR, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.sunColorG, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.sunColorB, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.sunIntensity, 100.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.skyGlowStrength, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.cloudCoverage, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.cloudSoftness, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.cloudScale, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.cloudIntensity, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.sunShaftStrength, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.sunShaftFalloff, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.volumetricStrength, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.volumetricDensity, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.volumetricDecay, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.bloomThreshold, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.bloomKnee, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.bloomStrength, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.bloomRadius, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.terrainRelief, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.basinDepth, 100.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.basinRimLift, 100.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.fogColorR, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.fogColorG, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.fogColorB, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.fogStart, 10.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.fogEnd, 10.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.fogDensity, 100000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.fogMaxOpacity, 1000.0f );
+    hash = HashInt( hash, data.rendering.cinematic.skyMode );
+    hash = HashInt( hash, data.rendering.cinematic.terrainMode );
+    hash = HashInt( hash, data.rendering.cinematic.objectStyle );
+    hash = HashInt( hash, data.rendering.cinematic.waterMode );
+    hash = HashFloat( hash, data.rendering.cinematic.styleSaturation, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.styleContrast, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.styleVignette, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.terrainTintR, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.terrainTintG, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.terrainTintB, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.terrainAccentR, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.terrainAccentG, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.terrainAccentB, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.terrainGridScale, 100.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.terrainGridStrength, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.waterTintR, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.waterTintG, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.waterTintB, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.waterAlpha, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.waterReflectionStrength, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.waterGlintStrength, 1000.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.basinCenterX, 10.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.basinCenterZ, 10.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.basinRadiusX, 10.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.basinRadiusZ, 10.0f );
+    hash = HashFloat( hash, data.rendering.cinematic.basinFeather, 1000.0f );
     hash = HashRenderTargetPreviewCatalog( hash, data );
     return hash;
 }
 
 
-uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, const UIRect& windowBounds, bool rendererOpen,
-                                      bool reflectionOpen, bool sceneOpen, bool cineSceneOpen, bool editorObjectOpen,
-                                      bool renderTargetOpen, bool cameraModeOpen, int selectedRenderTarget,
-                                      int activeSlider )
+int UIInteractionSignatureInput::LocalPointerX() const noexcept
+{
+    return static_cast<int>( std::lround( static_cast<float>( pointer.x ) - windowBounds.x ) );
+}
+
+
+int UIInteractionSignatureInput::LocalPointerY() const noexcept
+{
+    return static_cast<int>( std::lround( static_cast<float>( pointer.y ) - windowBounds.y ) );
+}
+
+
+uint32_t BuildUIInteractionSignature( const UIInteractionSignatureInput& input )
 {
     uint32_t hash = 2166136261u;
     // Invariant: pointer interaction is window-local. Moving a captured window
     // and pointer together changes only position, so retained commands replay.
-    hash = HashInt( hash, static_cast<int>( std::lround( static_cast<float>( mouseX ) - windowBounds.x ) ) );
-    hash = HashInt( hash, static_cast<int>( std::lround( static_cast<float>( mouseY ) - windowBounds.y ) ) );
-    hash = HashBool( hash, rendererOpen );
-    hash = HashBool( hash, reflectionOpen );
-    hash = HashBool( hash, sceneOpen );
-    hash = HashBool( hash, cineSceneOpen );
-    hash = HashBool( hash, editorObjectOpen );
-    hash = HashBool( hash, renderTargetOpen );
-    hash = HashBool( hash, cameraModeOpen );
-    hash = HashInt( hash, selectedRenderTarget );
-    hash = HashInt( hash, activeSlider );
+    hash = HashInt( hash, input.LocalPointerX() );
+    hash = HashInt( hash, input.LocalPointerY() );
+    for ( uint32_t control = UI_INTERACTION_RENDERER_OPEN; control <= UI_INTERACTION_CAMERA_MODE_OPEN; control <<= 1u )
+    {
+        hash = HashBool( hash, ( input.openControls & control ) != 0u );
+    }
+    hash = HashInt( hash, input.selectedRenderTarget );
+    hash = HashInt( hash, input.activeSlider );
     return hash;
 }
 
 
 int RenderTargetPreviewCount( const InGameUIFrameData& data )
 {
-    return std::clamp( data.renderTargetPreviewCount, 0, UI_RENDER_TARGET_PREVIEW_MAX );
+    return std::clamp( data.renderTargets.count, 0, UI_RENDER_TARGET_PREVIEW_MAX );
 }
 
 
@@ -567,7 +575,7 @@ uint32_t RenderTargetPreviewDisabledMask( const InGameUIFrameData& data )
 
     for ( int i = 0; i < count; ++i )
     {
-        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
+        const UIRenderTargetPreviewResource& resource = data.renderTargets.previews[i];
 
         if ( !resource.available || resource.width <= 0 || resource.height <= 0 )
         {
@@ -585,7 +593,7 @@ int FirstAvailableRenderTargetPreview( const InGameUIFrameData& data )
 
     for ( int i = 0; i < count; ++i )
     {
-        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
+        const UIRenderTargetPreviewResource& resource = data.renderTargets.previews[i];
 
         if ( resource.available && resource.width > 0 && resource.height > 0 )
         {
@@ -608,7 +616,7 @@ int ResolveRenderTargetPreviewSelection( const InGameUIFrameData& data, int sele
 
     if ( selectedIndex >= 0 && selectedIndex < count )
     {
-        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[selectedIndex];
+        const UIRenderTargetPreviewResource& resource = data.renderTargets.previews[selectedIndex];
 
         if ( resource.available && resource.width > 0 && resource.height > 0 )
         {
@@ -660,8 +668,8 @@ void BuildEditorObjectCounterText( const InGameUIFrameData& data, char* out, siz
         return;
     }
 
-    const int modelCount = (std::max)( 0, data.modelCount );
-    const int modelCapacity = (std::max)( 1, data.modelCapacity );
+    const int modelCount = (std::max)( 0, data.scene.modelCount );
+    const int modelCapacity = (std::max)( 1, data.scene.modelCapacity );
     snprintf( out, outSize, "Game objects %d / %d", modelCount, modelCapacity );
     out[outSize - 1] = '\0';
 }
@@ -688,7 +696,7 @@ UIRect TitleButtonGroupBounds( const Chrome::TitleButtonRects& titleButtons )
 void DrawEditorObjectCounter( const UIDrawContext& draw, const InGameUIFrameData& data, int screenW, int screenH,
                               const UIRect* avoidBounds )
 {
-    if ( !data.editorModeEnabled )
+    if ( !data.editor.editorModeEnabled )
     {
         return;
     }
@@ -732,11 +740,11 @@ void DrawEditorObjectCounter( const UIDrawContext& draw, const InGameUIFrameData
 
 int WaterReflectionModeFromData( const InGameUIFrameData& data )
 {
-    if ( data.waterNoReflect )
+    if ( data.world.waterNoReflect )
     {
         return 2;
     }
 
-    return data.waterRTReflect ? 1 : 0;
+    return data.world.waterRTReflect ? 1 : 0;
 }
 } // namespace SkullbonezCore::UI::FrameComposition

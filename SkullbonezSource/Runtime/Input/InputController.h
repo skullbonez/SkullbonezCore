@@ -257,24 +257,6 @@ struct RuntimeCameraInputFrameResult
     bool applyCursorOwnership = false;
 };
 
-// Concept: a frame-owned camera movement input is the value boundary between
-// hardware sampling and the later presentation update. It contains no device
-// or host references, so movement cannot reopen mutable input state.
-struct RuntimeCameraMovementInput
-{
-    float keyMovementQuantity = 0.0f;
-    float mouseMovementQuantity = 0.0f;
-    float minCameraHeight = 0.0f;
-    float maxCameraHeight = 0.0f;
-    float fluidSurfaceHeight = 0.0f;
-    bool attachedOrbitOwnsCamera = false;
-    bool flyControlsActive = false;
-    bool editorModeEnabled = false;
-    bool editorViewportLookActive = false;
-    bool manualControlsActive = false;
-    bool authoredScene = false;
-};
-
 struct RuntimeInputTransition
 {
     RuntimeInputMode from = RuntimeInputMode::Scene;
@@ -351,8 +333,6 @@ class InputController
                                                                 bool cameraMouseLookActive, bool mouseLookOwnsCursor,
                                                                 bool cameraKeyboardControlsActive,
                                                                 const DeviceInputFrame& deviceFrame );
-    static void ApplyCameraMovement( CameraControlState& camera, Environment::CameraCollection& cameras,
-                                     Geometry::Terrain& terrain, const RuntimeCameraMovementInput& input );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

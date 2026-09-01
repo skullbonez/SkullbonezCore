@@ -96,17 +96,18 @@ class ReplayPlanningRuntime
     ReplayTripPlannerVelocityMutation
     BeginFrameBeforePrediction( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
                                 const Physics::PhysicsWorldForces& worldForces, const RunReplayPathVisualizerState& path,
-                                const ReplayPredictionPresentationView& prediction, bool liveAdvanceHeld );
-    ReplayTripPlannerVelocityMutation
-    FinishFrameAfterPrediction( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
-                                const Physics::PhysicsWorldForces& worldForces, double nowSeconds,
-                                const RunReplayPathVisualizerState& path, const ReplayPredictionPresentationView& prediction,
-                                bool liveAdvanceHeld );
+                                const ReplayPredictionControlsView& predictionControls, bool liveAdvanceHeld );
+    ReplayTripPlannerVelocityMutation FinishFrameAfterPrediction(
+        Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
+        const Physics::PhysicsWorldForces& worldForces, double nowSeconds, const RunReplayPathVisualizerState& path,
+        const ReplayPredictionTimelineView& predictionTimeline, const ReplayPredictionTopologyView& predictionTopology,
+        const ReplayPredictionControlsView& predictionControls, bool liveAdvanceHeld );
 
   private:
     void UpdateInterceptReadout( Physics::PhysicsEngine& physics, bool mutualGravityEnabled,
-                                 const RunReplayPathVisualizerState& path,
-                                 const ReplayPredictionPresentationView& prediction );
+                                 const RunReplayPathVisualizerState& path, const ReplayPredictionTimelineView& timeline,
+                                 const ReplayPredictionTopologyView& topology,
+                                 const ReplayPredictionControlsView& controls );
     void UpdateGuideArcs( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
                           const Physics::PhysicsWorldForces& worldForces, double nowSeconds );
     void UpdatePorkchopPanel( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
@@ -114,9 +115,10 @@ class ReplayPlanningRuntime
     ReplayTripPlannerVelocityMutation
     BeginTripPlannerFrame( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
                            const Physics::PhysicsWorldForces& worldForces, const RunReplayPathVisualizerState& path,
-                           const ReplayPredictionPresentationView& prediction, bool liveAdvanceHeld );
+                           const ReplayPredictionControlsView& controls, bool liveAdvanceHeld );
     ReplayTripPlannerVelocityMutation ObserveTripPlannerPrediction( const RunReplayPathVisualizerState& path,
-                                                                    const ReplayPredictionPresentationView& prediction,
+                                                                    const ReplayPredictionTimelineView& timeline,
+                                                                    const ReplayPredictionControlsView& controls,
                                                                     bool liveAdvanceHeld );
 
     ReplayInterceptReadout m_interceptReadout;

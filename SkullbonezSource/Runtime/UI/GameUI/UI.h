@@ -118,7 +118,7 @@ struct UIProfilerMarkerOption
     const char* leafName = "";
     uint32_t hash = UI_PROFILER_FRAME_TOTAL_HASH;
     float cpuMs = 0.0f;
-    float cpuAverageMs = 0.0f;        // Same 500 ms moving average used by the profiler table.
+    float cpuAverageMs = 0.0f; // Same 500 ms moving average used by the profiler table.
 
     // Worker-thread time for the same marker. The histogram plots cpu+worker so
     // selecting a worker-owned marker graphs the work that marker actually did;
@@ -126,7 +126,7 @@ struct UIProfilerMarkerOption
     float workerMs = 0.0f;
     float workerAverageMs = 0.0f;
     float gpuMs = 0.0f;
-    float colorR = 0.0f;              // RGB borrowed from the profiler row palette for chart overlays.
+    float colorR = 0.0f; // RGB borrowed from the profiler row palette for chart overlays.
     float colorG = 0.0f;
     float colorB = 0.0f;
     bool hasGpu = false;
@@ -223,7 +223,7 @@ struct UIProfilerTabFrameView
     int maxWorkerThreadCount = 1;
     int screenW = 1;
     int screenH = 1;
-    float workerCoreTotalMs = 0.0f;
+    float workerCoreTotalMs = 0.0f; // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
     double now = 0.0;
 };
 
@@ -299,29 +299,18 @@ struct UISceneTabFrameView
     float sceneEnergy = 0.0f;
     float timeScale = 1.0f;
     float predictionRevealRate = 1.0f;
-    bool fixedStep = false;
+    bool fixedStep = false; // Scene/capture render-frame-lockstep request; Runtime resolves effective pacing.
     bool testComplete = false;
 };
 
-// Snapshot of engine state needed to draw the UI for one frame.  The UI reads
-// this structure but does not mutate engine objects directly; that keeps render
-// code, input hit-testing, and runtime state changes separated.
-struct InGameUIFrameData
+// Cohesive storage sections keep the root frame readable while the view methods
+// below expose only the facts consumed by each tab.
+struct UIFrameSurfaceData
 {
-    // Shared domain view consumed by both operator front ends. GameUI flat
-    // fields remain for primary-surface consumers that have not adopted it.
-    OperatorEditorFrameView operatorEditor;
     int screenW = 1;
     int screenH = 1;
     const char* rendererName = "";
     const char* sceneName = "";
-    const char* const* sceneOptions = nullptr;
-    int sceneOptionCount = 0;
-    int selectedSceneOption = -1;
-    const char* const* interactionRecordingOptions = nullptr;
-    int interactionRecordingOptionCount = 0;
-    int selectedInteractionRecordingOption = -1;
-    int selectedCineModeSceneOption = -1;
     int drawCallsBeforeUI = 0;
     int UIDrawCalls = 0;
     UIRenderVisibilityStats visibility;
@@ -330,16 +319,32 @@ struct InGameUIFrameData
     float physicsMs = 0.0f;
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
-    float workerCoreTotalMs = 0.0f;   // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
+    float workerCoreTotalMs = 0.0f;
+    int workerThreadCount = 0;
+    int maxWorkerThreadCount = 1;
+    double now = 0.0;
+    bool sceneMode = false;
+    bool scenePhysicsEnabled = true;
+    bool sceneTextEnabled = true;
+    bool textOnly = false;
+    bool vsyncEnabled = false;
+    bool pipelineSyncEnabled = false;
+    float trackHeight = 0.0f;
+    float autoCycleInterval = 0.0f;
+    bool cameraMouseActive = false;
+    bool nativeCursorVisible = false;
+    const char* runtimeInputModeLabel = "";
+    int cameraModeIndex = 0;
+    uint32_t cameraModeEnabledMask = 0x7Fu;
+};
 
-    // Lifetime: profiler and draw-trace names are borrowed for this immediate UI
-    // pass. The profiler tab caches only bounded values needed for next-frame
-    // input/layout; drawing gets refreshed from this snapshot every frame.
+struct UIFrameDiagnosticsData
+{
     ProfilerTab::FrameSnapshot profiler;
     UIProfilerMarkerOption profilerMarkerOptions[UI_PROFILER_MARKER_OPTION_MAX];
     int profilerMarkerOptionCount = 0;
     SkullbonezCore::Core::MainMemoryStats mainMemory;
-    UIRenderMemoryStats renderMemory; // Value snapshot for the Memory tab/overlay only.
+    UIRenderMemoryStats renderMemory;
     const UIRuntimeReserveCapacityRow* reserveCapacityRows = nullptr;
     int reserveCapacityRowCount = 0;
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
@@ -353,14 +358,20 @@ struct InGameUIFrameData
     int replayMemorySolverRetentionSeconds = 0;
     bool replayMemoryBudgetClamped = false;
     bool replayMemorySolverWindowReduced = false;
+};
 
-    // Predicted seconds revealed per real second by the causal-unfold cursor.
-    // Presentation pacing only; the Scene tab shows and edits it.
+struct UIFrameSceneData
+{
+    const char* const* sceneOptions = nullptr;
+    int sceneOptionCount = 0;
+    int selectedSceneOption = -1;
+    const char* const* interactionRecordingOptions = nullptr;
+    int interactionRecordingOptionCount = 0;
+    int selectedInteractionRecordingOption = -1;
+    int selectedCineModeSceneOption = -1;
     float predictionRevealRate = 1.0f;
     int modelCount = 0;
     int modelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECT_CAPACITY;
-    int workerThreadCount = 0;
-    int maxWorkerThreadCount = 1;
     int currentFrame = 0;
     int targetFrameCount = -1;
     unsigned int rngSeed = 0;
@@ -368,23 +379,19 @@ struct InGameUIFrameData
     int solverBoxCount = 0;
     int currentSceneIndex = -1;
     int sceneCount = 0;
-    double now = 0.0;
-    bool sceneMode = false;
-    bool scenePhysicsEnabled = true;
-    bool sceneTextEnabled = true;
-    bool textOnly = false;
-    bool fixedStep = false;           // Scene/capture render-frame-lockstep request; Runtime resolves effective pacing.
+    bool fixedStep = false;
     bool exitOnComplete = false;
     bool testComplete = false;
-    bool vsyncEnabled = false;
-    bool pipelineSyncEnabled = false;
     float sceneEnergy = 0.0f;
     float timeScale = 1.0f;
     bool presentationInterpolation = true;
     bool presentationPinned = false;
     float presentationAlpha = 1.0f;
-    float trackHeight = 0.0f;
-    float autoCycleInterval = 0.0f;
+    bool canSaveSceneDefaults = false;
+};
+
+struct UIFrameWorldData
+{
     float worldGravity = 0.0f;
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
@@ -410,11 +417,10 @@ struct InGameUIFrameData
     bool waterHidden = false;
     bool waterNoReflect = false;
     bool waterRTReflect = false;
-    bool cameraMouseActive = false;
-    bool nativeCursorVisible = false;
-    const char* runtimeInputModeLabel = "";
-    int cameraModeIndex = 0;
-    uint32_t cameraModeEnabledMask = 0x7Fu;
+};
+
+struct UIFrameEditorData
+{
     bool editorModeEnabled = false;
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
@@ -423,12 +429,33 @@ struct InGameUIFrameData
     int editorObjectType = 0;
     int editorUndoDepth = 0;
     int editorRedoDepth = 0;
-    bool canSaveSceneDefaults = false;
+};
+
+struct UIFrameRenderingData
+{
     bool cinematicRendering = false;
     SkullbonezCore::Core::OrdinaryRenderConfig ordinaryRender;
     SkullbonezCore::Core::CinematicRenderConfig cinematic;
-    UIRenderTargetPreviewResource renderTargetPreviews[UI_RENDER_TARGET_PREVIEW_MAX];
-    int renderTargetPreviewCount = 0;
+};
+
+struct UIFrameRenderTargetsData
+{
+    UIRenderTargetPreviewResource previews[UI_RENDER_TARGET_PREVIEW_MAX];
+    int count = 0;
+};
+
+// Snapshot of engine state needed to draw the UI for one frame. Each section is
+// a detached value owned by this frame; no subsystem owner is retained.
+struct InGameUIFrameData
+{
+    OperatorEditorFrameView operatorEditor;
+    UIFrameSurfaceData surface;
+    UIFrameDiagnosticsData diagnostics;
+    UIFrameSceneData scene;
+    UIFrameWorldData world;
+    UIFrameEditorData editor;
+    UIFrameRenderingData rendering;
+    UIFrameRenderTargetsData renderTargets;
 
     UIControlsTabFrameView ControlsTabFrame() const;
     UIEditorTabFrameView EditorTabFrame() const;
@@ -439,7 +466,6 @@ struct InGameUIFrameData
     UIMemoryTabFrameView MemoryTabFrame() const;
     UISceneTabFrameView SceneTabFrame() const;
 };
-
 class InGameUI
 {
   public:
@@ -508,15 +534,14 @@ class InGameUI
     // can apply it while constructing the detached input snapshot.
     InputControl::UIPointerOverride InputOverride() const;
     InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
-                                     double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic,
-                                     bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask );
+                                     double now, bool editorModeEnabled, bool placementModeEnabled, bool placeStaticObject,
+                                     bool autoTerrainAlign, uint32_t cameraModeEnabledMask );
 
     // Builds one complete ordered frame of backend-neutral draw values. The
     // returned view remains valid until the next Draw call on this owner.
     const UIDrawList& Draw( const InGameUIFrameData& data );
 
   private:
-
     // Lifetime: Init owns this profiler beyond the cohesive UI owner; input and
     // draw paths borrow it without resolving process-global diagnostics state.
     Core::Profiler* m_profiler = nullptr;
@@ -526,11 +551,6 @@ class InGameUI
     // Lifetime: the interaction owner holds every widget and gesture record
     // shared by hit testing and drawing. It never retains an InGameUI reach-back.
     UIWindowInteractionOwner m_windowInteraction;
-    UIDrawList m_frameDrawList;
-    UIDrawList m_histogramDrawList;
-    UIDrawList m_memoryOverlayDrawList;
-    void DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data, const UIRect& windowBounds,
-                            const UIRect& contentBounds, const UIRect& footerBounds );
 };
 
 } // namespace UI

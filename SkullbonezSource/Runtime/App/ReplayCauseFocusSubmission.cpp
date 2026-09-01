@@ -179,6 +179,153 @@ bool TryAddReplayTargetMarkerFromStores( EditorTracer& tracer, const PhysicsBody
 
     return true;
 }
+
+bool TryRenderReplayBodyFocus( const RunReplayCameraState& camera, const PhysicsBodyStore& bodyStore,
+                               const ColliderStore& colliderStore, EditorTracer& tracer )
+{
+    if ( camera.focusKind != RunReplayCameraFocusKind::Body )
+    {
+        return false;
+    }
+
+    ModelRowHint focusHint;
+    focusHint.value = camera.focusModelRow.value;
+    int focusedModelIndex = -1;
+
+    if ( !TryResolveReplayBodyModelIndex( bodyStore, camera.focusedId, focusHint, bodyStore.Count(), focusedModelIndex ) )
+    {
+        return false;
+    }
+
+    (void)TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, focusedModelIndex );
+    return true;
+}
+
+bool TryRenderReplaySolverManifoldFocus( const RunReplayCameraState& camera,
+                                         const ReplaySolverFrameSample* currentSolverSample, EditorTracer& tracer )
+{
+    if ( camera.focusKind != RunReplayCameraFocusKind::Manifold || !currentSolverSample )
+    {
+        return false;
+    }
+
+    const ReplaySolverBodySample* focusedBody = FindReplayBodyById( *currentSolverSample, camera.focusedId );
+    const ReplaySolverBodySample* counterpartBody = FindReplayBodyById( *currentSolverSample, camera.counterpartId );
+
+    if ( !focusedBody )
+    {
+        return false;
+    }
+
+    bool drewContact = false;
+
+    for ( const PhysicsSolverPersistentContactSample& contact :
+          currentSolverSample->worldSnapshot.physics.persistentContacts )
+    {
+        if ( !ReplayContactHasModelIndex( contact, focusedBody->modelRow.value ) )
+        {
+            continue;
+        }
+
+        const int otherModelIndex = ReplayContactOtherModelIndex( contact, focusedBody->modelRow.value );
+        const bool terrain = contact.isTerrain || otherModelIndex < 0;
+
+        if ( camera.focusTerrain != terrain ||
+             ( !terrain && ( !counterpartBody || counterpartBody->modelRow.value != otherModelIndex ) ) )
+        {
+            continue;
+        }
+
+        tracer.AddReplayContactMarker( ReplayContactPoint( *currentSolverSample, contact ),
+                                       ReplayContactNormalForModel( contact, focusedBody->modelRow.value ), 0.1f, 0.95f,
+                                       1.0f );
+        drewContact = true;
+    }
+
+    return drewContact;
+}
+
+bool TryRenderReplayPredictionContactFocus( const RunReplayCameraState& camera, const RunReplayCauseTreeState& causeTree,
+                                            const ReplayPredictionTimelineView& timeline,
+                                            const ReplayPredictionTopologyView& topology, const SceneEntityStore& entities,
+                                            EditorTracer& tracer )
+{
+    if ( camera.focusKind != RunReplayCameraFocusKind::PredictionContact )
+    {
+        return false;
+    }
+
+    ReplayFrameIndex focusFrame = 0;
+    int focusedModelIndex = camera.focusModelRow.value;
+    int counterpartModelIndex = camera.focusCounterpartModelRow.value;
+
+    if ( causeTree.selectedRow >= 0 && causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) )
+    {
+        const RunReplayCauseTreeRow& row = causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )];
+
+        if ( row.kind == RunReplayCauseTreeRowKind::PredictionContact && row.id.value == camera.focusedId.value )
+        {
+            focusFrame = row.firstFrame;
+            focusedModelIndex = row.modelRow.value;
+            counterpartModelIndex = row.counterpartModelRow.value;
+        }
+    }
+    else if ( camera.focusContactIndex >= 0 && camera.focusContactIndex < static_cast<int>( topology.futureNodes.size() ) )
+    {
+        const RunReplayPathTraceNode& node = topology.futureNodes[static_cast<std::size_t>( camera.focusContactIndex )];
+
+        if ( node.id.value == camera.focusedId.value && node.contactDerived )
+        {
+            focusFrame = node.firstFrame;
+            focusedModelIndex = node.modelRow.value;
+            counterpartModelIndex = node.parentModelRow.value;
+        }
+    }
+
+    std::array<ReplayPredictionSceneEntityFact, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> sceneFacts = {};
+    const ReplayPredictionSceneView scene = BuildReplayPredictionSceneView( entities, sceneFacts );
+
+    for ( const RunReplayPredictionFrame& frame : timeline.frames )
+    {
+        if ( frame.frameIndex != focusFrame )
+        {
+            continue;
+        }
+
+        // Why: the selected future-tree contact names a body pair, but the
+        // complete manifold remains in the immutable frame debug values.
+        for ( const PhysicsDebugContact& contact : frame.debugContacts )
+        {
+            const int contactModelA = ReplayRagdollTorsoModelIndexForPart( scene, contact.bodyA );
+            const int contactModelB = contact.bodyB >= 0 ? ReplayRagdollTorsoModelIndexForPart( scene, contact.bodyB )
+                                                         : contact.bodyB;
+            const bool selectedPairAB = contactModelA == focusedModelIndex &&
+                                        ( counterpartModelIndex < 0 || contactModelB == counterpartModelIndex );
+            const bool selectedPairBA = contactModelB == focusedModelIndex &&
+                                        ( counterpartModelIndex < 0 || contactModelA == counterpartModelIndex );
+
+            if ( !selectedPairAB && !selectedPairBA )
+            {
+                continue;
+            }
+
+            Vector3 normal = contact.normal;
+
+            if ( selectedPairBA && contactModelB >= 0 )
+            {
+                normal = normal * -1.0f;
+            }
+
+            tracer.AddReplayContactMarker( contact.point, ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) ), 0.1f,
+                                           0.95f, 1.0f );
+            return true;
+        }
+
+        break;
+    }
+
+    return false;
+}
 } // namespace SkullbonezCore::Runtime::ReplayPresentationSubmissionOperations
 
 namespace SkullbonezCore::Runtime
@@ -198,154 +345,20 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
         return;
     }
 
-    if ( camera.focusKind == RunReplayCameraFocusKind::Body )
+    if ( TryRenderReplayBodyFocus( camera, bodyStore, colliderStore, tracer ) )
     {
-        ModelRowHint focusHint;
-        focusHint.value = camera.focusModelRow.value;
-        int focusedModelIndex = -1;
-
-        if ( TryResolveReplayBodyModelIndex( bodyStore, camera.focusedId, focusHint, bodyStore.Count(), focusedModelIndex ) )
-        {
-            TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, focusedModelIndex );
-            return;
-        }
+        return;
     }
 
     if ( camera.focusKind == RunReplayCameraFocusKind::Manifold ||
          camera.focusKind == RunReplayCameraFocusKind::PredictionContact ||
          camera.focusKind == RunReplayCameraFocusKind::PredictionMotion )
     {
-        if ( camera.focusKind == RunReplayCameraFocusKind::Manifold )
+        if ( TryRenderReplaySolverManifoldFocus( camera, currentSolverSample, tracer ) ||
+             TryRenderReplayPredictionContactFocus( camera, causeTree, prediction.timeline, prediction.topology, entities,
+                                                    tracer ) )
         {
-            const ReplaySolverFrameSample* sample = currentSolverSample;
-
-            if ( sample )
-            {
-                const ReplaySolverBodySample* focusedBody = FindReplayBodyById( *sample, camera.focusedId );
-                const ReplaySolverBodySample* counterpartBody = FindReplayBodyById( *sample, camera.counterpartId );
-
-                if ( focusedBody )
-                {
-                    bool drewContact = false;
-
-                    for ( const PhysicsSolverPersistentContactSample& contact :
-                          sample->worldSnapshot.physics.persistentContacts )
-                    {
-                        if ( !ReplayContactHasModelIndex( contact, focusedBody->modelRow.value ) )
-                        {
-                            continue;
-                        }
-
-                        const int otherModelIndex = ReplayContactOtherModelIndex( contact, focusedBody->modelRow.value );
-
-                        const bool terrain = contact.isTerrain || otherModelIndex < 0;
-
-                        if ( camera.focusTerrain != terrain )
-                        {
-                            continue;
-                        }
-
-                        if ( !terrain && ( !counterpartBody || counterpartBody->modelRow.value != otherModelIndex ) )
-                        {
-                            continue;
-                        }
-
-                        tracer.AddReplayContactMarker( ReplayContactPoint( *sample, contact ),
-                                                       ReplayContactNormalForModel( contact, focusedBody->modelRow.value ),
-                                                       0.1f, 0.95f, 1.0f );
-
-                        drewContact = true;
-                    }
-
-                    if ( drewContact )
-                    {
-                        return;
-                    }
-                }
-            }
-        }
-        else if ( camera.focusKind == RunReplayCameraFocusKind::PredictionContact )
-        {
-            ReplayFrameIndex focusFrame = 0;
-            int focusedModelIndex = camera.focusModelRow.value;
-            int counterpartModelIndex = camera.focusCounterpartModelRow.value;
-
-            if ( causeTree.selectedRow >= 0 && causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) )
-            {
-                const RunReplayCauseTreeRow& row = causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )];
-
-                if ( row.kind == RunReplayCauseTreeRowKind::PredictionContact && row.id.value == camera.focusedId.value )
-                {
-                    focusFrame = row.firstFrame;
-                    focusedModelIndex = row.modelRow.value;
-                    counterpartModelIndex = row.counterpartModelRow.value;
-                }
-            }
-            else if ( camera.focusContactIndex >= 0 &&
-                      camera.focusContactIndex < static_cast<int>( prediction.futureNodes.size() ) )
-            {
-                const RunReplayPathTraceNode& node = prediction
-                                                         .futureNodes[static_cast<std::size_t>( camera.focusContactIndex )];
-
-                if ( node.id.value == camera.focusedId.value && node.contactDerived )
-                {
-                    focusFrame = node.firstFrame;
-                    focusedModelIndex = node.modelRow.value;
-                    counterpartModelIndex = node.parentModelRow.value;
-                }
-            }
-
-            bool drewPredictionManifold = false;
-            std::array<ReplayPredictionSceneEntityFact, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> sceneFacts = {};
-            const ReplayPredictionSceneView scene = BuildReplayPredictionSceneView( entities, sceneFacts );
-
-            for ( const RunReplayPredictionFrame& frame : prediction.frames )
-            {
-                if ( frame.frameIndex != focusFrame )
-                {
-                    continue;
-                }
-
-                // Why: the selected future-tree contact names a body pair, but
-                // the complete manifold remains in the immutable frame debug values.
-                for ( const PhysicsDebugContact& contact : frame.debugContacts )
-                {
-                    const int contactModelA = ReplayRagdollTorsoModelIndexForPart( scene, contact.bodyA );
-                    const int contactModelB = contact.bodyB >= 0
-                                                  ? ReplayRagdollTorsoModelIndexForPart( scene, contact.bodyB )
-                                                  : contact.bodyB;
-
-                    const bool selectedPairAB = contactModelA == focusedModelIndex &&
-                                                ( counterpartModelIndex < 0 || contactModelB == counterpartModelIndex );
-
-                    const bool selectedPairBA = contactModelB == focusedModelIndex &&
-                                                ( counterpartModelIndex < 0 || contactModelA == counterpartModelIndex );
-
-                    if ( !selectedPairAB && !selectedPairBA )
-                    {
-                        continue;
-                    }
-
-                    Vector3 normal = contact.normal;
-
-                    if ( selectedPairBA && contactModelB >= 0 )
-                    {
-                        normal = normal * -1.0f;
-                    }
-
-                    tracer.AddReplayContactMarker( contact.point, ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) ),
-                                                   0.1f, 0.95f, 1.0f );
-
-                    drewPredictionManifold = true;
-                }
-
-                break;
-            }
-
-            if ( drewPredictionManifold )
-            {
-                return;
-            }
+            return;
         }
 
         tracer.AddReplayContactMarker( camera.targetPoint, camera.targetNormal, 0.1f, 0.95f, 1.0f );

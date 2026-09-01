@@ -405,15 +405,15 @@ bool ReadBoundedCount( ArchiveReader& reader, uint32_t maximum, uint32_t& count 
 bool ReplayPredictionArchivePathPresentationMatchesRecords( const RunReplayPredictionState& prediction )
 {
     const ReplayPredictionPresentationView presentation = ReplayPrediction::PresentationViewFromState( prediction, false );
-    const uint16_t activeRootBranch = presentation.trajectoryBuildUsingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH
-                                                                                   : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+    const uint16_t activeRootBranch = presentation.trajectory.usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH
+                                                                               : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
     bool hasAdditionalRoot = false;
 
     for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.ActiveRecords() )
     {
         hasAdditionalRoot = hasAdditionalRoot || ( record.key.lane == ReplayTrajectoryLane::FutureRoot &&
                                                    record.key.branchOrdinal == activeRootBranch &&
-                                                   record.key.bodyId != presentation.trajectoryBuildRootId );
+                                                   record.key.bodyId != presentation.trajectory.buildRootId );
     }
 
     return ReplayPredictionPathPresentationShowsAllBodies( presentation.pathPresentation ) == hasAdditionalRoot;
@@ -443,7 +443,7 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
     // Invariant: a pending committed publication is the renderer-visible bank.
     // Durable replay must serialize that coherent snapshot, not a newer cache.
     const ReplayPredictionPresentationView presentation = ReplayPrediction::PresentationViewFromState( prediction, false );
-    const std::span<const RunReplayPredictionFrame> committedFrames = presentation.frames;
+    const std::span<const RunReplayPredictionFrame> committedFrames = presentation.timeline.frames;
     const bool usingVisibleSnapshot = prediction.committedPublication.pending ||
                                       ( prediction.committedPublication.visibleSnapshotCaptured &&
                                         !prediction.BuildPrefixShouldBePresented() );
@@ -454,7 +454,7 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
 
     if ( !IsLightweightPredictionArchiveSchema( schema ) || prediction.build.building || !prediction.build.complete ||
          committedFrames.size() < 2u || committedFrames.size() > REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES ||
-         presentation.retainedMarkers.size() > REPLAY_PREDICTION_MARKER_CAPACITY ||
+         presentation.markers.retainedMarkers.size() > REPLAY_PREDICTION_MARKER_CAPACITY ||
          prediction.trajectoryStore.RecordCount() > REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS ||
          !ReplayPredictionArchivePathPresentationMatchesRecords( prediction ) )
     {
@@ -525,7 +525,7 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
     // Concept: topology versions are equality tokens, not durable generation
     // numbers. A completed RVPD contains one published topology, so first-
     // publication order maps it to one and reserves two for a later rebuild.
-    const uint32_t canonicalTopologyVersion = presentation.topologyVersion != 0u ? 1u : 0u;
+    const uint32_t canonicalTopologyVersion = presentation.topology.version != 0u ? 1u : 0u;
     const uint32_t canonicalNextTopologyVersion = canonicalTopologyVersion != 0u ? 2u : 1u;
     writer.Scalar( canonicalTopologyVersion );
     writer.Scalar( canonicalNextTopologyVersion );
@@ -534,16 +534,16 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
                                                                    .visibleFutureNodesBuiltRagdollVisuals
                                                              : prediction.futureNodeCache.futureNodesBuiltRagdollVisuals;
     writer.Boolean( presentedFutureNodesBuiltRagdollVisuals );
-    writer.Scalar( static_cast<uint32_t>( presentation.futureNodes.size() ) );
+    writer.Scalar( static_cast<uint32_t>( presentation.topology.futureNodes.size() ) );
 
-    for ( const RunReplayPathTraceNode& node : presentation.futureNodes )
+    for ( const RunReplayPathTraceNode& node : presentation.topology.futureNodes )
     {
         WriteNode( writer, node );
     }
 
-    writer.Scalar( static_cast<uint32_t>( presentation.retainedMarkers.size() ) );
+    writer.Scalar( static_cast<uint32_t>( presentation.markers.retainedMarkers.size() ) );
 
-    for ( const ReplayPredictionRetainedMarker& marker : presentation.retainedMarkers )
+    for ( const ReplayPredictionRetainedMarker& marker : presentation.markers.retainedMarkers )
     {
         WriteMarker( writer, marker );
     }
@@ -616,7 +616,7 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
     // Invariant: the build-state token must equal the canonical future-node
     // token whenever the live tokens matched; offline reconstruction exercises
     // the same equality check without depending on the process-local number.
-    const uint32_t canonicalBuildTopologyVersion = presentedTrajectory.topologyVersion == presentation.topologyVersion
+    const uint32_t canonicalBuildTopologyVersion = presentedTrajectory.topologyVersion == presentation.topology.version
                                                        ? canonicalTopologyVersion
                                                        : 0u;
 
@@ -1132,7 +1132,7 @@ std::size_t CollectRequiredEvidenceFrames( const RunReplayPredictionState& predi
     out[0] = 0u;
     const ReplayPredictionPresentationView presentation = ReplayPrediction::PresentationViewFromState( prediction, false );
 
-    for ( const RunReplayPathTraceNode& node : presentation.futureNodes )
+    for ( const RunReplayPathTraceNode& node : presentation.topology.futureNodes )
     {
         if ( !node.contactDerived )
         {

@@ -171,7 +171,8 @@ Vector3 RunAngularDragCase( const CollisionShape& shape, const Vector3& bodyPrin
     ColliderStore colliders;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 1u );
         colliders.ReserveCapacity( 1u );
         colliders.ReserveShapeCapacity( 1u, 1u, 0u );
@@ -220,7 +221,8 @@ PhysicsBodyHotState SolveAnchorCase( const Vector3& anchorForBodyA )
     PhysicsBodyStore bodies;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( 2u );
     }
 
@@ -280,7 +282,8 @@ TEST_CASE( "Physics launcher classification: every supported fast speed promotes
     engine.SetSleepEnabled( false );
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ),
                                             static_cast<std::size_t>( FP2_LAUNCHER_BODY_COUNT ) );
 
@@ -361,7 +364,8 @@ TEST_CASE( "Physics launcher collision path: generic and launcher names produce 
     engine.SetPipelineTraceFullRecordConsumerActive( true );
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 4u, 2u, 2u );
         AddLauncherClassificationBody( engine, 13000u, speed, 0.0f, "launcher_projectile" );
         AddLauncherCollisionWall( engine, 13001u, wallCenterX, 0.0f, "launcher_collision_wall" );
@@ -442,7 +446,8 @@ TEST_CASE( "Physics API frames: body-local shape offsets project into world quer
     PhysicsAuthoredBodyRegistration registration;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 1u, 1u );
         registration = engine.RegisterAuthoredBody( bodyDesc, colliderDesc );
     }
@@ -496,7 +501,8 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     auto broadphase = std::make_unique<SkullbonezCore::Physics::PhysicsBroadphaseStage>();
     auto diagnostics = std::make_unique<SkullbonezCore::Physics::PhysicsStepDiagnostics>();
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies->ReserveCapacity( 2u );
         colliders->ReserveCapacity( 2u );
         colliders->ReserveShapeCapacity( 2u, 0u, 0u );
@@ -516,7 +522,8 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
         body.cold.mass = 1.0f;
         body.hot.position = bodyPositions[bodyIndex];
         body.hot.inverseMass = 1.0f;
-        body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBodyOriginBoundingRadius( shapes[bodyIndex] );
+        body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBodyOriginBoundingRadius(
+            shapes[bodyIndex] );
         const auto bodyHandle = bodies->CreateBodyRecord( body );
         REQUIRE( bodyHandle.IsValid() );
         ColliderRecord collider;
@@ -534,11 +541,12 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     const std::array<float, 2> angularBroadphaseExpansion = { 0.0f, 0.0f };
     SkullbonezCore::Physics::BroadphaseSettings settings;
     settings.cellSize = 2.0f;
-    const SkullbonezCore::Physics::PhysicsBroadphaseStepInput broadphaseInput {
-        settings, {}, sleepState, awakeBodies, motionEligibilityState, angularBroadphaseExpansion, *diagnostics,
-        1.0f / 120.0f, 0.0f, 0.05f
-    };
-    const auto unrotatedPairs = broadphase->Run( *bodies, *colliders, broadphaseInput );
+    broadphase->ApplyRuntimeSettings( settings );
+    const SkullbonezCore::Physics::BroadphaseBodyActivityView activity( 2, sleepState, awakeBodies, motionEligibilityState,
+                                                                        angularBroadphaseExpansion );
+    const SkullbonezCore::Physics::BroadphaseSweepContactEnvelope envelope( 1.0f / 120.0f, 0.0f, 0.05f );
+    const auto unrotatedPairs = broadphase->Run( *bodies, *colliders, {}, activity, envelope,
+                                                 diagnostics->MutablePipelineTraceRecorder() );
     CHECK( unrotatedPairs.empty() );
 
     auto offsetBody = SkullbonezCore::Physics::LoadPhysicsBodyHotState( bodies->HotFields(), 0u );
@@ -546,7 +554,8 @@ TEST_CASE( "Physics broadphase fixed step rotates body-local collider centers" )
     SkullbonezCore::Physics::StorePhysicsBodyHotState( bodies->MutableHotFields(), 0u, offsetBody );
     broadphase->InvalidateBodyTopology();
     diagnostics->BeginStep( 2 );
-    const auto pairs = broadphase->Run( *bodies, *colliders, broadphaseInput );
+    const auto pairs = broadphase->Run( *bodies, *colliders, {}, activity, envelope,
+                                        diagnostics->MutablePipelineTraceRecorder() );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );
 }

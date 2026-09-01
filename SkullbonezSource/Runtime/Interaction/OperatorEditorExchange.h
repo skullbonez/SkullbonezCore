@@ -141,42 +141,111 @@ enum class OperatorEditorInspectorSelectionState : uint8_t
     Stale
 };
 
-struct OperatorEditorInspectorView
+struct OperatorEditorInspectorSelectionView
 {
     // Lifetime: labels borrow fixed scene/collider strings for this synchronous
     // presentation frame; the UI must not retain their addresses.
     const char* displayName = "";
-    const char* renderMaterialName = "";
-    const char* contactMaterialName = "";
-    const char* assetName = "";
-    const char* assetInstanceName = "";
-    const char* assetPartName = "";
     OperatorEditorInspectorSelectionState selectionState = OperatorEditorInspectorSelectionState::None;
     uint32_t sceneObjectId = 0u;
     uint32_t selectionCount = 0u;
-    int renderMaterialKind = 0;
-    int colliderShapeKind = 0;
-    int behaviorGroupKind = 0;
-    int behaviorPartIndex = -1;
+    bool visible = true;
+    bool locked = false;
+};
+
+struct OperatorEditorInspectorTransformView
+{
     float position[3] = {};
     float orientation[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+};
+
+struct OperatorEditorInspectorIdentityView
+{
+    // Lifetime: asset labels borrow fixed Scene strings for this synchronous frame.
+    const char* assetName = "";
+    const char* assetInstanceName = "";
+    const char* assetPartName = "";
+    int behaviorGroupKind = 0;
+    int behaviorPartIndex = -1;
+    bool assetBacked = false;
+};
+
+struct OperatorEditorInspectorRenderView
+{
+    // Lifetime: the material label borrows fixed Scene storage for this frame.
+    const char* renderMaterialName = "";
+    int renderMaterialKind = 0;
+    float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    float roughness = 0.0f;
+    float metallic = 0.0f;
+    float specular = 0.0f;
+};
+
+struct OperatorEditorInspectorPhysicsView
+{
+    // Lifetime: the contact-material label borrows collider storage for this frame.
+    const char* contactMaterialName = "";
+    int colliderShapeKind = 0;
     float linearVelocity[3] = {};
     float angularVelocity[3] = {};
-    float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     float mass = 0.0f;
     float volume = 0.0f;
     float boundingRadius = 0.0f;
     float dragCoefficient = 0.0f;
     float friction = 0.0f;
     float restitution = 0.0f;
-    float roughness = 0.0f;
-    float metallic = 0.0f;
-    float specular = 0.0f;
-    bool visible = true;
-    bool locked = false;
     bool fixed = false;
     bool sleeping = false;
-    bool assetBacked = false;
+};
+
+// Concept: inherited child values preserve the stable flat fingerprint layout,
+// while panel sections receive typed views that cannot reach sibling details.
+struct OperatorEditorInspectorView : OperatorEditorInspectorSelectionView,
+                                     OperatorEditorInspectorTransformView,
+                                     OperatorEditorInspectorIdentityView,
+                                     OperatorEditorInspectorRenderView,
+                                     OperatorEditorInspectorPhysicsView
+{
+    OperatorEditorInspectorSelectionView& Selection() noexcept
+    {
+        return *this;
+    }
+    const OperatorEditorInspectorSelectionView& Selection() const noexcept
+    {
+        return *this;
+    }
+    OperatorEditorInspectorTransformView& Transform() noexcept
+    {
+        return *this;
+    }
+    const OperatorEditorInspectorTransformView& Transform() const noexcept
+    {
+        return *this;
+    }
+    OperatorEditorInspectorIdentityView& Identity() noexcept
+    {
+        return *this;
+    }
+    const OperatorEditorInspectorIdentityView& Identity() const noexcept
+    {
+        return *this;
+    }
+    OperatorEditorInspectorRenderView& Render() noexcept
+    {
+        return *this;
+    }
+    const OperatorEditorInspectorRenderView& Render() const noexcept
+    {
+        return *this;
+    }
+    OperatorEditorInspectorPhysicsView& Physics() noexcept
+    {
+        return *this;
+    }
+    const OperatorEditorInspectorPhysicsView& Physics() const noexcept
+    {
+        return *this;
+    }
 };
 
 struct OperatorEditorWorldView

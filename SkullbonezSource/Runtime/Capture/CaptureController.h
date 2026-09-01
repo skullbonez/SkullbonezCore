@@ -42,7 +42,7 @@ constexpr int POST_RENDER_CAPTURE_REQUEST_CAPACITY = 4;
 
 struct CaptureRequest
 {
-    char path[CAPTURE_REQUEST_PATH_CAPACITY] = {};             // Validated, non-truncated BMP output path.
+    char path[CAPTURE_REQUEST_PATH_CAPACITY] = {}; // Validated, non-truncated BMP output path.
 };
 
 enum class PostRenderCaptureOwner : uint8_t
@@ -100,10 +100,8 @@ class CaptureController
     void ApplySceneAutomation( int screenshotFrame, int screenshotMs, bool screenshotAndExit, const char* screenshotPath,
                                int screenshotInterval, const char* screenshotDirectory );
     bool RequiresDeterministicPresentation( bool isSceneMode, int currentFrame, double elapsedMs ) const;
-    RuntimeCaptureResult TickScreenshots( bool isSceneMode, bool isInteractiveRun, int currentFrame, double elapsedMs,
-                                          const char* currentScenePath, Rendering::Dx12BackbufferCapture& backend );
-    RuntimeCaptureResult TickAutoCycle( bool isSceneMode, bool isInteractiveRun, int ballCount, float& autoCycleInterval,
-                                        float& autoCycleAccum, int& autoCycleShotsTaken, int& trackBallIndex,
+    RuntimeCaptureResult TickScreenshots( const ScreenshotFrameInput& input, Rendering::Dx12BackbufferCapture& backend );
+    RuntimeCaptureResult TickAutoCycle( const AutoCycleCaptureInput& input, AutoCycleCaptureUpdate& update,
                                         Rendering::Dx12BackbufferCapture& backend );
 
     // Accepts one bounded BMP path for the next input-frame capture checkpoint.

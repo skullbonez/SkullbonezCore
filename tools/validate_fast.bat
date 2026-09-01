@@ -4,9 +4,8 @@
 @rem   Runs the inexpensive repository preflight and the primary doctest suite.
 @rem
 @rem Summary:
-@rem   Fast validation first proves that the deterministic physics golden still
-@rem   has the exact accepted digest, then checks source hygiene, project
-@rem   metadata, staged-file size, and current build evidence.
+@rem   Fast validation runs independent repository checks concurrently, then
+@rem   builds Profile and optionally executes the primary doctest suite.
 @rem
 @rem Glossary:
 @rem   Preflight-only: Internal broad-gate mode that runs checks/builds but
@@ -15,7 +14,8 @@
 @rem   commit or PR.
 @rem
 @rem Invariants:
-@rem   - Physics golden tampering fails before formatting, inventories, or builds.
+@rem   - Every repository check finishes and retains an isolated log before the
+@rem     Profile build starts.
 @rem   - Direct validate_fast calls still run SKULLBONEZ_TESTS.
 @rem   - Preflight-only mode never runs a test executable, preventing broad-gate
 @rem   duplication when the CPU umbrella follows it.
@@ -50,62 +50,21 @@ echo   VALIDATE_FAST - Format + Metadata + Dependencies + Ownership + Size + Bui
 echo ========================================
 echo.
 
-echo [1/9] Checking accepted Physics golden and retained transitions...
-python "%~dp0check_physics_baseline_guard.py" --repo "%~dp0.."
-if errorlevel 1 exit /b 9
-
-echo [2/9] Checking plain-language policy...
-python "%~dp0check_plain_language.py" --repo "%~dp0.." --self-test
-if errorlevel 1 exit /b 10
-python "%~dp0check_plain_language.py" --repo "%~dp0.."
-if errorlevel 1 exit /b 10
-
-echo [3/9] Checking formatting...
-call "%~dp0validate_format.bat"
+echo [1/3] Running independent repository checks in parallel...
+call "%~dp0find_python.bat"
+if errorlevel 1 exit /b 99
+"%PYTHON_EXE%" "%~dp0run_parallel_validation.py" --repo "%~dp0.." --manifest "%~dp0validation_parallel_fast.json"
 if errorlevel 1 (
     echo.
-    echo To auto-fix: tools\format_fix.bat
+    echo To auto-fix formatting failures: tools\format_fix.bat
     exit /b 1
 )
 
-echo [4/9] Checking Visual Studio project filters...
-call "%~dp0validate_project_filters.bat"
-if errorlevel 1 exit /b 2
-
-echo [5/9] Checking dependency graph...
-call "%~dp0validate_dependency_graph.bat"
-if errorlevel 1 exit /b 7
-
-echo [6/9] Checking source design and retained policies...
-REM Why: direct calls make each retained rule and failure visible without a
-REM checker that exists only to run other checkers. Review triggers report
-REM current structure; none is a ceiling or count allowance.
-REM Self-tests and live scans are two explicit phases. Independent commands in
-REM each phase run concurrently. The group runner captures every child once,
-REM exposes source-design measurements on success, and preserves failed output.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0run_retained_policy_group.ps1" -Mode SelfTest -Repo "%~dp0.."
-if errorlevel 1 exit /b 8
-
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0run_retained_policy_group.ps1" -Mode Live -Repo "%~dp0.."
-if errorlevel 1 exit /b 8
-
-echo [7/9] Checking staged file sizes...
-REM Why: the checker reads the git index, so keep it before the expensive build
-REM steps and pass the repo root explicitly for callers outside the worktree.
-REM Hosted CI supplies a base commit because its clean index contains no pending
-REM commit; comparison mode then inspects exact HEAD blobs changed by the PR.
-if defined SKORE_SIZE_DIFF_BASE (
-    python "%~dp0check_staged_file_sizes.py" --repo "%~dp0.." --base-ref "%SKORE_SIZE_DIFF_BASE%"
-) else (
-    python "%~dp0check_staged_file_sizes.py" --repo "%~dp0.."
-)
-if errorlevel 1 exit /b 3
-
-echo [8/9] Building Profile x64...
+echo [2/3] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 4
 
-echo [9/9] Running unit tests...
+echo [3/3] Running unit tests...
 if "%PREFLIGHT_ONLY%"=="1" goto :tests_deferred
 call "%~dp0validate_tests.bat"
 if errorlevel 1 exit /b 5

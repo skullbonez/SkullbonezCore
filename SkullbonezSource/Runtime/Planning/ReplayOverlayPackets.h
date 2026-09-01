@@ -71,17 +71,31 @@ struct ReplayOverlayGestureView
     bool predictionHorizonDrag = false;
 };
 
-struct ReplayOverlayStateView
+// Lifetime: this synchronous subview borrows only the owners needed to draw
+// the replay scrubber. Intercept, trip-planning, porkchop, and cause surfaces
+// stay outside it, so the scrubber phase cannot reach unrelated overlay state.
+struct ReplayScrubberPresentationView
+{
+    ReplayScrubberView scrubber;
+    ReplayPredictionTimelineView predictionTimeline;
+    ReplayPredictionTopologyView predictionTopology;
+    ReplayPredictionControlsView predictionControls;
+    ReplayPredictionDiagnosticsView predictionDiagnostics;
+    const RunReplayPathVisualizerState& pathVisualizer;
+    const RunReplayVelocityEditState& velocityEdit;
+    ReplayRecorderStats solverStats;
+    ReplayPresentationSelection selection;
+    const RunReplayPredictionFrame* selectedPrediction = nullptr;
+    bool predictionTimelineAvailable = false;
+    bool shouldRender = false;
+};
+
+struct ReplayOverlayTimelineView
 {
     ReplayScrubberView scrubber;
     ReplayPredictionPresentationView prediction;
-    ReplayInterceptView intercept;
-    const ReplayPorkchopPanelView& porkchop;
-    const ReplayTripPlannerView& tripPlanner;
     const RunReplayPathVisualizerState& pathVisualizer;
     const RunReplayVelocityEditState& velocityEdit;
-    const RunReplayCauseTreeState& causeTree;
-    ReplayCauseInspectionView causeInspection;
     ReplayRecorderStats solverStats;
 
     // Replay owns this presentation interval. Planning carries the two scalar
@@ -98,6 +112,46 @@ struct ReplayOverlayStateView
     bool recordingConfigured = false;
     bool recordingEnabled = false;
     bool recordingLockedByHashLog = false;
+
+    ReplayScrubberPresentationView ScrubberPresentation() const noexcept
+    {
+        return { scrubber,
+                 prediction.timeline,
+                 prediction.topology,
+                 prediction.controls,
+                 prediction.diagnostics,
+                 pathVisualizer,
+                 velocityEdit,
+                 solverStats,
+                 selection,
+                 selectedPrediction,
+                 predictionTimelineAvailable,
+                 shouldRenderScrubber };
+    }
+};
+
+struct ReplayOverlayPlanningSurfacesView
+{
+    ReplayInterceptView intercept;
+    const ReplayPorkchopPanelView& porkchop;
+    const ReplayTripPlannerView& tripPlanner;
+};
+
+struct ReplayOverlayCausalityView
+{
+    const RunReplayCauseTreeState& tree;
+    ReplayCauseInspectionView inspection;
+    ReplayPredictionDetailMode predictionDetailMode = ReplayPredictionDetailMode::High;
+};
+
+struct ReplayOverlayStateView
+{
+    // Concept: this is the App composition envelope. Renderers, development
+    // tools, and automation receive timeline, planning-surface, or causality
+    // children rather than the complete Replay overlay state.
+    ReplayOverlayTimelineView timeline;
+    ReplayOverlayPlanningSurfacesView planning;
+    ReplayOverlayCausalityView causality;
 };
 
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

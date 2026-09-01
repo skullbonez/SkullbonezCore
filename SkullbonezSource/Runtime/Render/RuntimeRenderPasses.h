@@ -20,7 +20,7 @@ Invariants:
   - Pass input/output structs borrow data for one frame only.
   - Pass constructors receive named long-lived owners; per-frame runtime data
     travels through explicit pass input structs.
-  - Pass order is owned by RuntimeRenderer::RenderPreparedFrame.
+  - Pass order is owned by RuntimeRenderer's world and overlay frame phases.
   - Debug contact packets are synchronous Rendering values, not Replay or Planning state.
   - RuntimeRenderTargetPreviewSnapshot owns its fixed-catalog append boundary;
     every renderer producer reaches fatal invariant before an overflow can index storage.
@@ -159,13 +159,15 @@ struct TonemapPassResources;
 struct VolumetricLightPassResources;
 struct ReplayHudStatus;
 struct ReplayVisualPacket;
-struct RuntimeRenderModelFrameView;
+struct RuntimeRenderModelPresentationView;
+struct RuntimeRenderCollisionDebugView;
+struct RuntimeRenderPhysicsDebugView;
 struct RuntimeFrameMetricsSnapshot;
 struct RunReplayPredictionFrame;
 
 // Concept: these private pass contracts are the extraction boundary.
 //
-// RuntimeRenderer::RenderPreparedFrame() owns pass order, and each pass receives a named
+// RuntimeRenderer's world and overlay phases own pass order, and each pass receives a named
 // input bundle or explicit long-lived resources. Frame references are rebuilt
 // each pass, while GPU resources stay in RuntimeRenderPassResources.
 enum class SkyPassMode
@@ -231,27 +233,14 @@ inline Math::Vector::Vector3 ResolveCinematicSunDirection( const SkullbonezCore:
     return direction;
 }
 
-struct RenderResourceContext
-{
-    // Creation/rebuild-only contract. Passes receive this context from
-    // RuntimeRenderer::EnsureFrameResources() or explicit ensure calls; draw
-    // phases borrow only their concrete resources.
-    bool cinematicEnabled = false;
-    Assets::AssetSystem& assets;
-    Rendering::Dx12ResourceBuilder& renderResources;
-    Rendering::Dx12TextureOwner& renderTextures;
-    Rendering::Dx12GeometryOwner& renderGeometry;
-    int windowWidth = 1;  // Active render-target width used for resize-sensitive GPU objects.
-    int windowHeight = 1; // Active render-target height used for resize-sensitive GPU objects.
-};
-
 struct ObjectPassInputs
 {
     // Object pass view of the body collection. It can act as the opaque
     // pass or the transparent debug pass, but target binding stays with the
     // caller.
     const RenderCameraLighting& camera;
-    const RuntimeRenderModelFrameView& models;
+    const RuntimeRenderModelPresentationView& models;
+    const RuntimeRenderCollisionDebugView& collisionDebug;
     Rendering::RenderInstanceRenderer& instanceRenderer;
     Rendering::PrimitiveBatchRenderer& primitiveRenderer;
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
@@ -298,7 +287,8 @@ struct ReflectionPassInputs
     // raytraced path or the mirrored-camera render-target path, but both
     // must return a texture handle and matching sample transform.
     const RenderCameraLighting& camera;
-    const RuntimeRenderModelFrameView& models;
+    const RuntimeRenderModelPresentationView& models;
+    const RuntimeRenderCollisionDebugView& collisionDebug;
     Rendering::RenderInstanceRenderer& instanceRenderer;
     Rendering::PrimitiveBatchRenderer& primitiveRenderer;
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
@@ -513,7 +503,7 @@ struct DebugOverlayPassInputs
     // ownership.
     const RenderCameraLighting& camera;
     Geometry::Terrain* terrain = nullptr;
-    const RuntimeRenderModelFrameView& models;
+    const RuntimeRenderPhysicsDebugView& physicsDebug;
     Assets::AssetSystem& assets;
     Rendering::Dx12ResourceBuilder& renderResources;
     Rendering::Dx12GeometryOwner& renderGeometry;
@@ -531,7 +521,8 @@ struct ShadowPassInputs
     // should be built and receivers should get null shadow outputs.
     const RenderCameraLighting& camera;
     Geometry::Terrain* terrain = nullptr;
-    const RuntimeRenderModelFrameView& models;
+    const RuntimeRenderModelPresentationView& models;
+    const RuntimeRenderCollisionDebugView& collisionDebug;
     Rendering::RenderInstanceRenderer& instanceRenderer;
     Rendering::PrimitiveBatchRenderer& primitiveRenderer;
     const char* shadowShaderBaseName;
@@ -549,7 +540,7 @@ struct ShadowPassInputs
 struct ShadowPassOutput
 {
     // Borrowed pointers into ShadowPassResources. Receivers must consume
-    // them during the same RuntimeRenderer::RenderPreparedFrame() call; ShadowPass resource
+    // them during the same RuntimeRenderer world-phase call; ShadowPass resource
     // release and the next frame both invalidate them.
     const Rendering::ShadowFrameData* terrainShadow = nullptr;
     const Rendering::ShadowFrameData* objectShadow = nullptr;
@@ -569,7 +560,7 @@ class FullscreenQuadPass
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
+    void EnsureGpuResources( bool cinematicEnabled, Rendering::Dx12GeometryOwner& renderGeometry );
     void ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry );
 
   private:
@@ -594,7 +585,8 @@ class SkyPass
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
+    void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets,
+                             Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources();
     void Render( const RenderCameraLighting& camera, const Math::Transformation::Matrix4& view,
                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic, Rendering::Dx12GeometryOwner& renderGeometry,
@@ -663,7 +655,8 @@ class SceneTargetPass
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
+    void EnsureGpuResources( bool cinematicEnabled, Rendering::Dx12ResourceBuilder& renderResources, int windowWidth,
+                             int windowHeight );
     void ReleaseGpuResources();
     bool IsReady() const;
     void Begin( const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -682,7 +675,7 @@ Concept: ShadowPass
 
     Builds terrain/object shadow maps before receiver passes run. It owns
     the shadow targets and the per-frame receiver payloads that terrain and
-    object shaders borrow for the rest of RuntimeRenderer::RenderPreparedFrame().
+    object shaders borrow for the rest of RuntimeRenderer's world phase.
 */
 class ShadowPass
 {
@@ -693,8 +686,8 @@ class ShadowPass
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources,
-                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic, Geometry::Terrain* terrain );
+    void EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
+                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
     void ReleaseGpuResources();
 
     // Clears last-frame receiver payloads without scheduling a render pass.
@@ -749,7 +742,7 @@ class ReflectionPass
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
+    void EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources, int windowWidth, int windowHeight );
     void ReleaseGpuResources();
     ReflectionPassOutput Render( const ReflectionPassInputs& inputs );
 
@@ -780,7 +773,8 @@ class ObjectPass
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
+    void EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
+                             Rendering::Dx12GeometryOwner& renderGeometry );
     void Render( const ObjectPassInputs& inputs );
 
   private:
@@ -803,7 +797,8 @@ class TerrainPass
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources, Geometry::Terrain* terrain );
+    void EnsureGpuResources( Geometry::Terrain* terrain, Assets::AssetSystem& assets,
+                             Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources( Geometry::Terrain* terrain );
     void Render( const TerrainPassInputs& inputs );
 
@@ -827,7 +822,7 @@ class WaterPass
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
+    void EnsureGpuResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources();
     void Render( const WaterPassInputs& inputs );
     const WaterPassDebugInfo& LastDebugInfo() const
@@ -860,7 +855,6 @@ class DebugOverlayPass
     }
     ~DebugOverlayPass();
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry );
     bool Render( const DebugOverlayPassInputs& inputs );
 
@@ -903,7 +897,8 @@ class VolumetricPass
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
+    void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets,
+                             Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources();
     bool CanRender( bool cinematicEnabled, const SkullbonezCore::Core::CinematicRenderConfig* cinematic ) const;
     bool Render( const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -939,7 +934,8 @@ class TonemapPass
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
+    void EnsureGpuResources( bool cinematicEnabled, Assets::AssetSystem& assets,
+                             Rendering::Dx12ResourceBuilder& renderResources );
     void ReleaseGpuResources();
     void Render( const SkullbonezCore::Core::CinematicRenderConfig& cinematic, Rendering::Dx12GeometryOwner& renderGeometry,
                  Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12FrameOwner& renderFrame,

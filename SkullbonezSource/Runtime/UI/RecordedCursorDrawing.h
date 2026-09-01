@@ -25,6 +25,7 @@ Related:
 
 #include "../Automation/RecordedCursorFrame.h"
 #include "../../UI/UIDrawList.h"
+#include "../../UI/UIStyle.h"
 
 namespace SkullbonezCore::Runtime
 {
@@ -83,7 +84,9 @@ inline void ComposeRecordedCursorDrawList( UI::UIDrawList& drawList, const Recor
 
     // Decision: these dimensions and colors are a reversible RIC2 presentation
     // choice. The stable contract is the shared hot tip and bounded 0/2 commands.
-    drawList.AddTriangle( tipX, tipY, x( 4.0f ), y( 21.0f ), x( 14.0f ), y( 14.0f ), 0.03f, 0.04f, 0.05f, 1.0f );
-    drawList.AddTriangle( tipX, tipY, x( 4.0f ), y( 16.0f ), x( 10.0f ), y( 11.0f ), 0.96f, 0.98f, 1.0f, 1.0f );
+    drawList.AddTriangle( { { tipX, tipY }, { x( 4.0f ), y( 21.0f ) }, { x( 14.0f ), y( 14.0f ) } },
+                          { 0.03f, 0.04f, 0.05f, 1.0f } );
+    drawList.AddTriangle( { { tipX, tipY }, { x( 4.0f ), y( 16.0f ) }, { x( 10.0f ), y( 11.0f ) } },
+                          { 0.96f, 0.98f, 1.0f, 1.0f } );
 }
 } // namespace SkullbonezCore::Runtime

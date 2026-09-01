@@ -116,8 +116,15 @@ struct TerrainRenderLifecycleTestAccess;
 
 class Terrain
 {
-    struct ValidatedHeightMapTag
+    struct ValidatedHeightMapGeometry
     {
+        int mapSize = 0;
+        int stepSize = 0;
+        int textureWrap = 0;
+        std::size_t pixelCount = 0u;
+        int postsPerSide = 0;
+        std::size_t postCount = 0u;
+        std::size_t quadCount = 0u;
     };
 
   public:
@@ -133,12 +140,11 @@ class Terrain
                                    int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
                                    std::unique_ptr<Terrain>& outTerrain ); // CPU-domain load path with no renderer double.
 
-    // Invariant: only the factories can name ValidatedHeightMapTag. Height-map
+    // Invariant: only the factories can name ValidatedHeightMapGeometry. Height-map
     // construction therefore receives positive, divisible dimensions and one
     // checked set of pixel/post/quad counts before any field is initialized.
-    Terrain( ValidatedHeightMapTag, const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem* assets,
-             Rendering::Dx12ResourceBuilder* resources, int mapSize, int stepSize, int textureWrap, std::size_t pixelCount,
-             int postsPerSide, std::size_t postCount, std::size_t quadCount );
+    Terrain( ValidatedHeightMapGeometry geometry, const SkullbonezCore::Core::EngineConfig& config,
+             Assets::AssetSystem* assets, Rendering::Dx12ResourceBuilder* resources );
     Terrain(
         float slopeBaseY, float slopeX, float slopeZ, const SkullbonezCore::Core::EngineConfig& config,
         Assets::AssetSystem& assets,
@@ -220,9 +226,9 @@ class Terrain
         Shader
     };
 
-    static RequiredRenderResourceFailure
-    TryPublishRenderReadyCandidate( std::unique_ptr<Terrain>& outTerrain, std::unique_ptr<Terrain>& candidate,
-                                    bool meshReady, bool shaderReady ) noexcept;
+    static RequiredRenderResourceFailure TryPublishRenderReadyCandidate( std::unique_ptr<Terrain>& outTerrain,
+                                                                         std::unique_ptr<Terrain>& candidate, bool meshReady,
+                                                                         bool shaderReady ) noexcept;
 
     std::uint32_t displayListReference; // Legacy display-list token retained for serialized state.
 
@@ -278,8 +284,8 @@ class Terrain
 
     static SkullbonezCore::Core::SbResult
     TryValidateHeightMapDimensions( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int mapSize, int stepSize,
-                                    std::size_t& outPixelCount, int& outPostsPerSide, std::size_t& outPostCount,
-                                    std::size_t& outQuadCount ); // recoverable boundary before tagged construction.
+                                    int textureWrap,
+                                    ValidatedHeightMapGeometry& outGeometry ); // recoverable boundary before construction.
 
     SkullbonezCore::Core::SbResult
     LoadTerrainData( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,

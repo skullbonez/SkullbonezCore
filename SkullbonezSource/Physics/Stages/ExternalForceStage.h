@@ -35,6 +35,7 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
+#include <cmath>
 #include <span>
 
 namespace SkullbonezCore
@@ -79,6 +80,13 @@ struct ExternalForceFrameInput
     {
         return !fields.empty();
     }
+
+    bool IsValidForBodyCount( int bodyCount ) const noexcept
+    {
+        return !Active() || ( bodyCount >= 0 && exposureSeconds.size() == static_cast<std::size_t>( bodyCount ) &&
+                              repeatCooldownSeconds.size() == static_cast<std::size_t>( bodyCount ) &&
+                              std::isfinite( stepSeconds ) && stepSeconds >= 0.0f );
+    }
 };
 
 class ExternalForceStage
@@ -97,9 +105,15 @@ class ExternalForceStage
     uint64_t CollectMemoryBytes() const;
 
   private:
-    Math::Vector::Vector3 SampleAcceleration( const ExternalForceFrameInput& input, const Math::Vector::Vector3& position,
-                                              ExternalCylindricalForceField& outBestField,
-                                              float& outBestAccelerationSq ) const;
+    struct AccelerationSample
+    {
+        Math::Vector::Vector3 acceleration = Math::Vector::ZERO_VECTOR;
+        ExternalCylindricalForceField strongestField;
+        float strongestAccelerationSquared = 0.0f;
+    };
+
+    AccelerationSample SampleAcceleration( const ExternalForceFrameInput& input,
+                                           const Math::Vector::Vector3& position ) const;
 
     PhysicsBodyIndexList m_fixedTreeReleaseWakeScratch { "ExternalForceStage.fixedTreeReleaseWakeScratch",
                                                          PhysicsCapacityReason::SceneBodies };

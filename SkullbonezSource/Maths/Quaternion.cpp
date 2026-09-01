@@ -96,13 +96,13 @@ void Quaternion::Normalise()
     }
 
     const float largestComponent = (std::max)( (std::max)( fabsf( m_w ), fabsf( m_x ) ),
-                                                (std::max)( fabsf( m_y ), fabsf( m_z ) ) );
+                                               (std::max)( fabsf( m_y ), fabsf( m_z ) ) );
     const float scaledW = m_w / largestComponent;
     const float scaledX = m_x / largestComponent;
     const float scaledY = m_y / largestComponent;
     const float scaledZ = m_z / largestComponent;
-    const float oneOverScaledMagnitude =
-        1.0f / sqrtf( scaledW * scaledW + scaledX * scaledX + scaledY * scaledY + scaledZ * scaledZ );
+    const float oneOverScaledMagnitude = 1.0f / sqrtf( scaledW * scaledW + scaledX * scaledX + scaledY * scaledY +
+                                                       scaledZ * scaledZ );
 
     // Hazard: squaring a large finite component can overflow to infinity.
     // Normalize its bounded ratios so the orientation remains a unit value.
@@ -139,11 +139,13 @@ RotationMatrix Quaternion::GetOrientationMatrix() const
 {
     // The engine uses right-handed object orientation math; render projection is
     // handled separately by Matrix4.
-    return RotationMatrix( 1 - ( 2 * m_y * m_y ) - ( 2 * m_z * m_z ), ( 2 * m_x * m_y ) - ( 2 * m_w * m_z ),
-                           ( 2 * m_x * m_z ) + ( 2 * m_w * m_y ), ( 2 * m_x * m_y ) + ( 2 * m_w * m_z ),
-                           1 - ( 2 * m_x * m_x ) - ( 2 * m_z * m_z ), ( 2 * m_y * m_z ) - ( 2 * m_w * m_x ),
-                           ( 2 * m_x * m_z ) - ( 2 * m_w * m_y ), ( 2 * m_y * m_z ) + ( 2 * m_w * m_x ),
-                           1 - ( 2 * m_x * m_x ) - ( 2 * m_y * m_y ) );
+    const Vector3 row0( 1 - ( 2 * m_y * m_y ) - ( 2 * m_z * m_z ), ( 2 * m_x * m_y ) - ( 2 * m_w * m_z ),
+                        ( 2 * m_x * m_z ) + ( 2 * m_w * m_y ) );
+    const Vector3 row1( ( 2 * m_x * m_y ) + ( 2 * m_w * m_z ), 1 - ( 2 * m_x * m_x ) - ( 2 * m_z * m_z ),
+                        ( 2 * m_y * m_z ) - ( 2 * m_w * m_x ) );
+    const Vector3 row2( ( 2 * m_x * m_z ) - ( 2 * m_w * m_y ), ( 2 * m_y * m_z ) + ( 2 * m_w * m_x ),
+                        1 - ( 2 * m_x * m_x ) - ( 2 * m_y * m_y ) );
+    return RotationMatrix( row0, row1, row2 );
 }
 
 

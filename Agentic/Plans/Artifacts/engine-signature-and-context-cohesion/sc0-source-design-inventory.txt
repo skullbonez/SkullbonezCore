@@ -1,0 +1,700 @@
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h:137 contexts=10
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h:155 contexts=10
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h:177 contexts=10
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Gameplay/TornadoGameplay.h:51 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/PersistentContactSolver.h:157 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/PhysicsApi.h:336 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/PhysicsBodyStore.h:102 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/PhysicsBodyStore.h:152 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/PhysicsBodyStore.h:161 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/PhysicsBodyStore.h:195 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/PhysicsBodyStore.h:219 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/PhysicsDiagnosticsSink.h:67 contexts=6
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/PhysicsDiagnosticsView.h:192 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/PhysicsTerrainView.h:44 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/Stages/ExternalForceStage.h:68 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h:63 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Physics/TerrainContactManifold.h:45 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h:133 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h:76 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.CommandRecordingState.h:126 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.CommandRecordingState.h:703 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.PipelineState.h:34 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:78 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Rendering/RenderGraph.h:157 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Rendering/RenderPipeline.h:36 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Rendering/WorldRenderExtension.h:70 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/App/ApplicationExitState.h:42 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.h:78 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:440 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Automation/InteractionAutomationController.h:257 contexts=10
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Automation/InteractionAutomationRecorder.h:136 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Automation/ReplayAutomationView.h:30 contexts=2
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Camera/AttachedCameraValues.h:48 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Camera/CameraControlState.h:77 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Camera/DemoDirector.h:84 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Capture/CaptureSystem.h:51 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:61 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:150 contexts=10
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:158 contexts=10
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:64 contexts=10
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h:49 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h:114 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h:144 contexts=6
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Diagnostics/SceneMemoryDiagnostics.h:41 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Direction/LookLabController.h:62 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:66 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Editor/EditorTools.h:108 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Editor/EditorTools.h:127 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Editor/EditorTools.h:206 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Editor/EditorTools.h:234 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Editor/EditorTools.h:96 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Input/Input.h:123 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Input/InputController.h:231 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Input/InputController.h:263 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Input/InputController.h:286 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Input/InputRouter.h:219 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:113 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:144 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:182 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:206 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:231 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:241 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:287 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:313 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:346 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:358 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:369 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/OperatorEditorExchange.h:81 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h:170 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.h:125 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.h:62 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ContinuousOrbitalForecast.h:98 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.h:103 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.h:74 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ContinuousOrbitalStability.h:93 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:166 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:202 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h:42 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h:51 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h:61 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.h:44 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.h:59 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayOverlayPackets.h:74 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.h:52 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h:54 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h:63 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h:73 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h:127 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h:77 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h:86 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h:99 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Prediction/ContinuousPredictionProducer.h:74 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:156 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:196 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:332 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:375 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:524 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:608 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:661 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:445 contexts=3
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h:200 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Render/CollisionVisualizer.h:69 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.h:55 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h:126 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Render/RuntimeRenderHost.h:92 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:234 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp:102 contexts=3
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Render/RuntimeRenderer.h:76 contexts=10
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h:277 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h:311 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h:59 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp:239 contexts=3
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayCoordination.h:158 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayCoordination.h:171 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayCoordination.h:197 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayCoordination.h:268 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayCoordination.h:320 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayCoordination.h:82 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h:164 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayPathPackets.h:118 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayPathPackets.h:33 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayPathPackets.h:59 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayPathPackets.h:76 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayPresentation.h:103 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayPresentation.h:137 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayProbeState.h:104 contexts=6
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayProbeState.h:199 contexts=6
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayProbeState.h:57 contexts=6
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayProbeState.h:70 contexts=6
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayProbeState.h:79 contexts=6
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayProbeState.h:87 contexts=6
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayRecorder.h:121 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayRecorder.h:222 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayRecorder.h:245 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayRecorder.h:417 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayRuntimePackets.h:40 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayScrubber.h:56 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayTimeline.h:197 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayTimelinePackets.h:82 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h:41 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Scene/SceneController.h:97 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Scene/SceneNavigationModel.h:33 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Scene/SceneNavigationModel.h:45 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Scene/SceneNavigationModel.h:53 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Scene/SceneSessionState.h:57 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Simulation/SimulationSystem.h:62 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Startup/StartupCommandLine.h:58 contexts=10
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Tools/RuntimeTools.h:136 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Tools/RuntimeTools.h:166 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Tools/RuntimeTools.h:200 contexts=6
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Tools/RuntimeTools.h:233 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Tools/RuntimeTools.h:251 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UI.h:139 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UI.h:151 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UI.h:165 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UI.h:175 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UI.h:195 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UI.h:218 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UI.h:232 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UI.h:256 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UI.h:283 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UITabControls.h:41 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UITabEditor.h:41 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UITabMemory.h:74 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UITabOptions.h:39 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.h:101 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.h:141 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.h:52 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h:61 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Scene/AuthoredScene.h:183 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Scene/AuthoredScene.h:84 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Scene/AuthoredScene.h:99 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Scene/SceneSnapshotWriter.h:53 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Scene/SceneSnapshotWriter.h:72 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/UI/UICache.h:57 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/UI/UIDraw.h:48 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/UI/UIState.h:29 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/UI/UIState.h:55 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/World/WorldEnvironment.h:108 contexts=14
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezTests/TestDeterminism.cpp:99 contexts=2
+CANDIDATE kind='context-family record with at least four fields' location=SkullbonezTests/TestRuntimeContracts.cpp:4274 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Gameplay/TornadoVisualPass.cpp:89 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Maths/RotationMatrix.cpp:33 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Maths/RotationMatrix.h:40 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.cpp:1410 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.cpp:1730 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.cpp:1833 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.cpp:2130 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.cpp:2283 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.cpp:2291 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.cpp:722 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.cpp:983 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.h:128 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.h:132 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.h:137 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/ObjectContactManifold.h:145 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PersistentContactSolver.cpp:1052 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PersistentContactSolver.cpp:1569 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PersistentContactSolver.cpp:2160 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PersistentContactSolver.cpp:572 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PersistentContactSolver.cpp:874 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PhysicsApi.h:90 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PhysicsBodyStore.cpp:148 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PhysicsBodyStore.cpp:195 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PhysicsBodyStore.cpp:664 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PhysicsBodyStore.cpp:877 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PhysicsWorld.cpp:820 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PhysicsWorld.cpp:971 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PhysicsWorld.h:169 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/PhysicsWorld.h:194 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Ragdoll.cpp:170 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/SpatialGrid.cpp:1248 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/SpatialGrid.cpp:1493 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/SpatialGrid.cpp:1711 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/SpatialGrid.cpp:1723 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/SpatialGrid.h:251 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/SpatialGrid.h:256 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/SpatialGrid.h:331 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/SpatialGrid.h:335 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/SpatialGrid.h:339 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp:182 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp:88 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:187 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:193 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:199 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:211 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:310 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp:100 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp:125 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp:164 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp:416 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp:447 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsForceStage.h:114 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsForceStage.h:119 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsForceStage.h:96 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp:245 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp:112 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h:196 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp:168 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp:415 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp:1061 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp:1098 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp:1229 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp:573 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.h:240 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.h:264 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.h:271 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.h:294 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.h:313 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsSleepController.h:318 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp:107 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp:163 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp:201 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h:102 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h:117 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h:129 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/TerrainSupportClassifier.h:321 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/TerrainSupportClassifier.h:396 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/Dx12Diagnostics.cpp:46 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h:62 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/MeshDX12.cpp:54 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/MeshDX12.h:76 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp:390 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp:485 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp:510 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp:587 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp:605 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp:617 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp:658 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp:752 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp:327 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp:545 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp:537 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:371 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:536 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:577 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:625 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:639 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:643 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:778 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:783 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:788 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:795 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:800 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:1028 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:1134 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:1242 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:368 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:566 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:575 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:584 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:840 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:252 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:295 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:301 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:307 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:321 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:344 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:351 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:359 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/RenderInstanceRenderer.cpp:312 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/RenderInstanceRenderer.cpp:546 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/RenderInstanceRenderer.h:60 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/RenderInstanceRenderer.h:73 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/RenderInstanceRenderer.h:95 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.cpp:1012 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.cpp:593 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.cpp:781 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.cpp:915 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.cpp:933 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.cpp:954 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.h:177 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.h:183 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.h:186 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.h:189 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.h:193 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Rendering/Text.h:215 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/CameraFrameApplication.cpp:113 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/GraphicsStressApplication.cpp:197 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/GraphicsStressApplication.cpp:83 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/GraphicsStressApplication.h:91 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/GraphicsStressApplication.h:97 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/Init.cpp:169 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InputFrame.cpp:1318 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InputFrame.h:140 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp:168 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp:209 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp:442 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp:606 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp:658 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp:773 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp:96 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:1250 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:1304 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:1417 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:1659 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:5116 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:5319 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:5488 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:5603 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:5615 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:5694 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationApplication.cpp:5774 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/InteractionAutomationReportApplication.cpp:1281 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/OperatorEditorFramePhase.cpp:238 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayAuthoringCauseTree.cpp:1066 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayAuthoringCauseTree.cpp:125 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayAuthoringCauseTree.cpp:323 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayAuthoringCauseTree.h:47 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayAuthoringCauseTree.h:53 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayCauseFocusSubmission.cpp:186 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:1036 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:1179 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:1507 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:1560 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:164 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:2348 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:390 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:618 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:819 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:853 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp:946 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionDrawing.h:212 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionPresentation.h:113 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionRetainedGeometry.h:242 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayPredictionRetainedGeometry.h:267 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRestoreOperations.h:296 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.cpp:1041 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.cpp:1228 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.cpp:1297 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.cpp:1353 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.cpp:1591 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.cpp:2018 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.cpp:453 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:320 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:324 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:401 contexts=6
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:496 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:547 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:553 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:566 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:575 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:589 contexts=6
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:603 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:617 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:625 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:640 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:646 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:652 contexts=6
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:660 contexts=6
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:670 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:684 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:700 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:719 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:728 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:760 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayRuntime.h:767 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:1205 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:1243 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:1339 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:1414 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:1435 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:1490 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:1645 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:1679 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:1717 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:1933 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:269 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:360 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:497 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:558 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:786 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp:851 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:1143 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:1766 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:2098 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:675 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:1042 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:1107 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:1208 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:1234 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:1270 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:1332 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:1453 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:1566 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:1595 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:1622 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:332 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:415 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:620 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:814 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:902 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/ReplayValidation.cpp:964 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/Run.cpp:291 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/Run.h:275 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/Run.h:341 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/SceneLoadApplication.cpp:571 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/App/SceneLoadApplication.h:222 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Automation/InteractionAutomationController.h:435 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h:312 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Camera/CameraControlState.h:139 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Capture/CaptureController.cpp:101 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Capture/CaptureController.h:105 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Capture/CaptureSystem.cpp:421 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Capture/CaptureSystem.cpp:498 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Capture/CaptureSystem.h:113 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Capture/CaptureSystem.h:117 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp:1215 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Diagnostics/DiagnosticsKeyboardShortcuts.h:47 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp:46 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp:611 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h:267 contexts=6
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h:49 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp:1240 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp:1455 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp:101 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp:164 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Editor/EditorTools.h:375 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Editor/EditorTools.h:420 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Input/InputRouter.h:328 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Input/InputRouter.h:333 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Input/InputRouter.h:338 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Input/InputRouter.h:345 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Input/InputRouter.h:350 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Input/InputRouter.h:354 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Input/InputRouter.h:358 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Input/InputRouter.h:372 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Planning/ReplayCauseInspection.cpp:1503 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h:413 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp:756 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp:1037 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp:1312 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp:743 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp:885 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:1024 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:1030 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:1039 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:243 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPrediction.h:463 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp:171 contexts=1
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp:1663 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.h:56 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.MarkerScan.inl:165 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp:1041 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp:233 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp:478 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp:549 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h:191 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h:195 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h:205 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:156 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:219 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:400 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:464 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:512 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:628 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:791 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp:1620 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp:1631 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp:1779 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp:1875 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp:855 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:1003 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:713 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:741 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:871 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:873 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:909 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:944 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:998 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp:1213 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp:458 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/RuntimeRenderer.h:295 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.cpp:61 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.cpp:91 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.h:38 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp:158 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp:207 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp:216 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp:228 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp:71 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp:92 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp:98 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiDrawSubmission.h:71 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiDrawSubmission.h:75 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiDrawSubmission.h:84 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiTextPass.cpp:526 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiTextPass.cpp:554 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Render/UiTextPass.cpp:93 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayAuthoring.h:200 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp:522 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayEventCommand.h:132 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayEventCommand.h:147 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp:365 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp:476 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h:217 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp:459 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayPresentation.h:219 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp:1712 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp:1857 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp:2067 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp:2789 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayRecorder.h:447 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayRecorder.h:521 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayTimeline.cpp:335 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayTimeline.h:280 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp:2439 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/AttachedCameraController.cpp:803 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/AttachedCameraController.h:101 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp:131 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneController.Load.cpp:1117 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneController.Load.cpp:1177 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneController.Load.cpp:1271 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneController.Load.cpp:449 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneController.Load.cpp:790 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp:460 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h:84 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Preparation.cpp:117 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h:194 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h:283 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h:300 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h:306 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h:314 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.cpp:1228 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.cpp:1302 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.cpp:548 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.cpp:619 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.cpp:668 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.cpp:685 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.h:100 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.h:104 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.h:175 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.h:177 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.h:87 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/EditorTracer.h:96 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/MousePickupTools.cpp:56 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Tools/RuntimeTools.h:324 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UI.cpp:471 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UI.h:510 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UIEditorMiniPaletteDraw.cpp:395 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UIEditorMiniPaletteDraw.cpp:525 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UIEditorMiniPaletteDraw.cpp:55 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UIFrameComposition.cpp:534 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UIFrameComposition.h:250 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UIFrameComposition.h:262 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UIFrameComposition.h:267 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UIFrameComposition.h:94 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.cpp:520 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.cpp:607 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.h:51 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabCinematic.h:58 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabControls.cpp:227 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabControls.cpp:73 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabControls.h:55 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabControls.h:64 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabEditor.cpp:130 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabEditor.h:54 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp:1444 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp:1458 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp:258 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp:540 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp:582 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabMemory.cpp:633 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabMemory.h:106 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabMemory.h:108 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabOptions.cpp:179 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabOptions.cpp:35 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabOptions.cpp:82 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabOptions.h:51 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabOptions.h:58 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.cpp:150 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.cpp:589 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.cpp:65 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.h:136 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabPhysics.h:142 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.cpp:584 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.cpp:739 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.h:211 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.h:218 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.h:224 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabProfilerHistogram.cpp:460 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabProfilerHistogram.cpp:601 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabProfilerHistogram.cpp:660 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.cpp:536 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.cpp:564 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.cpp:691 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.cpp:713 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.cpp:736 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.cpp:753 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.cpp:854 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.h:109 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.h:111 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.h:113 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.h:116 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.h:124 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.h:96 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabScene.h:99 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabSky.cpp:280 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabSky.cpp:362 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabSky.h:55 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UITabSky.h:61 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.cpp:599 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/GameUI/UIWindowInteractionOwner.h:167 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/OperatorUiProjection.cpp:284 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/UI/OperatorUiProjection.h:466 contexts=10
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Scene/AuthoredSceneParserAssets.cpp:541 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Scene/AuthoredSceneParserSchema.h:1275 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIComboBox.cpp:100 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIComboBox.cpp:114 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIComboBox.h:43 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIComboBox.h:45 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDraw.cpp:68 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDraw.cpp:74 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDraw.cpp:81 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDraw.cpp:90 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDraw.h:57 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDraw.h:58 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDraw.h:59 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDraw.h:60 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawList.cpp:187 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawList.cpp:44 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawList.cpp:65 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawList.cpp:87 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawList.h:103 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawList.h:104 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawList.h:105 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawList.h:112 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.cpp:1009 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.cpp:1018 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.cpp:385 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.cpp:588 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.cpp:656 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.cpp:700 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.cpp:968 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.cpp:995 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.h:107 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.h:127 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.h:130 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.h:151 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.h:155 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.h:158 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.h:160 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/UI/UIDrawWidgets.h:84 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/World/Terrain.cpp:224 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/World/Terrain.cpp:695 contexts=3
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/World/Terrain.cpp:78 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/World/Terrain.h:126 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/World/Terrain.h:139 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/World/Terrain.h:150 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/World/WorldEnvironment.cpp:252 contexts=5
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/World/WorldEnvironment.h:187 contexts=14
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezTests/TestDeterminism.cpp:218 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezTests/TestDeterminism.cpp:610 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezTests/TestDeterminism.cpp:669 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezTests/TestPersistentContactSolver.cpp:311 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezTests/TestPhysicsApi.cpp:166 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezTests/TestSceneSnapshotWriter.cpp:343 contexts=2
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezTests/TestSceneSnapshotWriter.cpp:618 contexts=2
+PASS: compiler-backed source-design inventory files=736 contexts=6435 candidates=698
+source_design_summary mode=inventory sources=736 contexts=6435 tidy_processes=0 query_processes=6435 jobs=4 peak_workers=4 context_seconds=5.346 tidy_seconds=0.000 query_seconds=4890.916 dead_code_seconds=0.000 total_seconds=1383.287 findings=698 infrastructure_errors=0

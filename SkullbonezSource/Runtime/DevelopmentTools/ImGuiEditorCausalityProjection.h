@@ -1,40 +1,13 @@
-/*
-File: SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h
-Purpose:
-  Derives a compact, bounded ImGui causality summary from replay's published rows.
-
-Summary:
-  The replay owner retains the complete preallocated cause tree. This value-only
-  projection borrows those immutable rows for one editor frame, selects a local
-  context, and publishes at most eight relevant links without rebuilding or
-  copying the full tree.
-
-Glossary:
-  Context row: The replay row currently focused by the cause camera, or the root
-    body row when no detail row is focused.
-  Relevant link: A parent, selected row, direct child, or same-body detail near
-    the context row.
-  Scan window: A fixed 512-row neighborhood used to find compact links.
-
-Invariants:
-  - Returned pointers borrow ReplayAuthoring storage only for the current frame.
-  - Compact projection scans at most 512 rows and retains at most eight links.
-  - The complete tree is not copied; the separately dockable detail panel reads
-    the original published rows through ImGuiListClipper.
-  - Empty, stale, scan-truncated, and capacity-limited states remain distinct.
-
-Related:
-  - SkullbonezSource/Runtime/Replay/ReplayAuthoring.h
-  - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
-  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
-*/
+// Derives a compact, bounded editor view from replay's published cause rows.
 #pragma once
 
 #include "../Planning/ReplayOverlayPackets.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
 {
@@ -58,20 +31,62 @@ enum class ImGuiEditorPredictionState : uint8_t
     Ready
 };
 
-struct ImGuiEditorCausalityContext
+struct ImGuiEditorSelectedCause
 {
     const RunReplayCauseTreeRow* selectedRow = nullptr;
     const RunReplayCauseTreeRow* selectedObjectRow = nullptr;
     const RunReplayCauseTreeRow* immediateCauseRow = nullptr;
-    const RunReplayCauseTreeRow* relevantLinks[IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY] = {};
-    std::size_t relevantLinkCount = 0u;
+    int selectedRowIndex = -1;
+};
+
+class ImGuiEditorRelatedCauseRows
+{
+  public:
+    bool Append( const RunReplayCauseTreeRow& row ) noexcept
+    {
+        for ( const RunReplayCauseTreeRow* existing : Rows() )
+        {
+            if ( existing == &row )
+            {
+                return true;
+            }
+        }
+
+        if ( m_count >= m_rows.size() )
+        {
+            return false;
+        }
+
+        m_rows[m_count++] = &row;
+        return true;
+    }
+
+    std::span<const RunReplayCauseTreeRow* const> Rows() const noexcept
+    {
+        return std::span<const RunReplayCauseTreeRow* const>( m_rows.data(), m_count );
+    }
+
+  private:
+    // Lifetime: these pointers borrow ReplayAuthoring rows for the current editor frame.
+    std::array<const RunReplayCauseTreeRow*, IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY> m_rows = {};
+    std::size_t m_count = 0u;
+};
+
+struct ImGuiEditorCausalityStatus
+{
     std::size_t totalRowCount = 0u;
     ReplayFrameIndex replayTick = 0;
-    int selectedRowIndex = -1;
     ImGuiEditorCausalityState state = ImGuiEditorCausalityState::Empty;
     ImGuiEditorPredictionState predictionState = ImGuiEditorPredictionState::Disabled;
     bool hasReplayTick = false;
     bool compactScanTruncated = false;
+};
+
+struct ImGuiEditorCausalityProjection
+{
+    ImGuiEditorSelectedCause selected;
+    ImGuiEditorRelatedCauseRows related;
+    ImGuiEditorCausalityStatus status;
 };
 
 inline const char* ImGuiEditorCausalityStateName( ImGuiEditorCausalityState state ) noexcept
@@ -129,13 +144,14 @@ inline const char* ImGuiEditorCauseRowKindName( RunReplayCauseTreeRowKind kind )
     }
 }
 
-inline ImGuiEditorCausalityContext
-BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& replay ) noexcept
+inline ImGuiEditorCausalityProjection
+BuildImGuiEditorCausalityProjection( const ReplayOverlay::ReplayOverlayTimelineView& timeline,
+                                     const ReplayOverlay::ReplayOverlayCausalityView& causality ) noexcept
 {
-    ImGuiEditorCausalityContext context;
-    const RunReplayCauseTreeState& tree = replay.causeTree;
-    const ReplayPresentationSelection& selection = replay.selection;
-    context.totalRowCount = tree.rows.size();
+    ImGuiEditorCausalityProjection projection;
+    const RunReplayCauseTreeState& tree = causality.tree;
+    const ReplayPresentationSelection& selection = timeline.selection;
+    projection.status.totalRowCount = tree.rows.size();
 
     const auto setTick = [&]( const auto* sample ) -> bool
     {
@@ -144,73 +160,75 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
             return false;
         }
 
-        context.replayTick = sample->frameIndex;
-        context.hasReplayTick = true;
+        projection.status.replayTick = sample->frameIndex;
+        projection.status.hasReplayTick = true;
         return true;
     };
 
-    if ( !setTick( replay.selectedPrediction ) && !setTick( selection.selectedSolver ) &&
+    if ( !setTick( timeline.selectedPrediction ) && !setTick( selection.selectedSolver ) &&
          !setTick( selection.selectedPresentation ) && !setTick( selection.currentSolver ) &&
          !setTick( selection.currentPresentation ) && !setTick( selection.latestSolver ) )
     {
         (void)setTick( selection.latestPresentation );
     }
 
-    if ( !context.hasReplayTick && replay.prediction.sourceFrame != 0 )
+    if ( !projection.status.hasReplayTick && timeline.prediction.timeline.sourceFrame != 0 )
     {
-        context.replayTick = replay.prediction.sourceFrame;
-        context.hasReplayTick = true;
+        projection.status.replayTick = timeline.prediction.timeline.sourceFrame;
+        projection.status.hasReplayTick = true;
     }
 
-    if ( !replay.prediction.enabled )
+    if ( !timeline.prediction.controls.enabled )
     {
-        context.predictionState = ImGuiEditorPredictionState::Disabled;
+        projection.status.predictionState = ImGuiEditorPredictionState::Disabled;
     }
-    else if ( replay.prediction.targetId.value == 0u )
+    else if ( timeline.prediction.topology.targetId.value == 0u )
     {
-        context.predictionState = ImGuiEditorPredictionState::AwaitingTarget;
+        projection.status.predictionState = ImGuiEditorPredictionState::AwaitingTarget;
     }
-    else if ( replay.prediction.building || !replay.prediction.complete )
+    else if ( timeline.prediction.controls.building || !timeline.prediction.timeline.complete )
     {
-        context.predictionState = ImGuiEditorPredictionState::Building;
+        projection.status.predictionState = ImGuiEditorPredictionState::Building;
     }
     else
     {
-        context.predictionState = ImGuiEditorPredictionState::Ready;
+        projection.status.predictionState = ImGuiEditorPredictionState::Ready;
     }
 
     // Why: replay fails the full build closed when the pre-reserved row budget
     // cannot hold its estimate. Recompute only that constant-time size equation
     // so the compact UI can distinguish exhaustion from an ordinary empty tree.
-    const bool usePredictionNodes = replay.prediction.enabled && replay.prediction.targetId.value != 0u &&
-                                    replay.prediction.targetId.value == replay.pathVisualizer.targetId.value;
-    const std::size_t nodeCount = usePredictionNodes ? replay.prediction.futureNodes.size() : std::size_t { 0u };
+    const bool usePredictionNodes = timeline.prediction.controls.enabled &&
+                                    timeline.prediction.topology.targetId.value != 0u &&
+                                    timeline.prediction.topology.targetId.value == timeline.pathVisualizer.targetId.value;
+    const std::size_t nodeCount = usePredictionNodes ? timeline.prediction.topology.futureNodes.size() : std::size_t { 0u };
     const std::size_t contactCount = selection.currentSolver
                                          ? selection.currentSolver->worldSnapshot.physics.persistentContacts.size()
                                          : std::size_t { 0u };
     const std::size_t estimatedRows = 1u + ( usePredictionNodes ? nodeCount * 2u : nodeCount ) + contactCount * 3u;
-    const bool capacityLimited = replay.pathVisualizer.hasTarget && tree.rows.empty() &&
+    const bool capacityLimited = timeline.pathVisualizer.hasTarget && tree.rows.empty() &&
                                  estimatedRows > tree.rows.capacity();
 
     if ( capacityLimited )
     {
-        context.state = ImGuiEditorCausalityState::CapacityLimited;
-        return context;
+        projection.status.state = ImGuiEditorCausalityState::CapacityLimited;
+        return projection;
     }
 
     if ( tree.rows.empty() )
     {
-        context.state = tree.focusedId.value != 0u ? ImGuiEditorCausalityState::Stale : ImGuiEditorCausalityState::Empty;
-        return context;
+        projection.status.state = tree.focusedId.value != 0u ? ImGuiEditorCausalityState::Stale
+                                                             : ImGuiEditorCausalityState::Empty;
+        return projection;
     }
 
-    context.selectedRowIndex = tree.selectedRow >= 0 && tree.selectedRow < static_cast<int>( tree.rows.size() )
-                                   ? tree.selectedRow
-                                   : 0;
-    context.selectedRow = &tree.rows[static_cast<std::size_t>( context.selectedRowIndex )];
+    projection.selected.selectedRowIndex = tree.selectedRow >= 0 && tree.selectedRow < static_cast<int>( tree.rows.size() )
+                                               ? tree.selectedRow
+                                               : 0;
+    projection.selected.selectedRow = &tree.rows[static_cast<std::size_t>( projection.selected.selectedRowIndex )];
     const std::size_t halfWindow = IMGUI_CAUSALITY_COMPACT_SCAN_CAPACITY / 2u;
-    std::size_t scanBegin = context.selectedRowIndex > static_cast<int>( halfWindow )
-                                ? static_cast<std::size_t>( context.selectedRowIndex ) - halfWindow
+    std::size_t scanBegin = projection.selected.selectedRowIndex > static_cast<int>( halfWindow )
+                                ? static_cast<std::size_t>( projection.selected.selectedRowIndex ) - halfWindow
                                 : 0u;
     const std::size_t scanEnd = (std::min)( tree.rows.size(), scanBegin + IMGUI_CAUSALITY_COMPACT_SCAN_CAPACITY );
 
@@ -220,50 +238,38 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
         scanBegin = scanEnd - IMGUI_CAUSALITY_COMPACT_SCAN_CAPACITY;
     }
 
-    context.compactScanTruncated = scanBegin != 0u || scanEnd != tree.rows.size();
+    projection.status.compactScanTruncated = scanBegin != 0u || scanEnd != tree.rows.size();
 
     const auto appendRelevant = [&]( const RunReplayCauseTreeRow& row )
     {
-        for ( std::size_t index = 0u; index < context.relevantLinkCount; ++index )
+        if ( !projection.related.Append( row ) )
         {
-            if ( context.relevantLinks[index] == &row )
-            {
-                return;
-            }
-        }
-
-        if ( context.relevantLinkCount < IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY )
-        {
-            context.relevantLinks[context.relevantLinkCount++] = &row;
-        }
-        else
-        {
-            context.compactScanTruncated = true;
+            projection.status.compactScanTruncated = true;
         }
     };
 
-    appendRelevant( *context.selectedRow );
+    appendRelevant( *projection.selected.selectedRow );
 
     for ( std::size_t index = scanBegin; index < scanEnd; ++index )
     {
         const RunReplayCauseTreeRow& row = tree.rows[index];
 
-        if ( !context.selectedObjectRow && row.kind == RunReplayCauseTreeRowKind::Body &&
-             row.id.value == context.selectedRow->id.value )
+        if ( !projection.selected.selectedObjectRow && row.kind == RunReplayCauseTreeRowKind::Body &&
+             row.id.value == projection.selected.selectedRow->id.value )
         {
-            context.selectedObjectRow = &row;
+            projection.selected.selectedObjectRow = &row;
         }
 
-        if ( !context.immediateCauseRow && context.selectedRow->parentId.value != 0u &&
-             row.kind == RunReplayCauseTreeRowKind::Body && row.id.value == context.selectedRow->parentId.value )
+        if ( !projection.selected.immediateCauseRow && projection.selected.selectedRow->parentId.value != 0u &&
+             row.kind == RunReplayCauseTreeRowKind::Body && row.id.value == projection.selected.selectedRow->parentId.value )
         {
-            context.immediateCauseRow = &row;
+            projection.selected.immediateCauseRow = &row;
         }
 
-        const bool isParent = context.selectedRow->parentId.value != 0u &&
-                              row.id.value == context.selectedRow->parentId.value;
-        const bool isChild = row.parentId.value != 0u && row.parentId.value == context.selectedRow->id.value;
-        const bool isSameBodyDetail = row.id.value == context.selectedRow->id.value &&
+        const bool isParent = projection.selected.selectedRow->parentId.value != 0u &&
+                              row.id.value == projection.selected.selectedRow->parentId.value;
+        const bool isChild = row.parentId.value != 0u && row.parentId.value == projection.selected.selectedRow->id.value;
+        const bool isSameBodyDetail = row.id.value == projection.selected.selectedRow->id.value &&
                                       row.kind != RunReplayCauseTreeRowKind::Body;
 
         if ( isParent || isChild || isSameBodyDetail )
@@ -272,20 +278,20 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
         }
     }
 
-    if ( !context.selectedObjectRow && context.selectedRow->kind == RunReplayCauseTreeRowKind::Body )
+    if ( !projection.selected.selectedObjectRow && projection.selected.selectedRow->kind == RunReplayCauseTreeRowKind::Body )
     {
-        context.selectedObjectRow = context.selectedRow;
+        projection.selected.selectedObjectRow = projection.selected.selectedRow;
     }
 
-    if ( !context.selectedObjectRow )
+    if ( !projection.selected.selectedObjectRow )
     {
-        context.selectedObjectRow = context.selectedRow;
+        projection.selected.selectedObjectRow = projection.selected.selectedRow;
     }
 
     const bool staleFocus = tree.focusedId.value != 0u && tree.selectedRow < 0;
-    context.state = staleFocus ? ImGuiEditorCausalityState::Stale
-                               : ( context.compactScanTruncated ? ImGuiEditorCausalityState::Truncated
-                                                                : ImGuiEditorCausalityState::Ready );
-    return context;
+    projection.status.state = staleFocus ? ImGuiEditorCausalityState::Stale
+                                         : ( projection.status.compactScanTruncated ? ImGuiEditorCausalityState::Truncated
+                                                                                    : ImGuiEditorCausalityState::Ready );
+    return projection;
 }
 } // namespace SkullbonezCore::Runtime::DevelopmentTools

@@ -77,6 +77,19 @@ QUERY_COMMANDS = {
     ),
 }
 
+INVENTORY_QUERY_COMMANDS = {
+    "operation with at least eight parameters": (
+        "match functionDecl(hasParameter(7, parmVarDecl()), "
+        "unless(isImplicit()), isExpansionInMainFile()).bind('root')"
+    ),
+    "context-family record with at least four fields": (
+        "match recordDecl(isDefinition(), unless(isImplicit()), "
+        "matchesName('.*(Context|Input|Args|Services|View|State)$'), "
+        "forEach(fieldDecl().bind('inventory_field')), "
+        "isExpansionInMainFile()).bind('root')"
+    ),
+}
+
 
 @dataclass(frozen=True)
 class CompileContext:
@@ -333,21 +346,7 @@ def _row_arguments(repo: Path, row: CompileRow) -> tuple[str, ...]:
     return tuple(arguments)
 
 
-def compile_contexts(repo: Path, source: Path, rows: list[CompileRow]) -> list[CompileContext]:
-    """Use exact source settings or every distinct first-party header context."""
-    relative = source.resolve().relative_to(repo.resolve()).as_posix().casefold()
-    source_text = source.read_text(encoding="utf-8", errors="replace") if source.is_file() else ""
-    development_only_header = source.suffix.lower() in {".h", ".hpp", ".inl"} and (
-        "DevelopmentToolsCapability.h" in source_text or "SKULLBONEZ_DEVELOPMENT_TOOLS" in source_text
-    )
-    exact = [row for row in rows if row.file == relative]
-    sibling_rows: list[CompileRow] = []
-    if not exact and source.suffix.lower() in {".h", ".hpp", ".inl"}:
-        sibling_names = {
-            source.with_suffix(suffix).resolve().relative_to(repo.resolve()).as_posix().casefold()
-            for suffix in (".cpp", ".c")
-        }
-        sibling_rows = [row for row in rows if row.file in sibling_names]
+def representative_header_rows(repo: Path, rows: list[CompileRow]) -> list[CompileRow]:
     first_party_rows = [
         row
         for row in rows
@@ -367,13 +366,36 @@ def compile_contexts(repo: Path, source: Path, rows: list[CompileRow]) -> list[C
     )
     for row in first_party_rows:
         grouped_rows[(row.project, row.configuration)][_row_arguments(repo, row)].append(row)
-    representative_rows = [
+    return [
         min(argument_rows, key=lambda row: row.file)
         for argument_groups in grouped_rows.values()
         for argument_rows in [
             max(argument_groups.values(), key=lambda group: (len(group), tuple(sorted(row.file for row in group))))
         ]
     ]
+
+
+def compile_contexts(
+    repo: Path,
+    source: Path,
+    rows: list[CompileRow],
+    header_representatives: list[CompileRow] | None = None,
+) -> list[CompileContext]:
+    """Use exact source settings or every distinct first-party header context."""
+    relative = source.resolve().relative_to(repo.resolve()).as_posix().casefold()
+    source_text = source.read_text(encoding="utf-8", errors="replace") if source.is_file() else ""
+    development_only_header = source.suffix.lower() in {".h", ".hpp", ".inl"} and (
+        "DevelopmentToolsCapability.h" in source_text or "SKULLBONEZ_DEVELOPMENT_TOOLS" in source_text
+    )
+    exact = [row for row in rows if row.file == relative]
+    sibling_rows: list[CompileRow] = []
+    if not exact and source.suffix.lower() in {".h", ".hpp", ".inl"}:
+        sibling_names = {
+            source.with_suffix(suffix).resolve().relative_to(repo.resolve()).as_posix().casefold()
+            for suffix in (".cpp", ".c")
+        }
+        sibling_rows = [row for row in rows if row.file in sibling_names]
+    representative_rows = header_representatives or representative_header_rows(repo, rows)
     candidates = exact or (sibling_rows + representative_rows)
     contexts: dict[tuple[str, str, tuple[str, ...]], CompileContext] = {}
     for row in candidates:
@@ -398,9 +420,15 @@ def enumerate_work_items(
 ) -> list[SourceDesignWorkItem]:
     """Return immutable source/context identities without launching LLVM."""
     unique: dict[WorkItemIdentity, SourceDesignWorkItem] = {}
+    header_representatives = representative_header_rows(repo, rows) if context_loader is compile_contexts else None
     for source in sources:
         resolved_source = source.resolve()
-        for context in context_loader(repo, resolved_source, rows):
+        contexts = (
+            compile_contexts(repo, resolved_source, rows, header_representatives)
+            if context_loader is compile_contexts
+            else context_loader(repo, resolved_source, rows)
+        )
+        for context in contexts:
             work_item = SourceDesignWorkItem(
                 resolved_source,
                 context.project,
@@ -465,6 +493,23 @@ def clang_query_findings(
     return parse_batched_query_output(source, output, tuple(active_commands))
 
 
+def clang_query_inventory_findings(
+    repo: Path,
+    source: Path,
+    query: Path,
+    arguments: tuple[str, ...],
+) -> dict[str, list[str]]:
+    command = [str(query)]
+    for matcher in INVENTORY_QUERY_COMMANDS.values():
+        command.extend(("-c", matcher))
+    command.extend((str(source), "--", *arguments))
+    result = run(command, repo)
+    output = result.stdout + result.stderr
+    if result.returncode != 0:
+        raise RuntimeError(f"clang-query inventory failed for {source}:\n{output}")
+    return parse_batched_query_output(source, output, tuple(INVENTORY_QUERY_COMMANDS))
+
+
 def parse_batched_query_output(
     source: Path,
     output: str,
@@ -490,7 +535,7 @@ def parse_batched_query_output(
                 f"for {label!r} in {source}"
             )
 
-        if label == "parameter struct unpack":
+        if label in {"parameter struct unpack", "context-family record with at least four fields"}:
             locations = collections.Counter(QUERY_ROOT_RE.findall(section))
             grouped = [f"{path}:{line}" for (path, line), count in locations.items() if count >= UNPACK_THRESHOLD]
             if grouped:
@@ -587,6 +632,38 @@ def analyze_work_item(
         )
 
     return ContextAnalysisResult(work_item, tuple(diagnostics), tidy_seconds, query_seconds, 1, 1)
+
+
+def analyze_inventory_work_item(
+    repo: Path,
+    query: Path,
+    work_item: SourceDesignWorkItem,
+) -> ContextAnalysisResult:
+    """Collect advisory candidate locations from one exact compile context."""
+    query_started = time.perf_counter()
+    try:
+        findings = clang_query_inventory_findings(repo, work_item.source, query, work_item.arguments)
+    except (OSError, RuntimeError) as error:
+        return ContextAnalysisResult(
+            work_item,
+            query_seconds=time.perf_counter() - query_started,
+            query_process_count=1,
+            infrastructure_kind="query",
+            infrastructure_error=str(error),
+        )
+
+    diagnostics = []
+    for label, root_lines in findings.items():
+        for root_line in root_lines:
+            match = QUERY_ROOT_RE.search(root_line)
+            location = f"{match.group(1)}:{match.group(2)}" if match else root_line
+            diagnostics.append(ContextDiagnostic(label, location, f"{label}: {location}"))
+    return ContextAnalysisResult(
+        work_item,
+        tuple(diagnostics),
+        query_seconds=time.perf_counter() - query_started,
+        query_process_count=1,
+    )
 
 
 def _accumulate_context_measurements(
@@ -790,6 +867,24 @@ def changed_sources(repo: Path) -> list[Path]:
     )
 
 
+def all_first_party_sources(repo: Path, rows: list[CompileRow]) -> list[Path]:
+    """Return every project-owned source plus repository-owned C++ header."""
+    project_sources = {
+        (repo / row.file).resolve()
+        for row in rows
+        if row.project in FIRST_PARTY_PROJECTS
+        and row.file.startswith(("skullbonezsource/", "skullboneztests/"))
+        and Path(row.file).suffix.casefold() in SOURCE_SUFFIXES
+    }
+    header_sources = {
+        path.resolve()
+        for root in (repo / "SkullbonezSource", repo / "SkullbonezTests")
+        for path in root.rglob("*")
+        if path.is_file() and path.suffix.casefold() in {".h", ".hpp", ".inl"}
+    }
+    return sorted(project_sources | header_sources, key=lambda path: path.as_posix().casefold())
+
+
 def project_dead_code_findings(repo: Path) -> list[str]:
     """Evaluate effective compile and link dead-code settings for every optimized row."""
     findings: set[str] = set()
@@ -990,6 +1085,36 @@ def prove_compile_contexts(repo: Path) -> None:
         "SKULLBONEZ_TESTS.vcxproj",
     }:
         raise AssertionError("header contexts did not preserve distinct first-party consumer projects")
+
+
+def prove_all_first_party_source_coverage(repo: Path) -> None:
+    rows, _ = scan_repository(repo, FIRST_PARTY_PROJECTS)
+    actual = set(all_first_party_sources(repo, rows))
+    expected_project_sources = {
+        (repo / row.file).resolve()
+        for row in rows
+        if row.project in FIRST_PARTY_PROJECTS
+        and row.file.startswith(("skullbonezsource/", "skullboneztests/"))
+        and Path(row.file).suffix.casefold() in SOURCE_SUFFIXES
+    }
+    expected_headers = {
+        path.resolve()
+        for root in (repo / "SkullbonezSource", repo / "SkullbonezTests")
+        for path in root.rglob("*")
+        if path.is_file() and path.suffix.casefold() in {".h", ".hpp", ".inl"}
+    }
+    missing = sorted((expected_project_sources | expected_headers) - actual)
+    unexpected = sorted(
+        path
+        for path in actual
+        if path.suffix.casefold() not in SOURCE_SUFFIXES
+        or not path.is_relative_to(repo / "SkullbonezSource")
+        and not path.is_relative_to(repo / "SkullbonezTests")
+    )
+    if missing or unexpected:
+        raise AssertionError(
+            f"whole-tree source coverage changed: missing={missing[:5]} unexpected={unexpected[:5]}"
+        )
 
 
 def prove_work_item_enumeration(repo: Path) -> None:
@@ -1286,6 +1411,10 @@ def self_test(
         "multi.cpp": "int Leftovers(const int& input){const int& alias=input;int m_local=alias;return m_local;}\n",
         "clean.cpp": "struct Values{int a;int b;}; int Read(const Values& v){return v.a+v.b;} int Sum(int a,int b){return a+b;}\n",
         "large.cpp": "int Large(int value) {\n" + "value += 1;\n" * 401 + "return value;\n}\n",
+        "inventory.cpp": (
+            "struct FrameContext{int a;int b;int c;int d;};\n"
+            "int Candidate(int a,int b,int c,int d,int e,int f,int g,int h){return a+b+c+d+e+f+g+h;}\n"
+        ),
     }
     measurements.source_count = len(fixtures)
     measurements.context_count = len(fixtures)
@@ -1337,6 +1466,11 @@ def self_test(
         )
         if set(multi_findings) != {"member-prefixed local", "pure parameter alias"}:
             raise AssertionError(f"multi-rule batching lost rule attribution: {multi_findings}")
+        inventory_findings = clang_query_inventory_findings(
+            repo, paths["inventory.cpp"], query, tuple(compile_arguments(repo))
+        )
+        if set(inventory_findings) != set(INVENTORY_QUERY_COMMANDS):
+            raise AssertionError(f"advisory inventory lost candidate classes: {inventory_findings}")
         fixture_context = [CompileContext("fixture", "default", tuple(compile_arguments(repo)))]
         if inspect_source(repo, paths["clean.cpp"], tidy, query, fixture_context, measurements):
             raise AssertionError("clean compiler fixture produced a finding")
@@ -1402,6 +1536,7 @@ def self_test(
     measurements.dead_code_seconds += time.perf_counter() - dead_code_started
     context_started = time.perf_counter()
     prove_compile_contexts(repo)
+    prove_all_first_party_source_coverage(repo)
     measurements.context_discovery_seconds += time.perf_counter() - context_started
     print("PASS: compiler-backed source-design and linker negative controls")
 
@@ -1410,7 +1545,18 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--self-test", action="store_true")
-    parser.add_argument("--files", nargs="*", type=Path)
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--files", nargs="*", type=Path)
+    selection.add_argument(
+        "--all-first-party",
+        action="store_true",
+        help="inspect every project-owned source and repository-owned C++ header",
+    )
+    parser.add_argument(
+        "--inventory",
+        action="store_true",
+        help="report advisory wide-operation and context-family candidates without policy classification",
+    )
     parser.add_argument(
         "--jobs",
         type=parse_job_count,
@@ -1424,7 +1570,7 @@ def main() -> int:
     args = parse_args()
     repo = args.repo.resolve()
     measurements = SourceDesignMeasurements(
-        "self-test" if args.self_test else "live",
+        "self-test" if args.self_test else "inventory" if args.inventory else "live",
         configured_workers=args.jobs,
     )
     total_started = time.perf_counter()
@@ -1439,28 +1585,47 @@ def main() -> int:
             exit_code = 0
         else:
             context_started = time.perf_counter()
-            sources = (
-                [path if path.is_absolute() else repo / path for path in args.files]
-                if args.files
-                else changed_sources(repo)
-            )
             rows, _ = scan_repository(repo, FIRST_PARTY_PROJECTS)
+            if args.all_first_party:
+                sources = all_first_party_sources(repo, rows)
+            elif args.files:
+                sources = [path if path.is_absolute() else repo / path for path in args.files]
+            else:
+                sources = changed_sources(repo)
             work_items = enumerate_work_items(repo, sources, rows)
             measurements.source_count = len(sources)
             measurements.context_count = len(work_items)
             measurements.context_discovery_seconds += time.perf_counter() - context_started
 
-            dead_code_started = time.perf_counter()
-            diagnostics = project_dead_code_findings(repo)
-            measurements.dead_code_seconds += time.perf_counter() - dead_code_started
-            worker = functools.partial(analyze_work_item, repo, tidy, query)
+            diagnostics = []
+            if not args.inventory:
+                dead_code_started = time.perf_counter()
+                diagnostics = project_dead_code_findings(repo)
+                measurements.dead_code_seconds += time.perf_counter() - dead_code_started
+            worker = (
+                functools.partial(analyze_inventory_work_item, repo, query)
+                if args.inventory
+                else functools.partial(analyze_work_item, repo, tidy, query)
+            )
             batch = execute_work_items(repo, work_items, args.jobs, worker)
             measurements.peak_workers = batch.peak_workers
             for result in batch.results:
                 _accumulate_context_measurements(measurements, result)
-            diagnostics.extend(render_context_diagnostics(repo, batch.results))
             infrastructure_errors = render_infrastructure_errors(repo, batch.results)
-            measurements.finding_count = len(diagnostics)
+            if args.inventory:
+                candidate_contexts: dict[tuple[str, str], set[tuple[str, str]]] = collections.defaultdict(set)
+                for result in batch.results:
+                    for diagnostic in result.diagnostics:
+                        candidate_contexts[(diagnostic.rule, diagnostic.location)].add(
+                            (result.work_item.project, result.work_item.configuration)
+                        )
+                for (rule, location), contexts in sorted(candidate_contexts.items()):
+                    relative_location = location.replace(str(repo) + "\\", "").replace("\\", "/")
+                    print(f"CANDIDATE kind={rule!r} location={relative_location} contexts={len(contexts)}")
+                measurements.finding_count = len(candidate_contexts)
+            else:
+                diagnostics.extend(render_context_diagnostics(repo, batch.results))
+                measurements.finding_count = len(diagnostics)
             measurements.infrastructure_error_count = len(infrastructure_errors)
             if infrastructure_errors:
                 print("ERROR: source-design infrastructure failures:", file=sys.stderr)
@@ -1471,6 +1636,12 @@ def main() -> int:
                     for diagnostic in diagnostics:
                         print(f"  {diagnostic}", file=sys.stderr)
                 exit_code = 2
+            elif args.inventory:
+                print(
+                    f"PASS: compiler-backed source-design inventory files={len(sources)} "
+                    f"contexts={len(work_items)} candidates={measurements.finding_count}"
+                )
+                exit_code = 0
             elif diagnostics:
                 print("FAIL: changed C++ source has design findings:", file=sys.stderr)
                 for diagnostic in diagnostics:

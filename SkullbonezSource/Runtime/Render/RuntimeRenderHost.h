@@ -84,19 +84,7 @@ struct RunRayCastTestState;
 struct RunReplayPredictionFrame;
 struct RuntimeRenderPassResources;
 struct SceneSessionState;
-struct RuntimeRenderModelFrameView;
-
-// Concept: RuntimeRenderer retains this immutable-at-the-boundary world view.
-// Each reference identifies one render-domain owner that outlives the renderer;
-// callers cannot replace bindings after construction.
-struct RenderWorldView
-{
-    Assets::AssetSystem& assets;
-    Window& window;
-    SkullbonezCore::Core::EngineConfig& config;
-    Environment::WorldEnvironment& worldEnvironment;
-    SkullbonezCore::Core::Profiler* profiler = nullptr;
-};
+struct RuntimeRenderFrameViews;
 
 struct RenderToolOverlayView
 {

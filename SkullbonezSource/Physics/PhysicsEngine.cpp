@@ -512,9 +512,7 @@ bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthor
 {
     const std::size_t descriptorCount = m_authoredBodyDescs.size();
 
-    if ( static_cast<std::size_t>( refreshView.bodyCount.value ) != descriptorCount ||
-         ( descriptorCount > 0u &&
-           ( !refreshView.sceneObjectIds || !refreshView.fixedTreeReleaseRoots || !refreshView.diagnosticNames ) ) )
+    if ( !refreshView.IsAligned() || refreshView.sceneObjectIds.size() != descriptorCount )
     {
         return false;
     }
@@ -539,7 +537,7 @@ bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthor
         return false;
     }
 
-    m_world->SetDiagnosticNames( std::span<const char* const>( refreshView.diagnosticNames, descriptorCount ) );
+    m_world->SetDiagnosticNames( refreshView.diagnosticNames );
     return true;
 }
 
@@ -884,8 +882,8 @@ void PhysicsEngine::Step( float deltaSeconds, const PhysicsWorldForces& worldFor
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
 
-    m_world->RunPhysics( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), deltaSeconds, m_runtimeSettings,
-                         worldForces, externalForces, workerPool );
+    m_world->RunPhysics( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), deltaSeconds, worldForces,
+                         externalForces, workerPool );
 
     ApplyFixedTreeReleaseEvents( worldForces );
 

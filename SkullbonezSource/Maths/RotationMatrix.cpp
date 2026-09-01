@@ -30,9 +30,9 @@ RotationMatrix::RotationMatrix()
 }
 
 
-RotationMatrix::RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32,
-                                float f33 )
-    : m11( f11 ), m12( f12 ), m13( f13 ), m21( f21 ), m22( f22 ), m23( f23 ), m31( f31 ), m32( f32 ), m33( f33 )
+RotationMatrix::RotationMatrix( const Vector3& row0, const Vector3& row1, const Vector3& row2 )
+    : m11( row0.x ), m12( row0.y ), m13( row0.z ), m21( row1.x ), m22( row1.y ), m23( row1.z ), m31( row2.x ), m32( row2.y ),
+      m33( row2.z )
 {
 }
 

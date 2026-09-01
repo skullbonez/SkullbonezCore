@@ -35,6 +35,7 @@ Related:
 #include "SceneSessionState.h"
 #include "SceneLoadRequest.h"
 #include "SceneLoadPresentation.h"
+#include "SceneNavigationModel.h"
 #include "SceneRenderPolicy.h"
 #include "SceneWorld.h"
 #include "../Camera/CameraControlState.h"
@@ -94,15 +95,45 @@ inline SceneFrameProceedPolicy ResolveSceneFrameProceedPolicy( bool crossScenePa
     // Invariant: only the sampled step edge releases a locked scene turn.
     return SceneFrameProceedPolicy { stepRequested, crossScenePauseLocked, !crossScenePauseLocked || stepRequested };
 }
-struct SceneDefaultsSaveView
+struct SceneDefaultsCameraValues
 {
-    // Lifetime: every owner is borrowed only for one synchronous cold save.
-    // The writer retains no pointers across a scene reload.
-    const ScenePresentationValues& presentation;
-    SceneRenderPolicyState renderPolicy;
-    const CameraControlState& camera;
-    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
+    bool writeTrackHeight = false;
+    float trackHeight = 0.0f;
+    bool writeAutoCycleInterval = false;
+    float autoCycleInterval = 0.0f;
 };
+
+struct SceneDefaultsGeneratedCountOverrides
+{
+    int modelCount = -1;
+    int solverBallCount = -1;
+    int solverBoxCount = -1;
+};
+
+struct SceneDefaultsSaveSnapshot
+{
+    // Lifetime: App finishes this detached value before cold file I/O begins.
+    // The writer cannot reach camera, UI, or presentation owners while saving.
+    ScenePresentationValues presentation;
+    SceneRenderPolicyState renderPolicy;
+    SceneDefaultsCameraValues camera;
+    SceneDefaultsGeneratedCountOverrides generatedCounts;
+};
+
+inline SceneDefaultsSaveSnapshot
+ProjectSceneDefaultsSaveSnapshot( const ScenePresentationValues& presentation, SceneRenderPolicyState renderPolicy,
+                                  const CameraControlState& camera,
+                                  const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides )
+{
+    return SceneDefaultsSaveSnapshot { presentation, renderPolicy,
+                                       SceneDefaultsCameraValues { camera.trackBallRow.IsValid() &&
+                                                                       camera.trackHeight > 0.0f,
+                                                                   camera.trackHeight, camera.autoCycleInterval > 0.0f,
+                                                                   camera.autoCycleInterval },
+                                       SceneDefaultsGeneratedCountOverrides { uiOverrides.modelCountOverride,
+                                                                              uiOverrides.solverBallCountOverride,
+                                                                              uiOverrides.solverBoxCountOverride } };
+}
 
 struct SceneLoadCompletedWorldChange
 {
@@ -153,7 +184,7 @@ class SceneController : public SceneSession
                              const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
 
-    SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
+    SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveSnapshot& snapshot ) const;
 
     // Scene request submission and ordered batch execution stay owner-specific;
     // SceneRequestExecution.cpp consumes the fixed pending batch.

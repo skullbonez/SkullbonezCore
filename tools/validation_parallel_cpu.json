@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "name": "cpu-tests",
+  "max_parallel": 6,
+  "lanes": [
+    {
+      "id": "tests",
+      "name": "Profile doctest suite",
+      "steps": [
+        {
+          "id": "validate",
+          "name": "Profile unit tests",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${CPU_TEST_SCRIPT_DIR}\\validate_tests.bat"]
+        }
+      ]
+    },
+    {
+      "id": "coverage",
+      "name": "Debug product coverage",
+      "env": {
+        "SKULLBONEZ_COVERAGE_DIR": "${REPO}\\TestOutput\\coverage"
+      },
+      "steps": [
+        {
+          "id": "validate",
+          "name": "Coverage floors",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${CPU_TEST_SCRIPT_DIR}\\validate_coverage.bat"]
+        }
+      ]
+    },
+    {
+      "id": "runtime-interaction",
+      "name": "Runtime interaction policy",
+      "steps": [
+        {
+          "id": "validate",
+          "name": "Runtime interaction tests",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${CPU_TEST_SCRIPT_DIR}\\validate_runtime_interaction_policy.bat"]
+        }
+      ]
+    },
+    {
+      "id": "scene-parser",
+      "name": "Scene parser",
+      "steps": [
+        {
+          "id": "validate",
+          "name": "Scene parser tests",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${CPU_TEST_SCRIPT_DIR}\\validate_scene_parser_tests.bat"]
+        }
+      ]
+    },
+    {
+      "id": "ui-boundary",
+      "name": "Renderer-free UI boundary",
+      "steps": [
+        {
+          "id": "validate",
+          "name": "UI boundary tests",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${CPU_TEST_SCRIPT_DIR}\\validate_ui_boundary_tests.bat"]
+        }
+      ]
+    },
+    {
+      "id": "dx12-architecture",
+      "name": "CPU-only DX12 architecture",
+      "steps": [
+        {
+          "id": "validate",
+          "name": "DX12 architecture tests",
+          "argv": ["cmd.exe", "/d", "/c", "call", "${CPU_TEST_SCRIPT_DIR}\\validate_dx12_arch_tests.bat"]
+        }
+      ]
+    }
+  ]
+}

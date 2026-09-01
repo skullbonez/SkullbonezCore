@@ -46,6 +46,7 @@ namespace SkullbonezCore
 namespace Physics
 {
 class ColliderStore;
+class BroadphasePairFilter;
 class PhysicsBodyStore;
 } // namespace Physics
 namespace Math
@@ -72,7 +73,6 @@ class SpatialGrid
     };
 
   private:
-
     // Capacity derivation:
     // Static objects of radius R in a grid of cell size C span at most
     // ceil(2R/C + 1) cells per axis. PhysicsWorld chooses C from the largest
@@ -113,7 +113,8 @@ class SpatialGrid
     // ceiling and sparse-admission contract; fallback exhaustion there is the
     // same loud invalid-topology rejection as an overfull ordinary bucket.
     static constexpr int MAX_CANDIDATE_PAIRS = static_cast<int>( Physics::PHYSICS_MAX_CANDIDATE_PAIRS );
-    static constexpr int64_t MAX_PAIR_IDENTITIES = static_cast<int64_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
+    static constexpr int64_t MAX_PAIR_IDENTITIES = static_cast<int64_t>(
+                                                       SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
                                                    ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2;
     static_assert( MAX_PAIR_IDENTITIES - 1 <= ( std::numeric_limits<int>::max )(),
                    "SpatialGrid triangular pair index exceeds signed-int storage." );
@@ -127,14 +128,14 @@ class SpatialGrid
 
     struct Entry
     {
-        int objectIndex;               // Scene/model slot stored in one occupied grid cell.
-        int bucketIndex;               // Owning buckets[] row for direct unlink.
-        int nextInBucket;              // Next persistent member of the same cell.
-        int previousInBucket;          // Previous member; -1 means bucket head.
-        int nextForObject;             // Next cell entry owned by this body.
-        int previousForObject;         // Previous entry; -1 means body head.
-        int nextFree;                  // Reusable-slot chain when this entry is inactive.
-        int ix, iy, iz;                // Exact cell coordinate; hash collisions share a bucket conservatively.
+        int objectIndex;       // Scene/model slot stored in one occupied grid cell.
+        int bucketIndex;       // Owning buckets[] row for direct unlink.
+        int nextInBucket;      // Next persistent member of the same cell.
+        int previousInBucket;  // Previous member; -1 means bucket head.
+        int nextForObject;     // Next cell entry owned by this body.
+        int previousForObject; // Previous entry; -1 means body head.
+        int nextFree;          // Reusable-slot chain when this entry is inactive.
+        int ix, iy, iz;        // Exact cell coordinate; hash collisions share a bucket conservatively.
     };
 
     struct SweptOverlayEntry
@@ -171,8 +172,8 @@ class SpatialGrid
 
     struct CandidatePairNode
     {
-        int maxIndex;                  // Larger normalized body index for one accepted pair.
-        int next;                      // Next node with the same smaller body index; -1 ends the list.
+        int maxIndex; // Larger normalized body index for one accepted pair.
+        int next;     // Next node with the same smaller body index; -1 ends the list.
     };
 
     float cellSize;
@@ -248,15 +249,10 @@ class SpatialGrid
     int CollectBucketObjects( const Bucket& bucket, int* outIndices, int capacity );
     void ResetCandidatePairDedup();
     bool MarkCandidatePairFirstSeen( int a, int b );
-    bool MarkFilteredCandidatePairFirstSeen( int a, int b, const Physics::PhysicsBodyStore& bodyStore,
-                                             const Physics::ColliderStore& colliderStore,
-                                             std::span<const uint8_t> sleepState, float dt, float contactSkin,
-                                             std::span<const float> angularBroadphaseExpansion,
+    bool MarkFilteredCandidatePairFirstSeen( int a, int b, const Physics::BroadphasePairFilter& pairFilter,
                                              Physics::PhysicsCandidatePairList* sleepPrunedPairs );
     void GetFilteredCandidatePairsImpl( Physics::PhysicsCandidatePairList& outPairs,
-                                        const Physics::PhysicsBodyStore& bodyStore,
-                                        const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                        float dt, float contactSkin, std::span<const float> angularBroadphaseExpansion,
+                                        const Physics::BroadphasePairFilter& pairFilter,
                                         Physics::PhysicsCandidatePairList* sleepPrunedPairs,
                                         bool restrictToPairSourceCells );
 
@@ -325,32 +321,14 @@ class SpatialGrid
 
     // Emits deduplicated cell-sharing pairs in ascending normalized body-index
     // order. The unfiltered overload exposes pure membership to focused tools;
-    // filtered overloads require concrete stores and step scalars. Debug may
+    // filtered overloads require one behavior-owning pair filter. Debug may
     // additionally retain sleep-only geometric admissions as bounded evidence.
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells = false );
-    void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
-                                    const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                    float dt, float contactSkin, std::span<const float> angularBroadphaseExpansion,
+    void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs,
+                                    const Physics::BroadphasePairFilter& pairFilter,
                                     Physics::PhysicsCandidatePairList& sleepPrunedPairs, bool restrictToPairSourceCells );
-    void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
-                                    const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                    float dt, float contactSkin, std::span<const float> angularBroadphaseExpansion,
-                                    bool restrictToPairSourceCells );
-    void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
-                                    const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                    float dt, float contactSkin, Physics::PhysicsCandidatePairList& sleepPrunedPairs,
-                                    bool restrictToPairSourceCells )
-    {
-        GetFilteredCandidatePairs( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin, {}, sleepPrunedPairs,
-                                   restrictToPairSourceCells );
-    }
-    void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
-                                    const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                    float dt, float contactSkin, bool restrictToPairSourceCells )
-    {
-        GetFilteredCandidatePairs( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin, {},
-                                   restrictToPairSourceCells );
-    }
+    void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs,
+                                    const Physics::BroadphasePairFilter& pairFilter, bool restrictToPairSourceCells );
     float GetCellSize() const
     {
         return cellSize;

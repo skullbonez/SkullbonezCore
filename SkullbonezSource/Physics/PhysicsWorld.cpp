@@ -281,6 +281,7 @@ void PhysicsWorld::CloneReplayPredictionTopologyFrom( const PhysicsWorld& source
     m_underwaterSleepProbeNeeded = source.m_underwaterSleepProbeNeeded;
     m_lastUnderwaterProbeFluidSurfaceHeight = source.m_lastUnderwaterProbeFluidSurfaceHeight;
     m_lastUnderwaterProbeFluidSurfaceHeightValid = source.m_lastUnderwaterProbeFluidSurfaceHeightValid;
+    m_runtimeSettings = source.m_runtimeSettings;
 
     m_pointJointConstraints.Reserve( source.m_pointJointConstraints.size() );
     m_pointJointConstraints.clear();
@@ -317,6 +318,7 @@ void PhysicsWorld::ClearTerrainView() noexcept
 
 void PhysicsWorld::ApplyRuntimeSettings( const PhysicsRuntimeSettings& settings )
 {
+    m_runtimeSettings = settings;
     m_broadphase.ApplyRuntimeSettings( settings.broadphase );
     m_sleepController.ApplyRuntimeSettings( settings.sleep );
 }
@@ -819,8 +821,8 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
 
 void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                std::span<BuoyancyBodyFacts> buoyancyFacts, float deltaSeconds,
-                               const PhysicsRuntimeSettings& settings, const PhysicsWorldForces& worldForces,
-                               const ExternalForceFrameInput& externalForces, Threading::WorkerPool& workerPool )
+                               const PhysicsWorldForces& worldForces, const ExternalForceFrameInput& externalForces,
+                               Threading::WorkerPool& workerPool )
 {
     // Concept: one fixed physics tick has a predictable data flow.
     //
@@ -840,6 +842,14 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore&
     {
         SB_FATAL( "Physics/PhysicsWorld", "Aligned store mismatch before fixed step: bodies=%d colliders=%d buoyancy=%zu.",
                   modelCount, colliderStore.Count(), buoyancyFacts.size() );
+    }
+
+    if ( !externalForces.IsValidForBodyCount( modelCount ) )
+    {
+        SB_FATAL( "Physics/PhysicsWorld",
+                  "External-force rows are misaligned: bodies=%d fields=%zu exposure=%zu cooldown=%zu step=%.9g.",
+                  modelCount, externalForces.fields.size(), externalForces.exposureSeconds.size(),
+                  externalForces.repeatCooldownSeconds.size(), externalForces.stepSeconds );
     }
 
     const bool timeStepChanged = !m_lastTimeRemainingStepValid || deltaSeconds != m_lastTimeRemainingStep;
@@ -872,8 +882,8 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore&
     const bool probeDormantUnderwaterLocks = rebuiltAwakeList || m_underwaterSleepProbeNeeded || fluidSurfaceHeightChanged;
 
     m_underwaterSleepProbeNeeded = false;
-    RunSolverPhysics( bodyStore, colliderStore, buoyancyFacts, deltaSeconds, settings, worldForces, externalForces,
-                      workerPool, probeDormantUnderwaterLocks );
+    RunSolverPhysics( bodyStore, colliderStore, buoyancyFacts, deltaSeconds, worldForces, externalForces, workerPool,
+                      probeDormantUnderwaterLocks );
 }
 
 
@@ -970,10 +980,10 @@ void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& e
 
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                      std::span<BuoyancyBodyFacts> buoyancyFacts, float dt,
-                                     const PhysicsRuntimeSettings& settings, const PhysicsWorldForces& worldForces,
-                                     const ExternalForceFrameInput& externalForces, Threading::WorkerPool& workerPool,
-                                     bool probeDormantUnderwaterLocks )
+                                     const PhysicsWorldForces& worldForces, const ExternalForceFrameInput& externalForces,
+                                     Threading::WorkerPool& workerPool, bool probeDormantUnderwaterLocks )
 {
+    const PhysicsRuntimeSettings& settings = m_runtimeSettings;
     const auto bodyRecords = bodyStore.MutableRecords();
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const auto colliderRecords = colliderStore.Records();
@@ -1033,18 +1043,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     // Broadphase: sleeping membership remains resident, while awake rows update
     // their ranges and source awake-to-sleep wake-detection pairs.
     const float contactSkin = (std::max)( 0.0f, settings.body.contactEpsilon );
-    const PhysicsBroadphaseStepInput broadphaseInput { settings.broadphase,
-                                                       m_pointJointConstraints,
-                                                       sleepStates,
-                                                       awakeBodyIndices,
-                                                       m_motionEligibility.State(),
-                                                       m_motionEligibility.AngularBroadphaseExpansion(),
-                                                       m_stepDiagnostics,
-                                                       dt,
-                                                       contactSkin,
-                                                       settings.body.contactEpsilon };
-    const std::span<const std::pair<int, int>> candidatePairs = m_broadphase.Run( bodyStore, colliderStore,
-                                                                                  broadphaseInput );
+    const BroadphaseBodyActivityView broadphaseActivity( bodyStore.Count(), sleepStates, awakeBodyIndices,
+                                                         m_motionEligibility.State(),
+                                                         m_motionEligibility.AngularBroadphaseExpansion() );
+    const BroadphaseSweepContactEnvelope broadphaseEnvelope( dt, contactSkin, settings.body.contactEpsilon );
+    const std::span<const std::pair<int, int>> candidatePairs = m_broadphase
+                                                                    .Run( bodyStore, colliderStore, m_pointJointConstraints,
+                                                                          broadphaseActivity, broadphaseEnvelope,
+                                                                          m_stepDiagnostics.MutablePipelineTraceRecorder() );
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.

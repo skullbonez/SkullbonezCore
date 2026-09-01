@@ -263,6 +263,9 @@
     <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h">
       <Filter>Header Files\Solver</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsBroadphaseStepValues.h">
+      <Filter>Header Files\Solver</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\SolverBroadphaseStage.h">
       <Filter>Header Files\Solver</Filter>
     </ClInclude>

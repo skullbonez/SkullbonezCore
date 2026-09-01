@@ -36,14 +36,16 @@ class RotationMatrix
 {
 
   public:
-    RotationMatrix();                                                                                                    // Initializes to identity rotation.
-    RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32, float f33 ); // Explicit row-major component construction.
+    RotationMatrix(); // Initializes to identity rotation.
+    RotationMatrix( const Vector::Vector3& row0, const Vector::Vector3& row1,
+                    const Vector::Vector3& row2 ); // Explicit row-major basis construction.
     ~RotationMatrix() = default;
 
     // Resets to no-rotation matrix.
-    Vector::Vector3 operator*( const Vector::Vector3& v ) const;                                                         // Applies this rotation to v.
-    Vector::Vector3 operator*=( const Vector::Vector3& v ) const;                                                        // Legacy spelling for applying this rotation to v.
-    Vector::Vector3 TransposeMultiply( const Vector::Vector3& v ) const;                                                 // R^T * v (inverse rotation for orthogonal matrices)
+    Vector::Vector3 operator*( const Vector::Vector3& v ) const;  // Applies this rotation to v.
+    Vector::Vector3 operator*=( const Vector::Vector3& v ) const; // Legacy spelling for applying this rotation to v.
+    Vector::Vector3
+    TransposeMultiply( const Vector::Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)
 
     // dot(abs(row_Y), v) is the maximum downward extent of an OBB with half-extents v.
     // Used for closed-form terrain bottom offset: avoids iterating all 8 vertices.
@@ -69,11 +71,12 @@ class RotationMatrix
 #endif
 
   private:
-    float m11, m12, m13, m21, m22, m23, m31, m32, m33;                                                                   // Row-major 3x3 basis vectors.
+    float m11, m12, m13, m21, m22, m23, m31, m32, m33; // Row-major 3x3 basis vectors.
 };
 
 // One program-wide no-rotation matrix shared by every including translation unit.
-inline const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f );
+inline const RotationMatrix IDENTITY_MATRIX( Vector::Vector3( 1.0f, 0.0f, 0.0f ), Vector::Vector3( 0.0f, 1.0f, 0.0f ),
+                                             Vector::Vector3( 0.0f, 0.0f, 1.0f ) );
 
 // Rotate a point around a normalized arbitrary axis by radians.
 inline Vector::Vector3 RotatePointAboutArbitrary( float radians, const Vector::Vector3& axis, const Vector::Vector3& point )
@@ -83,15 +86,16 @@ inline Vector::Vector3 RotatePointAboutArbitrary( float radians, const Vector::V
 
     // Invariant: positive radians use the same right-handed active rotation as
     // Quaternion::RotateAboutAxis, so group positions and orientations move together.
-    RotationMatrix matrix( ( axis.x * axis.x * ( 1 - cosTheta ) + cosTheta ),
-                           ( axis.x * axis.y * ( 1 - cosTheta ) - axis.z * sinTheta ),
-                           ( axis.x * axis.z * ( 1 - cosTheta ) + axis.y * sinTheta ),
-                           ( axis.x * axis.y * ( 1 - cosTheta ) + axis.z * sinTheta ),
-                           ( axis.y * axis.y * ( 1 - cosTheta ) + cosTheta ),
-                           ( axis.y * axis.z * ( 1 - cosTheta ) - axis.x * sinTheta ),
-                           ( axis.x * axis.z * ( 1 - cosTheta ) - axis.y * sinTheta ),
-                           ( axis.y * axis.z * ( 1 - cosTheta ) + axis.x * sinTheta ),
-                           ( axis.z * axis.z * ( 1 - cosTheta ) + cosTheta ) );
+    const Vector::Vector3 row0( axis.x * axis.x * ( 1 - cosTheta ) + cosTheta,
+                                axis.x * axis.y * ( 1 - cosTheta ) - axis.z * sinTheta,
+                                axis.x * axis.z * ( 1 - cosTheta ) + axis.y * sinTheta );
+    const Vector::Vector3 row1( axis.x * axis.y * ( 1 - cosTheta ) + axis.z * sinTheta,
+                                axis.y * axis.y * ( 1 - cosTheta ) + cosTheta,
+                                axis.y * axis.z * ( 1 - cosTheta ) - axis.x * sinTheta );
+    const Vector::Vector3 row2( axis.x * axis.z * ( 1 - cosTheta ) - axis.y * sinTheta,
+                                axis.y * axis.z * ( 1 - cosTheta ) + axis.x * sinTheta,
+                                axis.z * axis.z * ( 1 - cosTheta ) + cosTheta );
+    const RotationMatrix matrix( row0, row1, row2 );
 
     return matrix * point;
 }

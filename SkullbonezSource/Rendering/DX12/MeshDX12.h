@@ -29,6 +29,8 @@ Related:
 #include "../RenderCommandTypes.h"
 #include <d3d12.h>
 #include <cstdint>
+#include <optional>
+#include <span>
 
 
 namespace SkullbonezCore
@@ -55,6 +57,82 @@ enum class VertexFormat12
     Pos2
 };
 
+// Invariant: the component span always contains exactly the declared vertex
+// rows. Construction rejects null, empty, negative, and overflowing layouts
+// before resource allocation or upload reservation begins.
+class MeshVertexDataView
+{
+  public:
+    static std::optional<MeshVertexDataView> TryCreate( const float* data, int vertexCount, int floatsPerVertex,
+                                                        VertexFormat12 format ) noexcept;
+
+    std::span<const float> Components() const noexcept
+    {
+        return m_components;
+    }
+    int VertexCount() const noexcept
+    {
+        return m_vertexCount;
+    }
+    int FloatsPerVertex() const noexcept
+    {
+        return m_floatsPerVertex;
+    }
+    VertexFormat12 Format() const noexcept
+    {
+        return m_format;
+    }
+    UINT64 ByteCount() const noexcept
+    {
+        return static_cast<UINT64>( m_components.size_bytes() );
+    }
+
+  private:
+    MeshVertexDataView( std::span<const float> components, int vertexCount, int floatsPerVertex,
+                        VertexFormat12 format ) noexcept
+        : m_components( components ), m_vertexCount( vertexCount ), m_floatsPerVertex( floatsPerVertex ), m_format( format )
+    {
+    }
+
+    std::span<const float> m_components;
+    int m_vertexCount = 0;
+    int m_floatsPerVertex = 0;
+    VertexFormat12 m_format = VertexFormat12::Pos3;
+};
+
+// Lifetime: the slice is valid only while its frame upload arena remains open.
+// The factory proves that address, CPU bytes, and backing resource describe the
+// same in-bounds reservation before MeshDX12 records a copy command.
+class Dx12MeshUploadSlice
+{
+  public:
+    static std::optional<Dx12MeshUploadSlice> TryCreate( D3D12_GPU_VIRTUAL_ADDRESS address, uint8_t* bytes, UINT64 byteCount,
+                                                         ID3D12Resource* backing ) noexcept;
+
+    D3D12_GPU_VIRTUAL_ADDRESS Address() const noexcept
+    {
+        return m_address;
+    }
+    std::span<uint8_t> Bytes() const noexcept
+    {
+        return m_bytes;
+    }
+    ID3D12Resource& Backing() const noexcept
+    {
+        return *m_backing;
+    }
+
+  private:
+    Dx12MeshUploadSlice( D3D12_GPU_VIRTUAL_ADDRESS address, std::span<uint8_t> bytes, ID3D12Resource& backing ) noexcept
+        : m_address( address ), m_bytes( bytes ), m_backing( &backing )
+    {
+    }
+
+    D3D12_GPU_VIRTUAL_ADDRESS m_address = 0;
+    std::span<uint8_t> m_bytes;
+    ID3D12Resource* m_backing = nullptr;
+};
+
 
 class MeshDX12
 {
@@ -73,9 +151,7 @@ class MeshDX12
     MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics );
     ~MeshDX12();
 
-    bool Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const float* data, int vertexCount,
-                 int floatsPerVertex, VertexFormat12 format, D3D12_GPU_VIRTUAL_ADDRESS uploadAddr, uint8_t* uploadPtr,
-                 ID3D12Resource* uploadBuffer );
+    bool Create( const MeshVertexDataView& vertices, const Dx12MeshUploadSlice& upload );
 
     bool PrecompileRasterState( const PassRasterStateBucket& bucket ) const;
     void Draw( const PassRasterStateBucket& bucket ) const;

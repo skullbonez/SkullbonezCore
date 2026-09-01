@@ -72,7 +72,8 @@ constexpr int RequiredBitCount( uint32_t value )
 // stable low-digit pass followed by one stable high-digit pass. These values
 // derive from the scene ceiling, while the layout assertion deliberately
 // requires a source review if that ceiling changes.
-constexpr int kCandidatePairSortBitCount = RequiredBitCount( static_cast<uint32_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) );
+constexpr int kCandidatePairSortBitCount = RequiredBitCount(
+    static_cast<uint32_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) );
 constexpr int kCandidatePairSortLowBitCount = ( kCandidatePairSortBitCount + 1 ) / 2;
 constexpr int kCandidatePairSortHighBitCount = kCandidatePairSortBitCount - kCandidatePairSortLowBitCount;
 constexpr int kCandidatePairSortLowBucketCount = 1 << kCandidatePairSortLowBitCount;
@@ -1246,10 +1247,7 @@ bool SpatialGrid::MarkCandidatePairFirstSeen( int a, int b )
 
 
 bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a, int b,
-                                                      const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
-                                                      const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                                      std::span<const uint8_t> sleepState, float dt, float contactSkin,
-                                                      std::span<const float> angularBroadphaseExpansion,
+                                                      const SkullbonezCore::Physics::BroadphasePairFilter& pairFilter,
                                                       SkullbonezCore::Physics::PhysicsCandidatePairList* sleepPrunedPairs )
 {
     if ( !MarkCandidatePairFirstSeen( a, b ) )
@@ -1257,12 +1255,11 @@ bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a, int b,
         return false;
     }
 
-    if ( SkullbonezCore::Physics::BroadphaseCandidateBothSleeping( sleepState, a, b ) )
+    if ( pairFilter.BothSleeping( a, b ) )
     {
         // Preserve the old diagnostic boundary: SleepPrunedPair described a
         // geometrically admitted candidate, not every dormant co-cell pair.
-        if ( !SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( bodyStore, colliderStore, dt, contactSkin, a, b,
-                                                                            angularBroadphaseExpansion ) )
+        if ( !pairFilter.GeometryCanTouch( a, b ) )
         {
             return false;
         }
@@ -1281,8 +1278,7 @@ bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a, int b,
         return false;
     }
 
-    return SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( bodyStore, colliderStore, dt, contactSkin, a, b,
-                                                                         angularBroadphaseExpansion );
+    return pairFilter.GeometryCanTouch( a, b );
 }
 
 
@@ -1491,10 +1487,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
 
 
 void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::PhysicsCandidatePairList& outPairs,
-                                                 const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
-                                                 const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                                 std::span<const uint8_t> sleepState, float dt, float contactSkin,
-                                                 std::span<const float> angularBroadphaseExpansion,
+                                                 const SkullbonezCore::Physics::BroadphasePairFilter& pairFilter,
                                                  SkullbonezCore::Physics::PhysicsCandidatePairList* sleepPrunedPairs,
                                                  bool restrictToPairSourceCells )
 {
@@ -1585,8 +1578,7 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
                     bIdx = tmp;
                 }
 
-                if ( !MarkFilteredCandidatePairFirstSeen( a, bIdx, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                          angularBroadphaseExpansion, sleepPrunedPairs ) )
+                if ( !MarkFilteredCandidatePairFirstSeen( a, bIdx, pairFilter, sleepPrunedPairs ) )
                 {
                     continue;
                 }
@@ -1621,8 +1613,7 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
             const int a = (std::min)( fallbackBody, otherBody );
             const int b = (std::max)( fallbackBody, otherBody );
 
-            if ( !MarkFilteredCandidatePairFirstSeen( a, b, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                      angularBroadphaseExpansion, sleepPrunedPairs ) )
+            if ( !MarkFilteredCandidatePairFirstSeen( a, b, pairFilter, sleepPrunedPairs ) )
             {
                 continue;
             }
@@ -1709,26 +1700,18 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
 
 
 void SpatialGrid::GetFilteredCandidatePairs( SkullbonezCore::Physics::PhysicsCandidatePairList& outPairs,
-                                             const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
-                                             const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                             std::span<const uint8_t> sleepState, float dt, float contactSkin,
-                                             std::span<const float> angularBroadphaseExpansion,
+                                             const SkullbonezCore::Physics::BroadphasePairFilter& pairFilter,
                                              SkullbonezCore::Physics::PhysicsCandidatePairList& sleepPrunedPairs,
                                              bool restrictToPairSourceCells )
 {
-    GetFilteredCandidatePairsImpl( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                   angularBroadphaseExpansion, &sleepPrunedPairs, restrictToPairSourceCells );
+    GetFilteredCandidatePairsImpl( outPairs, pairFilter, &sleepPrunedPairs, restrictToPairSourceCells );
 }
 
 void SpatialGrid::GetFilteredCandidatePairs( SkullbonezCore::Physics::PhysicsCandidatePairList& outPairs,
-                                             const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
-                                             const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                             std::span<const uint8_t> sleepState, float dt, float contactSkin,
-                                             std::span<const float> angularBroadphaseExpansion,
+                                             const SkullbonezCore::Physics::BroadphasePairFilter& pairFilter,
                                              bool restrictToPairSourceCells )
 {
-    GetFilteredCandidatePairsImpl( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                   angularBroadphaseExpansion, nullptr, restrictToPairSourceCells );
+    GetFilteredCandidatePairsImpl( outPairs, pairFilter, nullptr, restrictToPairSourceCells );
 }
 
 

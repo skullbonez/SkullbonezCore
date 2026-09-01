@@ -36,6 +36,7 @@ Related:
 #include "../../World/WorldEnvironment.h"
 #include "../../Core/Profiler.h"
 
+
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 
@@ -110,44 +111,78 @@ void CameraControlState::AdvanceAutoCycleClock( bool sceneMode, float simulation
 }
 
 
-void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCameraController& attachedCamera,
-                                       const SkullbonezCore::Core::EngineConfig& config, bool editorModeEnabled,
-                                       bool viewportLookActive, bool sceneMode, float cameraDt, float presentationAlpha )
+void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCameraController& attachedCamera, float cameraDt,
+                                       float presentationAlpha, float fluidSurfaceHeight, bool attachedOrbitOwnsCamera,
+                                       bool flyControlsActive, bool editorModeEnabled, bool editorViewportLookActive,
+                                       bool manualControlsActive, bool authoredScene )
 {
     Environment::CameraCollection& cameras = world.Cameras();
     Geometry::Terrain& terrain = *world.Terrain().Get();
-    constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
-    mouseRadiansPerPixel = CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
-    const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( mode ) && attachedCamera.State().activeFollow &&
-                                         attachedCamera.State().submode != AttachedCameraSubmode::RagdollEyes;
+    const float mouseMovementQuantity = ( 1.0f / 60.0f ) * m_mouseSensitivity;
+    mouseRadiansPerPixel = mouseMovementQuantity;
+    const bool hasTravelInput = inputMoveForward || inputMoveBackward || inputMoveLeft || inputMoveRight;
 
-    InputController::ApplyCameraMovement( *this, cameras, terrain,
-                                          RuntimeCameraMovementInput { cameraDt * config.camera.keySpeed,
-                                                                       CAMERA_MOUSE_REFERENCE_DT *
-                                                                           config.camera.mouseSensitivity,
-                                                                       config.camera.minCameraHeight,
-                                                                       config.camera.maxCameraHeight,
-                                                                       world.Environment().GetFluidSurfaceHeight(),
-                                                                       attachedOrbitOwnsCamera,
-                                                                       RunCameraModeUsesFlyControls( mode,
-                                                                                                     attachedCamera.State()
-                                                                                                         .activeFollow,
-                                                                                                     director.grabbed ),
-                                                                       editorModeEnabled, viewportLookActive,
-                                                                       RunCameraModeUsesManualControls( mode,
-                                                                                                        attachedCamera
-                                                                                                            .State()
-                                                                                                            .activeFollow,
-                                                                                                        director.grabbed ),
-                                                                       sceneMode } );
+    if ( !attachedOrbitOwnsCamera &&
+         ( flyControlsActive || mouseLookOwnsCursor || editorViewportLookActive || hasTravelInput ) )
+    {
+        if ( ( !editorModeEnabled || editorViewportLookActive ) && ( inputXMove != 0 || inputYMove != 0 ) )
+        {
+            // Why: Win32 mouse deltas describe screen motion (right and down are
+            // positive), while Camera rotates world vectors with the engine's
+            // right-handed active convention. Inverse radians keep free look
+            // and locked launcher orbit aligned with pointer motion.
+            cameras.RotatePrimary( InputController::ResolveMouseLookRadians( inputXMove, mouseMovementQuantity ),
+                                   InputController::ResolveMouseLookRadians( inputYMove, mouseMovementQuantity ) );
+        }
+
+        const float travelQuantity = cameraDt * m_keySpeed * travelSpeedMultiplier;
+
+        if ( inputMoveForward )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Forward, travelQuantity );
+        }
+
+        if ( inputMoveLeft )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Left, travelQuantity );
+        }
+
+        if ( inputMoveBackward )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Backward, travelQuantity );
+        }
+
+        if ( inputMoveRight )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Right, travelQuantity );
+        }
+
+        cameras.ApplyPrimaryMovementBuffer();
+    }
+
+    // Passive generated-demo camera bounds do not own manual or pinned follow views.
+    if ( !manualControlsActive && !editorViewportLookActive && !authoredScene )
+    {
+        const Vector3 translatedCameraPosition = cameras.GetCameraTranslation();
+        const float terrainHeight = terrain.GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z,
+                                                                false );
+
+        // The world owner may move water after startup; the frame carries that
+        // live plane while stable movement limits stay with CameraControlState.
+        const float resolvedY = InputController::ResolvePassiveCameraY( translatedCameraPosition.y, terrainHeight,
+                                                                        fluidSurfaceHeight, m_minCameraHeight,
+                                                                        m_maxCameraHeight );
+
+        if ( resolvedY != translatedCameraPosition.y )
+        {
+            cameras.AmmendPrimaryY( resolvedY );
+        }
+    }
 
     if ( RunCameraModeIsAttached( mode ) )
     {
-        const float orbitYawDelta = static_cast<float>( inputXMove ) * CAMERA_MOUSE_REFERENCE_DT *
-                                    config.camera.mouseSensitivity;
-
-        const float orbitPitchDelta = static_cast<float>( inputYMove ) * CAMERA_MOUSE_REFERENCE_DT *
-                                      config.camera.mouseSensitivity;
+        const float orbitYawDelta = static_cast<float>( inputXMove ) * mouseMovementQuantity;
+        const float orbitPitchDelta = static_cast<float>( inputYMove ) * mouseMovementQuantity;
 
         (void)attachedCamera.TickFollow( world, orbitYawDelta, orbitPitchDelta, presentationAlpha );
     }

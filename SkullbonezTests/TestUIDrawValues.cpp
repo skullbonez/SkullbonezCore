@@ -1,4 +1,4 @@
-/*
+﻿/*
 File: SkullbonezTests/TestUIDrawValues.cpp
 Purpose:
   Locks the backend-neutral UI draw-stream and font-metric contracts.
@@ -30,6 +30,7 @@ Related:
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/UI/UIDraw.h"
 #include "../SkullbonezSource/UI/UIDrawList.h"
+#include "../SkullbonezSource/UI/UIComboBox.h"
 #include "../SkullbonezSource/UI/UIFontMetrics.h"
 #include "../SkullbonezSource/UI/UICache.h"
 #include "../SkullbonezSource/UI/UILayout.h"
@@ -55,6 +56,52 @@ using SkullbonezCore::UI::UIDrawContext;
 using SkullbonezCore::UI::UIDrawList;
 using SkullbonezCore::UI::UIFontMetrics;
 
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+namespace SkullbonezCore::UI
+{
+struct UIWindowInteractionOwnerTestAccess
+{
+    static void ArmMemoryPreview( UIWindowInteractionOwner& owner )
+    {
+        owner.m_activeSlider = 901;
+        owner.m_memoryOverlay.previewRetentionSeconds = 93;
+        owner.m_memoryOverlay.previewBudgetMiB = 384;
+    }
+
+    static bool MemoryPreviewDiscarded( const UIWindowInteractionOwner& owner )
+    {
+        return owner.m_activeSlider == 0 && owner.m_memoryOverlay.previewRetentionSeconds == -1 &&
+               owner.m_memoryOverlay.previewBudgetMiB == -1;
+    }
+
+    static double ScrollbarVisibleUntil( const UIWindowInteractionOwner& owner )
+    {
+        return owner.m_scrollbarVisibleUntil;
+    }
+
+    static void BeginResize( UIWindowInteractionOwner& owner )
+    {
+        owner.m_interaction.isResizing = true;
+        owner.m_interaction.resizeStartMouseX = 300;
+        owner.m_interaction.resizeStartMouseY = 160;
+        owner.m_interaction.resizeStartW = 300;
+        owner.m_interaction.resizeStartH = 160;
+    }
+
+    static int WindowWidth( const UIWindowInteractionOwner& owner )
+    {
+        return owner.m_window.width;
+    }
+
+    static int WindowHeight( const UIWindowInteractionOwner& owner )
+    {
+        return owner.m_window.height;
+    }
+};
+} // namespace SkullbonezCore::UI
+using SkullbonezCore::UI::UIWindowInteractionOwnerTestAccess;
+#endif
+
 namespace
 {
 template <typename T>
@@ -72,11 +119,15 @@ concept HasForecastTickCapability = requires( const T& value ) { value.newestAbs
 template <typename T>
 concept HasForecastRetainedBytesCapability = requires( const T& value ) { value.retainedBytes; };
 
+template <typename T>
+concept HasCompleteWidgetSurface = requires( T& value ) { value.Widgets(); };
+
 static_assert( !HasOrdinaryRenderCapability<SkullbonezCore::UI::UIOptionsTabFrameView> );
 static_assert( !HasCinematicConfigCapability<SkullbonezCore::UI::UIOptionsTabFrameView> );
 static_assert( !HasOperatorEditorCapability<SkullbonezCore::UI::UISceneTabFrameView> );
 static_assert( !HasForecastTickCapability<SkullbonezCore::UI::UISceneForecastFrameView> );
 static_assert( !HasForecastRetainedBytesCapability<SkullbonezCore::UI::UISceneForecastFrameView> );
+static_assert( !HasCompleteWidgetSurface<SkullbonezCore::UI::UIWindowInteractionOwner> );
 
 int FindDrawTextIndex( const UIDrawList& list, const char* expected )
 {
@@ -111,7 +162,12 @@ TEST_CASE( "UI window close hides the panel instead of minimizing it" )
     input.leftPressed = true;
 
     const SkullbonezCore::UI::SceneNavigationModel sceneNavigation;
-    owner.UpdateInput( input, 1920, 1080, 1.0, false, false, false, false, 0, 0xffffffffu, sceneNavigation );
+    const bool editorModeEnabled = false;
+    const bool placementModeEnabled = false;
+    const bool placeStaticObject = false;
+    const bool autoTerrainAlign = false;
+    owner.UpdateInput( input, sceneNavigation, 1920, 1080, 1.0, editorModeEnabled, placementModeEnabled,
+                       placeStaticObject, autoTerrainAlign, 0xffffffffu );
 
     CHECK_FALSE( owner.IsVisible() );
     CHECK( owner.IsMinimized() );
@@ -144,17 +200,11 @@ TEST_CASE( "UI capture cancellation discards deferred replay memory previews" )
 
     const auto armPreview = [&owner]()
     {
-        auto widgets = owner.Widgets();
-        widgets.activeSlider = 901;
-        widgets.memoryOverlay.previewRetentionSeconds = 93;
-        widgets.memoryOverlay.previewBudgetMiB = 384;
+        UIWindowInteractionOwnerTestAccess::ArmMemoryPreview( owner );
     };
     const auto checkDiscarded = [&owner]()
     {
-        auto widgets = owner.Widgets();
-        CHECK( widgets.activeSlider == 0 );
-        CHECK( widgets.memoryOverlay.previewRetentionSeconds == -1 );
-        CHECK( widgets.memoryOverlay.previewBudgetMiB == -1 );
+        CHECK( UIWindowInteractionOwnerTestAccess::MemoryPreviewDiscarded( owner ) );
     };
 
     armPreview();
@@ -182,14 +232,14 @@ TEST_CASE( "UI programmatic scroll reveal starts at the next visible draw" )
 
     owner.SetScrollY( 120.0f );
     owner.PrepareForDraw( 50.0 );
-    CHECK( owner.Widgets().scrollbarVisibleUntil == doctest::Approx( 51.2 ) );
+    CHECK( UIWindowInteractionOwnerTestAccess::ScrollbarVisibleUntil( owner ) == doctest::Approx( 51.2 ) );
 
     owner.PrepareForDraw( 70.0 );
-    CHECK( owner.Widgets().scrollbarVisibleUntil == doctest::Approx( 51.2 ) );
+    CHECK( UIWindowInteractionOwnerTestAccess::ScrollbarVisibleUntil( owner ) == doctest::Approx( 51.2 ) );
 
     owner.SetScrollY( 80.0f );
     owner.PrepareForDraw( 70.0 );
-    CHECK( owner.Widgets().scrollbarVisibleUntil == doctest::Approx( 71.2 ) );
+    CHECK( UIWindowInteractionOwnerTestAccess::ScrollbarVisibleUntil( owner ) == doctest::Approx( 71.2 ) );
 }
 
 TEST_CASE( "UI narrow clients replace ordinary window minima with reachable bounds" )
@@ -219,22 +269,20 @@ TEST_CASE( "UI narrow clients replace ordinary window minima with reachable boun
     SkullbonezCore::UI::UIWindowInteractionOwner owner;
     owner.SetVisible( true, 0.0 );
     owner.SetWindowBounds( 10, 10, 300, 160 );
-    {
-        auto widgets = owner.Widgets();
-        widgets.interaction.isResizing = true;
-        widgets.interaction.resizeStartMouseX = 300;
-        widgets.interaction.resizeStartMouseY = 160;
-        widgets.interaction.resizeStartW = 300;
-        widgets.interaction.resizeStartH = 160;
-    }
+    UIWindowInteractionOwnerTestAccess::BeginResize( owner );
     SkullbonezCore::UI::InputControl::UIInputSnapshot resizeInput;
     resizeInput.mouseX = 319;
     resizeInput.mouseY = 179;
     resizeInput.leftDown = true;
     const SkullbonezCore::UI::SceneNavigationModel sceneNavigation;
-    owner.UpdateInput( resizeInput, 320, 180, 1.0, false, false, false, false, 0, 0xffffffffu, sceneNavigation );
-    CHECK( owner.Widgets().window.width <= 300 );
-    CHECK( owner.Widgets().window.height <= 160 );
+    const bool editorModeEnabled = false;
+    const bool placementModeEnabled = false;
+    const bool placeStaticObject = false;
+    const bool autoTerrainAlign = false;
+    owner.UpdateInput( resizeInput, sceneNavigation, 320, 180, 1.0, editorModeEnabled, placementModeEnabled,
+                       placeStaticObject, autoTerrainAlign, 0xffffffffu );
+    CHECK( UIWindowInteractionOwnerTestAccess::WindowWidth( owner ) <= 300 );
+    CHECK( UIWindowInteractionOwnerTestAccess::WindowHeight( owner ) <= 160 );
 
     SkullbonezCore::UI::UIEditorTabFrameView editor;
     const float minimizedWidth = EditorMinimizedWidth( editor, 320 );
@@ -282,20 +330,17 @@ TEST_CASE( "UI narrow clients replace ordinary window minima with reachable boun
 
 TEST_CASE( "UI position cache hashes pointer interaction in window-local coordinates" )
 {
+    using SkullbonezCore::UI::UI_DIRTY_POSITION;
     using SkullbonezCore::UI::UICacheFrameKey;
     using SkullbonezCore::UI::UICacheState;
     using SkullbonezCore::UI::UIRect;
-    using SkullbonezCore::UI::UI_DIRTY_POSITION;
     using SkullbonezCore::UI::FrameComposition::BuildUIInteractionSignature;
 
     const UIRect firstBounds { 100.0f, 120.0f, 760.0f, 520.0f };
     const UIRect movedBounds { 140.0f, 160.0f, 760.0f, 520.0f };
-    const uint32_t firstSignature =
-        BuildUIInteractionSignature( 130, 150, firstBounds, false, false, false, false, false, false, false, 0, 0 );
-    const uint32_t movedSignature =
-        BuildUIInteractionSignature( 170, 190, movedBounds, false, false, false, false, false, false, false, 0, 0 );
-    const uint32_t localPointerMove =
-        BuildUIInteractionSignature( 171, 190, movedBounds, false, false, false, false, false, false, false, 0, 0 );
+    const uint32_t firstSignature = BuildUIInteractionSignature( { { 130, 150 }, firstBounds, 0u, 0, 0 } );
+    const uint32_t movedSignature = BuildUIInteractionSignature( { { 170, 190 }, movedBounds, 0u, 0, 0 } );
+    const uint32_t localPointerMove = BuildUIInteractionSignature( { { 171, 190 }, movedBounds, 0u, 0, 0 } );
     CHECK( firstSignature == movedSignature );
     CHECK( movedSignature != localPointerMove );
 
@@ -307,7 +352,7 @@ TEST_CASE( "UI position cache hashes pointer interaction in window-local coordin
     firstKey.contentSignature = 11u;
     firstKey.interactionSignature = firstSignature;
     cache.BeginFrame( firstKey );
-    cache.MutableDrawList().AddRect( 100.0f, 120.0f, 20.0f, 20.0f, 1.0f, 1.0f, 1.0f, 1.0f );
+    cache.MutableDrawList().AddRect( { 100.0f, 120.0f, 20.0f, 20.0f }, { 1.0f, 1.0f, 1.0f, 1.0f } );
     cache.StoreFrame( firstKey );
 
     UICacheFrameKey movedKey = firstKey;
@@ -324,8 +369,7 @@ TEST_CASE( "UI position cache hashes pointer interaction in window-local coordin
     UICacheFrameKey secondMovedKey = movedKey;
     secondMovedKey.windowBounds = secondMovedBounds;
     secondMovedKey.contentSignature = 13u;
-    secondMovedKey.interactionSignature =
-        BuildUIInteractionSignature( 210, 230, secondMovedBounds, false, false, false, false, false, false, false, 0, 0 );
+    secondMovedKey.interactionSignature = BuildUIInteractionSignature( { { 210, 230 }, secondMovedBounds, 0u, 0, 0 } );
     cache.BeginFrame( secondMovedKey );
     CHECK( cache.CanReplayPositionOnly( secondMovedKey, true ) );
     CHECK( cache.ReplayOffsetX( secondMovedKey ) == doctest::Approx( 80.0f ) );
@@ -366,12 +410,12 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
 
     const char* sceneOptions[] = { "solar_system.scene.json" };
     auto data = std::make_unique<InGameUIFrameData>();
-    data->screenW = 1920;
-    data->screenH = 1080;
-    data->sceneName = sceneOptions[0];
-    data->sceneOptions = sceneOptions;
-    data->sceneOptionCount = 1;
-    data->selectedSceneOption = 0;
+    data->surface.screenW = 1920;
+    data->surface.screenH = 1080;
+    data->surface.sceneName = sceneOptions[0];
+    data->scene.sceneOptions = sceneOptions;
+    data->scene.sceneOptionCount = 1;
+    data->scene.selectedSceneOption = 0;
 
     auto ui = std::make_unique<InGameUI>();
     ui->SetVisible( true );
@@ -390,8 +434,13 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
     input.leftPressed = true;
     ui->SceneNavigation().browser.names.emplace_back( sceneOptions[0] );
     ui->SceneNavigation().browser.namePtrs.push_back( ui->SceneNavigation().browser.names[0].c_str() );
-    const InGameUIInputResult result = ui->UpdateInput( input, data->screenW, data->screenH, 1.0, false, false, true, false,
-                                                        0, 0xffffffffu );
+    const bool editorModeEnabled = false;
+    const bool placementModeEnabled = false;
+    const bool placeStaticObject = true;
+    const bool autoTerrainAlign = false;
+    const InGameUIInputResult result =
+        ui->UpdateInput( input, data->surface.screenW, data->surface.screenH, 1.0, editorModeEnabled,
+                         placementModeEnabled, placeStaticObject, autoTerrainAlign, 0xffffffffu );
 
     CHECK( result.commands.forecast.type == UIForecastCommandType::ToggleContinuous );
     CHECK( result.commands.ui.userInteracted );
@@ -425,10 +474,10 @@ TEST_CASE( "UI draw values preserve primitive and text order" )
 {
     UIDrawList list;
     list.Clear();
-    list.AddRect( 1, 2, 3, 4, 0.1f, 0.2f, 0.3f, 0.4f );
-    list.AddRoundedRect( 5, 6, 7, 8, 2, 0.2f, 0.3f, 0.4f, 0.5f );
-    list.AddTriangle( 1, 2, 3, 4, 5, 6, 0.3f, 0.4f, 0.5f, 0.6f );
-    list.AddText( 7, 8, 12, 0.8f, 0.9f, 1.0f, "ordered" );
+    list.AddRect( { 1, 2, 3, 4 }, { 0.1f, 0.2f, 0.3f, 0.4f } );
+    list.AddRoundedRect( { 5, 6, 7, 8 }, 2, { 0.2f, 0.3f, 0.4f, 0.5f } );
+    list.AddTriangle( { { 1, 2 }, { 3, 4 }, { 5, 6 } }, { 0.3f, 0.4f, 0.5f, 0.6f } );
+    list.AddText( { 7, 8 }, 12, { 0.8f, 0.9f, 1.0f, 1.0f }, "ordered" );
 
     const auto commands = list.Commands();
     REQUIRE( commands.size() == 4 );
@@ -440,12 +489,28 @@ TEST_CASE( "UI draw values preserve primitive and text order" )
 }
 
 
+TEST_CASE( "UI combo presentation keeps options selection and disabled state aligned" )
+{
+    const char* options[] = { "First", "Second", "Third" };
+    SkullbonezCore::UI::UIComboPresentationView presentation { std::span<const char* const>( options ), 1, 1u << 1 };
+
+    CHECK( presentation.OptionCount() == 3 );
+    CHECK( std::strcmp( presentation.SelectedText(), "Second" ) == 0 );
+    CHECK_FALSE( presentation.SelectedOptionEnabled() );
+
+    presentation.selectedTextOverride = "Selected elsewhere";
+    CHECK( std::strcmp( presentation.SelectedText(), "Selected elsewhere" ) == 0 );
+    presentation.selectedIndex = -1;
+    CHECK( presentation.SelectedOptionEnabled() );
+}
+
+
 TEST_CASE( "UI draw values retain nested clips and report imbalance" )
 {
     UIDrawList list;
     list.Clear();
-    list.PushClip( 0, 0, 100, 100 );
-    list.PushClip( 10, 10, 20, 20 );
+    list.PushClip( { 0, 0, 100, 100 } );
+    list.PushClip( { 10, 10, 20, 20 } );
     list.PopClip();
     list.PopClip();
     list.PopClip();
@@ -465,7 +530,7 @@ TEST_CASE( "UI preview values define unavailable fallback presentation" )
 {
     UIDrawList list;
     list.Clear();
-    list.AddPreviewImage( { 4, true }, 10, 20, 300, 160, 0.08f, 0.09f, 0.11f, 1.0f, "Preview unavailable" );
+    list.AddPreviewImage( { 4, true }, { 10, 20, 300, 160 }, { 0.08f, 0.09f, 0.11f, 1.0f }, "Preview unavailable" );
 
     const auto commands = list.Commands();
     REQUIRE( commands.size() == 1 );
@@ -483,7 +548,7 @@ TEST_CASE( "UI draw storage fails closed at fixed capacities" )
     list.Clear();
     for ( int index = 0; index < UIDrawList::MAX_COMMANDS + 1; ++index )
     {
-        list.AddRect( 0, 0, 1, 1, 1, 1, 1, 1 );
+        list.AddRect( { 0, 0, 1, 1 }, { 1, 1, 1, 1 } );
     }
     CHECK( list.Commands().size() == UIDrawList::MAX_COMMANDS );
     CHECK( list.GetStats().commandOverflow );
@@ -492,7 +557,7 @@ TEST_CASE( "UI draw storage fails closed at fixed capacities" )
     std::array<char, UIDrawList::MAX_TEXT_BYTES + 1> oversizedText {};
     oversizedText.fill( 'x' );
     oversizedText.back() = '\0';
-    list.AddText( 0, 0, 10, 1, 1, 1, oversizedText.data() );
+    list.AddText( { 0, 0 }, 10, { 1, 1, 1, 1 }, oversizedText.data() );
     CHECK( list.GetStats().textOverflow );
     REQUIRE( list.Commands().size() == 1 );
     CHECK( std::strlen( list.TextAt( list.Commands()[0].textOffset ) ) == UIDrawList::MAX_TEXT_BYTES - 1 );
@@ -500,7 +565,7 @@ TEST_CASE( "UI draw storage fails closed at fixed capacities" )
     list.Clear();
     for ( int depth = 0; depth < UIDrawList::MAX_CLIP_DEPTH + 1; ++depth )
     {
-        list.PushClip( 0, 0, 1, 1 );
+        list.PushClip( { 0, 0, 1, 1 } );
     }
     list.PopClip(); // Matches the rejected push and must not pop a retained clip.
     CHECK( list.Commands().size() == UIDrawList::MAX_CLIP_DEPTH );
@@ -518,14 +583,14 @@ TEST_CASE( "UI frame composition appends cached values without borrowing source 
 {
     auto cached = std::make_unique<UIDrawList>();
     cached->Clear();
-    cached->AddText( 10, 20, 12, 1, 1, 1, "cached label" );
-    cached->PushClip( 5, 6, 100, 80 );
-    cached->AddPreviewImage( { 2, true }, 8, 9, 40, 30, 0.1f, 0.2f, 0.3f, 1.0f, "Preview unavailable" );
+    cached->AddText( { 10, 20 }, 12, { 1, 1, 1, 1 }, "cached label" );
+    cached->PushClip( { 5, 6, 100, 80 } );
+    cached->AddPreviewImage( { 2, true }, { 8, 9, 40, 30 }, { 0.1f, 0.2f, 0.3f, 1.0f }, "Preview unavailable" );
     cached->PopClip();
 
     auto frame = std::make_unique<UIDrawList>();
     frame->Clear();
-    frame->AddRect( 0, 0, 1, 1, 1, 0, 0, 1 );
+    frame->AddRect( { 0, 0, 1, 1 }, { 1, 0, 0, 1 } );
     frame->Append( *cached, 3, 4 );
     cached->Clear();
 
@@ -550,29 +615,29 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 
     const char* sceneOptions[] = { "ui_scene", "ui_scene_alt" };
     auto data = std::make_unique<InGameUIFrameData>();
-    data->screenW = 1920;
-    data->screenH = 1080;
-    data->rendererName = "DirectX 12";
-    data->sceneName = "UI production fingerprint";
-    data->sceneOptions = sceneOptions;
-    data->sceneOptionCount = static_cast<int>( std::size( sceneOptions ) );
-    data->selectedSceneOption = 0;
-    data->currentSceneIndex = 0;
-    data->sceneCount = data->sceneOptionCount;
-    data->sceneMode = true;
-    data->currentFrame = 20;
-    data->targetFrameCount = 120;
-    data->runtimeInputModeLabel = "Inspect";
-    data->fps = 60.0f;
-    data->renderMs = 4.0f;
-    data->physicsMs = 2.0f;
-    data->cpuFrameMs = 6.0f;
-    data->gpuFrameMs = 3.0f;
-    data->modelCount = 32;
-    data->workerThreadCount = 4;
-    data->maxWorkerThreadCount = 8;
-    data->renderTargetPreviewCount = 1;
-    data->renderTargetPreviews[0] = { "Scene HDR", 1920, 1080, false, false, true };
+    data->surface.screenW = 1920;
+    data->surface.screenH = 1080;
+    data->surface.rendererName = "DirectX 12";
+    data->surface.sceneName = "UI production fingerprint";
+    data->scene.sceneOptions = sceneOptions;
+    data->scene.sceneOptionCount = static_cast<int>( std::size( sceneOptions ) );
+    data->scene.selectedSceneOption = 0;
+    data->scene.currentSceneIndex = 0;
+    data->scene.sceneCount = data->scene.sceneOptionCount;
+    data->surface.sceneMode = true;
+    data->scene.currentFrame = 20;
+    data->scene.targetFrameCount = 120;
+    data->surface.runtimeInputModeLabel = "Inspect";
+    data->surface.fps = 60.0f;
+    data->surface.renderMs = 4.0f;
+    data->surface.physicsMs = 2.0f;
+    data->surface.cpuFrameMs = 6.0f;
+    data->surface.gpuFrameMs = 3.0f;
+    data->scene.modelCount = 32;
+    data->surface.workerThreadCount = 4;
+    data->surface.maxWorkerThreadCount = 8;
+    data->renderTargets.count = 1;
+    data->renderTargets.previews[0] = { "Scene HDR", 1920, 1080, false, false, true };
 
     constexpr InGameUITab tabs[] = {
         InGameUITab::Profiler, InGameUITab::Scene,     InGameUITab::Editor,  InGameUITab::Physics,
@@ -647,19 +712,19 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 TEST_CASE( "GameUI projects focused tab views from the root frame" )
 {
     auto data = std::make_unique<SkullbonezCore::UI::InGameUIFrameData>();
-    data->modelCapacity = 321;
-    data->rngSeed = 77u;
-    data->editorObjectType = 9;
-    data->selectedCineModeSceneOption = 3;
-    data->ordinaryRender.shadow.enabled = false;
-    data->cinematic.shadow.enabled = true;
+    data->scene.modelCapacity = 321;
+    data->scene.rngSeed = 77u;
+    data->editor.editorObjectType = 9;
+    data->scene.selectedCineModeSceneOption = 3;
+    data->rendering.ordinaryRender.shadow.enabled = false;
+    data->rendering.cinematic.shadow.enabled = true;
     data->operatorEditor.forecast.available = true;
     data->operatorEditor.forecast.simulatedSeconds = 12.5;
-    data->timeScale = 2.5f;
-    data->worldGravity = -12.0f;
-    data->profilerMarkerOptionCount = 4;
-    data->reserveGrowthEventTotalCount = 19u;
-    data->currentFrame = 42;
+    data->scene.timeScale = 2.5f;
+    data->world.worldGravity = -12.0f;
+    data->diagnostics.profilerMarkerOptionCount = 4;
+    data->diagnostics.reserveGrowthEventTotalCount = 19u;
+    data->scene.currentFrame = 42;
 
     const auto controls = data->ControlsTabFrame();
     const auto editor = data->EditorTabFrame();
@@ -674,15 +739,15 @@ TEST_CASE( "GameUI projects focused tab views from the root frame" )
     CHECK( controls.rngSeed == 77u );
     CHECK( editor.editorObjectType == 9 );
     CHECK( cinematic.selectedCineModeSceneOption == 3 );
-    CHECK( &cinematic.cinematic == &data->cinematic );
+    CHECK( &cinematic.cinematic == &data->rendering.cinematic );
     CHECK( options.timeScale == doctest::Approx( 2.5f ) );
     CHECK_FALSE( options.ordinaryShadowsEnabled );
     CHECK( options.cinematicShadowsEnabled );
     CHECK( physics.worldGravity == doctest::Approx( -12.0f ) );
-    CHECK( &physics.physicsDebug == &data->physicsDebug );
-    CHECK( profiler.markerOptions == data->profilerMarkerOptions );
+    CHECK( &physics.physicsDebug == &data->world.physicsDebug );
+    CHECK( profiler.markerOptions == data->diagnostics.profilerMarkerOptions );
     CHECK( profiler.markerOptionCount == 4 );
-    CHECK( &memory.mainMemory == &data->mainMemory );
+    CHECK( &memory.mainMemory == &data->diagnostics.mainMemory );
     CHECK( memory.reserveGrowthEventTotalCount == 19u );
     CHECK( scene.forecast.available );
     CHECK( scene.forecast.simulatedSeconds == doctest::Approx( 12.5 ) );
@@ -700,14 +765,14 @@ TEST_CASE( "GameUI gravity slider endpoints emit signed world acceleration from 
     const SkullbonezCore::UI::UIRect track = Widgets::SliderTrackBounds( state.worldGravitySlider.Bounds() );
 
     SkullbonezCore::UI::InGameUIInputResult minimumResult;
-    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY,
-                                             static_cast<int>( track.x ), minimumResult ) );
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x ),
+                                             minimumResult ) );
     CHECK( minimumResult.commands.water.requestWorldGravity );
     CHECK( minimumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MIN ) );
 
     SkullbonezCore::UI::InGameUIInputResult maximumResult;
-    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY,
-                                             static_cast<int>( track.x + track.w ), maximumResult ) );
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x + track.w ),
+                                             maximumResult ) );
     CHECK( maximumResult.commands.water.requestWorldGravity );
     CHECK( maximumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MAX ) );
 }
@@ -719,8 +784,8 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
 
     auto data = std::make_unique<InGameUIFrameData>();
     SkullbonezCore::UI::UIRuntimeReserveCapacityRow capacityRows[2] = {};
-    data->reserveCapacityRows = capacityRows;
-    data->reserveCapacityRowCount = 2;
+    data->diagnostics.reserveCapacityRows = capacityRows;
+    data->diagnostics.reserveCapacityRowCount = 2;
     strcpy_s( capacityRows[0].ownerName, "PhysicsBodyStore.bodies" );
     strcpy_s( capacityRows[0].capacityReason, "one row per loaded body" );
     strcpy_s( capacityRows[0].subsystemName, "physics" );

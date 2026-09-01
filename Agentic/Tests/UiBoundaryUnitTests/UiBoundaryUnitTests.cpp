@@ -48,6 +48,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <memory>
+#include <span>
 
 namespace
 {
@@ -198,8 +199,8 @@ bool CheckComponentBaselines()
         comboBox.SetOpen( engaged );
         button.Draw( draw, "Apply", engaged ? 20 : 600, engaged ? 20 : 340 );
         checkBox.DrawToggle( draw, "Enabled", engaged, 0.20f, 0.60f, 0.90f );
-        comboBox.Draw( draw, "Mode", kComboOptions, static_cast<int>( std::size( kComboOptions ) ), 1, engaged ? 80 : 600,
-                       engaged ? 157 : 340, 1u );
+        comboBox.Draw( draw, "Mode", { std::span<const char* const>( kComboOptions ), 1, 1u },
+                       { engaged ? 80 : 600, engaged ? 157 : 340 } );
         iconButton.DrawExpander( draw, engaged );
         slider.Draw( draw, "Strength", engaged ? "0.75" : "0.25", engaged ? 0.75f : 0.25f, 0.0f, 1.0f );
         scrollBar.Draw( draw, 420.0f, 210.0f, 105.0f, engaged ? 2.0 : 0.0, 1.5 );
@@ -232,8 +233,9 @@ bool CheckComponentBaselines()
         if ( engaged )
         {
             const int hoveredOption = Widgets::ComboOptionAtPointer( comboLayout.popupBounds, comboState, 80, 157, 3 );
-            Widgets::DrawComboPopup( draw, comboLayout, kComboOptions, static_cast<int>( std::size( kComboOptions ) ), 1,
-                                     hoveredOption, 1u, comboState, kEstablished );
+            Widgets::DrawComboPopup( draw, comboLayout,
+                                     { std::span<const char* const>( kComboOptions ), 1, 1u }, hoveredOption, comboState,
+                                     kEstablished );
         }
 
         Widgets::DrawIconButton( draw, iconBounds, engaged ? Widgets::ComponentIcon::Minus : Widgets::ComponentIcon::Plus,
@@ -446,31 +448,31 @@ bool CheckComponentEdgeContracts()
 
     static constexpr const char* kOptions[] = { "Alpha", "Beta", "Gamma" };
 
-    // Hazard: null catalogs and invalid counts are legal detached values. They
-    // may preserve popup framing but must never dereference text or select a
-    // row, while an out-of-range selection is equivalent to no selection.
+    // Invariant: option storage carries its own extent. An empty presentation
+    // cannot preserve a stale non-zero count, while an out-of-range selection
+    // remains equivalent to no selection.
     drawList->Clear();
-    Widgets::DrawComboPopup( draw, labelled, nullptr, 3, 1, 2, 0u, kEnabled );
-    const auto nullOptionsStats = drawList->GetStats();
-    const bool nullOptionsValid = nullOptionsStats.commandCount == 5 && nullOptionsStats.textBytes == 0 &&
-                                  nullOptionsStats.maxClipDepth == 1 && !nullOptionsStats.clipOverflow;
+    Widgets::DrawComboPopup( draw, labelled, {}, 2, kEnabled );
+    const auto emptyOptionsStats = drawList->GetStats();
+    const bool emptyOptionsValid = emptyOptionsStats.commandCount == 0 && emptyOptionsStats.textBytes == 0 &&
+                                   !emptyOptionsStats.clipOverflow;
 
     drawList->Clear();
-    Widgets::DrawComboPopup( draw, labelled, kOptions, 3, -1, -1, 0u, kEnabled );
+    Widgets::DrawComboPopup( draw, labelled, { std::span<const char* const>( kOptions ), -1 }, -1, kEnabled );
     const uint64_t noSelectionFingerprint = drawList->Fingerprint();
     drawList->Clear();
-    Widgets::DrawComboPopup( draw, labelled, kOptions, 3, 99, -1, 0u, kEnabled );
+    Widgets::DrawComboPopup( draw, labelled, { std::span<const char* const>( kOptions ), 99 }, -1, kEnabled );
     const bool outOfRangeSelectionValid = drawList->Fingerprint() == noSelectionFingerprint;
 
     drawList->Clear();
-    Widgets::DrawComboPopup( draw, zeroOptions, kOptions, 0, -1, -1, 0u, kEnabled );
+    Widgets::DrawComboPopup( draw, zeroOptions, {}, -1, kEnabled );
     const bool zeroOptionsValid = drawList->GetStats().commandCount == 0;
     drawList->Clear();
-    Widgets::DrawComboPopup( draw, negativeOptions, kOptions, -3, -1, -1, 0u, kEnabled );
+    Widgets::DrawComboPopup( draw, negativeOptions, {}, -1, kEnabled );
     const bool negativeOptionsValid = drawList->GetStats().commandCount == 0;
 
     const bool passed = labelColumnValid && labelHiddenValid && dropUpValid && optionEdgesValid && footerStateValid &&
-                        chevronCommandsValid && nullOptionsValid && outOfRangeSelectionValid && zeroOptionsValid &&
+                        chevronCommandsValid && emptyOptionsValid && outOfRangeSelectionValid && zeroOptionsValid &&
                         negativeOptionsValid;
 
     if ( passed )
@@ -482,7 +484,7 @@ bool CheckComponentEdgeContracts()
                   "FAIL: component edges label=%d hidden=%d dropUp=%d options=%d footer=%d chevron=%d null=%d "
                   "selection=%d zero=%d negative=%d footerFp=%llu/%llu chevronFp=%llu/%llu\n",
                   labelColumnValid ? 1 : 0, labelHiddenValid ? 1 : 0, dropUpValid ? 1 : 0, optionEdgesValid ? 1 : 0,
-                  footerStateValid ? 1 : 0, chevronCommandsValid ? 1 : 0, nullOptionsValid ? 1 : 0,
+                  footerStateValid ? 1 : 0, chevronCommandsValid ? 1 : 0, emptyOptionsValid ? 1 : 0,
                   outOfRangeSelectionValid ? 1 : 0, zeroOptionsValid ? 1 : 0, negativeOptionsValid ? 1 : 0,
                   static_cast<unsigned long long>( enabledFooterFingerprint ),
                   static_cast<unsigned long long>( disabledFooterFingerprint ),
@@ -613,7 +615,7 @@ bool CheckStatelessComponentContracts()
 
     Widgets::DrawScrollBar( draw, scrollTrack, 420.0f, 210.0f, 105.0f, 0.74f, kEnabled | UIVisualState::Active );
     Widgets::DrawComboField( draw, comboLayout, "Mode", "Beta", true, true, kEnabled | UIVisualState::Focused );
-    Widgets::DrawComboPopup( draw, comboLayout, kOptions, static_cast<int>( std::size( kOptions ) ), 1, 2, 1u, kEnabled );
+    Widgets::DrawComboPopup( draw, comboLayout, { std::span<const char* const>( kOptions ), 1, 1u }, 2, kEnabled );
     Widgets::DrawIconButton( draw, { 234.0f, 46.0f, 24.0f, 24.0f }, Widgets::ComponentIcon::Plus,
                              kEnabled | UIVisualState::Hovered );
     Widgets::DrawIconButton( draw, { 264.0f, 46.0f, 24.0f, 24.0f }, Widgets::ComponentIcon::Close,

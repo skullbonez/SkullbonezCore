@@ -12,7 +12,7 @@ Glossary:
   Store view: Borrowed contiguous Physics or Rendering records owned elsewhere.
 
 Invariants:
-  - Field order matches RuntimeRenderModelFrameView exactly.
+  - Each published child view matches one consumer-owned frame phase.
   - Physics debug and sleep rows come from the same PhysicsEngine generation.
   - Collection performs no allocation and retains no owner reference.
 
@@ -30,36 +30,62 @@ Related:
 #include "../../Core/Config.h"
 #include "../../Physics/PhysicsEngine.h"
 
+#include <algorithm>
+
 namespace SkullbonezCore
 {
 namespace Runtime
 {
-RuntimeRenderModelFrameView PublishRenderModelFrame( SceneWorld& scene, Threading::WorkerPool& workerPool,
-                                                     const Core::EngineConfig& config )
+RuntimeRenderFrameViews PublishRenderModelFrame( SceneWorld& scene, Threading::WorkerPool& workerPool,
+                                                 const Core::EngineConfig& config )
 {
     Physics::PhysicsEngine& physics = scene.Physics();
-    return RuntimeRenderModelFrameView { scene.MutableRenderInstances(),
-                                         Physics::PhysicsEngine::ReadColliders( physics ),
-                                         Physics::PhysicsEngine::ReadBodies( physics ),
-                                         physics,
-                                         scene.BuildWorldExtensionDebugLines(),
-                                         scene.RenderPresentationRecords(),
-                                         Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
-                                         Physics::PhysicsEngine::ReadSleepStates( physics ),
-                                         Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics ),
-                                         Physics::PhysicsEngine::ReadSleepSupportedStates( physics ),
-                                         Physics::PhysicsEngine::ReadSleepInhibitedStates( physics ),
-                                         Physics::PhysicsEngine::ReadDebugContacts( physics ),
-                                         Physics::PhysicsEngine::ReadPipelineTrace( physics ),
-                                         &workerPool,
-                                         scene.SceneEntityCount(),
-                                         config.runtimeRender.renderCollisionVolumes,
-                                         config.runtimeRender.shadowParallelPrep,
-                                         scene.GetSceneKineticEnergy(),
-                                         CollectSceneMemoryStats( SceneMemoryDiagnosticsView { scene.Entities().CapacityBytes(),
-                                                                                               scene.CollectGameplayMemoryBytes(),
-                                                                                               scene.CollectGameplayDebugMemoryBytes(), physics,
-                                                                                               scene.RenderInstances() } ) };
+    Rendering::RenderInstanceStore& renderInstances = scene.MutableRenderInstances();
+    const Physics::ColliderStore& colliders = Physics::PhysicsEngine::ReadColliders( physics );
+    const int modelCount = scene.SceneEntityCount();
+
+    RuntimeRenderModelPresentationView presentation { renderInstances,
+                                                      colliders,
+                                                      scene.RenderPresentationRecords(),
+                                                      &workerPool,
+                                                      modelCount,
+                                                      config.runtimeRender.renderCollisionVolumes,
+                                                      config.runtimeRender.shadowParallelPrep };
+    const Physics::PhysicsBodyStore& bodies = Physics::PhysicsEngine::ReadBodies( physics );
+    const std::span<const uint8_t> sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
+    const std::span<const uint8_t> collisionContacts = Physics::PhysicsEngine::ReadCollisionVisualContacts( physics );
+    const std::span<const int> sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
+    const std::span<const uint8_t> sleepSupported = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
+    const std::span<const uint8_t> sleepInhibited = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
+
+    // Invariant: visualizers may index every per-body row up to modelCount. Clamp
+    // once at publication so a partial diagnostic snapshot cannot manufacture an
+    // oversized cache or lend one overlay rows from a different generation.
+    const int collisionModelCount = (std::max)( 0, (std::min)( { modelCount, static_cast<int>( bodies.Records().size() ),
+                                                                 static_cast<int>( colliders.Records().size() ),
+                                                                 static_cast<int>( renderInstances.Records().size() ),
+                                                                 static_cast<int>( collisionContacts.size() ),
+                                                                 static_cast<int>( sleepStates.size() ),
+                                                                 static_cast<int>( sleepIslandIds.size() ) } ) );
+    const int physicsDebugModelCount = (std::max)( 0, (std::min)( { modelCount, static_cast<int>( bodies.Records().size() ),
+                                                                    static_cast<int>( colliders.Records().size() ),
+                                                                    static_cast<int>( sleepStates.size() ),
+                                                                    static_cast<int>( sleepSupported.size() ),
+                                                                    static_cast<int>( sleepInhibited.size() ) } ) );
+    RuntimeRenderDebugViews debug { { physics },
+                                    { colliders, renderInstances, collisionContacts, sleepStates, sleepIslandIds,
+                                      collisionModelCount },
+                                    { bodies, colliders, sleepStates, sleepSupported, sleepInhibited,
+                                      Physics::PhysicsEngine::ReadDebugContacts( physics ),
+                                      Physics::PhysicsEngine::ReadPipelineTrace( physics ), physicsDebugModelCount } };
+    const RuntimeRenderWorldExtensionDebugView worldExtensionDebug { scene.BuildWorldExtensionDebugLines() };
+    const RuntimeRenderDiagnosticsFrameValues
+        diagnostics { scene.GetSceneKineticEnergy(),
+                      CollectSceneMemoryStats( SceneMemoryDiagnosticsView { scene.Entities().CapacityBytes(),
+                                                                            scene.CollectGameplayMemoryBytes(),
+                                                                            scene.CollectGameplayDebugMemoryBytes(), physics,
+                                                                            scene.RenderInstances() } ) };
+    return RuntimeRenderFrameViews { presentation, debug, worldExtensionDebug, diagnostics };
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

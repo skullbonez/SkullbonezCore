@@ -91,10 +91,30 @@ uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnaps
 uint32_t BuildUIContentSignature( const InGameUIFrameData& data );
 
 
-uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, const UIRect& windowBounds, bool rendererOpen,
-                                      bool reflectionOpen, bool sceneOpen, bool cineSceneOpen, bool editorObjectOpen,
-                                      bool renderTargetOpen, bool cameraModeOpen, int selectedRenderTarget,
-                                      int activeSlider );
+enum UIInteractionOpenControl : uint32_t
+{
+    UI_INTERACTION_RENDERER_OPEN = 1u << 0u,
+    UI_INTERACTION_REFLECTION_OPEN = 1u << 1u,
+    UI_INTERACTION_SCENE_OPEN = 1u << 2u,
+    UI_INTERACTION_CINEMATIC_SCENE_OPEN = 1u << 3u,
+    UI_INTERACTION_EDITOR_OBJECT_OPEN = 1u << 4u,
+    UI_INTERACTION_RENDER_TARGET_OPEN = 1u << 5u,
+    UI_INTERACTION_CAMERA_MODE_OPEN = 1u << 6u,
+};
+
+struct UIInteractionSignatureInput
+{
+    UIPointerPosition pointer;
+    UIRect windowBounds;
+    uint32_t openControls = 0u;
+    int selectedRenderTarget = 0;
+    int activeSlider = 0;
+
+    int LocalPointerX() const noexcept;
+    int LocalPointerY() const noexcept;
+};
+
+uint32_t BuildUIInteractionSignature( const UIInteractionSignatureInput& input );
 
 
 int RenderTargetPreviewCount( const InGameUIFrameData& data );

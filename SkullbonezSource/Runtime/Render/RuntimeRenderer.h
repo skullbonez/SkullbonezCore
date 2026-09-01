@@ -23,6 +23,7 @@ Invariants:
 #include "PhysicsDebugVisualizer.h"
 #include "RenderResourceLifecycle.h"
 #include "RenderPresentationSettings.h"
+#include "../../Core/FatalError.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderDiagnosticsTypes.h"
 #include "../../Rendering/RenderSceneSnapshot.h"
@@ -52,6 +53,7 @@ class Dx12ImGuiRendererOwner;
 #endif
 namespace Runtime
 {
+struct RuntimeRendererWorldOverlayTransactionTestAccess;
 struct RenderDiagnosticsReadout
 {
     // Detached UI-facing diagnostics. The renderer name is copied into bounded
@@ -63,8 +65,31 @@ struct RenderDiagnosticsReadout
 
 class RuntimeRenderer
 {
-  public:
+  private:
+    class WorldOverlayPhaseCursor
+    {
+      public:
+        bool TrySubmitOverlays() noexcept
+        {
+            if ( m_overlaysSubmitted )
+            {
+                return false;
+            }
 
+            m_overlaysSubmitted = true;
+            return true;
+        }
+
+        bool IsComplete() const noexcept
+        {
+            return m_overlaysSubmitted;
+        }
+
+      private:
+        bool m_overlaysSubmitted = false;
+    };
+
+  public:
     // Invariant: the terrain participant is released under the same named
     // backend lifecycle phase as the remaining renderer-owned resources.
     struct BackendResourceReleaseContext
@@ -73,28 +98,91 @@ class RuntimeRenderer
         Geometry::Terrain* terrain = nullptr;
     };
 
-    struct FrameEntryContext
+    struct WorldFrameSubmission
     {
-        const RuntimeRenderModelFrameView& renderModels;
+        const RuntimeRenderModelPresentationView& models;
+        const RuntimeRenderCollisionDebugView& collisionDebug;
         const RenderCameraLighting& camera;
         Geometry::Terrain* terrain = nullptr;
         RuntimeRenderFramePolicy framePolicy;
-        const ReplayRenderFrameView& replayFrame;
-        const Rendering::RetainedGeometryPacket& retainedOverlay;
-        const RenderToolOverlayView& toolOverlay;
         const Rendering::WorldRenderExtensionRegistration& worldExtension;
+        const ReplayVisualPacket& replayVisual;
+        const std::vector<uint8_t>* replayFocusModelMask = nullptr;
+        bool replayFocusFadeActive = false;
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
         bool cinematicRequested = false;
     };
 
+    struct OverlayFrameSubmission
+    {
+        const RuntimeRenderPhysicsDebugView& physicsDebug;
+        RuntimeRenderWorldExtensionDebugView worldExtensionDebug;
+        const Rendering::ContactManifoldPresentation& replayContactPresentation;
+        const Rendering::RetainedGeometryPacket& retainedOverlay;
+        const RenderToolOverlayView& toolOverlay;
+    };
+
+    class WorldOverlayTransaction
+    {
+      public:
+        WorldOverlayTransaction( const WorldOverlayTransaction& ) = delete;
+        WorldOverlayTransaction& operator=( const WorldOverlayTransaction& ) = delete;
+        WorldOverlayTransaction( WorldOverlayTransaction&& ) = delete;
+        WorldOverlayTransaction& operator=( WorldOverlayTransaction&& ) = delete;
+        ~WorldOverlayTransaction()
+        {
+            if ( !m_phase.IsComplete() )
+            {
+                SB_FATAL( "RunRender", "World-to-overlay transaction ended before overlay submission." );
+            }
+        }
+
+        // Invariant: overlay submission closes this world-to-overlay
+        // continuation exactly once. Destroying it open or submitting twice is
+        // fatal; later UI/capture passes still own final frame-graph closure.
+        bool SubmitOverlays( const OverlayFrameSubmission& overlays );
+
+      private:
+        friend class RuntimeRenderer;
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+        friend struct RuntimeRendererWorldOverlayTransactionTestAccess;
+        explicit WorldOverlayTransaction( std::nullptr_t ) noexcept : m_renderer( nullptr )
+        {
+        }
+#endif
+        WorldOverlayTransaction( RuntimeRenderer& renderer, const RenderCameraLighting& camera,
+                                 const WorldFrameSubmission& submission, int windowWidth, int windowHeight,
+                                 bool useCinematicTarget ) noexcept;
+        void BeginOverlaySubmissionOrFatal()
+        {
+            if ( !m_phase.TrySubmitOverlays() )
+            {
+                SB_FATAL( "RunRender", "World-to-overlay transaction received overlay submission twice." );
+            }
+        }
+
+        RuntimeRenderer* m_renderer = nullptr;
+        RenderCameraLighting m_camera;
+        SkullbonezCore::Core::CinematicRenderConfig m_cinematic;
+        RuntimeRenderFramePolicy m_policy;
+        Geometry::Terrain* m_terrain = nullptr;
+        const ReplayVisualPacket* m_replayVisual = nullptr;
+        int m_windowWidth = 1;
+        int m_windowHeight = 1;
+        bool m_useCinematicTarget = false;
+        WorldOverlayPhaseCursor m_phase;
+    };
+
     RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::RenderBackendDX12& backend,
-                     const RenderWorldView& world, int sceneIndex, int sceneLoadCount );
+                     Assets::AssetSystem& assets, Window& window, SkullbonezCore::Core::EngineConfig& config,
+                     Environment::WorldEnvironment& worldEnvironment, SkullbonezCore::Core::Profiler* profiler,
+                     int sceneIndex, int sceneLoadCount );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This
     // reads completed GPU samples and publishes the preceding render counters.
     void BeginProfilerFrame();
-    void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderModelFrameView& models,
+    void UpdateDebugVisualizers( float secondsPerFrame, const RuntimeRenderDebugViews& debug,
                                  const RuntimeRenderFramePolicy& policy );
 
     const RenderPresentationSettings& PresentationSettings() const
@@ -123,8 +211,7 @@ class RuntimeRenderer
         ResetDebugVisualizerTransientState( m_collisionVisualizer, m_physicsDebugVisualizer, m_broadphaseVisualizer );
     }
 
-    void EnsureFrameResources( const RenderResourceContext& resources );
-    bool RenderFrameEntry( const FrameEntryContext& context );
+    [[nodiscard]] WorldOverlayTransaction BeginWorldFrame( const WorldFrameSubmission& world );
     SkullbonezCore::Core::SbResult ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
     RenderResourceLifecycle& ResourceLifecycle()
     {
@@ -204,13 +291,13 @@ class RuntimeRenderer
   private:
     struct CinematicPostFrameOutput
     {
-        bool volumetricPassExecuted = false;                                                                                      // Volumetric callback was scheduled for this post chain.
-        bool volumetricReady = false;                                                                                             // Volumetric target was produced and can be sampled by tonemap.
-        uint32_t volumetricTextureHandle = 0;                                                                                     // Renderer texture handle resolved from the graph-managed transient
+        bool volumetricPassExecuted = false;  // Volumetric callback was scheduled for this post chain.
+        bool volumetricReady = false;         // Volumetric target was produced and can be sampled by tonemap.
+        uint32_t volumetricTextureHandle = 0; // Renderer texture handle resolved from the graph-managed transient
 
         // Shader Resource View (SRV).
-        uint32_t volumetricWidth = 0;                                                                                             // Materialized graph transient width for diagnostics.
-        uint32_t volumetricHeight = 0;                                                                                            // Materialized graph transient height for diagnostics.
+        uint32_t volumetricWidth = 0;  // Materialized graph transient width for diagnostics.
+        uint32_t volumetricHeight = 0; // Materialized graph transient height for diagnostics.
     };
     struct CinematicPostGraphInputs
     {
@@ -265,7 +352,7 @@ class RuntimeRenderer
     struct ReplayGhostGraphInputs
     {
         const RenderCameraLighting& camera;
-        const RuntimeRenderModelFrameView& models;
+        const RuntimeRenderModelPresentationView& models;
         Rendering::PrimitiveBatchRenderer& primitiveRenderer;
         const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryLighting;
         const char* primitiveShaderBaseName;
@@ -280,9 +367,9 @@ class RuntimeRenderer
         const DebugOverlayPassInputs& pass;
         bool useCinematicTarget = false;
     };
-    bool RenderPreparedFrame( const FrameEntryContext& context,
-                              const SkullbonezCore::Core::CinematicRenderConfig& renderConfig, bool cinematicRender );
-    RenderResourceContext BuildRenderResourceContext( bool cinematicRender );
+    void EnsureFrameResources( bool cinematicRender, int windowWidth, int windowHeight );
+    WorldOverlayTransaction RenderWorldFrame( const WorldFrameSubmission& world );
+    bool RenderFrameOverlays( const WorldOverlayTransaction& world, const OverlayFrameSubmission& overlays );
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
     void FinalizeFrameGraphInternal( const char* declarationOnlyPassName, bool appendPresent, bool releaseGraphStorage );
@@ -292,15 +379,16 @@ class RuntimeRenderer
                                           Rendering::Dx12TextureOwner& renderTextures,
                                           Rendering::Dx12GraphTransientPool& renderGraph );
     ReflectionPassOutput ExecuteReflectionThroughRenderGraph( const ReflectionPassInputs& pass );
-    void ExecuteSceneTargetBeginThroughRenderGraph( const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                                    Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
-                                                    Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
-                                                    Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner& gpuTiming );
+    void ExecuteSceneTargetBeginThroughRenderGraph(
+        const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+        Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
+        Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
+        Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner& gpuTiming );
     void ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs );
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     bool ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs );
-    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RuntimeRenderModelFrameView& models,
+    DebugOverlaySnapshot BuildDebugOverlaySnapshot( RuntimeRenderWorldExtensionDebugView worldExtensionDebug,
                                                     const RenderToolOverlayView& toolOverlay,
                                                     const RuntimeRenderFramePolicy& policy ) const;
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
@@ -312,33 +400,34 @@ class RuntimeRenderer
     // frame graph and pass scheduling below retain no duplicate backend borrows.
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     RenderResourceLifecycle m_resources;
-    Window& m_window;                                                                                                             // Client dimensions sampled for render targets.
+    Window& m_window; // Client dimensions sampled for render targets.
 
     // Owner: render presentation policy survives backend rebuilds here; physics
     // state remains in its respective owner.
     RenderPresentationSettings m_presentationSettings;
-    Environment::WorldEnvironment& m_world;                                                                                       // Fluid surface and gravity owner for pass contexts.
+    Environment::WorldEnvironment& m_world; // Fluid surface and gravity owner for pass contexts.
     CollisionVisualizer m_collisionVisualizer;
     BroadphaseVisualizer m_broadphaseVisualizer;
     PhysicsDebugVisualizer m_physicsDebugVisualizer;
-    SkullbonezCore::Core::Profiler* m_profiler = nullptr;                                                                         // Startup-bound diagnostics source; null in non-profile builds.
+    SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     Rendering::Dx12ImGuiRendererOwner* m_developmentUiRenderer = nullptr;
 #endif
-    std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_dxrReflectionTransforms = {}; // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance
+    std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_dxrReflectionTransforms =
+        {}; // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance
 
     // upload.
-    FullscreenQuadPass m_fullscreenQuadPass;                                                                                      // Shared full-screen vertex buffer pass used by sky/post effects.
-    SkyPass m_skyPass;                                                                                                            // Background sky pass, reused by reflection and scene target passes.
-    SceneTargetPass m_sceneTargetPass;                                                                                            // Cinematic HDR scene-target begin/release pass.
-    ShadowPass m_shadowPass;                                                                                                      // Terrain/object shadow-map producer pass.
-    ReflectionPass m_reflectionPass;                                                                                              // Water reflection texture producer pass.
-    ObjectPass m_objectPass;                                                                                                      // Production body and collision-solid pass.
-    TerrainPass m_terrainPass;                                                                                                    // Terrain material/shadow receiver pass.
-    WaterPass m_waterPass;                                                                                                        // Calm/ocean water pass.
-    DebugOverlayPass m_debugOverlayPass;                                                                                          // Broadphase and physics debug overlay pass.
-    VolumetricPass m_volumetricPass;                                                                                              // Half-resolution cinematic light-shaft pass.
-    TonemapPass m_tonemapPass;                                                                                                    // HDR-to-backbuffer resolve pass.
+    FullscreenQuadPass m_fullscreenQuadPass; // Shared full-screen vertex buffer pass used by sky/post effects.
+    SkyPass m_skyPass;                       // Background sky pass, reused by reflection and scene target passes.
+    SceneTargetPass m_sceneTargetPass;       // Cinematic HDR scene-target begin/release pass.
+    ShadowPass m_shadowPass;                 // Terrain/object shadow-map producer pass.
+    ReflectionPass m_reflectionPass;         // Water reflection texture producer pass.
+    ObjectPass m_objectPass;                 // Production body and collision-solid pass.
+    TerrainPass m_terrainPass;               // Terrain material/shadow receiver pass.
+    WaterPass m_waterPass;                   // Calm/ocean water pass.
+    DebugOverlayPass m_debugOverlayPass;     // Broadphase and physics debug overlay pass.
+    VolumetricPass m_volumetricPass;         // Half-resolution cinematic light-shaft pass.
+    TonemapPass m_tonemapPass;               // HDR-to-backbuffer resolve pass.
 
     // Runtime allocation policy: one owner scratch graph accumulates the whole
     // frame. Pass labels are borrowed literals and pass/resource lists are

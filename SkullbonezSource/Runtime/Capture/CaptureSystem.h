@@ -50,14 +50,14 @@ namespace Runtime
 {
 struct RunScreenshotState
 {
-    bool isScreenshotSaved = false;               // Screenshot already written this run
-    bool isScreenshotAndExit = false;             // Capture frame 1 as SCENENAME.bmp then exit
-    int screenshotFrame = -1;                     // Save screenshot at this frame (-1 = unused)
-    int screenshotMs = -1;                        // Save screenshot at this elapsed ms (-1 = unused)
-    char screenshotPath[256] = {};                // Output path for screenshot (empty = none)
-    int screenshotInterval = -1;                  // Save screenshot every N frames (-1 = disabled)
-    int intervalCaptureCount = 0;                 // Sequential counter for interval captures
-    char screenshotDir[256] = {};                 // Output directory for interval captures
+    bool isScreenshotSaved = false;   // Screenshot already written this run
+    bool isScreenshotAndExit = false; // Capture frame 1 as SCENENAME.bmp then exit
+    int screenshotFrame = -1;         // Save screenshot at this frame (-1 = unused)
+    int screenshotMs = -1;            // Save screenshot at this elapsed ms (-1 = unused)
+    char screenshotPath[256] = {};    // Output path for screenshot (empty = none)
+    int screenshotInterval = -1;      // Save screenshot every N frames (-1 = disabled)
+    int intervalCaptureCount = 0;     // Sequential counter for interval captures
+    char screenshotDir[256] = {};     // Output directory for interval captures
 };
 
 enum class RuntimeCaptureCompletion
@@ -90,6 +90,39 @@ struct ScreenshotCapturePlan
     bool intervalDue = false;
 };
 
+struct ScreenshotFrameInput
+{
+    bool sceneMode = false;
+    bool interactiveRun = false;
+    int frame = 0;
+    double elapsedMs = 0.0;
+    const char* scenePath = nullptr;
+};
+
+struct AutoCycleCaptureInput
+{
+    bool sceneMode = false;
+    bool interactiveRun = false;
+    int ballCount = 0;
+    float intervalSeconds = 0.0f;
+    float accumulatedSeconds = 0.0f;
+    int shotsTaken = 0;
+    int trackedBallIndex = 0;
+
+    bool Due() const noexcept
+    {
+        return sceneMode && ballCount > 0 && intervalSeconds > 0.0f && accumulatedSeconds >= intervalSeconds;
+    }
+};
+
+struct AutoCycleCaptureUpdate
+{
+    bool apply = false;
+    float accumulatedSeconds = 0.0f;
+    int shotsTaken = 0;
+    int trackedBallIndex = 0;
+};
+
 class CaptureController;
 class CaptureSystem
 {
@@ -101,8 +134,8 @@ class CaptureSystem
     static bool RequiresDeterministicPresentation( const RunScreenshotState& screenshot, bool isSceneMode, int currentFrame,
                                                    double elapsedMs );
     static bool TryBuildScreenshotAndExitPath( const char* scenePath, char* outPath, size_t outPathSize ) noexcept;
-    static SkullbonezCore::Core::SbResult SaveScreenshotBytesAtomic(
-        SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, std::span<const uint8_t> bytes );
+    static SkullbonezCore::Core::SbResult SaveScreenshotBytesAtomic( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                     const char* path, std::span<const uint8_t> bytes );
     static SkullbonezCore::Core::SbResult SaveBackbufferBmp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                              Rendering::Dx12BackbufferCapture& backend, const char* path );
     static SkullbonezCore::Core::SbResult BuildPngBytes( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
@@ -111,13 +144,10 @@ class CaptureSystem
     static SkullbonezCore::Core::SbResult SaveBackbufferPng( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                              Rendering::Dx12BackbufferCapture& backend, const char* path );
     static RuntimeCaptureResult TickScreenshots( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                                                 RunScreenshotState& screenshot, bool isSceneMode, bool isInteractiveRun,
-                                                 int currentFrame, double elapsedMs, const char* currentScenePath,
+                                                 RunScreenshotState& screenshot, const ScreenshotFrameInput& input,
                                                  CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
-    static RuntimeCaptureResult TickAutoCycle( bool isSceneMode, bool isInteractiveRun, int ballCount,
-                                               float& autoCycleInterval, float& autoCycleAccum, int& autoCycleShotsTaken,
-                                               int& trackBallIndex, CaptureController& capture,
-                                               Rendering::Dx12BackbufferCapture& backend );
+    static RuntimeCaptureResult TickAutoCycle( const AutoCycleCaptureInput& input, AutoCycleCaptureUpdate& update,
+                                               CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

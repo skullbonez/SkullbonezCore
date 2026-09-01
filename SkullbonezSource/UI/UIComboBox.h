@@ -20,11 +20,27 @@ Related:
 #include "UIDraw.h"
 
 #include <cstdint>
+#include <span>
 
 namespace SkullbonezCore
 {
 namespace UI
 {
+
+// Invariant: option storage and its count cannot disagree. Selection display
+// and disabled-state lookup use this one synchronous view, so callers cannot
+// pass a count from a different option collection.
+struct UIComboPresentationView
+{
+    std::span<const char* const> options;
+    int selectedIndex = -1;
+    uint32_t disabledOptionMask = 0;
+    const char* selectedTextOverride = nullptr;
+
+    int OptionCount() const noexcept;
+    const char* SelectedText() const noexcept;
+    bool SelectedOptionEnabled() const noexcept;
+};
 
 class UIComboBox
 {
@@ -40,10 +56,8 @@ class UIComboBox
     void SetLabelVisible( bool visible );
     void ToggleOpen();
     void Close();
-    void Draw( const UIDrawContext& draw, const char* label, const char* const* options, int optionCount, int selectedIndex,
-               int mouseX, int mouseY, uint32_t disabledOptionMask = 0 ) const;
-    void Draw( const UIDrawContext& draw, const char* label, const char* selectedText, const char* const* options,
-               int optionCount, int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask = 0 ) const;
+    void Draw( const UIDrawContext& draw, const char* label, const UIComboPresentationView& presentation,
+               UIPointerPosition pointer ) const;
 
   private:
     UIRect m_bounds;

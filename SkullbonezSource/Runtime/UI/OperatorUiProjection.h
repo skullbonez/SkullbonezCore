@@ -1,4 +1,4 @@
-/*
+﻿/*
 File: SkullbonezSource/Runtime/UI/OperatorUiProjection.h
 Purpose:
   Declares UI-owned projection from detached Runtime facts into operator rows.
@@ -167,44 +167,6 @@ struct OperatorUiHierarchyEntityFacts
     bool assetBacked = false;
     bool visible = true;
     bool locked = false;
-};
-
-// Invariant: all fields describe one selected entity observation; label borrows
-// expire with the synchronous operator projection.
-struct OperatorUiInspectorFacts
-{
-    const char* displayName = "";
-    const char* renderMaterialName = "";
-    const char* contactMaterialName = "";
-    const char* assetName = "";
-    const char* assetInstanceName = "";
-    const char* assetPartName = "";
-    UI::OperatorEditorInspectorSelectionState selectionState = UI::OperatorEditorInspectorSelectionState::None;
-    uint32_t sceneObjectId = 0u;
-    uint32_t selectionCount = 0u;
-    int renderMaterialKind = 0;
-    int colliderShapeKind = 0;
-    int behaviorGroupKind = 0;
-    int behaviorPartIndex = -1;
-    float position[3] = {};
-    float orientation[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-    float linearVelocity[3] = {};
-    float angularVelocity[3] = {};
-    float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    float mass = 0.0f;
-    float volume = 0.0f;
-    float boundingRadius = 0.0f;
-    float dragCoefficient = 0.0f;
-    float friction = 0.0f;
-    float restitution = 0.0f;
-    float roughness = 0.0f;
-    float metallic = 0.0f;
-    float specular = 0.0f;
-    bool visible = true;
-    bool locked = false;
-    bool fixed = false;
-    bool sleeping = false;
-    bool assetBacked = false;
 };
 
 // Invariant: world controls and physics policy come from one sampled Scene
@@ -429,7 +391,8 @@ struct OperatorUiDiagnosticsFacts
     std::array<OperatorUiWorkerCoreFacts, UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES> workerSamples = {};
     std::array<Core::Allocation::RuntimeReserveGrowthEventView, UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX>
         reserveGrowthEvents = {};
-    std::array<Core::Allocation::RuntimeReserveCapacityView, UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX> reserveCapacityRows = {};
+    std::array<Core::Allocation::RuntimeReserveCapacityView, UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX> reserveCapacityRows =
+        {};
     int markerCount = 0;
     int workerSampleCount = 0;
     int reserveGrowthEventCount = 0;
@@ -502,7 +465,8 @@ inline void AppendOperatorEditorHierarchyRow( UI::OperatorEditorFrameView& view,
     }
 }
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view, const OperatorUiInspectorFacts& inspector,
+void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
+                                             const UI::OperatorEditorInspectorView& inspector,
                                              const OperatorUiWorldFacts& world );
 #endif
 void ProjectOperatorEditorDiagnostics( UI::OperatorEditorFrameView& view, const OperatorUiSecondaryDiagnosticsFacts& facts );
@@ -515,32 +479,32 @@ void ProjectOperatorUiSettings( UI::InGameUIFrameData& uiData, const OperatorUiS
 void ProjectOperatorUiInteraction( UI::InGameUIFrameData& uiData, const OperatorUiInteractionFacts& facts );
 inline void ProjectOperatorUiViewport( UI::InGameUIFrameData& uiData, int width, int height )
 {
-    uiData.screenW = width;
-    uiData.screenH = height;
+    uiData.surface.screenW = width;
+    uiData.surface.screenH = height;
 }
 
 inline void ProjectOperatorUiRenderIdentity( UI::InGameUIFrameData& uiData, const char* rendererName, int drawCallsBeforeUi )
 {
-    uiData.rendererName = rendererName;
-    uiData.drawCallsBeforeUI = drawCallsBeforeUi;
+    uiData.surface.rendererName = rendererName;
+    uiData.surface.drawCallsBeforeUI = drawCallsBeforeUi;
 }
 
 inline void ProjectOperatorUiRecordingBrowser( UI::InGameUIFrameData& uiData, const char* const* options, int optionCount,
                                                int selectedOption )
 {
-    uiData.interactionRecordingOptions = options;
-    uiData.interactionRecordingOptionCount = optionCount;
-    uiData.selectedInteractionRecordingOption = selectedOption;
+    uiData.scene.interactionRecordingOptions = options;
+    uiData.scene.interactionRecordingOptionCount = optionCount;
+    uiData.scene.selectedInteractionRecordingOption = selectedOption;
 }
 
 inline void ProjectOperatorUiRenderTargets( UI::InGameUIFrameData& uiData, const OperatorUiRenderTargetListFacts& facts )
 {
-    uiData.renderTargetPreviewCount = facts.m_count;
+    uiData.renderTargets.count = facts.m_count;
 
-    for ( int index = 0; index < uiData.renderTargetPreviewCount; ++index )
+    for ( int index = 0; index < uiData.renderTargets.count; ++index )
     {
         const OperatorUiRenderTargetListFacts::Target& source = facts.m_targets[static_cast<std::size_t>( index )];
-        UI::UIRenderTargetPreviewResource& target = uiData.renderTargetPreviews[index];
+        UI::UIRenderTargetPreviewResource& target = uiData.renderTargets.previews[index];
         target = { source.label, source.width, source.height, source.available, source.depth, source.hdr };
     }
 }

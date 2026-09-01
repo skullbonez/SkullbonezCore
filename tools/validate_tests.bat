@@ -16,8 +16,8 @@
 @rem Invariants:
 @rem   - The test project filter check runs in partial-project mode because the
 @rem     test executable intentionally compiles only the files under test.
-@rem   - Tests run from the repository root so future file-relative fixtures use
-@rem     the same working directory as the engine validation scripts.
+@rem   - Direct calls run from the repository root; the parallel umbrella may
+@rem     supply an isolated fixture/output root through its explicit opt-in.
 @rem
 @echo off
 setlocal enabledelayedexpansion
@@ -27,6 +27,14 @@ REM ===============================================================
 
 set "REPO=%~dp0.."
 set "CONFIG=Profile"
+set "TEST_WORKDIR=%REPO%"
+if not defined SKULLBONEZ_TEST_WORKDIR goto :test_workdir_ready
+if not "%SKULLBONEZ_PARALLEL_VALIDATION%"=="1" (
+    echo ERROR: SKULLBONEZ_TEST_WORKDIR requires SKULLBONEZ_PARALLEL_VALIDATION=1.
+    exit /b 99
+)
+set "TEST_WORKDIR=%SKULLBONEZ_TEST_WORKDIR%"
+:test_workdir_ready
 
 pushd "%REPO%"
 
@@ -99,8 +107,11 @@ if not exist "%REPO%\Profile\SKULLBONEZ_TESTS.exe" (
 )
 
 echo [3/3] Running SKULLBONEZ_TESTS...
+pushd "%TEST_WORKDIR%"
 "%REPO%\Profile\SKULLBONEZ_TESTS.exe" --duration=true
-if errorlevel 1 (
+set "TEST_EXIT=%ERRORLEVEL%"
+popd
+if not "%TEST_EXIT%"=="0" (
     echo FAIL: Unit tests failed.
     popd
     exit /b 4

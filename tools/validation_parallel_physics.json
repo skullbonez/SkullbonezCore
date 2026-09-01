@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "name": "physics-workers",
+  "max_parallel": 4,
+  "lanes": [
+    {
+      "id": "workers-0-primary",
+      "name": "Physics varied scene, workers=0 primary",
+      "steps": [
+        {
+          "id": "game",
+          "name": "workers=0 primary",
+          "cwd": "${WORKDIR}",
+          "argv": ["${REPO}\\Debug\\SKULLBONEZ_CORE.exe", "--renderer", "dx12", "--vsync", "off", "--fixed-step", "--shadows", "off", "--workers", "0", "--scene", "SkullbonezData/scenes/physics_bench_varied.scene.json", "--perf-log", "${WORKDIR}\\Profile\\varied_physics_perf_log.csv", "--physics-regression-log", "${REPO}\\Debug\\physics_regression_varied.csv"]
+        }
+      ]
+    },
+    {
+      "id": "workers-0-repeat",
+      "name": "Physics varied scene, workers=0 repeat",
+      "steps": [
+        {
+          "id": "game",
+          "name": "workers=0 repeat",
+          "cwd": "${WORKDIR}",
+          "argv": ["${REPO}\\Debug\\SKULLBONEZ_CORE.exe", "--renderer", "dx12", "--vsync", "off", "--fixed-step", "--shadows", "off", "--workers", "0", "--scene", "SkullbonezData/scenes/physics_bench_varied.scene.json", "--perf-log", "${WORKDIR}\\Profile\\varied_physics_perf_log.csv", "--physics-regression-log", "${REPO}\\Debug\\physics_regression_varied_workers_0_repeat.csv"]
+        }
+      ]
+    },
+    {
+      "id": "workers-1",
+      "name": "Physics varied scene, workers=1",
+      "steps": [
+        {
+          "id": "game",
+          "name": "workers=1",
+          "cwd": "${WORKDIR}",
+          "argv": ["${REPO}\\Debug\\SKULLBONEZ_CORE.exe", "--renderer", "dx12", "--vsync", "off", "--fixed-step", "--shadows", "off", "--workers", "1", "--scene", "SkullbonezData/scenes/physics_bench_varied.scene.json", "--perf-log", "${WORKDIR}\\Profile\\varied_physics_perf_log.csv", "--physics-regression-log", "${REPO}\\Debug\\physics_regression_varied_workers_1.csv"]
+        }
+      ]
+    },
+    {
+      "id": "workers-4",
+      "name": "Physics varied scene, workers=4",
+      "steps": [
+        {
+          "id": "game",
+          "name": "workers=4",
+          "cwd": "${WORKDIR}",
+          "argv": ["${REPO}\\Debug\\SKULLBONEZ_CORE.exe", "--renderer", "dx12", "--vsync", "off", "--fixed-step", "--shadows", "off", "--workers", "4", "--scene", "SkullbonezData/scenes/physics_bench_varied.scene.json", "--perf-log", "${WORKDIR}\\Profile\\varied_physics_perf_log.csv", "--physics-regression-log", "${REPO}\\Debug\\physics_regression_varied_workers_4.csv"]
+        }
+      ]
+    }
+  ]
+}

@@ -31,6 +31,7 @@ Related:
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <span>
 
 using namespace SkullbonezCore::UI::GameLayout;
 using namespace SkullbonezCore::UI::OperatorControlPolicy;
@@ -624,8 +625,11 @@ void Draw( UICinematicTabState& state, const UIDrawContext& draw, const UICinema
 
     if ( IsRowVisible( contentY, contentH, scrolledY + UI_CINEMATIC_SCENE_Y, 24.0f ) )
     {
-        state.modeCombo.Draw( draw, "Mode", cineSceneOptions, cineSceneOptionCount, selectedCineSceneOption, mouseX,
-                              mouseY );
+        state.modeCombo.Draw( draw, "Mode",
+                              { std::span<const char* const>( cineSceneOptions,
+                                                              static_cast<std::size_t>( cineSceneOptionCount ) ),
+                                selectedCineSceneOption },
+                              { mouseX, mouseY } );
     }
 
     if ( IsRowVisible( contentY, contentH, scrolledY + UI_CINEMATIC_FEATURE_START_Y, 18.0f ) )

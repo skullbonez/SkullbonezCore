@@ -115,6 +115,13 @@ class TornadoVisualPass
     static float ResolveRotationPhase( double time, float rotationSpeed, int sourceIndex );
     void RequirePreparedFrame( const char* operation ) const;
     void EnsureTransientCapacity();
+    double ResolveVisualTime();
+    void BuildActiveVisualVortices( double time );
+    void AppendRibbonGeometry( const TornadoActiveVortex& activeVortex, double time,
+                               const Rendering::WorldRenderExtensionFrameView& frame, int ribbonCount, int ribbonSegments,
+                               float shellAlpha );
+    void AppendDustGeometry( const TornadoActiveVortex& activeVortex, double time,
+                             const Rendering::WorldRenderExtensionFrameView& frame, int particleCount, float dustAlpha );
     bool Render( const Rendering::WorldRenderExtensionFrameView& frame );
 
     TornadoVisualSettings m_settings;

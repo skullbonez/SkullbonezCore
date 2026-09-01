@@ -22,6 +22,7 @@ Invariants:
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <utility>
 #include "CollisionShape.h"
 #include "PhysicsHandles.h"
@@ -335,10 +336,14 @@ struct PhysicsBroadphaseQueryResultView
 // PhysicsEngine reads these spans only for the duration of the refresh call.
 struct PhysicsAuthoredBodyRefreshView
 {
-    const PhysicsSceneObjectId* sceneObjectIds = nullptr;
-    const ModelRowHint* fixedTreeReleaseRoots = nullptr;
-    const char* const* diagnosticNames = nullptr;
-    PhysicsAuthoredBodyCount bodyCount;
+    std::span<const PhysicsSceneObjectId> sceneObjectIds;
+    std::span<const ModelRowHint> fixedTreeReleaseRoots;
+    std::span<const char* const> diagnosticNames;
+
+    bool IsAligned() const noexcept
+    {
+        return fixedTreeReleaseRoots.size() == sceneObjectIds.size() && diagnosticNames.size() == sceneObjectIds.size();
+    }
 };
 
 } // namespace Physics

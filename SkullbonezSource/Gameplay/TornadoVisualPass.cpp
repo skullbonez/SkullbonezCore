@@ -86,20 +86,49 @@ Vector3 CylindricalOffset( float radius, float angle )
     return Vector3( cosf( angle ) * radius, 0.0f, sinf( angle ) * radius );
 }
 
-void EmitFxVertex( std::vector<float>& vertices, const Vector3& position, float r, float g, float b, float a, float u,
-                   float v, float fxKind, float terrainY )
+struct FxColor
 {
-    vertices.push_back( position.x );
-    vertices.push_back( position.y );
-    vertices.push_back( position.z );
-    vertices.push_back( r );
-    vertices.push_back( g );
-    vertices.push_back( b );
-    vertices.push_back( a );
-    vertices.push_back( u );
-    vertices.push_back( v );
-    vertices.push_back( fxKind );
-    vertices.push_back( terrainY );
+    float red = 0.0f;
+    float green = 0.0f;
+    float blue = 0.0f;
+    float alpha = 0.0f;
+};
+
+struct FxUv
+{
+    float u = 0.0f;
+    float v = 0.0f;
+};
+
+struct FxVertex
+{
+    Vector3 position;
+    FxColor color;
+    FxUv uv;
+    float kind = 0.0f;
+    float terrainHeight = 0.0f;
+
+    void AppendTo( std::vector<float>& vertices ) const
+    {
+        // Invariant: this method is the single serialization order shared with
+        // the 11-float tornado shader input layout.
+        vertices.push_back( position.x );
+        vertices.push_back( position.y );
+        vertices.push_back( position.z );
+        vertices.push_back( color.red );
+        vertices.push_back( color.green );
+        vertices.push_back( color.blue );
+        vertices.push_back( color.alpha );
+        vertices.push_back( uv.u );
+        vertices.push_back( uv.v );
+        vertices.push_back( kind );
+        vertices.push_back( terrainHeight );
+    }
+};
+
+void EmitFxVertex( std::vector<float>& vertices, const FxVertex& vertex )
+{
+    vertex.AppendTo( vertices );
 }
 
 void ClearAllRenderTextureSlots( Rendering::Dx12TextureOwner& renderTextures )
@@ -176,7 +205,8 @@ Rendering::WorldRenderExtensionRegistration TornadoVisualPass::PrepareFrame( con
     m_frame.time = time;
     m_frame.systemElapsedSeconds = systemElapsedSeconds;
     EnsureTransientCapacity();
-    return Rendering::WorldRenderExtensionRegistration::Bind<TornadoVisualPass, &TornadoVisualPass::RegisterGraphPass>( *this );
+    return Rendering::WorldRenderExtensionRegistration::Bind<TornadoVisualPass, &TornadoVisualPass::RegisterGraphPass>(
+        *this );
 }
 
 bool TornadoVisualPass::RegisterGraphPass( TornadoVisualPass& pass, Rendering::WorldRenderExtensionScope& scope )
@@ -208,9 +238,9 @@ float TornadoVisualPass::ResolveRotationPhase( double time, float rotationSpeed,
 
     // Hazard: a large absolute phase loses fixed-step changes when narrowed to
     // float. Reduce the precise phase before conversion so visual drift advances.
-    return static_cast<float>( std::fmod( time * static_cast<double>( rotationSpeed ) +
-                                              static_cast<double>( sourceIndex ) * 1.73,
-                                          static_cast<double>( twoPi ) ) );
+    return static_cast<float>(
+        std::fmod( time * static_cast<double>( rotationSpeed ) + static_cast<double>( sourceIndex ) * 1.73,
+                   static_cast<double>( twoPi ) ) );
 }
 
 void TornadoVisualPass::ExecuteGraphPass( const Rendering::RenderGraphPassContext& /*context*/, GraphCallbackData& data )
@@ -247,27 +277,8 @@ void TornadoVisualPass::EnsureTransientCapacity()
     }
 }
 
-bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& frame )
+double TornadoVisualPass::ResolveVisualTime()
 {
-    RequirePreparedFrame( "Render" );
-    const TornadoVisualSettings& visual = m_settings;
-
-    if ( !visual.enabled )
-    {
-        return false;
-    }
-
-    const int ribbonCount = std::clamp( visual.ribbonCount, 0, 16 );
-    const int ribbonSegments = std::clamp( visual.ribbonSegments, 2, 96 );
-    const int particleCount = std::clamp( visual.particleCount, 0, 256 );
-    const float shellAlpha = std::clamp( visual.shellAlpha, 0.0f, 0.30f );
-    const float dustAlpha = std::clamp( visual.dustAlpha, 0.0f, 0.30f );
-
-    if ( ( ribbonCount <= 0 || shellAlpha <= 0.0f ) && dustAlpha <= 0.0f )
-    {
-        return false;
-    }
-
     const TornadoVisualTimeCandidates& candidates = m_frame.time;
     const bool useReplayTime = candidates.hasPresentation || candidates.hasSolver || candidates.hasPrediction;
     const bool useTornadoSystem = m_frame.system->enabled && !m_frame.system->vortices.empty();
@@ -311,9 +322,14 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
         time = static_cast<double>( static_cast<float>( time ) );
     }
 
+    return time;
+}
+
+void TornadoVisualPass::BuildActiveVisualVortices( double time )
+{
     m_activeVisualVortices.clear();
 
-    if ( useTornadoSystem )
+    if ( m_frame.system->enabled && !m_frame.system->vortices.empty() )
     {
         TornadoSystem::BuildActiveVortices( *m_frame.system, time, m_activeVisualVortices );
     }
@@ -326,6 +342,184 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
         active.sourceIndex = 0;
         m_activeVisualVortices.push_back( active );
     }
+}
+
+void TornadoVisualPass::AppendRibbonGeometry( const TornadoActiveVortex& activeVortex, double time,
+                                              const Rendering::WorldRenderExtensionFrameView& frame, int ribbonCount,
+                                              int ribbonSegments, float shellAlpha )
+{
+    const TornadoVisualSettings& visual = m_settings;
+    const TornadoFieldConfig& field = activeVortex.field;
+    const float rotation = ResolveRotationPhase( time, visual.rotationSpeed, activeVortex.sourceIndex );
+    const float radius = field.radius;
+    const float height = field.height;
+    const Vector3 cameraForward = NormalizeOr( frame.viewCenter - frame.eye, Vector3( 0.0f, 0.0f, 1.0f ) );
+    const Vector3 cameraUp = NormalizeOr( frame.up, Vector3( 0.0f, 1.0f, 0.0f ) );
+    const Vector3 cameraRight = NormalizeOr( CrossProduct( cameraForward, cameraUp ), Vector3( 1.0f, 0.0f, 0.0f ) );
+    constexpr float twoPi = 6.28318530718f;
+    constexpr float shellTurns = 2.85f;
+
+    for ( int ribbon = 0; ribbon < ribbonCount; ++ribbon )
+    {
+        const float ribbonSeed = HashUnitFloat( 41u + static_cast<uint32_t>( ribbon ) * 97u );
+        const float phase = static_cast<float>( ribbon ) * twoPi / static_cast<float>( ribbonCount ) + rotation +
+                            ribbonSeed * 0.45f;
+
+        for ( int segment = 0; segment < ribbonSegments; ++segment )
+        {
+            const float t0 = static_cast<float>( segment ) / static_cast<float>( ribbonSegments );
+            const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( ribbonSegments );
+            const float angle0 = phase + t0 * shellTurns * twoPi;
+            const float angle1 = phase + t1 * shellTurns * twoPi;
+            const float radius0 = radius * ( 0.32f + 0.46f * t0 + 0.035f * sinf( angle0 * 1.7f + ribbonSeed * twoPi ) );
+            const float radius1 = radius * ( 0.32f + 0.46f * t1 + 0.035f * sinf( angle1 * 1.7f + ribbonSeed * twoPi ) );
+            const Vector3 p0 = field.center + CylindricalOffset( radius0, angle0 ) + Vector3( 0.0f, t0 * height, 0.0f );
+            const Vector3 p1 = field.center + CylindricalOffset( radius1, angle1 ) + Vector3( 0.0f, t1 * height, 0.0f );
+            const Vector3 segmentCenter = ( p0 + p1 ) * 0.5f;
+            const Vector3 viewDir = NormalizeOr( frame.eye - segmentCenter, -cameraForward );
+            const Vector3 tangent = NormalizeOr( p1 - p0, Vector3( 0.0f, 1.0f, 0.0f ) );
+            const Vector3 side = NormalizeOr( CrossProduct( viewDir, tangent ), cameraRight );
+            const float width = (std::max)( 1.0f, visual.ribbonWidth * ( 0.78f + 0.34f * t0 ) );
+            const float baseFade = Clamp01( t0 / 0.16f );
+            const float topFade = Clamp01( ( 1.0f - t0 ) / 0.18f );
+            const float gapFade = 0.72f + 0.28f * sinf( phase + t0 * twoPi * 4.0f );
+            const float alpha = shellAlpha * baseFade * topFade * gapFade;
+            const float cool = 0.72f + 0.08f * t0;
+            const Vector3 a = p0 - side * width;
+            const Vector3 b = p1 - side * width;
+            const Vector3 c = p1 + side * width;
+            const Vector3 d = p0 + side * width;
+
+            // Invariant: every effect quad is emitted as two clockwise
+            // triangles with identical style at all six vertices.
+            EmitFxVertex( m_vertices, { a, { cool, 0.78f, 0.84f, alpha }, { 0.0f, 0.0f }, FX_KIND_RIBBON, 0.0f } );
+            EmitFxVertex( m_vertices, { b, { cool, 0.78f, 0.84f, alpha }, { 1.0f, 0.0f }, FX_KIND_RIBBON, 0.0f } );
+            EmitFxVertex( m_vertices, { c, { cool, 0.78f, 0.84f, alpha }, { 1.0f, 1.0f }, FX_KIND_RIBBON, 0.0f } );
+            EmitFxVertex( m_vertices, { a, { cool, 0.78f, 0.84f, alpha }, { 0.0f, 0.0f }, FX_KIND_RIBBON, 0.0f } );
+            EmitFxVertex( m_vertices, { c, { cool, 0.78f, 0.84f, alpha }, { 1.0f, 1.0f }, FX_KIND_RIBBON, 0.0f } );
+            EmitFxVertex( m_vertices, { d, { cool, 0.78f, 0.84f, alpha }, { 0.0f, 1.0f }, FX_KIND_RIBBON, 0.0f } );
+        }
+    }
+}
+
+void TornadoVisualPass::AppendDustGeometry( const TornadoActiveVortex& activeVortex, double time,
+                                            const Rendering::WorldRenderExtensionFrameView& frame, int particleCount,
+                                            float dustAlpha )
+{
+    const TornadoVisualSettings& visual = m_settings;
+    const TornadoFieldConfig& field = activeVortex.field;
+    const float rotation = ResolveRotationPhase( time, visual.rotationSpeed, activeVortex.sourceIndex );
+    const float radius = field.radius;
+    const float height = field.height;
+    const Vector3 cameraForward = NormalizeOr( frame.viewCenter - frame.eye, Vector3( 0.0f, 0.0f, 1.0f ) );
+    const Vector3 cameraUp = NormalizeOr( frame.up, Vector3( 0.0f, 1.0f, 0.0f ) );
+    const Vector3 cameraRight = NormalizeOr( CrossProduct( cameraForward, cameraUp ), Vector3( 1.0f, 0.0f, 0.0f ) );
+    const Vector3 billboardUp = NormalizeOr( CrossProduct( cameraRight, cameraForward ), cameraUp );
+    const auto terrainHeightFor = [&]( const Vector3& position )
+    { return frame.surfaceHeight.SampleHeight( position.x, position.z, position.y - 64.0f ); };
+    constexpr float twoPi = 6.28318530718f;
+    constexpr int dustBands = 3;
+    constexpr int dustSegments = 56;
+
+    for ( int band = 0; band < dustBands; ++band )
+    {
+        const float bandT = static_cast<float>( band ) / static_cast<float>( dustBands - 1 );
+        const float phase = rotation * ( 1.15f + bandT * 0.35f ) + bandT * twoPi * 0.37f;
+
+        for ( int segment = 0; segment < dustSegments; ++segment )
+        {
+            if ( ( segment + band * 3 ) % 5 == 0 || ( segment + band ) % 11 == 0 )
+            {
+                continue;
+            }
+
+            const float t0 = static_cast<float>( segment ) / static_cast<float>( dustSegments );
+            const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( dustSegments );
+            const float angle0 = phase + t0 * twoPi * 1.18f;
+            const float angle1 = phase + t1 * twoPi * 1.18f;
+            const float bandRadius = radius * ( 0.58f + 0.16f * static_cast<float>( band ) );
+            const float innerRadius = bandRadius - radius * 0.015f;
+            const float outerRadius = bandRadius + radius * ( 0.024f + 0.008f * bandT );
+            const float y0 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle0 * 2.0f ) * 1.6f;
+            const float y1 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle1 * 2.0f ) * 1.6f;
+            const Vector3 a = field.center + CylindricalOffset( innerRadius, angle0 ) +
+                              Vector3( 0.0f, y0 - field.center.y, 0.0f );
+            const Vector3 b = field.center + CylindricalOffset( innerRadius, angle1 ) +
+                              Vector3( 0.0f, y1 - field.center.y, 0.0f );
+            const Vector3 c = field.center + CylindricalOffset( outerRadius, angle1 ) +
+                              Vector3( 0.0f, y1 - field.center.y, 0.0f );
+            const Vector3 d = field.center + CylindricalOffset( outerRadius, angle0 ) +
+                              Vector3( 0.0f, y0 - field.center.y, 0.0f );
+            const float alpha = dustAlpha * ( 0.42f - 0.08f * bandT );
+            const float terrainA = terrainHeightFor( a );
+            const float terrainB = terrainHeightFor( b );
+            const float terrainC = terrainHeightFor( c );
+            const float terrainD = terrainHeightFor( d );
+            EmitFxVertex( m_vertices, { a, { 0.58f, 0.47f, 0.31f, alpha }, { 0.0f, 0.0f }, FX_KIND_DUST, terrainA } );
+            EmitFxVertex( m_vertices, { b, { 0.58f, 0.47f, 0.31f, alpha }, { 1.0f, 0.0f }, FX_KIND_DUST, terrainB } );
+            EmitFxVertex( m_vertices, { c, { 0.58f, 0.47f, 0.31f, alpha }, { 1.0f, 1.0f }, FX_KIND_DUST, terrainC } );
+            EmitFxVertex( m_vertices, { a, { 0.58f, 0.47f, 0.31f, alpha }, { 0.0f, 0.0f }, FX_KIND_DUST, terrainA } );
+            EmitFxVertex( m_vertices, { c, { 0.58f, 0.47f, 0.31f, alpha }, { 1.0f, 1.0f }, FX_KIND_DUST, terrainC } );
+            EmitFxVertex( m_vertices, { d, { 0.58f, 0.47f, 0.31f, alpha }, { 0.0f, 1.0f }, FX_KIND_DUST, terrainD } );
+        }
+    }
+
+    for ( int particle = 0; particle < particleCount; ++particle )
+    {
+        const uint32_t seed = 0x9e3779b9u + static_cast<uint32_t>( particle ) * 0x85ebca6bu;
+        const float h0 = HashUnitFloat( seed );
+        const float h1 = HashUnitFloat( seed ^ 0x68bc21ebu );
+        const float h2 = HashUnitFloat( seed ^ 0x02e5be93u );
+        const float heightT = powf( h0, 1.45f );
+        const float angularSpeed = 0.65f + heightT * 1.25f;
+        const float angle = h1 * twoPi + rotation * angularSpeed + heightT * twoPi * 2.2f;
+        const float particleRadius = radius * ( 0.55f + 0.43f * h2 );
+        const Vector3 center = field.center + CylindricalOffset( particleRadius, angle ) +
+                               Vector3( 0.0f, height * heightT, 0.0f );
+        const float size = std::clamp( radius * ( 0.010f + 0.020f * ( 1.0f - heightT ) ), 2.0f, 9.0f );
+        const float alpha = dustAlpha * ( 0.38f + 0.42f * ( 1.0f - heightT ) ) * ( 0.55f + 0.45f * h1 );
+        const Vector3 right = cameraRight * size;
+        const Vector3 up = billboardUp * ( size * ( 0.70f + 0.50f * h2 ) );
+        const Vector3 a = center - right - up;
+        const Vector3 b = center + right - up;
+        const Vector3 c = center + right + up;
+        const Vector3 d = center - right + up;
+        const float terrainA = terrainHeightFor( a );
+        const float terrainB = terrainHeightFor( b );
+        const float terrainC = terrainHeightFor( c );
+        const float terrainD = terrainHeightFor( d );
+        EmitFxVertex( m_vertices, { a, { 0.68f, 0.52f, 0.34f, alpha }, { 0.0f, 0.0f }, FX_KIND_DUST, terrainA } );
+        EmitFxVertex( m_vertices, { b, { 0.68f, 0.52f, 0.34f, alpha }, { 1.0f, 0.0f }, FX_KIND_DUST, terrainB } );
+        EmitFxVertex( m_vertices, { c, { 0.68f, 0.52f, 0.34f, alpha }, { 1.0f, 1.0f }, FX_KIND_DUST, terrainC } );
+        EmitFxVertex( m_vertices, { a, { 0.68f, 0.52f, 0.34f, alpha }, { 0.0f, 0.0f }, FX_KIND_DUST, terrainA } );
+        EmitFxVertex( m_vertices, { c, { 0.68f, 0.52f, 0.34f, alpha }, { 1.0f, 1.0f }, FX_KIND_DUST, terrainC } );
+        EmitFxVertex( m_vertices, { d, { 0.68f, 0.52f, 0.34f, alpha }, { 0.0f, 1.0f }, FX_KIND_DUST, terrainD } );
+    }
+}
+
+bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& frame )
+{
+    RequirePreparedFrame( "Render" );
+    const TornadoVisualSettings& visual = m_settings;
+
+    if ( !visual.enabled )
+    {
+        return false;
+    }
+
+    const int ribbonCount = std::clamp( visual.ribbonCount, 0, 16 );
+    const int ribbonSegments = std::clamp( visual.ribbonSegments, 2, 96 );
+    const int particleCount = std::clamp( visual.particleCount, 0, 256 );
+    const float shellAlpha = std::clamp( visual.shellAlpha, 0.0f, 0.30f );
+    const float dustAlpha = std::clamp( visual.dustAlpha, 0.0f, 0.30f );
+
+    if ( ( ribbonCount <= 0 || shellAlpha <= 0.0f ) && dustAlpha <= 0.0f )
+    {
+        return false;
+    }
+
+    const double time = ResolveVisualTime();
+    BuildActiveVisualVortices( time );
 
     if ( m_activeVisualVortices.empty() )
     {
@@ -333,163 +527,17 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
     }
 
     m_vertices.clear();
-    const Vector3 cameraForward = NormalizeOr( frame.viewCenter - frame.eye, Vector3( 0.0f, 0.0f, 1.0f ) );
-    const Vector3 cameraUp = NormalizeOr( frame.up, Vector3( 0.0f, 1.0f, 0.0f ) );
-    const Vector3 cameraRight = NormalizeOr( CrossProduct( cameraForward, cameraUp ), Vector3( 1.0f, 0.0f, 0.0f ) );
-    const Vector3 billboardUp = NormalizeOr( CrossProduct( cameraRight, cameraForward ), cameraUp );
-    const auto terrainHeightFor = [&]( const Vector3& position )
-    { return frame.surfaceHeight.SampleHeight( position.x, position.z, position.y - 64.0f ); };
-
-    constexpr float twoPi = 6.28318530718f;
 
     for ( const TornadoActiveVortex& activeVortex : m_activeVisualVortices )
     {
-        const TornadoFieldConfig& field = activeVortex.field;
-        const float rotation = ResolveRotationPhase( time, visual.rotationSpeed, activeVortex.sourceIndex );
-        const float radius = field.radius;
-        const float height = field.height;
-
         if ( shellAlpha > 0.0f )
         {
-            constexpr float shellTurns = 2.85f;
-
-            for ( int ribbon = 0; ribbon < ribbonCount; ++ribbon )
-            {
-                const float ribbonSeed = HashUnitFloat( 41u + static_cast<uint32_t>( ribbon ) * 97u );
-                const float phase = static_cast<float>( ribbon ) * twoPi / static_cast<float>( ribbonCount ) + rotation +
-                                    ribbonSeed * 0.45f;
-
-                for ( int segment = 0; segment < ribbonSegments; ++segment )
-                {
-                    const float t0 = static_cast<float>( segment ) / static_cast<float>( ribbonSegments );
-                    const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( ribbonSegments );
-                    const float angle0 = phase + t0 * shellTurns * twoPi;
-                    const float angle1 = phase + t1 * shellTurns * twoPi;
-                    const float radius0 = radius *
-                                          ( 0.32f + 0.46f * t0 + 0.035f * sinf( angle0 * 1.7f + ribbonSeed * twoPi ) );
-
-                    const float radius1 = radius *
-                                          ( 0.32f + 0.46f * t1 + 0.035f * sinf( angle1 * 1.7f + ribbonSeed * twoPi ) );
-
-                    const Vector3 p0 = field.center + CylindricalOffset( radius0, angle0 ) +
-                                       Vector3( 0.0f, t0 * height, 0.0f );
-
-                    const Vector3 p1 = field.center + CylindricalOffset( radius1, angle1 ) +
-                                       Vector3( 0.0f, t1 * height, 0.0f );
-
-                    const Vector3 segmentCenter = ( p0 + p1 ) * 0.5f;
-                    const Vector3 viewDir = NormalizeOr( frame.eye - segmentCenter, -cameraForward );
-                    const Vector3 tangent = NormalizeOr( p1 - p0, Vector3( 0.0f, 1.0f, 0.0f ) );
-                    const Vector3 side = NormalizeOr( CrossProduct( viewDir, tangent ), cameraRight );
-                    const float width = (std::max)( 1.0f, visual.ribbonWidth * ( 0.78f + 0.34f * t0 ) );
-                    const float baseFade = Clamp01( t0 / 0.16f );
-                    const float topFade = Clamp01( ( 1.0f - t0 ) / 0.18f );
-                    const float gapFade = 0.72f + 0.28f * sinf( phase + t0 * twoPi * 4.0f );
-                    const float alpha = shellAlpha * baseFade * topFade * gapFade;
-                    const float cool = 0.72f + 0.08f * t0;
-                    const Vector3 a = p0 - side * width;
-                    const Vector3 b = p1 - side * width;
-                    const Vector3 c = p1 + side * width;
-                    const Vector3 d = p0 + side * width;
-
-                    // Invariant: every effect quad is emitted as two clockwise
-                    // triangles with identical style at all six vertices.
-                    EmitFxVertex( m_vertices, a, cool, 0.78f, 0.84f, alpha, 0.0f, 0.0f, FX_KIND_RIBBON, 0.0f );
-                    EmitFxVertex( m_vertices, b, cool, 0.78f, 0.84f, alpha, 1.0f, 0.0f, FX_KIND_RIBBON, 0.0f );
-                    EmitFxVertex( m_vertices, c, cool, 0.78f, 0.84f, alpha, 1.0f, 1.0f, FX_KIND_RIBBON, 0.0f );
-                    EmitFxVertex( m_vertices, a, cool, 0.78f, 0.84f, alpha, 0.0f, 0.0f, FX_KIND_RIBBON, 0.0f );
-                    EmitFxVertex( m_vertices, c, cool, 0.78f, 0.84f, alpha, 1.0f, 1.0f, FX_KIND_RIBBON, 0.0f );
-                    EmitFxVertex( m_vertices, d, cool, 0.78f, 0.84f, alpha, 0.0f, 1.0f, FX_KIND_RIBBON, 0.0f );
-                }
-            }
+            AppendRibbonGeometry( activeVortex, time, frame, ribbonCount, ribbonSegments, shellAlpha );
         }
 
         if ( dustAlpha > 0.0f )
         {
-            constexpr int dustBands = 3;
-            constexpr int dustSegments = 56;
-
-            for ( int band = 0; band < dustBands; ++band )
-            {
-                const float bandT = static_cast<float>( band ) / static_cast<float>( dustBands - 1 );
-                const float phase = rotation * ( 1.15f + bandT * 0.35f ) + bandT * twoPi * 0.37f;
-
-                for ( int segment = 0; segment < dustSegments; ++segment )
-                {
-                    if ( ( segment + band * 3 ) % 5 == 0 || ( segment + band ) % 11 == 0 )
-                    {
-                        continue;
-                    }
-
-                    const float t0 = static_cast<float>( segment ) / static_cast<float>( dustSegments );
-                    const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( dustSegments );
-                    const float angle0 = phase + t0 * twoPi * 1.18f;
-                    const float angle1 = phase + t1 * twoPi * 1.18f;
-                    const float bandRadius = radius * ( 0.58f + 0.16f * static_cast<float>( band ) );
-                    const float innerRadius = bandRadius - radius * 0.015f;
-                    const float outerRadius = bandRadius + radius * ( 0.024f + 0.008f * bandT );
-                    const float y0 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle0 * 2.0f ) * 1.6f;
-
-                    const float y1 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle1 * 2.0f ) * 1.6f;
-
-                    const Vector3 a = field.center + CylindricalOffset( innerRadius, angle0 ) +
-                                      Vector3( 0.0f, y0 - field.center.y, 0.0f );
-
-                    const Vector3 b = field.center + CylindricalOffset( innerRadius, angle1 ) +
-                                      Vector3( 0.0f, y1 - field.center.y, 0.0f );
-
-                    const Vector3 c = field.center + CylindricalOffset( outerRadius, angle1 ) +
-                                      Vector3( 0.0f, y1 - field.center.y, 0.0f );
-
-                    const Vector3 d = field.center + CylindricalOffset( outerRadius, angle0 ) +
-                                      Vector3( 0.0f, y0 - field.center.y, 0.0f );
-
-                    const float alpha = dustAlpha * ( 0.42f - 0.08f * bandT );
-                    const float terrainA = terrainHeightFor( a );
-                    const float terrainB = terrainHeightFor( b );
-                    const float terrainC = terrainHeightFor( c );
-                    const float terrainD = terrainHeightFor( d );
-                    EmitFxVertex( m_vertices, a, 0.58f, 0.47f, 0.31f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
-                    EmitFxVertex( m_vertices, b, 0.58f, 0.47f, 0.31f, alpha, 1.0f, 0.0f, FX_KIND_DUST, terrainB );
-                    EmitFxVertex( m_vertices, c, 0.58f, 0.47f, 0.31f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
-                    EmitFxVertex( m_vertices, a, 0.58f, 0.47f, 0.31f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
-                    EmitFxVertex( m_vertices, c, 0.58f, 0.47f, 0.31f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
-                    EmitFxVertex( m_vertices, d, 0.58f, 0.47f, 0.31f, alpha, 0.0f, 1.0f, FX_KIND_DUST, terrainD );
-                }
-            }
-
-            for ( int particle = 0; particle < particleCount; ++particle )
-            {
-                const uint32_t seed = 0x9e3779b9u + static_cast<uint32_t>( particle ) * 0x85ebca6bu;
-                const float h0 = HashUnitFloat( seed );
-                const float h1 = HashUnitFloat( seed ^ 0x68bc21ebu );
-                const float h2 = HashUnitFloat( seed ^ 0x02e5be93u );
-                const float heightT = powf( h0, 1.45f );
-                const float angularSpeed = 0.65f + heightT * 1.25f;
-                const float angle = h1 * twoPi + rotation * angularSpeed + heightT * twoPi * 2.2f;
-                const float particleRadius = radius * ( 0.55f + 0.43f * h2 );
-                const Vector3 center = field.center + CylindricalOffset( particleRadius, angle ) +
-                                       Vector3( 0.0f, height * heightT, 0.0f );
-
-                const float size = std::clamp( radius * ( 0.010f + 0.020f * ( 1.0f - heightT ) ), 2.0f, 9.0f );
-                const float alpha = dustAlpha * ( 0.38f + 0.42f * ( 1.0f - heightT ) ) * ( 0.55f + 0.45f * h1 );
-                const Vector3 right = cameraRight * size;
-                const Vector3 up = billboardUp * ( size * ( 0.70f + 0.50f * h2 ) );
-                const Vector3 a = center - right - up;
-                const Vector3 b = center + right - up;
-                const Vector3 c = center + right + up;
-                const Vector3 d = center - right + up;
-                const float terrainA = terrainHeightFor( a );
-                const float terrainB = terrainHeightFor( b );
-                const float terrainC = terrainHeightFor( c );
-                const float terrainD = terrainHeightFor( d );
-                EmitFxVertex( m_vertices, a, 0.68f, 0.52f, 0.34f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
-                EmitFxVertex( m_vertices, b, 0.68f, 0.52f, 0.34f, alpha, 1.0f, 0.0f, FX_KIND_DUST, terrainB );
-                EmitFxVertex( m_vertices, c, 0.68f, 0.52f, 0.34f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
-                EmitFxVertex( m_vertices, a, 0.68f, 0.52f, 0.34f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
-                EmitFxVertex( m_vertices, c, 0.68f, 0.52f, 0.34f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
-                EmitFxVertex( m_vertices, d, 0.68f, 0.52f, 0.34f, alpha, 0.0f, 1.0f, FX_KIND_DUST, terrainD );
-            }
+            AppendDustGeometry( activeVortex, time, frame, particleCount, dustAlpha );
         }
     }
 

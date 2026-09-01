@@ -321,10 +321,8 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
 
 SkullbonezCore::Core::SbResult Run::BindRenderBackend( Rendering::RenderBackendDX12& backend )
 {
-    auto renderer = std::make_unique<RuntimeRenderer>( m_resultDiagnostics, backend,
-                                                       RenderWorldView { m_assets, m_window, m_config,
-                                                                         m_sceneController.Scene().Environment(),
-                                                                         m_profiler },
+    auto renderer = std::make_unique<RuntimeRenderer>( m_resultDiagnostics, backend, m_assets, m_window, m_config,
+                                                       m_sceneController.Scene().Environment(), m_profiler,
                                                        m_sceneController.State().currentSceneIndex,
                                                        m_sceneController.State().loadCount );
     m_renderer = std::move( renderer );
@@ -593,13 +591,17 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     }
 
     m_replayRuntime.ConfigureStartupWorkflows(
-        ReplayStartupRequest { overrides.replayLoadPath, overrides.replayLoadProbe,
+        ReplayStartupRequest { ReplayStartupLoadRequest { overrides.replayLoadPath, overrides.replayLoadProbe },
 #ifdef _DEBUG
-                               overrides.replayRestoreFileProbePath, overrides.replayRestoreTargetFileProbePath,
-                               overrides.replayRestoreBranchFileProbePath, overrides.replayRestoreFailureFileProbePath,
-                               overrides.replayScrubProbe, overrides.replayScrubProbeNormalized,
-                               overrides.replayRestoreProbe, overrides.replayRestoreProbeNormalized,
-                               overrides.replaySaveProbe, overrides.replaySaveProbePath
+                               ReplayStartupRestoreFileProbeRequests { overrides.replayRestoreFileProbePath,
+                                                                       overrides.replayRestoreTargetFileProbePath,
+                                                                       overrides.replayRestoreBranchFileProbePath,
+                                                                       overrides.replayRestoreFailureFileProbePath },
+                               ReplayStartupNormalizedProbeRequest { overrides.replayScrubProbe,
+                                                                     overrides.replayScrubProbeNormalized },
+                               ReplayStartupNormalizedProbeRequest { overrides.replayRestoreProbe,
+                                                                     overrides.replayRestoreProbeNormalized },
+                               ReplayStartupSaveProbeRequest { overrides.replaySaveProbe, overrides.replaySaveProbePath }
 #endif
         } );
 
@@ -782,6 +784,14 @@ void Run::Initialise()
         return;
     }
 
+    if ( !m_camera.ConfigureMovement( m_config.camera ) )
+    {
+        m_lastSceneLoadResult = m_resultDiagnostics.Failure( "Runtime/Camera",
+                                                             "Camera movement configuration requires finite non-negative "
+                                                             "speeds and ordered heights." );
+        return;
+    }
+
     auto& renderResources = Renderer( "Initialise" ).RenderResources();
     const SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics = Renderer( "Initialise" ).RenderDiagnostics();
 
@@ -851,9 +861,16 @@ void Run::Initialise()
     ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
     ApplySceneLoadRuntimeReactions( sceneLoad );
 
-    ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
-                                Renderer().VsyncEnabled(), m_sceneController );
+    {
+        const SceneLoadResult& presentation = BeginSceneLoadPresentation( sceneLoad, *m_validationHarness,
+                                                                          m_sceneController );
+        const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+        ApplySceneLoadRenderPresentation( lifecycle, &Renderer().RenderDevice(), Renderer().VsyncEnabled() );
+        ApplySceneLoadWindowUiPresentation( presentation, m_window, *m_operatorUi );
+        ApplySceneLoadGraphicsStressPresentation( lifecycle, m_graphicsStress, m_graphicsStressSceneObserver,
+                                                  m_launchOptions );
+        sceneLoad.CompletePresentation();
+    }
 
     if ( !m_lastSceneLoadResult.Ok() )
     {
@@ -1048,9 +1065,16 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
         ApplySceneLoadRuntimeReactions( sceneLoad );
 
-        ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                    m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
-                                    Renderer().VsyncEnabled(), m_sceneController );
+        {
+            const SceneLoadResult& presentation = BeginSceneLoadPresentation( sceneLoad, *m_validationHarness,
+                                                                              m_sceneController );
+            const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+            ApplySceneLoadRenderPresentation( lifecycle, &Renderer().RenderDevice(), Renderer().VsyncEnabled() );
+            ApplySceneLoadWindowUiPresentation( presentation, m_window, *m_operatorUi );
+            ApplySceneLoadGraphicsStressPresentation( lifecycle, m_graphicsStress, m_graphicsStressSceneObserver,
+                                                      m_launchOptions );
+            sceneLoad.CompletePresentation();
+        }
 
         if ( !loadResult.Ok() )
         {

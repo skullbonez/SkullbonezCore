@@ -68,15 +68,15 @@ struct PhysicsWorldForces;
 // value to the store so released parts inherit deterministic seed velocities.
 struct PhysicsFixedTreeReleaseEvent
 {
-    int sourceIndex = -1;                                                                             // Body row whose release triggers same-tree propagation.
+    int sourceIndex = -1; // Body row whose release triggers same-tree propagation.
     Math::Vector::Vector3 seedLinearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 seedAngularVelocity = Math::Vector::ZERO_VECTOR;
 };
 
 struct PhysicsBodyRecord
 {
-    PhysicsBodyHandle handle;                                                                         // Stable body handle resolved through the store maps.
-    PhysicsSceneObjectId sceneObjectId;                                                               // Scene-local id supplied once by the creation owner.
+    PhysicsBodyHandle handle;           // Stable body handle resolved through the store maps.
+    PhysicsSceneObjectId sceneObjectId; // Scene-local id supplied once by the creation owner.
 
     // Invariant: the retired duplicate replay-id scalar used to occupy these
     // four bytes. Keep the following vector block on its proven 16-byte
@@ -84,14 +84,15 @@ struct PhysicsBodyRecord
     uint32_t vectorAlignmentPadding = 0;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 pendingImpulseWorldOffset = Math::Vector::ZERO_VECTOR;                      // World-space offset from the center of mass.
-    float mass = 0.0f;                                                                                // Authoring mass; fixed bodies still report mass.
-    float contactReleaseImpulseThreshold = 1.0f;                                                      // Minimum contact impulse before authored fixed props release.
-    float angularVelocityLimit = 5.0f;                                                                // Per-body spin cap applied before force integration.
-    int fixedTreeReleaseRootIndex = -1;                                                               // Authored release group root; -1 means no fixed-tree group.
-    bool usesWorldInertia = false;                                                                    // Non-sphere bodies rotate inertia through orientation.
-    bool releasesFromFixedOnContact = false;                                                          // Authored fixed prop can become dynamic after strong contact.
-    bool hasPendingImpulse = false;                                                                   // One-shot impulse waiting for the next body integration pass.
+    Math::Vector::Vector3
+        pendingImpulseWorldOffset = Math::Vector::ZERO_VECTOR; // World-space offset from the center of mass.
+    float mass = 0.0f;                                         // Authoring mass; fixed bodies still report mass.
+    float contactReleaseImpulseThreshold = 1.0f; // Minimum contact impulse before authored fixed props release.
+    float angularVelocityLimit = 5.0f;           // Per-body spin cap applied before force integration.
+    int fixedTreeReleaseRootIndex = -1;          // Authored release group root; -1 means no fixed-tree group.
+    bool usesWorldInertia = false;               // Non-sphere bodies rotate inertia through orientation.
+    bool releasesFromFixedOnContact = false;     // Authored fixed prop can become dynamic after strong contact.
+    bool hasPendingImpulse = false;              // One-shot impulse waiting for the next body integration pass.
 };
 
 static_assert( offsetof( PhysicsBodyRecord, rotationalInertia ) == 16u,
@@ -214,6 +215,23 @@ struct PhysicsBodyHotFieldsConstView
     std::span<const float> boundingRadius;
     std::span<const uint8_t> fixed;
     std::span<const uint8_t> awake;
+
+    std::size_t RowCount() const noexcept
+    {
+        return positionX.size();
+    }
+
+    bool IsAligned() const noexcept
+    {
+        const std::size_t count = RowCount();
+        return positionY.size() == count && positionZ.size() == count && orientationX.size() == count &&
+               orientationY.size() == count && orientationZ.size() == count && orientationW.size() == count &&
+               linearVelocityX.size() == count && linearVelocityY.size() == count && linearVelocityZ.size() == count &&
+               angularVelocityX.size() == count && angularVelocityY.size() == count && angularVelocityZ.size() == count &&
+               inverseMass.size() == count && inverseInertiaX.size() == count && inverseInertiaY.size() == count &&
+               inverseInertiaZ.size() == count && boundingRadius.size() == count && fixed.size() == count &&
+               awake.size() == count;
+    }
 };
 
 struct PhysicsBodyHotFieldsView
@@ -238,6 +256,13 @@ struct PhysicsBodyHotFieldsView
     std::span<float> boundingRadius;
     std::span<uint8_t> fixed;
     std::span<uint8_t> awake;
+
+    std::size_t RowCount() const noexcept
+    {
+        return positionX.size();
+    }
+
+    bool IsAligned() const noexcept;
 };
 
 // Why: each view aggregates 20 spans. Hot helpers borrow the aggregate by
@@ -265,6 +290,11 @@ inline PhysicsBodyHotFieldsConstView ConstPhysicsBodyHotFields( const PhysicsBod
              fields.boundingRadius,
              fields.fixed,
              fields.awake };
+}
+
+inline bool PhysicsBodyHotFieldsView::IsAligned() const noexcept
+{
+    return ConstPhysicsBodyHotFields( *this ).IsAligned();
 }
 
 inline Math::Vector::Vector3 PhysicsBodyPosition( const PhysicsBodyHotFieldsConstView& fields, std::size_t index )
@@ -463,7 +493,7 @@ class PhysicsBodyStore
     void StoreHotStateAt( int modelIndex, const PhysicsBodyHotState& state );
 
     PhysicsBodyRecordList m_bodies { "PhysicsBodyStore.bodies",
-                                     PhysicsCapacityReason::SceneBodies };                            // Cold records in dense scene/model order.
+                                     PhysicsCapacityReason::SceneBodies }; // Cold records in dense scene/model order.
     PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
         m_positionX { "PhysicsBodyStore.positionX", PhysicsCapacityReason::SceneBodies };
     PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
@@ -503,17 +533,17 @@ class PhysicsBodyStore
     PhysicsHandleFlagList m_fixed { "PhysicsBodyStore.fixed", PhysicsCapacityReason::SceneBodies };
     PhysicsHandleFlagList m_awake { "PhysicsBodyStore.awake", PhysicsCapacityReason::SceneBodies };
     PhysicsBodyHandleList m_modelBodyHandles { "PhysicsBodyStore.modelBodyHandles",
-                                               PhysicsCapacityReason::SceneBodies };                  // Model index to body handle map.
+                                               PhysicsCapacityReason::SceneBodies }; // Model index to body handle map.
     PhysicsHandleGenerationList m_handleGenerations { "PhysicsBodyStore.handleGenerations",
-                                                      PhysicsCapacityReason::BodyHandleSlots };       // Handle-slot generations.
+                                                      PhysicsCapacityReason::BodyHandleSlots }; // Handle-slot generations.
     PhysicsHandleFlagList m_handleAlive { "PhysicsBodyStore.handleAlive",
-                                          PhysicsCapacityReason::BodyHandleSlots };                   // Live handle slot flags.
+                                          PhysicsCapacityReason::BodyHandleSlots }; // Live handle slot flags.
     PhysicsHandleModelIndexList m_handleModelIndices { "PhysicsBodyStore.handleModelIndices",
-                                                       PhysicsCapacityReason::BodyHandleSlots };      // Slot to model index.
+                                                       PhysicsCapacityReason::BodyHandleSlots }; // Slot to model index.
     PhysicsHandleSceneObjectIdList m_handleSceneObjectIds { "PhysicsBodyStore.handleSceneObjectIds",
                                                             PhysicsCapacityReason::BodyHandleSlots }; // Slot scene ids.
     PhysicsHandleSlotList m_freeHandleSlots { "PhysicsBodyStore.freeHandleSlots",
-                                              PhysicsCapacityReason::BodyHandleSlots };               // Retired reusable slots.
+                                              PhysicsCapacityReason::BodyHandleSlots }; // Retired reusable slots.
 
     // Runtime allocation policy: topology repair reuses this handle-slot mask
     // instead of constructing a heap-backed standard-library container.

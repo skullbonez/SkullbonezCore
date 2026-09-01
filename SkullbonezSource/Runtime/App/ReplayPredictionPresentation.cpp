@@ -319,15 +319,17 @@ bool ReplayPredictionPresentation::ApplyFrameForRender( Rendering::RenderInstanc
     return HideUnmatchedBodies( renderInstances, bodyStore, colliderStore, matchedBodies, modelCount ) || queuedBodies;
 }
 
-bool ReplayPredictionPresentation::BuildGhostDrawRequests( const ReplayPredictionPresentationView& prediction,
-                                                           std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                                           const Physics::PhysicsBodyStore& bodyStore )
+bool ReplayPredictionPresentation::BuildGhostDrawRequests(
+    const ReplayPredictionPresentationView& prediction,
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+    const Physics::PhysicsBodyStore& bodyStore )
 {
     ClearGhostDrawRequests();
-    const std::span<const RunReplayPredictionFrame> frames = prediction.frames;
-    const bool drawLivePrediction = prediction.enabled && prediction.ragdollVisualsEnabled && frames.size() >= 2;
-    const bool drawBaseline = prediction.baselineValid && prediction.baselineComparisonActive &&
-                              prediction.ragdollVisualsEnabled && !prediction.baselineBodyPoses.empty();
+    const std::span<const RunReplayPredictionFrame> frames = prediction.timeline.frames;
+    const bool drawLivePrediction = prediction.controls.enabled && prediction.topology.ragdollVisualsEnabled &&
+                                    frames.size() >= 2;
+    const bool drawBaseline = prediction.baseline.valid && prediction.baseline.comparisonActive &&
+                              prediction.topology.ragdollVisualsEnabled && !prediction.baseline.bodyPoses.empty();
 
     bool hasRagdollPart = false;
 
@@ -346,7 +348,7 @@ bool ReplayPredictionPresentation::BuildGhostDrawRequests( const ReplayPredictio
                                                presentationRecords.size()
                                          : 0u;
 
-    const std::size_t baselineCapacity = drawBaseline ? prediction.baselineBodyPoses.size() : 0u;
+    const std::size_t baselineCapacity = drawBaseline ? prediction.baseline.bodyPoses.size() : 0u;
 
     if ( !CanAppendGhostDrawRequests( liveCapacity + baselineCapacity ) )
     {
@@ -355,7 +357,7 @@ bool ReplayPredictionPresentation::BuildGhostDrawRequests( const ReplayPredictio
 
     if ( drawBaseline )
     {
-        for ( const ReplayPredictionBaselineBodyPose& pose : prediction.baselineBodyPoses )
+        for ( const ReplayPredictionBaselineBodyPose& pose : prediction.baseline.bodyPoses )
         {
             if ( !pose.hasRestPose || !IsRagdollPart( presentationRecords, pose.modelRow.value ) )
             {
@@ -444,9 +446,10 @@ bool ReplayPredictionPresentation::BuildGhostDrawRequests( const ReplayPredictio
 }
 
 
-bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList( const ReplayPredictionPresentationView& prediction, const RunReplayPathVisualizerState& path,
-                                                                    const SceneEntityStore& entities, const Physics::ColliderStore& colliderStore, EditorTracer& frameTracer,
-                                                                    const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance )
+bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList(
+    const ReplayPredictionPresentationView& prediction, const RunReplayPathVisualizerState& path,
+    const SceneEntityStore& entities, const Physics::ColliderStore& colliderStore, EditorTracer& frameTracer,
+    const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance )
 {
     const bool retainedAppearanceChanged = m_retainedGeometry.SetAppearance( trajectoryAppearance );
     const bool markerAppearanceChanged = m_retainedMarkerDrawList.SetReplayTrajectoryAppearance( trajectoryAppearance );
@@ -463,7 +466,7 @@ bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList( const Replay
         m_retainedDrawPacketDirty = true;
     }
 
-    if ( prediction.deterministicRevealEnabled )
+    if ( prediction.timeline.deterministicRevealEnabled )
     {
         // Invariant: deterministic reveal is the untouched frame-local oracle.
         // It must not mix retained provisional tails into the packet it hashes.
@@ -527,50 +530,50 @@ void ReplayPredictionPresentation::PublishVisualPacket( ReplayVisualPacket packe
                                                         uint64_t replayReserveGrowthEvents )
 {
     const bool samePresentation = m_trajectorySubmissionProbe.presentationKeyValid &&
-                                  m_trajectorySubmissionProbe.presentationTargetId == prediction.targetId.value &&
-                                  m_trajectorySubmissionProbe.presentationSourceFrame == prediction.sourceFrame;
+                                  m_trajectorySubmissionProbe.presentationTargetId == prediction.topology.targetId.value &&
+                                  m_trajectorySubmissionProbe.presentationSourceFrame == prediction.timeline.sourceFrame;
 
     if ( !samePresentation )
     {
-        m_trajectorySubmissionProbe.presentationTargetId = prediction.targetId.value;
-        m_trajectorySubmissionProbe.presentationSourceFrame = prediction.sourceFrame;
+        m_trajectorySubmissionProbe.presentationTargetId = prediction.topology.targetId.value;
+        m_trajectorySubmissionProbe.presentationSourceFrame = prediction.timeline.sourceFrame;
         m_trajectorySubmissionProbe.futureTreeReadinessDropCount = 0;
         m_trajectorySubmissionProbe.futureTreeReadySeen = false;
         m_trajectorySubmissionProbe.futureTreeReadyLastFrame = false;
-        m_trajectorySubmissionProbe.presentationKeyValid = prediction.targetId.IsValid();
+        m_trajectorySubmissionProbe.presentationKeyValid = prediction.topology.targetId.IsValid();
     }
 
     if ( m_trajectorySubmissionProbe.presentationKeyValid )
     {
         if ( m_trajectorySubmissionProbe.futureTreeReadySeen && m_trajectorySubmissionProbe.futureTreeReadyLastFrame &&
-             !prediction.futureTreeReady )
+             !prediction.topology.treeReady )
         {
             ++m_trajectorySubmissionProbe.futureTreeReadinessDropCount;
         }
 
         m_trajectorySubmissionProbe.futureTreeReadySeen = m_trajectorySubmissionProbe.futureTreeReadySeen ||
-                                                          prediction.futureTreeReady;
+                                                          prediction.topology.treeReady;
 
-        m_trajectorySubmissionProbe.futureTreeReadyLastFrame = prediction.futureTreeReady;
+        m_trajectorySubmissionProbe.futureTreeReadyLastFrame = prediction.topology.treeReady;
     }
 
-    packet.header.sourceFrame = prediction.sourceFrame;
-    packet.header.revealFrame = prediction.revealFrame;
+    packet.header.sourceFrame = prediction.timeline.sourceFrame;
+    packet.header.revealFrame = prediction.timeline.revealFrame;
     packet.header.targetId = pathTargetId;
     packet.header.branchId = latestSolver ? latestSolver->branch.branchId : 0u;
     packet.header.eventCursor = latestSolver ? latestSolver->eventCursor : 0u;
-    packet.header.topologyVersion = prediction.topologyVersion;
-    packet.header.publishedFrameCount = static_cast<uint32_t>( prediction.frames.size() );
-    packet.header.futureNodeCount = static_cast<uint32_t>( prediction.futureNodes.size() );
+    packet.header.topologyVersion = prediction.topology.version;
+    packet.header.publishedFrameCount = static_cast<uint32_t>( prediction.timeline.frames.size() );
+    packet.header.futureNodeCount = static_cast<uint32_t>( prediction.topology.futureNodes.size() );
     const std::span<const ReplayPredictionGhostDrawRequest> ghostRequests = GhostDrawRequestsView();
     packet.header.ghostRequestCount = static_cast<uint32_t>( ghostRequests.size() );
     packet.header.replayReserveGrowthEvents = replayReserveGrowthEvents;
-    packet.header.predictionEnabled = prediction.enabled;
-    packet.header.predictionBuilding = prediction.building;
-    packet.header.predictionComplete = prediction.complete;
-    packet.trajectoryRecords = prediction.trajectoryRecords;
-    packet.futureNodes = prediction.futureNodes;
-    packet.retainedMarkers = prediction.retainedMarkers;
+    packet.header.predictionEnabled = prediction.controls.enabled;
+    packet.header.predictionBuilding = prediction.controls.building;
+    packet.header.predictionComplete = prediction.timeline.complete;
+    packet.trajectoryRecords = prediction.trajectory.records;
+    packet.futureNodes = prediction.topology.futureNodes;
+    packet.retainedMarkers = prediction.markers.retainedMarkers;
     packet.ghostRequests = ghostRequests;
     packet.trajectoryDiagnostics = TrajectoryVisualStatsSnapshot();
     StorePublishedVisualPacket( packet );
@@ -591,7 +594,8 @@ void ReplayPredictionPresentation::ResetTrajectoryVisualStats() noexcept
 }
 
 
-void ReplayPredictionPresentation::RecordTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats )
+void ReplayPredictionPresentation::RecordTrajectoryFrameStats(
+    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats )
 {
     for ( std::size_t index = 0; index < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT; ++index )
     {
@@ -601,8 +605,9 @@ void ReplayPredictionPresentation::RecordTrajectoryFrameStats( const SkullbonezC
 }
 
 
-void ReplayPredictionPresentation::RecordTrajectorySubmissionFrame( const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats, int frameNumber,
-                                                                    uint64_t reserveGrowthEventCount )
+void ReplayPredictionPresentation::RecordTrajectorySubmissionFrame(
+    const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats, int frameNumber,
+    uint64_t reserveGrowthEventCount )
 {
     if ( !submissionStats.hasGeometry || submissionStats.vertexBytes == 0 || submissionStats.vertexCount == 0 )
     {

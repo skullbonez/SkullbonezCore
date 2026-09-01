@@ -1,9 +1,16 @@
 # MASTER PLAN
 
-Date: 2026-08-30
-Status: No active plan; 135/135 tasks complete; bug ledger 126/126 fixed
+Date: 2026-09-01
+Status: No active implementation plan; 143/143 tasks complete; bug ledger
+126/126 fixed
 
 ## Owner Direction
+
+- Engine Signature And Context Cohesion completed at 8/8 on 2026-09-01. SC0-SC7
+  refreshed the whole-engine compiler inventory, repaired confirmed
+  signature/context ownership defects in dependency order, and closed with one
+  cumulative validation/review pass. Work proceeded in cohesive owner-local
+  batches rather than one build per small edit.
 
 - Runtime Reserve Allocation Transaction completed at 4/4 on 2026-08-30.
   Source Design Validation Throughput then completed at 5/5 on the same
@@ -319,9 +326,34 @@ Status: No active plan; 135/135 tasks complete; bug ledger 126/126 fixed
 
 Completed plan files were deleted; git history is the archive.
 
+## Engine Signature And Context Cohesion Closure
+
+`SIGNATURE_COHESION` SC0-SC7 completed on branch
+`nightrunner-31st-AUG-26` in PR
+[#165](https://github.com/skullbonez/SkullbonezCore/pull/165). The final census
+covers 737 files and 6,449 compile contexts with 665 advisory candidates, down
+33 from SC0, and zero infrastructure errors. Renderer transactions enforce
+world-to-overlay order, prediction has one cross-child presentation-policy
+owner, UI has no retained widget reference bags/factories, camera configuration
+has one validated owner, and Replay transport remains typed without a downward
+dependency or expanded growth privilege.
+
+Independent review returned CLEAN with zero findings. Profile and focused
+subsystem gates pass, the five-lane portable Linux workflow is green, and
+computer control proved the native Windows close button highlights and closes
+the application. The exactly-once terminal gate passed Debug, Physics, fast
+preflight, source design, Profile, all CPU lanes, and Automation/replay smoke,
+then failed closed on the inherited terrain-UV DX12 screenshot mismatch already
+present before this plan. DX12 reports zero validation errors and the space
+capture remains pixel-exact. No golden was refreshed. Exact commands, counts,
+hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
+`Artifacts/engine-signature-and-context-cohesion/sc7-closure-evidence.md`.
+
 ## Active Plans
 
-No active plans.
+| Plan | Status | Phases | File |
+|---|---|---|---|
+| None | Await owner direction | - | - |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -358,6 +390,9 @@ One detail in that table is recorded:
 
 ## Binding Order
 
+`SIGNATURE_COHESION` SC0-SC7 is complete. No implementation plan is active;
+selection of a parked or backlog plan requires owner direction.
+
 `RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
 complete on `codex/replay-capture-bugfixes`.
 
@@ -390,7 +425,8 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-135/135 implementation tasks complete, and all 126 bug-ledger rows are fixed. Governance
+143/143 implementation tasks complete, and all 126 bug-ledger rows are fixed.
+Engine Signature And Context Cohesion is complete at 8/8. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0
 classifies all 13 tracked JSON files and 56 tracked Python tools, freezes sixteen

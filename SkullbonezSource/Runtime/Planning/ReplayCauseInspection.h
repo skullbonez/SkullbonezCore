@@ -163,7 +163,7 @@ enum class ReplayCauseInspectorTab : uint8_t
     Iterations
 };
 
-struct ReplayCauseInspectionView
+struct ReplayCauseTransportView
 {
     ReplayCauseInspectionMode mode = ReplayCauseInspectionMode::Inactive;
     uint64_t generation = 0;
@@ -172,28 +172,82 @@ struct ReplayCauseInspectionView
     ReplayFrameIndex presentedFrame = 0;
     ReplayFrameIndex transportFrame = 0;
     ReplayCauseSeekSource seekSource = ReplayCauseSeekSource::SolverHistory;
-    ReplayCauseSolverDetailAvailability
-        solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
-    int selectedRow = -1;
-    int selectedDetailContactRow = -1;
-    int sourceContactIndex = -1;
-    std::size_t solverDetailContactRowCount = 0;
-    std::size_t solverDetailPipelineRecordCount = 0;
-    std::span<const Physics::PhysicsSolverPersistentContactSample> solverDetailContacts;
-    std::span<const Physics::PhysicsPipelineRecord> solverDetailPipelineRecords;
-    const char* solverDetailFeedback = "Solver detail not available";
-    int solverDetailFirstRow = 0;
-    int rawRecordFirstRow = 0;
-    int iterationsFirstRow = 0;
-    Rendering::ContactManifoldPresentation contactPresentation;
-    ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
-    bool detailVisible = false;
     bool ownsPause = false;
     bool transportInFlight = false;
     bool transportPending = false;
     bool returnIssued = false;
     float easedProgress = 0.0f;
+};
+
+struct ReplayCauseSelectionView
+{
+    int selectedRow = -1;
+    int selectedDetailContactRow = -1;
+    int sourceContactIndex = -1;
+};
+
+struct ReplayCauseSolverDetailView
+{
+    ReplayCauseSolverDetailAvailability
+        solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
+    std::size_t solverDetailContactRowCount = 0;
+    std::size_t solverDetailPipelineRecordCount = 0;
+    std::span<const Physics::PhysicsSolverPersistentContactSample> solverDetailContacts;
+    std::span<const Physics::PhysicsPipelineRecord> solverDetailPipelineRecords;
+    const char* solverDetailFeedback = "Solver detail not available";
+    Rendering::ContactManifoldPresentation contactPresentation;
+};
+
+struct ReplayCauseDisplayView
+{
+    int solverDetailFirstRow = 0;
+    int rawRecordFirstRow = 0;
+    int iterationsFirstRow = 0;
+    ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
+    bool detailVisible = false;
     float drawerProgress = 0.0f;
+};
+
+struct ReplayCauseInspectionView : ReplayCauseTransportView,
+                                   ReplayCauseSelectionView,
+                                   ReplayCauseSolverDetailView,
+                                   ReplayCauseDisplayView
+{
+    // Concept: the inherited value layout keeps automation serialization flat,
+    // while these typed projections prevent runtime operations from receiving
+    // transport, selection, evidence, and drawer state they do not consume.
+    ReplayCauseTransportView& Transport() noexcept
+    {
+        return *this;
+    }
+    const ReplayCauseTransportView& Transport() const noexcept
+    {
+        return *this;
+    }
+    ReplayCauseSelectionView& Selection() noexcept
+    {
+        return *this;
+    }
+    const ReplayCauseSelectionView& Selection() const noexcept
+    {
+        return *this;
+    }
+    ReplayCauseSolverDetailView& SolverDetail() noexcept
+    {
+        return *this;
+    }
+    const ReplayCauseSolverDetailView& SolverDetail() const noexcept
+    {
+        return *this;
+    }
+    ReplayCauseDisplayView& Display() noexcept
+    {
+        return *this;
+    }
+    const ReplayCauseDisplayView& Display() const noexcept
+    {
+        return *this;
+    }
 };
 
 // Value-only checkpoint used when App restores an interaction recording. The
@@ -222,8 +276,8 @@ struct ReplayCauseInspectionRecordingState
 
 // These host-decision seams keep keyboard and pointer mapping testable while
 // ReplayCauseInspection remains the sole retained transition owner.
-bool ShouldBeginReplayCauseAftermath( const ReplayCauseInspectionView& inspection, bool spaceDown ) noexcept;
-bool ShouldBeginReplayCauseReturn( const ReplayCauseInspectionView& inspection, bool nonSelectionClick,
+bool ShouldBeginReplayCauseAftermath( const ReplayCauseTransportView& transport, bool spaceDown ) noexcept;
+bool ShouldBeginReplayCauseReturn( const ReplayCauseTransportView& transport, bool nonSelectionClick,
                                    bool scrubExit ) noexcept;
 
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS = 4;
@@ -373,18 +427,27 @@ struct ReplayCauseInspectorLayout
 // Concept: one projection describes both retained Replay placement and the
 // Planning-owned attached drawer. `drawerProgress` is already eased; CHUI3's
 // lifecycle supplies it without adding a second placement owner.
-ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseInspectionView& inspection,
+ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSolverDetailView& solverDetail,
                                                             const RunReplayCauseTreeState& causeTree, int screenWidth,
                                                             int screenHeight, float drawerProgress ) noexcept;
+inline ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseInspectionView& inspection,
+                                                                   const RunReplayCauseTreeState& causeTree, int screenWidth,
+                                                                   int screenHeight, float drawerProgress ) noexcept
+{
+    return BuildReplayCauseInspectorLayout( inspection.SolverDetail(), causeTree, screenWidth, screenHeight,
+                                            drawerProgress );
+}
 bool ReplayCauseInspectorContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
 bool ReplayCauseInspectorDrawerTitleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
-int ReplayCauseSolverDetailIterationCount( const ReplayCauseInspectionView& inspection, std::size_t contactRow ) noexcept;
-ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseInspectionView& inspection,
+int ReplayCauseSolverDetailIterationCount( const ReplayCauseSolverDetailView& solverDetail,
+                                           std::size_t contactRow ) noexcept;
+ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseSolverDetailView& solverDetail,
                                                                   int rowIndex ) noexcept;
-ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseInspectionView& inspection, int rowIndex ) noexcept;
-ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const ReplayCauseInspectionView& inspection,
+ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseSolverDetailView& solverDetail, int rowIndex ) noexcept;
+ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const ReplayCauseSolverDetailView& solverDetail,
+                                                                    const ReplayCauseTransportView& transport,
                                                                     int rowIndex ) noexcept;
-ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const ReplayCauseInspectionView& inspection,
+ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const ReplayCauseSolverDetailView& solverDetail,
                                                                       int rowIndex ) noexcept;
 bool SerializeReplayCauseRawRecord( const ReplayCauseRawRecordProjection& projection, char* destination,
                                     std::size_t destinationCapacity ) noexcept;

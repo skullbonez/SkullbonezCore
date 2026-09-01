@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "name": "automation-processes",
+  "max_parallel": 2,
+  "lanes": [
+    {
+      "id": "profile-rejection",
+      "name": "Profile interaction-script rejection",
+      "steps": [
+        {
+          "id": "game",
+          "name": "Profile negative boundary",
+          "cwd": "${WORKDIR}",
+          "expected_exit": "nonzero",
+          "argv": ["${REPO}\\Profile\\SKULLBONEZ_CORE.exe", "--automation-hidden-window", "--frames", "1", "--interaction-script", "SkullbonezData\\interaction\\replay_prediction_click.json"]
+        }
+      ]
+    },
+    {
+      "id": "automation-smoke",
+      "name": "Automation replay/prediction smoke",
+      "steps": [
+        {
+          "id": "game",
+          "name": "Automation positive smoke",
+          "cwd": "${WORKDIR}",
+          "argv": ["${REPO}\\Automation\\SKULLBONEZ_CORE.exe", "--renderer", "dx12", "--vsync", "off", "--shadows", "off", "--hide-top-text", "--automation-hidden-window", "--scene", "SkullbonezData\\scenes\\interaction_replay_prediction_harness.scene.json", "--interaction-script", "SkullbonezData\\interaction\\replay_prediction_development_ui_smoke.json", "--interaction-report", "${AUTOMATION_REPORT}", "--frames", "150", "--replay", "on", "--replay-seconds", "2", "--fixed-step"]
+        }
+      ]
+    }
+  ]
+}

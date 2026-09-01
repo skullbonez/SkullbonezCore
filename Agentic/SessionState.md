@@ -1,11 +1,103 @@
 # Session State
 
-Date: 2026-08-31
-Branch: `codex/replay-capture-bugfixes`
-Status: No active plan; accepted persistent-island sleep implementation ready
-for PR; all plans archived in WNF
+Date: 2026-09-01
+Branch: `nightrunner-31st-AUG-26`
+Status: No active implementation plan; Engine Signature And Context Cohesion complete at 8/8; portfolio 143/143
 
 ## Current State
+
+The owner completed `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
+branch and requested substantial related batches instead of a build after each
+small signature change. SC0 through SC2 are complete. The compiler census covers
+736 files/6,435 contexts with 698 candidates; the motivating broadphase bag is
+replaced by retained stage configuration, a checked activity view, a validated
+sweep/contact value, a synchronous pair filter, explicit joints, and direct
+trace capability. The Profile build and 39 focused cases/9,273 assertions pass;
+the Debug 0/repeat/1/4-worker matrix remains byte-exact at the accepted 44,401-
+line digest. SC2 replaces nine-scalar rotation construction, tornado vertex
+serialization and oversized render orchestration, Physics authored/hot/force
+row bags, terrain output references, ragdoll impulse plumbing, per-step runtime
+settings, and unchecked height-map derived counts with named values, aligned
+views, typed results, and concrete owner phases. The 33 focused cases pass 925
+assertions, source-design passes 24 files/192 contexts, and the Physics digest
+is unchanged. SC3 is complete. Rendering now uses validated mesh vertex/upload
+values, typed camera/light views, explicit model-selection modes, and typed
+shadow batch views. The UI library records named bounds/point/triangle/color
+values and uses a span-backed combo presentation view. Compiler-required
+repairs also split the touched GameUI and replay scrubber composers into
+concrete draw phases. Profile builds warning-clean; 912 cases/2,693,378
+assertions, the renderer-free UI boundary, dependency, formatting,
+build-configuration, and source-design checks pass. DX12 produces all captures
+with zero InfoQueue errors; a detached pre-SC3 build proves the two committed
+screenshot-oracle mismatches are inherited, and no baseline was refreshed. SC4
+now reviews Runtime packages below App in dependency order. The first SC4 slice
+gives Capture typed frame/schedule inputs and an explicit state update, gives
+replay scrubber availability one behavioral source-selection value, and gives
+UI interaction caching a behavioral signature value with the previous hash
+order preserved. The combined Profile build passes warning-clean, the complete
+suite passes 914 cases and 2,692,750 assertions, source-design passes 15 files
+and 96 contexts, and format, dependency, build-configuration, and whitespace
+checks pass. The next grouped slice repairs the UI/App coordinator structure
+exposed by the compiler gate. That below-App portion now splits the UI window
+input owner into derived-layout, minimized, chrome, popup, tab, footer, slider,
+drag/resize, and release phases; splits editor gizmo live drag from scale and
+pose release recording; and splits operator draw-trace/profiler projection.
+Profile builds warning-clean, the normal suite passes 913 cases and 2,691,927
+assertions with one expected skip, source-design passes five files and 39
+contexts, and the renderer-free UI boundary plus lightweight gates pass. The
+following grouped slice moves into App orchestration and the typed UI input
+seam. It decomposes `ApplyInputCommandsPhase` into ordered replay,
+forecast, device/mode, editor, presentation, tuning, generated-scene, and
+world/cinematic phases. GameUI receives detached frame, editor-mode, and camera
+availability values instead of ten adjacent primitive arguments, and the
+unused selected-camera scalar is gone. The Profile solution builds
+warning-clean; 913 cases and 2,694,677 assertions pass with one expected skip;
+source-design passes seven files under 53 consumer contexts. The next grouped
+App slice decomposes `RunInputPhase` into capture/default draining, pre-UI
+action families, operator input, replay restore, recording diagnostics, camera
+control, and deferred owner requests. `RenderOperatorUiPhase` now shares one
+detached projection between GameUI and ImGui and separately projects hierarchy,
+inspector, diagnostics, GameUI data, text/GPU submission, and development UI.
+The Profile solution builds warning-clean; 913 cases and 2,692,437 assertions
+pass with one expected skip; source-design passes three files under 16 consumer
+contexts; format, dependency/project ownership, build-configuration, and
+whitespace checks pass. The fifth grouped slice replaces GameUI's 115 flat root
+frame fields with eight cohesive detached sections while retaining the existing
+narrow tab projections. The Profile solution builds warning-clean; 913 cases
+and 2,692,662 assertions pass with one expected skip; source-design passes seven
+files under 41 consumer contexts; format, dependency/project ownership,
+build-configuration, and whitespace checks pass. The sixth grouped slice
+replaces Prediction topology publication's three-pointer context and one-use
+resolver-callback traversal with a scoped topology builder, typed node
+candidates, a concrete affected-marker input, and a target/budget overlay
+request. Profile builds warning-clean; 913 cases and 2,692,417 assertions pass
+with one expected skip; source-design passes three files under 20 consumer
+contexts; format, dependency/project ownership, build-configuration, and
+whitespace checks pass. The seventh grouped slice removes the render-startup
+service bag and binds result diagnostics, backend, assets, window, render
+configuration, environment, profiler, and scene generation facts directly to
+their consuming owners. `RuntimeRenderer` retains only window, environment,
+and profiler, while `RenderResourceLifecycle` receives assets, configuration,
+and profiler directly. Profile builds warning-clean; 913 cases and 2,692,057
+assertions pass with one expected skip; source-design passes six files under 47
+consumer contexts. The eighth grouped slice removes the seven-field
+`RenderResourceContext` from ten pass-resource operations. Each pass now
+receives only its actual asset, resource-builder, geometry, cinematic, or extent
+inputs; the no-op debug ensure and forwarding helpers are gone.
+`RuntimeRenderer` remains the resource-epoch sequencer. Profile builds
+warning-clean; 913 cases and 2,692,412 assertions pass with one expected skip;
+source-design passes four files under 30 consumer contexts; format, dependency/
+project ownership, build-configuration, and whitespace checks pass. The next
+batch reconciles the remaining SC4/SC5 inventory against the compiler census.
+Eight SC4 commits (`8bfdc279ec` through `8c6172103f`) were published with
+subject-only messages. History remains immutable; the owning plan now records
+the recovered per-hash implementation and validation evidence. A repository
+`commit-msg` hook plus self-tested checker rejects empty, short, reordered, or
+placeholder bodies and requires the six evidence sections documented in
+`AGENTS.md` and `Agentic/README.md`. No baseline refresh
+is authorized. The live work ledger is temporarily owned by
+unfinished task `GOV1` in another Codex session, so this run cannot open its own
+ledger row until that external metadata owner finishes.
 
 The owner visually accepted the persistent deterministic simulation-island
 sleep policy as-is. The scoped result makes a sphere on terrain steeper than
@@ -1438,3 +1530,190 @@ filesystem-preflight blockers. Final counts were 0 Blocking, 0 Non-blocking,
 and 1 Missing evidence. Per owner direction, no build, test, scanner, inventory,
 formatter, or repository validation was run; compile/link and focused runtime
 behavior therefore remain unexecuted evidence.
+
+## Engine Signature Cohesion SC4 DevelopmentTools And Render Slices (2026-09-01)
+
+Branch `nightrunner-31st-AUG-26` and PR 165 remain active. The ninth SC4 slice
+replaces `ImGuiEditorCausalityContext` with separate selected-cause, bounded
+related-row, and status values. The editor presenter now sequences focused panel
+methods that receive exact detached UI slices, and the former 2,100-line shell
+operation no longer owns inline submission/edit helpers or a wide parameterized
+edit declaration. The existing Physics Solver filter rule now includes
+`PhysicsBroadphaseStepValues`.
+
+Profile builds warning-clean. The current render-frame slice deletes the
+19-field model frame bag and ten-part frame-entry bag in favor of consumer-owned
+model, broadphase, collision, Physics, world-extension, diagnostics, world, and
+overlay views. The complete test executable passes 913 cases and 2,693,947
+assertions with one expected skip. Focused compiler-backed source-design passes
+11 source/header targets under 80 compile contexts with zero findings. Project
+filters, formatting, dependency direction, plain-language policy, commit-note
+policy, and whitespace checks pass.
+No baseline or golden changed. SC4 remains active; SC5, SC6, and the final SC7
+closure still follow, corresponding to tasks 6/8, 7/8, and 8/8.
+
+The eleventh SC4 slice separates Replay render timing from renderer overlay
+submission. Profile builds warning-clean; the focused seam passes five
+assertions, and compiler-backed source-design passes five targets under 36
+contexts with zero findings. The renderer's pre-existing large coordinator was
+left untouched after the first scan correctly rejected reopening it.
+
+The twelfth SC4 slice repairs Runtime render-debug presentation as one owner
+group. Physics body geometry, contact, sleep, and pipeline overlays now receive
+four exact child views, and retained-contact update cannot reach unrelated
+diagnostics. Collision visualization drops its unused live body-store borrow;
+App publication and the two collision phases clamp the model rows they index.
+Profile builds warning-clean and the focused debug-visualizer contract passes
+one case and 17 assertions. Compiler-backed source-design passes nine targets
+under 63 compile contexts with zero findings; format, dependency/project
+ownership, project-filter, and plain-language gates pass. SC4 remains task 5/8;
+SC7 remains the required closure and the stale active-goal label ending at SC6
+is not a completion gate.
+
+The thirteenth SC4 slice replaces the 17-field launcher repro context with
+separate scene-capture, launch-policy, and presentation views. RuntimeTools now
+captures one detached snapshot before file serialization; the writer cannot
+reach live scene, physics, terrain, camera, entity, or renderer owners. Debug
+builds warning-clean, and compiler-backed source-design passes three targets
+under 20 compile contexts with zero findings. SC4 remains task 5/8; the required
+finish is still SC7 task 8/8.
+
+The fourteenth SC4 slice replaces the flat 53-reference UI widget reconstruction
+with seven owner-cohesive draw groups and routes minimized, tab, target, footer,
+overlay, hitbox, and test consumers through their exact groups. The active-tab
+and footer composers were split when the compiler gate exposed their size and
+signature debt. Profile builds warning-clean; the focused UI selection passes
+84 cases and 2,608 assertions; compiler-backed source-design passes five targets
+under 40 compile contexts with zero findings. SC4 remains task 5/8, and SC7
+remains the required terminal closure.
+
+The fifteenth SC4 slice replaces the flat Prediction presentation record with
+timeline, topology, trajectory, retained-marker, baseline, drag-preview,
+controls, and diagnostics child views. App/UI retain the composition envelope;
+Planning receives only controls before prediction and timeline/topology/controls
+after publication. The stale `ReplayPredictionFutureContext` inventory row is
+reconciled as already retired by the explicit topology builder. Cause-focus,
+retained-evidence publication, and two regression oracles were split when the
+compiler gate exposed their touched function-shape debt. Profile builds with
+zero warnings/errors; the final sequential Prediction/Replay/Planning selection
+passes 57 cases and 4,907 assertions. Source-design closes the 16 changed targets
+across 90 contexts with zero remaining findings; formatting, dependency/project
+ownership, build-configuration, project-filter, plain-language, and whitespace
+checks pass. No baseline or golden changed. SC4 remains task 5/8; SC7 remains
+the required task 8/8 closure.
+
+The sixteenth SC4 slice separates Planning overlay reads into timeline/scrubber,
+planning-surface, and causality children. Cause inspection now exposes typed
+transport, selection, solver-evidence, and drawer-display projections while its
+flat inherited value layout preserves automation serialization. Individual
+renderers and editor panels no longer receive the complete overlay or cause
+inspection aggregate. Profile builds warning-clean; 40 focused cases and 703
+assertions pass; compiler-backed source-design passes 14 targets across 82
+contexts with zero findings. Formatting, dependency/project ownership,
+build-configuration, project-filter, plain-language, and whitespace checks
+pass. No baseline or golden changed. SC4 remains task 5/8; SC7 remains the
+required task 8/8 terminal closure.
+
+The seventeenth SC4 slice deletes the duplicated 36-field operator inspector
+projection record and its field-by-field copy. The canonical detached inspector
+value now exposes selection, transform, identity, render-material, and Physics
+children; App builds it directly and ImGui delegates each section to the exact
+child it presents. The established flat fingerprint values remain intact.
+Profile builds warning-clean; 10 focused cases and 225 assertions pass;
+source-design passes six targets across 35 contexts with zero findings.
+Formatting, dependency/project ownership, build-configuration, project-filter,
+plain-language, and whitespace checks pass. No baseline or golden changed. SC4
+remains task 5/8; SC7 remains the required task 8/8 terminal closure.
+
+The eighteenth SC4 slice closes the remaining below-App aggregate worksheet.
+Replay transport commands are a closed action-specific variant, Replay startup
+load/probe requests are grouped by operation, and the distinct workspace,
+immutable input-publication, and scene-reset values remain value-only owner
+boundaries. Scene defaults saving now consumes an owned snapshot projected
+before file I/O; focused tests prove the snapshot is detached. The Look Lab
+save request is retained after confirming its path/UTC validation and
+copy-before-return coverage. Profile builds warning-clean; the focused selection
+passes 4 cases and 43 assertions. Source-design passes 11 targets across 52
+compile contexts, and grouped ownership gates pass. No baseline or golden
+changed. SC4 remains task 5/8; SC7 remains the mandatory task 8/8 terminal
+closure.
+
+SC5 task 6/8 is complete in the nineteenth grouped signature-cohesion slice.
+Camera movement is projected once into named `RuntimeCameraMovementInput`
+fields; graphics stress classifies every authored action into one concrete
+owner family and calls narrow owner operations; scene-load presentation is an
+explicit validation/render/window-UI/stress sequence at all seven callers. The
+Profile solution builds warning-clean. Six focused cases pass 124 assertions,
+source-design passes 11 targets/72 contexts, and the App advisory rescan covers
+47 targets/340 contexts with 119 fully reconciled candidates (seven fewer than
+the pre-edit scan). Format, dependency/project ownership, build configuration,
+project filters, plain language, and whitespace pass. No baseline or golden
+changed. SC6 task 7/8 and mandatory SC7 task 8/8 remain; scrubber behavior stays
+deferred by user direction.
+
+## Engine Signature Cohesion SC6 Whole-Engine Reconciliation (2026-09-01)
+
+SC6 task 7/8 is complete; SC7 task 8/8 is the active terminal phase. The final
+whole-engine advisory rescan covers 737 files and 6,449 compile contexts with
+zero infrastructure errors. It accounts for 667 candidates against the frozen
+SC0 count of 698, a net reduction of 31 across 71 changed file/kind rows. The
+qualitative pass found no old participant surface reconstructed through a
+rename, a nominal slice, forwarding member reach, or a new generic owner bag.
+
+The grouped cleanup deletes the behavior-free `InputBindingContext` alias,
+refreshes 23 exact allocation-policy fingerprints relocated by accepted source
+slices, and updates the technical-manual source plus generated DOCX to describe
+the current named pass inputs, `RuntimeRenderPassResources`, and
+`RenderResourceLifecycle`. Current `ReplayStartupRequest` and grouped UI
+`WidgetView` values remain legitimate operation/composition boundaries.
+
+Profile x64 builds with zero warnings/errors. The four exact runtime input-
+binding cases pass 1,204 assertions; source-design passes one changed source
+across five compile contexts. Allocation, format, dependency/project ownership,
+build-configuration consistency, project filters, plain language, and
+whitespace checks pass. The manual regenerates to 60 pages and structural DOCX
+verification finds all current terms and no retired names. LibreOffice is not
+installed, so the document skill's page-image render was unavailable; this is
+recorded rather than represented as visual evidence. No baseline or golden
+changed. SC7 supplies the terminal review, validation, computer-control,
+closure, and PR evidence below. Scrubber behavior remains deferred by owner
+direction.
+
+## Engine Signature Cohesion SC7 Terminal Closure (2026-09-01)
+
+SC7 task 8/8 is complete. The final all-first-party inventory covers 737 files
+and 6,449 compile contexts with 665 advisory candidates, a net reduction of 33
+from SC0, and zero infrastructure errors. Independent reviewer thread
+`01a05b08-6649-7be2-adcc-c8b4166cb795` returned CLEAN with zero blocking,
+non-blocking, or missing-evidence findings. Renderer transaction ordering,
+prediction policy ownership, direct UI member operations, stable camera
+configuration, and typed Replay transport are closed without a downward Replay
+edge or a new/expanded growth privilege.
+
+Implementation commit `964e7759c` and portability correction `50c623b14` are
+pushed. Portable Linux run 33474002031 passes Clang/GCC warning-clean, Clang
+ASan/UBSan, and GCC TSan. Profile and all focused camera, UI, renderer,
+transport, prediction, dependency, formatting, policy, and unchanged-manifest
+checks pass. Windows computer control proved the native top-right close button
+highlights red and closes the DX12 application.
+
+The exactly-once `tools\agent_validate.bat --plan-completion` run passed Debug,
+the byte-exact Physics 0/repeat/1/4 matrix, mandatory fast preflight,
+source-design/retained policy, Profile, all six CPU lanes, and Automation/replay
+smoke. It then failed closed on the inherited terrain-UV DX12 screenshot
+mismatch first recorded before this plan: water average delta 4.9171, solver
+4.0154, space pixel-exact, and zero InfoQueue errors. A focused rerun reproduced
+the same metrics. Comparison with the 2026-08-27 inherited captures shows only
+0.005790 average channel movement for water, 0.003872 for solver, and exact
+space output across SC7. The plan forbids baseline updates; no golden was
+refreshed, no gate was weakened, and the intentional World UV fix was not
+reverted. Replay visual fidelity still lacks its expected
+`full_reveal_probe_profile.json` report and is not claimed as passing. Scrubber
+click-hold behavior remains deferred and unclaimed.
+
+Permanent evidence is in
+`Agentic/Plans/Artifacts/engine-signature-and-context-cohesion/sc7-closure-evidence.md`.
+Every closure commit note must pass both detailed-message validators with
+substantive Why, Ownership, What, Validation, Baselines/Artifacts, and Review
+sections; empty or placeholder commit bodies fail closed. No implementation
+plan is active; await owner direction.

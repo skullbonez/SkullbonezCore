@@ -54,6 +54,58 @@ class WorkerPool;
 
 namespace Rendering
 {
+// Lifetime: these three borrows describe one synchronous camera/light draw
+// view. The light parameter keeps its four-component extent at the type
+// boundary, so callers cannot pair matrices with a short scalar buffer.
+class RenderViewValues
+{
+  public:
+    RenderViewValues( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection,
+                      const float ( &lightPosition )[4] ) noexcept
+        : m_view( view ), m_projection( projection ), m_lightPosition( lightPosition )
+    {
+    }
+
+    const Math::Transformation::Matrix4& View() const noexcept
+    {
+        return m_view;
+    }
+    const Math::Transformation::Matrix4& Projection() const noexcept
+    {
+        return m_projection;
+    }
+    const float ( &LightPosition() const noexcept )[4]
+    {
+        return m_lightPosition;
+    }
+
+  private:
+    const Math::Transformation::Matrix4& m_view;
+    const Math::Transformation::Matrix4& m_projection;
+    const float ( &m_lightPosition )[4];
+};
+
+// Encodes the three valid row-selection states. Missing/out-of-range mask rows
+// retain the historical unmasked fallback without a second Boolean that can
+// contradict the mask's intended polarity.
+class RenderModelSelection
+{
+  public:
+    static RenderModelSelection All() noexcept;
+    static RenderModelSelection Marked( const std::vector<uint8_t>& mask ) noexcept;
+    static RenderModelSelection Unmarked( const std::vector<uint8_t>& mask ) noexcept;
+    bool Includes( int modelIndex ) const noexcept;
+
+  private:
+    RenderModelSelection( const std::vector<uint8_t>* mask, bool includeMarked ) noexcept
+        : m_mask( mask ), m_includeMarked( includeMarked )
+    {
+    }
+
+    const std::vector<uint8_t>* m_mask = nullptr;
+    bool m_includeMarked = true;
+};
+
 class RenderInstanceRenderer
 {
   public:
@@ -70,16 +122,13 @@ class RenderInstanceRenderer
 
     // Submits the main view. The optional mask chooses either the marked or
     // unmarked model rows; all borrows end before this call returns.
-    void RenderModels( const char* shaderBaseName, const Math::Transformation::Matrix4& view,
-                       const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
+    void RenderModels( const char* shaderBaseName, const RenderViewValues& renderView,
                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                       const Rendering::ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask,
-                       bool drawMaskedModels );
+                       const Rendering::ShadowFrameData* shadow, float materialAlpha, RenderModelSelection selection );
 
     // Submits the mirrored view. Reflection clipping is structural, so callers
     // cannot accidentally select main-view visibility or supply a model mask.
-    void RenderReflectionModels( const char* shaderBaseName, const Math::Transformation::Matrix4& view,
-                                 const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
+    void RenderReflectionModels( const char* shaderBaseName, const RenderViewValues& renderView,
                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                  const Rendering::ShadowFrameData* shadow, float materialAlpha );
     void BuildShadowCasterBatches( Core::Profiler* profiler, Rendering::ShadowCasterBatches& outBatches );
@@ -93,11 +142,10 @@ class RenderInstanceRenderer
 
   private:
     void RenderModelsForView( Rendering::RenderVisibilityView visibilityView, const char* shaderBaseName,
-                              const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection,
-                              const float ( &lightPosition )[4],
+                              const RenderViewValues& renderView,
                               const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                               const Rendering::ShadowFrameData* shadow, float materialAlpha,
-                              const std::vector<uint8_t>* modelMask, bool drawMaskedModels );
+                              RenderModelSelection selection );
 
     Rendering::PrimitiveBatchRenderer& m_primitiveRenderer;
     Rendering::Dx12Diagnostics& m_renderDiagnostics;

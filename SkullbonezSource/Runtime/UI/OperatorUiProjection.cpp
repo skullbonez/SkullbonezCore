@@ -1,4 +1,4 @@
-/*
+﻿/*
 File: SkullbonezSource/Runtime/UI/OperatorUiProjection.cpp
 Purpose:
   Projects detached domain facts into one operator UI frame.
@@ -295,51 +295,11 @@ void ProjectOperatorEditorSurfaces( UI::OperatorEditorFrameView& view, bool prim
 }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view, const OperatorUiInspectorFacts& inspector,
+void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
+                                             const UI::OperatorEditorInspectorView& inspector,
                                              const OperatorUiWorldFacts& world )
 {
-    UI::OperatorEditorInspectorView& target = view.inspector;
-    target.displayName = inspector.displayName;
-    target.renderMaterialName = inspector.renderMaterialName;
-    target.contactMaterialName = inspector.contactMaterialName;
-    target.assetName = inspector.assetName;
-    target.assetInstanceName = inspector.assetInstanceName;
-    target.assetPartName = inspector.assetPartName;
-    target.selectionState = inspector.selectionState;
-    target.sceneObjectId = inspector.sceneObjectId;
-    target.selectionCount = inspector.selectionCount;
-    target.renderMaterialKind = inspector.renderMaterialKind;
-    target.colliderShapeKind = inspector.colliderShapeKind;
-    target.behaviorGroupKind = inspector.behaviorGroupKind;
-    target.behaviorPartIndex = inspector.behaviorPartIndex;
-
-    for ( int channel = 0; channel < 3; ++channel )
-    {
-        target.position[channel] = inspector.position[channel];
-        target.linearVelocity[channel] = inspector.linearVelocity[channel];
-        target.angularVelocity[channel] = inspector.angularVelocity[channel];
-    }
-
-    for ( int channel = 0; channel < 4; ++channel )
-    {
-        target.orientation[channel] = inspector.orientation[channel];
-        target.baseColor[channel] = inspector.baseColor[channel];
-    }
-
-    target.mass = inspector.mass;
-    target.volume = inspector.volume;
-    target.boundingRadius = inspector.boundingRadius;
-    target.dragCoefficient = inspector.dragCoefficient;
-    target.friction = inspector.friction;
-    target.restitution = inspector.restitution;
-    target.roughness = inspector.roughness;
-    target.metallic = inspector.metallic;
-    target.specular = inspector.specular;
-    target.visible = inspector.visible;
-    target.locked = inspector.locked;
-    target.fixed = inspector.fixed;
-    target.sleeping = inspector.sleeping;
-    target.assetBacked = inspector.assetBacked;
+    view.inspector = inspector;
 
     view.world = { world.modelCount,
                    world.modelCapacity,
@@ -406,128 +366,144 @@ void ProjectOperatorEditorDiagnostics( UI::OperatorEditorFrameView& view, const 
     }
 }
 
-void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const OperatorUiDiagnosticsFacts& facts,
-                                   UI::UIRuntimeReserveCapacityRow* reserveCapacityRows )
+namespace
 {
-    const RuntimeFrameMetricsSnapshot& metrics = facts.metrics;
-    UIData.UIDrawCalls = metrics.uiDrawCalls;
-    UIData.visibility = ProjectRenderVisibilityDiagnostics( facts.visibility );
-    UIData.fps = metrics.rollingFrameSeconds > 0.0f
-                     ? 1.0f / metrics.rollingFrameSeconds
-                     : ( metrics.secondsPerFrame > 0.0 ? 1.0f / static_cast<float>( metrics.secondsPerFrame ) : 0.0f );
+void ProjectOperatorUiDrawTrace( UI::InGameUIFrameData& uiData, const Rendering::DrawCallTraceSnapshot& drawTrace )
+{
+    // Concept: render draw attribution is copied through uiData while
+    // the render diagnostics capability is already borrowed by Run. The
+    // profiler tab never needs the wide renderer facade to explain draw
+    // calls.
+    const int sourceNodeCount = (std::max)( 0, drawTrace.nodeCount );
+    const int nodeCount = (std::min)( sourceNodeCount, SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
+    SkullbonezCore::UI::ProfilerTab::DrawTraceSnapshot& uiTrace = uiData.diagnostics.profiler.drawTrace;
+    uiTrace.nodeCount = nodeCount;
+    uiTrace.nodeOverflowCount = drawTrace.nodeOverflowCount + ( sourceNodeCount - nodeCount );
+    uiTrace.eventCount = drawTrace.eventCount;
+    uiTrace.eventOverflowCount = drawTrace.eventOverflowCount;
+    uiTrace.scopeMismatchCount = drawTrace.scopeMismatchCount;
 
-    UIData.renderMs = ( metrics.rollingRenderSeconds > 0.0f ? metrics.rollingRenderSeconds : metrics.renderSeconds ) *
-                      1000.0f;
-
-    UIData.physicsMs = ( metrics.rollingPhysicsSeconds > 0.0f ? metrics.rollingPhysicsSeconds : metrics.physicsSeconds ) *
-                       1000.0f;
-
-    UIData.cpuFrameMs = metrics.cpuFrameWorkMs;
-    UIData.gpuFrameMs = metrics.gpuFrameWorkMs;
+    if ( drawTrace.nodes )
     {
-        // Concept: render draw attribution is copied through UIData while
-        // the render diagnostics capability is already borrowed by Run. The
-        // profiler tab never needs the wide renderer facade to explain draw
-        // calls.
-        const Rendering::DrawCallTraceSnapshot& drawTrace = facts.drawTrace;
-        const int sourceNodeCount = (std::max)( 0, drawTrace.nodeCount );
-        const int nodeCount = (std::min)( sourceNodeCount, SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
-        SkullbonezCore::UI::ProfilerTab::DrawTraceSnapshot& uiTrace = UIData.profiler.drawTrace;
-        uiTrace.nodeCount = nodeCount;
-        uiTrace.nodeOverflowCount = drawTrace.nodeOverflowCount + ( sourceNodeCount - nodeCount );
-        uiTrace.eventCount = drawTrace.eventCount;
-        uiTrace.eventOverflowCount = drawTrace.eventOverflowCount;
-        uiTrace.scopeMismatchCount = drawTrace.scopeMismatchCount;
-
-        if ( drawTrace.nodes )
+        for ( int nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex )
         {
-            for ( int nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex )
-            {
-                const auto& source = drawTrace.nodes[nodeIndex];
-                SkullbonezCore::UI::ProfilerTab::DrawTraceNodeSnapshot& target = uiTrace.nodes[nodeIndex];
-                target.name = source.name ? source.name : "";
-                target.leafName = source.leafName ? source.leafName : target.name;
-                target.hash = source.hash;
-                target.parentIndex = source.parentIndex;
-                target.depth = source.depth;
-                target.drawCallCount = source.drawCallCount;
-                target.vertexCount = source.vertexCount;
-                target.instanceCount = source.instanceCount;
-            }
-        }
-    }
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-    {
-        static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == SkullbonezCore::Core::Profiler::MAX_MARKERS,
-                       "UI profiler snapshot capacity must match SkullbonezCore::Core::Profiler markers" );
-
-        static_assert( SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES ==
-                           SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
-                       "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples" );
-
-        SkullbonezCore::UI::ProfilerTab::FrameSnapshot& profilerFrame = UIData.profiler;
-        profilerFrame.markerCount = (std::min)( facts.markerCount, SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
-
-        for ( int markerIndex = 0; markerIndex < profilerFrame.markerCount; ++markerIndex )
-        {
-            const OperatorUiProfilerMarkerFacts& source = facts.markers[static_cast<std::size_t>( markerIndex )];
-            const int paletteIndex = source.colorIndex >= 0
-                                         ? source.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE
-                                         : 0;
-
-            const SkullbonezCore::Core::Profiler::BarColor&
-                color = SkullbonezCore::Core::Profiler::BAR_PALETTE[paletteIndex];
-
-            SkullbonezCore::UI::ProfilerTab::MarkerSnapshot& target = profilerFrame.markers[markerIndex];
+            const auto& source = drawTrace.nodes[nodeIndex];
+            SkullbonezCore::UI::ProfilerTab::DrawTraceNodeSnapshot& target = uiTrace.nodes[nodeIndex];
             target.name = source.name ? source.name : "";
             target.leafName = source.leafName ? source.leafName : target.name;
             target.hash = source.hash;
             target.parentIndex = source.parentIndex;
             target.depth = source.depth;
-            target.lastFrameMs = source.lastFrameMs;
-            target.lastSelfMs = source.lastSelfMs;
-            target.avgMs = source.avgMs;
-            target.selfAvgMs = source.selfAvgMs;
-            target.lastFrameWorkerMs = source.lastFrameWorkerMs;
-            target.workerAvgMs = source.workerAvgMs;
-            target.p50Ms = source.p50Ms;
-            target.p99Ms = source.p99Ms;
-            target.colorR = color.r;
-            target.colorG = color.g;
-            target.colorB = color.b;
-        }
-
-        profilerFrame.workerCoreSampleCount = (std::min)( facts.workerSampleCount,
-                                                          SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES );
-
-        for ( int sampleIndex = 0; sampleIndex < profilerFrame.workerCoreSampleCount; ++sampleIndex )
-        {
-            const OperatorUiWorkerCoreFacts& source = facts.workerSamples[static_cast<std::size_t>( sampleIndex )];
-
-            SkullbonezCore::UI::ProfilerTab::WorkerCoreSampleSnapshot& target = profilerFrame.workerCoreSamples[sampleIndex];
-
-            target.workerIndex = source.workerIndex;
-            target.jobCount = source.jobCount;
-            target.coreMs = source.coreMs;
-            target.avgCoreMs = source.avgCoreMs;
-            target.spanStartMs = source.spanStartMs;
-            target.spanEndMs = source.spanEndMs;
-            UIData.workerCoreTotalMs += (std::max)( 0.0f, target.coreMs );
+            target.drawCallCount = source.drawCallCount;
+            target.vertexCount = source.vertexCount;
+            target.instanceCount = source.instanceCount;
         }
     }
+}
+
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+void ProjectOperatorUiProfilerFrame( UI::InGameUIFrameData& uiData, std::span<const OperatorUiProfilerMarkerFacts> markers,
+                                     std::span<const OperatorUiWorkerCoreFacts> workerSamples )
+{
+    static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == SkullbonezCore::Core::Profiler::MAX_MARKERS,
+                   "UI profiler snapshot capacity must match SkullbonezCore::Core::Profiler markers" );
+
+    static_assert( SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES ==
+                       SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
+                   "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples" );
+
+    SkullbonezCore::UI::ProfilerTab::FrameSnapshot& profilerFrame = uiData.diagnostics.profiler;
+    profilerFrame.markerCount = (std::min)( static_cast<int>( markers.size() ),
+                                            SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
+
+    for ( int markerIndex = 0; markerIndex < profilerFrame.markerCount; ++markerIndex )
+    {
+        const OperatorUiProfilerMarkerFacts& source = markers[static_cast<std::size_t>( markerIndex )];
+        const int paletteIndex = source.colorIndex >= 0
+                                     ? source.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE
+                                     : 0;
+
+        const SkullbonezCore::Core::Profiler::BarColor& color = SkullbonezCore::Core::Profiler::BAR_PALETTE[paletteIndex];
+
+        SkullbonezCore::UI::ProfilerTab::MarkerSnapshot& target = profilerFrame.markers[markerIndex];
+        target.name = source.name ? source.name : "";
+        target.leafName = source.leafName ? source.leafName : target.name;
+        target.hash = source.hash;
+        target.parentIndex = source.parentIndex;
+        target.depth = source.depth;
+        target.lastFrameMs = source.lastFrameMs;
+        target.lastSelfMs = source.lastSelfMs;
+        target.avgMs = source.avgMs;
+        target.selfAvgMs = source.selfAvgMs;
+        target.lastFrameWorkerMs = source.lastFrameWorkerMs;
+        target.workerAvgMs = source.workerAvgMs;
+        target.p50Ms = source.p50Ms;
+        target.p99Ms = source.p99Ms;
+        target.colorR = color.r;
+        target.colorG = color.g;
+        target.colorB = color.b;
+    }
+
+    profilerFrame.workerCoreSampleCount = (std::min)( static_cast<int>( workerSamples.size() ),
+                                                      SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES );
+
+    for ( int sampleIndex = 0; sampleIndex < profilerFrame.workerCoreSampleCount; ++sampleIndex )
+    {
+        const OperatorUiWorkerCoreFacts& source = workerSamples[static_cast<std::size_t>( sampleIndex )];
+
+        SkullbonezCore::UI::ProfilerTab::WorkerCoreSampleSnapshot& target = profilerFrame.workerCoreSamples[sampleIndex];
+
+        target.workerIndex = source.workerIndex;
+        target.jobCount = source.jobCount;
+        target.coreMs = source.coreMs;
+        target.avgCoreMs = source.avgCoreMs;
+        target.spanStartMs = source.spanStartMs;
+        target.spanEndMs = source.spanEndMs;
+        uiData.surface.workerCoreTotalMs += (std::max)( 0.0f, target.coreMs );
+    }
+}
 #endif
-    UIData.profiler.tracyBuildEnabled = facts.tracyBuildEnabled;
-    UIData.profiler.tracyInitialized = facts.tracyInitialized;
-    UIData.profiler.tracyViewerConnected = facts.tracyViewerConnected;
+} // namespace
+
+void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const OperatorUiDiagnosticsFacts& facts,
+                                   UI::UIRuntimeReserveCapacityRow* reserveCapacityRows )
+{
+    UIData.surface.UIDrawCalls = facts.metrics.uiDrawCalls;
+    UIData.surface.visibility = ProjectRenderVisibilityDiagnostics( facts.visibility );
+    UIData.surface.fps = facts.metrics.rollingFrameSeconds > 0.0f
+                             ? 1.0f / facts.metrics.rollingFrameSeconds
+                             : ( facts.metrics.secondsPerFrame > 0.0
+                                     ? 1.0f / static_cast<float>( facts.metrics.secondsPerFrame )
+                                     : 0.0f );
+    UIData.surface.renderMs = ( facts.metrics.rollingRenderSeconds > 0.0f ? facts.metrics.rollingRenderSeconds
+                                                                          : facts.metrics.renderSeconds ) *
+                              1000.0f;
+    UIData.surface.physicsMs = ( facts.metrics.rollingPhysicsSeconds > 0.0f ? facts.metrics.rollingPhysicsSeconds
+                                                                            : facts.metrics.physicsSeconds ) *
+                               1000.0f;
+    UIData.surface.cpuFrameMs = facts.metrics.cpuFrameWorkMs;
+    UIData.surface.gpuFrameMs = facts.metrics.gpuFrameWorkMs;
+    ProjectOperatorUiDrawTrace( UIData, facts.drawTrace );
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    const int markerCount = (std::clamp)( facts.markerCount, 0, static_cast<int>( facts.markers.size() ) );
+    const int workerSampleCount = (std::clamp)( facts.workerSampleCount, 0, static_cast<int>( facts.workerSamples.size() ) );
+    ProjectOperatorUiProfilerFrame( UIData,
+                                    std::span<const OperatorUiProfilerMarkerFacts>( facts.markers.data(), markerCount ),
+                                    std::span<const OperatorUiWorkerCoreFacts>( facts.workerSamples.data(),
+                                                                                workerSampleCount ) );
+#endif
+    UIData.diagnostics.profiler.tracyBuildEnabled = facts.tracyBuildEnabled;
+    UIData.diagnostics.profiler.tracyInitialized = facts.tracyInitialized;
+    UIData.diagnostics.profiler.tracyViewerConnected = facts.tracyViewerConnected;
     {
         // Concept: marker enumeration stays in the runtime pass that owns
         // profiler access. The UI receives a bounded frame snapshot so
         // drawing and hit testing do not reach into profiler globals.
         auto markerOptionExists = [&]( uint32_t hash, bool isFrameTotal ) -> bool
         {
-            for ( int i = 0; i < UIData.profilerMarkerOptionCount; ++i )
+            for ( int i = 0; i < UIData.diagnostics.profilerMarkerOptionCount; ++i )
             {
-                const SkullbonezCore::UI::UIProfilerMarkerOption& option = UIData.profilerMarkerOptions[i];
+                const SkullbonezCore::UI::UIProfilerMarkerOption& option = UIData.diagnostics.profilerMarkerOptions[i];
 
                 if ( option.isFrameTotal == isFrameTotal && ( isFrameTotal || option.hash == hash ) )
                 {
@@ -542,14 +518,14 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
         // append only normalizes nullable names and non-negative timings.
         auto addMarkerOption = [&]( const SkullbonezCore::UI::UIProfilerMarkerOption& input )
         {
-            if ( UIData.profilerMarkerOptionCount >= SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX ||
+            if ( UIData.diagnostics.profilerMarkerOptionCount >= SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX ||
                  markerOptionExists( input.hash, input.isFrameTotal ) )
             {
                 return;
             }
 
             SkullbonezCore::UI::UIProfilerMarkerOption&
-                option = UIData.profilerMarkerOptions[UIData.profilerMarkerOptionCount++];
+                option = UIData.diagnostics.profilerMarkerOptions[UIData.diagnostics.profilerMarkerOptionCount++];
 
             option = input;
             option.name = input.name ? input.name : "";
@@ -561,7 +537,7 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
             option.gpuMs = (std::max)( 0.0f, input.gpuMs );
         };
 
-        float frameAverageMs = UIData.cpuFrameMs;
+        float frameAverageMs = UIData.surface.cpuFrameMs;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         {
             static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
@@ -579,18 +555,19 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
         }
 #endif
         const SkullbonezCore::UI::Style::UIColor& mainColor = SkullbonezCore::UI::Style::Palette().accent;
-        addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption { .name = "Frame Total",
-                                                                      .leafName = "Frame Total",
-                                                                      .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
-                                                                      .cpuMs = UIData.cpuFrameMs,
-                                                                      .cpuAverageMs = frameAverageMs,
-                                                                      .gpuMs = UIData.gpuFrameMs,
-                                                                      .colorR = mainColor.r,
-                                                                      .colorG = mainColor.g,
-                                                                      .colorB = mainColor.b,
-                                                                      .hasGpu = true,
-                                                                      .sampleValid = true,
-                                                                      .isFrameTotal = true } );
+        addMarkerOption(
+            SkullbonezCore::UI::UIProfilerMarkerOption { .name = "Frame Total",
+                                                         .leafName = "Frame Total",
+                                                         .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
+                                                         .cpuMs = UIData.surface.cpuFrameMs,
+                                                         .cpuAverageMs = frameAverageMs,
+                                                         .gpuMs = UIData.surface.gpuFrameMs,
+                                                         .colorR = mainColor.r,
+                                                         .colorG = mainColor.g,
+                                                         .colorB = mainColor.b,
+                                                         .hasGpu = true,
+                                                         .sampleValid = true,
+                                                         .isFrameTotal = true } );
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         auto addProfilerMarker = [&]( const OperatorUiProfilerMarkerFacts& marker )
@@ -599,23 +576,24 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
                 color = SkullbonezCore::Core::Profiler::BAR_PALETTE[marker.colorIndex %
                                                                     SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
 
-            addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption { .name = marker.name,
-                                                                          .leafName = marker.leafName,
-                                                                          .hash = marker.hash,
-                                                                          .cpuMs = marker.lastFrameMs,
-                                                                          .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs
-                                                                                                              : marker.lastFrameMs,
-                                                                          .workerMs = marker.lastFrameWorkerMs,
-                                                                          .workerAverageMs = marker.workerAvgMs > 0.0f
-                                                                                                 ? marker.workerAvgMs
-                                                                                                 : marker.lastFrameWorkerMs,
-                                                                          .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
-                                                                          .colorR = color.r,
-                                                                          .colorG = color.g,
-                                                                          .colorB = color.b,
-                                                                          .hasGpu = marker.hasGpu,
-                                                                          .sampleValid = true,
-                                                                          .isFrameTotal = false } );
+            addMarkerOption(
+                SkullbonezCore::UI::UIProfilerMarkerOption { .name = marker.name,
+                                                             .leafName = marker.leafName,
+                                                             .hash = marker.hash,
+                                                             .cpuMs = marker.lastFrameMs,
+                                                             .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs
+                                                                                                 : marker.lastFrameMs,
+                                                             .workerMs = marker.lastFrameWorkerMs,
+                                                             .workerAverageMs = marker.workerAvgMs > 0.0f
+                                                                                    ? marker.workerAvgMs
+                                                                                    : marker.lastFrameWorkerMs,
+                                                             .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
+                                                             .colorR = color.r,
+                                                             .colorG = color.g,
+                                                             .colorB = color.b,
+                                                             .hasGpu = marker.hasGpu,
+                                                             .sampleValid = true,
+                                                             .isFrameTotal = false } );
         };
 
         static constexpr uint32_t kPinnedMarkerHashes[] = { ::HashStr( "Frame/Physics" ), ::HashStr( "Frame/Physics/Step" ),
@@ -643,42 +621,42 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
         }
 #endif
     }
-    UIData.workerThreadCount = facts.workerThreadCount;
-    UIData.maxWorkerThreadCount = facts.maxWorkerThreadCount;
-    UIData.now = facts.now;
-    UIData.replayMemoryPreset = facts.replayMemoryPreset;
-    UIData.replayMemoryRequestedRetentionSeconds = facts.replayRequestedRetentionSeconds;
-    UIData.replayMemoryRequestedBudgetMiB = facts.replayRequestedBudgetMiB;
-    UIData.replayMemoryPresentationRetentionSeconds = facts.replayPresentationRetentionSeconds;
-    UIData.replayMemorySolverRetentionSeconds = facts.replaySolverRetentionSeconds;
-    UIData.replayMemoryBudgetClamped = facts.replayMemoryBudgetClamped;
-    UIData.replayMemorySolverWindowReduced = facts.replayMemorySolverWindowReduced;
-    UIData.predictionRevealRate = facts.predictionRevealRate;
-    UIData.reserveCapacityRows = nullptr;
-    UIData.reserveCapacityRowCount = 0;
+    UIData.surface.workerThreadCount = facts.workerThreadCount;
+    UIData.surface.maxWorkerThreadCount = facts.maxWorkerThreadCount;
+    UIData.surface.now = facts.now;
+    UIData.diagnostics.replayMemoryPreset = facts.replayMemoryPreset;
+    UIData.diagnostics.replayMemoryRequestedRetentionSeconds = facts.replayRequestedRetentionSeconds;
+    UIData.diagnostics.replayMemoryRequestedBudgetMiB = facts.replayRequestedBudgetMiB;
+    UIData.diagnostics.replayMemoryPresentationRetentionSeconds = facts.replayPresentationRetentionSeconds;
+    UIData.diagnostics.replayMemorySolverRetentionSeconds = facts.replaySolverRetentionSeconds;
+    UIData.diagnostics.replayMemoryBudgetClamped = facts.replayMemoryBudgetClamped;
+    UIData.diagnostics.replayMemorySolverWindowReduced = facts.replayMemorySolverWindowReduced;
+    UIData.scene.predictionRevealRate = facts.predictionRevealRate;
+    UIData.diagnostics.reserveCapacityRows = nullptr;
+    UIData.diagnostics.reserveCapacityRowCount = 0;
 
-    UIData.mainMemory = facts.mainMemory;
+    UIData.diagnostics.mainMemory = facts.mainMemory;
 
     if ( facts.renderMemoryAvailable )
     {
-        UIData.renderMemory = ProjectRenderMemoryDiagnostics( facts.renderMemory );
-        UIData.reserveGrowthEventTotalCount = facts.reserveGrowthEventTotalCount;
-        UIData.reserveGrowthEventDroppedCount = facts.reserveGrowthEventDroppedCount;
-        UIData.reserveGrowthEventCount = (std::min)( facts.reserveGrowthEventCount,
-                                                     SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
+        UIData.diagnostics.renderMemory = ProjectRenderMemoryDiagnostics( facts.renderMemory );
+        UIData.diagnostics.reserveGrowthEventTotalCount = facts.reserveGrowthEventTotalCount;
+        UIData.diagnostics.reserveGrowthEventDroppedCount = facts.reserveGrowthEventDroppedCount;
+        UIData.diagnostics.reserveGrowthEventCount = (std::min)( facts.reserveGrowthEventCount,
+                                                                 SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
 
-        for ( int index = 0; index < UIData.reserveGrowthEventCount; ++index )
+        for ( int index = 0; index < UIData.diagnostics.reserveGrowthEventCount; ++index )
         {
-            UIData.reserveGrowthEvents[index] = facts.reserveGrowthEvents[static_cast<std::size_t>( index )];
+            UIData.diagnostics.reserveGrowthEvents[index] = facts.reserveGrowthEvents[static_cast<std::size_t>( index )];
         }
     }
 
     if ( facts.reserveCapacityAvailable )
     {
-        UIData.reserveCapacityRowCount = (std::min)( facts.reserveCapacityRowCount,
-                                                     SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX );
+        UIData.diagnostics.reserveCapacityRowCount = (std::min)( facts.reserveCapacityRowCount,
+                                                                 SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX );
 
-        for ( int index = 0; index < UIData.reserveCapacityRowCount; ++index )
+        for ( int index = 0; index < UIData.diagnostics.reserveCapacityRowCount; ++index )
         {
             const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView&
                 source = facts.reserveCapacityRows[static_cast<std::size_t>( index )];
@@ -699,116 +677,118 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
             destination.residentBytes = source.residentBytes;
         }
 
-        UIData.reserveCapacityRows = reserveCapacityRows;
+        UIData.diagnostics.reserveCapacityRows = reserveCapacityRows;
     }
 }
 void ProjectOperatorUiPresentation( UI::InGameUIFrameData& UIData, const OperatorUiSceneFacts& facts,
                                     const UI::OperatorEditorFrameView& operatorEditorView )
 {
     const RuntimeViewModel& view = facts.runtime;
-    UIData.sceneName = view.sceneMode && facts.sceneHasCurrentEntry && facts.currentSceneName ? facts.currentSceneName : "";
-    UIData.sceneOptions = facts.sceneOptions;
-    UIData.sceneOptionCount = facts.sceneOptionCount;
-    UIData.selectedSceneOption = facts.currentSceneBrowserIndex;
-    UIData.selectedCineModeSceneOption = facts.selectedCineModeSceneIndex;
-    UIData.modelCount = view.modelCount;
-    UIData.currentFrame = view.frame;
-    UIData.targetFrameCount = view.targetFrameCount;
-    UIData.rngSeed = facts.rngSeed;
-    UIData.solverBallCount = facts.solverBallCount;
-    UIData.solverBoxCount = facts.solverBoxCount;
-    UIData.currentSceneIndex = view.sceneIndex;
-    UIData.sceneCount = view.sceneCount;
-    UIData.sceneMode = view.sceneMode;
-    UIData.scenePhysicsEnabled = view.scenePhysics;
-    UIData.sceneTextEnabled = view.sceneText;
-    UIData.fixedStep = view.fixedStep;
-    UIData.exitOnComplete = facts.exitOnComplete;
-    UIData.testComplete = facts.testComplete;
-    UIData.sceneEnergy = facts.energyForDisplay;
-    UIData.timeScale = view.timeScale;
-    UIData.presentationInterpolation = view.presentationInterpolation;
-    UIData.presentationPinned = view.presentationPinned;
-    UIData.presentationAlpha = view.presentationAlpha;
-    UIData.canSaveSceneDefaults = view.sceneMode && facts.sceneHasCurrentEntry && facts.currentScenePath &&
-                                  facts.currentScenePath[0] != '\0';
+    UIData.surface.sceneName = view.sceneMode && facts.sceneHasCurrentEntry && facts.currentSceneName
+                                   ? facts.currentSceneName
+                                   : "";
+    UIData.scene.sceneOptions = facts.sceneOptions;
+    UIData.scene.sceneOptionCount = facts.sceneOptionCount;
+    UIData.scene.selectedSceneOption = facts.currentSceneBrowserIndex;
+    UIData.scene.selectedCineModeSceneOption = facts.selectedCineModeSceneIndex;
+    UIData.scene.modelCount = view.modelCount;
+    UIData.scene.currentFrame = view.frame;
+    UIData.scene.targetFrameCount = view.targetFrameCount;
+    UIData.scene.rngSeed = facts.rngSeed;
+    UIData.scene.solverBallCount = facts.solverBallCount;
+    UIData.scene.solverBoxCount = facts.solverBoxCount;
+    UIData.scene.currentSceneIndex = view.sceneIndex;
+    UIData.scene.sceneCount = view.sceneCount;
+    UIData.surface.sceneMode = view.sceneMode;
+    UIData.surface.scenePhysicsEnabled = view.scenePhysics;
+    UIData.surface.sceneTextEnabled = view.sceneText;
+    UIData.scene.fixedStep = view.fixedStep;
+    UIData.scene.exitOnComplete = facts.exitOnComplete;
+    UIData.scene.testComplete = facts.testComplete;
+    UIData.scene.sceneEnergy = facts.energyForDisplay;
+    UIData.scene.timeScale = view.timeScale;
+    UIData.scene.presentationInterpolation = view.presentationInterpolation;
+    UIData.scene.presentationPinned = view.presentationPinned;
+    UIData.scene.presentationAlpha = view.presentationAlpha;
+    UIData.scene.canSaveSceneDefaults = view.sceneMode && facts.sceneHasCurrentEntry && facts.currentScenePath &&
+                                        facts.currentScenePath[0] != '\0';
 
     // Invariant: representative GameUI controls display the same immutable
     // values supplied to the secondary editor for this frame.
     UIData.operatorEditor = operatorEditorView;
-    UIData.sceneName = UIData.operatorEditor.scene.sceneName;
-    UIData.modelCount = UIData.operatorEditor.scene.modelCount;
-    UIData.currentFrame = UIData.operatorEditor.scene.currentFrame;
-    UIData.currentSceneIndex = UIData.operatorEditor.scene.currentSceneIndex;
-    UIData.sceneCount = UIData.operatorEditor.scene.sceneCount;
-    UIData.timeScale = UIData.operatorEditor.scene.timeScale;
-    UIData.worldGravity = UIData.operatorEditor.property.worldGravity;
-    UIData.worldFluidHeight = UIData.operatorEditor.property.worldFluidHeight;
-    UIData.worldFluidDensity = UIData.operatorEditor.property.worldFluidDensity;
-    UIData.vsyncEnabled = UIData.operatorEditor.rendering.vsyncEnabled;
-    UIData.presentationInterpolation = UIData.operatorEditor.rendering.presentationInterpolation;
-    UIData.presentationAlpha = UIData.operatorEditor.rendering.presentationAlpha;
-    UIData.cinematicRendering = UIData.operatorEditor.rendering.cinematicRendering;
-    UIData.replayMemoryPreset = UIData.operatorEditor.replay.memoryPreset;
-    UIData.replayMemoryRequestedRetentionSeconds = UIData.operatorEditor.replay.requestedRetentionSeconds;
-    UIData.replayMemoryRequestedBudgetMiB = UIData.operatorEditor.replay.requestedBudgetMiB;
-    UIData.replayMemoryPresentationRetentionSeconds = UIData.operatorEditor.replay.presentationRetentionSeconds;
-    UIData.replayMemorySolverRetentionSeconds = UIData.operatorEditor.replay.solverRetentionSeconds;
-    UIData.replayMemoryBudgetClamped = UIData.operatorEditor.replay.memoryBudgetClamped;
-    UIData.replayMemorySolverWindowReduced = UIData.operatorEditor.replay.solverWindowReduced;
+    UIData.surface.sceneName = UIData.operatorEditor.scene.sceneName;
+    UIData.scene.modelCount = UIData.operatorEditor.scene.modelCount;
+    UIData.scene.currentFrame = UIData.operatorEditor.scene.currentFrame;
+    UIData.scene.currentSceneIndex = UIData.operatorEditor.scene.currentSceneIndex;
+    UIData.scene.sceneCount = UIData.operatorEditor.scene.sceneCount;
+    UIData.scene.timeScale = UIData.operatorEditor.scene.timeScale;
+    UIData.world.worldGravity = UIData.operatorEditor.property.worldGravity;
+    UIData.world.worldFluidHeight = UIData.operatorEditor.property.worldFluidHeight;
+    UIData.world.worldFluidDensity = UIData.operatorEditor.property.worldFluidDensity;
+    UIData.surface.vsyncEnabled = UIData.operatorEditor.rendering.vsyncEnabled;
+    UIData.scene.presentationInterpolation = UIData.operatorEditor.rendering.presentationInterpolation;
+    UIData.scene.presentationAlpha = UIData.operatorEditor.rendering.presentationAlpha;
+    UIData.rendering.cinematicRendering = UIData.operatorEditor.rendering.cinematicRendering;
+    UIData.diagnostics.replayMemoryPreset = UIData.operatorEditor.replay.memoryPreset;
+    UIData.diagnostics.replayMemoryRequestedRetentionSeconds = UIData.operatorEditor.replay.requestedRetentionSeconds;
+    UIData.diagnostics.replayMemoryRequestedBudgetMiB = UIData.operatorEditor.replay.requestedBudgetMiB;
+    UIData.diagnostics.replayMemoryPresentationRetentionSeconds = UIData.operatorEditor.replay.presentationRetentionSeconds;
+    UIData.diagnostics.replayMemorySolverRetentionSeconds = UIData.operatorEditor.replay.solverRetentionSeconds;
+    UIData.diagnostics.replayMemoryBudgetClamped = UIData.operatorEditor.replay.memoryBudgetClamped;
+    UIData.diagnostics.replayMemorySolverWindowReduced = UIData.operatorEditor.replay.solverWindowReduced;
 }
 void ProjectOperatorUiSettings( UI::InGameUIFrameData& UIData, const OperatorUiSettingsFacts& facts )
 {
-    UIData.modelCapacity = facts.modelCapacity;
-    UIData.textOnly = facts.textOnly;
-    UIData.vsyncEnabled = facts.vsyncEnabled;
-    UIData.pipelineSyncEnabled = facts.pipelineSyncEnabled;
-    UIData.worldGravity = facts.worldGravity;
-    UIData.worldFluidHeight = facts.worldFluidHeight;
-    UIData.worldFluidDensity = facts.worldFluidDensity;
-    UIData.physicsDebug = facts.physicsDebug;
-    UIData.physicsSleepEnabled = facts.physicsSleepEnabled;
-    UIData.tornadoEnabled = facts.tornadoEnabled;
-    UIData.tornadoVisualShell = facts.tornadoVisualShell && facts.tornadoEnabled;
-    UIData.tornadoFieldVectors = facts.tornadoFieldVectors;
-    UIData.tornadoRadius = facts.tornadoRadius;
-    UIData.tornadoHeight = facts.tornadoHeight;
-    UIData.tornadoInwardAcceleration = facts.tornadoInwardAcceleration;
-    UIData.tornadoSwirlAcceleration = facts.tornadoSwirlAcceleration;
-    UIData.tornadoLiftAcceleration = facts.tornadoLiftAcceleration;
-    UIData.terrainFrictionCoeff = facts.terrainFriction;
-    UIData.objectFrictionCoeff = facts.objectFriction;
-    UIData.rollingFrictionCoeff = facts.rollingFriction;
-    UIData.waterFreezeDebug = facts.waterFrozen;
-    UIData.waterFlatDebug = facts.waterFlat;
-    UIData.terrainHidden = facts.terrainHidden;
-    UIData.waterHidden = facts.waterHidden;
-    UIData.waterNoReflect = facts.waterNoReflect;
-    UIData.waterRTReflect = facts.waterRtReflect;
-    UIData.cinematicRendering = facts.cinematicRendering;
-    UIData.ordinaryRender = facts.ordinary;
-    UIData.cinematic = facts.cinematic;
+    UIData.scene.modelCapacity = facts.modelCapacity;
+    UIData.surface.textOnly = facts.textOnly;
+    UIData.surface.vsyncEnabled = facts.vsyncEnabled;
+    UIData.surface.pipelineSyncEnabled = facts.pipelineSyncEnabled;
+    UIData.world.worldGravity = facts.worldGravity;
+    UIData.world.worldFluidHeight = facts.worldFluidHeight;
+    UIData.world.worldFluidDensity = facts.worldFluidDensity;
+    UIData.world.physicsDebug = facts.physicsDebug;
+    UIData.world.physicsSleepEnabled = facts.physicsSleepEnabled;
+    UIData.world.tornadoEnabled = facts.tornadoEnabled;
+    UIData.world.tornadoVisualShell = facts.tornadoVisualShell && facts.tornadoEnabled;
+    UIData.world.tornadoFieldVectors = facts.tornadoFieldVectors;
+    UIData.world.tornadoRadius = facts.tornadoRadius;
+    UIData.world.tornadoHeight = facts.tornadoHeight;
+    UIData.world.tornadoInwardAcceleration = facts.tornadoInwardAcceleration;
+    UIData.world.tornadoSwirlAcceleration = facts.tornadoSwirlAcceleration;
+    UIData.world.tornadoLiftAcceleration = facts.tornadoLiftAcceleration;
+    UIData.world.terrainFrictionCoeff = facts.terrainFriction;
+    UIData.world.objectFrictionCoeff = facts.objectFriction;
+    UIData.world.rollingFrictionCoeff = facts.rollingFriction;
+    UIData.world.waterFreezeDebug = facts.waterFrozen;
+    UIData.world.waterFlatDebug = facts.waterFlat;
+    UIData.world.terrainHidden = facts.terrainHidden;
+    UIData.world.waterHidden = facts.waterHidden;
+    UIData.world.waterNoReflect = facts.waterNoReflect;
+    UIData.world.waterRTReflect = facts.waterRtReflect;
+    UIData.rendering.cinematicRendering = facts.cinematicRendering;
+    UIData.rendering.ordinaryRender = facts.ordinary;
+    UIData.rendering.cinematic = facts.cinematic;
 }
 void ProjectOperatorUiInteraction( UI::InGameUIFrameData& UIData, const OperatorUiInteractionFacts& facts )
 {
-    UIData.trackHeight = facts.trackHeight;
-    UIData.autoCycleInterval = facts.autoCycleInterval;
-    UIData.rayCastVisualization = facts.rayCastVisualization;
-    UIData.rayCastImpulseStrength = facts.rayCastImpulseStrength;
-    UIData.launcherProjectileSpeed = facts.launcherProjectileSpeed;
-    UIData.cameraModeIndex = facts.cameraModeIndex;
-    UIData.cameraModeEnabledMask = facts.cameraModeEnabledMask;
-    UIData.runtimeInputModeLabel = facts.cameraModeLabel;
-    UIData.cameraMouseActive = facts.cameraMouseActive;
-    UIData.nativeCursorVisible = !facts.cameraMouseActive;
-    UIData.editorModeEnabled = facts.editorModeEnabled;
-    UIData.editorPlacementMode = facts.editorPlacementMode;
-    UIData.editorPlaceStatic = facts.editorPlaceStatic;
-    UIData.editorTerrainAlign = facts.editorTerrainAlign;
-    UIData.editorViewportLookActive = facts.editorViewportLookActive;
-    UIData.editorObjectType = facts.editorObjectType;
-    UIData.editorUndoDepth = facts.editorUndoDepth;
-    UIData.editorRedoDepth = facts.editorRedoDepth;
+    UIData.surface.trackHeight = facts.trackHeight;
+    UIData.surface.autoCycleInterval = facts.autoCycleInterval;
+    UIData.world.rayCastVisualization = facts.rayCastVisualization;
+    UIData.world.rayCastImpulseStrength = facts.rayCastImpulseStrength;
+    UIData.world.launcherProjectileSpeed = facts.launcherProjectileSpeed;
+    UIData.surface.cameraModeIndex = facts.cameraModeIndex;
+    UIData.surface.cameraModeEnabledMask = facts.cameraModeEnabledMask;
+    UIData.surface.runtimeInputModeLabel = facts.cameraModeLabel;
+    UIData.surface.cameraMouseActive = facts.cameraMouseActive;
+    UIData.surface.nativeCursorVisible = !facts.cameraMouseActive;
+    UIData.editor.editorModeEnabled = facts.editorModeEnabled;
+    UIData.editor.editorPlacementMode = facts.editorPlacementMode;
+    UIData.editor.editorPlaceStatic = facts.editorPlaceStatic;
+    UIData.editor.editorTerrainAlign = facts.editorTerrainAlign;
+    UIData.editor.editorViewportLookActive = facts.editorViewportLookActive;
+    UIData.editor.editorObjectType = facts.editorObjectType;
+    UIData.editor.editorUndoDepth = facts.editorUndoDepth;
+    UIData.editor.editorRedoDepth = facts.editorRedoDepth;
 }
 
 // PROJECTION_FUNCTIONS

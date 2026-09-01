@@ -17,6 +17,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "UIDrawList.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 #include <bit>
@@ -41,7 +42,7 @@ void UIDrawList::Clear()
 }
 
 
-void UIDrawList::AddRect( float x, float y, float w, float h, float r, float g, float b, float a )
+void UIDrawList::AddRect( const UIRect& bounds, const Style::UIColor& color )
 {
     Command* cmd = PushCommand();
 
@@ -51,18 +52,18 @@ void UIDrawList::AddRect( float x, float y, float w, float h, float r, float g, 
     }
 
     cmd->type = CommandType::Rect;
-    cmd->x0 = x;
-    cmd->y0 = y;
-    cmd->w = w;
-    cmd->h = h;
-    cmd->r = r;
-    cmd->g = g;
-    cmd->b = b;
-    cmd->a = a;
+    cmd->x0 = bounds.x;
+    cmd->y0 = bounds.y;
+    cmd->w = bounds.w;
+    cmd->h = bounds.h;
+    cmd->r = color.r;
+    cmd->g = color.g;
+    cmd->b = color.b;
+    cmd->a = color.a;
 }
 
 
-void UIDrawList::AddRoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a )
+void UIDrawList::AddRoundedRect( const UIRect& bounds, float radius, const Style::UIColor& color )
 {
     Command* cmd = PushCommand();
 
@@ -72,20 +73,19 @@ void UIDrawList::AddRoundedRect( float x, float y, float w, float h, float radiu
     }
 
     cmd->type = CommandType::RoundedRect;
-    cmd->x0 = x;
-    cmd->y0 = y;
-    cmd->w = w;
-    cmd->h = h;
+    cmd->x0 = bounds.x;
+    cmd->y0 = bounds.y;
+    cmd->w = bounds.w;
+    cmd->h = bounds.h;
     cmd->radius = radius;
-    cmd->r = r;
-    cmd->g = g;
-    cmd->b = b;
-    cmd->a = a;
+    cmd->r = color.r;
+    cmd->g = color.g;
+    cmd->b = color.b;
+    cmd->a = color.a;
 }
 
 
-void UIDrawList::AddTriangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b,
-                              float a )
+void UIDrawList::AddTriangle( const UITriangle& triangle, const Style::UIColor& color )
 {
     Command* cmd = PushCommand();
 
@@ -95,20 +95,20 @@ void UIDrawList::AddTriangle( float x0, float y0, float x1, float y1, float x2, 
     }
 
     cmd->type = CommandType::Triangle;
-    cmd->x0 = x0;
-    cmd->y0 = y0;
-    cmd->x1 = x1;
-    cmd->y1 = y1;
-    cmd->x2 = x2;
-    cmd->y2 = y2;
-    cmd->r = r;
-    cmd->g = g;
-    cmd->b = b;
-    cmd->a = a;
+    cmd->x0 = triangle.first.x;
+    cmd->y0 = triangle.first.y;
+    cmd->x1 = triangle.second.x;
+    cmd->y1 = triangle.second.y;
+    cmd->x2 = triangle.third.x;
+    cmd->y2 = triangle.third.y;
+    cmd->r = color.r;
+    cmd->g = color.g;
+    cmd->b = color.b;
+    cmd->a = color.a;
 }
 
 
-void UIDrawList::AddText( float x, float y, float pxSize, float r, float g, float b, const char* value )
+void UIDrawList::AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value )
 {
     Command* cmd = PushCommand();
 
@@ -118,18 +118,18 @@ void UIDrawList::AddText( float x, float y, float pxSize, float r, float g, floa
     }
 
     cmd->type = CommandType::Text;
-    cmd->x0 = x;
-    cmd->y0 = y;
+    cmd->x0 = position.x;
+    cmd->y0 = position.y;
     cmd->pxSize = pxSize;
-    cmd->r = r;
-    cmd->g = g;
-    cmd->b = b;
+    cmd->r = color.r;
+    cmd->g = color.g;
+    cmd->b = color.b;
     cmd->a = 1.0f;
     cmd->textOffset = StoreText( value );
 }
 
 
-void UIDrawList::PushClip( float x, float y, float w, float h )
+void UIDrawList::PushClip( const UIRect& bounds )
 {
     if ( m_clipDepth >= MAX_CLIP_DEPTH )
     {
@@ -149,10 +149,10 @@ void UIDrawList::PushClip( float x, float y, float w, float h )
     }
 
     command->type = CommandType::PushClip;
-    command->x0 = x;
-    command->y0 = y;
-    command->w = w;
-    command->h = h;
+    command->x0 = bounds.x;
+    command->y0 = bounds.y;
+    command->w = bounds.w;
+    command->h = bounds.h;
     ++m_clipDepth;
     m_maxClipDepth = (std::max)( m_maxClipDepth, m_clipDepth );
 }
@@ -184,8 +184,8 @@ void UIDrawList::PopClip()
 }
 
 
-void UIDrawList::AddPreviewImage( PreviewTargetId target, float x, float y, float w, float h, float fallbackR,
-                                  float fallbackG, float fallbackB, float fallbackA, const char* fallbackLabel )
+void UIDrawList::AddPreviewImage( PreviewTargetId target, const UIRect& bounds, const Style::UIColor& fallbackColor,
+                                  const char* fallbackLabel )
 {
     Command* command = PushCommand();
 
@@ -196,14 +196,14 @@ void UIDrawList::AddPreviewImage( PreviewTargetId target, float x, float y, floa
 
     command->type = CommandType::PreviewImage;
     command->preview = target;
-    command->x0 = x;
-    command->y0 = y;
-    command->w = w;
-    command->h = h;
-    command->r = fallbackR;
-    command->g = fallbackG;
-    command->b = fallbackB;
-    command->a = fallbackA;
+    command->x0 = bounds.x;
+    command->y0 = bounds.y;
+    command->w = bounds.w;
+    command->h = bounds.h;
+    command->r = fallbackColor.r;
+    command->g = fallbackColor.g;
+    command->b = fallbackColor.b;
+    command->a = fallbackColor.a;
     command->textOffset = StoreText( fallbackLabel );
 }
 
@@ -215,34 +215,36 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
         switch ( command.type )
         {
         case CommandType::Rect:
-            AddRect( command.x0 + offsetX, command.y0 + offsetY, command.w, command.h, command.r, command.g, command.b,
-                     command.a );
+            AddRect( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h },
+                     { command.r, command.g, command.b, command.a } );
 
             break;
         case CommandType::RoundedRect:
-            AddRoundedRect( command.x0 + offsetX, command.y0 + offsetY, command.w, command.h, command.radius, command.r,
-                            command.g, command.b, command.a );
+            AddRoundedRect( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h }, command.radius,
+                            { command.r, command.g, command.b, command.a } );
 
             break;
         case CommandType::Triangle:
-            AddTriangle( command.x0 + offsetX, command.y0 + offsetY, command.x1 + offsetX, command.y1 + offsetY,
-                         command.x2 + offsetX, command.y2 + offsetY, command.r, command.g, command.b, command.a );
+            AddTriangle( { { command.x0 + offsetX, command.y0 + offsetY },
+                           { command.x1 + offsetX, command.y1 + offsetY },
+                           { command.x2 + offsetX, command.y2 + offsetY } },
+                         { command.r, command.g, command.b, command.a } );
 
             break;
         case CommandType::Text:
-            AddText( command.x0 + offsetX, command.y0 + offsetY, command.pxSize, command.r, command.g, command.b,
-                     source.TextAt( command.textOffset ) );
+            AddText( { command.x0 + offsetX, command.y0 + offsetY }, command.pxSize,
+                     { command.r, command.g, command.b, command.a }, source.TextAt( command.textOffset ) );
 
             break;
         case CommandType::PushClip:
-            PushClip( command.x0 + offsetX, command.y0 + offsetY, command.w, command.h );
+            PushClip( { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h } );
             break;
         case CommandType::PopClip:
             PopClip();
             break;
         case CommandType::PreviewImage:
-            AddPreviewImage( command.preview, command.x0 + offsetX, command.y0 + offsetY, command.w, command.h, command.r,
-                             command.g, command.b, command.a, source.TextAt( command.textOffset ) );
+            AddPreviewImage( command.preview, { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h },
+                             { command.r, command.g, command.b, command.a }, source.TextAt( command.textOffset ) );
 
             break;
         }

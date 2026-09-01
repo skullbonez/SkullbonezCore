@@ -41,12 +41,15 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 
-using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::BroadphaseBodyActivityView;
 using SkullbonezCore::Physics::BroadphaseCandidateAppendHasCapacity;
-using SkullbonezCore::Physics::BroadphaseCandidateCanTouch;
+using SkullbonezCore::Physics::BroadphasePairFilter;
+using SkullbonezCore::Physics::BroadphaseSweepContactEnvelope;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
@@ -59,11 +62,8 @@ using SkullbonezCore::Threading::WorkerPool;
 
 namespace
 {
-void AddCandidateBody( PhysicsBodyStore& bodyStore,
-                       ColliderStore& colliderStore,
-                       const Vector3& position,
-                       const Vector3& velocity,
-                       float radius )
+void AddCandidateBody( PhysicsBodyStore& bodyStore, ColliderStore& colliderStore, const Vector3& position,
+                       const Vector3& velocity, float radius )
 {
     PhysicsBodyCreateRecord body;
     body.hot.position = position;
@@ -73,7 +73,7 @@ void AddCandidateBody( PhysicsBodyStore& bodyStore,
     ColliderRecord collider;
     collider.boundingRadius = radius;
     const CollisionShape shape( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
-    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore,  collider, shape  );
+    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore, collider, shape );
 }
 
 TEST_CASE( "Broadphase candidate append capacity rejects equality before vector growth" )
@@ -82,6 +82,31 @@ TEST_CASE( "Broadphase candidate append capacity rejects equality before vector 
     CHECK( BroadphaseCandidateAppendHasCapacity( 7u, 8u ) );
     CHECK_FALSE( BroadphaseCandidateAppendHasCapacity( 8u, 8u ) );
     CHECK_FALSE( BroadphaseCandidateAppendHasCapacity( 9u, 8u ) );
+}
+
+TEST_CASE( "Solver broadphase stage: checked step values reject misaligned domains and invalid scalars" )
+{
+    const std::array<uint8_t, 3> sleepState = {};
+    const std::array<int, 2> awakeBodies = { 0, 2 };
+    const std::array<int, 2> duplicateAwakeBodies = { 1, 1 };
+    const std::array<uint8_t, 3> motionState = { 0u, 1u, 0u };
+    const std::array<float, 3> angularExpansion = { 0.0f, 0.25f, 0.0f };
+
+    CHECK( BroadphaseBodyActivityView::IsValid( 3, sleepState, awakeBodies, motionState, angularExpansion ) );
+    CHECK_FALSE( BroadphaseBodyActivityView::IsValid( 2, sleepState, awakeBodies, motionState, angularExpansion ) );
+    CHECK_FALSE( BroadphaseBodyActivityView::IsValid( 3, sleepState, duplicateAwakeBodies, motionState, angularExpansion ) );
+
+    const BroadphaseBodyActivityView activity( 3, sleepState, awakeBodies, motionState, angularExpansion );
+    CHECK_FALSE( activity.IsSleeping( 0 ) );
+    CHECK_FALSE( activity.IsLinearPromoted( 0 ) );
+    CHECK( activity.IsLinearPromoted( 1 ) );
+    CHECK( activity.AngularExpansion( 1 ) == doctest::Approx( 0.25f ) );
+
+    CHECK( BroadphaseSweepContactEnvelope::IsValid( 1.0f / 120.0f, 0.05f, 0.01f ) );
+    CHECK_FALSE( BroadphaseSweepContactEnvelope::IsValid( -0.01f, 0.05f, 0.01f ) );
+    CHECK_FALSE(
+        BroadphaseSweepContactEnvelope::IsValid( 1.0f / 120.0f, ( std::numeric_limits<float>::infinity )(), 0.01f ) );
+    CHECK_FALSE( BroadphaseSweepContactEnvelope::IsValid( 1.0f / 120.0f, 0.05f, -0.01f ) );
 }
 
 PhysicsBodyStore& TestBodyStore()
@@ -125,12 +150,16 @@ TEST_CASE( "Solver broadphase stage: candidate filter handles static and swept p
     AddCandidateBody( bodyStore, colliderStore, Vector3( 2.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
     AddCandidateBody( bodyStore, colliderStore, Vector3( 8.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
     AddCandidateBody( bodyStore, colliderStore, Vector3( 10.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    const std::array<uint8_t, 4> sleepState = {};
+    const BroadphaseBodyActivityView activity( 4, sleepState, {}, {}, {} );
+    const BroadphasePairFilter pairFilter( bodyStore, colliderStore, activity,
+                                           BroadphaseSweepContactEnvelope( 1.0f, 0.0f, 0.0f ) );
 
-    CHECK( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, 0, 1 ) );
-    CHECK_FALSE( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, 0, 2 ) );
+    CHECK( pairFilter.CanTouch( 0, 1 ) );
+    CHECK_FALSE( pairFilter.CanTouch( 0, 2 ) );
 
     bodyStore.MutableHotFields().linearVelocityX[0] = 10.0f;
-    CHECK( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, 0, 3 ) );
+    CHECK( pairFilter.CanTouch( 0, 3 ) );
 }
 
 
@@ -140,10 +169,13 @@ TEST_CASE( "Solver broadphase stage: candidate filter keeps boundary policy cons
     ColliderStore& colliderStore = TestColliderStore();
     AddCandidateBody( bodyStore, colliderStore, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
     AddCandidateBody( bodyStore, colliderStore, Vector3( 100.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), -1.0f );
+    const std::array<uint8_t, 2> sleepState = {};
+    const BroadphasePairFilter pairFilter( bodyStore, colliderStore, BroadphaseBodyActivityView( 2, sleepState, {}, {}, {} ),
+                                           BroadphaseSweepContactEnvelope( 1.0f, 0.0f, 0.0f ) );
 
-    CHECK_FALSE( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, -1, 1 ) );
-    CHECK_FALSE( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, 0, 2 ) );
-    CHECK( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, 0, 1 ) );
+    CHECK_FALSE( pairFilter.CanTouch( -1, 1 ) );
+    CHECK_FALSE( pairFilter.CanTouch( 0, 2 ) );
+    CHECK( pairFilter.CanTouch( 0, 1 ) );
 }
 
 
@@ -153,14 +185,15 @@ TEST_CASE( "Solver broadphase stage: contact skin includes the exact static boun
     ColliderStore& colliderStore = TestColliderStore();
     // Hazard: Debug poisons default-constructed Vector3 values, so zero
     // velocity is explicit in every geometry-boundary fixture.
-    AddCandidateBody(
-        bodyStore, colliderStore, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
-    AddCandidateBody(
-        bodyStore, colliderStore, Vector3( 2.1f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderStore, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderStore, Vector3( 2.1f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    const std::array<uint8_t, 2> sleepState = {};
+    const BroadphasePairFilter pairFilter( bodyStore, colliderStore, BroadphaseBodyActivityView( 2, sleepState, {}, {}, {} ),
+                                           BroadphaseSweepContactEnvelope( 1.0f, 0.1f, 0.0f ) );
 
-    CHECK( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.1f, 0, 1 ) );
+    CHECK( pairFilter.CanTouch( 0, 1 ) );
     bodyStore.MutableHotFields().positionX[1] = 2.1002f;
-    CHECK_FALSE( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.1f, 0, 1 ) );
+    CHECK_FALSE( pairFilter.CanTouch( 0, 1 ) );
 }
 
 
@@ -168,21 +201,18 @@ TEST_CASE( "Solver broadphase stage: two sleepers never enter candidate work" )
 {
     PhysicsBodyStore& bodyStore = TestBodyStore();
     ColliderStore& colliderStore = TestColliderStore();
-    AddCandidateBody(
-        bodyStore, colliderStore, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
-    AddCandidateBody(
-        bodyStore, colliderStore, Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderStore, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderStore, Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
     std::array<uint8_t, 2> sleepState = { 1u, 1u };
+    const BroadphaseSweepContactEnvelope envelope( 1.0f / 120.0f, 0.0f, 0.0f );
 
-    CHECK_FALSE( BroadphaseCandidateCanTouch( bodyStore,
-                                              colliderStore,
-                                              sleepState,
-                                              1.0f / 120.0f,
-                                              0.0f,
-                                              0,
-                                              1 ) );
+    CHECK_FALSE(
+        BroadphasePairFilter( bodyStore, colliderStore, BroadphaseBodyActivityView( 2, sleepState, {}, {}, {} ), envelope )
+            .CanTouch( 0, 1 ) );
     sleepState[0] = 0u;
-    CHECK( BroadphaseCandidateCanTouch( bodyStore, colliderStore, sleepState, 1.0f / 120.0f, 0.0f, 0, 1 ) );
+    CHECK(
+        BroadphasePairFilter( bodyStore, colliderStore, BroadphaseBodyActivityView( 2, sleepState, {}, {}, {} ), envelope )
+            .CanTouch( 0, 1 ) );
 }
 
 
@@ -214,13 +244,8 @@ TEST_CASE( "Physics force stage: mutual gravity respects fixed sleeping and mass
         stage.ReserveBodyScratchCapacity( 4u );
     }
 
-    const Vector3* forces = stage.PrepareMutualGravityForces( bodyStore.Records(),
-                                                              bodyStore.HotFields(),
-                                                              sleepState,
-                                                              4,
-                                                              worldForces,
-                                                              execution,
-                                                              inlinePool );
+    const Vector3* forces = stage.PrepareMutualGravityForces( bodyStore.Records(), bodyStore.HotFields(), sleepState, 4,
+                                                              worldForces, execution, inlinePool );
 
     REQUIRE( forces != nullptr );
     CHECK( forces[0].x > 0.0f );
@@ -256,14 +281,13 @@ TEST_CASE( "Property invariant: mutual gravity obeys Newton-pair antisymmetry [s
         PhysicsBodyCreateRecord left;
         left.cold.mass = random.Float( 0.25f, 20.0f );
         left.hot.inverseMass = 1.0f / left.cold.mass;
-        left.hot.position =
-            Vector3( random.Float( -20.0f, 20.0f ), random.Float( -20.0f, 20.0f ), random.Float( -20.0f, 20.0f ) );
+        left.hot.position = Vector3( random.Float( -20.0f, 20.0f ), random.Float( -20.0f, 20.0f ),
+                                     random.Float( -20.0f, 20.0f ) );
         PhysicsBodyCreateRecord right;
         right.cold.mass = random.Float( 0.25f, 20.0f );
         right.hot.inverseMass = 1.0f / right.cold.mass;
-        right.hot.position =
-            left.hot.position +
-            Vector3( random.Float( 0.5f, 12.0f ), random.Float( 0.5f, 12.0f ), random.Float( 0.5f, 12.0f ) );
+        right.hot.position = left.hot.position + Vector3( random.Float( 0.5f, 12.0f ), random.Float( 0.5f, 12.0f ),
+                                                          random.Float( 0.5f, 12.0f ) );
         (void)bodyStore.CreateBodyRecord( left );
         (void)bodyStore.CreateBodyRecord( right );
         PhysicsWorldForces worldForces;
@@ -271,13 +295,8 @@ TEST_CASE( "Property invariant: mutual gravity obeys Newton-pair antisymmetry [s
         worldForces.mutualGravity.gravitationalConstant = random.Float( 0.01f, 50.0f );
         worldForces.mutualGravity.softeningLength = random.Float( 0.0f, 2.0f );
 
-        const Vector3* forces = stage.PrepareMutualGravityForces( bodyStore.Records(),
-                                                                  bodyStore.HotFields(),
-                                                                  sleepState,
-                                                                  2,
-                                                                  worldForces,
-                                                                  execution,
-                                                                  inlinePool );
+        const Vector3* forces = stage.PrepareMutualGravityForces( bodyStore.Records(), bodyStore.HotFields(), sleepState, 2,
+                                                                  worldForces, execution, inlinePool );
 
         REQUIRE( forces != nullptr );
         CHECK( forces[0].x == -forces[1].x );

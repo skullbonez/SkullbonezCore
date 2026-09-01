@@ -20,8 +20,8 @@
 @rem   - Profile must reject --interaction-script with a nonzero exit.
 @rem   - Automation must produce one successful report covering replay
 @rem     prediction plus all development-UI command interpreter variants.
-@rem   - The positive lane remains one process so validate_full keeps its
-@rem     bounded five-engine-process contract.
+@rem   - Negative and positive processes use separate working files and PSO
+@rem     caches, so they may overlap without changing either launch contract.
 @rem   - This pre-commit smoke supplements, rather than replaces, the immutable
 @rem     200-box replay visual-fidelity oracle required for replay-facing edits.
 @rem
@@ -44,26 +44,21 @@ if /I "%SKULLBONEZ_ASSUME_PROFILE_BUILT%"=="1" (
     if errorlevel 1 goto fail
 )
 
-call "%~dp0validate_build.bat" Automation
-if errorlevel 1 goto fail
-
-if not exist TestOutput\validation\automation mkdir TestOutput\validation\automation
-set "NEGATIVE_LOG=TestOutput\validation\automation\profile_interaction_rejection.log"
-set "POSITIVE_LOG=TestOutput\validation\automation\replay_prediction_precommit.log"
-set "REPORT=TestOutput\validation\automation\replay_prediction_precommit.json"
-del /q "%NEGATIVE_LOG%" "%POSITIVE_LOG%" "%REPORT%" 2>nul
-
-echo [automation] Proving Profile rejects diagnostic interaction scripts...
-Profile\SKULLBONEZ_CORE.exe --automation-hidden-window --frames 1 --interaction-script SkullbonezData\interaction\replay_prediction_click.json > "%NEGATIVE_LOG%" 2>&1
-if not errorlevel 1 (
-    echo FAIL: Profile accepted --interaction-script; diagnostics leaked into the ordinary game.
-    goto fail
+if /I "%SKULLBONEZ_ASSUME_AUTOMATION_BUILT%"=="1" (
+    echo [automation] Reusing prebuilt Automation x64.
+) else (
+    call "%~dp0validate_build.bat" Automation
+    if errorlevel 1 goto fail
 )
 
-echo [automation] Running replay/prediction and development-UI pre-commit smoke in Automation...
-Automation\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_development_ui_smoke.json --interaction-report "%REPORT%" --frames 150 --replay on --replay-seconds 2 --fixed-step > "%POSITIVE_LOG%" 2>&1
+if not exist TestOutput\validation\automation mkdir TestOutput\validation\automation
+set "REPORT=%REPO%\TestOutput\validation\automation\replay_prediction_precommit.json"
+del /q "%REPORT%" 2>nul
+
+echo [automation] Running isolated Profile rejection and Automation smoke processes in parallel...
+"%PYTHON_EXE%" "%~dp0run_parallel_validation.py" --repo "%REPO%" --manifest "%~dp0validation_parallel_automation.json" --variable "AUTOMATION_REPORT=%REPORT%"
 if errorlevel 1 (
-    echo FAIL: Automation replay/prediction launch failed. See %POSITIVE_LOG%.
+    echo FAIL: Profile rejection or Automation replay/prediction launch failed.
     goto fail
 )
 if not exist "%REPORT%" (

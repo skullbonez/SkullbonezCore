@@ -29,6 +29,12 @@ for an unmet aggregate closure gate, and is deleted when that gate passes. Do no
 recreate `Done`, `Failed`, `Rejected`, `To_Eval`, `In_Progress`, or
 `awaiting_verification` plan folders.
 
+Commit bodies are mandatory evidence, not optional summaries. Every commit uses
+the six ordered sections defined by `../AGENTS.md`; `.githooks/commit-msg`
+rejects an empty, short, or placeholder body. Agents write the message to a file
+and commit with `git commit -F`; they never bypass the hook or use a subject-only
+`git commit -m`.
+
 ## Plan Quality
 
 - Use checked phase/file counts, not subjective percentages.
@@ -75,11 +81,11 @@ policy refreshes may use the fast lane; behavior, authority, layout, lifetime,
 Physics, renderer, and baseline changes select the stronger lane.
 
 `validate_full --plan-completion` is reserved for terminal closure of an entire
-implementation plan; it runs the mandatory CPU umbrella before either runtime
-lane. That umbrella runs `validate_coverage` and enforces the ratified
+implementation plan; it runs the concurrent mandatory CPU umbrella before the
+parallel non-performance runtime lanes. That umbrella runs `validate_coverage` and enforces the ratified
 subsystem floors. Run `tools\validate_coverage.bat` directly for changes to floors,
 exclusions, instrumentation scope, coverage tooling, or tests intended to raise
 subsystem coverage, and when explicit final-gate floor confirmation is needed.
 Do not duplicate it after `validate_all_cpu_tests`,
 `validate_full --plan-completion`, or `agent_validate --plan-completion`;
-hosted mandatory CPU CI uses the same umbrella call chain.
+hosted mandatory CPU CI maps the same six owners onto separate runners.

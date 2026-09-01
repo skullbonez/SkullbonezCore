@@ -499,8 +499,8 @@ class ReplayRuntime
                                std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords );
     void PublishRenderPacket( EditorTracer& tracer, const Math::Vector::Vector3& cameraTranslation,
                               const Math::Vector::Vector3& cameraUp, uint64_t replayReserveGrowthEvents );
-    ReplayRenderFrameView BuildRenderFrameView( const ReplayFrameSelection& selection, Physics::PhysicsEngine& physics,
-                                                int modelCount, bool collisionVisualizer, bool debugTransparentBodyPass );
+    ReplayRenderFrameViews BuildRenderFrameViews( const ReplayFrameSelection& selection, Physics::PhysicsEngine& physics,
+                                                  int modelCount, bool collisionVisualizer, bool debugTransparentBodyPass );
     void CompleteRenderFrame( bool submissionRendered, int sceneFrame, uint64_t replayReserveGrowthEvents,
                               RuntimeTools& runtimeTools );
     void CancelRenderFrame( RuntimeTools& runtimeTools );
@@ -619,14 +619,45 @@ class ReplayRuntime
                         AttachedCameraController& attachedCamera, RunMousePickupState& mousePickup,
                         ReplayWorkspaceOutput& output );
 
-    // Applies one editor/GameUI-independent transport value through the same
-    // concrete replay owners used by pointer controls. Recoverable unavailable
-    // states publish bounded scrubber feedback instead of failing the run.
-    void ApplyTransportCommand( const ReplayTransportCommand& command, const ReplayTransportHostContext& host,
-                                InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                                Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
-                                CameraControlState& camera, RunMousePickupState& mousePickup,
+    // Each overload names only the host owners needed by that action. App
+    // visits the closed command variant and performs the composition-root dispatch.
+    void ApplyTransportCommand( const ReplaySetRecordingEnabledCommand& command, double now );
+    void ApplyTransportCommand( const ReplayJumpToStartCommand&, RuntimeInteractionController& interaction, double now,
                                 ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplayJumpToEndCommand&, RuntimeInteractionController& interaction, double now,
+                                ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplayStepBackwardCommand&, RuntimeInteractionController& interaction, double now,
+                                ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplayStepForwardCommand&, RuntimeInteractionController& interaction, double now,
+                                ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplayTogglePlayPauseCommand&, InputRouter& inputRouter,
+                                RuntimeInteractionController& interaction, CameraControlState& camera, double now,
+                                ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplaySetRevealSpeedCommand& command, double now );
+    void ApplyTransportCommand( const ReplayScrubCommand& command, RuntimeInteractionController& interaction, double now,
+                                ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplayTogglePredictionCommand&, RuntimeInteractionController& interaction, double now,
+                                ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplaySetPredictionDetailModeCommand& command, Environment::CameraCollection* cameras,
+                                Geometry::Terrain* terrain, CameraControlState& camera, RunCameraMode normalizedRestoreMode,
+                                bool attachedFollow, bool directorGrabbed, RuntimeInteractionController& interaction,
+                                InputRouter& inputRouter, double now );
+    void ApplyTransportCommand( const ReplaySetPredictionHorizonCommand& command, double now );
+    void ApplyTransportCommand( const ReplayRestoreBranchCommand&, RuntimeInteractionController& interaction, double now,
+                                ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplaySaveCommand&, double now, ReplayWorkspaceOutput& output );
+    ReplayTransportLoadResult BeginTransportLoad( const ReplayLoadCommand&, HWND window, double now );
+    void ActivateLoadedTransport( Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
+                                  CameraControlState& camera, RunCameraMode normalizedCurrentMode,
+                                  RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed,
+                                  RuntimeInteractionController& interaction, InputRouter& inputRouter,
+                                  RunMousePickupState& mousePickup, double now );
+    void ApplyTransportCommand( const ReplayReturnToLiveCommand&, Environment::CameraCollection* cameras,
+                                Geometry::Terrain* terrain, CameraControlState& camera, RunCameraMode normalizedRestoreMode,
+                                bool attachedFollow, bool directorGrabbed, RuntimeInteractionController& interaction,
+                                InputRouter& inputRouter, double now, ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplaySelectCauseRowCommand& command, RuntimeInteractionController& interaction,
+                                double now, ReplayWorkspaceOutput& output );
     void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
     ReplayFrameIntentResult ApplyFrameIntent( const ReplayFrameIntent& intent );
 
@@ -785,6 +816,10 @@ class ReplayRuntime
 
     ReplayPredictionDetailTransitionAction ApplyPredictionDetailModeCommand( ReplayPredictionDetailMode requestedMode );
     bool ClearPredictionCauseWindowForDetailTransition( ReplayPredictionDetailTransitionAction actions );
+    void PublishTransportFeedback( const char* message, double now );
+    void EnterReplayTransportWorkspace( RuntimeInteractionController& interaction, ReplayWorkspaceOutput& output );
+    bool SetTransportCursor( float normalized, RuntimeInteractionController& interaction, double now,
+                             ReplayWorkspaceOutput& output );
     void ApplyAuthoringPredictionRequest();
     void ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result );
     void ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update );

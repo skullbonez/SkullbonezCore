@@ -33,6 +33,7 @@ Related:
 #include "../Maths/Vector3.h"
 #include "../Physics/ConvexHullShape.h"
 #include <algorithm>
+#include <span>
 #include <cmath>
 #include <vector>
 
@@ -93,6 +94,31 @@ struct ShadowCasterBatches
     bool Empty() const
     {
         return spheres.empty() && boxes.empty() && pines.empty() && convexHulls.empty();
+    }
+
+    std::size_t CandidateCount() const
+    {
+        return spheres.size() + boxes.size() + pines.size() + convexHulls.size();
+    }
+
+    std::span<const ShadowCasterInstance> Spheres() const
+    {
+        return spheres;
+    }
+
+    std::span<const ShadowCasterInstance> Boxes() const
+    {
+        return boxes;
+    }
+
+    std::span<const ShadowCasterInstance> Pines() const
+    {
+        return pines;
+    }
+
+    std::span<const ShadowConvexHullCaster> ConvexHulls() const
+    {
+        return convexHulls;
     }
 };
 

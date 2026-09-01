@@ -67,14 +67,14 @@ UIDrawContext::UIDrawContext( int screenW, int screenH, UIDrawList& drawList )
 
 void UIDrawContext::Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const
 {
-    m_drawList->AddRect( x, y, w, h, r, g, b, a );
+    m_drawList->AddRect( { x, y, w, h }, { r, g, b, a } );
 }
 
 
 void UIDrawContext::Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b,
                               float a ) const
 {
-    m_drawList->AddTriangle( x0, y0, x1, y1, x2, y2, r, g, b, a );
+    m_drawList->AddTriangle( { { x0, y0 }, { x1, y1 }, { x2, y2 } }, { r, g, b, a } );
 }
 
 
@@ -89,7 +89,7 @@ void UIDrawContext::Outline( float x, float y, float w, float h, float r, float 
 
 void UIDrawContext::RoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a ) const
 {
-    m_drawList->AddRoundedRect( x, y, w, h, radius, r, g, b, a );
+    m_drawList->AddRoundedRect( { x, y, w, h }, radius, { r, g, b, a } );
 }
 
 
@@ -106,7 +106,7 @@ void UIDrawContext::RoundedPanel( const UIRect& bounds, float radius, const Styl
 
 void UIDrawContext::PushClip( const UIRect& bounds ) const
 {
-    m_drawList->PushClip( bounds.x, bounds.y, bounds.w, bounds.h );
+    m_drawList->PushClip( bounds );
 }
 
 
@@ -118,7 +118,7 @@ void UIDrawContext::PopClip() const
 
 void UIDrawContext::Text( float x, float y, float pxSize, float r, float g, float b, const char* value ) const
 {
-    m_drawList->AddText( x, y, pxSize, r, g, b, value );
+    m_drawList->AddText( { x, y }, pxSize, { r, g, b, 1.0f }, value );
 }
 
 

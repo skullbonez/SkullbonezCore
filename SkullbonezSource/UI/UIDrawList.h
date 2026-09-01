@@ -19,6 +19,8 @@ Related:
 */
 #pragma once
 
+#include "UIDraw.h"
+
 #include <cstdint>
 #include <span>
 #include <type_traits>
@@ -100,17 +102,17 @@ class UIDrawList
     static_assert( std::is_trivially_copyable_v<Command>, "UI draw commands must remain plain inspectable values." );
 
     void Clear();
-    void AddRect( float x, float y, float w, float h, float r, float g, float b, float a );
-    void AddRoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a );
-    void AddTriangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a );
-    void AddText( float x, float y, float pxSize, float r, float g, float b, const char* value );
-    void PushClip( float x, float y, float w, float h );
+    void AddRect( const UIRect& bounds, const Style::UIColor& color );
+    void AddRoundedRect( const UIRect& bounds, float radius, const Style::UIColor& color );
+    void AddTriangle( const UITriangle& triangle, const Style::UIColor& color );
+    void AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value );
+    void PushClip( const UIRect& bounds );
     void PopClip();
 
     // Fallback fill and label are part of the recorded value so a missing
     // frame-local renderer target cannot silently produce a blank panel.
-    void AddPreviewImage( PreviewTargetId target, float x, float y, float w, float h, float fallbackR, float fallbackG,
-                          float fallbackB, float fallbackA, const char* fallbackLabel );
+    void AddPreviewImage( PreviewTargetId target, const UIRect& bounds, const Style::UIColor& fallbackColor,
+                          const char* fallbackLabel );
 
     // Appends another list in order and applies a screen-space translation to
     // its geometry. Text is copied into this list's bounded storage so neither

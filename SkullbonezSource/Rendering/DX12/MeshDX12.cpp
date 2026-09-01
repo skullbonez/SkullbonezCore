@@ -29,14 +29,57 @@ Related:
 #include "RenderBackendDX12.h"
 #include "../RenderGraph.h"
 #include <cstring>
+#include <limits>
 
 
 using namespace SkullbonezCore::Rendering;
 
 
+std::optional<MeshVertexDataView> MeshVertexDataView::TryCreate( const float* data, int vertexCount, int floatsPerVertex,
+                                                                 VertexFormat12 format ) noexcept
+{
+    if ( !data || vertexCount <= 0 || floatsPerVertex <= 0 )
+    {
+        return std::nullopt;
+    }
+
+    const std::size_t rows = static_cast<std::size_t>( vertexCount );
+    const std::size_t columns = static_cast<std::size_t>( floatsPerVertex );
+
+    if ( rows > ( std::numeric_limits<std::size_t>::max )() / columns )
+    {
+        return std::nullopt;
+    }
+
+    return MeshVertexDataView( std::span<const float>( data, rows * columns ), vertexCount, floatsPerVertex, format );
+}
+
+
+std::optional<Dx12MeshUploadSlice> Dx12MeshUploadSlice::TryCreate( D3D12_GPU_VIRTUAL_ADDRESS address, uint8_t* bytes,
+                                                                   UINT64 byteCount, ID3D12Resource* backing ) noexcept
+{
+    if ( address == 0 || !bytes || byteCount == 0 ||
+         byteCount > static_cast<UINT64>( ( std::numeric_limits<std::size_t>::max )() ) || !backing )
+    {
+        return std::nullopt;
+    }
+
+    const D3D12_GPU_VIRTUAL_ADDRESS backingAddress = backing->GetGPUVirtualAddress();
+    const D3D12_RESOURCE_DESC backingDesc = backing->GetDesc();
+
+    if ( address < backingAddress || byteCount > backingDesc.Width ||
+         address - backingAddress > backingDesc.Width - byteCount )
+    {
+        return std::nullopt;
+    }
+
+    return Dx12MeshUploadSlice( address, std::span<uint8_t>( bytes, static_cast<std::size_t>( byteCount ) ), *backing );
+}
+
+
 MeshDX12::MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics )
-    : m_device( device ), m_drawGate( drawGate ), m_diagnostics( diagnostics ), m_vertexCount( 0 ), m_stride( 0 ),
-      m_format( VertexFormat12::Pos3 )
+    : m_device( device ), m_drawGate( drawGate ), m_diagnostics( diagnostics ), m_vertexBuffer( nullptr ),
+      m_vertexCount( 0 ), m_stride( 0 ), m_format( VertexFormat12::Pos3 )
 {
     m_vbView = {};
 }
@@ -51,20 +94,21 @@ MeshDX12::~MeshDX12()
 }
 
 
-bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const float* data, int vertexCount,
-                       int floatsPerVert, VertexFormat12 format, D3D12_GPU_VIRTUAL_ADDRESS uploadAddr, uint8_t* uploadPtr,
-                       ID3D12Resource* uploadBuffer )
+bool MeshDX12::Create( const MeshVertexDataView& vertices, const Dx12MeshUploadSlice& upload )
 {
-    if ( uploadAddr == 0 || !uploadPtr )
+    ID3D12Device* device = m_device.Device();
+    ID3D12GraphicsCommandList* commandList = m_device.CommandList();
+
+    if ( !device || !commandList || upload.Bytes().size_bytes() != vertices.ByteCount() )
     {
         return false;
     }
 
-    m_vertexCount = vertexCount;
-    m_stride = floatsPerVert * static_cast<int>( sizeof( float ) );
-    m_format = format;
+    m_vertexCount = vertices.VertexCount();
+    m_stride = vertices.FloatsPerVertex() * static_cast<int>( sizeof( float ) );
+    m_format = vertices.Format();
 
-    UINT64 dataSize = static_cast<UINT64>( vertexCount ) * m_stride;
+    const UINT64 dataSize = vertices.ByteCount();
 
     D3D12_HEAP_PROPERTIES defaultHeap = {};
     defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -94,7 +138,7 @@ bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
         // the HRESULT visible.
         SkullbonezCore::Core::Log()
             .WriteEventf( "dx12_mesh_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d bytes=%llu",
-                          static_cast<unsigned int>( hr ), vertexCount, m_stride,
+                          static_cast<unsigned int>( hr ), m_vertexCount, m_stride,
                           static_cast<unsigned long long>( dataSize ) );
 
         SkullbonezCore::Core::Log().FlushAll();
@@ -103,23 +147,16 @@ bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
 
     NameDx12Object( m_vertexBuffer, L"Skullbonez DX12 Mesh Vertex Buffer" );
 
-    memcpy( uploadPtr, data, static_cast<size_t>( dataSize ) );
-
-    // Invariant: the supplied upload address and CPU pointer are valid only
-    // while the frame upload system owns the matching backing resource.
-    if ( !uploadBuffer )
-    {
-        SB_FATAL( "MeshDX12", "Create requires a DX12 upload buffer." );
-    }
-
-    UINT64 uploadOffset = uploadAddr - uploadBuffer->GetGPUVirtualAddress();
+    memcpy( upload.Bytes().data(), vertices.Components().data(), static_cast<size_t>( dataSize ) );
+    ID3D12Resource& uploadBuffer = upload.Backing();
+    const UINT64 uploadOffset = upload.Address() - uploadBuffer.GetGPUVirtualAddress();
 
     // Record a GPU-side copy command: transfer vertex data from the upload buffer (CPU-visible staging
     // memory) to the vertex buffer (fast GPU-only memory). This happens asynchronously on the GPU —
     // the CPU just records the command, the actual copy happens when the command list is executed.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
-    cmdList->CopyBufferRegion( m_vertexBuffer, 0, uploadBuffer, uploadOffset, dataSize );
+    commandList->CopyBufferRegion( m_vertexBuffer, 0, &uploadBuffer, uploadOffset, dataSize );
 
     // Transition the vertex buffer from COMMON (implicitly promoted to COPY_DEST by CopyBufferRegion)
     // to a combined read state that covers both normal drawing (VERTEX_AND_CONSTANT_BUFFER) and raytracing
@@ -140,7 +177,7 @@ bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
         return false;
     }
 
-    cmdList->ResourceBarrier( 1, &barrier );
+    commandList->ResourceBarrier( 1, &barrier );
 
     m_vbView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
     m_vbView.SizeInBytes = static_cast<UINT>( dataSize );

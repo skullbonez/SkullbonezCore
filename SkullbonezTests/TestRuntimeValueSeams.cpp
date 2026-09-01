@@ -37,16 +37,21 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/App/InputFrame.h"
+#include "../SkullbonezSource/Runtime/App/GraphicsStressApplication.h"
 #include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
+#include "../SkullbonezSource/Runtime/Camera/CameraControlState.h"
 #include "../SkullbonezSource/Runtime/Input/InputController.h"
 #include "../SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayCoordination.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayPresentation.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRuntimePackets.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h"
 #include "../SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneNavigationModel.h"
 #include "../SkullbonezSource/Runtime/UI/OperatorUiPhase.h"
 #include "../SkullbonezSource/Runtime/UI/RuntimeUiSurface.h"
 #include "../SkullbonezSource/UI/UIDrawList.h"
@@ -60,6 +65,37 @@
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
+
+TEST_CASE( "Graphics stress routes every authored action to one concrete owner" )
+{
+    const std::array<GraphicsStressActionOwner, 32> expected = {
+        GraphicsStressActionOwner::Cinematic,           GraphicsStressActionOwner::Cinematic,
+        GraphicsStressActionOwner::Cinematic,           GraphicsStressActionOwner::SceneBrowser,
+        GraphicsStressActionOwner::Renderer,            GraphicsStressActionOwner::Renderer,
+        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::PresentationOverlay,
+        GraphicsStressActionOwner::PresentationOverlay, GraphicsStressActionOwner::TimeScale,
+        GraphicsStressActionOwner::World,               GraphicsStressActionOwner::OperatorUi,
+        GraphicsStressActionOwner::GeneratedScene,      GraphicsStressActionOwner::Tornado,
+        GraphicsStressActionOwner::Tornado,             GraphicsStressActionOwner::OperatorUi,
+        GraphicsStressActionOwner::ScenePhysics,        GraphicsStressActionOwner::ScenePhysics,
+        GraphicsStressActionOwner::RuntimeOverlay,      GraphicsStressActionOwner::RuntimeOverlay,
+        GraphicsStressActionOwner::RuntimeTool,         GraphicsStressActionOwner::Camera,
+        GraphicsStressActionOwner::GeneratedScene,      GraphicsStressActionOwner::OperatorUi,
+        GraphicsStressActionOwner::OperatorUi,          GraphicsStressActionOwner::RuntimeOverlay,
+    };
+
+    for ( int action = 0; action < static_cast<int>( expected.size() ); ++action )
+    {
+        CAPTURE( action );
+        CHECK( GraphicsStressOwnerForAction( action ) == expected[static_cast<std::size_t>( action )] );
+    }
+
+    CHECK( GraphicsStressOwnerForAction( -1 ) == GraphicsStressActionOwner::Invalid );
+    CHECK( GraphicsStressOwnerForAction( 32 ) == GraphicsStressActionOwner::Invalid );
+}
 
 TEST_CASE( "Passive camera floor follows the live fluid surface without inventing out-of-bounds terrain" )
 {
@@ -83,6 +119,88 @@ TEST_CASE( "Replay scrub camera policy ignores an ordinary historical cursor" )
     CHECK_FALSE( ReplayScrubNeedsInspectionCamera( false, RunReplayCameraFocusKind::None ) );
     CHECK( ReplayScrubNeedsInspectionCamera( true, RunReplayCameraFocusKind::None ) );
     CHECK( ReplayScrubNeedsInspectionCamera( false, RunReplayCameraFocusKind::Body ) );
+}
+
+TEST_CASE( "Replay coordination commands retain only their action payload" )
+{
+    const ReplayTransportCommand recording = ReplaySetRecordingEnabledCommand { true };
+    const ReplayTransportCommand scrub = ReplayScrubCommand { 0.375f };
+    const ReplayTransportCommand horizon = ReplaySetPredictionHorizonCommand { 42.0f };
+    const ReplayTransportCommand selection = ReplaySelectCauseRowCommand { 7 };
+
+    CHECK( ReplayTransportCommandAction( recording ) == ReplayTransportAction::SetRecordingEnabled );
+    CHECK( std::get<ReplaySetRecordingEnabledCommand>( recording ).enabled );
+    CHECK( ReplayTransportCommandAction( scrub ) == ReplayTransportAction::Scrub );
+    CHECK( std::get<ReplayScrubCommand>( scrub ).normalized == doctest::Approx( 0.375f ) );
+    CHECK( ReplayTransportCommandAction( horizon ) == ReplayTransportAction::SetPredictionHorizon );
+    CHECK( std::get<ReplaySetPredictionHorizonCommand>( horizon ).seconds == doctest::Approx( 42.0f ) );
+    CHECK( ReplayTransportCommandAction( selection ) == ReplayTransportAction::SelectCauseRow );
+    CHECK( std::get<ReplaySelectCauseRowCommand>( selection ).rowIndex == 7 );
+    CHECK_FALSE( std::holds_alternative<ReplayScrubCommand>( selection ) );
+
+    const ReplayStartupRequest startup {
+        ReplayStartupLoadRequest { "capture.sbrv2", true },
+#ifdef _DEBUG
+        ReplayStartupRestoreFileProbeRequests { "checkpoint.sbrv2", "target.sbrv2", "branch.sbrv2", "failure.sbrv2" },
+        ReplayStartupNormalizedProbeRequest { true, 0.25f },
+        ReplayStartupNormalizedProbeRequest { true, 0.75f },
+        ReplayStartupSaveProbeRequest { true, "saved.sbrv2" }
+#endif
+    };
+    CHECK( std::strcmp( startup.load.path, "capture.sbrv2" ) == 0 );
+    CHECK( startup.load.validationProbe );
+#ifdef _DEBUG
+    CHECK( std::strcmp( startup.restoreFiles.targetPath, "target.sbrv2" ) == 0 );
+    CHECK( startup.scrub.enabled );
+    CHECK( startup.scrub.normalized == doctest::Approx( 0.25f ) );
+    CHECK( startup.restore.normalized == doctest::Approx( 0.75f ) );
+    CHECK( std::strcmp( startup.save.path, "saved.sbrv2" ) == 0 );
+#endif
+}
+
+TEST_CASE( "Scene defaults save snapshot detaches every borrowed owner section" )
+{
+    ScenePresentationValues presentation;
+    presentation.textOnly = true;
+    presentation.waterFreeze = true;
+    presentation.terrainHidden = true;
+    presentation.physicsDebugFlags =
+        SkullbonezCore::Physics::PHYSICS_DEBUG_AXES | SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS;
+    presentation.physicsDebugTransparent = true;
+    presentation.physicsDebugAlpha = 0.625f;
+
+    SceneRenderPolicyState renderPolicy;
+    renderPolicy.vsyncEnabled = false;
+    renderPolicy.pipelineSyncEnabled = true;
+
+    CameraControlState camera;
+    camera.trackBallRow.value = 0;
+    camera.trackHeight = 123.0f;
+    camera.autoCycleInterval = 4.5f;
+
+    SkullbonezCore::UI::RunSceneUIOverrideState uiOverrides;
+    uiOverrides.modelCountOverride = 9;
+    const SceneDefaultsSaveSnapshot snapshot =
+        ProjectSceneDefaultsSaveSnapshot( presentation, renderPolicy, camera, uiOverrides );
+    presentation.textOnly = false;
+    renderPolicy.vsyncEnabled = true;
+    camera.trackHeight = 900.0f;
+    uiOverrides.modelCountOverride = 1;
+
+    CHECK( snapshot.presentation.textOnly );
+    CHECK( snapshot.presentation.waterFreeze );
+    CHECK( snapshot.presentation.terrainHidden );
+    CHECK( snapshot.presentation.physicsDebugFlags ==
+           ( SkullbonezCore::Physics::PHYSICS_DEBUG_AXES | SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS ) );
+    CHECK( snapshot.presentation.physicsDebugTransparent );
+    CHECK( snapshot.presentation.physicsDebugAlpha == doctest::Approx( 0.625f ) );
+    CHECK_FALSE( snapshot.renderPolicy.vsyncEnabled );
+    CHECK( snapshot.renderPolicy.pipelineSyncEnabled );
+    CHECK( snapshot.camera.writeTrackHeight );
+    CHECK( snapshot.camera.trackHeight == doctest::Approx( 123.0f ) );
+    CHECK( snapshot.camera.writeAutoCycleInterval );
+    CHECK( snapshot.camera.autoCycleInterval == doctest::Approx( 4.5f ) );
+    CHECK( snapshot.generatedCounts.modelCount == 9 );
 }
 
 namespace
@@ -259,6 +377,19 @@ TEST_CASE( "Render policy: unavailable raytracing cannot select DXR reflection" 
     policy.waterNoReflect = false;
     CHECK_FALSE( ShouldUseDxrReflection( true, policy, true, false ) );
     CHECK_FALSE( ShouldUseDxrReflection( true, policy, false, true ) );
+}
+
+TEST_CASE( "Replay render publication keeps time and renderer consumers independent" )
+{
+    ReplayRenderFrameViews views {};
+    views.time.liveAdvanceHeld = true;
+    views.render.focusFadeActive = true;
+
+    CHECK( views.time.liveAdvanceHeld );
+    CHECK( views.render.focusFadeActive );
+    CHECK( views.time.presentationSample == nullptr );
+    CHECK( views.render.focusModelMask == nullptr );
+    CHECK( views.render.visualPacket == nullptr );
 }
 
 TEST_CASE( "Scene controller: one proceed policy governs the complete frame" )
@@ -710,8 +841,8 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     stats.enabled = true;
     stats.sampleCount = 2u;
 
-    ReplayScrubberSurfaceInput input = DescribeReplayScrubberAvailability( scrubber, stats, false, true, true, false, true,
-                                                                           true );
+    ReplayScrubberSurfaceInput input =
+        DescribeReplayScrubberAvailability( scrubber, stats, { false, true, true, false, true, true } );
     input.screenW = 1920;
     input.screenH = 1080;
     input.gesture = ReplayToolGestureKind::ScrubDrag;
@@ -779,8 +910,8 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     stats.enabled = true;
     stats.sampleCount = 1u;
 
-    ReplayScrubberSurfaceInput loaded = DescribeReplayScrubberAvailability( scrubber, stats, true, false, false, true, false,
-                                                                            false );
+    ReplayScrubberSurfaceInput loaded =
+        DescribeReplayScrubberAvailability( scrubber, stats, { true, false, false, true, false, false } );
     loaded.hotZoneEnabled = false;
     CHECK( loaded.track == RunReplayTrack::Presentation );
     CHECK_FALSE( loaded.solverToolsEnabled );
@@ -789,8 +920,8 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     CHECK( loaded.branchTargetAvailable );
     CHECK_FALSE( loaded.hotZoneEnabled );
 
-    ReplayScrubberSurfaceInput livePast = DescribeReplayScrubberAvailability( scrubber, stats, false, false, false,
-                                                                               false, false, false );
+    ReplayScrubberSurfaceInput livePast =
+        DescribeReplayScrubberAvailability( scrubber, stats, { false, false, false, false, false, false } );
     CHECK( livePast.track == RunReplayTrack::Presentation );
 
     ReplayScrubberSurface loadedSurface;
@@ -799,8 +930,8 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     REQUIRE( highDetail != nullptr );
     CHECK_FALSE( highDetail->visible );
 
-    ReplayScrubberSurfaceInput unavailable = DescribeReplayScrubberAvailability( scrubber, stats, false, false, false, false,
-                                                                                 false, false );
+    ReplayScrubberSurfaceInput unavailable =
+        DescribeReplayScrubberAvailability( scrubber, stats, { false, false, false, false, false, false } );
     unavailable.screenW = 1280;
     unavailable.screenH = 720;
     CHECK_FALSE( unavailable.solverToolsEnabled );

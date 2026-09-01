@@ -161,7 +161,7 @@ struct RunReplayPredictionBodySample
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR; // m/s-equivalent simulation units.
-    bool sleeping = false;                                            // Solver sleep state used by whole-cascade outcome validation.
+    bool sleeping = false; // Solver sleep state used by whole-cascade outcome validation.
 };
 
 struct RunReplayPredictionFrame
@@ -197,48 +197,87 @@ struct ReplayVelocityDragPreviewView
     bool active = false;
 };
 
-struct ReplayPredictionPresentationView
+struct ReplayPredictionTimelineView
 {
     std::span<const RunReplayPredictionFrame> frames;
-    std::span<const RunReplayPathTraceNode> futureNodes;
-    std::span<const ReplayTrajectoryRecord> trajectoryRecords;
-    std::span<const ReplayPredictionRetainedMarker> retainedMarkers;
-    std::span<const ReplayPredictionBaselineBodyPose> baselineBodyPoses;
-    ReplayVelocityDragPreviewView velocityDragPreview;
-    Physics::PhysicsSceneObjectId targetId;
-    Physics::PhysicsSceneObjectId baselineRootId;
-    Physics::PhysicsSceneObjectId trajectoryBuildRootId;
     ReplayFrameIndex sourceFrame = 0;
     ReplayFrameIndex revealFrame = 0;
-    uint32_t generation = 0;                                          // Successful private-simulation generation owning this published prefix.
+    uint32_t generation = 0; // Successful private-simulation generation owning this published prefix.
+    bool usingBuildFrames = false;
+    bool complete = false;
+    bool deterministicRevealEnabled = false;
+};
+
+struct ReplayPredictionTopologyView
+{
+    std::span<const RunReplayPathTraceNode> futureNodes;
+    Physics::PhysicsSceneObjectId targetId;
+    uint32_t version = 0;
+    bool cacheValid = false;
+    bool treeReady = false;
+    bool ragdollVisualsEnabled = false;
+};
+
+struct ReplayPredictionTrajectoryView
+{
+    std::span<const ReplayTrajectoryRecord> records;
+    Physics::PhysicsSceneObjectId buildRootId;
     uint32_t topologyVersion = 0;
-    uint32_t trajectoryBuildTopologyVersion = 0;
-    uint64_t trajectoryPublicationVersion = 0;                        // O(1) invalidation token for retained trajectory draw lists.
-    std::size_t trajectoryBuiltNodeCount = 0;
-    std::size_t trajectoryChildFrameCount = 0;
-    ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;
-    ReplayPredictionDetailMode detailMode = ReplayPredictionDetailMode::High;
-    ReplayPredictionArchiveDetailCapability archiveDetailCapability = ReplayPredictionArchiveDetailCapability::Low;
-    ReplayPredictionPathPresentation pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
+    uint64_t publicationVersion = 0; // O(1) invalidation token for retained trajectory draw lists.
+    std::size_t builtNodeCount = 0;
+    std::size_t childFrameCount = 0;
+    bool valid = false;
+    bool usingBuildFrames = false;
+};
+
+struct ReplayPredictionMarkerView
+{
+    std::span<const ReplayPredictionRetainedMarker> retainedMarkers;
+};
+
+struct ReplayPredictionBaselineView
+{
+    std::span<const ReplayPredictionBaselineBodyPose> bodyPoses;
+    Physics::PhysicsSceneObjectId rootId;
+    bool valid = false;
+    bool comparisonActive = false;
+};
+
+struct ReplayPredictionControlsView
+{
     float horizonSeconds = 0.0f;
     double revealSecondsPerSecond = 1.0;
     double revealRateMinimum = REPLAY_PREDICTION_REVEAL_RATE_MIN;
     double revealRateMaximum = REPLAY_PREDICTION_REVEAL_RATE_MAX;
-    double measuredTicksPerMs = 0.0;
-    double lastBuildWallMs = 0.0;
     bool enabled = false;
     bool building = false;
-    bool complete = false;
-    bool usingBuildFrames = false;
-    bool futureNodesCacheValid = false;
-    bool trajectoryBuildValid = false;
-    bool trajectoryBuildUsingBuildFrames = false;
-    bool futureTreeReady = false;
-    bool ragdollVisualsEnabled = false;
-    bool baselineValid = false;
-    bool baselineComparisonActive = false;
-    bool deterministicRevealEnabled = false;
     bool generationPermitted = true;
+};
+
+struct ReplayPredictionDiagnosticsView
+{
+    ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;
+    ReplayPredictionDetailMode detailMode = ReplayPredictionDetailMode::High;
+    ReplayPredictionArchiveDetailCapability archiveDetailCapability = ReplayPredictionArchiveDetailCapability::Low;
+    double measuredTicksPerMs = 0.0;
+    double lastBuildWallMs = 0.0;
+};
+
+struct ReplayPredictionPresentationView
+{
+    // Concept: App and UI may carry this envelope, but renderer and planner
+    // operations consume the smallest child view that owns their inputs.
+    ReplayPredictionTimelineView timeline;
+    ReplayPredictionTopologyView topology;
+    ReplayPredictionTrajectoryView trajectory;
+    ReplayPredictionMarkerView markers;
+    ReplayPredictionBaselineView baseline;
+    ReplayVelocityDragPreviewView dragPreview;
+    ReplayPredictionControlsView controls;
+    ReplayPredictionDiagnosticsView diagnostics;
+    // Concept: path selection governs topology, trajectory, markers, and report
+    // policy together, so the presentation envelope owns this scalar directly.
+    ReplayPredictionPathPresentation pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
 };
 
 } // namespace SkullbonezCore::Runtime

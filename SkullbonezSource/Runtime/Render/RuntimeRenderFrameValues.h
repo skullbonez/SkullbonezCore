@@ -123,27 +123,71 @@ inline bool ShouldUseDxrReflection( bool capabilityAvailable, const RuntimeRende
            !transparentBodyPass;
 }
 
-struct RuntimeRenderModelFrameView
+struct RuntimeRenderModelPresentationView
 {
     Rendering::RenderInstanceStore& renderInstances;
     const Physics::ColliderStore& colliders;
-    const Physics::PhysicsBodyStore& bodyStore;
-    Physics::PhysicsEngine& physicsEngine;
-    std::span<const float> worldExtensionDebugLines;
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
-    std::span<const uint8_t> collisionVisualContacts;
-    std::span<const uint8_t> sleepStates;
-    std::span<const int> sleepIslandVisualIds;
-    std::span<const uint8_t> sleepSupportedStates;
-    std::span<const uint8_t> sleepInhibitedStates;
-    std::span<const Physics::PhysicsDebugContact> physicsDebugContacts;
-    std::span<const Physics::PhysicsPipelineRecord> physicsPipelineTrace;
     Threading::WorkerPool* renderWorkerPool;
     int modelCount = 0;
     bool renderCollisionVolumes = false;
     bool shadowParallelPrep = false;
+};
+
+struct RuntimeRenderBroadphaseDebugView
+{
+    Physics::PhysicsEngine& physicsEngine;
+};
+
+struct RuntimeRenderCollisionDebugView
+{
+    const Physics::ColliderStore& colliders;
+    Rendering::RenderInstanceStore& renderInstances;
+    std::span<const uint8_t> collisionVisualContacts;
+    std::span<const uint8_t> sleepStates;
+    std::span<const int> sleepIslandVisualIds;
+    int modelCount = 0;
+};
+
+struct RuntimeRenderPhysicsDebugView
+{
+    const Physics::PhysicsBodyStore& bodyStore;
+    const Physics::ColliderStore& colliders;
+    std::span<const uint8_t> sleepStates;
+    std::span<const uint8_t> sleepSupportedStates;
+    std::span<const uint8_t> sleepInhibitedStates;
+    std::span<const Physics::PhysicsDebugContact> physicsDebugContacts;
+    std::span<const Physics::PhysicsPipelineRecord> physicsPipelineTrace;
+    int modelCount = 0;
+};
+
+struct RuntimeRenderDebugViews
+{
+    RuntimeRenderBroadphaseDebugView broadphase;
+    RuntimeRenderCollisionDebugView collision;
+    RuntimeRenderPhysicsDebugView physics;
+};
+
+struct RuntimeRenderWorldExtensionDebugView
+{
+    std::span<const float> lines;
+};
+
+struct RuntimeRenderDiagnosticsFrameValues
+{
     double sceneKineticEnergy = 0.0;
     SkullbonezCore::Core::MainMemoryGameObjectStats gameObjectMemory;
+};
+
+struct RuntimeRenderFrameViews
+{
+    // Lifetime: each child view is consumed synchronously by its named frame
+    // phase. Callers pass the child, not this publication envelope, across
+    // Render package boundaries.
+    RuntimeRenderModelPresentationView modelPresentation;
+    RuntimeRenderDebugViews debug;
+    RuntimeRenderWorldExtensionDebugView worldExtensionDebug;
+    RuntimeRenderDiagnosticsFrameValues diagnostics;
 };
 
 } // namespace Runtime

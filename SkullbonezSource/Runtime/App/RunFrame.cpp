@@ -400,23 +400,23 @@ void Run::AdvanceInteractionRecordingBoundary()
         baseline.replayPresentationTrackPosition = replay.presentationTrackPosition;
         baseline.replaySolverTrackPosition = replay.solverTrackPosition;
         const ReplayCauseInspectionView causeInspection = m_replayRuntime.CauseInspectionView();
-        baseline.replayCauseInspectionMode = static_cast<int>( causeInspection.mode );
-        baseline.replayCauseSelectedRow = causeInspection.selectedRow;
-        baseline.replayCauseActiveTab = static_cast<int>( causeInspection.activeTab );
-        baseline.replayCauseSelectedDetailContactRow = causeInspection.selectedDetailContactRow;
-        baseline.replayCauseSolverDetailFirstRow = causeInspection.solverDetailFirstRow;
-        baseline.replayCauseRawRecordFirstRow = causeInspection.rawRecordFirstRow;
-        baseline.replayCauseIterationsFirstRow = causeInspection.iterationsFirstRow;
-        baseline.replayCauseSourceFrame = causeInspection.sourceFrame;
-        baseline.replayCauseTargetFrame = causeInspection.targetFrame;
-        baseline.replayCausePresentedFrame = causeInspection.presentedFrame;
-        baseline.replayCauseDetailVisible = causeInspection.detailVisible;
-        baseline.replayCauseOwnsPause = causeInspection.ownsPause;
-        baseline.replayCauseTransportPending = causeInspection.transportPending;
-        baseline.replayCauseTransportInFlight = causeInspection.transportInFlight;
-        baseline.replayCauseReturnIssued = causeInspection.returnIssued;
-        baseline.replayCauseEasedProgress = causeInspection.easedProgress;
-        baseline.replayCauseDrawerProgress = causeInspection.drawerProgress;
+        baseline.replayCauseInspectionMode = static_cast<int>( causeInspection.Transport().mode );
+        baseline.replayCauseSelectedRow = causeInspection.Selection().selectedRow;
+        baseline.replayCauseActiveTab = static_cast<int>( causeInspection.Display().activeTab );
+        baseline.replayCauseSelectedDetailContactRow = causeInspection.Selection().selectedDetailContactRow;
+        baseline.replayCauseSolverDetailFirstRow = causeInspection.Display().solverDetailFirstRow;
+        baseline.replayCauseRawRecordFirstRow = causeInspection.Display().rawRecordFirstRow;
+        baseline.replayCauseIterationsFirstRow = causeInspection.Display().iterationsFirstRow;
+        baseline.replayCauseSourceFrame = causeInspection.Transport().sourceFrame;
+        baseline.replayCauseTargetFrame = causeInspection.Transport().targetFrame;
+        baseline.replayCausePresentedFrame = causeInspection.Transport().presentedFrame;
+        baseline.replayCauseDetailVisible = causeInspection.Display().detailVisible;
+        baseline.replayCauseOwnsPause = causeInspection.Transport().ownsPause;
+        baseline.replayCauseTransportPending = causeInspection.Transport().transportPending;
+        baseline.replayCauseTransportInFlight = causeInspection.Transport().transportInFlight;
+        baseline.replayCauseReturnIssued = causeInspection.Transport().returnIssued;
+        baseline.replayCauseEasedProgress = causeInspection.Transport().easedProgress;
+        baseline.replayCauseDrawerProgress = causeInspection.Display().drawerProgress;
 
         if ( replay.hasPathTarget && replay.pathTargetModelRow >= 0 &&
              replay.pathTargetModelRow < m_sceneController.Scene().SceneEntityCount() )
@@ -746,9 +746,16 @@ float Run::PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned
                                                m_timers );
             ApplySceneLoadRuntimeReactions( sceneLoad );
 
-            ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                        m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
-                                        Renderer().VsyncEnabled(), m_sceneController );
+            {
+                const SceneLoadResult& presentation = BeginSceneLoadPresentation( sceneLoad, *m_validationHarness,
+                                                                                  m_sceneController );
+                const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+                ApplySceneLoadRenderPresentation( lifecycle, &Renderer().RenderDevice(), Renderer().VsyncEnabled() );
+                ApplySceneLoadWindowUiPresentation( presentation, m_window, *m_operatorUi );
+                ApplySceneLoadGraphicsStressPresentation( lifecycle, m_graphicsStress, m_graphicsStressSceneObserver,
+                                                          m_launchOptions );
+                sceneLoad.CompletePresentation();
+            }
 
             if ( loaded )
             {
@@ -780,36 +787,7 @@ float Run::PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned
         }
 
         m_sceneController.EnterInteractiveRun();
-        const int actionCount = graphicsStress.InDescriptorChurnQuietWindow() ? 0 : graphicsStress.ActionCount();
-
-        for ( int index = 0; index < actionCount; ++index )
-        {
-            const int action = graphicsStress.NextAction();
-
-            if ( action <= 14 )
-            {
-                ApplyGraphicsStressPresentationAction( action, graphicsStress, m_assets, m_launchOptions, m_config,
-                                                       *m_overlayDiagnostics, m_sceneController, m_timers.Publish(),
-                                                       *m_operatorUi, m_renderDefaults.CinematicBaseline(), Renderer() );
-            }
-            else
-            {
-                const GraphicsStressRuntimeActionResult
-                    stressResult = ApplyGraphicsStressRuntimeAction( action, graphicsStress, m_launchOptions,
-                                                                     *m_overlayDiagnostics, m_sceneController, m_camera,
-                                                                     *m_operatorUi, m_simulation, m_runtimeTools );
-
-                if ( stressResult.worldOverrideChanged )
-                {
-                    m_replayRuntime.SubmitEvent(
-                        ReplayEventCommandOperations::BuildWorldOverride( stressResult.previousGravity,
-                                                                          stressResult.previousFluidHeight,
-                                                                          stressResult.previousFluidDensity,
-                                                                          stressResult.gravity, stressResult.fluidHeight,
-                                                                          stressResult.fluidDensity ) );
-                }
-            }
-        }
+        ApplyGraphicsStressActions( graphicsStress );
 
         FinishGraphicsStressFrame( graphicsStress, m_diagnosticsRuntime, m_timers.Publish(), m_sceneController,
                                    m_replayRuntime.CollectMemoryStats(), Renderer().RenderDiagnostics() );
@@ -839,12 +817,83 @@ float Run::PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned
     return presentationAlpha;
 }
 
-RuntimeRenderModelFrameView Run::PublishRenderModelsPhase()
+
+void Run::ApplyGraphicsStressActions( GraphicsStressController& graphicsStress )
+{
+    const int actionCount = graphicsStress.InDescriptorChurnQuietWindow() ? 0 : graphicsStress.ActionCount();
+
+    for ( int index = 0; index < actionCount; ++index )
+    {
+        const int action = graphicsStress.NextAction();
+
+        switch ( GraphicsStressOwnerForAction( action ) )
+        {
+        case GraphicsStressActionOwner::Invalid:
+            break;
+        case GraphicsStressActionOwner::Cinematic:
+            ApplyGraphicsStressCinematicAction( action, graphicsStress, m_launchOptions, m_config, m_sceneController );
+            break;
+        case GraphicsStressActionOwner::SceneBrowser:
+            ApplyGraphicsStressSceneBrowserAction( graphicsStress, m_assets, m_launchOptions, m_config, m_sceneController,
+                                                   *m_operatorUi, m_renderDefaults.CinematicBaseline() );
+            break;
+        case GraphicsStressActionOwner::Renderer:
+            ApplyGraphicsStressRendererAction( action, Renderer() );
+            break;
+        case GraphicsStressActionOwner::PresentationOverlay:
+            ApplyGraphicsStressPresentationOverlayAction( action, graphicsStress, *m_overlayDiagnostics,
+                                                          m_timers.Publish() );
+            break;
+        case GraphicsStressActionOwner::TimeScale:
+            ApplyGraphicsStressTimeScaleAction( graphicsStress, m_sceneController, *m_operatorUi, m_simulation );
+            break;
+        case GraphicsStressActionOwner::World:
+        {
+            const GraphicsStressRuntimeActionResult stressResult = ApplyGraphicsStressWorldAction( graphicsStress,
+                                                                                                   m_sceneController );
+            if ( stressResult.worldOverrideChanged )
+            {
+                m_replayRuntime.SubmitEvent(
+                    ReplayEventCommandOperations::BuildWorldOverride( stressResult.previousGravity,
+                                                                      stressResult.previousFluidHeight,
+                                                                      stressResult.previousFluidDensity,
+                                                                      stressResult.gravity, stressResult.fluidHeight,
+                                                                      stressResult.fluidDensity ) );
+            }
+            break;
+        }
+        case GraphicsStressActionOwner::GeneratedScene:
+            ApplyGraphicsStressGeneratedSceneAction( graphicsStress, m_launchOptions );
+            break;
+        case GraphicsStressActionOwner::Tornado:
+            ApplyGraphicsStressTornadoAction( action, graphicsStress, m_sceneController );
+            break;
+        case GraphicsStressActionOwner::OperatorUi:
+            ApplyGraphicsStressOperatorUiAction( action, graphicsStress, *m_operatorUi );
+            break;
+        case GraphicsStressActionOwner::ScenePhysics:
+            ApplyGraphicsStressScenePhysicsAction( action, m_sceneController, m_simulation );
+            break;
+        case GraphicsStressActionOwner::RuntimeTool:
+            ApplyGraphicsStressRuntimeToolAction( m_runtimeTools );
+            break;
+        case GraphicsStressActionOwner::Camera:
+            ApplyGraphicsStressCameraAction( graphicsStress, m_camera );
+            break;
+        case GraphicsStressActionOwner::RuntimeOverlay:
+            ApplyGraphicsStressRuntimeOverlayAction( action, graphicsStress, *m_overlayDiagnostics );
+            break;
+        }
+    }
+}
+
+
+RuntimeRenderFrameViews Run::PublishRenderModelsPhase()
 {
     return PublishRenderModelFrame( m_sceneController.Scene(), m_workerPool, m_config );
 }
 
-void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
+void Run::RenderWorldPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha )
 {
     PROFILE_BEGIN( "Frame/Render" );
     {
@@ -854,7 +903,7 @@ void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, flo
         // Invariant: graph ownership begins before Render can take its text-only
         // path. World, UI, capture, and Present close the same graph exactly once.
         Renderer().BeginFrameGraph();
-        Render( renderModels, presentationAlpha );
+        Render( renderFrame, presentationAlpha );
     }
     PROFILE_END( "Frame/Render" );
 }
@@ -1083,17 +1132,17 @@ SkullbonezCore::Core::SbResult Run::Execute()
             return ResolveExecuteExit( 0 );
         }
 
-        RuntimeRenderModelFrameView models = PublishRenderModelsPhase();
+        RuntimeRenderFrameViews renderFrame = PublishRenderModelsPhase();
         const RuntimeRenderFramePolicy debugFramePolicy = ProjectRenderFramePolicy(
             m_overlayDiagnostics->BuildFramePolicy( m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() ) );
-        Renderer().UpdateDebugVisualizers( static_cast<float>( secondsPerFrame ), models, debugFramePolicy );
+        Renderer().UpdateDebugVisualizers( static_cast<float>( secondsPerFrame ), renderFrame.debug, debugFramePolicy );
 
         // Fixed boundary: diagnostics advance once from completed frame-model
         // facts before Render or either optional UI surface can branch.
-        m_timers.SampleFrame( { secondsPerFrame, models.sceneKineticEnergy } );
+        m_timers.SampleFrame( { secondsPerFrame, renderFrame.diagnostics.sceneKineticEnergy } );
         const RuntimeFrameMetricsSnapshot frameMetrics = m_timers.Publish();
-        RenderWorldPhase( models, presentationAlpha );
-        const OperatorUiProcessCommands operatorUiCommands = RenderOperatorUiPhase( models, presentationAlpha,
+        RenderWorldPhase( renderFrame, presentationAlpha );
+        const OperatorUiProcessCommands operatorUiCommands = RenderOperatorUiPhase( renderFrame, presentationAlpha,
                                                                                     capturePresentationPinned,
                                                                                     secondsPerFrame, gameUiActive,
                                                                                     frameMetrics );
@@ -1405,12 +1454,12 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
     }
 
     const std::string* scenePath = m_sceneController.CurrentPath();
-    const RuntimeCaptureResult result = m_capture.TickScreenshots( m_sceneController.State().isSceneMode,
-                                                                   m_sceneController.State().isInteractiveRun,
-                                                                   m_sceneController.State().currentFrame,
-                                                                   m_timers.SceneElapsedSeconds() * 1000.0,
-                                                                   scenePath ? scenePath->c_str() : nullptr,
-                                                                   BackbufferCapture() );
+    const ScreenshotFrameInput captureFrame { m_sceneController.State().isSceneMode,
+                                              m_sceneController.State().isInteractiveRun,
+                                              m_sceneController.State().currentFrame,
+                                              m_timers.SceneElapsedSeconds() * 1000.0,
+                                              scenePath ? scenePath->c_str() : nullptr };
+    const RuntimeCaptureResult result = m_capture.TickScreenshots( captureFrame, BackbufferCapture() );
 
     if ( result.restartFrame )
     {
@@ -1488,9 +1537,16 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                                m_timers );
             ApplySceneLoadRuntimeReactions( sceneLoad );
 
-            ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                        m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
-                                        Renderer().VsyncEnabled(), m_sceneController );
+            {
+                const SceneLoadResult& presentation = BeginSceneLoadPresentation( sceneLoad, *m_validationHarness,
+                                                                                  m_sceneController );
+                const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+                ApplySceneLoadRenderPresentation( lifecycle, &Renderer().RenderDevice(), Renderer().VsyncEnabled() );
+                ApplySceneLoadWindowUiPresentation( presentation, m_window, *m_operatorUi );
+                ApplySceneLoadGraphicsStressPresentation( lifecycle, m_graphicsStress, m_graphicsStressSceneObserver,
+                                                          m_launchOptions );
+                sceneLoad.CompletePresentation();
+            }
         }
 
         if ( !advanced )
@@ -1525,12 +1581,21 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
         return;
     }
 
-    const RuntimeCaptureResult result = m_capture.TickAutoCycle( m_sceneController.State().isSceneMode,
-                                                                 m_sceneController.State().isInteractiveRun,
-                                                                 m_sceneController.Scene().SceneEntityCount(),
-                                                                 m_camera.autoCycleInterval, m_camera.autoCycleAccum,
-                                                                 m_camera.autoCycleShotsTaken, m_camera.trackBallRow.value,
-                                                                 BackbufferCapture() );
+    const AutoCycleCaptureInput captureInput { m_sceneController.State().isSceneMode,
+                                               m_sceneController.State().isInteractiveRun,
+                                               m_sceneController.Scene().SceneEntityCount(),
+                                               m_camera.autoCycleInterval,
+                                               m_camera.autoCycleAccum,
+                                               m_camera.autoCycleShotsTaken,
+                                               m_camera.trackBallRow.value };
+    AutoCycleCaptureUpdate captureUpdate;
+    const RuntimeCaptureResult result = m_capture.TickAutoCycle( captureInput, captureUpdate, BackbufferCapture() );
+    if ( captureUpdate.apply )
+    {
+        m_camera.autoCycleAccum = captureUpdate.accumulatedSeconds;
+        m_camera.autoCycleShotsTaken = captureUpdate.shotsTaken;
+        m_camera.trackBallRow.value = captureUpdate.trackedBallIndex;
+    }
 
     if ( !result.captureResult.Ok() )
     {
@@ -1615,9 +1680,16 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
         ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(), m_timers );
         ApplySceneLoadRuntimeReactions( sceneLoad );
 
-        ApplySceneLoadPresentation( sceneLoad, m_window, *m_operatorUi, *m_validationHarness, m_graphicsStress,
-                                    m_graphicsStressSceneObserver, m_launchOptions, &Renderer().RenderDevice(),
-                                    Renderer().VsyncEnabled(), m_sceneController );
+        {
+            const SceneLoadResult& presentation = BeginSceneLoadPresentation( sceneLoad, *m_validationHarness,
+                                                                              m_sceneController );
+            const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+            ApplySceneLoadRenderPresentation( lifecycle, &Renderer().RenderDevice(), Renderer().VsyncEnabled() );
+            ApplySceneLoadWindowUiPresentation( presentation, m_window, *m_operatorUi );
+            ApplySceneLoadGraphicsStressPresentation( lifecycle, m_graphicsStress, m_graphicsStressSceneObserver,
+                                                      m_launchOptions );
+            sceneLoad.CompletePresentation();
+        }
     }
 
     if ( loadSucceeded && result.restartSimulationTimerAfterLoad )
@@ -1648,9 +1720,18 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlpha )
 {
     m_camera.AdvanceAutoCycleClock( m_sceneController.State().isSceneMode, simulationDt );
-    m_camera.TickControls( m_sceneController.Scene(), m_attachedCamera, m_config, m_editorTools.Editor().editorModeEnabled,
-                           m_editorTools.Editor().viewportLookActive, m_sceneController.State().isSceneMode, cameraDt,
-                           presentationAlpha );
+    const AttachedCameraState& attachedState = m_attachedCamera.State();
+    const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( m_camera.mode ) && attachedState.activeFollow &&
+                                         attachedState.submode != AttachedCameraSubmode::RagdollEyes;
+    const bool flyControlsActive = RunCameraModeUsesFlyControls( m_camera.mode, attachedState.activeFollow,
+                                                                 m_camera.director.grabbed );
+    const bool manualControlsActive = RunCameraModeUsesManualControls( m_camera.mode, attachedState.activeFollow,
+                                                                       m_camera.director.grabbed );
+    m_camera.TickControls( m_sceneController.Scene(), m_attachedCamera, cameraDt, presentationAlpha,
+                           m_sceneController.Scene().Environment().GetFluidSurfaceHeight(), attachedOrbitOwnsCamera,
+                           flyControlsActive, m_editorTools.Editor().editorModeEnabled,
+                           m_editorTools.Editor().viewportLookActive, manualControlsActive,
+                           m_sceneController.State().isSceneMode );
 
     DemoDirectorPredictionView directorPrediction;
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();

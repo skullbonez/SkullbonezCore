@@ -29,6 +29,7 @@ Related:
 
 #include <algorithm>
 #include <cstdio>
+#include <span>
 
 using namespace SkullbonezCore::UI::GameLayout;
 using namespace SkullbonezCore::UI::OperatorControlPolicy;
@@ -150,7 +151,8 @@ void Draw( UIEditorTabState& state, const UIDrawContext& draw, const UIEditorTab
 
     if ( IsRowVisible( contentY, contentH, scrolledY + EDITOR_OBJECT_COMBO_Y, 24.0f ) || state.objectCombo.IsOpen() )
     {
-        state.objectCombo.Draw( draw, "Object", OBJECT_LABELS, OBJECT_TYPE_COUNT, state.selectedObjectType, mouseX, mouseY );
+        state.objectCombo.Draw( draw, "Object", { std::span<const char* const>( OBJECT_LABELS ), state.selectedObjectType },
+                                { mouseX, mouseY } );
     }
 
     const char* viewportState = "Cursor";

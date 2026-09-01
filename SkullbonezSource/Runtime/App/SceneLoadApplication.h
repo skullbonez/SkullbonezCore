@@ -55,6 +55,7 @@ class RuntimeValidationHarness;
 class GraphicsStressController;
 class SceneController;
 class SceneLoadTransaction;
+struct SceneLoadResult;
 struct ScenePresentationValues;
 class Window;
 struct RunLaunchOptions;
@@ -219,10 +220,15 @@ inline SceneAdvanceExitAction ApplySceneAdvanceExitDisposition( SceneAdvanceExit
 
 ScenePresentationValues ProjectScenePresentationValues( const OverlayDebugState& presentation );
 
-void ApplySceneLoadPresentation( SceneLoadTransaction& transaction, Window& window, UI::InGameUI& operatorUi,
-                                 RuntimeValidationHarness& validationHarness, GraphicsStressController& graphicsStress,
-                                 SceneLifecycleGenerationObserver& graphicsStressSceneObserver,
-                                 const RunLaunchOptions& launchOptions, Rendering::Dx12RenderDevice* renderDevice,
-                                 bool rendererVsyncEnabled, SceneController& sceneController );
+const SceneLoadResult& BeginSceneLoadPresentation( SceneLoadTransaction& transaction,
+                                                   RuntimeValidationHarness& validationHarness,
+                                                   const SceneController& sceneController );
+void ApplySceneLoadRenderPresentation( const SceneLifecyclePacket& lifecycle, Rendering::Dx12RenderDevice* renderDevice,
+                                       bool rendererVsyncEnabled );
+void ApplySceneLoadWindowUiPresentation( const SceneLoadResult& outputs, Window& window, UI::InGameUI& operatorUi );
+void ApplySceneLoadGraphicsStressPresentation( const SceneLifecyclePacket& lifecycle,
+                                               GraphicsStressController& graphicsStress,
+                                               SceneLifecycleGenerationObserver& graphicsStressSceneObserver,
+                                               const RunLaunchOptions& launchOptions );
 } // namespace Runtime
 } // namespace SkullbonezCore
