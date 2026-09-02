@@ -75,11 +75,13 @@ struct SkarnessFrameState
     float predictionHorizonSeconds = 0.0f;
     float predictionRevealProgress = 0.0f;
     uint32_t predictionGeneration = 0;
+    uint64_t publishedPredictionTargetId = 0;
     uint32_t publishedPredictionFrames = 0;
     uint32_t trajectoryRecordCount = 0;
     uint32_t selectedFutureRootPointCount = 0;
     uint32_t contactChildIncomingCount = 0;
     uint32_t contactChildOutgoingCount = 0;
+    uint32_t childOutgoingPreEntryPointCount = 0;
     uint32_t retainedEntryMarkerCount = 0;
     uint32_t futureNodeCount = 0;
     uint32_t retainedLineFloatCount = 0;

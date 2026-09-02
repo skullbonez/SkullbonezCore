@@ -478,9 +478,9 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
 }
 
 bool BuildReplayPredictionChildTrajectoryRecord( RunReplayPredictionState& prediction,
-                                                 const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                                                 const RunReplayPathTraceNode& node, std::size_t nodeIndex,
-                                                 bool usingBuildFrames, ReplayTrajectoryLane lane, bool seedOutgoingEntry )
+                                                  const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
+                                                  const RunReplayPathTraceNode& node, std::size_t nodeIndex,
+                                                  bool usingBuildFrames, ReplayTrajectoryLane lane )
 {
     if ( frameCount == 0 )
     {
@@ -491,7 +491,7 @@ bool BuildReplayPredictionChildTrajectoryRecord( RunReplayPredictionState& predi
     const std::size_t predictionFrameCapacity = usingBuildFrames ? prediction.build.buildFrames.size()
                                                                  : prediction.simulation.frames.size();
 
-    const std::size_t pointCapacity = (std::max)( frameCount, predictionFrameCapacity ) + ( seedOutgoingEntry ? 1u : 0u );
+    const std::size_t pointCapacity = (std::max)( frameCount, predictionFrameCapacity );
 
     ReplayTrajectoryRecord* record = BeginReplayTrajectoryRecord( prediction.trajectoryStore,
                                                                   ReplayTrajectoryKey( node.id, lane, branchOrdinal ),
@@ -506,27 +506,9 @@ bool BuildReplayPredictionChildTrajectoryRecord( RunReplayPredictionState& predi
         return false;
     }
 
-    if ( seedOutgoingEntry )
-    {
-        const RunReplayPredictionBodySample* initial = FindReplayPredictionBodyByIdWithHint( frames[0], node.id,
-                                                                                             node.modelRow.value );
-
-        if ( initial &&
-             !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frames[0].frameIndex, initial->position ) )
-        {
-            prediction.trajectoryBuild.valid = false;
-            return false;
-        }
-    }
-
     for ( std::size_t frameIndex = 0; frameIndex < frameCount; ++frameIndex )
     {
         const RunReplayPredictionFrame& frame = frames[frameIndex];
-
-        if ( seedOutgoingEntry && lane == ReplayTrajectoryLane::FutureChildOutgoing && frameIndex == 0u )
-        {
-            continue;
-        }
 
         const bool includeFrame = lane == ReplayTrajectoryLane::FutureChildIncoming ? frame.frameIndex <= node.firstFrame
                                                                                     : frame.frameIndex >= node.firstFrame;
@@ -562,7 +544,7 @@ bool AppendReplayPredictionChildTrajectoryFrames( RunReplayPredictionState& pred
     if ( !record )
     {
         return BuildReplayPredictionChildTrajectoryRecord( prediction, frames, frameCount, node, nodeIndex, usingBuildFrames,
-                                                           lane, lane == ReplayTrajectoryLane::FutureChildOutgoing );
+                                                           lane );
     }
 
     const int frameNumber = frameCount > 0u ? ReplayTrajectoryFrameNumberForReserve( frames[frameCount - 1u].frameIndex )
@@ -956,9 +938,9 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
 
         if ( !BuildReplayPredictionChildTrajectoryRecord( prediction, frames, frameCount, node, i, usingBuildFrames,
-                                                          ReplayTrajectoryLane::FutureChildIncoming, false ) ||
+                                                           ReplayTrajectoryLane::FutureChildIncoming ) ||
              !BuildReplayPredictionChildTrajectoryRecord( prediction, frames, frameCount, node, i, usingBuildFrames,
-                                                          ReplayTrajectoryLane::FutureChildOutgoing, true ) )
+                                                           ReplayTrajectoryLane::FutureChildOutgoing ) )
         {
             return;
         }

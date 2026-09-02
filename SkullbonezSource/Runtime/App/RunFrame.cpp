@@ -1343,11 +1343,13 @@ void Run::PublishSkarnessFrameState()
     state.predictionHorizonSeconds = replay.predictionHorizonSeconds;
     state.predictionRevealProgress = replay.input.predictionRevealProgress;
     state.predictionGeneration = replay.predictionGeneration;
+    state.publishedPredictionTargetId = replay.publishedPredictionTargetId;
     state.publishedPredictionFrames = replay.publishedPredictionFrames;
     state.trajectoryRecordCount = replay.trajectoryRecordCount;
     state.selectedFutureRootPointCount = replay.selectedFutureRootPointCount;
     state.contactChildIncomingCount = replay.contactChildIncomingCount;
     state.contactChildOutgoingCount = replay.contactChildOutgoingCount;
+    state.childOutgoingPreEntryPointCount = replay.childOutgoingPreEntryPointCount;
     state.retainedEntryMarkerCount = replay.retainedEntryMarkerCount;
     state.futureNodeCount = replay.futureNodeCount;
     state.retainedLineFloatCount = replay.retainedLineFloatCount;

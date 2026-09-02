@@ -70,6 +70,38 @@ changes, or `codegraph index .` if the graph appears inconsistent.
 
 ---
 
+## Skarness Runtime Interaction Workflow
+
+For gameplay interaction that the Automation build can express, Skarness is the
+mandatory first-choice driver and observation surface. Read
+`Agentic/Skills/skarness/SKILL.md` before reproducing, debugging, or validating
+that behavior.
+
+1. Launch `Automation\SKULLBONEZ_CORE.exe` through `tools\skarness.py`; do not
+   substitute desktop keyboard or mouse input for a supported Skarness command.
+2. Check `capabilities` before assuming a control or state topic exists. When a
+   player-facing control needed by the task is missing, extend Skarness as part
+   of the task instead of silently falling back to PC input.
+3. Subscribe to or query the owning state topic and preserve the resulting
+   event stream under `TestOutput/skarness/`. A command acknowledgement proves
+   only that input was applied, not that the requested result occurred.
+4. Bind assertions to identity as well as output. For example, a prediction
+   check must prove that the selected target is the published and rendered
+   target; non-zero geometry or a changed screenshot alone is insufficient.
+5. Add the narrowest mechanical assertion that expresses the user's expected
+   behavior, then capture and inspect a screenshot when pixels are part of the
+   acceptance result.
+6. Stop the owned session with `session.stop`. If orderly shutdown is
+   unavailable, verify the exact process ID and executable before terminating
+   it.
+
+Manual application interaction is allowed only for behavior that Skarness
+cannot yet express, and the handoff must name that missing capability. A
+user-supplied interaction manifest still follows the mandatory recorded
+interaction workflow below.
+
+---
+
 ## Recorded Interaction Repro Workflow
 
 When the user supplies an interaction manifest, the following workflow is

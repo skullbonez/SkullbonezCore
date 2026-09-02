@@ -928,11 +928,13 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                      { "predictionHorizonSeconds", state.predictionHorizonSeconds },
                      { "predictionRevealProgress", state.predictionRevealProgress },
                      { "predictionGeneration", state.predictionGeneration },
+                     { "publishedPredictionTargetId", state.publishedPredictionTargetId },
                      { "publishedPredictionFrames", state.publishedPredictionFrames },
                      { "trajectoryRecordCount", state.trajectoryRecordCount },
                      { "selectedFutureRootPointCount", state.selectedFutureRootPointCount },
                      { "contactChildIncomingCount", state.contactChildIncomingCount },
                      { "contactChildOutgoingCount", state.contactChildOutgoingCount },
+                     { "childOutgoingPreEntryPointCount", state.childOutgoingPreEntryPointCount },
                      { "retainedEntryMarkerCount", state.retainedEntryMarkerCount },
                      { "futureNodeCount", state.futureNodeCount },
                      { "retainedLineFloatCount", state.retainedLineFloatCount },
@@ -1037,30 +1039,35 @@ const char* SkarnessHost::RunId() const noexcept
 
 bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const noexcept
 {
+    const bool selectedTargetPublished = state.hasPathTarget && state.pathTargetId != 0u &&
+                                         state.pathTargetId == state.publishedPredictionTargetId;
+
     if ( m_untilCondition == "prediction.complete" )
     {
-        return state.predictionEnabled && state.predictionComplete && !state.predictionBuilding;
+        return state.predictionEnabled && selectedTargetPublished && state.predictionComplete && !state.predictionBuilding;
     }
     if ( m_untilCondition == "prediction.geometry" )
     {
-        return state.trajectoryRecordCount > 0 && state.visualPacketHasGeometry;
+        return selectedTargetPublished && state.trajectoryRecordCount > 0 && state.visualPacketHasGeometry;
     }
     if ( m_untilCondition == "prediction.submitted" )
     {
-        return state.trajectorySubmitted && state.submittedSegmentCount > 0 && state.submittedVertexCount > 0;
+        return selectedTargetPublished && state.trajectorySubmitted && state.submittedSegmentCount > 0 &&
+               state.submittedVertexCount > 0;
     }
     if ( m_untilCondition == "prediction.rendered" )
     {
-        return state.predictionEnabled && state.hasPathTarget && state.predictionComplete &&
+        return state.predictionEnabled && selectedTargetPublished && state.predictionComplete &&
                state.publishedPredictionFrames >= 2 && state.trajectoryRecordCount > 0 && state.visualPacketHasGeometry &&
                state.trajectorySubmitted && state.submittedSegmentCount > 0 && state.submittedVertexCount > 0 &&
                state.submittedFutureTreeReady;
     }
     if ( m_untilCondition == "prediction.causal_rendered" )
     {
-        return state.predictionEnabled && state.hasPathTarget && state.predictionComplete &&
+        return state.predictionEnabled && selectedTargetPublished && state.predictionComplete &&
                state.selectedFutureRootPointCount >= 2 && state.contactChildIncomingCount > 0 &&
-               state.contactChildOutgoingCount > 0 && state.retainedEntryMarkerCount > 0 && state.trajectorySubmitted &&
+               state.contactChildOutgoingCount > 0 && state.childOutgoingPreEntryPointCount == 0 &&
+               state.retainedEntryMarkerCount > 0 && state.trajectorySubmitted &&
                state.submittedSegmentCount >= 32 && state.submittedVertexCount >= state.submittedSegmentCount * 6 &&
                state.submittedFutureTreeReady;
     }
@@ -1072,11 +1079,14 @@ std::string SkarnessHost::UntilTimeoutReason( const SkarnessFrameState& state ) 
 {
     std::ostringstream reason;
     reason << "condition '" << m_untilCondition << "' timed out: enabled=" << state.predictionEnabled
-           << " target=" << state.hasPathTarget << " building=" << state.predictionBuilding
+           << " target=" << state.hasPathTarget << " targetId=" << state.pathTargetId
+           << " publishedTargetId=" << state.publishedPredictionTargetId << " building=" << state.predictionBuilding
            << " complete=" << state.predictionComplete << " frames=" << state.publishedPredictionFrames
            << " trajectories=" << state.trajectoryRecordCount << " geometry=" << state.visualPacketHasGeometry
            << " rootPoints=" << state.selectedFutureRootPointCount << " childIncoming=" << state.contactChildIncomingCount
-           << " childOutgoing=" << state.contactChildOutgoingCount << " entryMarkers=" << state.retainedEntryMarkerCount
+           << " childOutgoing=" << state.contactChildOutgoingCount
+           << " childOutgoingPreEntryPoints=" << state.childOutgoingPreEntryPointCount
+           << " entryMarkers=" << state.retainedEntryMarkerCount
            << " submitted=" << state.trajectorySubmitted << " segments=" << state.submittedSegmentCount
            << " vertices=" << state.submittedVertexCount << " futureTreeReady=" << state.submittedFutureTreeReady;
     return reason.str();

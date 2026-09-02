@@ -39,6 +39,7 @@ using SkullbonezCore::Runtime::EvaluateReplayPredictionDetailTransition;
 using SkullbonezCore::Runtime::ReplayPredictionArchiveDetailCapability;
 using SkullbonezCore::Runtime::ReplayPredictionBuildMode;
 using SkullbonezCore::Runtime::ReplayPredictionCoalescerAction;
+using SkullbonezCore::Runtime::ReplayPredictionPendingPublicationAction;
 using SkullbonezCore::Runtime::ReplayPredictionDetailMode;
 using SkullbonezCore::Runtime::ReplayPredictionDetailModeAfterArchiveLoad;
 using SkullbonezCore::Runtime::ReplayPredictionDetailModeAfterGenerationReset;
@@ -56,6 +57,7 @@ using SkullbonezCore::Runtime::ReplayPredictionPublicationOperations::ReplayPred
 using SkullbonezCore::Runtime::ReplayPredictionPublicationOperations::SceneObjectIdForModelIndexInSample;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionBuildMode;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionCoalescerAction;
+using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionPendingPublicationAction;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ReplayPredictionExplicitRestartRequested;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::UpdateReplayPredictionTicksPerMs;
 
@@ -222,6 +224,22 @@ TEST_CASE( "Replay prediction scheduling: changing the selected target explicitl
     CHECK_FALSE( ReplayPredictionExplicitRestartRequested( false, firstTarget, firstTarget ) );
     CHECK( ReplayPredictionExplicitRestartRequested( false, firstTarget, secondTarget ) );
     CHECK( ReplayPredictionExplicitRestartRequested( true, firstTarget, firstTarget ) );
+}
+
+TEST_CASE( "Replay prediction scheduling: a new target supersedes a pending publication" )
+{
+    const SkullbonezCore::Physics::PhysicsSceneObjectId activeTarget { 41 };
+    const SkullbonezCore::Physics::PhysicsSceneObjectId requestedTarget { 73 };
+    const SkullbonezCore::Physics::PhysicsSceneObjectId visibleRoot { 29 };
+
+    CHECK( ChooseReplayPredictionPendingPublicationAction( false, activeTarget, requestedTarget, visibleRoot ) ==
+           ReplayPredictionPendingPublicationAction::None );
+    CHECK( ChooseReplayPredictionPendingPublicationAction( true, activeTarget, activeTarget, visibleRoot ) ==
+           ReplayPredictionPendingPublicationAction::Wait );
+    CHECK( ChooseReplayPredictionPendingPublicationAction( true, activeTarget, requestedTarget, visibleRoot ) ==
+           ReplayPredictionPendingPublicationAction::Discard );
+    CHECK( ChooseReplayPredictionPendingPublicationAction( true, activeTarget, activeTarget, {} ) ==
+           ReplayPredictionPendingPublicationAction::Discard );
 }
 
 TEST_CASE( "Replay prediction publication: release cursor is bounded and reset clears failure" )

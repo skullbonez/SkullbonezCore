@@ -140,6 +140,13 @@ enum class ReplayPredictionCoalescerAction : uint8_t
     PromoteAndBegin
 };
 
+enum class ReplayPredictionPendingPublicationAction : uint8_t
+{
+    None,
+    Wait,
+    Discard
+};
+
 namespace ReplayPredictionSchedulingOperations
 {
 double ReplayPredictionElapsedMilliseconds( const std::chrono::steady_clock::time_point& start );
@@ -231,11 +238,32 @@ inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bo
 }
 
 inline bool ReplayPredictionExplicitRestartRequested( bool dirty, Physics::PhysicsSceneObjectId activeTargetId,
-                                                      Physics::PhysicsSceneObjectId requestedTargetId ) noexcept
+                                                       Physics::PhysicsSceneObjectId requestedTargetId ) noexcept
 {
     // Why: selecting another body is an authored prediction request even when
     // a coherent future for the previous body is already visible.
     return dirty || activeTargetId.value != requestedTargetId.value;
+}
+
+inline ReplayPredictionPendingPublicationAction
+ChooseReplayPredictionPendingPublicationAction( bool pending, Physics::PhysicsSceneObjectId activeTargetId,
+                                                 Physics::PhysicsSceneObjectId requestedTargetId,
+                                                 Physics::PhysicsSceneObjectId visibleRootId ) noexcept
+{
+    if ( !pending )
+    {
+        return ReplayPredictionPendingPublicationAction::None;
+    }
+
+    // A pending duplicate belongs to the active target. A newer target request
+    // has no reader-lifetime dependency on that work and must not wait behind a
+    // potentially long causal-tree publication pass.
+    if ( activeTargetId.value != requestedTargetId.value || visibleRootId.value == 0u )
+    {
+        return ReplayPredictionPendingPublicationAction::Discard;
+    }
+
+    return ReplayPredictionPendingPublicationAction::Wait;
 }
 } // namespace ReplayPredictionSchedulingOperations
 

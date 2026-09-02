@@ -921,11 +921,24 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     state.pastPathVisible = m_visualPresentation.PathVisualizer().pastPathVisible;
     state.predictionHorizonSeconds = prediction.simulation.horizonSeconds;
     state.predictionGeneration = prediction.build.generationBeginCount;
+    state.publishedPredictionTargetId = packet.header.targetId.value;
     state.publishedPredictionFrames = static_cast<uint32_t>( m_predictionOwner.ActiveFrames().size() );
     state.trajectoryRecordCount = static_cast<uint32_t>( packet.trajectoryRecords.size() );
 
     for ( const ReplayTrajectoryRecord& record : packet.trajectoryRecords )
     {
+        if ( record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing )
+        {
+            const std::size_t publishedCount = (std::min)( record.publishedPointCount, record.points.size() );
+            const auto publishedEnd = record.points.begin() + static_cast<std::ptrdiff_t>( publishedCount );
+            const auto firstEntryPoint = std::lower_bound(
+                record.points.begin(), publishedEnd, record.firstFrame,
+                []( const ReplayTrajectoryPoint& point, ReplayFrameIndex entryFrame )
+                { return point.frameIndex < entryFrame; } );
+            state.childOutgoingPreEntryPointCount +=
+                static_cast<uint32_t>( std::distance( record.points.begin(), firstEntryPoint ) );
+        }
+
         if ( record.key.lane == ReplayTrajectoryLane::FutureRoot && record.key.bodyId == packet.header.targetId )
         {
             state.selectedFutureRootPointCount = (std::max)( state.selectedFutureRootPointCount,

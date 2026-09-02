@@ -1164,19 +1164,25 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
         return ReplayPredictionFrameSourceAction::Stop;
     }
 
-    if ( prediction.committedPublication.pending )
-    {
-        if ( prediction.committedPublication.visibleTrajectoryBuild.rootId.value != 0 )
-        {
-            // Lifetime: completion may still present the swapped-out committed
-            // frame bank. Defer a requested restart until the hidden replacement
-            // flips, so begin-job reserve cannot resize that visible storage.
-            return ReplayPredictionFrameSourceAction::Continue;
-        }
+    const ReplayPredictionPendingPublicationAction pendingPublicationAction =
+        ChooseReplayPredictionPendingPublicationAction( prediction.committedPublication.pending,
+                                                         prediction.simulation.targetId, targetId,
+                                                         prediction.committedPublication.visibleTrajectoryBuild.rootId );
 
+    if ( pendingPublicationAction == ReplayPredictionPendingPublicationAction::Wait )
+    {
+        // Lifetime: completion may still present the swapped-out committed
+        // frame bank. Defer a same-target refresh until the hidden replacement
+        // flips, so begin-job reserve cannot resize that visible storage.
+        return ReplayPredictionFrameSourceAction::Continue;
+    }
+
+    if ( pendingPublicationAction == ReplayPredictionPendingPublicationAction::Discard )
+    {
         // Hazard: Predict may finish before the first object is selected. That
-        // rootless publication cannot satisfy the overlay flip, so retaining its
-        // pending token would prevent the later target request from ever starting.
+        // rootless publication cannot satisfy the overlay flip. A different
+        // target likewise supersedes this hidden duplicate; retaining either
+        // pending token would prevent the latest target from starting.
         prediction.committedPublication.Reset();
     }
 

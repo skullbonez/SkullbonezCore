@@ -807,6 +807,58 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
     CHECK( narrowFingerprint.exactHash == variedFingerprint.exactHash );
 }
 
+TEST_CASE( "Replay child outgoing trajectory starts at the collision frame" )
+{
+    constexpr std::size_t frameCount = 4u;
+    const SkullbonezCore::Physics::PhysicsSceneObjectId rootId { 1u };
+    const SkullbonezCore::Physics::PhysicsSceneObjectId childId { 2u };
+    auto state = std::make_unique<RunReplayPredictionState>();
+    std::vector<RunReplayPredictionFrame> frames( frameCount );
+
+    for ( std::size_t frameIndex = 0; frameIndex < frames.size(); ++frameIndex )
+    {
+        frames[frameIndex].frameIndex = static_cast<ReplayFrameIndex>( frameIndex );
+        frames[frameIndex].bodies.resize( 2u );
+        frames[frameIndex].bodies[0].id = rootId;
+        frames[frameIndex].bodies[0].modelRow.value = 0;
+        frames[frameIndex].bodies[1].id = childId;
+        frames[frameIndex].bodies[1].modelRow.value = 1;
+        frames[frameIndex].bodies[1].position.x = static_cast<float>( 100u + frameIndex );
+    }
+
+    RunReplayPathTraceNode node;
+    node.id = childId;
+    node.parentId = rootId;
+    node.modelRow.value = 1;
+    node.parentModelRow.value = 0;
+    node.firstFrame = 2u;
+    node.depth = 1;
+    node.contactDerived = true;
+    state->futureNodeCache.futureNodes.push_back( node );
+    state->futureNodeCache.futureNodesTopologyVersion = 1u;
+    state->trajectoryBuild.rootId = rootId;
+    state->trajectoryBuild.usingBuildFrames = false;
+    state->trajectoryBuild.pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
+    state->trajectoryBuild.valid = true;
+    REQUIRE( state->trajectoryStore.ReserveRecords( 4u, 0 ) );
+
+    UpdateReplayPredictionTrajectoryStore( *state, frames, frames.size(), false, rootId,
+                                           std::chrono::steady_clock::now(), 0.0 );
+
+    ReplayTrajectoryRecordKey incomingKey { childId, ReplayTrajectoryLane::FutureChildIncoming, 0u };
+    ReplayTrajectoryRecordKey outgoingKey { childId, ReplayTrajectoryLane::FutureChildOutgoing, 0u };
+    const ReplayTrajectoryRecord* incoming = state->trajectoryStore.FindRecord( incomingKey );
+    const ReplayTrajectoryRecord* outgoing = state->trajectoryStore.FindRecord( outgoingKey );
+    REQUIRE( incoming );
+    REQUIRE( outgoing );
+    REQUIRE( incoming->points.size() == 3u );
+    REQUIRE( outgoing->points.size() == 2u );
+    CHECK( incoming->points.front().frameIndex == 0u );
+    CHECK( incoming->points.back().frameIndex == node.firstFrame );
+    CHECK( outgoing->points.front().frameIndex == node.firstFrame );
+    CHECK( outgoing->points.front().position.x == frames[node.firstFrame].bodies[1].position.x );
+}
+
 TEST_CASE( "Replay fast completion keeps committed trajectories visible until the coherent flip" )
 {
     constexpr std::size_t frameCount = 4u;
