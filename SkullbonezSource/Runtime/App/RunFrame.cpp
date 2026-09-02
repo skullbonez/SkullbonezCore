@@ -39,6 +39,7 @@ Invariants:
 #include "../Direction/DemoDirectorPlayback.h"
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneSaveOperations.h"
+#include "../Scene/SceneGeneratedSetup.h"
 #include "../../Scene/AuthoredScene.h"
 
 #include "../Capture/CaptureSystem.h"
@@ -128,6 +129,56 @@ DemoCameraPose CaptureDemoDirectorPose( const SkullbonezCore::Environment::Camer
     pose.view = cameras.GetCameraView();
     pose.up = cameras.GetCameraUp();
     return pose;
+}
+
+int InferRecordedDemoCamera( const Vector3& eye )
+{
+    const Vector3 generatedEyes[] = { Vector3( 321.0f, 110.0f, 557.0f ), Vector3( 730.0f, 100.0f, 380.0f ),
+                                      Vector3( 900.0f, 110.0f, 900.0f ) };
+    int closestIndex = 0;
+    float closestDistance = ( std::numeric_limits<float>::max )();
+
+    for ( int index = 0; index < static_cast<int>( DEMO_CAMERA_CYCLE_SLOTS.size() ); ++index )
+    {
+        const Vector3 delta = eye - generatedEyes[index];
+        const float distance = SkullbonezCore::Math::Vector::Dot( delta, delta );
+
+        if ( distance < closestDistance )
+        {
+            closestDistance = distance;
+            closestIndex = index;
+        }
+    }
+
+    return closestIndex;
+}
+
+void RestoreRecordedSceneCameraBaseline( SceneController& sceneController, CameraControlState& camera,
+                                         bool recordedSceneMode, int recordedDemoSelectedCamera,
+                                         float recordedDemoCameraCycleSeconds )
+{
+    SceneWorld& world = sceneController.Scene();
+    SkullbonezCore::Environment::CameraCollection& cameras = world.Cameras();
+    sceneController.State().isSceneMode = recordedSceneMode;
+
+    if ( recordedSceneMode )
+    {
+        return;
+    }
+
+    // A generated demo is serialized through the authored scene format, whose
+    // loader cannot know that its single saved pose belonged to a three-slot
+    // tracking rig. Rebuild that rig before normal camera-mode restoration.
+    const DemoCameraPose savedPose = CaptureDemoDirectorPose( cameras );
+    const int selectedCamera = recordedDemoSelectedCamera >= 0 ? recordedDemoSelectedCamera
+                                                               : InferRecordedDemoCamera( savedPose.eye );
+    cameras.Reset();
+    SceneGeneratedSetup::SetUpCameras( world );
+    cameras.SelectCamera( DEMO_CAMERA_CYCLE_SLOTS[static_cast<std::size_t>( selectedCamera )], false );
+    cameras.CancelTween();
+    cameras.SetPrimaryPose( savedPose.eye, savedPose.view, savedPose.up );
+    camera.selectedCamera = selectedCamera;
+    camera.cameraTime = recordedDemoCameraCycleSeconds;
 }
 
 } // namespace
@@ -349,6 +400,9 @@ void Run::AdvanceInteractionRecordingBoundary()
 
         InteractionRecordingBaseline baseline;
         baseline.cameraMode = static_cast<int>( m_camera.mode );
+        baseline.sceneMode = m_sceneController.State().isSceneMode;
+        baseline.demoSelectedCamera = m_camera.selectedCamera;
+        baseline.demoCameraCycleSeconds = m_camera.cameraTime;
         baseline.worldInteractionOwner = static_cast<int>( m_interaction.Owner() );
         baseline.uiVisible = m_operatorUi->IsVisible();
         baseline.uiMinimized = m_operatorUi->IsMinimized();
@@ -506,6 +560,12 @@ SceneFrameProceedPolicy Run::RunAutomationAndInputPhase( bool& gameUiActive, Rec
     const InteractionAutomationFrameResult result = RunInteractionAutomationBeforeInput();
     const ReplayInputView automationReplayInput = m_replayRuntime.BuildAutomationView().input;
 
+    if ( result.restoreRecordedSceneCameraBaseline )
+    {
+        RestoreRecordedSceneCameraBaseline( m_sceneController, m_camera, result.recordedSceneMode,
+                                            result.recordedDemoSelectedCamera, result.recordedDemoCameraCycleSeconds );
+    }
+
     if ( result.applyDirectorCameraPose )
     {
         m_sceneController.Scene().Cameras().SetPrimaryPose( result.directorCameraPose.eye, result.directorCameraPose.view,
@@ -533,6 +593,14 @@ SceneFrameProceedPolicy Run::RunAutomationAndInputPhase( bool& gameUiActive, Rec
         m_inputRouter.ApplyCameraMode( result.cameraMode, RuntimeInputActionSource::Runtime, m_editorTools, m_runtimeTools,
                                        m_interaction, m_attachedCamera, m_camera, m_sceneController, m_replayRuntime,
                                        m_inputRouter.RuntimeContext() );
+    }
+
+    if ( result.restoreRecordedSceneCameraBaseline && !result.recordedSceneMode )
+    {
+        // ApplyCameraMode exits the authored Scene fly workspace loaded from the
+        // sidecar and deliberately resets its clock. The recorded generated-demo
+        // phase is authoritative after that transition cleanup completes.
+        m_camera.cameraTime = result.recordedDemoCameraCycleSeconds;
     }
 
     (void)m_replayRuntime.ApplyFrameIntent( result.replayIntent );

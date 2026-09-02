@@ -292,18 +292,6 @@ struct RunReplayPredictionFutureNodeCache
     std::size_t futureNodesBuiltFrameCount = 0;
     std::size_t futureNodesBuiltContactIndex = 0;
 
-    // Concept: the contact scan above has futureNodesBuiltFrameCount as its
-    // resume cursor; the sparse-contact affected-body pass needs the same or it
-    // restarts from body zero on every frame. Without it a completed prediction
-    // rescans every body against every frame forever, which both burns the
-    // overlay budget on a static horizon and makes affected-body trails appear a
-    // few at a time instead of at once.
-    // Invariant: the watermark is the frameCount the pass last completed
-    // against. A growing horizon can activate a body that had not moved yet, so
-    // growth reopens the pass rather than trusting the old answer.
-    std::size_t futureNodesAffectedBodyCursor = 0;
-    std::size_t futureNodesAffectedFrameCount = 0;
-    bool futureNodesAffectedComplete = false;
     Physics::PhysicsSceneObjectId futureNodesBuiltTargetId;
 
     // Invariant: topologyVersion identifies the published node set/order and
@@ -320,10 +308,27 @@ struct RunReplayPredictionFutureNodeCache
     // marker poses until a new prediction/future cache resets the story.
     std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> retainedMarkers = {};
     std::size_t retainedMarkerCount = 0;
+    uint32_t retainedMarkersVersion = 0;
+    uint32_t nextRetainedMarkersVersion = 1;
     ReplayPredictionChildMarkerScanState childMarkerScan;
+
+    void MarkRetainedMarkersChanged() noexcept
+    {
+        retainedMarkersVersion = nextRetainedMarkersVersion++;
+
+        if ( nextRetainedMarkersVersion == 0 )
+        {
+            nextRetainedMarkersVersion = 1;
+        }
+    }
 
     void ResetRetainedMarkers() noexcept
     {
+        if ( retainedMarkerCount != 0 )
+        {
+            MarkRetainedMarkersChanged();
+        }
+
         retainedMarkerCount = 0;
         childMarkerScan.Reset();
     }
@@ -374,7 +379,7 @@ struct RunReplayPredictionTrajectoryBuildState
 
 struct ReplayPredictionCommittedPublicationState
 {
-    // Concept: same-target replacement captures the complete reader-visible
+    // Concept: replacement captures the complete reader-visible
     // publication before worker setup can mutate it. The snapshot survives
     // failed setup, build-to-committed promotion, and completion-bank swaps
     // while the live trajectoryBuild becomes the resumable replacement cursor.
@@ -382,6 +387,7 @@ struct ReplayPredictionCommittedPublicationState
     std::vector<RunReplayPathTraceNode> visibleFutureNodes;
     std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> visibleRetainedMarkers = {};
     std::size_t visibleRetainedMarkerCount = 0;
+    uint32_t visibleRetainedMarkersVersion = 0;
     uint32_t visibleTopologyVersion = 0;
     uint32_t replacementTopologyVersion = 0;
     uint32_t generation = 0;
@@ -434,6 +440,7 @@ struct ReplayPredictionCommittedPublicationState
         visibleRetainedMarkerCount = (std::min)( visibleFutureCache.retainedMarkerCount, visibleRetainedMarkers.size() );
         std::copy_n( visibleFutureCache.retainedMarkers.begin(), visibleRetainedMarkerCount,
                      visibleRetainedMarkers.begin() );
+        visibleRetainedMarkersVersion = visibleFutureCache.retainedMarkersVersion;
         visibleTopologyVersion = visibleFutureCache.futureNodesTopologyVersion;
         replacementTopologyVersion = 0;
         visibleFrameCount = owningVisibleFrameCount;
@@ -476,6 +483,7 @@ struct ReplayPredictionCommittedPublicationState
         visibleTrajectoryBuild = {};
         visibleFutureNodes.clear();
         visibleRetainedMarkerCount = 0;
+        visibleRetainedMarkersVersion = 0;
         visibleTopologyVersion = 0;
         replacementTopologyVersion = 0;
         generation = 0;
@@ -900,6 +908,8 @@ class ReplayPrediction
                                                                                           .retainedMarkers.data(),
                                                                                       predictionState.futureNodeCache
                                                                                           .retainedMarkerCount );
+        view.markers.version = usingVisibleSnapshot ? predictionState.committedPublication.visibleRetainedMarkersVersion
+                                                    : predictionState.futureNodeCache.retainedMarkersVersion;
         view.baseline.bodyPoses = predictionState.baseline.bodyPoses;
         view.dragPreview.targetId = predictionState.velocityDragPreview.targetId;
         view.dragPreview.velocityDelta = predictionState.velocityDragPreview.velocityDelta;
@@ -1231,9 +1241,7 @@ RunReplayPredictionState::FutureTreePublicationComplete( const RunReplayPredicti
     const std::size_t nodeCount = (std::min)( futureNodeCache.futureNodes.size(),
                                               static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
     const bool topologyScanComplete = futureNodeCache.futureNodeBuildScratch.size() >= REPLAY_VISUAL_FUTURE_NODE_CAPACITY ||
-                                      ( futureNodeCache.futureNodesBuiltFrameCount >= frameCount &&
-                                        futureNodeCache.futureNodesAffectedComplete &&
-                                        futureNodeCache.futureNodesAffectedFrameCount >= frameCount );
+                                      futureNodeCache.futureNodesBuiltFrameCount >= frameCount;
     const bool allBodyReady = !ReplayPredictionPathPresentationShowsAllBodies( trajectory.pathPresentation ) ||
                               ( trajectory.builtAllBodyCount == trajectory.allBodyBodyCount &&
                                 trajectory.allBodyFrameCount >= frameCount );

@@ -76,6 +76,23 @@ TEST_CASE( "Camera: movement configuration is accepted atomically by the camera 
     CHECK( camera.mouseRadiansPerPixel == acceptedRadiansPerPixel );
 }
 
+TEST_CASE( "Camera: generated demo cycling follows the supplied frame delta" )
+{
+    CameraControlState camera;
+    camera.selectedCamera = 1;
+    camera.AdvanceDemoCameraCycleClock( 2.75f, true );
+    CHECK( camera.selectedCamera == 1 );
+    CHECK( camera.cameraTime == doctest::Approx( 2.75f ) );
+
+    camera.AdvanceDemoCameraCycleClock( 2.26f, true );
+    CHECK( camera.selectedCamera == 2 );
+    CHECK( camera.cameraTime == doctest::Approx( 0.0f ) );
+
+    camera.AdvanceDemoCameraCycleClock( 1.0f, false );
+    CHECK( camera.selectedCamera == 2 );
+    CHECK( camera.cameraTime == doctest::Approx( 0.0f ) );
+}
+
 TEST_CASE( "Camera: authored zero up remains the SetAll sentinel" )
 {
     CameraCollection cameras;

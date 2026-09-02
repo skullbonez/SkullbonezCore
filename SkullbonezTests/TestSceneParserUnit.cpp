@@ -54,6 +54,7 @@
 using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Runtime::AuthoredScene;
 using SkullbonezCore::Runtime::SceneCamera;
+using SkullbonezCore::Runtime::SceneAssetPartSource;
 using SkullbonezCore::Runtime::SceneObjectGroupKind;
 using SkullbonezCore::Runtime::SceneObjectMaterialOverride;
 using SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene;
@@ -236,6 +237,27 @@ TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected record
     CHECK( camera.view.x == doctest::Approx( 1400.0f ) );
     CHECK( camera.view.y == doctest::Approx( 0.0f ) );
     CHECK( camera.view.z == doctest::Approx( 200.0f ) );
+}
+
+TEST_CASE( "AuthoredSceneParser: mixed primitive snapshots preserve serialized body order" )
+{
+    constexpr const char* path = "TestOutput/scene_parser_mixed_snapshot_order.scene.json";
+    constexpr const char* json =
+        R"({"format":"skullbonez.scene.json","version":4,"physics":true,"text":true,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"objects":[{"type":"boxState","sceneObjectId":41,"name":"box_first","position":[1,2,3],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"halfExtents":[1,1,1],"mass":1,"restitution":0.1,"inertia":[1,1,1],"fixed":false,"sleeping":false},{"type":"ballState","sceneObjectId":42,"name":"ball_second","position":[4,5,6],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0,0,0,1],"radius":1,"mass":1,"restitution":0.1,"inertia":[1,1,1],"fixed":false,"sleeping":false}]})";
+    const TemporaryMalformedSceneFile fixture( path, json );
+    AuthoredScene scene;
+
+    REQUIRE( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ).Ok() );
+    REQUIRE( scene.HasOrderedPrimitiveSnapshot() );
+    REQUIRE( scene.GetSnapshotPrimitiveOrderCount() == 2 );
+    const auto& first = scene.GetSnapshotPrimitiveOrder( 0 );
+    const auto& second = scene.GetSnapshotPrimitiveOrder( 1 );
+    CHECK( first.source == SceneAssetPartSource::BoxState );
+    CHECK( first.sourceIndex == 0u );
+    CHECK( second.source == SceneAssetPartSource::BallState );
+    CHECK( second.sourceIndex == 0u );
+    CHECK( scene.GetBoxState( static_cast<int>( first.sourceIndex ) ).sceneObjectId.value == 41u );
+    CHECK( scene.GetBallState( static_cast<int>( second.sourceIndex ) ).sceneObjectId.value == 42u );
 }
 
 TEST_CASE( "AuthoredSceneParser: at-rest completion stays unlimited and names all three balls" )

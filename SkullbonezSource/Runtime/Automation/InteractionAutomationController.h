@@ -152,6 +152,7 @@ enum class RunInteractionAutomationAssertKind
     ReplayPastTrajectoryIncrementalTrimCountMin,
     ReplayPastTrajectoryPublishedPointCountMin,
     PredictionPathVisible,
+    PredictionCausalGeometrySubmitted,
     PredictionVelocityPreviewActive,
     PredictionVelocityPreviewAwaitingReplacement,
     PredictionVelocityPreviewDeltaMin,
@@ -392,6 +393,10 @@ struct InteractionAutomationFrameResult
     UI::OperatorEditorForecastCommand operatorEditorForecastCommand;
     bool applyCameraMode = false;
     RunCameraMode cameraMode = RunCameraMode::Demo;
+    bool restoreRecordedSceneCameraBaseline = false;
+    bool recordedSceneMode = true;
+    int recordedDemoSelectedCamera = -1;
+    float recordedDemoCameraCycleSeconds = 0.0f;
     bool applyDirectorCameraPose = false;
     DemoCameraPose directorCameraPose;
     bool setWorldInteractionOwner = false;

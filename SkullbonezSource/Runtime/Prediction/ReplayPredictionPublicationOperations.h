@@ -42,22 +42,6 @@ namespace Runtime
 {
 namespace ReplayPredictionPublicationOperations
 {
-struct ReplayPredictionAffectedBodyTrail
-{
-    Physics::PhysicsSceneObjectId id;
-    Physics::ModelRowHint modelRow;
-    std::size_t firstFrameSlot = 0;
-    ReplayFrameIndex firstFrame = 0;
-    int causalDepth = 1;
-
-    // Concept: entry is the body's in-place pose before the predicted impulse;
-    // lastMotionFrame controls when the completed-buffer rest pose may appear.
-    ReplayFrameIndex lastMotionFrame = 0;
-    Math::Vector::Vector3 previous = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 entryPosition = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion entryOrientation = Math::Orientation::IDENTITY_QUATERNION;
-};
-
 // Concept: solver samples and prediction frames share one value-only lookup
 // policy because both expose `bodies` rows with stable `id` and repairable
 // `modelRow` fields. No owner or callback crosses this seam.
@@ -193,12 +177,6 @@ inline bool AdvanceReplayPredictionChildMarkerScan(
     const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount, ReplayFrameIndex revealFrame,
     uint32_t generation, Physics::PhysicsSceneObjectId targetId, bool usingBuildFrames, bool bufferComplete,
     const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds );
-std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
-                                                     std::size_t frameCount, ReplayFrameIndex revealFrame,
-                                                     Physics::PhysicsSceneObjectId rootId, int rootModelIndex,
-                                                     std::span<const RunReplayPathTraceNode> futureNodes,
-                                                     ReplayPredictionSceneView scene,
-                                                     std::span<ReplayPredictionAffectedBodyTrail> outTrails );
 bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
                                       Physics::PhysicsSceneObjectId id, int modelIndexHint,
                                       Math::Vector::Vector3& outPosition, Math::Orientation::Quaternion& outOrientation );

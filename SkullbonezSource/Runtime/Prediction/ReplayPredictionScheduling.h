@@ -127,7 +127,6 @@ class ReplayPredictionWorkerSchedule
     }
 
   private:
-
     // Lifetime: the optional owns one in-place task. Reset first waits for its
     // in-flight slice and releases no heap allocation.
     std::optional<ReplayPredictionAmortizedTask> m_task;
@@ -229,6 +228,14 @@ inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bo
     }
 
     return ReplayPredictionCoalescerAction::PromoteAndBegin;
+}
+
+inline bool ReplayPredictionExplicitRestartRequested( bool dirty, Physics::PhysicsSceneObjectId activeTargetId,
+                                                      Physics::PhysicsSceneObjectId requestedTargetId ) noexcept
+{
+    // Why: selecting another body is an authored prediction request even when
+    // a coherent future for the previous body is already visible.
+    return dirty || activeTargetId.value != requestedTargetId.value;
 }
 } // namespace ReplayPredictionSchedulingOperations
 

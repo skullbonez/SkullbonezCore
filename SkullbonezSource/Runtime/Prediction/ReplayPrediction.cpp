@@ -773,9 +773,11 @@ ReplayPredictionSourcePreparation ReplayPrediction::BeginFrameSource(
     const uint64_t sourceSolverHash = latestSolverSample ? latestSolverSample->solverHash : 0;
     const ReplayFrameIndex previousSourceFrameIndex = prediction.simulation.sourceFrameIndex;
     const uint64_t previousSourceSolverHash = prediction.simulation.sourceSolverHash;
+    const bool sameTargetRefresh = prediction.simulation.targetId.value == requestedPath.targetId.value;
+    const bool sameVisibleTarget = prediction.committedPublication.PublicationTargetId( requestedPath.targetId ).value ==
+                                   requestedPath.targetId.value;
     const bool preserveCommittedFuture = prediction.enabled && scenePhysics && requestedPath.targetId.value != 0 &&
-                                         prediction.simulation.targetId.value == requestedPath.targetId.value &&
-                                         prediction.HasCommittedFramePrefix();
+                                         sameTargetRefresh && sameVisibleTarget && prediction.HasCommittedFramePrefix();
 
     const std::size_t
         buildPresentationFrameCount = preserveCommittedFuture
@@ -795,9 +797,10 @@ ReplayPredictionSourcePreparation ReplayPrediction::BeginFrameSource(
         return ReplayPredictionSourcePreparation::Declined;
     }
 
-    // Lifetime: same-target cancellation retires worker state but retains the
-    // coherent reader bank captured above until the replacement prefix is
-    // actually presented. New-target cancellation clears both banks.
+    // Lifetime: same-target cancellation retains the coherent reader bank
+    // captured above until its replacement prefix is presented. A new target,
+    // including one queued while a rootless build completes, starts without
+    // that bank because its publication root belongs to the previous request.
     predictionOwner.CancelJob( clearSamplesOnCancel, preserveCommittedFuture );
 
     if ( clearSamplesOnCancel )
@@ -1163,10 +1166,18 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
 
     if ( prediction.committedPublication.pending )
     {
-        // Lifetime: completion may still present the swapped-out committed
-        // frame bank. Defer a requested restart until the hidden replacement
-        // flips, so begin-job reserve cannot resize that visible storage.
-        return ReplayPredictionFrameSourceAction::Continue;
+        if ( prediction.committedPublication.visibleTrajectoryBuild.rootId.value != 0 )
+        {
+            // Lifetime: completion may still present the swapped-out committed
+            // frame bank. Defer a requested restart until the hidden replacement
+            // flips, so begin-job reserve cannot resize that visible storage.
+            return ReplayPredictionFrameSourceAction::Continue;
+        }
+
+        // Hazard: Predict may finish before the first object is selected. That
+        // rootless publication cannot satisfy the overlay flip, so retaining its
+        // pending token would prevent the later target request from ever starting.
+        prediction.committedPublication.Reset();
     }
 
     if ( !targetAvailable )
@@ -1192,8 +1203,10 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
     const ReplayFrameIndex latestFrame = latestSolverSample ? latestSolverSample->frameIndex : 0;
     const uint64_t latestHash = latestSolverSample ? latestSolverSample->solverHash : 0;
     const double now = simulationTotalSeconds;
-    const bool sourceChanged = prediction.simulation.targetId.value != targetId.value ||
-                               prediction.simulation.sourceFrameIndex != latestFrame ||
+    const bool targetChanged = prediction.simulation.targetId.value != targetId.value;
+    prediction.build.dirty = ReplayPredictionExplicitRestartRequested( prediction.build.dirty,
+                                                                       prediction.simulation.targetId, targetId );
+    const bool sourceChanged = targetChanged || prediction.simulation.sourceFrameIndex != latestFrame ||
                                prediction.simulation.sourceSolverHash != latestHash;
 
     const bool refreshDue = ( now - prediction.build.lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;

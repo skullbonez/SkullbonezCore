@@ -15,7 +15,7 @@
     "vsync": false
   },
   "playback": {
-    "frames": 150,
+    "frames": 220,
     "fixedStep": true,
     "exitOnComplete": false
   },
@@ -52,16 +52,19 @@
   ],
   "objects": [
     {
-      "type": "ball",
+      "type": "box",
       "name": "path_striker",
       "position": [
         410,
         80,
         500
       ],
-      "radius": 6.0,
+      "halfExtents": [
+        6.0,
+        6.0,
+        6.0
+      ],
       "mass": 8.0,
-      "moment": 12.0,
       "restitution": 0.92,
       "fixed": false,
       "velocity": [
@@ -105,6 +108,56 @@
         620,
         80,
         490
+      ],
+      "radius": 6.0,
+      "mass": 8.0,
+      "moment": 12.0,
+      "restitution": 0.92,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "path_striker_02",
+      "position": [
+        520,
+        80,
+        540
+      ],
+      "halfExtents": [
+        6.0,
+        6.0,
+        6.0
+      ],
+      "mass": 8.0,
+      "restitution": 0.92,
+      "fixed": false,
+      "velocity": [
+        95,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "path_target_04",
+      "position": [
+        700,
+        80,
+        540
+      ],
+      "radius": 6.0,
+      "mass": 8.0,
+      "moment": 12.0,
+      "restitution": 0.92,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "path_target_05",
+      "position": [
+        800,
+        80,
+        540
       ],
       "radius": 6.0,
       "mass": 8.0,

@@ -39,7 +39,6 @@ Related:
 
 #include "../../Core/Config.h"
 #include "../../Core/PlatformWin32.h"
-#include "../../Core/Timer.h"
 #include "../../Core/Common.h"
 #include "DemoDirector.h"
 #include "RuntimeCameraMode.h"
@@ -131,11 +130,28 @@ struct CameraControlState
         cameraTime = 0.0f;
     }
 
-    // Lifetime: each camera tick borrows SceneWorld once and derives Cameras and
-    // Terrain locally, keeping subowner identity inside this cohesive boundary.
-    Core::SbResult InitialiseTiming( Core::SbDiagnosticStore& diagnostics )
+    void AdvanceDemoCameraCycleClock( float cameraDt, bool cycleEnabled ) noexcept
     {
-        return m_cameraTimer.Initialise( diagnostics );
+        if ( !cycleEnabled )
+        {
+            cameraTime = 0.0f;
+            return;
+        }
+
+        if ( !std::isfinite( cameraDt ) || cameraDt <= 0.0f )
+        {
+            return;
+        }
+
+        // Invariant: recorded playback supplies the captured camera delta, so
+        // demo camera selection is independent of playback wall-clock speed.
+        cameraTime += cameraDt;
+
+        if ( cameraTime > 5.0f )
+        {
+            selectedCamera = ( selectedCamera + 1 ) % static_cast<int>( DEMO_CAMERA_CYCLE_SLOTS.size() );
+            cameraTime = 0.0f;
+        }
     }
     void UpdateViewingOrientation( Runtime::SceneWorld& world, bool replayCameraActive, bool sceneMode,
                                    bool attachedActiveFollow, bool cameraLookCaptured, float presentationAlpha,
@@ -166,7 +182,6 @@ struct CameraControlState
                        bool manualControlsActive, bool authoredScene );
 
   private:
-    Environment::Timer m_cameraTimer;
     float m_keySpeed = 200.0f;
     float m_mouseSensitivity = 0.2f;
     float m_minCameraHeight = 1.5f;

@@ -224,6 +224,8 @@ bool WriteInteractionTraceTurn( InteractionAutomationController& state, InputRou
                             { "sceneLoadCount", sceneState.loadCount },
                             { "sceneMode", sceneState.isSceneMode },
                             { "cameraMode", static_cast<int>( camera.mode ) },
+                            { "demoSelectedCamera", camera.selectedCamera },
+                            { "demoCycleSeconds", camera.cameraTime },
                             { "cameraEye", { cameraEye.x, cameraEye.y, cameraEye.z } },
                             { "cameraView", { cameraView.x, cameraView.y, cameraView.z } },
                             { "cameraUp", { cameraUp.x, cameraUp.y, cameraUp.z } },
@@ -878,6 +880,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPastTrajectoryPublishedPointCountMin";
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
         return "predictionPathVisible";
+    case RunInteractionAutomationAssertKind::PredictionCausalGeometrySubmitted:
+        return "predictionCausalGeometrySubmitted";
     case RunInteractionAutomationAssertKind::PredictionVelocityPreviewActive:
         return "predictionVelocityPreviewActive";
     case RunInteractionAutomationAssertKind::PredictionVelocityPreviewAwaitingReplacement:
@@ -2473,6 +2477,8 @@ constexpr ReplayAssertionEntry REPLAY_ASSERTIONS[] = {
     { "replayPastTrajectoryPublishedPointCountMin",
       RunInteractionAutomationAssertKind::ReplayPastTrajectoryPublishedPointCountMin, ReplayAssertionValue::Number },
     { "predictionPathVisible", RunInteractionAutomationAssertKind::PredictionPathVisible, ReplayAssertionValue::Bool },
+    { "predictionCausalGeometrySubmitted", RunInteractionAutomationAssertKind::PredictionCausalGeometrySubmitted,
+      ReplayAssertionValue::Bool },
     { "predictionVelocityPreviewActive", RunInteractionAutomationAssertKind::PredictionVelocityPreviewActive,
       ReplayAssertionValue::Bool },
     { "predictionVelocityPreviewAwaitingReplacement",
@@ -3386,6 +3392,15 @@ bool EvaluatePredictionAutomationAssertion( const ReplayAutomationView& replay, 
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
         evaluation.passed = visible == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionCausalGeometrySubmitted:
+    {
+        const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submission = replay.visualPacket.submission;
+        const bool submitted = submission.priorityLineVertexCount > 0u && submission.priorityRibbonSegmentCount > 0u;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( submitted );
+        evaluation.passed = submitted == action.boolValue;
         break;
     }
     case RunInteractionAutomationAssertKind::PredictionVelocityPreviewActive:
@@ -4433,20 +4448,25 @@ bool LoadRecordedInteractionManifest( InteractionAutomationController& state, co
     const Json& ui = baseline["ui"];
     const Json& replay = baseline["replay"];
     const Json& causeInspection = replay["causeInspection"];
+    const bool hasSceneMode = camera.contains( "sceneMode" );
+    const bool hasSelectedDemoCamera = camera.contains( "selectedDemoCamera" );
+    const bool hasDemoCycleSeconds = camera.contains( "demoCycleSeconds" );
 
-    if ( !camera.contains( "mode" ) || !interaction.contains( "worldOwner" ) || !tools.contains( "editorMode" ) ||
-         !tools["editorMode"].is_boolean() || !tools.contains( "placementMode" ) || !tools["placementMode"].is_boolean() ||
-         !tools.contains( "placeStatic" ) || !tools["placeStatic"].is_boolean() || !tools.contains( "terrainAlign" ) ||
-         !tools["terrainAlign"].is_boolean() || !tools.contains( "objectType" ) || !tools.contains( "selection" ) ||
-         !tools["selection"].is_string() || !ui.contains( "visible" ) || !ui["visible"].is_boolean() ||
-         !ui.contains( "minimized" ) || !ui["minimized"].is_boolean() || !ui.contains( "activeTab" ) ||
-         !ui.contains( "developmentSurface" ) || !replay.contains( "active" ) || !replay["active"].is_boolean() ||
-         !replay.contains( "scrubPaused" ) || !replay["scrubPaused"].is_boolean() || !replay.contains( "liveAdvanceHeld" ) ||
-         !replay["liveAdvanceHeld"].is_boolean() || !replay.contains( "predictionEnabled" ) ||
-         !replay["predictionEnabled"].is_boolean() || !replay.contains( "track" ) ||
-         !replay.contains( "presentationTrackPosition" ) || !replay["presentationTrackPosition"].is_number() ||
-         !replay.contains( "solverTrackPosition" ) || !replay["solverTrackPosition"].is_number() ||
-         !replay.contains( "pathTarget" ) || !replay["pathTarget"].is_string() || !causeInspection.contains( "mode" ) ||
+    if ( !camera.contains( "mode" ) || ( hasSceneMode && !camera["sceneMode"].is_boolean() ) ||
+         ( hasDemoCycleSeconds && !camera["demoCycleSeconds"].is_number() ) || !interaction.contains( "worldOwner" ) ||
+         !tools.contains( "editorMode" ) || !tools["editorMode"].is_boolean() || !tools.contains( "placementMode" ) ||
+         !tools["placementMode"].is_boolean() || !tools.contains( "placeStatic" ) || !tools["placeStatic"].is_boolean() ||
+         !tools.contains( "terrainAlign" ) || !tools["terrainAlign"].is_boolean() || !tools.contains( "objectType" ) ||
+         !tools.contains( "selection" ) || !tools["selection"].is_string() || !ui.contains( "visible" ) ||
+         !ui["visible"].is_boolean() || !ui.contains( "minimized" ) || !ui["minimized"].is_boolean() ||
+         !ui.contains( "activeTab" ) || !ui.contains( "developmentSurface" ) || !replay.contains( "active" ) ||
+         !replay["active"].is_boolean() || !replay.contains( "scrubPaused" ) || !replay["scrubPaused"].is_boolean() ||
+         !replay.contains( "liveAdvanceHeld" ) || !replay["liveAdvanceHeld"].is_boolean() ||
+         !replay.contains( "predictionEnabled" ) || !replay["predictionEnabled"].is_boolean() ||
+         !replay.contains( "track" ) || !replay.contains( "presentationTrackPosition" ) ||
+         !replay["presentationTrackPosition"].is_number() || !replay.contains( "solverTrackPosition" ) ||
+         !replay["solverTrackPosition"].is_number() || !replay.contains( "pathTarget" ) ||
+         !replay["pathTarget"].is_string() || !causeInspection.contains( "mode" ) ||
          !causeInspection.contains( "selectedRow" ) || !causeInspection.contains( "activeTab" ) ||
          !causeInspection.contains( "selectedDetailContactRow" ) || !causeInspection.contains( "solverDetailFirstRow" ) ||
          !causeInspection.contains( "rawRecordFirstRow" ) || !causeInspection.contains( "iterationsFirstRow" ) ||
@@ -4465,6 +4485,7 @@ bool LoadRecordedInteractionManifest( InteractionAutomationController& state, co
     }
 
     int cameraMode = 0;
+    int demoSelectedCamera = -1;
     int worldOwner = 0;
     int objectType = 0;
     int activeUiTab = 0;
@@ -4486,8 +4507,10 @@ bool LoadRecordedInteractionManifest( InteractionAutomationController& state, co
     const double solverTrackPosition = replay["solverTrackPosition"].get<double>();
     const double causeEasedProgress = causeInspection["easedProgress"].get<double>();
     const double causeDrawerProgress = causeInspection["drawerProgress"].get<double>();
+    const double demoCycleSeconds = hasDemoCycleSeconds ? camera["demoCycleSeconds"].get<double>() : 0.0;
 
     if ( !ReadInt( camera["mode"], cameraMode ) || !ReadInt( interaction["worldOwner"], worldOwner ) ||
+         ( hasSelectedDemoCamera && !ReadInt( camera["selectedDemoCamera"], demoSelectedCamera ) ) ||
          !ReadInt( tools["objectType"], objectType ) || !ReadInt( ui["activeTab"], activeUiTab ) ||
          !ReadInt( ui["developmentSurface"], developmentUiSurface ) || !ReadInt( replay["track"], replayTrack ) ||
          !ReadInt( causeInspection["mode"], causeMode ) || !ReadInt( causeInspection["selectedRow"], causeSelectedRow ) ||
@@ -4511,6 +4534,8 @@ bool LoadRecordedInteractionManifest( InteractionAutomationController& state, co
          causeActiveTab < static_cast<int>( ReplayCauseInspectorTab::Summary ) ||
          causeActiveTab > static_cast<int>( ReplayCauseInspectorTab::Iterations ) || causeSelectedDetailContactRow < -1 ||
          causeSolverDetailFirstRow < 0 || causeRawRecordFirstRow < 0 || causeIterationsFirstRow < 0 ||
+         demoSelectedCamera < -1 || demoSelectedCamera >= static_cast<int>( DEMO_CAMERA_CYCLE_SLOTS.size() ) ||
+         !std::isfinite( demoCycleSeconds ) || demoCycleSeconds < 0.0 || demoCycleSeconds > 5.0 ||
          selection.size() >= sizeof( state.recordedBaseline.editorSelectionName ) ||
          pathTarget.size() >= sizeof( state.recordedBaseline.replayPathTargetName ) ||
          !std::isfinite( presentationTrackPosition ) || presentationTrackPosition < 0.0 || presentationTrackPosition > 1.0 ||
@@ -4526,6 +4551,12 @@ bool LoadRecordedInteractionManifest( InteractionAutomationController& state, co
     }
 
     state.recordedBaseline.cameraMode = cameraMode;
+    // Compatibility: version-1 recordings made before session provenance was
+    // serialized can only carry Demo mode when their source was generated.
+    state.recordedBaseline.sceneMode = hasSceneMode ? camera["sceneMode"].get<bool>()
+                                                    : cameraMode != static_cast<int>( RunCameraMode::Demo );
+    state.recordedBaseline.demoSelectedCamera = demoSelectedCamera;
+    state.recordedBaseline.demoCameraCycleSeconds = static_cast<float>( demoCycleSeconds );
     state.recordedBaseline.worldInteractionOwner = worldOwner;
     state.recordedBaseline.editorModeEnabled = tools.value( "editorMode", false );
     state.recordedBaseline.editorPlacementModeEnabled = tools.value( "placementMode", false );
@@ -4993,6 +5024,10 @@ InteractionAutomationFrameResult TickRecordedInteractionBeforeInput( Interaction
 
         result.applyCameraMode = true;
         result.cameraMode = static_cast<RunCameraMode>( baseline.cameraMode );
+        result.restoreRecordedSceneCameraBaseline = true;
+        result.recordedSceneMode = baseline.sceneMode;
+        result.recordedDemoSelectedCamera = baseline.demoSelectedCamera;
+        result.recordedDemoCameraCycleSeconds = baseline.demoCameraCycleSeconds;
         result.setWorldInteractionOwner = true;
         result.worldInteractionOwner = baseline.worldInteractionOwner;
         result.worldInteractionReason = static_cast<int>( InteractionExitReason::EnterReplay );

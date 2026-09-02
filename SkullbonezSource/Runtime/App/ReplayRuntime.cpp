@@ -127,6 +127,8 @@ float ReplayPathPickColliderRadius( const ColliderStore& colliderStore, int mode
                        1.0f );
 }
 
+constexpr float REPLAY_PATH_PICK_FALLBACK_PADDING = 4.0f;
+
 bool ReplayPathPickIntersectsSphere( const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& center,
                                      float radius, float& outT ) noexcept
 {
@@ -215,6 +217,33 @@ ReplayPathPickResult ResolveReplayPathPick( const ReplayPathPickInput& input, co
             const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( pickedIndex );
             pickedId = body ? body->sceneObjectId : Physics::PhysicsSceneObjectId {};
             copyName( pickedIndex );
+        }
+        else
+        {
+            const Physics::PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
+            float bestT = FLT_MAX;
+
+            // Why: a restored recording starts from body poses but cannot
+            // restore the solver's transient contact cache. Exact shape tests
+            // remain authoritative; this small replay-only fallback preserves
+            // an intended distant click when later poses differ by a few units.
+            for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
+            {
+                float rayT = 0.0f;
+                const Vector3 position = Physics::PhysicsBodyPosition( hot, static_cast<std::size_t>( modelIndex ) );
+                const float radius = ReplayPathPickColliderRadius( colliderStore, modelIndex ) +
+                                     REPLAY_PATH_PICK_FALLBACK_PADDING;
+
+                if ( ReplayPathPickIntersectsSphere( input.rayOrigin, input.rayDirection, position, radius, rayT ) &&
+                     rayT < bestT )
+                {
+                    bestT = rayT;
+                    pickedIndex = modelIndex;
+                    const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
+                    pickedId = body ? body->sceneObjectId : Physics::PhysicsSceneObjectId {};
+                    copyName( modelIndex );
+                }
+            }
         }
     }
 
@@ -421,7 +450,9 @@ ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent
     if ( intent.setPathTarget &&
          m_visualPresentation.SetPathTarget( intent.pathTargetId, intent.pathTargetModelRow, intent.pathTargetName ) )
     {
-        m_predictionOwner.ClearCache();
+        // Why: Prediction owns an atomic visible/replacement bank. Clearing it
+        // here made a target click erase the last valid line before the new
+        // target had acquired its retained-memory reserves.
         m_predictionOwner.MarkDirty();
     }
 
@@ -1196,7 +1227,9 @@ ReplayRuntime::ApplyPathPick( const ReplayPathPickInput& input, const SceneEntit
 
     if ( result.picked )
     {
-        m_predictionOwner.ClearCache();
+        // Why: keep the published prediction readable while the clicked
+        // target builds in the opposite bank. The replacement flip is the
+        // authority boundary for changing visible trajectory identity.
         m_predictionOwner.MarkDirty();
     }
     else if ( result.exitInspectionCamera )

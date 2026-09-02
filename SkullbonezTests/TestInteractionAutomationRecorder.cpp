@@ -146,6 +146,9 @@ TEST_CASE( "Interaction recorder round trips a complete resolution-independent d
 
     InteractionRecordingBaseline baseline;
     baseline.cameraMode = 2;
+    baseline.sceneMode = false;
+    baseline.demoSelectedCamera = 1;
+    baseline.demoCameraCycleSeconds = 3.25f;
     baseline.uiVisible = true;
     baseline.uiMinimized = true;
     REQUIRE( recorder.BeginAtBoundary( diagnostics, 1920, 1080, 41u, baseline, false ).Ok() );
@@ -180,6 +183,9 @@ TEST_CASE( "Interaction recorder round trips a complete resolution-independent d
     CHECK( root["frames"][0]["wheel"] == -120 );
     CHECK( root["frames"][0]["rawMouse"][0] == 17 );
     CHECK( root["frames"][0]["rawMouse"][1] == -9 );
+    CHECK( root["baseline"]["camera"]["sceneMode"] == false );
+    CHECK( root["baseline"]["camera"]["selectedDemoCamera"] == 1 );
+    CHECK( root["baseline"]["camera"]["demoCycleSeconds"].get<float>() == doctest::Approx( 3.25f ) );
     CHECK( root["baseline"]["replay"]["liveAdvanceHeld"] == false );
     CHECK( root["baseline"]["replay"]["causeInspection"]["mode"] == 0 );
     CHECK( root["baseline"]["replay"]["causeInspection"]["selectedRow"] == -1 );

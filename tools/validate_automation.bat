@@ -20,6 +20,9 @@
 @rem   - Profile must reject --interaction-script with a nonzero exit.
 @rem   - Automation must produce one successful report covering replay
 @rem     prediction plus all development-UI command interpreter variants.
+@rem   - Prediction passes only when the selected FutureRoot and contact children
+@rem     exist, causal priority lines and ribbons reach submission, and a connected
+@rem     path reaches the DX12 backbuffer outside operator UI regions.
 @rem   - Negative and positive processes use separate working files and PSO
 @rem     caches, so they may overlap without changing either launch contract.
 @rem   - This pre-commit smoke supplements, rather than replaces, the immutable
@@ -55,10 +58,17 @@ if not exist TestOutput\validation\automation mkdir TestOutput\validation\automa
 set "REPORT=%REPO%\TestOutput\validation\automation\replay_prediction_precommit.json"
 del /q "%REPORT%" 2>nul
 
-echo [automation] Running isolated Profile rejection and Automation smoke processes in parallel...
-"%PYTHON_EXE%" "%~dp0run_parallel_validation.py" --repo "%REPO%" --manifest "%~dp0validation_parallel_automation.json" --variable "AUTOMATION_REPORT=%REPORT%"
+echo [automation] Running future-render checker negative controls...
+"%PYTHON_EXE%" "%~dp0check_prediction_future_render.py" --self-test
 if errorlevel 1 (
-    echo FAIL: Profile rejection or Automation replay/prediction launch failed.
+    echo FAIL: Prediction future-render checker self-tests failed.
+    goto fail
+)
+
+echo [automation] Running isolated Profile rejection and Automation smoke processes in parallel...
+"%PYTHON_EXE%" "%~dp0run_parallel_validation.py" --repo "%REPO%" --manifest "%~dp0validation_parallel_automation.json" --variable "AUTOMATION_REPORT=%REPORT%" --variable "PYTHON_EXE=%PYTHON_EXE%"
+if errorlevel 1 (
+    echo FAIL: Profile rejection, Automation launch, or FutureRoot DX12 raster proof failed.
     goto fail
 )
 if not exist "%REPORT%" (
@@ -71,7 +81,7 @@ if errorlevel 1 (
     goto fail
 )
 
-echo PASS: diagnostics excluded from Profile; Automation replay/prediction and development-UI smoke passed.
+echo PASS: diagnostics excluded from Profile; Automation FutureRoot DX12 raster and development-UI smoke passed.
 popd >nul
 exit /b 0
 

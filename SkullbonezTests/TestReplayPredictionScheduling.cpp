@@ -56,6 +56,7 @@ using SkullbonezCore::Runtime::ReplayPredictionPublicationOperations::ReplayPred
 using SkullbonezCore::Runtime::ReplayPredictionPublicationOperations::SceneObjectIdForModelIndexInSample;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionBuildMode;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionCoalescerAction;
+using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ReplayPredictionExplicitRestartRequested;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::UpdateReplayPredictionTicksPerMs;
 
 namespace
@@ -211,6 +212,16 @@ TEST_CASE( "Replay prediction scheduling: instant dirty work is superseded witho
            ReplayPredictionCoalescerAction::PromoteAndBegin );
     CHECK( ChooseReplayPredictionCoalescerAction( false, true, ReplayPredictionBuildMode::Instant, false, false ) ==
            ReplayPredictionCoalescerAction::Nothing );
+}
+
+TEST_CASE( "Replay prediction scheduling: changing the selected target explicitly restarts a committed future" )
+{
+    const SkullbonezCore::Physics::PhysicsSceneObjectId firstTarget { 41 };
+    const SkullbonezCore::Physics::PhysicsSceneObjectId secondTarget { 73 };
+
+    CHECK_FALSE( ReplayPredictionExplicitRestartRequested( false, firstTarget, firstTarget ) );
+    CHECK( ReplayPredictionExplicitRestartRequested( false, firstTarget, secondTarget ) );
+    CHECK( ReplayPredictionExplicitRestartRequested( true, firstTarget, firstTarget ) );
 }
 
 TEST_CASE( "Replay prediction publication: release cursor is bounded and reset clears failure" )

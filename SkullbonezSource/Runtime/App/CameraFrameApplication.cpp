@@ -52,8 +52,6 @@ void CameraControlState::UpdateViewingOrientation( Runtime::SceneWorld& world, b
     {
         PROFILE_SCOPED( "Frame/Replay/Camera" );
         cameraTime = 0.0f;
-        m_cameraTimer.StopTimer();
-        m_cameraTimer.StartTimer();
         return;
     }
 
@@ -65,36 +63,29 @@ void CameraControlState::UpdateViewingOrientation( Runtime::SceneWorld& world, b
     if ( RunCameraModeUsesFlyControls( mode, attachedActiveFollow, director.grabbed ) || cameraLookCaptured )
     {
         cameraTime = 0.0f;
-        m_cameraTimer.StopTimer();
-        m_cameraTimer.StartTimer();
         return;
-    }
-
-    m_cameraTimer.StopTimer();
-    cameraTime += static_cast<float>( m_cameraTimer.GetElapsedTime() );
-    m_cameraTimer.StartTimer();
-
-    if ( cameraTime > 5.0f )
-    {
-        selectedCamera = ( selectedCamera + 1 ) % 3;
-        cameraTime = 0.0f;
     }
 
     cameras.SelectCamera( DEMO_CAMERA_CYCLE_SLOTS[static_cast<std::size_t>( selectedCamera )], true );
 
-    // Why: the two authored tracking slots follow presentation rows 0 and 1;
-    // a missing row leaves the previous view target intact for this frame.
-    for ( int modelIndex = 0; modelIndex < 2; ++modelIndex )
+    // Why: generated camera slots follow the first two stable scene identities.
+    // Snapshot loading may regroup dense model rows by asset, so retaining row 0
+    // or 1 would silently retarget a recorded camera after scene restoration.
+    for ( uint32_t targetId = 1u; targetId <= 2u; ++targetId )
     {
-        if ( !cameras.IsCameraSelected( DEMO_CAMERA_CYCLE_SLOTS[static_cast<std::size_t>( modelIndex )] ) )
+        const std::size_t cameraSlot = static_cast<std::size_t>( targetId - 1u );
+
+        if ( !cameras.IsCameraSelected( DEMO_CAMERA_CYCLE_SLOTS[cameraSlot] ) )
         {
             continue;
         }
 
+        const int modelIndex = world.Entities().FindBySceneObjectId( Physics::PhysicsSceneObjectId { targetId } );
         Vector3 targetPosition;
         Quaternion targetOrientation;
 
-        if ( world.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
+        if ( modelIndex >= 0 &&
+             world.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
         {
             cameras.SetViewCoordinates( targetPosition );
         }
@@ -121,6 +112,9 @@ void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCamer
     const float mouseMovementQuantity = ( 1.0f / 60.0f ) * m_mouseSensitivity;
     mouseRadiansPerPixel = mouseMovementQuantity;
     const bool hasTravelInput = inputMoveForward || inputMoveBackward || inputMoveLeft || inputMoveRight;
+    const bool demoCycleEnabled = !manualControlsActive && !editorViewportLookActive && !authoredScene &&
+                                  !mouseLookOwnsCursor;
+    AdvanceDemoCameraCycleClock( cameraDt, demoCycleEnabled );
 
     if ( !attachedOrbitOwnsCamera &&
          ( flyControlsActive || mouseLookOwnsCursor || editorViewportLookActive || hasTravelInput ) )

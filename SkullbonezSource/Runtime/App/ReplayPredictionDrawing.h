@@ -98,6 +98,7 @@ struct ReplayPredictionDrawListState
     uint32_t generation = 0;
     uint32_t topologyVersion = 0;
     uint32_t trajectoryBuildTopologyVersion = 0;
+    uint32_t retainedMarkerVersion = 0;
     uint64_t trajectoryPublicationVersion = 0;
     std::size_t sampleStride = 1;
     ReplayPathColorMode colorMode = ReplayPathColorMode::LaneFlat;
@@ -133,6 +134,7 @@ struct ReplayPredictionDrawListState
         generation = 0;
         topologyVersion = 0;
         trajectoryBuildTopologyVersion = 0;
+        retainedMarkerVersion = 0;
         trajectoryPublicationVersion = 0;
         sampleStride = 1;
         colorMode = ReplayPathColorMode::LaneFlat;
@@ -154,9 +156,12 @@ struct ReplayPredictionDrawListUpdate
 constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset, uint64_t retainedPublicationVersion,
                                                             ReplayFrameIndex retainedRevealFrame,
                                                             uint64_t incomingPublicationVersion,
-                                                            ReplayFrameIndex incomingRevealFrame ) noexcept
+                                                            ReplayFrameIndex incomingRevealFrame,
+                                                            uint32_t retainedMarkerVersion = 0,
+                                                            uint32_t incomingMarkerVersion = 0 ) noexcept
 {
-    return !reset && retainedPublicationVersion == incomingPublicationVersion && retainedRevealFrame == incomingRevealFrame;
+    return !reset && retainedPublicationVersion == incomingPublicationVersion &&
+           retainedRevealFrame == incomingRevealFrame && retainedMarkerVersion == incomingMarkerVersion;
 }
 
 constexpr std::size_t ReplayPredictionFirstUnconsumedPoint( std::size_t consumedPointCount ) noexcept

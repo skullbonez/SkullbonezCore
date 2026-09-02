@@ -233,6 +233,7 @@ struct ReplayPredictionTrajectoryView
 struct ReplayPredictionMarkerView
 {
     std::span<const ReplayPredictionRetainedMarker> retainedMarkers;
+    uint32_t version = 0;
 };
 
 struct ReplayPredictionBaselineView

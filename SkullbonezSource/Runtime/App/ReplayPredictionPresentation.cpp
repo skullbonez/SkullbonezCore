@@ -30,6 +30,12 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+struct ReplayPredictionPresentationRetainedState
+{
+    ReplayOverlay::ReplayPredictionRetainedGeometry geometry;
+    ReplayOverlay::ReplayPredictionDrawListState drawList;
+};
+
 namespace
 {
 constexpr int REPLAY_TRAJECTORY_SUBMISSION_STEADY_FRAME_TARGET = 120;
@@ -119,13 +125,17 @@ bool HideUnmatchedBodies( Rendering::RenderInstanceStore& renderInstances, const
 
 ReplayPredictionPresentation::ReplayPredictionPresentation( Core::SbDiagnosticStore& resultDiagnostics,
                                                             Core::Profiler* profiler )
-    : m_profiler( profiler ), m_retainedMarkerDrawList( resultDiagnostics )
+    : m_profiler( profiler ), m_retainedState( std::make_unique<ReplayPredictionPresentationRetainedState>() ),
+      m_retainedMarkerDrawList( resultDiagnostics )
 {
     // Runtime allocation policy: focus masks are rewritten during replay render
     // passes, so the byte vector owns its full model-capacity storage up front.
     m_focusModelMask.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     m_renderPoseBodyMatched.fill( uint8_t { 0 } );
 }
+
+
+ReplayPredictionPresentation::~ReplayPredictionPresentation() = default;
 
 
 SkullbonezCore::Core::MainMemoryReplayTrajectoryStats
@@ -451,16 +461,16 @@ bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList(
     const SceneEntityStore& entities, const Physics::ColliderStore& colliderStore, EditorTracer& frameTracer,
     const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance )
 {
-    const bool retainedAppearanceChanged = m_retainedGeometry.SetAppearance( trajectoryAppearance );
+    const bool retainedAppearanceChanged = m_retainedState->geometry.SetAppearance( trajectoryAppearance );
     const bool markerAppearanceChanged = m_retainedMarkerDrawList.SetReplayTrajectoryAppearance( trajectoryAppearance );
 
     if ( retainedAppearanceChanged || markerAppearanceChanged )
     {
         // Invariant: packed retained records carry style values. A live UI edit
         // invalidates geometry only; prediction samples remain authoritative.
-        m_retainedGeometry.Clear();
+        m_retainedState->geometry.Clear();
         m_retainedMarkerDrawList.Clear();
-        m_retainedDrawListState.Reset();
+        m_retainedState->drawList.Reset();
         ++m_retainedDrawStreamId;
         ++m_retainedAppearanceInvalidationCount;
         m_retainedDrawPacketDirty = true;
@@ -476,8 +486,8 @@ bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList(
 
     const ReplayOverlay::ReplayPredictionDrawListUpdate
         drawListUpdate = ReplayOverlay::UpdateReplayPredictionDrawList( prediction, path, entities, colliderStore,
-                                                                        m_retainedGeometry, m_retainedMarkerDrawList,
-                                                                        m_retainedDrawListState );
+                                                                        m_retainedState->geometry, m_retainedMarkerDrawList,
+                                                                        m_retainedState->drawList );
 
     if ( drawListUpdate.reset )
     {
@@ -489,10 +499,10 @@ bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList(
         m_retainedDrawPacketDirty = true;
     }
 
-    ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction, path, m_retainedDrawListState, colliderStore,
+    ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction, path, m_retainedState->drawList, colliderStore,
                                                            frameTracer );
 
-    m_retainedRenderingActive = m_retainedDrawListState.valid;
+    m_retainedRenderingActive = m_retainedState->drawList.valid;
     return m_retainedRenderingActive;
 }
 
@@ -513,7 +523,7 @@ void ReplayPredictionPresentation::AttachRetainedPredictionGeometry( ReplayVisua
         // Compact retained trajectory records are world-space and camera-neutral.
         // Camera values remain explicit publication inputs for the tracer packet.
         m_retainedDrawPacket = m_retainedMarkerDrawList.BuildReplayVisualPacket( cameraEye, cameraUp );
-        m_retainedGeometry.PublishToPacket( m_retainedDrawPacket );
+        m_retainedState->geometry.PublishToPacket( m_retainedDrawPacket );
         m_retainedDrawPacketDirty = false;
         ++m_retainedDrawRevision;
     }

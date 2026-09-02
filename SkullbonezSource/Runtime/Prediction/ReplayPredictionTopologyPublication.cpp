@@ -8,7 +8,7 @@ Summary:
   marker values after frame rows become acquire-visible.
 
 Glossary:
-  Causal topology: Root-to-child relationships inferred from contacts and motion.
+  Causal topology: Root-to-child relationships inferred from solver contacts.
 
 Invariants:
   - Topology never reads beyond the acquire-visible prediction prefix.
@@ -66,9 +66,6 @@ namespace
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
-constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE = 0.05f;
-constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ = REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE *
-                                                                 REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE;
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
 // Concept: topology publication and drawing sample the same revealed prefix.
@@ -260,6 +257,8 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
         return;
     }
 
+    bool markersChanged = false;
+
     // Why: late in the 200-brick wall prediction, ownership can move from the
     // affected-body fallback into the future-node tree faster than the budgeted
     // line scan can rediscover every brick. The stable end state is cheap to
@@ -281,6 +280,7 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
                                               restPosition, restOrientation ) )
         {
             RetainReplayPredictionRestMarker( prediction, marker.id, marker.modelRow.value, restPosition, restOrientation );
+            markersChanged = true;
 
             continue;
         }
@@ -302,6 +302,12 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
 
         RetainReplayPredictionHorizonMarker( prediction, marker.id, finalBody->modelRow.value, finalBody->position,
                                              finalBody->orientation );
+        markersChanged = true;
+    }
+
+    if ( markersChanged )
+    {
+        prediction.futureNodeCache.MarkRetainedMarkersChanged();
     }
 }
 
@@ -357,62 +363,6 @@ void RetainReplayPredictionRootRestMarker( RunReplayPredictionState& prediction,
 }
 
 
-struct ReplayPredictionAffectedMarkerInput
-{
-    std::size_t frameCount = 0;
-    ReplayFrameIndex revealFrame = 0;
-    bool bufferComplete = false;
-    Physics::PhysicsSceneObjectId rootId;
-    int rootModelIndex = -1;
-    std::span<const RunReplayPathTraceNode> futureNodes;
-    ReplayPredictionSceneView scene;
-};
-
-void RetainReplayPredictionAffectedBodyMarkers( RunReplayPredictionState& prediction,
-                                                const std::vector<RunReplayPredictionFrame>& frames,
-                                                const ColliderStore& colliderStore,
-                                                const ReplayPredictionAffectedMarkerInput& input )
-{
-    std::array<ReplayPredictionAffectedBodyTrail, REPLAY_PATH_MAX_FUTURE_NODES> trails = {};
-    const std::size_t trailCount = BuildReplayPredictionAffectedBodyTrails( frames, input.frameCount, input.revealFrame,
-                                                                            input.rootId, input.rootModelIndex,
-                                                                            input.futureNodes, input.scene, trails );
-
-    const std::size_t frameCount = (std::min)( input.frameCount, frames.size() );
-
-    // Why: marker publication is bounded and independent of render traversal.
-    // Once revealed, a causal box stays in the prediction owner's published
-    // cache even when the draw quota later degrades line work.
-    for ( std::size_t trailIndex = 0; trailIndex < trailCount; ++trailIndex )
-    {
-        const ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];
-
-        if ( !ReplayColliderRecordForModelIndex( &colliderStore, trail.modelRow.value ) )
-        {
-            continue;
-        }
-
-        RetainReplayPredictionEntryMarker( prediction, trail.id, trail.modelRow.value, trail.entryPosition,
-                                           trail.entryOrientation );
-
-        // Why: grey exists only for stories that end at rest inside the
-        // completed horizon - see RetainReplayPredictionCausalMarkers.
-        if ( !input.bufferComplete || input.revealFrame < trail.lastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
-        {
-            continue;
-        }
-
-        Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-        Quaternion restOrientation = IDENTITY_QUATERNION;
-
-        if ( ReplayPredictionBodyRestingPose( frames, frameCount, trail.id, trail.modelRow.value, restPosition,
-                                              restOrientation ) )
-        {
-            RetainReplayPredictionRestMarker( prediction, trail.id, trail.modelRow.value, restPosition, restOrientation );
-        }
-    }
-}
-
 class ReplayPredictionFutureTopologyBuilder
 {
   public:
@@ -425,9 +375,6 @@ class ReplayPredictionFutureTopologyBuilder
     bool BuildFrameContacts( const RunReplayPredictionFrame& frame, std::size_t startContactIndex,
                              const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds,
                              std::size_t& outNextContactIndex );
-    bool BuildAffectedBodies( const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                              const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds,
-                              std::size_t& bodyCursor );
     bool Full() const noexcept
     {
         return m_nodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES;
@@ -453,16 +400,16 @@ bool ReplayPredictionFutureTopologyBuilder::TryGetDepth( Physics::PhysicsSceneOb
 
 void ReplayPredictionFutureTopologyBuilder::Add( const ReplayPredictionFutureNodeCandidate& candidate )
 {
-    if ( candidate.id.value == 0 || candidate.id.value == m_rootId.value )
+    // Invariant: selected-causal presentation admits a body only through a
+    // recorded solver contact with an already active body.
+    if ( !candidate.contactDerived || candidate.id.value == 0 || candidate.id.value == m_rootId.value )
     {
         return;
     }
 
     if ( RunReplayPathTraceNode* existing = FindReplayFutureNodeInNodes( m_nodes, candidate.id ) )
     {
-        // Why: a real contact edge carries stronger causal evidence than an
-        // earlier motion-only fallback for the same future body.
-        if ( candidate.contactDerived && !existing->contactDerived )
+        if ( !existing->contactDerived )
         {
             AssignReplayFutureNode( *existing, candidate );
         }
@@ -524,114 +471,6 @@ bool ReplayPredictionFutureTopologyBuilder::BuildFrameContacts( const RunReplayP
     }
 
     outNextContactIndex = 0;
-    return true;
-}
-
-bool ReplayPredictionBodyReachedActivationDisplacement( const RunReplayPredictionBodySample& initialBody,
-                                                        const RunReplayPredictionBodySample& body, Vector3& previousPosition,
-                                                        float& accumulatedDisplacement, Vector3& outActivationDelta )
-{
-    const Vector3 frameDelta = body.position - previousPosition;
-    previousPosition = body.position;
-    accumulatedDisplacement += VectorMag( frameDelta );
-    outActivationDelta = body.position - initialBody.position;
-
-    return accumulatedDisplacement >= REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE ||
-           VectorMagSquared( outActivationDelta ) >= REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ;
-}
-
-// bodyCursor is in/out: it names the first body still to resolve. Returning
-// false leaves it at the body the budget interrupted, so the next frame resumes
-// there. A body is only ever interrupted before it publishes a node, so
-// retrying it repeats no work and duplicates nothing.
-bool ReplayPredictionFutureTopologyBuilder::BuildAffectedBodies( const std::vector<RunReplayPredictionFrame>& frames,
-                                                                 std::size_t frameCount,
-                                                                 const std::chrono::steady_clock::time_point& budgetStart,
-                                                                 double budgetMilliseconds, std::size_t& bodyCursor )
-{
-    frameCount = (std::min)( frameCount, frames.size() );
-
-    if ( frameCount < 2 || m_rootId.value == 0 )
-    {
-        return true;
-    }
-
-    const RunReplayPredictionFrame& firstFrame = frames.front();
-    const RunReplayPredictionBodySample* rootBody = FindReplayPredictionBodyById( firstFrame, m_rootId );
-    const int rootModelIndex = rootBody ? rootBody->modelRow.value : -1;
-
-    // Concept: contact-derived nodes own the authoritative firstFrame whenever
-    // the solver captured a contact tick. This sparse-contact fallback waits
-    // for measured displacement from the first prediction sample instead of a
-    // one-frame speed spike, so slow-pushed bodies join on the tick they
-    // actually begin to move.
-    for ( std::size_t bodyIndex = bodyCursor; bodyIndex < firstFrame.bodies.size(); ++bodyIndex )
-    {
-        const RunReplayPredictionBodySample& initialBody = firstFrame.bodies[bodyIndex];
-
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            bodyCursor = bodyIndex;
-            return false;
-        }
-
-        if ( Full() )
-        {
-            bodyCursor = firstFrame.bodies.size();
-            return true;
-        }
-
-        if ( initialBody.id.value == 0 || initialBody.id.value == m_rootId.value ||
-             ( rootModelIndex >= 0 && initialBody.modelRow.value == rootModelIndex ) )
-        {
-            continue;
-        }
-
-        if ( ReplayModelIndexIsRagdollPart( m_scene, initialBody.modelRow.value ) )
-        {
-            continue;
-        }
-
-        Vector3 previousPosition = initialBody.position;
-        float accumulatedDisplacement = 0.0f;
-
-        for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
-        {
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-            {
-                bodyCursor = bodyIndex;
-                return false;
-            }
-
-            const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frames[frameSlot],
-                                                                                              initialBody.id,
-                                                                                              initialBody.modelRow.value );
-
-            if ( !body )
-            {
-                continue;
-            }
-
-            Vector3 activationDelta;
-
-            if ( !ReplayPredictionBodyReachedActivationDisplacement( initialBody, *body, previousPosition,
-                                                                     accumulatedDisplacement, activationDelta ) )
-            {
-                continue;
-            }
-
-            Add( ReplayPredictionFutureNodeCandidate { m_rootId, rootModelIndex, initialBody.id, body->modelRow.value,
-                                                       frames[frameSlot].frameIndex, body->position,
-                                                       ReplayNormalizeOr( activationDelta,
-                                                                          ReplayNormalizeOr( body->linearVelocity,
-                                                                                             Vector3( 0.0f, 1.0f, 0.0f ) ) ),
-                                                       1, false } );
-
-            break;
-        }
-    }
-
-    bodyCursor = firstFrame.bodies.size();
     return true;
 }
 
@@ -757,29 +596,6 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
             publishScratch();
             return;
         }
-    }
-
-    // Why: a longer horizon can activate a body that had not moved yet, so a
-    // grown frameCount reopens the pass from the start. A settled horizon leaves
-    // it closed, which is what stops the rescan from costing budget forever.
-    if ( prediction.futureNodeCache.futureNodesAffectedFrameCount < frameCount )
-    {
-        prediction.futureNodeCache.futureNodesAffectedBodyCursor = 0;
-        prediction.futureNodeCache.futureNodesAffectedComplete = false;
-    }
-
-    if ( prediction.futureNodeCache.futureNodeBuildScratch.size() < REPLAY_PATH_MAX_FUTURE_NODES &&
-         !prediction.futureNodeCache.futureNodesAffectedComplete )
-    {
-        if ( !topologyBuilder.BuildAffectedBodies( frames, frameCount, budgetStart, budgetMilliseconds,
-                                                   prediction.futureNodeCache.futureNodesAffectedBodyCursor ) )
-        {
-            publishScratch();
-            return;
-        }
-
-        prediction.futureNodeCache.futureNodesAffectedComplete = true;
-        prediction.futureNodeCache.futureNodesAffectedFrameCount = frameCount;
     }
 
     if ( prediction.futureNodeCache.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
@@ -957,35 +773,16 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, Repla
                     RetainReplayPredictionCausalMarkers( prediction, markerScan, drawWindow.revealFrame,
                                                          bufferComplete ? &activePredictionFrames : nullptr,
                                                          bufferComplete ? activePredictionFrameCount : 0 );
+                    prediction.futureNodeCache.MarkRetainedMarkersChanged();
                 }
             }
         }
     }
 
-    // Why: skipping a retention phase keeps the previous frame's marker set
-    // rather than clearing it, so a deferred frame reads as one frame stale
-    // instead of losing markers outright.
-    if ( !ReplayPredictionBudgetExpired( overlayBudgetStart, request.budgetMilliseconds ) )
-    {
-        // Hazard: this phase has no scan/version cache, so it repeats in full on
-        // an idle frame whose horizon has not changed. It is the first place to
-        // look when the overlay shows a steady cost with nothing rebuilding.
-        PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/AffectedBodyMarkers" );
-        const ReplayPredictionAffectedMarkerInput markerInput { activePredictionFrameCount,
-                                                                drawWindow.revealFrame,
-                                                                bufferComplete,
-                                                                publicationTargetId,
-                                                                publicationTargetModelRow.value,
-                                                                prediction.futureNodeCache.futureNodes,
-                                                                scene };
-        RetainReplayPredictionAffectedBodyMarkers( prediction, activePredictionFrames, colliderStore, markerInput );
-    }
-
     if ( bufferComplete && !ReplayPredictionBudgetExpired( overlayBudgetStart, request.budgetMilliseconds ) )
     {
-        // Hazard: uncached like the affected-body phase above, and it only runs
-        // once the buffer is complete, so it is present exactly on the idle
-        // frames an operator is trying to account for.
+        // Hazard: this uncached phase runs only once the buffer is complete, so
+        // it is present exactly on the idle frames an operator is accounting for.
         PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/EndStateMarkers" );
         RetainReplayPredictionEndStateMarkers( prediction, drawWindow.revealFrame, activePredictionFrames,
                                                activePredictionFrameCount );

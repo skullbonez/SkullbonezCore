@@ -25,6 +25,12 @@
           "name": "Automation positive smoke",
           "cwd": "${WORKDIR}",
           "argv": ["${REPO}\\Automation\\SKULLBONEZ_CORE.exe", "--renderer", "dx12", "--vsync", "off", "--shadows", "off", "--hide-top-text", "--automation-hidden-window", "--scene", "SkullbonezData\\scenes\\interaction_replay_prediction_harness.scene.json", "--interaction-script", "SkullbonezData\\interaction\\replay_prediction_development_ui_smoke.json", "--interaction-report", "${AUTOMATION_REPORT}", "--frames", "150", "--replay", "on", "--replay-seconds", "2", "--fixed-step"]
+        },
+        {
+          "id": "future-render",
+          "name": "Prediction FutureRoot DX12 raster proof",
+          "cwd": "${WORKDIR}",
+          "argv": ["${PYTHON_EXE}", "tools\\check_prediction_future_render.py", "--report", "${AUTOMATION_REPORT}", "--before", "TestOutput\\interaction\\replay_prediction_before_click.bmp", "--after", "TestOutput\\interaction\\replay_prediction_after_click.bmp"]
         }
       ]
     }

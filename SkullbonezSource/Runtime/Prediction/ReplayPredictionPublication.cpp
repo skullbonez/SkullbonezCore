@@ -69,7 +69,8 @@ constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE = 0.05f;
 constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ = REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE *
                                                                  REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE;
 constexpr double REPLAY_PREDICTION_REST_GRACE_SECONDS = 0.4;
-constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES = static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
+constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES = static_cast<ReplayFrameIndex>(
+    REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
 } // namespace
@@ -90,9 +91,6 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
     prediction.futureNodeCache.futureNodeBuildScratch.clear();
     prediction.futureNodeCache.futureNodesBuiltFrameCount = 0;
     prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
-    prediction.futureNodeCache.futureNodesAffectedBodyCursor = 0;
-    prediction.futureNodeCache.futureNodesAffectedFrameCount = 0;
-    prediction.futureNodeCache.futureNodesAffectedComplete = false;
     prediction.futureNodeCache.futureNodesBuiltTargetId = Physics::PhysicsSceneObjectId {};
     prediction.futureNodeCache.futureNodesTopologyVersion = 0;
     prediction.futureNodeCache.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
@@ -212,7 +210,8 @@ constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1;
 
 int ReplayTrajectoryFrameNumberForReserve( ReplayFrameIndex frameIndex )
 {
-    return static_cast<int>( (std::min)( frameIndex, static_cast<ReplayFrameIndex>( ( std::numeric_limits<int>::max )() ) ) );
+    return static_cast<int>(
+        (std::min)( frameIndex, static_cast<ReplayFrameIndex>( ( std::numeric_limits<int>::max )() ) ) );
 }
 
 ReplayTrajectoryRecordKey ReplayTrajectoryKey( Physics::PhysicsSceneObjectId bodyId, ReplayTrajectoryLane lane,
@@ -302,7 +301,8 @@ std::size_t ReplayPredictionTrajectoryRecordCapacity( std::size_t bodyCount )
 uint16_t ReplayPredictionChildTrajectoryBranch( std::size_t nodeIndex, bool usingBuildFrames )
 {
     const std::size_t branchBase = usingBuildFrames ? REPLAY_PATH_MAX_FUTURE_NODES : 0u;
-    return static_cast<uint16_t>( (std::min)( branchBase + nodeIndex, static_cast<std::size_t>( ( std::numeric_limits<uint16_t>::max )() ) ) );
+    return static_cast<uint16_t>(
+        (std::min)( branchBase + nodeIndex, static_cast<std::size_t>( ( std::numeric_limits<uint16_t>::max )() ) ) );
 }
 
 bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId rootId,
@@ -357,8 +357,9 @@ bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& predi
         return true;
     }
 
-    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( prediction.trajectoryBuild.rootId, ReplayTrajectoryLane::FutureRoot,
-                                                                                                 REPLAY_TRAJECTORY_BUILD_BRANCH ) );
+    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( prediction.trajectoryBuild.rootId, ReplayTrajectoryLane::FutureRoot,
+                             REPLAY_TRAJECTORY_BUILD_BRANCH ) );
 
     if ( !record || frameSlot >= record->points.size() )
     {
@@ -390,8 +391,9 @@ bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState&
         return false;
     }
 
-    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( prediction.trajectoryBuild.rootId, ReplayTrajectoryLane::FutureRoot,
-                                                                                                 REPLAY_TRAJECTORY_BUILD_BRANCH ) );
+    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( prediction.trajectoryBuild.rootId, ReplayTrajectoryLane::FutureRoot,
+                             REPLAY_TRAJECTORY_BUILD_BRANCH ) );
 
     if ( !record )
     {
@@ -493,7 +495,8 @@ bool BuildReplayPredictionChildTrajectoryRecord( RunReplayPredictionState& predi
 
     ReplayTrajectoryRecord* record = BeginReplayTrajectoryRecord( prediction.trajectoryStore,
                                                                   ReplayTrajectoryKey( node.id, lane, branchOrdinal ),
-                                                                  static_cast<uint16_t>( std::clamp( node.depth, 0, 0xFFFF ) ),
+                                                                  static_cast<uint16_t>(
+                                                                      std::clamp( node.depth, 0, 0xFFFF ) ),
                                                                   node.parentId, node.depth, node.firstFrame,
                                                                   node.contactDerived, pointCapacity );
 
@@ -553,7 +556,8 @@ bool AppendReplayPredictionChildTrajectoryFrames( RunReplayPredictionState& pred
                                                   bool usingBuildFrames, ReplayTrajectoryLane lane )
 {
     const uint16_t branchOrdinal = ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames );
-    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( node.id, lane, branchOrdinal ) );
+    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( node.id, lane, branchOrdinal ) );
 
     if ( !record )
     {
@@ -626,7 +630,8 @@ bool ReplayPredictionChildTrajectoryRecordMatches( const RunReplayPredictionStat
                                                    const RunReplayPathTraceNode& node, std::size_t nodeIndex,
                                                    bool usingBuildFrames, ReplayTrajectoryLane lane )
 {
-    const ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( node.id, lane, ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames ) ) );
+    const ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( node.id, lane, ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames ) ) );
 
     return record && record->styleId == static_cast<uint16_t>( std::clamp( node.depth, 0, 0xFFFF ) ) &&
            record->parentId.value == node.parentId.value && record->depth == node.depth &&
@@ -662,7 +667,8 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
         const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
 
         if ( seedBody.id.value != 0u && seedBody.id.value != rootId.value &&
-             !prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
+             !prediction.trajectoryStore.FindRecord(
+                 ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
         {
             builtPrefixMissing = true;
             break;
@@ -732,7 +738,8 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
             continue;
         }
 
-        bodyRecords[bodyIndex] = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) );
+        bodyRecords[bodyIndex] = prediction.trajectoryStore.FindRecord(
+            ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) );
 
         if ( !bodyRecords[bodyIndex] )
         {
@@ -1038,88 +1045,6 @@ bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySa
     return VectorMagSquared( body.linearVelocity ) >= REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ;
 }
 
-std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
-                                                     std::size_t frameCount, ReplayFrameIndex revealFrame,
-                                                     Physics::PhysicsSceneObjectId rootId, int rootModelIndex,
-                                                     std::span<const RunReplayPathTraceNode> futureNodes,
-                                                     ReplayPredictionSceneView scene,
-                                                     std::span<ReplayPredictionAffectedBodyTrail> outTrails )
-{
-    frameCount = (std::min)( frameCount, frames.size() );
-
-    if ( frameCount < 2 || rootId.value == 0 || outTrails.empty() )
-    {
-        return 0;
-    }
-
-    const auto idIsAlreadyPublished = [futureNodes]( Physics::PhysicsSceneObjectId id )
-    {
-        for ( const RunReplayPathTraceNode& node : futureNodes )
-        {
-            if ( node.id.value == id.value )
-            {
-                return true;
-            }
-        }
-
-        return false;
-    };
-
-    // Concept: affected-body trails are visual evidence, not contact authority.
-    // The future-node cache is authoritative when it already names a body; this
-    // bounded fallback derives only bodies whose motion is visible by revealFrame.
-    std::size_t trailCount = 0;
-    const RunReplayPredictionFrame& firstFrame = frames.front();
-
-    for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
-    {
-        if ( trailCount >= outTrails.size() )
-        {
-            break;
-        }
-
-        if ( initialBody.id.value == 0 || initialBody.id.value == rootId.value ||
-             initialBody.modelRow.value == rootModelIndex || idIsAlreadyPublished( initialBody.id ) ||
-             ReplayModelIndexIsRagdollPart( scene, initialBody.modelRow.value ) )
-        {
-            continue;
-        }
-
-        for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
-        {
-            // Why: delaying construction until the first revealed motion keeps
-            // both marker publication and drawing from pre-spawning the body.
-            if ( frames[frameSlot].frameIndex > revealFrame )
-            {
-                break;
-            }
-
-            const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frames[frameSlot],
-                                                                                              initialBody.id,
-                                                                                              initialBody.modelRow.value );
-
-            if ( !body || !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
-            {
-                continue;
-            }
-
-            ReplayPredictionAffectedBodyTrail& trail = outTrails[trailCount++];
-            trail.id = initialBody.id;
-            trail.modelRow.value = body->modelRow.value;
-            trail.firstFrameSlot = frameSlot;
-            trail.firstFrame = frames[frameSlot].frameIndex;
-            trail.lastMotionFrame = frames[frameSlot].frameIndex;
-            trail.previous = initialBody.position;
-            trail.entryPosition = initialBody.position;
-            trail.entryOrientation = initialBody.orientation;
-            trail.entryOrientation.Normalise();
-            break;
-        }
-    }
-
-    return trailCount;
-}
-
 // Concept: rest is decided by how the story ends, never by a momentary pause.
 //
 // A body has a resting pose only when the COMPLETED prediction ends with it
@@ -1289,7 +1214,8 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
 
     const RunReplayPredictionFrame& firstFrame = frames.front();
     const RunReplayPredictionFrame& lastFrame = frames[frameCount - 1];
-    const std::size_t bodyCapacity = (std::min)( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
+    const std::size_t bodyCapacity = (std::min)( static_cast<std::size_t>(
+                                                     SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
                                                  firstFrame.bodies.size() );
 
     const int reserveFrame = static_cast<int>( lastFrame.frameIndex );

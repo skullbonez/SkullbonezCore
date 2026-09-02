@@ -776,14 +776,6 @@ void Run::Initialise()
         return;
     }
 
-    const SkullbonezCore::Core::SbResult cameraTimerStartupResult = m_camera.InitialiseTiming( m_resultDiagnostics );
-
-    if ( !cameraTimerStartupResult.Ok() )
-    {
-        m_lastSceneLoadResult = cameraTimerStartupResult;
-        return;
-    }
-
     if ( !m_camera.ConfigureMovement( m_config.camera ) )
     {
         m_lastSceneLoadResult = m_resultDiagnostics.Failure( "Runtime/Camera",

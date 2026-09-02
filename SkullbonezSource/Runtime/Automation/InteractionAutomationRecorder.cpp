@@ -62,11 +62,12 @@ constexpr int INTERACTION_RECORDING_HARD_FRAMES = static_cast<int>( InteractionA
 
 CoreAllocation::RuntimeReserveOwnerHandle InteractionRecordingReserveOwner()
 {
-    static const CoreAllocation::RuntimeReserveOwnerHandle owner = CoreAllocation::RuntimeReserveAllocator::RegisterOwner( { INTERACTION_RECORDING_RESERVE_OWNER, CoreAllocation::RuntimeReserveSubsystem::Diagnostics,
-                                                                                                                             CoreAllocation::RuntimeReservePhase::Diagnostics, 0, INTERACTION_RECORDING_HARD_FRAMES,
-                                                                                                                             CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, false,
-                                                                                                                             "F8 interaction tape grows in one-minute chunks only while explicitly recording", false,
-                                                                                                                             static_cast<int>( sizeof( RecordedInputFrame ) ) } );
+    static const CoreAllocation::RuntimeReserveOwnerHandle owner = CoreAllocation::RuntimeReserveAllocator::RegisterOwner(
+        { INTERACTION_RECORDING_RESERVE_OWNER, CoreAllocation::RuntimeReserveSubsystem::Diagnostics,
+          CoreAllocation::RuntimeReservePhase::Diagnostics, 0, INTERACTION_RECORDING_HARD_FRAMES,
+          CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, false,
+          "F8 interaction tape grows in one-minute chunks only while explicitly recording", false,
+          static_cast<int>( sizeof( RecordedInputFrame ) ) } );
 
     return owner;
 }
@@ -592,7 +593,11 @@ Core::SbResult InteractionAutomationRecorder::SaveManifestAtomically( Core::SbDi
                             { "solverTrackPosition", m_baseline.replaySolverTrackPosition },
                             { "pathTarget", m_baseline.replayPathTargetName },
                             { "causeInspection", std::move( causeInspection ) } };
-    root["baseline"] = { { "camera", { { "mode", m_baseline.cameraMode } } },
+    root["baseline"] = { { "camera",
+                           { { "mode", m_baseline.cameraMode },
+                             { "sceneMode", m_baseline.sceneMode },
+                             { "selectedDemoCamera", m_baseline.demoSelectedCamera },
+                             { "demoCycleSeconds", m_baseline.demoCameraCycleSeconds } } },
                          { "interaction", { { "worldOwner", m_baseline.worldInteractionOwner } } },
                          { "tools",
                            { { "editorMode", m_baseline.editorModeEnabled },

@@ -37,6 +37,7 @@ Related:
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -61,6 +62,7 @@ namespace Runtime
 {
 class EditorTracer;
 class SceneEntityStore;
+struct ReplayPredictionPresentationRetainedState;
 
 struct ReplayPredictionPresentationMemoryStats
 {
@@ -74,6 +76,7 @@ class ReplayPredictionPresentation
 {
   public:
     ReplayPredictionPresentation( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler = nullptr );
+    ~ReplayPredictionPresentation();
 
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
     ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;
@@ -142,9 +145,10 @@ class ReplayPredictionPresentation
 
     // Invariant: these fields are the sole retained Prediction trajectory
     // presentation state. App may sequence commands but cannot mutate cursors.
-    ReplayOverlay::ReplayPredictionRetainedGeometry m_retainedGeometry;
+    // Lifetime: fixed-capacity retained banks are startup-owned but too large
+    // for transient verification or composition stack frames.
+    std::unique_ptr<ReplayPredictionPresentationRetainedState> m_retainedState;
     EditorTracer m_retainedMarkerDrawList;
-    ReplayOverlay::ReplayPredictionDrawListState m_retainedDrawListState;
     ReplayVisualPacket m_retainedDrawPacket;
     uint64_t m_retainedDrawStreamId = 1;
     uint64_t m_retainedDrawRevision = 0;

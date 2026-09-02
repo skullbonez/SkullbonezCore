@@ -40,9 +40,9 @@ using AuthoredSceneParserDetail::ReadUnitFloat;
 using AuthoredSceneParserDetail::ReadVec3;
 using AuthoredSceneParserDetail::ReadVec4;
 using AuthoredSceneParserDetail::RequireArray;
+using AuthoredSceneParserDetail::RequireFiniteUnit;
 using AuthoredSceneParserDetail::RequireMember;
 using AuthoredSceneParserDetail::RequireObject;
-using AuthoredSceneParserDetail::RequireFiniteUnit;
 using AuthoredSceneParserDetail::RequirePositiveFinite;
 using AuthoredSceneParserDetail::RequirePositiveFiniteVec3;
 using AuthoredSceneParserDetail::SetObjectMaterialBaseColor;
@@ -223,7 +223,8 @@ void AuthoredSceneParser::ApplyConvexHull( const Json& object, const std::string
     CopyOptionalContactMaterial( hull.contactMaterial, object, path, "convexHull.contactMaterial" );
     hull.isFixed = isFixed;
     hull.contactReleaseOnImpact = SkullbonezCore::Assets::HullAssetTokenDefaultsToContactRelease( hull.hullPath );
-    hull.contactReleaseImpulseThreshold = SkullbonezCore::Assets::HullAssetTokenDefaultContactReleaseThreshold( hull.hullPath );
+    hull.contactReleaseImpulseThreshold = SkullbonezCore::Assets::HullAssetTokenDefaultContactReleaseThreshold(
+        hull.hullPath );
 
     if ( const Json* fixed = FindMember( object, "fixed" ) )
     {
@@ -276,6 +277,7 @@ void AuthoredSceneParser::ApplyConvexHull( const Json& object, const std::string
 
 void AuthoredSceneParser::ApplyBallState( const Json& object, const std::string& path )
 {
+    const uint32_t sourceIndex = static_cast<uint32_t>( m_scene.m_ballStates.size() );
     SceneBallState state = {};
     state.sceneObjectId = ReadSceneObjectId( object, path, "ballState" );
 
@@ -336,10 +338,13 @@ void AuthoredSceneParser::ApplyBallState( const Json& object, const std::string&
     }
 
     m_scene.m_ballStates.push_back( state );
+    m_scene.m_snapshotPrimitiveOrder.push_back(
+        SceneSnapshotPrimitiveOrderEntry { sourceIndex, SceneAssetPartSource::BallState } );
 }
 
 void AuthoredSceneParser::ApplyBoxState( const Json& object, const std::string& path )
 {
+    const uint32_t sourceIndex = static_cast<uint32_t>( m_scene.m_boxStates.size() );
     SceneBoxState state = {};
     state.sceneObjectId = ReadSceneObjectId( object, path, "boxState" );
 
@@ -399,6 +404,8 @@ void AuthoredSceneParser::ApplyBoxState( const Json& object, const std::string& 
     }
 
     m_scene.m_boxStates.push_back( state );
+    m_scene.m_snapshotPrimitiveOrder.push_back(
+        SceneSnapshotPrimitiveOrderEntry { sourceIndex, SceneAssetPartSource::BoxState } );
 }
 
 void AuthoredSceneParser::ApplyConvexHullState( const Json& object, const std::string& path )
@@ -448,8 +455,7 @@ void AuthoredSceneParser::ApplyConvexHullState( const Json& object, const std::s
 
     if ( ParserFailed() || !RequirePositiveFinite( state.mass, path, "convexHullState.mass" ) ||
          !RequireFiniteUnit( state.restitution, path, "convexHullState.restitution" ) ||
-         !RequirePositiveFiniteVec3( state.inertiaX, state.inertiaY, state.inertiaZ, path,
-                                     "convexHullState.inertia" ) )
+         !RequirePositiveFiniteVec3( state.inertiaX, state.inertiaY, state.inertiaZ, path, "convexHullState.inertia" ) )
     {
         return;
     }
@@ -457,7 +463,8 @@ void AuthoredSceneParser::ApplyConvexHullState( const Json& object, const std::s
     state.isFixed = ReadBool( RequireMember( object, path, "convexHullState", "fixed" ), path, "convexHullState.fixed" );
 
     state.contactReleaseOnImpact = SkullbonezCore::Assets::HullAssetTokenDefaultsToContactRelease( state.hullPath );
-    state.contactReleaseImpulseThreshold = SkullbonezCore::Assets::HullAssetTokenDefaultContactReleaseThreshold( state.hullPath );
+    state.contactReleaseImpulseThreshold = SkullbonezCore::Assets::HullAssetTokenDefaultContactReleaseThreshold(
+        state.hullPath );
 
     if ( const Json* sleeping = FindMember( object, "sleeping" ) )
     {

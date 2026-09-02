@@ -553,6 +553,32 @@ const SceneConvexHullState& AuthoredScene::GetConvexHullState( int index ) const
 }
 
 
+bool AuthoredScene::HasOrderedPrimitiveSnapshot() const
+{
+    const std::size_t primitiveStateCount = m_ballStates.size() + m_boxStates.size();
+    return primitiveStateCount > 0u && m_snapshotPrimitiveOrder.size() == primitiveStateCount && m_balls.empty() &&
+           m_boxes.empty() && m_convexHulls.empty() && m_convexHullStates.empty() && m_ragdolls.empty();
+}
+
+
+int AuthoredScene::GetSnapshotPrimitiveOrderCount() const
+{
+    return static_cast<int>( m_snapshotPrimitiveOrder.size() );
+}
+
+
+const SceneSnapshotPrimitiveOrderEntry& AuthoredScene::GetSnapshotPrimitiveOrder( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_snapshotPrimitiveOrder.size() ) )
+    {
+        FatalSceneIndexOutOfRange( "SnapshotPrimitiveOrder", "AuthoredScene::GetSnapshotPrimitiveOrder", index,
+                                   static_cast<int>( m_snapshotPrimitiveOrder.size() ) );
+    }
+
+    return m_snapshotPrimitiveOrder[index];
+}
+
+
 int AuthoredScene::GetRagdollCount() const
 {
     return static_cast<int>( m_ragdolls.size() );

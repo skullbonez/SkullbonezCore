@@ -85,6 +85,9 @@ struct RecordedInputFrame
 struct InteractionRecordingBaseline
 {
     int cameraMode = 0;
+    bool sceneMode = false;
+    int demoSelectedCamera = -1;
+    float demoCameraCycleSeconds = 0.0f;
     int worldInteractionOwner = 0;
     int activeUiTab = 0;
     int developmentUiSurface = 0;

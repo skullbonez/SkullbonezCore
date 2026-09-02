@@ -119,6 +119,11 @@ bool PredictionTopologyMatchesPresentation( std::span<const ReplayTrajectoryReco
 
     for ( const RunReplayPathTraceNode& node : nodes )
     {
+        if ( !node.contactDerived )
+        {
+            return false;
+        }
+
         const bool parentReachable = std::any_of( reachableIds.begin(), reachableIds.end(),
                                                   [&node]( SkullbonezCore::Physics::PhysicsSceneObjectId id )
                                                   { return id.value == node.parentId.value; } );
@@ -429,16 +434,15 @@ TEST_CASE( "Replay committed all-body builder publishes coherent frame slices ac
 
 bool SeedCommittedTrajectoryScheduleRecord( RunReplayPredictionState& state,
                                             std::span<const RunReplayPredictionFrame> frames,
-                                            SkullbonezCore::Physics::PhysicsSceneObjectId rootId,
-                                            ReplayTrajectoryLane lane, std::size_t pointCount,
-                                            ReplayFrameIndex firstFrame )
+                                            SkullbonezCore::Physics::PhysicsSceneObjectId rootId, ReplayTrajectoryLane lane,
+                                            std::size_t pointCount, ReplayFrameIndex firstFrame )
 {
     ReplayTrajectoryRecordKey key;
     key.bodyId.value = 2u;
     key.lane = lane;
     key.branchOrdinal = static_cast<uint16_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY );
-    ReplayTrajectoryRecord* record =
-        state.trajectoryStore.BeginReplaceRecord( key, 1u, rootId, 1, firstFrame, true, frames.size() );
+    ReplayTrajectoryRecord* record = state.trajectoryStore.BeginReplaceRecord( key, 1u, rootId, 1, firstFrame, true,
+                                                                               frames.size() );
 
     if ( !record || !state.trajectoryStore.ReserveRecordPoints( *record, frames.size(), 0 ) )
     {
@@ -463,8 +467,8 @@ bool SeedCommittedTrajectoryScheduleRecord( RunReplayPredictionState& state,
 
 bool PrepareCommittedTrajectoryScheduleState( RunReplayPredictionState& state,
                                               std::span<const RunReplayPredictionFrame> frames,
-                                              SkullbonezCore::Physics::PhysicsSceneObjectId rootId,
-                                              uint32_t topologyVersion, std::size_t nodeCount )
+                                              SkullbonezCore::Physics::PhysicsSceneObjectId rootId, uint32_t topologyVersion,
+                                              std::size_t nodeCount )
 {
     state.simulation.frames.assign( frames.begin(), frames.end() );
     state.simulation.committedFrameCount = frames.size();
@@ -485,8 +489,7 @@ bool PrepareCommittedTrajectoryScheduleState( RunReplayPredictionState& state,
     constexpr std::size_t incomingPointCount = 2u;
 
     if ( !SeedCommittedTrajectoryScheduleRecord( state, frames, rootId, ReplayTrajectoryLane::FutureChildIncoming,
-                                                 incomingPointCount,
-                                                 static_cast<ReplayFrameIndex>( incomingPointCount ) ) ||
+                                                 incomingPointCount, static_cast<ReplayFrameIndex>( incomingPointCount ) ) ||
          !SeedCommittedTrajectoryScheduleRecord( state, frames, rootId, ReplayTrajectoryLane::FutureChildOutgoing,
                                                  frames.size() - incomingPointCount,
                                                  static_cast<ReplayFrameIndex>( incomingPointCount ) ) ||
@@ -511,8 +514,6 @@ bool PrepareCommittedTrajectoryScheduleState( RunReplayPredictionState& state,
 
     state.futureNodeCache.futureNodesTopologyVersion = topologyVersion;
     state.futureNodeCache.futureNodesBuiltFrameCount = frames.size();
-    state.futureNodeCache.futureNodesAffectedFrameCount = frames.size();
-    state.futureNodeCache.futureNodesAffectedComplete = true;
     state.futureNodeCache.futureNodesBuiltTargetId = rootId;
     state.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
     state.futureNodeCache.futureNodesCacheValid = true;
@@ -521,8 +522,8 @@ bool PrepareCommittedTrajectoryScheduleState( RunReplayPredictionState& state,
     state.futureNodeCache.retainedMarkers[0].hasEntryPose = true;
     state.futureNodeCache.retainedMarkerCount = 1u;
     state.futureNodeCache.childMarkerScan.nodeCount = nodeCount;
-    state.futureNodeCache.childMarkerScan.Commit( state.build.generationBeginCount, topologyVersion, rootId,
-                                                  frames.size(), state.revealClock.presentedFrame, false, true );
+    state.futureNodeCache.childMarkerScan.Commit( state.build.generationBeginCount, topologyVersion, rootId, frames.size(),
+                                                  state.revealClock.presentedFrame, false, true );
 
     RunReplayPredictionTrajectoryBuildState visibleBuild;
     visibleBuild.rootId = rootId;
@@ -532,8 +533,8 @@ bool PrepareCommittedTrajectoryScheduleState( RunReplayPredictionState& state,
     visibleBuild.topologyVersion = topologyVersion;
     visibleBuild.valid = true;
     state.committedPublication.visibleFutureNodes.reserve( nodeCount );
-    return state.committedPublication.CaptureVisible( visibleBuild, state.futureNodeCache,
-                                                      state.simulation.targetModelRow, true, true, frames.size(),
+    return state.committedPublication.CaptureVisible( visibleBuild, state.futureNodeCache, state.simulation.targetModelRow,
+                                                      true, true, frames.size(),
                                                       state.trajectoryStore.publicationVersion ) &&
            state.committedPublication.ActivateCaptured( state.build.generationBeginCount, frames.size() );
 }
@@ -567,9 +568,8 @@ std::size_t RunCommittedTrajectorySchedule( RunReplayPredictionState& state,
                                                budgetMilliseconds );
         const ReplayPredictionPresentationView beforeFlip = ReplayPrediction::PresentationViewFromState( state, true );
         CHECK( beforeFlip.pathPresentation == ReplayPredictionPathPresentation::SelectedCausalTree );
-        (void)TryFlipReplayPredictionCommittedPublication( state, rootId, frames.size(),
-                                                           state.revealClock.presentedFrame, budgetStart,
-                                                           budgetMilliseconds );
+        (void)TryFlipReplayPredictionCommittedPublication( state, rootId, frames.size(), state.revealClock.presentedFrame,
+                                                           budgetStart, budgetMilliseconds );
     }
 
     ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck.reset();
@@ -579,8 +579,7 @@ std::size_t RunCommittedTrajectorySchedule( RunReplayPredictionState& state,
 std::size_t RunCommittedTrajectoryAppendSchedule( RunReplayPredictionState& state,
                                                   const std::vector<RunReplayPredictionFrame>& frames,
                                                   SkullbonezCore::Physics::PhysicsSceneObjectId rootId,
-                                                  std::span<const std::size_t> expiryChecks,
-                                                  bool& observedPartialAppend )
+                                                  std::span<const std::size_t> expiryChecks, bool& observedPartialAppend )
 {
     std::size_t passCount = 0u;
 
@@ -598,8 +597,8 @@ std::size_t RunCommittedTrajectoryAppendSchedule( RunReplayPredictionState& stat
             ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck = expiryChecks[passCount % expiryChecks.size()];
         }
 
-        UpdateReplayPredictionTrajectoryStore( state, frames, frames.size(), false, rootId,
-                                               std::chrono::steady_clock::now(), budgetMilliseconds );
+        UpdateReplayPredictionTrajectoryStore( state, frames, frames.size(), false, rootId, std::chrono::steady_clock::now(),
+                                               budgetMilliseconds );
         observedPartialAppend = observedPartialAppend || ( state.trajectoryBuild.childAppendNodeIndex > 0u &&
                                                            state.trajectoryBuild.childFrameCount < frames.size() );
     }
@@ -720,12 +719,15 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
     bool narrowObservedPartialAppend = false;
     bool variedObservedPartialAppend = false;
     bool uninterruptedObservedPartialAppend = false;
-    const std::size_t narrowAppendPassCount = RunCommittedTrajectoryAppendSchedule(
-        *narrowSlices, frames, rootId, narrowSchedule, narrowObservedPartialAppend );
-    const std::size_t variedAppendPassCount = RunCommittedTrajectoryAppendSchedule(
-        *variedSlices, frames, rootId, variedAppendSchedule, variedObservedPartialAppend );
-    const std::size_t uninterruptedAppendPassCount = RunCommittedTrajectoryAppendSchedule(
-        *uninterrupted, frames, rootId, {}, uninterruptedObservedPartialAppend );
+    const std::size_t narrowAppendPassCount = RunCommittedTrajectoryAppendSchedule( *narrowSlices, frames, rootId,
+                                                                                    narrowSchedule,
+                                                                                    narrowObservedPartialAppend );
+    const std::size_t variedAppendPassCount = RunCommittedTrajectoryAppendSchedule( *variedSlices, frames, rootId,
+                                                                                    variedAppendSchedule,
+                                                                                    variedObservedPartialAppend );
+    const std::size_t
+        uninterruptedAppendPassCount = RunCommittedTrajectoryAppendSchedule( *uninterrupted, frames, rootId, {},
+                                                                             uninterruptedObservedPartialAppend );
     CHECK( narrowAppendPassCount > 1u );
     CHECK( variedAppendPassCount > 1u );
     CHECK( uninterruptedAppendPassCount == 1u );
@@ -889,8 +891,6 @@ TEST_CASE( "Replay fast completion keeps committed trajectories visible until th
     state->futureNodeCache.futureNodes.push_back( node );
     state->futureNodeCache.futureNodesTopologyVersion = topologyVersion;
     state->futureNodeCache.futureNodesBuiltFrameCount = frameCount;
-    state->futureNodeCache.futureNodesAffectedFrameCount = frameCount;
-    state->futureNodeCache.futureNodesAffectedComplete = true;
     state->futureNodeCache.futureNodesBuiltTargetId = rootId;
     state->futureNodeCache.futureNodesBuiltFromBuildFrames = false;
     state->futureNodeCache.futureNodesCacheValid = true;
@@ -987,7 +987,7 @@ TEST_CASE( "Replay presentation holds the exact pending frame and version bank" 
     auto state = std::make_unique<RunReplayPredictionState>();
     state->simulation.frames.resize( 200u );
     state->simulation.committedFrameCount = 200u;
-    state->simulation.targetId.value = 41u;
+    state->simulation.targetId.value = 99u;
     state->trajectoryStore.publicationVersion = 99u;
     state->committedPublication.pending = true;
     state->committedPublication.visibleFrameCount = 120u;
@@ -1006,6 +1006,7 @@ TEST_CASE( "Replay presentation holds the exact pending frame and version bank" 
     CHECK( pending.timeline.frames.size() == 120u );
     CHECK( pending.timeline.frames.data() == state->simulation.frames.data() );
     CHECK( pending.topology.futureNodes.data() == state->committedPublication.visibleFutureNodes.data() );
+    CHECK( pending.topology.targetId.value == 41u );
     CHECK( pending.trajectory.publicationVersion == 81u );
     CHECK( pending.topology.treeReady );
 
@@ -1427,11 +1428,12 @@ void InitializeReplayChildMarkerNode( RunReplayPredictionState& prediction, std:
     node.contactDerived = nodeIndex % 2u == 0u;
 }
 
-ReplayPredictionChildMarkerScanState
-BuildLegacyReplayChildMarkerScan( const RunReplayPredictionState& prediction,
-                                  std::span<const RunReplayPredictionFrame> frames, std::size_t frameCount,
-                                  ReplayFrameIndex revealFrame, uint32_t generation,
-                                  SkullbonezCore::Physics::PhysicsSceneObjectId rootId, bool usingBuildFrames )
+ReplayPredictionChildMarkerScanState BuildLegacyReplayChildMarkerScan( const RunReplayPredictionState& prediction,
+                                                                       std::span<const RunReplayPredictionFrame> frames,
+                                                                       std::size_t frameCount, ReplayFrameIndex revealFrame,
+                                                                       uint32_t generation,
+                                                                       SkullbonezCore::Physics::PhysicsSceneObjectId rootId,
+                                                                       bool usingBuildFrames )
 {
     ReplayPredictionChildMarkerScanState full;
     frameCount = (std::min)( frameCount, frames.size() );
@@ -1465,8 +1467,8 @@ BuildLegacyReplayChildMarkerScan( const RunReplayPredictionState& prediction,
                 continue;
             }
 
-            const RunReplayPredictionBodySample* body =
-                FindReplayPredictionBodyByIdWithHint( frame, drawState.node.id, drawState.node.modelRow.value );
+            const RunReplayPredictionBodySample*
+                body = FindReplayPredictionBodyByIdWithHint( frame, drawState.node.id, drawState.node.modelRow.value );
 
             if ( !body )
             {
@@ -1480,8 +1482,9 @@ BuildLegacyReplayChildMarkerScan( const RunReplayPredictionState& prediction,
                     continue;
                 }
 
-                const RunReplayPredictionBodySample* initialSample =
-                    FindReplayPredictionBodyByIdWithHint( frames[0], drawState.node.id, body->modelRow.value );
+                const RunReplayPredictionBodySample*
+                    initialSample = FindReplayPredictionBodyByIdWithHint( frames[0], drawState.node.id,
+                                                                          body->modelRow.value );
                 drawState.active = true;
                 drawState.hasEntryPose = true;
                 drawState.entryModelIndex = body->modelRow.value;
@@ -1531,9 +1534,9 @@ void CheckReplayMarkerOrientation( const SkullbonezCore::Math::Orientation::Quat
 void CompareReplayChildMarkerScanWithLegacy( ReplayPredictionChildMarkerScanState& incremental,
                                              RunReplayPredictionState& prediction,
                                              const std::vector<RunReplayPredictionFrame>& frames,
-                                             SkullbonezCore::Physics::PhysicsSceneObjectId rootId,
-                                             std::size_t frameCount, ReplayFrameIndex revealFrame, uint32_t generation,
-                                             bool usingBuildFrames, bool& observedPartialMarkerScan )
+                                             SkullbonezCore::Physics::PhysicsSceneObjectId rootId, std::size_t frameCount,
+                                             ReplayFrameIndex revealFrame, uint32_t generation, bool usingBuildFrames,
+                                             bool& observedPartialMarkerScan )
 {
     constexpr std::array<std::size_t, 4u> expirySchedule { 3u, 1u, 4u, 2u };
     const bool bufferComplete = (std::min)( frameCount, frames.size() ) == frames.size();
@@ -1553,23 +1556,25 @@ void CompareReplayChildMarkerScanWithLegacy( ReplayPredictionChildMarkerScanStat
 
         if ( !scanComplete )
         {
-            const std::size_t visibleFrameCount =
-                (std::min)( frameCount, static_cast<std::size_t>( revealFrame ) + 1u );
-            const bool anyProgress = std::any_of(
-                incremental.nodes.begin(), incremental.nodes.begin() + incremental.nodeCount,
-                []( const ReplayPredictionChildMarkerNodeScanState& node ) { return node.scannedFrameCount > 0u; } );
-            const bool anyIncomplete = std::any_of(
-                incremental.nodes.begin(), incremental.nodes.begin() + incremental.nodeCount,
-                [visibleFrameCount]( const ReplayPredictionChildMarkerNodeScanState& node )
-                { return node.scannedFrameCount < visibleFrameCount; } );
+            const std::size_t visibleFrameCount = (std::min)( frameCount, static_cast<std::size_t>( revealFrame ) + 1u );
+            const bool anyProgress = std::any_of( incremental.nodes.begin(),
+                                                  incremental.nodes.begin() + incremental.nodeCount,
+                                                  []( const ReplayPredictionChildMarkerNodeScanState& node )
+                                                  { return node.scannedFrameCount > 0u; } );
+            const bool anyIncomplete = std::any_of( incremental.nodes.begin(),
+                                                    incremental.nodes.begin() + incremental.nodeCount,
+                                                    [visibleFrameCount](
+                                                        const ReplayPredictionChildMarkerNodeScanState& node )
+                                                    { return node.scannedFrameCount < visibleFrameCount; } );
             observedPartialMarkerScan = observedPartialMarkerScan || ( anyProgress && anyIncomplete );
         }
     }
 
     ReplayPredictionSchedulingOperations::forcedBudgetExpiryCheck.reset();
     REQUIRE( scanComplete );
-    const ReplayPredictionChildMarkerScanState full = BuildLegacyReplayChildMarkerScan(
-        prediction, frames, frameCount, revealFrame, generation, rootId, usingBuildFrames );
+    const ReplayPredictionChildMarkerScanState full = BuildLegacyReplayChildMarkerScan( prediction, frames, frameCount,
+                                                                                        revealFrame, generation, rootId,
+                                                                                        usingBuildFrames );
     REQUIRE( incremental.nodeCount == full.nodeCount );
     CHECK( incremental.Matches( generation, prediction.futureNodeCache.futureNodesTopologyVersion, full.nodeCount, rootId,
                                 (std::min)( frameCount, frames.size() ), revealFrame, usingBuildFrames, bufferComplete ) );
@@ -1654,8 +1659,8 @@ TEST_CASE( "Replay incremental child marker scan matches the legacy full scan ac
     ReplayPredictionChildMarkerScanState incremental;
 
     bool observedPartialMarkerScan = false;
-    const auto compareWithLegacy = [&]( std::size_t frameCount, ReplayFrameIndex revealFrame, uint32_t generation,
-                                        bool usingBuildFrames )
+    const auto compareWithLegacy =
+        [&]( std::size_t frameCount, ReplayFrameIndex revealFrame, uint32_t generation, bool usingBuildFrames )
     {
         CompareReplayChildMarkerScanWithLegacy( incremental, *prediction, frames, rootId, frameCount, revealFrame,
                                                 generation, usingBuildFrames, observedPartialMarkerScan );
@@ -1724,6 +1729,7 @@ TEST_CASE( "Replay prediction draw cursor resumes at its suffix and reuses stabl
     CHECK_FALSE( ReplayOverlay::IsReplayPredictionDrawListPublicationStable( true, 19u, 2400, 19u, 2400 ) );
     CHECK_FALSE( ReplayOverlay::IsReplayPredictionDrawListPublicationStable( false, 18u, 2400, 19u, 2400 ) );
     CHECK_FALSE( ReplayOverlay::IsReplayPredictionDrawListPublicationStable( false, 19u, 2399, 19u, 2400 ) );
+    CHECK_FALSE( ReplayOverlay::IsReplayPredictionDrawListPublicationStable( false, 19u, 2400, 19u, 2400, 7u, 8u ) );
 
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 0u ) == 1u );
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 1u ) == 1u );
@@ -1937,6 +1943,7 @@ TEST_CASE( "Replay prediction topology oracle rejects all-body roots without exp
     child.parentId = selectedId;
     child.depth = 1;
     child.firstFrame = 40u;
+    child.contactDerived = true;
     const std::array causalNodes = { child };
 
     REQUIRE( PredictionTopologyMatchesPresentation( causalRecords, causalNodes, selectedId,
@@ -1957,6 +1964,12 @@ TEST_CASE( "Replay prediction topology oracle rejects all-body roots without exp
     orphanChildRecords[3] = causalRecords[1];
     orphanChildRecords[3].key.bodyId = disconnectedId;
     CHECK_FALSE( PredictionTopologyMatchesPresentation( orphanChildRecords, causalNodes, selectedId,
+                                                        ReplayPredictionPathPresentation::SelectedCausalTree ) );
+
+    RunReplayPathTraceNode motionOnlyChild = child;
+    motionOnlyChild.contactDerived = false;
+    const std::array motionOnlyNodes = { motionOnlyChild };
+    CHECK_FALSE( PredictionTopologyMatchesPresentation( causalRecords, motionOnlyNodes, selectedId,
                                                         ReplayPredictionPathPresentation::SelectedCausalTree ) );
 
     RunReplayPathTraceNode cycleBackToRoot = child;

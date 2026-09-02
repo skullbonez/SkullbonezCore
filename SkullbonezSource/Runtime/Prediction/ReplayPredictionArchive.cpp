@@ -833,6 +833,8 @@ static bool LoadLegacyReplayPredictionArchive( std::span<const uint8_t> bytes, R
     }
 
     prediction.futureNodeCache.retainedMarkerCount = markerCount;
+    prediction.futureNodeCache.retainedMarkersVersion = markerCount > 0u ? 1u : 0u;
+    prediction.futureNodeCache.nextRetainedMarkersVersion = markerCount > 0u ? 2u : 1u;
     prediction.futureNodeCache.childMarkerScan.Reset();
 
     uint32_t recordCount = 0;
@@ -1459,9 +1461,6 @@ void CommitArchivePayload( RunReplayPathVisualizerState& destinationPath, RunRep
     destinationPrediction.futureNodeCache.futureNodesBuiltFrameCount = candidatePrediction.futureNodeCache
                                                                            .futureNodesBuiltFrameCount;
     destinationPrediction.futureNodeCache.futureNodesBuiltContactIndex = 0u;
-    destinationPrediction.futureNodeCache.futureNodesAffectedBodyCursor = 0u;
-    destinationPrediction.futureNodeCache.futureNodesAffectedFrameCount = 0u;
-    destinationPrediction.futureNodeCache.futureNodesAffectedComplete = true;
     destinationPrediction.futureNodeCache.futureNodesBuiltTargetId = candidatePrediction.futureNodeCache
                                                                          .futureNodesBuiltTargetId;
     destinationPrediction.futureNodeCache.futureNodesTopologyVersion = candidatePrediction.futureNodeCache
@@ -1474,6 +1473,10 @@ void CommitArchivePayload( RunReplayPathVisualizerState& destinationPath, RunRep
     destinationPrediction.futureNodeCache.futureNodesCacheValid = true;
     destinationPrediction.futureNodeCache.retainedMarkers = candidatePrediction.futureNodeCache.retainedMarkers;
     destinationPrediction.futureNodeCache.retainedMarkerCount = candidatePrediction.futureNodeCache.retainedMarkerCount;
+    destinationPrediction.futureNodeCache.retainedMarkersVersion = candidatePrediction.futureNodeCache
+                                                                       .retainedMarkersVersion;
+    destinationPrediction.futureNodeCache.nextRetainedMarkersVersion = candidatePrediction.futureNodeCache
+                                                                           .nextRetainedMarkersVersion;
     destinationPrediction.futureNodeCache.childMarkerScan.Reset();
 
     swap( destinationPrediction.trajectoryStore, candidatePrediction.trajectoryStore );
