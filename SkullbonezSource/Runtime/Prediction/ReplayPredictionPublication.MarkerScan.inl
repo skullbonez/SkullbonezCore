@@ -120,9 +120,9 @@ inline void RetainReplayPredictionHorizonMarker( RunReplayPredictionState& predi
     }
 }
 
-// Concept: causal markers are the two-box story projected from one coherent
-// scan. Yellow is fixed at the body's last still pose before visible motion;
-// grey appears only at the final resting pose. Neither box ever slides.
+// Concept: causal markers are the two-wireframe story projected from one
+// coherent scan. Yellow is fixed at the predicted collision pose; grey appears
+// only at the final resting pose. Neither wireframe ever slides.
 // Keeping publication beside the scan lets focused tests compare the exact
 // retained values consumed by presentation, not only cursors.
 inline void RetainReplayPredictionCausalMarkers( RunReplayPredictionState& prediction,
@@ -247,18 +247,7 @@ inline bool AdvanceReplayPredictionChildMarkerScan(
                 continue;
             }
 
-            const bool visibleMotion = ReplayPredictionBodyHasVisibleLinearMotion( *body );
-            const RunReplayPredictionBodySample* initialSample = body;
-
-            if ( !drawState.active && visibleMotion )
-            {
-                const RunReplayPredictionBodySample*
-                    frameZeroSample = FindReplayPredictionBodyByIdWithHint( frames[0], drawState.node.id,
-                                                                            body->modelRow.value );
-                initialSample = frameZeroSample ? frameZeroSample : body;
-            }
-
-            drawState.ObserveBody( frame.frameIndex, *body, *initialSample, visibleMotion );
+            drawState.ObserveBody( frame.frameIndex, *body, ReplayPredictionBodyHasVisibleLinearMotion( *body ) );
         }
     }
 

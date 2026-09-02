@@ -83,9 +83,15 @@ struct SkarnessFrameState
     uint32_t contactChildOutgoingCount = 0;
     uint32_t childOutgoingPreEntryPointCount = 0;
     uint32_t retainedEntryMarkerCount = 0;
+    uint32_t retainedEndMarkerCount = 0;
+    uint32_t drawnCollisionWireframeCount = 0;
+    uint32_t drawnEndingWireframeCount = 0;
+    uint32_t collisionWireframePathMismatchCount = 0;
+    uint32_t endingWireframePathMismatchCount = 0;
     uint32_t futureNodeCount = 0;
     uint32_t retainedLineFloatCount = 0;
     uint32_t retainedRibbonVertexFloatCount = 0;
+    bool retainedPathGeometrySaturated = false;
     bool visualPacketHasGeometry = false;
     bool trajectorySubmitted = false;
     uint32_t submittedSegmentCount = 0;

@@ -936,9 +936,15 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                      { "contactChildOutgoingCount", state.contactChildOutgoingCount },
                      { "childOutgoingPreEntryPointCount", state.childOutgoingPreEntryPointCount },
                      { "retainedEntryMarkerCount", state.retainedEntryMarkerCount },
+                     { "retainedEndMarkerCount", state.retainedEndMarkerCount },
+                     { "drawnCollisionWireframeCount", state.drawnCollisionWireframeCount },
+                     { "drawnEndingWireframeCount", state.drawnEndingWireframeCount },
+                     { "collisionWireframePathMismatchCount", state.collisionWireframePathMismatchCount },
+                     { "endingWireframePathMismatchCount", state.endingWireframePathMismatchCount },
                      { "futureNodeCount", state.futureNodeCount },
                      { "retainedLineFloatCount", state.retainedLineFloatCount },
                      { "retainedRibbonVertexFloatCount", state.retainedRibbonVertexFloatCount },
+                     { "retainedPathGeometrySaturated", state.retainedPathGeometrySaturated },
                      { "visualPacketHasGeometry", state.visualPacketHasGeometry },
                      { "trajectorySubmitted", state.trajectorySubmitted },
                      { "submittedSegmentCount", state.submittedSegmentCount },
@@ -1067,7 +1073,11 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
         return state.predictionEnabled && selectedTargetPublished && state.predictionComplete &&
                state.selectedFutureRootPointCount >= 2 && state.contactChildIncomingCount > 0 &&
                state.contactChildOutgoingCount > 0 && state.childOutgoingPreEntryPointCount == 0 &&
-               state.retainedEntryMarkerCount > 0 && state.trajectorySubmitted &&
+               state.retainedEntryMarkerCount > 0 && state.retainedEndMarkerCount > 0 &&
+               state.drawnCollisionWireframeCount == state.retainedEntryMarkerCount &&
+               state.drawnEndingWireframeCount == state.retainedEndMarkerCount &&
+               state.collisionWireframePathMismatchCount == 0 && state.endingWireframePathMismatchCount == 0 &&
+               state.trajectorySubmitted &&
                state.submittedSegmentCount >= 32 && state.submittedVertexCount >= state.submittedSegmentCount * 6 &&
                state.submittedFutureTreeReady;
     }
@@ -1086,7 +1096,12 @@ std::string SkarnessHost::UntilTimeoutReason( const SkarnessFrameState& state ) 
            << " rootPoints=" << state.selectedFutureRootPointCount << " childIncoming=" << state.contactChildIncomingCount
            << " childOutgoing=" << state.contactChildOutgoingCount
            << " childOutgoingPreEntryPoints=" << state.childOutgoingPreEntryPointCount
-           << " entryMarkers=" << state.retainedEntryMarkerCount
+           << " entryMarkers=" << state.retainedEntryMarkerCount << " endMarkers=" << state.retainedEndMarkerCount
+           << " collisionWireframes=" << state.drawnCollisionWireframeCount
+           << " endingWireframes=" << state.drawnEndingWireframeCount
+           << " collisionPathMismatches=" << state.collisionWireframePathMismatchCount
+           << " endingPathMismatches=" << state.endingWireframePathMismatchCount
+           << " pathSaturated=" << state.retainedPathGeometrySaturated
            << " submitted=" << state.trajectorySubmitted << " segments=" << state.submittedSegmentCount
            << " vertices=" << state.submittedVertexCount << " futureTreeReady=" << state.submittedFutureTreeReady;
     return reason.str();

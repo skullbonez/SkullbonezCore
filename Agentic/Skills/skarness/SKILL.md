@@ -64,7 +64,8 @@ Bind every assertion to the requested object and generation. For prediction,
 require the selected target, published target, path target, and rendered target
 to agree before accepting geometry counts. Use `prediction.causal_rendered`
 when the expected result includes the cause tree; it must include incoming and
-outgoing child paths and reject outgoing samples before the collision entry.
+outgoing child paths, reject outgoing samples before the collision entry, and
+prove every published collision and ending pose produced a complete wireframe.
 
 Use `verify-future` for a convenient before/after raster check:
 
@@ -73,9 +74,9 @@ python tools\skarness.py verify-future TestOutput\skarness\<case> <object-name> 
 ```
 
 Treat raster change as supplemental evidence. Also assert the owning runtime
-state and render-submission counts so unrelated pixels cannot create a false
-pass. Add a focused native test when the expected invariant can be expressed
-without a running renderer.
+state and render-submission counts so unrelated pixels cannot be mistaken for
+the requested result. Add a focused native test when the expected invariant can
+be expressed without a running renderer.
 
 For repeated-selection defects, select several distinct IDs in the same
 session and require each request to publish and render its own target. For

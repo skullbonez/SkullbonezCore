@@ -151,6 +151,25 @@ ReplayTrajectorySubmissionProbeStats ReplayPredictionPresentation::TrajectorySub
 }
 
 
+ReplayPredictionRetainedMarkerDrawStats ReplayPredictionPresentation::RetainedMarkerDrawStatsSnapshot() const noexcept
+{
+    ReplayPredictionRetainedMarkerDrawStats stats;
+    const ReplayOverlay::ReplayPredictionDrawListState& drawList = m_retainedState->drawList;
+    stats.pathGeometrySaturated = drawList.saturated;
+
+    for ( std::size_t markerIndex = 0u; markerIndex < drawList.retainedTrailCursorCount; ++markerIndex )
+    {
+        const ReplayOverlay::ReplayPredictionDrawRecordCursor& cursor = drawList.retainedTrailCursors[markerIndex];
+        stats.collisionWireframeCount += cursor.entryMarkerAppended ? 1u : 0u;
+        stats.endingWireframeCount += cursor.endMarkerAppended ? 1u : 0u;
+        stats.collisionPathMismatchCount += cursor.entryMarkerAppended && !cursor.entryMarkerPathMatched ? 1u : 0u;
+        stats.endingPathMismatchCount += cursor.endMarkerAppended && !cursor.endMarkerPathMatched ? 1u : 0u;
+    }
+
+    return stats;
+}
+
+
 const ReplayVisualPacket& ReplayPredictionPresentation::PublishedVisualPacketView() const noexcept
 {
     return m_publishedVisualPacket;

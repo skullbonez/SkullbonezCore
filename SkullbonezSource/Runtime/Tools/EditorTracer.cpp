@@ -573,6 +573,28 @@ void EditorTracer::EmitBox( const Vector3& center, const Vector3& xAxis, const V
 }
 
 
+bool EditorTracer::CanEmitShapeOutlineTo( const std::vector<float>& lineData,
+                                          const CollisionShapeReference& shape ) const noexcept
+{
+    std::size_t segmentCount = 0u;
+
+    if ( GetShapeIf<BoundingSphere>( &shape ) )
+    {
+        segmentCount = 3u * 32u;
+    }
+    else if ( GetShapeIf<BoundingBox>( &shape ) )
+    {
+        segmentCount = 12u;
+    }
+    else if ( const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape ) )
+    {
+        segmentCount = hull->GetEdgeCount();
+    }
+
+    return segmentCount > 0u && segmentCount <= ( lineData.capacity() - lineData.size() ) / EDITOR_TRACER_FLOATS_PER_LINE;
+}
+
+
 void EditorTracer::EmitShapeOutlineTo( std::vector<float>& lineData, const Vector3& position, const Quaternion& orientation,
                                        const CollisionShapeReference& shape, float r, float g, float b )
 {
@@ -679,99 +701,6 @@ void EditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData, c
     singlePass.edgeFeather = (std::max)( glow.edgeFeather, core.edgeFeather );
     singlePass.emphasis = (std::max)( glow.emphasis, core.emphasis );
     EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, singlePass, lane );
-}
-
-
-void EditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData, const Vector3& position,
-                                                   const Quaternion& orientation, const CollisionShapeReference& shape,
-                                                   float r, float g, float b, const ReplayRibbonStyle& style,
-                                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
-{
-    Quaternion outlineOrientation = orientation;
-    const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
-
-    if ( const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape ) )
-    {
-        constexpr int segments = 32;
-        const Vector3 center = position + rot * sphere->GetPosition();
-        const float radius = sphere->GetBoundingRadius();
-
-        for ( int plane = 0; plane < 3; ++plane )
-        {
-            Vector3 previous;
-
-            for ( int i = 0; i <= segments; ++i )
-            {
-                const float theta = static_cast<float>( i ) * ( 2.0f * _PI / static_cast<float>( segments ) );
-                const float c = cosf( theta ) * radius;
-                const float s = sinf( theta ) * radius;
-                Vector3 next = center;
-
-                if ( plane == 0 )
-                {
-                    next.x += c;
-                    next.z += s;
-                }
-                else if ( plane == 1 )
-                {
-                    next.x += c;
-                    next.y += s;
-                }
-                else
-                {
-                    next.y += c;
-                    next.z += s;
-                }
-
-                if ( i > 0 )
-                {
-                    EmitReplayRibbonSegmentTo( ribbonData, previous, next, r, g, b, style, lane );
-                }
-
-                previous = next;
-            }
-        }
-
-        return;
-    }
-
-    if ( const BoundingBox* box = GetShapeIf<BoundingBox>( &shape ) )
-    {
-        const Vector3& he = box->GetHalfExtents();
-        const Vector3 center = position + rot * box->GetPosition();
-        const Vector3 xAxis = rot * Vector3( he.x, 0.0f, 0.0f );
-        const Vector3 yAxis = rot * Vector3( 0.0f, he.y, 0.0f );
-        const Vector3 zAxis = rot * Vector3( 0.0f, 0.0f, he.z );
-        const Vector3 corners[8] = {
-            center - xAxis - yAxis - zAxis, center + xAxis - yAxis - zAxis, center + xAxis + yAxis - zAxis,
-            center - xAxis + yAxis - zAxis, center - xAxis - yAxis + zAxis, center + xAxis - yAxis + zAxis,
-            center + xAxis + yAxis + zAxis, center - xAxis + yAxis + zAxis,
-        };
-
-        static constexpr int kEdges[12][2] = {
-            { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 },
-            { 6, 7 }, { 7, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 },
-        };
-
-        for ( const auto& edge : kEdges )
-        {
-            EmitReplayRibbonSegmentTo( ribbonData, corners[edge[0]], corners[edge[1]], r, g, b, style, lane );
-        }
-
-        return;
-    }
-
-    if ( const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape ) )
-    {
-        const Vector3 hullCenter = position + rot * hull->GetPosition();
-
-        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
-        {
-            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
-            EmitReplayRibbonSegmentTo( ribbonData, hullCenter + rot * hull->GetVertex( edge.vertexA ),
-                                       hullCenter + rot * hull->GetVertex( edge.vertexB ), r, g, b, style, lane );
-        }
-    }
 }
 
 
@@ -909,8 +838,8 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
     };
 
     // Invariant: ordinary replay paths may overflow without erasing causal
-    // evidence. Priority ribbons are appended second; only the yellow entry box
-    // remains on this ribbon path while rest/horizon boxes use priority lines.
+    // evidence. Priority ribbons retain child trails; collision and endpoint
+    // wireframes use the separately bounded priority-line stream.
     if ( ordinarySourceChanged || prioritySourceChanged )
     {
         PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket/BuildRibbonVertices/ExpandChangedSources" );
@@ -1149,32 +1078,47 @@ void EditorTracer::AddReplayImpulseVector( const Vector3& point, const Vector3& 
 }
 
 
-void EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Quaternion& orientation,
+bool EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Quaternion& orientation,
                                                const CollisionShapeReference& shape )
 {
-    // Why: yellow always means "joined the causal tree here". Keep it as the
-    // only marker on the ribbon shader, but emit one logical segment style so
-    // marker outlines do not double the retained ribbon budget.
-    const ReplayRibbonStyle singlePass = m_replayMarkerStyle;
-    EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments, position, orientation, shape, 1.0f, 0.85f, 0.25f,
-                                    singlePass, SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::CausalMarker );
+    // Why: collision wireframes must survive a saturated causal-path ribbon.
+    // The dedicated priority-line capacity fits the complete bounded marker set.
+    if ( !CanEmitShapeOutlineTo( m_priorityLineData, shape ) )
+    {
+        return false;
+    }
+
+    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 1.0f, 0.85f, 0.25f );
+    return true;
 }
 
 
-void EditorTracer::AddReplayCausalRestMarker( const Vector3& position, const Quaternion& orientation,
+bool EditorTracer::AddReplayCausalRestMarker( const Vector3& position, const Quaternion& orientation,
                                               const CollisionShapeReference& shape )
 {
+    if ( !CanEmitShapeOutlineTo( m_priorityLineData, shape ) )
+    {
+        return false;
+    }
+
     EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.58f, 0.58f, 0.62f );
+    return true;
 }
 
 
-void EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const Quaternion& orientation,
+bool EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const Quaternion& orientation,
                                                  const CollisionShapeReference& shape )
 {
     // Concept: horizon ghosts are not landings. They mark "this is where the
     // prediction buffer ends" for a body still mid-flight, so the color stays
     // distinct from grey resting boxes.
+    if ( !CanEmitShapeOutlineTo( m_priorityLineData, shape ) )
+    {
+        return false;
+    }
+
     EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.45f, 0.92f, 1.0f );
+    return true;
 }
 
 

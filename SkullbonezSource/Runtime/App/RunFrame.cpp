@@ -1351,9 +1351,15 @@ void Run::PublishSkarnessFrameState()
     state.contactChildOutgoingCount = replay.contactChildOutgoingCount;
     state.childOutgoingPreEntryPointCount = replay.childOutgoingPreEntryPointCount;
     state.retainedEntryMarkerCount = replay.retainedEntryMarkerCount;
+    state.retainedEndMarkerCount = replay.retainedEndMarkerCount;
+    state.drawnCollisionWireframeCount = replay.drawnCollisionWireframeCount;
+    state.drawnEndingWireframeCount = replay.drawnEndingWireframeCount;
+    state.collisionWireframePathMismatchCount = replay.collisionWireframePathMismatchCount;
+    state.endingWireframePathMismatchCount = replay.endingWireframePathMismatchCount;
     state.futureNodeCount = replay.futureNodeCount;
     state.retainedLineFloatCount = replay.retainedLineFloatCount;
     state.retainedRibbonVertexFloatCount = replay.retainedRibbonVertexFloatCount;
+    state.retainedPathGeometrySaturated = replay.retainedPathGeometrySaturated;
     state.visualPacketHasGeometry = replay.visualPacketHasGeometry;
     state.trajectorySubmitted = replay.trajectorySubmission.hasSubmission;
     state.submittedSegmentCount = replay.trajectorySubmission.segmentCount;

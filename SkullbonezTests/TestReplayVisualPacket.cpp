@@ -1432,17 +1432,17 @@ TEST_CASE( "Replay child marker suffix accumulation matches a full scan" )
 
     for ( std::size_t i = 0; i < samples.size(); ++i )
     {
-        full.ObserveBody( i, samples[i], samples[0], moving[i] );
+        full.ObserveBody( i, samples[i], moving[i] );
     }
 
     for ( std::size_t i = 0; i < 3u; ++i )
     {
-        incremental.ObserveBody( i, samples[i], samples[0], moving[i] );
+        incremental.ObserveBody( i, samples[i], moving[i] );
     }
 
     for ( std::size_t i = 3u; i < samples.size(); ++i )
     {
-        incremental.ObserveBody( i, samples[i], samples[0], moving[i] );
+        incremental.ObserveBody( i, samples[i], moving[i] );
     }
 
     CHECK( incremental.active == full.active );
@@ -1465,6 +1465,52 @@ TEST_CASE( "Replay child marker suffix accumulation matches a full scan" )
     CHECK( incrementalW == fullW );
     CHECK( incremental.lastMotionFrame == full.lastMotionFrame );
     CHECK( incremental.lastMotionFrame == 4u );
+}
+
+TEST_CASE( "Replay child marker retains the predicted collision pose" )
+{
+    constexpr ReplayFrameIndex collisionFrame = 2u;
+    const SkullbonezCore::Physics::PhysicsSceneObjectId rootId { 1u };
+    const SkullbonezCore::Physics::PhysicsSceneObjectId childId { 2u };
+    auto prediction = std::make_unique<RunReplayPredictionState>();
+    std::vector<RunReplayPredictionFrame> frames( 5u );
+
+    for ( std::size_t frameIndex = 0u; frameIndex < frames.size(); ++frameIndex )
+    {
+        RunReplayPredictionFrame& frame = frames[frameIndex];
+        frame.frameIndex = static_cast<ReplayFrameIndex>( frameIndex );
+        frame.bodies.resize( 1u );
+        RunReplayPredictionBodySample& child = frame.bodies[0];
+        child.id = childId;
+        child.modelRow.value = 1;
+        child.position.x = static_cast<float>( 100u + frameIndex );
+        child.linearVelocity.x = frameIndex > collisionFrame ? 20.0f : 0.0f;
+    }
+
+    RunReplayPathTraceNode node;
+    node.id = childId;
+    node.parentId = rootId;
+    node.modelRow.value = 1;
+    node.parentModelRow.value = 0;
+    node.firstFrame = collisionFrame;
+    node.depth = 1;
+    node.contactDerived = true;
+    prediction->futureNodeCache.futureNodes.push_back( node );
+    prediction->futureNodeCache.futureNodesTopologyVersion = 1u;
+
+    ReplayPredictionChildMarkerScanState scan;
+    REQUIRE( AdvanceReplayPredictionChildMarkerScan( scan, *prediction, frames, frames.size(), frames.back().frameIndex,
+                                                      1u, rootId, false, true, std::chrono::steady_clock::now(), 1000.0 ) );
+    REQUIRE( scan.nodeCount == 1u );
+    CHECK( scan.nodes[0].hasEntryPose );
+    CHECK( scan.nodes[0].active );
+    CHECK( scan.nodes[0].entryPosition.x == frames[collisionFrame].bodies[0].position.x );
+
+    RetainReplayPredictionCausalMarkers( *prediction, scan, frames.back().frameIndex, &frames, frames.size() );
+    REQUIRE( prediction->futureNodeCache.retainedMarkerCount == 1u );
+    const ReplayPredictionRetainedMarker& marker = prediction->futureNodeCache.retainedMarkers[0];
+    CHECK( marker.hasEntryPose );
+    CHECK( marker.entryPosition.x == frames[collisionFrame].bodies[0].position.x );
 }
 
 void InitializeReplayChildMarkerNode( RunReplayPredictionState& prediction, std::size_t nodeIndex,
@@ -1527,28 +1573,18 @@ ReplayPredictionChildMarkerScanState BuildLegacyReplayChildMarkerScan( const Run
                 continue;
             }
 
-            if ( !drawState.active )
+            if ( !drawState.hasEntryPose )
             {
-                if ( !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
-                {
-                    continue;
-                }
-
-                const RunReplayPredictionBodySample*
-                    initialSample = FindReplayPredictionBodyByIdWithHint( frames[0], drawState.node.id,
-                                                                          body->modelRow.value );
-                drawState.active = true;
                 drawState.hasEntryPose = true;
                 drawState.entryModelIndex = body->modelRow.value;
-                drawState.entryPosition = initialSample ? initialSample->position : body->position;
-                drawState.entryOrientation = initialSample ? initialSample->orientation : body->orientation;
+                drawState.entryPosition = body->position;
+                drawState.entryOrientation = body->orientation;
                 drawState.entryOrientation.Normalise();
-                drawState.lastMotionFrame = frame.frameIndex;
-                continue;
             }
 
             if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
             {
+                drawState.active = true;
                 drawState.lastMotionFrame = frame.frameIndex;
             }
         }
@@ -1756,6 +1792,7 @@ TEST_CASE( "Replay incremental child marker scan matches the legacy full scan ac
     prediction->futureNodeCache.futureNodesTopologyVersion = 4u;
     compareWithLegacy( completedFrameCount, static_cast<ReplayFrameIndex>( completedFrameCount - 1u ), 2u, false );
     CHECK_FALSE( incremental.nodes[0].active );
+    CHECK( incremental.nodes[0].hasEntryPose );
     compareWithLegacy( completedFrameCount, 50u, 2u, false );
     CHECK( incremental.nodes[0].scannedFrameCount == 51u );
 
@@ -1786,6 +1823,10 @@ TEST_CASE( "Replay prediction draw cursor resumes at its suffix and reuses stabl
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 0u ) == 1u );
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 1u ) == 1u );
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 128u ) == 128u );
+
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionCanSkipSaturatedDrawList( true, 7u, 8u, 12u, 12u ) );
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionCanSkipSaturatedDrawList( true, 8u, 8u, 11u, 12u ) );
+    CHECK( ReplayOverlay::ReplayPredictionCanSkipSaturatedDrawList( true, 8u, 8u, 12u, 12u ) );
 }
 
 TEST_CASE( "Replay retained prediction attachment reuses cached stable submission facts" )

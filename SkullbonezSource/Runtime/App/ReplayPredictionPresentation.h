@@ -72,6 +72,15 @@ struct ReplayPredictionPresentationMemoryStats
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats trajectory;
 };
 
+struct ReplayPredictionRetainedMarkerDrawStats
+{
+    uint32_t collisionWireframeCount = 0;
+    uint32_t endingWireframeCount = 0;
+    uint32_t collisionPathMismatchCount = 0;
+    uint32_t endingPathMismatchCount = 0;
+    bool pathGeometrySaturated = false;
+};
+
 class ReplayPredictionPresentation
 {
   public:
@@ -80,6 +89,7 @@ class ReplayPredictionPresentation
 
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
     ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;
+    ReplayPredictionRetainedMarkerDrawStats RetainedMarkerDrawStatsSnapshot() const noexcept;
     const ReplayVisualPacket& PublishedVisualPacketView() const noexcept;
     std::span<const ReplayPredictionGhostDrawRequest> GhostDrawRequestsView() const noexcept;
     const std::vector<uint8_t>& FocusModelMaskView() const noexcept;

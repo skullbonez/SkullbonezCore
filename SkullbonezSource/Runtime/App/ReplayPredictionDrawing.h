@@ -73,6 +73,8 @@ struct ReplayPredictionDrawRecordCursor
     bool usesAuthoredColor = false;
     bool entryMarkerAppended = false;
     bool endMarkerAppended = false;
+    bool entryMarkerPathMatched = false;
+    bool endMarkerPathMatched = false;
 };
 
 struct ReplayPredictionDrawListState
@@ -162,6 +164,16 @@ constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset, uint64_t
 {
     return !reset && retainedPublicationVersion == incomingPublicationVersion &&
            retainedRevealFrame == incomingRevealFrame && retainedMarkerVersion == incomingMarkerVersion;
+}
+
+constexpr bool ReplayPredictionCanSkipSaturatedDrawList( bool saturated, uint32_t retainedMarkerVersion,
+                                                         uint32_t incomingMarkerVersion,
+                                                         std::size_t retainedMarkerCount,
+                                                         std::size_t incomingMarkerCount ) noexcept
+{
+    // Saturated path ranges are stable, but marker lines own separate capacity.
+    // A new collision or endpoint must still reach the retained marker tracer.
+    return saturated && retainedMarkerVersion == incomingMarkerVersion && retainedMarkerCount == incomingMarkerCount;
 }
 
 constexpr std::size_t ReplayPredictionFirstUnconsumedPoint( std::size_t consumedPointCount ) noexcept

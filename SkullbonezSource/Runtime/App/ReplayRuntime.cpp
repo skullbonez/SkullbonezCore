@@ -381,7 +381,6 @@ bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstanceP
     return presentationRecords[static_cast<std::size_t>( modelIndex )].simpleRagdollPart;
 }
 
-
 } // namespace
 
 ReplayRuntime::ReplayRuntime( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler )
@@ -959,8 +958,16 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     for ( const ReplayPredictionRetainedMarker& marker : packet.retainedMarkers )
     {
         state.retainedEntryMarkerCount += marker.hasEntryPose ? 1u : 0u;
+        state.retainedEndMarkerCount += ( marker.hasRestPose || marker.hasHorizonPose ) ? 1u : 0u;
     }
 
+    const ReplayPredictionRetainedMarkerDrawStats markerDrawStats =
+        m_predictionPresentation.RetainedMarkerDrawStatsSnapshot();
+    state.drawnCollisionWireframeCount = markerDrawStats.collisionWireframeCount;
+    state.drawnEndingWireframeCount = markerDrawStats.endingWireframeCount;
+    state.collisionWireframePathMismatchCount = markerDrawStats.collisionPathMismatchCount;
+    state.endingWireframePathMismatchCount = markerDrawStats.endingPathMismatchCount;
+    state.retainedPathGeometrySaturated = markerDrawStats.pathGeometrySaturated;
     state.futureNodeCount = static_cast<uint32_t>( packet.futureNodes.size() );
     state.retainedLineFloatCount = static_cast<uint32_t>( packet.retainedPredictionOrdinaryLines.size() +
                                                            packet.retainedPredictionPriorityLines.size() );
