@@ -32,7 +32,7 @@ namespace Diagnostics
 class SkullScope final
 {
   public:
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     void SetPath( const char* path );
     void SetRunId( const char* runId );
 
@@ -46,7 +46,7 @@ class SkullScope final
 #endif
 
   private:
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     void ResetRunState();
     void ResetPenetrationState();
 

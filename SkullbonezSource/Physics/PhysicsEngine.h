@@ -266,7 +266,7 @@ class PhysicsEngine
     static const PhysicsBodyRowList<PointJointConstraint>& ReadPointJointConstraints( const PhysicsEngine& engine );
     static std::size_t ReadPointJointCapacity( const PhysicsEngine& engine );
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );

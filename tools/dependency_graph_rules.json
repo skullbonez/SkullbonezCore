@@ -315,6 +315,7 @@
           "Runtime/Automation/InteractionAutomationReportWriter.h",
           "Runtime/Automation/InteractionRecordingBrowser.h",
           "Runtime/Automation/InteractionRecordingSidecarDigest.h",
+          "Runtime/Automation/SkarnessHost.h",
           "Runtime/Automation/ReplayAutomationPackets.h",
           "Runtime/Automation/ReplayAutomationView.h",
           "Runtime/Automation/RuntimeValidationHarness.h",

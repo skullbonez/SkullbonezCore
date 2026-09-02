@@ -884,6 +884,7 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
     view.captureEnabled = m_timeline.Presentation().IsEnabled() || m_timeline.Solver().IsEnabled();
     view.hasPathTarget = path.hasTarget;
     view.hasCameraFocus = camera.focusKind != RunReplayCameraFocusKind::None;
+    view.pathTargetId = path.hasTarget ? path.targetId.value : 0;
     view.restoreCameraMode = camera.restoreCameraMode;
     view.pathTargetModelRow = path.hasTarget ? path.targetModelRow.value : -1;
     view.activeTrack = scrubber.activeTrack;
@@ -905,6 +906,58 @@ ReplayCauseInspectionView ReplayRuntime::CauseInspectionView() const noexcept
 {
     return m_planningOwner.CauseInspectionView();
 }
+
+#if defined( SKULLBONEZ_SKARNESS )
+ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
+{
+    const RunReplayPredictionState& prediction = m_predictionOwner.State();
+    const ReplayVisualPacket& packet = m_predictionPresentation.PublishedVisualPacketView();
+    ReplaySkarnessState state;
+    state.input = BuildInputView();
+    state.predictionBuilding = prediction.build.building;
+    state.predictionComplete = prediction.build.complete;
+    state.predictionHighDetail = m_predictionOwner.DetailMode() == ReplayPredictionDetailMode::High;
+    state.ragdollVisualsEnabled = prediction.ragdollVisualsEnabled;
+    state.pastPathVisible = m_visualPresentation.PathVisualizer().pastPathVisible;
+    state.predictionHorizonSeconds = prediction.simulation.horizonSeconds;
+    state.predictionGeneration = prediction.build.generationBeginCount;
+    state.publishedPredictionFrames = static_cast<uint32_t>( m_predictionOwner.ActiveFrames().size() );
+    state.trajectoryRecordCount = static_cast<uint32_t>( packet.trajectoryRecords.size() );
+
+    for ( const ReplayTrajectoryRecord& record : packet.trajectoryRecords )
+    {
+        if ( record.key.lane == ReplayTrajectoryLane::FutureRoot && record.key.bodyId == packet.header.targetId )
+        {
+            state.selectedFutureRootPointCount = (std::max)( state.selectedFutureRootPointCount,
+                                                              static_cast<uint32_t>( record.publishedPointCount ) );
+        }
+        else if ( record.contactDerived && record.publishedPointCount >= 2u &&
+                  record.key.lane == ReplayTrajectoryLane::FutureChildIncoming )
+        {
+            ++state.contactChildIncomingCount;
+        }
+        else if ( record.contactDerived && record.publishedPointCount >= 2u &&
+                  record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing )
+        {
+            ++state.contactChildOutgoingCount;
+        }
+    }
+
+    for ( const ReplayPredictionRetainedMarker& marker : packet.retainedMarkers )
+    {
+        state.retainedEntryMarkerCount += marker.hasEntryPose ? 1u : 0u;
+    }
+
+    state.futureNodeCount = static_cast<uint32_t>( packet.futureNodes.size() );
+    state.retainedLineFloatCount = static_cast<uint32_t>( packet.retainedPredictionOrdinaryLines.size() +
+                                                           packet.retainedPredictionPriorityLines.size() );
+    state.retainedRibbonVertexFloatCount = static_cast<uint32_t>( packet.retainedPredictionRibbonVertices.size() +
+                                                                   packet.retainedPredictionPriorityRibbonVertices.size() );
+    state.visualPacketHasGeometry = packet.HasGeometry();
+    state.trajectorySubmission = m_predictionPresentation.TrajectorySubmissionProbeSnapshot();
+    return state;
+}
+#endif
 
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )

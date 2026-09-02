@@ -607,7 +607,9 @@ void Run::ApplyReplayTransportCommand( RuntimeUIFrameResult& result, const Runti
 
             if constexpr ( std::is_same_v<Command, ReplaySetRecordingEnabledCommand> ||
                            std::is_same_v<Command, ReplaySetRevealSpeedCommand> ||
-                           std::is_same_v<Command, ReplaySetPredictionHorizonCommand> )
+                           std::is_same_v<Command, ReplaySetPredictionHorizonCommand> ||
+                           std::is_same_v<Command, ReplaySetRagdollVisualsEnabledCommand> ||
+                           std::is_same_v<Command, ReplaySetPastPathVisibleCommand> )
             {
                 m_replayRuntime.ApplyTransportCommand( typedCommand, now );
             }
@@ -622,7 +624,8 @@ void Run::ApplyReplayTransportCommand( RuntimeUIFrameResult& result, const Runti
             {
                 m_replayRuntime.ApplyTransportCommand( typedCommand, m_interaction, now, transportOutput );
             }
-            else if constexpr ( std::is_same_v<Command, ReplayTogglePlayPauseCommand> )
+            else if constexpr ( std::is_same_v<Command, ReplayTogglePlayPauseCommand> ||
+                                std::is_same_v<Command, ReplaySetVelocityEditEnabledCommand> )
             {
                 m_replayRuntime.ApplyTransportCommand( typedCommand, m_inputRouter, m_interaction, m_camera, now,
                                                        transportOutput );
@@ -755,6 +758,186 @@ void Run::ApplyReplayOperatorCommands( RuntimeUIFrameResult& result, const Runti
         }
     }
 }
+
+#if defined( SKULLBONEZ_SKARNESS )
+void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts )
+{
+    if ( !m_skarness.Enabled() )
+    {
+        return;
+    }
+
+    SkarnessCommand command;
+
+    while ( m_skarness.PopCommand( command ) )
+    {
+        bool applied = true;
+        const char* reason = nullptr;
+
+        switch ( command.type )
+        {
+        case SkarnessCommandType::CaptureScreenshot:
+        {
+            const uint64_t token = m_skarness.BeginCapture( command.requestId );
+            const Core::SbResult queued = m_capture.QueuePostRenderPng( command.text.c_str(),
+                                                                        PostRenderCaptureOwner::ExternalAutomation,
+                                                                        token );
+
+            if ( !queued.Ok() )
+            {
+                m_skarness.CompleteCapture( token, false, queued.ErrorMessage() );
+            }
+
+            continue;
+        }
+        case SkarnessCommandType::ReplaySetRecordingEnabled:
+            ApplyReplayTransportCommand( result, facts, ReplaySetRecordingEnabledCommand { command.enabled } );
+            break;
+        case SkarnessCommandType::ReplayJumpToStart:
+            ApplyReplayTransportCommand( result, facts, ReplayJumpToStartCommand {} );
+            break;
+        case SkarnessCommandType::ReplayJumpToEnd:
+            ApplyReplayTransportCommand( result, facts, ReplayJumpToEndCommand {} );
+            break;
+        case SkarnessCommandType::ReplaySetPlaybackPaused:
+            if ( m_replayRuntime.BuildInputView().liveAdvanceHeld != command.enabled )
+            {
+                ApplyReplayTransportCommand( result, facts, ReplayTogglePlayPauseCommand {} );
+            }
+            break;
+        case SkarnessCommandType::ReplayStepBackward:
+            ApplyReplayTransportCommand( result, facts, ReplayStepBackwardCommand {} );
+            break;
+        case SkarnessCommandType::ReplayStepForward:
+            ApplyReplayTransportCommand( result, facts, ReplayStepForwardCommand {} );
+            break;
+        case SkarnessCommandType::ReplaySetRevealSpeed:
+            ApplyReplayTransportCommand( result, facts,
+                                         ReplaySetRevealSpeedCommand { static_cast<float>( command.number ) } );
+            break;
+        case SkarnessCommandType::ReplayScrub:
+            ApplyReplayTransportCommand( result, facts, ReplayScrubCommand { static_cast<float>( command.number ) } );
+            break;
+        case SkarnessCommandType::ReplaySetPredictionEnabled:
+            if ( m_replayRuntime.BuildInputView().predictionEnabled != command.enabled )
+            {
+                ApplyReplayTransportCommand( result, facts, ReplayTogglePredictionCommand {} );
+            }
+            break;
+        case SkarnessCommandType::ReplaySetPredictionDetailMode:
+            if ( m_replayRuntime.BuildSkarnessState().predictionHighDetail != command.enabled )
+            {
+                ApplyReplayTransportCommand( result, facts, ReplaySetPredictionDetailModeCommand { command.enabled } );
+            }
+            break;
+        case SkarnessCommandType::ReplaySetPredictionHorizon:
+            ApplyReplayTransportCommand( result, facts,
+                                         ReplaySetPredictionHorizonCommand { static_cast<float>( command.number ) } );
+            break;
+        case SkarnessCommandType::ReplaySetVelocityEditEnabled:
+            ApplyReplayTransportCommand( result, facts, ReplaySetVelocityEditEnabledCommand { command.enabled } );
+            break;
+        case SkarnessCommandType::ReplaySetRagdollVisualsEnabled:
+            ApplyReplayTransportCommand( result, facts, ReplaySetRagdollVisualsEnabledCommand { command.enabled } );
+            break;
+        case SkarnessCommandType::ReplaySetPastPathVisible:
+            ApplyReplayTransportCommand( result, facts, ReplaySetPastPathVisibleCommand { command.enabled } );
+            break;
+        case SkarnessCommandType::ReplayRestoreBranch:
+            ApplyReplayTransportCommand( result, facts, ReplayRestoreBranchCommand {} );
+            break;
+        case SkarnessCommandType::ReplaySave:
+        {
+            ReplaySaveCommand save;
+            strncpy_s( save.path, sizeof( save.path ), command.text.c_str(), _TRUNCATE );
+            ApplyReplayTransportCommand( result, facts, save );
+            break;
+        }
+        case SkarnessCommandType::ReplayLoad:
+        {
+            ReplayLoadCommand load;
+            strncpy_s( load.path, sizeof( load.path ), command.text.c_str(), _TRUNCATE );
+            ApplyReplayTransportCommand( result, facts, load );
+            break;
+        }
+        case SkarnessCommandType::ReplayReturnToLive:
+            ApplyReplayTransportCommand( result, facts, ReplayReturnToLiveCommand {} );
+            break;
+        case SkarnessCommandType::ReplaySelectCauseRow:
+            ApplyReplayTransportCommand( result, facts, ReplaySelectCauseRowCommand { command.integer } );
+            break;
+        case SkarnessCommandType::PredictionSelectTarget:
+        {
+            SceneWorld& world = m_sceneController.Scene();
+            int modelIndex = -1;
+
+            if ( command.unsignedInteger != 0 )
+            {
+                if ( command.unsignedInteger > UINT32_MAX )
+                {
+                    applied = false;
+                    reason = "sceneObjectId exceeds the runtime identity range";
+                    break;
+                }
+
+                modelIndex = world.Entities().FindBySceneObjectId( Physics::PhysicsSceneObjectId {
+                    static_cast<uint32_t>( command.unsignedInteger ) } );
+            }
+            else
+            {
+                for ( int entityIndex = 0; entityIndex < world.SceneEntityCount(); ++entityIndex )
+                {
+                    if ( std::strcmp( world.Entities().At( entityIndex ).displayName, command.text.c_str() ) != 0 )
+                    {
+                        continue;
+                    }
+
+                    if ( modelIndex >= 0 )
+                    {
+                        modelIndex = -2;
+                        break;
+                    }
+
+                    modelIndex = entityIndex;
+                }
+            }
+
+            if ( modelIndex == -2 )
+            {
+                applied = false;
+                reason = "display name is ambiguous; supply sceneObjectId";
+                break;
+            }
+
+            const Physics::PhysicsBodyRecord* body = modelIndex >= 0
+                                                        ? world.BodyStore().RecordForModelIndex( modelIndex )
+                                                        : nullptr;
+
+            if ( !body || !body->sceneObjectId.IsValid() )
+            {
+                applied = false;
+                reason = "scene object name did not resolve to a physics body";
+                break;
+            }
+
+            ReplayFrameIntent intent;
+            intent.setPathTarget = true;
+            intent.pathTargetId = body->sceneObjectId;
+            intent.pathTargetModelRow.value = modelIndex;
+            strncpy_s( intent.pathTargetName, sizeof( intent.pathTargetName ),
+                       world.Entities().At( modelIndex ).displayName, _TRUNCATE );
+            (void)m_replayRuntime.ApplyFrameIntent( intent );
+            (void)m_interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                                     WorldInteractionOwner::ReplayPrediction,
+                                                                     InteractionExitReason::EnterReplay );
+            break;
+        }
+        }
+
+        m_skarness.CompleteCommand( command.requestId, applied, reason );
+    }
+}
+#endif
 
 void Run::ApplyForecastOperatorCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts,
                                          const SkullbonezCore::UI::OperatorEditorCommandQueues& commands )

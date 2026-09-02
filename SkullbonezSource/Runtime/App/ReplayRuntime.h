@@ -458,6 +458,31 @@ struct ReplayInteractionRecordingCauseState
     float drawerProgress = 0.0f;
 };
 
+#if defined( SKULLBONEZ_SKARNESS )
+struct ReplaySkarnessState
+{
+    ReplayInputView input;
+    bool predictionBuilding = false;
+    bool predictionComplete = false;
+    bool predictionHighDetail = false;
+    bool ragdollVisualsEnabled = false;
+    bool pastPathVisible = false;
+    float predictionHorizonSeconds = 0.0f;
+    uint32_t predictionGeneration = 0;
+    uint32_t publishedPredictionFrames = 0;
+    uint32_t trajectoryRecordCount = 0;
+    uint32_t selectedFutureRootPointCount = 0;
+    uint32_t contactChildIncomingCount = 0;
+    uint32_t contactChildOutgoingCount = 0;
+    uint32_t retainedEntryMarkerCount = 0;
+    uint32_t futureNodeCount = 0;
+    uint32_t retainedLineFloatCount = 0;
+    uint32_t retainedRibbonVertexFloatCount = 0;
+    bool visualPacketHasGeometry = false;
+    ReplayTrajectorySubmissionProbeStats trajectorySubmission;
+};
+#endif
+
 class ReplayRuntime
 {
   public:
@@ -467,6 +492,9 @@ class ReplayRuntime
     ReplayInputView BuildInputView() const noexcept;
     const RunReplayCauseTreeState& CauseTree() const noexcept;
     ReplayCauseInspectionView CauseInspectionView() const noexcept;
+#if defined( SKULLBONEZ_SKARNESS )
+    ReplaySkarnessState BuildSkarnessState() const noexcept;
+#endif
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     // Lifetime: returned references/spans are synchronous validation evidence;
     // callers must rebuild the view after any replay mutation. The method is
@@ -643,6 +671,11 @@ class ReplayRuntime
                                 bool attachedFollow, bool directorGrabbed, RuntimeInteractionController& interaction,
                                 InputRouter& inputRouter, double now );
     void ApplyTransportCommand( const ReplaySetPredictionHorizonCommand& command, double now );
+    void ApplyTransportCommand( const ReplaySetVelocityEditEnabledCommand& command, InputRouter& inputRouter,
+                                RuntimeInteractionController& interaction, CameraControlState& camera, double now,
+                                ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplaySetRagdollVisualsEnabledCommand& command, double now );
+    void ApplyTransportCommand( const ReplaySetPastPathVisibleCommand& command, double now );
     void ApplyTransportCommand( const ReplayRestoreBranchCommand&, RuntimeInteractionController& interaction, double now,
                                 ReplayWorkspaceOutput& output );
     void ApplyTransportCommand( const ReplaySaveCommand&, double now, ReplayWorkspaceOutput& output );

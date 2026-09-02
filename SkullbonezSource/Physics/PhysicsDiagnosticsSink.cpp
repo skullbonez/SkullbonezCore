@@ -19,7 +19,7 @@ Related:
 */
 #include "PhysicsDiagnosticsSink.h"
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include "PhysicsDiagnosticsModel.h"
 #endif
 #include "ColliderStore.h"
@@ -41,7 +41,7 @@ namespace Math = SkullbonezCore::Math;
 
 void PhysicsDiagnosticsCsvWriter::Writef( const char* fileName, const char* fmt, ... ) const
 {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
     if ( fileName == nullptr || fmt == nullptr )
     {
@@ -61,7 +61,7 @@ void PhysicsDiagnosticsCsvWriter::Writef( const char* fileName, const char* fmt,
 
 void PhysicsDiagnosticsSink::SetDiagnosticNames( std::span<const char* const> diagnosticNames )
 {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
     if ( diagnosticNames.size() > m_diagnosticNames.size() )
     {
@@ -79,7 +79,7 @@ void PhysicsDiagnosticsSink::SetDiagnosticNames( std::span<const char* const> di
 }
 
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 PhysicsDiagnosticsNameView PhysicsDiagnosticsSink::RegisteredNames() const
 {
     return { m_diagnosticNames.data(), m_diagnosticNameCount };
@@ -87,7 +87,7 @@ PhysicsDiagnosticsNameView PhysicsDiagnosticsSink::RegisteredNames() const
 #endif
 
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index, const PhysicsBodyStore& bodyStore,
                                                                      const ColliderStore& colliderStore,
                                                                      const PhysicsDiagnosticsNameView& names,
@@ -322,7 +322,7 @@ void PhysicsDiagnosticsSink::EmitFrame( const PhysicsDiagnosticsFrameInput& fram
 
 void PhysicsDiagnosticsSink::BeginCollisionTimeFrame()
 {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     m_collisionTimeEventCount = 0;
 #endif
 }
@@ -330,7 +330,7 @@ void PhysicsDiagnosticsSink::BeginCollisionTimeFrame()
 void PhysicsDiagnosticsSink::QueueCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime,
                                                  float availableTime )
 {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
     if ( m_physicsCollisionTimeLogPath[0] == '\0' )
     {
@@ -360,7 +360,7 @@ void PhysicsDiagnosticsSink::QueueCollisionTime( const char* type, int bodyA, in
 
 void PhysicsDiagnosticsSink::FlushCollisionTimes( const PhysicsDiagnosticsCsvWriter& csvWriter )
 {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
     if ( m_physicsCollisionTimeLogPath[0] == '\0' || m_collisionTimeEventCount == 0 )
     {

@@ -134,7 +134,7 @@ class PhysicsStepDiagnostics
                               const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float deltaSeconds,
                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );

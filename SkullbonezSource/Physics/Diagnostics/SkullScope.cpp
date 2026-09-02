@@ -24,7 +24,7 @@ Related:
 #include "SkullScope.h"
 #include "../../Core/Log.h"
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"

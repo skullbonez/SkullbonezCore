@@ -1466,7 +1466,7 @@ std::size_t PhysicsEngine::ReadPointJointCapacity( const PhysicsEngine& engine )
     return engine.m_world->PointJointCapacity();
 }
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 void PhysicsEngine::SetPhysicsRegressionLogPath( const char* path )
 {
     m_world->SetPhysicsRegressionLogPath( path );

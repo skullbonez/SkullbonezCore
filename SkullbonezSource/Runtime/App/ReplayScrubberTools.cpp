@@ -2120,6 +2120,40 @@ void ReplayRuntime::ApplyTransportCommand( const ReplaySetPredictionHorizonComma
 }
 
 
+void ReplayRuntime::ApplyTransportCommand( const ReplaySetVelocityEditEnabledCommand& command, InputRouter& inputRouter,
+                                           RuntimeInteractionController& interaction, CameraControlState& camera,
+                                           double now, ReplayWorkspaceOutput& output )
+{
+    if ( m_authoring.VelocityEdit().enabled == command.enabled )
+    {
+        return;
+    }
+
+    const bool hasCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
+    HandleReplayVelocityEditPressed( m_authoring, m_predictionOwner, m_visualPresentation, m_scrubberOwner,
+                                     SolverPresentTrackPosition(), hasCameraFocus, inputRouter, interaction, camera, now,
+                                     output.enterInteractive );
+}
+
+
+void ReplayRuntime::ApplyTransportCommand( const ReplaySetRagdollVisualsEnabledCommand& command, double now )
+{
+    if ( m_predictionOwner.State().ragdollVisualsEnabled != command.enabled )
+    {
+        HandleReplayRagdollVisualsPressed( m_predictionOwner, m_scrubberOwner, now );
+    }
+}
+
+
+void ReplayRuntime::ApplyTransportCommand( const ReplaySetPastPathVisibleCommand& command, double now )
+{
+    if ( m_visualPresentation.PathVisualizer().pastPathVisible != command.visible )
+    {
+        HandleReplayPastPathPressed( m_visualPresentation, m_scrubberOwner, now );
+    }
+}
+
+
 void ReplayRuntime::ApplyTransportCommand( const ReplayRestoreBranchCommand&, RuntimeInteractionController& interaction,
                                            double now, ReplayWorkspaceOutput& output )
 {
@@ -2132,17 +2166,32 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayRestoreBranchCommand&, Ru
 }
 
 
-void ReplayRuntime::ApplyTransportCommand( const ReplaySaveCommand&, double now, ReplayWorkspaceOutput& output )
+void ReplayRuntime::ApplyTransportCommand( const ReplaySaveCommand& command, double now, ReplayWorkspaceOutput& output )
 {
     output.enterInteractive = true;
-    (void)SavePresentationFromScrubber( now );
+
+    if ( command.path[0] == '\0' )
+    {
+        (void)SavePresentationFromScrubber( now );
+        return;
+    }
+
+    const bool saved = SavePresentationWithSolverHashes( command.path );
+    PublishTransportFeedback( saved ? "REPLAY SAVED" : "REPLAY SAVE FAILED", now );
 }
 
 
-ReplayTransportLoadResult ReplayRuntime::BeginTransportLoad( const ReplayLoadCommand&, HWND window, double now )
+ReplayTransportLoadResult ReplayRuntime::BeginTransportLoad( const ReplayLoadCommand& command, HWND window, double now )
 {
     ReplayTransportLoadResult result;
     char path[MAX_PATH] = {};
+
+    if ( command.path[0] != '\0' )
+    {
+        result.activateLoadedPresentation = m_timeline.LoadPresentationArtifact( command.path );
+        PublishReplayLoadResult( m_scrubberOwner, command.path, result.activateLoadedPresentation, now );
+        return result;
+    }
 
     if ( SelectReplayPresentationArtifact( m_scrubberOwner, window, now, path ) )
     {

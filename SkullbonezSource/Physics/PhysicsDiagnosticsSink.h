@@ -28,7 +28,7 @@ Related:
 
 #include "Diagnostics/SkullScope.h"
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include "PhysicsDiagnosticsModel.h"
 #endif
 
@@ -61,7 +61,7 @@ struct PhysicsCollisionTimeEvent
     float availableTime = 0.0f;
 };
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 // Immutable inputs for one diagnostics emission pass. Body/collider/world facts
 // are already owned by physics; only names remain a presentation overlay.
 struct PhysicsDiagnosticsFrameInput
@@ -99,7 +99,7 @@ class PhysicsDiagnosticsSink
     // Cold topology command. The sink copies the pointer table into fixed
     // storage; pointed-to names must remain stable until the next registration.
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
@@ -116,7 +116,7 @@ class PhysicsDiagnosticsSink
     void FlushCollisionTimes( const PhysicsDiagnosticsCsvWriter& csvWriter );
 
   private:
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     static constexpr int COLLISION_TIME_EVENT_CAPACITY = PHYSICS_COLLISION_TIME_EVENT_CAPACITY;
     char m_physicsRegressionLogPath[256] = {};
     int m_physicsRegressionLogFrame = 0;

@@ -47,7 +47,8 @@ struct CaptureRequest
 
 enum class PostRenderCaptureOwner : uint8_t
 {
-    LookLab = 0
+    LookLab = 0,
+    ExternalAutomation
 };
 
 struct PostRenderCaptureRequest

@@ -721,6 +721,16 @@ SceneFrameProceedPolicy Run::RunAutomationAndInputPhase( bool& gameUiActive, Rec
 float Run::RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy,
                                bool& capturePresentationPinned )
 {
+#if defined( SKULLBONEZ_SKARNESS )
+    const uint64_t sceneGeneration = m_sceneController.LifecyclePacket().generation;
+
+    if ( m_skarness.BeginPhysicsSceneGeneration( sceneGeneration ) )
+    {
+        Physics::PhysicsEngine& physics = m_sceneController.Scene().Physics();
+        physics.SetPhysicsDiagnosticsPath( m_skarness.PhysicsTracePath() );
+        physics.SetPhysicsDiagnosticsRunId( m_skarness.RunId() );
+    }
+#endif
     m_sceneController.Scene().BeginCollisionVisualFrame();
 
     // Invariant: capture pinning is fixed before physics and camera work. A
@@ -1042,6 +1052,15 @@ void Run::CompleteLookLabPostRenderCaptures()
         {
             const PostRenderCaptureResult& captured = batch.results[index];
 
+#if defined( SKULLBONEZ_SKARNESS )
+            if ( captured.request.owner == PostRenderCaptureOwner::ExternalAutomation )
+            {
+                m_skarness.CompleteCapture( captured.request.token, captured.status.Ok(),
+                                            captured.status.Ok() ? nullptr : captured.status.ErrorMessage() );
+                continue;
+            }
+#endif
+
             if ( captured.request.owner != PostRenderCaptureOwner::LookLab )
             {
                 continue;
@@ -1269,6 +1288,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
         FinishFrameWorkPhase( proceedPolicy );
         PresentFramePhase();
+#if defined( SKULLBONEZ_SKARNESS )
+        PublishSkarnessFrameState();
+
+        if ( m_skarness.TakeStopRequested() )
+        {
+            PostQuitMessage( 0 );
+        }
+#endif
 
         if ( m_applicationExit.ExitRequested() )
         {
@@ -1284,6 +1311,57 @@ SkullbonezCore::Core::SbResult Run::Execute()
     return ResolveExecuteExit( messageExitCode );
 }
 
+
+#if defined( SKULLBONEZ_SKARNESS )
+void Run::PublishSkarnessFrameState()
+{
+    if ( !m_skarness.Enabled() )
+    {
+        return;
+    }
+
+    const ReplaySkarnessState replay = m_replayRuntime.BuildSkarnessState();
+    const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+    SkarnessFrameState state;
+    state.sceneGeneration = lifecycle.generation;
+    state.sceneFrame = m_sceneController.State().currentFrame;
+    state.simulationSeconds = m_timers.SimulationTotalSeconds();
+    state.paused = m_skarness.Paused();
+    state.replayCaptureEnabled = replay.input.captureEnabled;
+    state.replayScrubPaused = replay.input.scrubPaused;
+    state.replayPlaybackPaused = replay.input.liveAdvanceHeld;
+    state.predictionEnabled = replay.input.predictionEnabled;
+    state.predictionBuilding = replay.predictionBuilding;
+    state.predictionComplete = replay.predictionComplete;
+    state.predictionHighDetail = replay.predictionHighDetail;
+    state.velocityEditEnabled = replay.input.velocityEditEnabled;
+    state.ragdollVisualsEnabled = replay.ragdollVisualsEnabled;
+    state.pastPathVisible = replay.pastPathVisible;
+    state.hasPathTarget = replay.input.hasPathTarget;
+    state.pathTargetId = replay.input.pathTargetId;
+    state.pathTargetModelRow = replay.input.pathTargetModelRow;
+    state.predictionHorizonSeconds = replay.predictionHorizonSeconds;
+    state.predictionRevealProgress = replay.input.predictionRevealProgress;
+    state.predictionGeneration = replay.predictionGeneration;
+    state.publishedPredictionFrames = replay.publishedPredictionFrames;
+    state.trajectoryRecordCount = replay.trajectoryRecordCount;
+    state.selectedFutureRootPointCount = replay.selectedFutureRootPointCount;
+    state.contactChildIncomingCount = replay.contactChildIncomingCount;
+    state.contactChildOutgoingCount = replay.contactChildOutgoingCount;
+    state.retainedEntryMarkerCount = replay.retainedEntryMarkerCount;
+    state.futureNodeCount = replay.futureNodeCount;
+    state.retainedLineFloatCount = replay.retainedLineFloatCount;
+    state.retainedRibbonVertexFloatCount = replay.retainedRibbonVertexFloatCount;
+    state.visualPacketHasGeometry = replay.visualPacketHasGeometry;
+    state.trajectorySubmitted = replay.trajectorySubmission.hasSubmission;
+    state.submittedSegmentCount = replay.trajectorySubmission.segmentCount;
+    state.submittedVertexCount = replay.trajectorySubmission.vertexCount;
+    state.submittedFutureTreeReady = replay.trajectorySubmission.futureTreeReadyLastFrame;
+
+    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+    m_skarness.PublishFrameState( state );
+}
+#endif
 
 float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
                         const SceneFrameProceedPolicy& proceedPolicy )
