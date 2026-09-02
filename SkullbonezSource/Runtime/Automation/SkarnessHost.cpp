@@ -317,6 +317,7 @@ void SkarnessHost::DisconnectClient()
     m_untilRequestId.clear();
     m_untilCondition.clear();
     m_stopRequestId.clear();
+    m_pendingSceneTransition = PendingSceneTransition {};
     m_stepCompletesAfterFrame = false;
     m_untilFramesRemaining = 0;
     m_untilStepsPhysics = false;
@@ -595,6 +596,21 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         command.type = SkarnessCommandType::CaptureScreenshot;
         valid = ReadString( arguments, "path", command.text );
     }
+    else if ( commandName == "scene.load" )
+    {
+        command.type = SkarnessCommandType::SceneLoad;
+        const bool hasName = arguments.contains( "name" );
+        const bool hasPath = arguments.contains( "path" );
+        valid = hasName != hasPath && ReadString( arguments, hasName ? "name" : "path", command.text );
+    }
+    else if ( commandName == "scene.reset" )
+    {
+        command.type = SkarnessCommandType::SceneReset;
+    }
+    else if ( commandName == "scene.load_demo" )
+    {
+        command.type = SkarnessCommandType::SceneLoadDemo;
+    }
     else if ( commandName == "replay.set_recording_enabled" )
     {
         command.type = SkarnessCommandType::ReplaySetRecordingEnabled;
@@ -740,6 +756,22 @@ void SkarnessHost::CompleteCommand( const std::string& requestId, bool applied, 
     m_pendingCompletions.push_back( std::move( completion ) );
 }
 
+bool SkarnessHost::BeginSceneTransition( const std::string& requestId, uint64_t sourceGeneration,
+                                         const char* expectedScenePath, bool expectDemo )
+{
+    if ( !m_pendingSceneTransition.requestId.empty() )
+    {
+        return false;
+    }
+
+    m_pendingSceneTransition.requestId = requestId;
+    m_pendingSceneTransition.expectedScenePath = expectedScenePath ? expectedScenePath : "";
+    m_pendingSceneTransition.sourceGeneration = sourceGeneration;
+    m_pendingSceneTransition.framesRemaining = 1200u;
+    m_pendingSceneTransition.expectDemo = expectDemo;
+    return true;
+}
+
 uint64_t SkarnessHost::BeginCapture( const std::string& requestId )
 {
     const uint64_t token = m_nextCaptureToken++;
@@ -855,9 +887,12 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
 
 void SkarnessHost::SendCapabilities( const std::string& requestId )
 {
-    static const std::array<const char*, 30> commands = { "capabilities.get",
+    static const std::array<const char*, 33> commands = { "capabilities.get",
                                                           "session.stop",
                                                           "capture.screenshot",
+                                                          "scene.load",
+                                                          "scene.reset",
+                                                          "scene.load_demo",
                                                           "run.pause",
                                                           "run.resume",
                                                           "run.step",
@@ -891,7 +926,7 @@ void SkarnessHost::SendCapabilities( const std::string& requestId )
                       { "requestId", requestId },
                       { "status", "applied" },
                       { "commands", commands },
-                      { "topics", { "replay.state" } } };
+                      { "topics", { "scene.state", "replay.state" } } };
     const std::string line = response.dump();
     m_trace << line << '\n';
     m_trace.flush();
@@ -912,12 +947,37 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
         return;
     }
 
+    const uint64_t renderFrame = ++m_renderFrame;
+    Json scenePayload = { { "scenePath", state.scenePath },
+                          { "sceneObjectCount", state.sceneObjectCount },
+                          { "physicsBodyCount", state.physicsBodyCount },
+                          { "lifecycleEvent", state.sceneLifecycleEvent },
+                          { "ready", state.sceneReady },
+                          { "sceneMode", state.sceneMode } };
+    Json sceneEvent = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
+                        { "sequence", ++m_sequence },
+                        { "kind", "state" },
+                        { "topic", "scene.state" },
+                        { "renderFrame", renderFrame },
+                        { "sceneGeneration", state.sceneGeneration },
+                        { "sceneFrame", state.sceneFrame },
+                        { "simulationSeconds", state.simulationSeconds },
+                        { "paused", state.paused },
+                        { "payload", std::move( scenePayload ) } };
+    const std::string sceneLine = sceneEvent.dump();
+    m_trace << sceneLine << '\n';
+    m_trace.flush();
+    (void)SendJsonLine( sceneLine );
+
     Json payload = { { "replayCaptureEnabled", state.replayCaptureEnabled },
                      { "replayScrubPaused", state.replayScrubPaused },
                      { "replayPlaybackPaused", state.replayPlaybackPaused },
                      { "predictionEnabled", state.predictionEnabled },
                      { "predictionBuilding", state.predictionBuilding },
                      { "predictionComplete", state.predictionComplete },
+                     { "predictionDirty", state.predictionDirty },
+                     { "predictionRestartPending", state.predictionRestartPending },
+                     { "predictionGenerationPermitted", state.predictionGenerationPermitted },
                      { "predictionHighDetail", state.predictionHighDetail },
                      { "velocityEditEnabled", state.velocityEditEnabled },
                      { "ragdollVisualsEnabled", state.ragdollVisualsEnabled },
@@ -928,6 +988,11 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                      { "predictionHorizonSeconds", state.predictionHorizonSeconds },
                      { "predictionRevealProgress", state.predictionRevealProgress },
                      { "predictionGeneration", state.predictionGeneration },
+                     { "predictionSourceTargetId", state.predictionSourceTargetId },
+                     { "predictionSourceFrame", state.predictionSourceFrame },
+                     { "predictionSourceSolverHash", state.predictionSourceSolverHash },
+                     { "committedPredictionFrames", state.committedPredictionFrames },
+                     { "incompleteContactFrameCount", state.incompleteContactFrameCount },
                      { "publishedPredictionTargetId", state.publishedPredictionTargetId },
                      { "publishedPredictionFrames", state.publishedPredictionFrames },
                      { "trajectoryRecordCount", state.trajectoryRecordCount },
@@ -954,7 +1019,7 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                    { "sequence", ++m_sequence },
                    { "kind", "state" },
                    { "topic", "replay.state" },
-                   { "renderFrame", ++m_renderFrame },
+                   { "renderFrame", renderFrame },
                    { "sceneGeneration", state.sceneGeneration },
                    { "sceneFrame", state.sceneFrame },
                    { "simulationSeconds", state.simulationSeconds },
@@ -964,6 +1029,27 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
     m_trace << line << '\n';
     m_trace.flush();
     (void)SendJsonLine( line );
+
+    if ( !m_pendingSceneTransition.requestId.empty() )
+    {
+        const bool newGeneration = state.sceneGeneration > m_pendingSceneTransition.sourceGeneration;
+        const bool expectedScene = m_pendingSceneTransition.expectDemo
+                                       ? state.scenePath[0] == '\0' && !state.sceneMode
+                                       : state.sceneMode && m_pendingSceneTransition.expectedScenePath == state.scenePath;
+
+        if ( newGeneration && state.sceneReady )
+        {
+            SendLifecycle( m_pendingSceneTransition.requestId, expectedScene ? "applied" : "rejected",
+                           expectedScene ? nullptr : "a different scene became active" );
+            m_pendingSceneTransition = PendingSceneTransition {};
+        }
+        else if ( m_pendingSceneTransition.framesRemaining > 0 && --m_pendingSceneTransition.framesRemaining == 0 )
+        {
+            SendLifecycle( m_pendingSceneTransition.requestId, "rejected",
+                           "scene transition did not reach an activated generation" );
+            m_pendingSceneTransition = PendingSceneTransition {};
+        }
+    }
 
     if ( m_stepCompletesAfterFrame )
     {
@@ -1077,9 +1163,8 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
                state.drawnCollisionWireframeCount == state.retainedEntryMarkerCount &&
                state.drawnEndingWireframeCount == state.retainedEndMarkerCount &&
                state.collisionWireframePathMismatchCount == 0 && state.endingWireframePathMismatchCount == 0 &&
-               state.trajectorySubmitted &&
-               state.submittedSegmentCount >= 32 && state.submittedVertexCount >= state.submittedSegmentCount * 6 &&
-               state.submittedFutureTreeReady;
+               state.trajectorySubmitted && state.submittedSegmentCount >= 32 &&
+               state.submittedVertexCount >= state.submittedSegmentCount * 6 && state.submittedFutureTreeReady;
     }
 
     return false;
@@ -1101,9 +1186,9 @@ std::string SkarnessHost::UntilTimeoutReason( const SkarnessFrameState& state ) 
            << " endingWireframes=" << state.drawnEndingWireframeCount
            << " collisionPathMismatches=" << state.collisionWireframePathMismatchCount
            << " endingPathMismatches=" << state.endingWireframePathMismatchCount
-           << " pathSaturated=" << state.retainedPathGeometrySaturated
-           << " submitted=" << state.trajectorySubmitted << " segments=" << state.submittedSegmentCount
-           << " vertices=" << state.submittedVertexCount << " futureTreeReady=" << state.submittedFutureTreeReady;
+           << " pathSaturated=" << state.retainedPathGeometrySaturated << " submitted=" << state.trajectorySubmitted
+           << " segments=" << state.submittedSegmentCount << " vertices=" << state.submittedVertexCount
+           << " futureTreeReady=" << state.submittedFutureTreeReady;
     return reason.str();
 }
 

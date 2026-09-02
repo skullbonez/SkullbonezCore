@@ -1325,6 +1325,13 @@ void Run::PublishSkarnessFrameState()
     SkarnessFrameState state;
     state.sceneGeneration = lifecycle.generation;
     state.sceneFrame = m_sceneController.State().currentFrame;
+    const std::string* scenePath = m_sceneController.CurrentPath();
+    strncpy_s( state.scenePath, sizeof( state.scenePath ), scenePath ? scenePath->c_str() : "", _TRUNCATE );
+    state.sceneObjectCount = m_sceneController.Scene().SceneEntityCount();
+    state.physicsBodyCount = Physics::PhysicsEngine::ReadBodies( m_sceneController.Scene().Physics() ).Count();
+    state.sceneLifecycleEvent = static_cast<int>( lifecycle.event );
+    state.sceneReady = SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated );
+    state.sceneMode = m_sceneController.State().isSceneMode;
     state.simulationSeconds = m_timers.SimulationTotalSeconds();
     state.paused = m_skarness.Paused();
     state.replayCaptureEnabled = replay.input.captureEnabled;
@@ -1333,6 +1340,9 @@ void Run::PublishSkarnessFrameState()
     state.predictionEnabled = replay.input.predictionEnabled;
     state.predictionBuilding = replay.predictionBuilding;
     state.predictionComplete = replay.predictionComplete;
+    state.predictionDirty = replay.predictionDirty;
+    state.predictionRestartPending = replay.predictionRestartPending;
+    state.predictionGenerationPermitted = replay.predictionGenerationPermitted;
     state.predictionHighDetail = replay.predictionHighDetail;
     state.velocityEditEnabled = replay.input.velocityEditEnabled;
     state.ragdollVisualsEnabled = replay.ragdollVisualsEnabled;
@@ -1343,6 +1353,11 @@ void Run::PublishSkarnessFrameState()
     state.predictionHorizonSeconds = replay.predictionHorizonSeconds;
     state.predictionRevealProgress = replay.input.predictionRevealProgress;
     state.predictionGeneration = replay.predictionGeneration;
+    state.predictionSourceTargetId = replay.predictionSourceTargetId;
+    state.predictionSourceFrame = replay.predictionSourceFrame;
+    state.predictionSourceSolverHash = replay.predictionSourceSolverHash;
+    state.committedPredictionFrames = replay.committedPredictionFrames;
+    state.incompleteContactFrameCount = replay.incompleteContactFrameCount;
     state.publishedPredictionTargetId = replay.publishedPredictionTargetId;
     state.publishedPredictionFrames = replay.publishedPredictionFrames;
     state.trajectoryRecordCount = replay.trajectoryRecordCount;

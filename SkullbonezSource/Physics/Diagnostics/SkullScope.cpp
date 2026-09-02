@@ -473,7 +473,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         for ( int i = 0; i < stageCount; ++i )
         {
             SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath, ",\"%s\":%d",
-                                                Physics::PhysicsPipelineStageName( static_cast<Physics::PhysicsPipelineStage>( i ) ),
+                                                Physics::PhysicsPipelineStageName(
+                                                    static_cast<Physics::PhysicsPipelineStage>( i ) ),
                                                 stageCounts[i] );
         }
 

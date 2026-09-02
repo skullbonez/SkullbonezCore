@@ -135,7 +135,8 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
     {
         revealSeconds = availableSeconds;
         prediction.revealClock.anchor = now -
-                                        std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
+                                        std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                            std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
     }
 
     const double revealFrame = revealSeconds / static_cast<double>( ::PHYSICS_FIXED_DT );
@@ -255,6 +256,7 @@ void ReplayPrediction::CancelJob( bool clearSamples, bool preserveVisibleSnapsho
     m_state.build.complete = false;
     m_state.build.buildMode = ReplayPredictionBuildMode::Undecided;
     m_state.build.pendingLatestRestart = false;
+    m_state.build.causalContactNodeCount = 0u;
     m_state.simulation.targetModelRow.value = -1;
     m_state.build.nextTick = 1;
     m_state.build.targetTickCount = 0;

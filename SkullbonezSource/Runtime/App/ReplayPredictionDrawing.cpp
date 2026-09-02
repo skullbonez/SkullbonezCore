@@ -1598,7 +1598,7 @@ void AppendReplayVelocityDragPreview( const ReplayPredictionPresentationView& pr
 
 
 bool ReplayPredictionCollisionMarkerMatchesPath( const ReplayPredictionPresentationView& prediction,
-                                                  const ReplayPredictionRetainedMarker& marker )
+                                                 const ReplayPredictionRetainedMarker& marker )
 {
     for ( const ReplayTrajectoryRecord& outgoing : prediction.trajectory.records )
     {
@@ -1606,8 +1606,7 @@ bool ReplayPredictionCollisionMarkerMatchesPath( const ReplayPredictionPresentat
 
         if ( outgoing.key.bodyId != marker.id || outgoing.key.lane != ReplayTrajectoryLane::FutureChildOutgoing ||
              outgoingCount == 0u || outgoing.points[0].frameIndex != outgoing.firstFrame ||
-             VectorMagSquared( outgoing.points[0].position - marker.entryPosition ) >
-                 REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+             VectorMagSquared( outgoing.points[0].position - marker.entryPosition ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
             continue;
         }
@@ -1631,8 +1630,8 @@ bool ReplayPredictionCollisionMarkerMatchesPath( const ReplayPredictionPresentat
 }
 
 bool ReplayPredictionEndingMarkerMatchesPath( const ReplayPredictionPresentationView& prediction,
-                                               const ReplayPredictionRetainedMarker& marker,
-                                               Physics::PhysicsSceneObjectId targetId )
+                                              const ReplayPredictionRetainedMarker& marker,
+                                              Physics::PhysicsSceneObjectId targetId )
 {
     const Vector3& endingPosition = marker.hasRestPose ? marker.restPosition : marker.horizonPosition;
     const ReplayTrajectoryLane expectedLane = marker.id == targetId ? ReplayTrajectoryLane::FutureRoot
@@ -1815,9 +1814,9 @@ void AppendReplayPredictionRetainedEvidence( const ReplayPredictionPresentationV
 
         if ( marker.hasEntryPose && !cursor.entryMarkerAppended )
         {
-            cursor.entryMarkerAppended =
-                retainedMarkers.AddReplayCausalEntryMarker( marker.entryPosition, marker.entryOrientation,
-                                                            collider->shape );
+            cursor.entryMarkerAppended = retainedMarkers.AddReplayCausalEntryMarker( marker.entryPosition,
+                                                                                     marker.entryOrientation,
+                                                                                     collider->shape );
 
             if ( cursor.entryMarkerAppended )
             {
@@ -1827,8 +1826,8 @@ void AppendReplayPredictionRetainedEvidence( const ReplayPredictionPresentationV
 
         if ( marker.hasRestPose && !cursor.endMarkerAppended )
         {
-            cursor.endMarkerAppended =
-                retainedMarkers.AddReplayCausalRestMarker( marker.restPosition, marker.restOrientation, collider->shape );
+            cursor.endMarkerAppended = retainedMarkers.AddReplayCausalRestMarker( marker.restPosition,
+                                                                                  marker.restOrientation, collider->shape );
 
             if ( cursor.endMarkerAppended )
             {
@@ -1837,8 +1836,9 @@ void AppendReplayPredictionRetainedEvidence( const ReplayPredictionPresentationV
         }
         else if ( finalReveal && marker.hasHorizonPose && !cursor.endMarkerAppended )
         {
-            cursor.endMarkerAppended = retainedMarkers.AddReplayCausalHorizonMarker(
-                marker.horizonPosition, marker.horizonOrientation, collider->shape );
+            cursor.endMarkerAppended = retainedMarkers.AddReplayCausalHorizonMarker( marker.horizonPosition,
+                                                                                     marker.horizonOrientation,
+                                                                                     collider->shape );
 
             if ( cursor.endMarkerAppended )
             {
@@ -1911,9 +1911,9 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
         return update;
     }
 
-    if ( !reset && ReplayPredictionCanSkipSaturatedDrawList( state.saturated, state.retainedMarkerVersion,
-                                                             prediction.markers.version, state.retainedMarkerCount,
-                                                             prediction.markers.retainedMarkers.size() ) )
+    if ( !reset &&
+         ReplayPredictionCanSkipSaturatedDrawList( state.saturated, state.retainedMarkerVersion, prediction.markers.version,
+                                                   state.retainedMarkerCount, prediction.markers.retainedMarkers.size() ) )
     {
         // The bounded path list already owns its complete drawable prefix, and
         // marker identity is unchanged. Advance tokens without scanning the

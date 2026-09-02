@@ -2121,8 +2121,8 @@ void ReplayRuntime::ApplyTransportCommand( const ReplaySetPredictionHorizonComma
 
 
 void ReplayRuntime::ApplyTransportCommand( const ReplaySetVelocityEditEnabledCommand& command, InputRouter& inputRouter,
-                                           RuntimeInteractionController& interaction, CameraControlState& camera,
-                                           double now, ReplayWorkspaceOutput& output )
+                                           RuntimeInteractionController& interaction, CameraControlState& camera, double now,
+                                           ReplayWorkspaceOutput& output )
 {
     if ( m_authoring.VelocityEdit().enabled == command.enabled )
     {

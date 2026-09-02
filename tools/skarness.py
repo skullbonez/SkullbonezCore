@@ -349,6 +349,7 @@ def query_rows(session: Path, kind: str, limit: int) -> int:
         }
         predicates = {
             "summary": "source = 'runtime' AND topic = 'replay.state'",
+            "scene": "source = 'runtime' AND topic = 'scene.state'",
             "replay": "source = 'runtime' AND (topic LIKE 'replay.%' OR kind = 'command')",
             "prediction": "source = 'runtime' AND topic = 'replay.state'",
             "cause": "source = 'runtime' AND topic LIKE '%cause%'",
@@ -396,6 +397,14 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("command")
     command.add_argument("arguments", nargs="*", metavar="name=value")
 
+    load_scene = subparsers.add_parser("load-scene")
+    load_scene.add_argument("session", type=Path)
+    load_scene.add_argument("scene")
+
+    for name in ("reset-scene", "load-demo"):
+        action = subparsers.add_parser(name)
+        action.add_argument("session", type=Path)
+
     for name in ("pause", "resume"):
         action = subparsers.add_parser(name)
         action.add_argument("session", type=Path)
@@ -429,7 +438,7 @@ def build_parser() -> argparse.ArgumentParser:
     query = subparsers.add_parser("query")
     query.add_argument("session", type=Path)
     query.add_argument(
-        "kind", choices=("summary", "replay", "prediction", "cause", "render-submission", "physics")
+        "kind", choices=("summary", "scene", "replay", "prediction", "cause", "render-submission", "physics")
     )
     query.add_argument("--limit", type=int, default=DEFAULT_ROW_LIMIT)
     return parser
@@ -444,6 +453,12 @@ def main() -> int:
             return launch(args.session, args.exe, args.scene)
         if args.action == "command":
             return run_command(args.session, args.command, parse_arguments(args.arguments))
+        if args.action == "load-scene":
+            return run_command(args.session, "scene.load", {"name": args.scene})
+        if args.action == "reset-scene":
+            return run_command(args.session, "scene.reset", {})
+        if args.action == "load-demo":
+            return run_command(args.session, "scene.load_demo", {})
         if args.action == "pause":
             return run_command(args.session, "run.pause", {})
         if args.action == "resume":

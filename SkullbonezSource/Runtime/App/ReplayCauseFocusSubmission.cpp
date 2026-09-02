@@ -292,8 +292,8 @@ bool TryRenderReplayPredictionContactFocus( const RunReplayCameraState& camera, 
             continue;
         }
 
-        // Why: the selected future-tree contact names a body pair, but the
-        // complete manifold remains in the immutable frame debug values.
+        // Why: the selected future-tree contact names a body pair, and its
+        // exact activation edge remains in the immutable frame values.
         for ( const PhysicsDebugContact& contact : frame.debugContacts )
         {
             const int contactModelA = ReplayRagdollTorsoModelIndexForPart( scene, contact.bodyA );

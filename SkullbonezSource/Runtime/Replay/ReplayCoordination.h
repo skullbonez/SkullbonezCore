@@ -244,14 +244,13 @@ struct ReplaySelectCauseRowCommand
 // Invariant: each transport alternative carries only the payload accepted by
 // that action. The dispatcher cannot observe a stale scalar, row, or toggle
 // value left behind by a different UI command.
-using ReplayTransportCommand = std::variant<ReplaySetRecordingEnabledCommand, ReplayJumpToStartCommand,
-                                            ReplayJumpToEndCommand, ReplayTogglePlayPauseCommand, ReplayStepBackwardCommand,
-                                            ReplayStepForwardCommand, ReplaySetRevealSpeedCommand, ReplayScrubCommand,
-                                            ReplayTogglePredictionCommand, ReplaySetPredictionDetailModeCommand,
-                                            ReplaySetPredictionHorizonCommand, ReplaySetVelocityEditEnabledCommand,
-                                            ReplaySetRagdollVisualsEnabledCommand, ReplaySetPastPathVisibleCommand,
-                                            ReplayRestoreBranchCommand, ReplaySaveCommand, ReplayLoadCommand,
-                                            ReplayReturnToLiveCommand, ReplaySelectCauseRowCommand>;
+using ReplayTransportCommand = std::variant<
+    ReplaySetRecordingEnabledCommand, ReplayJumpToStartCommand, ReplayJumpToEndCommand, ReplayTogglePlayPauseCommand,
+    ReplayStepBackwardCommand, ReplayStepForwardCommand, ReplaySetRevealSpeedCommand, ReplayScrubCommand,
+    ReplayTogglePredictionCommand, ReplaySetPredictionDetailModeCommand, ReplaySetPredictionHorizonCommand,
+    ReplaySetVelocityEditEnabledCommand, ReplaySetRagdollVisualsEnabledCommand, ReplaySetPastPathVisibleCommand,
+    ReplayRestoreBranchCommand, ReplaySaveCommand, ReplayLoadCommand, ReplayReturnToLiveCommand,
+    ReplaySelectCauseRowCommand>;
 
 inline ReplayTransportAction ReplayTransportCommandAction( const ReplayTransportCommand& command ) noexcept
 {

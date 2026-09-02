@@ -25,6 +25,8 @@ class SkarnessHost
     void PollCommands();
     bool PopCommand( SkarnessCommand& outCommand );
     void CompleteCommand( const std::string& requestId, bool applied, const char* reason = nullptr );
+    bool BeginSceneTransition( const std::string& requestId, uint64_t sourceGeneration, const char* expectedScenePath,
+                               bool expectDemo );
     uint64_t BeginCapture( const std::string& requestId );
     void CompleteCapture( uint64_t token, bool applied, const char* reason = nullptr );
     SkarnessProceedPolicy TakeProceedPolicy();
@@ -73,6 +75,14 @@ class SkarnessHost
         std::string requestId;
         std::string response;
     };
+    struct PendingSceneTransition
+    {
+        std::string requestId;
+        std::string expectedScenePath;
+        uint64_t sourceGeneration = 0;
+        uint32_t framesRemaining = 0;
+        bool expectDemo = false;
+    };
     std::filesystem::path m_sessionDirectory;
     std::filesystem::path m_manifestPath;
     std::filesystem::path m_tracePath;
@@ -88,6 +98,7 @@ class SkarnessHost
     std::deque<PendingCapture> m_pendingCaptures;
     std::deque<std::string> m_recentRequestIds;
     std::deque<CompletedRequest> m_completedRequests;
+    PendingSceneTransition m_pendingSceneTransition;
     uint64_t m_sequence = 0;
     uint64_t m_renderFrame = 0;
     uint64_t m_physicsSceneGeneration = ~uint64_t { 0 };

@@ -12,6 +12,9 @@ inline constexpr uint32_t SKARNESS_SCHEMA_VERSION = 1u;
 enum class SkarnessCommandType : uint8_t
 {
     CaptureScreenshot,
+    SceneLoad,
+    SceneReset,
+    SceneLoadDemo,
     ReplaySetRecordingEnabled,
     ReplayJumpToStart,
     ReplayJumpToEnd,
@@ -57,6 +60,12 @@ struct SkarnessFrameState
 {
     uint64_t sceneGeneration = 0;
     int sceneFrame = 0;
+    char scenePath[512] = {};
+    int sceneObjectCount = 0;
+    int physicsBodyCount = 0;
+    int sceneLifecycleEvent = 0;
+    bool sceneReady = false;
+    bool sceneMode = false;
     double simulationSeconds = 0.0;
     bool paused = true;
     bool replayCaptureEnabled = false;
@@ -65,6 +74,9 @@ struct SkarnessFrameState
     bool predictionEnabled = false;
     bool predictionBuilding = false;
     bool predictionComplete = false;
+    bool predictionDirty = false;
+    bool predictionRestartPending = false;
+    bool predictionGenerationPermitted = false;
     bool predictionHighDetail = false;
     bool velocityEditEnabled = false;
     bool ragdollVisualsEnabled = false;
@@ -75,6 +87,11 @@ struct SkarnessFrameState
     float predictionHorizonSeconds = 0.0f;
     float predictionRevealProgress = 0.0f;
     uint32_t predictionGeneration = 0;
+    uint64_t predictionSourceTargetId = 0;
+    uint64_t predictionSourceFrame = 0;
+    uint64_t predictionSourceSolverHash = 0;
+    uint32_t committedPredictionFrames = 0;
+    uint32_t incompleteContactFrameCount = 0;
     uint64_t publishedPredictionTargetId = 0;
     uint32_t publishedPredictionFrames = 0;
     uint32_t trajectoryRecordCount = 0;

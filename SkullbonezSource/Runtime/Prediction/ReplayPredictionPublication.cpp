@@ -478,9 +478,9 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
 }
 
 bool BuildReplayPredictionChildTrajectoryRecord( RunReplayPredictionState& prediction,
-                                                  const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                                                  const RunReplayPathTraceNode& node, std::size_t nodeIndex,
-                                                  bool usingBuildFrames, ReplayTrajectoryLane lane )
+                                                 const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
+                                                 const RunReplayPathTraceNode& node, std::size_t nodeIndex,
+                                                 bool usingBuildFrames, ReplayTrajectoryLane lane )
 {
     if ( frameCount == 0 )
     {
@@ -938,9 +938,9 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
         const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
 
         if ( !BuildReplayPredictionChildTrajectoryRecord( prediction, frames, frameCount, node, i, usingBuildFrames,
-                                                           ReplayTrajectoryLane::FutureChildIncoming ) ||
+                                                          ReplayTrajectoryLane::FutureChildIncoming ) ||
              !BuildReplayPredictionChildTrajectoryRecord( prediction, frames, frameCount, node, i, usingBuildFrames,
-                                                           ReplayTrajectoryLane::FutureChildOutgoing ) )
+                                                          ReplayTrajectoryLane::FutureChildOutgoing ) )
         {
             return;
         }

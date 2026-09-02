@@ -352,8 +352,7 @@ void RetainReplayPredictionRootEndMarker( RunReplayPredictionState& prediction,
 
     const auto rootEndMarkerPublished = [&prediction, rootId]()
     {
-        for ( std::size_t markerIndex = 0u; markerIndex < prediction.futureNodeCache.retainedMarkerCount;
-              ++markerIndex )
+        for ( std::size_t markerIndex = 0u; markerIndex < prediction.futureNodeCache.retainedMarkerCount; ++markerIndex )
         {
             const ReplayPredictionRetainedMarker& marker = prediction.futureNodeCache.retainedMarkers[markerIndex];
 
@@ -402,8 +401,8 @@ void RetainReplayPredictionRootEndMarker( RunReplayPredictionState& prediction,
         return;
     }
 
-    const RunReplayPredictionBodySample* finalBody =
-        FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1u], rootId, rootModelIndex );
+    const RunReplayPredictionBodySample* finalBody = FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1u], rootId,
+                                                                                           rootModelIndex );
 
     if ( finalBody )
     {

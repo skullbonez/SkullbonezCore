@@ -915,11 +915,23 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     state.input = BuildInputView();
     state.predictionBuilding = prediction.build.building;
     state.predictionComplete = prediction.build.complete;
+    state.predictionDirty = prediction.build.dirty;
+    state.predictionRestartPending = prediction.build.pendingLatestRestart;
+    state.predictionGenerationPermitted = m_predictionOwner.GenerationPermitted();
     state.predictionHighDetail = m_predictionOwner.DetailMode() == ReplayPredictionDetailMode::High;
     state.ragdollVisualsEnabled = prediction.ragdollVisualsEnabled;
     state.pastPathVisible = m_visualPresentation.PathVisualizer().pastPathVisible;
     state.predictionHorizonSeconds = prediction.simulation.horizonSeconds;
     state.predictionGeneration = prediction.build.generationBeginCount;
+    state.predictionSourceTargetId = prediction.simulation.targetId.value;
+    state.predictionSourceFrame = prediction.simulation.sourceFrameIndex;
+    state.predictionSourceSolverHash = prediction.simulation.sourceSolverHash;
+    state.committedPredictionFrames = static_cast<uint32_t>( prediction.CommittedFrameCount() );
+
+    for ( const RunReplayPredictionFrame& frame : m_predictionOwner.ActiveFrames() )
+    {
+        state.incompleteContactFrameCount += frame.contactsIncomplete ? 1u : 0u;
+    }
     state.publishedPredictionTargetId = packet.header.targetId.value;
     state.publishedPredictionFrames = static_cast<uint32_t>( m_predictionOwner.ActiveFrames().size() );
     state.trajectoryRecordCount = static_cast<uint32_t>( packet.trajectoryRecords.size() );
@@ -930,18 +942,18 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
         {
             const std::size_t publishedCount = (std::min)( record.publishedPointCount, record.points.size() );
             const auto publishedEnd = record.points.begin() + static_cast<std::ptrdiff_t>( publishedCount );
-            const auto firstEntryPoint = std::lower_bound(
-                record.points.begin(), publishedEnd, record.firstFrame,
-                []( const ReplayTrajectoryPoint& point, ReplayFrameIndex entryFrame )
-                { return point.frameIndex < entryFrame; } );
-            state.childOutgoingPreEntryPointCount +=
-                static_cast<uint32_t>( std::distance( record.points.begin(), firstEntryPoint ) );
+            const auto firstEntryPoint = std::lower_bound( record.points.begin(), publishedEnd, record.firstFrame,
+                                                           []( const ReplayTrajectoryPoint& point,
+                                                               ReplayFrameIndex entryFrame )
+                                                           { return point.frameIndex < entryFrame; } );
+            state.childOutgoingPreEntryPointCount += static_cast<uint32_t>(
+                std::distance( record.points.begin(), firstEntryPoint ) );
         }
 
         if ( record.key.lane == ReplayTrajectoryLane::FutureRoot && record.key.bodyId == packet.header.targetId )
         {
             state.selectedFutureRootPointCount = (std::max)( state.selectedFutureRootPointCount,
-                                                              static_cast<uint32_t>( record.publishedPointCount ) );
+                                                             static_cast<uint32_t>( record.publishedPointCount ) );
         }
         else if ( record.contactDerived && record.publishedPointCount >= 2u &&
                   record.key.lane == ReplayTrajectoryLane::FutureChildIncoming )
@@ -961,8 +973,8 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
         state.retainedEndMarkerCount += ( marker.hasRestPose || marker.hasHorizonPose ) ? 1u : 0u;
     }
 
-    const ReplayPredictionRetainedMarkerDrawStats markerDrawStats =
-        m_predictionPresentation.RetainedMarkerDrawStatsSnapshot();
+    const ReplayPredictionRetainedMarkerDrawStats markerDrawStats = m_predictionPresentation
+                                                                        .RetainedMarkerDrawStatsSnapshot();
     state.drawnCollisionWireframeCount = markerDrawStats.collisionWireframeCount;
     state.drawnEndingWireframeCount = markerDrawStats.endingWireframeCount;
     state.collisionWireframePathMismatchCount = markerDrawStats.collisionPathMismatchCount;
@@ -970,9 +982,9 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     state.retainedPathGeometrySaturated = markerDrawStats.pathGeometrySaturated;
     state.futureNodeCount = static_cast<uint32_t>( packet.futureNodes.size() );
     state.retainedLineFloatCount = static_cast<uint32_t>( packet.retainedPredictionOrdinaryLines.size() +
-                                                           packet.retainedPredictionPriorityLines.size() );
+                                                          packet.retainedPredictionPriorityLines.size() );
     state.retainedRibbonVertexFloatCount = static_cast<uint32_t>( packet.retainedPredictionRibbonVertices.size() +
-                                                                   packet.retainedPredictionPriorityRibbonVertices.size() );
+                                                                  packet.retainedPredictionPriorityRibbonVertices.size() );
     state.visualPacketHasGeometry = packet.HasGeometry();
     state.trajectorySubmission = m_predictionPresentation.TrajectorySubmissionProbeSnapshot();
     return state;

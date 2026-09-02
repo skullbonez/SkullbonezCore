@@ -556,6 +556,13 @@ struct RunReplayPredictionBuildState
     ReplayPredictionWorkerSchedule schedule;
     ReplayPredictionPublication publication;
     ReplayPredictionPresentationPublication presentationPublication;
+
+    // Concept: the future tree needs the first contact that activates each
+    // causal body, not every persistent manifold row in every future frame.
+    // This bitmap follows the worker generation and bounds retained contact
+    // history by the same node cap as presentation.
+    std::vector<uint8_t> causalContactActiveModels;
+    std::size_t causalContactNodeCount = 0;
 };
 
 // Concept: this owner contains the private engine and every mutable value used

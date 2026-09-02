@@ -138,7 +138,8 @@ class EditorTracer
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
     void AddReplayPathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
                                float b,
-                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane = SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
+                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane =
+                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
                                float emphasis = 0.0f );
     void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
                                       float b );
@@ -148,11 +149,9 @@ class EditorTracer
                                  float b );
     void AddReplayImpulseVector( const Math::Vector::Vector3& point, const Math::Vector::Vector3& impulse, float r, float g,
                                  float b );
-    bool AddReplayCausalEntryMarker( const Math::Vector::Vector3& position,
-                                     const Math::Orientation::Quaternion& orientation,
+    bool AddReplayCausalEntryMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
                                      const Math::CollisionDetection::CollisionShapeReference& shape );
-    bool AddReplayCausalRestMarker( const Math::Vector::Vector3& position,
-                                    const Math::Orientation::Quaternion& orientation,
+    bool AddReplayCausalRestMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
                                     const Math::CollisionDetection::CollisionShapeReference& shape );
     bool AddReplayCausalHorizonMarker( const Math::Vector::Vector3& position,
                                        const Math::Orientation::Quaternion& orientation,

@@ -238,7 +238,7 @@ inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bo
 }
 
 inline bool ReplayPredictionExplicitRestartRequested( bool dirty, Physics::PhysicsSceneObjectId activeTargetId,
-                                                       Physics::PhysicsSceneObjectId requestedTargetId ) noexcept
+                                                      Physics::PhysicsSceneObjectId requestedTargetId ) noexcept
 {
     // Why: selecting another body is an authored prediction request even when
     // a coherent future for the previous body is already visible.
@@ -247,8 +247,8 @@ inline bool ReplayPredictionExplicitRestartRequested( bool dirty, Physics::Physi
 
 inline ReplayPredictionPendingPublicationAction
 ChooseReplayPredictionPendingPublicationAction( bool pending, Physics::PhysicsSceneObjectId activeTargetId,
-                                                 Physics::PhysicsSceneObjectId requestedTargetId,
-                                                 Physics::PhysicsSceneObjectId visibleRootId ) noexcept
+                                                Physics::PhysicsSceneObjectId requestedTargetId,
+                                                Physics::PhysicsSceneObjectId visibleRootId ) noexcept
 {
     if ( !pending )
     {

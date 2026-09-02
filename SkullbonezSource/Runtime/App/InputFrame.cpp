@@ -780,14 +780,104 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
         {
             const uint64_t token = m_skarness.BeginCapture( command.requestId );
             const Core::SbResult queued = m_capture.QueuePostRenderPng( command.text.c_str(),
-                                                                        PostRenderCaptureOwner::ExternalAutomation,
-                                                                        token );
+                                                                        PostRenderCaptureOwner::ExternalAutomation, token );
 
             if ( !queued.Ok() )
             {
                 m_skarness.CompleteCapture( token, false, queued.ErrorMessage() );
             }
 
+            continue;
+        }
+        case SkarnessCommandType::SceneLoad:
+        {
+            const SkullbonezCore::UI::RunSceneBrowserState& browser = m_operatorUi->SceneNavigation().browser;
+            const int pathMatchIndex = browser.CurrentIndexForPath( &command.text );
+            int browserIndex = -1;
+
+            for ( int index = 0; index < static_cast<int>( browser.paths.size() ); ++index )
+            {
+                const bool nameMatches = index < static_cast<int>( browser.names.size() ) &&
+                                         browser.names[index] == command.text;
+                const bool pathMatches = index == pathMatchIndex;
+
+                if ( !nameMatches && !pathMatches )
+                {
+                    continue;
+                }
+
+                if ( browserIndex >= 0 )
+                {
+                    browserIndex = -2;
+                    break;
+                }
+
+                browserIndex = index;
+            }
+
+            if ( browserIndex == -2 )
+            {
+                applied = false;
+                reason = "scene name or path is ambiguous";
+                break;
+            }
+
+            if ( browserIndex < 0 )
+            {
+                applied = false;
+                reason = "scene name or path was not found in the scene browser";
+                break;
+            }
+
+            const std::string* currentPath = m_sceneController.CurrentPath();
+
+            if ( currentPath && browser.CurrentIndexForPath( currentPath ) == browserIndex )
+            {
+                break;
+            }
+
+            const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+
+            if ( !m_skarness.BeginSceneTransition( command.requestId, lifecycle.generation,
+                                                   browser.paths[browserIndex].c_str(), false ) )
+            {
+                applied = false;
+                reason = "another scene transition is pending";
+                break;
+            }
+
+            m_sceneController.SubmitLoadBrowserIndex( browserIndex );
+            continue;
+        }
+        case SkarnessCommandType::SceneReset:
+        {
+            const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+            const std::string* currentPath = m_sceneController.CurrentPath();
+            const bool expectDemo = !currentPath || currentPath->empty();
+
+            if ( !m_skarness.BeginSceneTransition( command.requestId, lifecycle.generation,
+                                                   currentPath ? currentPath->c_str() : "", expectDemo ) )
+            {
+                applied = false;
+                reason = "another scene transition is pending";
+                break;
+            }
+
+            m_sceneController.SubmitResetCurrentScene();
+            continue;
+        }
+        case SkarnessCommandType::SceneLoadDemo:
+        {
+            const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+
+            if ( !m_skarness.BeginSceneTransition( command.requestId, lifecycle.generation, "", true ) )
+            {
+                applied = false;
+                reason = "another scene transition is pending";
+                break;
+            }
+
+            m_sceneController.SubmitLoadDemoScene();
             continue;
         }
         case SkarnessCommandType::ReplaySetRecordingEnabled:
@@ -880,8 +970,8 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
                     break;
                 }
 
-                modelIndex = world.Entities().FindBySceneObjectId( Physics::PhysicsSceneObjectId {
-                    static_cast<uint32_t>( command.unsignedInteger ) } );
+                modelIndex = world.Entities().FindBySceneObjectId(
+                    Physics::PhysicsSceneObjectId { static_cast<uint32_t>( command.unsignedInteger ) } );
             }
             else
             {
@@ -909,9 +999,8 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
                 break;
             }
 
-            const Physics::PhysicsBodyRecord* body = modelIndex >= 0
-                                                        ? world.BodyStore().RecordForModelIndex( modelIndex )
-                                                        : nullptr;
+            const Physics::PhysicsBodyRecord* body = modelIndex >= 0 ? world.BodyStore().RecordForModelIndex( modelIndex )
+                                                                     : nullptr;
 
             if ( !body || !body->sceneObjectId.IsValid() )
             {
@@ -924,8 +1013,8 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
             intent.setPathTarget = true;
             intent.pathTargetId = body->sceneObjectId;
             intent.pathTargetModelRow.value = modelIndex;
-            strncpy_s( intent.pathTargetName, sizeof( intent.pathTargetName ),
-                       world.Entities().At( modelIndex ).displayName, _TRUNCATE );
+            strncpy_s( intent.pathTargetName, sizeof( intent.pathTargetName ), world.Entities().At( modelIndex ).displayName,
+                       _TRUNCATE );
             (void)m_replayRuntime.ApplyFrameIntent( intent );
             (void)m_interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                                      WorldInteractionOwner::ReplayPrediction,

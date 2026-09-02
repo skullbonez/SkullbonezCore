@@ -167,8 +167,7 @@ constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset, uint64_t
 }
 
 constexpr bool ReplayPredictionCanSkipSaturatedDrawList( bool saturated, uint32_t retainedMarkerVersion,
-                                                         uint32_t incomingMarkerVersion,
-                                                         std::size_t retainedMarkerCount,
+                                                         uint32_t incomingMarkerVersion, std::size_t retainedMarkerCount,
                                                          std::size_t incomingMarkerCount ) noexcept
 {
     // Saturated path ranges are stable, but marker lines own separate capacity.

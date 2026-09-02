@@ -39,12 +39,22 @@ deterministic advancement, and `run.until` through `wait` for a named outcome.
 Do not interrupt a client after its command is accepted; wait for its applied or
 rejected result.
 
+Exercise scene lifecycle defects in one persistent session. Scene commands do
+not report `applied` until the requested generation is activated and ready:
+
+```powershell
+python tools\skarness.py load-scene TestOutput\skarness\<case> at_rest.scene.json
+python tools\skarness.py reset-scene TestOutput\skarness\<case>
+python tools\skarness.py load-demo TestOutput\skarness\<case>
+```
+
 ## Observe state
 
 Query the latest detached snapshot for a bounded check:
 
 ```powershell
 python tools\skarness.py query TestOutput\skarness\<case> prediction
+python tools\skarness.py query TestOutput\skarness\<case> scene
 python tools\skarness.py query TestOutput\skarness\<case> cause
 python tools\skarness.py query TestOutput\skarness\<case> render-submission
 ```
@@ -83,6 +93,15 @@ session and require each request to publish and render its own target. For
 causal paths, require zero pre-entry outgoing points. For replay controls,
 subscribe to `replay` and verify the requested timeline/control value after
 each command.
+
+For prediction or scene-lifecycle changes, run the persistent multi-scene gate.
+It covers rest, both tornado showcases, dense authored scenes, generated demo,
+and a second 200-body wall prediction after all intervening transitions:
+
+```powershell
+python tools\validate_skarness_prediction_matrix.py --self-test
+python tools\validate_skarness_prediction_matrix.py --session TestOutput\skarness\prediction-matrix
+```
 
 ## Capture and stop
 

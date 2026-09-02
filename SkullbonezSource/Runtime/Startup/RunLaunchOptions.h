@@ -165,7 +165,7 @@ struct RunStartupOverrides
 #if defined( SKULLBONEZ_SKARNESS )
     const char* skarnessSessionDirectory = nullptr; // CLI --skarness session directory copied by the harness owner.
 #endif
-    bool configureReplayRecording = false;           // True when replay capture or hash logging must be configured
+    bool configureReplayRecording = false; // True when replay capture or hash logging must be configured
     bool replayRecordingEnabled = true;
     int replayRetentionSeconds = 0;
     const char* replayHashLogPath = nullptr;
