@@ -88,6 +88,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using SkullbonezCore::Hardware::Input;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 using SkullbonezCore::UI::InGameUITab;
 
 namespace
@@ -320,8 +321,18 @@ SceneFrameProceedPolicy Run::CompleteRuntimeInputPhase( bool& gameUiActive, bool
     (void)requestDevelopmentUiSurfaceSwap;
 #endif
 
-    const SceneFrameProceedPolicy proceedPolicy = m_sceneController.BuildFrameProceedPolicy(
+    SceneFrameProceedPolicy proceedPolicy = m_sceneController.BuildFrameProceedPolicy(
         m_inputRouter.RuntimeSnapshot().frameInput.stepHeld );
+#if defined( SKULLBONEZ_SKARNESS )
+    const SkarnessProceedPolicy skarnessPolicy = m_skarness.TakeProceedPolicy();
+
+    if ( skarnessPolicy.pauseLocked )
+    {
+        proceedPolicy.crossScenePauseLocked = true;
+        proceedPolicy.stepRequested = skarnessPolicy.stepRequested;
+        proceedPolicy.proceedAllowed = skarnessPolicy.stepRequested;
+    }
+#endif
     AuthoredScene liveStyle;
     if ( m_liveStyle.Poll( m_resultDiagnostics, m_assets, liveStyle ) )
     {
@@ -1038,6 +1049,9 @@ RuntimeUIFrameResult Run::RunOperatorInputFrame( const UI::InputCaptureIntent& e
                                                 requestedReplayCauseRow };
     presentationEdit.Commit();
     result = ApplyInputCommandsPhase( result, keyboardToggleEditorMode, commandFacts );
+#if defined( SKULLBONEZ_SKARNESS )
+    ApplySkarnessCommands( result, commandFacts );
+#endif
     presentationEdit.Refresh();
     if ( result.status.Ok() && result.frameActive )
     {
@@ -1215,6 +1229,13 @@ void Run::ApplyDeferredInputOwnerRequests( RuntimeOverlayPresentationEdit& prese
 SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput,
                                             bool& gameUiActive )
 {
+#if defined( SKULLBONEZ_SKARNESS )
+    if ( m_skarness.Enabled() )
+    {
+        CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+        m_skarness.PollCommands();
+    }
+#endif
     UI::InputCaptureIntent externalUiCapture;
     SkullbonezCore::UI::OperatorEditorCommandQueues externalEditorCommands;
     gameUiActive = true;
@@ -1281,6 +1302,33 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
 
 
     DeviceInputFrame deviceFrame;
+#if defined( SKULLBONEZ_SKARNESS )
+    if ( m_skarness.Enabled() )
+    {
+        SkarnessPointerInputFrame skarnessPointer;
+        Input::AutomationState automation;
+        automation.enabled = true;
+        automation.overrideAppFocused = true;
+        automation.appFocused = true;
+
+        if ( m_skarness.TakePointerInputFrame( skarnessPointer ) )
+        {
+            automation.hasMouseClientPosition = true;
+            automation.mouseClientPosition = { skarnessPointer.clientX, skarnessPointer.clientY };
+            automation.rawMouseDeltaX = skarnessPointer.rawMouseX;
+            automation.rawMouseDeltaY = skarnessPointer.rawMouseY;
+            automation.leftMouseDown = skarnessPointer.button == SkarnessPointerButton::Left && skarnessPointer.buttonDown;
+            automation.rightMouseDown = skarnessPointer.button == SkarnessPointerButton::Right && skarnessPointer.buttonDown;
+            automation.middleMouseDown = skarnessPointer.button == SkarnessPointerButton::Middle &&
+                                         skarnessPointer.buttonDown;
+        }
+
+        // Skarness owns the complete device sample while its pipe session is
+        // active. Interaction recordings retain their own synthetic device
+        // owner when this executable was launched without Skarness.
+        Input::SetAutomationState( automation );
+    }
+#endif
     const SkullbonezCore::Core::SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( m_resultDiagnostics,
                                                                                                deviceFrame );
 

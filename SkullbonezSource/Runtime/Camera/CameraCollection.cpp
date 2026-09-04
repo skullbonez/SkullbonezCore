@@ -106,7 +106,7 @@ Vector3 SlerpDirection( const Vector3& fromValue, const Vector3& toValue, float 
 
 } // namespace
 
-Camera CameraCollection::InterpolatePose( const Camera& from, const Camera& to, float progress )
+Camera CameraCollection::InterpolatePose( const Camera& from, const Camera& to, float progress, bool keepWorldUp )
 {
     if ( progress <= 0.0f )
     {
@@ -132,7 +132,8 @@ Camera CameraCollection::InterpolatePose( const Camera& from, const Camera& to, 
     // Why: independently lerping up can cancel at opposed endpoints. Project
     // the source basis onto the current view plane and use deterministic
     // destination/world fallbacks; exact endpoint branches preserve authored up.
-    Vector3 up = from.m_upVector - direction * Dot( from.m_upVector, direction );
+    const Vector3 preferredUp = keepWorldUp ? Vector3( 0.0f, 1.0f, 0.0f ) : from.m_upVector;
+    Vector3 up = preferredUp - direction * Dot( preferredUp, direction );
 
     if ( !up.TryNormalise() )
     {
@@ -154,6 +155,7 @@ CameraCollection::CameraCollection()
     m_tweenElapsedSeconds = 0.0f;
     m_hasPublishedTweenProgress = false;
     m_terrain = 0;
+    m_tweenKeepsWorldUp = false;
 
     for ( int count = 0; count < SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT; ++count )
     {
@@ -180,6 +182,7 @@ void CameraCollection::Reset()
     m_tweenDeltaSeconds = 0.0f;
     m_tweenElapsedSeconds = 0.0f;
     m_hasPublishedTweenProgress = false;
+    m_tweenKeepsWorldUp = false;
 
     for ( int i = 0; i < SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT; ++i )
     {
@@ -313,6 +316,7 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool tween )
 
     // specify if tweening
     m_isTweening = tween;
+    m_tweenKeepsWorldUp = false;
 
     m_tweenProgress = 0;
     m_tweenElapsedSeconds = 0.0f;
@@ -376,6 +380,19 @@ void CameraCollection::SetPrimaryPose( const Vector3& position, const Vector3& v
 
 void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector3& view, const Vector3& up )
 {
+    BeginPrimaryPoseTween( position, view, up, false );
+}
+
+
+void CameraCollection::TweenPrimaryToUprightPose( const Vector3& position, const Vector3& view, const Vector3& up )
+{
+    BeginPrimaryPoseTween( position, view, up, true );
+}
+
+
+void CameraCollection::BeginPrimaryPoseTween( const Vector3& position, const Vector3& view, const Vector3& up,
+                                              bool keepWorldUp )
+{
     if ( !m_arrayPosition )
     {
         SB_FATAL( "CameraCollection", "TweenPrimaryToPose requires at least one registered camera. count=%d selected=%d",
@@ -398,6 +415,7 @@ void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector
         m_tweenProgress = 0.0f;
         m_tweenElapsedSeconds = 0.0f;
         m_hasPublishedTweenProgress = false;
+        m_tweenKeepsWorldUp = false;
         ResetRelativity();
         return;
     }
@@ -407,6 +425,7 @@ void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector
     m_tweenProgress = 0.0f;
     m_tweenElapsedSeconds = 0.0f;
     m_hasPublishedTweenProgress = false;
+    m_tweenKeepsWorldUp = keepWorldUp;
     ResetRelativity();
 }
 
@@ -454,6 +473,7 @@ void CameraCollection::CancelTween()
 {
     m_isTweening = false;
     m_hasPublishedTweenProgress = false;
+    m_tweenKeepsWorldUp = false;
 }
 
 
@@ -507,7 +527,8 @@ void CameraCollection::SetCamera()
         m_hasPublishedTweenProgress = false;
 
         // Keep the destination live; the target camera may move during a tween.
-        m_tweenCamera = InterpolatePose( m_tweenStart, m_cameraArray[m_selectedCamera], m_tweenProgress );
+        m_tweenCamera = InterpolatePose( m_tweenStart, m_cameraArray[m_selectedCamera], m_tweenProgress,
+                                         m_tweenKeepsWorldUp );
 
         // Avoid going through terrain during tweens when the scene owns a
         // terrain surface. Terrainless authored scenes deliberately bind null;
@@ -536,6 +557,7 @@ void CameraCollection::SetCamera()
             m_cameraArray[m_selectedCamera].m_viewMagnitude = m_tweenCamera.m_viewMagnitude;
             ResetRelativity();
             m_isTweening = false;
+            m_tweenKeepsWorldUp = false;
         }
     }
 }

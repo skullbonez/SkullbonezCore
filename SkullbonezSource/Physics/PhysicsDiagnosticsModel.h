@@ -19,7 +19,7 @@ Related:
 */
 #pragma once
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
 #include <cstdint>
 

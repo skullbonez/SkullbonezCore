@@ -392,6 +392,19 @@ TEST_CASE( "Replay render publication keeps time and renderer consumers independ
     CHECK( views.render.visualPacket == nullptr );
 }
 
+TEST_CASE( "Object focus render policy uses translucent selected and context passes" )
+{
+    const RuntimeObjectFocusRenderPolicy ordinary = ResolveObjectFocusRenderPolicy( false );
+    CHECK_FALSE( ordinary.splitTransparentPasses );
+    CHECK( ordinary.focusedAlpha == doctest::Approx( 1.0f ) );
+    CHECK( ordinary.contextAlpha == doctest::Approx( 1.0f ) );
+
+    const RuntimeObjectFocusRenderPolicy inspection = ResolveObjectFocusRenderPolicy( true );
+    CHECK( inspection.splitTransparentPasses );
+    CHECK( inspection.focusedAlpha == doctest::Approx( 0.8f ) );
+    CHECK( inspection.contextAlpha == doctest::Approx( 0.2f ) );
+}
+
 TEST_CASE( "Scene controller: one proceed policy governs the complete frame" )
 {
     SceneFrameProceedPolicy policy = ResolveSceneFrameProceedPolicy( false, false );

@@ -3109,6 +3109,26 @@ TEST_CASE( "Scene memory diagnostics count complete Physics store capacity" )
 }
 
 
+TEST_CASE( "Replay prediction engine reuse rejects incompatible scene topology capacity" )
+{
+    using namespace SkullbonezCore::Core::Allocation;
+
+    auto source = std::make_unique<PhysicsEngine>();
+    auto noJoints = std::make_unique<PhysicsEngine>();
+    auto compatible = std::make_unique<PhysicsEngine>();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        source->ReserveAuthoredBodyCapacity( 12u, 2u, 10u, 0u, 9u );
+        noJoints->ReserveAuthoredBodyCapacity( 12u, 2u, 10u, 0u, 0u );
+        compatible->ReserveAuthoredBodyCapacity( 12u, 2u, 10u, 0u, 9u );
+    }
+
+    CHECK_FALSE( noJoints->ReplayPredictionStorageCanSeedFrom( *source ) );
+    CHECK( compatible->ReplayPredictionStorageCanSeedFrom( *source ) );
+}
+
+
 TEST_CASE( "Main memory dump reports incomplete write flush and close operations" )
 {
     char temporaryDirectory[MAX_PATH] = {};

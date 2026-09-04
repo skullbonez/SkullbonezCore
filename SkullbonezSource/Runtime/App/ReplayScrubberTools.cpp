@@ -310,14 +310,20 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamer
 
         presentation.BeginCameraInspection( normalizedCurrentMode, restoreCameraHash, eye, view, up );
         cameras->SelectCamera( inspectionCameraHash, false );
-        cameras->TweenPrimaryToPose( eye, view, up );
+        // The dedicated slot is prepared synchronously; the feature that owns
+        // a destination starts exactly one visible-pose tween afterwards.
+        cameras->SetPrimaryPose( eye, view, up );
     }
     else if ( !cameras->IsCameraSelected( inspectionCameraHash ) )
     {
         // A causal selection may begin while a generic Free-camera replay
-        // inspection is already visible. Move to the dedicated slot from that
+        // inspection is already visible. Prepare the dedicated slot at that
         // visible pose without replacing the saved main-camera identity.
-        cameras->SelectCamera( inspectionCameraHash, true );
+        const Vector3 eye = cameras->GetRenderCameraTranslation();
+        const Vector3 view = cameras->GetRenderCameraView();
+        const Vector3 up = cameras->GetRenderCameraUp();
+        cameras->SelectCamera( inspectionCameraHash, false );
+        cameras->SetPrimaryPose( eye, view, up );
     }
 
     XZBounds unbounded;
@@ -398,11 +404,15 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera
 
         if ( restoreCameraAvailable )
         {
-            cameras->SelectCamera( restoreCameraHash, true );
+            // Invariant: selecting without a tween leaves the last rendered
+            // causal pose as the source. A selection tween here would make the
+            // following pose tween inherit an intermediate transition instead.
+            cameras->SelectCamera( restoreCameraHash, false );
 
             if ( replayCamera.hasRestorePose )
             {
-                cameras->TweenPrimaryToPose( replayCamera.restoreEye, replayCamera.restoreView, replayCamera.restoreUp );
+                cameras->TweenPrimaryToUprightPose( replayCamera.restoreEye, replayCamera.restoreView,
+                                                    replayCamera.restoreUp );
             }
 
             if ( terrain )
@@ -640,14 +650,10 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
         m_planningOwner.CauseInspection().PublishSolverDetail( inspection.Transport().generation, detail, manifold );
     }
 
-    // Invariant: camera focus and transport generation begin in the same turn.
-    // A restore completion can therefore acknowledge only the detail view that
-    // issued it, while a later row selection supersedes the pending generation.
-    output.enterInteractive = true;
-    EnterInspectionCamera( &world.Cameras(), camera, input.normalizedCurrentMode, interaction, inputRouter, mousePickup,
-                           CAMERA_CAUSAL_DETAIL );
+    AttachedCameraPose preparedPose;
+    const AttachedCameraFocusRequest focusRequest { selectedRow.id, selectedRow.modelRow, targetPosition, targetRadius };
 
-    if ( !attachedCamera.BeginFocusedInspection( world, selectedRow.id, selectedRow.modelRow ) )
+    if ( !attachedCamera.BeginFocusedInspection( world, focusRequest, preparedPose ) )
     {
         // A disappeared focus object has no honest orbit endpoint. Reuse the
         // stable refusal text rather than transporting time under a stale pivot.
@@ -656,7 +662,13 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
         return;
     }
 
-    (void)attachedCamera.TickFocusedInspection( world, 0.0f, 0.0f, 0, 1.0f );
+    // Invariant: camera focus and transport generation begin in the same turn.
+    // The causal slot is already at its final upright pose before one blend is
+    // started from the visible main/previous-causal camera.
+    output.enterInteractive = true;
+    EnterInspectionCamera( &world.Cameras(), camera, input.normalizedCurrentMode, interaction, inputRouter, mousePickup,
+                           CAMERA_CAUSAL_DETAIL );
+    world.Cameras().TweenPrimaryToUprightPose( preparedPose.eye, preparedPose.view, preparedPose.up );
     InputController::ResetMouseLook( camera );
     inputRouter.RequestCursorVisible( true );
 }
@@ -676,15 +688,15 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
         world.Cameras().SetTweenProgress( view.Transport().easedProgress );
     }
 
-    if ( view.Transport().mode == ReplayCauseInspectionMode::Transporting ||
-         view.Transport().mode == ReplayCauseInspectionMode::DetailPaused ||
-         view.Transport().mode == ReplayCauseInspectionMode::AftermathFollow )
+    if ( ReplayCauseInspectionAcceptsOrbit( view.Transport().mode ) )
     {
+        // Right-drag always orbits the selected causal point once entry has
+        // landed. It never hands the causal slot to generic free-look.
         const float mouseScale = pointerBlocked ? 0.0f : input.cameraMouseRadiansPerPixel;
         const float yaw = static_cast<float>( camera.inputXMove ) * mouseScale;
         const float pitch = static_cast<float>( camera.inputYMove ) * mouseScale;
         const int wheel = pointerBlocked ? 0 : input.wheelDelta;
-        (void)attachedCamera.TickFocusedInspection( world, yaw, pitch, wheel, 1.0f );
+        (void)attachedCamera.TickFocusedInspection( world, yaw, pitch, wheel );
     }
 
     ReplayCauseTransportRequest transport;
@@ -813,8 +825,10 @@ void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCa
     }
 
     const RuntimeMouseEdges& mouse = inputRouter.UiSnapshot().mouse;
-    const bool nonSelectionClick = requestedRow < 0 && ( mouse.leftPressed || mouse.rightPressed ) &&
-                                   !causeInteractionActive && !exitCauseTreeInspection;
+    // Right press begins camera look and must remain owned by the selected
+    // causal point. Only a primary scene click dismisses the inspection.
+    const bool nonSelectionClick = requestedRow < 0 && mouse.leftPressed && !causeInteractionActive &&
+                                   !exitCauseTreeInspection;
 
     // Why: the scrubber evaluates its own surface before the cause window has
     // published a row intent, so a valid row click can also look like an
@@ -940,7 +954,9 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
         }
     }
 
-    if ( !loadedPresentationActivated )
+    const bool causeInspectionOwnsCamera = preScrubberInspection.Transport().mode != ReplayCauseInspectionMode::Inactive;
+
+    if ( !loadedPresentationActivated && !causeInspectionOwnsCamera )
     {
         switch ( scrubberHostAction )
         {
@@ -1119,6 +1135,12 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
         // Automation publishes the same row value produced by the GameUI
         // hit-test above; all seek, camera, pause, and restore policy remains here.
         requestedCauseTreeFocusRow = input.requestedCauseRow;
+    }
+
+    if ( requestedCauseTreeFocusRow < 0 && m_pendingCauseSelectionRow >= 0 )
+    {
+        requestedCauseTreeFocusRow = m_pendingCauseSelectionRow;
+        m_pendingCauseSelectionRow = -1;
     }
 
     ApplyCauseTreeSelection( requestedCauseTreeFocusRow, input, inputRouter, interaction, world, attachedCamera, camera,
@@ -2120,6 +2142,40 @@ void ReplayRuntime::ApplyTransportCommand( const ReplaySetPredictionHorizonComma
 }
 
 
+void ReplayRuntime::ApplyTransportCommand( const ReplaySetVelocityEditEnabledCommand& command, InputRouter& inputRouter,
+                                           RuntimeInteractionController& interaction, CameraControlState& camera, double now,
+                                           ReplayWorkspaceOutput& output )
+{
+    if ( m_authoring.VelocityEdit().enabled == command.enabled )
+    {
+        return;
+    }
+
+    const bool hasCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
+    HandleReplayVelocityEditPressed( m_authoring, m_predictionOwner, m_visualPresentation, m_scrubberOwner,
+                                     SolverPresentTrackPosition(), hasCameraFocus, inputRouter, interaction, camera, now,
+                                     output.enterInteractive );
+}
+
+
+void ReplayRuntime::ApplyTransportCommand( const ReplaySetRagdollVisualsEnabledCommand& command, double now )
+{
+    if ( m_predictionOwner.State().ragdollVisualsEnabled != command.enabled )
+    {
+        HandleReplayRagdollVisualsPressed( m_predictionOwner, m_scrubberOwner, now );
+    }
+}
+
+
+void ReplayRuntime::ApplyTransportCommand( const ReplaySetPastPathVisibleCommand& command, double now )
+{
+    if ( m_visualPresentation.PathVisualizer().pastPathVisible != command.visible )
+    {
+        HandleReplayPastPathPressed( m_visualPresentation, m_scrubberOwner, now );
+    }
+}
+
+
 void ReplayRuntime::ApplyTransportCommand( const ReplayRestoreBranchCommand&, RuntimeInteractionController& interaction,
                                            double now, ReplayWorkspaceOutput& output )
 {
@@ -2132,17 +2188,32 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayRestoreBranchCommand&, Ru
 }
 
 
-void ReplayRuntime::ApplyTransportCommand( const ReplaySaveCommand&, double now, ReplayWorkspaceOutput& output )
+void ReplayRuntime::ApplyTransportCommand( const ReplaySaveCommand& command, double now, ReplayWorkspaceOutput& output )
 {
     output.enterInteractive = true;
-    (void)SavePresentationFromScrubber( now );
+
+    if ( command.path[0] == '\0' )
+    {
+        (void)SavePresentationFromScrubber( now );
+        return;
+    }
+
+    const bool saved = SavePresentationWithSolverHashes( command.path );
+    PublishTransportFeedback( saved ? "REPLAY SAVED" : "REPLAY SAVE FAILED", now );
 }
 
 
-ReplayTransportLoadResult ReplayRuntime::BeginTransportLoad( const ReplayLoadCommand&, HWND window, double now )
+ReplayTransportLoadResult ReplayRuntime::BeginTransportLoad( const ReplayLoadCommand& command, HWND window, double now )
 {
     ReplayTransportLoadResult result;
     char path[MAX_PATH] = {};
+
+    if ( command.path[0] != '\0' )
+    {
+        result.activateLoadedPresentation = m_timeline.LoadPresentationArtifact( command.path );
+        PublishReplayLoadResult( m_scrubberOwner, command.path, result.activateLoadedPresentation, now );
+        return result;
+    }
 
     if ( SelectReplayPresentationArtifact( m_scrubberOwner, window, now, path ) )
     {
@@ -2191,6 +2262,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayReturnToLiveCommand&, Env
                                   SolverPresentTrackPosition(), m_authoring.VelocityEdit().enabled, false, inputRouter,
                                   interaction, camera, enterInteractive );
     m_authoring.ClearCauseTreeFocus();
+    m_pendingCauseSelectionRow = -1;
     ExitInspectionCamera( cameras, terrain, camera, normalizedRestoreMode, attachedFollow, directorGrabbed, interaction,
                           inputRouter );
     output.enterInteractive = output.enterInteractive || enterInteractive;
@@ -2204,12 +2276,17 @@ void ReplayRuntime::ApplyTransportCommand( const ReplaySelectCauseRowCommand& co
 {
     if ( command.rowIndex >= 0 && command.rowIndex < static_cast<int>( m_authoring.CauseTree().rows.size() ) )
     {
-        m_authoring.SetCauseTreeSelectedRow( command.rowIndex );
+        m_pendingCauseSelectionRow = command.rowIndex;
         EnterReplayTransportWorkspace( interaction, output );
         return;
     }
 
     PublishTransportFeedback( "CAUSE SELECTION STALE", now );
+}
+
+void ReplayRuntime::ApplyTransportCommand( const ReplaySetCauseInspectorOpenCommand& command, double now )
+{
+    m_planningOwner.CauseInspection().SetDrawerOpen( command.open, now );
 }
 
 ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorkspaceFrameInput& input, bool uiBlocksMouse,

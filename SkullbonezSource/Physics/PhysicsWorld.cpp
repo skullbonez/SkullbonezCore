@@ -294,7 +294,7 @@ void PhysicsWorld::CloneReplayPredictionTopologyFrom( const PhysicsWorld& source
     m_pointJointCapacity = source.m_pointJointCapacity;
     m_nextPointJointHandleIndex = source.m_nextPointJointHandleIndex;
     m_pointJointHandleGeneration = source.m_pointJointHandleGeneration;
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     m_diagnosticsSuppressed = source.m_diagnosticsSuppressed;
 #endif
 }
@@ -955,7 +955,7 @@ void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& e
 {
     if ( event.emitCollisionTime )
     {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
         const bool diagnosticsSuppressed = m_diagnosticsSuppressed;
 #else
         constexpr bool diagnosticsSuppressed = false;
@@ -1192,7 +1192,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
                 if ( commit.hit )
                 {
                     m_stepDiagnostics.RecordPipelineStage( *commit.pipelineRecord );
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
                     const bool diagnosticsSuppressed = m_diagnosticsSuppressed;
 #else
                     constexpr bool diagnosticsSuppressed = false;
@@ -1228,7 +1228,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
                 if ( commit.hit )
                 {
                     ++pipelineEventCount;
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
                     const bool diagnosticsSuppressed = m_diagnosticsSuppressed;
 #else
                     constexpr bool diagnosticsSuppressed = false;
@@ -1581,7 +1581,7 @@ const PhysicsBodyRowList<PointJointConstraint>& PhysicsWorld::GetPointJointConst
 
 bool PhysicsWorld::ShouldEmitStepDiagnostics() const
 {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     return m_stepDiagnostics.ShouldEmitStepDiagnostics( m_diagnosticsSuppressed );
 #else
     return false;
@@ -1598,7 +1598,7 @@ void PhysicsWorld::SetDiagnosticNames( std::span<const char* const> diagnosticNa
 void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                         float deltaSeconds, const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
     m_stepDiagnostics.EmitStepDiagnostics( m_diagnosticsSuppressed, diagnosticsView, bodyStore, colliderStore, deltaSeconds,
                                            diagnosticsCsvWriter );
@@ -1612,7 +1612,7 @@ void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore, const
 }
 
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 void PhysicsWorld::SetPhysicsRegressionLogPath( const char* path )
 {
     m_stepDiagnostics.SetPhysicsRegressionLogPath( path );

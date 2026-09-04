@@ -119,6 +119,11 @@ class PhysicsEngine
     // the exact canonical prediction owner scope must already be active.
     void SeedReplayPredictionStorageFrom( const PhysicsEngine& source );
 
+    // Reports whether every topology-sized list can accept a seed without
+    // growing. Prediction uses this before deciding whether a retained private
+    // engine may be reused across a scene transition.
+    bool ReplayPredictionStorageCanSeedFrom( const PhysicsEngine& source ) const noexcept;
+
     // Cold editor/tool topology can extend a loaded scene one body at a time.
     // A complete load-time commit makes this a no-op during initial population.
     void ReserveAdditionalAuthoredBodyCapacity( const PhysicsColliderCreateDesc& colliderDesc );
@@ -266,7 +271,7 @@ class PhysicsEngine
     static const PhysicsBodyRowList<PointJointConstraint>& ReadPointJointConstraints( const PhysicsEngine& engine );
     static std::size_t ReadPointJointCapacity( const PhysicsEngine& engine );
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );

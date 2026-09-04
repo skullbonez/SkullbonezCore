@@ -10,7 +10,7 @@
 //   causal progress tests pin spherical direction travel, independent look
 //   distance, antipodal stability, and exact endpoint preservation.
 //   Scene-slot and camera-transition tests pin causal detail registration,
-//   cycling exclusion, visible-pose orbit seeding, and return behavior.
+//   cycling exclusion, prepared causal endpoints, upright blending, and return behavior.
 //
 // Glossary:
 //   Movement buffer: Camera-local translation staged before bounds are applied.
@@ -395,18 +395,26 @@ TEST_CASE( "Camera inspection: saved main slot and visible pose restore after de
     const Vector3 savedView = cameras.GetRenderCameraView();
     const Vector3 savedUp = cameras.GetRenderCameraUp();
     cameras.SelectCamera( CAMERA_CAUSAL_DETAIL, false );
-    cameras.SetPrimaryPose( Vector3( 50.0f, 60.0f, 70.0f ), Vector3( 51.0f, 60.0f, 70.0f ), up );
+    cameras.TweenPrimaryToUprightPose( Vector3( 50.0f, 60.0f, 70.0f ), Vector3( 51.0f, 60.0f, 70.0f ), up );
+    cameras.SetTweenProgress( 0.4f );
+    cameras.SetCamera();
+    const Vector3 visibleCausalEye = cameras.GetRenderCameraTranslation();
+    const Vector3 visibleCausalView = cameras.GetRenderCameraView();
     cameras.SelectCamera( savedMainHash, false );
-    cameras.TweenPrimaryToPose( savedEye, savedView, savedUp );
+    cameras.TweenPrimaryToUprightPose( savedEye, savedView, savedUp );
 
     CHECK( cameras.GetSelectedCameraName() == CAMERA_FREE );
+    cameras.SetTweenProgress( 0.0f );
+    cameras.SetCamera();
+    CHECK( cameras.GetRenderCameraTranslation() == visibleCausalEye );
+    CHECK( cameras.GetRenderCameraView() == visibleCausalView );
     cameras.SetTweenProgress( 1.0f );
     cameras.SetCamera();
     CHECK( cameras.GetRenderCameraTranslation() == mainEye );
     CHECK( cameras.GetRenderCameraView() == mainView );
 }
 
-TEST_CASE( "Attached camera inspection policy: visible-pose seed retargets a moving body without restarting entry" )
+TEST_CASE( "Causal camera: destination is prepared before an upright tween starts from the visible main pose" )
 {
     CameraCollection cameras;
     const Vector3 up( 0.0f, 1.0f, 0.0f );
@@ -423,38 +431,48 @@ TEST_CASE( "Attached camera inspection policy: visible-pose seed retargets a mov
     AttachedCameraState follow;
     follow.submode = AttachedCameraSubmode::FixedRelative;
     AttachedCameraPhysicsTarget target;
-    target.position = Vector3( 10.0f, 0.0f, 0.0f );
+    target.position = Vector3( 100.0f, 5.0f, 0.0f );
     target.radius = 1.0f;
     const AttachedCameraPose visiblePose { visibleEye, visibleView, up };
     SeedAttachedCameraFixedRelative( follow, visiblePose, target );
-    follow.needsEntryTween = true;
+    follow.needsEntryTween = false;
 
-    AttachedCameraPoseCommand firstCommand;
-    REQUIRE( BuildAttachedCameraOrbitPose( follow, target, visiblePose, 0.0f, 0.0f, firstCommand ) );
-    CHECK( firstCommand.startEntryTween );
-    CHECK( firstCommand.pose.eye.x == doctest::Approx( visibleEye.x ) );
-    CHECK( firstCommand.pose.view == target.position );
+    AttachedCameraPoseCommand prepared;
+    REQUIRE( BuildAttachedCameraOrbitPose( follow, target, visiblePose, 0.0f, 0.0f, prepared ) );
+    CHECK_FALSE( prepared.startEntryTween );
+    CHECK( prepared.pose.view == target.position );
+    CHECK( SkullbonezCore::Math::Vector::Distance( prepared.pose.eye, target.position ) == doctest::Approx( 40.0f ) );
+    CHECK( prepared.pose.up == up );
 
-    target.position.x += 4.0f;
-    AttachedCameraPoseCommand movedCommand;
-    REQUIRE( BuildAttachedCameraOrbitPose( follow, target, firstCommand.pose, 0.0f, 0.0f, movedCommand ) );
-    CHECK_FALSE( movedCommand.startEntryTween );
-    CHECK( movedCommand.pose.eye.x == doctest::Approx( firstCommand.pose.eye.x + 4.0f ) );
-    CHECK( movedCommand.pose.view == target.position );
-
-    // Production TickFollow applies the first command as a tween and later
-    // commands as live destination updates through these CameraCollection seams.
+    // The selected causal slot owns the endpoint immediately. Render remains at
+    // the main pose until externally synchronized cause transport advances it.
     cameras.SelectCamera( CAMERA_CAUSAL_DETAIL, false );
-    cameras.TweenPrimaryToPose( firstCommand.pose.eye, firstCommand.pose.view, firstCommand.pose.up );
+    cameras.SetPrimaryPose( visiblePose.eye, visiblePose.view, visiblePose.up );
+    cameras.TweenPrimaryToUprightPose( prepared.pose.eye, prepared.pose.view, prepared.pose.up );
+    CHECK( cameras.GetCameraTranslation() == prepared.pose.eye );
+    CHECK( cameras.GetCameraView() == prepared.pose.view );
     cameras.SetTweenProgress( 0.0f );
     cameras.SetCamera();
     CHECK( cameras.GetRenderCameraTranslation() == visibleEye );
     CHECK( cameras.GetRenderCameraView() == visibleView );
 
     cameras.SetTweenProgress( 0.5f );
-    cameras.SetPrimaryPose( movedCommand.pose.eye, movedCommand.pose.view, movedCommand.pose.up );
     cameras.SetCamera();
-    CHECK( cameras.GetRenderCameraTranslation().x == doctest::Approx( ( visibleEye.x + movedCommand.pose.eye.x ) * 0.5f ) );
-    CHECK( cameras.GetRenderCameraView().x > visibleView.x );
+    Vector3 direction = cameras.GetRenderCameraView() - cameras.GetRenderCameraTranslation();
+    REQUIRE( direction.TryNormalise() );
+    Vector3 expectedUp = up - direction * direction.y;
+    REQUIRE( expectedUp.TryNormalise() );
+    CHECK( cameras.GetRenderCameraUp().x == doctest::Approx( expectedUp.x ) );
+    CHECK( cameras.GetRenderCameraUp().y == doctest::Approx( expectedUp.y ) );
+    CHECK( cameras.GetRenderCameraUp().z == doctest::Approx( expectedUp.z ) );
     CHECK( cameras.GetSelectedCameraName() == CAMERA_CAUSAL_DETAIL );
+
+    const float retainedDistance = SkullbonezCore::Math::Vector::Distance( prepared.pose.eye, target.position );
+    AttachedCameraPoseCommand orbited;
+    REQUIRE( BuildAttachedCameraOrbitPose( follow, target, prepared.pose, 0.55f, -0.2f, orbited ) );
+    CHECK( orbited.pose.view == target.position );
+    CHECK( orbited.pose.up == up );
+    CHECK( SkullbonezCore::Math::Vector::Distance( orbited.pose.eye, target.position ) ==
+           doctest::Approx( retainedDistance ).epsilon( 0.0001f ) );
+    CHECK( SkullbonezCore::Math::Vector::Distance( orbited.pose.eye, prepared.pose.eye ) > 1.0f );
 }

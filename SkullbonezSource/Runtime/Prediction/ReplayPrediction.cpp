@@ -420,44 +420,51 @@ bool CaptureReplayPredictionFrame( ReplayPrediction& predictionOwner, RunReplayP
     }
 
     const auto debugContacts = SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( physicsEngine );
+    frame.debugContacts.clear();
 
-    if ( debugContacts.size() > frame.debugContacts.capacity() )
+    // Why: persistent solver manifolds can contain thousands of rows on every
+    // tick. The cause tree consumes only the first edge that makes each body
+    // reachable from the selected root. Retaining those activation edges keeps
+    // the exact point/normal used by inspection while preventing two 20-second
+    // frame banks from exhausting Prediction's working-set cap.
+    // Invariant: preserve the source contact order exactly once per tick. The
+    // topology publisher uses that ordering to decide which already-active body
+    // owns a newly reached child; rescanning a frame invents same-tick edges that
+    // the full contact stream never exposed to the causal tree.
+    for ( const Physics::PhysicsDebugContact& contact : debugContacts )
     {
-        // Why: debug contacts feed the optional future-impact tree; the root
-        // trajectory line only needs body samples. If a dense contact frame asks
-        // for more replay scratch, batch the reserve across every prediction
-        // frame so the byte cap covers the whole debug-contact payload set. If
-        // the replay reserve refuses, keep the frame and drop contacts rather
-        // than cancelling prediction.
-        const std::size_t requestedDebugContactCapacity = ReplayPredictionNextDebugContactCapacity( frame.debugContacts
-                                                                                                        .capacity(),
-                                                                                                    debugContacts.size() );
+        const bool bodyAValid = contact.bodyA >= 0 && contact.bodyA < modelCount;
+        const bool bodyBValid = contact.bodyB >= 0 && contact.bodyB < modelCount;
 
-        if ( !ReserveReplayPredictionFramePayloadVectors( prediction.build.buildFrames, prediction.build.buildFrames.size(),
-                                                          requestedDebugContactCapacity, static_cast<int>( frameIndex ),
-                                                          "RunReplayPredictionFrame::debugContacts",
-                                                          &RunReplayPredictionFrame::debugContacts ) )
+        if ( !bodyAValid || !bodyBValid )
         {
-            frame.debugContacts.clear();
+            continue;
+        }
+
+        const bool bodyAActive = prediction.build.causalContactActiveModels[static_cast<std::size_t>( contact.bodyA )] != 0u;
+        const bool bodyBActive = prediction.build.causalContactActiveModels[static_cast<std::size_t>( contact.bodyB )] != 0u;
+
+        if ( bodyAActive == bodyBActive )
+        {
+            continue;
+        }
+
+        if ( frame.debugContacts.size() >= frame.debugContacts.capacity() )
+        {
             frame.contactsIncomplete = true;
+            break;
+        }
 
-            if ( !PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot ) )
-            {
-                return false;
-            }
+        frame.debugContacts.push_back( contact );
+        const int activatedModel = bodyAActive ? contact.bodyB : contact.bodyA;
+        prediction.build.causalContactActiveModels[static_cast<std::size_t>( activatedModel )] = 1u;
+        ++prediction.build.causalContactNodeCount;
 
-            if ( !predictionOwner.SealSolverEvidenceFrame( frameIndex ) )
-            {
-                return false;
-            }
-
-            prediction.PublishBuildFrameSlot( frameSlot );
-            return true;
+        if ( prediction.build.causalContactNodeCount >= REPLAY_PATH_MAX_FUTURE_NODES )
+        {
+            break;
         }
     }
-
-    frame.debugContacts.assign( debugContacts.begin(), debugContacts.end() );
-    frame.contactsIncomplete = false;
 
     if ( !PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot ) )
     {
@@ -940,15 +947,31 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
         return false;
     }
 
-    // Why: replay prediction is exploratory UI, so the initial contact payload
-    // reserve is intentionally generous and later growth is rounded to large
-    // chunks. The root trajectory still publishes even if optional contact-tree
-    // payloads outgrow the reserve.
+    // Why: each frame retains at most one activation edge per causal node. The
+    // reserve therefore follows the tree cap instead of the Physics manifold
+    // count, which can remain dense for every tick of a long horizon.
     const std::size_t initialDebugContactCapacity = ReplayPredictionInitialDebugContactCapacity( modelCount );
     (void)ReserveReplayPredictionFramePayloadVectors( prediction.build.buildFrames, buildFrameCapacity,
                                                       initialDebugContactCapacity, 0,
                                                       "RunReplayPredictionFrame::debugContacts",
                                                       &RunReplayPredictionFrame::debugContacts );
+
+    if ( !ReserveReplayPredictionVector( prediction.build.causalContactActiveModels, static_cast<std::size_t>( modelCount ),
+                                         0, "RunReplayPredictionBuildState::causalContactActiveModels" ) )
+    {
+        predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
+        prediction.build.dirty = true;
+        return false;
+    }
+
+    prediction.build.causalContactActiveModels.assign( static_cast<std::size_t>( modelCount ), uint8_t { 0u } );
+    prediction.build.causalContactNodeCount = 0u;
+
+    if ( prediction.simulation.targetModelRow.value >= 0 && prediction.simulation.targetModelRow.value < modelCount )
+    {
+        prediction.build
+            .causalContactActiveModels[static_cast<std::size_t>( prediction.simulation.targetModelRow.value )] = 1u;
+    }
 
     if ( !ReserveReplayPredictionVector( prediction.futureNodeCache.futureNodes, REPLAY_PATH_MAX_FUTURE_NODES, 0,
                                          "RunReplayPredictionFutureNodeCache::futureNodes" ) ||
@@ -1164,19 +1187,26 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
         return ReplayPredictionFrameSourceAction::Stop;
     }
 
-    if ( prediction.committedPublication.pending )
-    {
-        if ( prediction.committedPublication.visibleTrajectoryBuild.rootId.value != 0 )
-        {
-            // Lifetime: completion may still present the swapped-out committed
-            // frame bank. Defer a requested restart until the hidden replacement
-            // flips, so begin-job reserve cannot resize that visible storage.
-            return ReplayPredictionFrameSourceAction::Continue;
-        }
+    const ReplayPredictionPendingPublicationAction
+        pendingPublicationAction = ChooseReplayPredictionPendingPublicationAction( prediction.committedPublication.pending,
+                                                                                   prediction.simulation.targetId, targetId,
+                                                                                   prediction.committedPublication
+                                                                                       .visibleTrajectoryBuild.rootId );
 
+    if ( pendingPublicationAction == ReplayPredictionPendingPublicationAction::Wait )
+    {
+        // Lifetime: completion may still present the swapped-out committed
+        // frame bank. Defer a same-target refresh until the hidden replacement
+        // flips, so begin-job reserve cannot resize that visible storage.
+        return ReplayPredictionFrameSourceAction::Continue;
+    }
+
+    if ( pendingPublicationAction == ReplayPredictionPendingPublicationAction::Discard )
+    {
         // Hazard: Predict may finish before the first object is selected. That
-        // rootless publication cannot satisfy the overlay flip, so retaining its
-        // pending token would prevent the later target request from ever starting.
+        // rootless publication cannot satisfy the overlay flip. A different
+        // target likewise supersedes this hidden duplicate; retaining either
+        // pending token would prevent the latest target from starting.
         prediction.committedPublication.Reset();
     }
 
@@ -2082,7 +2112,13 @@ ReplayPastTrajectoryRefreshPlan ReplayPrediction::BeginPastTrajectoryRefresh( Re
 
     const ReplayFrameIndex oldestFrame = ReplayOldestFrameFromStats( recorder );
     const ReplayFrameIndex newestFrame = recorder.nextFrameIndex - 1u;
-    const bool needsRebuild = !path.valid || path.retainedTargetId.value != path.targetId.value ||
+    const ReplayTrajectoryRecord* retainedPast = m_state.trajectoryStore.FindRecord(
+        ReplayPastRootTrajectoryKey( path.targetId ) );
+
+    // Invariant: presentation metadata is only a cursor into the shared
+    // trajectory store. Prediction restart may clear that store, so a valid
+    // cursor without its PastRoot record must rebuild in the same frame.
+    const bool needsRebuild = !retainedPast || !path.valid || path.retainedTargetId.value != path.targetId.value ||
                               path.totalFramesEvicted != recorder.totalFramesEvicted || path.firstFrame != oldestFrame ||
                               path.builtThroughFrame < newestFrame;
 
@@ -2259,7 +2295,9 @@ ReplayPredictionMemoryStats ReplayPrediction::CollectMemoryStats() const
                                               ReplayPredictionVectorCapacityBytes(
                                                   m_state.futureNodeCache.futureNodeBuildScratch ) +
                                               ReplayPredictionVectorCapacityBytes(
-                                                  m_state.committedPublication.visibleFutureNodes ) );
+                                                  m_state.committedPublication.visibleFutureNodes ) +
+                                              ReplayPredictionVectorCapacityBytes(
+                                                  m_state.build.causalContactActiveModels ) );
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                                             SkullbonezCore::Core::MainMemoryReplayByteCategory::

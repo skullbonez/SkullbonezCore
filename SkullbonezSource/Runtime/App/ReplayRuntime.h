@@ -458,6 +458,73 @@ struct ReplayInteractionRecordingCauseState
     float drawerProgress = 0.0f;
 };
 
+#if defined( SKULLBONEZ_SKARNESS )
+struct ReplaySkarnessState
+{
+    ReplayInputView input;
+    bool predictionBuilding = false;
+    bool predictionComplete = false;
+    bool predictionDirty = false;
+    bool predictionRestartPending = false;
+    bool predictionGenerationPermitted = false;
+    bool predictionHighDetail = false;
+    bool ragdollVisualsEnabled = false;
+    bool pastPathVisible = false;
+    float predictionHorizonSeconds = 0.0f;
+    uint32_t predictionGeneration = 0;
+    uint64_t predictionSourceTargetId = 0;
+    ReplayFrameIndex predictionSourceFrame = 0;
+    uint64_t predictionSourceSolverHash = 0;
+    uint32_t committedPredictionFrames = 0;
+    uint32_t incompleteContactFrameCount = 0;
+    uint64_t publishedPredictionTargetId = 0;
+    uint32_t publishedPredictionFrames = 0;
+    uint32_t trajectoryRecordCount = 0;
+    uint32_t selectedPastRootPointCount = 0;
+    uint32_t selectedFutureRootPointCount = 0;
+    uint32_t contactChildIncomingCount = 0;
+    uint32_t contactChildOutgoingCount = 0;
+    uint32_t childOutgoingPreEntryPointCount = 0;
+    uint32_t retainedEntryMarkerCount = 0;
+    uint32_t retainedEndMarkerCount = 0;
+    uint32_t drawnCollisionWireframeCount = 0;
+    uint32_t drawnEndingWireframeCount = 0;
+    uint32_t collisionWireframePathMismatchCount = 0;
+    uint32_t endingWireframePathMismatchCount = 0;
+    uint32_t futureNodeCount = 0;
+    uint32_t retainedLineFloatCount = 0;
+    uint32_t retainedRibbonVertexFloatCount = 0;
+    uint32_t causeTreeRowCount = 0;
+    uint64_t causeTreeRowBuildCount = 0;
+    uint64_t causeTreeRowCacheHitCount = 0;
+    bool causeWindowAvailable = false;
+    bool causeInspectorOpen = false;
+    float causeInspectorDrawerProgress = 0.0f;
+    int selectedCauseRow = -1;
+    int causeInspectionMode = 0;
+    float causeTransitionProgress = 0.0f;
+    int inspectionCameraFocusKind = 0;
+    bool inspectionFocusFadeActive = false;
+    uint32_t inspectionFocusObjectCount = 0;
+    uint64_t selectedCausePrimaryId = 0;
+    uint64_t selectedCauseCounterpartId = 0;
+    uint32_t causeContactPointCount = 0;
+    uint32_t submittedCauseContactPointCount = 0;
+    uint32_t submittedCauseContactBodyCount = 0;
+    uint64_t inspectionPathFocusPrimaryId = 0;
+    uint64_t inspectionPathFocusCounterpartId = 0;
+    uint32_t inspectionFocusedPathRangeCount = 0;
+    uint32_t inspectionContextPathRangeCount = 0;
+    uint32_t inspectionFocusedPathSegmentCount = 0;
+    uint32_t inspectionContextPathSegmentCount = 0;
+    uint32_t inspectionPathOpacityMismatchCount = 0;
+    bool inspectionPathFocusActive = false;
+    bool retainedPathGeometrySaturated = false;
+    bool visualPacketHasGeometry = false;
+    ReplayTrajectorySubmissionProbeStats trajectorySubmission;
+};
+#endif
+
 class ReplayRuntime
 {
   public:
@@ -467,6 +534,9 @@ class ReplayRuntime
     ReplayInputView BuildInputView() const noexcept;
     const RunReplayCauseTreeState& CauseTree() const noexcept;
     ReplayCauseInspectionView CauseInspectionView() const noexcept;
+#if defined( SKULLBONEZ_SKARNESS )
+    ReplaySkarnessState BuildSkarnessState() const noexcept;
+#endif
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     // Lifetime: returned references/spans are synchronous validation evidence;
     // callers must rebuild the view after any replay mutation. The method is
@@ -643,6 +713,11 @@ class ReplayRuntime
                                 bool attachedFollow, bool directorGrabbed, RuntimeInteractionController& interaction,
                                 InputRouter& inputRouter, double now );
     void ApplyTransportCommand( const ReplaySetPredictionHorizonCommand& command, double now );
+    void ApplyTransportCommand( const ReplaySetVelocityEditEnabledCommand& command, InputRouter& inputRouter,
+                                RuntimeInteractionController& interaction, CameraControlState& camera, double now,
+                                ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplaySetRagdollVisualsEnabledCommand& command, double now );
+    void ApplyTransportCommand( const ReplaySetPastPathVisibleCommand& command, double now );
     void ApplyTransportCommand( const ReplayRestoreBranchCommand&, RuntimeInteractionController& interaction, double now,
                                 ReplayWorkspaceOutput& output );
     void ApplyTransportCommand( const ReplaySaveCommand&, double now, ReplayWorkspaceOutput& output );
@@ -658,6 +733,7 @@ class ReplayRuntime
                                 InputRouter& inputRouter, double now, ReplayWorkspaceOutput& output );
     void ApplyTransportCommand( const ReplaySelectCauseRowCommand& command, RuntimeInteractionController& interaction,
                                 double now, ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplaySetCauseInspectorOpenCommand& command, double now );
     void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
     ReplayFrameIntentResult ApplyFrameIntent( const ReplayFrameIntent& intent );
 
@@ -842,6 +918,16 @@ class ReplayRuntime
         m_predictionSceneFactsScratch = {};
     ReplayPlanningRuntime m_planningOwner;
     ReplayPredictionCauseEvidencePacket m_predictionCauseEvidenceScratch;
+
+#if defined( SKULLBONEZ_SKARNESS )
+    uint32_t m_lastSubmittedCauseContactPointCount = 0;
+    uint32_t m_lastSubmittedCauseContactBodyCount = 0;
+#endif
+
+    // Lifetime: typed UI/automation commands arrive after the replay workspace
+    // tick. Retain one semantic row request until the next tick can run the
+    // same selection, transport, camera, and pause path as a pointer click.
+    int m_pendingCauseSelectionRow = -1;
 
     // Invariant: App records both complete replay aggregates around the exact
     // synchronous evidence release; Prediction cannot observe sibling owners.

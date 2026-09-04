@@ -643,6 +643,23 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
         }
     }
 
+#if defined( SKULLBONEZ_SKARNESS )
+    if ( overrides.skarnessSessionDirectory )
+    {
+        std::string reason;
+
+        if ( !m_skarness.Configure( overrides.skarnessSessionDirectory, reason ) )
+        {
+            return m_resultDiagnostics.Failure( "Skarness", "%s", reason.c_str() );
+        }
+
+        m_launchOptions.interactiveSceneRun = true;
+        m_launchOptions.fixedStep = true;
+        m_sceneController.EnterInteractiveRun();
+        m_capture.DisableAutomationExit();
+    }
+#endif
+
     if ( !overrides.interactionScriptPath )
     {
         return SkullbonezCore::Core::SbResult::Success();

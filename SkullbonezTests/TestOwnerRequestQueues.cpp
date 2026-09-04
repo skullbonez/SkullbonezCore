@@ -262,6 +262,27 @@ TEST_CASE( "Replay velocity drag coalesces preview samples and refreshes only on
     CHECK_FALSE( authoring.TakePredictionRequest().refreshPrediction );
 }
 
+TEST_CASE( "Failed replay cause-row composition remains retryable" )
+{
+    ReplayAuthoring authoring;
+    authoring.ReserveCauseTreeRows( 4u );
+
+    constexpr uint64_t sourceFingerprint = 0x1a2b3c4du;
+    authoring.BeginCauseTreeRowBuild( sourceFingerprint );
+
+    RunReplayCauseTreeRow partialRow;
+    partialRow.id.value = 17u;
+    REQUIRE( authoring.AppendCauseTreeRow( partialRow ) );
+    authoring.FailCauseTreeRowBuild();
+
+    CHECK( authoring.CauseTree().rows.empty() );
+    CHECK_FALSE( authoring.CauseTreeRowsMatchSource( sourceFingerprint ) );
+
+    authoring.BeginCauseTreeRowBuild( sourceFingerprint );
+    CHECK( authoring.AppendCauseTreeRow( partialRow ) );
+    CHECK( authoring.CauseTreeRowsMatchSource( sourceFingerprint ) );
+}
+
 TEST_CASE( "Replay velocity preview survives until its release generation commits" )
 {
     ReplayVelocityDragPreviewState preview;

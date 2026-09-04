@@ -388,6 +388,26 @@ bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
     fprintf( stdout, "[interaction] Script input: %s\n", args.interactionScriptPath );
     return true;
 }
+#if defined( SKULLBONEZ_SKARNESS )
+bool ApplySkarnessSessionDirectory( const char* value, ParsedArgs& args )
+{
+    if ( !CopyCommandLinePath( value, "--skarness", args.skarnessSessionDirectory,
+                               sizeof( args.skarnessSessionDirectory ) ) )
+    {
+        return false;
+    }
+
+    // Invariant: a Skarness process remains alive and advances only through
+    // explicit fixed-step commands after the host publishes its manifest.
+    args.interactiveRun = true;
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    args.replayRecording = true;
+    args.replayExplicit = true;
+    fprintf( stdout, "[skarness] Session: %s\n", args.skarnessSessionDirectory );
+    return true;
+}
+#endif
 bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
 {
     if ( !CopyCommandLinePath( value, "--interaction-report", args.interactionReportPath,
@@ -925,6 +945,9 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.interactionTracePath = args.interactionTracePath[0] != '\0' ? args.interactionTracePath : nullptr;
     overrides.interactionRecordPath = args.interactionRecordPath[0] != '\0' ? args.interactionRecordPath : nullptr;
     overrides.interactionRecordMaxMinutes = args.interactionRecordMaxMinutes;
+#if defined( SKULLBONEZ_SKARNESS )
+    overrides.skarnessSessionDirectory = args.skarnessSessionDirectory[0] != '\0' ? args.skarnessSessionDirectory : nullptr;
+#endif
     const bool replayDefaultAllowed = !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
 
     const bool replayEnabled = args.replayExplicit ? args.replayRecording : ( args.replayRecording && replayDefaultAllowed );
@@ -1076,6 +1099,9 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--interaction-script", "--interaction_script", ApplyInteractionScriptPath },
         { "--interaction-report", "--interaction_report", ApplyInteractionReportPath },
         { "--interaction-trace", "--interaction_trace", ApplyInteractionTracePath },
+#if defined( SKULLBONEZ_SKARNESS )
+        { "--skarness", nullptr, ApplySkarnessSessionDirectory },
+#endif
         { "--record-automation", "--record_automation", ApplyInteractionRecordPath },
         { "--record-interaction", "--record_interaction", ApplyInteractionRecordPath },
         { "--interaction-record-max-minutes",

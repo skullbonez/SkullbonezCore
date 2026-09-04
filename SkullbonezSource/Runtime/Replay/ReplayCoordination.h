@@ -142,11 +142,15 @@ enum class ReplayTransportAction : uint8_t
     TogglePrediction,
     SetPredictionDetailMode,
     SetPredictionHorizon,
+    SetVelocityEditEnabled,
+    SetRagdollVisualsEnabled,
+    SetPastPathVisible,
     RestoreBranch,
     Save,
     Load,
     ReturnToLive,
-    SelectCauseRow
+    SelectCauseRow,
+    SetCauseInspectorOpen
 };
 
 struct ReplaySetRecordingEnabledCommand
@@ -199,6 +203,21 @@ struct ReplaySetPredictionHorizonCommand
     static constexpr ReplayTransportAction action = ReplayTransportAction::SetPredictionHorizon;
     float seconds = 0.0f;
 };
+struct ReplaySetVelocityEditEnabledCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::SetVelocityEditEnabled;
+    bool enabled = false;
+};
+struct ReplaySetRagdollVisualsEnabledCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::SetRagdollVisualsEnabled;
+    bool enabled = false;
+};
+struct ReplaySetPastPathVisibleCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::SetPastPathVisible;
+    bool visible = false;
+};
 struct ReplayRestoreBranchCommand
 {
     static constexpr ReplayTransportAction action = ReplayTransportAction::RestoreBranch;
@@ -206,10 +225,12 @@ struct ReplayRestoreBranchCommand
 struct ReplaySaveCommand
 {
     static constexpr ReplayTransportAction action = ReplayTransportAction::Save;
+    char path[260] = {};
 };
 struct ReplayLoadCommand
 {
     static constexpr ReplayTransportAction action = ReplayTransportAction::Load;
+    char path[260] = {};
 };
 struct ReplayReturnToLiveCommand
 {
@@ -221,15 +242,22 @@ struct ReplaySelectCauseRowCommand
     int rowIndex = -1;
 };
 
+struct ReplaySetCauseInspectorOpenCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::SetCauseInspectorOpen;
+    bool open = false;
+};
+
 // Invariant: each transport alternative carries only the payload accepted by
 // that action. The dispatcher cannot observe a stale scalar, row, or toggle
 // value left behind by a different UI command.
-using ReplayTransportCommand = std::variant<ReplaySetRecordingEnabledCommand, ReplayJumpToStartCommand,
-                                            ReplayJumpToEndCommand, ReplayTogglePlayPauseCommand, ReplayStepBackwardCommand,
-                                            ReplayStepForwardCommand, ReplaySetRevealSpeedCommand, ReplayScrubCommand,
-                                            ReplayTogglePredictionCommand, ReplaySetPredictionDetailModeCommand,
-                                            ReplaySetPredictionHorizonCommand, ReplayRestoreBranchCommand, ReplaySaveCommand,
-                                            ReplayLoadCommand, ReplayReturnToLiveCommand, ReplaySelectCauseRowCommand>;
+using ReplayTransportCommand = std::variant<
+    ReplaySetRecordingEnabledCommand, ReplayJumpToStartCommand, ReplayJumpToEndCommand, ReplayTogglePlayPauseCommand,
+    ReplayStepBackwardCommand, ReplayStepForwardCommand, ReplaySetRevealSpeedCommand, ReplayScrubCommand,
+    ReplayTogglePredictionCommand, ReplaySetPredictionDetailModeCommand, ReplaySetPredictionHorizonCommand,
+    ReplaySetVelocityEditEnabledCommand, ReplaySetRagdollVisualsEnabledCommand, ReplaySetPastPathVisibleCommand,
+    ReplayRestoreBranchCommand, ReplaySaveCommand, ReplayLoadCommand, ReplayReturnToLiveCommand, ReplaySelectCauseRowCommand,
+    ReplaySetCauseInspectorOpenCommand>;
 
 inline ReplayTransportAction ReplayTransportCommandAction( const ReplayTransportCommand& command ) noexcept
 {
@@ -263,6 +291,7 @@ struct ReplayInputView
     bool captureEnabled = false;
     bool hasPathTarget = false;
     bool hasCameraFocus = false;
+    uint64_t pathTargetId = 0;
     RunCameraMode restoreCameraMode = RunCameraMode::Demo;
     int pathTargetModelRow = -1;
     RunReplayTrack activeTrack = RunReplayTrack::Solver;

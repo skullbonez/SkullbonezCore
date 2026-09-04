@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skarness"
+  short_description: "Drive and verify gameplay through Skarness"
+  default_prompt: "Use $skarness to reproduce and validate this SkullbonezCore interaction without desktop input."

@@ -114,9 +114,7 @@ bool ReplayPredictionFramePayloadBytes( std::size_t frameCount, std::size_t capa
     return true;
 }
 
-std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk );
 std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount );
-std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacity, std::size_t requiredCapacity );
 uint64_t ReplayPredictionEngineMemoryBytes( const Physics::PhysicsEngine& engine );
 int ReplayPredictionEngineReserveBytes( const Physics::PhysicsEngine& engine );
 

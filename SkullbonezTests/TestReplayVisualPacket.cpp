@@ -807,6 +807,58 @@ TEST_CASE( "Replay committed trajectory publication is identical across budget s
     CHECK( narrowFingerprint.exactHash == variedFingerprint.exactHash );
 }
 
+TEST_CASE( "Replay child outgoing trajectory starts at the collision frame" )
+{
+    constexpr std::size_t frameCount = 4u;
+    const SkullbonezCore::Physics::PhysicsSceneObjectId rootId { 1u };
+    const SkullbonezCore::Physics::PhysicsSceneObjectId childId { 2u };
+    auto state = std::make_unique<RunReplayPredictionState>();
+    std::vector<RunReplayPredictionFrame> frames( frameCount );
+
+    for ( std::size_t frameIndex = 0; frameIndex < frames.size(); ++frameIndex )
+    {
+        frames[frameIndex].frameIndex = static_cast<ReplayFrameIndex>( frameIndex );
+        frames[frameIndex].bodies.resize( 2u );
+        frames[frameIndex].bodies[0].id = rootId;
+        frames[frameIndex].bodies[0].modelRow.value = 0;
+        frames[frameIndex].bodies[1].id = childId;
+        frames[frameIndex].bodies[1].modelRow.value = 1;
+        frames[frameIndex].bodies[1].position.x = static_cast<float>( 100u + frameIndex );
+    }
+
+    RunReplayPathTraceNode node;
+    node.id = childId;
+    node.parentId = rootId;
+    node.modelRow.value = 1;
+    node.parentModelRow.value = 0;
+    node.firstFrame = 2u;
+    node.depth = 1;
+    node.contactDerived = true;
+    state->futureNodeCache.futureNodes.push_back( node );
+    state->futureNodeCache.futureNodesTopologyVersion = 1u;
+    state->trajectoryBuild.rootId = rootId;
+    state->trajectoryBuild.usingBuildFrames = false;
+    state->trajectoryBuild.pathPresentation = ReplayPredictionPathPresentation::SelectedCausalTree;
+    state->trajectoryBuild.valid = true;
+    REQUIRE( state->trajectoryStore.ReserveRecords( 4u, 0 ) );
+
+    UpdateReplayPredictionTrajectoryStore( *state, frames, frames.size(), false, rootId, std::chrono::steady_clock::now(),
+                                           0.0 );
+
+    ReplayTrajectoryRecordKey incomingKey { childId, ReplayTrajectoryLane::FutureChildIncoming, 0u };
+    ReplayTrajectoryRecordKey outgoingKey { childId, ReplayTrajectoryLane::FutureChildOutgoing, 0u };
+    const ReplayTrajectoryRecord* incoming = state->trajectoryStore.FindRecord( incomingKey );
+    const ReplayTrajectoryRecord* outgoing = state->trajectoryStore.FindRecord( outgoingKey );
+    REQUIRE( incoming );
+    REQUIRE( outgoing );
+    REQUIRE( incoming->points.size() == 3u );
+    REQUIRE( outgoing->points.size() == 2u );
+    CHECK( incoming->points.front().frameIndex == 0u );
+    CHECK( incoming->points.back().frameIndex == node.firstFrame );
+    CHECK( outgoing->points.front().frameIndex == node.firstFrame );
+    CHECK( outgoing->points.front().position.x == frames[node.firstFrame].bodies[1].position.x );
+}
+
 TEST_CASE( "Replay fast completion keeps committed trajectories visible until the coherent flip" )
 {
     constexpr std::size_t frameCount = 4u;
@@ -1380,17 +1432,17 @@ TEST_CASE( "Replay child marker suffix accumulation matches a full scan" )
 
     for ( std::size_t i = 0; i < samples.size(); ++i )
     {
-        full.ObserveBody( i, samples[i], samples[0], moving[i] );
+        full.ObserveBody( i, samples[i], moving[i] );
     }
 
     for ( std::size_t i = 0; i < 3u; ++i )
     {
-        incremental.ObserveBody( i, samples[i], samples[0], moving[i] );
+        incremental.ObserveBody( i, samples[i], moving[i] );
     }
 
     for ( std::size_t i = 3u; i < samples.size(); ++i )
     {
-        incremental.ObserveBody( i, samples[i], samples[0], moving[i] );
+        incremental.ObserveBody( i, samples[i], moving[i] );
     }
 
     CHECK( incremental.active == full.active );
@@ -1413,6 +1465,52 @@ TEST_CASE( "Replay child marker suffix accumulation matches a full scan" )
     CHECK( incrementalW == fullW );
     CHECK( incremental.lastMotionFrame == full.lastMotionFrame );
     CHECK( incremental.lastMotionFrame == 4u );
+}
+
+TEST_CASE( "Replay child marker retains the predicted collision pose" )
+{
+    constexpr ReplayFrameIndex collisionFrame = 2u;
+    const SkullbonezCore::Physics::PhysicsSceneObjectId rootId { 1u };
+    const SkullbonezCore::Physics::PhysicsSceneObjectId childId { 2u };
+    auto prediction = std::make_unique<RunReplayPredictionState>();
+    std::vector<RunReplayPredictionFrame> frames( 5u );
+
+    for ( std::size_t frameIndex = 0u; frameIndex < frames.size(); ++frameIndex )
+    {
+        RunReplayPredictionFrame& frame = frames[frameIndex];
+        frame.frameIndex = static_cast<ReplayFrameIndex>( frameIndex );
+        frame.bodies.resize( 1u );
+        RunReplayPredictionBodySample& child = frame.bodies[0];
+        child.id = childId;
+        child.modelRow.value = 1;
+        child.position.x = static_cast<float>( 100u + frameIndex );
+        child.linearVelocity.x = frameIndex > collisionFrame ? 20.0f : 0.0f;
+    }
+
+    RunReplayPathTraceNode node;
+    node.id = childId;
+    node.parentId = rootId;
+    node.modelRow.value = 1;
+    node.parentModelRow.value = 0;
+    node.firstFrame = collisionFrame;
+    node.depth = 1;
+    node.contactDerived = true;
+    prediction->futureNodeCache.futureNodes.push_back( node );
+    prediction->futureNodeCache.futureNodesTopologyVersion = 1u;
+
+    ReplayPredictionChildMarkerScanState scan;
+    REQUIRE( AdvanceReplayPredictionChildMarkerScan( scan, *prediction, frames, frames.size(), frames.back().frameIndex, 1u,
+                                                     rootId, false, true, std::chrono::steady_clock::now(), 1000.0 ) );
+    REQUIRE( scan.nodeCount == 1u );
+    CHECK( scan.nodes[0].hasEntryPose );
+    CHECK( scan.nodes[0].active );
+    CHECK( scan.nodes[0].entryPosition.x == frames[collisionFrame].bodies[0].position.x );
+
+    RetainReplayPredictionCausalMarkers( *prediction, scan, frames.back().frameIndex, &frames, frames.size() );
+    REQUIRE( prediction->futureNodeCache.retainedMarkerCount == 1u );
+    const ReplayPredictionRetainedMarker& marker = prediction->futureNodeCache.retainedMarkers[0];
+    CHECK( marker.hasEntryPose );
+    CHECK( marker.entryPosition.x == frames[collisionFrame].bodies[0].position.x );
 }
 
 void InitializeReplayChildMarkerNode( RunReplayPredictionState& prediction, std::size_t nodeIndex,
@@ -1475,28 +1573,18 @@ ReplayPredictionChildMarkerScanState BuildLegacyReplayChildMarkerScan( const Run
                 continue;
             }
 
-            if ( !drawState.active )
+            if ( !drawState.hasEntryPose )
             {
-                if ( !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
-                {
-                    continue;
-                }
-
-                const RunReplayPredictionBodySample*
-                    initialSample = FindReplayPredictionBodyByIdWithHint( frames[0], drawState.node.id,
-                                                                          body->modelRow.value );
-                drawState.active = true;
                 drawState.hasEntryPose = true;
                 drawState.entryModelIndex = body->modelRow.value;
-                drawState.entryPosition = initialSample ? initialSample->position : body->position;
-                drawState.entryOrientation = initialSample ? initialSample->orientation : body->orientation;
+                drawState.entryPosition = body->position;
+                drawState.entryOrientation = body->orientation;
                 drawState.entryOrientation.Normalise();
-                drawState.lastMotionFrame = frame.frameIndex;
-                continue;
             }
 
             if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
             {
+                drawState.active = true;
                 drawState.lastMotionFrame = frame.frameIndex;
             }
         }
@@ -1704,6 +1792,7 @@ TEST_CASE( "Replay incremental child marker scan matches the legacy full scan ac
     prediction->futureNodeCache.futureNodesTopologyVersion = 4u;
     compareWithLegacy( completedFrameCount, static_cast<ReplayFrameIndex>( completedFrameCount - 1u ), 2u, false );
     CHECK_FALSE( incremental.nodes[0].active );
+    CHECK( incremental.nodes[0].hasEntryPose );
     compareWithLegacy( completedFrameCount, 50u, 2u, false );
     CHECK( incremental.nodes[0].scannedFrameCount == 51u );
 
@@ -1734,6 +1823,10 @@ TEST_CASE( "Replay prediction draw cursor resumes at its suffix and reuses stabl
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 0u ) == 1u );
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 1u ) == 1u );
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 128u ) == 128u );
+
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionCanSkipSaturatedDrawList( true, 7u, 8u, 12u, 12u ) );
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionCanSkipSaturatedDrawList( true, 8u, 8u, 11u, 12u ) );
+    CHECK( ReplayOverlay::ReplayPredictionCanSkipSaturatedDrawList( true, 8u, 8u, 12u, 12u ) );
 }
 
 TEST_CASE( "Replay retained prediction attachment reuses cached stable submission facts" )
@@ -1890,6 +1983,25 @@ TEST_CASE( "Replay retained continuation chunks repair only their shared adjacen
     CHECK( arena[2u * floatsPerRecord + 13u] == 0.0f );
     CHECK( std::equal( siblingSnapshot.begin(), siblingSnapshot.end(),
                        arena.begin() + static_cast<std::ptrdiff_t>( floatsPerRecord ) ) );
+}
+
+TEST_CASE( "Replay causal focus fades only unrelated retained path identities" )
+{
+    using SkullbonezCore::Runtime::ReplayOverlay::REPLAY_INSPECTION_CONTEXT_PATH_OPACITY;
+    using SkullbonezCore::Runtime::ReplayOverlay::ReplayPredictionPathFocus;
+
+    const ReplayPredictionPathFocus focus { 10u, 11u };
+    CHECK( focus.Active() );
+    CHECK( focus.Contains( 10u ) );
+    CHECK( focus.Contains( 11u ) );
+    CHECK_FALSE( focus.Contains( 12u ) );
+    CHECK( focus.OpacityFor( 10u ) == doctest::Approx( 1.0f ) );
+    CHECK( focus.OpacityFor( 11u ) == doctest::Approx( 1.0f ) );
+    CHECK( focus.OpacityFor( 12u ) == doctest::Approx( REPLAY_INSPECTION_CONTEXT_PATH_OPACITY ) );
+
+    const ReplayPredictionPathFocus inactive;
+    CHECK_FALSE( inactive.Active() );
+    CHECK( inactive.OpacityFor( 12u ) == doctest::Approx( 1.0f ) );
 }
 
 TEST_CASE( "Replay space prediction draws every body path instead of causal-only paths" )

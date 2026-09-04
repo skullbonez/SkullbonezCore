@@ -70,6 +70,9 @@ Related:
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include "../Automation/InteractionAutomationController.h"
 #endif
+#if defined( SKULLBONEZ_SKARNESS )
+#include "../Automation/SkarnessHost.h"
+#endif
 #include "../Startup/RunStartupState.h"
 #include "ReplayRuntime.h"
 #include "../Planning/ContinuousOrbitalForecast.h"
@@ -213,6 +216,9 @@ class Run
     InteractionAutomationController
         m_interactionAutomation; // Automation-build CLI harness that injects runtime mouse input for regression tests.
 #endif
+#if defined( SKULLBONEZ_SKARNESS )
+    SkarnessHost m_skarness; // Debug/Automation command transport and after-render state stream.
+#endif
     CameraControlState m_camera; // Camera/input state and ball-tracking settings
     SceneLifecycleGenerationObserver
         m_cameraSceneLifecycleObserver; // App applies detached camera state once after each clear.
@@ -270,6 +276,15 @@ class Run
     SceneFrameProceedPolicy RunAutomationAndInputPhase( bool& gameUiActive, RecordedCursorFrame& recordedCursor );
     InteractionAutomationFrameResult RunInteractionAutomationBeforeInput();
     InteractionAutomationFrameResult RunInteractionAutomationAfterRender( bool gameUiActive );
+#endif
+#if defined( SKULLBONEZ_SKARNESS )
+    bool ApplySkarnessCameraCommand( const SkarnessCommand& command, const char*& reason );
+    bool ApplySkarnessPredictionTargetCommand( const SkarnessCommand& command, const char*& reason );
+    bool ApplySkarnessReplayCommand( const SkarnessCommand& command, RuntimeUIFrameResult& result,
+                                     const RuntimeInputFrameFacts& facts );
+    bool ApplySkarnessSceneLoadCommand( const SkarnessCommand& command, bool& deferred, const char*& reason );
+    void ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts );
+    void PublishSkarnessFrameState();
 #endif
     SceneFrameProceedPolicy RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput,
                                            bool& gameUiActive );

@@ -402,6 +402,22 @@ void PhysicsEngine::SeedReplayPredictionStorageFrom( const PhysicsEngine& source
 }
 
 
+bool PhysicsEngine::ReplayPredictionStorageCanSeedFrom( const PhysicsEngine& source ) const noexcept
+{
+    return m_authoredBodyDescs.capacity() >= source.m_authoredBodyDescs.capacity() &&
+           m_bodyStore.RecordCapacity() >= source.m_bodyStore.RecordCapacity() &&
+           m_colliderStore.RecordCapacity() >= source.m_colliderStore.RecordCapacity() &&
+           m_colliderStore.AuthoringRecordCapacity() >= source.m_colliderStore.AuthoringRecordCapacity() &&
+           m_colliderStore.SphereShapeCapacity() >= source.m_colliderStore.SphereShapeCapacity() &&
+           m_colliderStore.BoxShapeCapacity() >= source.m_colliderStore.BoxShapeCapacity() &&
+           m_colliderStore.HullShapeCapacity() >= source.m_colliderStore.HullShapeCapacity() &&
+           m_buoyancySystem.RecordCapacity() >= source.m_buoyancySystem.RecordCapacity() &&
+           m_world->PointJointCapacity() >= source.m_world->PointJointCapacity() &&
+           m_fixedTreeReleaseWakeBodies.capacity() >= source.m_fixedTreeReleaseWakeBodies.capacity() &&
+           m_broadphaseQueryScratch.capacity() >= source.m_broadphaseQueryScratch.capacity();
+}
+
+
 void PhysicsEngine::ReserveAdditionalAuthoredBodyCapacity( const PhysicsColliderCreateDesc& colliderDesc )
 {
     std::size_t sphereCount = 0u;
@@ -1466,7 +1482,7 @@ std::size_t PhysicsEngine::ReadPointJointCapacity( const PhysicsEngine& engine )
     return engine.m_world->PointJointCapacity();
 }
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 void PhysicsEngine::SetPhysicsRegressionLogPath( const char* path )
 {
     m_world->SetPhysicsRegressionLogPath( path );

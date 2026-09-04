@@ -72,6 +72,23 @@ struct ReplayPredictionPresentationMemoryStats
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats trajectory;
 };
 
+struct ReplayPredictionRetainedMarkerDrawStats
+{
+    uint32_t collisionWireframeCount = 0;
+    uint32_t endingWireframeCount = 0;
+    uint32_t collisionPathMismatchCount = 0;
+    uint32_t endingPathMismatchCount = 0;
+    bool pathGeometrySaturated = false;
+};
+
+struct ReplayInspectionFocusSelection
+{
+    Physics::PhysicsSceneObjectId primaryId;
+    Physics::ModelRowHint primaryModelRow;
+    Physics::PhysicsSceneObjectId counterpartId;
+    Physics::ModelRowHint counterpartModelRow;
+};
+
 class ReplayPredictionPresentation
 {
   public:
@@ -80,6 +97,8 @@ class ReplayPredictionPresentation
 
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
     ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;
+    ReplayPredictionRetainedMarkerDrawStats RetainedMarkerDrawStatsSnapshot() const noexcept;
+    ReplayOverlay::ReplayPredictionPathFocusStats InspectionPathFocusStatsSnapshot() const noexcept;
     const ReplayVisualPacket& PublishedVisualPacketView() const noexcept;
     std::span<const ReplayPredictionGhostDrawRequest> GhostDrawRequestsView() const noexcept;
     const std::vector<uint8_t>& FocusModelMaskView() const noexcept;
@@ -92,6 +111,9 @@ class ReplayPredictionPresentation
     void ReserveRecordingBuffers();
     bool BuildFocusModelMask( const RunReplayPathVisualizerState& path, const Physics::PhysicsBodyStore& bodyStore,
                               int modelCount, std::span<const RunReplayPathTraceNode> futureNodes );
+    bool BuildInspectionFocusModelMask( const ReplayInspectionFocusSelection& focus,
+                                        const Physics::PhysicsBodyStore& bodyStore, int modelCount );
+    void SetInspectionPathFocus( const ReplayInspectionFocusSelection* focus );
     bool ApplyFrameForRender( Rendering::RenderInstanceStore& renderInstances, const Physics::PhysicsBodyStore& bodyStore,
                               const Physics::ColliderStore& colliderStore, const RunReplayPredictionFrame& frame );
     bool BuildGhostDrawRequests( const ReplayPredictionPresentationView& prediction,

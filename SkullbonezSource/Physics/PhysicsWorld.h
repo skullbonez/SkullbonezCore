@@ -160,7 +160,7 @@ class PhysicsWorld
     std::size_t m_pointJointCapacity = 0u;
     uint32_t m_nextPointJointHandleIndex = 0u;
     uint32_t m_pointJointHandleGeneration = PHYSICS_HANDLE_INITIAL_GENERATION;
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     // Scoped diagnostic suppression is a sequencer policy override, while every
     // diagnostic row and output sink belongs to its concrete owner.
     bool m_diagnosticsSuppressed = false;
@@ -254,7 +254,7 @@ class PhysicsWorld
     uint32_t GetPhysicsPipelineRecordCount() const;
     std::span<const PhysicsPipelineRecord> GetPhysicsPipelineTrace() const;
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );

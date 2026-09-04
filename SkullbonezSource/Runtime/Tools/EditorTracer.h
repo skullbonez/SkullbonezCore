@@ -41,6 +41,12 @@ struct ReplayTrajectoryAppearanceConfig;
 
 namespace SkullbonezCore::Runtime
 {
+struct ReplayPathSegmentPresentation
+{
+    float emphasis = 0.0f;
+    float opacity = 1.0f;
+};
+
 class EditorTracer
 {
   private:
@@ -88,6 +94,8 @@ class EditorTracer
                     const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
     void EmitBox( const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis,
                   const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
+    bool CanEmitShapeOutlineTo( const std::vector<float>& lineData,
+                                const Math::CollisionDetection::CollisionShapeReference& shape ) const noexcept;
     void EmitShapeOutlineTo( std::vector<float>& lineData, const Math::Vector::Vector3& position,
                              const Math::Orientation::Quaternion& orientation,
                              const Math::CollisionDetection::CollisionShapeReference& shape, float r, float g, float b );
@@ -101,11 +109,6 @@ class EditorTracer
                                      const Math::Vector::Vector3& b, float r, float g, float bl,
                                      const ReplayRibbonStyle& glow, const ReplayRibbonStyle& core,
                                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
-    void EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData, const Math::Vector::Vector3& position,
-                                         const Math::Orientation::Quaternion& orientation,
-                                         const Math::CollisionDetection::CollisionShapeReference& shape, float r, float g,
-                                         float b, const ReplayRibbonStyle& style,
-                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats m_replayTrajectoryStats;
 
@@ -141,21 +144,22 @@ class EditorTracer
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
     void AddReplayPathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
                                float b,
-                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane = SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
-                               float emphasis = 0.0f );
+                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane =
+                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
+                               ReplayPathSegmentPresentation presentation = {} );
     void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
-                                      float b );
+                                      float b, float opacity = 1.0f );
     void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r,
                                        float g, float b, float opacity = 1.0f );
     void AddReplayContactMarker( const Math::Vector::Vector3& point, const Math::Vector::Vector3& normal, float r, float g,
                                  float b );
     void AddReplayImpulseVector( const Math::Vector::Vector3& point, const Math::Vector::Vector3& impulse, float r, float g,
                                  float b );
-    void AddReplayCausalEntryMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
+    bool AddReplayCausalEntryMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
                                      const Math::CollisionDetection::CollisionShapeReference& shape );
-    void AddReplayCausalRestMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
+    bool AddReplayCausalRestMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
                                     const Math::CollisionDetection::CollisionShapeReference& shape );
-    void AddReplayCausalHorizonMarker( const Math::Vector::Vector3& position,
+    bool AddReplayCausalHorizonMarker( const Math::Vector::Vector3& position,
                                        const Math::Orientation::Quaternion& orientation,
                                        const Math::CollisionDetection::CollisionShapeReference& shape );
     void AddReplayBaselineEntryMarker( const Math::Vector::Vector3& position,

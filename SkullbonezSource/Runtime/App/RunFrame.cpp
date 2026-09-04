@@ -721,6 +721,16 @@ SceneFrameProceedPolicy Run::RunAutomationAndInputPhase( bool& gameUiActive, Rec
 float Run::RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy,
                                bool& capturePresentationPinned )
 {
+#if defined( SKULLBONEZ_SKARNESS )
+    const uint64_t sceneGeneration = m_sceneController.LifecyclePacket().generation;
+
+    if ( m_skarness.BeginPhysicsSceneGeneration( sceneGeneration ) )
+    {
+        Physics::PhysicsEngine& physics = m_sceneController.Scene().Physics();
+        physics.SetPhysicsDiagnosticsPath( m_skarness.PhysicsTracePath() );
+        physics.SetPhysicsDiagnosticsRunId( m_skarness.RunId() );
+    }
+#endif
     m_sceneController.Scene().BeginCollisionVisualFrame();
 
     // Invariant: capture pinning is fixed before physics and camera work. A
@@ -1042,6 +1052,15 @@ void Run::CompleteLookLabPostRenderCaptures()
         {
             const PostRenderCaptureResult& captured = batch.results[index];
 
+#if defined( SKULLBONEZ_SKARNESS )
+            if ( captured.request.owner == PostRenderCaptureOwner::ExternalAutomation )
+            {
+                m_skarness.CompleteCapture( captured.request.token, captured.status.Ok(),
+                                            captured.status.Ok() ? nullptr : captured.status.ErrorMessage() );
+                continue;
+            }
+#endif
+
             if ( captured.request.owner != PostRenderCaptureOwner::LookLab )
             {
                 continue;
@@ -1269,6 +1288,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
         FinishFrameWorkPhase( proceedPolicy );
         PresentFramePhase();
+#if defined( SKULLBONEZ_SKARNESS )
+        PublishSkarnessFrameState();
+
+        if ( m_skarness.TakeStopRequested() )
+        {
+            PostQuitMessage( 0 );
+        }
+#endif
 
         if ( m_applicationExit.ExitRequested() )
         {
@@ -1284,6 +1311,155 @@ SkullbonezCore::Core::SbResult Run::Execute()
     return ResolveExecuteExit( messageExitCode );
 }
 
+
+#if defined( SKULLBONEZ_SKARNESS )
+void Run::PublishSkarnessFrameState()
+{
+    if ( !m_skarness.Enabled() )
+    {
+        return;
+    }
+
+    const ReplaySkarnessState replay = m_replayRuntime.BuildSkarnessState();
+    const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+    SkarnessFrameState state;
+    state.sceneGeneration = lifecycle.generation;
+    state.sceneFrame = m_sceneController.State().currentFrame;
+    const std::string* scenePath = m_sceneController.CurrentPath();
+    strncpy_s( state.scenePath, sizeof( state.scenePath ), scenePath ? scenePath->c_str() : "", _TRUNCATE );
+    state.sceneObjectCount = m_sceneController.Scene().SceneEntityCount();
+    state.physicsBodyCount = Physics::PhysicsEngine::ReadBodies( m_sceneController.Scene().Physics() ).Count();
+    state.sceneLifecycleEvent = static_cast<int>( lifecycle.event );
+    state.sceneReady = SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated );
+    state.sceneMode = m_sceneController.State().isSceneMode;
+    state.simulationSeconds = m_timers.SimulationTotalSeconds();
+    state.paused = m_skarness.Paused();
+    state.replayCaptureEnabled = replay.input.captureEnabled;
+    state.replayScrubPaused = replay.input.scrubPaused;
+    state.replayPlaybackPaused = replay.input.liveAdvanceHeld;
+    state.predictionEnabled = replay.input.predictionEnabled;
+    state.predictionBuilding = replay.predictionBuilding;
+    state.predictionComplete = replay.predictionComplete;
+    state.predictionDirty = replay.predictionDirty;
+    state.predictionRestartPending = replay.predictionRestartPending;
+    state.predictionGenerationPermitted = replay.predictionGenerationPermitted;
+    state.predictionHighDetail = replay.predictionHighDetail;
+    state.velocityEditEnabled = replay.input.velocityEditEnabled;
+    state.ragdollVisualsEnabled = replay.ragdollVisualsEnabled;
+    state.pastPathVisible = replay.pastPathVisible;
+    state.hasPathTarget = replay.input.hasPathTarget;
+    state.pathTargetId = replay.input.pathTargetId;
+    state.pathTargetModelRow = replay.input.pathTargetModelRow;
+    state.predictionHorizonSeconds = replay.predictionHorizonSeconds;
+    state.predictionRevealProgress = replay.input.predictionRevealProgress;
+    state.predictionGeneration = replay.predictionGeneration;
+    state.predictionSourceTargetId = replay.predictionSourceTargetId;
+    state.predictionSourceFrame = replay.predictionSourceFrame;
+    state.predictionSourceSolverHash = replay.predictionSourceSolverHash;
+    state.committedPredictionFrames = replay.committedPredictionFrames;
+    state.incompleteContactFrameCount = replay.incompleteContactFrameCount;
+    state.publishedPredictionTargetId = replay.publishedPredictionTargetId;
+    state.publishedPredictionFrames = replay.publishedPredictionFrames;
+    state.trajectoryRecordCount = replay.trajectoryRecordCount;
+    state.selectedPastRootPointCount = replay.selectedPastRootPointCount;
+    state.selectedFutureRootPointCount = replay.selectedFutureRootPointCount;
+    state.contactChildIncomingCount = replay.contactChildIncomingCount;
+    state.contactChildOutgoingCount = replay.contactChildOutgoingCount;
+    state.childOutgoingPreEntryPointCount = replay.childOutgoingPreEntryPointCount;
+    state.retainedEntryMarkerCount = replay.retainedEntryMarkerCount;
+    state.retainedEndMarkerCount = replay.retainedEndMarkerCount;
+    state.drawnCollisionWireframeCount = replay.drawnCollisionWireframeCount;
+    state.drawnEndingWireframeCount = replay.drawnEndingWireframeCount;
+    state.collisionWireframePathMismatchCount = replay.collisionWireframePathMismatchCount;
+    state.endingWireframePathMismatchCount = replay.endingWireframePathMismatchCount;
+    state.futureNodeCount = replay.futureNodeCount;
+    state.retainedLineFloatCount = replay.retainedLineFloatCount;
+    state.retainedRibbonVertexFloatCount = replay.retainedRibbonVertexFloatCount;
+    state.causeTreeRowCount = replay.causeTreeRowCount;
+    state.causeTreeRowBuildCount = replay.causeTreeRowBuildCount;
+    state.causeTreeRowCacheHitCount = replay.causeTreeRowCacheHitCount;
+    state.causeWindowAvailable = replay.causeWindowAvailable;
+    state.causeInspectorOpen = replay.causeInspectorOpen;
+    state.causeInspectorDrawerProgress = replay.causeInspectorDrawerProgress;
+    state.selectedCauseRow = replay.selectedCauseRow;
+    state.causeInspectionMode = replay.causeInspectionMode;
+    state.causeTransitionProgress = replay.causeTransitionProgress;
+    state.inspectionCameraActive = replay.input.inspectionCameraActive;
+    state.inspectionCameraFocusKind = replay.inspectionCameraFocusKind;
+    state.inspectionFocusFadeActive = replay.inspectionFocusFadeActive;
+    state.inspectionFocusObjectCount = replay.inspectionFocusObjectCount;
+    state.selectedCausePrimaryId = replay.selectedCausePrimaryId;
+    state.selectedCauseCounterpartId = replay.selectedCauseCounterpartId;
+    state.causeContactPointCount = replay.causeContactPointCount;
+    state.submittedCauseContactPointCount = replay.submittedCauseContactPointCount;
+    state.submittedCauseContactBodyCount = replay.submittedCauseContactBodyCount;
+    state.inspectionPathFocusPrimaryId = replay.inspectionPathFocusPrimaryId;
+    state.inspectionPathFocusCounterpartId = replay.inspectionPathFocusCounterpartId;
+    state.inspectionFocusedPathRangeCount = replay.inspectionFocusedPathRangeCount;
+    state.inspectionContextPathRangeCount = replay.inspectionContextPathRangeCount;
+    state.inspectionFocusedPathSegmentCount = replay.inspectionFocusedPathSegmentCount;
+    state.inspectionContextPathSegmentCount = replay.inspectionContextPathSegmentCount;
+    state.inspectionPathOpacityMismatchCount = replay.inspectionPathOpacityMismatchCount;
+    state.inspectionPathFocusActive = replay.inspectionPathFocusActive;
+    const AttachedCameraState& inspectionCamera = m_attachedCamera.State();
+    state.inspectionPivotX = inspectionCamera.inspectionPivot.x;
+    state.inspectionPivotY = inspectionCamera.inspectionPivot.y;
+    state.inspectionPivotZ = inspectionCamera.inspectionPivot.z;
+    Environment::CameraCollection& cameras = m_sceneController.Scene().Cameras();
+    state.selectedCameraHash = cameras.GetSelectedCameraName();
+    state.cameraTweenActive = cameras.IsTweening();
+    state.cameraTweenProgress = cameras.TweenProgress();
+    const Vector3 primaryEye = cameras.GetCameraTranslation();
+    const Vector3 primaryView = cameras.GetCameraView();
+    const Vector3 primaryUp = cameras.GetCameraUp();
+    const Vector3 renderEye = cameras.GetRenderCameraTranslation();
+    const Vector3 renderView = cameras.GetRenderCameraView();
+    const Vector3 renderUp = cameras.GetRenderCameraUp();
+    state.cameraPrimaryEyeX = primaryEye.x;
+    state.cameraPrimaryEyeY = primaryEye.y;
+    state.cameraPrimaryEyeZ = primaryEye.z;
+    state.cameraPrimaryViewX = primaryView.x;
+    state.cameraPrimaryViewY = primaryView.y;
+    state.cameraPrimaryViewZ = primaryView.z;
+    state.cameraPrimaryUpX = primaryUp.x;
+    state.cameraPrimaryUpY = primaryUp.y;
+    state.cameraPrimaryUpZ = primaryUp.z;
+    state.cameraRenderEyeX = renderEye.x;
+    state.cameraRenderEyeY = renderEye.y;
+    state.cameraRenderEyeZ = renderEye.z;
+    state.cameraRenderViewX = renderView.x;
+    state.cameraRenderViewY = renderView.y;
+    state.cameraRenderViewZ = renderView.z;
+    state.cameraRenderUpX = renderUp.x;
+    state.cameraRenderUpY = renderUp.y;
+    state.cameraRenderUpZ = renderUp.z;
+
+    Vector3 renderDirection = renderView - renderEye;
+    Vector3 normalizedRenderUp = renderUp;
+
+    if ( renderDirection.TryNormalise() )
+    {
+        normalizedRenderUp -= renderDirection * SkullbonezCore::Math::Vector::Dot( normalizedRenderUp, renderDirection );
+        Vector3 expectedUp = Vector3( 0.0f, 1.0f, 0.0f ) - renderDirection * renderDirection.y;
+
+        if ( normalizedRenderUp.TryNormalise() && expectedUp.TryNormalise() )
+        {
+            state.cameraRenderRollRadians = acosf(
+                std::clamp( SkullbonezCore::Math::Vector::Dot( expectedUp, normalizedRenderUp ), -1.0f, 1.0f ) );
+        }
+    }
+
+    state.retainedPathGeometrySaturated = replay.retainedPathGeometrySaturated;
+    state.visualPacketHasGeometry = replay.visualPacketHasGeometry;
+    state.trajectorySubmitted = replay.trajectorySubmission.hasSubmission;
+    state.submittedSegmentCount = replay.trajectorySubmission.segmentCount;
+    state.submittedVertexCount = replay.trajectorySubmission.vertexCount;
+    state.submittedFutureTreeReady = replay.trajectorySubmission.futureTreeReadyLastFrame;
+
+    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+    m_skarness.PublishFrameState( state );
+}
+#endif
 
 float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
                         const SceneFrameProceedPolicy& proceedPolicy )
@@ -1789,8 +1965,11 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
 {
     m_camera.AdvanceAutoCycleClock( m_sceneController.State().isSceneMode, simulationDt );
     const AttachedCameraState& attachedState = m_attachedCamera.State();
-    const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( m_camera.mode ) && attachedState.activeFollow &&
-                                         attachedState.submode != AttachedCameraSubmode::RagdollEyes;
+    const ReplayCauseInspectionMode causeInspectionMode = m_replayRuntime.CauseInspectionView().Transport().mode;
+    const bool causeInspectionOwnsCamera = ReplayCauseInspectionOwnsCamera( causeInspectionMode );
+    const bool attachedOrbitOwnsCamera = causeInspectionOwnsCamera ||
+                                         ( RunCameraModeIsAttached( m_camera.mode ) && attachedState.activeFollow &&
+                                           attachedState.submode != AttachedCameraSubmode::RagdollEyes );
     const bool flyControlsActive = RunCameraModeUsesFlyControls( m_camera.mode, attachedState.activeFollow,
                                                                  m_camera.director.grabbed );
     const bool manualControlsActive = RunCameraModeUsesManualControls( m_camera.mode, attachedState.activeFollow,

@@ -58,6 +58,9 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         # Recorder parses no gameplay data; it emits the final manifest only
         # during the Diagnostics-owned stop/save publication boundary.
         "Runtime/Automation/InteractionAutomationRecorder.cpp",
+        # Skarness serializes the automation-only state stream and command
+        # lifecycle at the named-pipe boundary.
+        "Runtime/Automation/SkarnessHost.cpp",
         "Runtime/App/InteractionAutomationReportApplication.cpp",
         "Runtime/Replay/ReplayV2Artifact.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
@@ -363,6 +366,8 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "ReplayAutomationPackets",
     "RuntimeStressController",
     "RuntimeValidationHarness",
+    "SkarnessHost",
+    "SkarnessProtocol",
 )
 
 RUNTIME_INTERACTION_PREFIXES = (

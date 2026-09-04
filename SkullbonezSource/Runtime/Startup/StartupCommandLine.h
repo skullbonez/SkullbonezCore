@@ -120,6 +120,9 @@ struct ParsedArgs
     char interactionTracePath[260] = {};
     char interactionRecordPath[260] = {};
     int interactionRecordMaxMinutes = 1; // Integer 1..60; one minute is the default allocation ceiling.
+#if defined( SKULLBONEZ_SKARNESS )
+    char skarnessSessionDirectory[260] = {};
+#endif
 
     // CLI --predict <body> arms the replay prediction workflow at startup so a
     // profiling session reaches worker simulation without manual UI steps.

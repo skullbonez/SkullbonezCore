@@ -381,7 +381,6 @@ bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstanceP
     return presentationRecords[static_cast<std::size_t>( modelIndex )].simpleRagdollPart;
 }
 
-
 } // namespace
 
 ReplayRuntime::ReplayRuntime( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler )
@@ -884,6 +883,7 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
     view.captureEnabled = m_timeline.Presentation().IsEnabled() || m_timeline.Solver().IsEnabled();
     view.hasPathTarget = path.hasTarget;
     view.hasCameraFocus = camera.focusKind != RunReplayCameraFocusKind::None;
+    view.pathTargetId = path.hasTarget ? path.targetId.value : 0;
     view.restoreCameraMode = camera.restoreCameraMode;
     view.pathTargetModelRow = path.hasTarget ? path.targetModelRow.value : -1;
     view.activeTrack = scrubber.activeTrack;
@@ -905,6 +905,139 @@ ReplayCauseInspectionView ReplayRuntime::CauseInspectionView() const noexcept
 {
     return m_planningOwner.CauseInspectionView();
 }
+
+#if defined( SKULLBONEZ_SKARNESS )
+ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
+{
+    const RunReplayPredictionState& prediction = m_predictionOwner.State();
+    const ReplayVisualPacket& packet = m_predictionPresentation.PublishedVisualPacketView();
+    ReplaySkarnessState state;
+    state.input = BuildInputView();
+    state.predictionBuilding = prediction.build.building;
+    state.predictionComplete = prediction.build.complete;
+    state.predictionDirty = prediction.build.dirty;
+    state.predictionRestartPending = prediction.build.pendingLatestRestart;
+    state.predictionGenerationPermitted = m_predictionOwner.GenerationPermitted();
+    state.predictionHighDetail = m_predictionOwner.DetailMode() == ReplayPredictionDetailMode::High;
+    state.ragdollVisualsEnabled = prediction.ragdollVisualsEnabled;
+    state.pastPathVisible = m_visualPresentation.PathVisualizer().pastPathVisible;
+    state.predictionHorizonSeconds = prediction.simulation.horizonSeconds;
+    state.predictionGeneration = prediction.build.generationBeginCount;
+    state.predictionSourceTargetId = prediction.simulation.targetId.value;
+    state.predictionSourceFrame = prediction.simulation.sourceFrameIndex;
+    state.predictionSourceSolverHash = prediction.simulation.sourceSolverHash;
+    state.committedPredictionFrames = static_cast<uint32_t>( prediction.CommittedFrameCount() );
+
+    for ( const RunReplayPredictionFrame& frame : m_predictionOwner.ActiveFrames() )
+    {
+        state.incompleteContactFrameCount += frame.contactsIncomplete ? 1u : 0u;
+    }
+    state.publishedPredictionTargetId = packet.header.targetId.value;
+    state.publishedPredictionFrames = static_cast<uint32_t>( m_predictionOwner.ActiveFrames().size() );
+    state.trajectoryRecordCount = static_cast<uint32_t>( packet.trajectoryRecords.size() );
+    const Physics::PhysicsSceneObjectId selectedTarget { static_cast<uint32_t>( state.input.pathTargetId ) };
+
+    for ( const ReplayTrajectoryRecord& record : packet.trajectoryRecords )
+    {
+        if ( record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing )
+        {
+            const std::size_t publishedCount = (std::min)( record.publishedPointCount, record.points.size() );
+            const auto publishedEnd = record.points.begin() + static_cast<std::ptrdiff_t>( publishedCount );
+            const auto firstEntryPoint = std::lower_bound( record.points.begin(), publishedEnd, record.firstFrame,
+                                                           []( const ReplayTrajectoryPoint& point,
+                                                               ReplayFrameIndex entryFrame )
+                                                           { return point.frameIndex < entryFrame; } );
+            state.childOutgoingPreEntryPointCount += static_cast<uint32_t>(
+                std::distance( record.points.begin(), firstEntryPoint ) );
+        }
+
+        if ( record.key.lane == ReplayTrajectoryLane::PastRoot && record.key.bodyId == selectedTarget )
+        {
+            state.selectedPastRootPointCount = (std::max)( state.selectedPastRootPointCount,
+                                                           static_cast<uint32_t>( record.publishedPointCount ) );
+        }
+        else if ( record.key.lane == ReplayTrajectoryLane::FutureRoot && record.key.bodyId == packet.header.targetId )
+        {
+            state.selectedFutureRootPointCount = (std::max)( state.selectedFutureRootPointCount,
+                                                             static_cast<uint32_t>( record.publishedPointCount ) );
+        }
+        else if ( record.contactDerived && record.publishedPointCount >= 2u &&
+                  record.key.lane == ReplayTrajectoryLane::FutureChildIncoming )
+        {
+            ++state.contactChildIncomingCount;
+        }
+        else if ( record.contactDerived && record.publishedPointCount >= 2u &&
+                  record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing )
+        {
+            ++state.contactChildOutgoingCount;
+        }
+    }
+
+    for ( const ReplayPredictionRetainedMarker& marker : packet.retainedMarkers )
+    {
+        state.retainedEntryMarkerCount += marker.hasEntryPose ? 1u : 0u;
+        state.retainedEndMarkerCount += ( marker.hasRestPose || marker.hasHorizonPose ) ? 1u : 0u;
+    }
+
+    const ReplayPredictionRetainedMarkerDrawStats markerDrawStats = m_predictionPresentation
+                                                                        .RetainedMarkerDrawStatsSnapshot();
+    state.drawnCollisionWireframeCount = markerDrawStats.collisionWireframeCount;
+    state.drawnEndingWireframeCount = markerDrawStats.endingWireframeCount;
+    state.collisionWireframePathMismatchCount = markerDrawStats.collisionPathMismatchCount;
+    state.endingWireframePathMismatchCount = markerDrawStats.endingPathMismatchCount;
+    state.retainedPathGeometrySaturated = markerDrawStats.pathGeometrySaturated;
+    state.futureNodeCount = static_cast<uint32_t>( packet.futureNodes.size() );
+    state.retainedLineFloatCount = static_cast<uint32_t>( packet.retainedPredictionOrdinaryLines.size() +
+                                                          packet.retainedPredictionPriorityLines.size() );
+    state.retainedRibbonVertexFloatCount = static_cast<uint32_t>( packet.retainedPredictionRibbonVertices.size() +
+                                                                  packet.retainedPredictionPriorityRibbonVertices.size() );
+    const RunReplayCauseTreeState& causeTree = m_authoring.CauseTree();
+    state.causeTreeRowCount = static_cast<uint32_t>( causeTree.rows.size() );
+    state.causeTreeRowBuildCount = m_authoring.CauseTreeRowBuildCount();
+    state.causeTreeRowCacheHitCount = m_authoring.CauseTreeRowCacheHitCount();
+    state.causeWindowAvailable = !causeTree.rows.empty() &&
+                                 ReplayPredictionCauseWindowAvailable( m_predictionOwner.DetailMode(),
+                                                                       causeTree.rows.front().prediction );
+    const ReplayCauseInspectionView causeInspection = m_planningOwner.CauseInspectionView();
+    state.causeInspectorOpen = causeInspection.Display().drawerOpen;
+    state.causeInspectorDrawerProgress = causeInspection.Display().drawerProgress;
+    state.selectedCauseRow = causeInspection.Selection().selectedRow;
+    state.causeInspectionMode = static_cast<int>( causeInspection.Transport().mode );
+    state.causeTransitionProgress = causeInspection.Transport().easedProgress;
+    state.causeContactPointCount = causeInspection.SolverDetail().contactPresentation.pointCount;
+    state.submittedCauseContactPointCount = m_lastSubmittedCauseContactPointCount;
+    state.submittedCauseContactBodyCount = m_lastSubmittedCauseContactBodyCount;
+    RunReplayCauseTreeRow selectedCauseRow;
+
+    if ( m_authoring.TryGetCauseTreeRow( causeInspection.Selection().selectedRow, selectedCauseRow ) )
+    {
+        state.selectedCausePrimaryId = selectedCauseRow.id.value;
+        state.selectedCauseCounterpartId = selectedCauseRow.counterpartId.value;
+    }
+
+    state.inspectionCameraFocusKind = static_cast<int>( m_visualPresentation.CameraView().focusKind );
+    const std::vector<uint8_t>& focusMask = m_predictionPresentation.FocusModelMaskView();
+    state.inspectionFocusObjectCount = static_cast<uint32_t>(
+        std::count( focusMask.begin(), focusMask.end(), uint8_t { 1 } ) );
+    const ReplayCauseInspectionMode inspectionMode = causeInspection.Transport().mode;
+    state.inspectionFocusFadeActive = state.inspectionFocusObjectCount > 0u &&
+                                      inspectionMode != ReplayCauseInspectionMode::Inactive &&
+                                      inspectionMode != ReplayCauseInspectionMode::Returning;
+    const ReplayOverlay::ReplayPredictionPathFocusStats pathFocus = m_predictionPresentation
+                                                                        .InspectionPathFocusStatsSnapshot();
+    state.inspectionPathFocusActive = pathFocus.active;
+    state.inspectionPathFocusPrimaryId = pathFocus.primaryId;
+    state.inspectionPathFocusCounterpartId = pathFocus.counterpartId;
+    state.inspectionFocusedPathRangeCount = pathFocus.focusedRangeCount;
+    state.inspectionContextPathRangeCount = pathFocus.contextRangeCount;
+    state.inspectionFocusedPathSegmentCount = pathFocus.focusedSegmentCount;
+    state.inspectionContextPathSegmentCount = pathFocus.contextSegmentCount;
+    state.inspectionPathOpacityMismatchCount = pathFocus.opacityMismatchCount;
+    state.visualPacketHasGeometry = packet.HasGeometry();
+    state.trajectorySubmission = m_predictionPresentation.TrajectorySubmissionProbeSnapshot();
+    return state;
+}
+#endif
 
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
@@ -1067,6 +1200,28 @@ void ReplayRuntime::PrepareRenderOverlay( PhysicsEngine& physics, const SceneEnt
 {
     (void)tracer.SetReplayTrajectoryAppearance( trajectoryAppearance );
 
+    const ReplayCauseInspectionView causeInspection = m_planningOwner.CauseInspectionView();
+    const ReplayCauseInspectionMode causeMode = causeInspection.Transport().mode;
+    const bool causeFocusActive = causeMode == ReplayCauseInspectionMode::Transporting ||
+                                  causeMode == ReplayCauseInspectionMode::DetailPaused ||
+                                  causeMode == ReplayCauseInspectionMode::AftermathFollow;
+    ReplayInspectionFocusSelection inspectionFocus;
+    const ReplayInspectionFocusSelection* inspectionFocusView = nullptr;
+
+    if ( causeFocusActive )
+    {
+        RunReplayCauseTreeRow selectedRow;
+
+        if ( m_authoring.TryGetCauseTreeRow( causeInspection.Selection().selectedRow, selectedRow ) )
+        {
+            inspectionFocus = { selectedRow.id, selectedRow.modelRow, selectedRow.counterpartId,
+                                selectedRow.counterpartModelRow };
+            inspectionFocusView = &inspectionFocus;
+        }
+    }
+
+    m_predictionPresentation.SetInspectionPathFocus( inspectionFocusView );
+
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     const bool retainedRenderingActive = m_predictionPresentation
                                              .PrepareRetainedGeometryDrawList( prediction,
@@ -1121,7 +1276,25 @@ ReplayRenderFrameViews ReplayRuntime::BuildRenderFrameViews( const ReplayFrameSe
     const ReplayCauseInspectionView causeInspection = m_planningOwner.CauseInspectionView();
     bool focusFadeActive = false;
 
-    if ( !inputView.predictionEnabled && !collisionVisualizer && !debugTransparentBodyPass )
+    const ReplayCauseInspectionMode causeMode = causeInspection.Transport().mode;
+    const bool causeFocusActive = causeMode == ReplayCauseInspectionMode::Transporting ||
+                                  causeMode == ReplayCauseInspectionMode::DetailPaused ||
+                                  causeMode == ReplayCauseInspectionMode::AftermathFollow;
+
+    if ( causeFocusActive && !collisionVisualizer && !debugTransparentBodyPass )
+    {
+        RunReplayCauseTreeRow selectedRow;
+
+        if ( m_authoring.TryGetCauseTreeRow( causeInspection.Selection().selectedRow, selectedRow ) )
+        {
+            const ReplayInspectionFocusSelection focus { selectedRow.id, selectedRow.modelRow, selectedRow.counterpartId,
+                                                         selectedRow.counterpartModelRow };
+            focusFadeActive = m_predictionPresentation.BuildInspectionFocusModelMask( focus,
+                                                                                      PhysicsEngine::ReadBodies( physics ),
+                                                                                      modelCount );
+        }
+    }
+    else if ( !inputView.predictionEnabled && !collisionVisualizer && !debugTransparentBodyPass )
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
@@ -1137,12 +1310,17 @@ ReplayRenderFrameViews ReplayRuntime::BuildRenderFrameViews( const ReplayFrameSe
     const ReplayRenderTimeView time { presentationSample, solverSample,
                                       ( presentationSample || solverSample ) ? nullptr : predictionFrame,
                                       inputView.liveAdvanceHeld };
+    const Rendering::ContactManifoldPresentation contactPresentation = causeFocusActive
+                                                                           ? causeInspection.SolverDetail()
+                                                                                 .contactPresentation
+                                                                           : Rendering::ContactManifoldPresentation {};
+#if defined( SKULLBONEZ_SKARNESS )
+    m_lastSubmittedCauseContactPointCount = contactPresentation.pointCount;
+    m_lastSubmittedCauseContactBodyCount = contactPresentation.bodyCount;
+#endif
     const ReplayRenderFrameView render { &m_predictionPresentation.PublishedVisualPacketView(),
                                          focusFadeActive ? &m_predictionPresentation.FocusModelMaskView() : nullptr,
-                                         causeInspection.Display().detailVisible
-                                             ? causeInspection.SolverDetail().contactPresentation
-                                             : Rendering::ContactManifoldPresentation {},
-                                         focusFadeActive };
+                                         contactPresentation, focusFadeActive };
     return { time, render };
 }
 
@@ -1183,6 +1361,7 @@ void ReplayRuntime::ClearPathVisualizerState()
     m_visualPresentation.ClearPathState();
     m_planningOwner.ClearInterceptTarget();
     m_authoring.ResetCauseTreeRows();
+    m_pendingCauseSelectionRow = -1;
     m_predictionOwner.ClearCache();
     m_predictionOwner.MarkDirty();
 }

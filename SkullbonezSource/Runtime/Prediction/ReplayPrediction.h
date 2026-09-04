@@ -149,10 +149,10 @@ struct RunReplayPredictionRevealClock
     bool anchorValid = false;
 };
 
-// Concept: each causal child owns a persistent suffix cursor and the two-box
-// marker facts derived before that cursor. The entry pose is the body's frame-0
-// in-place pose; lastMotionFrame determines when the later rest marker may
-// appear. Advancing one child can never mutate another child's result.
+// Concept: each causal child owns a persistent suffix cursor and the two-pose
+// marker facts derived before that cursor. The entry pose is the body sample at
+// the node's collision frame; lastMotionFrame determines when the later rest
+// marker may appear. Advancing one child can never mutate another child's result.
 struct ReplayPredictionChildMarkerNodeScanState
 {
     RunReplayPathTraceNode node;
@@ -164,30 +164,22 @@ struct ReplayPredictionChildMarkerNodeScanState
     Math::Vector::Vector3 entryPosition = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion entryOrientation = Math::Orientation::IDENTITY_QUATERNION;
 
-    // Accumulates one body observation. Callers own frame filtering and pass
-    // the immutable frame-0 sample that anchors a newly activated entry pose.
-    void ObserveBody( ReplayFrameIndex frame, const RunReplayPredictionBodySample& body,
-                      const RunReplayPredictionBodySample& initialSample, bool visibleMotion ) noexcept
+    // Callers filter out samples before node.firstFrame, so the first body
+    // observation is the stable collision pose shared by both child paths.
+    void ObserveBody( ReplayFrameIndex frame, const RunReplayPredictionBodySample& body, bool visibleMotion ) noexcept
     {
-        if ( !active )
+        if ( !hasEntryPose )
         {
-            if ( !visibleMotion )
-            {
-                return;
-            }
-
-            active = true;
             hasEntryPose = true;
             entryModelIndex = body.modelRow.value;
-            entryPosition = initialSample.position;
-            entryOrientation = initialSample.orientation;
+            entryPosition = body.position;
+            entryOrientation = body.orientation;
             entryOrientation.Normalise();
-            lastMotionFrame = frame;
-            return;
         }
 
         if ( visibleMotion )
         {
+            active = true;
             lastMotionFrame = frame;
         }
     }
@@ -564,6 +556,13 @@ struct RunReplayPredictionBuildState
     ReplayPredictionWorkerSchedule schedule;
     ReplayPredictionPublication publication;
     ReplayPredictionPresentationPublication presentationPublication;
+
+    // Concept: the future tree needs the first contact that activates each
+    // causal body, not every persistent manifold row in every future frame.
+    // This bitmap follows the worker generation and bounds retained contact
+    // history by the same node cap as presentation.
+    std::vector<uint8_t> causalContactActiveModels;
+    std::size_t causalContactNodeCount = 0;
 };
 
 // Concept: this owner contains the private engine and every mutable value used

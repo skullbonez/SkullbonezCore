@@ -151,6 +151,31 @@ ReplayTrajectorySubmissionProbeStats ReplayPredictionPresentation::TrajectorySub
 }
 
 
+ReplayPredictionRetainedMarkerDrawStats ReplayPredictionPresentation::RetainedMarkerDrawStatsSnapshot() const noexcept
+{
+    ReplayPredictionRetainedMarkerDrawStats stats;
+    const ReplayOverlay::ReplayPredictionDrawListState& drawList = m_retainedState->drawList;
+    stats.pathGeometrySaturated = drawList.saturated;
+
+    for ( std::size_t markerIndex = 0u; markerIndex < drawList.retainedTrailCursorCount; ++markerIndex )
+    {
+        const ReplayOverlay::ReplayPredictionDrawRecordCursor& cursor = drawList.retainedTrailCursors[markerIndex];
+        stats.collisionWireframeCount += cursor.entryMarkerAppended ? 1u : 0u;
+        stats.endingWireframeCount += cursor.endMarkerAppended ? 1u : 0u;
+        stats.collisionPathMismatchCount += cursor.entryMarkerAppended && !cursor.entryMarkerPathMatched ? 1u : 0u;
+        stats.endingPathMismatchCount += cursor.endMarkerAppended && !cursor.endMarkerPathMatched ? 1u : 0u;
+    }
+
+    return stats;
+}
+
+
+ReplayOverlay::ReplayPredictionPathFocusStats ReplayPredictionPresentation::InspectionPathFocusStatsSnapshot() const noexcept
+{
+    return m_retainedState->geometry.CollectInspectionFocusStats();
+}
+
+
 const ReplayVisualPacket& ReplayPredictionPresentation::PublishedVisualPacketView() const noexcept
 {
     return m_publishedVisualPacket;
@@ -247,6 +272,70 @@ bool ReplayPredictionPresentation::BuildFocusModelMask( const RunReplayPathVisua
     }
 
     return true;
+}
+
+
+bool ReplayPredictionPresentation::BuildInspectionFocusModelMask( const ReplayInspectionFocusSelection& focus,
+                                                                  const Physics::PhysicsBodyStore& bodyStore,
+                                                                  int modelCount )
+{
+    if ( focus.primaryId.value == 0 || modelCount <= 0 || modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
+    {
+        m_focusModelMask.clear();
+        return false;
+    }
+
+    m_focusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );
+    int markedCount = 0;
+    const auto mark = [&]( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow )
+    {
+        if ( id.value == 0 )
+        {
+            return;
+        }
+
+        const Physics::PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( id, modelRow.value );
+        const int modelIndex = bodyStore.ModelIndexForHandle( body );
+
+        if ( modelIndex >= 0 && modelIndex < modelCount )
+        {
+            uint8_t& selected = m_focusModelMask[static_cast<std::size_t>( modelIndex )];
+
+            if ( selected == 0 )
+            {
+                selected = 1;
+                ++markedCount;
+            }
+        }
+    };
+
+    mark( focus.primaryId, focus.primaryModelRow );
+    mark( focus.counterpartId, focus.counterpartModelRow );
+
+    if ( markedCount <= 0 || markedCount >= modelCount )
+    {
+        m_focusModelMask.clear();
+        return false;
+    }
+
+    return true;
+}
+
+
+void ReplayPredictionPresentation::SetInspectionPathFocus( const ReplayInspectionFocusSelection* focus )
+{
+    ReplayOverlay::ReplayPredictionPathFocus pathFocus;
+
+    if ( focus && focus->primaryId.IsValid() )
+    {
+        pathFocus.primaryId = focus->primaryId.value;
+        pathFocus.counterpartId = focus->counterpartId.value;
+    }
+
+    if ( m_retainedState->geometry.SetInspectionFocus( pathFocus ) )
+    {
+        m_retainedDrawPacketDirty = true;
+    }
 }
 
 
@@ -500,7 +589,7 @@ bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList(
     }
 
     ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction, path, m_retainedState->drawList, colliderStore,
-                                                           frameTracer );
+                                                           m_retainedState->geometry.InspectionFocus(), frameTracer );
 
     m_retainedRenderingActive = m_retainedState->drawList.valid;
     return m_retainedRenderingActive;

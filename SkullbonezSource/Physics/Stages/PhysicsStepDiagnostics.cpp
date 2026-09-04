@@ -169,7 +169,7 @@ void PhysicsStepDiagnostics::BeginStep( int modelCount )
 
     m_physicsDebugContacts.clear();
     bool retainPipelineRecords = m_pipelineTraceFullRecordConsumerActive;
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     retainPipelineRecords = retainPipelineRecords || m_sink.IsFrameLogEnabled();
 #endif
     m_pipelineTrace.BeginStep( retainPipelineRecords );
@@ -224,7 +224,7 @@ int PhysicsStepDiagnostics::RemainingPipelineRecordCapacity() const
 void PhysicsStepDiagnostics::EmitCollisionTime( bool diagnosticsSuppressed, const char* type, int bodyA, int bodyB,
                                                 float collisionTime, float availableTime )
 {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
     if ( diagnosticsSuppressed )
     {
@@ -238,7 +238,7 @@ void PhysicsStepDiagnostics::EmitCollisionTime( bool diagnosticsSuppressed, cons
 
 bool PhysicsStepDiagnostics::ShouldEmitStepDiagnostics( bool diagnosticsSuppressed ) const
 {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     return !diagnosticsSuppressed && ( m_sink.IsRegressionLogEnabled() || m_sink.IsFrameLogEnabled() );
 #else
     (void)diagnosticsSuppressed;
@@ -251,7 +251,7 @@ void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed, co
                                                   float deltaSeconds,
                                                   const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
     if ( !diagnosticsSuppressed )
     {
@@ -288,7 +288,7 @@ void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed, co
 #endif
 }
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 void PhysicsStepDiagnostics::SetPhysicsRegressionLogPath( const char* path )
 {
     m_sink.SetPhysicsRegressionLogPath( path );

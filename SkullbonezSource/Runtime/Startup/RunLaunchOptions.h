@@ -162,7 +162,10 @@ struct RunStartupOverrides
     const char* interactionTracePath = nullptr;      // Optional incremental JSONL turn trace.
     const char* interactionRecordPath = nullptr;     // CLI --record-automation output destination.
     int interactionRecordMaxMinutes = 1;             // CLI recorder startup copy of the same launch limit.
-    bool configureReplayRecording = false;           // True when replay capture or hash logging must be configured
+#if defined( SKULLBONEZ_SKARNESS )
+    const char* skarnessSessionDirectory = nullptr; // CLI --skarness session directory copied by the harness owner.
+#endif
+    bool configureReplayRecording = false; // True when replay capture or hash logging must be configured
     bool replayRecordingEnabled = true;
     int replayRetentionSeconds = 0;
     const char* replayHashLogPath = nullptr;

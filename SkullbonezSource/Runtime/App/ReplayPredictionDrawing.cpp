@@ -170,7 +170,7 @@ void AddOrAccountReplayPathSegment( EditorTracer& tracer, ReplayRibbonDrawQuota*
         return;
     }
 
-    tracer.AddReplayPathSegment( start, end, r, g, b, lane, emphasis );
+    tracer.AddReplayPathSegment( start, end, r, g, b, lane, { emphasis, 1.0f } );
 }
 
 void AddOrAccountReplayBaselinePathSegment( EditorTracer& tracer, ReplayRibbonDrawQuota* quota, const Vector3& start,
@@ -588,6 +588,7 @@ bool EnsureReplayRetainedRangeChunk( ReplayPredictionRetainedGeometry& drawList,
         return false;
     }
 
+    drawList.SetRangeFocusIdentity( rangeIndex, record.key.bodyId.value );
     cursor.retainedRangeIndex = rangeIndex;
     ++cursor.retainedRangeChunkCount;
     return true;
@@ -1281,7 +1282,9 @@ void DrawReplayPredictionVisualizer( const RunReplayPathVisualizerState& pathVis
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 ReplayPredictionRetainedGeometry::ReplayPredictionRetainedGeometry()
-    : m_records( std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY ) )
+    : m_records( std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY ) ),
+      m_baseAlphas( std::make_unique<float[]>( PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY +
+                                               PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY ) )
 {
 }
 
@@ -1320,6 +1323,97 @@ bool ReplayPredictionRetainedGeometry::SetAppearance( const Core::ReplayTrajecto
     m_selectedEmphasis = selectedEmphasis;
     m_appearanceInitialized = true;
     return true;
+}
+
+
+bool ReplayPredictionRetainedGeometry::SetInspectionFocus( const ReplayPredictionPathFocus& requestedFocus ) noexcept
+{
+    ReplayPredictionPathFocus focus = requestedFocus;
+    focus.contextOpacity = std::clamp( focus.contextOpacity, 0.0f, 1.0f );
+
+    if ( !focus.Active() )
+    {
+        focus = {};
+    }
+
+    if ( focus.primaryId == m_focus.primaryId && focus.counterpartId == m_focus.counterpartId &&
+         focus.contextOpacity == m_focus.contextOpacity )
+    {
+        return false;
+    }
+
+    // Invariant: causal focus is a presentation-only transition. It rewrites
+    // the packed alpha once per selection change and leaves trajectory samples,
+    // range placement, and steady-frame append cursors untouched.
+    for ( std::size_t rangeIndex = 0; rangeIndex < m_rangeCount; ++rangeIndex )
+    {
+        Rendering::RetainedGeometryRangeToken& range = m_ranges[rangeIndex];
+        const float previousOpacity = m_focus.OpacityFor( m_rangeFocusIdentities[rangeIndex] );
+        const float nextOpacity = focus.OpacityFor( m_rangeFocusIdentities[rangeIndex] );
+
+        if ( previousOpacity == nextOpacity )
+        {
+            continue;
+        }
+
+        for ( std::size_t recordOffset = 0; recordOffset < range.recordCount; ++recordOffset )
+        {
+            const std::size_t recordIndex = static_cast<std::size_t>( range.firstRecord ) + recordOffset;
+            m_records[recordIndex * PREDICTION_TRAJECTORY_FLOATS_PER_RECORD + 10u] = m_baseAlphas[recordIndex] * nextOpacity;
+        }
+
+        range.sourceVersion = range.sourceVersion == ( std::numeric_limits<uint32_t>::max )() ? 1u
+                                                                                              : range.sourceVersion + 1u;
+        ++m_revision;
+    }
+
+    m_focus = focus;
+    return true;
+}
+
+
+void ReplayPredictionRetainedGeometry::SetRangeFocusIdentity( std::size_t rangeIndex, uint64_t bodyId ) noexcept
+{
+    if ( rangeIndex < m_rangeCount && m_ranges[rangeIndex].recordCount == 0u )
+    {
+        m_rangeFocusIdentities[rangeIndex] = bodyId;
+    }
+}
+
+
+ReplayPredictionPathFocusStats ReplayPredictionRetainedGeometry::CollectInspectionFocusStats() const noexcept
+{
+    ReplayPredictionPathFocusStats stats;
+    stats.primaryId = m_focus.primaryId;
+    stats.counterpartId = m_focus.counterpartId;
+    stats.active = m_focus.Active();
+
+    for ( std::size_t rangeIndex = 0; rangeIndex < m_rangeCount; ++rangeIndex )
+    {
+        const Rendering::RetainedGeometryRangeToken& range = m_ranges[rangeIndex];
+
+        if ( range.recordCount == 0u )
+        {
+            continue;
+        }
+
+        const bool focused = m_focus.Contains( m_rangeFocusIdentities[rangeIndex] );
+        const float opacity = m_focus.OpacityFor( m_rangeFocusIdentities[rangeIndex] );
+        stats.focusedRangeCount += focused ? 1u : 0u;
+        stats.contextRangeCount += !focused && stats.active ? 1u : 0u;
+        stats.focusedSegmentCount += focused ? range.recordCount : 0u;
+        stats.contextSegmentCount += !focused && stats.active ? range.recordCount : 0u;
+
+        for ( std::size_t recordOffset = 0; recordOffset < range.recordCount; ++recordOffset )
+        {
+            const std::size_t recordIndex = static_cast<std::size_t>( range.firstRecord ) + recordOffset;
+            const float expectedAlpha = m_baseAlphas[recordIndex] * opacity;
+            const float actualAlpha = m_records[recordIndex * PREDICTION_TRAJECTORY_FLOATS_PER_RECORD + 10u];
+            stats.opacityMismatchCount += std::abs( actualAlpha - expectedAlpha ) > 0.0001f ? 1u : 0u;
+        }
+    }
+
+    return stats;
 }
 
 
@@ -1371,6 +1465,7 @@ std::size_t ReplayPredictionRetainedGeometry::BeginRange( uint64_t identity, uin
     const std::size_t rangeIndex = m_rangeCount++;
     Rendering::RetainedGeometryRangeToken& range = m_ranges[rangeIndex];
     range = {};
+    m_rangeFocusIdentities[rangeIndex] = 0;
     range.identity = identity;
     range.drawOrder = drawOrder;
     range.sourceVersion = sourceVersion;
@@ -1458,9 +1553,13 @@ bool ReplayPredictionRetainedGeometry::EmitRecord( std::size_t rangeIndex, const
         ++m_stats.emittedSegments[laneIndex];
     }
 
+    RibbonStyle focusedStyle = style;
+    focusedStyle.alpha *= m_focus.OpacityFor( m_rangeFocusIdentities[rangeIndex] );
     const ReplayPredictionRetainedRecord record =
-        { start, end, style.width, r, g, b, style.alpha, style.edgeFeather, style.emphasis, start, end };
+        { start, end, focusedStyle.width, r, g, b, focusedStyle.alpha, focusedStyle.edgeFeather, focusedStyle.emphasis,
+          start, end };
     std::span<float> records( m_records.get(), PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY );
+    const std::size_t recordIndex = static_cast<std::size_t>( range.firstRecord ) + range.recordCount;
 
     const bool appended = range.recordCount == 0u && range.continuationRange < m_rangeCount
                               ? AppendPredictionRetainedContinuation( records, m_ranges[range.continuationRange], range,
@@ -1472,6 +1571,8 @@ bool ReplayPredictionRetainedGeometry::EmitRecord( std::size_t rangeIndex, const
         RecordDropped( lane );
         return false;
     }
+
+    m_baseAlphas[recordIndex] = style.alpha;
 
     if ( range.lane == Rendering::RetainedGeometryLane::Priority )
     {
@@ -1579,7 +1680,7 @@ void AppendReplayVelocityDragPreview( const ReplayPredictionPresentationView& pr
                                     ReplayTrajectorySegmentSpeed( *previousPoint, point ), r, g, b );
 
             tracer.AddReplayPathSegment( previousPosition, previewPosition, r, g, b,
-                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot, 1.0f );
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot, { 1.0f, 1.0f } );
 
             --segmentBudget;
         }
@@ -1596,6 +1697,61 @@ void AppendReplayVelocityDragPreview( const ReplayPredictionPresentationView& pr
     }
 }
 
+
+bool ReplayPredictionCollisionMarkerMatchesPath( const ReplayPredictionPresentationView& prediction,
+                                                 const ReplayPredictionRetainedMarker& marker )
+{
+    for ( const ReplayTrajectoryRecord& outgoing : prediction.trajectory.records )
+    {
+        const std::size_t outgoingCount = ReplayTrajectoryPublishedPointCount( outgoing );
+
+        if ( outgoing.key.bodyId != marker.id || outgoing.key.lane != ReplayTrajectoryLane::FutureChildOutgoing ||
+             outgoingCount == 0u || outgoing.points[0].frameIndex != outgoing.firstFrame ||
+             VectorMagSquared( outgoing.points[0].position - marker.entryPosition ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+            continue;
+        }
+
+        for ( const ReplayTrajectoryRecord& incoming : prediction.trajectory.records )
+        {
+            const std::size_t incomingCount = ReplayTrajectoryPublishedPointCount( incoming );
+
+            if ( incoming.key.bodyId == marker.id && incoming.key.lane == ReplayTrajectoryLane::FutureChildIncoming &&
+                 incoming.key.branchOrdinal == outgoing.key.branchOrdinal && incomingCount > 0u &&
+                 incoming.points[incomingCount - 1u].frameIndex == outgoing.firstFrame &&
+                 VectorMagSquared( incoming.points[incomingCount - 1u].position - marker.entryPosition ) <=
+                     REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool ReplayPredictionEndingMarkerMatchesPath( const ReplayPredictionPresentationView& prediction,
+                                              const ReplayPredictionRetainedMarker& marker,
+                                              Physics::PhysicsSceneObjectId targetId )
+{
+    const Vector3& endingPosition = marker.hasRestPose ? marker.restPosition : marker.horizonPosition;
+    const ReplayTrajectoryLane expectedLane = marker.id == targetId ? ReplayTrajectoryLane::FutureRoot
+                                                                    : ReplayTrajectoryLane::FutureChildOutgoing;
+
+    for ( const ReplayTrajectoryRecord& record : prediction.trajectory.records )
+    {
+        const std::size_t pointCount = ReplayTrajectoryPublishedPointCount( record );
+
+        if ( record.key.bodyId == marker.id && record.key.lane == expectedLane && pointCount > 0u &&
+             VectorMagSquared( record.points[pointCount - 1u].position - endingPosition ) <=
+                 REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 void AppendReplayPredictionRetainedEvidence( const ReplayPredictionPresentationView& prediction,
                                              const RunReplayPathVisualizerState& pathVisualizer,
@@ -1759,22 +1915,36 @@ void AppendReplayPredictionRetainedEvidence( const ReplayPredictionPresentationV
 
         if ( marker.hasEntryPose && !cursor.entryMarkerAppended )
         {
-            retainedMarkers.AddReplayCausalEntryMarker( marker.entryPosition, marker.entryOrientation, collider->shape );
+            cursor.entryMarkerAppended = retainedMarkers.AddReplayCausalEntryMarker( marker.entryPosition,
+                                                                                     marker.entryOrientation,
+                                                                                     collider->shape );
 
-            cursor.entryMarkerAppended = true;
+            if ( cursor.entryMarkerAppended )
+            {
+                cursor.entryMarkerPathMatched = ReplayPredictionCollisionMarkerMatchesPath( prediction, marker );
+            }
         }
 
         if ( marker.hasRestPose && !cursor.endMarkerAppended )
         {
-            retainedMarkers.AddReplayCausalRestMarker( marker.restPosition, marker.restOrientation, collider->shape );
-            cursor.endMarkerAppended = true;
+            cursor.endMarkerAppended = retainedMarkers.AddReplayCausalRestMarker( marker.restPosition,
+                                                                                  marker.restOrientation, collider->shape );
+
+            if ( cursor.endMarkerAppended )
+            {
+                cursor.endMarkerPathMatched = ReplayPredictionEndingMarkerMatchesPath( prediction, marker, state.targetId );
+            }
         }
         else if ( finalReveal && marker.hasHorizonPose && !cursor.endMarkerAppended )
         {
-            retainedMarkers.AddReplayCausalHorizonMarker( marker.horizonPosition, marker.horizonOrientation,
-                                                          collider->shape );
+            cursor.endMarkerAppended = retainedMarkers.AddReplayCausalHorizonMarker( marker.horizonPosition,
+                                                                                     marker.horizonOrientation,
+                                                                                     collider->shape );
 
-            cursor.endMarkerAppended = true;
+            if ( cursor.endMarkerAppended )
+            {
+                cursor.endMarkerPathMatched = ReplayPredictionEndingMarkerMatchesPath( prediction, marker, state.targetId );
+            }
         }
     }
 }
@@ -1842,11 +2012,13 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
         return update;
     }
 
-    if ( !reset && state.saturated )
+    if ( !reset &&
+         ReplayPredictionCanSkipSaturatedDrawList( state.saturated, state.retainedMarkerVersion, prediction.markers.version,
+                                                   state.retainedMarkerCount, prediction.markers.retainedMarkers.size() ) )
     {
-        // The bounded list already owns its complete drawable prefix. Later
-        // publication cannot add a command, so advance tokens without scanning
-        // the 800+ source records.
+        // The bounded path list already owns its complete drawable prefix, and
+        // marker identity is unchanged. Advance tokens without scanning the
+        // 800+ source records.
         state.revealFrame = prediction.timeline.revealFrame;
         state.trajectoryPublicationVersion = prediction.trajectory.publicationVersion;
         update.stable = true;
@@ -2100,7 +2272,7 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
 void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationView& prediction,
                                              const RunReplayPathVisualizerState& pathVisualizer,
                                              const ReplayPredictionDrawListState& state, const ColliderStore& colliderStore,
-                                             EditorTracer& tracer )
+                                             const ReplayPredictionPathFocus& focus, EditorTracer& tracer )
 {
     if ( !state.valid || prediction.timeline.frames.empty() )
     {
@@ -2229,7 +2401,8 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
 
         if ( ordinaryTailBudget > 0u )
         {
-            tracer.AddReplayPathSegment( previous.position, point.position, r, g, b, diagnosticLane, emphasis );
+            tracer.AddReplayPathSegment( previous.position, point.position, r, g, b, diagnosticLane,
+                                         { emphasis, focus.OpacityFor( record.key.bodyId.value ) } );
             --ordinaryTailBudget;
         }
     }
@@ -2281,7 +2454,8 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
 
         if ( priorityTailBudget > 0u )
         {
-            tracer.AddReplayCausalTrailSegment( previous.position, point.position, r, g, b );
+            tracer.AddReplayCausalTrailSegment( previous.position, point.position, r, g, b,
+                                                focus.OpacityFor( record.key.bodyId.value ) );
             --priorityTailBudget;
         }
     }

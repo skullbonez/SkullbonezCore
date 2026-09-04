@@ -654,18 +654,21 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
                             layout.hierarchy.h };
     layout.drawer = { layout.hierarchy.x - visibleDrawerWidth, layout.hierarchy.y, targetDrawerWidth, layout.hierarchy.h };
     layout.visibleDrawer = { layout.drawer.x, layout.drawer.y, visibleDrawerWidth, layout.drawer.h };
-    layout.compound = { layout.drawer.x, layout.hierarchy.y, layout.hierarchy.w + visibleDrawerWidth, layout.hierarchy.h };
-    layout.targetCompound = { layout.targetDrawer.x, layout.hierarchy.y, layout.hierarchy.w + targetDrawerWidth,
-                              layout.hierarchy.h };
     layout.sharedSeam = { layout.hierarchy.x - REPLAY_CAUSE_INSPECTOR_SHARED_SEAM_WIDTH, layout.hierarchy.y,
                           REPLAY_CAUSE_INSPECTOR_SHARED_SEAM_WIDTH, layout.hierarchy.h };
+    layout.drawerToggle = { layout.hierarchy.x - REPLAY_CAUSE_INSPECTOR_TOGGLE_WIDTH * 0.5f,
+                            layout.hierarchy.y + ( layout.hierarchy.h - REPLAY_CAUSE_INSPECTOR_TOGGLE_HEIGHT ) * 0.5f,
+                            REPLAY_CAUSE_INSPECTOR_TOGGLE_WIDTH, REPLAY_CAUSE_INSPECTOR_TOGGLE_HEIGHT };
+    layout.drawerClose = layout.drawerToggle;
+    const float compoundX = (std::min)( layout.drawer.x, layout.drawerToggle.x );
+    layout.compound = { compoundX, layout.hierarchy.y, layout.hierarchy.x + layout.hierarchy.w - compoundX,
+                        layout.hierarchy.h };
+    layout.targetCompound = { layout.targetDrawer.x, layout.hierarchy.y, layout.hierarchy.w + targetDrawerWidth,
+                              layout.hierarchy.h };
     layout.drawerTitle = { layout.drawer.x, layout.drawer.y,
                            (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE -
                                                  REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
                            ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT };
-    layout.drawerClose = { layout.drawer.x + targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING -
-                               REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE,
-                           layout.drawer.y + 8.0f, REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE, REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE };
 
     const float tabWidth = (std::max)( 0.0f, ( targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) / 3.0f );
 
@@ -718,6 +721,11 @@ bool ReplayCauseInspectorContainsPoint( const ReplayCauseInspectorLayout& layout
 bool ReplayCauseInspectorDrawerTitleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept
 {
     return PointInside( layout.visibleDrawer, x, y ) && PointInside( layout.drawerTitle, x, y );
+}
+
+bool ReplayCauseInspectorToggleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept
+{
+    return PointInside( layout.drawerToggle, x, y );
 }
 
 float EvaluateReplayCauseTransitionProgress( double elapsedSeconds ) noexcept
@@ -1251,7 +1259,6 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
     m_state.easedProgress = 0.0f;
     m_startedAtSeconds = nowSeconds;
     m_lastAdvanceSeconds = nowSeconds;
-    SetDrawerTarget( true, nowSeconds );
     m_pendingFrame = presentedFrame;
     return true;
 }
@@ -1283,7 +1290,6 @@ void ReplayCauseInspection::Advance( double nowSeconds ) noexcept
          !m_state.transportPending )
     {
         m_state.mode = ReplayCauseInspectionMode::DetailPaused;
-        m_state.detailVisible = true;
     }
 }
 
@@ -1403,7 +1409,6 @@ void ReplayCauseInspection::CompleteTransport( uint64_t generation, bool succeed
     if ( m_state.easedProgress >= 1.0f && m_state.presentedFrame == m_state.targetFrame && !m_state.transportPending )
     {
         m_state.mode = ReplayCauseInspectionMode::DetailPaused;
-        m_state.detailVisible = true;
     }
 }
 
@@ -1478,6 +1483,7 @@ void ReplayCauseInspection::RestoreInteractionRecordingBaseline( const ReplayCau
     m_state.targetFrame = baseline.targetFrame;
     m_state.presentedFrame = baseline.presentedFrame;
     m_state.detailVisible = baseline.detailVisible;
+    m_state.drawerOpen = baseline.detailVisible;
     m_state.ownsPause = baseline.ownsPause;
     m_state.returnIssued = baseline.returnIssued;
     m_state.easedProgress = std::clamp( baseline.easedProgress, 0.0f, 1.0f );
@@ -1508,7 +1514,7 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
                                                         int wheelDelta, int screenWidth, int screenHeight,
                                                         ReplayCauseInspectorCommand* outCommand ) noexcept
 {
-    if ( !m_state.detailVisible || !hasClientPosition || pointerBlocked || screenWidth <= 0 || screenHeight <= 0 )
+    if ( !hasClientPosition || pointerBlocked || screenWidth <= 0 || screenHeight <= 0 )
     {
         return false;
     }
@@ -1518,7 +1524,13 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
                                                                                screenWidth, screenHeight,
                                                                                m_state.drawerProgress );
 
-    if ( !ReplayCauseInspectorContainsPoint( layout, mouseX, mouseY ) ||
+    if ( leftPressed && PointInside( layout.drawerToggle, mouseX, mouseY ) )
+    {
+        SetDrawerTarget( !m_drawerTargetOpen, m_lastAdvanceSeconds );
+        return true;
+    }
+
+    if ( !m_state.detailVisible || !ReplayCauseInspectorContainsPoint( layout, mouseX, mouseY ) ||
          !PointInside( layout.visibleDrawer, mouseX, mouseY ) )
     {
         return false;
@@ -1532,12 +1544,6 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
 
     if ( leftPressed )
     {
-        if ( PointInside( layout.drawerClose, mouseX, mouseY ) )
-        {
-            (void)BeginReturn();
-            return true;
-        }
-
         for ( std::size_t tab = 0; tab < layout.tabs.size(); ++tab )
         {
             if ( PointInside( layout.tabs[tab], mouseX, mouseY ) )
@@ -1615,6 +1621,11 @@ void ReplayCauseInspection::Reset() noexcept
     m_inFlightGeneration = 0;
 }
 
+void ReplayCauseInspection::SetDrawerOpen( bool open, double nowSeconds ) noexcept
+{
+    SetDrawerTarget( open, nowSeconds );
+}
+
 void ReplayCauseInspection::ClearFocusedSurface() noexcept
 {
     // Lifetime: fixed backing arrays remain allocated, but no stale row is
@@ -1640,6 +1651,7 @@ void ReplayCauseInspection::SetDrawerTarget( bool open, double nowSeconds ) noex
     }
 
     m_drawerTargetOpen = open;
+    m_state.drawerOpen = open;
     m_drawerStartProgress = m_state.drawerProgress;
     m_drawerStartedAtSeconds = nowSeconds;
     m_state.detailVisible = true;

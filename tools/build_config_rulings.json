@@ -1,21 +1,65 @@
 {
   "schema_version": 2,
   "owner": "Build configuration and test-target composition",
-  "evidence": "git history: build-configuration-parity-bp0-census (2026-07-30)",
+  "evidence": "review decision: Skarness Debug and Automation compile-role macros (2026-09-04)",
   "project_policy": {
-    "production_source_roots": ["SkullbonezSource"],
-    "production_source_suffixes": [".cpp"],
+    "production_source_roots": [
+      "SkullbonezSource"
+    ],
+    "production_source_suffixes": [
+      ".cpp"
+    ],
     "projects": [
-      {"path": "SKULLBONEZ_CORE.vcxproj", "role": "production", "metadata_inventory": true},
-      {"path": "SKULLBONEZ_MATHS.vcxproj", "role": "production", "metadata_inventory": true},
-      {"path": "SKULLBONEZ_PHYSICS.vcxproj", "role": "production", "metadata_inventory": true},
-      {"path": "SKULLBONEZ_RENDERING.vcxproj", "role": "production", "metadata_inventory": true},
-      {"path": "SKULLBONEZ_UI.vcxproj", "role": "production", "metadata_inventory": true},
-      {"path": "SKULLBONEZ_TESTS.vcxproj", "role": "test", "metadata_inventory": true},
-      {"path": "Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.vcxproj", "role": "test", "metadata_inventory": false},
-      {"path": "Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.vcxproj", "role": "test", "metadata_inventory": false},
-      {"path": "Agentic/Tests/SceneParserUnitTests/SceneParserUnitTests.vcxproj", "role": "test", "metadata_inventory": false},
-      {"path": "Agentic/Tests/UiBoundaryUnitTests/UiBoundaryUnitTests.vcxproj", "role": "test", "metadata_inventory": false}
+      {
+        "path": "SKULLBONEZ_CORE.vcxproj",
+        "role": "production",
+        "metadata_inventory": true
+      },
+      {
+        "path": "SKULLBONEZ_MATHS.vcxproj",
+        "role": "production",
+        "metadata_inventory": true
+      },
+      {
+        "path": "SKULLBONEZ_PHYSICS.vcxproj",
+        "role": "production",
+        "metadata_inventory": true
+      },
+      {
+        "path": "SKULLBONEZ_RENDERING.vcxproj",
+        "role": "production",
+        "metadata_inventory": true
+      },
+      {
+        "path": "SKULLBONEZ_UI.vcxproj",
+        "role": "production",
+        "metadata_inventory": true
+      },
+      {
+        "path": "SKULLBONEZ_TESTS.vcxproj",
+        "role": "test",
+        "metadata_inventory": true
+      },
+      {
+        "path": "Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.vcxproj",
+        "role": "test",
+        "metadata_inventory": false
+      },
+      {
+        "path": "Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.vcxproj",
+        "role": "test",
+        "metadata_inventory": false
+      },
+      {
+        "path": "Agentic/Tests/SceneParserUnitTests/SceneParserUnitTests.vcxproj",
+        "role": "test",
+        "metadata_inventory": false
+      },
+      {
+        "path": "Agentic/Tests/UiBoundaryUnitTests/UiBoundaryUnitTests.vcxproj",
+        "role": "test",
+        "metadata_inventory": false
+      }
     ]
   },
   "reasons": {
@@ -23,118 +67,457 @@
     "PreprocessorDefinitions": "The engine and doctest targets intentionally carry distinct executable-role macros; their exception and JSON policy macros are aligned and all other inventoried compiler contracts are compared separately."
   },
   "rulings": {
-    "skullbonezsource/assets/assetsystem.rendering.cpp": {"ExceptionHandling": "1656066a1df882776aca779368e5bbb0ca455a44ea2ae5aaaf7cced420b5b843", "PreprocessorDefinitions": "983b761a47987193d2afb6fe47365775d16c237ec5462a88369c5fd2f8faeaf1"},
-    "skullbonezsource/gameplay/tornadovisualpass.cpp": {"ExceptionHandling": "2f1cf1ffb5b500ccfa37e7a3858d92c8cdc0e0e40d2c34d6a9aa732771a8983a", "PreprocessorDefinitions": "a6488eb09bb9f37718abb24e77e3410eac903d0396c1b86f3d2136ed7a8e8855"},
-    "skullbonezsource/runtime/automation/interactionrecordingsidecardigest.cpp": {"ExceptionHandling": "e01c4819fbf96894cebb1fe2848534eb4574662294fdba7b843c0c6ea6f8739b", "PreprocessorDefinitions": "96846be1d0f08a7f721ad6cc98727dbbcda6f73cb006e658a321b693bf258998"},
-    "skullbonezsource/runtime/diagnostics/diagnosticscontroller.cpp": {"ExceptionHandling": "10b297deb8084b568a2ebe94263240e0cad83fadf6c10c33804f35e6ffb91d8c", "PreprocessorDefinitions": "5f64c545d5105508764900236f6442bc3166975a2e21004fd572ac0f88154419"},
-    "skullbonezsource/runtime/diagnostics/diagnosticsruntime.cpp": {"ExceptionHandling": "7651392d89e661b39adfd145765b573dcbf835c23148ad9a336e73157ceb3700", "PreprocessorDefinitions": "808536d8dfcd82c6a83af14de1cff4b1e4a91581772dfd6d10092ecfeabf1390"},
-    "skullbonezsource/runtime/diagnostics/runtimediagnostics.cpp": {"ExceptionHandling": "eed893f7f5da5666fdf923b040101f934c782b154188180e9e0b7127c349ac9c", "PreprocessorDefinitions": "b179ed6011ab66669a673808a6bb6197013c79e3d78919b87192a77451eeee90"},
-    "skullbonezsource/runtime/diagnostics/scenememorydiagnostics.cpp": {"ExceptionHandling": "a4f7b72aa2a3c0a5fedf01d45789a1b0e531779fe5191609258a2279350f5c90", "PreprocessorDefinitions": "9ed4ed59637f10b14ddb30a49fd267e32d5d2837f74bfb31a6699bd3372503ef"},
-    "skullbonezsource/runtime/direction/demodirectorplayback.cpp": {"ExceptionHandling": "6062a695f2e1ae01ed46f83dcb3d84a200c74298559f2ac1b334ad3471c22bfd", "PreprocessorDefinitions": "92b1ac8cdfa42470208cc0dbcd20be208a4611e4faa654d0ca6e1e6d570d4d5e"},
-    "skullbonezsource/runtime/direction/livestylecontroller.cpp": {"ExceptionHandling": "d5bdbbdd85857d42899b6c0d5fa84af5a1648406ded7dc4302972245e3818aa2", "PreprocessorDefinitions": "d731aa1c856a61065827f1f588214f229ca86bd0fff92389368e9f356125b445"},
-    "skullbonezsource/runtime/input/input.cpp": {"ExceptionHandling": "ea7e1ec8a1c274dc760cb939cba17baa502c18bd1e65c91ec9784eacb0cdb2dc", "PreprocessorDefinitions": "11e83c5720de5723f6ef2b03ccba4917295bd2a5d4f41a0f3bb7aff0617e7c74"},
-    "skullbonezsource/runtime/prediction/replaypredictionarchive.cpp": {"ExceptionHandling": "810fe95fa3a7fcbe20b80d46a76970350d67d323ede39b1c83ee880e16cd96bd", "PreprocessorDefinitions": "0b427d284074b9cc682369b1821d6bfbdef6a64bea1aab92a4d038125b06c417"},
-    "skullbonezsource/runtime/prediction/replaypredictionstate.cpp": {"ExceptionHandling": "cb285dd3cc50d1cd3bb90030e1f1f6ef3380104c29a72099caa129b710117518", "PreprocessorDefinitions": "0ff506f7be0de75ed002c8f3676d1553460462c1a4c6dbc2c8a9cd7464ed8b14"},
-    "skullbonezsource/runtime/render/broadphasevisualizer.cpp": {"ExceptionHandling": "f4f44783644f426ca320f2689ce15ea955c74e81d028819ef85923c262d733c8", "PreprocessorDefinitions": "bcdadfe26d6d42043bdddd30aaf54fa2e42c8ebc6f5635dffc5e45a91bc6f14b"},
-    "skullbonezsource/runtime/render/collisionvisualizer.cpp": {"ExceptionHandling": "b10f92be6e27d599675dc748459506a71daf6f15ca9f18f530b6914544895595", "PreprocessorDefinitions": "05ea79f1b39af6553f2224c953e2db35644848e6458d08a63ee6528a4f223cb3"},
-    "skullbonezsource/runtime/render/physicsdebugvisualizer.cpp": {"ExceptionHandling": "99e504a4a514deebd560d651d3effd1fb40a4b74856f3bac00b1ad012f7c7a5c", "PreprocessorDefinitions": "303453d59eb863e374a5b2d109dca3e5163afaed96fe78ef25872b19290cb188"},
-    "skullbonezsource/runtime/scene/sceneworld.cpp": {"ExceptionHandling": "2ab5caeb1bef43e80c76b86b75814f4326f2b629ada63e9dd0ede809d80713df", "PreprocessorDefinitions": "f2302f9c6294986c9aa8b08f61410ba92f1e9c65ea568cf8b5540d00207b18c1"},
-    "skullbonezsource/world/worldenvironment.cpp": {"ExceptionHandling": "8acf34eb5a5c6cbf515a134eb8a0a60e37ac542a844996b78175302c0533413b", "PreprocessorDefinitions": "d9b014ed46c74f5ef70737ceb7a044acb65f684cf2c6f7b453da1a256e9c01a5"},
-    "skullbonezsource/assets/assetsystem.cpp": {"ExceptionHandling": "3aab5cfd62cc84b565104f5416e99ba61908d29a3ecbbd68e6b2004b9f1eb36b", "PreprocessorDefinitions": "c1a92df4aa51f8b0fa9df6cef6a7ec7bab2e1218fe4b19741c7488f29cd30599"},
-    "skullbonezsource/core/allocation/developmenttoolallocation.cpp": {"ExceptionHandling": "cca8073739dca550345888e96d7016bf83c19708b90797f3a3dadc6db98cb616", "PreprocessorDefinitions": "878ed689ebe528fc972df84d2fc40944455d28a0508ced1bea6e886597be50f7"},
-    "skullbonezsource/core/allocation/runtimeallocationtracker.cpp": {"ExceptionHandling": "e7b3e6fe7a411fba2cd867f0749d4cbd5143c0dcd019ce4b82d03d772568ee5a", "PreprocessorDefinitions": "e9e6e5a5515b68ac54805bb0c663d7ce6d5809e97f3b57ab9d22eb0a3c3df9a7"},
-    "skullbonezsource/core/allocation/runtimereserveallocator.cpp": {"ExceptionHandling": "9637bab2921cbb42d1477c5b16e92692bff56c655b785be8c80f63dd78a7c0b8", "PreprocessorDefinitions": "1aa3b5a13f8873c002b5133cb9a15bea816b7cb58a30874f5725e85279d8cb13"},
-    "skullbonezsource/core/atomictextfilewriter.cpp": {"ExceptionHandling": "1a7dadc1d19c0aabced833582a1ed07ac6e5a5c7bc69b75208fa71d73ed5b5b3", "PreprocessorDefinitions": "468b1172f2994e9bbb93d4bbdb2b8669dcf1569ca9fae5e94c926d53158b8366"},
-    "skullbonezsource/core/config.cpp": {"ExceptionHandling": "639d2d35a962bfa7b9f8dd5c0eb01844ad55d5652f3b250f9bbbd0c1f07be536", "PreprocessorDefinitions": "e99bc08c43fd89424c2a54a742a9efa6f4968c5be12df6eb4a29631fe17299ca"},
-    "skullbonezsource/core/fatalerror.cpp": {"ExceptionHandling": "28c93e37e9b2cde1301dd82428d97dce26c370819cbcb496169ba1ab1ca6daf7", "PreprocessorDefinitions": "7bdeb772224fb91d77b7c2583ffaa7087a2a83c294c5063bd31fb9e6df4b1f72"},
-    "skullbonezsource/core/lockordervalidator.cpp": {"ExceptionHandling": "a3c5be5ecb178ddc43b30c0346d7a76d0fa00d0e49e728377e4898464687c5e0", "PreprocessorDefinitions": "b8d1a5476d95371d1d5db58a9896f7c99f07e414a4aa4bd16f828bf31a740e91"},
-    "skullbonezsource/core/log.cpp": {"ExceptionHandling": "1fb3de9770b72fee223d93dd135e3226ddff66d5de5ad3c5f05ada741cdcd201", "PreprocessorDefinitions": "c7d10812dfdc66f85daf856143f87c4d3ff0eb86623ab3432a69eb72140a7a0c"},
-    "skullbonezsource/core/platformprofiler.cpp": {"ExceptionHandling": "f52ebbc4cb183b67dc09ec69e8f2a2f17b30eae7de16f4aa37680f297ee9a5b1", "PreprocessorDefinitions": "324fcbe456bd41dda63411b373bdbc7632b2185c56467a1d7da4f2d2f5e445bd"},
-    "skullbonezsource/core/profiler.cpp": {"ExceptionHandling": "0a7e6822fb7193efe2abd51e37875c74c0e6c7c96739d64cbc1f0e55f282a1dd", "PreprocessorDefinitions": "64f72905677c650c299e8d2e64159d0a5e2733ba09c309280c0a488c17695bb8"},
-    "skullbonezsource/core/sbresult.cpp": {"ExceptionHandling": "91d81a7f812d09a9b3b716f56f910832341b082efbf129bdf8bcd0bee6306277", "PreprocessorDefinitions": "71832cc9d91090fbb184be44216fd172f32cda5ae5a4866aff8b051fc9d580ac"},
-    "skullbonezsource/core/workerpool.cpp": {"ExceptionHandling": "5a963896863c1a0c073d77b54e2c7ff262dee5f5ac55a978877be31270da7d5a", "PreprocessorDefinitions": "439a05a0e72eacaf8a1fc67fadc9dd5ec2ee1f91235c822cc992bc171c48b9ab"},
-    "skullbonezsource/gameplay/tornadofield.cpp": {"ExceptionHandling": "a7f7ef2718537221910e3b1513aee7612ea97e108dde93b6b313cfe8717eaf0d", "PreprocessorDefinitions": "8136ce37b8a1a9a79c17a8997a384013a10b5443771a34850a57ac6b94bd1747"},
-    "skullbonezsource/gameplay/tornadogameplay.cpp": {"ExceptionHandling": "c2aa68ae1324a5cb9ef38d2abd4c02f5e9b7b790a431a05e1d7775ddd24b0652", "PreprocessorDefinitions": "83b68e9998f6f0e2523cff2de90dc49eb0fab7bc7db48f1f5e6342786c7be03a"},
-    "skullbonezsource/rendering/dx12/dx12cachedpsostore.cpp": {"ExceptionHandling": "1f9492aafcd6a23932fc89b768b6a4f47e6ac88bc3e798f7bf5621c55a03a28a", "PreprocessorDefinitions": "321026c5a614b076a29ce76410082c821492ee78219e2a5b8faadd0d895c852c"},
-    "skullbonezsource/rendering/rendergputimingowner.cpp": {"ExceptionHandling": "cb2f5ccb1b04f7f30df700dbd3be9153e5548d219e0bb0d7924642cea8dad288", "PreprocessorDefinitions": "671e355ab0e76447fe562adebb6aa7e040b810491ec9e71506cff77addb9b02e"},
-    "skullbonezsource/rendering/rendergraph.cpp": {"ExceptionHandling": "80d158e257917133910b4977ad7fe5075a8e7cace59522e058391b0065764b99", "PreprocessorDefinitions": "bff3a60294c530b393e423b64fd175abb379a091259c50208341bc0c960213b0"},
-    "skullbonezsource/rendering/renderinstancestore.cpp": {"ExceptionHandling": "234d4a663c03d54adb4e3ebd75007b4c7f99ec440cc94dfec995543a6e05cd18", "PreprocessorDefinitions": "2496c9f76cdb6bce4d7c6d6a8544d9d1232795c1763372fb88690cc71a76c914"},
-    "skullbonezsource/runtime/app/applicationexitstate.cpp": {"ExceptionHandling": "64e44ff6bdb43cffbc65f844516f73e3547ab0c3cd0db8e7957281b9d03a9c8a", "PreprocessorDefinitions": "b76797b51b1bd7bd40ea8e31bf830733cda36a12cc793dda0323363bbcdb1d0c"},
-    "skullbonezsource/runtime/automation/interactionautomationrecorder.cpp": {"ExceptionHandling": "56d63e64c17c8c0c502d2dfb47f611a4563ed1477079c01fba92596a356272a1", "PreprocessorDefinitions": "c23e6f083c6eb11d889df5927bc8b53dfb76356f2b1e0f664a2f5f448803ddef"},
-    "skullbonezsource/runtime/camera/camera.cpp": {"ExceptionHandling": "b8c1821efa9f1dcf9a85f926d02ecae03e4b4a13a2273d8526ddf443c46dea81", "PreprocessorDefinitions": "938c68575065878ef85f71a80364a20172e01be74f2299d7dd7445ee423593ff"},
-    "skullbonezsource/runtime/camera/attachedcameracontroller.inspectionpolicy.cpp": {"ExceptionHandling": "188630050181a3d0db63a0e65b19d2961dddb664a7ce4ccdd8014c74cc1ee628", "PreprocessorDefinitions": "68722eaa9bb5e8a9e4dddc07d588c813d2f0c2a1bd1d61929059b6c007235fe4"},
-    "skullbonezsource/runtime/camera/cameracollection.cpp": {"ExceptionHandling": "ea6e1457aafed94358ea3f5363bb9ca2ee83bc2a5248b4aea13a8a3128f621dc", "PreprocessorDefinitions": "ae826fe7e39f35cc216270db20f96e653bb968aed3904ced587ad3503bab7c76"},
-    "skullbonezsource/runtime/capture/capturecontroller.cpp": {"ExceptionHandling": "9b4b9f297f9e016ad4aa480f5ed8c5ea4798178ccad571c8a9be4637a0ce6d9d", "PreprocessorDefinitions": "53f38d327acb1f521258ea82a3ccf0ea1b0c42bac16873ed019f44163f873a2e"},
-    "skullbonezsource/runtime/capture/capturesystem.cpp": {"ExceptionHandling": "23007412fa496125fc68e95105a55b44ae022b757a463eb8903f49c2a07a5d8f", "PreprocessorDefinitions": "2e47642e98bfa03f89fe5a83b2a117318bfcce3bfcc48ec8fa57af64d9fbf297"},
-    "skullbonezsource/runtime/developmenttools/imguieditorlayoutpolicy.cpp": {"ExceptionHandling": "e9a6ab1e5c49810fd94118d205d18da6b814296b522171b231df91db0e539ad3", "PreprocessorDefinitions": "367f0e9f6dac439a2803f9e74b133a94941204089dee4f10c7c056ae15db96db"},
-    "skullbonezsource/runtime/diagnostics/diagnosticsphysicsui.cpp": {"ExceptionHandling": "281732edd176e625812d57afc2001fbd6646cfd6e5351a7dbd4a41c422df5a23", "PreprocessorDefinitions": "4c6523c9e4e76a5da8c78efe888efbd63951ed82b707a255e8c78bf37c3f294e"},
-    "skullbonezsource/runtime/direction/demodirector.cpp": {"ExceptionHandling": "1f215c0fc44443f01f894262d79288b4decf7138a837673b783b2f04a9b21aa8", "PreprocessorDefinitions": "e94c5a7884242ae0e0362ae32521b270ac57d6ad38161132b41c71d96eb56abd"},
-    "skullbonezsource/runtime/direction/looklabbundlewriter.cpp": {"ExceptionHandling": "fa8de412aba960d4ac0e9b0b3a3f72d7e5a0ac775e392a9842cfd7e14ecd90fe", "PreprocessorDefinitions": "df29eb7a13f5ec36f2f4371a9041ed28441b32346c5e0ecd3c3631d81256dcbd"},
-    "skullbonezsource/runtime/direction/looklabcontroller.cpp": {"ExceptionHandling": "2303199fbeefb851ce4e9b590389ea8e1077c269ee739c0c4226f18b7f4da536", "PreprocessorDefinitions": "cf8adbbb5cc503fd6a5b38874e292dda954efb47b4aa5a8ef6e0137eeb353303"},
-    "skullbonezsource/runtime/direction/looklabgenerator.cpp": {"ExceptionHandling": "6a6cd575d0b055d5034a5010cf4e2dc5783621f6735d86c95c0d9e390a520adf", "PreprocessorDefinitions": "335b23dddce4015ade6d053070c4c116bd84288f932b0900d69476ad8159181b"},
-    "skullbonezsource/runtime/editor/editorcommandhistory.cpp": {"ExceptionHandling": "2679e62c56ac5a2979615b010ff36071551f6153087f5cf35d69a4f7e0a9c0c4", "PreprocessorDefinitions": "00ffe5395449b5c0ca0fea3ce1baeaa12d2558129d44ae98301cc05c26661d14"},
-    "skullbonezsource/runtime/editor/editorterrainorientation.cpp": {"ExceptionHandling": "701fc82d0e7583d8574aa1b534e1ff7e56d2441a509890b0689e5cb045e4c5f8", "PreprocessorDefinitions": "388b895b3f2632add02e2be9199fbbc4dcce31ed700e9a7fc25554c4ff90959d"},
-    "skullbonezsource/runtime/input/inputcontroller.bindings.cpp": {"ExceptionHandling": "a84e7fcb42496be0f3e1404b5982f6e9d64b0d6d2fc5a97d77d1f5c8f8a49770", "PreprocessorDefinitions": "4af2cf13fe74273c340bcca25eeccb11f1b69cb96d7c45fce2732d26aa0d8408"},
-    "skullbonezsource/runtime/input/inputrouter.cpp": {"ExceptionHandling": "e55290336dbb4b6720031636f19a2814f8fdc2ab3dbd1696a15428013564d53b", "PreprocessorDefinitions": "2c7c852f1d923bc0ee48571a39917a51c20bcd208fd7d813ba9cc7dcb70f6e11"},
-    "skullbonezsource/runtime/interaction/operatorcommandtransaction.cpp": {"ExceptionHandling": "526972cf73fdfcf7114372012eec5ed3b41b494adf10bf625cc844d17d9ff481", "PreprocessorDefinitions": "3d2f7105a486ef14d7170b82c4c0902c98f329aaae3ea17b9bc704ca4ca3a72f"},
-    "skullbonezsource/runtime/interaction/operatoreditorexchange.cpp": {"ExceptionHandling": "1ed67f72373506b6eaf2ded8bc1347a346461737b4eead88122903804c58cf27", "PreprocessorDefinitions": "68b1e6827e896473e68be5064efcf21b224f260fd556a1eab922341dca66479a"},
-    "skullbonezsource/runtime/interaction/runtimeinteractioncontroller.cpp": {"ExceptionHandling": "1e785052423a746140462db14bed8adddcdc44c2a349ca7bcb62e98ad13fea41", "PreprocessorDefinitions": "9e5f537ab2c9af95c9c29b34da6b2664d7dea1728a0f5f60af5b4865c10d5299"},
-    "skullbonezsource/runtime/planning/continuousorbitalforecast.cpp": {"ExceptionHandling": "bfab39546e45d7464455f3dfdd1474c32a04a3b435e7efefa4bf0e1c5cea6a5f", "PreprocessorDefinitions": "0c61a179f6974912af691d41e2b719b72a32d9dcd3e28b821e509bb6491b01e6"},
-    "skullbonezsource/runtime/planning/continuousorbitalstability.cpp": {"ExceptionHandling": "3493fea0dbe00dc464381c9aea0400f9ccb343457985038ed5f352221871b1ee", "PreprocessorDefinitions": "41ab4a3b90f3c0a9686ddc2a155d5ed04961e660d23184b9555e61a400d689f9"},
-    "skullbonezsource/runtime/planning/replaycauseinspection.cpp": {"ExceptionHandling": "ce2bf71ab13fc06650c2a2ea26cb981814067bbf4efcf0262a015873772f1aae", "PreprocessorDefinitions": "4b45b8b6e38a5c79d928861e05670179b415fcecf75cbeb1ad48a43bb8c7f765"},
-    "skullbonezsource/runtime/planning/replayguidearcs.cpp": {"ExceptionHandling": "a821bc7e4b2f3b670b70219e13420830953b55fb45cd71755979a29c0681f268", "PreprocessorDefinitions": "f8fcb126bd60a7a1c8c5524817a5e9fd41052ac52e1ca49fc61bc0348b0d3411"},
-    "skullbonezsource/runtime/planning/replayinterceptreadout.cpp": {"ExceptionHandling": "6f716177485f4cd5a47457f89491b28b89e85669f01efec712396cc82ae81cab", "PreprocessorDefinitions": "7ad2a9563bfb4dd466a88ee5286af789a8b531f014c9cd685012cae0ab725bd4"},
-    "skullbonezsource/runtime/planning/replayplanningoverlaylayout.cpp": {"ExceptionHandling": "10309c4ff972ddb70c7e304072bdeb0ab1b0f935e453e9c2d5cc874d85dac9c5", "PreprocessorDefinitions": "6f70b6c12aa580eec9f9b29b6f758856121aaa2635ff80ef451371437f1b72d1"},
-    "skullbonezsource/runtime/planning/replayporkchoppanel.cpp": {"ExceptionHandling": "230e72ce6f409fc3145b40ffda05ec579fbc9ae954e25ffed6ffbadf5c814121", "PreprocessorDefinitions": "a65bb6ab70f280a9180afa4d35f1638fcddaf4794810e5f1198ab5b7f60353a8"},
-    "skullbonezsource/runtime/planning/replaytripplanner.cpp": {"ExceptionHandling": "8aab120d5ffaa2e633e13fdb4ec818aed8402fe58edb8a00495aa710dd21d542", "PreprocessorDefinitions": "f0e52d547ebcace6460a74979ae6cc81f3dc3be979d8c87197e978154e08cab7"},
-    "skullbonezsource/runtime/prediction/continuouspredictionproducer.cpp": {"ExceptionHandling": "79e990be03a9efd7fd47e160d01ccfa3af8bdf7c9783b1301863b51a95820f95", "PreprocessorDefinitions": "300faccc6859920cae3449463e2f7a870fb17a8f1238f540a4adaa26e8c73f15"},
-    "skullbonezsource/runtime/prediction/continuouspredictionsamplering.cpp": {"ExceptionHandling": "e9eae107b7012d25ebf38d0058a511218e9264bb49de674721ddd4ec9df5fa4c", "PreprocessorDefinitions": "a625fd74955e7441c9096ac37447fc4ee74e5fea8a90214fc9416854d9d1e9a9"},
-    "skullbonezsource/runtime/prediction/replaypredictionreserve.cpp": {"ExceptionHandling": "91c4be9b63ab7af45137349190f4692b98300246ad4f9bbcd8138b1ca75a63e4", "PreprocessorDefinitions": "1a69e37ed2b0e95f68e8418446990103fad41a952b4ec88453cb85422ee22037"},
-    "skullbonezsource/runtime/prediction/replaypredictionpublication.cpp": {"ExceptionHandling": "260357a5b4f78a2e62423ccac209a9db988bfd36fb5c4567c51ee26954f59743", "PreprocessorDefinitions": "c1ba333eca9cbeec4aa1584d5c6117edc1c8932a1b59b492b6780ae32b61d910"},
-    "skullbonezsource/runtime/prediction/replaypredictionsolverevidencestore.cpp": {"ExceptionHandling": "a009cc2e9ad381205d7205974f3f4d6344e38c1ec5fd0aa8492d11e3855556ec", "PreprocessorDefinitions": "23968a64f947c74c4f469c7241cb1208e406d87822f3471e1a04cf0c8244d2de"},
-    "skullbonezsource/runtime/prediction/trajectorystore.cpp": {"ExceptionHandling": "ac59b50ece461a3eb8bfb931ad6b64a2da81359d10ea48234c032e4b01c9fe15", "PreprocessorDefinitions": "e222427be145cb7ab8cbeb88fc7a00e0e8cfd5a429f019ef3cfccd395e897bab"},
-    "skullbonezsource/runtime/render/renderdefaultsstore.cpp": {"ExceptionHandling": "d820dfa51356eedde5d8619d55a82eb3464b52d20cccfe90d42a59707d427a3f", "PreprocessorDefinitions": "674f160e0288cd89fcdc4787bf312f3887c493dfb1619dffcfc0e51c1b2128a3"},
-    "skullbonezsource/runtime/render/renderdefaultsstore.persistence.cpp": {"ExceptionHandling": "93223ad804e2ccaacd42e502d5a6c4b6f55998cb656c6c8bac8af8d13a31e8a2", "PreprocessorDefinitions": "10713225836bb6a308b73ab5fd3c53b97f0994fa3790da3b8f459f7ba86ed5c0"},
-    "skullbonezsource/runtime/render/uiprofileroverlaypresenter.cpp": {"ExceptionHandling": "1a9659c8cfd61b9ef141dfd1d905b1eca168009a6e25b2a24ceb58132113bbf9", "PreprocessorDefinitions": "ff8c7767e83e1e006d79ace611a5d0a39d4103fd9a2ddc8109ef25f251cc8e9a"},
-    "skullbonezsource/runtime/replay/replayartifacthashlog.cpp": {"ExceptionHandling": "0905bb8e166ed758d9e1183494525579e76424cdd536a1f0bacacf7098b834b4", "PreprocessorDefinitions": "df767dfaff4674cb91890a999c1c50593451787f430ce415e8edfe06ae32047f"},
-    "skullbonezsource/runtime/replay/replayoverlaylayout.cpp": {"ExceptionHandling": "f8c9d30d3ab1e94b62842eed2efd386e1177f9f5072d08078974f413c254757b", "PreprocessorDefinitions": "94c49cc38df4a91b1de0c9b0c21e50c7c4ac226e9ab4e81f5b3788f390c52ae5"},
-    "skullbonezsource/runtime/replay/replayrecorder.cpp": {"ExceptionHandling": "14ea4dff5aa32be87f89ed61e381c7add1e49c8c925799f16ac71aff1b940eeb", "PreprocessorDefinitions": "d641085bb69b1e48486a3fc1d5ba24db283cd9c469b46c504815fd46779c561c"},
-    "skullbonezsource/runtime/replay/replaytimeline.cpp": {"ExceptionHandling": "440ffdd40d826dc13d2036881249eb7c779a3183ec79c79eff466f8b0df6e052", "PreprocessorDefinitions": "0a232679022bae7157cec43fa7d2c64e7a686e0e765c8767f18765cc924c25a6"},
-    "skullbonezsource/runtime/replay/replayv2artifact.cpp": {"ExceptionHandling": "bbec5c9979903460b75da6f9bd6474cf64ee39927222e81f40d7a92e9f43e6ef", "PreprocessorDefinitions": "733b7dc6bc292b172881ffdf4faebde3006980280d14672228767c2dd1cd31dd"},
-    "skullbonezsource/runtime/replay/replayvisualpacketfingerprint.cpp": {"ExceptionHandling": "df2710e1ca3d42f885581399c6a6826fd075a23913b86453c92ee48fa0936f2e", "PreprocessorDefinitions": "5203bd3128c4924d4a2628ba884b6dab98b00850435addde38cf8e1c94bec1a5"},
-    "skullbonezsource/runtime/ui/gameui/gameuilayout.cpp": {"ExceptionHandling": "d9356c9f014e7564b7897bbbd6de3651bf114cfec2a273e95b44692e2f0f7799", "PreprocessorDefinitions": "1131799a51eee4afc020c97ca176104d409cfa885d0e8493eadc8f9532246623"},
-    "skullbonezsource/runtime/ui/gameui/ui.cpp": {"ExceptionHandling": "7b5a07b61ac263ee06e9a97ac18d70dee943a6872dd4eac75043635ebc86e0f0", "PreprocessorDefinitions": "c870c42460fc00d491f7808224a5503dd3ad181bf46c62f05433c1e067bff510"},
-    "skullbonezsource/runtime/ui/gameui/uieditorminipalette.cpp": {"ExceptionHandling": "d156d7a51cef5ece410efeb655f8a548fd566df6ae9ce2cfc26a4d118c378904", "PreprocessorDefinitions": "59b79e2687888b769dc62f45ac3662f80677a9539593d07235e5d67390c18558"},
-    "skullbonezsource/runtime/ui/gameui/uieditorminipalettedraw.cpp": {"ExceptionHandling": "d8af70d9b0c28508d1a37e8c31daf622d658fe52a9d15124990042f73b1bbf92", "PreprocessorDefinitions": "9494ea3422402a936b04fbd252e48da838a79ad00e146ffc8b29a0f62c6b5208"},
-    "skullbonezsource/runtime/ui/gameui/uiframecomposition.cpp": {"ExceptionHandling": "ae72dfc1908b55360b77741b8cc9ed2d775aec86e97c45db1d4d035339f51157", "PreprocessorDefinitions": "e3b96bf78d3399d233317b96cffce84c60b64b584531305d2b8bc534738f233d"},
-    "skullbonezsource/runtime/ui/gameui/uitabcinematic.cpp": {"ExceptionHandling": "e3154890981cd01f17f0785a807cd3d6a1044248cc67a943cd6e523aa4fa78ec", "PreprocessorDefinitions": "f22e119ccdc5fe9e2ab681ab8a9265e88edbcaa2b06a302d36fc15f426fcf44c"},
-    "skullbonezsource/runtime/ui/gameui/uitabcontrols.cpp": {"ExceptionHandling": "4b116b24b0047371390ca76e7181519b8c217eb8aa21e66f58558580cd3dcde1", "PreprocessorDefinitions": "ff9e3cf849fce7d4fdb86f5d3682901aa50c8392a12ac96a2f64291f625d409a"},
-    "skullbonezsource/runtime/ui/gameui/uitabeditor.cpp": {"ExceptionHandling": "14293d09f83dfb4e03bd05e43e2369bc56ce36aa39f0101d4fe75edb66712230", "PreprocessorDefinitions": "d7776f43c945bfddc40253f0af7630983bf6bb4b36ab479e6ba997fae26a4574"},
-    "skullbonezsource/runtime/ui/gameui/uitabmemory.cpp": {"ExceptionHandling": "52e85b7400487e5ebd9bee4fb8a9cb01f58168192736a02933504e5f4bc92a44", "PreprocessorDefinitions": "18418301fd2e1199ed57f256753ee2e2ab7bfdc5f46ae2369fadd855fbee37b7"},
-    "skullbonezsource/runtime/ui/gameui/uitaboptions.cpp": {"ExceptionHandling": "15f7c33556d9bf1e4c2adc094dcca150531712b36a8a9bf5cd0e45207148a14f", "PreprocessorDefinitions": "c2d72de95bd431acb7656593eb27b2236fadf6b913436ede334437ab2044470b"},
-    "skullbonezsource/runtime/ui/gameui/uitabphysics.cpp": {"ExceptionHandling": "25e6e2d2fb8fc23d83cee53af4f4af9983100ed753f9de57839cc3cad1c892f8", "PreprocessorDefinitions": "19033c019cd5dec30ead45c3dd86e63be68ce265bd9d86aed46af3a1d466b34e"},
-    "skullbonezsource/runtime/ui/gameui/uitabprofiler.cpp": {"ExceptionHandling": "6b1d413e393211874329aced46817d1148d07af5721f3c564575da12c10a31ce", "PreprocessorDefinitions": "9936d496aee97a1aec6f64abc05fb1dee31215b843408f5bc1bbef1eae7f5c0a"},
-    "skullbonezsource/runtime/ui/gameui/uitabprofilerhistogram.cpp": {"ExceptionHandling": "6fc13c3d64af48a3cd221642d3c7e6c1a9eb6a930b2f5faf87a7655b66ae0759", "PreprocessorDefinitions": "7dc687e7139894628d3685535e6b1cfced6467cd04032ed6f00b9f9d08fabb5f"},
-    "skullbonezsource/runtime/ui/gameui/uitabscene.cpp": {"ExceptionHandling": "290e2e4f6a3e15edf598d59b79b75f2586b0519476465b19e9f773aa1db445f0", "PreprocessorDefinitions": "7bd152ec9a7a1763e2a615dc070a59a19111d66bbe48330998741c517e9814f4"},
-    "skullbonezsource/runtime/ui/gameui/uitabsky.cpp": {"ExceptionHandling": "5ed9b235e36e7c004a2f916c31d267e7aedddbaba2b9dbe68596d259c2ba96c7", "PreprocessorDefinitions": "10b11aca9bde2464c25b740903f14fb017c4f5c9d68b5bb0bbad4a59deab80f6"},
-    "skullbonezsource/runtime/ui/gameui/uiwindowinteractionowner.cpp": {"ExceptionHandling": "9f49b6b1d17b08ee88543896a4fad7e25896c777c295904db50e205302adac59", "PreprocessorDefinitions": "d797bd2660e174bdc511840f91c09141ec877c8097b39f9873614323a5f660f3"},
-    "skullbonezsource/runtime/scene/sceneentitystore.cpp": {"ExceptionHandling": "14f0e889f412ed95f564e70d3a05c9eda92b858d3dfbc1063e3cd01e9ddfeaab", "PreprocessorDefinitions": "18f012b391443d53c977864ad3568f9f8138206c32a31cb35392401137258b71"},
-    "skullbonezsource/runtime/scene/scenenavigationmodel.cpp": {"ExceptionHandling": "2611cee089afc4a344fbe94dab019837844d88b1549b19ed5d4eac0231552aa4", "PreprocessorDefinitions": "1ea200aa127dadf649488bcf1472f0dd268b84acfed4e82d0586a448914e912c"},
-    "skullbonezsource/runtime/scene/scenerequestqueue.cpp": {"ExceptionHandling": "e400e3b3b48563067d60802329244e06bd4946c60f111540ee431f6ac729dcdd", "PreprocessorDefinitions": "751c6b48e7c10d649cbab410f0bbff374393313a94876427899191e5f2f50de0"},
-    "skullbonezsource/runtime/scene/scenesaveoperations.cpp": {"ExceptionHandling": "9832a44611bcbe8edd8077bb3ef3f477ad13881225147c9ee6a88f9389d5d829", "PreprocessorDefinitions": "b2d641a8ce1581fd220448d6b6f9e17800d8faab04d64670d2ba287bd2caa3a0"},
-    "skullbonezsource/runtime/scene/scenesessionstate.cpp": {"ExceptionHandling": "bb7ad6b92b4b052310b79a0379d8f1a5180593157539dcb981450c5c31b2e43d", "PreprocessorDefinitions": "f0791dc62e8028423f42a3454f5ce6bd56c0b523a3b8f0f4b3ac32a9bfb5da12"},
-    "skullbonezsource/runtime/simulation/simulationsystem.cpp": {"ExceptionHandling": "7131ed2f25239bcb10692f19616c4867d2d48b10626ac80177faf0a7a7586afd", "PreprocessorDefinitions": "3b5f67e22664c3786c693ae174a7658cac80e5779c057141721cffb9f7685ba4"},
-    "skullbonezsource/runtime/startup/startupcommandline.cpp": {"ExceptionHandling": "25e3ccd845d43fdf71f3e0e2cd15f743c5c9c1f934ef7c57a222ddc1929a73b3", "PreprocessorDefinitions": "b47b51674327c31bf7e367a8151398d89cf068a4d0371c90ddc4a0a3371970e7"},
-    "skullbonezsource/runtime/app/startuplaunchapplication.cpp": {"ExceptionHandling": "1f1370eb4b0b7b47b3d1416130c62bff7fb13cd9c2687601a807f3809b756650", "PreprocessorDefinitions": "c66d44e118829d52314b0bbdbd98f44f5b579007393557cb25168fc51cb7f20a"},
-    "skullbonezsource/runtime/tools/runtimefilewriter.cpp": {"ExceptionHandling": "73a7a35e6596c90d371ba0834e73a2b9fca98b08561e6901f0ff6b86434fca62", "PreprocessorDefinitions": "4957bfa2435c8a62837f9ffc3ad864d074e7befc0d70c333fb78dcc7fd57cf6f"},
-    "skullbonezsource/scene/authoredscene.cpp": {"ExceptionHandling": "ae8e1b9011abb31e7dd26fcfc005a715f0c13739499b6f2bad6eda86f6807a3d", "PreprocessorDefinitions": "049414d6ce5295b13f31093984e31345081645703e5c5cc43257cd4c6fe6cd8f"},
-    "skullbonezsource/scene/authoredsceneparser.cpp": {"ExceptionHandling": "936fa222eb6bbf89b983806b9021ddc8bec8d604b3f2b827354ef45ce683e101", "PreprocessorDefinitions": "2707c6c23702af51720b9023eee5c6368690c303de790a8a0f131394ae866f01"},
-    "skullbonezsource/scene/authoredsceneparserassets.cpp": {"ExceptionHandling": "38e2cc1cdf0ecb4546a77d9ce129e759704a62fe4c0dcf19b3e2a57e84efca2d", "PreprocessorDefinitions": "ca6f41565a4658be644f84bd477eaca04c493ec76eb1eb753ab3f0313ec8c6c7"},
-    "skullbonezsource/scene/authoredsceneparserbodies.cpp": {"ExceptionHandling": "f7b781ea8c184941fdddae0c324e11137eb725b53b5ed2ee3f4ae23b5a78f137", "PreprocessorDefinitions": "6648b5dc18cf11bc8eea65fcaae20f361d64ee37cb5d5b889494fc33db28e3b2"},
-    "skullbonezsource/scene/authoredsceneparserpresentation.cpp": {"ExceptionHandling": "dcb224e5e9abe6c685e2b61e146a7f3f5101ddebd77687f2ced6433444ea887c", "PreprocessorDefinitions": "eef41b0f304c62d478d4cbc33892f3916519aae8c1f68b2143d9cc2c2b74dd17"},
-    "skullbonezsource/scene/authoredsceneparserruntime.cpp": {"ExceptionHandling": "c2854a01a1b7d8a121b6ca0d78b20f1e5a6ebcf96f315ee929ea500ab6355b06", "PreprocessorDefinitions": "239fc0879962ab5efc9d0c1412cf0f406b9b3eadfbb407803dc04ea63dd302b8"},
-    "skullbonezsource/scene/scenesnapshotwriter.cpp": {"ExceptionHandling": "bca914c8d8961d77ca48187854422848028835f58a26ad7dc75bf8271b07385d", "PreprocessorDefinitions": "f4b03678eac2407cd5bd9cd6414105ae9f5c208e404bf1b31012c452808a4adb"},
-    "skullbonezsource/scene/standalonestylewriter.cpp": {"ExceptionHandling": "e0d9476e3dddde0a5ad36c75f2c3baa1c99177eb98beb7f4f3b567031997ca26", "PreprocessorDefinitions": "68ca53bb6f967578e2cb414e6d7169f5ab830f270461e3c69728236607082f51"},
-    "skullbonezsource/world/terrain.cpp": {"ExceptionHandling": "d5c0f9cfa1876fc1e602f5eb679a4cb4e5159b2a64e6e1912e526347616b42df", "PreprocessorDefinitions": "eb1bade0b8cec00c9eeeb149199c7cb17f831ff72af327042fdac6e6a9394c63"}
+    "skullbonezsource/assets/assetsystem.rendering.cpp": {
+      "ExceptionHandling": "1656066a1df882776aca779368e5bbb0ca455a44ea2ae5aaaf7cced420b5b843",
+      "PreprocessorDefinitions": "8569099d1ab295d1e6262c0c92bedc3172a6e45346d171fa405ec405f64ecc4e"
+    },
+    "skullbonezsource/gameplay/tornadovisualpass.cpp": {
+      "ExceptionHandling": "2f1cf1ffb5b500ccfa37e7a3858d92c8cdc0e0e40d2c34d6a9aa732771a8983a",
+      "PreprocessorDefinitions": "85294dc6eea42bdf09a414c700234935c566348c55ca9439dffc3ed141264bf1"
+    },
+    "skullbonezsource/runtime/automation/interactionrecordingsidecardigest.cpp": {
+      "ExceptionHandling": "e01c4819fbf96894cebb1fe2848534eb4574662294fdba7b843c0c6ea6f8739b",
+      "PreprocessorDefinitions": "45e7b9e37c21fead0bf8817783483034875a3e47702c9023001f305bb73e9c10"
+    },
+    "skullbonezsource/runtime/diagnostics/diagnosticscontroller.cpp": {
+      "ExceptionHandling": "10b297deb8084b568a2ebe94263240e0cad83fadf6c10c33804f35e6ffb91d8c",
+      "PreprocessorDefinitions": "4e49cb49c8d934084b494ff2fc6a3065c88f40d66bd7b0ca4098fd5afb2c12db"
+    },
+    "skullbonezsource/runtime/diagnostics/diagnosticsruntime.cpp": {
+      "ExceptionHandling": "7651392d89e661b39adfd145765b573dcbf835c23148ad9a336e73157ceb3700",
+      "PreprocessorDefinitions": "fae7d283f392da6dc2e1aa01d9172d6e3b558f59e5a691e19582b04f39549db2"
+    },
+    "skullbonezsource/runtime/diagnostics/runtimediagnostics.cpp": {
+      "ExceptionHandling": "eed893f7f5da5666fdf923b040101f934c782b154188180e9e0b7127c349ac9c",
+      "PreprocessorDefinitions": "f0b930e277cebc74cd06c860232bf577884079e7298addc825b8d9c3fcbf6e08"
+    },
+    "skullbonezsource/runtime/diagnostics/scenememorydiagnostics.cpp": {
+      "ExceptionHandling": "a4f7b72aa2a3c0a5fedf01d45789a1b0e531779fe5191609258a2279350f5c90",
+      "PreprocessorDefinitions": "d42478c32a0b1ea139dc50788968d6d8180c0cfb41a05f265d66f6fa078e32db"
+    },
+    "skullbonezsource/runtime/direction/demodirectorplayback.cpp": {
+      "ExceptionHandling": "6062a695f2e1ae01ed46f83dcb3d84a200c74298559f2ac1b334ad3471c22bfd",
+      "PreprocessorDefinitions": "61f8116abcc38c99d703b0a24c7deb53131a4e4f71ff42fffd01f6131e652ee3"
+    },
+    "skullbonezsource/runtime/direction/livestylecontroller.cpp": {
+      "ExceptionHandling": "d5bdbbdd85857d42899b6c0d5fa84af5a1648406ded7dc4302972245e3818aa2",
+      "PreprocessorDefinitions": "28280e9555be63c3cfc26482a3db6a74512c3530553c25ccf0868ffc3ee925d6"
+    },
+    "skullbonezsource/runtime/input/input.cpp": {
+      "ExceptionHandling": "ea7e1ec8a1c274dc760cb939cba17baa502c18bd1e65c91ec9784eacb0cdb2dc",
+      "PreprocessorDefinitions": "eb8ce374ba90209b86ac3107250bc80f5191ecdcba1224382a119f359296dba9"
+    },
+    "skullbonezsource/runtime/prediction/replaypredictionarchive.cpp": {
+      "ExceptionHandling": "810fe95fa3a7fcbe20b80d46a76970350d67d323ede39b1c83ee880e16cd96bd",
+      "PreprocessorDefinitions": "580f3f046c97164546ccff7ebe40214f92f94afe16d4c0731b7c6e628bb08a90"
+    },
+    "skullbonezsource/runtime/prediction/replaypredictionstate.cpp": {
+      "ExceptionHandling": "cb285dd3cc50d1cd3bb90030e1f1f6ef3380104c29a72099caa129b710117518",
+      "PreprocessorDefinitions": "effa8bac880493dcc57ed3df0595c1d467a6eff790f46d3b04f7367691fd68e7"
+    },
+    "skullbonezsource/runtime/render/broadphasevisualizer.cpp": {
+      "ExceptionHandling": "f4f44783644f426ca320f2689ce15ea955c74e81d028819ef85923c262d733c8",
+      "PreprocessorDefinitions": "326f825c80f26efe4857aae43e2a6241ec28526d204521ebb8435cfbee881c73"
+    },
+    "skullbonezsource/runtime/render/collisionvisualizer.cpp": {
+      "ExceptionHandling": "b10f92be6e27d599675dc748459506a71daf6f15ca9f18f530b6914544895595",
+      "PreprocessorDefinitions": "852213c3fefafb2de39986be21cedef95bf7013944039ff7af46bca8d753b2d7"
+    },
+    "skullbonezsource/runtime/render/physicsdebugvisualizer.cpp": {
+      "ExceptionHandling": "99e504a4a514deebd560d651d3effd1fb40a4b74856f3bac00b1ad012f7c7a5c",
+      "PreprocessorDefinitions": "58f3d94cc92a71ed94f189426b76150970ae1165b7004d90333f63ad013c3091"
+    },
+    "skullbonezsource/runtime/scene/sceneworld.cpp": {
+      "ExceptionHandling": "2ab5caeb1bef43e80c76b86b75814f4326f2b629ada63e9dd0ede809d80713df",
+      "PreprocessorDefinitions": "25cd4bbe3e12960483372609e9d4d3ea62e8ebec7f053bf5252217dfc2bd3740"
+    },
+    "skullbonezsource/world/worldenvironment.cpp": {
+      "ExceptionHandling": "8acf34eb5a5c6cbf515a134eb8a0a60e37ac542a844996b78175302c0533413b",
+      "PreprocessorDefinitions": "38d498f0562a0c8ada429469c067f8a62d751ea47a5b1b79e66bf472550e11b1"
+    },
+    "skullbonezsource/assets/assetsystem.cpp": {
+      "ExceptionHandling": "3aab5cfd62cc84b565104f5416e99ba61908d29a3ecbbd68e6b2004b9f1eb36b",
+      "PreprocessorDefinitions": "ce9ec19984dbf0b3b753c4e9bd7c6071ab2a5eb97e9a8640e830580efcd975d9"
+    },
+    "skullbonezsource/core/allocation/developmenttoolallocation.cpp": {
+      "ExceptionHandling": "cca8073739dca550345888e96d7016bf83c19708b90797f3a3dadc6db98cb616",
+      "PreprocessorDefinitions": "6a2c6fee8049ec75c5330bb6b1aaff9bcefa8308d7ef172763ddff2db0c64299"
+    },
+    "skullbonezsource/core/allocation/runtimeallocationtracker.cpp": {
+      "ExceptionHandling": "e7b3e6fe7a411fba2cd867f0749d4cbd5143c0dcd019ce4b82d03d772568ee5a",
+      "PreprocessorDefinitions": "404cae492d967605e4122fd7bf88ab3ca327a7934a3c2b2176002e2b6491ae4d"
+    },
+    "skullbonezsource/core/allocation/runtimereserveallocator.cpp": {
+      "ExceptionHandling": "9637bab2921cbb42d1477c5b16e92692bff56c655b785be8c80f63dd78a7c0b8",
+      "PreprocessorDefinitions": "5116b136ea54428c9508aca6a67d21ad0ad1aa705ea813827ce5d05303a4e457"
+    },
+    "skullbonezsource/core/atomictextfilewriter.cpp": {
+      "ExceptionHandling": "1a7dadc1d19c0aabced833582a1ed07ac6e5a5c7bc69b75208fa71d73ed5b5b3",
+      "PreprocessorDefinitions": "5dc29dbc927e65a0629b3906f9985a681ad7f37e5199b5e8bbed03f1e0f688a5"
+    },
+    "skullbonezsource/core/config.cpp": {
+      "ExceptionHandling": "639d2d35a962bfa7b9f8dd5c0eb01844ad55d5652f3b250f9bbbd0c1f07be536",
+      "PreprocessorDefinitions": "a02aa1fa99ebaed9307269c11ed83b2886916c04b075bab82a1e83d7088b02c0"
+    },
+    "skullbonezsource/core/fatalerror.cpp": {
+      "ExceptionHandling": "28c93e37e9b2cde1301dd82428d97dce26c370819cbcb496169ba1ab1ca6daf7",
+      "PreprocessorDefinitions": "3425f75fdabacfbb0255872864c0ad544ba6450cb5be9bd6388d08552148330c"
+    },
+    "skullbonezsource/core/lockordervalidator.cpp": {
+      "ExceptionHandling": "a3c5be5ecb178ddc43b30c0346d7a76d0fa00d0e49e728377e4898464687c5e0",
+      "PreprocessorDefinitions": "d9bbd21d2c357ad07c0410d0b5133cbb71c62fe4417f47b0becfc20723a6019e"
+    },
+    "skullbonezsource/core/log.cpp": {
+      "ExceptionHandling": "1fb3de9770b72fee223d93dd135e3226ddff66d5de5ad3c5f05ada741cdcd201",
+      "PreprocessorDefinitions": "136c27fd775c58a991b431e159961f9e57a23e7e29d466c92bcee7a9fe3e941b"
+    },
+    "skullbonezsource/core/platformprofiler.cpp": {
+      "ExceptionHandling": "f52ebbc4cb183b67dc09ec69e8f2a2f17b30eae7de16f4aa37680f297ee9a5b1",
+      "PreprocessorDefinitions": "fde34b3cdb9991e19353e3b1db5f62adc8dfd84483131ee33b35f57dbb0ca10c"
+    },
+    "skullbonezsource/core/profiler.cpp": {
+      "ExceptionHandling": "0a7e6822fb7193efe2abd51e37875c74c0e6c7c96739d64cbc1f0e55f282a1dd",
+      "PreprocessorDefinitions": "cdf1609eafdbba6a68b182adad2e04ff0deb2fc60d995daf7178282cc164a307"
+    },
+    "skullbonezsource/core/sbresult.cpp": {
+      "ExceptionHandling": "91d81a7f812d09a9b3b716f56f910832341b082efbf129bdf8bcd0bee6306277",
+      "PreprocessorDefinitions": "2273e505fbee1d2c6c8490255acf9519727f061742a1a595229d78cf7139260f"
+    },
+    "skullbonezsource/core/workerpool.cpp": {
+      "ExceptionHandling": "5a963896863c1a0c073d77b54e2c7ff262dee5f5ac55a978877be31270da7d5a",
+      "PreprocessorDefinitions": "4c477f40c4682f3bd1697e3d2f2e29bf2281b1f5c7625357bea98242a669c66c"
+    },
+    "skullbonezsource/gameplay/tornadofield.cpp": {
+      "ExceptionHandling": "a7f7ef2718537221910e3b1513aee7612ea97e108dde93b6b313cfe8717eaf0d",
+      "PreprocessorDefinitions": "b2b002f042da46078aeca390c3c3c053f56f30881bb189ab9deec17218270236"
+    },
+    "skullbonezsource/gameplay/tornadogameplay.cpp": {
+      "ExceptionHandling": "c2aa68ae1324a5cb9ef38d2abd4c02f5e9b7b790a431a05e1d7775ddd24b0652",
+      "PreprocessorDefinitions": "09a55973b1e31e1f84a88374a2ccd667126f5b17f35e2ba7b6852efea57a85d3"
+    },
+    "skullbonezsource/rendering/dx12/dx12cachedpsostore.cpp": {
+      "ExceptionHandling": "1f9492aafcd6a23932fc89b768b6a4f47e6ac88bc3e798f7bf5621c55a03a28a",
+      "PreprocessorDefinitions": "321026c5a614b076a29ce76410082c821492ee78219e2a5b8faadd0d895c852c"
+    },
+    "skullbonezsource/rendering/rendergputimingowner.cpp": {
+      "ExceptionHandling": "cb2f5ccb1b04f7f30df700dbd3be9153e5548d219e0bb0d7924642cea8dad288",
+      "PreprocessorDefinitions": "671e355ab0e76447fe562adebb6aa7e040b810491ec9e71506cff77addb9b02e"
+    },
+    "skullbonezsource/rendering/rendergraph.cpp": {
+      "ExceptionHandling": "80d158e257917133910b4977ad7fe5075a8e7cace59522e058391b0065764b99",
+      "PreprocessorDefinitions": "bff3a60294c530b393e423b64fd175abb379a091259c50208341bc0c960213b0"
+    },
+    "skullbonezsource/rendering/renderinstancestore.cpp": {
+      "ExceptionHandling": "234d4a663c03d54adb4e3ebd75007b4c7f99ec440cc94dfec995543a6e05cd18",
+      "PreprocessorDefinitions": "2496c9f76cdb6bce4d7c6d6a8544d9d1232795c1763372fb88690cc71a76c914"
+    },
+    "skullbonezsource/runtime/app/applicationexitstate.cpp": {
+      "ExceptionHandling": "64e44ff6bdb43cffbc65f844516f73e3547ab0c3cd0db8e7957281b9d03a9c8a",
+      "PreprocessorDefinitions": "e79a1f1ec6e6e3ade58eb64e282e8e8da2eec339042ac9ed382e5fa60e086a42"
+    },
+    "skullbonezsource/runtime/automation/interactionautomationrecorder.cpp": {
+      "ExceptionHandling": "56d63e64c17c8c0c502d2dfb47f611a4563ed1477079c01fba92596a356272a1",
+      "PreprocessorDefinitions": "3266bbd4014d1ad25894f5d109b676f38697c1dec0c9900d009897ce33c5e695"
+    },
+    "skullbonezsource/runtime/camera/camera.cpp": {
+      "ExceptionHandling": "b8c1821efa9f1dcf9a85f926d02ecae03e4b4a13a2273d8526ddf443c46dea81",
+      "PreprocessorDefinitions": "29da7df79374c3c32e8f72bafb943e6e1dab60c2fbd4e7711e61c05b0648b1c3"
+    },
+    "skullbonezsource/runtime/camera/attachedcameracontroller.inspectionpolicy.cpp": {
+      "ExceptionHandling": "188630050181a3d0db63a0e65b19d2961dddb664a7ce4ccdd8014c74cc1ee628",
+      "PreprocessorDefinitions": "cb2eaea0e494d4bd2bb8103c1916b400588265f2ecfcff7dc2527edb68d55977"
+    },
+    "skullbonezsource/runtime/camera/cameracollection.cpp": {
+      "ExceptionHandling": "ea6e1457aafed94358ea3f5363bb9ca2ee83bc2a5248b4aea13a8a3128f621dc",
+      "PreprocessorDefinitions": "527209135e9f1c4a16076103f47320d906b871c82ae5c390edf7d33f0259d79f"
+    },
+    "skullbonezsource/runtime/capture/capturecontroller.cpp": {
+      "ExceptionHandling": "9b4b9f297f9e016ad4aa480f5ed8c5ea4798178ccad571c8a9be4637a0ce6d9d",
+      "PreprocessorDefinitions": "1a7f19a58f6a59974c0b2e8d04afc895c66f02dea72811dee18a8922b027825c"
+    },
+    "skullbonezsource/runtime/capture/capturesystem.cpp": {
+      "ExceptionHandling": "23007412fa496125fc68e95105a55b44ae022b757a463eb8903f49c2a07a5d8f",
+      "PreprocessorDefinitions": "4e1b5417e2a15fbf0831d372b785a3222b83e78e98e33786fffabe72b2767f88"
+    },
+    "skullbonezsource/runtime/developmenttools/imguieditorlayoutpolicy.cpp": {
+      "ExceptionHandling": "e9a6ab1e5c49810fd94118d205d18da6b814296b522171b231df91db0e539ad3",
+      "PreprocessorDefinitions": "27443f3f57db8cd8783eff197b81bb4a6b460d1ddae743f577bd2723331f9f44"
+    },
+    "skullbonezsource/runtime/diagnostics/diagnosticsphysicsui.cpp": {
+      "ExceptionHandling": "281732edd176e625812d57afc2001fbd6646cfd6e5351a7dbd4a41c422df5a23",
+      "PreprocessorDefinitions": "0f1cf262943620c17163ed4ff7b4206db4727ad94c6f24c5f42a575477f7901d"
+    },
+    "skullbonezsource/runtime/direction/demodirector.cpp": {
+      "ExceptionHandling": "1f215c0fc44443f01f894262d79288b4decf7138a837673b783b2f04a9b21aa8",
+      "PreprocessorDefinitions": "ecb64ed6dc966aad36e29b40911d7169389e5a145e55d26cff35fb9fca156f41"
+    },
+    "skullbonezsource/runtime/direction/looklabbundlewriter.cpp": {
+      "ExceptionHandling": "fa8de412aba960d4ac0e9b0b3a3f72d7e5a0ac775e392a9842cfd7e14ecd90fe",
+      "PreprocessorDefinitions": "f895980532ef19577e45b959e6b1611b4d22e3590a997da9918364f9c33be9b2"
+    },
+    "skullbonezsource/runtime/direction/looklabcontroller.cpp": {
+      "ExceptionHandling": "2303199fbeefb851ce4e9b590389ea8e1077c269ee739c0c4226f18b7f4da536",
+      "PreprocessorDefinitions": "6f444f6c904b5bdcd2fb60e11ea16aae541cc3989441de3bc7dd82906761d12f"
+    },
+    "skullbonezsource/runtime/direction/looklabgenerator.cpp": {
+      "ExceptionHandling": "6a6cd575d0b055d5034a5010cf4e2dc5783621f6735d86c95c0d9e390a520adf",
+      "PreprocessorDefinitions": "339801c3a212179a787c933d756424e2a2ffb94d8b121357b02b6eb62ce1ceb6"
+    },
+    "skullbonezsource/runtime/editor/editorcommandhistory.cpp": {
+      "ExceptionHandling": "2679e62c56ac5a2979615b010ff36071551f6153087f5cf35d69a4f7e0a9c0c4",
+      "PreprocessorDefinitions": "dbb50d8e9075ea434aa67231955f53c9c7d822dddf182667557e9c7c3e628f00"
+    },
+    "skullbonezsource/runtime/editor/editorterrainorientation.cpp": {
+      "ExceptionHandling": "701fc82d0e7583d8574aa1b534e1ff7e56d2441a509890b0689e5cb045e4c5f8",
+      "PreprocessorDefinitions": "ba8a0c303f4ac0ebace050e933a597a79c3fedfecb9a09880300a510c5bf3b66"
+    },
+    "skullbonezsource/runtime/input/inputcontroller.bindings.cpp": {
+      "ExceptionHandling": "a84e7fcb42496be0f3e1404b5982f6e9d64b0d6d2fc5a97d77d1f5c8f8a49770",
+      "PreprocessorDefinitions": "b459f302ebc920a2f61140350ea849794723fc23f6b3213b8f5e424522b50115"
+    },
+    "skullbonezsource/runtime/input/inputrouter.cpp": {
+      "ExceptionHandling": "e55290336dbb4b6720031636f19a2814f8fdc2ab3dbd1696a15428013564d53b",
+      "PreprocessorDefinitions": "3fe7a8c67d48ce370abe540023863721aeea48cc4fa7a5ab18252ff80dcedda4"
+    },
+    "skullbonezsource/runtime/interaction/operatorcommandtransaction.cpp": {
+      "ExceptionHandling": "526972cf73fdfcf7114372012eec5ed3b41b494adf10bf625cc844d17d9ff481",
+      "PreprocessorDefinitions": "961d10e83c71fe75e5c5c5aeba7c2db3aaf5f87a8d911bcb555ff621ea2f5c63"
+    },
+    "skullbonezsource/runtime/interaction/operatoreditorexchange.cpp": {
+      "ExceptionHandling": "1ed67f72373506b6eaf2ded8bc1347a346461737b4eead88122903804c58cf27",
+      "PreprocessorDefinitions": "6bcb70a5968b8cf6c92d5523009c22c899afb39f054a155d437ee6e82f5ced7e"
+    },
+    "skullbonezsource/runtime/interaction/runtimeinteractioncontroller.cpp": {
+      "ExceptionHandling": "1e785052423a746140462db14bed8adddcdc44c2a349ca7bcb62e98ad13fea41",
+      "PreprocessorDefinitions": "184f81fa9373079c29f220f081a2e552c25b8cfd4124976ddd620ca9309ccc11"
+    },
+    "skullbonezsource/runtime/planning/continuousorbitalforecast.cpp": {
+      "ExceptionHandling": "bfab39546e45d7464455f3dfdd1474c32a04a3b435e7efefa4bf0e1c5cea6a5f",
+      "PreprocessorDefinitions": "4118bca266b7c39baeaae2bda2294cb78ce10928735212697b4f6c50c5c3e823"
+    },
+    "skullbonezsource/runtime/planning/continuousorbitalstability.cpp": {
+      "ExceptionHandling": "3493fea0dbe00dc464381c9aea0400f9ccb343457985038ed5f352221871b1ee",
+      "PreprocessorDefinitions": "6aca49bfdc91cb95c52ba860a8d8d502f4c075b2618cca6eeda420ee3b49a5fb"
+    },
+    "skullbonezsource/runtime/planning/replaycauseinspection.cpp": {
+      "ExceptionHandling": "ce2bf71ab13fc06650c2a2ea26cb981814067bbf4efcf0262a015873772f1aae",
+      "PreprocessorDefinitions": "9d88899b9c6c1ee510b7438664708821a3375a770ba32ecc352a89876d900ebf"
+    },
+    "skullbonezsource/runtime/planning/replayguidearcs.cpp": {
+      "ExceptionHandling": "a821bc7e4b2f3b670b70219e13420830953b55fb45cd71755979a29c0681f268",
+      "PreprocessorDefinitions": "cd8008a535e333343a29ac004a7eed1345f05b2c2f7497b1cfdaef5296cd294f"
+    },
+    "skullbonezsource/runtime/planning/replayinterceptreadout.cpp": {
+      "ExceptionHandling": "6f716177485f4cd5a47457f89491b28b89e85669f01efec712396cc82ae81cab",
+      "PreprocessorDefinitions": "daf121263b986cca80f77eb18dc5be97254305a73c36fd60f50c632b94aef32d"
+    },
+    "skullbonezsource/runtime/planning/replayplanningoverlaylayout.cpp": {
+      "ExceptionHandling": "10309c4ff972ddb70c7e304072bdeb0ab1b0f935e453e9c2d5cc874d85dac9c5",
+      "PreprocessorDefinitions": "d9474311f8f20482c860d173c0a9363f2e1963fbe39d9c5ae1cc745f46f9b462"
+    },
+    "skullbonezsource/runtime/planning/replayporkchoppanel.cpp": {
+      "ExceptionHandling": "230e72ce6f409fc3145b40ffda05ec579fbc9ae954e25ffed6ffbadf5c814121",
+      "PreprocessorDefinitions": "52ea591a24a382b367682c54b618e32ec1f58cc5e653e8002e86d986b6b2d2fb"
+    },
+    "skullbonezsource/runtime/planning/replaytripplanner.cpp": {
+      "ExceptionHandling": "8aab120d5ffaa2e633e13fdb4ec818aed8402fe58edb8a00495aa710dd21d542",
+      "PreprocessorDefinitions": "b34c75bf4b2000b4724e0778521ea657ea5114cef900d71b993dda4ce446d748"
+    },
+    "skullbonezsource/runtime/prediction/continuouspredictionproducer.cpp": {
+      "ExceptionHandling": "79e990be03a9efd7fd47e160d01ccfa3af8bdf7c9783b1301863b51a95820f95",
+      "PreprocessorDefinitions": "c2e227dd7fd8fef3711d485c09b1deed517ba0f7939702f0d19cea3e58691492"
+    },
+    "skullbonezsource/runtime/prediction/continuouspredictionsamplering.cpp": {
+      "ExceptionHandling": "e9eae107b7012d25ebf38d0058a511218e9264bb49de674721ddd4ec9df5fa4c",
+      "PreprocessorDefinitions": "193fb27398bafeb43c275cdc96f5f85fc900164e5fa22da6dfdf8ed9825941a2"
+    },
+    "skullbonezsource/runtime/prediction/replaypredictionreserve.cpp": {
+      "ExceptionHandling": "91c4be9b63ab7af45137349190f4692b98300246ad4f9bbcd8138b1ca75a63e4",
+      "PreprocessorDefinitions": "667fa161f17071fc13e0549b5e6cb7566a526567a923b7a78339d6d36f84d19c"
+    },
+    "skullbonezsource/runtime/prediction/replaypredictionpublication.cpp": {
+      "ExceptionHandling": "260357a5b4f78a2e62423ccac209a9db988bfd36fb5c4567c51ee26954f59743",
+      "PreprocessorDefinitions": "1bacb96e1850d26440f22d964ee1afa8baa5b0cb4fcc4bff5f742995be578825"
+    },
+    "skullbonezsource/runtime/prediction/replaypredictionsolverevidencestore.cpp": {
+      "ExceptionHandling": "a009cc2e9ad381205d7205974f3f4d6344e38c1ec5fd0aa8492d11e3855556ec",
+      "PreprocessorDefinitions": "608953e8cba453a36855aede13e9c8d509161972f788fd42db4317ca55534bdf"
+    },
+    "skullbonezsource/runtime/prediction/trajectorystore.cpp": {
+      "ExceptionHandling": "ac59b50ece461a3eb8bfb931ad6b64a2da81359d10ea48234c032e4b01c9fe15",
+      "PreprocessorDefinitions": "158f62505564472215e7ef61628ba84d062c9dbddb160d7e36dba975f11f6167"
+    },
+    "skullbonezsource/runtime/render/renderdefaultsstore.cpp": {
+      "ExceptionHandling": "d820dfa51356eedde5d8619d55a82eb3464b52d20cccfe90d42a59707d427a3f",
+      "PreprocessorDefinitions": "87e9b3d810bd7997ff981da885888eca66807efcb18c130ea7defbf703380cdd"
+    },
+    "skullbonezsource/runtime/render/renderdefaultsstore.persistence.cpp": {
+      "ExceptionHandling": "93223ad804e2ccaacd42e502d5a6c4b6f55998cb656c6c8bac8af8d13a31e8a2",
+      "PreprocessorDefinitions": "04480c8d04082e78b4e798a2e8e4d7f7bdd10d05624eac0502208d47a1f71851"
+    },
+    "skullbonezsource/runtime/render/uiprofileroverlaypresenter.cpp": {
+      "ExceptionHandling": "1a9659c8cfd61b9ef141dfd1d905b1eca168009a6e25b2a24ceb58132113bbf9",
+      "PreprocessorDefinitions": "fd25d5baf4dd4a6ea8ebac537bac6f0f7d508f8efbe481dc1e9e8843689e7a42"
+    },
+    "skullbonezsource/runtime/replay/replayartifacthashlog.cpp": {
+      "ExceptionHandling": "0905bb8e166ed758d9e1183494525579e76424cdd536a1f0bacacf7098b834b4",
+      "PreprocessorDefinitions": "21cf732242f32bc8ce3bca4998d19fc54c1e415283841873f1d04f1470f92514"
+    },
+    "skullbonezsource/runtime/replay/replayoverlaylayout.cpp": {
+      "ExceptionHandling": "f8c9d30d3ab1e94b62842eed2efd386e1177f9f5072d08078974f413c254757b",
+      "PreprocessorDefinitions": "58051290f6246e9102c7fe3f165d31218ceb1f482bb74453d6b796ba46c0e3a2"
+    },
+    "skullbonezsource/runtime/replay/replayrecorder.cpp": {
+      "ExceptionHandling": "14ea4dff5aa32be87f89ed61e381c7add1e49c8c925799f16ac71aff1b940eeb",
+      "PreprocessorDefinitions": "d531c3e83d0786cd4df6a463abd352a893ab3fbe22504ec8f758abbcd98ff8ed"
+    },
+    "skullbonezsource/runtime/replay/replaytimeline.cpp": {
+      "ExceptionHandling": "440ffdd40d826dc13d2036881249eb7c779a3183ec79c79eff466f8b0df6e052",
+      "PreprocessorDefinitions": "cebca43a9d46c8ea32a79e537baf6873072874facb5f10df5394a6555c9aef3c"
+    },
+    "skullbonezsource/runtime/replay/replayv2artifact.cpp": {
+      "ExceptionHandling": "bbec5c9979903460b75da6f9bd6474cf64ee39927222e81f40d7a92e9f43e6ef",
+      "PreprocessorDefinitions": "6b0a242fe8aa6135fb872a314ea51c4c2e411983316768144ab54ac1f9269e8f"
+    },
+    "skullbonezsource/runtime/replay/replayvisualpacketfingerprint.cpp": {
+      "ExceptionHandling": "df2710e1ca3d42f885581399c6a6826fd075a23913b86453c92ee48fa0936f2e",
+      "PreprocessorDefinitions": "0b69b21e63acebdc0f7e1dcd4b9f4f23f6e8b3db91d2cf84291e75d44d111483"
+    },
+    "skullbonezsource/runtime/ui/gameui/gameuilayout.cpp": {
+      "ExceptionHandling": "d9356c9f014e7564b7897bbbd6de3651bf114cfec2a273e95b44692e2f0f7799",
+      "PreprocessorDefinitions": "0c6bfe96075d5697be855c874b3cd50572a8ed1c13d260acf048a02e2324a81e"
+    },
+    "skullbonezsource/runtime/ui/gameui/ui.cpp": {
+      "ExceptionHandling": "7b5a07b61ac263ee06e9a97ac18d70dee943a6872dd4eac75043635ebc86e0f0",
+      "PreprocessorDefinitions": "4d6c1f807f1559052ab56e64c2d967e682402b8d5eef2508ee9ef9503750cb2b"
+    },
+    "skullbonezsource/runtime/ui/gameui/uieditorminipalette.cpp": {
+      "ExceptionHandling": "d156d7a51cef5ece410efeb655f8a548fd566df6ae9ce2cfc26a4d118c378904",
+      "PreprocessorDefinitions": "8731d1a68f322f6c6cb5a521c0e8f46d90535fe1287ea5c677bfb0fd8d430c1a"
+    },
+    "skullbonezsource/runtime/ui/gameui/uieditorminipalettedraw.cpp": {
+      "ExceptionHandling": "d8af70d9b0c28508d1a37e8c31daf622d658fe52a9d15124990042f73b1bbf92",
+      "PreprocessorDefinitions": "74b2ce4eaff689b2e3ead1757fa7145b282828e22d09dc95580ac822712b3fc8"
+    },
+    "skullbonezsource/runtime/ui/gameui/uiframecomposition.cpp": {
+      "ExceptionHandling": "ae72dfc1908b55360b77741b8cc9ed2d775aec86e97c45db1d4d035339f51157",
+      "PreprocessorDefinitions": "d365397d7f3302678c9e12488c10a62148949f352d6dd04ff01e6aaae47727e1"
+    },
+    "skullbonezsource/runtime/ui/gameui/uitabcinematic.cpp": {
+      "ExceptionHandling": "e3154890981cd01f17f0785a807cd3d6a1044248cc67a943cd6e523aa4fa78ec",
+      "PreprocessorDefinitions": "39c8e7e548f4e13569cfa8c8b62949b3fcf2435eebb08622aed442f69f2d0ab3"
+    },
+    "skullbonezsource/runtime/ui/gameui/uitabcontrols.cpp": {
+      "ExceptionHandling": "4b116b24b0047371390ca76e7181519b8c217eb8aa21e66f58558580cd3dcde1",
+      "PreprocessorDefinitions": "43f3259b9b1e2454f3232b054029733df2dda46ab2353261c97c0b38d317f7c5"
+    },
+    "skullbonezsource/runtime/ui/gameui/uitabeditor.cpp": {
+      "ExceptionHandling": "14293d09f83dfb4e03bd05e43e2369bc56ce36aa39f0101d4fe75edb66712230",
+      "PreprocessorDefinitions": "c560b2eaa42742dec08c87adb7ca99e0e74f2445912f7191bf839b0a5874e358"
+    },
+    "skullbonezsource/runtime/ui/gameui/uitabmemory.cpp": {
+      "ExceptionHandling": "52e85b7400487e5ebd9bee4fb8a9cb01f58168192736a02933504e5f4bc92a44",
+      "PreprocessorDefinitions": "084c8865f50fe83c934ed5c85afafdf57af77624d633c79be87f17259011c427"
+    },
+    "skullbonezsource/runtime/ui/gameui/uitaboptions.cpp": {
+      "ExceptionHandling": "15f7c33556d9bf1e4c2adc094dcca150531712b36a8a9bf5cd0e45207148a14f",
+      "PreprocessorDefinitions": "f0eaef2ca2448a405cae0d5cad35cd948f6a908cb373b9d527bce6be10053881"
+    },
+    "skullbonezsource/runtime/ui/gameui/uitabphysics.cpp": {
+      "ExceptionHandling": "25e6e2d2fb8fc23d83cee53af4f4af9983100ed753f9de57839cc3cad1c892f8",
+      "PreprocessorDefinitions": "eb6fe6f71de5dd45b4662ef16d3859791351af900686aa93f83dc551922ee809"
+    },
+    "skullbonezsource/runtime/ui/gameui/uitabprofiler.cpp": {
+      "ExceptionHandling": "6b1d413e393211874329aced46817d1148d07af5721f3c564575da12c10a31ce",
+      "PreprocessorDefinitions": "cea63e1fe8c841f4532a3c9e95e1ca70a36f3a333e65c5bbad2cd1be9f534bec"
+    },
+    "skullbonezsource/runtime/ui/gameui/uitabprofilerhistogram.cpp": {
+      "ExceptionHandling": "6fc13c3d64af48a3cd221642d3c7e6c1a9eb6a930b2f5faf87a7655b66ae0759",
+      "PreprocessorDefinitions": "c1026a922fdcacb501fdeca48b91626e676dbd4a5ed92016e16f31c8f43c4e70"
+    },
+    "skullbonezsource/runtime/ui/gameui/uitabscene.cpp": {
+      "ExceptionHandling": "290e2e4f6a3e15edf598d59b79b75f2586b0519476465b19e9f773aa1db445f0",
+      "PreprocessorDefinitions": "a530298e2a29f19f008837827c16cf6743d791ff80b7e1dff5afb34cbcff60e1"
+    },
+    "skullbonezsource/runtime/ui/gameui/uitabsky.cpp": {
+      "ExceptionHandling": "5ed9b235e36e7c004a2f916c31d267e7aedddbaba2b9dbe68596d259c2ba96c7",
+      "PreprocessorDefinitions": "f8a4bf8b80f7c7010e57d2c0f35fc6835eb966f91268bc29728ad0384df843a5"
+    },
+    "skullbonezsource/runtime/ui/gameui/uiwindowinteractionowner.cpp": {
+      "ExceptionHandling": "9f49b6b1d17b08ee88543896a4fad7e25896c777c295904db50e205302adac59",
+      "PreprocessorDefinitions": "4e08d31f9c57a8eff4f21d8e714db6a916a028e6157d8ad0ae9f5341d62e03a6"
+    },
+    "skullbonezsource/runtime/scene/sceneentitystore.cpp": {
+      "ExceptionHandling": "14f0e889f412ed95f564e70d3a05c9eda92b858d3dfbc1063e3cd01e9ddfeaab",
+      "PreprocessorDefinitions": "a87b57831c1ada94bd054f7c79ee0b6c6bfa27a4f3bf02e00fcded6e0ae6127e"
+    },
+    "skullbonezsource/runtime/scene/scenenavigationmodel.cpp": {
+      "ExceptionHandling": "2611cee089afc4a344fbe94dab019837844d88b1549b19ed5d4eac0231552aa4",
+      "PreprocessorDefinitions": "03780820bc1890e101293db4dcebbaf3d393a09e8df7587a5be94750ef5fbee4"
+    },
+    "skullbonezsource/runtime/scene/scenerequestqueue.cpp": {
+      "ExceptionHandling": "e400e3b3b48563067d60802329244e06bd4946c60f111540ee431f6ac729dcdd",
+      "PreprocessorDefinitions": "160a33c5cd5c1587a06bfd7e784c366ebcc679d1ff0737fc35e12fe27788a5c2"
+    },
+    "skullbonezsource/runtime/scene/scenesaveoperations.cpp": {
+      "ExceptionHandling": "9832a44611bcbe8edd8077bb3ef3f477ad13881225147c9ee6a88f9389d5d829",
+      "PreprocessorDefinitions": "25797cc7a75a39acbd625c61fa0862e26d1331f866956a76c2cb19be590ec036"
+    },
+    "skullbonezsource/runtime/scene/scenesessionstate.cpp": {
+      "ExceptionHandling": "bb7ad6b92b4b052310b79a0379d8f1a5180593157539dcb981450c5c31b2e43d",
+      "PreprocessorDefinitions": "842173a3a493c2764395d96e46a2e4f1bcf82635a3625443cc35defb35e58253"
+    },
+    "skullbonezsource/runtime/simulation/simulationsystem.cpp": {
+      "ExceptionHandling": "7131ed2f25239bcb10692f19616c4867d2d48b10626ac80177faf0a7a7586afd",
+      "PreprocessorDefinitions": "9fcacc25aee5fe9a276d4a8a7fd88f7b205d21254d607def86ae13e12e5998d6"
+    },
+    "skullbonezsource/runtime/startup/startupcommandline.cpp": {
+      "ExceptionHandling": "25e3ccd845d43fdf71f3e0e2cd15f743c5c9c1f934ef7c57a222ddc1929a73b3",
+      "PreprocessorDefinitions": "51ccf1326be9914718bdd985a9a2e82cbd87b5bc0c28566a8b0a6762da0a566c"
+    },
+    "skullbonezsource/runtime/app/startuplaunchapplication.cpp": {
+      "ExceptionHandling": "1f1370eb4b0b7b47b3d1416130c62bff7fb13cd9c2687601a807f3809b756650",
+      "PreprocessorDefinitions": "c3150d136704309d0f5a2dd2860adec945416af9edc7604c2f698c16e1a86d3e"
+    },
+    "skullbonezsource/runtime/tools/runtimefilewriter.cpp": {
+      "ExceptionHandling": "73a7a35e6596c90d371ba0834e73a2b9fca98b08561e6901f0ff6b86434fca62",
+      "PreprocessorDefinitions": "3996bbad5530b97a53773065f137b4b63e390a68ce8acfb5ae9f901315847e48"
+    },
+    "skullbonezsource/scene/authoredscene.cpp": {
+      "ExceptionHandling": "ae8e1b9011abb31e7dd26fcfc005a715f0c13739499b6f2bad6eda86f6807a3d",
+      "PreprocessorDefinitions": "4152b5c8e2f3827d7057f7626c186af428f30e9b36002207731cb02e10178657"
+    },
+    "skullbonezsource/scene/authoredsceneparser.cpp": {
+      "ExceptionHandling": "936fa222eb6bbf89b983806b9021ddc8bec8d604b3f2b827354ef45ce683e101",
+      "PreprocessorDefinitions": "47c7984780e44203d8bcbecb8606da92fd0a30e34d9945fd3ad8c00ae03ccd1d"
+    },
+    "skullbonezsource/scene/authoredsceneparserassets.cpp": {
+      "ExceptionHandling": "38e2cc1cdf0ecb4546a77d9ce129e759704a62fe4c0dcf19b3e2a57e84efca2d",
+      "PreprocessorDefinitions": "6967504bae3a55054528bcba5928b12a81e128337f4aeeacf233c3f4ee223b31"
+    },
+    "skullbonezsource/scene/authoredsceneparserbodies.cpp": {
+      "ExceptionHandling": "f7b781ea8c184941fdddae0c324e11137eb725b53b5ed2ee3f4ae23b5a78f137",
+      "PreprocessorDefinitions": "636f5da7c96b33416e8a6c28b94ac960929f357071aede5825b914d61ad2318d"
+    },
+    "skullbonezsource/scene/authoredsceneparserpresentation.cpp": {
+      "ExceptionHandling": "dcb224e5e9abe6c685e2b61e146a7f3f5101ddebd77687f2ced6433444ea887c",
+      "PreprocessorDefinitions": "6f5bbaa216e5c91902ea9f6775b4bc05413cc12217b4ff7f97ce62a64ba2e1dc"
+    },
+    "skullbonezsource/scene/authoredsceneparserruntime.cpp": {
+      "ExceptionHandling": "c2854a01a1b7d8a121b6ca0d78b20f1e5a6ebcf96f315ee929ea500ab6355b06",
+      "PreprocessorDefinitions": "96d19bf10da59f68bf2b28025171dc87c8ed02e06f8cae31f013084875c2805b"
+    },
+    "skullbonezsource/scene/scenesnapshotwriter.cpp": {
+      "ExceptionHandling": "bca914c8d8961d77ca48187854422848028835f58a26ad7dc75bf8271b07385d",
+      "PreprocessorDefinitions": "91f736c9a0f2922dfae852853ad831781e415deb879be029ea9a881bb3f20965"
+    },
+    "skullbonezsource/scene/standalonestylewriter.cpp": {
+      "ExceptionHandling": "e0d9476e3dddde0a5ad36c75f2c3baa1c99177eb98beb7f4f3b567031997ca26",
+      "PreprocessorDefinitions": "50f3a235eb3dcee0c626a2c3adca0f58953d92c7a17e153570f0bc59b977fb02"
+    },
+    "skullbonezsource/world/terrain.cpp": {
+      "ExceptionHandling": "d5c0f9cfa1876fc1e602f5eb679a4cb4e5159b2a64e6e1912e526347616b42df",
+      "PreprocessorDefinitions": "2d2b714fa16bfc0aa7fd811dcda59ac0b87c710a25cfdd9f63ab03e61a534630"
+    }
   }
 }

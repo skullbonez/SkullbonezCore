@@ -123,6 +123,20 @@ inline bool ShouldUseDxrReflection( bool capabilityAvailable, const RuntimeRende
            !transparentBodyPass;
 }
 
+struct RuntimeObjectFocusRenderPolicy
+{
+    // Both groups remain translucent so an operator can see through the
+    // selected contact bodies without losing surrounding spatial context.
+    bool splitTransparentPasses = false;
+    float focusedAlpha = 1.0f;
+    float contextAlpha = 1.0f;
+};
+
+constexpr RuntimeObjectFocusRenderPolicy ResolveObjectFocusRenderPolicy( bool active ) noexcept
+{
+    return active ? RuntimeObjectFocusRenderPolicy { true, 0.8f, 0.2f } : RuntimeObjectFocusRenderPolicy {};
+}
+
 struct RuntimeRenderModelPresentationView
 {
     Rendering::RenderInstanceStore& renderInstances;

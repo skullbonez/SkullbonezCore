@@ -19,7 +19,7 @@ Glossary:
 Invariants:
   - `RequestGrowth` is called only here for replay prediction working-set
     storage; caller files reserve vectors through this wrapper.
-  - Debug-contact rounding and engine estimates have one implementation shared
+  - Contact-edge capacity and engine estimates have one implementation shared
     by orchestration, publication, and memory reporting.
   - Private Physics engine construction and storage seeding enter Replay
     allocation, the canonical prediction owner, and its growth scope only
@@ -51,9 +51,6 @@ namespace
 // replay does not trip a per-run count fuse.
 constexpr int
     REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT = SkullbonezCore::Core::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
 } // namespace
 
 namespace ReplayPredictionReserveOperations
@@ -149,32 +146,10 @@ void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryRepl
                                           ReplayPredictionVectorCapacityBytes( frame.debugContacts ) );
 }
 
-std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk )
-{
-    if ( chunk == 0 || requestedCapacity == 0 )
-    {
-        return requestedCapacity;
-    }
-
-    const std::size_t remainder = requestedCapacity % chunk;
-    return remainder == 0 ? requestedCapacity : requestedCapacity + ( chunk - remainder );
-}
-
 std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount )
 {
-    const std::size_t modelScaled = static_cast<std::size_t>( (std::max)( modelCount, 1 ) ) * 8u;
-    return std::clamp( modelScaled, REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN,
-                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX );
-}
-
-std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacity, std::size_t requiredCapacity )
-{
-    const std::size_t chunked = RoundUpReplayPredictionCapacity( requiredCapacity,
-                                                                 REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK );
-
-    const std::size_t doubled = currentCapacity > 0 ? currentCapacity * 2u : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
-
-    return (std::max)( chunked, doubled );
+    return (std::min)( static_cast<std::size_t>( (std::max)( modelCount, 1 ) ),
+                       static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
 }
 
 uint64_t ReplayPredictionEngineMemoryBytes( const Physics::PhysicsEngine& engine )
@@ -214,7 +189,8 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
     }
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
-    const bool replaceDestination = !destination || requestedBytes > currentReservedBytes;
+    const bool topologyRequiresReplacement = destination && !destination->ReplayPredictionStorageCanSeedFrom( source );
+    const bool replaceDestination = !destination || requestedBytes > currentReservedBytes || topologyRequiresReplacement;
 
     if ( replaceDestination )
     {
@@ -222,6 +198,17 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
         // exact: one PhysicsEngine object plus every requested backing owned by
         // that object. Reusing a partially reserved destination would require a
         // broad aggregate allowance that unrelated allocations could consume.
+        // Hazard: equal aggregate bytes do not prove compatible fixed-list
+        // topology. A later scene can trade sphere capacity for point joints,
+        // for example. Retire the incompatible engine before requesting its
+        // replacement so owner accounting never overlaps both allocations.
+        if ( topologyRequiresReplacement )
+        {
+            destination.reset();
+            currentReservedBytes = 0;
+            outReservedBytes = 0;
+        }
+
         const int oldCapacityBytes = destination ? currentReservedBytes : 0;
         if ( !RequestReplayPredictionReserveGrowth( "RunReplayPredictionSimulationState::predictionEngine", 0,
                                                     oldCapacityBytes, requestedBytes, 1, result,

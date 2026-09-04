@@ -338,15 +338,44 @@ ReplayFrameIndex ReplayPredictionVisibleRootMotionFrame( const std::vector<RunRe
     return rootLastMotionFrame;
 }
 
-void RetainReplayPredictionRootRestMarker( RunReplayPredictionState& prediction,
-                                           const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                                           ReplayFrameIndex revealFrame, Physics::PhysicsSceneObjectId rootId,
-                                           int rootModelIndex, const ColliderStore& colliderStore )
+void RetainReplayPredictionRootEndMarker( RunReplayPredictionState& prediction,
+                                          const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
+                                          ReplayFrameIndex revealFrame, Physics::PhysicsSceneObjectId rootId,
+                                          int rootModelIndex, const ColliderStore& colliderStore )
 {
+    frameCount = (std::min)( frameCount, frames.size() );
+
+    if ( frameCount == 0u || !ReplayColliderRecordForModelIndex( &colliderStore, rootModelIndex ) )
+    {
+        return;
+    }
+
+    const auto rootEndMarkerPublished = [&prediction, rootId]()
+    {
+        for ( std::size_t markerIndex = 0u; markerIndex < prediction.futureNodeCache.retainedMarkerCount; ++markerIndex )
+        {
+            const ReplayPredictionRetainedMarker& marker = prediction.futureNodeCache.retainedMarkers[markerIndex];
+
+            if ( marker.id.value == rootId.value )
+            {
+                return marker.hasRestPose || marker.hasHorizonPose;
+            }
+        }
+
+        return false;
+    };
+
+    if ( rootEndMarkerPublished() )
+    {
+        return;
+    }
+
+    const ReplayFrameIndex finalFrame = frames[frameCount - 1u].frameIndex;
+    const bool finalReveal = revealFrame >= finalFrame;
     const ReplayFrameIndex rootLastMotionFrame = ReplayPredictionVisibleRootMotionFrame( frames, frameCount, revealFrame,
                                                                                          rootId, rootModelIndex );
 
-    if ( revealFrame < rootLastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
+    if ( !finalReveal && revealFrame < rootLastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
     {
         return;
     }
@@ -355,10 +384,37 @@ void RetainReplayPredictionRootRestMarker( RunReplayPredictionState& prediction,
     Quaternion rootRestOrientation = IDENTITY_QUATERNION;
 
     if ( ReplayPredictionBodyRestingPose( frames, frameCount, rootId, rootModelIndex, rootRestPosition,
-                                          rootRestOrientation ) &&
-         ReplayColliderRecordForModelIndex( &colliderStore, rootModelIndex ) )
+                                          rootRestOrientation ) )
     {
         RetainReplayPredictionRestMarker( prediction, rootId, rootModelIndex, rootRestPosition, rootRestOrientation );
+
+        if ( rootEndMarkerPublished() )
+        {
+            prediction.futureNodeCache.MarkRetainedMarkersChanged();
+        }
+
+        return;
+    }
+
+    if ( !finalReveal )
+    {
+        return;
+    }
+
+    const RunReplayPredictionBodySample* finalBody = FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1u], rootId,
+                                                                                           rootModelIndex );
+
+    if ( finalBody )
+    {
+        // The selected root has no collision-entry marker of its own. A cyan
+        // horizon wireframe keeps its moving endpoint explicit at the final reveal.
+        RetainReplayPredictionHorizonMarker( prediction, rootId, finalBody->modelRow.value, finalBody->position,
+                                             finalBody->orientation );
+
+        if ( rootEndMarkerPublished() )
+        {
+            prediction.futureNodeCache.MarkRetainedMarkersChanged();
+        }
     }
 }
 
@@ -705,10 +761,10 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, Repla
 
     if ( bufferComplete )
     {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/RootRestMarker" );
-        RetainReplayPredictionRootRestMarker( prediction, activePredictionFrames, activePredictionFrameCount,
-                                              drawWindow.revealFrame, publicationTargetId, publicationTargetModelRow.value,
-                                              colliderStore );
+        PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/RootEndMarker" );
+        RetainReplayPredictionRootEndMarker( prediction, activePredictionFrames, activePredictionFrameCount,
+                                             drawWindow.revealFrame, publicationTargetId, publicationTargetModelRow.value,
+                                             colliderStore );
     }
 
     if ( prediction.enabled )

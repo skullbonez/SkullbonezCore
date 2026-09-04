@@ -373,8 +373,8 @@ bool AttachedCameraController::ApplyOrbitInput( Runtime::SceneWorld& collection,
 
 
 bool AttachedCameraController::BeginFocusedInspection( Runtime::SceneWorld& collection,
-                                                       Physics::PhysicsSceneObjectId focusedId,
-                                                       Physics::ModelRowHint modelRow )
+                                                       const AttachedCameraFocusRequest& request,
+                                                       AttachedCameraPose& outPreparedPose )
 {
     if ( !m_hasSuspendedState )
     {
@@ -385,8 +385,8 @@ bool AttachedCameraController::BeginFocusedInspection( Runtime::SceneWorld& coll
     }
 
     AttachedCameraTarget target;
-    target.sceneObjectId = focusedId;
-    target.modelRow = modelRow;
+    target.sceneObjectId = request.sceneObjectId;
+    target.modelRow = request.modelRow;
     int modelIndex = -1;
 
     if ( !TryResolveTargetIdentity( collection, target, modelIndex ) )
@@ -404,17 +404,34 @@ bool AttachedCameraController::BeginFocusedInspection( Runtime::SceneWorld& coll
     Environment::CameraCollection& cameras = collection.Cameras();
     const AttachedCameraPose visiblePose { cameras.GetRenderCameraTranslation(), cameras.GetRenderCameraView(),
                                            cameras.GetRenderCameraUp() };
+    // Why: a causal row already resolved the position at the destination replay
+    // frame. Preparing the dedicated camera against the live pre-transport body
+    // made its endpoint drift while the main-to-causal blend was in progress.
+    physicsTarget.position = request.point;
+    physicsTarget.radius = (std::max)( request.radius, 1.0f );
     m_state.target = target;
     m_state.submode = AttachedCameraSubmode::FixedRelative;
     m_state.activeFollow = true;
+    m_state.hasInspectionPivot = true;
+    m_state.inspectionPivot = physicsTarget.position;
+    m_state.inspectionRadius = physicsTarget.radius;
     SeedAttachedCameraFixedRelative( m_state, visiblePose, physicsTarget );
-    m_state.needsEntryTween = true;
+    m_state.needsEntryTween = false;
+
+    AttachedCameraPoseCommand command;
+
+    if ( !BuildAttachedCameraOrbitPose( m_state, physicsTarget, visiblePose, 0.0f, 0.0f, command ) )
+    {
+        return false;
+    }
+
+    outPreparedPose = command.pose;
     return true;
 }
 
 
 bool AttachedCameraController::TickFocusedInspection( Runtime::SceneWorld& collection, float orbitYawDelta,
-                                                      float orbitPitchDelta, int wheelDelta, float presentationAlpha )
+                                                      float orbitPitchDelta, int wheelDelta )
 {
     if ( !m_hasSuspendedState )
     {
@@ -428,12 +445,35 @@ bool AttachedCameraController::TickFocusedInspection( Runtime::SceneWorld& colle
         return false;
     }
 
+    if ( !m_state.hasInspectionPivot )
+    {
+        return false;
+    }
+
+    // Why: the body may be restored to a different pose or continue through the
+    // aftermath. Causal inspection is about the selected collision point, not
+    // whichever body center happens to be live on this frame.
+    target.position = m_state.inspectionPivot;
+    target.radius = m_state.inspectionRadius;
+
     if ( wheelDelta != 0 )
     {
         (void)ApplyOrbitWheel( m_state, target, wheelDelta );
     }
 
-    return TickFollow( collection, orbitYawDelta, orbitPitchDelta, presentationAlpha );
+    Environment::CameraCollection& cameras = collection.Cameras();
+    const AttachedCameraPose currentPose { cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+    AttachedCameraPoseCommand command;
+
+    if ( !BuildAttachedCameraOrbitPose( m_state, target, currentPose, orbitYawDelta, orbitPitchDelta, command ) )
+    {
+        return false;
+    }
+
+    // Focused inspection publishes an already-selected causal slot directly.
+    // Entry/return interpolation belongs to Replay's transition owner.
+    cameras.SetPrimaryPose( command.pose.eye, command.pose.view, command.pose.up );
+    return true;
 }
 
 
@@ -507,6 +547,7 @@ void AttachedCameraController::ClearTarget( AttachedCameraState& state )
     state.hasFixedOffset = false;
     state.hasOrbit = false;
     state.hasLastLookDirection = false;
+    state.hasInspectionPivot = false;
 }
 
 
