@@ -13,6 +13,8 @@ import time
 
 from skarness import SkarnessConnection, launch, query_latest_state
 
+STATE_KINDS = {"snapshot", "append", "change", "evict", "reset", "state"}
+
 
 @dataclass(frozen=True)
 class PredictionCase:
@@ -87,7 +89,7 @@ def collect_live_replay_states(connection: SkarnessConnection, duration_seconds:
     deadline = time.monotonic() + duration_seconds
     while time.monotonic() < deadline:
         event = connection.read_event()
-        if event.get("kind") == "state" and event.get("topic") == "replay.state":
+        if event.get("kind") in STATE_KINDS and event.get("topic") == "replay.state":
             states.append(event)
     return states
 
@@ -170,7 +172,7 @@ def replay_states_after(session: Path, render_frame: int) -> list[dict[str, obje
                 # read reaches EOF; the next query will observe it complete.
                 continue
             event = json.loads(line)
-            if (event.get("kind") == "state" and event.get("topic") == "replay.state" and
+            if (event.get("kind") in STATE_KINDS and event.get("topic") == "replay.state" and
                     int(event.get("renderFrame", 0)) > render_frame):
                 states.append(event)
     return states

@@ -1635,6 +1635,10 @@ void PhysicsWorld::SetPhysicsDiagnosticsRunId( const char* runId )
 {
     m_stepDiagnostics.SetPhysicsDiagnosticsRunId( runId );
 }
+void PhysicsWorld::SetPhysicsDiagnosticsCorrelation( const PhysicsDiagnosticsCorrelation& correlation )
+{
+    m_stepDiagnostics.SetPhysicsDiagnosticsCorrelation( correlation );
+}
 
 
 #endif

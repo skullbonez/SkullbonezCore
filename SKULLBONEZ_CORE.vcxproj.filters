@@ -549,6 +549,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Automation\SkarnessHost.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Automation\SkarnessStateSerialization.cpp">
+      <Filter>Source Files\Runtime\Automation</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionRecordingSidecarDigest.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
@@ -990,6 +993,9 @@
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\SkarnessProtocol.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\SkarnessStateSerialization.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingSidecarDigest.h">

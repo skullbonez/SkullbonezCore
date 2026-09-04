@@ -1,4 +1,5 @@
 #include "SkarnessHost.h"
+#include "SkarnessStateSerialization.h"
 
 #if defined( SKULLBONEZ_SKARNESS )
 
@@ -15,6 +16,7 @@
 #include <climits>
 #include <cmath>
 #include <cstring>
+#include <functional>
 #include <iomanip>
 #include <random>
 #include <sstream>
@@ -31,9 +33,45 @@ constexpr std::size_t SKARNESS_RECEIVE_CAPACITY = 1024u * 1024u;
 
 struct StateSubscription
 {
-    bool scene = false;
-    bool replay = false;
+    std::array<bool, SKARNESS_STATE_TOPICS.size()> topics = {};
+    SkarnessStateDetail detail = SkarnessStateDetail::Normal;
 };
+
+bool SelectStateTopic( const std::string& name, StateSubscription& subscription )
+{
+    if ( name == "*" )
+    {
+        subscription.topics.fill( true );
+        return true;
+    }
+
+    if ( name == "scene" || name == "scene.state" )
+    {
+        subscription.topics[1] = true;
+        subscription.topics[2] = true;
+        subscription.topics[16] = true;
+        return true;
+    }
+
+    if ( name == "replay" || name == "replay.state" )
+    {
+        for ( std::size_t index = 6; index < subscription.topics.size(); ++index )
+        {
+            subscription.topics[index] = true;
+        }
+        return true;
+    }
+
+    for ( std::size_t index = 0; index < SKARNESS_STATE_TOPICS.size(); ++index )
+    {
+        if ( name == SKARNESS_STATE_TOPICS[index].name )
+        {
+            subscription.topics[index] = true;
+            return true;
+        }
+    }
+    return false;
+}
 
 bool ReadStateSubscription( const Json& arguments, StateSubscription& out )
 {
@@ -49,9 +87,35 @@ bool ReadStateSubscription( const Json& arguments, StateSubscription& out )
             return false;
         }
 
-        const std::string name = topic.get<std::string>();
-        out.scene = out.scene || name == "*" || name == "scene" || name == "scene.state";
-        out.replay = out.replay || name == "*" || name == "replay" || name == "replay.state";
+        if ( !SelectStateTopic( topic.get<std::string>(), out ) )
+        {
+            return false;
+        }
+    }
+
+    if ( arguments.contains( "detail" ) )
+    {
+        if ( !arguments["detail"].is_string() )
+        {
+            return false;
+        }
+        const std::string detail = arguments["detail"].get<std::string>();
+        if ( detail == "summary" )
+        {
+            out.detail = SkarnessStateDetail::Summary;
+        }
+        else if ( detail == "normal" )
+        {
+            out.detail = SkarnessStateDetail::Normal;
+        }
+        else if ( detail == "full" )
+        {
+            out.detail = SkarnessStateDetail::Full;
+        }
+        else
+        {
+            return false;
+        }
     }
 
     return true;
@@ -686,8 +750,7 @@ void SkarnessHost::DisconnectClient()
     }
 
     m_connected = false;
-    m_sceneStateSubscribed = false;
-    m_replayStateSubscribed = false;
+    m_stateSubscriptions.fill( false );
     m_receiveBuffer.clear();
     // Invariant: transport loss never changes accepted work. Terminal results
     // are retained by request id and replayed after a reconnect.
@@ -908,6 +971,11 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
 
     if ( commandName == "state.subscribe" )
     {
+        if ( !m_subscriptionRequestId.empty() )
+        {
+            SendLifecycle( requestId, "rejected", "a subscription snapshot is already pending" );
+            return;
+        }
         StateSubscription subscription;
 
         if ( !ReadStateSubscription( arguments, subscription ) )
@@ -916,12 +984,19 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
             return;
         }
 
-        // Invariant: only requested topics enter the finite pipe buffer. The
-        // trace remains complete even when a command client is not consuming a stream.
-        m_sceneStateSubscribed = subscription.scene;
-        m_replayStateSubscribed = subscription.replay;
+        // Invariant: subscription completion is deferred until the next
+        // after-render snapshot batch is durable. A client can therefore query
+        // every selected topic immediately after receiving "applied".
+        m_stateSubscriptions = subscription.topics;
+        m_stateDetail = subscription.detail;
+        m_stateInitialized.fill( false );
+        m_statePayloadHashes.fill( 0u );
+        m_stateOwnerVersions.fill( 0u );
+        m_stateAppendCursors.fill( 0u );
+        m_stateEvictCursors.fill( 0u );
+        m_subscriptionSnapshotPending = true;
+        m_subscriptionRequestId = requestId;
         SendLifecycle( requestId, "accepted" );
-        SendLifecycle( requestId, "applied" );
         return;
     }
 
@@ -1359,6 +1434,7 @@ void SkarnessHost::SendCapabilities( const std::string& requestId )
 {
     Json commandNames = Json::array();
     Json catalog = Json::array();
+    Json topics = Json::array();
 
     for ( const SkarnessCapability& capability : SKARNESS_CAPABILITIES )
     {
@@ -1375,6 +1451,11 @@ void SkarnessHost::SendCapabilities( const std::string& requestId )
                              { "available", available } } );
     }
 
+    for ( const SkarnessStateTopic& topic : SKARNESS_STATE_TOPICS )
+    {
+        topics.push_back( { { "name", topic.name }, { "owner", topic.owner } } );
+    }
+
     Json response = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
                       { "sequence", ++m_sequence },
                       { "kind", "capabilities" },
@@ -1382,7 +1463,8 @@ void SkarnessHost::SendCapabilities( const std::string& requestId )
                       { "status", "applied" },
                       { "commands", std::move( commandNames ) },
                       { "catalog", std::move( catalog ) },
-                      { "topics", { "scene.state", "replay.state" } } };
+                      { "topics", std::move( topics ) },
+                      { "stateDetail", { "summary", "normal", "full" } } };
     const std::string line = response.dump();
     m_trace << line << '\n';
     m_trace.flush();
@@ -1391,7 +1473,7 @@ void SkarnessHost::SendCapabilities( const std::string& requestId )
     (void)SendJsonLine( line );
 }
 
-void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
+void SkarnessHost::PublishFrameState( const SkarnessFrameState& state, const ReplayAutomationView& replay )
 {
     if ( !m_enabled )
     {
@@ -1399,157 +1481,100 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
     }
 
     const uint64_t renderFrame = ++m_renderFrame;
-    Json scenePayload = { { "scenePath", state.scenePath },
-                          { "sceneObjectCount", state.sceneObjectCount },
-                          { "physicsBodyCount", state.physicsBodyCount },
-                          { "lifecycleEvent", state.sceneLifecycleEvent },
-                          { "ready", state.sceneReady },
-                          { "sceneMode", state.sceneMode } };
-    Json sceneEvent = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
-                        { "sequence", ++m_sequence },
-                        { "kind", "state" },
-                        { "topic", "scene.state" },
-                        { "renderFrame", renderFrame },
-                        { "sceneGeneration", state.sceneGeneration },
-                        { "sceneFrame", state.sceneFrame },
-                        { "simulationSeconds", state.simulationSeconds },
-                        { "paused", state.paused },
-                        { "payload", std::move( scenePayload ) } };
-    const std::string sceneLine = sceneEvent.dump();
-    m_trace << sceneLine << '\n';
-    m_trace.flush();
+    SkarnessSerializedStateTopics topics;
+    BuildSkarnessStateTopics( state, replay, m_stateDetail, topics );
+    std::vector<std::string> traceLines;
+    std::vector<std::string> notificationLines;
+    const bool sceneReset = m_lastPublishedSceneGeneration != ~uint64_t { 0 } &&
+                            m_lastPublishedSceneGeneration != state.sceneGeneration;
 
-    if ( m_sceneStateSubscribed )
+    const auto emit = [&]( std::size_t index, const char* kind, const std::string& payload, uint64_t payloadHash )
     {
-        (void)SendJsonLine( sceneLine );
+        Json event = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
+                       { "sequence", ++m_sequence },
+                       { "runId", m_runId },
+                       { "runtimeTurn", renderFrame },
+                       { "sceneGeneration", state.sceneGeneration },
+                       { "simulationTick", state.sceneFrame },
+                       { "sceneFrame", state.sceneFrame },
+                       { "simulationSeconds", state.simulationSeconds },
+                       { "paused", state.paused },
+                       { "renderFrame", renderFrame },
+                       { "replayFrame", state.presentedReplayFrame },
+                       { "topic", SKARNESS_STATE_TOPICS[index].name },
+                       { "kind", kind },
+                       { "ownerVersion", topics[index].ownerVersion },
+                       { "payload", Json::parse( payload ) } };
+        traceLines.push_back( event.dump() );
+        if ( m_stateSubscriptions[index] )
+        {
+            if ( index < 16u )
+            {
+                event["payload"] = { { "durable", true }, { "bytes", payload.size() }, { "hash", payloadHash } };
+            }
+            notificationLines.push_back( event.dump() );
+        }
+    };
+
+    for ( std::size_t index = 0; index < topics.size(); ++index )
+    {
+        const uint64_t payloadHash = std::hash<std::string> {}( topics[index].payload );
+        const bool snapshot = !m_stateInitialized[index] || sceneReset ||
+                              ( m_subscriptionSnapshotPending && m_stateSubscriptions[index] );
+
+        if ( sceneReset )
+        {
+            emit( index, "reset", "{}", 0u );
+        }
+
+        if ( snapshot )
+        {
+            emit( index, "snapshot", topics[index].payload, payloadHash );
+        }
+        else if ( index >= 16u )
+        {
+            emit( index, "state", topics[index].payload, payloadHash );
+        }
+        else
+        {
+            if ( topics[index].evictCursor > m_stateEvictCursors[index] )
+            {
+                emit( index, "evict", topics[index].payload, payloadHash );
+            }
+            if ( topics[index].appendCursor > m_stateAppendCursors[index] )
+            {
+                emit( index, "append", topics[index].payload, payloadHash );
+            }
+            if ( payloadHash != m_statePayloadHashes[index] && topics[index].appendCursor <= m_stateAppendCursors[index] &&
+                 topics[index].evictCursor <= m_stateEvictCursors[index] )
+            {
+                emit( index, "change", topics[index].payload, payloadHash );
+            }
+        }
+
+        m_stateInitialized[index] = true;
+        m_statePayloadHashes[index] = payloadHash;
+        m_stateOwnerVersions[index] = topics[index].ownerVersion;
+        m_stateAppendCursors[index] = topics[index].appendCursor;
+        m_stateEvictCursors[index] = topics[index].evictCursor;
     }
 
-    Json payload = { { "replayCaptureEnabled", state.replayCaptureEnabled },
-                     { "replayScrubPaused", state.replayScrubPaused },
-                     { "replayPlaybackPaused", state.replayPlaybackPaused },
-                     { "predictionEnabled", state.predictionEnabled },
-                     { "predictionBuilding", state.predictionBuilding },
-                     { "predictionComplete", state.predictionComplete },
-                     { "predictionDirty", state.predictionDirty },
-                     { "predictionRestartPending", state.predictionRestartPending },
-                     { "predictionGenerationPermitted", state.predictionGenerationPermitted },
-                     { "predictionHighDetail", state.predictionHighDetail },
-                     { "velocityEditEnabled", state.velocityEditEnabled },
-                     { "ragdollVisualsEnabled", state.ragdollVisualsEnabled },
-                     { "pastPathVisible", state.pastPathVisible },
-                     { "hasPathTarget", state.hasPathTarget },
-                     { "pathTargetId", state.pathTargetId },
-                     { "pathTargetModelRow", state.pathTargetModelRow },
-                     { "predictionHorizonSeconds", state.predictionHorizonSeconds },
-                     { "predictionRevealProgress", state.predictionRevealProgress },
-                     { "predictionGeneration", state.predictionGeneration },
-                     { "predictionSourceTargetId", state.predictionSourceTargetId },
-                     { "predictionSourceFrame", state.predictionSourceFrame },
-                     { "predictionSourceSolverHash", state.predictionSourceSolverHash },
-                     { "committedPredictionFrames", state.committedPredictionFrames },
-                     { "predictionBuildPublishedFrames", state.predictionBuildPublishedFrames },
-                     { "predictionWorkerFailed", state.predictionWorkerFailed },
-                     { "predictionEvidenceCapacityTruncated", state.predictionEvidenceCapacityTruncated },
-                     { "predictionEvidenceFirstTruncatedFrame", state.predictionEvidenceFirstTruncatedFrame },
-                     { "predictionEvidenceEmptyBuildCommitCount", state.predictionEvidenceEmptyBuildCommitCount },
-                     { "predictionEvidenceBuildFrames", state.predictionEvidenceBuildFrames },
-                     { "predictionEvidenceCommittedFrames", state.predictionEvidenceCommittedFrames },
-                     { "incompleteContactFrameCount", state.incompleteContactFrameCount },
-                     { "publishedPredictionTargetId", state.publishedPredictionTargetId },
-                     { "publishedPredictionFrames", state.publishedPredictionFrames },
-                     { "trajectoryRecordCount", state.trajectoryRecordCount },
-                     { "selectedPastRootPointCount", state.selectedPastRootPointCount },
-                     { "selectedFutureRootPointCount", state.selectedFutureRootPointCount },
-                     { "contactChildIncomingCount", state.contactChildIncomingCount },
-                     { "contactChildOutgoingCount", state.contactChildOutgoingCount },
-                     { "childOutgoingPreEntryPointCount", state.childOutgoingPreEntryPointCount },
-                     { "retainedEntryMarkerCount", state.retainedEntryMarkerCount },
-                     { "retainedEndMarkerCount", state.retainedEndMarkerCount },
-                     { "drawnCollisionWireframeCount", state.drawnCollisionWireframeCount },
-                     { "drawnEndingWireframeCount", state.drawnEndingWireframeCount },
-                     { "collisionWireframePathMismatchCount", state.collisionWireframePathMismatchCount },
-                     { "endingWireframePathMismatchCount", state.endingWireframePathMismatchCount },
-                     { "futureNodeCount", state.futureNodeCount },
-                     { "retainedLineFloatCount", state.retainedLineFloatCount },
-                     { "retainedRibbonVertexFloatCount", state.retainedRibbonVertexFloatCount },
-                     { "causeTreeRowCount", state.causeTreeRowCount },
-                     { "causeTreeRowBuildCount", state.causeTreeRowBuildCount },
-                     { "causeTreeRowCacheHitCount", state.causeTreeRowCacheHitCount },
-                     { "causeWindowAvailable", state.causeWindowAvailable },
-                     { "causeInspectorOpen", state.causeInspectorOpen },
-                     { "causeInspectorDrawerProgress", state.causeInspectorDrawerProgress },
-                     { "selectedCauseRow", state.selectedCauseRow },
-                     { "causeInspectionMode", state.causeInspectionMode },
-                     { "causeTransitionProgress", state.causeTransitionProgress },
-                     { "selectedCauseFrame", state.selectedCauseFrame },
-                     { "causeSourceFrame", state.causeSourceFrame },
-                     { "causeTargetFrame", state.causeTargetFrame },
-                     { "causePresentedFrame", state.causePresentedFrame },
-                     { "causeSeekSource", state.causeSeekSource },
-                     { "presentedReplayFrame", state.presentedReplayFrame },
-                     { "presentedReplayFrameSource", state.presentedReplayFrameSource },
-                     { "inspectionCameraActive", state.inspectionCameraActive },
-                     { "inspectionCameraFocusKind", state.inspectionCameraFocusKind },
-                     { "inspectionFocusFadeActive", state.inspectionFocusFadeActive },
-                     { "inspectionFocusObjectCount", state.inspectionFocusObjectCount },
-                     { "selectedCausePrimaryId", state.selectedCausePrimaryId },
-                     { "selectedCauseCounterpartId", state.selectedCauseCounterpartId },
-                     { "causeContactPointCount", state.causeContactPointCount },
-                     { "submittedCauseContactPointCount", state.submittedCauseContactPointCount },
-                     { "submittedCauseContactBodyCount", state.submittedCauseContactBodyCount },
-                     { "inspectionPathFocusPrimaryId", state.inspectionPathFocusPrimaryId },
-                     { "inspectionPathFocusCounterpartId", state.inspectionPathFocusCounterpartId },
-                     { "inspectionFocusedPathRangeCount", state.inspectionFocusedPathRangeCount },
-                     { "inspectionContextPathRangeCount", state.inspectionContextPathRangeCount },
-                     { "inspectionFocusedPathSegmentCount", state.inspectionFocusedPathSegmentCount },
-                     { "inspectionContextPathSegmentCount", state.inspectionContextPathSegmentCount },
-                     { "inspectionPathOpacityMismatchCount", state.inspectionPathOpacityMismatchCount },
-                     { "inspectionPathFocusActive", state.inspectionPathFocusActive },
-                     { "inspectionBodyMarkerId", state.inspectionBodyMarkerId },
-                     { "inspectionBodyMarkerPosition",
-                       { state.inspectionBodyMarkerX, state.inspectionBodyMarkerY, state.inspectionBodyMarkerZ } },
-                     { "inspectionBodyMarkerSubmitted", state.inspectionBodyMarkerSubmitted },
-                     { "inspectionPivot", { state.inspectionPivotX, state.inspectionPivotY, state.inspectionPivotZ } },
-                     { "selectedCameraHash", state.selectedCameraHash },
-                     { "cameraTweenActive", state.cameraTweenActive },
-                     { "cameraTweenProgress", state.cameraTweenProgress },
-                     { "cameraPrimaryEye", { state.cameraPrimaryEyeX, state.cameraPrimaryEyeY, state.cameraPrimaryEyeZ } },
-                     { "cameraPrimaryView",
-                       { state.cameraPrimaryViewX, state.cameraPrimaryViewY, state.cameraPrimaryViewZ } },
-                     { "cameraPrimaryUp", { state.cameraPrimaryUpX, state.cameraPrimaryUpY, state.cameraPrimaryUpZ } },
-                     { "cameraRenderEye", { state.cameraRenderEyeX, state.cameraRenderEyeY, state.cameraRenderEyeZ } },
-                     { "cameraRenderView", { state.cameraRenderViewX, state.cameraRenderViewY, state.cameraRenderViewZ } },
-                     { "cameraRenderUp", { state.cameraRenderUpX, state.cameraRenderUpY, state.cameraRenderUpZ } },
-                     { "cameraRenderRollRadians", state.cameraRenderRollRadians },
-                     { "retainedPathGeometrySaturated", state.retainedPathGeometrySaturated },
-                     { "visualPacketHasGeometry", state.visualPacketHasGeometry },
-                     { "trajectorySubmitted", state.trajectorySubmitted },
-                     { "submittedSegmentCount", state.submittedSegmentCount },
-                     { "submittedVertexCount", state.submittedVertexCount },
-                     { "submittedPredictionTargetId", state.submittedPredictionTargetId },
-                     { "submittedPredictionSourceFrame", state.submittedPredictionSourceFrame },
-                     { "submittedPredictionTopologyVersion", state.submittedPredictionTopologyVersion },
-                     { "submittedGeometryHash", state.submittedGeometryHash },
-                     { "submittedGeometryBytes", state.submittedGeometryBytes },
-                     { "publishedPredictionTopologyVersion", state.publishedPredictionTopologyVersion },
-                     { "submittedFutureTreeReady", state.submittedFutureTreeReady } };
-    Json event = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
-                   { "sequence", ++m_sequence },
-                   { "kind", "state" },
-                   { "topic", "replay.state" },
-                   { "renderFrame", renderFrame },
-                   { "sceneGeneration", state.sceneGeneration },
-                   { "sceneFrame", state.sceneFrame },
-                   { "simulationSeconds", state.simulationSeconds },
-                   { "paused", state.paused },
-                   { "payload", std::move( payload ) } };
-    const std::string line = event.dump();
-    m_trace << line << '\n';
+    for ( const std::string& line : traceLines )
+    {
+        m_trace << line << '\n';
+    }
     m_trace.flush();
-
-    if ( m_replayStateSubscribed )
+    for ( const std::string& line : notificationLines )
     {
         (void)SendJsonLine( line );
+    }
+    m_lastPublishedSceneGeneration = state.sceneGeneration;
+    m_subscriptionSnapshotPending = false;
+
+    if ( !m_subscriptionRequestId.empty() )
+    {
+        SendLifecycle( m_subscriptionRequestId, "applied" );
+        m_subscriptionRequestId.clear();
     }
 
     if ( !m_pendingSceneTransition.requestId.empty() )

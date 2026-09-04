@@ -259,6 +259,7 @@ class PhysicsWorld
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
+    void SetPhysicsDiagnosticsCorrelation( const PhysicsDiagnosticsCorrelation& correlation );
 #endif
 };
 

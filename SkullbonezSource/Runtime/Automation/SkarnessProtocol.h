@@ -11,6 +11,45 @@ namespace SkullbonezCore::Runtime
 {
 inline constexpr uint32_t SKARNESS_SCHEMA_VERSION = 1u;
 
+enum class SkarnessStateDetail : uint8_t
+{
+    Summary,
+    Normal,
+    Full
+};
+
+struct SkarnessStateTopic
+{
+    const char* name = nullptr;
+    const char* owner = nullptr;
+};
+
+// This catalog is the state-side equivalent of SKARNESS_CAPABILITIES. A
+// subscription can only name one of these immutable topics (or a documented
+// group alias), which keeps trace shape discoverable and typo-safe.
+inline constexpr std::array SKARNESS_STATE_TOPICS = {
+    SkarnessStateTopic { "session.state", "Automation" },
+    SkarnessStateTopic { "scene.objects", "Scene" },
+    SkarnessStateTopic { "selection.state", "Interaction" },
+    SkarnessStateTopic { "input.state", "Input" },
+    SkarnessStateTopic { "camera.state", "Camera" },
+    SkarnessStateTopic { "frame.clocks", "App" },
+    SkarnessStateTopic { "replay.timeline", "Replay" },
+    SkarnessStateTopic { "replay.prediction.controls", "Prediction" },
+    SkarnessStateTopic { "replay.prediction.frames", "Prediction" },
+    SkarnessStateTopic { "replay.prediction.evidence", "Prediction" },
+    SkarnessStateTopic { "replay.prediction.topology", "Prediction" },
+    SkarnessStateTopic { "replay.prediction.trajectories", "Prediction" },
+    SkarnessStateTopic { "replay.cause", "Planning" },
+    SkarnessStateTopic { "replay.planning", "Planning" },
+    SkarnessStateTopic { "replay.visual_packet", "Replay" },
+    SkarnessStateTopic { "replay.render_submission", "Render" },
+    // Compatibility aggregates remain discoverable while clients migrate to
+    // the owner-specific topics above.
+    SkarnessStateTopic { "scene.state", "Automation" },
+    SkarnessStateTopic { "replay.state", "Automation" },
+};
+
 enum class SkarnessCommandType : uint8_t
 {
     CaptureScreenshot,

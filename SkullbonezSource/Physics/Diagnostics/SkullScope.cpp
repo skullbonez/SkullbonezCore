@@ -978,6 +978,17 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         return;
     }
 
+    // Invariant: this join row is emitted before every Physics frame batch and
+    // carries only opaque counters supplied by App. Physics neither depends on
+    // Runtime types nor guesses correlation from wall time.
+    SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath,
+                                        "{\"kind\":\"correlation\",\"run\":\"%s\",\"frame\":%d,\"runtimeTurn\":%llu,"
+                                        "\"sceneGeneration\":%llu,\"simulationTick\":%llu}\n",
+                                        m_physicsDiagnosticsRunId, m_physicsDiagnosticsFrame,
+                                        static_cast<unsigned long long>( frameInput.correlation.runtimeTurn ),
+                                        static_cast<unsigned long long>( frameInput.correlation.sceneGeneration ),
+                                        static_cast<unsigned long long>( frameInput.correlation.simulationTick ) );
+
     const SkullScopeFrameSummary summary = BuildAndEmitFrameSummary( frameInput );
     EmitBroadphaseAndPenetration( frameInput, summary );
     EmitContactAndBodyRows( frameInput, summary );

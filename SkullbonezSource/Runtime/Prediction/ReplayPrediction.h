@@ -1076,7 +1076,7 @@ class ReplayPrediction
 
     ReplayPredictionSolverEvidenceCaptureStats SolverEvidenceCaptureStats() const noexcept;
     ReplayPredictionSolverEvidenceBanksMemoryStats SolverEvidenceMemoryStats() const noexcept;
-#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS ) || defined( SKULLBONEZ_SKARNESS )
     ReplayPredictionDetailMode AutomationDetailMode() const noexcept
     {
         return m_detailMode;

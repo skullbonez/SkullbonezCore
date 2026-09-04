@@ -16,6 +16,7 @@ import uuid
 
 SCHEMA_VERSION = 1
 DEFAULT_ROW_LIMIT = 200
+STATE_KINDS = {"snapshot", "append", "change", "evict", "reset", "state"}
 
 
 def load_manifest(session: Path) -> dict[str, object]:
@@ -190,7 +191,7 @@ def watch(session: Path, topic: str) -> int:
             return 1
         while True:
             event = connection.read_event()
-            if event.get("kind") == "state" and (topic == "*" or event.get("topic") == topic):
+            if event.get("kind") in STATE_KINDS and (topic == "*" or event.get("topic") == topic):
                 print(json.dumps(event, separators=(",", ":")), flush=True)
     except KeyboardInterrupt:
         return 0
@@ -245,7 +246,7 @@ def query_latest_state(session: Path) -> dict[str, object] | None:
                 row = json.loads(raw_line)
             except json.JSONDecodeError:
                 continue
-            if row.get("kind") == "state" and row.get("topic") == "replay.state":
+            if row.get("kind") in STATE_KINDS and row.get("topic") == "replay.state":
                 latest = row
     return latest
 

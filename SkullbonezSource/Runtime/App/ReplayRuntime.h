@@ -555,7 +555,7 @@ class ReplayRuntime
 #if defined( SKULLBONEZ_SKARNESS )
     ReplaySkarnessState BuildSkarnessState() const noexcept;
 #endif
-#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS ) || defined( SKULLBONEZ_SKARNESS )
     // Lifetime: returned references/spans are synchronous validation evidence;
     // callers must rebuild the view after any replay mutation. The method is
     // absent from ordinary builds so diagnostics cannot enter the frame path.

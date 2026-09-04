@@ -1196,7 +1196,7 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
 #endif
 
 
-#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS ) || defined( SKULLBONEZ_SKARNESS )
 ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 {
     return { m_predictionOwner.State(),

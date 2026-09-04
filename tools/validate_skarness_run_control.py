@@ -15,6 +15,7 @@ from skarness import SkarnessConnection
 
 
 REPO = Path(__file__).resolve().parents[1]
+STATE_KINDS = {"snapshot", "append", "change", "evict", "reset", "state"}
 
 
 def require_applied(session: Path, command: str, arguments: dict[str, object] | None = None) -> None:
@@ -61,7 +62,7 @@ def read_scene_state(connection: SkarnessConnection) -> dict[str, object]:
     deadline = time.monotonic() + 5.0
     while time.monotonic() < deadline:
         event = connection.read_event()
-        if event.get("kind") == "state" and event.get("topic") == "scene.state":
+        if event.get("kind") in STATE_KINDS and event.get("topic") == "scene.state":
             return event
     raise RuntimeError("scene.state was not published before timeout")
 
@@ -99,7 +100,7 @@ def command_state_window(
     states = [
         row
         for row in rows
-        if row.get("kind") == "state"
+        if row.get("kind") in STATE_KINDS
         and row.get("topic") == "scene.state"
         and int(accepted["sequence"]) < int(row["sequence"]) < int(terminal["sequence"])
     ]
@@ -119,7 +120,7 @@ def scene_frame_before_command(session: Path, request_id: str) -> int:
     preceding = [
         row
         for row in rows
-        if row.get("kind") == "state"
+        if row.get("kind") in STATE_KINDS
         and row.get("topic") == "scene.state"
         and int(row["sequence"]) < int(accepted["sequence"])
     ]
@@ -131,7 +132,7 @@ def latest_scene_frame(session: Path) -> int:
     states = [
         row
         for row in trace_rows(session)
-        if row.get("kind") == "state" and row.get("topic") == "scene.state"
+        if row.get("kind") in STATE_KINDS and row.get("topic") == "scene.state"
     ]
     require(states, "runtime trace contains no scene.state rows")
     return int(states[-1]["sceneFrame"])

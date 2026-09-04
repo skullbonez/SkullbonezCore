@@ -464,6 +464,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Automation\SkarnessHost.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Automation\SkarnessStateSerialization.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionRecordingSidecarDigest.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Automation\InteractionRecordingBrowser.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\InputRouter.Interactions.cpp" />
@@ -597,6 +598,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionAutomationRecorder.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\SkarnessHost.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\SkarnessProtocol.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Automation\SkarnessStateSerialization.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingSidecarDigest.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\InteractionRecordingBrowser.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\RunLaunchOptions.h" />

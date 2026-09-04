@@ -1,11 +1,11 @@
 /*
 File: SkullbonezSource/Core/Log.cpp
 Purpose:
-  Writes debug-only runtime, crash, and diagnostics logs.
+  Writes developer and Automation runtime, crash, and diagnostics logs.
 
 Summary:
-  This implementation owns debug-build file handles and byte-exact writes for
-  runtime, crash, and diagnostic channels; release builds retain a no-op API.
+  This implementation owns diagnostic-build file handles and byte-exact writes
+  for runtime, crash, and diagnostic channels; shipping builds retain a no-op API.
 
 Invariants:
   - Debug logs are opened in binary mode so newline bytes stay byte-exact for
@@ -24,7 +24,7 @@ Related:
 #include <cstdarg>
 #include <cstring>
 
-#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG )
+#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include "PlatformWin32.h"
 #endif
 
@@ -38,7 +38,7 @@ EngineLog& EngineLog::Get()
 }
 
 
-#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG )
+#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
 namespace
 {

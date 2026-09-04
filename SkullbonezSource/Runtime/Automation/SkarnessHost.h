@@ -5,6 +5,7 @@
 #include "SkarnessProtocol.h"
 
 #include <cstdint>
+#include <array>
 #include <deque>
 #include <filesystem>
 #include <fstream>
@@ -12,6 +13,8 @@
 
 namespace SkullbonezCore::Runtime
 {
+struct ReplayAutomationView;
+
 class SkarnessHost
 {
   public:
@@ -33,11 +36,15 @@ class SkarnessHost
     void CompleteCapture( uint64_t token, bool applied, const char* reason = nullptr );
     bool TakePointerInputFrame( SkarnessPointerInputFrame& outFrame );
     SkarnessProceedPolicy TakeProceedPolicy();
-    void PublishFrameState( const SkarnessFrameState& state );
+    void PublishFrameState( const SkarnessFrameState& state, const ReplayAutomationView& replay );
     bool TakeStopRequested() noexcept;
     bool BeginPhysicsSceneGeneration( uint64_t generation ) noexcept;
     const char* PhysicsTracePath() const noexcept;
     const char* RunId() const noexcept;
+    uint64_t NextRuntimeTurn() const noexcept
+    {
+        return m_renderFrame + 1u;
+    }
 
     bool Enabled() const noexcept
     {
@@ -140,6 +147,7 @@ class SkarnessHost
     std::string m_untilRequestId;
     std::string m_untilCondition;
     std::string m_stopRequestId;
+    std::string m_subscriptionRequestId;
     bool m_stepCompletesAfterFrame = false;
     uint32_t m_untilLimit = 0;
     uint32_t m_untilFramesRemaining = 0;
@@ -148,8 +156,15 @@ class SkarnessHost
     bool m_stopRequested = false;
     bool m_enabled = false;
     bool m_connected = false;
-    bool m_sceneStateSubscribed = false;
-    bool m_replayStateSubscribed = false;
+    std::array<bool, SKARNESS_STATE_TOPICS.size()> m_stateSubscriptions = {};
+    std::array<bool, SKARNESS_STATE_TOPICS.size()> m_stateInitialized = {};
+    std::array<uint64_t, SKARNESS_STATE_TOPICS.size()> m_statePayloadHashes = {};
+    std::array<uint64_t, SKARNESS_STATE_TOPICS.size()> m_stateOwnerVersions = {};
+    std::array<uint64_t, SKARNESS_STATE_TOPICS.size()> m_stateAppendCursors = {};
+    std::array<uint64_t, SKARNESS_STATE_TOPICS.size()> m_stateEvictCursors = {};
+    SkarnessStateDetail m_stateDetail = SkarnessStateDetail::Normal;
+    uint64_t m_lastPublishedSceneGeneration = ~uint64_t { 0 };
+    bool m_subscriptionSnapshotPending = false;
     bool m_manualInput = false;
     bool m_paused = true;
 };

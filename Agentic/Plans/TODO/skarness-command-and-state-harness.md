@@ -1,7 +1,7 @@
 # Skarness Command And State Harness
 
 Date: 2026-09-05
-Status: Active — 4/7 phases implemented; SK4 next
+Status: Active — 5/7 phases implemented; SK5 next
 Owner: Runtime Automation
 Impact area: Automation, Debug diagnostics, input/command routing, Replay, Prediction, Planning, query tools, and validation
 
@@ -315,7 +315,7 @@ total model-read bytes using the existing SkullScope accounting convention.
   replay/prediction/planning control through shared typed commands. Replace
   overlay-only handlers with reusable command values where necessary. Add
   idempotent setters and explicit save/load paths.
-- [ ] **SK4 — Publish replay and SkullScope state.** Implement snapshots and
+- [x] **SK4 — Publish replay and SkullScope state.** Implement snapshots and
   append/change/evict/reset rows for all listed topics, enable existing
   SkullScope emission in Automation, and correlate both traces without crossing
   the Physics/Runtime dependency boundary.

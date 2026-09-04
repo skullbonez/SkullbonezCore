@@ -723,13 +723,13 @@ float Run::RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPo
 {
 #if defined( SKULLBONEZ_SKARNESS )
     const uint64_t sceneGeneration = m_sceneController.LifecyclePacket().generation;
+    Physics::PhysicsEngine& physics = m_sceneController.Scene().Physics();
 
-    if ( m_skarness.BeginPhysicsSceneGeneration( sceneGeneration ) )
-    {
-        Physics::PhysicsEngine& physics = m_sceneController.Scene().Physics();
-        physics.SetPhysicsDiagnosticsPath( m_skarness.PhysicsTracePath() );
-        physics.SetPhysicsDiagnosticsRunId( m_skarness.RunId() );
-    }
+    // Invariant: Skarness lockstep publishes after the one fixed tick begun
+    // here, so Physics labels that work with the committed tick it will join.
+    physics.SetPhysicsDiagnosticsCorrelation(
+        { m_skarness.NextRuntimeTurn(), sceneGeneration,
+          static_cast<uint64_t>( (std::max)( m_sceneController.State().currentFrame + 1, 0 ) ) } );
 #endif
     m_sceneController.Scene().BeginCollisionVisualFrame();
 
@@ -1484,8 +1484,15 @@ void Run::PublishSkarnessFrameState()
     state.publishedPredictionTopologyVersion = replay.publishedPredictionTopologyVersion;
     state.submittedFutureTreeReady = replay.trajectorySubmission.futureTreeReadyLastFrame;
 
+    if ( state.sceneReady && m_skarness.BeginPhysicsSceneGeneration( state.sceneGeneration ) )
+    {
+        Physics::PhysicsEngine& physics = m_sceneController.Scene().Physics();
+        physics.SetPhysicsDiagnosticsPath( m_skarness.PhysicsTracePath() );
+        physics.SetPhysicsDiagnosticsRunId( m_skarness.RunId() );
+    }
+
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
-    m_skarness.PublishFrameState( state );
+    m_skarness.PublishFrameState( state, m_replayRuntime.BuildAutomationView() );
 }
 #endif
 

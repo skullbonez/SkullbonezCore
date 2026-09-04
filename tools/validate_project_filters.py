@@ -61,6 +61,7 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         # Skarness serializes the automation-only state stream and command
         # lifecycle at the named-pipe boundary.
         "Runtime/Automation/SkarnessHost.cpp",
+        "Runtime/Automation/SkarnessStateSerialization.cpp",
         "Runtime/App/InteractionAutomationReportApplication.cpp",
         "Runtime/Replay/ReplayV2Artifact.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
@@ -368,6 +369,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "RuntimeValidationHarness",
     "SkarnessHost",
     "SkarnessProtocol",
+    "SkarnessStateSerialization",
 )
 
 RUNTIME_INTERACTION_PREFIXES = (

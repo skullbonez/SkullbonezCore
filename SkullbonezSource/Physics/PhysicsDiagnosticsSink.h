@@ -62,6 +62,15 @@ struct PhysicsCollisionTimeEvent
 };
 
 #if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+// Detached Runtime correlation. Physics records these opaque counters without
+// including or interpreting any Runtime type.
+struct PhysicsDiagnosticsCorrelation
+{
+    uint64_t runtimeTurn = 0;
+    uint64_t sceneGeneration = 0;
+    uint64_t simulationTick = 0;
+};
+
 // Immutable inputs for one diagnostics emission pass. Body/collider/world facts
 // are already owned by physics; only names remain a presentation overlay.
 struct PhysicsDiagnosticsFrameInput
@@ -71,6 +80,7 @@ struct PhysicsDiagnosticsFrameInput
     const ColliderStore& colliderStore;
     PhysicsDiagnosticsNameView names;
     PhysicsDiagnosticsCsvWriter csvWriter;
+    PhysicsDiagnosticsCorrelation correlation;
     float deltaSeconds = 0.0f;
 };
 

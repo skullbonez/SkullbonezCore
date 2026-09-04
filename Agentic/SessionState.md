@@ -2,7 +2,7 @@
 
 Date: 2026-09-05
 Branch: `nightrunner-5th-SEP-26`
-Status: Skarness Command And State Harness active at 4/7; SK4 next; prior portfolio 143/143
+Status: Skarness Command And State Harness active at 5/7; SK5 next; prior portfolio 143/143
 
 ## Current State
 
@@ -36,7 +36,14 @@ identity. `tools/validate_skarness_command_coverage.py` proves catalog uniquenes
 player-control inventory coverage, retry-safe setters, explicit replay paths,
 and live command routes in Automation. Automation and Debug builds, focused
 source design, dependency enforcement, and the live command proof pass with no
-baseline change. SK4 next publishes the complete replay and SkullScope stream.
+baseline change. SK4 now publishes snapshot-first registered replay-family
+topics with summary, normal, and full detail, explicit append/change/evict/reset
+rows, and complete production visual-packet buffers. Physics-owned SkullScope
+emits in Automation as well as Debug and carries exact runtime-turn, scene-
+generation, and committed simulation-tick correlation without a Runtime include.
+`tools/validate_skarness_state_stream.py` proves ordering, sequence monotonicity,
+ring wrap, scene resets, full buffers, and cross-trace joins in both builds. SK5
+next completes the incremental SQLite query surface.
 
 The owner completed `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
 branch and requested substantial related batches instead of a build after each
@@ -1184,9 +1191,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Complete SK4 of `Skarness Command And State Harness`: publish snapshot-first,
-incremental replay and SkullScope state with explicit append/change/evict/reset
-rows and correlated sequence metadata.
+Complete SK5 of `Skarness Command And State Harness`: finish incremental import
+of both live traces and expose bounded summary, replay, prediction, cause,
+render-submission, and Physics queries with exact correlation and byte accounting.
 
 ## Blockers
 

@@ -34,7 +34,7 @@ Related:
 
 #include <cstdarg>
 
-#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG )
+#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include <cstdio>
 #include <mutex>
 #include <string>
@@ -84,7 +84,7 @@ class EngineLog
     // Invariant: callers hold m_logMutex for the complete OpenLog + FILE
     // operation. Returning a borrowed FILE outside that critical section would
     // make the map safe while leaving the CRT stream itself racy.
-#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG )
+#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     FILE* OpenLog( const char* fileName );
     std::mutex m_logMutex;
     std::unordered_map<std::string, FILE*> m_logs;
