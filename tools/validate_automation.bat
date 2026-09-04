@@ -7,8 +7,8 @@
 @rem Summary:
 @rem   Automation is a Profile-equivalent executable with one extra compile-time
 @rem   diagnostics surface. This gate tests both sides of that boundary, then
-@rem   runs one combined replay-prediction and development-UI interaction used
-@rem   by every broad commit without adding another engine process.
+@rem   preserves the development-UI interaction compatibility smoke, then uses
+@rem   Skarness to prove the causal prediction path through production state.
 @rem
 @rem Glossary:
 @rem   Automation build: Dedicated executable containing interaction scripts and
@@ -18,11 +18,10 @@
 @rem
 @rem Invariants:
 @rem   - Profile must reject --interaction-script with a nonzero exit.
-@rem   - Automation must produce one successful report covering replay
-@rem     prediction plus all development-UI command interpreter variants.
-@rem   - Prediction passes only when the selected FutureRoot and contact children
-@rem     exist, causal priority lines and ribbons reach submission, and a connected
-@rem     path reaches the DX12 backbuffer outside operator UI regions.
+@rem   - Automation must preserve all development-UI command interpreter variants.
+@rem   - Prediction passes only when one selected identity reaches full causal
+@rem     trajectories, retained wireframe poses, production visual buffers, the
+@rem     DX12 submission, and a connected viewport raster feature.
 @rem   - Negative and positive processes use separate working files and PSO
 @rem     caches, so they may overlap without changing either launch contract.
 @rem   - This pre-commit smoke supplements, rather than replaces, the immutable
@@ -58,17 +57,10 @@ if not exist TestOutput\validation\automation mkdir TestOutput\validation\automa
 set "REPORT=%REPO%\TestOutput\validation\automation\replay_prediction_precommit.json"
 del /q "%REPORT%" 2>nul
 
-echo [automation] Running future-render checker negative controls...
-"%PYTHON_EXE%" "%~dp0check_prediction_future_render.py" --self-test
-if errorlevel 1 (
-    echo FAIL: Prediction future-render checker self-tests failed.
-    goto fail
-)
-
 echo [automation] Running isolated Profile rejection and Automation smoke processes in parallel...
 "%PYTHON_EXE%" "%~dp0run_parallel_validation.py" --repo "%REPO%" --manifest "%~dp0validation_parallel_automation.json" --variable "AUTOMATION_REPORT=%REPORT%" --variable "PYTHON_EXE=%PYTHON_EXE%"
 if errorlevel 1 (
-    echo FAIL: Profile rejection, Automation launch, or FutureRoot DX12 raster proof failed.
+    echo FAIL: Profile rejection or Automation development-UI smoke failed.
     goto fail
 )
 if not exist "%REPORT%" (
@@ -81,7 +73,14 @@ if errorlevel 1 (
     goto fail
 )
 
-echo PASS: diagnostics excluded from Profile; Automation FutureRoot DX12 raster and development-UI smoke passed.
+echo [automation] Running the complete Skarness regression suite...
+call "%~dp0validate_skarness.bat"
+if errorlevel 1 (
+    echo FAIL: Skarness regression suite failed.
+    goto fail
+)
+
+echo PASS: diagnostics excluded from Profile; Automation development-UI compatibility and Skarness regressions passed.
 popd >nul
 exit /b 0
 

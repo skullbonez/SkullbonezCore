@@ -2,7 +2,8 @@
 
 Date: 2026-09-05
 Branch: `nightrunner-5th-SEP-26`
-Status: Skarness Command And State Harness active at 6/7; SK6 next; prior portfolio 143/143
+Status: Skarness Command And State Harness complete at 7/7; prior portfolio
+143/143
 
 ## Current State
 
@@ -20,8 +21,7 @@ session-host/client contract: Debug and Automation own the feature, Profile and
 Release reject its flags, manifests publish atomically with a current-user pipe,
 and reconnect/deduplication remain correct through 260 completed requests and
 an exact 128-command queue saturation. `tools/validate_skarness_transport.py`
-owns that focused regression; SK6 will fold it into the Automation closure gate
-when that phase replaces the fixed-frame replay smoke. SK2 now publishes state
+owns that focused regression. SK2 now publishes state
 after the committed scene-frame boundary and proves exact three-tick, four-
 render-frame, immediate-condition, three-frame timeout, three-tick timeout, and
 25-tick disconnect/reconnect behavior. Accepted work freezes while its controller
@@ -52,8 +52,21 @@ render boundary, so queries work before session shutdown. The client now accepts
 the planned `send`, `--detail`, `--ticks`, frame-range, target, and `--full`
 shapes. `tools/validate_skarness_queries.py` proves incremental recovery, source
 replacement invalidation, name-to-id filtering, cursor tails, and live cross-
-trace joins. SK6 next replaces the prediction smoke with the complete production
-future-path acceptance gate.
+trace joins. SK6 now drives the future-path gate entirely through Skarness,
+binds every published and rendered fact to the selected target and source frame,
+validates complete child ancestry and trajectories, and proves renderer-bound
+bytes and hashes remain stable for 120 render frames. Automation and Debug live
+witnesses pass with six causal nodes, one child, 241 root points, 9,792 geometry
+bytes, and 3,396 connected raster-change pixels. The full 15-scene matrix and
+the complete 443.149-second Automation/Skarness lane pass. Independent review
+reports zero blockers and `READY`.
+
+The exactly-once plan-completion command passed Debug, Automation, fast checks,
+source design, Profile, all CPU lanes, and the Automation/Skarness lane. It
+exited 1 only at the inherited DX12 terrain-UV screenshot mismatch documented
+before this plan: water averaged 4.9171, solver averaged 4.0155, space remained
+pixel-exact, and DX12 InfoQueue reported zero errors. Skarness is compiled out
+of Profile. No visual, replay, causal, Physics, or SkullScope baseline changed.
 
 The owner completed `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
 branch and requested substantial related batches instead of a build after each
@@ -1201,10 +1214,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Complete SK6 of `Skarness Command And State Harness`: replace the prediction
-smoke with a Skarness-only production-path gate covering causal child lanes,
-retained collision and ending wireframes, visual buffers, DX12 submission,
-viewport raster evidence, and the specified negative controls.
+No owner-selected implementation plan is active. Await owner direction.
 
 ## Blockers
 

@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-09-05
-Status: Skarness Command And State Harness active; SK6 next; prior portfolio
+Status: Skarness Command And State Harness complete at 7/7; prior portfolio
 143/143 tasks complete; bug ledger 126/126 fixed
 
 ## Owner Direction
@@ -17,6 +17,10 @@ Status: Skarness Command And State Harness active; SK6 next; prior portfolio
   samples committed scene frames after render, gives fixed-tick and render-only
   steps exact completion boundaries, suspends accepted work across controller
   disconnects, and reports typed `run.until` limits and observations.
+  SK3-SK6 complete replay/player command coverage, publish correlated Replay,
+  Prediction, Planning, render, and Physics state, add replace-safe live SQLite
+  queries, and replace the fragile prediction smoke with a selected-target,
+  production-buffer, stable-submission, and supplemental-raster proof.
 
 - Engine Signature And Context Cohesion completed at 8/8 on 2026-09-01. SC0-SC7
   refreshed the whole-engine compiler inventory, repaired confirmed
@@ -363,9 +367,7 @@ hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
 
 ## Active Plans
 
-| Plan | Status | Phases | File |
-|---|---|---|---|
-| Skarness Command And State Harness | Active; SK6 next | 6/7 | `TODO/skarness-command-and-state-harness.md` |
+No implementation plan is active.
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -382,6 +384,7 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
+| Skarness Command And State Harness | Complete 2026-09-05 | 7/7 | `DONE/skarness-command-and-state-harness.md` |
 | Governance Simplification And Scar Removal | Complete 2026-08-28 | 5/5 | `DONE/governance-simplification-and-scar-removal.md` |
 | Recorded Interaction Playback Cursor | Complete 2026-08-28 | 4/4 | `DONE/recorded-interaction-playback-cursor.md` |
 | Deterministic Collision Modes And Ragdoll Unification | Owner-parked 2026-08-25 | 5/10 | `WNF/ragdoll-physics-unification.md` |
@@ -402,9 +405,9 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`SKARNESS` SK0-SK6 is active by owner direction and is the only selectable
-implementation plan. `SIGNATURE_COHESION` SC0-SC7 remains complete; selection
-of a parked or backlog plan still requires separate owner direction.
+`SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete. No
+implementation plan is selectable; selecting a parked or backlog plan requires
+separate owner direction.
 
 `RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
 complete on `codex/replay-capture-bugfixes`.
@@ -439,7 +442,7 @@ contracts into Rendering.
 ## Portfolio Progress
 
 The prior portfolio remains 143/143 complete and all 126 bug-ledger rows are
-fixed. Skarness is active at 4/7 phases, with SK4 next.
+fixed. Skarness is complete at 7/7 phases.
 Engine Signature And Context Cohesion is complete at 8/8. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0

@@ -46,6 +46,18 @@ REQUIRED_TOPICS = {
     "replay.visual_packet",
     "replay.render_submission",
 }
+LEGACY_CAUSAL_CAMERA_FIELDS = {
+    "inspectionCameraActive",
+    "inspectionCameraFocusKind",
+    "inspectionFocusFadeActive",
+    "inspectionFocusObjectCount",
+    "cameraPrimaryEye",
+    "cameraPrimaryView",
+    "cameraPrimaryUp",
+    "cameraRenderEye",
+    "inspectionPivot",
+    "cameraRenderRollRadians",
+}
 
 
 def require(condition: bool, message: str) -> None:
@@ -155,6 +167,9 @@ def validate(session: Path, executable: Path, scene: Path) -> dict[str, object]:
     for row in state_rows:
         missing = REQUIRED_ENVELOPE - row.keys()
         require(not missing, f"state row omitted envelope fields {sorted(missing)}: {row}")
+    legacy = next(row for row in reversed(state_rows) if row.get("topic") == "replay.state")
+    legacy_missing = LEGACY_CAUSAL_CAMERA_FIELDS - legacy.get("payload", {}).keys()
+    require(not legacy_missing, f"legacy replay state omitted causal camera fields: {sorted(legacy_missing)}")
 
     applied = next(
         row

@@ -372,6 +372,7 @@ Json BuildTrajectories( const ReplayAutomationView& replay, SkarnessStateDetail 
         records.push_back( std::move( row ) );
     }
     return { { "topologyVersion", replay.visualPacket.header.topologyVersion },
+             { "retainedRevision", replay.visualPacket.retainedPredictionRevision },
              { "recordCount", replay.visualPacket.trajectoryRecords.size() },
              { "records", std::move( records ) } };
 }
@@ -484,6 +485,49 @@ void AddFloatBuffer( Json& payload, const char* name, std::span<const float> val
     payload[name] = std::move( buffer );
 }
 
+Json BuildRenderGeometryEvidence( const ReplayVisualPacket& packet )
+{
+    const ReplayVisualPacketBufferFacts facts = ReplayVisualPacketFingerprintOperations::BuildReplayVisualPacketBufferFacts(
+        packet );
+    const uint64_t lineBytes = facts.ordinaryLineBytes + facts.priorityLineBytes;
+    const uint64_t ribbonBytes = facts.ordinaryRibbonBytes + facts.priorityRibbonBytes;
+    const uint64_t geometryBytes = lineBytes + ribbonBytes + facts.expandedVertexBytes;
+    const uint64_t lineHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( facts.ordinaryLineHash,
+                                                                                                 facts.ordinaryLineBytes,
+                                                                                                 facts.priorityLineHash,
+                                                                                                 facts.priorityLineBytes );
+    const uint64_t
+        ribbonHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( facts.ordinaryRibbonHash,
+                                                                                        facts.ordinaryRibbonBytes,
+                                                                                        facts.priorityRibbonHash,
+                                                                                        facts.priorityRibbonBytes );
+    const uint64_t geometryHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( lineHash, lineBytes,
+                                                                                                     ribbonHash,
+                                                                                                     ribbonBytes );
+
+    // Invariant: renderer telemetry permits zero as the hash for an empty vertex
+    // lane. Preserve that sentinel while deriving every non-empty byte from the
+    // packet spans themselves, so stale submission telemetry cannot self-agree.
+    const uint64_t vertexHash = facts.expandedVertexBytes == 0u && packet.submission.vertexHash == 0u
+                                    ? 0u
+                                    : facts.expandedVertexHash;
+    const uint64_t
+        submissionHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( geometryHash,
+                                                                                            lineBytes + ribbonBytes,
+                                                                                            vertexHash,
+                                                                                            facts.expandedVertexBytes );
+    const char* spanMismatch = ReplayVisualPacketFingerprintOperations::FindReplayVisualPacketSubmissionSpanMismatch(
+        packet );
+
+    return { { "lineBytes", lineBytes },
+             { "ribbonBytes", ribbonBytes },
+             { "vertexBytes", facts.expandedVertexBytes },
+             { "geometryBytes", geometryBytes },
+             { "submissionHash", submissionHash },
+             { "spanTelemetryMatches", spanMismatch == nullptr },
+             { "spanMismatch", spanMismatch ? spanMismatch : "" } };
+}
+
 Json BuildVisualPacket( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
     const ReplayVisualPacket& packet = replay.visualPacket;
@@ -506,14 +550,19 @@ Json BuildVisualPacket( const ReplayAutomationView& replay, SkarnessStateDetail 
                      { "trajectoryRecordCount", packet.trajectoryRecords.size() },
                      { "markerCount", packet.retainedMarkers.size() },
                      { "ghostCount", packet.ghostRequests.size() },
-                     { "hasGeometry", packet.HasGeometry() } };
+                     { "hasGeometry", packet.HasGeometry() },
+                     { "renderGeometry", BuildRenderGeometryEvidence( packet ) } };
     AddFloatBuffer( payload, "combinedLines", packet.combinedLines, detail );
     AddFloatBuffer( payload, "ordinaryLines", packet.ordinaryLines, detail );
     AddFloatBuffer( payload, "priorityLines", packet.priorityLines, detail );
+    AddFloatBuffer( payload, "ordinaryRibbonSegments", packet.ordinaryRibbonSegments, detail );
+    AddFloatBuffer( payload, "priorityRibbonSegments", packet.priorityRibbonSegments, detail );
     AddFloatBuffer( payload, "expandedRibbonVertices", packet.expandedRibbonVertices, detail );
     AddFloatBuffer( payload, "priorityExpandedRibbonVertices", packet.priorityExpandedRibbonVertices, detail );
     AddFloatBuffer( payload, "retainedOrdinaryLines", packet.retainedPredictionOrdinaryLines, detail );
     AddFloatBuffer( payload, "retainedPriorityLines", packet.retainedPredictionPriorityLines, detail );
+    AddFloatBuffer( payload, "retainedOrdinaryRibbonSegments", packet.retainedPredictionOrdinaryRibbonSegments, detail );
+    AddFloatBuffer( payload, "retainedPriorityRibbonSegments", packet.retainedPredictionPriorityRibbonSegments, detail );
     AddFloatBuffer( payload, "retainedRibbonVertices", packet.retainedPredictionRibbonVertices, detail );
     AddFloatBuffer( payload, "retainedPriorityRibbonVertices", packet.retainedPredictionPriorityRibbonVertices, detail );
     if ( detail == SkarnessStateDetail::Full )
@@ -553,6 +602,7 @@ Json BuildRenderSubmission( const SkarnessFrameState& state, const ReplayAutomat
              { "noReserveGrowth", submission.noReserveGrowth },
              { "observedFrameCount", submission.observedFrameCount },
              { "stableFrameCount", submission.stableFrameCount },
+             { "stableFrameTarget", submission.stableWindowTargetFrameCount },
              { "segmentCount", submission.segmentCount },
              { "vertexCount", submission.vertexCount },
              { "stableHash", submission.stableHash },
@@ -613,7 +663,10 @@ Json BuildLegacyReplay( const SkarnessFrameState& state )
              { "causeContactPointCount", state.causeContactPointCount },
              { "submittedCauseContactPointCount", state.submittedCauseContactPointCount },
              { "submittedCauseContactBodyCount", state.submittedCauseContactBodyCount },
+             { "inspectionCameraActive", state.inspectionCameraActive },
              { "inspectionCameraFocusKind", state.inspectionCameraFocusKind },
+             { "inspectionFocusFadeActive", state.inspectionFocusFadeActive },
+             { "inspectionFocusObjectCount", state.inspectionFocusObjectCount },
              { "inspectionPathFocusPrimaryId", state.inspectionPathFocusPrimaryId },
              { "inspectionPathFocusCounterpartId", state.inspectionPathFocusCounterpartId },
              { "inspectionFocusedPathRangeCount", state.inspectionFocusedPathRangeCount },
@@ -625,6 +678,10 @@ Json BuildLegacyReplay( const SkarnessFrameState& state )
              { "inspectionBodyMarkerSubmitted", state.inspectionBodyMarkerSubmitted },
              { "selectedCameraHash", state.selectedCameraHash },
              { "cameraPrimaryEye", { state.cameraPrimaryEyeX, state.cameraPrimaryEyeY, state.cameraPrimaryEyeZ } },
+             { "cameraPrimaryView", { state.cameraPrimaryViewX, state.cameraPrimaryViewY, state.cameraPrimaryViewZ } },
+             { "cameraPrimaryUp", { state.cameraPrimaryUpX, state.cameraPrimaryUpY, state.cameraPrimaryUpZ } },
+             { "cameraRenderEye", { state.cameraRenderEyeX, state.cameraRenderEyeY, state.cameraRenderEyeZ } },
+             { "inspectionPivot", { state.inspectionPivotX, state.inspectionPivotY, state.inspectionPivotZ } },
              { "cameraRenderRollRadians", state.cameraRenderRollRadians },
              { "visualPacketHasGeometry", state.visualPacketHasGeometry },
              { "trajectorySubmitted", state.trajectorySubmitted },

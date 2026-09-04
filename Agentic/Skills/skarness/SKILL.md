@@ -112,16 +112,17 @@ when the expected result includes the cause tree; it must include incoming and
 outgoing child paths, reject outgoing samples before the collision entry, and
 prove every published collision and ending pose produced a complete wireframe.
 
-Use `verify-future` for a convenient before/after raster check:
+Use `verify-future` for the complete selected-future proof:
 
 ```powershell
 python tools\skarness.py verify-future TestOutput\skarness\<case> <object-name> --frames 3000
 ```
 
-Treat raster change as supplemental evidence. Also assert the owning runtime
-state and render-submission counts so unrelated pixels cannot be mistaken for
-the requested result. Add a focused native test when the expected invariant can
-be expressed without a running renderer.
+The command upgrades the session to full state detail and binds selection,
+source frame, and topology version through sampled frames, causal child lanes,
+retained entry/ending markers, production visual buffers, and the DX12
+submission. Raster change remains supplemental evidence. Add a focused native
+test when the expected invariant can be expressed without a running renderer.
 
 For repeated-selection defects, select several distinct IDs in the same
 session and require each request to publish and render its own target. For
@@ -136,6 +137,12 @@ and a second 200-body wall prediction after all intervening transitions:
 ```powershell
 python tools\validate_skarness_prediction_matrix.py --self-test
 python tools\validate_skarness_prediction_matrix.py --session TestOutput\skarness\prediction-matrix
+```
+
+Run the complete Automation regression surface with:
+
+```powershell
+tools\validate_skarness.bat
 ```
 
 ## Capture and stop

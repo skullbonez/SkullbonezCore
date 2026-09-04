@@ -144,16 +144,19 @@ def run_predict(session: Path, name: str, frames: int) -> int:
 def verify_future(session: Path, name: str, frames: int) -> int:
     from check_prediction_future_render import validate_raster
     from PIL import Image
+    from validate_skarness_future_render import complete_rows, latest_topics, validate_evidence
 
     before = (session / "prediction-before.png").resolve()
     after = (session / "prediction-after.png").resolve()
     connection = SkarnessConnection(session)
     try:
         workflow = (
+            ("state.subscribe", {"topics": ["*"], "detail": "full"}),
             ("capture.screenshot", {"path": str(before)}),
             ("prediction.select_target", {"name": name}),
             ("replay.set_prediction_enabled", {"enabled": True}),
             ("run.until", {"condition": "prediction.causal_rendered", "maxFrames": frames}),
+            ("run.step_frames", {"count": 128}),
             ("capture.screenshot", {"path": str(after)}),
         )
         final_result: dict[str, object] | None = None
@@ -165,7 +168,9 @@ def verify_future(session: Path, name: str, frames: int) -> int:
             final_result = result
         with Image.open(before) as before_image, Image.open(after) as after_image:
             raster = validate_raster(before_image, after_image)
-        summary = query_latest_state(session)
+        evidence = validate_evidence(latest_topics(complete_rows(artifact_path(
+            session, "stateTrace", "runtime.skarness.ndjson"
+        ))))
         print(json.dumps({
             "ok": True,
             "target": name,
@@ -174,7 +179,7 @@ def verify_future(session: Path, name: str, frames: int) -> int:
                 "horizontalSpan": raster.horizontal_span,
                 "verticalSpan": raster.vertical_span,
             },
-            "renderState": summary,
+            "evidence": evidence,
             "command": final_result,
         }, indent=2))
         return 0

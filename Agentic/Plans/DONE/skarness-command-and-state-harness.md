@@ -1,7 +1,7 @@
 # Skarness Command And State Harness
 
 Date: 2026-09-05
-Status: Active — 6/7 phases implemented; SK6 next
+Status: Complete — 7/7 phases implemented on 2026-09-05
 Owner: Runtime Automation
 Impact area: Automation, Debug diagnostics, input/command routing, Replay, Prediction, Planning, query tools, and validation
 
@@ -46,15 +46,16 @@ The future-path acceptance test passes only when all of the following agree on
 one target/source identity:
 
 - prediction published a non-empty future timeline;
-- causal topology contains the selected root and its collision-derived child
-  nodes;
+- causal topology is bound to the selected target and contains its
+  collision-derived child nodes;
 - trajectory publication contains root, child incoming, and child outgoing
   lanes with drawable point counts;
 - retained entry/rest/horizon marker state contains the collided child
   wireframe evidence;
 - the production `ReplayVisualPacket` contains non-empty renderer-bound buffers;
-- DX12 replay submission reports non-zero segments, vertices, and a stable
-  content hash; and
+- DX12 replay submission reports non-zero production geometry bytes and a
+  stable content hash, with line/ribbon counts matching the active geometry
+  representation; and
 - a deterministic before/after viewport raster check detects a connected
   path-sized change outside UI chrome.
 
@@ -322,7 +323,7 @@ total model-read bytes using the existing SkullScope accounting convention.
 - [x] **SK5 — Build incremental SQLite queries.** Import both live sidecars,
   expose bounded summary/replay/prediction/cause/render queries, support tailing
   by sequence cursor, and report artifact/model-read sizes.
-- [ ] **SK6 — Replace the fragile prediction smoke.** Express the current
+- [x] **SK6 — Replace the fragile prediction smoke.** Express the current
   select-target/predict/wait workflow entirely through Skarness. Require causal
   child trajectories, retained collided-object wireframes, production visual
   buffers, DX12 submission, and the viewport raster oracle. Keep negative
@@ -376,6 +377,46 @@ total model-read bytes using the existing SkullScope accounting convention.
   rubber-duck review.
 - Do not refresh a replay, visual, causal, Physics, or SkullScope golden merely
   to make Skarness pass.
+
+## SK6 Closure Evidence — 2026-09-05
+
+The replacement future-render gate drives selection, prediction, waiting, and
+render advancement entirely through Skarness. It binds the selected scene
+object and source frame through causal topology, complete root/child trajectory
+rows, retained collision and ending markers, the production visual packet, and
+DX12 submission. The renderer-published evidence includes the actual bound
+buffer byte count and content hash, and must remain unchanged for 120 rendered
+frames. The viewport raster check remains supplemental rather than substituting
+pixels for production identity.
+
+The validator's negative controls reject root-only, semantic-only, stale
+identity, stale topology, zero-submission, UI-only, disconnected-pixel,
+disconnected-ancestry, truncated-child, mixed-owner, reset-without-replacement,
+unstable-submission, and cross-topic hash-mismatch inputs. Compact ribbons,
+expanded ribbon vertices, and transient combined/ordinary line representations
+are accepted without double-counting production geometry.
+
+Automation and Debug live witnesses both pass for `path_striker`: six causal
+nodes, one child trajectory, 241 root points, 9,792 submitted geometry bytes,
+and a connected 3,396-pixel raster change. The 15-scene Automation matrix,
+transport, run-control, command coverage, state-stream, live-query, and full
+future-render regressions pass through `tools\validate_skarness.bat` and the
+Automation closure lane. Replay visual fidelity passes its complete typed and
+negative-control set without a baseline transition. Independent review reports
+zero blockers and a `READY` verdict.
+
+`tools\agent_validate.bat --plan-completion` ran exactly once on the final
+source tree. Debug, Automation, fast checks, compiler-backed source design,
+Profile, every CPU lane, and the complete 443.149-second Automation/Skarness
+lane passed. The terminal command exited 1 only when the standalone DX12 image
+oracle reproduced the inherited height-map terrain-UV mismatch:
+`water_ball_test` averaged 4.9171 with maximum 128 and 471,156 pixels over 10;
+`solver_smoke` averaged 4.0155 with maximum 90 and 397,323 pixels over 10.
+`space_three_body` remained pixel-exact and DX12 InfoQueue reported zero
+validation errors. The same failure predates this plan and is documented in
+`Artifacts/engine-signature-and-context-cohesion/sc7-closure-evidence.md`.
+Skarness production code remains excluded from Profile, so no visual, replay,
+causal, Physics, or SkullScope baseline was refreshed.
 
 ## Planned Files And Placement
 
