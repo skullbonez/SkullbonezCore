@@ -1156,9 +1156,11 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
                                         solverDetailOwnsMouse || pointerOverCauseWindow ||
                                         interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
 
-    ApplyCauseInspectionLifecycle( requestedCauseTreeFocusRow, exitCauseTreeInspection, scrubberHostAction,
-                                   causeInteractionActive, input, inputRouter, interaction, cameras, terrain, camera,
-                                   attachedCamera );
+    const bool causeReturnRequested = m_causeReturnRequested;
+    m_causeReturnRequested = false;
+    ApplyCauseInspectionLifecycle( requestedCauseTreeFocusRow, exitCauseTreeInspection || causeReturnRequested,
+                                   scrubberHostAction, causeInteractionActive, input, inputRouter, interaction, cameras,
+                                   terrain, camera, attachedCamera );
 
     ApplyAuthoringPredictionRequest();
 
@@ -2107,6 +2109,27 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayScrubCommand& command, Ru
                                            double now, ReplayWorkspaceOutput& output )
 {
     (void)SetTransportCursor( command.normalized, interaction, now, output );
+}
+
+bool ReplayRuntime::SeekReplayFrame( ReplayFrameIndex frame, RuntimeInteractionController& interaction, double now,
+                                     ReplayWorkspaceOutput& output, ReplayFrameIndex& appliedFrame )
+{
+    const RunReplayTrack track = m_scrubberOwner.View().activeTrack;
+    const ReplayRecorderStats stats = track == RunReplayTrack::Solver ? m_timeline.Solver().GetStats()
+                                                                      : m_timeline.Presentation().GetStats();
+
+    if ( stats.sampleCount == 0u )
+    {
+        return false;
+    }
+
+    const ReplayFrameIndex oldest = stats.nextFrameIndex - static_cast<ReplayFrameIndex>( stats.sampleCount );
+    const ReplayFrameIndex newest = stats.nextFrameIndex - 1u;
+    appliedFrame = std::clamp( frame, oldest, newest );
+    const float normalized = stats.sampleCount > 1u
+                                 ? static_cast<float>( appliedFrame - oldest ) / static_cast<float>( stats.sampleCount - 1u )
+                                 : 0.0f;
+    return SetTransportCursor( normalized, interaction, now, output );
 }
 
 

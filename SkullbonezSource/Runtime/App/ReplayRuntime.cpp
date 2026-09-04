@@ -396,6 +396,132 @@ void ReplayRuntime::ApplyPredictionRevealRate( float revealRate )
     m_predictionOwner.SetRevealRatePreservingCursor( static_cast<double>( revealRate ) );
 }
 
+void ReplayRuntime::SetPathColorMode( ReplayPathColorMode mode ) noexcept
+{
+    m_visualPresentation.SetPathColorMode( mode );
+}
+
+void ReplayRuntime::SetPorkchopPanelVisible( bool visible ) noexcept
+{
+    m_planningOwner.SetPorkchopPanelVisible( visible );
+}
+
+bool ReplayRuntime::SelectPorkchopCell( std::size_t cellIndex ) noexcept
+{
+    return m_planningOwner.SelectPorkchopCell( cellIndex );
+}
+
+void ReplayRuntime::SetCauseTreeFilterText( const char* text ) noexcept
+{
+    m_authoring.SetCauseTreeFilterText( text );
+}
+
+void ReplayRuntime::SetCauseTreeFilter( RunReplayCauseTreeFilter filter ) noexcept
+{
+    m_authoring.SetCauseTreeFilter( filter );
+}
+
+void ReplayRuntime::SetCauseInspectorTab( ReplayCauseInspectorTab tab ) noexcept
+{
+    m_planningOwner.CauseInspection().SetActiveTab( tab );
+}
+
+bool ReplayRuntime::CopySelectedCauseRecord( char* destination, std::size_t destinationCapacity ) noexcept
+{
+    return m_planningOwner.CauseInspection().CopySelectedRecord( destination, destinationCapacity );
+}
+
+void ReplayRuntime::RequestCauseReturn() noexcept
+{
+    m_causeReturnRequested = true;
+}
+
+void ReplayRuntime::ClearPathSelection() noexcept
+{
+    m_visualPresentation.ClearPathState();
+    m_planningOwner.ClearInterceptTarget();
+    m_predictionOwner.MarkDirty();
+}
+
+ReplayFrameIndex ReplayRuntime::ResetDeterministicReveal() noexcept
+{
+    m_predictionOwner.ArmDeterministicReveal( 0u, true );
+    return 0u;
+}
+
+ReplayFrameIndex ReplayRuntime::AdvanceDeterministicReveal( ReplayFrameIndex frames ) noexcept
+{
+    const RunReplayPredictionState& state = m_predictionOwner.State();
+    const std::size_t frameCount = state.BuildPrefixShouldBePresented() ? state.PublishedBuildFrameCount()
+                                                                        : state.CommittedFrameCount();
+    const ReplayFrameIndex lastFrame = frameCount > 0u ? static_cast<ReplayFrameIndex>( frameCount - 1u ) : 0u;
+    const ReplayFrameIndex requested = state.revealClock.presentedFrame + frames;
+    const ReplayFrameIndex applied = (std::min)( requested, lastFrame );
+    m_predictionOwner.ArmDeterministicReveal( applied, false );
+    return applied;
+}
+
+bool ReplayRuntime::PreviewVelocity( Physics::PhysicsEngine& physics, const Math::Vector::Vector3& linearVelocity,
+                                     const Math::Vector::Vector3& angularVelocity ) noexcept
+{
+    const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
+    const Physics::PhysicsBodyStore& bodies = Physics::PhysicsEngine::ReadBodies( physics );
+    const Physics::PhysicsBodyHandle handle = bodies.HandleForSceneObjectId( path.targetId, path.targetModelRow.value );
+    const int modelRow = bodies.ModelIndexForHandle( handle );
+
+    if ( !path.hasTarget || modelRow < 0 )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsBodyHotFieldsConstView hot = bodies.HotFields();
+    const RunReplayVelocityEditState& edit = m_authoring.VelocityEdit();
+
+    if ( edit.dragTargetId != path.targetId )
+    {
+        ReplayVelocityEditDragStart start;
+        start.targetId = path.targetId;
+        start.linearVelocity = Physics::PhysicsBodyLinearVelocity( hot, static_cast<std::size_t>( modelRow ) );
+        start.angularVelocity = Physics::PhysicsBodyAngularVelocity( hot, static_cast<std::size_t>( modelRow ) );
+        m_authoring.QueueVelocityMutationBaselinePreparation();
+        m_authoring.BeginVelocityEditDrag( start );
+    }
+
+    if ( !physics.SetBodyVelocity( handle, linearVelocity, angularVelocity, true ) )
+    {
+        return false;
+    }
+
+    m_authoring.QueueVelocityEditPreview( path.targetId,
+                                          linearVelocity - m_authoring.VelocityEdit().dragStartLinearVelocity );
+    return true;
+}
+
+bool ReplayRuntime::CommitVelocityPreview() noexcept
+{
+    return m_authoring.FinishVelocityEditDrag();
+}
+
+bool ReplayRuntime::CancelVelocityPreview( Physics::PhysicsEngine& physics ) noexcept
+{
+    const RunReplayVelocityEditState edit = m_authoring.VelocityEdit();
+
+    if ( !edit.dragTargetId.IsValid() )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsBodyStore& bodies = Physics::PhysicsEngine::ReadBodies( physics );
+    const Physics::PhysicsBodyHandle handle = bodies.HandleForSceneObjectId( edit.dragTargetId );
+
+    if ( !physics.SetBodyVelocity( handle, edit.dragStartLinearVelocity, edit.dragStartAngularVelocity, true ) )
+    {
+        return false;
+    }
+
+    return m_authoring.CancelVelocityEditDrag();
+}
+
 
 ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent& intent )
 {

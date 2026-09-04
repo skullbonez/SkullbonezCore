@@ -280,8 +280,14 @@ class Run
 #if defined( SKULLBONEZ_SKARNESS )
     bool ApplySkarnessCameraCommand( const SkarnessCommand& command, const char*& reason );
     bool ApplySkarnessPredictionTargetCommand( const SkarnessCommand& command, const char*& reason );
-    bool ApplySkarnessReplayCommand( const SkarnessCommand& command, RuntimeUIFrameResult& result,
-                                     const RuntimeInputFrameFacts& facts );
+    void ApplySkarnessReplayCommand( const SkarnessCommand& command, RuntimeUIFrameResult& frameResult,
+                                     const RuntimeInputFrameFacts& facts, SkarnessCommandApplication& application );
+    void ApplySkarnessSceneLifecycleCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ApplySkarnessObjectCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ApplySkarnessObjectLookupCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ApplySkarnessSelectObjectCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ApplySkarnessClearSelectionCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ApplySkarnessSelectionCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
     bool ApplySkarnessSceneLoadCommand( const SkarnessCommand& command, bool& deferred, const char*& reason );
     void ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts );
     void PublishSkarnessFrameState();

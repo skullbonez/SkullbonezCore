@@ -1626,6 +1626,31 @@ void ReplayCauseInspection::SetDrawerOpen( bool open, double nowSeconds ) noexce
     SetDrawerTarget( open, nowSeconds );
 }
 
+void ReplayCauseInspection::SetActiveTab( ReplayCauseInspectorTab tab ) noexcept
+{
+    m_state.activeTab = tab;
+    m_state.solverDetailFirstRow = 0;
+    m_state.rawRecordFirstRow = 0;
+    m_state.iterationsFirstRow = 0;
+}
+
+bool ReplayCauseInspection::CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept
+{
+    if ( !destination || destinationCapacity == 0u || m_state.solverDetailContacts.empty() )
+    {
+        return false;
+    }
+
+    const int contactRow = m_state.selectedDetailContactRow >= 0 &&
+                                   static_cast<std::size_t>( m_state.selectedDetailContactRow ) <
+                                       m_state.solverDetailContacts.size()
+                               ? m_state.selectedDetailContactRow
+                               : 0;
+    const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( m_state.SolverDetail(),
+                                                                                           m_state.Transport(), contactRow );
+    return SerializeReplayCauseRawRecord( projection, destination, destinationCapacity );
+}
+
 void ReplayCauseInspection::ClearFocusedSurface() noexcept
 {
     // Lifetime: fixed backing arrays remain allocated, but no stale row is

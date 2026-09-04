@@ -602,10 +602,27 @@ class ReplayRuntime
     // Forwards the presentation-only palette command; prediction/capture state
     // and published trajectory records are not rebuilt.
     ReplayPathColorMode CyclePathColorMode() noexcept;
+    void SetPathColorMode( ReplayPathColorMode mode ) noexcept;
     void ToggleGuideArcs() noexcept;
     void SetGuideArcsEnabled( bool enabled ) noexcept;
     void TogglePorkchopPanel() noexcept;
+    void SetPorkchopPanelVisible( bool visible ) noexcept;
+    bool SelectPorkchopCell( std::size_t cellIndex ) noexcept;
     bool QueueTripPlannerCommand( const ReplayTripPlannerCommand& command ) noexcept;
+    void SetCauseTreeFilterText( const char* text ) noexcept;
+    void SetCauseTreeFilter( RunReplayCauseTreeFilter filter ) noexcept;
+    void SetCauseInspectorTab( ReplayCauseInspectorTab tab ) noexcept;
+    bool CopySelectedCauseRecord( char* destination, std::size_t destinationCapacity ) noexcept;
+    void RequestCauseReturn() noexcept;
+    void ClearPathSelection() noexcept;
+    ReplayFrameIndex ResetDeterministicReveal() noexcept;
+    ReplayFrameIndex AdvanceDeterministicReveal( ReplayFrameIndex frames ) noexcept;
+    bool PreviewVelocity( Physics::PhysicsEngine& physics, const Math::Vector::Vector3& linearVelocity,
+                          const Math::Vector::Vector3& angularVelocity ) noexcept;
+    bool CommitVelocityPreview() noexcept;
+    bool CancelVelocityPreview( Physics::PhysicsEngine& physics ) noexcept;
+    bool SeekReplayFrame( ReplayFrameIndex frame, RuntimeInteractionController& interaction, double now,
+                          ReplayWorkspaceOutput& output, ReplayFrameIndex& appliedFrame );
 
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
 
@@ -946,6 +963,7 @@ class ReplayRuntime
     // tick. Retain one semantic row request until the next tick can run the
     // same selection, transport, camera, and pause path as a pointer click.
     int m_pendingCauseSelectionRow = -1;
+    bool m_causeReturnRequested = false;
 
     // Invariant: App records both complete replay aggregates around the exact
     // synchronous evidence release; Prediction cannot observe sibling owners.

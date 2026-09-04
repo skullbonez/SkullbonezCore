@@ -487,6 +487,8 @@ class ReplayCauseInspection
     void RestoreInteractionRecordingBaseline( const ReplayCauseInspectionRecordingState& baseline,
                                               double nowSeconds ) noexcept;
     void SetDrawerOpen( bool open, double nowSeconds ) noexcept;
+    void SetActiveTab( ReplayCauseInspectorTab tab ) noexcept;
+    bool CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept;
     bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
                                      bool hasClientPosition, bool pointerBlocked, bool leftPressed, int wheelDelta,
                                      int screenWidth, int screenHeight,

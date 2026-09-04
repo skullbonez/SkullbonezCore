@@ -1,7 +1,7 @@
 # Skarness Command And State Harness
 
 Date: 2026-09-05
-Status: Active — 3/7 phases implemented; SK3 next
+Status: Active — 4/7 phases implemented; SK4 next
 Owner: Runtime Automation
 Impact area: Automation, Debug diagnostics, input/command routing, Replay, Prediction, Planning, query tools, and validation
 
@@ -311,7 +311,7 @@ total model-read bytes using the existing SkullScope accounting convention.
 - [x] **SK2 — Add deterministic pause/step control.** Drain commands at the
   pre-input boundary, sample after render, flush before applied acknowledgements,
   and implement named `run.until` conditions with exact timeout evidence.
-- [ ] **SK3 — Complete replay command coverage.** Route selection and every
+- [x] **SK3 — Complete replay command coverage.** Route selection and every
   replay/prediction/planning control through shared typed commands. Replace
   overlay-only handlers with reusable command values where necessary. Add
   idempotent setters and explicit save/load paths.

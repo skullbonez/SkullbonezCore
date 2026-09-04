@@ -25,6 +25,8 @@ class SkarnessHost
     void PollCommands();
     bool PopCommand( SkarnessCommand& outCommand );
     void CompleteCommand( const std::string& requestId, bool applied, const char* reason = nullptr );
+    void CompleteCommand( const std::string& requestId, bool applied, const SkarnessCommandResult& result,
+                          const char* reason = nullptr );
     bool BeginSceneTransition( const std::string& requestId, uint64_t sourceGeneration, const char* expectedScenePath,
                                bool expectDemo );
     uint64_t BeginCapture( const std::string& requestId );
@@ -67,7 +69,7 @@ class SkarnessHost
     void StoreCompletedResponse( const std::string& requestId, const std::string& response );
     bool SendJsonLine( const std::string& line );
     void SendLifecycle( const std::string& requestId, const char* status, const char* reason = nullptr,
-                        bool retainResult = true );
+                        bool retainResult = true, const SkarnessCommandResult* result = nullptr );
     void SendCapabilities( const std::string& requestId );
     bool WriteManifest( const char* status );
     bool UntilConditionMet( const SkarnessFrameState& state ) const noexcept;
@@ -78,7 +80,9 @@ class SkarnessHost
     {
         std::string requestId;
         std::string reason;
+        SkarnessCommandResult result;
         bool applied = false;
+        bool hasResult = false;
     };
     struct PendingCapture
     {

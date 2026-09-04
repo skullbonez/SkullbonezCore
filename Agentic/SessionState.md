@@ -2,7 +2,7 @@
 
 Date: 2026-09-05
 Branch: `nightrunner-5th-SEP-26`
-Status: Skarness Command And State Harness active at 3/7; SK3 next; prior portfolio 143/143
+Status: Skarness Command And State Harness active at 4/7; SK4 next; prior portfolio 143/143
 
 ## Current State
 
@@ -27,7 +27,16 @@ render-frame, immediate-condition, three-frame timeout, three-tick timeout, and
 25-tick disconnect/reconnect behavior. Accepted work freezes while its controller
 is absent, then resumes without lost or duplicate ticks. Automation and Debug
 builds, the transport regression, and `validate_fast` pass; no baseline changed.
-SK3 next completes replay, prediction, and planning command coverage.
+SK3 now exposes the immutable replay/player capability catalog and routes scene
+identity, selection, replay capture/timeline, prediction presentation, causal
+inspection, velocity editing, porkchop/trip planning, and continuous forecast
+commands through App and their existing owners. Numeric setters return applied
+values, path commands reject truncation, and full cause selection rejects stale
+identity. `tools/validate_skarness_command_coverage.py` proves catalog uniqueness,
+player-control inventory coverage, retry-safe setters, explicit replay paths,
+and live command routes in Automation. Automation and Debug builds, focused
+source design, dependency enforcement, and the live command proof pass with no
+baseline change. SK4 next publishes the complete replay and SkullScope stream.
 
 The owner completed `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
 branch and requested substantial related batches instead of a build after each
@@ -1175,9 +1184,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Complete SK3 of `Skarness Command And State Harness`: route every replay,
-prediction, and planning player control through shared typed commands, then prove
-capability coverage and setter/idempotency behavior before advancing to SK4.
+Complete SK4 of `Skarness Command And State Harness`: publish snapshot-first,
+incremental replay and SkullScope state with explicit append/change/evict/reset
+rows and correlated sequence metadata.
 
 ## Blockers
 

@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cfloat>
+#include <climits>
 #include <cmath>
 #include <cstring>
 #include <iomanip>
@@ -155,7 +157,7 @@ bool ReadNumber( const Json& arguments, const char* name, double& out )
     }
 
     out = found->get<double>();
-    return true;
+    return std::isfinite( out );
 }
 
 bool ReadInteger( const Json& arguments, const char* name, int& out )
@@ -184,6 +186,42 @@ bool ReadUnsignedInteger( const Json& arguments, const char* name, uint64_t& out
     return out != 0;
 }
 
+bool ReadUnsignedIntegerIncludingZero( const Json& arguments, const char* name, uint64_t& out )
+{
+    const auto found = arguments.find( name );
+
+    if ( found == arguments.end() || !found->is_number_unsigned() )
+    {
+        return false;
+    }
+
+    out = found->get<uint64_t>();
+    return true;
+}
+
+bool ReadVector3( const Json& arguments, const char* name, double& x, double& y, double& z )
+{
+    const auto found = arguments.find( name );
+
+    if ( found == arguments.end() || !found->is_array() || found->size() != 3u )
+    {
+        return false;
+    }
+
+    for ( const Json& component : *found )
+    {
+        if ( !component.is_number() )
+        {
+            return false;
+        }
+    }
+
+    x = ( *found )[0].get<double>();
+    y = ( *found )[1].get<double>();
+    z = ( *found )[2].get<double>();
+    return std::isfinite( x ) && std::isfinite( y ) && std::isfinite( z );
+}
+
 bool ReadString( const Json& arguments, const char* name, std::string& out )
 {
     const auto found = arguments.find( name );
@@ -195,6 +233,316 @@ bool ReadString( const Json& arguments, const char* name, std::string& out )
 
     out = found->get<std::string>();
     return !out.empty();
+}
+
+enum class CommandParseStatus : uint8_t
+{
+    Unknown,
+    Invalid,
+    Valid
+};
+
+struct NamedCommand
+{
+    const char* name;
+    SkarnessCommandType type;
+};
+
+CommandParseStatus ParseBasicCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
+{
+    static constexpr std::array noArgumentCommands = {
+        NamedCommand { "scene.reset", SkarnessCommandType::SceneReset },
+        NamedCommand { "scene.load_demo", SkarnessCommandType::SceneLoadDemo },
+        NamedCommand { "scene.object.list", SkarnessCommandType::SceneObjectList },
+        NamedCommand { "replay.jump_to_start", SkarnessCommandType::ReplayJumpToStart },
+        NamedCommand { "replay.jump_to_end", SkarnessCommandType::ReplayJumpToEnd },
+        NamedCommand { "replay.step_backward", SkarnessCommandType::ReplayStepBackward },
+        NamedCommand { "replay.step_forward", SkarnessCommandType::ReplayStepForward },
+        NamedCommand { "replay.velocity_commit", SkarnessCommandType::ReplayVelocityCommit },
+        NamedCommand { "replay.velocity_cancel", SkarnessCommandType::ReplayVelocityCancel },
+        NamedCommand { "prediction.reveal_reset", SkarnessCommandType::PredictionRevealReset },
+        NamedCommand { "replay.restore_branch", SkarnessCommandType::ReplayRestoreBranch },
+        NamedCommand { "replay.return_to_live", SkarnessCommandType::ReplayReturnToLive },
+        NamedCommand { "replay.return_from_cause", SkarnessCommandType::ReplayReturnFromCause },
+        NamedCommand { "replay.copy_cause_record", SkarnessCommandType::ReplayCopyCauseRecord },
+        NamedCommand { "replay.trip_plan", SkarnessCommandType::ReplayTripPlan },
+        NamedCommand { "replay.trip_commit", SkarnessCommandType::ReplayTripCommit },
+        NamedCommand { "replay.trip_cancel", SkarnessCommandType::ReplayTripCancel },
+        NamedCommand { "prediction.forecast_start", SkarnessCommandType::PredictionForecastStart },
+        NamedCommand { "prediction.forecast_reset", SkarnessCommandType::PredictionForecastReset },
+        NamedCommand { "prediction.forecast_stop", SkarnessCommandType::PredictionForecastStop },
+    };
+    struct BooleanCommand : NamedCommand
+    {
+        const char* argument;
+    };
+    static constexpr std::array booleanCommands = {
+        BooleanCommand { { "replay.set_recording_enabled", SkarnessCommandType::ReplaySetRecordingEnabled }, "enabled" },
+        BooleanCommand { { "replay.set_playback_paused", SkarnessCommandType::ReplaySetPlaybackPaused }, "paused" },
+        BooleanCommand { { "replay.set_prediction_enabled", SkarnessCommandType::ReplaySetPredictionEnabled }, "enabled" },
+        BooleanCommand { { "replay.set_prediction_detail", SkarnessCommandType::ReplaySetPredictionDetailMode },
+                         "highDetail" },
+        BooleanCommand { { "replay.set_velocity_edit_enabled", SkarnessCommandType::ReplaySetVelocityEditEnabled },
+                         "enabled" },
+        BooleanCommand { { "replay.set_ragdoll_visuals_enabled", SkarnessCommandType::ReplaySetRagdollVisualsEnabled },
+                         "enabled" },
+        BooleanCommand { { "replay.set_past_path_visible", SkarnessCommandType::ReplaySetPastPathVisible }, "visible" },
+        BooleanCommand { { "replay.set_guide_arcs_enabled", SkarnessCommandType::ReplaySetGuideArcsEnabled }, "enabled" },
+        BooleanCommand { { "replay.set_cause_inspector_open", SkarnessCommandType::ReplaySetCauseInspectorOpen }, "open" },
+        BooleanCommand { { "replay.set_porkchop_visible", SkarnessCommandType::ReplaySetPorkchopVisible }, "visible" },
+    };
+
+    for ( const NamedCommand& entry : noArgumentCommands )
+    {
+        if ( name == entry.name )
+        {
+            command.type = entry.type;
+            return CommandParseStatus::Valid;
+        }
+    }
+
+    for ( const BooleanCommand& entry : booleanCommands )
+    {
+        if ( name == entry.name )
+        {
+            command.type = entry.type;
+            return ReadBoolean( arguments, entry.argument, command.enabled ) ? CommandParseStatus::Valid
+                                                                             : CommandParseStatus::Invalid;
+        }
+    }
+
+    if ( name == "replay.close_cause_detail" )
+    {
+        command.type = SkarnessCommandType::ReplaySetCauseInspectorOpen;
+        command.enabled = false;
+        return CommandParseStatus::Valid;
+    }
+
+    return CommandParseStatus::Unknown;
+}
+
+CommandParseStatus ParseNumericCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
+{
+    struct IntegerCommand : NamedCommand
+    {
+        const char* argument;
+        int minimum;
+        int maximum;
+    };
+    static constexpr std::array integerCommands = {
+        IntegerCommand { { "replay.set_retention_seconds", SkarnessCommandType::ReplaySetRetentionSeconds },
+                         "seconds",
+                         20,
+                         600 },
+        IntegerCommand { { "replay.set_memory_budget_mib", SkarnessCommandType::ReplaySetMemoryBudgetMiB }, "mib", 32, 512 },
+        IntegerCommand { { "prediction.reveal_advance", SkarnessCommandType::PredictionRevealAdvance },
+                         "frames",
+                         1,
+                         100000 },
+        IntegerCommand { { "replay.select_cause_row", SkarnessCommandType::ReplaySelectCauseRow }, "row", 0, INT_MAX },
+        IntegerCommand { { "replay.select_porkchop_cell", SkarnessCommandType::ReplaySelectPorkchopCell }, "cell", 0, 3071 },
+    };
+    struct NumberCommand : NamedCommand
+    {
+        const char* argument;
+        double minimum;
+        double maximum;
+        bool minimumExclusive;
+    };
+    static constexpr std::array numberCommands = {
+        NumberCommand { { "replay.set_reveal_speed", SkarnessCommandType::ReplaySetRevealSpeed },
+                        "rate",
+                        0.0,
+                        DBL_MAX,
+                        true },
+        NumberCommand { { "replay.scrub", SkarnessCommandType::ReplayScrub }, "normalized", 0.0, 1.0, false },
+        NumberCommand { { "replay.set_prediction_horizon", SkarnessCommandType::ReplaySetPredictionHorizon },
+                        "seconds",
+                        1.0,
+                        120.0,
+                        false },
+        NumberCommand { { "replay.set_trip_time_of_flight", SkarnessCommandType::ReplaySetTripTimeOfFlight },
+                        "seconds",
+                        2.0,
+                        120.0,
+                        false },
+    };
+
+    for ( const IntegerCommand& entry : integerCommands )
+    {
+        if ( name == entry.name )
+        {
+            command.type = entry.type;
+            const bool valid = ReadInteger( arguments, entry.argument, command.integer ) &&
+                               command.integer >= entry.minimum && command.integer <= entry.maximum;
+            return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+        }
+    }
+
+    for ( const NumberCommand& entry : numberCommands )
+    {
+        if ( name == entry.name )
+        {
+            command.type = entry.type;
+            const bool valid = ReadNumber( arguments, entry.argument, command.number ) &&
+                               ( entry.minimumExclusive ? command.number > entry.minimum
+                                                        : command.number >= entry.minimum ) &&
+                               command.number <= entry.maximum;
+            return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+        }
+    }
+
+    if ( name == "replay.seek_frame" )
+    {
+        command.type = SkarnessCommandType::ReplaySeekFrame;
+        return ReadUnsignedIntegerIncludingZero( arguments, "frame", command.unsignedInteger ) ? CommandParseStatus::Valid
+                                                                                               : CommandParseStatus::Invalid;
+    }
+
+    return CommandParseStatus::Unknown;
+}
+
+bool ReadSceneIdentity( const Json& arguments, SkarnessCommand& command )
+{
+    const bool hasName = arguments.contains( "name" );
+    const bool hasId = arguments.contains( "sceneObjectId" );
+    return hasName != hasId && ( hasName ? ReadString( arguments, "name", command.text )
+                                         : ReadUnsignedInteger( arguments, "sceneObjectId", command.unsignedInteger ) );
+}
+
+CommandParseStatus ParseValueCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
+{
+    if ( name == "capture.screenshot" || name == "replay.save" || name == "replay.load" )
+    {
+        command.type = name == "capture.screenshot" ? SkarnessCommandType::CaptureScreenshot
+                       : name == "replay.save"      ? SkarnessCommandType::ReplaySave
+                                                    : SkarnessCommandType::ReplayLoad;
+        // Invariant: the App-side replay commands carry a fixed path buffer.
+        // Reject overflow at the protocol boundary instead of silently changing
+        // the caller's requested file through truncation.
+        const bool valid = ReadString( arguments, "path", command.text ) && command.text.size() < 260u;
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "scene.load" )
+    {
+        command.type = SkarnessCommandType::SceneLoad;
+        const bool hasName = arguments.contains( "name" );
+        const bool hasPath = arguments.contains( "path" );
+        return hasName != hasPath && ReadString( arguments, hasName ? "name" : "path", command.text )
+                   ? CommandParseStatus::Valid
+                   : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "scene.object.resolve" || name == "replay.set_intercept_target" || name == "prediction.select_target" ||
+         name == "replay.set_path_target" )
+    {
+        command.type = name == "scene.object.resolve"          ? SkarnessCommandType::SceneObjectResolve
+                       : name == "replay.set_intercept_target" ? SkarnessCommandType::ReplaySetInterceptTarget
+                                                               : SkarnessCommandType::PredictionSelectTarget;
+        return ReadSceneIdentity( arguments, command ) ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "scene.object.select" )
+    {
+        command.type = SkarnessCommandType::SceneObjectSelect;
+        const bool valid = ReadString( arguments, "scope", command.secondText ) &&
+                           ( command.secondText == "inspect" || command.secondText == "editor" ) &&
+                           ReadSceneIdentity( arguments, command );
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "scene.object.clear_selection" )
+    {
+        command.type = SkarnessCommandType::SceneObjectClearSelection;
+        const bool valid = ReadString( arguments, "scope", command.secondText ) &&
+                           ( command.secondText == "inspect" || command.secondText == "editor" );
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    return CommandParseStatus::Unknown;
+}
+
+CommandParseStatus ParsePlanningCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
+{
+    if ( name == "replay.set_path_color_mode" || name == "replay.set_cause_filter" ||
+         name == "replay.set_cause_inspector_tab" )
+    {
+        const char* argument = name == "replay.set_path_color_mode" ? "mode"
+                               : name == "replay.set_cause_filter"  ? "filter"
+                                                                    : "tab";
+        command.type = name == "replay.set_path_color_mode" ? SkarnessCommandType::ReplaySetPathColorMode
+                       : name == "replay.set_cause_filter"  ? SkarnessCommandType::ReplaySetCauseFilter
+                                                            : SkarnessCommandType::ReplaySetCauseInspectorTab;
+        if ( !ReadString( arguments, argument, command.text ) )
+        {
+            return CommandParseStatus::Invalid;
+        }
+        const bool valid = name == "replay.set_path_color_mode"
+                               ? command.text == "lane" || command.text == "velocity" || command.text == "time" ||
+                                     command.text == "object" || command.text == "causal"
+                           : name == "replay.set_cause_filter"
+                               ? command.text == "all" || command.text == "prediction" || command.text == "contacts"
+                               : command.text == "summary" || command.text == "raw" || command.text == "iterations";
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "replay.set_cause_filter_text" )
+    {
+        command.type = SkarnessCommandType::ReplaySetCauseFilterText;
+        const auto found = arguments.find( "text" );
+        const bool valid = found != arguments.end() && found->is_string();
+        command.text = valid ? found->get<std::string>() : "";
+        return valid && command.text.size() < 48u ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "replay.velocity_preview" )
+    {
+        command.type = SkarnessCommandType::ReplayVelocityPreview;
+        const bool valid = ReadVector3( arguments, "linear", command.number, command.secondNumber, command.thirdNumber ) &&
+                           ReadVector3( arguments, "angular", command.fourthNumber, command.fifthNumber,
+                                        command.sixthNumber );
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "replay.select_cause" )
+    {
+        command.type = SkarnessCommandType::ReplaySelectCause;
+        const bool valid = ReadInteger( arguments, "row", command.integer ) && command.integer >= 0 &&
+                           ReadUnsignedInteger( arguments, "sceneObjectId", command.unsignedInteger ) &&
+                           ReadUnsignedIntegerIncludingZero( arguments, "frame", command.secondUnsignedInteger ) &&
+                           ReadUnsignedIntegerIncludingZero( arguments, "generation", command.thirdUnsignedInteger ) &&
+                           ReadUnsignedIntegerIncludingZero( arguments, "bankEpoch", command.fourthUnsignedInteger ) &&
+                           ReadUnsignedIntegerIncludingZero( arguments, "topologyVersion", command.fifthUnsignedInteger ) &&
+                           ReadUnsignedIntegerIncludingZero( arguments, "publicationVersion", command.sixthUnsignedInteger );
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "camera.orbit_inspection" )
+    {
+        command.type = SkarnessCommandType::CameraOrbitInspection;
+        const bool valid = ReadNumber( arguments, "yawRadians", command.number ) &&
+                           ReadNumber( arguments, "pitchRadians", command.secondNumber ) &&
+                           std::fabs( command.number ) <= 6.283185307 && std::fabs( command.secondNumber ) <= 6.283185307;
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    return CommandParseStatus::Unknown;
+}
+
+CommandParseStatus ParseCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
+{
+    for ( const auto parser : { ParseBasicCommand, ParseNumericCommand, ParseValueCommand, ParsePlanningCommand } )
+    {
+        const CommandParseStatus status = parser( name, arguments, command );
+
+        if ( status != CommandParseStatus::Unknown )
+        {
+            return status;
+        }
+    }
+
+    return CommandParseStatus::Unknown;
 }
 } // namespace
 
@@ -717,149 +1065,20 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
 
     SkarnessCommand command;
     command.requestId = requestId;
-    bool valid = true;
 
-    if ( commandName == "capture.screenshot" )
-    {
-        command.type = SkarnessCommandType::CaptureScreenshot;
-        valid = ReadString( arguments, "path", command.text );
-    }
-    else if ( commandName == "scene.load" )
-    {
-        command.type = SkarnessCommandType::SceneLoad;
-        const bool hasName = arguments.contains( "name" );
-        const bool hasPath = arguments.contains( "path" );
-        valid = hasName != hasPath && ReadString( arguments, hasName ? "name" : "path", command.text );
-    }
-    else if ( commandName == "scene.reset" )
-    {
-        command.type = SkarnessCommandType::SceneReset;
-    }
-    else if ( commandName == "scene.load_demo" )
-    {
-        command.type = SkarnessCommandType::SceneLoadDemo;
-    }
-    else if ( commandName == "replay.set_recording_enabled" )
-    {
-        command.type = SkarnessCommandType::ReplaySetRecordingEnabled;
-        valid = ReadBoolean( arguments, "enabled", command.enabled );
-    }
-    else if ( commandName == "replay.jump_to_start" )
-    {
-        command.type = SkarnessCommandType::ReplayJumpToStart;
-    }
-    else if ( commandName == "replay.jump_to_end" )
-    {
-        command.type = SkarnessCommandType::ReplayJumpToEnd;
-    }
-    else if ( commandName == "replay.set_playback_paused" )
-    {
-        command.type = SkarnessCommandType::ReplaySetPlaybackPaused;
-        valid = ReadBoolean( arguments, "paused", command.enabled );
-    }
-    else if ( commandName == "replay.step_backward" )
-    {
-        command.type = SkarnessCommandType::ReplayStepBackward;
-    }
-    else if ( commandName == "replay.step_forward" )
-    {
-        command.type = SkarnessCommandType::ReplayStepForward;
-    }
-    else if ( commandName == "replay.set_reveal_speed" )
-    {
-        command.type = SkarnessCommandType::ReplaySetRevealSpeed;
-        valid = ReadNumber( arguments, "rate", command.number ) && command.number > 0.0;
-    }
-    else if ( commandName == "replay.scrub" )
-    {
-        command.type = SkarnessCommandType::ReplayScrub;
-        valid = ReadNumber( arguments, "normalized", command.number ) && command.number >= 0.0 && command.number <= 1.0;
-    }
-    else if ( commandName == "replay.set_prediction_enabled" )
-    {
-        command.type = SkarnessCommandType::ReplaySetPredictionEnabled;
-        valid = ReadBoolean( arguments, "enabled", command.enabled );
-    }
-    else if ( commandName == "replay.set_prediction_detail" )
-    {
-        command.type = SkarnessCommandType::ReplaySetPredictionDetailMode;
-        valid = ReadBoolean( arguments, "highDetail", command.enabled );
-    }
-    else if ( commandName == "replay.set_prediction_horizon" )
-    {
-        command.type = SkarnessCommandType::ReplaySetPredictionHorizon;
-        valid = ReadNumber( arguments, "seconds", command.number ) && command.number >= 1.0 && command.number <= 120.0;
-    }
-    else if ( commandName == "replay.set_velocity_edit_enabled" )
-    {
-        command.type = SkarnessCommandType::ReplaySetVelocityEditEnabled;
-        valid = ReadBoolean( arguments, "enabled", command.enabled );
-    }
-    else if ( commandName == "replay.set_ragdoll_visuals_enabled" )
-    {
-        command.type = SkarnessCommandType::ReplaySetRagdollVisualsEnabled;
-        valid = ReadBoolean( arguments, "enabled", command.enabled );
-    }
-    else if ( commandName == "replay.set_past_path_visible" )
-    {
-        command.type = SkarnessCommandType::ReplaySetPastPathVisible;
-        valid = ReadBoolean( arguments, "visible", command.enabled );
-    }
-    else if ( commandName == "replay.restore_branch" )
-    {
-        command.type = SkarnessCommandType::ReplayRestoreBranch;
-    }
-    else if ( commandName == "replay.save" )
-    {
-        command.type = SkarnessCommandType::ReplaySave;
-        valid = !arguments.contains( "path" ) || ReadString( arguments, "path", command.text );
-    }
-    else if ( commandName == "replay.load" )
-    {
-        command.type = SkarnessCommandType::ReplayLoad;
-        valid = ReadString( arguments, "path", command.text );
-    }
-    else if ( commandName == "replay.return_to_live" )
-    {
-        command.type = SkarnessCommandType::ReplayReturnToLive;
-    }
-    else if ( commandName == "replay.select_cause_row" )
-    {
-        command.type = SkarnessCommandType::ReplaySelectCauseRow;
-        valid = ReadInteger( arguments, "row", command.integer ) && command.integer >= 0;
-    }
-    else if ( commandName == "replay.set_cause_inspector_open" )
-    {
-        command.type = SkarnessCommandType::ReplaySetCauseInspectorOpen;
-        valid = ReadBoolean( arguments, "open", command.enabled );
-    }
-    else if ( commandName == "prediction.select_target" || commandName == "replay.set_path_target" )
-    {
-        command.type = SkarnessCommandType::PredictionSelectTarget;
-        const bool hasName = arguments.contains( "name" );
-        const bool hasId = arguments.contains( "sceneObjectId" );
-        valid = hasName != hasId && ( hasName ? ReadString( arguments, "name", command.text )
-                                              : ReadUnsignedInteger( arguments, "sceneObjectId", command.unsignedInteger ) );
-    }
-    else if ( commandName == "camera.orbit_inspection" )
-    {
-        command.type = SkarnessCommandType::CameraOrbitInspection;
-        valid = ReadNumber( arguments, "yawRadians", command.number ) &&
-                ReadNumber( arguments, "pitchRadians", command.secondNumber ) &&
-                std::fabs( command.number ) <= 6.283185307 && std::fabs( command.secondNumber ) <= 6.283185307;
-    }
-    else
+    const CommandParseStatus parseStatus = ParseCommand( commandName, arguments, command );
+
+    if ( parseStatus == CommandParseStatus::Unknown )
     {
         SendLifecycle( requestId, "rejected", "unknown command" );
         return;
     }
 
-    if ( !valid )
+    if ( parseStatus == CommandParseStatus::Invalid )
     {
         SendLifecycle( requestId, "rejected", "missing or invalid command arguments" );
         return;
     }
-
     if ( m_commands.size() >= SKARNESS_COMMAND_CAPACITY )
     {
         SendLifecycle( requestId, "rejected", "command queue is full" );
@@ -887,6 +1106,23 @@ void SkarnessHost::CompleteCommand( const std::string& requestId, bool applied, 
     PendingCompletion completion;
     completion.requestId = requestId;
     completion.applied = applied;
+
+    if ( reason )
+    {
+        completion.reason = reason;
+    }
+
+    m_pendingCompletions.push_back( std::move( completion ) );
+}
+
+void SkarnessHost::CompleteCommand( const std::string& requestId, bool applied, const SkarnessCommandResult& result,
+                                    const char* reason )
+{
+    PendingCompletion completion;
+    completion.requestId = requestId;
+    completion.result = result;
+    completion.applied = applied;
+    completion.hasResult = true;
 
     if ( reason )
     {
@@ -1051,7 +1287,8 @@ void SkarnessHost::StoreCompletedResponse( const std::string& requestId, const s
     }
 }
 
-void SkarnessHost::SendLifecycle( const std::string& requestId, const char* status, const char* reason, bool retainResult )
+void SkarnessHost::SendLifecycle( const std::string& requestId, const char* status, const char* reason, bool retainResult,
+                                  const SkarnessCommandResult* result )
 {
     Json response = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
                       { "sequence", ++m_sequence },
@@ -1062,6 +1299,48 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
     if ( reason && reason[0] != '\0' )
     {
         response["reason"] = reason;
+    }
+
+    if ( result )
+    {
+        Json values = Json::object();
+
+        if ( !result->objects.empty() )
+        {
+            Json objects = Json::array();
+
+            for ( const SkarnessSceneObjectResult& object : result->objects )
+            {
+                objects.push_back( { { "sceneObjectId", object.sceneObjectId },
+                                     { "modelRow", object.modelRow },
+                                     { "name", object.name } } );
+            }
+
+            values["objects"] = std::move( objects );
+        }
+
+        if ( result->hasTextValue )
+        {
+            values[result->valueName] = result->textValue;
+        }
+        else if ( result->hasNumberValue )
+        {
+            values[result->valueName] = result->numberValue;
+        }
+        else if ( result->hasUnsignedValue )
+        {
+            values[result->valueName] = result->unsignedValue;
+        }
+        else if ( result->hasIntegerValue )
+        {
+            values[result->valueName] = result->integerValue;
+        }
+        else if ( result->hasBoolValue )
+        {
+            values[result->valueName] = result->boolValue;
+        }
+
+        response["result"] = std::move( values );
     }
 
     const std::string line = response.dump();
@@ -1078,46 +1357,22 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
 
 void SkarnessHost::SendCapabilities( const std::string& requestId )
 {
-    static const std::array<const char*, 35> commands = { "capabilities.get",
-                                                          "session.stop",
-                                                          "capture.screenshot",
-                                                          "scene.load",
-                                                          "scene.reset",
-                                                          "scene.load_demo",
-                                                          "run.pause",
-                                                          "run.resume",
-                                                          "run.step",
-                                                          "run.step_frames",
-                                                          "run.until",
-                                                          "replay.set_recording_enabled",
-                                                          "replay.jump_to_start",
-                                                          "replay.jump_to_end",
-                                                          "replay.set_playback_paused",
-                                                          "replay.step_backward",
-                                                          "replay.step_forward",
-                                                          "replay.set_reveal_speed",
-                                                          "replay.scrub",
-                                                          "replay.set_prediction_enabled",
-                                                          "replay.set_prediction_detail",
-                                                          "replay.set_prediction_horizon",
-                                                          "replay.set_velocity_edit_enabled",
-                                                          "replay.set_ragdoll_visuals_enabled",
-                                                          "replay.set_past_path_visible",
-                                                          "replay.restore_branch",
-                                                          "replay.save",
-                                                          "replay.load",
-                                                          "replay.return_to_live",
-                                                          "replay.select_cause_row",
-                                                          "replay.set_cause_inspector_open",
-                                                          "prediction.select_target",
-                                                          "replay.set_path_target",
-                                                          "camera.orbit_inspection",
-                                                          "state.subscribe" };
-    Json commandNames = commands;
+    Json commandNames = Json::array();
+    Json catalog = Json::array();
 
-    if ( !m_manualInput )
+    for ( const SkarnessCapability& capability : SKARNESS_CAPABILITIES )
     {
-        commandNames.push_back( "input.pointer_drag" );
+        const bool available = capability.availability == SkarnessCapabilityAvailability::Always || !m_manualInput;
+
+        if ( available )
+        {
+            commandNames.push_back( capability.name );
+        }
+
+        catalog.push_back( { { "name", capability.name },
+                             { "owner", capability.owner },
+                             { "arguments", capability.arguments },
+                             { "available", available } } );
     }
 
     Json response = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
@@ -1126,6 +1381,7 @@ void SkarnessHost::SendCapabilities( const std::string& requestId )
                       { "requestId", requestId },
                       { "status", "applied" },
                       { "commands", std::move( commandNames ) },
+                      { "catalog", std::move( catalog ) },
                       { "topics", { "scene.state", "replay.state" } } };
     const std::string line = response.dump();
     m_trace << line << '\n';
@@ -1357,7 +1613,8 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
     {
         const PendingCompletion& completion = m_pendingCompletions.front();
         SendLifecycle( completion.requestId, completion.applied ? "applied" : "rejected",
-                       completion.reason.empty() ? nullptr : completion.reason.c_str() );
+                       completion.reason.empty() ? nullptr : completion.reason.c_str(), true,
+                       completion.hasResult ? &completion.result : nullptr );
         m_pendingCompletions.pop_front();
     }
 
