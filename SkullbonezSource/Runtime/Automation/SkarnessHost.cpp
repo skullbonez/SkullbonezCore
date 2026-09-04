@@ -341,23 +341,8 @@ void SkarnessHost::DisconnectClient()
     m_sceneStateSubscribed = false;
     m_replayStateSubscribed = false;
     m_receiveBuffer.clear();
-    // Invariant: one-shot clients disconnect after every applied command. The
-    // requested run state must survive that transport lifecycle; only an
-    // explicit run.pause command changes a resumed session back to paused.
-    m_stepFramesRemaining = 0;
-    m_renderFramesRemaining = 0;
-    m_stepRequestId.clear();
-    m_renderStepRequestId.clear();
-    m_untilRequestId.clear();
-    m_untilCondition.clear();
-    m_stopRequestId.clear();
-    m_pendingSceneTransition = PendingSceneTransition {};
-    m_pendingPointerDrag = PendingPointerDrag {};
-    m_stepCompletesAfterFrame = false;
-    m_untilFramesRemaining = 0;
-    m_untilStepsPhysics = false;
-    m_stopAfterFrame = false;
-    m_stopRequested = false;
+    // Invariant: transport loss never changes accepted work. Terminal results
+    // are retained by request id and replayed after a reconnect.
     (void)WriteManifest( "waiting" );
 }
 
@@ -565,6 +550,7 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         m_untilRequestId.clear();
         m_untilCondition.clear();
         m_stepCompletesAfterFrame = false;
+        m_untilLimit = 0;
         m_untilFramesRemaining = 0;
         m_untilStepsPhysics = false;
         SendLifecycle( requestId, "accepted" );
@@ -699,6 +685,7 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         std::string condition;
         int maximum = 0;
         const bool hasMaxFrames = arguments.contains( "maxFrames" );
+        const bool hasMaxTicks = arguments.contains( "maxTicks" );
         const char* maximumName = hasMaxFrames ? "maxFrames" : "maxTicks";
 
         if ( !m_untilRequestId.empty() || !m_stepRequestId.empty() || !m_renderStepRequestId.empty() )
@@ -707,7 +694,7 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
             return;
         }
 
-        if ( !ReadString( arguments, "condition", condition ) ||
+        if ( hasMaxFrames == hasMaxTicks || !ReadString( arguments, "condition", condition ) ||
              ( condition != "prediction.complete" && condition != "prediction.geometry" &&
                condition != "prediction.submitted" && condition != "prediction.rendered" &&
                condition != "prediction.causal_rendered" && condition != "camera.inspection_settled" &&
@@ -721,6 +708,7 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         m_paused = true;
         m_untilRequestId = requestId;
         m_untilCondition = std::move( condition );
+        m_untilLimit = static_cast<uint32_t>( maximum );
         m_untilFramesRemaining = static_cast<uint32_t>( maximum );
         m_untilStepsPhysics = !hasMaxFrames;
         SendLifecycle( requestId, "accepted" );
@@ -947,7 +935,7 @@ void SkarnessHost::CompleteCapture( uint64_t token, bool applied, const char* re
 
 bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
 {
-    if ( m_pendingPointerDrag.requestId.empty() )
+    if ( !m_connected || m_pendingPointerDrag.requestId.empty() )
     {
         return false;
     }
@@ -987,6 +975,14 @@ SkarnessProceedPolicy SkarnessHost::TakeProceedPolicy()
 
     if ( !m_enabled )
     {
+        return policy;
+    }
+
+    // Invariant: an accepted command retains its remaining work across pipe
+    // loss, but no physics tick is consumed until its controller reconnects.
+    if ( !m_connected )
+    {
+        policy.pauseLocked = true;
         return policy;
     }
 
@@ -1313,7 +1309,8 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                            expectedScene ? nullptr : "a different scene became active" );
             m_pendingSceneTransition = PendingSceneTransition {};
         }
-        else if ( m_pendingSceneTransition.framesRemaining > 0 && --m_pendingSceneTransition.framesRemaining == 0 )
+        else if ( m_connected && m_pendingSceneTransition.framesRemaining > 0 &&
+                  --m_pendingSceneTransition.framesRemaining == 0 )
         {
             SendLifecycle( m_pendingSceneTransition.requestId, "rejected",
                            "scene transition did not reach an activated generation" );
@@ -1328,7 +1325,7 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
         m_stepCompletesAfterFrame = false;
     }
 
-    if ( m_renderFramesRemaining > 0 && --m_renderFramesRemaining == 0 )
+    if ( m_connected && m_renderFramesRemaining > 0 && --m_renderFramesRemaining == 0 )
     {
         SendLifecycle( m_renderStepRequestId, "applied" );
         m_renderStepRequestId.clear();
@@ -1341,15 +1338,17 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
             SendLifecycle( m_untilRequestId, "applied" );
             m_untilRequestId.clear();
             m_untilCondition.clear();
+            m_untilLimit = 0;
             m_untilFramesRemaining = 0;
             m_untilStepsPhysics = false;
         }
-        else if ( m_untilFramesRemaining > 0 && --m_untilFramesRemaining == 0 )
+        else if ( m_connected && m_untilFramesRemaining > 0 && --m_untilFramesRemaining == 0 )
         {
             const std::string reason = UntilTimeoutReason( state );
             SendLifecycle( m_untilRequestId, "rejected", reason.c_str() );
             m_untilRequestId.clear();
             m_untilCondition.clear();
+            m_untilLimit = 0;
             m_untilStepsPhysics = false;
         }
     }
@@ -1455,7 +1454,8 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
 std::string SkarnessHost::UntilTimeoutReason( const SkarnessFrameState& state ) const
 {
     std::ostringstream reason;
-    reason << "condition '" << m_untilCondition << "' timed out: enabled=" << state.predictionEnabled
+    reason << "condition '" << m_untilCondition << "' timed out: limitKind=" << ( m_untilStepsPhysics ? "ticks" : "frames" )
+           << " limit=" << m_untilLimit << " observations=" << m_untilLimit << " enabled=" << state.predictionEnabled
            << " target=" << state.hasPathTarget << " targetId=" << state.pathTargetId
            << " publishedTargetId=" << state.publishedPredictionTargetId << " building=" << state.predictionBuilding
            << " complete=" << state.predictionComplete << " frames=" << state.publishedPredictionFrames

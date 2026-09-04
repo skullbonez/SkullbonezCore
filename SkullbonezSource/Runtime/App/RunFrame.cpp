@@ -1288,7 +1288,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
         FinishFrameWorkPhase( proceedPolicy );
         PresentFramePhase();
+        const bool restartFrame = CompleteFramePhase( proceedPolicy );
 #if defined( SKULLBONEZ_SKARNESS )
+        // Invariant: command completion observes the committed scene frame, not
+        // the pre-AdvanceFrame counter that produced the rendered image.
         PublishSkarnessFrameState();
 
         if ( m_skarness.TakeStopRequested() )
@@ -1302,7 +1305,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             return ResolveExecuteExit( 0 );
         }
 
-        if ( CompleteFramePhase( proceedPolicy ) )
+        if ( restartFrame )
         {
             continue;
         }

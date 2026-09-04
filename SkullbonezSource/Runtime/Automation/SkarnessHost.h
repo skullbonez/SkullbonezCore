@@ -137,6 +137,7 @@ class SkarnessHost
     std::string m_untilCondition;
     std::string m_stopRequestId;
     bool m_stepCompletesAfterFrame = false;
+    uint32_t m_untilLimit = 0;
     uint32_t m_untilFramesRemaining = 0;
     bool m_untilStepsPhysics = false;
     bool m_stopAfterFrame = false;

@@ -1,7 +1,7 @@
 # Skarness Command And State Harness
 
 Date: 2026-09-05
-Status: Active — 2/7 phases implemented; SK2 next
+Status: Active — 3/7 phases implemented; SK3 next
 Owner: Runtime Automation
 Impact area: Automation, Debug diagnostics, input/command routing, Replay, Prediction, Planning, query tools, and validation
 
@@ -308,7 +308,7 @@ total model-read bytes using the existing SkullScope accounting convention.
   deduplication, bounded command/result queues, reconnect behavior, and the
   `tools\skarness.bat` client. Profile/Release negative tests must reject the
   feature.
-- [ ] **SK2 — Add deterministic pause/step control.** Drain commands at the
+- [x] **SK2 — Add deterministic pause/step control.** Drain commands at the
   pre-input boundary, sample after render, flush before applied acknowledgements,
   and implement named `run.until` conditions with exact timeout evidence.
 - [ ] **SK3 — Complete replay command coverage.** Route selection and every

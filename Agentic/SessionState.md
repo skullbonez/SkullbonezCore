@@ -2,7 +2,7 @@
 
 Date: 2026-09-05
 Branch: `nightrunner-5th-SEP-26`
-Status: Skarness Command And State Harness active at 2/7; SK2 next; prior portfolio 143/143
+Status: Skarness Command And State Harness active at 3/7; SK3 next; prior portfolio 143/143
 
 ## Current State
 
@@ -21,8 +21,13 @@ Release reject its flags, manifests publish atomically with a current-user pipe,
 and reconnect/deduplication remain correct through 260 completed requests and
 an exact 128-command queue saturation. `tools/validate_skarness_transport.py`
 owns that focused regression; SK6 will fold it into the Automation closure gate
-when that phase replaces the fixed-frame replay smoke. SK2 next closes
-deterministic pause, step, and typed `run.until` behavior.
+when that phase replaces the fixed-frame replay smoke. SK2 now publishes state
+after the committed scene-frame boundary and proves exact three-tick, four-
+render-frame, immediate-condition, three-frame timeout, three-tick timeout, and
+25-tick disconnect/reconnect behavior. Accepted work freezes while its controller
+is absent, then resumes without lost or duplicate ticks. Automation and Debug
+builds, the transport regression, and `validate_fast` pass; no baseline changed.
+SK3 next completes replay, prediction, and planning command coverage.
 
 The owner completed `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
 branch and requested substantial related batches instead of a build after each
@@ -1170,7 +1175,9 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-No active plan. Await owner direction.
+Complete SK3 of `Skarness Command And State Harness`: route every replay,
+prediction, and planning player control through shared typed commands, then prove
+capability coverage and setter/idempotency behavior before advancing to SK4.
 
 ## Blockers
 

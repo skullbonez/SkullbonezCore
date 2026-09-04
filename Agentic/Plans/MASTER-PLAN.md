@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-09-05
-Status: Skarness Command And State Harness active; SK2 next; prior portfolio
+Status: Skarness Command And State Harness active; SK3 next; prior portfolio
 143/143 tasks complete; bug ledger 126/126 fixed
 
 ## Owner Direction
@@ -13,7 +13,10 @@ Status: Skarness Command And State Harness active; SK2 next; prior portfolio
   slice. SK1 now completes the session host and client contract: unsupported
   builds reject Skarness explicitly, atomic current-user sessions reconnect
   safely, request ids remain deduplicated under history pressure, and bounded
-  queue saturation is covered by the standard Automation gate.
+  queue saturation is covered by the focused transport regression. SK2 now
+  samples committed scene frames after render, gives fixed-tick and render-only
+  steps exact completion boundaries, suspends accepted work across controller
+  disconnects, and reports typed `run.until` limits and observations.
 
 - Engine Signature And Context Cohesion completed at 8/8 on 2026-09-01. SC0-SC7
   refreshed the whole-engine compiler inventory, repaired confirmed
@@ -362,7 +365,7 @@ hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
-| Skarness Command And State Harness | Active; SK2 next | 2/7 | `TODO/skarness-command-and-state-harness.md` |
+| Skarness Command And State Harness | Active; SK3 next | 3/7 | `TODO/skarness-command-and-state-harness.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -436,7 +439,7 @@ contracts into Rendering.
 ## Portfolio Progress
 
 The prior portfolio remains 143/143 complete and all 126 bug-ledger rows are
-fixed. Skarness is active at 2/7 phases, with SK2 next.
+fixed. Skarness is active at 3/7 phases, with SK3 next.
 Engine Signature And Context Cohesion is complete at 8/8. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0
