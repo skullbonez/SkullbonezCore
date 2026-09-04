@@ -597,10 +597,14 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
     const RunReplayPredictionFrame* presentedPrediction = CurrentPredictionScrubFrame();
     const ReplaySolverFrameSample* presentedSolver = CurrentSolverScrubSample();
     const ReplaySolverFrameSample* latestSolver = m_timeline.Solver().LatestSample();
-    const ReplayFrameIndex presentedFrame = presentedPrediction ? presentedPrediction->frameIndex
-                                            : presentedSolver   ? presentedSolver->frameIndex
-                                            : latestSolver      ? latestSolver->frameIndex
-                                                                : 0;
+    // Prediction frames use a local clock beginning at zero; solver-history
+    // frame identities are absolute. Mixing them makes a new cause selection
+    // scrub backward through an unrelated future pose before reaching its row.
+    const ReplayFrameIndex presentedFrame = seek.source == ReplayCauseSeekSource::Prediction
+                                                ? ( presentedPrediction ? presentedPrediction->frameIndex : 0 )
+                                            : presentedSolver ? presentedSolver->frameIndex
+                                            : latestSolver    ? latestSolver->frameIndex
+                                                              : 0;
     const bool simulationAlreadyPaused = m_scrubberOwner.View().liveAdvanceHeld;
     Vector3 targetPosition = Vector3( 0.0f, 0.0f, 0.0f );
     float targetRadius = 0.0f;
@@ -2249,6 +2253,8 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayReturnToLiveCommand&, Env
                                            RuntimeInteractionController& interaction, InputRouter& inputRouter, double now,
                                            ReplayWorkspaceOutput& output )
 {
+    const ReplayCauseExitAction causeExit = m_planningOwner.CauseInspection().BeginReturn();
+
     if ( HasLoadedPresentation() )
     {
         m_timeline.ClearLoadedPresentation();
@@ -2265,6 +2271,10 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayReturnToLiveCommand&, Env
     m_pendingCauseSelectionRow = -1;
     ExitInspectionCamera( cameras, terrain, camera, normalizedRestoreMode, attachedFollow, directorGrabbed, interaction,
                           inputRouter );
+    if ( causeExit.apply )
+    {
+        m_planningOwner.CauseInspection().CompleteReturn();
+    }
     output.enterInteractive = output.enterInteractive || enterInteractive;
     PublishTransportFeedback( "LIVE", now );
 }

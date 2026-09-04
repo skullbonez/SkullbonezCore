@@ -407,6 +407,25 @@ bool ApplySkarnessSessionDirectory( const char* value, ParsedArgs& args )
     fprintf( stdout, "[skarness] Session: %s\n", args.skarnessSessionDirectory );
     return true;
 }
+
+bool ApplyManualSkarnessSessionDirectory( const char* value, ParsedArgs& args )
+{
+    if ( !CopyCommandLinePath( value, "--skarness-manual", args.skarnessSessionDirectory,
+                               sizeof( args.skarnessSessionDirectory ) ) )
+    {
+        return false;
+    }
+
+    // Manual sessions retain the state stream and command pipe without taking
+    // ownership of hardware input, frame pacing, or the initial pause state.
+    args.skarnessManualInput = true;
+    args.interactiveRun = true;
+    args.suppressExitDialog = true;
+    args.replayRecording = true;
+    args.replayExplicit = true;
+    fprintf( stdout, "[skarness] Manual session: %s\n", args.skarnessSessionDirectory );
+    return true;
+}
 #endif
 bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
 {
@@ -947,6 +966,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.interactionRecordMaxMinutes = args.interactionRecordMaxMinutes;
 #if defined( SKULLBONEZ_SKARNESS )
     overrides.skarnessSessionDirectory = args.skarnessSessionDirectory[0] != '\0' ? args.skarnessSessionDirectory : nullptr;
+    overrides.skarnessManualInput = args.skarnessManualInput;
 #endif
     const bool replayDefaultAllowed = !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
 
@@ -1101,6 +1121,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--interaction-trace", "--interaction_trace", ApplyInteractionTracePath },
 #if defined( SKULLBONEZ_SKARNESS )
         { "--skarness", nullptr, ApplySkarnessSessionDirectory },
+        { "--skarness-manual", "--skarness_manual", ApplyManualSkarnessSessionDirectory },
 #endif
         { "--record-automation", "--record_automation", ApplyInteractionRecordPath },
         { "--record-interaction", "--record_interaction", ApplyInteractionRecordPath },

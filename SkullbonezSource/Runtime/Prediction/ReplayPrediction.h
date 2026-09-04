@@ -818,6 +818,7 @@ struct ReplayPredictionSolverEvidenceCaptureStats
     uint64_t copiedContactCount = 0;
     uint64_t copiedPipelineCount = 0;
     uint64_t capacityTruncationCount = 0;
+    uint64_t emptyBuildCommitCount = 0;
     ReplayFrameIndex firstTruncatedFrame = 0;
     bool consumerActive = false;
     bool capacityTruncated = false;
@@ -1074,6 +1075,7 @@ class ReplayPrediction
     ReplayPredictionMemoryStats CollectMemoryStats() const;
 
     ReplayPredictionSolverEvidenceCaptureStats SolverEvidenceCaptureStats() const noexcept;
+    ReplayPredictionSolverEvidenceBanksMemoryStats SolverEvidenceMemoryStats() const noexcept;
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     ReplayPredictionDetailMode AutomationDetailMode() const noexcept
     {

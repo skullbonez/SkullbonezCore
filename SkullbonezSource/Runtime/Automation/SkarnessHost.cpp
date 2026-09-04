@@ -27,6 +27,34 @@ constexpr std::size_t SKARNESS_COMMAND_CAPACITY = 128u;
 constexpr std::size_t SKARNESS_REQUEST_HISTORY_CAPACITY = 256u;
 constexpr std::size_t SKARNESS_RECEIVE_CAPACITY = 1024u * 1024u;
 
+struct StateSubscription
+{
+    bool scene = false;
+    bool replay = false;
+};
+
+bool ReadStateSubscription( const Json& arguments, StateSubscription& out )
+{
+    if ( !arguments.contains( "topics" ) || !arguments["topics"].is_array() )
+    {
+        return false;
+    }
+
+    for ( const Json& topic : arguments["topics"] )
+    {
+        if ( !topic.is_string() )
+        {
+            return false;
+        }
+
+        const std::string name = topic.get<std::string>();
+        out.scene = out.scene || name == "*" || name == "scene" || name == "scene.state";
+        out.replay = out.replay || name == "*" || name == "replay" || name == "replay.state";
+    }
+
+    return true;
+}
+
 HANDLE NativePipe( void* pipe )
 {
     return static_cast<HANDLE>( pipe );
@@ -175,7 +203,7 @@ SkarnessHost::~SkarnessHost()
     Shutdown( "closed" );
 }
 
-bool SkarnessHost::Configure( const char* sessionDirectory, std::string& outReason )
+bool SkarnessHost::Configure( const char* sessionDirectory, bool manualInput, std::string& outReason )
 {
     if ( !sessionDirectory || sessionDirectory[0] == '\0' )
     {
@@ -213,7 +241,8 @@ bool SkarnessHost::Configure( const char* sessionDirectory, std::string& outReas
     }
 
     m_enabled = true;
-    m_paused = true;
+    m_manualInput = manualInput;
+    m_paused = !manualInput;
 
     if ( !WriteManifest( "waiting" ) )
     {
@@ -309,8 +338,12 @@ void SkarnessHost::DisconnectClient()
     }
 
     m_connected = false;
+    m_sceneStateSubscribed = false;
+    m_replayStateSubscribed = false;
     m_receiveBuffer.clear();
-    m_paused = true;
+    // Invariant: one-shot clients disconnect after every applied command. The
+    // requested run state must survive that transport lifecycle; only an
+    // explicit run.pause command changes a resumed session back to paused.
     m_stepFramesRemaining = 0;
     m_renderFramesRemaining = 0;
     m_stepRequestId.clear();
@@ -503,6 +536,18 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
 
     if ( commandName == "state.subscribe" )
     {
+        StateSubscription subscription;
+
+        if ( !ReadStateSubscription( arguments, subscription ) )
+        {
+            SendLifecycle( requestId, "rejected", "topics must be an array of strings" );
+            return;
+        }
+
+        // Invariant: only requested topics enter the finite pipe buffer. The
+        // trace remains complete even when a command client is not consuming a stream.
+        m_sceneStateSubscribed = subscription.scene;
+        m_replayStateSubscribed = subscription.replay;
         SendLifecycle( requestId, "accepted" );
         SendLifecycle( requestId, "applied" );
         return;
@@ -510,6 +555,12 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
 
     if ( commandName == "input.pointer_drag" )
     {
+        if ( m_manualInput )
+        {
+            SendLifecycle( requestId, "rejected", "manual input owns the pointer" );
+            return;
+        }
+
         std::string buttonName;
         PendingPointerDrag drag;
         bool validButton = true;
@@ -621,7 +672,8 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         if ( !ReadString( arguments, "condition", condition ) ||
              ( condition != "prediction.complete" && condition != "prediction.geometry" &&
                condition != "prediction.submitted" && condition != "prediction.rendered" &&
-               condition != "prediction.causal_rendered" ) ||
+               condition != "prediction.causal_rendered" && condition != "camera.inspection_settled" &&
+               condition != "camera.main_restored" ) ||
              !ReadInteger( arguments, maximumName, maximum ) || maximum < 1 || maximum > 100000 )
         {
             SendLifecycle( requestId, "rejected", "condition or maxFrames/maxTicks is invalid" );
@@ -985,7 +1037,7 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
 
 void SkarnessHost::SendCapabilities( const std::string& requestId )
 {
-    static const std::array<const char*, 36> commands = { "capabilities.get",
+    static const std::array<const char*, 35> commands = { "capabilities.get",
                                                           "session.stop",
                                                           "capture.screenshot",
                                                           "scene.load",
@@ -1019,14 +1071,20 @@ void SkarnessHost::SendCapabilities( const std::string& requestId )
                                                           "prediction.select_target",
                                                           "replay.set_path_target",
                                                           "camera.orbit_inspection",
-                                                          "input.pointer_drag",
                                                           "state.subscribe" };
+    Json commandNames = commands;
+
+    if ( !m_manualInput )
+    {
+        commandNames.push_back( "input.pointer_drag" );
+    }
+
     Json response = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
                       { "sequence", ++m_sequence },
                       { "kind", "capabilities" },
                       { "requestId", requestId },
                       { "status", "applied" },
-                      { "commands", commands },
+                      { "commands", std::move( commandNames ) },
                       { "topics", { "scene.state", "replay.state" } } };
     const std::string line = response.dump();
     m_trace << line << '\n';
@@ -1068,7 +1126,11 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
     const std::string sceneLine = sceneEvent.dump();
     m_trace << sceneLine << '\n';
     m_trace.flush();
-    (void)SendJsonLine( sceneLine );
+
+    if ( m_sceneStateSubscribed )
+    {
+        (void)SendJsonLine( sceneLine );
+    }
 
     Json payload = { { "replayCaptureEnabled", state.replayCaptureEnabled },
                      { "replayScrubPaused", state.replayScrubPaused },
@@ -1093,6 +1155,13 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                      { "predictionSourceFrame", state.predictionSourceFrame },
                      { "predictionSourceSolverHash", state.predictionSourceSolverHash },
                      { "committedPredictionFrames", state.committedPredictionFrames },
+                     { "predictionBuildPublishedFrames", state.predictionBuildPublishedFrames },
+                     { "predictionWorkerFailed", state.predictionWorkerFailed },
+                     { "predictionEvidenceCapacityTruncated", state.predictionEvidenceCapacityTruncated },
+                     { "predictionEvidenceFirstTruncatedFrame", state.predictionEvidenceFirstTruncatedFrame },
+                     { "predictionEvidenceEmptyBuildCommitCount", state.predictionEvidenceEmptyBuildCommitCount },
+                     { "predictionEvidenceBuildFrames", state.predictionEvidenceBuildFrames },
+                     { "predictionEvidenceCommittedFrames", state.predictionEvidenceCommittedFrames },
                      { "incompleteContactFrameCount", state.incompleteContactFrameCount },
                      { "publishedPredictionTargetId", state.publishedPredictionTargetId },
                      { "publishedPredictionFrames", state.publishedPredictionFrames },
@@ -1120,6 +1189,13 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                      { "selectedCauseRow", state.selectedCauseRow },
                      { "causeInspectionMode", state.causeInspectionMode },
                      { "causeTransitionProgress", state.causeTransitionProgress },
+                     { "selectedCauseFrame", state.selectedCauseFrame },
+                     { "causeSourceFrame", state.causeSourceFrame },
+                     { "causeTargetFrame", state.causeTargetFrame },
+                     { "causePresentedFrame", state.causePresentedFrame },
+                     { "causeSeekSource", state.causeSeekSource },
+                     { "presentedReplayFrame", state.presentedReplayFrame },
+                     { "presentedReplayFrameSource", state.presentedReplayFrameSource },
                      { "inspectionCameraActive", state.inspectionCameraActive },
                      { "inspectionCameraFocusKind", state.inspectionCameraFocusKind },
                      { "inspectionFocusFadeActive", state.inspectionFocusFadeActive },
@@ -1137,6 +1213,10 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                      { "inspectionContextPathSegmentCount", state.inspectionContextPathSegmentCount },
                      { "inspectionPathOpacityMismatchCount", state.inspectionPathOpacityMismatchCount },
                      { "inspectionPathFocusActive", state.inspectionPathFocusActive },
+                     { "inspectionBodyMarkerId", state.inspectionBodyMarkerId },
+                     { "inspectionBodyMarkerPosition",
+                       { state.inspectionBodyMarkerX, state.inspectionBodyMarkerY, state.inspectionBodyMarkerZ } },
+                     { "inspectionBodyMarkerSubmitted", state.inspectionBodyMarkerSubmitted },
                      { "inspectionPivot", { state.inspectionPivotX, state.inspectionPivotY, state.inspectionPivotZ } },
                      { "selectedCameraHash", state.selectedCameraHash },
                      { "cameraTweenActive", state.cameraTweenActive },
@@ -1154,6 +1234,12 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                      { "trajectorySubmitted", state.trajectorySubmitted },
                      { "submittedSegmentCount", state.submittedSegmentCount },
                      { "submittedVertexCount", state.submittedVertexCount },
+                     { "submittedPredictionTargetId", state.submittedPredictionTargetId },
+                     { "submittedPredictionSourceFrame", state.submittedPredictionSourceFrame },
+                     { "submittedPredictionTopologyVersion", state.submittedPredictionTopologyVersion },
+                     { "submittedGeometryHash", state.submittedGeometryHash },
+                     { "submittedGeometryBytes", state.submittedGeometryBytes },
+                     { "publishedPredictionTopologyVersion", state.publishedPredictionTopologyVersion },
                      { "submittedFutureTreeReady", state.submittedFutureTreeReady } };
     Json event = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
                    { "sequence", ++m_sequence },
@@ -1168,7 +1254,11 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
     const std::string line = event.dump();
     m_trace << line << '\n';
     m_trace.flush();
-    (void)SendJsonLine( line );
+
+    if ( m_replayStateSubscribed )
+    {
+        (void)SendJsonLine( line );
+    }
 
     if ( !m_pendingSceneTransition.requestId.empty() )
     {
@@ -1273,6 +1363,10 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
 {
     const bool selectedTargetPublished = state.hasPathTarget && state.pathTargetId != 0u &&
                                          state.pathTargetId == state.publishedPredictionTargetId;
+    const bool currentSubmission = state.trajectorySubmitted && state.submittedPredictionTargetId == state.pathTargetId &&
+                                   state.submittedPredictionSourceFrame == state.predictionSourceFrame &&
+                                   state.submittedPredictionTopologyVersion == state.publishedPredictionTopologyVersion &&
+                                   state.submittedGeometryHash != 0u && state.submittedGeometryBytes != 0u;
 
     if ( m_untilCondition == "prediction.complete" )
     {
@@ -1284,15 +1378,13 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
     }
     if ( m_untilCondition == "prediction.submitted" )
     {
-        return selectedTargetPublished && state.trajectorySubmitted && state.submittedSegmentCount > 0 &&
-               state.submittedVertexCount > 0;
+        return selectedTargetPublished && currentSubmission;
     }
     if ( m_untilCondition == "prediction.rendered" )
     {
         return state.predictionEnabled && selectedTargetPublished && state.predictionComplete &&
                state.publishedPredictionFrames >= 2 && state.trajectoryRecordCount > 0 && state.visualPacketHasGeometry &&
-               state.trajectorySubmitted && state.submittedSegmentCount > 0 && state.submittedVertexCount > 0 &&
-               state.submittedFutureTreeReady;
+               currentSubmission && state.submittedFutureTreeReady;
     }
     if ( m_untilCondition == "prediction.causal_rendered" )
     {
@@ -1304,10 +1396,17 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
                state.drawnEndingWireframeCount == state.retainedEndMarkerCount &&
                state.collisionWireframePathMismatchCount == 0 && state.endingWireframePathMismatchCount == 0 &&
                // Why: causal validity is proven by the child/marker/wireframe
-               // agreement above. A fixed segment floor rejects valid compact
-               // trees whose renderer submits fewer than 32 segments.
-               state.trajectorySubmitted && state.submittedSegmentCount > 0 &&
-               state.submittedVertexCount >= state.submittedSegmentCount * 6 && state.submittedFutureTreeReady;
+               // agreement above. Submission is geometry-format neutral because
+               // stable predictions may use retained line or ribbon lanes.
+               currentSubmission && state.submittedFutureTreeReady;
+    }
+    if ( m_untilCondition == "camera.inspection_settled" )
+    {
+        return state.inspectionCameraActive && state.causeInspectionMode == 2 && !state.cameraTweenActive;
+    }
+    if ( m_untilCondition == "camera.main_restored" )
+    {
+        return !state.inspectionCameraActive && state.causeInspectionMode == 0 && !state.cameraTweenActive;
     }
 
     return false;
@@ -1343,6 +1442,7 @@ bool SkarnessHost::WriteManifest( const char* status )
                       { "sessionToken", m_sessionToken },
                       { "stateTrace", m_tracePath.string() },
                       { "physicsTrace", m_physicsTracePath.string() },
+                      { "manualInput", m_manualInput },
                       { "status", status ? status : "unknown" } };
     const std::filesystem::path partial = m_manifestPath.string() + ".partial";
     {

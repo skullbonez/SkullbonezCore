@@ -1,7 +1,7 @@
 # Skarness Command And State Harness
 
-Date: 2026-09-02
-Status: TODO — 0/7 phases implemented
+Date: 2026-09-05
+Status: Active — 1/7 phases implemented; SK1 next
 Owner: Runtime Automation
 Impact area: Automation, Debug diagnostics, input/command routing, Replay, Prediction, Planning, query tools, and validation
 
@@ -298,7 +298,7 @@ total model-read bytes using the existing SkullScope accounting convention.
 
 ## Implementation Phases
 
-- [ ] **SK0 — Lock schemas and coverage inventory.** Add versioned command,
+- [x] **SK0 — Lock schemas and coverage inventory.** Add versioned command,
   capability, acknowledgement, trace-envelope, topic, and condition definitions.
   Inventory every current replay control from keyboard, GameUI overlay,
   development UI, Prediction, and Planning. Add a failing coverage test before

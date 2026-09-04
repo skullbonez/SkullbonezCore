@@ -927,12 +927,22 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     state.predictionSourceFrame = prediction.simulation.sourceFrameIndex;
     state.predictionSourceSolverHash = prediction.simulation.sourceSolverHash;
     state.committedPredictionFrames = static_cast<uint32_t>( prediction.CommittedFrameCount() );
+    state.predictionBuildPublishedFrames = static_cast<uint32_t>( prediction.PublishedBuildFrameCount() );
+    state.predictionWorkerFailed = prediction.build.publication.WorkerFailed();
+    const ReplayPredictionSolverEvidenceCaptureStats evidenceCapture = m_predictionOwner.SolverEvidenceCaptureStats();
+    const ReplayPredictionSolverEvidenceBanksMemoryStats evidenceMemory = m_predictionOwner.SolverEvidenceMemoryStats();
+    state.predictionEvidenceCapacityTruncated = evidenceCapture.capacityTruncated;
+    state.predictionEvidenceFirstTruncatedFrame = evidenceCapture.firstTruncatedFrame;
+    state.predictionEvidenceEmptyBuildCommitCount = evidenceCapture.emptyBuildCommitCount;
+    state.predictionEvidenceBuildFrames = static_cast<uint32_t>( evidenceMemory.build.publishedFrameCount );
+    state.predictionEvidenceCommittedFrames = static_cast<uint32_t>( evidenceMemory.committed.publishedFrameCount );
 
     for ( const RunReplayPredictionFrame& frame : m_predictionOwner.ActiveFrames() )
     {
         state.incompleteContactFrameCount += frame.contactsIncomplete ? 1u : 0u;
     }
     state.publishedPredictionTargetId = packet.header.targetId.value;
+    state.publishedPredictionTopologyVersion = packet.header.topologyVersion;
     state.publishedPredictionFrames = static_cast<uint32_t>( m_predictionOwner.ActiveFrames().size() );
     state.trajectoryRecordCount = static_cast<uint32_t>( packet.trajectoryRecords.size() );
     const Physics::PhysicsSceneObjectId selectedTarget { static_cast<uint32_t>( state.input.pathTargetId ) };
@@ -1004,6 +1014,10 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     state.selectedCauseRow = causeInspection.Selection().selectedRow;
     state.causeInspectionMode = static_cast<int>( causeInspection.Transport().mode );
     state.causeTransitionProgress = causeInspection.Transport().easedProgress;
+    state.causeSourceFrame = causeInspection.Transport().sourceFrame;
+    state.causeTargetFrame = causeInspection.Transport().targetFrame;
+    state.causePresentedFrame = causeInspection.Transport().presentedFrame;
+    state.causeSeekSource = static_cast<int>( causeInspection.Transport().seekSource );
     state.causeContactPointCount = causeInspection.SolverDetail().contactPresentation.pointCount;
     state.submittedCauseContactPointCount = m_lastSubmittedCauseContactPointCount;
     state.submittedCauseContactBodyCount = m_lastSubmittedCauseContactBodyCount;
@@ -1013,6 +1027,18 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     {
         state.selectedCausePrimaryId = selectedCauseRow.id.value;
         state.selectedCauseCounterpartId = selectedCauseRow.counterpartId.value;
+        state.selectedCauseFrame = selectedCauseRow.firstFrame;
+    }
+
+    if ( const RunReplayPredictionFrame* presentedPrediction = CurrentPredictionScrubFrame() )
+    {
+        state.presentedReplayFrame = presentedPrediction->frameIndex;
+        state.presentedReplayFrameSource = 2;
+    }
+    else if ( const ReplaySolverFrameSample* presentedSolver = CurrentSolverScrubSample() )
+    {
+        state.presentedReplayFrame = presentedSolver->frameIndex;
+        state.presentedReplayFrameSource = 1;
     }
 
     state.inspectionCameraFocusKind = static_cast<int>( m_visualPresentation.CameraView().focusKind );
@@ -1033,6 +1059,10 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     state.inspectionFocusedPathSegmentCount = pathFocus.focusedSegmentCount;
     state.inspectionContextPathSegmentCount = pathFocus.contextSegmentCount;
     state.inspectionPathOpacityMismatchCount = pathFocus.opacityMismatchCount;
+    const ReplayCauseFocusDrawStats causeFocus = m_predictionPresentation.CauseFocusDrawStatsSnapshot();
+    state.inspectionBodyMarkerId = causeFocus.bodyId.value;
+    state.inspectionBodyMarkerPosition = causeFocus.markerPosition;
+    state.inspectionBodyMarkerSubmitted = causeFocus.bodyMarkerSubmitted;
     state.visualPacketHasGeometry = packet.HasGeometry();
     state.trajectorySubmission = m_predictionPresentation.TrajectorySubmissionProbeSnapshot();
     return state;
@@ -1125,22 +1155,23 @@ ReplayFrameSelection ReplayRuntime::BuildPresentationSelection() const
     const float solverPresentTrackPosition = SolverPresentTrackPosition();
     const bool futureSelected = !loadedPresentation &&
                                 ReplayTrackPositionIsFuture( trackPosition, solverPresentTrackPosition );
+    const RunReplayPredictionFrame* selectedPrediction = loadedPresentation ? nullptr : CurrentPredictionScrubFrame();
 
     ReplayFrameSelection selection;
     selection.replay.selectedPresentation = loadedPresentation ? LoadedPresentationSampleAtNormalized( trackPosition )
                                                                : nullptr;
 
     selection.replay.latestPresentation = loadedPresentation ? LoadedPresentationLatestSample() : nullptr;
-    selection.replay.selectedSolver = ( loadedPresentation || futureSelected )
+    selection.replay.selectedSolver = ( loadedPresentation || futureSelected || selectedPrediction )
                                           ? nullptr
                                           : m_timeline.Solver().SampleAtNormalized(
                                                 ReplaySolverNormalizedFromTrack( trackPosition,
                                                                                  solverPresentTrackPosition ) );
 
     selection.replay.latestSolver = loadedPresentation ? nullptr : m_timeline.Solver().LatestSample();
-    selection.selectedPrediction = futureSelected ? CurrentPredictionScrubFrame() : nullptr;
+    selection.selectedPrediction = selectedPrediction;
     selection.replay.currentPresentation = CurrentScrubSample();
-    selection.replay.currentSolver = scrubber.activeTrack == RunReplayTrack::Solver && IsScrubPaused()
+    selection.replay.currentSolver = !selectedPrediction && scrubber.activeTrack == RunReplayTrack::Solver && IsScrubPaused()
                                          ? selection.replay.selectedSolver
                                          : nullptr;
 
@@ -1983,6 +2014,23 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
                                                                                                  frameCount );
 
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
+
+    const ReplayCauseTransportView causeTransport = m_planningOwner.CauseInspectionView().Transport();
+    const bool causalPredictionFrame = causeTransport.seekSource == ReplayCauseSeekSource::Prediction &&
+                                       causeTransport.mode != ReplayCauseInspectionMode::Inactive &&
+                                       causeTransport.mode != ReplayCauseInspectionMode::Returning;
+
+    if ( causalPredictionFrame )
+    {
+        // Why: prediction frame zero occupies the solver scrubber's present
+        // dead-zone. Causal transport has exact frame identity, so it must not
+        // round that frame back to live time merely to satisfy pointer UX.
+        const ReplayFrameIndex presentedFrame = causeTransport.presentedFrame;
+        if ( presentedFrame < frameCount && frames[static_cast<std::size_t>( presentedFrame )].frameIndex == presentedFrame )
+        {
+            return &frames[static_cast<std::size_t>( presentedFrame )];
+        }
+    }
 
     if ( scrubber.activeTrack != RunReplayTrack::Solver || !scrubber.historicalSamplePaused || frameCount < 2 )
     {

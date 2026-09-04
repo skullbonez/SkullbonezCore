@@ -113,6 +113,13 @@ struct SkarnessFrameState
     uint64_t predictionSourceFrame = 0;
     uint64_t predictionSourceSolverHash = 0;
     uint32_t committedPredictionFrames = 0;
+    uint32_t predictionBuildPublishedFrames = 0;
+    bool predictionWorkerFailed = false;
+    bool predictionEvidenceCapacityTruncated = false;
+    uint64_t predictionEvidenceFirstTruncatedFrame = 0;
+    uint64_t predictionEvidenceEmptyBuildCommitCount = 0;
+    uint32_t predictionEvidenceBuildFrames = 0;
+    uint32_t predictionEvidenceCommittedFrames = 0;
     uint32_t incompleteContactFrameCount = 0;
     uint64_t publishedPredictionTargetId = 0;
     uint32_t publishedPredictionFrames = 0;
@@ -140,6 +147,13 @@ struct SkarnessFrameState
     int selectedCauseRow = -1;
     int causeInspectionMode = 0;
     float causeTransitionProgress = 0.0f;
+    uint64_t selectedCauseFrame = 0;
+    uint64_t causeSourceFrame = 0;
+    uint64_t causeTargetFrame = 0;
+    uint64_t causePresentedFrame = 0;
+    int causeSeekSource = 0;
+    uint64_t presentedReplayFrame = 0;
+    int presentedReplayFrameSource = 0;
     bool inspectionCameraActive = false;
     int inspectionCameraFocusKind = 0;
     bool inspectionFocusFadeActive = false;
@@ -157,6 +171,11 @@ struct SkarnessFrameState
     uint32_t inspectionContextPathSegmentCount = 0;
     uint32_t inspectionPathOpacityMismatchCount = 0;
     bool inspectionPathFocusActive = false;
+    uint64_t inspectionBodyMarkerId = 0;
+    float inspectionBodyMarkerX = 0.0f;
+    float inspectionBodyMarkerY = 0.0f;
+    float inspectionBodyMarkerZ = 0.0f;
+    bool inspectionBodyMarkerSubmitted = false;
     float inspectionPivotX = 0.0f;
     float inspectionPivotY = 0.0f;
     float inspectionPivotZ = 0.0f;
@@ -187,6 +206,12 @@ struct SkarnessFrameState
     bool trajectorySubmitted = false;
     uint32_t submittedSegmentCount = 0;
     uint32_t submittedVertexCount = 0;
+    uint64_t submittedPredictionTargetId = 0;
+    uint64_t submittedPredictionSourceFrame = 0;
+    uint32_t submittedPredictionTopologyVersion = 0;
+    uint64_t submittedGeometryHash = 0;
+    uint64_t submittedGeometryBytes = 0;
+    uint32_t publishedPredictionTopologyVersion = 0;
     bool submittedFutureTreeReady = false;
 };
 } // namespace SkullbonezCore::Runtime

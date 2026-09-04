@@ -1,10 +1,22 @@
 # Session State
 
-Date: 2026-09-01
-Branch: `nightrunner-31st-AUG-26`
-Status: No active implementation plan; Engine Signature And Context Cohesion complete at 8/8; portfolio 143/143
+Date: 2026-09-05
+Branch: `nightrunner-5th-SEP-26`
+Status: Skarness Command And State Harness active at 1/7; SK1 next; prior portfolio 143/143
 
 ## Current State
+
+The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish
+the plan without stopping. The bootstrap checkpoint repairs prediction
+publication, causal inspection timing/camera behavior, deterministic manual
+control, subscription durability, and renderer-bound identity evidence. Its
+15-case persistent Automation matrix, focused run-control checks, prediction
+unit cases, and two independent 6,800-frame replay captures pass. The replay
+visual baseline now records the corrected publication and the causal baseline
+transition from 200 to 201 topology nodes is being archived with its exact old
+and new Automation executables before the atomic checkpoint commit. SK0's
+versioned protocol and initial capability inventory landed in `f0c60b2a`; SK1
+now closes the session-host/client contract and its missing negative evidence.
 
 The owner completed `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
 branch and requested substantial related batches instead of a build after each

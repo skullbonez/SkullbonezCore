@@ -500,6 +500,23 @@ bool ReplayPredictionSolverEvidenceBanks::PromoteBuild() noexcept
     return true;
 }
 
+bool ReplayPredictionSolverEvidenceBanks::PromoteEmptyBuild() noexcept
+{
+    if ( m_banks[m_buildIndex].PublishedFrameCount() != 0u )
+    {
+        return false;
+    }
+
+    // Invariant: optional High-detail evidence may exhaust its bounded reserve
+    // before frame zero. Swap the empty generation into committed ownership so
+    // an older evidence bank cannot be paired with the newly committed future.
+    const uint8_t oldCommitted = m_committedIndex.load( std::memory_order_acquire );
+    m_committedIndex.store( m_buildIndex, std::memory_order_release );
+    m_buildIndex = oldCommitted;
+    RefreshLifetimePeak();
+    return true;
+}
+
 void ReplayPredictionSolverEvidenceBanks::CancelBuild() noexcept
 {
     m_banks[m_buildIndex].ResetPreservingCapacity();

@@ -648,13 +648,16 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     {
         std::string reason;
 
-        if ( !m_skarness.Configure( overrides.skarnessSessionDirectory, reason ) )
+        if ( !m_skarness.Configure( overrides.skarnessSessionDirectory, overrides.skarnessManualInput, reason ) )
         {
             return m_resultDiagnostics.Failure( "Skarness", "%s", reason.c_str() );
         }
 
         m_launchOptions.interactiveSceneRun = true;
-        m_launchOptions.fixedStep = true;
+        if ( !overrides.skarnessManualInput )
+        {
+            m_launchOptions.fixedStep = true;
+        }
         m_sceneController.EnterInteractiveRun();
         m_capture.DisableAutomationExit();
     }

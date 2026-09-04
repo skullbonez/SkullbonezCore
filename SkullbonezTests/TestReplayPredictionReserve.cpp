@@ -12,6 +12,36 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <vector>
+
+TEST_CASE( "Replay prediction frame payload reserve fills new horizon slots after a smaller scene load" )
+{
+    using SkullbonezCore::Runtime::ReplayPredictionReserveOperations::ReserveReplayPredictionFramePayloadVectors;
+
+    struct PredictionFrame
+    {
+        std::vector<int> bodies;
+    };
+
+    std::vector<PredictionFrame> frames( 4u );
+    frames[0].bodies.reserve( 4u );
+    frames[1].bodies.reserve( 4u );
+
+    // The first two rows carry as many aggregate elements as the four-row
+    // request, but the new horizon rows still require their own backing.
+    REQUIRE( frames[0].bodies.capacity() + frames[1].bodies.capacity() >= 8u );
+    REQUIRE( frames[2].bodies.capacity() == 0u );
+    REQUIRE( frames[3].bodies.capacity() == 0u );
+
+    REQUIRE( ReserveReplayPredictionFramePayloadVectors( frames, frames.size(), 2u, 0,
+                                                          "unit.prediction.frame_payload_holes",
+                                                          &PredictionFrame::bodies ) );
+
+    for ( const PredictionFrame& frame : frames )
+    {
+        CHECK( frame.bodies.capacity() >= 2u );
+    }
+}
 
 TEST_CASE( "Replay prediction archive candidate grant covers object and constructor backing allocations" )
 {

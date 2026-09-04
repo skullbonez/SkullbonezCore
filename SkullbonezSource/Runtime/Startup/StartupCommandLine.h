@@ -122,6 +122,7 @@ struct ParsedArgs
     int interactionRecordMaxMinutes = 1; // Integer 1..60; one minute is the default allocation ceiling.
 #if defined( SKULLBONEZ_SKARNESS )
     char skarnessSessionDirectory[260] = {};
+    bool skarnessManualInput = false;
 #endif
 
     // CLI --predict <body> arms the replay prediction workflow at startup so a

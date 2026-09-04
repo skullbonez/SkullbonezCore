@@ -164,6 +164,7 @@ struct RunStartupOverrides
     int interactionRecordMaxMinutes = 1;             // CLI recorder startup copy of the same launch limit.
 #if defined( SKULLBONEZ_SKARNESS )
     const char* skarnessSessionDirectory = nullptr; // CLI --skarness session directory copied by the harness owner.
+    bool skarnessManualInput = false;               // Preserve native device input and normal frame pacing while tracing.
 #endif
     bool configureReplayRecording = false; // True when replay capture or hash logging must be configured
     bool replayRecordingEnabled = true;

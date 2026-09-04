@@ -20,7 +20,7 @@ class SkarnessHost
     SkarnessHost( const SkarnessHost& ) = delete;
     SkarnessHost& operator=( const SkarnessHost& ) = delete;
 
-    bool Configure( const char* sessionDirectory, std::string& outReason );
+    bool Configure( const char* sessionDirectory, bool manualInput, std::string& outReason );
     void Shutdown( const char* status );
     void PollCommands();
     bool PopCommand( SkarnessCommand& outCommand );
@@ -44,6 +44,10 @@ class SkarnessHost
     bool Paused() const noexcept
     {
         return m_paused;
+    }
+    bool ManualInputEnabled() const noexcept
+    {
+        return m_manualInput;
     }
 
   private:
@@ -129,6 +133,9 @@ class SkarnessHost
     bool m_stopRequested = false;
     bool m_enabled = false;
     bool m_connected = false;
+    bool m_sceneStateSubscribed = false;
+    bool m_replayStateSubscribed = false;
+    bool m_manualInput = false;
     bool m_paused = true;
 };
 } // namespace SkullbonezCore::Runtime

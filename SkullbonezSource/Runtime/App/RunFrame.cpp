@@ -1357,6 +1357,13 @@ void Run::PublishSkarnessFrameState()
     state.predictionSourceFrame = replay.predictionSourceFrame;
     state.predictionSourceSolverHash = replay.predictionSourceSolverHash;
     state.committedPredictionFrames = replay.committedPredictionFrames;
+    state.predictionBuildPublishedFrames = replay.predictionBuildPublishedFrames;
+    state.predictionWorkerFailed = replay.predictionWorkerFailed;
+    state.predictionEvidenceCapacityTruncated = replay.predictionEvidenceCapacityTruncated;
+    state.predictionEvidenceFirstTruncatedFrame = replay.predictionEvidenceFirstTruncatedFrame;
+    state.predictionEvidenceEmptyBuildCommitCount = replay.predictionEvidenceEmptyBuildCommitCount;
+    state.predictionEvidenceBuildFrames = replay.predictionEvidenceBuildFrames;
+    state.predictionEvidenceCommittedFrames = replay.predictionEvidenceCommittedFrames;
     state.incompleteContactFrameCount = replay.incompleteContactFrameCount;
     state.publishedPredictionTargetId = replay.publishedPredictionTargetId;
     state.publishedPredictionFrames = replay.publishedPredictionFrames;
@@ -1384,6 +1391,13 @@ void Run::PublishSkarnessFrameState()
     state.selectedCauseRow = replay.selectedCauseRow;
     state.causeInspectionMode = replay.causeInspectionMode;
     state.causeTransitionProgress = replay.causeTransitionProgress;
+    state.selectedCauseFrame = replay.selectedCauseFrame;
+    state.causeSourceFrame = replay.causeSourceFrame;
+    state.causeTargetFrame = replay.causeTargetFrame;
+    state.causePresentedFrame = replay.causePresentedFrame;
+    state.causeSeekSource = replay.causeSeekSource;
+    state.presentedReplayFrame = replay.presentedReplayFrame;
+    state.presentedReplayFrameSource = replay.presentedReplayFrameSource;
     state.inspectionCameraActive = replay.input.inspectionCameraActive;
     state.inspectionCameraFocusKind = replay.inspectionCameraFocusKind;
     state.inspectionFocusFadeActive = replay.inspectionFocusFadeActive;
@@ -1401,6 +1415,11 @@ void Run::PublishSkarnessFrameState()
     state.inspectionContextPathSegmentCount = replay.inspectionContextPathSegmentCount;
     state.inspectionPathOpacityMismatchCount = replay.inspectionPathOpacityMismatchCount;
     state.inspectionPathFocusActive = replay.inspectionPathFocusActive;
+    state.inspectionBodyMarkerId = replay.inspectionBodyMarkerId;
+    state.inspectionBodyMarkerX = replay.inspectionBodyMarkerPosition.x;
+    state.inspectionBodyMarkerY = replay.inspectionBodyMarkerPosition.y;
+    state.inspectionBodyMarkerZ = replay.inspectionBodyMarkerPosition.z;
+    state.inspectionBodyMarkerSubmitted = replay.inspectionBodyMarkerSubmitted;
     const AttachedCameraState& inspectionCamera = m_attachedCamera.State();
     state.inspectionPivotX = inspectionCamera.inspectionPivot.x;
     state.inspectionPivotY = inspectionCamera.inspectionPivot.y;
@@ -1454,6 +1473,12 @@ void Run::PublishSkarnessFrameState()
     state.trajectorySubmitted = replay.trajectorySubmission.hasSubmission;
     state.submittedSegmentCount = replay.trajectorySubmission.segmentCount;
     state.submittedVertexCount = replay.trajectorySubmission.vertexCount;
+    state.submittedPredictionTargetId = replay.trajectorySubmission.presentationTargetId;
+    state.submittedPredictionSourceFrame = replay.trajectorySubmission.presentationSourceFrame;
+    state.submittedPredictionTopologyVersion = replay.trajectorySubmission.presentationTopologyVersion;
+    state.submittedGeometryHash = replay.trajectorySubmission.stableHash;
+    state.submittedGeometryBytes = replay.trajectorySubmission.geometryBytes;
+    state.publishedPredictionTopologyVersion = replay.publishedPredictionTopologyVersion;
     state.submittedFutureTreeReady = replay.trajectorySubmission.futureTreeReadyLastFrame;
 
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );

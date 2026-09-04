@@ -193,14 +193,17 @@ def watch(session: Path, topic: str) -> int:
         connection.close()
 
 
-def launch(session: Path, executable: Path, scene: Path | None) -> int:
+def launch(session: Path, executable: Path, scene: Path | None, hidden: bool = False, manual: bool = False) -> int:
     session.mkdir(parents=True, exist_ok=True)
     manifest = session / "session.json"
     if manifest.exists():
         manifest.unlink()
-    command = [str(executable.resolve()), "--skarness", str(session.resolve())]
+    skarness_option = "--skarness-manual" if manual else "--skarness"
+    command = [str(executable.resolve()), skarness_option, str(session.resolve())]
     if scene is not None:
         command.extend(("--scene", str(scene.resolve())))
+    if hidden:
+        command.append("--automation-hidden-window")
     stdout = open(session / "process.stdout.log", "wb")
     stderr = open(session / "process.stderr.log", "wb")
     try:
@@ -393,6 +396,9 @@ def build_parser() -> argparse.ArgumentParser:
     launch_parser.add_argument("--session", required=True, type=Path)
     launch_parser.add_argument("--exe", type=Path, default=Path("Automation/SKULLBONEZ_CORE.exe"))
     launch_parser.add_argument("--scene", type=Path)
+    launch_parser.add_argument("--hidden", action="store_true")
+    launch_parser.add_argument("--manual", action="store_true",
+                               help="trace a player-controlled run without replacing native input or frame pacing")
 
     command = subparsers.add_parser("command")
     command.add_argument("session", type=Path)
@@ -452,7 +458,7 @@ def main() -> int:
         if args.action == "capabilities":
             return run_command(args.session, "capabilities.get", {})
         if args.action == "launch":
-            return launch(args.session, args.exe, args.scene)
+            return launch(args.session, args.exe, args.scene, args.hidden, args.manual)
         if args.action == "command":
             return run_command(args.session, args.command, parse_arguments(args.arguments))
         if args.action == "load-scene":

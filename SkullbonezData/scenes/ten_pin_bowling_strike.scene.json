@@ -1,0 +1,296 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 4,
+  "name": "Ten Pin Bowling Strike",
+  "cinematic": {},
+  "simulation": {
+    "seed": 1010,
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": true
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "exitOnComplete": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false
+  },
+  "cameras": [
+    {
+      "name": "bowling_overview",
+      "position": [
+        425.0,
+        72.0,
+        610.0
+      ],
+      "view": [
+        555.0,
+        5.0,
+        500.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "bowling_ball",
+      "position": [
+        475.0,
+        6.5,
+        499.2
+      ],
+      "radius": 6.5,
+      "mass": 24.0,
+      "moment": 405.6,
+      "restitution": 0.22,
+      "fixed": false,
+      "force": [
+        1104.0,
+        0.0,
+        0.0
+      ],
+      "impulseWorldOffsetFromCenter": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "contactMaterial": "rubber"
+    },
+    {
+      "type": "box",
+      "name": "bowling_pin_01",
+      "position": [
+        605.0,
+        7.0,
+        500.0
+      ],
+      "halfExtents": [
+        2.6,
+        7.0,
+        2.6
+      ],
+      "mass": 1.5,
+      "restitution": 0.28,
+      "fixed": false,
+      "contactMaterial": "wood"
+    },
+    {
+      "type": "box",
+      "name": "bowling_pin_02",
+      "position": [
+        611.5,
+        7.0,
+        496.8
+      ],
+      "halfExtents": [
+        2.6,
+        7.0,
+        2.6
+      ],
+      "mass": 1.5,
+      "restitution": 0.28,
+      "fixed": false,
+      "contactMaterial": "wood"
+    },
+    {
+      "type": "box",
+      "name": "bowling_pin_03",
+      "position": [
+        611.5,
+        7.0,
+        503.2
+      ],
+      "halfExtents": [
+        2.6,
+        7.0,
+        2.6
+      ],
+      "mass": 1.5,
+      "restitution": 0.28,
+      "fixed": false,
+      "contactMaterial": "wood"
+    },
+    {
+      "type": "box",
+      "name": "bowling_pin_04",
+      "position": [
+        618.0,
+        7.0,
+        493.6
+      ],
+      "halfExtents": [
+        2.6,
+        7.0,
+        2.6
+      ],
+      "mass": 1.5,
+      "restitution": 0.28,
+      "fixed": false,
+      "contactMaterial": "wood"
+    },
+    {
+      "type": "box",
+      "name": "bowling_pin_05",
+      "position": [
+        618.0,
+        7.0,
+        500.0
+      ],
+      "halfExtents": [
+        2.6,
+        7.0,
+        2.6
+      ],
+      "mass": 1.5,
+      "restitution": 0.28,
+      "fixed": false,
+      "contactMaterial": "wood"
+    },
+    {
+      "type": "box",
+      "name": "bowling_pin_06",
+      "position": [
+        618.0,
+        7.0,
+        506.4
+      ],
+      "halfExtents": [
+        2.6,
+        7.0,
+        2.6
+      ],
+      "mass": 1.5,
+      "restitution": 0.28,
+      "fixed": false,
+      "contactMaterial": "wood"
+    },
+    {
+      "type": "box",
+      "name": "bowling_pin_07",
+      "position": [
+        624.5,
+        7.0,
+        490.4
+      ],
+      "halfExtents": [
+        2.6,
+        7.0,
+        2.6
+      ],
+      "mass": 1.5,
+      "restitution": 0.28,
+      "fixed": false,
+      "contactMaterial": "wood"
+    },
+    {
+      "type": "box",
+      "name": "bowling_pin_08",
+      "position": [
+        624.5,
+        7.0,
+        496.8
+      ],
+      "halfExtents": [
+        2.6,
+        7.0,
+        2.6
+      ],
+      "mass": 1.5,
+      "restitution": 0.28,
+      "fixed": false,
+      "contactMaterial": "wood"
+    },
+    {
+      "type": "box",
+      "name": "bowling_pin_09",
+      "position": [
+        624.5,
+        7.0,
+        503.2
+      ],
+      "halfExtents": [
+        2.6,
+        7.0,
+        2.6
+      ],
+      "mass": 1.5,
+      "restitution": 0.28,
+      "fixed": false,
+      "contactMaterial": "wood"
+    },
+    {
+      "type": "box",
+      "name": "bowling_pin_10",
+      "position": [
+        624.5,
+        7.0,
+        509.6
+      ],
+      "halfExtents": [
+        2.6,
+        7.0,
+        2.6
+      ],
+      "mass": 1.5,
+      "restitution": 0.28,
+      "fixed": false,
+      "contactMaterial": "wood"
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "bowling_ball",
+      "mode": "matte",
+      "tint": [
+        0.08,
+        0.16,
+        0.55
+      ],
+      "roughness": 0.18,
+      "specular": 0.75,
+      "name": "blue_bowling_ball"
+    }
+  ],
+  "requirements": {
+    "contacts": [
+      {
+        "a": "bowling_ball",
+        "b": "bowling_pin_01"
+      }
+    ],
+    "sleepingDynamicBodies": [
+      "bowling_pin_01",
+      "bowling_pin_02",
+      "bowling_pin_03",
+      "bowling_pin_04",
+      "bowling_pin_05",
+      "bowling_pin_06",
+      "bowling_pin_07",
+      "bowling_pin_08",
+      "bowling_pin_09",
+      "bowling_pin_10"
+    ]
+  }
+}

@@ -198,6 +198,7 @@ class ReplayPredictionSolverEvidenceBanks
                                                                  ReplayPredictionContactSpan contacts,
                                                                  ReplayPredictionPipelineSpan pipeline, int frameNumber );
     bool PromoteBuild() noexcept;
+    bool PromoteEmptyBuild() noexcept;
     void CancelBuild() noexcept;
     void ReleaseCapacity() noexcept;
 

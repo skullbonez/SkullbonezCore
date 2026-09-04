@@ -23,6 +23,17 @@ Inspect capabilities before constructing a workflow. If a required player
 control or state field is absent, add it to Skarness as part of the task. Do not
 use desktop input to hide the gap.
 
+For a player-driven reproduction, add `--manual`. The Automation build keeps
+publishing its state and accepting later client connections, but native mouse,
+keyboard, cursor, frame pacing, and initial run state remain player-owned:
+
+```powershell
+python tools\skarness.py launch --manual --session TestOutput\skarness\<case> --exe Automation\SKULLBONEZ_CORE.exe
+```
+
+Do not send synthetic pointer commands during a manual reproduction unless the
+user explicitly hands input ownership back to the harness.
+
 ## Drive intent and wait for outcomes
 
 Send typed commands through the client. Prefer stable scene object IDs when the
@@ -73,6 +84,11 @@ Subscribe when the sequence or state growth matters:
 ```powershell
 python tools\skarness.py watch TestOutput\skarness\<case> --topic replay
 ```
+
+Only subscribed topics are written to the live pipe; every topic is still
+preserved in the session JSONL. Send an empty `topics` array to stop streaming
+without closing the command connection. This keeps persistent command clients
+from overflowing the finite pipe buffer while they inspect files or screenshots.
 
 Preserve the session JSONL as evidence. An `applied` command result confirms
 input routing only; it does not prove the gameplay outcome.

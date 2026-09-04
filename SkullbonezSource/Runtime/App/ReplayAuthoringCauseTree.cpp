@@ -203,8 +203,8 @@ float ReplayCauseTreeColliderRadiusForBody( const ColliderStore& colliderStore, 
 // Physics::PhysicsSceneObjectId is the identity check in every source.
 // Invariant: this helper stores no view and never repairs topology while input
 // is active. The frame boundary prepared paired body/collider stores first.
-bool ResolveReplayCauseTreeBodyPosition( Physics::PhysicsSceneObjectId id, bool predictionEnabled,
-                                         Physics::PhysicsSceneObjectId predictionTargetId,
+bool ResolveReplayCauseTreeBodyPosition( Physics::PhysicsSceneObjectId id, ReplayFrameIndex selectedFrame,
+                                         bool predictionEnabled, Physics::PhysicsSceneObjectId predictionTargetId,
                                          Physics::PhysicsSceneObjectId pathTargetId,
                                          std::span<const RunReplayPredictionFrame> activePredictionFrames,
                                          const ReplaySolverFrameSample* solverSample, const PhysicsBodyStore& bodyStore,
@@ -235,7 +235,16 @@ bool ResolveReplayCauseTreeBodyPosition( Physics::PhysicsSceneObjectId id, bool 
 
     if ( predictionEnabled && !activePredictionFrames.empty() && predictionTargetId.value == pathTargetId.value )
     {
-        for ( const RunReplayPredictionBodySample& body : activePredictionFrames.front().bodies )
+        const auto selected = std::find_if( activePredictionFrames.begin(), activePredictionFrames.end(),
+                                            [&]( const RunReplayPredictionFrame& frame )
+                                            { return frame.frameIndex == selectedFrame; } );
+
+        if ( selected == activePredictionFrames.end() )
+        {
+            return false;
+        }
+
+        for ( const RunReplayPredictionBodySample& body : selected->bodies )
         {
             if ( body.id.value == id.value )
             {
@@ -1198,9 +1207,9 @@ bool SkullbonezCore::Runtime::ActivateReplayCauseTreeRow(
     const Physics::PhysicsSceneObjectId pathTargetId = presentationOwner.PathVisualizer().targetId;
     const auto resolveBody = [&]( Physics::PhysicsSceneObjectId id, Vector3& outPosition, float* outRadius )
     {
-        return ResolveReplayCauseTreeBodyPosition( id, prediction.enabled, predictionView.topology.targetId, pathTargetId,
-                                                   activePredictionFrames, currentSolverSample, bodyStore, colliderStore,
-                                                   outPosition, outRadius );
+        return ResolveReplayCauseTreeBodyPosition( id, row.firstFrame, prediction.enabled, predictionView.topology.targetId,
+                                                   pathTargetId, activePredictionFrames, currentSolverSample, bodyStore,
+                                                   colliderStore, outPosition, outRadius );
     };
 
     // Lifetime: replay focus borrows already-prepared physics store views for

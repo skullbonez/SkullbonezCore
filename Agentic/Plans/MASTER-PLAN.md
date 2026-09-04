@@ -1,10 +1,16 @@
 # MASTER PLAN
 
-Date: 2026-09-01
-Status: No active implementation plan; 143/143 tasks complete; bug ledger
-126/126 fixed
+Date: 2026-09-05
+Status: Skarness Command And State Harness active; SK1 next; prior portfolio
+143/143 tasks complete; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-05 the owner activated Skarness Command And State Harness and
+  directed the Night Runner to complete it without stopping. The current
+  prediction/cause-camera repair checkpoint, its identity-bound Automation
+  matrix, and its governed replay-fidelity transition enter as the bootstrap
+  slice before SK1 completes the session host and client contract.
 
 - Engine Signature And Context Cohesion completed at 8/8 on 2026-09-01. SC0-SC7
   refreshed the whole-engine compiler inventory, repaired confirmed
@@ -353,7 +359,7 @@ hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
-| None | Await owner direction | - | - |
+| Skarness Command And State Harness | Active; SK1 next | 1/7 | `TODO/skarness-command-and-state-harness.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -390,8 +396,9 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`SIGNATURE_COHESION` SC0-SC7 is complete. No implementation plan is active;
-selection of a parked or backlog plan requires owner direction.
+`SKARNESS` SK0-SK6 is active by owner direction and is the only selectable
+implementation plan. `SIGNATURE_COHESION` SC0-SC7 remains complete; selection
+of a parked or backlog plan still requires separate owner direction.
 
 `RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
 complete on `codex/replay-capture-bugfixes`.
@@ -425,7 +432,8 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-143/143 implementation tasks complete, and all 126 bug-ledger rows are fixed.
+The prior portfolio remains 143/143 complete and all 126 bug-ledger rows are
+fixed. Skarness is active at 1/7 phases, with SK1 next.
 Engine Signature And Context Cohesion is complete at 8/8. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0

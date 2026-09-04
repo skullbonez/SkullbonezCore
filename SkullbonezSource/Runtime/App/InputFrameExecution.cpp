@@ -1303,7 +1303,7 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
 
     DeviceInputFrame deviceFrame;
 #if defined( SKULLBONEZ_SKARNESS )
-    if ( m_skarness.Enabled() )
+    if ( m_skarness.Enabled() && !m_skarness.ManualInputEnabled() )
     {
         SkarnessPointerInputFrame skarnessPointer;
         Input::AutomationState automation;
