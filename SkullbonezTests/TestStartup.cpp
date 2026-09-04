@@ -193,6 +193,16 @@ TEST_CASE( "Startup command line: primitive value parsers reject partial writes 
     CHECK( std::strcmp( GetCommandLineError(), "--output requires an output path." ) == 0 );
 }
 
+#if !defined( SKULLBONEZ_SKARNESS )
+TEST_CASE( "Startup command line: non-Skarness builds reject Skarness session flags" )
+{
+    constexpr const char* expected = "--skarness is available only in Debug and Automation builds.";
+    CheckRunDirectiveFailure( "--skarness TestOutput/skarness/session", expected );
+    CheckRunDirectiveFailure( "--skarness-manual TestOutput/skarness/session", expected );
+    CheckRunDirectiveFailure( "--skarness_manual TestOutput/skarness/session", expected );
+}
+#endif
+
 TEST_CASE( "Startup launch values: every run directive family projects into owned state" )
 {
     const CommandLineView commandLine = View(

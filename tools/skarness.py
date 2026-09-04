@@ -76,8 +76,13 @@ class SkarnessConnection:
     def close(self) -> None:
         self.pipe.close()
 
-    def send(self, command: str, arguments: dict[str, object] | None = None) -> str:
-        request_id = uuid.uuid4().hex
+    def send(
+        self,
+        command: str,
+        arguments: dict[str, object] | None = None,
+        request_id: str | None = None,
+    ) -> str:
+        request_id = request_id or uuid.uuid4().hex
         request = {
             "schemaVersion": SCHEMA_VERSION,
             "sessionToken": self.token,

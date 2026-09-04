@@ -2,7 +2,7 @@
 
 Date: 2026-09-05
 Branch: `nightrunner-5th-SEP-26`
-Status: Skarness Command And State Harness active at 1/7; SK1 next; prior portfolio 143/143
+Status: Skarness Command And State Harness active at 2/7; SK2 next; prior portfolio 143/143
 
 ## Current State
 
@@ -13,10 +13,16 @@ control, subscription durability, and renderer-bound identity evidence. Its
 15-case persistent Automation matrix, focused run-control checks, prediction
 unit cases, and two independent 6,800-frame replay captures pass. The replay
 visual baseline now records the corrected publication and the causal baseline
-transition from 200 to 201 topology nodes is being archived with its exact old
-and new Automation executables before the atomic checkpoint commit. SK0's
-versioned protocol and initial capability inventory landed in `f0c60b2a`; SK1
-now closes the session-host/client contract and its missing negative evidence.
+transition from 200 to 201 topology nodes is archived with its exact old and
+new Automation executables in checkpoint `7b6d74367`. SK0's versioned protocol
+and initial capability inventory landed in `f0c60b2a`. SK1 completes the
+session-host/client contract: Debug and Automation own the feature, Profile and
+Release reject its flags, manifests publish atomically with a current-user pipe,
+and reconnect/deduplication remain correct through 260 completed requests and
+an exact 128-command queue saturation. `tools/validate_skarness_transport.py`
+owns that focused regression; SK6 will fold it into the Automation closure gate
+when that phase replaces the fixed-frame replay smoke. SK2 next closes
+deterministic pause, step, and typed `run.until` behavior.
 
 The owner completed `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
 branch and requested substantial related batches instead of a build after each

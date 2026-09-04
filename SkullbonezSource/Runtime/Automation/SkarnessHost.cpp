@@ -429,21 +429,71 @@ void SkarnessHost::PollCommands()
     }
 }
 
-bool SkarnessHost::RememberRequestId( const std::string& requestId )
+SkarnessHost::RememberRequestResult SkarnessHost::RememberRequestId( const std::string& requestId )
 {
     if ( std::find( m_recentRequestIds.begin(), m_recentRequestIds.end(), requestId ) != m_recentRequestIds.end() )
     {
-        return false;
+        return RememberRequestResult::Duplicate;
+    }
+
+    if ( m_recentRequestIds.size() >= SKARNESS_REQUEST_HISTORY_CAPACITY )
+    {
+        // Invariant: an in-flight id cannot be forgotten and applied twice.
+        // Reclaim the oldest completed slot, or reject new work while every
+        // retained id still has an unresolved command.
+        const auto evict = std::find_if( m_recentRequestIds.begin(), m_recentRequestIds.end(),
+                                         [this]( const std::string& retainedId )
+                                         {
+                                             return std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
+                                                                  [&retainedId]( const CompletedRequest& result )
+                                                                  { return result.requestId == retainedId; } ) !=
+                                                    m_completedRequests.end();
+                                         } );
+
+        if ( evict == m_recentRequestIds.end() )
+        {
+            return RememberRequestResult::Full;
+        }
+
+        const auto completed = std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
+                                             [&evict]( const CompletedRequest& result )
+                                             { return result.requestId == *evict; } );
+        m_completedRequests.erase( completed );
+        m_recentRequestIds.erase( evict );
     }
 
     m_recentRequestIds.push_back( requestId );
+    return RememberRequestResult::Inserted;
+}
 
-    if ( m_recentRequestIds.size() > SKARNESS_REQUEST_HISTORY_CAPACITY )
+bool SkarnessHost::AdmitRequestId( const std::string& requestId )
+{
+    const RememberRequestResult remember = RememberRequestId( requestId );
+
+    if ( remember == RememberRequestResult::Inserted )
     {
-        m_recentRequestIds.pop_front();
+        return true;
     }
 
-    return true;
+    if ( remember == RememberRequestResult::Duplicate )
+    {
+        const auto completed = std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
+                                             [&requestId]( const CompletedRequest& result )
+                                             { return result.requestId == requestId; } );
+
+        if ( completed != m_completedRequests.end() )
+        {
+            (void)SendJsonLine( completed->response );
+        }
+        else
+        {
+            SendLifecycle( requestId, "duplicate", "the original request is still pending" );
+        }
+        return false;
+    }
+
+    SendLifecycle( requestId, "rejected", "request history is full", false );
+    return false;
 }
 
 void SkarnessHost::ConsumeRequestLine( const std::string& line )
@@ -477,24 +527,12 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
     if ( schemaVersion != SKARNESS_SCHEMA_VERSION || sessionToken != m_sessionToken || requestId.empty() ||
          commandName.empty() )
     {
-        SendLifecycle( requestId, "rejected", "schema, token, requestId, or command is invalid" );
+        SendLifecycle( requestId, "rejected", "schema, token, requestId, or command is invalid", false );
         return;
     }
 
-    if ( !RememberRequestId( requestId ) )
+    if ( !AdmitRequestId( requestId ) )
     {
-        const auto completed = std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
-                                             [&requestId]( const CompletedRequest& result )
-                                             { return result.requestId == requestId; } );
-
-        if ( completed != m_completedRequests.end() )
-        {
-            (void)SendJsonLine( completed->response );
-        }
-        else
-        {
-            SendLifecycle( requestId, "duplicate", "the original request is still pending" );
-        }
         return;
     }
 
@@ -993,7 +1031,31 @@ bool SkarnessHost::SendJsonLine( const std::string& line )
     return true;
 }
 
-void SkarnessHost::SendLifecycle( const std::string& requestId, const char* status, const char* reason )
+void SkarnessHost::StoreCompletedResponse( const std::string& requestId, const std::string& response )
+{
+    const bool retained = std::find( m_recentRequestIds.begin(), m_recentRequestIds.end(), requestId ) !=
+                          m_recentRequestIds.end();
+
+    if ( requestId.empty() || !retained )
+    {
+        return;
+    }
+
+    const auto existing = std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
+                                        [&requestId]( const CompletedRequest& result )
+                                        { return result.requestId == requestId; } );
+
+    if ( existing != m_completedRequests.end() )
+    {
+        existing->response = response;
+    }
+    else
+    {
+        m_completedRequests.push_back( CompletedRequest { requestId, response } );
+    }
+}
+
+void SkarnessHost::SendLifecycle( const std::string& requestId, const char* status, const char* reason, bool retainResult )
 {
     Json response = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
                       { "sequence", ++m_sequence },
@@ -1010,26 +1072,9 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
     m_trace << line << '\n';
     m_trace.flush();
 
-    if ( status && ( std::strcmp( status, "applied" ) == 0 || std::strcmp( status, "rejected" ) == 0 ) &&
-         !requestId.empty() )
+    if ( retainResult && status && ( std::strcmp( status, "applied" ) == 0 || std::strcmp( status, "rejected" ) == 0 ) )
     {
-        const auto existing = std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
-                                            [&requestId]( const CompletedRequest& result )
-                                            { return result.requestId == requestId; } );
-
-        if ( existing != m_completedRequests.end() )
-        {
-            existing->response = line;
-        }
-        else
-        {
-            m_completedRequests.push_back( CompletedRequest { requestId, line } );
-        }
-
-        if ( m_completedRequests.size() > SKARNESS_REQUEST_HISTORY_CAPACITY )
-        {
-            m_completedRequests.pop_front();
-        }
+        StoreCompletedResponse( requestId, line );
     }
 
     (void)SendJsonLine( line );
@@ -1089,12 +1134,7 @@ void SkarnessHost::SendCapabilities( const std::string& requestId )
     const std::string line = response.dump();
     m_trace << line << '\n';
     m_trace.flush();
-    m_completedRequests.push_back( CompletedRequest { requestId, line } );
-
-    if ( m_completedRequests.size() > SKARNESS_REQUEST_HISTORY_CAPACITY )
-    {
-        m_completedRequests.pop_front();
-    }
+    StoreCompletedResponse( requestId, line );
 
     (void)SendJsonLine( line );
 }

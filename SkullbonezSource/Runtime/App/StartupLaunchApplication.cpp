@@ -426,6 +426,11 @@ bool ApplyManualSkarnessSessionDirectory( const char* value, ParsedArgs& args )
     fprintf( stdout, "[skarness] Manual session: %s\n", args.skarnessSessionDirectory );
     return true;
 }
+#else
+bool RejectUnsupportedSkarness( const char*, ParsedArgs& )
+{
+    return FailCommandLineParse( "--skarness is available only in Debug and Automation builds." );
+}
 #endif
 bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
 {
@@ -1122,6 +1127,9 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
 #if defined( SKULLBONEZ_SKARNESS )
         { "--skarness", nullptr, ApplySkarnessSessionDirectory },
         { "--skarness-manual", "--skarness_manual", ApplyManualSkarnessSessionDirectory },
+#else
+        { "--skarness", nullptr, RejectUnsupportedSkarness },
+        { "--skarness-manual", "--skarness_manual", RejectUnsupportedSkarness },
 #endif
         { "--record-automation", "--record_automation", ApplyInteractionRecordPath },
         { "--record-interaction", "--record_interaction", ApplyInteractionRecordPath },

@@ -51,13 +51,23 @@ class SkarnessHost
     }
 
   private:
+    enum class RememberRequestResult : uint8_t
+    {
+        Inserted,
+        Duplicate,
+        Full,
+    };
+
     bool CreatePipe( std::string& outReason );
     void AcceptClient();
     void DisconnectClient();
     void ConsumeRequestLine( const std::string& line );
-    bool RememberRequestId( const std::string& requestId );
+    RememberRequestResult RememberRequestId( const std::string& requestId );
+    bool AdmitRequestId( const std::string& requestId );
+    void StoreCompletedResponse( const std::string& requestId, const std::string& response );
     bool SendJsonLine( const std::string& line );
-    void SendLifecycle( const std::string& requestId, const char* status, const char* reason = nullptr );
+    void SendLifecycle( const std::string& requestId, const char* status, const char* reason = nullptr,
+                        bool retainResult = true );
     void SendCapabilities( const std::string& requestId );
     bool WriteManifest( const char* status );
     bool UntilConditionMet( const SkarnessFrameState& state ) const noexcept;
