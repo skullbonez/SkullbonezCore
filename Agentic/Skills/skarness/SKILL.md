@@ -39,6 +39,15 @@ deterministic advancement, and `run.until` through `wait` for a named outcome.
 Do not interrupt a client after its command is accepted; wait for its applied or
 rejected result.
 
+Use `input.pointer_drag` when the behavior depends on the physical pointer
+route rather than a semantic UI command. It emits a press frame, a raw-movement
+frame, and a release frame through `Input::CaptureDeviceInputFrame`, so edge
+creation, capture, camera-look ownership, and dismissal policy are all exercised:
+
+```powershell
+python tools\skarness.py command TestOutput\skarness\<case> input.pointer_drag button=right x=800 y=450 deltaX=-65 deltaY=20
+```
+
 Exercise scene lifecycle defects in one persistent session. Scene commands do
 not report `applied` until the requested generation is activated and ready:
 

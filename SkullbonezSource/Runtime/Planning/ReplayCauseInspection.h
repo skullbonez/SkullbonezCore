@@ -205,6 +205,7 @@ struct ReplayCauseDisplayView
     int iterationsFirstRow = 0;
     ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
     bool detailVisible = false;
+    bool drawerOpen = false;
     float drawerProgress = 0.0f;
 };
 
@@ -279,6 +280,14 @@ struct ReplayCauseInspectionRecordingState
 bool ShouldBeginReplayCauseAftermath( const ReplayCauseTransportView& transport, bool spaceDown ) noexcept;
 bool ShouldBeginReplayCauseReturn( const ReplayCauseTransportView& transport, bool nonSelectionClick,
                                    bool scrubExit ) noexcept;
+constexpr bool ReplayCauseInspectionOwnsCamera( ReplayCauseInspectionMode mode ) noexcept
+{
+    return mode != ReplayCauseInspectionMode::Inactive;
+}
+constexpr bool ReplayCauseInspectionAcceptsOrbit( ReplayCauseInspectionMode mode ) noexcept
+{
+    return mode == ReplayCauseInspectionMode::DetailPaused || mode == ReplayCauseInspectionMode::AftermathFollow;
+}
 
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_VISIBLE_ROWS = 4;
 inline constexpr double REPLAY_CAUSE_INSPECTOR_DRAWER_SECONDS = 0.18;
@@ -287,7 +296,9 @@ inline constexpr float REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH = 280.0f;
 inline constexpr float REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT = 76.0f;
 inline constexpr float REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT = 38.0f;
 inline constexpr float REPLAY_CAUSE_INSPECTOR_PADDING = 12.0f;
-inline constexpr float REPLAY_CAUSE_INSPECTOR_SHARED_SEAM_WIDTH = 1.0f;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_SHARED_SEAM_WIDTH = 2.0f;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_TOGGLE_WIDTH = 18.0f;
+inline constexpr float REPLAY_CAUSE_INSPECTOR_TOGGLE_HEIGHT = 42.0f;
 inline constexpr float REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH = 5.0f;
 inline constexpr float REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE = 22.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_EMPTY_HEIGHT = 44.0f;
@@ -408,6 +419,7 @@ struct ReplayCauseInspectorLayout
     UI::UIRect targetDrawer;
     UI::UIRect drawerTitle;
     UI::UIRect drawerClose;
+    UI::UIRect drawerToggle;
     std::array<UI::UIRect, 3> tabs;
     UI::UIRect content;
     UI::UIRect rawTable;
@@ -439,6 +451,7 @@ inline ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayC
 }
 bool ReplayCauseInspectorContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
 bool ReplayCauseInspectorDrawerTitleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
+bool ReplayCauseInspectorToggleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
 int ReplayCauseSolverDetailIterationCount( const ReplayCauseSolverDetailView& solverDetail,
                                            std::size_t contactRow ) noexcept;
 ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseSolverDetailView& solverDetail,
@@ -473,6 +486,7 @@ class ReplayCauseInspection
     void CompleteReturn() noexcept;
     void RestoreInteractionRecordingBaseline( const ReplayCauseInspectionRecordingState& baseline,
                                               double nowSeconds ) noexcept;
+    void SetDrawerOpen( bool open, double nowSeconds ) noexcept;
     bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
                                      bool hasClientPosition, bool pointerBlocked, bool leftPressed, int wheelDelta,
                                      int screenWidth, int screenHeight,

@@ -53,6 +53,7 @@ struct AttachedCameraState
     bool hasFixedOffset = false;
     bool hasOrbit = false;
     bool hasLastLookDirection = false;
+    bool hasInspectionPivot = false;
     bool hasReturnCameraPose = false;
     bool needsEntryTween = false;
     RunCameraMode returnMode = RunCameraMode::Inspect;
@@ -64,6 +65,10 @@ struct AttachedCameraState
     Math::Vector::Vector3 localViewOffset = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
     Math::Vector::Vector3 localUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
     Math::Vector::Vector3 lastLookDirection = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    // Invariant: focused inspection orbits the selected historical collision
+    // point. The current live body center may move independently after restore.
+    Math::Vector::Vector3 inspectionPivot = Math::Vector::ZERO_VECTOR;
+    float inspectionRadius = 1.0f;
     Math::Vector::Vector3 returnEye = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 returnView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
     Math::Vector::Vector3 returnUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
@@ -74,6 +79,17 @@ struct AttachedCameraPose
     Math::Vector::Vector3 eye = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 view = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
     Math::Vector::Vector3 up = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+};
+
+// Value-only request for a prepared inspection view. The focus point may be a
+// future body/contact position, so Scene validates identity without replacing
+// it with the body's current live position.
+struct AttachedCameraFocusRequest
+{
+    Physics::PhysicsSceneObjectId sceneObjectId;
+    Physics::ModelRowHint modelRow;
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
+    float radius = 1.0f;
 };
 
 struct AttachedCameraPhysicsTarget

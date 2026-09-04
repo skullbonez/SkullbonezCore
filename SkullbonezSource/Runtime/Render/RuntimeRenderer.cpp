@@ -2079,8 +2079,9 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
 
     const bool collisionStateColorsVisible = policy.collisionVisualizer;
     const bool debugTransparentBodyPass = policy.physicsDebugTransparent && policy.physicsDebugAlpha < 1.0f;
+    const RuntimeObjectFocusRenderPolicy focusPolicy = ResolveObjectFocusRenderPolicy( world.replayFocusFadeActive );
     const std::vector<uint8_t>* replayFocusModelMask = world.replayFocusFadeActive ? world.replayFocusModelMask : nullptr;
-    const bool transparentBodyPass = debugTransparentBodyPass || world.replayFocusFadeActive;
+    const bool transparentBodyPass = debugTransparentBodyPass || focusPolicy.splitTransparentPasses;
     const float bodyRenderAlpha = debugTransparentBodyPass ? policy.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
     const bool useDxrReflection = ShouldUseDxrReflection( raytracingAvailable, policy, collisionStateColorsVisible,
@@ -2150,9 +2151,9 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
                                                    renderGraph, renderDiagnostics, m_resources.GpuTiming() );
     }
 
-    // Opaque bodies render before terrain/water unless debug transparency asks
-    // for a late transparent body pass.
-    if ( !debugTransparentBodyPass )
+    // Opaque bodies render before terrain/water unless debug transparency or
+    // causal focus asks for a late transparent body pass.
+    if ( !transparentBodyPass )
     {
         const ObjectPassInputs objectInputs { camera,
                                               models,
@@ -2266,11 +2267,36 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
                                              objectShadowFrame,
                                              collisionStateColorsVisible,
                                              collisionVisualizerAlphaOverride,
-                                             0.5f,
+                                             focusPolicy.contextAlpha,
                                              replayFocusModelMask,
                                              false };
 
         ExecuteObjectThroughRenderGraph( { fadedInputs, useCinematicTarget } );
+
+        const ObjectPassInputs focusedInputs { camera,
+                                               models,
+                                               world.collisionDebug,
+                                               instanceRenderer,
+                                               primitiveRenderer,
+                                               ordinaryLighting,
+                                               primitiveShaderBaseName,
+                                               m_resources.Assets(),
+                                               renderResources,
+                                               renderGeometry,
+                                               m_resources.Textures(),
+                                               renderTextures,
+                                               renderDiagnostics,
+                                               &m_resources.GpuTiming(),
+                                               ObjectPassMode::Transparent,
+                                               activeCinematic,
+                                               objectShadowFrame,
+                                               collisionStateColorsVisible,
+                                               collisionVisualizerAlphaOverride,
+                                               focusPolicy.focusedAlpha,
+                                               replayFocusModelMask,
+                                               true };
+
+        ExecuteObjectThroughRenderGraph( { focusedInputs, useCinematicTarget } );
     }
 
     {
@@ -2291,7 +2317,7 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
     m_frameGraphSnapshot.shadowPassExecuted = shadowPassExecuted;
     m_frameGraphSnapshot.reflectionPassExecuted = reflectionPassNeeded;
     m_frameGraphSnapshot.reflectionUsedDxr = reflection.usedDxr;
-    m_frameGraphSnapshot.objectOpaquePass = !debugTransparentBodyPass;
+    m_frameGraphSnapshot.objectOpaquePass = !transparentBodyPass;
     m_frameGraphSnapshot.objectTransparentPass = transparentBodyPass;
     m_frameGraphSnapshot.terrainPassRendered = !policy.terrainHidden;
     m_frameGraphSnapshot.waterPassRendered = waterDebug.rendered;

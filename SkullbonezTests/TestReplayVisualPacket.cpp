@@ -842,8 +842,8 @@ TEST_CASE( "Replay child outgoing trajectory starts at the collision frame" )
     state->trajectoryBuild.valid = true;
     REQUIRE( state->trajectoryStore.ReserveRecords( 4u, 0 ) );
 
-    UpdateReplayPredictionTrajectoryStore( *state, frames, frames.size(), false, rootId,
-                                           std::chrono::steady_clock::now(), 0.0 );
+    UpdateReplayPredictionTrajectoryStore( *state, frames, frames.size(), false, rootId, std::chrono::steady_clock::now(),
+                                           0.0 );
 
     ReplayTrajectoryRecordKey incomingKey { childId, ReplayTrajectoryLane::FutureChildIncoming, 0u };
     ReplayTrajectoryRecordKey outgoingKey { childId, ReplayTrajectoryLane::FutureChildOutgoing, 0u };
@@ -1499,8 +1499,8 @@ TEST_CASE( "Replay child marker retains the predicted collision pose" )
     prediction->futureNodeCache.futureNodesTopologyVersion = 1u;
 
     ReplayPredictionChildMarkerScanState scan;
-    REQUIRE( AdvanceReplayPredictionChildMarkerScan( scan, *prediction, frames, frames.size(), frames.back().frameIndex,
-                                                      1u, rootId, false, true, std::chrono::steady_clock::now(), 1000.0 ) );
+    REQUIRE( AdvanceReplayPredictionChildMarkerScan( scan, *prediction, frames, frames.size(), frames.back().frameIndex, 1u,
+                                                     rootId, false, true, std::chrono::steady_clock::now(), 1000.0 ) );
     REQUIRE( scan.nodeCount == 1u );
     CHECK( scan.nodes[0].hasEntryPose );
     CHECK( scan.nodes[0].active );
@@ -1983,6 +1983,25 @@ TEST_CASE( "Replay retained continuation chunks repair only their shared adjacen
     CHECK( arena[2u * floatsPerRecord + 13u] == 0.0f );
     CHECK( std::equal( siblingSnapshot.begin(), siblingSnapshot.end(),
                        arena.begin() + static_cast<std::ptrdiff_t>( floatsPerRecord ) ) );
+}
+
+TEST_CASE( "Replay causal focus fades only unrelated retained path identities" )
+{
+    using SkullbonezCore::Runtime::ReplayOverlay::REPLAY_INSPECTION_CONTEXT_PATH_OPACITY;
+    using SkullbonezCore::Runtime::ReplayOverlay::ReplayPredictionPathFocus;
+
+    const ReplayPredictionPathFocus focus { 10u, 11u };
+    CHECK( focus.Active() );
+    CHECK( focus.Contains( 10u ) );
+    CHECK( focus.Contains( 11u ) );
+    CHECK_FALSE( focus.Contains( 12u ) );
+    CHECK( focus.OpacityFor( 10u ) == doctest::Approx( 1.0f ) );
+    CHECK( focus.OpacityFor( 11u ) == doctest::Approx( 1.0f ) );
+    CHECK( focus.OpacityFor( 12u ) == doctest::Approx( REPLAY_INSPECTION_CONTEXT_PATH_OPACITY ) );
+
+    const ReplayPredictionPathFocus inactive;
+    CHECK_FALSE( inactive.Active() );
+    CHECK( inactive.OpacityFor( 12u ) == doctest::Approx( 1.0f ) );
 }
 
 TEST_CASE( "Replay space prediction draws every body path instead of causal-only paths" )

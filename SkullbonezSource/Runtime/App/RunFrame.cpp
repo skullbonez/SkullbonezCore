@@ -1361,6 +1361,7 @@ void Run::PublishSkarnessFrameState()
     state.publishedPredictionTargetId = replay.publishedPredictionTargetId;
     state.publishedPredictionFrames = replay.publishedPredictionFrames;
     state.trajectoryRecordCount = replay.trajectoryRecordCount;
+    state.selectedPastRootPointCount = replay.selectedPastRootPointCount;
     state.selectedFutureRootPointCount = replay.selectedFutureRootPointCount;
     state.contactChildIncomingCount = replay.contactChildIncomingCount;
     state.contactChildOutgoingCount = replay.contactChildOutgoingCount;
@@ -1374,6 +1375,80 @@ void Run::PublishSkarnessFrameState()
     state.futureNodeCount = replay.futureNodeCount;
     state.retainedLineFloatCount = replay.retainedLineFloatCount;
     state.retainedRibbonVertexFloatCount = replay.retainedRibbonVertexFloatCount;
+    state.causeTreeRowCount = replay.causeTreeRowCount;
+    state.causeTreeRowBuildCount = replay.causeTreeRowBuildCount;
+    state.causeTreeRowCacheHitCount = replay.causeTreeRowCacheHitCount;
+    state.causeWindowAvailable = replay.causeWindowAvailable;
+    state.causeInspectorOpen = replay.causeInspectorOpen;
+    state.causeInspectorDrawerProgress = replay.causeInspectorDrawerProgress;
+    state.selectedCauseRow = replay.selectedCauseRow;
+    state.causeInspectionMode = replay.causeInspectionMode;
+    state.causeTransitionProgress = replay.causeTransitionProgress;
+    state.inspectionCameraActive = replay.input.inspectionCameraActive;
+    state.inspectionCameraFocusKind = replay.inspectionCameraFocusKind;
+    state.inspectionFocusFadeActive = replay.inspectionFocusFadeActive;
+    state.inspectionFocusObjectCount = replay.inspectionFocusObjectCount;
+    state.selectedCausePrimaryId = replay.selectedCausePrimaryId;
+    state.selectedCauseCounterpartId = replay.selectedCauseCounterpartId;
+    state.causeContactPointCount = replay.causeContactPointCount;
+    state.submittedCauseContactPointCount = replay.submittedCauseContactPointCount;
+    state.submittedCauseContactBodyCount = replay.submittedCauseContactBodyCount;
+    state.inspectionPathFocusPrimaryId = replay.inspectionPathFocusPrimaryId;
+    state.inspectionPathFocusCounterpartId = replay.inspectionPathFocusCounterpartId;
+    state.inspectionFocusedPathRangeCount = replay.inspectionFocusedPathRangeCount;
+    state.inspectionContextPathRangeCount = replay.inspectionContextPathRangeCount;
+    state.inspectionFocusedPathSegmentCount = replay.inspectionFocusedPathSegmentCount;
+    state.inspectionContextPathSegmentCount = replay.inspectionContextPathSegmentCount;
+    state.inspectionPathOpacityMismatchCount = replay.inspectionPathOpacityMismatchCount;
+    state.inspectionPathFocusActive = replay.inspectionPathFocusActive;
+    const AttachedCameraState& inspectionCamera = m_attachedCamera.State();
+    state.inspectionPivotX = inspectionCamera.inspectionPivot.x;
+    state.inspectionPivotY = inspectionCamera.inspectionPivot.y;
+    state.inspectionPivotZ = inspectionCamera.inspectionPivot.z;
+    Environment::CameraCollection& cameras = m_sceneController.Scene().Cameras();
+    state.selectedCameraHash = cameras.GetSelectedCameraName();
+    state.cameraTweenActive = cameras.IsTweening();
+    state.cameraTweenProgress = cameras.TweenProgress();
+    const Vector3 primaryEye = cameras.GetCameraTranslation();
+    const Vector3 primaryView = cameras.GetCameraView();
+    const Vector3 primaryUp = cameras.GetCameraUp();
+    const Vector3 renderEye = cameras.GetRenderCameraTranslation();
+    const Vector3 renderView = cameras.GetRenderCameraView();
+    const Vector3 renderUp = cameras.GetRenderCameraUp();
+    state.cameraPrimaryEyeX = primaryEye.x;
+    state.cameraPrimaryEyeY = primaryEye.y;
+    state.cameraPrimaryEyeZ = primaryEye.z;
+    state.cameraPrimaryViewX = primaryView.x;
+    state.cameraPrimaryViewY = primaryView.y;
+    state.cameraPrimaryViewZ = primaryView.z;
+    state.cameraPrimaryUpX = primaryUp.x;
+    state.cameraPrimaryUpY = primaryUp.y;
+    state.cameraPrimaryUpZ = primaryUp.z;
+    state.cameraRenderEyeX = renderEye.x;
+    state.cameraRenderEyeY = renderEye.y;
+    state.cameraRenderEyeZ = renderEye.z;
+    state.cameraRenderViewX = renderView.x;
+    state.cameraRenderViewY = renderView.y;
+    state.cameraRenderViewZ = renderView.z;
+    state.cameraRenderUpX = renderUp.x;
+    state.cameraRenderUpY = renderUp.y;
+    state.cameraRenderUpZ = renderUp.z;
+
+    Vector3 renderDirection = renderView - renderEye;
+    Vector3 normalizedRenderUp = renderUp;
+
+    if ( renderDirection.TryNormalise() )
+    {
+        normalizedRenderUp -= renderDirection * SkullbonezCore::Math::Vector::Dot( normalizedRenderUp, renderDirection );
+        Vector3 expectedUp = Vector3( 0.0f, 1.0f, 0.0f ) - renderDirection * renderDirection.y;
+
+        if ( normalizedRenderUp.TryNormalise() && expectedUp.TryNormalise() )
+        {
+            state.cameraRenderRollRadians = acosf(
+                std::clamp( SkullbonezCore::Math::Vector::Dot( expectedUp, normalizedRenderUp ), -1.0f, 1.0f ) );
+        }
+    }
+
     state.retainedPathGeometrySaturated = replay.retainedPathGeometrySaturated;
     state.visualPacketHasGeometry = replay.visualPacketHasGeometry;
     state.trajectorySubmitted = replay.trajectorySubmission.hasSubmission;
@@ -1890,8 +1965,11 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
 {
     m_camera.AdvanceAutoCycleClock( m_sceneController.State().isSceneMode, simulationDt );
     const AttachedCameraState& attachedState = m_attachedCamera.State();
-    const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( m_camera.mode ) && attachedState.activeFollow &&
-                                         attachedState.submode != AttachedCameraSubmode::RagdollEyes;
+    const ReplayCauseInspectionMode causeInspectionMode = m_replayRuntime.CauseInspectionView().Transport().mode;
+    const bool causeInspectionOwnsCamera = ReplayCauseInspectionOwnsCamera( causeInspectionMode );
+    const bool attachedOrbitOwnsCamera = causeInspectionOwnsCamera ||
+                                         ( RunCameraModeIsAttached( m_camera.mode ) && attachedState.activeFollow &&
+                                           attachedState.submode != AttachedCameraSubmode::RagdollEyes );
     const bool flyControlsActive = RunCameraModeUsesFlyControls( m_camera.mode, attachedState.activeFollow,
                                                                  m_camera.director.grabbed );
     const bool manualControlsActive = RunCameraModeUsesManualControls( m_camera.mode, attachedState.activeFollow,

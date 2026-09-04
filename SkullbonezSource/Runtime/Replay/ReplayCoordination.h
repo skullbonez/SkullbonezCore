@@ -149,7 +149,8 @@ enum class ReplayTransportAction : uint8_t
     Save,
     Load,
     ReturnToLive,
-    SelectCauseRow
+    SelectCauseRow,
+    SetCauseInspectorOpen
 };
 
 struct ReplaySetRecordingEnabledCommand
@@ -241,6 +242,12 @@ struct ReplaySelectCauseRowCommand
     int rowIndex = -1;
 };
 
+struct ReplaySetCauseInspectorOpenCommand
+{
+    static constexpr ReplayTransportAction action = ReplayTransportAction::SetCauseInspectorOpen;
+    bool open = false;
+};
+
 // Invariant: each transport alternative carries only the payload accepted by
 // that action. The dispatcher cannot observe a stale scalar, row, or toggle
 // value left behind by a different UI command.
@@ -249,8 +256,8 @@ using ReplayTransportCommand = std::variant<
     ReplayStepBackwardCommand, ReplayStepForwardCommand, ReplaySetRevealSpeedCommand, ReplayScrubCommand,
     ReplayTogglePredictionCommand, ReplaySetPredictionDetailModeCommand, ReplaySetPredictionHorizonCommand,
     ReplaySetVelocityEditEnabledCommand, ReplaySetRagdollVisualsEnabledCommand, ReplaySetPastPathVisibleCommand,
-    ReplayRestoreBranchCommand, ReplaySaveCommand, ReplayLoadCommand, ReplayReturnToLiveCommand,
-    ReplaySelectCauseRowCommand>;
+    ReplayRestoreBranchCommand, ReplaySaveCommand, ReplayLoadCommand, ReplayReturnToLiveCommand, ReplaySelectCauseRowCommand,
+    ReplaySetCauseInspectorOpenCommand>;
 
 inline ReplayTransportAction ReplayTransportCommandAction( const ReplayTransportCommand& command ) noexcept
 {

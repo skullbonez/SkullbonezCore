@@ -71,10 +71,10 @@ class AttachedCameraController
     bool TogglePin( Runtime::SceneWorld& collection );
     bool ApplyOrbitInput( Runtime::SceneWorld& collection, bool attachModeActive, int unhandledWheelDelta,
                           bool uiBlocksCameraMouse );
-    bool BeginFocusedInspection( Runtime::SceneWorld& collection, Physics::PhysicsSceneObjectId focusedId,
-                                 Physics::ModelRowHint modelRow );
-    bool TickFocusedInspection( Runtime::SceneWorld& collection, float orbitYawDelta, float orbitPitchDelta, int wheelDelta,
-                                float presentationAlpha );
+    bool BeginFocusedInspection( Runtime::SceneWorld& collection, const AttachedCameraFocusRequest& request,
+                                 AttachedCameraPose& outPreparedPose );
+    bool TickFocusedInspection( Runtime::SceneWorld& collection, float orbitYawDelta, float orbitPitchDelta,
+                                int wheelDelta );
     void EndFocusedInspection();
     bool SetTarget( Runtime::SceneWorld& collection, int modelIndex, AttachedCameraTargetSelection& outSelection );
     AttachedCameraSeedResult SeedTarget( Runtime::SceneWorld& collection, int seedModelIndex,

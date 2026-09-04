@@ -41,6 +41,12 @@ struct ReplayTrajectoryAppearanceConfig;
 
 namespace SkullbonezCore::Runtime
 {
+struct ReplayPathSegmentPresentation
+{
+    float emphasis = 0.0f;
+    float opacity = 1.0f;
+};
+
 class EditorTracer
 {
   private:
@@ -140,9 +146,9 @@ class EditorTracer
                                float b,
                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane =
                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
-                               float emphasis = 0.0f );
+                               ReplayPathSegmentPresentation presentation = {} );
     void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g,
-                                      float b );
+                                      float b, float opacity = 1.0f );
     void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r,
                                        float g, float b, float opacity = 1.0f );
     void AddReplayContactMarker( const Math::Vector::Vector3& point, const Math::Vector::Vector3& normal, float r, float g,

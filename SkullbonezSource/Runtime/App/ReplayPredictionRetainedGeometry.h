@@ -59,6 +59,7 @@ inline constexpr std::size_t
 inline constexpr std::size_t PREDICTION_TRAJECTORY_RANGE_CAPACITY = 4096u;
 inline constexpr std::size_t PREDICTION_TRAJECTORY_ORDINARY_LINE_FLOAT_CAPACITY = 262144u;
 inline constexpr std::size_t PREDICTION_TRAJECTORY_PRIORITY_LINE_FLOAT_CAPACITY = 524288u;
+inline constexpr float REPLAY_INSPECTION_CONTEXT_PATH_OPACITY = 0.08f;
 
 // Prediction retains the authored asset identity while Rendering receives it
 // only as a cold source value paired with the generic retained-ribbon contract.
@@ -94,6 +95,40 @@ struct ReplayPredictionRetainedRecord
                  colorR,          colorG,          colorB,    alpha,     edgeFeather, emphasis, previousStart.x,
                  previousStart.y, previousStart.z, nextEnd.x, nextEnd.y, nextEnd.z };
     }
+};
+
+struct ReplayPredictionPathFocus
+{
+    uint64_t primaryId = 0;
+    uint64_t counterpartId = 0;
+    float contextOpacity = REPLAY_INSPECTION_CONTEXT_PATH_OPACITY;
+
+    bool Active() const noexcept
+    {
+        return primaryId != 0;
+    }
+
+    bool Contains( uint64_t bodyId ) const noexcept
+    {
+        return Active() && bodyId != 0 && ( bodyId == primaryId || bodyId == counterpartId );
+    }
+
+    float OpacityFor( uint64_t bodyId ) const noexcept
+    {
+        return !Active() || Contains( bodyId ) ? 1.0f : contextOpacity;
+    }
+};
+
+struct ReplayPredictionPathFocusStats
+{
+    uint64_t primaryId = 0;
+    uint64_t counterpartId = 0;
+    uint32_t focusedRangeCount = 0;
+    uint32_t contextRangeCount = 0;
+    uint32_t focusedSegmentCount = 0;
+    uint32_t contextSegmentCount = 0;
+    uint32_t opacityMismatchCount = 0;
+    bool active = false;
 };
 
 inline bool AppendPredictionRetainedRecord( std::span<float> arena, Rendering::RetainedGeometryRangeToken& range,
@@ -228,8 +263,10 @@ class ReplayPredictionRetainedGeometry
     // Invariant: keeping the fixed 513,000-float payload behind a pointer keeps
     // the process-lifetime ReplayRuntime owner off the bounded launcher stack.
     std::unique_ptr<float[]> m_records;
+    std::unique_ptr<float[]> m_baseAlphas;
     std::array<Rendering::RetainedGeometryRangeToken, PREDICTION_TRAJECTORY_RANGE_CAPACITY> m_ranges = {};
     std::array<Rendering::RetainedGeometryRangeToken, PREDICTION_TRAJECTORY_RANGE_CAPACITY> m_drawRanges = {};
+    std::array<uint64_t, PREDICTION_TRAJECTORY_RANGE_CAPACITY> m_rangeFocusIdentities = {};
     std::size_t m_rangeCount = 0;
     std::size_t m_ordinaryRecordCapacityUsed = 0;
     std::size_t m_priorityRecordCapacityUsed = 0;
@@ -237,6 +274,7 @@ class ReplayPredictionRetainedGeometry
     std::size_t m_priorityRecordCount = 0;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats m_stats;
     uint64_t m_revision = 0;
+    ReplayPredictionPathFocus m_focus;
 
     void RecordDropped( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     bool EmitRecord( std::size_t rangeIndex, const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r,
@@ -246,6 +284,13 @@ class ReplayPredictionRetainedGeometry
     ReplayPredictionRetainedGeometry();
 
     bool SetAppearance( const Core::ReplayTrajectoryAppearanceConfig& appearance );
+    bool SetInspectionFocus( const ReplayPredictionPathFocus& focus ) noexcept;
+    void SetRangeFocusIdentity( std::size_t rangeIndex, uint64_t bodyId ) noexcept;
+    const ReplayPredictionPathFocus& InspectionFocus() const noexcept
+    {
+        return m_focus;
+    }
+    ReplayPredictionPathFocusStats CollectInspectionFocusStats() const noexcept;
     void Clear() noexcept;
     void PublishToPacket( ReplayVisualPacket& packet );
     uint64_t Revision() const noexcept

@@ -10,7 +10,7 @@ Summary:
   Core.
 
 Invariants:
-  - SkullScope state is debug-only and records run-local counters, not global
+  - SkullScope state is diagnostic-build-only and records run-local counters, not global
     engine state.
   - SetPath and SetRunId reset derived state so a new trace cannot inherit
     penetration-window counters from a previous run.
@@ -29,6 +29,8 @@ struct PhysicsDiagnosticsFrameInput;
 
 namespace Diagnostics
 {
+struct SkullScopeFrameSummary;
+
 class SkullScope final
 {
   public:
@@ -49,6 +51,9 @@ class SkullScope final
 #if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     void ResetRunState();
     void ResetPenetrationState();
+    SkullScopeFrameSummary BuildAndEmitFrameSummary( const PhysicsDiagnosticsFrameInput& frame );
+    void EmitBroadphaseAndPenetration( const PhysicsDiagnosticsFrameInput& frame, const SkullScopeFrameSummary& summary );
+    void EmitContactAndBodyRows( const PhysicsDiagnosticsFrameInput& frame, const SkullScopeFrameSummary& summary );
 
     char m_physicsDiagnosticsPath[256] = {};
     char m_physicsDiagnosticsRunId[32] = {};

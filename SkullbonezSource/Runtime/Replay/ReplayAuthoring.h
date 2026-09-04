@@ -134,6 +134,7 @@ class ReplayAuthoring
         m_causeTree.rows.clear();
         m_causeTree.selectedRow = -1;
         m_causeTree.scrollY = 0.0f;
+        m_causeTreeRowsSourceValid = false;
     }
 
     void ClearCauseTreeFocus() noexcept
@@ -147,11 +148,33 @@ class ReplayAuthoring
         m_causeTree.rows.reserve( capacity );
     }
 
-    // Starts a bounded, allocation-free rebuild. Append returns false instead
-    // of growing beyond the startup reserve.
-    void BeginCauseTreeRowBuild() noexcept
+    bool CauseTreeRowsMatchSource( uint64_t sourceFingerprint ) noexcept
+    {
+        if ( !m_causeTreeRowsSourceValid || m_causeTreeRowsSourceFingerprint != sourceFingerprint )
+        {
+            return false;
+        }
+
+        ++m_causeTreeRowCacheHitCount;
+        return true;
+    }
+
+    // Starts a bounded, allocation-free rebuild and records the immutable
+    // source identity even when that source intentionally yields no rows.
+    void BeginCauseTreeRowBuild( uint64_t sourceFingerprint ) noexcept
     {
         m_causeTree.rows.clear();
+        m_causeTreeRowsSourceFingerprint = sourceFingerprint;
+        m_causeTreeRowsSourceValid = true;
+        ++m_causeTreeRowBuildCount;
+    }
+    uint64_t CauseTreeRowBuildCount() const noexcept
+    {
+        return m_causeTreeRowBuildCount;
+    }
+    uint64_t CauseTreeRowCacheHitCount() const noexcept
+    {
+        return m_causeTreeRowCacheHitCount;
     }
     bool CauseTreeRowCapacityCovers( std::size_t count ) const noexcept
     {
@@ -171,6 +194,10 @@ class ReplayAuthoring
     {
         m_causeTree.rows.clear();
         m_causeTree.selectedRow = -1;
+        // Why: a failed build may have observed a prediction frame before its
+        // matching solver-evidence row was readable. Do not memoize that empty
+        // transient as the completed generation's durable cause hierarchy.
+        m_causeTreeRowsSourceValid = false;
     }
     void SetCauseTreeSelectedRow( int rowIndex ) noexcept
     {
@@ -359,10 +386,13 @@ class ReplayAuthoring
     }
 
   private:
-
     // Lifetime: startup-bound diagnostics borrow; null when profiling is disabled.
     Core::Profiler* m_profiler;
     RunReplayCauseTreeState m_causeTree;
+    uint64_t m_causeTreeRowsSourceFingerprint = 0;
+    uint64_t m_causeTreeRowBuildCount = 0;
+    uint64_t m_causeTreeRowCacheHitCount = 0;
+    bool m_causeTreeRowsSourceValid = false;
     RunReplayVelocityEditState m_velocityEdit;
     ReplayBranchInfo m_branch;
     ReplayAuthoringPredictionRequest m_pendingPrediction;

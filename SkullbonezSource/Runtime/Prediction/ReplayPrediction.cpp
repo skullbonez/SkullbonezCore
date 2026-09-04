@@ -427,49 +427,42 @@ bool CaptureReplayPredictionFrame( ReplayPrediction& predictionOwner, RunReplayP
     // reachable from the selected root. Retaining those activation edges keeps
     // the exact point/normal used by inspection while preventing two 20-second
     // frame banks from exhausting Prediction's working-set cap.
-    bool activatedBody = true;
-
-    while ( activatedBody && prediction.build.causalContactNodeCount < REPLAY_PATH_MAX_FUTURE_NODES )
+    // Invariant: preserve the source contact order exactly once per tick. The
+    // topology publisher uses that ordering to decide which already-active body
+    // owns a newly reached child; rescanning a frame invents same-tick edges that
+    // the full contact stream never exposed to the causal tree.
+    for ( const Physics::PhysicsDebugContact& contact : debugContacts )
     {
-        activatedBody = false;
+        const bool bodyAValid = contact.bodyA >= 0 && contact.bodyA < modelCount;
+        const bool bodyBValid = contact.bodyB >= 0 && contact.bodyB < modelCount;
 
-        for ( const Physics::PhysicsDebugContact& contact : debugContacts )
+        if ( !bodyAValid || !bodyBValid )
         {
-            const bool bodyAValid = contact.bodyA >= 0 && contact.bodyA < modelCount;
-            const bool bodyBValid = contact.bodyB >= 0 && contact.bodyB < modelCount;
+            continue;
+        }
 
-            if ( !bodyAValid || !bodyBValid )
-            {
-                continue;
-            }
+        const bool bodyAActive = prediction.build.causalContactActiveModels[static_cast<std::size_t>( contact.bodyA )] != 0u;
+        const bool bodyBActive = prediction.build.causalContactActiveModels[static_cast<std::size_t>( contact.bodyB )] != 0u;
 
-            const bool bodyAActive = prediction.build.causalContactActiveModels[static_cast<std::size_t>( contact.bodyA )] !=
-                                     0u;
-            const bool bodyBActive = prediction.build.causalContactActiveModels[static_cast<std::size_t>( contact.bodyB )] !=
-                                     0u;
+        if ( bodyAActive == bodyBActive )
+        {
+            continue;
+        }
 
-            if ( bodyAActive == bodyBActive )
-            {
-                continue;
-            }
+        if ( frame.debugContacts.size() >= frame.debugContacts.capacity() )
+        {
+            frame.contactsIncomplete = true;
+            break;
+        }
 
-            if ( frame.debugContacts.size() >= frame.debugContacts.capacity() )
-            {
-                frame.contactsIncomplete = true;
-                activatedBody = false;
-                break;
-            }
+        frame.debugContacts.push_back( contact );
+        const int activatedModel = bodyAActive ? contact.bodyB : contact.bodyA;
+        prediction.build.causalContactActiveModels[static_cast<std::size_t>( activatedModel )] = 1u;
+        ++prediction.build.causalContactNodeCount;
 
-            frame.debugContacts.push_back( contact );
-            const int activatedModel = bodyAActive ? contact.bodyB : contact.bodyA;
-            prediction.build.causalContactActiveModels[static_cast<std::size_t>( activatedModel )] = 1u;
-            ++prediction.build.causalContactNodeCount;
-            activatedBody = true;
-
-            if ( prediction.build.causalContactNodeCount >= REPLAY_PATH_MAX_FUTURE_NODES )
-            {
-                break;
-            }
+        if ( prediction.build.causalContactNodeCount >= REPLAY_PATH_MAX_FUTURE_NODES )
+        {
+            break;
         }
     }
 
@@ -2119,7 +2112,13 @@ ReplayPastTrajectoryRefreshPlan ReplayPrediction::BeginPastTrajectoryRefresh( Re
 
     const ReplayFrameIndex oldestFrame = ReplayOldestFrameFromStats( recorder );
     const ReplayFrameIndex newestFrame = recorder.nextFrameIndex - 1u;
-    const bool needsRebuild = !path.valid || path.retainedTargetId.value != path.targetId.value ||
+    const ReplayTrajectoryRecord* retainedPast = m_state.trajectoryStore.FindRecord(
+        ReplayPastRootTrajectoryKey( path.targetId ) );
+
+    // Invariant: presentation metadata is only a cursor into the shared
+    // trajectory store. Prediction restart may clear that store, so a valid
+    // cursor without its PastRoot record must rebuild in the same frame.
+    const bool needsRebuild = !retainedPast || !path.valid || path.retainedTargetId.value != path.targetId.value ||
                               path.totalFramesEvicted != recorder.totalFramesEvicted || path.firstFrame != oldestFrame ||
                               path.builtThroughFrame < newestFrame;
 

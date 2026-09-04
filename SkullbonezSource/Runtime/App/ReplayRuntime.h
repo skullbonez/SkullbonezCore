@@ -480,6 +480,7 @@ struct ReplaySkarnessState
     uint64_t publishedPredictionTargetId = 0;
     uint32_t publishedPredictionFrames = 0;
     uint32_t trajectoryRecordCount = 0;
+    uint32_t selectedPastRootPointCount = 0;
     uint32_t selectedFutureRootPointCount = 0;
     uint32_t contactChildIncomingCount = 0;
     uint32_t contactChildOutgoingCount = 0;
@@ -493,6 +494,31 @@ struct ReplaySkarnessState
     uint32_t futureNodeCount = 0;
     uint32_t retainedLineFloatCount = 0;
     uint32_t retainedRibbonVertexFloatCount = 0;
+    uint32_t causeTreeRowCount = 0;
+    uint64_t causeTreeRowBuildCount = 0;
+    uint64_t causeTreeRowCacheHitCount = 0;
+    bool causeWindowAvailable = false;
+    bool causeInspectorOpen = false;
+    float causeInspectorDrawerProgress = 0.0f;
+    int selectedCauseRow = -1;
+    int causeInspectionMode = 0;
+    float causeTransitionProgress = 0.0f;
+    int inspectionCameraFocusKind = 0;
+    bool inspectionFocusFadeActive = false;
+    uint32_t inspectionFocusObjectCount = 0;
+    uint64_t selectedCausePrimaryId = 0;
+    uint64_t selectedCauseCounterpartId = 0;
+    uint32_t causeContactPointCount = 0;
+    uint32_t submittedCauseContactPointCount = 0;
+    uint32_t submittedCauseContactBodyCount = 0;
+    uint64_t inspectionPathFocusPrimaryId = 0;
+    uint64_t inspectionPathFocusCounterpartId = 0;
+    uint32_t inspectionFocusedPathRangeCount = 0;
+    uint32_t inspectionContextPathRangeCount = 0;
+    uint32_t inspectionFocusedPathSegmentCount = 0;
+    uint32_t inspectionContextPathSegmentCount = 0;
+    uint32_t inspectionPathOpacityMismatchCount = 0;
+    bool inspectionPathFocusActive = false;
     bool retainedPathGeometrySaturated = false;
     bool visualPacketHasGeometry = false;
     ReplayTrajectorySubmissionProbeStats trajectorySubmission;
@@ -707,6 +733,7 @@ class ReplayRuntime
                                 InputRouter& inputRouter, double now, ReplayWorkspaceOutput& output );
     void ApplyTransportCommand( const ReplaySelectCauseRowCommand& command, RuntimeInteractionController& interaction,
                                 double now, ReplayWorkspaceOutput& output );
+    void ApplyTransportCommand( const ReplaySetCauseInspectorOpenCommand& command, double now );
     void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
     ReplayFrameIntentResult ApplyFrameIntent( const ReplayFrameIntent& intent );
 
@@ -891,6 +918,16 @@ class ReplayRuntime
         m_predictionSceneFactsScratch = {};
     ReplayPlanningRuntime m_planningOwner;
     ReplayPredictionCauseEvidencePacket m_predictionCauseEvidenceScratch;
+
+#if defined( SKULLBONEZ_SKARNESS )
+    uint32_t m_lastSubmittedCauseContactPointCount = 0;
+    uint32_t m_lastSubmittedCauseContactBodyCount = 0;
+#endif
+
+    // Lifetime: typed UI/automation commands arrive after the replay workspace
+    // tick. Retain one semantic row request until the next tick can run the
+    // same selection, transport, camera, and pause path as a pointer click.
+    int m_pendingCauseSelectionRow = -1;
 
     // Invariant: App records both complete replay aggregates around the exact
     // synchronous evidence release; Prediction cannot observe sibling owners.

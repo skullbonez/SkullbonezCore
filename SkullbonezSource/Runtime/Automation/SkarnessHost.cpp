@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <iomanip>
 #include <random>
@@ -318,6 +319,7 @@ void SkarnessHost::DisconnectClient()
     m_untilCondition.clear();
     m_stopRequestId.clear();
     m_pendingSceneTransition = PendingSceneTransition {};
+    m_pendingPointerDrag = PendingPointerDrag {};
     m_stepCompletesAfterFrame = false;
     m_untilFramesRemaining = 0;
     m_untilStepsPhysics = false;
@@ -503,6 +505,54 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
     {
         SendLifecycle( requestId, "accepted" );
         SendLifecycle( requestId, "applied" );
+        return;
+    }
+
+    if ( commandName == "input.pointer_drag" )
+    {
+        std::string buttonName;
+        PendingPointerDrag drag;
+        bool validButton = true;
+        drag.requestId = requestId;
+        const bool hasArguments = ReadString( arguments, "button", buttonName ) &&
+                                  ReadInteger( arguments, "x", drag.clientX ) &&
+                                  ReadInteger( arguments, "y", drag.clientY ) &&
+                                  ReadInteger( arguments, "deltaX", drag.deltaX ) &&
+                                  ReadInteger( arguments, "deltaY", drag.deltaY );
+        const bool bounded = drag.clientX >= 0 && drag.clientX <= 65535 && drag.clientY >= 0 && drag.clientY <= 65535 &&
+                             std::abs( drag.deltaX ) <= 150 && std::abs( drag.deltaY ) <= 150;
+
+        if ( buttonName == "left" )
+        {
+            drag.button = SkarnessPointerButton::Left;
+        }
+        else if ( buttonName == "right" )
+        {
+            drag.button = SkarnessPointerButton::Right;
+        }
+        else if ( buttonName == "middle" )
+        {
+            drag.button = SkarnessPointerButton::Middle;
+        }
+        else
+        {
+            validButton = false;
+        }
+
+        if ( !hasArguments || !bounded || !validButton )
+        {
+            SendLifecycle( requestId, "rejected", "pointer drag arguments are invalid" );
+            return;
+        }
+
+        if ( !m_pendingPointerDrag.requestId.empty() )
+        {
+            SendLifecycle( requestId, "rejected", "another pointer drag is pending" );
+            return;
+        }
+
+        m_pendingPointerDrag = std::move( drag );
+        SendLifecycle( requestId, "accepted" );
         return;
     }
 
@@ -700,6 +750,11 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         command.type = SkarnessCommandType::ReplaySelectCauseRow;
         valid = ReadInteger( arguments, "row", command.integer ) && command.integer >= 0;
     }
+    else if ( commandName == "replay.set_cause_inspector_open" )
+    {
+        command.type = SkarnessCommandType::ReplaySetCauseInspectorOpen;
+        valid = ReadBoolean( arguments, "open", command.enabled );
+    }
     else if ( commandName == "prediction.select_target" || commandName == "replay.set_path_target" )
     {
         command.type = SkarnessCommandType::PredictionSelectTarget;
@@ -707,6 +762,13 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         const bool hasId = arguments.contains( "sceneObjectId" );
         valid = hasName != hasId && ( hasName ? ReadString( arguments, "name", command.text )
                                               : ReadUnsignedInteger( arguments, "sceneObjectId", command.unsignedInteger ) );
+    }
+    else if ( commandName == "camera.orbit_inspection" )
+    {
+        command.type = SkarnessCommandType::CameraOrbitInspection;
+        valid = ReadNumber( arguments, "yawRadians", command.number ) &&
+                ReadNumber( arguments, "pitchRadians", command.secondNumber ) &&
+                std::fabs( command.number ) <= 6.283185307 && std::fabs( command.secondNumber ) <= 6.283185307;
     }
     else
     {
@@ -791,6 +853,42 @@ void SkarnessHost::CompleteCapture( uint64_t token, bool applied, const char* re
 
     CompleteCommand( found->requestId, applied, reason );
     m_pendingCaptures.erase( found );
+}
+
+bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
+{
+    if ( m_pendingPointerDrag.requestId.empty() )
+    {
+        return false;
+    }
+
+    outFrame = {};
+    outFrame.clientX = m_pendingPointerDrag.clientX;
+    outFrame.clientY = m_pendingPointerDrag.clientY;
+    outFrame.button = m_pendingPointerDrag.button;
+
+    if ( m_pendingPointerDrag.phase == 0 )
+    {
+        // First publish the held edge with no movement so InputController seeds
+        // its pointer baseline exactly as it does for a physical press.
+        outFrame.buttonDown = true;
+        ++m_pendingPointerDrag.phase;
+    }
+    else if ( m_pendingPointerDrag.phase == 1 )
+    {
+        outFrame.buttonDown = true;
+        outFrame.rawMouseX = m_pendingPointerDrag.deltaX;
+        outFrame.rawMouseY = m_pendingPointerDrag.deltaY;
+        ++m_pendingPointerDrag.phase;
+    }
+    else
+    {
+        const std::string requestId = std::move( m_pendingPointerDrag.requestId );
+        m_pendingPointerDrag = PendingPointerDrag {};
+        CompleteCommand( requestId, true );
+    }
+
+    return true;
 }
 
 SkarnessProceedPolicy SkarnessHost::TakeProceedPolicy()
@@ -887,7 +985,7 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
 
 void SkarnessHost::SendCapabilities( const std::string& requestId )
 {
-    static const std::array<const char*, 33> commands = { "capabilities.get",
+    static const std::array<const char*, 36> commands = { "capabilities.get",
                                                           "session.stop",
                                                           "capture.screenshot",
                                                           "scene.load",
@@ -917,8 +1015,11 @@ void SkarnessHost::SendCapabilities( const std::string& requestId )
                                                           "replay.load",
                                                           "replay.return_to_live",
                                                           "replay.select_cause_row",
+                                                          "replay.set_cause_inspector_open",
                                                           "prediction.select_target",
                                                           "replay.set_path_target",
+                                                          "camera.orbit_inspection",
+                                                          "input.pointer_drag",
                                                           "state.subscribe" };
     Json response = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
                       { "sequence", ++m_sequence },
@@ -996,6 +1097,7 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                      { "publishedPredictionTargetId", state.publishedPredictionTargetId },
                      { "publishedPredictionFrames", state.publishedPredictionFrames },
                      { "trajectoryRecordCount", state.trajectoryRecordCount },
+                     { "selectedPastRootPointCount", state.selectedPastRootPointCount },
                      { "selectedFutureRootPointCount", state.selectedFutureRootPointCount },
                      { "contactChildIncomingCount", state.contactChildIncomingCount },
                      { "contactChildOutgoingCount", state.contactChildOutgoingCount },
@@ -1009,6 +1111,44 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                      { "futureNodeCount", state.futureNodeCount },
                      { "retainedLineFloatCount", state.retainedLineFloatCount },
                      { "retainedRibbonVertexFloatCount", state.retainedRibbonVertexFloatCount },
+                     { "causeTreeRowCount", state.causeTreeRowCount },
+                     { "causeTreeRowBuildCount", state.causeTreeRowBuildCount },
+                     { "causeTreeRowCacheHitCount", state.causeTreeRowCacheHitCount },
+                     { "causeWindowAvailable", state.causeWindowAvailable },
+                     { "causeInspectorOpen", state.causeInspectorOpen },
+                     { "causeInspectorDrawerProgress", state.causeInspectorDrawerProgress },
+                     { "selectedCauseRow", state.selectedCauseRow },
+                     { "causeInspectionMode", state.causeInspectionMode },
+                     { "causeTransitionProgress", state.causeTransitionProgress },
+                     { "inspectionCameraActive", state.inspectionCameraActive },
+                     { "inspectionCameraFocusKind", state.inspectionCameraFocusKind },
+                     { "inspectionFocusFadeActive", state.inspectionFocusFadeActive },
+                     { "inspectionFocusObjectCount", state.inspectionFocusObjectCount },
+                     { "selectedCausePrimaryId", state.selectedCausePrimaryId },
+                     { "selectedCauseCounterpartId", state.selectedCauseCounterpartId },
+                     { "causeContactPointCount", state.causeContactPointCount },
+                     { "submittedCauseContactPointCount", state.submittedCauseContactPointCount },
+                     { "submittedCauseContactBodyCount", state.submittedCauseContactBodyCount },
+                     { "inspectionPathFocusPrimaryId", state.inspectionPathFocusPrimaryId },
+                     { "inspectionPathFocusCounterpartId", state.inspectionPathFocusCounterpartId },
+                     { "inspectionFocusedPathRangeCount", state.inspectionFocusedPathRangeCount },
+                     { "inspectionContextPathRangeCount", state.inspectionContextPathRangeCount },
+                     { "inspectionFocusedPathSegmentCount", state.inspectionFocusedPathSegmentCount },
+                     { "inspectionContextPathSegmentCount", state.inspectionContextPathSegmentCount },
+                     { "inspectionPathOpacityMismatchCount", state.inspectionPathOpacityMismatchCount },
+                     { "inspectionPathFocusActive", state.inspectionPathFocusActive },
+                     { "inspectionPivot", { state.inspectionPivotX, state.inspectionPivotY, state.inspectionPivotZ } },
+                     { "selectedCameraHash", state.selectedCameraHash },
+                     { "cameraTweenActive", state.cameraTweenActive },
+                     { "cameraTweenProgress", state.cameraTweenProgress },
+                     { "cameraPrimaryEye", { state.cameraPrimaryEyeX, state.cameraPrimaryEyeY, state.cameraPrimaryEyeZ } },
+                     { "cameraPrimaryView",
+                       { state.cameraPrimaryViewX, state.cameraPrimaryViewY, state.cameraPrimaryViewZ } },
+                     { "cameraPrimaryUp", { state.cameraPrimaryUpX, state.cameraPrimaryUpY, state.cameraPrimaryUpZ } },
+                     { "cameraRenderEye", { state.cameraRenderEyeX, state.cameraRenderEyeY, state.cameraRenderEyeZ } },
+                     { "cameraRenderView", { state.cameraRenderViewX, state.cameraRenderViewY, state.cameraRenderViewZ } },
+                     { "cameraRenderUp", { state.cameraRenderUpX, state.cameraRenderUpY, state.cameraRenderUpZ } },
+                     { "cameraRenderRollRadians", state.cameraRenderRollRadians },
                      { "retainedPathGeometrySaturated", state.retainedPathGeometrySaturated },
                      { "visualPacketHasGeometry", state.visualPacketHasGeometry },
                      { "trajectorySubmitted", state.trajectorySubmitted },
@@ -1163,7 +1303,10 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
                state.drawnCollisionWireframeCount == state.retainedEntryMarkerCount &&
                state.drawnEndingWireframeCount == state.retainedEndMarkerCount &&
                state.collisionWireframePathMismatchCount == 0 && state.endingWireframePathMismatchCount == 0 &&
-               state.trajectorySubmitted && state.submittedSegmentCount >= 32 &&
+               // Why: causal validity is proven by the child/marker/wireframe
+               // agreement above. A fixed segment floor rejects valid compact
+               // trees whose renderer submits fewer than 32 segments.
+               state.trajectorySubmitted && state.submittedSegmentCount > 0 &&
                state.submittedVertexCount >= state.submittedSegmentCount * 6 && state.submittedFutureTreeReady;
     }
 

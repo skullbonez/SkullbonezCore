@@ -1553,7 +1553,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
 
     if ( strcmp( action.text, "causeTabSummary" ) == 0 || strcmp( action.text, "causeTabRawRecord" ) == 0 ||
          strcmp( action.text, "causeTabIterations" ) == 0 || strcmp( action.text, "causeCloseDrawer" ) == 0 ||
-         strcmp( action.text, "causeCopyRawRecord" ) == 0 )
+         strcmp( action.text, "causeToggleDrawer" ) == 0 || strcmp( action.text, "causeCopyRawRecord" ) == 0 )
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
@@ -1584,11 +1584,12 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             return;
         }
 
-        if ( strcmp( action.text, "causeCloseDrawer" ) == 0 && causeInspection.detailVisible )
+        if ( strcmp( action.text, "causeToggleDrawer" ) == 0 ||
+             ( strcmp( action.text, "causeCloseDrawer" ) == 0 && causeInspection.detailVisible ) )
         {
             InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
-                                                           inspectorLayout.drawerClose,
-                                                           "mouse press at drawer close button" );
+                                                           inspectorLayout.drawerToggle,
+                                                           "mouse press at solver-inspector seam toggle" );
             return;
         }
 

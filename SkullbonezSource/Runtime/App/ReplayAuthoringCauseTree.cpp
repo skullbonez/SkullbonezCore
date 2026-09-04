@@ -21,8 +21,8 @@ Invariants:
   - Focus changes hold live replay advance so selected historical rows remain visible.
   - Row composition never grows storage on the input/render path.
   - Recorded body expansion visits each model row at most once.
-  - High prediction rows fail closed unless their exact sealed evidence frame
-    exists; the causal-parent manifold precedes stable simultaneous manifolds.
+  - High prediction detail expands only from exact sealed evidence belonging
+    to the coherent prefix currently presented by ReplayPrediction.
   - Low prediction rows never expose Manifold or SolverRow evidence.
   - Replay path, solver, camera, and store borrows expire before each command returns.
 
@@ -54,11 +54,92 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
 namespace Physics = SkullbonezCore::Physics;
+namespace Rendering = SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations;
 
 namespace
 {
+constexpr uint64_t REPLAY_CAUSE_TREE_FINGERPRINT_OFFSET = 14695981039346656037ull;
+constexpr uint64_t REPLAY_CAUSE_TREE_FINGERPRINT_PRIME = 1099511628211ull;
+
+void MixReplayCauseTreeFingerprint( uint64_t& fingerprint, uint64_t value ) noexcept
+{
+    for ( int byteIndex = 0; byteIndex < 8; ++byteIndex )
+    {
+        fingerprint ^= static_cast<uint8_t>( value >> ( byteIndex * 8 ) );
+        fingerprint *= REPLAY_CAUSE_TREE_FINGERPRINT_PRIME;
+    }
+}
+
+void MixReplayCauseTreeTextFingerprint( uint64_t& fingerprint, const char* text, std::size_t capacity ) noexcept
+{
+    std::size_t index = 0;
+
+    while ( index < capacity && text[index] != '\0' )
+    {
+        fingerprint ^= static_cast<uint8_t>( text[index] );
+        fingerprint *= REPLAY_CAUSE_TREE_FINGERPRINT_PRIME;
+        ++index;
+    }
+
+    MixReplayCauseTreeFingerprint( fingerprint, index );
+}
+
+uint64_t ReplayCauseTreeSourceFingerprint( const ReplayPrediction& predictionOwner, const RunReplayPathVisualizerState& path,
+                                           const ReplaySolverFrameSample* solverSample,
+                                           std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+                                           const PhysicsBodyStore& bodyStore ) noexcept
+{
+    const RunReplayPredictionState& prediction = predictionOwner.State();
+    const ReplayPredictionPresentationView predictionView = predictionOwner.PresentationView();
+    const std::span<const RunReplayPredictionFrame> presentedFrames = predictionView.timeline.frames;
+    uint64_t fingerprint = REPLAY_CAUSE_TREE_FINGERPRINT_OFFSET;
+    MixReplayCauseTreeFingerprint( fingerprint, path.hasTarget ? 1u : 0u );
+    MixReplayCauseTreeFingerprint( fingerprint, path.targetId.value );
+    MixReplayCauseTreeFingerprint( fingerprint, static_cast<uint32_t>( path.targetModelRow.value ) );
+    MixReplayCauseTreeTextFingerprint( fingerprint, path.targetName, sizeof( path.targetName ) );
+    MixReplayCauseTreeFingerprint( fingerprint, prediction.enabled ? 1u : 0u );
+    MixReplayCauseTreeFingerprint( fingerprint, predictionView.timeline.complete ? 1u : 0u );
+    MixReplayCauseTreeFingerprint( fingerprint, predictionView.topology.targetId.value );
+    MixReplayCauseTreeFingerprint( fingerprint, predictionView.timeline.generation );
+    MixReplayCauseTreeFingerprint( fingerprint, predictionView.topology.ragdollVisualsEnabled ? 1u : 0u );
+    // Why: the presented frame tail and trajectory publication advance on
+    // every prefix update, but cause rows change only when immutable causal
+    // nodes are appended. Hashing the tail would rebuild the full hierarchy
+    // every prediction frame in large scenes.
+    MixReplayCauseTreeFingerprint( fingerprint, predictionView.topology.futureNodes.size() );
+    MixReplayCauseTreeFingerprint( fingerprint, static_cast<uint8_t>( predictionOwner.DetailMode() ) );
+
+    if ( prediction.enabled && !presentedFrames.empty() )
+    {
+        MixReplayCauseTreeFingerprint( fingerprint, presentedFrames.front().frameIndex );
+    }
+    else if ( !prediction.enabled && solverSample )
+    {
+        MixReplayCauseTreeFingerprint( fingerprint, solverSample->frameIndex );
+        MixReplayCauseTreeFingerprint( fingerprint, solverSample->solverHash );
+        MixReplayCauseTreeFingerprint( fingerprint, solverSample->presentationHash );
+    }
+
+    const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
+    MixReplayCauseTreeFingerprint( fingerprint, bodyRecords.size() );
+
+    for ( const PhysicsBodyRecord& body : bodyRecords )
+    {
+        MixReplayCauseTreeFingerprint( fingerprint, body.sceneObjectId.value );
+    }
+
+    MixReplayCauseTreeFingerprint( fingerprint, presentationRecords.size() );
+
+    for ( const Rendering::RenderInstancePresentationRecord& presentation : presentationRecords )
+    {
+        MixReplayCauseTreeTextFingerprint( fingerprint, presentation.displayName, sizeof( presentation.displayName ) );
+    }
+
+    return fingerprint;
+}
+
 bool IsReplayCauseTreeToolOwner( WorldInteractionOwner owner )
 {
     return owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
@@ -318,61 +399,117 @@ bool ReplayPipelineRecordAnchorsContact( const PhysicsPipelineRecord& record,
     return record.featureId == contact.featureId && ( ( record.bodyA == contact.bodyA && record.bodyB == contact.bodyB ) ||
                                                       ( record.bodyA == contact.bodyB && record.bodyB == contact.bodyA ) );
 }
-} // namespace
 
-bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path,
-                                                        const ReplaySolverFrameSample* solverSample,
-                                                        std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore,
-                                                        const RunReplayCameraState& camera, int& outCameraFocusedRow )
+bool ResolveReplayCauseTreeCameraFocus( ReplayAuthoring& authoring, const RunReplayCameraState& camera,
+                                        int& outCameraFocusedRow ) noexcept
 {
-    const RunReplayPredictionState& prediction = predictionOwner.State();
-    const std::span<const RunReplayPredictionFrame> activePredictionFrames = predictionOwner.ActiveFrames();
-    PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
     outCameraFocusedRow = -1;
-    authoring.BeginCauseTreeRowBuild();
+    const RunReplayCauseTreeState& causeTree = authoring.CauseTree();
 
-    if ( !path.hasTarget || path.targetId.value == 0 )
+    if ( causeTree.rows.empty() )
     {
         return false;
     }
 
-    // Why: ActivePredictionFrames() waits for a coherent full buffer, while the
-    // prediction overlay exposes a populated build prefix so long jobs are
-    // visible immediately. The cause tree must use the same readiness rule.
-    const bool predictionPrefixVisible = activePredictionFrames.size() >= 2 || prediction.HasPublishedBuildFramePrefix() ||
-                                         !prediction.futureNodeCache.futureNodes.empty();
+    authoring.SetCauseTreeSelectedRow( -1 );
 
-    const bool usePrediction = prediction.enabled && predictionPrefixVisible &&
-                               prediction.simulation.targetId.value == path.targetId.value;
-
-    if ( usePrediction && !ReplayPredictionCauseWindowAvailable( predictionOwner.DetailMode(), true ) )
+    if ( camera.focusKind != RunReplayCameraFocusKind::None )
     {
-        // Low retains the compact scrubber control and lightweight path, but
-        // publishes no predicted cause surface for rendering or hit testing.
-        return false;
+        for ( int rowIndex = 0; rowIndex < static_cast<int>( causeTree.rows.size() ); ++rowIndex )
+        {
+            const RunReplayCauseTreeRow& row = causeTree.rows[static_cast<std::size_t>( rowIndex )];
+
+            if ( row.kind != camera.focusRowKind || row.id.value != camera.focusedId.value ||
+                 row.modelRow.value != camera.focusModelRow.value || row.terrain != camera.focusTerrain )
+            {
+                continue;
+            }
+
+            if ( row.kind == RunReplayCauseTreeRowKind::Body ||
+                 ( row.counterpartId.value == camera.counterpartId.value &&
+                   row.counterpartModelRow.value == camera.focusCounterpartModelRow.value &&
+                   ( row.kind != RunReplayCauseTreeRowKind::SolverRow ||
+                     ( row.featureId == camera.focusFeatureId && row.solverRowIndex == camera.focusSolverRowIndex ) ) &&
+                   ( !row.prediction || !row.sourceHighDetail ||
+                     ( camera.focusSourceHighDetail && row.sourceGeneration == camera.focusSourceGeneration &&
+                       row.sourceBankEpoch == camera.focusSourceBankEpoch &&
+                       row.sourceTopologyVersion == camera.focusSourceTopologyVersion &&
+                       row.sourcePublicationVersion == camera.focusSourcePublicationVersion ) ) ) )
+            {
+                authoring.SetCauseTreeSelectedRow( rowIndex );
+                outCameraFocusedRow = rowIndex;
+                break;
+            }
+        }
     }
 
-    static const std::vector<RunReplayPathTraceNode> EMPTY_PREDICTION_NODES;
-    const std::vector<RunReplayPathTraceNode>& nodes = usePrediction ? prediction.futureNodeCache.futureNodes
-                                                                     : EMPTY_PREDICTION_NODES;
+    return true;
+}
 
-    const std::size_t solverContactCount = solverSample ? solverSample->worldSnapshot.physics.persistentContacts.size()
-                                                        : static_cast<std::size_t>( 0 );
-
-    const std::size_t estimatedRows = usePrediction && predictionOwner.DetailMode() == ReplayPredictionDetailMode::High
-                                          ? REPLAY_CAUSE_TREE_ROW_CAPACITY
-                                          : 1 + nodes.size() + solverContactCount * 3;
-
-    if ( !authoring.CauseTreeRowCapacityCovers( estimatedRows ) )
+class ReplayCauseTreeRowBuilder final
+{
+  public:
+    ReplayCauseTreeRowBuilder( const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring,
+                               const ReplaySolverFrameSample* solverSample,
+                               std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+                               const PhysicsBodyStore& bodyStore,
+                               std::span<const RunReplayPredictionFrame> activePredictionFrames,
+                               std::span<const RunReplayPathTraceNode> nodes, bool usePrediction ) noexcept
+        : predictionOwner( predictionOwner ), authoring( authoring ), solverSample( solverSample ),
+          presentationRecords( presentationRecords ), bodyStore( bodyStore ),
+          activePredictionFrames( activePredictionFrames ), nodes( nodes ), usePrediction( usePrediction )
     {
-        // Hazard: this path runs from input/render. If a future scene exceeds
-        // the preallocated explanation budget, hide the overlay for the frame
-        // instead of growing row storage on the hot path.
-        authoring.SetCauseTreeSelectedRow( -1 );
-        return false;
     }
 
-    bool rowOverflow = false;
+    bool Build( const RunReplayPathVisualizerState& path )
+    {
+        const ReplayFrameIndex rootFrame = usePrediction ? ( activePredictionFrames.empty()
+                                                                 ? 0
+                                                                 : activePredictionFrames.front().frameIndex )
+                                                         : ( solverSample ? solverSample->frameIndex : 0 );
+        const int rootModelIndex = modelIndexForId( path.targetId, path.targetModelRow.value );
+
+        if ( !usePrediction && rootModelIndex >= 0 && rootModelIndex < static_cast<int>( recordedBodyQueued.size() ) )
+        {
+            recordedBodyQueued[static_cast<std::size_t>( rootModelIndex )] = true;
+        }
+
+        if ( !addBodyRow( path.targetId, Physics::PhysicsSceneObjectId {}, rootFrame, 0, rootModelIndex, path.targetName ) )
+        {
+            return false;
+        }
+
+        auto addChildren = [&]( auto&& self, Physics::PhysicsSceneObjectId parentId, int fallbackDepth ) -> void
+        {
+            for ( const RunReplayPathTraceNode& node : nodes )
+            {
+                if ( node.parentId.value != parentId.value )
+                {
+                    continue;
+                }
+
+                const int depth = node.depth > 0 ? node.depth : fallbackDepth;
+
+                if ( addBodyRow( node.id, parentId, node.firstFrame, depth, modelIndexForId( node.id, node.modelRow.value ),
+                                 nullptr ) )
+                {
+                    self( self, node.id, depth + 1 );
+                }
+            }
+        };
+
+        addChildren( addChildren, path.targetId, 1 );
+
+        while ( !usePrediction && recordedBodyWorkCursor < recordedBodyWorkCount && !rowOverflow )
+        {
+            const RecordedBodyWork work = recordedBodyWork[recordedBodyWorkCursor++];
+            (void)addBodyRow( work.id, work.parentId, rootFrame, work.depth, work.modelIndex, nullptr );
+        }
+
+        return !rowOverflow;
+    }
+
+  private:
     struct RecordedBodyWork
     {
         Physics::PhysicsSceneObjectId id;
@@ -381,31 +518,20 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& 
         int depth = 0;
     };
 
-    std::array<RecordedBodyWork, static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )>
-        recordedBodyWork = {};
-    std::array<bool, static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )> recordedBodyQueued = {};
-    std::size_t recordedBodyWorkCount = 0;
-    std::size_t recordedBodyWorkCursor = 0;
-
-    auto appendCauseTreeRow = [&]( const RunReplayCauseTreeRow& row ) -> bool
+    bool appendCauseTreeRow( const RunReplayCauseTreeRow& row )
     {
-        if ( !authoring.AppendCauseTreeRow( row ) )
+        if ( authoring.AppendCauseTreeRow( row ) )
         {
-            rowOverflow = true;
-
-            return false;
+            return true;
         }
 
-        return true;
-    };
+        rowOverflow = true;
+        return false;
+    }
 
-    // Invariant: cause-tree rows keep model indices only for UI row selection
-    // and solver-artifact contact matching. Physics::PhysicsSceneObjectId identity resolves
-    // through body-store handles first; solver samples are historical fallback.
-    auto modelIndexForId = [&]( Physics::PhysicsSceneObjectId id, int preferredModelIndex ) -> int
+    int modelIndexForId( Physics::PhysicsSceneObjectId id, int preferredModelIndex ) const
     {
         const PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( id, preferredModelIndex );
-
         const int liveIndex = bodyStore.ModelIndexForHandle( body );
 
         if ( liveIndex >= 0 )
@@ -422,9 +548,9 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& 
         }
 
         return -1;
-    };
+    }
 
-    auto idForModelIndex = [&]( int modelIndex ) -> Physics::PhysicsSceneObjectId
+    Physics::PhysicsSceneObjectId idForModelIndex( int modelIndex ) const
     {
         Physics::PhysicsSceneObjectId id;
 
@@ -449,10 +575,10 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& 
         }
 
         return id;
-    };
+    }
 
-    auto writeName = [&]( Physics::PhysicsSceneObjectId id, int modelIndex, const char* fallback, char* out,
-                          std::size_t outSize ) -> void
+    void writeName( Physics::PhysicsSceneObjectId id, int modelIndex, const char* fallback, char* out,
+                    std::size_t outSize ) const
     {
         out[0] = '\0';
 
@@ -486,61 +612,60 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& 
         }
 
         sprintf_s( out, outSize, "body_%u", id.value );
-    };
+    }
 
-    auto appendSolverRowsForBody = [&]( RunReplayCauseTreeRow bodyRow ) -> void
+    bool appendPredictionSummaryRow( const RunReplayCauseTreeRow& bodyRow )
     {
-        const RunReplayPathTraceNode* predictionNode = nullptr;
-        int predictionNodeIndex = -1;
-
-        if ( usePrediction )
+        if ( !usePrediction )
         {
-            const auto found = std::find_if( nodes.begin(), nodes.end(), [&]( const RunReplayPathTraceNode& node )
-                                             { return node.id.value == bodyRow.id.value; } );
-            predictionNode = found != nodes.end() ? &*found : nullptr;
-            predictionNodeIndex = predictionNode ? static_cast<int>( found - nodes.begin() ) : -1;
+            return false;
         }
 
-        if ( usePrediction && ( predictionOwner.DetailMode() == ReplayPredictionDetailMode::Low ||
-                                ( predictionNode && !predictionNode->contactDerived ) ) )
+        const auto found = std::find_if( nodes.begin(), nodes.end(), [&]( const RunReplayPathTraceNode& node )
+                                         { return node.id.value == bodyRow.id.value; } );
+        const RunReplayPathTraceNode* predictionNode = found != nodes.end() ? &*found : nullptr;
+
+        if ( predictionOwner.DetailMode() != ReplayPredictionDetailMode::Low &&
+             ( !predictionNode || predictionNode->contactDerived ) )
         {
-            if ( predictionNode )
-            {
-                RunReplayCauseTreeRow contactRow;
-                contactRow.kind = predictionNode->contactDerived ? RunReplayCauseTreeRowKind::PredictionContact
-                                                                 : RunReplayCauseTreeRowKind::PredictionMotion;
+            return false;
+        }
 
-                contactRow.id = bodyRow.id;
-                contactRow.parentId = predictionNode->parentId;
-                contactRow.counterpartId = predictionNode->parentId;
-                contactRow.firstFrame = predictionNode->firstFrame;
-                contactRow.depth = bodyRow.depth + 1;
-                contactRow.modelRow.value = bodyRow.modelRow.value;
-                contactRow.counterpartModelRow.value = predictionNode->parentModelRow.value;
-                contactRow.contactIndex = predictionNodeIndex;
-                contactRow.prediction = true;
-                contactRow.point = predictionNode->contactPoint;
-                contactRow.normal = ReplayNormalizeOr( predictionNode->contactNormal, Vector3( 0.0f, 1.0f, 0.0f ) );
+        if ( !predictionNode )
+        {
+            return true;
+        }
 
-                if ( predictionNode->contactDerived )
-                {
-                    sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted contact" );
-                    sprintf_s( contactRow.detail, sizeof( contactRow.detail ), "first frame %llu  normal %.2f %.2f %.2f",
-                               static_cast<unsigned long long>( predictionNode->firstFrame ), contactRow.normal.x,
-                               contactRow.normal.y, contactRow.normal.z );
-                }
-                else
-                {
-                    sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted movement" );
-                    sprintf_s( contactRow.detail, sizeof( contactRow.detail ),
-                               "first affected frame %llu  direction %.2f %.2f %.2f",
-                               static_cast<unsigned long long>( predictionNode->firstFrame ), contactRow.normal.x,
-                               contactRow.normal.y, contactRow.normal.z );
-                }
+        RunReplayCauseTreeRow contactRow;
+        contactRow.kind = predictionNode->contactDerived ? RunReplayCauseTreeRowKind::PredictionContact
+                                                         : RunReplayCauseTreeRowKind::PredictionMotion;
+        contactRow.id = bodyRow.id;
+        contactRow.parentId = predictionNode->parentId;
+        contactRow.counterpartId = predictionNode->parentId;
+        contactRow.firstFrame = predictionNode->firstFrame;
+        contactRow.depth = bodyRow.depth + 1;
+        contactRow.modelRow.value = bodyRow.modelRow.value;
+        contactRow.counterpartModelRow.value = predictionNode->parentModelRow.value;
+        contactRow.contactIndex = static_cast<int>( found - nodes.begin() );
+        contactRow.prediction = true;
+        contactRow.point = predictionNode->contactPoint;
+        contactRow.normal = ReplayNormalizeOr( predictionNode->contactNormal, Vector3( 0.0f, 1.0f, 0.0f ) );
 
-                (void)appendCauseTreeRow( contactRow );
-            }
+        const char* label = predictionNode->contactDerived ? "Predicted contact" : "Predicted movement";
+        const char* detail = predictionNode->contactDerived ? "first frame %llu  normal %.2f %.2f %.2f"
+                                                            : "first affected frame %llu  direction %.2f %.2f %.2f";
+        sprintf_s( contactRow.name, sizeof( contactRow.name ), "%s", label );
+        sprintf_s( contactRow.detail, sizeof( contactRow.detail ), detail,
+                   static_cast<unsigned long long>( predictionNode->firstFrame ), contactRow.normal.x, contactRow.normal.y,
+                   contactRow.normal.z );
+        (void)appendCauseTreeRow( contactRow );
+        return true;
+    }
 
+    void appendSolverRowsForBody( RunReplayCauseTreeRow bodyRow )
+    {
+        if ( appendPredictionSummaryRow( bodyRow ) )
+        {
             return;
         }
 
@@ -560,7 +685,6 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& 
 
             if ( foundFrame == activePredictionFrames.end() )
             {
-                rowOverflow = true;
                 return;
             }
 
@@ -569,7 +693,6 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& 
 
             if ( !predictionEvidence.Valid() )
             {
-                rowOverflow = true;
                 return;
             }
         }
@@ -784,13 +907,13 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& 
             manifoldRow.modelRow.value = bodyRow.modelRow.value;
             manifoldRow.counterpartModelRow.value = group.otherModelIndex;
             manifoldRow.contactIndex = firstContactIndex;
-            const Physics::PhysicsSolverPersistentContactSample* firstContact = sourceContactAt( static_cast<std::size_t>( firstContactIndex ) );
+            const Physics::PhysicsSolverPersistentContactSample* firstContact = sourceContactAt(
+                static_cast<std::size_t>( firstContactIndex ) );
             manifoldRow.pipelineIndex = firstContact ? sourcePipelineIndexForContact( *firstContact ) : -1;
 
             if ( usePrediction && manifoldRow.pipelineIndex < 0 )
             {
-                rowOverflow = true;
-                return;
+                continue;
             }
 
             manifoldRow.featureId = static_cast<int>( firstFeatureId );
@@ -881,7 +1004,8 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& 
 
                 if ( solverRow.pipelineIndex >= 0 )
                 {
-                    const PhysicsPipelineRecord* record = sourcePipelineAt( static_cast<std::size_t>( solverRow.pipelineIndex ) );
+                    const PhysicsPipelineRecord* record = sourcePipelineAt(
+                        static_cast<std::size_t>( solverRow.pipelineIndex ) );
 
                     traceStage = record ? PhysicsPipelineStageName( record->stage ) : "";
                 }
@@ -919,10 +1043,10 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& 
                 };
             }
         }
-    };
+    }
 
-    auto addBodyRow = [&]( Physics::PhysicsSceneObjectId id, Physics::PhysicsSceneObjectId parentId,
-                           ReplayFrameIndex firstFrame, int depth, int modelIndex, const char* fallbackName ) -> bool
+    bool addBodyRow( Physics::PhysicsSceneObjectId id, Physics::PhysicsSceneObjectId parentId, ReplayFrameIndex firstFrame,
+                     int depth, int modelIndex, const char* fallbackName )
     {
         if ( id.value == 0 )
         {
@@ -965,111 +1089,101 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows( const ReplayPrediction& 
 
         appendSolverRowsForBody( row );
         return !rowOverflow;
-    };
-
-    // Invariant: every visible root addresses the same bounded bank as its
-    // children. Recorded roots inherit the selected solver sample; predicted
-    // roots begin at the first exact published frame rather than frame zero.
-    const ReplayFrameIndex rootFrame = usePrediction
-                                           ? ( activePredictionFrames.empty() ? 0
-                                                                              : activePredictionFrames.front().frameIndex )
-                                           : ( solverSample ? solverSample->frameIndex : 0 );
-
-    const int rootModelIndex = modelIndexForId( path.targetId, path.targetModelRow.value );
-
-    if ( !usePrediction && rootModelIndex >= 0 && rootModelIndex < static_cast<int>( recordedBodyQueued.size() ) )
-    {
-        recordedBodyQueued[static_cast<std::size_t>( rootModelIndex )] = true;
     }
 
-    if ( !addBodyRow( path.targetId, Physics::PhysicsSceneObjectId {}, rootFrame, 0, rootModelIndex, path.targetName ) )
+    const ReplayPrediction& predictionOwner;
+    ReplayAuthoring& authoring;
+    const ReplaySolverFrameSample* solverSample;
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
+    const PhysicsBodyStore& bodyStore;
+    std::span<const RunReplayPredictionFrame> activePredictionFrames;
+    std::span<const RunReplayPathTraceNode> nodes;
+    bool usePrediction = false;
+    bool rowOverflow = false;
+    std::array<RecordedBodyWork, static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )>
+        recordedBodyWork = {};
+    std::array<bool, static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )> recordedBodyQueued = {};
+    std::size_t recordedBodyWorkCount = 0;
+    std::size_t recordedBodyWorkCursor = 0;
+};
+
+} // namespace
+
+bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows(
+    const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path,
+    const ReplaySolverFrameSample* solverSample,
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore,
+    const RunReplayCameraState& camera, int& outCameraFocusedRow )
+{
+    const uint64_t sourceFingerprint = ReplayCauseTreeSourceFingerprint( predictionOwner, path, solverSample,
+                                                                         presentationRecords, bodyStore );
+
+    if ( authoring.CauseTreeRowsMatchSource( sourceFingerprint ) )
     {
-        authoring.FailCauseTreeRowBuild();
+        return ResolveReplayCauseTreeCameraFocus( authoring, camera, outCameraFocusedRow );
+    }
+
+    const RunReplayPredictionState& prediction = predictionOwner.State();
+    const ReplayPredictionPresentationView predictionView = predictionOwner.PresentationView();
+    const std::span<const RunReplayPredictionFrame> presentedPredictionFrames = predictionView.timeline.frames;
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
+    outCameraFocusedRow = -1;
+    authoring.BeginCauseTreeRowBuild( sourceFingerprint );
+
+    if ( !path.hasTarget || path.targetId.value == 0 )
+    {
         return false;
     }
 
-    auto addChildren = [&]( auto&& self, Physics::PhysicsSceneObjectId parentId, int fallbackDepth ) -> void
+    const bool usePrediction = prediction.enabled;
+
+    if ( usePrediction && !ReplayPredictionCauseWindowAvailable( predictionOwner.DetailMode(), true ) )
     {
-        for ( const RunReplayPathTraceNode& node : nodes )
-        {
-            if ( node.parentId.value != parentId.value )
-            {
-                continue;
-            }
-
-            const int depth = node.depth > 0 ? node.depth : fallbackDepth;
-
-            if ( addBodyRow( node.id, parentId, node.firstFrame, depth, modelIndexForId( node.id, node.modelRow.value ),
-                             nullptr ) )
-            {
-                self( self, node.id, depth + 1 );
-            }
-        }
-    };
-
-    addChildren( addChildren, path.targetId, 1 );
-
-    while ( !usePrediction && recordedBodyWorkCursor < recordedBodyWorkCount && !rowOverflow )
-    {
-        const RecordedBodyWork work = recordedBodyWork[recordedBodyWorkCursor++];
-        (void)addBodyRow( work.id, work.parentId, rootFrame, work.depth, work.modelIndex, nullptr );
-    }
-
-    if ( rowOverflow )
-    {
-        authoring.FailCauseTreeRowBuild();
         return false;
     }
 
-    authoring.SetCauseTreeSelectedRow( -1 );
-    const RunReplayCauseTreeState& causeTree = authoring.CauseTree();
+    const bool predictionPrefixMatchesPath = predictionView.topology.targetId.value == path.targetId.value;
+    const std::span<const RunReplayPredictionFrame>
+        activePredictionFrames = predictionPrefixMatchesPath ? presentedPredictionFrames
+                                                             : std::span<const RunReplayPredictionFrame> {};
+    const std::span<const RunReplayPathTraceNode> nodes = usePrediction && predictionPrefixMatchesPath &&
+                                                                  predictionView.topology.cacheValid
+                                                              ? predictionView.topology.futureNodes
+                                                              : std::span<const RunReplayPathTraceNode> {};
+    const std::size_t solverContactCount = solverSample ? solverSample->worldSnapshot.physics.persistentContacts.size()
+                                                        : static_cast<std::size_t>( 0 );
+    const std::size_t estimatedRows = usePrediction && predictionOwner.DetailMode() == ReplayPredictionDetailMode::High
+                                          ? REPLAY_CAUSE_TREE_ROW_CAPACITY
+                                          : 1 + nodes.size() + solverContactCount * 3;
 
-    if ( camera.focusKind != RunReplayCameraFocusKind::None )
-    {
-        for ( int i = 0; i < static_cast<int>( causeTree.rows.size() ); ++i )
-        {
-            const RunReplayCauseTreeRow& row = causeTree.rows[static_cast<std::size_t>( i )];
-
-            if ( row.kind != camera.focusRowKind || row.id.value != camera.focusedId.value ||
-                 row.modelRow.value != camera.focusModelRow.value || row.terrain != camera.focusTerrain )
-            {
-                continue;
-            }
-
-            if ( row.kind == RunReplayCauseTreeRowKind::Body ||
-                 ( row.counterpartId.value == camera.counterpartId.value &&
-                   row.counterpartModelRow.value == camera.focusCounterpartModelRow.value &&
-                   ( row.kind != RunReplayCauseTreeRowKind::SolverRow ||
-                     ( row.featureId == camera.focusFeatureId && row.solverRowIndex == camera.focusSolverRowIndex ) ) &&
-                   ( !row.prediction || !row.sourceHighDetail ||
-                     ( camera.focusSourceHighDetail && row.sourceGeneration == camera.focusSourceGeneration &&
-                       row.sourceBankEpoch == camera.focusSourceBankEpoch &&
-                       row.sourceTopologyVersion == camera.focusSourceTopologyVersion &&
-                       row.sourcePublicationVersion == camera.focusSourcePublicationVersion ) ) ) )
-            {
-                authoring.SetCauseTreeSelectedRow( i );
-                outCameraFocusedRow = i;
-                break;
-            }
-        }
-    }
-
-    if ( authoring.CauseTree().selectedRow >= static_cast<int>( authoring.CauseTree().rows.size() ) )
+    if ( !authoring.CauseTreeRowCapacityCovers( estimatedRows ) )
     {
         authoring.SetCauseTreeSelectedRow( -1 );
+        return false;
     }
 
-    return !authoring.CauseTree().rows.empty();
+    ReplayCauseTreeRowBuilder builder( predictionOwner, authoring, solverSample, presentationRecords, bodyStore,
+                                       activePredictionFrames, nodes, usePrediction );
+
+    if ( !builder.Build( path ) )
+    {
+        authoring.FailCauseTreeRowBuild();
+        return false;
+    }
+
+    return ResolveReplayCauseTreeCameraFocus( authoring, camera, outCameraFocusedRow );
 }
 
 
-bool SkullbonezCore::Runtime::ActivateReplayCauseTreeRow( const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, int rowIndex, ReplayPresentation& presentationOwner,
-                                                          ReplayScrubber& scrubberOwner, const ReplaySolverFrameSample* currentSolverSample, const PhysicsBodyStore& bodyStore,
-                                                          const ColliderStore& colliderStore, RuntimeInteractionController& interaction, Vector3& outTargetPosition,
-                                                          float& outTargetRadius )
+bool SkullbonezCore::Runtime::ActivateReplayCauseTreeRow(
+    const ReplayPrediction& predictionOwner, ReplayAuthoring& authoring, int rowIndex, ReplayPresentation& presentationOwner,
+    ReplayScrubber& scrubberOwner, const ReplaySolverFrameSample* currentSolverSample, const PhysicsBodyStore& bodyStore,
+    const ColliderStore& colliderStore, RuntimeInteractionController& interaction, Vector3& outTargetPosition,
+    float& outTargetRadius )
 {
     const RunReplayPredictionState& prediction = predictionOwner.State();
-    const std::span<const RunReplayPredictionFrame> activePredictionFrames = predictionOwner.ActiveFrames();
+    const ReplayPredictionPresentationView predictionView = predictionOwner.PresentationView();
+    const std::span<const RunReplayPredictionFrame> activePredictionFrames = predictionView.timeline.frames;
     RunReplayCauseTreeRow row;
 
     if ( !authoring.TryGetCauseTreeRow( rowIndex, row ) )
@@ -1084,7 +1198,7 @@ bool SkullbonezCore::Runtime::ActivateReplayCauseTreeRow( const ReplayPrediction
     const Physics::PhysicsSceneObjectId pathTargetId = presentationOwner.PathVisualizer().targetId;
     const auto resolveBody = [&]( Physics::PhysicsSceneObjectId id, Vector3& outPosition, float* outRadius )
     {
-        return ResolveReplayCauseTreeBodyPosition( id, prediction.enabled, prediction.simulation.targetId, pathTargetId,
+        return ResolveReplayCauseTreeBodyPosition( id, prediction.enabled, predictionView.topology.targetId, pathTargetId,
                                                    activePredictionFrames, currentSolverSample, bodyStore, colliderStore,
                                                    outPosition, outRadius );
     };

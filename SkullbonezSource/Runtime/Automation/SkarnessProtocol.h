@@ -34,7 +34,9 @@ enum class SkarnessCommandType : uint8_t
     ReplayLoad,
     ReplayReturnToLive,
     ReplaySelectCauseRow,
-    PredictionSelectTarget
+    ReplaySetCauseInspectorOpen,
+    PredictionSelectTarget,
+    CameraOrbitInspection
 };
 
 struct SkarnessCommand
@@ -43,6 +45,7 @@ struct SkarnessCommand
     SkarnessCommandType type = SkarnessCommandType::ReplayJumpToStart;
     std::string text;
     double number = 0.0;
+    double secondNumber = 0.0;
     uint64_t unsignedInteger = 0;
     int integer = 0;
     bool enabled = false;
@@ -52,6 +55,25 @@ struct SkarnessProceedPolicy
 {
     bool pauseLocked = false;
     bool stepRequested = false;
+};
+
+enum class SkarnessPointerButton : uint8_t
+{
+    Left,
+    Right,
+    Middle
+};
+
+// Detached synthetic device sample. Input still owns edge creation, pointer
+// capture, mouse-look activation, and camera gesture routing.
+struct SkarnessPointerInputFrame
+{
+    int clientX = 0;
+    int clientY = 0;
+    long rawMouseX = 0;
+    long rawMouseY = 0;
+    SkarnessPointerButton button = SkarnessPointerButton::Right;
+    bool buttonDown = false;
 };
 
 // Detached after-render facts. The transport can serialize this value but
@@ -95,6 +117,7 @@ struct SkarnessFrameState
     uint64_t publishedPredictionTargetId = 0;
     uint32_t publishedPredictionFrames = 0;
     uint32_t trajectoryRecordCount = 0;
+    uint32_t selectedPastRootPointCount = 0;
     uint32_t selectedFutureRootPointCount = 0;
     uint32_t contactChildIncomingCount = 0;
     uint32_t contactChildOutgoingCount = 0;
@@ -108,6 +131,57 @@ struct SkarnessFrameState
     uint32_t futureNodeCount = 0;
     uint32_t retainedLineFloatCount = 0;
     uint32_t retainedRibbonVertexFloatCount = 0;
+    uint32_t causeTreeRowCount = 0;
+    uint64_t causeTreeRowBuildCount = 0;
+    uint64_t causeTreeRowCacheHitCount = 0;
+    bool causeWindowAvailable = false;
+    bool causeInspectorOpen = false;
+    float causeInspectorDrawerProgress = 0.0f;
+    int selectedCauseRow = -1;
+    int causeInspectionMode = 0;
+    float causeTransitionProgress = 0.0f;
+    bool inspectionCameraActive = false;
+    int inspectionCameraFocusKind = 0;
+    bool inspectionFocusFadeActive = false;
+    uint32_t inspectionFocusObjectCount = 0;
+    uint64_t selectedCausePrimaryId = 0;
+    uint64_t selectedCauseCounterpartId = 0;
+    uint32_t causeContactPointCount = 0;
+    uint32_t submittedCauseContactPointCount = 0;
+    uint32_t submittedCauseContactBodyCount = 0;
+    uint64_t inspectionPathFocusPrimaryId = 0;
+    uint64_t inspectionPathFocusCounterpartId = 0;
+    uint32_t inspectionFocusedPathRangeCount = 0;
+    uint32_t inspectionContextPathRangeCount = 0;
+    uint32_t inspectionFocusedPathSegmentCount = 0;
+    uint32_t inspectionContextPathSegmentCount = 0;
+    uint32_t inspectionPathOpacityMismatchCount = 0;
+    bool inspectionPathFocusActive = false;
+    float inspectionPivotX = 0.0f;
+    float inspectionPivotY = 0.0f;
+    float inspectionPivotZ = 0.0f;
+    uint32_t selectedCameraHash = 0;
+    bool cameraTweenActive = false;
+    float cameraTweenProgress = 0.0f;
+    float cameraPrimaryEyeX = 0.0f;
+    float cameraPrimaryEyeY = 0.0f;
+    float cameraPrimaryEyeZ = 0.0f;
+    float cameraPrimaryViewX = 0.0f;
+    float cameraPrimaryViewY = 0.0f;
+    float cameraPrimaryViewZ = 0.0f;
+    float cameraPrimaryUpX = 0.0f;
+    float cameraPrimaryUpY = 1.0f;
+    float cameraPrimaryUpZ = 0.0f;
+    float cameraRenderEyeX = 0.0f;
+    float cameraRenderEyeY = 0.0f;
+    float cameraRenderEyeZ = 0.0f;
+    float cameraRenderViewX = 0.0f;
+    float cameraRenderViewY = 0.0f;
+    float cameraRenderViewZ = 0.0f;
+    float cameraRenderUpX = 0.0f;
+    float cameraRenderUpY = 1.0f;
+    float cameraRenderUpZ = 0.0f;
+    float cameraRenderRollRadians = 0.0f;
     bool retainedPathGeometrySaturated = false;
     bool visualPacketHasGeometry = false;
     bool trajectorySubmitted = false;

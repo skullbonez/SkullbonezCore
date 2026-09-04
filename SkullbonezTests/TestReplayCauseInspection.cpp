@@ -281,7 +281,8 @@ TEST_CASE( "Cause hierarchy inspector layout: compound clamping preserves reacha
                                                                                 1.0f );
     CHECK( topLeft.targetCompound.x == doctest::Approx( 8.0f ) );
     CHECK( topLeft.targetCompound.y == doctest::Approx( 84.0f ) );
-    CHECK( topLeft.drawerClose.x + topLeft.drawerClose.w <= topLeft.hierarchy.x );
+    CHECK( topLeft.drawerToggle.x < topLeft.hierarchy.x );
+    CHECK( topLeft.drawerToggle.x + topLeft.drawerToggle.w > topLeft.hierarchy.x );
     CHECK( topLeft.resize.x + topLeft.resize.w <= 923.0f );
 
     compact.x = 9000;
@@ -676,7 +677,7 @@ TEST_CASE( "Replay cause solver detail: predicted rows require the exact immutab
     REQUIRE( inspection.TakeTransportRequest( transport ) );
     inspection.PublishSolverDetail( transport.generation, exact, manifold );
     inspection.CompleteTransport( transport.generation, true );
-    CHECK( inspection.View().Display().detailVisible );
+    CHECK_FALSE( inspection.View().Display().detailVisible );
     CHECK( inspection.View().SolverDetail().solverDetailAvailability == ReplayCauseSolverDetailAvailability::Available );
     CHECK( inspection.View().SolverDetail().solverDetailContactRowCount == 2u );
     CHECK( inspection.View().SolverDetail().solverDetailPipelineRecordCount == 3u );
@@ -782,6 +783,8 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     contacts[0].accN = 99.0f;
     records[0].scalarA = 88.0f;
     inspection.CompleteTransport( request.generation, true );
+    inspection.SetDrawerOpen( true, 2.5 );
+    inspection.Advance( 2.68 );
     const ReplayCauseInspectionView published = inspection.View();
     REQUIRE( published.Display().detailVisible );
     REQUIRE( published.SolverDetail().solverDetailContacts.size() == 6u );
@@ -1046,20 +1049,59 @@ TEST_CASE( "Replay cause inspector drawer: total elapsed easing is cadence indep
     seek.frame = 12u;
 
     REQUIRE( inspection.Select( 0, seek, 20u, false, 10.0 ) );
-    CHECK( inspection.View().Display().detailVisible );
+    CHECK_FALSE( inspection.View().Display().detailVisible );
+    CHECK_FALSE( inspection.View().Display().drawerOpen );
     CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 0.0f ) );
+    inspection.SetDrawerOpen( true, 10.0 );
+    CHECK( inspection.View().Display().detailVisible );
+    CHECK( inspection.View().Display().drawerOpen );
     inspection.Advance( 10.09 );
     CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 0.875f ).epsilon( 0.001 ) );
     inspection.Advance( 10.18 );
     CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 1.0f ) );
 
-    REQUIRE( inspection.BeginReturn().apply );
+    inspection.SetDrawerOpen( false, 10.18 );
+    CHECK_FALSE( inspection.View().Display().drawerOpen );
     inspection.Advance( 10.27 );
     CHECK( inspection.View().Display().detailVisible );
     CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 0.125f ).epsilon( 0.001 ) );
     inspection.Advance( 10.36 );
     CHECK_FALSE( inspection.View().Display().detailVisible );
     CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 0.0f ) );
+}
+
+TEST_CASE( "Replay cause inspector drawer: seam toggle is the only default-open interaction" )
+{
+    RunReplayCauseTreeState causeTree;
+    causeTree.hasWindowPlacement = true;
+    causeTree.x = 1180;
+    causeTree.y = 140;
+    causeTree.width = 430;
+    causeTree.height = 500;
+
+    ReplayCauseInspection inspection;
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::SolverHistory;
+    seek.frame = 12u;
+    REQUIRE( inspection.Select( 0, seek, 20u, false, 10.0 ) );
+    CHECK_FALSE( inspection.View().Display().detailVisible );
+
+    const ReplayCauseInspectorLayout closed = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), causeTree,
+                                                                                1920, 1080, 0.0f );
+    const int toggleX = static_cast<int>( closed.drawerToggle.x + closed.drawerToggle.w * 0.5f );
+    const int toggleY = static_cast<int>( closed.drawerToggle.y + closed.drawerToggle.h * 0.5f );
+    CHECK( ReplayCauseInspectorToggleContainsPoint( closed, toggleX, toggleY ) );
+    CHECK_FALSE( inspection.TickSolverDetailPanelInput( causeTree, toggleX, toggleY, true, true, true, 0, 1920, 1080 ) );
+    CHECK( inspection.TickSolverDetailPanelInput( causeTree, toggleX, toggleY, true, false, true, 0, 1920, 1080 ) );
+    CHECK( inspection.View().Display().drawerOpen );
+    CHECK( inspection.View().Display().detailVisible );
+
+    inspection.Advance( 10.18 );
+    CHECK( inspection.View().Display().drawerProgress == doctest::Approx( 1.0f ) );
+    CHECK( inspection.TickSolverDetailPanelInput( causeTree, toggleX, toggleY, true, false, true, 0, 1920, 1080 ) );
+    CHECK_FALSE( inspection.View().Display().drawerOpen );
+    CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Transporting );
 }
 
 TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-flight restore" )
@@ -1099,7 +1141,7 @@ TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-fl
     CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Transporting );
     inspection.CompleteTransport( newest.generation, true );
     CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::DetailPaused );
-    CHECK( inspection.View().Display().detailVisible );
+    CHECK_FALSE( inspection.View().Display().detailVisible );
 }
 
 TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, failure, and return" )
@@ -1121,7 +1163,7 @@ TEST_CASE( "Replay cause inspection: pause ownership survives pre-pause, Space, 
         REQUIRE( inspection.BeginAftermath( releasePause ) );
         CHECK( releasePause );
         CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::AftermathFollow );
-        CHECK( inspection.View().Display().detailVisible );
+        CHECK_FALSE( inspection.View().Display().detailVisible );
         inspection.Advance( 2.68 );
         CHECK_FALSE( inspection.View().Display().detailVisible );
 
@@ -1209,6 +1251,8 @@ TEST_CASE( "Replay cause inspection: focused panel and manifold clear together a
         REQUIRE( inspection.TakeTransportRequest( request ) );
         inspection.PublishSolverDetail( request.generation, detail, presentation );
         inspection.CompleteTransport( request.generation, true );
+        inspection.SetDrawerOpen( true, 2.5 );
+        inspection.Advance( 2.68 );
         REQUIRE( inspection.View().Display().detailVisible );
         REQUIRE( inspection.View().SolverDetail().solverDetailContacts.size() == 1u );
         REQUIRE( inspection.View().SolverDetail().contactPresentation.HasGeometry() );
@@ -1231,7 +1275,7 @@ TEST_CASE( "Replay cause inspection: focused panel and manifold clear together a
         CHECK( inspection.View().Display().detailVisible );
         checkEvidenceCleared( inspection.View() );
         inspection.Advance( 2.68 );
-        CHECK_FALSE( inspection.View().Display().detailVisible );
+        CHECK( inspection.View().Display().detailVisible );
     }
 
     SUBCASE( "direct retarget hides the old surface before the new transport" )
@@ -1279,7 +1323,7 @@ TEST_CASE( "Replay cause inspection: cancellation invalidates an interrupted tra
 
     inspection.CompleteTransport( request.generation, true );
     CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Returning );
-    CHECK( inspection.View().Display().detailVisible );
+    CHECK_FALSE( inspection.View().Display().detailVisible );
     inspection.Advance( 1.68 );
     CHECK_FALSE( inspection.View().Display().detailVisible );
 }
@@ -1317,7 +1361,7 @@ TEST_CASE( "Replay cause inspection: click or scrub return is accepted during en
             REQUIRE( ShouldBeginReplayCauseAftermath( inspection.View().Transport(), true ) );
             bool releasePause = false;
             REQUIRE( inspection.BeginAftermath( releasePause ) );
-            CHECK( inspection.View().Display().detailVisible );
+            CHECK_FALSE( inspection.View().Display().detailVisible );
             REQUIRE( ShouldBeginReplayCauseReturn( inspection.View().Transport(), !scrubExit, scrubExit ) );
             const ReplayCauseExitAction exit = inspection.BeginReturn();
             CHECK( exit.apply );
@@ -1325,6 +1369,25 @@ TEST_CASE( "Replay cause inspection: click or scrub return is accepted during en
             CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Returning );
         }
     }
+}
+
+TEST_CASE( "Replay cause inspection: camera ownership prevents free-look and accepts orbit only after entry" )
+{
+    CHECK_FALSE( ReplayCauseInspectionOwnsCamera( ReplayCauseInspectionMode::Inactive ) );
+    CHECK_FALSE( ReplayCauseInspectionAcceptsOrbit( ReplayCauseInspectionMode::Inactive ) );
+
+    CHECK( ReplayCauseInspectionOwnsCamera( ReplayCauseInspectionMode::Transporting ) );
+    CHECK_FALSE( ReplayCauseInspectionAcceptsOrbit( ReplayCauseInspectionMode::Transporting ) );
+
+    CHECK( ReplayCauseInspectionOwnsCamera( ReplayCauseInspectionMode::DetailPaused ) );
+    CHECK( ReplayCauseInspectionAcceptsOrbit( ReplayCauseInspectionMode::DetailPaused ) );
+    CHECK( ReplayCauseInspectionOwnsCamera( ReplayCauseInspectionMode::AftermathFollow ) );
+    CHECK( ReplayCauseInspectionAcceptsOrbit( ReplayCauseInspectionMode::AftermathFollow ) );
+
+    // Return owns its final tween and must not let ordinary right-drag mutate
+    // either endpoint while the main camera is being restored.
+    CHECK( ReplayCauseInspectionOwnsCamera( ReplayCauseInspectionMode::Returning ) );
+    CHECK_FALSE( ReplayCauseInspectionAcceptsOrbit( ReplayCauseInspectionMode::Returning ) );
 }
 
 TEST_CASE( "Replay cause inspection: elapsed curve is cadence independent and completes exactly" )
@@ -1601,6 +1664,8 @@ TEST_CASE( "Cause hierarchy inspector: Raw Record input handles copy command and
     REQUIRE( inspection.TakeTransportRequest( request ) );
     inspection.PublishSolverDetail( request.generation, detail );
     inspection.CompleteTransport( request.generation, true );
+    inspection.SetDrawerOpen( true, 2.5 );
+    inspection.Advance( 2.68 );
 
     const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), treeState,
                                                                                1920, 1080, 1.0f );
@@ -1822,6 +1887,8 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab input and interaction hand
     REQUIRE( inspection.TakeTransportRequest( request ) );
     inspection.PublishSolverDetail( request.generation, detail );
     inspection.CompleteTransport( request.generation, true );
+    inspection.SetDrawerOpen( true, 2.5 );
+    inspection.Advance( 2.68 );
 
     const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), treeState,
                                                                                1920, 1080, 1.0f );
@@ -1857,12 +1924,15 @@ TEST_CASE( "Cause hierarchy inspector: Iterations tab input and interaction hand
         CHECK( inspection.View().Display().iterationsFirstRow == 0 );
     }
 
-    SUBCASE( "clicking close button initiates return" )
+    SUBCASE( "clicking seam toggle collapses only the solver inspector" )
     {
-        const int closeX = static_cast<int>( layout.drawerClose.x + layout.drawerClose.w * 0.5f );
-        const int closeY = static_cast<int>( layout.drawerClose.y + layout.drawerClose.h * 0.5f );
-        CHECK( inspection.TickSolverDetailPanelInput( treeState, closeX, closeY, true, false, true, 0, 1920, 1080 ) );
-        CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Returning );
+        const int toggleX = static_cast<int>( layout.drawerToggle.x + layout.drawerToggle.w * 0.5f );
+        const int toggleY = static_cast<int>( layout.drawerToggle.y + layout.drawerToggle.h * 0.5f );
+        CHECK( inspection.TickSolverDetailPanelInput( treeState, toggleX, toggleY, true, false, true, 0, 1920, 1080 ) );
+        CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::DetailPaused );
+        CHECK_FALSE( inspection.View().Display().drawerOpen );
+        inspection.Advance( 2.86 );
+        CHECK_FALSE( inspection.View().Display().detailVisible );
     }
 }
 
@@ -1976,6 +2046,8 @@ TEST_CASE( "Cause hierarchy inspector: multi-contact selection assigns and consu
     REQUIRE( inspection.TakeTransportRequest( transportReq ) );
     inspection.PublishSolverDetail( transportReq.generation, detail );
     inspection.CompleteTransport( transportReq.generation, true );
+    inspection.SetDrawerOpen( true, 1.0 );
+    inspection.Advance( 1.18 );
 
     const ReplayCauseInspectionView view = inspection.View();
     CHECK( view.Selection().selectedDetailContactRow == 1 );

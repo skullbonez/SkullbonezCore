@@ -24,7 +24,9 @@ def load_manifest(session: Path) -> dict[str, object]:
     while time.monotonic() < deadline:
         try:
             return json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (FileNotFoundError, PermissionError, json.JSONDecodeError):
+            # The host replaces the manifest atomically, but Windows can deny
+            # a read briefly while antivirus or indexing observes that edge.
             time.sleep(0.05)
     raise RuntimeError(f"Skarness manifest was not ready: {manifest_path}")
 

@@ -29,6 +29,7 @@ class SkarnessHost
                                bool expectDemo );
     uint64_t BeginCapture( const std::string& requestId );
     void CompleteCapture( uint64_t token, bool applied, const char* reason = nullptr );
+    bool TakePointerInputFrame( SkarnessPointerInputFrame& outFrame );
     SkarnessProceedPolicy TakeProceedPolicy();
     void PublishFrameState( const SkarnessFrameState& state );
     bool TakeStopRequested() noexcept;
@@ -83,6 +84,16 @@ class SkarnessHost
         uint32_t framesRemaining = 0;
         bool expectDemo = false;
     };
+    struct PendingPointerDrag
+    {
+        std::string requestId;
+        int clientX = 0;
+        int clientY = 0;
+        int deltaX = 0;
+        int deltaY = 0;
+        uint8_t phase = 0;
+        SkarnessPointerButton button = SkarnessPointerButton::Right;
+    };
     std::filesystem::path m_sessionDirectory;
     std::filesystem::path m_manifestPath;
     std::filesystem::path m_tracePath;
@@ -99,6 +110,7 @@ class SkarnessHost
     std::deque<std::string> m_recentRequestIds;
     std::deque<CompletedRequest> m_completedRequests;
     PendingSceneTransition m_pendingSceneTransition;
+    PendingPointerDrag m_pendingPointerDrag;
     uint64_t m_sequence = 0;
     uint64_t m_renderFrame = 0;
     uint64_t m_physicsSceneGeneration = ~uint64_t { 0 };

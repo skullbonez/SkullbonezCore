@@ -392,10 +392,6 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
     draw.Rect( layout.drawer.x, layout.drawer.y, 3.0f, layout.drawer.h, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.92f );
     draw.Text( layout.drawerTitle.x + 12.0f, layout.drawerTitle.y + 9.0f, 14.0f, palette.textPrimary.r,
                palette.textPrimary.g, palette.textPrimary.b, "SOLVER INSPECTOR" );
-    draw.RoundedRect( layout.drawerClose.x, layout.drawerClose.y, layout.drawerClose.w, layout.drawerClose.h, 4.0f,
-                      CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
-    draw.Text( layout.drawerClose.x + 8.0f, layout.drawerClose.y + 4.0f, 12.0f, palette.textSecondary.r,
-               palette.textSecondary.g, palette.textSecondary.b, "X" );
 
     char frameLabel[96] = {};
     sprintf_s( frameLabel, sizeof( frameLabel ), "FRAME %llu | %zu ROWS%s",
@@ -457,6 +453,25 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
     }
 
     drawList.PopClip();
+}
+
+void RenderReplayCauseInspectorToggle( const UI::UIDrawContext& draw, const ReplayCauseInspectorLayout& layout,
+                                       const ReplayCauseInspectionView& inspection, const RunReplayCauseTreeState& tree )
+{
+    const bool hovered = !tree.pointerBlocked && layout.drawerToggle.Contains( tree.mouseX, tree.mouseY );
+    const float railAlpha = hovered ? 0.58f : 0.38f;
+    draw.Rect( layout.sharedSeam.x, layout.sharedSeam.y, layout.sharedSeam.w, layout.sharedSeam.h, CAUSE_RULE.r,
+               CAUSE_RULE.g, CAUSE_RULE.b, railAlpha );
+
+    UI::Style::UIColor handleFill = hovered ? CAUSE_SELECTED : CAUSE_NAVY_ALT;
+    handleFill.a = hovered ? 0.98f : 0.92f;
+    UI::Style::UIColor handleBorder = CAUSE_RULE;
+    handleBorder.a = hovered ? 0.82f : 0.58f;
+    draw.RoundedPanel( layout.drawerToggle, 4.0f, handleFill, handleBorder );
+
+    const char* arrow = inspection.Display().drawerOpen ? ">" : "<";
+    draw.Text( layout.drawerToggle.x + 5.0f, layout.drawerToggle.y + 11.0f, 14.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b,
+               arrow );
 }
 
 // Concept: one frame-local scrubber composer owns the values shared across the
@@ -1277,10 +1292,14 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
 
     const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
+    const ReplayCauseInspectorLayout
+        inspectorLayout = BuildReplayCauseInspectorLayout( causality.inspection.SolverDetail(), causality.tree, screenW,
+                                                           screenH, causality.inspection.Display().drawerProgress );
     RenderReplayCauseSolverDetailPanel( drawList, draw, causality, screenW, screenH );
     UI::Style::UIColor panelBorder = CAUSE_RULE;
     panelBorder.a = 0.72f;
     draw.RoundedPanel( panel, 6.0f, CAUSE_NAVY, panelBorder );
+    RenderReplayCauseInspectorToggle( draw, inspectorLayout, causality.inspection, causality.tree );
     draw.Rect( title.x + 12.0f, title.y + title.h - 2.0f, (std::max)( 0.0f, title.w - 24.0f ), 2.0f, CAUSE_RULE.r,
                CAUSE_RULE.g, CAUSE_RULE.b, 0.82f );
 

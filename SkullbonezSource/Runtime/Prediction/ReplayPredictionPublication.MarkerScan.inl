@@ -27,6 +27,8 @@ Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp
   - SkullbonezTests/TestReplayVisualPacket.cpp
 */
+#include "ReplayPredictionPublicationOperations.h"
+#include "ReplayPredictionScheduling.h"
 #include "../../Physics/PhysicsTimestep.h"
 
 #include <algorithm>

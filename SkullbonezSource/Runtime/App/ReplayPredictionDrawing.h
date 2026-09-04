@@ -220,7 +220,8 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
 void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationView& prediction,
                                              const RunReplayPathVisualizerState& pathVisualizer,
                                              const ReplayPredictionDrawListState& state,
-                                             const Physics::ColliderStore& colliderStore, EditorTracer& tracer );
+                                             const Physics::ColliderStore& colliderStore,
+                                             const ReplayPredictionPathFocus& focus, EditorTracer& tracer );
 
 // Every participant and present-sample flag must belong to one published
 // Prediction generation. The explicit operands keep this synchronous App

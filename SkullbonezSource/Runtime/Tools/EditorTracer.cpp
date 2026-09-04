@@ -1016,7 +1016,8 @@ void EditorTracer::AddRayCastTestLine( const Vector3& start, const Vector3& end,
 }
 
 void EditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3& end, float r, float g, float b,
-                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane, float emphasis )
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
+                                         ReplayPathSegmentPresentation presentation )
 {
     ReplayRibbonStyle glow = m_replayPathStyle;
     ReplayRibbonStyle core = m_replayPathStyle;
@@ -1024,20 +1025,26 @@ void EditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3& en
     // Invariant: only the replay presentation owner may opt a segment into the
     // shader's halo and bloom-feed branch. All generic editor and non-selected
     // replay paths arrive through the zero-emphasis default.
-    const float boundedEmphasis = std::clamp( emphasis, 0.0f, 1.0f ) * m_replaySelectedEmphasis;
+    const float boundedEmphasis = std::clamp( presentation.emphasis, 0.0f, 1.0f ) * m_replaySelectedEmphasis;
+    const float boundedOpacity = std::clamp( presentation.opacity, 0.0f, 1.0f );
+    glow.alpha *= boundedOpacity;
+    core.alpha *= boundedOpacity;
     glow.emphasis = boundedEmphasis;
     core.emphasis = boundedEmphasis;
     EmitReplayRibbonGlowPairTo( m_replayRibbonSegments, start, end, r, g, b, glow, core, lane );
 }
 
 
-void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
+void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vector3& end, float r, float g, float b,
+                                                float opacity )
 {
     // Why: retained causal trails are the evidence attached to yellow/grey/ghost
     // boxes. They live with the priority ribbons so overflow in ordinary root
     // path rendering cannot leave a marker without its sampled route.
-    const ReplayRibbonStyle glow = m_replayCausalStyle;
-    const ReplayRibbonStyle core = m_replayCausalStyle;
+    ReplayRibbonStyle glow = m_replayCausalStyle;
+    ReplayRibbonStyle core = m_replayCausalStyle;
+    glow.alpha *= std::clamp( opacity, 0.0f, 1.0f );
+    core.alpha = glow.alpha;
     EmitReplayRibbonGlowPairTo( m_priorityReplayRibbonSegments, start, end, r, g, b, glow, core,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
 }

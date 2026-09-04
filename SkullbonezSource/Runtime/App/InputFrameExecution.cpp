@@ -1302,6 +1302,33 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
 
 
     DeviceInputFrame deviceFrame;
+#if defined( SKULLBONEZ_SKARNESS )
+    if ( m_skarness.Enabled() )
+    {
+        SkarnessPointerInputFrame skarnessPointer;
+        Input::AutomationState automation;
+        automation.enabled = true;
+        automation.overrideAppFocused = true;
+        automation.appFocused = true;
+
+        if ( m_skarness.TakePointerInputFrame( skarnessPointer ) )
+        {
+            automation.hasMouseClientPosition = true;
+            automation.mouseClientPosition = { skarnessPointer.clientX, skarnessPointer.clientY };
+            automation.rawMouseDeltaX = skarnessPointer.rawMouseX;
+            automation.rawMouseDeltaY = skarnessPointer.rawMouseY;
+            automation.leftMouseDown = skarnessPointer.button == SkarnessPointerButton::Left && skarnessPointer.buttonDown;
+            automation.rightMouseDown = skarnessPointer.button == SkarnessPointerButton::Right && skarnessPointer.buttonDown;
+            automation.middleMouseDown = skarnessPointer.button == SkarnessPointerButton::Middle &&
+                                         skarnessPointer.buttonDown;
+        }
+
+        // Skarness owns the complete device sample while its pipe session is
+        // active. Interaction recordings retain their own synthetic device
+        // owner when this executable was launched without Skarness.
+        Input::SetAutomationState( automation );
+    }
+#endif
     const SkullbonezCore::Core::SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( m_resultDiagnostics,
                                                                                                deviceFrame );
 
