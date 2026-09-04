@@ -1492,6 +1492,10 @@ void Run::PublishSkarnessFrameState()
     }
 
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+    // Invariant: a Skarness command is not applied until both trace owners are
+    // durable. Physics keeps buffered writes hot; App flushes that lower-layer
+    // sidecar once at this after-render diagnostics boundary.
+    Core::Log().FlushAll();
     m_skarness.PublishFrameState( state, m_replayRuntime.BuildAutomationView() );
 }
 #endif

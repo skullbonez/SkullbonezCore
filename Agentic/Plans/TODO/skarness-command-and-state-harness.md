@@ -1,7 +1,7 @@
 # Skarness Command And State Harness
 
 Date: 2026-09-05
-Status: Active — 5/7 phases implemented; SK5 next
+Status: Active — 6/7 phases implemented; SK6 next
 Owner: Runtime Automation
 Impact area: Automation, Debug diagnostics, input/command routing, Replay, Prediction, Planning, query tools, and validation
 
@@ -319,7 +319,7 @@ total model-read bytes using the existing SkullScope accounting convention.
   append/change/evict/reset rows for all listed topics, enable existing
   SkullScope emission in Automation, and correlate both traces without crossing
   the Physics/Runtime dependency boundary.
-- [ ] **SK5 — Build incremental SQLite queries.** Import both live sidecars,
+- [x] **SK5 — Build incremental SQLite queries.** Import both live sidecars,
   expose bounded summary/replay/prediction/cause/render queries, support tailing
   by sequence cursor, and report artifact/model-read sizes.
 - [ ] **SK6 — Replace the fragile prediction smoke.** Express the current

@@ -20,8 +20,7 @@ struct SkarnessSerializedStateTopic
     uint64_t evictCursor = 0;
 };
 
-using SkarnessSerializedStateTopics =
-    std::array<SkarnessSerializedStateTopic, SKARNESS_STATE_TOPICS.size()>;
+using SkarnessSerializedStateTopics = std::array<SkarnessSerializedStateTopic, SKARNESS_STATE_TOPICS.size()>;
 
 // Lifetime: ReplayAutomationView borrows owner storage only for this call. The
 // returned strings are detached before App may mutate Replay again.

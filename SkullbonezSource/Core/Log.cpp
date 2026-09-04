@@ -8,7 +8,7 @@ Summary:
   for runtime, crash, and diagnostic channels; shipping builds retain a no-op API.
 
 Invariants:
-  - Debug logs are opened in binary mode so newline bytes stay byte-exact for
+  - Diagnostic logs are opened in binary mode so newline bytes stay byte-exact for
     validation artifacts.
   - Release builds keep the logging API callable but compile the side effects
     away.
@@ -26,6 +26,7 @@ Related:
 
 #if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include "PlatformWin32.h"
+#include <share.h>
 #endif
 
 using namespace SkullbonezCore::Core;
@@ -94,7 +95,10 @@ FILE* EngineLog::OpenLog( const char* fileName )
         // validation artifacts; text mode silently expands '\n' to CRLF and can
         // make data-identical files differ at the byte level.
         EnsureParentDirectory( fileName );
-        fopen_s( &f, fileName, "wb" );
+        // Why: diagnostics are a live observation surface. Denying neither
+        // reads nor writes lets a local query process tail complete flushed
+        // rows while EngineLog retains the producing handle.
+        f = _fsopen( fileName, "wb", _SH_DENYNO );
 
         if ( f )
         {

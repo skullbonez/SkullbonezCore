@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-09-05
-Status: Skarness Command And State Harness active; SK5 next; prior portfolio
+Status: Skarness Command And State Harness active; SK6 next; prior portfolio
 143/143 tasks complete; bug ledger 126/126 fixed
 
 ## Owner Direction
@@ -365,7 +365,7 @@ hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
-| Skarness Command And State Harness | Active; SK5 next | 5/7 | `TODO/skarness-command-and-state-harness.md` |
+| Skarness Command And State Harness | Active; SK6 next | 6/7 | `TODO/skarness-command-and-state-harness.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains

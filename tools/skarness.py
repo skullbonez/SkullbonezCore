@@ -4,18 +4,18 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
+import os
 from pathlib import Path
-import sqlite3
 import subprocess
 import sys
 import time
 import uuid
 
+from skarness_query import DEFAULT_ROW_LIMIT, import_session, open_query_cache, query_profile, tail_rows
+
 
 SCHEMA_VERSION = 1
-DEFAULT_ROW_LIMIT = 200
 STATE_KINDS = {"snapshot", "append", "change", "evict", "reset", "state"}
 
 
@@ -199,7 +199,14 @@ def watch(session: Path, topic: str) -> int:
         connection.close()
 
 
-def launch(session: Path, executable: Path, scene: Path | None, hidden: bool = False, manual: bool = False) -> int:
+def launch(
+    session: Path,
+    executable: Path,
+    scene: Path | None,
+    hidden: bool = False,
+    manual: bool = False,
+    detail: str | None = None,
+) -> int:
     session.mkdir(parents=True, exist_ok=True)
     manifest = session / "session.json"
     if manifest.exists():
@@ -225,7 +232,19 @@ def launch(session: Path, executable: Path, scene: Path | None, hidden: bool = F
         stdout.close()
         stderr.close()
     published = load_manifest(session)
-    print(json.dumps({"processId": process.pid, "manifest": published}, indent=2))
+    result: dict[str, object] = {"processId": process.pid, "manifest": published}
+    if detail is not None:
+        connection = SkarnessConnection(session)
+        try:
+            subscription = connection.wait(
+                connection.send("state.subscribe", {"topics": ["*"], "detail": detail})
+            )
+        finally:
+            connection.close()
+        if subscription.get("status") != "applied":
+            raise RuntimeError(f"initial state subscription failed: {subscription}")
+        result["subscription"] = subscription
+    print(json.dumps(result, indent=2))
     return 0
 
 
@@ -251,142 +270,73 @@ def query_latest_state(session: Path) -> dict[str, object] | None:
     return latest
 
 
-def source_identity(path: Path) -> str:
-    with path.open("rb") as source:
-        first_line = source.readline()
-    return hashlib.sha256(first_line if first_line.endswith(b"\n") else b"").hexdigest()
+def cache_bytes(path: Path) -> int:
+    candidates = (path, Path(f"{path}-wal"), Path(f"{path}-shm"))
+    return sum(candidate.stat().st_size for candidate in candidates if candidate.exists())
 
 
-def open_query_cache(session: Path) -> sqlite3.Connection:
-    cache = session / "session.skarness.sqlite"
-    connection = sqlite3.connect(cache)
-    connection.executescript(
-        """
-        PRAGMA journal_mode=WAL;
-        CREATE TABLE IF NOT EXISTS sources (
-            source TEXT PRIMARY KEY,
-            path TEXT NOT NULL,
-            identity TEXT NOT NULL,
-            imported_offset INTEGER NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS rows (
-            id INTEGER PRIMARY KEY,
-            source TEXT NOT NULL,
-            sequence INTEGER,
-            topic TEXT,
-            kind TEXT,
-            runtime_turn INTEGER,
-            scene_generation INTEGER,
-            simulation_tick INTEGER,
-            render_frame INTEGER,
-            replay_frame INTEGER,
-            row_json TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS rows_topic_sequence ON rows(topic, sequence);
-        CREATE INDEX IF NOT EXISTS rows_scene_tick ON rows(scene_generation, simulation_tick);
-        """
-    )
-    return connection
+def print_accounted_result(result: dict[str, object]) -> None:
+    while True:
+        encoded = json.dumps(result, indent=2)
+        size = len(encoded.encode("utf-8"))
+        if os.linesep == "\r\n":
+            size += encoded.count("\n")
+        if result.get("modelReadBytes") == size:
+            print(encoded)
+            return
+        result["modelReadBytes"] = size
 
 
-def import_trace(connection: sqlite3.Connection, source_name: str, path: Path) -> int:
-    if not path.exists():
-        return 0
-
-    identity = source_identity(path)
-    stored = connection.execute(
-        "SELECT path, identity, imported_offset FROM sources WHERE source = ?", (source_name,)
-    ).fetchone()
-    offset = int(stored[2]) if stored else 0
-    if stored and (stored[0] != str(path) or stored[1] != identity or path.stat().st_size < offset):
-        connection.execute("DELETE FROM rows WHERE source = ?", (source_name,))
-        offset = 0
-
-    imported = 0
-    with path.open("rb") as source:
-        source.seek(offset)
-        while True:
-            start = source.tell()
-            raw_line = source.readline()
-            if not raw_line or not raw_line.endswith(b"\n"):
-                source.seek(start)
-                break
-            offset = source.tell()
-            try:
-                row = json.loads(raw_line)
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                continue
-            connection.execute(
-                """
-                INSERT INTO rows(source, sequence, topic, kind, runtime_turn, scene_generation,
-                                 simulation_tick, render_frame, replay_frame, row_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    source_name,
-                    row.get("sequence"),
-                    row.get("topic"),
-                    row.get("kind"),
-                    row.get("runtimeTurn"),
-                    row.get("sceneGeneration"),
-                    row.get("simulationTick"),
-                    row.get("renderFrame"),
-                    row.get("replayFrame"),
-                    json.dumps(row, separators=(",", ":")),
-                ),
-            )
-            imported += 1
-
-    connection.execute(
-        """
-        INSERT INTO sources(source, path, identity, imported_offset) VALUES (?, ?, ?, ?)
-        ON CONFLICT(source) DO UPDATE SET path=excluded.path, identity=excluded.identity,
-                                                imported_offset=excluded.imported_offset
-        """,
-        (source_name, str(path), identity, offset),
-    )
-    connection.commit()
-    return imported
-
-
-def query_rows(session: Path, kind: str, limit: int) -> int:
+def query_rows(
+    session: Path,
+    kind: str,
+    limit: int,
+    frames: str | None = None,
+    target: str | None = None,
+    full: bool = False,
+) -> int:
     runtime_trace = artifact_path(session, "stateTrace", "runtime.skarness.ndjson")
     physics_trace = artifact_path(session, "physicsTrace", "physics.physicsdiag.ndjson")
     connection = open_query_cache(session)
     try:
-        imported = {
-            "runtime": import_trace(connection, "runtime", runtime_trace),
-            "physics": import_trace(connection, "physics", physics_trace),
-        }
-        predicates = {
-            "summary": "source = 'runtime' AND topic = 'replay.state'",
-            "scene": "source = 'runtime' AND topic = 'scene.state'",
-            "replay": "source = 'runtime' AND (topic LIKE 'replay.%' OR kind = 'command')",
-            "prediction": "source = 'runtime' AND topic = 'replay.state'",
-            "cause": "source = 'runtime' AND topic LIKE '%cause%'",
-            "render-submission": "source = 'runtime' AND topic = 'replay.state'",
-            "physics": "source = 'physics'",
-        }
-        rows = connection.execute(
-            f"SELECT row_json FROM rows WHERE {predicates[kind]} ORDER BY id DESC LIMIT ?", (limit,)
-        ).fetchall()
-        decoded = [json.loads(row[0]) for row in reversed(rows)]
-        if kind == "summary":
-            decoded = decoded[-1:]
+        imported = import_session(connection, runtime_trace, physics_trace)
+        decoded, target_id = query_profile(connection, kind, limit, frames, target, full)
         cache = session / "session.skarness.sqlite"
         raw_bytes = sum(path.stat().st_size for path in (runtime_trace, physics_trace) if path.exists())
         result = {
             "kind": kind,
-            "importedRows": imported,
+            "filters": {"frames": frames, "target": target, "targetId": target_id, "full": full},
+            "sources": imported,
             "returnedRows": len(decoded),
             "rawTraceBytes": raw_bytes,
-            "sqliteBytes": cache.stat().st_size,
+            "sqliteBytes": cache_bytes(cache),
             "rows": decoded,
+            "modelReadBytes": 0,
         }
-        encoded = json.dumps(result, indent=2)
-        result["modelReadBytes"] = len(encoded.encode("utf-8"))
-        print(json.dumps(result, indent=2))
+        print_accounted_result(result)
         return 0 if decoded else 1
+    finally:
+        connection.close()
+
+
+def tail(session: Path, after_sequence: int, topic: str, limit: int, full: bool = False) -> int:
+    runtime_trace = artifact_path(session, "stateTrace", "runtime.skarness.ndjson")
+    physics_trace = artifact_path(session, "physicsTrace", "physics.physicsdiag.ndjson")
+    connection = open_query_cache(session)
+    try:
+        imported = import_session(connection, runtime_trace, physics_trace)
+        rows = tail_rows(connection, after_sequence, topic, limit, full)
+        result = {
+            "afterSequence": after_sequence,
+            "topic": topic,
+            "returnedRows": len(rows),
+            "nextSequence": max((int(row.get("sequence", after_sequence)) for row in rows), default=after_sequence),
+            "sources": imported,
+            "rows": rows,
+            "modelReadBytes": 0,
+        }
+        print_accounted_result(result)
+        return 0
     finally:
         connection.close()
 
@@ -403,13 +353,15 @@ def build_parser() -> argparse.ArgumentParser:
     launch_parser.add_argument("--exe", type=Path, default=Path("Automation/SKULLBONEZ_CORE.exe"))
     launch_parser.add_argument("--scene", type=Path)
     launch_parser.add_argument("--hidden", action="store_true")
+    launch_parser.add_argument("--detail", choices=("summary", "normal", "full"))
     launch_parser.add_argument("--manual", action="store_true",
                                help="trace a player-controlled run without replacing native input or frame pacing")
 
-    command = subparsers.add_parser("command")
-    command.add_argument("session", type=Path)
-    command.add_argument("command")
-    command.add_argument("arguments", nargs="*", metavar="name=value")
+    for name in ("command", "send"):
+        command = subparsers.add_parser(name)
+        command.add_argument("session", type=Path)
+        command.add_argument("command")
+        command.add_argument("arguments", nargs="*", metavar="name=value")
 
     load_scene = subparsers.add_parser("load-scene")
     load_scene.add_argument("session", type=Path)
@@ -423,10 +375,14 @@ def build_parser() -> argparse.ArgumentParser:
         action = subparsers.add_parser(name)
         action.add_argument("session", type=Path)
 
-    for name in ("step", "step-frames"):
-        action = subparsers.add_parser(name)
-        action.add_argument("session", type=Path)
-        action.add_argument("count", nargs="?", type=int, default=1)
+    step = subparsers.add_parser("step")
+    step.add_argument("session", type=Path)
+    step.add_argument("count", nargs="?", type=int)
+    step.add_argument("--ticks", type=int)
+    step_frames = subparsers.add_parser("step-frames")
+    step_frames.add_argument("session", type=Path)
+    step_frames.add_argument("count", nargs="?", type=int)
+    step_frames.add_argument("--frames", type=int)
 
     predict = subparsers.add_parser("predict")
     predict.add_argument("session", type=Path)
@@ -440,8 +396,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     wait = subparsers.add_parser("wait")
     wait.add_argument("session", type=Path)
-    wait.add_argument("condition", choices=("prediction.complete", "prediction.geometry", "prediction.submitted",
-                                             "prediction.rendered", "prediction.causal_rendered"))
+    wait.add_argument("condition")
     wait.add_argument("--max-frames", type=int, default=1200)
     wait.add_argument("--max-ticks", type=int)
 
@@ -455,6 +410,16 @@ def build_parser() -> argparse.ArgumentParser:
         "kind", choices=("summary", "scene", "replay", "prediction", "cause", "render-submission", "physics")
     )
     query.add_argument("--limit", type=int, default=DEFAULT_ROW_LIMIT)
+    query.add_argument("--frames")
+    query.add_argument("--target")
+    query.add_argument("--full", action="store_true")
+
+    tail_parser = subparsers.add_parser("tail")
+    tail_parser.add_argument("session", type=Path)
+    tail_parser.add_argument("--after", type=int, default=0)
+    tail_parser.add_argument("--topic", default="*")
+    tail_parser.add_argument("--limit", type=int, default=DEFAULT_ROW_LIMIT)
+    tail_parser.add_argument("--full", action="store_true")
     return parser
 
 
@@ -464,8 +429,8 @@ def main() -> int:
         if args.action == "capabilities":
             return run_command(args.session, "capabilities.get", {})
         if args.action == "launch":
-            return launch(args.session, args.exe, args.scene, args.hidden, args.manual)
-        if args.action == "command":
+            return launch(args.session, args.exe, args.scene, args.hidden, args.manual, args.detail)
+        if args.action in {"command", "send"}:
             return run_command(args.session, args.command, parse_arguments(args.arguments))
         if args.action == "load-scene":
             return run_command(args.session, "scene.load", {"name": args.scene})
@@ -478,22 +443,27 @@ def main() -> int:
         if args.action == "resume":
             return run_command(args.session, "run.resume", {})
         if args.action == "step":
-            return run_command(args.session, "run.step", {"count": args.count})
+            return run_command(args.session, "run.step", {"count": args.ticks or args.count or 1})
         if args.action == "step-frames":
-            return run_command(args.session, "run.step_frames", {"count": args.count})
+            return run_command(args.session, "run.step_frames", {"count": args.frames or args.count or 1})
         if args.action == "predict":
             return run_predict(args.session, args.name, args.frames)
         if args.action == "verify-future":
             return verify_future(args.session, args.name, args.frames)
         if args.action == "wait":
             limit = {"maxTicks": args.max_ticks} if args.max_ticks is not None else {"maxFrames": args.max_frames}
-            return run_command(args.session, "run.until", {"condition": args.condition, **limit})
+            condition = args.condition.removeprefix("replay.")
+            return run_command(args.session, "run.until", {"condition": condition, **limit})
         if args.action == "watch":
             return watch(args.session, args.topic)
         if args.action == "query":
             if args.limit < 1 or args.limit > 10000:
                 raise RuntimeError("query --limit must be in 1..10000")
-            return query_rows(args.session, args.kind, args.limit)
+            return query_rows(args.session, args.kind, args.limit, args.frames, args.target, args.full)
+        if args.action == "tail":
+            if args.limit < 1 or args.limit > 10000:
+                raise RuntimeError("tail --limit must be in 1..10000")
+            return tail(args.session, args.after, args.topic, args.limit, args.full)
         return 2
     except (OSError, RuntimeError, KeyError) as error:
         print(f"skarness: {error}", file=sys.stderr)

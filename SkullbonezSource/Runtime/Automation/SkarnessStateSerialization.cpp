@@ -89,12 +89,9 @@ Json BuildSelection( const SkarnessFrameState& state )
 
 Json BuildInput( const SkarnessFrameState& state )
 {
-    return { { "captureEnabled", state.replayCaptureEnabled },
-             { "scrubPaused", state.replayScrubPaused },
-             { "playbackPaused", state.replayPlaybackPaused },
-             { "predictionEnabled", state.predictionEnabled },
-             { "velocityEditEnabled", state.velocityEditEnabled },
-             { "pastPathVisible", state.pastPathVisible },
+    return { { "captureEnabled", state.replayCaptureEnabled },        { "scrubPaused", state.replayScrubPaused },
+             { "playbackPaused", state.replayPlaybackPaused },        { "predictionEnabled", state.predictionEnabled },
+             { "velocityEditEnabled", state.velocityEditEnabled },    { "pastPathVisible", state.pastPathVisible },
              { "ragdollVisualsEnabled", state.ragdollVisualsEnabled } };
 }
 
@@ -119,33 +116,37 @@ Json BuildTimeline( const ReplayAutomationView& replay, SkarnessStateDetail deta
     const ReplayRecorderStats presentation = replay.presentationRecorder.GetStats();
     const ReplayRecorderStats solver = replay.solverStats;
     const ReplayEventRecorderStats events = replay.eventRecorder.GetStats();
-    Json payload = { { "presentation", { { "enabled", presentation.enabled },
-                                          { "sampleCount", presentation.sampleCount },
-                                          { "sampleCapacity", presentation.sampleCapacity },
-                                          { "totalCaptured", presentation.totalFramesCaptured },
-                                          { "totalEvicted", presentation.totalFramesEvicted },
-                                          { "nextFrame", presentation.nextFrameIndex },
-                                          { "checkpointCount", presentation.checkpointCount } } },
-                     { "solver", { { "enabled", solver.enabled },
-                                    { "sampleCount", solver.sampleCount },
-                                    { "sampleCapacity", solver.sampleCapacity },
-                                    { "totalCaptured", solver.totalFramesCaptured },
-                                    { "totalEvicted", solver.totalFramesEvicted },
-                                    { "nextFrame", solver.nextFrameIndex },
-                                    { "checkpointCount", solver.checkpointCount },
-                                    { "latestHash", solver.latestStateHash } } },
-                     { "events", { { "enabled", events.enabled },
-                                    { "eventCount", events.eventCount },
-                                    { "eventCapacity", events.eventCapacity },
-                                    { "totalCaptured", events.totalEventsCaptured },
-                                    { "totalEvicted", events.totalEventsEvicted },
-                                    { "nextSequence", events.nextSequence } } },
-                     { "scrubber", { { "visible", replay.scrubber.visible },
-                                      { "historicalPaused", replay.scrubber.historicalSamplePaused },
-                                      { "liveAdvanceHeld", replay.scrubber.liveAdvanceHeld },
-                                      { "position", replay.scrubber.position },
-                                      { "presentationPosition", replay.scrubber.presentationPosition },
-                                      { "solverPosition", replay.scrubber.solverPosition } } } };
+    Json payload = { { "presentation",
+                       { { "enabled", presentation.enabled },
+                         { "sampleCount", presentation.sampleCount },
+                         { "sampleCapacity", presentation.sampleCapacity },
+                         { "totalCaptured", presentation.totalFramesCaptured },
+                         { "totalEvicted", presentation.totalFramesEvicted },
+                         { "nextFrame", presentation.nextFrameIndex },
+                         { "checkpointCount", presentation.checkpointCount } } },
+                     { "solver",
+                       { { "enabled", solver.enabled },
+                         { "sampleCount", solver.sampleCount },
+                         { "sampleCapacity", solver.sampleCapacity },
+                         { "totalCaptured", solver.totalFramesCaptured },
+                         { "totalEvicted", solver.totalFramesEvicted },
+                         { "nextFrame", solver.nextFrameIndex },
+                         { "checkpointCount", solver.checkpointCount },
+                         { "latestHash", solver.latestStateHash } } },
+                     { "events",
+                       { { "enabled", events.enabled },
+                         { "eventCount", events.eventCount },
+                         { "eventCapacity", events.eventCapacity },
+                         { "totalCaptured", events.totalEventsCaptured },
+                         { "totalEvicted", events.totalEventsEvicted },
+                         { "nextSequence", events.nextSequence } } },
+                     { "scrubber",
+                       { { "visible", replay.scrubber.visible },
+                         { "historicalPaused", replay.scrubber.historicalSamplePaused },
+                         { "liveAdvanceHeld", replay.scrubber.liveAdvanceHeld },
+                         { "position", replay.scrubber.position },
+                         { "presentationPosition", replay.scrubber.presentationPosition },
+                         { "solverPosition", replay.scrubber.solverPosition } } } };
 
     if ( detail != SkarnessStateDetail::Summary )
     {
@@ -363,8 +364,8 @@ Json BuildTrajectories( const ReplayAutomationView& replay, SkarnessStateDetail 
             const std::size_t count = (std::min)( record.publishedPointCount, record.points.size() );
             for ( std::size_t i = 0; i < count; ++i )
             {
-                points.push_back( { { "frame", record.points[i].frameIndex },
-                                    { "position", Vec3( record.points[i].position ) } } );
+                points.push_back(
+                    { { "frame", record.points[i].frameIndex }, { "position", Vec3( record.points[i].position ) } } );
             }
             row["points"] = std::move( points );
         }
@@ -426,33 +427,36 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
 
 Json BuildPlanning( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
-    Json payload = { { "intercept", { { "valid", replay.intercept.valid },
-                                        { "intercept", replay.intercept.intercept },
-                                        { "shipId", replay.intercept.shipId.value },
-                                        { "targetId", replay.intercept.targetId.value },
-                                        { "closestFrame", replay.intercept.closestFrame },
-                                        { "missDistance", replay.intercept.missDistance },
-                                        { "relativeSpeed", replay.intercept.relativeSpeed },
-                                        { "etaSeconds", replay.intercept.etaSeconds },
-                                        { "topologyVersion", replay.intercept.topologyVersion } } },
-                     { "porkchop", { { "visible", replay.porkchop.visible },
-                                      { "available", replay.porkchop.available },
-                                      { "building", replay.porkchop.building },
-                                      { "complete", replay.porkchop.complete },
-                                      { "targetId", replay.porkchop.targetId.value },
-                                      { "completedCells", replay.porkchop.completedCells },
-                                      { "selectedCell", replay.porkchop.selectedCell },
-                                      { "minimumDeltaV", replay.porkchop.minimumDeltaV } } },
-                     { "trip", { { "state", static_cast<int>( replay.tripPlanner.state ) },
-                                  { "shipId", replay.tripPlanner.shipId.value },
-                                  { "targetId", replay.tripPlanner.targetId.value },
-                                  { "timeOfFlightSeconds", replay.tripPlanner.timeOfFlightSeconds },
-                                  { "missDistance", replay.tripPlanner.missDistance },
-                                  { "iteration", replay.tripPlanner.iteration },
-                                  { "ghostCount", replay.tripPlanner.ghostCount },
-                                  { "visible", replay.tripPlanner.visible },
-                                  { "available", replay.tripPlanner.available },
-                                  { "noSolution", replay.tripPlanner.noSolution } } } };
+    Json payload = { { "intercept",
+                       { { "valid", replay.intercept.valid },
+                         { "intercept", replay.intercept.intercept },
+                         { "shipId", replay.intercept.shipId.value },
+                         { "targetId", replay.intercept.targetId.value },
+                         { "closestFrame", replay.intercept.closestFrame },
+                         { "missDistance", replay.intercept.missDistance },
+                         { "relativeSpeed", replay.intercept.relativeSpeed },
+                         { "etaSeconds", replay.intercept.etaSeconds },
+                         { "topologyVersion", replay.intercept.topologyVersion } } },
+                     { "porkchop",
+                       { { "visible", replay.porkchop.visible },
+                         { "available", replay.porkchop.available },
+                         { "building", replay.porkchop.building },
+                         { "complete", replay.porkchop.complete },
+                         { "targetId", replay.porkchop.targetId.value },
+                         { "completedCells", replay.porkchop.completedCells },
+                         { "selectedCell", replay.porkchop.selectedCell },
+                         { "minimumDeltaV", replay.porkchop.minimumDeltaV } } },
+                     { "trip",
+                       { { "state", static_cast<int>( replay.tripPlanner.state ) },
+                         { "shipId", replay.tripPlanner.shipId.value },
+                         { "targetId", replay.tripPlanner.targetId.value },
+                         { "timeOfFlightSeconds", replay.tripPlanner.timeOfFlightSeconds },
+                         { "missDistance", replay.tripPlanner.missDistance },
+                         { "iteration", replay.tripPlanner.iteration },
+                         { "ghostCount", replay.tripPlanner.ghostCount },
+                         { "visible", replay.tripPlanner.visible },
+                         { "available", replay.tripPlanner.available },
+                         { "noSolution", replay.tripPlanner.noSolution } } } };
     if ( detail == SkarnessStateDetail::Full )
     {
         payload["porkchop"]["deltaV"] = Json::array();
@@ -483,19 +487,20 @@ void AddFloatBuffer( Json& payload, const char* name, std::span<const float> val
 Json BuildVisualPacket( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
     const ReplayVisualPacket& packet = replay.visualPacket;
-    Json payload = { { "header", { { "schemaVersion", packet.header.schemaVersion },
-                                    { "sourceFrame", packet.header.sourceFrame },
-                                    { "revealFrame", packet.header.revealFrame },
-                                    { "targetId", packet.header.targetId.value },
-                                    { "branchId", packet.header.branchId },
-                                    { "eventCursor", packet.header.eventCursor },
-                                    { "topologyVersion", packet.header.topologyVersion },
-                                    { "publishedFrameCount", packet.header.publishedFrameCount },
-                                    { "futureNodeCount", packet.header.futureNodeCount },
-                                    { "ghostRequestCount", packet.header.ghostRequestCount },
-                                    { "predictionEnabled", packet.header.predictionEnabled },
-                                    { "predictionBuilding", packet.header.predictionBuilding },
-                                    { "predictionComplete", packet.header.predictionComplete } } },
+    Json payload = { { "header",
+                       { { "schemaVersion", packet.header.schemaVersion },
+                         { "sourceFrame", packet.header.sourceFrame },
+                         { "revealFrame", packet.header.revealFrame },
+                         { "targetId", packet.header.targetId.value },
+                         { "branchId", packet.header.branchId },
+                         { "eventCursor", packet.header.eventCursor },
+                         { "topologyVersion", packet.header.topologyVersion },
+                         { "publishedFrameCount", packet.header.publishedFrameCount },
+                         { "futureNodeCount", packet.header.futureNodeCount },
+                         { "ghostRequestCount", packet.header.ghostRequestCount },
+                         { "predictionEnabled", packet.header.predictionEnabled },
+                         { "predictionBuilding", packet.header.predictionBuilding },
+                         { "predictionComplete", packet.header.predictionComplete } } },
                      { "retainedStreamId", packet.retainedPredictionStreamId },
                      { "retainedRevision", packet.retainedPredictionRevision },
                      { "trajectoryRecordCount", packet.trajectoryRecords.size() },
@@ -650,8 +655,8 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
     Store( outTopics, PredictionControls, BuildPredictionControls( state ), state.predictionGeneration );
     Store( outTopics, PredictionFrames, BuildPredictionFrames( replay, detail ), state.predictionGeneration,
            replay.activePredictionFrames.size() );
-    Store( outTopics, PredictionEvidence, BuildPredictionEvidence( replay, detail ),
-           replay.predictionEvidence.BankEpoch(), replay.predictionEvidence.PublishedFrameCount() );
+    Store( outTopics, PredictionEvidence, BuildPredictionEvidence( replay, detail ), replay.predictionEvidence.BankEpoch(),
+           replay.predictionEvidence.PublishedFrameCount() );
     Store( outTopics, PredictionTopology, BuildTopology( replay, detail ), replay.visualPacket.header.topologyVersion );
     Store( outTopics, PredictionTrajectories, BuildTrajectories( replay, detail ),
            replay.visualPacket.retainedPredictionRevision );

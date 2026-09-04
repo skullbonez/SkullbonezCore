@@ -15,7 +15,7 @@ Choose a unique artifact directory under `TestOutput/skarness/` and launch the
 Automation executable:
 
 ```powershell
-python tools\skarness.py launch --session TestOutput\skarness\<case> --exe Automation\SKULLBONEZ_CORE.exe
+python tools\skarness.py launch --session TestOutput\skarness\<case> --exe Automation\SKULLBONEZ_CORE.exe --detail full
 python tools\skarness.py capabilities TestOutput\skarness\<case>
 ```
 
@@ -40,9 +40,10 @@ Send typed commands through the client. Prefer stable scene object IDs when the
 test fixture supplies them; names may depend on generated setup.
 
 ```powershell
-python tools\skarness.py command TestOutput\skarness\<case> prediction.select_target sceneObjectId=133
-python tools\skarness.py command TestOutput\skarness\<case> replay.set_prediction_enabled enabled=true
+python tools\skarness.py send TestOutput\skarness\<case> prediction.select_target sceneObjectId=133
+python tools\skarness.py send TestOutput\skarness\<case> replay.set_prediction_enabled enabled=true
 python tools\skarness.py wait TestOutput\skarness\<case> prediction.causal_rendered --max-frames 3000
+python tools\skarness.py step TestOutput\skarness\<case> --ticks 120
 ```
 
 Use `command` for individual player controls, `step` or `step-frames` for
@@ -77,7 +78,16 @@ python tools\skarness.py query TestOutput\skarness\<case> prediction
 python tools\skarness.py query TestOutput\skarness\<case> scene
 python tools\skarness.py query TestOutput\skarness\<case> cause
 python tools\skarness.py query TestOutput\skarness\<case> render-submission
+python tools\skarness.py query TestOutput\skarness\<case> prediction --target ball_x --frames 0:1200
+python tools\skarness.py query TestOutput\skarness\<case> physics --limit 50
+python tools\skarness.py tail TestOutput\skarness\<case> --after 400 --topic replay.prediction.frames
 ```
+
+Queries incrementally import only complete JSONL rows from both live sidecars
+into `session.skarness.sqlite`. Use the returned `nextSequence` as the next tail
+cursor. Named queries omit large float/sample arrays by default; add `--full`
+only when those exact values are needed. The result reports raw trace, SQLite,
+and model-read bytes so the evidence cost stays visible.
 
 Subscribe when the sequence or state growth matters:
 

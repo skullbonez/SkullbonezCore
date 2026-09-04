@@ -2,7 +2,7 @@
 
 Date: 2026-09-05
 Branch: `nightrunner-5th-SEP-26`
-Status: Skarness Command And State Harness active at 5/7; SK5 next; prior portfolio 143/143
+Status: Skarness Command And State Harness active at 6/7; SK6 next; prior portfolio 143/143
 
 ## Current State
 
@@ -43,7 +43,17 @@ emits in Automation as well as Debug and carries exact runtime-turn, scene-
 generation, and committed simulation-tick correlation without a Runtime include.
 `tools/validate_skarness_state_stream.py` proves ordering, sequence monotonicity,
 ring wrap, scene resets, full buffers, and cross-trace joins in both builds. SK5
-next completes the incremental SQLite query surface.
+now adds a replace-safe incremental SQLite importer for both sidecars, preserves
+Physics correlation across imported row batches, ignores incomplete final lines,
+and exposes bounded summary, replay, prediction, cause, render-submission,
+Physics, and sequence-tail queries with exact byte accounting. Diagnostic log
+handles permit shared reads, and App flushes Physics once at the durable after-
+render boundary, so queries work before session shutdown. The client now accepts
+the planned `send`, `--detail`, `--ticks`, frame-range, target, and `--full`
+shapes. `tools/validate_skarness_queries.py` proves incremental recovery, source
+replacement invalidation, name-to-id filtering, cursor tails, and live cross-
+trace joins. SK6 next replaces the prediction smoke with the complete production
+future-path acceptance gate.
 
 The owner completed `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
 branch and requested substantial related batches instead of a build after each
@@ -1191,9 +1201,10 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-Complete SK5 of `Skarness Command And State Harness`: finish incremental import
-of both live traces and expose bounded summary, replay, prediction, cause,
-render-submission, and Physics queries with exact correlation and byte accounting.
+Complete SK6 of `Skarness Command And State Harness`: replace the prediction
+smoke with a Skarness-only production-path gate covering causal child lanes,
+retained collision and ending wireframes, visual buffers, DX12 submission,
+viewport raster evidence, and the specified negative controls.
 
 ## Blockers
 
