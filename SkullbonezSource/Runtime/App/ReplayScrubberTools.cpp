@@ -694,6 +694,25 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
 
     if ( ReplayCauseInspectionAcceptsOrbit( view.Transport().mode ) )
     {
+        if ( const RunReplayPredictionFrame* frame = CurrentPredictionScrubFrame() )
+        {
+            const auto body = std::find_if( frame->bodies.begin(), frame->bodies.end(), [&]( const auto& sample )
+                                            { return sample.id == attachedCamera.State().target.sceneObjectId; } );
+
+            if ( body != frame->bodies.end() )
+            {
+                attachedCamera.SetFocusedInspectionPosition( body->id, body->position );
+            }
+
+            const auto frames = m_predictionOwner.ActiveFrames();
+            const float predictionT = frames.size() > 1 ? static_cast<float>( frame->frameIndex ) /
+                                                              static_cast<float>( frames.size() - 1u )
+                                                        : 0.0f;
+            const float presentT = SolverPresentTrackPosition();
+            m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, presentT + ( 1.0f - presentT ) * predictionT );
+            m_scrubberOwner.SetHistoricalSamplePaused( true );
+        }
+
         // Right-drag always orbits the selected causal point once entry has
         // landed. It never hands the causal slot to generic free-look.
         const float mouseScale = pointerBlocked ? 0.0f : input.cameraMouseRadiansPerPixel;
@@ -854,7 +873,9 @@ void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCa
         return;
     }
 
-    if ( exit.releasePause )
+    // Keep the reached prediction time selected after leaving its camera.
+    // Resuming live time is a separate explicit transport operation.
+    if ( exit.releasePause && inspection.Transport().seekSource != ReplayCauseSeekSource::Prediction )
     {
         m_scrubberOwner.SetLiveAdvanceHeld( false );
         m_visualPresentation.SetCameraPauseOwnership( false );
@@ -1149,6 +1170,14 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     ApplyCauseTreeSelection( requestedCauseTreeFocusRow, input, inputRouter, interaction, world, attachedCamera, camera,
                              mousePickup, output );
+    const DeviceInputFrame& device = inputRouter.DeviceFrame();
+    const bool playbackKeysAvailable = device.appFocused && !inputRouter.UiSnapshot().blocksKeyboard &&
+                                       !m_authoring.CauseTree().filterFocused;
+    const int playbackDirection = playbackKeysAvailable ? static_cast<int>( device.keys.IsDown( VK_RIGHT ) ) -
+                                                              static_cast<int>( device.keys.IsDown( VK_LEFT ) )
+                                                        : 0;
+    m_planningOwner.CauseInspection().AdvancePredictionPlayback( m_predictionOwner.ActiveFrames(), playbackDirection,
+                                                                 input.now );
     ApplyCauseInspectionTransition( input, input.uiBlocksMouse || causeTreeOwnsMouse, world, attachedCamera, camera,
                                     output );
 

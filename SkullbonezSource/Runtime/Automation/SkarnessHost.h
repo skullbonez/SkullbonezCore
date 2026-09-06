@@ -35,6 +35,7 @@ class SkarnessHost
     uint64_t BeginCapture( const std::string& requestId );
     void CompleteCapture( uint64_t token, bool applied, const char* reason = nullptr );
     bool TakePointerInputFrame( SkarnessPointerInputFrame& outFrame );
+    uint8_t ArrowKeysDown() const noexcept;
     SkarnessProceedPolicy TakeProceedPolicy();
     void PublishFrameState( const SkarnessFrameState& state, const ReplayAutomationView& replay );
     bool TakeStopRequested() noexcept;
@@ -136,6 +137,7 @@ class SkarnessHost
     std::deque<CompletedRequest> m_completedRequests;
     PendingSceneTransition m_pendingSceneTransition;
     PendingPointerDrag m_pendingPointerDrag;
+    uint8_t m_arrowKeysDown = 0;
     uint64_t m_sequence = 0;
     uint64_t m_renderFrame = 0;
     uint64_t m_physicsSceneGeneration = ~uint64_t { 0 };

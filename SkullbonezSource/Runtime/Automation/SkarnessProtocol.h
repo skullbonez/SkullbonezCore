@@ -254,8 +254,10 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
     SkarnessCapability { "prediction.forecast_stop", "Planning", "{}" },
     SkarnessCapability { "prediction.select_target", "Replay", "{name:string}|{sceneObjectId:uint64}" },
     SkarnessCapability { "replay.set_path_target", "Replay", "{name:string}|{sceneObjectId:uint64}" },
-    SkarnessCapability { "camera.orbit_inspection", "Camera", "{yawRadians:number,pitchRadians:number}" },
+    SkarnessCapability { "camera.orbit_inspection", "Camera", "{yawRadians:number,pitchRadians:number,wheelDelta?:int}" },
     SkarnessCapability { "state.subscribe", "Automation", "{topics:[string],detail:summary|normal|full}" },
+    SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}",
+                         SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.pointer_drag", "Input", "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
 };

@@ -1104,6 +1104,81 @@ TEST_CASE( "Replay cause inspector drawer: seam toggle is the only default-open 
     CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Transporting );
 }
 
+TEST_CASE( "Replay cause inspection: held prediction playback retains selection and pauses on release" )
+{
+    std::array<RunReplayPredictionFrame, 11> frames;
+
+    for ( std::size_t index = 0; index < frames.size(); ++index )
+    {
+        frames[index].frameIndex = index;
+        frames[index].simulationSeconds = 10.0 + static_cast<double>( index ) * 0.1;
+    }
+
+    ReplayCauseInspection inspection;
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::Prediction;
+    seek.frame = 4;
+    REQUIRE( inspection.Select( 7, seek, 0, true, 0.0 ) );
+    inspection.AdvancePredictionPlayback( frames, 1, 0.5 );
+    CHECK( inspection.View().presentedFrame == 0 );
+    inspection.Advance( 1.5 );
+    ReplayCauseTransportRequest request;
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    inspection.CompleteTransport( request.generation, true );
+    REQUIRE( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
+
+    inspection.AdvancePredictionPlayback( frames, 1, 1.75 );
+    inspection.Advance( 1.75 );
+    CHECK( inspection.View().presentedFrame == 6 );
+    inspection.AdvancePredictionPlayback( frames, 1, 1.85 );
+    inspection.Advance( 1.85 );
+    CHECK( inspection.View().presentedFrame == 7 );
+    inspection.AdvancePredictionPlayback( frames, 0, 2.0 );
+    inspection.Advance( 2.0 );
+    inspection.AdvancePredictionPlayback( frames, 0, 3.0 );
+    inspection.Advance( 3.0 );
+    CHECK( inspection.View().presentedFrame == 7 );
+    inspection.AdvancePredictionPlayback( frames, -1, 3.25 );
+    inspection.Advance( 3.25 );
+    CHECK( inspection.View().presentedFrame == 5 );
+    CHECK( inspection.View().selectedRow == 7 );
+    CHECK( inspection.View().targetFrame == 4 );
+    CHECK( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
+    CHECK_FALSE( inspection.TakeTransportRequest( request ) );
+
+    inspection.AdvancePredictionPlayback( frames, -1, 20.0 );
+    inspection.Advance( 20.0 );
+    CHECK( inspection.View().presentedFrame == 0 );
+    inspection.AdvancePredictionPlayback( frames, 1, 20.15 );
+    inspection.Advance( 20.15 );
+    CHECK( inspection.View().presentedFrame == 1 );
+    inspection.AdvancePredictionPlayback( frames, 1, 30.0 );
+    inspection.Advance( 30.0 );
+    CHECK( inspection.View().presentedFrame == 10 );
+    (void)inspection.BeginReturn();
+    inspection.AdvancePredictionPlayback( frames, -1, 31.0 );
+    CHECK( inspection.View().presentedFrame == 10 );
+}
+
+TEST_CASE( "Replay cause inspection: arrows cannot play solver history or inactive inspection" )
+{
+    std::array<RunReplayPredictionFrame, 2> frames;
+    frames[1].frameIndex = 1;
+    frames[1].simulationSeconds = 1.0;
+    ReplayCauseInspection inspection;
+    inspection.AdvancePredictionPlayback( frames, 1, 10.0 );
+    CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.frame = 0;
+    REQUIRE( inspection.Select( 0, seek, 0, true, 0.0 ) );
+    inspection.Advance( 1.5 );
+    REQUIRE( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
+    inspection.AdvancePredictionPlayback( frames, 1, 10.0 );
+    CHECK( inspection.View().presentedFrame == 0 );
+}
+
 TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-flight restore" )
 {
     ReplayCauseInspection inspection;

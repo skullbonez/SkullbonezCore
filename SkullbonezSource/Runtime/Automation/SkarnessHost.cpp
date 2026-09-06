@@ -587,6 +587,9 @@ CommandParseStatus ParsePlanningCommand( const std::string& name, const Json& ar
         command.type = SkarnessCommandType::CameraOrbitInspection;
         const bool valid = ReadNumber( arguments, "yawRadians", command.number ) &&
                            ReadNumber( arguments, "pitchRadians", command.secondNumber ) &&
+                           ( !arguments.contains( "wheelDelta" ) ||
+                             ReadInteger( arguments, "wheelDelta", command.integer ) ) &&
+                           command.integer >= -1200 && command.integer <= 1200 &&
                            std::fabs( command.number ) <= 6.283185307 && std::fabs( command.secondNumber ) <= 6.283185307;
         return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
     }
@@ -1000,6 +1003,23 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         return;
     }
 
+    if ( commandName == "input.set_arrows" )
+    {
+        bool left = false;
+        bool right = false;
+
+        if ( m_manualInput || !ReadBoolean( arguments, "left", left ) || !ReadBoolean( arguments, "right", right ) )
+        {
+            SendLifecycle( requestId, "rejected", "automated input and boolean left/right values are required" );
+            return;
+        }
+
+        m_arrowKeysDown = static_cast<uint8_t>( ( left ? 1 : 0 ) | ( right ? 2 : 0 ) );
+        SendLifecycle( requestId, "accepted" );
+        CompleteCommand( requestId, true );
+        return;
+    }
+
     if ( commandName == "input.pointer_drag" )
     {
         if ( m_manualInput )
@@ -1278,6 +1298,11 @@ bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
     }
 
     return true;
+}
+
+uint8_t SkarnessHost::ArrowKeysDown() const noexcept
+{
+    return m_connected ? m_arrowKeysDown : 0;
 }
 
 SkarnessProceedPolicy SkarnessHost::TakeProceedPolicy()

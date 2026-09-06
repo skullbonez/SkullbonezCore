@@ -1310,6 +1310,9 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
         automation.enabled = true;
         automation.overrideAppFocused = true;
         automation.appFocused = true;
+        const uint8_t arrows = m_skarness.ArrowKeysDown();
+        automation.keyWords[VK_LEFT / 64] |= ( arrows & 1u ) != 0 ? uint64_t { 1 } << ( VK_LEFT % 64 ) : 0;
+        automation.keyWords[VK_RIGHT / 64] |= ( arrows & 2u ) != 0 ? uint64_t { 1 } << ( VK_RIGHT % 64 ) : 0;
 
         if ( m_skarness.TakePointerInputFrame( skarnessPointer ) )
         {

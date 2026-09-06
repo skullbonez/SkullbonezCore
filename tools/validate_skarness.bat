@@ -39,6 +39,10 @@ if errorlevel 1 goto fail
 "%PYTHON_EXE%" "%~dp0validate_skarness_future_render.py" --session TestOutput\validation\skarness\future-render
 if errorlevel 1 goto fail
 
+echo [skarness] Held causal playback and camera adjustments...
+"%PYTHON_EXE%" "%~dp0validate_skarness_causal_playback.py" --session TestOutput\validation\skarness\causal-playback
+if errorlevel 1 goto fail
+
 echo [skarness] Persistent multi-scene prediction matrix...
 "%PYTHON_EXE%" "%~dp0validate_skarness_prediction_matrix.py" --self-test
 if errorlevel 1 goto fail

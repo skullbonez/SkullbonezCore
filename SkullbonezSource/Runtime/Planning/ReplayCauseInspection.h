@@ -477,6 +477,8 @@ class ReplayCauseInspection
     bool Select( int rowIndex, const ReplayCauseSeekResult& seek, ReplayFrameIndex presentedFrame,
                  bool simulationAlreadyPaused, double nowSeconds ) noexcept;
     void Advance( double nowSeconds ) noexcept;
+    void AdvancePredictionPlayback( std::span<const RunReplayPredictionFrame> frames, int direction,
+                                    double nowSeconds ) noexcept;
     bool TakeTransportRequest( ReplayCauseTransportRequest& outRequest ) noexcept;
     void PublishSolverDetail( uint64_t generation, const ReplayCauseSolverDetailResult& detail,
                               const Rendering::ContactManifoldPresentation& contactPresentation = {} ) noexcept;
@@ -511,6 +513,8 @@ class ReplayCauseInspection
     std::array<Physics::PhysicsPipelineRecord, Physics::PHYSICS_MAX_PIPELINE_TRACE_RECORDS> m_solverDetailPipelineRecords {};
     double m_startedAtSeconds = 0.0;
     double m_lastAdvanceSeconds = 0.0;
+    double m_playbackSeconds = 0.0;
+    int m_playbackDirection = 0;
     double m_drawerStartedAtSeconds = 0.0;
     float m_drawerStartProgress = 0.0f;
     bool m_drawerTargetOpen = false;

@@ -1260,7 +1260,56 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
     m_startedAtSeconds = nowSeconds;
     m_lastAdvanceSeconds = nowSeconds;
     m_pendingFrame = presentedFrame;
+    m_playbackDirection = 0;
     return true;
+}
+
+void ReplayCauseInspection::AdvancePredictionPlayback( std::span<const RunReplayPredictionFrame> frames, int direction,
+                                                       double nowSeconds ) noexcept
+{
+    if ( m_state.mode != ReplayCauseInspectionMode::DetailPaused ||
+         m_state.seekSource != ReplayCauseSeekSource::Prediction || frames.empty() || direction == 0 )
+    {
+        m_playbackDirection = 0;
+        return;
+    }
+
+    const auto current = std::find_if( frames.begin(), frames.end(),
+                                       [&]( const auto& frame ) { return frame.frameIndex == m_state.presentedFrame; } );
+
+    if ( current == frames.end() )
+    {
+        m_playbackDirection = 0;
+        return;
+    }
+
+    if ( direction != m_playbackDirection )
+    {
+        m_playbackSeconds = current->simulationSeconds;
+        m_playbackDirection = direction;
+    }
+
+    // Units: wall-clock seconds traverse the retained prediction's simulation
+    // timestamps. Fractional progress survives render frames; endpoints discard
+    // overshoot so reversing a held arrow responds immediately.
+    const double elapsed = (std::max)( 0.0, nowSeconds - m_lastAdvanceSeconds );
+    m_playbackSeconds = std::clamp( m_playbackSeconds + elapsed * ( direction < 0 ? -1.0 : 1.0 ),
+                                    frames.front().simulationSeconds, frames.back().simulationSeconds );
+    auto frame = std::lower_bound( frames.begin(), frames.end(), m_playbackSeconds,
+                                   []( const auto& sample, double seconds ) { return sample.simulationSeconds < seconds; } );
+
+    if ( frame == frames.end() )
+    {
+        --frame;
+    }
+    else if ( frame != frames.begin() && frame->simulationSeconds > m_playbackSeconds && direction > 0 )
+    {
+        --frame;
+    }
+
+    // Invariant: playback changes only the presented frame. The selected
+    // manifold and its detached collision evidence retain their original stamp.
+    m_state.presentedFrame = frame->frameIndex;
 }
 
 void ReplayCauseInspection::Advance( double nowSeconds ) noexcept

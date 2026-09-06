@@ -857,7 +857,8 @@ bool Run::ApplySkarnessCameraCommand( const SkarnessCommand& command, const char
 
     const bool applied = m_attachedCamera.TickFocusedInspection( m_sceneController.Scene(),
                                                                  static_cast<float>( command.number ),
-                                                                 static_cast<float>( command.secondNumber ), 0 );
+                                                                 static_cast<float>( command.secondNumber ),
+                                                                 command.integer );
     reason = applied ? "" : "causal inspection orbit could not resolve its selected pivot";
     return applied;
 }
