@@ -20,7 +20,6 @@ Invariants:
 #include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
 #include "../SkullbonezSource/Runtime/Input/InputRouter.h"
 #include "../SkullbonezSource/Runtime/Input/InputFrameValues.h"
-#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneLifecycle.h"
 
@@ -28,7 +27,6 @@ Invariants:
 #include <initializer_list>
 
 using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::Runtime::DevelopmentTools;
 using namespace SkullbonezCore::UI::InputControl;
 using SkullbonezCore::Core::SbDiagnosticStore;
 
@@ -181,48 +179,6 @@ TEST_CASE( "Runtime copies device levels and pointer edges into a detached UI sn
 }
 
 
-TEST_CASE( "ImGui input policy: the selected surface routes each event class to one application consumer" )
-{
-    struct MatrixRow
-    {
-        const char* label;
-        ImGuiEditorInputIntent intent;
-        ImGuiEditorMessageClass messageClass;
-        bool editorConsumes;
-    };
-
-    const MatrixRow rows[] = {
-        { "GameUI tool mouse", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Mouse, false },
-        { "GameUI tool keyboard", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, false },
-        { "imgui tool drag", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
-        { "imgui tool drag repeat", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
-        { "imgui tool typing", { true, false, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, true },
-        { "imgui tool text", { true, false, true, true, false, false }, ImGuiEditorMessageClass::Text, true },
-        { "viewport camera drag", { true, true, false, false, true, true }, ImGuiEditorMessageClass::Mouse, false },
-        { "viewport replay shortcut", { true, false, true, false, true, true }, ImGuiEditorMessageClass::Keyboard, false },
-        { "focused field text over viewport", { true, false, true, true, true, true }, ImGuiEditorMessageClass::Text, true },
-        { "alt tab focus and dpi", { true, true, true, true, false, false }, ImGuiEditorMessageClass::Platform, false },
-    };
-
-    for ( const MatrixRow& row : rows )
-    {
-        CAPTURE( row.label );
-        const ImGuiEditorInputCapture capture = EvaluateImGuiEditorInputCapture( row.intent );
-        const ImGuiEditorMessageDecision decision = DecideImGuiEditorMessageRoute( row.messageClass, capture );
-        CHECK( decision.editorConsumes == row.editorConsumes );
-        CHECK( decision.engineConsumes != decision.editorConsumes );
-    }
-
-    CHECK( ClassifyImGuiEditorNativeMessage( WM_INPUT, 0 ) == ImGuiEditorMessageClass::Mouse );
-    CHECK( ClassifyImGuiEditorNativeMessage( WM_MOUSEWHEEL, 0 ) == ImGuiEditorMessageClass::Mouse );
-    CHECK( ClassifyImGuiEditorNativeMessage( WM_KEYDOWN, VK_ESCAPE ) == ImGuiEditorMessageClass::Keyboard );
-    CHECK( ClassifyImGuiEditorNativeMessage( WM_SYSKEYDOWN, VK_TAB ) == ImGuiEditorMessageClass::Platform );
-    CHECK( ClassifyImGuiEditorNativeMessage( WM_SYSKEYDOWN, VK_F4 ) == ImGuiEditorMessageClass::Platform );
-    CHECK( ClassifyImGuiEditorNativeMessage( WM_IME_COMPOSITION, 0 ) == ImGuiEditorMessageClass::Text );
-    CHECK( ClassifyImGuiEditorNativeMessage( WM_SETFOCUS, 0 ) == ImGuiEditorMessageClass::Platform );
-    CHECK( ClassifyImGuiEditorNativeMessage( WM_SIZE, 0 ) == ImGuiEditorMessageClass::Platform );
-    CHECK( ClassifyImGuiEditorNativeMessage( WM_DPICHANGED, 0 ) == ImGuiEditorMessageClass::Platform );
-}
 
 
 TEST_CASE( "Input router: captured tool input requires release and repress before gameplay" )

@@ -29,7 +29,6 @@ Related:
 #include "WorkerPool.h"
 #include "FatalError.h"
 #include "Profiler.h"
-#include "TracyClientOwner.h"
 
 #include <algorithm>
 #include <atomic>
@@ -319,7 +318,7 @@ void WorkerPool::WorkerLoop( int workerIndex )
 {
     g_isWorkerThread = true;
     g_workerThreadIndex = workerIndex;
-    SKORE_TRACY_NAME_WORKER_THREAD( workerIndex );
+
 
     while ( true )
     {
@@ -411,8 +410,9 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
     }
 
     std::vector<int> squares( 257, 0 );
-    pool.ParallelForNoAlloc( 0, static_cast<int>( squares.size() ), [&]( int index ) { squares[static_cast<size_t>( index )] = index * index; },
-                             1, "Frame/Workers/SelfTest/ParallelFor", HashStr( "Frame/Workers/SelfTest/ParallelFor" ) );
+    pool.ParallelForNoAlloc(
+        0, static_cast<int>( squares.size() ), [&]( int index ) { squares[static_cast<size_t>( index )] = index * index; },
+        1, "Frame/Workers/SelfTest/ParallelFor", HashStr( "Frame/Workers/SelfTest/ParallelFor" ) );
 
     for ( int index = 0; index < static_cast<int>( squares.size() ); ++index )
     {
@@ -425,17 +425,18 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
 
     std::vector<std::vector<int>> chunkOutputs;
     std::vector<int> merged;
-    pool.ParallelCollectOrdered<std::vector<int>>( 0, 257, chunkOutputs,
-                                                   []( int, int begin, int end, std::vector<int>& local )
-                                                   {
-                                                       local.reserve( static_cast<size_t>( end - begin ) );
+    pool.ParallelCollectOrdered<std::vector<int>>(
+        0, 257, chunkOutputs,
+        []( int, int begin, int end, std::vector<int>& local )
+        {
+            local.reserve( static_cast<size_t>( end - begin ) );
 
-                                                       for ( int index = begin; index < end; ++index )
-                                                       {
-                                                           local.push_back( index );
-                                                       }
-                                                   },
-                                                   [&]( int, const std::vector<int>& local ) { merged.insert( merged.end(), local.begin(), local.end() ); }, 1 );
+            for ( int index = begin; index < end; ++index )
+            {
+                local.push_back( index );
+            }
+        },
+        [&]( int, const std::vector<int>& local ) { merged.insert( merged.end(), local.begin(), local.end() ); }, 1 );
 
     if ( merged.size() != squares.size() )
     {

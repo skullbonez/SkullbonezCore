@@ -955,10 +955,6 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.physicsDebugAlphaOverride = args.physicsDebugAlphaOverride;
     launch.hasPhysicsDebugContactLingerOverride = args.hasPhysicsDebugContactLingerOverride;
     launch.physicsDebugContactLingerOverride = args.physicsDebugContactLingerOverride;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    launch.developmentUiMode = args.developmentUiMode;
-    launch.developmentUiModeExplicit = args.developmentUiModeExplicit;
-#endif
     strcpy_s( launch.predictTargetName, sizeof( launch.predictTargetName ), args.predictTargetName );
     launch.predictHorizonSeconds = args.predictHorizonSeconds;
     launch.predictPauseOnStart = args.predictPauseOnStart;
@@ -1089,34 +1085,6 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               fprintf( stdout, "[allocation-guard] Requested mode: %s\n", CoreAllocation::RuntimeAllocationGuardModeName( mode ) );
               return true;
           } },
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-        { "--dev-ui",
-          "--dev_ui",
-          []( const char* value, ParsedArgs& args ) -> bool
-          {
-              if ( !value || IsOptionValueMissing( value ) )
-              {
-                  return FailCommandLineParse( "--dev-ui expects game|imgui; the two surfaces are mutually exclusive." );
-              }
-
-              if ( strcmp( value, "game" ) == 0 )
-              {
-                  args.developmentUiMode = DevelopmentUiMode::GameUI;
-              }
-              else if ( strcmp( value, "imgui" ) == 0 )
-              {
-                  args.developmentUiMode = DevelopmentUiMode::ImGui;
-              }
-              else
-              {
-                  return FailCommandLineParse( "--dev-ui expects game|imgui; the two surfaces are mutually exclusive." );
-              }
-
-              args.developmentUiModeExplicit = true;
-              fprintf( stdout, "[dev-ui] Mode: %s\n", value );
-              return true;
-          } },
-#endif
         { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
         { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
         { "--scene-snapshot-out", "--scene_snapshot_out", ApplySceneSnapshotOutPath },

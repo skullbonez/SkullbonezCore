@@ -9,15 +9,6 @@ Summary:
   Scene requests are submitted and executed by SceneController; this file only
   wires its cold dependencies at the post-input checkpoint.
 
-Glossary:
-  Pre-UI facts: Focus, key, and pointer values sampled before widgets can claim
-    the gesture.
-  Post-UI snapshot: Immutable hit/capture result published after widget layout
-    so world tools do not reinterpret UI-owned input.
-  Selected development surface: The one built-in GameUI or optional ImGui
-    development implementation allowed
-    to own development-tool input and visibility for the current frame.
-
 Invariants:
   - Device input is captured once; later phases consume router-owned values.
   - UI hit testing completes before pointer ownership is finalized.
@@ -31,13 +22,11 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */
+
 #include "InputFrame.h"
 #include "Run.h"
 #include "SceneLoadApplication.h"
 #include "../Startup/Window.h"
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../DevelopmentTools/ImGuiEditorLayoutPolicy.h"
-#endif
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../../Scene/StandaloneStyleWriter.h"
@@ -303,23 +292,8 @@ void Run::PrepareSceneScopedOwnersForTransition()
     PublishLookLabStatusView();
 }
 
-SceneFrameProceedPolicy Run::CompleteRuntimeInputPhase( bool& gameUiActive, bool requestDevelopmentUiSurfaceSwap )
+SceneFrameProceedPolicy Run::CompleteRuntimeInputPhase()
 {
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    if ( m_launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
-    {
-        // Invariant: an explicit process selection wins after any scene default.
-        SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
-    }
-    if ( requestDevelopmentUiSurfaceSwap )
-    {
-        SelectDevelopmentUiSurface( DevelopmentUiMode::ImGui );
-    }
-    gameUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::GameUI;
-#else
-    (void)gameUiActive;
-    (void)requestDevelopmentUiSurfaceSwap;
-#endif
 
     SceneFrameProceedPolicy proceedPolicy = m_sceneController.BuildFrameProceedPolicy(
         m_inputRouter.RuntimeSnapshot().frameInput.stepHeld );
@@ -367,8 +341,6 @@ void Run::EnterInteractiveInputScene()
 SkullbonezCore::Core::SbResult Run::RunInputUiStressBatch( bool gameUiActive,
                                                            RuntimeOverlayPresentationEdit& presentationEdit )
 {
-    // The authored stress harness mutates GameUI and is inert while ImGui owns
-    // the development surface.
     if ( !gameUiActive )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -831,8 +803,7 @@ bool Run::HandlePreUiReplayAction( const InputActionEvent& event, bool gameUiAct
     }
 }
 
-bool Run::HandlePreUiSurfaceAction( const InputActionEvent& event, const DeviceInputFrame& deviceFrame, bool gameUiActive,
-                                    OverlayDebugState& debug, bool& requestDevelopmentUiSurfaceSwap )
+bool Run::HandlePreUiSurfaceAction( const InputActionEvent& event, bool gameUiActive, OverlayDebugState& debug )
 {
     if ( event.action != RuntimeInputAction::ToggleUIVisibility &&
          event.action != RuntimeInputAction::TogglePerformanceHistogram &&
@@ -843,10 +814,6 @@ bool Run::HandlePreUiSurfaceAction( const InputActionEvent& event, const DeviceI
     if ( event.action == RuntimeInputAction::ToggleUIVisibility && !gameUiActive )
     {
         return true;
-    }
-    if ( event.action == RuntimeInputAction::ToggleUIVisibility && deviceFrame.keys.IsDown( VK_CONTROL ) )
-    {
-        requestDevelopmentUiSurfaceSwap = true;
     }
 
     const DiagnosticsUiKeyboardCommand command = ProjectDiagnosticsUiKeyboardCommand( event.action );
@@ -1239,9 +1206,6 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
     UI::InputCaptureIntent externalUiCapture;
     SkullbonezCore::UI::OperatorEditorCommandQueues externalEditorCommands;
     gameUiActive = true;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    externalUiCapture = m_imguiEditor.ConsumeInputCaptureIntent();
-    externalEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
     if ( automationBeforeInput )
@@ -1267,10 +1231,6 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
 #else
     (void)automationBeforeInput;
 #endif
-    gameUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::GameUI;
-#else
-    (void)automationBeforeInput;
-#endif
     int requestedReplayCauseRow = -1;
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
@@ -1279,7 +1239,6 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
         requestedReplayCauseRow = automationBeforeInput->requestedReplayCauseRow;
     }
 #endif
-    bool requestDevelopmentUiSurfaceSwap = false;
     InputRouter& inputRouter = m_inputRouter;
     SkullbonezCore::Core::EngineConfig& config = m_config;
     CameraControlState& camera = m_camera;
@@ -1341,37 +1300,9 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
         std::fflush( stderr );
         applicationExit.RequestPhaseFailure( deviceCaptureResult );
         PostQuitMessage( 1 );
-        return CompleteRuntimeInputPhase( gameUiActive, requestDevelopmentUiSurfaceSwap );
+        return CompleteRuntimeInputPhase();
     }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Concept: the last completed UI frame publishes the fitted image value.
-    // Mapping immediately after the sole device sample gives every existing
-    // world interaction owner one coherent source-space point this frame.
-    if ( deviceFrame.hasClientPosition && externalUiCapture.gameViewportMappingActive )
-    {
-        DevelopmentTools::ImGuiGameViewportRect viewport;
-        viewport.imageMinX = externalUiCapture.gameViewportMinX;
-        viewport.imageMinY = externalUiCapture.gameViewportMinY;
-        viewport.imageWidth = externalUiCapture.gameViewportWidth;
-        viewport.imageHeight = externalUiCapture.gameViewportHeight;
-        viewport.dpiScale = externalUiCapture.gameViewportDpiScale;
-        viewport.sourceWidth = externalUiCapture.gameViewportSourceWidth;
-        viewport.sourceHeight = externalUiCapture.gameViewportSourceHeight;
-        viewport.valid = true;
-        int mappedX = 0;
-        int mappedY = 0;
-
-        if ( DevelopmentTools::MapImGuiGameViewportPoint( viewport, static_cast<float>( deviceFrame.clientX ),
-                                                          static_cast<float>( deviceFrame.clientY ), mappedX, mappedY ) )
-        {
-            // Invariant: every downstream pointer consumer sees the same mapped
-            // source pixel; no tool resamples Win32 coordinates independently.
-            deviceFrame.clientX = mappedX;
-            deviceFrame.clientY = mappedY;
-        }
-    }
-#endif
     const RuntimeInputKeyBindingView keyboardBindings = TakeInputKeyboardBindings();
     inputRouter.BeginFrame( deviceFrame, keyboardBindings, inputActions, externalUiCapture );
     UiInputHitSnapshot preUiPointer;
@@ -1413,7 +1344,7 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
         }
 
         CommitInputPointerPresentation( externalUiCapture );
-        return CompleteRuntimeInputPhase( gameUiActive, requestDevelopmentUiSurfaceSwap );
+        return CompleteRuntimeInputPhase();
     }
 
     const bool UIBlocksKeyboardBeforeInput = ui.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text;
@@ -1480,8 +1411,7 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
         (void)( HandlePreUiAuthoringAction( event, deviceFrame, externalUiCapture, keyboardToggleEditorMode ) ||
                 HandlePreUiEditorAction( event, deviceFrame ) || HandlePreUiCameraAction( event ) ||
                 HandlePreUiDirectorAction( event, debug ) || HandlePreUiDiagnosticsAction( event, debug ) ||
-                HandlePreUiReplayAction( event, gameUiActive ) ||
-                HandlePreUiSurfaceAction( event, deviceFrame, gameUiActive, debug, requestDevelopmentUiSurfaceSwap ) ||
+                HandlePreUiReplayAction( event, gameUiActive ) || HandlePreUiSurfaceAction( event, gameUiActive, debug ) ||
                 HandlePreUiSceneNavigationAction( event, presentationEdit ) );
     }
 
@@ -1502,7 +1432,7 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
         applicationExit.RequestPhaseFailure( uiFrameResult.status );
         PostQuitMessage( 1 );
         CommitInputPointerPresentation( externalUiCapture );
-        return CompleteRuntimeInputPhase( gameUiActive, requestDevelopmentUiSurfaceSwap );
+        return CompleteRuntimeInputPhase();
     }
 
     const bool suppressWorldActionThisFrame = uiFrameResult.suppressWorldActionThisFrame;
@@ -1557,5 +1487,5 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
     ApplyDeferredInputOwnerRequests( presentationEdit );
 
     CommitInputPointerPresentation( externalUiCapture );
-    return CompleteRuntimeInputPhase( gameUiActive, requestDevelopmentUiSurfaceSwap );
+    return CompleteRuntimeInputPhase();
 }

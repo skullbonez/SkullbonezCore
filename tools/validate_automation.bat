@@ -7,7 +7,7 @@
 @rem Summary:
 @rem   Automation is a Profile-equivalent executable with one extra compile-time
 @rem   diagnostics surface. This gate tests both sides of that boundary, then
-@rem   preserves the development-UI interaction compatibility smoke, then uses
+@rem   runs the native UI interaction smoke, then uses
 @rem   Skarness to prove the causal prediction path through production state.
 @rem
 @rem Glossary:
@@ -18,7 +18,7 @@
 @rem
 @rem Invariants:
 @rem   - Profile must reject --interaction-script with a nonzero exit.
-@rem   - Automation must preserve all development-UI command interpreter variants.
+@rem   - Automation must preserve native UI input, client resize, and replay controls.
 @rem   - Prediction passes only when one selected identity reaches full causal
 @rem     trajectories, retained wireframe poses, production visual buffers, the
 @rem     DX12 submission, and a connected viewport raster feature.
@@ -60,7 +60,7 @@ del /q "%REPORT%" 2>nul
 echo [automation] Running isolated Profile rejection and Automation smoke processes in parallel...
 "%PYTHON_EXE%" "%~dp0run_parallel_validation.py" --repo "%REPO%" --manifest "%~dp0validation_parallel_automation.json" --variable "AUTOMATION_REPORT=%REPORT%" --variable "PYTHON_EXE=%PYTHON_EXE%"
 if errorlevel 1 (
-    echo FAIL: Profile rejection or Automation development-UI smoke failed.
+    echo FAIL: Profile rejection or Automation native UI smoke failed.
     goto fail
 )
 if not exist "%REPORT%" (
@@ -80,7 +80,7 @@ if errorlevel 1 (
     goto fail
 )
 
-echo PASS: diagnostics excluded from Profile; Automation development-UI compatibility and Skarness regressions passed.
+echo PASS: diagnostics excluded from Profile; Automation native UI and Skarness regressions passed.
 popd >nul
 exit /b 0
 

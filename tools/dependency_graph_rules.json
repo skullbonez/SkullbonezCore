@@ -230,19 +230,8 @@
         ]
       },
       {
-        "package": "Runtime/DevelopmentTools",
-        "rank": 15,
-        "allowed_exact_target_files": [
-          "Runtime/Interaction/OperatorEditorExchange.h",
-          "Runtime/Interaction/OperatorEditorObjectCatalog.h",
-          "Runtime/Planning/ReplayOverlayPackets.h",
-          "Runtime/Render/UIRenderAuthoringCatalog.h",
-          "Runtime/Startup/RunLaunchOptions.h"
-        ]
-      },
-      {
         "package": "Runtime/Capture",
-        "rank": 16,
+        "rank": 15,
         "allowed_exact_target_files": [
           "Runtime/Interaction/OperatorUiCommands.h",
           "Runtime/RuntimeFrameViews.h",
@@ -254,7 +243,7 @@
       },
       {
         "package": "Runtime/Direction",
-        "rank": 17,
+        "rank": 16,
         "allowed_exact_target_files": [
           "Runtime/Camera/DemoDirector.h",
           "Runtime/Tools/RuntimeFileWriter.h"
@@ -262,10 +251,9 @@
       },
       {
         "package": "Runtime/Automation",
-        "rank": 18,
+        "rank": 17,
         "allowed_exact_target_files": [
           "Runtime/Camera/RuntimeCameraMode.h",
-          "Runtime/DevelopmentTools/ImGuiEditorOwner.h",
           "Runtime/Camera/DemoDirector.h",
           "Runtime/Direction/DemoDirectorPlayback.h",
           "Runtime/Input/Input.h",
@@ -294,7 +282,7 @@
       },
       {
         "package": "Runtime/UI",
-        "rank": 19,
+        "rank": 18,
         "allowed_exact_target_files": [
           "Runtime/Automation/RecordedCursorFrame.h",
           "Runtime/Interaction/OperatorEditorObjectCatalog.h",
@@ -308,7 +296,7 @@
       },
       {
         "package": "Runtime/App",
-        "rank": 20,
+        "rank": 19,
         "allowed_exact_target_files": [
           "Runtime/Automation/InteractionAutomationController.h",
           "Runtime/Automation/InteractionAutomationRecorder.h",
@@ -327,8 +315,6 @@
           "Runtime/Capture/CaptureSystem.h",
           "Runtime/Capture/GraphicsStressController.h",
           "Runtime/Capture/RuntimeStressController.h",
-          "Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h",
-          "Runtime/DevelopmentTools/ImGuiEditorOwner.h",
           "Runtime/Diagnostics/RuntimeFrameMetricsOwner.h",
           "Runtime/Diagnostics/DiagnosticsPhysicsUI.h",
           "Runtime/Diagnostics/DiagnosticsRuntime.h",

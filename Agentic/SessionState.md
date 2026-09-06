@@ -1,9 +1,39 @@
 # Session State
 
-Date: 2026-09-05
+Date: 2026-09-07
 Branch: `nightrunner-5th-SEP-26`
 Status: Skarness Command And State Harness complete at 7/7; prior portfolio
 143/143
+
+## Native UI and profiling dependency cleanup (2026-09-07)
+
+The obsolete docked editor and remote-profiler integrations, vendor submodules,
+build properties, renderer resources, startup switches, allocation privileges,
+fixtures, settings, and documentation references are removed. Native GameUI,
+its profiler, causal inspection, and Skarness remain. Recorded version-1 files
+retain a reserved zero-valued UI slot so existing evidence stays readable.
+Window events sent synchronously now drain even without a queued message;
+the native UI smoke checks actual 1024-by-720 capture dimensions after resizing.
+
+Validation passes the 926-case unit suite, portable CPU tests, compiler-backed
+source checks, dependency/build metadata checks, native UI and graphics stress,
+200-box replay fidelity, and gameplay allocation-guard smoke. The two inherited
+DX12 terrain screenshot mismatches remain (water 4.9171, solver 4.0154; space
+exact and zero InfoQueue errors). Allocation-policy scanning reports the same
+91 findings as starting revision `3475567b1`, with no new findings. No physics
+or replay baseline was refreshed. The native profiler stream now matches its
+existing portable fingerprint after removal of the remote status badge.
+Archived regression executables remain historical evidence.
+The Debug 0/repeat/1/4-worker physics proof is byte-exact (44,401 lines,
+SHA-256 `03088b30b8826f88a6193e511b7f4205aff9324d06ad08456610aac0e13a3f6b`).
+The full Skarness lane passes transport, control, commands, state, queries,
+rendered futures and causal playback; the scene matrix passes 14 of 15 cases.
+The demo's live assertion still expects cause rows during prediction, contrary
+to the loading policy introduced by `f23993067`. An isolated rerun produces 15
+completed causal nodes and fails only that live-row assertion. Both the
+assertion and loading implementation are unchanged by this cleanup. The first
+matrix run also found no contacts in the time-seeded demo's selected target.
+The final affected UI/input rerun passes 126 cases and 4,441 assertions.
 
 ## Current State
 
@@ -118,8 +148,8 @@ source-design passes seven files under 53 consumer contexts. The next grouped
 App slice decomposes `RunInputPhase` into capture/default draining, pre-UI
 action families, operator input, replay restore, recording diagnostics, camera
 control, and deferred owner requests. `RenderOperatorUiPhase` now shares one
-detached projection between GameUI and ImGui and separately projects hierarchy,
-inspector, diagnostics, GameUI data, text/GPU submission, and development UI.
+detached projection for GameUI and separately projects hierarchy,
+inspector, diagnostics, GameUI data, and text/GPU submission.
 The Profile solution builds warning-clean; 913 cases and 2,692,437 assertions
 pass with one expected skip; source-design passes three files under 16 consumer
 contexts; format, dependency/project ownership, build-configuration, and
@@ -745,7 +775,7 @@ the inherited causal-depth oracle and historical Physics performance baseline
 remain external recorded failures without refresh authority.
 Recorded Interaction Playback Cursor RIC0-RIC3 is complete at 4/4. The
 Automation-owned frame value crosses one bounded Runtime/UI compositor and one
-App submission edge after GameUI, replay overlays, UI finalization, and ImGui
+App submission edge after GameUI, replay overlays, UI finalization
 but before screenshots and Present. The exact unchanged 413-turn recording
 contains 256 visible turns and 157 cursorless right-look turns; command high
 water and capacity are both `2`; recorded coordinates and every legacy trace
@@ -808,9 +838,9 @@ and zero blockers. No dead-production candidate was approved merely to create
 savings. The accepted work is the GameUI naming correction plus exact DX12
 completed-fence, Replay capacity, cold `FILE` deleter, and render-lifecycle log
 duplication. CR1 renamed the complete built-in development surface to GameUI,
-including `--dev-ui game`, automation values/assertions, runtime fields, labels,
+including automation values/assertions, runtime fields, labels,
 fixtures, and manuals. The focused 7-case/170-assertion set, 832-item project
-filters, explicit GameUI launch, and full GameUI/ImGui stress matrix pass across
+filters, explicit GameUI launch, and full GameUI stress matrix pass across
 Profile, Debug, and Automation with zero DX12 validation errors. CR2 reran the
 current reachability inventory: all 93 rows remain explicitly ruled, zero rows
 block, and the CR0 ledger still approves no production deletion. CR2 therefore
@@ -890,8 +920,8 @@ include, reserve privilege, Physics row field, or post-start growth path.
 
 ORBIT_FORECAST OF4 is complete. Planning now composes the continuous producer
 and stability analyzer; App owns lifetime, frame admission, mutual exclusion
-with bounded `PREDICT`, scene-transition joins, and shutdown. GameUI and ImGui
-route typed continuous/reset/exit commands and publish aligned detached status,
+with bounded `PREDICT`, scene-transition joins, and shutdown. GameUI
+routes typed continuous/reset/exit commands and publish aligned detached status,
 timing, first-cause, and conservation readouts while retaining the accepted
 bounded-horizon control discrepancy. `validate_fast`, all 620 unit cases,
 dependency, allocation-policy, and performance gates pass; the 21/21 touched-
@@ -1550,28 +1580,6 @@ Per owner direction, no build, test, scanner, inventory, formatter, or
 repository validation was run; compile/link and focused runtime behavior remain
 unexecuted evidence.
 
-## Runtime DevelopmentTools Bug Ledger Closure (2026-08-26)
-
-DEV-001 through DEV-006 are fixed as one subsystem batch. Retrying startup now
-discards an incomplete ImGui context before rebinding the renderer. Ordered
-panel reducers preserve first-build commands, make reset establish complete
-defaults, and cancel focus requests whose target is later hidden. Shutdown
-clears pending commands, diagnostics, counters, and presentation state before a
-new editor epoch begins.
-
-Responsive dock sizing now reserves a valid central region and keeps every
-split fraction bounded even below the normal minimum client size. Game Viewport
-capture also requires that panel to remain visible, so closing it stops the
-unused per-frame GPU copy while the rest of the editor stays open.
-
-One consolidated read-only rubber-duck review covered all six Runtime
-DevelopmentTools rows in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found
-and closed two command-ordering defects plus one focused-evidence gap. Final
-counts were 0 Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner
-direction, no build, test, scanner, inventory, formatter, or repository
-validation was run; compile/link and live ImGui behavior therefore remain
-unexecuted evidence.
-
 ## Runtime Direction Bug Ledger Closure (2026-08-26)
 
 DIR-001 through DIR-009 are fixed as one subsystem batch. Shot-list loading now
@@ -1593,15 +1601,7 @@ and 1 Missing evidence. Per owner direction, no build, test, scanner, inventory,
 formatter, or repository validation was run; compile/link and focused runtime
 behavior therefore remain unexecuted evidence.
 
-## Engine Signature Cohesion SC4 DevelopmentTools And Render Slices (2026-09-01)
-
-Branch `nightrunner-31st-AUG-26` and PR 165 remain active. The ninth SC4 slice
-replaces `ImGuiEditorCausalityContext` with separate selected-cause, bounded
-related-row, and status values. The editor presenter now sequences focused panel
-methods that receive exact detached UI slices, and the former 2,100-line shell
-operation no longer owns inline submission/edit helpers or a wide parameterized
-edit declaration. The existing Physics Solver filter rule now includes
-`PhysicsBroadphaseStepValues`.
+## Engine Signature Cohesion SC4 Render Slices (2026-09-01)
 
 Profile builds warning-clean. The current render-frame slice deletes the
 19-field model frame bag and ten-part frame-entry bag in favor of consumer-owned
@@ -1679,8 +1679,7 @@ required task 8/8 terminal closure.
 The seventeenth SC4 slice deletes the duplicated 36-field operator inspector
 projection record and its field-by-field copy. The canonical detached inspector
 value now exposes selection, transform, identity, render-material, and Physics
-children; App builds it directly and ImGui delegates each section to the exact
-child it presents. The established flat fingerprint values remain intact.
+children; App builds it directly from the scene and editor owners. The established flat fingerprint values remain intact.
 Profile builds warning-clean; 10 focused cases and 225 assertions pass;
 source-design passes six targets across 35 contexts with zero findings.
 Formatting, dependency/project ownership, build-configuration, project-filter,

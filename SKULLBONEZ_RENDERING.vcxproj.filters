@@ -15,7 +15,6 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.cpp"><Filter>Source Files\DX12</Filter></ClCompile>
@@ -49,7 +48,6 @@
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.h"><Filter>Header Files\DX12</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.h"><Filter>Header Files\DX12</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.h"><Filter>Header Files\DX12</Filter></ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h"><Filter>Header Files\DX12</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h"><Filter>Header Files\DX12</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ResourceBuilder.h"><Filter>Header Files\DX12</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.h"><Filter>Header Files\DX12</Filter></ClInclude>

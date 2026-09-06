@@ -3,11 +3,6 @@ File: RuntimeFrameMetricsOwner.h
 Purpose:
   Owns process and scene timing plus fixed-cadence frame metric aggregation.
 
-Summary:
-  App invokes explicit startup, frame, scene, and publication operations at
-  stable frame boundaries. Consumers receive a detached snapshot and cannot
-  make metric cadence depend on whether GameUI or ImGui happened to draw.
-
 Invariants:
   - Frame samples are admitted exactly once by App before optional UI work.
   - Half-second aggregation uses submitted frame duration, not presentation visibility.
@@ -18,6 +13,7 @@ Related:
   - Runtime/RuntimeFrameViews.h
   - Runtime/App/SceneLoadApplication.h
 */
+
 #pragma once
 
 #include "../../Core/Timer.h"

@@ -11,8 +11,6 @@ Invariants:
   - Transport dispatch borrows host owners synchronously and retains none.
   - Intermediate causal restores retain their source timeline; only the exact
     endpoint may commit the normal branch reset.
-  - The inactive GameUI pointer surface cannot reset durable replay state after
-    a typed command has arrived from the selected ImGui surface.
   - Causal restore completion must acknowledge the generation that issued it;
     an interrupted or superseded row cannot reveal stale detail.
   - Causal contact geometry and body poses are copied from the exact recorded
@@ -20,6 +18,7 @@ Invariants:
   - Drawer wheel and title input are consumed only inside the visible compound
     bounds and cannot fall through to the cause-tree or scrubber surfaces.
 */
+
 #include "../Replay/ReplayScrubber.h"
 #include "ReplayRuntime.h"
 #include "ReplayAuthoringCauseTree.h"
@@ -902,9 +901,6 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     if ( !input.gameUiPointerSurfaceActive )
     {
-        // Why: semantic commands from ImGui have already reached ReplayRuntime.
-        // The inactive GameUI pointer surface must neither compete for capture
-        // nor interpret its hidden window as a reason to reset durable replay state.
         ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
         return;
     }

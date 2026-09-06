@@ -45,7 +45,7 @@
       "path": "SkullbonezSource/Runtime/App/Init.cpp",
       "patterns": [
         "{\"symbol\":\"InitRenderBackend\",\"before\":[\"{\",\"CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );\"],\"statement\":\"auto backend = std::make_unique<RenderBackendDX12>( diagnostics );\",\"after\":[\"RenderBackendDX12* renderBackend = backend.get();\",\"const SkullbonezCore::Core::SbResult\"]}",
-        "{\"symbol\":\"RunApp\",\"before\":[\"{\",\"{\"],\"statement\":\"std::unique_ptr<Run> cRun = std::make_unique<Run>( diagnostics, *window, std::move( args.sceneList ), cfg,\",\"after\":[\"workerPool, profiler, renderBackend.BackbufferCapture(),\",\"tracyClientOwner );\"]}",
+        "{\"symbol\":\"RunApp\",\"before\":[\"{\",\"{\"],\"statement\":\"std::unique_ptr<Run> cRun = std::make_unique<Run>( diagnostics, *window, std::move( args.sceneList ), cfg,\",\"after\":[\"workerPool, profiler, renderBackend.BackbufferCapture() );\",\"const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );\"]}",
         "{\"symbol\":\"WinMain\",\"before\":[\"SkullbonezCore::Core::Profiler* profiler = nullptr;\",\"#if defined( SKULLBONEZ_PROFILE_ENABLED )\"],\"statement\":\"auto profilerOwner = std::make_unique<SkullbonezCore::Core::Profiler>();\",\"after\":[\"profiler = profilerOwner.get();\",\"#endif\"]}"
       ],
       "owner": "Runtime process bootstrap",

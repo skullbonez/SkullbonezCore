@@ -214,11 +214,6 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions&
     {
         strcpy_s( target.perfLogPath, sizeof( target.perfLogPath ), launch.perfLogPath );
     }
-
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    target.developmentUiMode = launch.developmentUiMode;
-    target.developmentUiModeExplicit = launch.developmentUiModeExplicit;
-#endif
 }
 
 
@@ -290,21 +285,16 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides, Diagno
 
 Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& window, std::vector<std::string> sceneQueue,
           SkullbonezCore::Core::EngineConfig& config, Threading::WorkerPool& workerPool,
-          SkullbonezCore::Core::Profiler* profiler, Rendering::Dx12BackbufferCapture& backbufferCapture,
-          SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner )
+          SkullbonezCore::Core::Profiler* profiler, Rendering::Dx12BackbufferCapture& backbufferCapture )
     : m_resultDiagnostics( resultDiagnostics ), m_window( window ), m_workerPool( workerPool ), m_config( config ),
-      m_profiler( profiler ), m_tracyClientOwner( tracyClientOwner ),
-      m_sceneController( resultDiagnostics, std::move( sceneQueue ) ), m_applicationExit( resultDiagnostics ),
-      m_renderDefaults( resultDiagnostics ), m_capture( resultDiagnostics ), m_inputRouter( resultDiagnostics ),
+      m_profiler( profiler ), m_sceneController( resultDiagnostics, std::move( sceneQueue ) ),
+      m_applicationExit( resultDiagnostics ), m_renderDefaults( resultDiagnostics ), m_capture( resultDiagnostics ),
+      m_inputRouter( resultDiagnostics ),
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
       m_interactionAutomation( resultDiagnostics ),
 #endif
       m_replayRuntime( resultDiagnostics, profiler ), m_continuousForecast( profiler ), m_editorTools( resultDiagnostics ),
-      m_runtimeTools( resultDiagnostics ),
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-      m_imguiEditor( resultDiagnostics ),
-#endif
-      m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
+      m_runtimeTools( resultDiagnostics ), m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
       m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ),
       m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_backbufferCapture( backbufferCapture )
 {
@@ -330,17 +320,6 @@ SkullbonezCore::Core::SbResult Run::BindRenderBackend( Rendering::RenderBackendD
     m_shaderDevelopment = std::ref( backend.ShaderDevelopment() );
     Renderer().SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
     Renderer().SetPipelineSyncEnabled( m_config.runtimeRender.forcePipelineSync );
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    const SkullbonezCore::Core::SbResult imguiStartResult = m_imguiEditor.Start( m_window.NativeWindowHandle(),
-                                                                                 &backend.DevelopmentUiRenderer() );
-
-    if ( !imguiStartResult.Ok() )
-    {
-        m_applicationExit.RequestOwnedFailure( imguiStartResult );
-        return imguiStartResult;
-    }
-
-#endif
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -505,12 +484,6 @@ Run::~Run()
     // release its extension-owned transient storage without a renderer-side
     // content branch or a retained backend pointer.
     m_sceneController.Scene().Tornado().ReleaseVisualResources();
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Lifetime: the preceding release path proved all submitted frames complete.
-    // Destroy vendor GPU objects and return its descriptor rows while both the
-    // ImGui context and concrete DX12 owners still exist.
-    m_imguiEditor.Shutdown();
-#endif
     m_renderer.reset();
 }
 
@@ -525,9 +498,6 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     const RunLaunchOptions& launch = overrides.launch;
 
     ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_sceneController.Scene() );
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    ApplyDevelopmentUiMode();
-#endif
 
     if ( launch.replayGuideArcsAtStartup )
     {
@@ -960,57 +930,7 @@ void Run::Initialise()
     }
 
     m_skipExecute = replayStartup.skipExecute;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Scene-authored GameUI window defaults run during load. Reapply the
-    // selected surface so an inactive implementation cannot become a second input owner.
-    ApplyDevelopmentUiMode();
-#endif
 }
-
-
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void Run::ApplyDevelopmentUiMode()
-{
-    // Initialize once from CLI, then preserve an explicit hot swap across
-    // scene/replay loads rather than treating scene defaults as UI authority.
-    m_imguiEditor.InitializeSurfaceSelection( m_launchOptions.developmentUiMode );
-
-    if ( !m_launchOptions.developmentUiModeExplicit && !m_imguiEditor.HasActivatedSurfaceSelection() )
-    {
-        // Invariant: an omitted selector chooses the GameUI implementation but
-        // preserves the scene-authored GameUI visibility default. This keeps
-        // ordinary launches and capture baselines stable while ImGui stays dormant.
-        m_imguiEditor.SetVisible( false );
-        return;
-    }
-
-    SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
-}
-
-void Run::SelectDevelopmentUiSurface( DevelopmentUiMode surface )
-{
-    // Invariant: deactivate the source before activating the target. The two
-    // implementations coexist in the build but never own focus in one instant.
-    if ( DevelopmentUiModeShowsGameUI( surface ) )
-    {
-        m_imguiEditor.SelectSurface( DevelopmentUiMode::GameUI );
-
-        if ( !m_operatorUi->IsVisible() )
-        {
-            m_operatorUi->SetVisible( true, 0.0 );
-        }
-
-        return;
-    }
-
-    if ( m_operatorUi->IsVisible() )
-    {
-        m_operatorUi->SetVisible( false, 0.0 );
-    }
-
-    m_imguiEditor.SelectSurface( DevelopmentUiMode::ImGui );
-}
-#endif
 
 
 const SkullbonezCore::Core::SbResult& Run::LastSceneLoadResult() const

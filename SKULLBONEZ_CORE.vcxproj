@@ -26,7 +26,6 @@
     <ProjectGuid>{92972446-7D18-4AD1-AE43-15671C767306}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
-    <SkoreBuildTracyClient>true</SkoreBuildTracyClient>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -76,7 +75,6 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <Import Project="SkoreDevelopmentThirdParty.props" Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Profile' Or '$(Configuration)'=='Automation'" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>16.0.31025.104</_ProjectFileVersion>
@@ -247,48 +245,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ThirdPtySource\imgui\imgui.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      <WarningLevel>TurnOffAllWarnings</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\imgui\imgui_draw.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      <WarningLevel>TurnOffAllWarnings</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\imgui\imgui_tables.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      <WarningLevel>TurnOffAllWarnings</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\imgui\imgui_widgets.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      <WarningLevel>TurnOffAllWarnings</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_win32.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      <WarningLevel>TurnOffAllWarnings</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_dx12.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      <WarningLevel>TurnOffAllWarnings</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\tracy\public\TracyClient.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      <WarningLevel>TurnOffAllWarnings</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
@@ -298,18 +254,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoVisualPass.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp" />
-      <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
-        <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      </ClCompile>
-      <ClCompile Include="SkullbonezSource\Core\TracyClientOwner.cpp">
-        <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      </ClCompile>
-      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.cpp">
-        <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      </ClCompile>
-      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp">
-        <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\AttachedCameraController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp" />
@@ -519,14 +463,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h" />
     <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.h" />
     <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.h" />
-      <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.h" />
-      <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h" />
-      <ClInclude Include="SkullbonezSource\Core\TracyClientOwner.h" />
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorCausalityProjection.h" />
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorControlPolicy.h" />
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h" />
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h" />
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\AttachedCameraController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraValues.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.h" />

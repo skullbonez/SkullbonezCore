@@ -141,7 +141,6 @@ set(SKULLBONEZ_PORTABLE_TEST_SOURCES
 
 set(SKULLBONEZ_WINDOWS_TEST_SOURCES
     SkullbonezTests/TestPlatformWin32.cpp
-    SkullbonezTests/TracyClientOwnerLinkStubs.cpp
 )
 
 function(skullbonez_require_complete_domain domain)

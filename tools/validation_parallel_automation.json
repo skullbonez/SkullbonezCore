@@ -18,13 +18,19 @@
     },
     {
       "id": "automation-smoke",
-      "name": "Automation development-UI compatibility smoke",
+      "name": "Automation native UI smoke",
       "steps": [
         {
           "id": "game",
           "name": "Automation positive smoke",
           "cwd": "${WORKDIR}",
-          "argv": ["${REPO}\\Automation\\SKULLBONEZ_CORE.exe", "--renderer", "dx12", "--vsync", "off", "--shadows", "off", "--hide-top-text", "--automation-hidden-window", "--scene", "SkullbonezData\\scenes\\interaction_replay_prediction_harness.scene.json", "--interaction-script", "SkullbonezData\\interaction\\development_ui_smoke.json", "--interaction-report", "${AUTOMATION_REPORT}", "--frames", "45", "--fixed-step"]
+          "argv": ["${REPO}\\Automation\\SKULLBONEZ_CORE.exe", "--renderer", "dx12", "--vsync", "off", "--shadows", "off", "--hide-top-text", "--automation-hidden-window", "--scene", "SkullbonezData\\scenes\\interaction_replay_prediction_harness.scene.json", "--interaction-script", "SkullbonezData\\interaction\\native_ui_smoke.json", "--interaction-report", "${AUTOMATION_REPORT}", "--frames", "45", "--fixed-step"]
+        },
+        {
+          "id": "resize-dimensions",
+          "name": "Native UI client dimensions",
+          "cwd": "${WORKDIR}",
+          "argv": ["${PYTHON_EXE}", "-c", "from PIL import Image; image=Image.open('TestOutput/interaction/native_ui_resize.bmp'); assert image.size == (1024,720), image.size"]
         }
       ]
     }

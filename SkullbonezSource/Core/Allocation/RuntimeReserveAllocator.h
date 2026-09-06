@@ -16,8 +16,6 @@ Invariants:
     their vector/object targets.
   - Each replay result carries one private owner/phase token and one exact byte
     budget; opening its scope consumes the token and allocations consume bytes.
-  - Development tool permission does not exist in Release or Profile-WPO, and
-    cannot exempt allocations on another thread.
 */
 #pragma once
 
@@ -73,9 +71,6 @@ enum class RuntimeReserveSubsystem
     Replay,
     Diagnostics,
     AllocationTracker,
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    DevelopmentTools,
-#endif
 };
 
 struct RuntimeReserveOwnerDesc
@@ -89,11 +84,6 @@ struct RuntimeReserveOwnerDesc
     bool allowReplayGrowth;
     const char* capacityReason;
 
-    // Keep this field unconditional so the descriptor has one ABI across engine
-    // libraries compiled with different feature flags. Release/Profile-WPO
-    // ignore the permission; development builds still require the exact owner
-    // scope before admitting third-party allocations.
-    bool allowDevelopmentToolAllocations = false;
     // Nonzero owners express capacities in elements and appear in the fixed
     // capacity-row readout. Zero means the capacity is already measured in bytes.
     int elementSizeBytes = 0;
@@ -169,9 +159,6 @@ struct RuntimeReserveOwnerStatsView
     int highWaterCapacity; // Owner capacity units; byte-budget owners use bytes.
     int lastGrowthFrame;
     bool allowReplayGrowth;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    bool allowDevelopmentToolAllocations;
-#endif
 };
 
 struct RuntimeReserveCapacityView
@@ -257,15 +244,6 @@ class RuntimeReserveAllocator
     static bool IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
     static bool TryConsumeApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes,
                                                           uint64_t* outAccountingGeneration = nullptr ) noexcept;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    static bool IsApprovedDevelopmentToolAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
-
-    // Reserves one vendor-owned backing range before an allocator maps it.
-    // Unlike RecordAllocation(), this can reject the request without first
-    // crossing the registered live-byte cap.
-    static bool TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes,
-                                                           uint64_t* outAccountingGeneration = nullptr ) noexcept;
-#endif
 
     static uint64_t RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
     static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes, uint64_t accountingGeneration = 0u ) noexcept;

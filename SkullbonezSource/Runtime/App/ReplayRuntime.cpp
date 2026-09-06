@@ -18,9 +18,8 @@ Invariants:
   - The render frame receives only the generic contact packet and synchronous
     spans into Planning-owned solver copies, never the transition owner or
     ReplayRecorder borrows.
-  - Tracy plots sample existing owner stats only; they never traverse retained
-    payloads or influence replay state.
 */
+
 #include "ReplayRuntime.h"
 #include "ReplayAuthoringCauseTree.h"
 #include "ReplayPredictionComposition.h"
@@ -33,7 +32,6 @@ Invariants:
 #include "../Replay/ReplayV2Artifact.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../../Core/TracyClientOwner.h"
 #include "../Tools/RuntimeFileWriter.h"
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
@@ -703,7 +701,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
                                                SceneSessionState& scene, OverlayDebugState& debug,
                                                RuntimeTools& runtimeTools, const ReplaySolverFrameSample& sample )
 {
-    SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/Replay/Restore", ::HashStr( "Frame/Replay/Restore" ) );
+
 
     // Invariant: every product and probe entry reaches the same cancellation
     // barrier before mutating live physics authority.
@@ -1989,48 +1987,6 @@ void ReplayRuntime::CaptureFrame( int sceneFrame, float physicsDt, const ReplayW
     {
         AppendSolverTrajectorySampleToStore( *solverSample );
     }
-
-#if defined( TRACY_ENABLE )
-
-    if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
-    {
-        // Why: recorder counts and reserve rows are already-owned fixed
-        // snapshots. No-viewer runs skip even these value copies, and the
-        // name-based reserve registry is sampled only once per 60 frames.
-        const ReplayRecorderStats presentationStats = m_timeline.Presentation().GetStats();
-        const ReplayRecorderStats solverStats = m_timeline.Solver().GetStats();
-        const ReplayEventRecorderStats eventStats = m_timeline.Events().GetStats();
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/PresentationRetainedSamples", presentationStats.sampleCount );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/PresentationSampleCapacity", presentationStats.sampleCapacity );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/SolverRetainedSamples", solverStats.sampleCount );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/SolverSampleCapacity", solverStats.sampleCapacity );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/RetainedEvents", eventStats.eventCount );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/EventCapacity", eventStats.eventCapacity );
-
-        if ( solverStats.nextFrameIndex % 60u == 0u )
-        {
-            constexpr const char* reserveHighWaterPlots[] = { "Counter/Replay/RecorderReserveHighWaterBytes",
-                                                              "Counter/Replay/SolverReserveHighWaterBytes",
-                                                              "Counter/Replay/PredictionReserveHighWaterBytes" };
-
-            constexpr const char* reserveCapacityPlots[] = { "Counter/Replay/RecorderReserveHighWaterCapacity",
-                                                             "Counter/Replay/SolverReserveHighWaterCapacity",
-                                                             "Counter/Replay/PredictionReserveHighWaterCapacity" };
-
-            for ( std::size_t index = 0; index < REPLAY_GROWTH_OWNER_POLICIES.size(); ++index )
-            {
-                SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView reserveStats;
-
-                if ( SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::
-                         CopyOwnerStatsByName( REPLAY_GROWTH_OWNER_POLICIES[index].ownerName, reserveStats ) )
-                {
-                    SKORE_TRACY_PLOT_VALUE( reserveHighWaterPlots[index], reserveStats.highWaterBytes );
-                    SKORE_TRACY_PLOT_VALUE( reserveCapacityPlots[index], reserveStats.highWaterCapacity );
-                }
-            }
-        }
-    }
-#endif
 }
 
 bool ReplayRuntime::HasLoadedPresentation() const
@@ -2390,8 +2346,7 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path, ReplayV2
                                                       std::span<const ReplayVisualArchiveSample> visualPackets,
                                                       std::span<const uint8_t> visualPredictionState ) const
 {
-    SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/Replay/ColdIO/SavePresentation",
-                                   ::HashStr( "Frame/Replay/ColdIO/SavePresentation" ) );
+
 
     return ReplayArtifactOperations::SaveColdWithOptionalPredictionState(
         visualPackets, visualPredictionState, [&]( std::vector<uint8_t>& fallbackPredictionState )

@@ -138,10 +138,6 @@ struct ParsedArgs
     bool showBroadphaseVisualizer = false;
     bool replayGuideArcsAtStartup = false;
     bool workerSelfTest = false;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::GameUI;
-    bool developmentUiModeExplicit = false;
-#endif
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;

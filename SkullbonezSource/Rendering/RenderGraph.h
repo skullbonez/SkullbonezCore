@@ -20,16 +20,16 @@ Invariants:
   - Declared pass accesses are the single source of truth for ordinary
     frame-resource transitions. The graph derives them; the backend executor
     emits them. A hand-written ordinary frame-pass barrier is a defect.
-  - Present, cold capture/readback, development ImGui viewport copy, and
-    shutdown/resize reconciliation are the four bounded transitions outside
-    ordinary pass declarations. Upload, mip, dynamic-geometry, and acceleration
-    structure barriers remain with their resource owners.
+  - Present, cold capture/readback, and shutdown/resize reconciliation remain
+    outside ordinary pass declarations. Upload, mip, dynamic-geometry, and
+    acceleration-structure barriers remain with their resource owners.
 
 Related:
   - SkullbonezSource/Rendering/RenderGraph.cpp
   - SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.h
   - Agentic/Reference/engine-glossary.md
 */
+
 #pragma once
 
 #include "../Core/FatalError.h"
@@ -55,57 +55,6 @@ inline constexpr size_t RENDER_GRAPH_MAX_TRANSITIONS = 96;
 inline constexpr size_t RENDER_GRAPH_MAX_UAV_BARRIERS = 96;
 inline constexpr size_t RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS = 16;
 
-/*
-Concept: RenderGraph as the DX12 render-architecture contract
-
-    What problem does a render graph solve?
-
-    A frame is not one draw call. A frame is a sequence of passes:
-
-    - draw the shadow map,
-    - draw reflections,
-    - draw the main scene color,
-    - read scene color/depth for water, post effects, and UI,
-    - finally present the back buffer.
-
-    Each pass reads or writes resources. A resource can be a texture, depth
-    buffer, back buffer, UAV target, or future transient render target. DirectX
-    12 requires the engine to say exactly how each resource is being used before
-    the GPU touches it. If a texture was just a render target and the next pass
-    wants to sample it as a shader texture, the engine must insert a resource
-    barrier between those uses.
-
-    Without a shared declaration layer, resource intent gets scattered across
-    the codebase. Each pass has to remember what state every texture was in
-    before it starts. That is fragile. The render graph keeps the declarations
-    together and derives the required transitions from them, so a pass author
-    declares how it uses a resource and never writes a barrier by hand.
-
-    This class is intentionally small. It executes callback-owned pass bodies,
-    plans graph-managed transient resource lifetimes, and compiles the
-    transition plan the backend executor emits. It gives the engine a concrete
-    place to name:
-
-    - render resources,
-    - render passes,
-    - whether each pass reads or writes a resource,
-    - which transient resources may alias in one frame,
-    - what DX12-style access the pass expects,
-    - whether a reviewed pass body is called by the graph.
-
-    RenderGraph derives barriers as part of compilation.
-    Dx12RenderGraphExecutor turns the compiled plan into ResourceBarrier calls,
-    with a DryRun mode that records candidates without emitting so the contract
-    stays testable off-device.
-
-    Four bounded transitions remain outside this flow and are deliberate, not
-    leftovers: Present, cold capture/readback, the development ImGui viewport
-    copy, and shutdown/resize reconciliation. Each borrows an access and
-    restores the exact entry state. Resource-owner barriers for uploads, mips,
-    dynamic geometry, and acceleration structures also stay with their owners;
-    they are not frame passes. Adding a fifth ordinary-pass exception is a
-    review failure — declare the access instead.
-*/
 
 // A queue is a lane of GPU work.
 //
@@ -627,7 +576,6 @@ struct RenderGraphExecutionContractResult
 class RenderGraph
 {
   private:
-
     // Lifetime: this is the graph's sole erased callback record. payload is a
     // non-owning borrow of a concrete stack payload and is consumed synchronously
     // before the registration scope ends; typed public trampolines recover it.

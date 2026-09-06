@@ -9,23 +9,11 @@ Summary:
   tuning read the values when they need to restore deterministic overrides after
   a reload.
 
-Glossary:
-  Launch override: CLI/startup value that should be applied again when a scene
-  reloads or generated demo content is rebuilt.
-  Allocation guard mode: Runtime allocation measurement mode selected before
-  steady gameplay begins.
-  Generated object type override: Debug/validation selector that forces
-  generated demo scenes to all balls or all boxes.
-  Development UI mode: Process-lifetime selection between the built-in GameUI
-    game/level-editor surface and optional ImGui development surface; omitted
-    command-line input selects GameUI.
-
 Invariants:
   - These values are policy inputs; subsystems own the live state they modify.
   - Zero or false generally means "not provided" so scene defaults keep working.
   - Physics debug overrides affect visualization only and must not change solver
     ordering or deterministic physics state.
-  - Development UI modes are exclusive; there is no simultaneous Both state.
 
 Related:
   - SkullbonezSource/Runtime/App/Run.h
@@ -33,6 +21,7 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */
+
 #pragma once
 
 #include "../../Physics/PhysicsDebugData.h"
@@ -70,22 +59,6 @@ inline constexpr RuntimeRendererOption kRuntimeRendererOptions[] = {
 
 inline constexpr std::size_t kRuntimeRendererOptionCount = sizeof( kRuntimeRendererOptions ) /
                                                            sizeof( kRuntimeRendererOptions[0] );
-
-enum class DevelopmentUiMode : uint8_t
-{
-    GameUI = 0,
-    ImGui
-};
-
-constexpr bool DevelopmentUiModeShowsGameUI( DevelopmentUiMode mode ) noexcept
-{
-    return mode == DevelopmentUiMode::GameUI;
-}
-
-constexpr bool DevelopmentUiModeShowsImGui( DevelopmentUiMode mode ) noexcept
-{
-    return mode == DevelopmentUiMode::ImGui;
-}
 
 struct RunLaunchOptions
 {
@@ -139,13 +112,6 @@ struct RunLaunchOptions
     float physicsDebugAlphaOverride = 0.28f;
     bool hasPhysicsDebugContactLingerOverride = false;
     float physicsDebugContactLingerOverride = 0.45f;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // CLI --dev-ui imgui opts into the docked editor; omitted remains GameUI.
-    // Invariant: exactly one development UI owns window focus and input for a
-    // process and there is no parallel/Both mode.
-    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::GameUI;
-    bool developmentUiModeExplicit = false;
-#endif
 };
 
 struct RunStartupOverrides

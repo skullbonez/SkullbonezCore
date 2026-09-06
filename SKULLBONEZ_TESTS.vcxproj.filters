@@ -156,9 +156,6 @@
     <ClCompile Include="SkullbonezTests\TestMain.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezTests\TracyClientOwnerLinkStubs.cpp">
-      <Filter>Source Files\Tests</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestFrustum.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -176,9 +173,6 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp">
-      <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestEditorCommandHistory.cpp">
       <Filter>Source Files\Tests</Filter>
@@ -391,9 +385,6 @@
       <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp">
-      <Filter>Source Files\Core\Allocation</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
       <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera\Camera.cpp">

@@ -531,7 +531,7 @@ performance baseline remain external recorded failures, not UI6 passes or
 refresh authority.
 Recorded Interaction Playback Cursor RIC0-RIC3 is complete at 4/4. The
 Automation-owned frame value crosses one detached Runtime/UI compositor and one
-App submission edge after GameUI, replay overlays, UI finalization, and ImGui
+App submission edge after GameUI, replay overlays, UI finalization
 but before screenshots and Present. The unchanged 413-turn recording proves
 256 visible turns, 157 cursorless right-look turns, command high water and
 capacity `2`, exact injected coordinates, truthful submission, and zero legacy

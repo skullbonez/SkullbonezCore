@@ -39,7 +39,7 @@ flowchart TD
     I5 --> I6["CPU-only DX12 architecture<br/>tools\validate_dx12_arch_tests.bat"]
     I6 --> J["Automation gate<br/>tools\validate_automation.bat"]
     J --> J1["Profile negative boundary<br/>Profile\SKULLBONEZ_CORE.exe --automation-hidden-window --frames 1 --interaction-script SkullbonezData\interaction\replay_prediction_click.json"]
-    J1 --> J2["Automation positive smoke<br/>Automation\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_development_ui_smoke.json --interaction-report TestOutput\validation\automation\replay_prediction_precommit.json --frames 150 --replay on --replay-seconds 2 --fixed-step"]
+    J1 --> J2["Automation positive smoke<br/>Automation\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_click.json --interaction-report TestOutput\validation\automation\replay_prediction_precommit.json --frames 150 --replay on --replay-seconds 2 --fixed-step"]
     J2 --> K["DX12 renderer gate<br/>tools\validate_dx12_renderer.bat"]
     K --> K1["DX12 render suite<br/>Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite.json"]
     K1 --> P["Exclusive replay frame-spike diagnostic<br/>tools\validate_replay_prediction_frame_spikes.bat"]
@@ -101,7 +101,7 @@ flowchart TD
     RF --> AG["Automation gate<br/>tools\validate_automation.bat"]
     AG --> AF{{"Automation process fan-out<br/>python tools\run_parallel_validation.py --manifest tools\validation_parallel_automation.json --repo ."}}
     AF --> AN["Profile negative boundary<br/>Profile\SKULLBONEZ_CORE.exe --automation-hidden-window --frames 1 --interaction-script SkullbonezData\interaction\replay_prediction_click.json"]
-    AF --> AP["Automation development-UI smoke<br/>Automation\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\development_ui_smoke.json --interaction-report REPO/TestOutput/validation/automation/replay_prediction_precommit.json --frames 45 --fixed-step"]
+    AF --> AP["Automation native UI smoke<br/>Automation\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\native_ui_smoke.json --interaction-report REPO/TestOutput/validation/automation/replay_prediction_precommit.json --frames 45 --fixed-step"]
     AP --> AS["Complete Skarness regression<br/>tools\validate_skarness.bat"]
     RF --> DX["DX12 renderer gate<br/>tools\validate_dx12_renderer.bat"]
     DX --> DXG["DX12 render suite<br/>Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite.json"]

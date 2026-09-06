@@ -90,7 +90,6 @@ the glossary documents usage and does not grant exceptions.
 | Dense row | Compact store array index used by hot simulation scans. |
 | Descriptor | Small binding record that tells the GPU or output-merger how to interpret a resource. |
 | Descriptor heap | DX12 table of descriptor rows; shader-visible heaps can be indexed by GPU commands. |
-| Development tool owner | A thread-local, hard-capped ImGui or Tracy scope that is permitted only when the shared development capability is compiled. |
 | Development UI command | Fixed presentation or native-window request emitted by the sequencer and applied synchronously by this automation owner. |
 | Diagnostic-name table | Fixed pointer table whose pointed-to scene names remain owned by stable scene metadata. |
 | Diagnostics artifact | File produced for validation, profiling, or analysis. |
@@ -230,7 +229,6 @@ the glossary documents usage and does not grant exceptions.
 | Private working set | Resident process pages not shared with other processes; matching it requires a page-level OS query. |
 | Probe failure | CLI validation failure reported as bounded result/report data so automation exits nonzero without throwing through the frame loop. |
 | Proceed policy | Value packet that freezes the sampled step edge and cross-scene pause decision for one frame. |
-| Profiler connection snapshot | Three fixed booleans copied from the Tracy owner without a process scan, socket probe, string construction, or growth. |
 | Projection | Conversion from the common queue back into established narrow UI command structs consumed by concrete runtime owners. |
 | PSO (Pipeline State Object) | Precompiled bundle of shaders and fixed render state that DX12 binds before drawing or dispatching. |
 | Publication | Owner-produced save value; SceneWorld's publication borrows its stores only for the duration of this operation. |
@@ -315,7 +313,6 @@ the glossary documents usage and does not grant exceptions.
 | Style scene | Authored scene used as material/cinematic source data. |
 | Submission | Conversion of selected replay values into bounded draw commands. |
 | Submitted work | GPU queue work that remains unsafe for reuse or release until a covering fence completes. |
-| Submitted-frame mark | One Tracy frame boundary emitted only after DX12 Present succeeds. |
 | Support edge | Directed relationship from a grounded supporter to a supported body used for sleep propagation. |
 | Support edge budget | Fixed four-edges-per-body storage ceiling shared by contact and point-joint producers. |
 | Surface | Presentation boundary or ordered control surface exposed for one UI or operator domain. |

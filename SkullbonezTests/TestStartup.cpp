@@ -575,52 +575,6 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
     CHECK( BuildRunStartupOverrides( suiteDefaults ).configureReplayRecording );
 }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-TEST_CASE( "Startup development UI: one startup-selected surface owns focus and GameUI remains the default" )
-{
-    using SkullbonezCore::Runtime::DevelopmentUiMode;
-    using SkullbonezCore::Runtime::DevelopmentUiModeShowsGameUI;
-    using SkullbonezCore::Runtime::DevelopmentUiModeShowsImGui;
-
-    struct ModeCase
-    {
-        const char* commandLine;
-        DevelopmentUiMode expected;
-    };
-    const ModeCase cases[] = {
-        { "--dev-ui game", DevelopmentUiMode::GameUI },
-        { "--dev_ui=imgui", DevelopmentUiMode::ImGui },
-    };
-
-    for ( const ModeCase& modeCase : cases )
-    {
-        CAPTURE( modeCase.commandLine );
-        ParsedArgs args;
-        REQUIRE( ApplyRunCliValueDirectives( View( modeCase.commandLine ), args ) );
-        CHECK( args.developmentUiMode == modeCase.expected );
-        CHECK( args.developmentUiModeExplicit );
-
-        const RunStartupOverrides overrides = BuildRunStartupOverrides( args );
-        CHECK( overrides.launch.developmentUiMode == modeCase.expected );
-        CHECK( overrides.launch.developmentUiModeExplicit );
-        CHECK( DevelopmentUiModeShowsGameUI( modeCase.expected ) != DevelopmentUiModeShowsImGui( modeCase.expected ) );
-    }
-
-    ParsedArgs omitted;
-    REQUIRE( ApplyRunCliValueDirectives( View( "--frames 2" ), omitted ) );
-    CHECK( omitted.developmentUiMode == DevelopmentUiMode::GameUI );
-    CHECK_FALSE( omitted.developmentUiModeExplicit );
-    CHECK_FALSE( BuildRunStartupOverrides( omitted ).launch.developmentUiModeExplicit );
-}
-
-TEST_CASE( "Startup development UI: invalid mode keeps the frozen recoverable diagnostic" )
-{
-    constexpr const char* expected = "--dev-ui expects game|imgui; the two surfaces are mutually exclusive.";
-    CheckRunDirectiveFailure( "--dev-ui unknown", expected );
-    CheckRunDirectiveFailure( "--dev-ui both", expected );
-    CheckRunDirectiveFailure( "--dev-ui", expected );
-}
-#endif
 
 TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compose once" )
 {

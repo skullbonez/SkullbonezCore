@@ -12,11 +12,6 @@ behavioural claim in the repository has a gate behind it.
 ![SkullbonezCore](SkullbonezCore.png)
 *Fully deterministic solar system with all moons with live CPU and memory widgets (top left), causal event chain (right) and replay/prediction controls (bottom).*
 
-![SkullbonezCore editor](SkullbonezEditor.png)
-*The in-development editor: scene hierarchy, asset placement palette, live world and
-lighting inspectors, the replay transport along the bottom, and a connected Tracy
-session.*
-
 ---
 
 ## Physics
@@ -110,9 +105,6 @@ being built out.
   against committed baselines, and every renderer change must survive a bounded
   crash-free graphics stress run.
 
-**ImGui and Tracy integration are a work in progress.** The editor surface and the
-profiler instrumentation are partially wired and are being completed incrementally.
-
 ## Built for Agentic Development
 
 The guardrails are mechanical rather than documentary — executable gates and tests
@@ -157,7 +149,6 @@ Stated plainly, because a README that only lists strengths is not useful:
   exist.
 - **The renderer is mid-build.** The architecture is sound and the gates are strict,
   but the shading and material feature set is modest next to a production engine.
-- **ImGui and Tracy are partially integrated**, as noted above.
 - **Very large stacks are a known limit.** Ordinary stacking, resting and sleep are
   solid; pushing to deep towers is parked pending an evaluation of Bullet-style split
   impulse and Box2D substep/relaxation techniques. It is a recorded decision with a

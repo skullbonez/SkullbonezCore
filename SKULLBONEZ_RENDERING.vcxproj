@@ -11,7 +11,6 @@
     <ProjectGuid>{7FBD5A77-1E84-4E6D-9A61-2C8F0A2B0D33}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>SKULLBONEZ_RENDERING</RootNamespace>
-    <SkoreBuildTracyClient>true</SkoreBuildTracyClient>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Automation|x64'" Label="Configuration"><ConfigurationType>StaticLibrary</ConfigurationType><PlatformToolset>v145</PlatformToolset><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
@@ -26,7 +25,6 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'" Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'" Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
-  <Import Project="SkoreDevelopmentThirdParty.props" Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Profile' Or '$(Configuration)'=='Automation'" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <OutDir>$(Configuration)\</OutDir>
@@ -64,7 +62,6 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild></ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.cpp" />
@@ -98,7 +95,6 @@
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ResourceBuilder.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.h" />

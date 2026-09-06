@@ -104,9 +104,6 @@
     <Filter Include="Header Files\Runtime\App">
       <UniqueIdentifier>{66C89A8B-4991-4E54-AD99-B8112DA4D3C5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Runtime\DevelopmentTools">
-      <UniqueIdentifier>{D472696E-95CA-4D27-8832-312085704947}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\Runtime\Tools">
       <UniqueIdentifier>{776E5B97-F9D8-4E8D-A30E-2D9DD4D1E9B1}</UniqueIdentifier>
     </Filter>
@@ -202,27 +199,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ThirdPtySource\imgui\imgui.cpp">
-      <Filter>External</Filter>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\imgui\imgui_draw.cpp">
-      <Filter>External</Filter>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\imgui\imgui_tables.cpp">
-      <Filter>External</Filter>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\imgui\imgui_widgets.cpp">
-      <Filter>External</Filter>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_win32.cpp">
-      <Filter>External</Filter>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_dx12.cpp">
-      <Filter>External</Filter>
-    </ClCompile>
-    <ClCompile Include="ThirdPtySource\tracy\public\TracyClient.cpp">
-      <Filter>External</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp">
@@ -742,18 +718,6 @@
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp">
       <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
-      <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
-        <Filter>Source Files\Core\Allocation</Filter>
-      </ClCompile>
-      <ClCompile Include="SkullbonezSource\Core\TracyClientOwner.cpp">
-        <Filter>Source Files\Core</Filter>
-      </ClCompile>
-      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.cpp">
-        <Filter>Source Files\Runtime\Diagnostics</Filter>
-      </ClCompile>
-      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp">
-        <Filter>Source Files\Runtime\Editor</Filter>
-      </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp">
       <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
@@ -1453,30 +1417,6 @@
     <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.h">
       <Filter>Header Files\Core\Allocation</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.h">
-      <Filter>Header Files\Core\Allocation</Filter>
-    </ClInclude>
-      <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h">
-        <Filter>Header Files\Core\Allocation</Filter>
-      </ClInclude>
-      <ClInclude Include="SkullbonezSource\Core\TracyClientOwner.h">
-        <Filter>Header Files\Core</Filter>
-      </ClInclude>
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorCausalityProjection.h">
-        <Filter>Header Files\Runtime\Editor</Filter>
-      </ClInclude>
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h">
-        <Filter>Header Files\Runtime\Diagnostics</Filter>
-      </ClInclude>
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h">
-        <Filter>Header Files\Runtime\Diagnostics</Filter>
-      </ClInclude>
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorControlPolicy.h">
-        <Filter>Header Files\Runtime\DevelopmentTools</Filter>
-      </ClInclude>
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.h">
-        <Filter>Header Files\Runtime\Editor</Filter>
-      </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\AttachedCameraController.h">
       <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>

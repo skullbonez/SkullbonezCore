@@ -90,7 +90,6 @@ struct InteractionRecordingBaseline
     float demoCameraCycleSeconds = 0.0f;
     int worldInteractionOwner = 0;
     int activeUiTab = 0;
-    int developmentUiSurface = 0;
     bool uiVisible = true;
     bool uiMinimized = false;
     bool editorModeEnabled = false;

@@ -71,9 +71,6 @@
 #include "../SkullbonezSource/Core/AtomicTextFileWriter.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
-#endif
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Core/FatalError.h"
 #include "../SkullbonezSource/Core/Log.h"
@@ -99,7 +96,6 @@
 #include "../SkullbonezSource/Rendering/RenderInstanceStore.h"
 #include "../SkullbonezSource/Rendering/RenderPipeline.h"
 #include "../SkullbonezSource/Rendering/Text.h"
-#include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
 #include "../SkullbonezSource/Runtime/App/InteractionAutomationApplication.h"
 #include "../SkullbonezSource/Runtime/App/ReplayRestoreOperations.h"
@@ -937,20 +933,6 @@ TEST_CASE( "SDF atlas contracts reject malformed metrics and incomplete publicat
     }
 }
 
-TEST_CASE( "Tracy disabled marker seams discard caller expressions" )
-{
-    int evaluatedArguments = 0;
-    SKORE_TRACY_NAME_WORKER_THREAD( ++evaluatedArguments );
-    SKORE_TRACY_MARK_SUBMITTED_FRAME();
-    SKORE_TRACY_SCOPED_OWNER_ZONE( "Disabled", ++evaluatedArguments );
-    const uint32_t sourceHandle = SKORE_TRACY_REGISTER_OWNER_ZONE( "Disabled", ++evaluatedArguments );
-    const uint32_t zoneToken = SKORE_TRACY_BEGIN_OWNER_ZONE( ++evaluatedArguments );
-    SKORE_TRACY_END_OWNER_ZONE( ++evaluatedArguments );
-    SKORE_TRACY_PLOT_VALUE( "Disabled", ++evaluatedArguments );
-    CHECK( evaluatedArguments == 0 );
-    CHECK( sourceHandle == 0u );
-    CHECK( zoneToken == 0u );
-}
 
 
 TEST_CASE( "Lock-order Debug probes classify invalid ids, cycles, and held-stack exhaustion" )
@@ -1623,17 +1605,6 @@ TEST_CASE( "Tornado visual rotation preserves ordinary bytes and long-time progr
     CHECK( twiceAdvancedPhase != exactFloatAdvancedPhase );
 }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-TEST_CASE( "Tracy allocation events stay inactive outside heavy capture" )
-{
-    using namespace SkullbonezCore::Core::Allocation;
-    int value = 0;
-    SetTracyAllocationTracingEnabled( false );
-    const uint64_t connectionId = RecordTracyAllocation( &value, sizeof( value ) );
-    CHECK( connectionId == 0u );
-    RecordTracyFree( &value, connectionId );
-}
-#endif
 
 namespace
 {
@@ -1692,7 +1663,6 @@ struct ForeignAllocationHeaderLayout
     uint64_t trackerAccountingGeneration = 0u;
     uint64_t ownerAccountingGeneration = 0u;
     uint64_t ownershipCookie = 0u;
-    uint64_t tracyConnectionId = 0u;
 };
 
 static_assert( sizeof( void* ) == 8u, "Runtime allocation foreign-header probes require the supported x64 ABI." );
@@ -1700,7 +1670,7 @@ static_assert( offsetof( ForeignAllocationHeaderLayout, magic ) == 28u );
 static_assert( offsetof( ForeignAllocationHeaderLayout, trackerAccountingGeneration ) == 32u );
 static_assert( offsetof( ForeignAllocationHeaderLayout, ownerAccountingGeneration ) == 40u );
 static_assert( offsetof( ForeignAllocationHeaderLayout, ownershipCookie ) == 48u );
-static_assert( sizeof( ForeignAllocationHeaderLayout ) == 64u );
+static_assert( sizeof( ForeignAllocationHeaderLayout ) == 56u );
 
 constexpr uint32_t FOREIGN_ALLOCATION_HEADER_MAGIC = 0xA110CA7Eu;
 
@@ -4487,7 +4457,6 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
 
     int reportedFailures = 0;
     int workerShutdowns = 0;
-    int developmentToolShutdowns = 0;
     int windowCleanups = 0;
     int comUninitializations = 0;
     int rendererStarts = 0;
@@ -4505,11 +4474,6 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
         {
             ++workerShutdowns;
             startupSequence.push_back( 2 );
-        },
-        [&]()
-        {
-            ++developmentToolShutdowns;
-            startupSequence.push_back( 3 );
         },
         [&]()
         {
@@ -4532,11 +4496,10 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     CHECK( failureTitle == "SkullbonezCore Input Startup Failed" );
     CHECK( reportedFailures == 1 );
     CHECK( workerShutdowns == 1 );
-    CHECK( developmentToolShutdowns == 1 );
     CHECK( windowCleanups == 1 );
     CHECK( comUninitializations == 1 );
     CHECK( rendererStarts == 0 );
-    CHECK( startupSequence == std::vector<int> { 1, 2, 3, 4, 5 } );
+    CHECK( startupSequence == std::vector<int> { 1, 2, 4, 5 } );
 
     probe = {};
     const SbResult success = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse( localDiagnostics,
@@ -4559,11 +4522,6 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
         },
         [&]()
         {
-            ++developmentToolShutdowns;
-            startupSequence.push_back( 3 );
-        },
-        [&]()
-        {
             ++windowCleanups;
             startupSequence.push_back( 4 );
         },
@@ -4581,7 +4539,6 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     CHECK( startupSuccess.Ok() );
     CHECK( reportedFailures == 1 );
     CHECK( workerShutdowns == 1 );
-    CHECK( developmentToolShutdowns == 1 );
     CHECK( windowCleanups == 1 );
     CHECK( comUninitializations == 1 );
     CHECK( rendererStarts == 1 );

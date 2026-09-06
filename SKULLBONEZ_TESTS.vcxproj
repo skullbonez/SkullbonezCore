@@ -63,7 +63,6 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <Import Project="SkoreDevelopmentThirdParty.props" Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Profile'" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>16.0.31025.104</_ProjectFileVersion>
@@ -295,19 +294,12 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
-    <ClCompile Include="SkullbonezTests\TracyClientOwnerLinkStubs.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-      <PreprocessorDefinitions>TRACY_ENABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp" />
-    <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.InspectionPolicy.cpp" />
@@ -332,7 +324,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\RuntimeDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneWorld.cpp" />
@@ -432,7 +423,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
          as their SKULLBONEZ_CORE owner. Portable CPU builds omit it and retain
          their separately asserted non-instrumented fingerprint. -->
     <ClCompile Update="SkullbonezSource\Runtime\UI\GameUI\*.cpp">
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64' Or '$(Configuration)|$(Platform)'=='Profile|x64' Or '$(Configuration)|$(Platform)'=='Profile-WPO|x64'">SKULLBONEZ_PROFILE_ENABLED;TRACY_ENABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64' Or '$(Configuration)|$(Platform)'=='Profile|x64' Or '$(Configuration)|$(Platform)'=='Profile-WPO|x64'">SKULLBONEZ_PROFILE_ENABLED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

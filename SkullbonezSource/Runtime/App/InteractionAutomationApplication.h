@@ -148,12 +148,6 @@ ResolveRunExitAfterInteractionRecording( InteractionAutomationRecorder& recorder
                                          ApplicationExitState& applicationExit, int messageExitCode,
                                          InteractionRecordingBoundaryOperation captureArmedBoundary, void* captureContext );
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-InteractionAutomationDevelopmentUiApplyResult
-ApplyInteractionAutomationDevelopmentUiCommands( const InteractionAutomationController& state,
-                                                 const InteractionAutomationFrameResult& frame, Window& window,
-                                                 DevelopmentTools::ImGuiEditorOwner& editor );
-#endif
 
 } // namespace Runtime
 } // namespace SkullbonezCore
