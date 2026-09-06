@@ -1307,15 +1307,45 @@ void ReplayCauseInspection::AdvancePredictionPlayback( std::span<const RunReplay
         --frame;
     }
 
-    // Invariant: playback changes only the presented frame. The selected
-    // manifold and its detached collision evidence retain their original stamp.
+    // Invariant: playback updates presentation and its flash; the selected
+    // manifold and detached collision evidence retain their original stamp.
+    const ReplayFrameIndex previousFrame = m_state.presentedFrame;
     m_state.presentedFrame = frame->frameIndex;
+    ObserveContactFrame( previousFrame, nowSeconds );
+}
+
+void ReplayCauseInspection::ObserveContactFrame( ReplayFrameIndex previousFrame, double nowSeconds ) noexcept
+{
+    if ( !m_state.contactPresentation.HasGeometry() )
+    {
+        return;
+    }
+
+    // Invariant: entry is directional and includes skipped-over simulation
+    // frames. Leaving the force frame or remaining on it cannot retrigger.
+    const bool crossed = ( previousFrame < m_state.targetFrame && m_state.presentedFrame >= m_state.targetFrame ) ||
+                         ( previousFrame > m_state.targetFrame && m_state.presentedFrame <= m_state.targetFrame );
+    const bool firstArrival = m_contactFlashStartedAtSeconds < 0.0 && m_state.presentedFrame == m_state.targetFrame;
+
+    if ( crossed || firstArrival )
+    {
+        m_contactFlashStartedAtSeconds = nowSeconds;
+        m_state.contactFlashAlpha = 1.0f;
+        ++m_state.contactFlashSequence;
+    }
 }
 
 void ReplayCauseInspection::Advance( double nowSeconds ) noexcept
 {
     m_lastAdvanceSeconds = nowSeconds;
     AdvanceDrawer( nowSeconds );
+    // Units: presentation time keeps the 200 ms fade running while physics and
+    // arrow playback are paused. The selected contact evidence stays immutable.
+    m_state.contactFlashAlpha = m_contactFlashStartedAtSeconds >= 0.0
+                                    ? static_cast<float>(
+                                          std::clamp( 1.0 - ( nowSeconds - m_contactFlashStartedAtSeconds ) / 0.2, 0.0,
+                                                      1.0 ) )
+                                    : 0.0f;
 
     if ( m_state.mode != ReplayCauseInspectionMode::Transporting )
     {
@@ -1339,6 +1369,7 @@ void ReplayCauseInspection::Advance( double nowSeconds ) noexcept
          !m_state.transportPending )
     {
         m_state.mode = ReplayCauseInspectionMode::DetailPaused;
+        ObserveContactFrame( m_state.presentedFrame, nowSeconds );
     }
 }
 
@@ -1453,7 +1484,9 @@ void ReplayCauseInspection::CompleteTransport( uint64_t generation, bool succeed
         return;
     }
 
+    const ReplayFrameIndex previousFrame = m_state.presentedFrame;
     m_state.presentedFrame = m_inFlightFrame;
+    ObserveContactFrame( previousFrame, m_lastAdvanceSeconds );
 
     if ( m_state.easedProgress >= 1.0f && m_state.presentedFrame == m_state.targetFrame && !m_state.transportPending )
     {
@@ -1537,6 +1570,8 @@ void ReplayCauseInspection::RestoreInteractionRecordingBaseline( const ReplayCau
     m_state.returnIssued = baseline.returnIssued;
     m_state.easedProgress = std::clamp( baseline.easedProgress, 0.0f, 1.0f );
     m_state.drawerProgress = std::clamp( baseline.drawerProgress, 0.0f, 1.0f );
+    m_contactFlashStartedAtSeconds = -1.0;
+    m_state.contactFlashAlpha = 0.0f;
 
     const double transitionUnit = 1.0 - std::cbrt( 1.0 - static_cast<double>( m_state.easedProgress ) );
     m_startedAtSeconds = nowSeconds - transitionUnit * REPLAY_CAUSE_TRANSITION_SECONDS;
@@ -1660,6 +1695,7 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
 void ReplayCauseInspection::Reset() noexcept
 {
     m_state = ReplayCauseInspectionView {};
+    m_contactFlashStartedAtSeconds = -1.0;
     m_startedAtSeconds = 0.0;
     m_lastAdvanceSeconds = 0.0;
     m_drawerStartedAtSeconds = 0.0;
@@ -1715,6 +1751,8 @@ void ReplayCauseInspection::ClearFocusedSurface() noexcept
     m_state.rawRecordFirstRow = 0;
     m_state.iterationsFirstRow = 0;
     m_state.contactPresentation = {};
+    m_state.contactFlashAlpha = 0.0f;
+    m_contactFlashStartedAtSeconds = -1.0;
 }
 
 void ReplayCauseInspection::SetDrawerTarget( bool open, double nowSeconds ) noexcept

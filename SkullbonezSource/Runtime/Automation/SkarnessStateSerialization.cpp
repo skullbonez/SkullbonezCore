@@ -394,6 +394,9 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
                      { "detailVisible", replay.causeInspection.detailVisible },
                      { "drawerOpen", replay.causeInspection.drawerOpen },
                      { "drawerProgress", replay.causeInspection.drawerProgress },
+                     { "contactFlashAlpha", replay.causeInspection.contactFlashAlpha },
+                     { "contactFlashSequence", replay.causeInspection.contactFlashSequence },
+                     { "contactPointCount", replay.causeInspection.contactPresentation.pointCount },
                      { "solverContactCount", replay.causeInspection.solverDetailContactRowCount },
                      { "solverPipelineCount", replay.causeInspection.solverDetailPipelineRecordCount } };
     if ( detail != SkarnessStateDetail::Summary )

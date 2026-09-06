@@ -1179,6 +1179,98 @@ TEST_CASE( "Replay cause inspection: arrows cannot play solver history or inacti
     CHECK( inspection.View().presentedFrame == 0 );
 }
 
+TEST_CASE( "Replay cause inspection: contact flash fades in 200 ms and retriggers on either crossing" )
+{
+    std::array<RunReplayPredictionFrame, 11> frames;
+
+    for ( std::size_t index = 0; index < frames.size(); ++index )
+    {
+        frames[index].frameIndex = index;
+        frames[index].simulationSeconds = static_cast<double>( index ) * 0.1;
+    }
+
+    ReplayCauseInspection inspection;
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::Prediction;
+    seek.frame = 4;
+    REQUIRE( inspection.Select( 7, seek, 0, true, 0.0 ) );
+    inspection.Advance( 2.0 );
+    ReplayCauseTransportRequest request;
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    std::array<SkullbonezCore::Physics::PhysicsSolverPersistentContactSample, 1> contacts;
+    contacts[0].bodyA = 0;
+    contacts[0].bodyB = 1;
+    contacts[0].accN = 10.0f;
+    ReplayCauseSolverDetailResult detail;
+    detail.frame = 4;
+    detail.availability = ReplayCauseSolverDetailAvailability::Available;
+    detail.sourceContacts = contacts;
+    detail.bodyA = 0;
+    detail.bodyB = 1;
+    detail.contactRowCount = 1;
+    SkullbonezCore::Rendering::ContactManifoldPresentation patch;
+    patch.pointCount = 1;
+    patch.points[0].point = { 12.0f, 3.0f, 4.0f };
+    inspection.PublishSolverDetail( request.generation, detail, patch );
+    inspection.CompleteTransport( request.generation, true );
+    REQUIRE( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
+    CHECK( inspection.View().contactFlashSequence == 1 );
+    CHECK( inspection.View().contactFlashAlpha == 1.0f );
+
+    inspection.Advance( 2.1 );
+    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.5f ) );
+    inspection.Advance( 2.2 );
+    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
+    inspection.Advance( 2.4 );
+    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    CHECK( inspection.View().contactFlashSequence == 1 );
+
+    // Leaving the event does not flash; crossing back over it does, even when
+    // more than one simulation frame elapses between rendered samples.
+    inspection.AdvancePredictionPlayback( frames, 1, 2.7 );
+    inspection.Advance( 2.7 );
+    CHECK( inspection.View().presentedFrame > 4 );
+    CHECK( inspection.View().contactFlashSequence == 1 );
+    inspection.AdvancePredictionPlayback( frames, -1, 3.1 );
+    inspection.Advance( 3.1 );
+    CHECK( inspection.View().presentedFrame <= 4 );
+    CHECK( inspection.View().contactFlashSequence == 2 );
+    CHECK( inspection.View().contactFlashAlpha == 1.0f );
+    inspection.AdvancePredictionPlayback( frames, 0, 3.2 );
+    inspection.Advance( 3.2 );
+    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.5f ) );
+    inspection.Advance( 3.31 );
+    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    inspection.AdvancePredictionPlayback( frames, -1, 3.45 );
+    inspection.Advance( 3.45 );
+    CHECK( inspection.View().presentedFrame < 4 );
+    CHECK( inspection.View().contactFlashSequence == 2 );
+    inspection.AdvancePredictionPlayback( frames, 1, 3.85 );
+    inspection.Advance( 3.85 );
+    CHECK( inspection.View().presentedFrame > 4 );
+    CHECK( inspection.View().contactFlashSequence == 3 );
+    CHECK( inspection.View().contactFlashAlpha == 1.0f );
+    CHECK( inspection.View().targetFrame == 4 );
+    CHECK( inspection.View().selectedRow == 7 );
+    CHECK( inspection.View().contactPresentation.points[0].point.x == 12.0f );
+
+    (void)inspection.BeginReturn();
+    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    inspection.Advance( 3.9 );
+    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    inspection.Reset();
+    CHECK( inspection.View().contactFlashSequence == 0 );
+
+    // No borrowed/stale geometry may flash when a new selection has no detail.
+    REQUIRE( inspection.Select( 8, seek, 0, true, 3.0 ) );
+    inspection.Advance( 5.0 );
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    inspection.CompleteTransport( request.generation, true );
+    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    CHECK( inspection.View().contactFlashSequence == 0 );
+}
+
 TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-flight restore" )
 {
     ReplayCauseInspection inspection;

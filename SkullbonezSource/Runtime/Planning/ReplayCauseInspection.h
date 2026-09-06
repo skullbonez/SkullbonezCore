@@ -200,6 +200,8 @@ struct ReplayCauseSolverDetailView
 
 struct ReplayCauseDisplayView
 {
+    float contactFlashAlpha = 0.0f;
+    uint64_t contactFlashSequence = 0;
     int solverDetailFirstRow = 0;
     int rawRecordFirstRow = 0;
     int iterationsFirstRow = 0;
@@ -502,6 +504,7 @@ class ReplayCauseInspection
     void ClearFocusedSurface() noexcept;
     void SetDrawerTarget( bool open, double nowSeconds ) noexcept;
     void AdvanceDrawer( double nowSeconds ) noexcept;
+    void ObserveContactFrame( ReplayFrameIndex previousFrame, double nowSeconds ) noexcept;
 
     ReplayCauseInspectionView m_state;
 
@@ -515,6 +518,7 @@ class ReplayCauseInspection
     double m_lastAdvanceSeconds = 0.0;
     double m_playbackSeconds = 0.0;
     int m_playbackDirection = 0;
+    double m_contactFlashStartedAtSeconds = -1.0;
     double m_drawerStartedAtSeconds = 0.0;
     float m_drawerStartProgress = 0.0f;
     bool m_drawerTargetOpen = false;

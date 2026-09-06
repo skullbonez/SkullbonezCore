@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import time
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 from skarness import SkarnessConnection, launch
 from validate_skarness_prediction_matrix import ReplayStateReader, vector_distance
@@ -45,6 +45,85 @@ def verify_retained_geometry(session: Path) -> None:
                 initial = initial or retained
                 assert retained == initial, "causal playback rebuilt retained future geometry"
     assert initial and initial[0] != 0, "no retained prediction geometry was observed"
+
+
+def verify_manifold_flash(connection: SkarnessConnection, session: Path) -> None:
+    """Cross the selected force frame in both directions and observe its real fade."""
+    latest = {}
+    offset = 0
+
+    def send(command: str, **arguments: object) -> None:
+        result = connection.wait(connection.send(command, arguments))
+        assert result.get("status") == "applied", result
+
+    def sample() -> dict:
+        nonlocal offset
+        send("run.step_frames", count=1)
+        with (session / "runtime.skarness.ndjson").open(encoding="utf-8") as trace:
+            trace.seek(offset)
+            for line in trace:
+                event = json.loads(line)
+                if event.get("topic"):
+                    latest[event["topic"]] = event["payload"]
+            offset = trace.tell()
+        return latest["replay.cause"]
+
+    send("run.step_frames", count=20)
+    initial = sample()
+    assert initial["contactPointCount"] > 0 and initial["contactFlashAlpha"] == 0
+    row = initial["rows"][initial["selectedRow"]]
+    assert row["id"] == 1 and row["counterpartId"] == 6
+    assert row["firstFrame"] == initial["targetFrame"]
+    retained = (latest["replay.visual_packet"]["retainedStreamId"],
+                latest["replay.visual_packet"]["retainedRevision"])
+
+    # Start below the contact, then pass it forward, backward, and forward again.
+    send("input.set_arrows", left=True, right=False)
+    send("run.step_frames", count=12)
+    send("input.set_arrows", left=False, right=False)
+    current = sample()
+    assert current["presentedFrame"] < initial["targetFrame"]
+    assert current["contactFlashSequence"] == initial["contactFlashSequence"]
+
+    for index, direction in enumerate((1, -1, 1)):
+        sequence = current["contactFlashSequence"]
+        send("input.set_arrows", left=direction < 0, right=direction > 0)
+        for _ in range(100):
+            current = sample()
+            if current["contactFlashSequence"] > sequence:
+                break
+        else:
+            raise AssertionError("crossing the selected force frame did not flash")
+        send("input.set_arrows", left=False, right=False)
+        current = sample()
+        assert current["contactFlashSequence"] == sequence + 1
+        assert current["contactFlashAlpha"] > 0.0
+        (session / f"contact-flash-{index}.json").write_text(json.dumps(current, indent=2), encoding="utf-8")
+        flash_path = session / f"contact-flash-{index}.png"
+        send("capture.screenshot", path=str(flash_path.resolve()))
+        send("run.step_frames", count=20)
+        faded = sample()
+        assert faded["contactFlashAlpha"] == 0
+        assert faded["contactFlashSequence"] == sequence + 1
+        assert faded["presentedFrame"] == current["presentedFrame"]
+        assert faded["selectedRow"] == initial["selectedRow"]
+        assert (latest["replay.visual_packet"]["retainedStreamId"],
+                latest["replay.visual_packet"]["retainedRevision"]) == retained
+        faded_path = session / f"contact-faded-{index}.png"
+        send("capture.screenshot", path=str(faded_path.resolve()))
+        with Image.open(flash_path) as flashed, Image.open(faded_path) as settled:
+            diff = ImageChops.difference(flashed.convert("RGB"), settled.convert("RGB"))
+            center_x, center_y = diff.width // 2, diff.height // 2
+            crop = diff.crop((center_x - 200, center_y - 150, center_x + 200, center_y + 150))
+            changed = sum(1 for y in range(crop.height) for x in range(crop.width)
+                          if max(crop.getpixel((x, y))) > 40)
+            assert changed >= 30, f"contact flash produced no visible local fade: {changed} pixels"
+
+        # Move clear of the contact before reversing so the next pass must re-enter.
+        send("input.set_arrows", left=direction < 0, right=direction > 0)
+        send("run.step_frames", count=12)
+        send("input.set_arrows", left=False, right=False)
+        current = sample()
 
 
 def run(session: Path, executable: Path) -> None:
@@ -90,6 +169,11 @@ def run(session: Path, executable: Path) -> None:
         before = state("selected")
         assert before["inspectionCameraFocusKind"] == 2
         assert before["selectedCausePrimaryId"] == 1
+        verify_manifold_flash(connection, session)
+        # Restore the chosen event before checking the established camera path.
+        send("replay.select_cause_row", row=2)
+        send("run.until", condition="camera.inspection_settled", maxFrames=1000)
+        before = state("selected")
         send("capture.screenshot", path=str((session / "selected.png").resolve()))
         verify_position_gate(session / "selected.png")
         send("camera.orbit_inspection", yawRadians=0.25, pitchRadians=0.1, wheelDelta=120)
