@@ -1388,6 +1388,70 @@ TEST_CASE( "IH7 frame resource schedule publishes ordinary sky without cinematic
     CHECK( cinematicSky == 1 );
 }
 
+TEST_CASE( "Detached manifold strokes preserve contact geometry and body origins" )
+{
+    using namespace SkullbonezCore;
+    Runtime::PhysicsDebugVisualizer visualizer;
+    Rendering::ContactManifoldPresentation presentation;
+    presentation.bodyCount = 2;
+    presentation.bodies[0].valid = true;
+    presentation.bodies[0].position = { 10.0f, 20.0f, 30.0f };
+    presentation.bodies[1].valid = true;
+    presentation.bodies[1].position = { -10.0f, -20.0f, -30.0f };
+    presentation.pointCount = 1;
+    presentation.points[0].point = { 3.0f, 4.0f, 5.0f };
+    presentation.points[0].normal = { 0.0f, 1.0f, 0.0f };
+    presentation.points[0].tangent1 = { 1.0f, 0.0f, 0.0f };
+    presentation.points[0].tangent2 = { 0.0f, 0.0f, 1.0f };
+    presentation.points[0].penetration = 0.5f;
+    presentation.points[0].exactSourcePoint = true;
+    const std::size_t lineCapacity = visualizer.DiagnosticLineFloatCapacity();
+    const auto strokes = visualizer.BuildContactManifoldStrokes( presentation );
+    constexpr std::size_t floatsPerSegment = 6u * 19u;
+    // Six origin arrows, one pair link, and the existing eight contact segments.
+    constexpr std::size_t segments = 6u * 3u + 1u + 8u;
+    REQUIRE( strokes.size() == segments * floatsPerSegment * 2u );
+    const auto core = strokes.subspan( segments * floatsPerSegment );
+    CHECK( core[0] == 10.0f );
+    CHECK( core[1] == 20.0f );
+    CHECK( core[2] == 30.0f );
+    CHECK( core[3] == 11.5f );
+    const std::size_t normal = ( 19u + 3u ) * floatsPerSegment;
+    CHECK( core[normal] == 3.0f );
+    CHECK( core[normal + 1] == 4.0f );
+    CHECK( core[normal + 2] == 5.0f );
+    CHECK( core[normal + 3] == 3.0f );
+    CHECK( core[normal + 4] == doctest::Approx( 6.9f ) );
+    CHECK( core[normal + 5] == 5.0f );
+    CHECK( core[25u * floatsPerSegment + 3] == 4.25f );
+    CHECK( core[26u * floatsPerSegment + 5] == 6.25f );
+
+    for ( std::size_t segment = 0; segment < segments; ++segment )
+    {
+        const std::size_t first = segment * floatsPerSegment;
+        for ( std::size_t component = 0; component < 6; ++component )
+        {
+            CHECK( strokes[first + component] == core[first + component] );
+        }
+        CHECK( strokes[first + 6] > core[first + 6] );
+        CHECK( core[first + 6] == doctest::Approx( 2.25f ) );
+        CHECK( core[first + 12] == 0.0f ); // No HDR emphasis or glow.
+    }
+    CHECK( presentation.points[0].point.y == 4.0f );
+    CHECK( presentation.points[0].penetration == 0.5f );
+    CHECK( visualizer.DiagnosticTrackedContactCount() == 0u );
+    CHECK( visualizer.DiagnosticLineFloatCapacity() == lineCapacity );
+
+    for ( auto& point : presentation.points )
+    {
+        point = presentation.points[0];
+    }
+    presentation.pointCount = 255;
+    CHECK( visualizer.BuildContactManifoldStrokes( presentation ).size() == ( 19u + 8u * 8u ) * floatsPerSegment * 2u );
+    presentation.pointCount = 0;
+    CHECK( visualizer.BuildContactManifoldStrokes( presentation ).empty() );
+}
+
 TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" )
 {
     using namespace SkullbonezCore;
