@@ -379,7 +379,15 @@ Json BuildTrajectories( const ReplayAutomationView& replay, SkarnessStateDetail 
 
 Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
+    const ReplayPredictionPresentationView prediction = ReplayPrediction::PresentationViewFromState( replay.prediction,
+                                                                                                     true );
+    const ReplayOverlay::ReplayCauseLoadingView
+        loading = ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology, prediction.controls,
+                                                              replay.path, replay.predictionDetailMode );
     Json payload = { { "rowCount", replay.causeTree.rows.size() },
+                     { "loading", loading.active },
+                     { "loadingProgress", loading.progress },
+                     { "loadingTargetId", replay.path.targetId.value },
                      { "selectedRow", replay.causeTree.selectedRow },
                      { "focusedId", replay.causeTree.focusedId.value },
                      { "filterText", replay.causeTree.filterText },

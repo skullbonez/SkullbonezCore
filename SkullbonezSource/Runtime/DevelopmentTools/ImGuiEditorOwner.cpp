@@ -2818,6 +2818,14 @@ void ImGuiEditorOwner::DrawCausalityPanel( const ImGuiEditorCausalityProjection&
         ImGui::End();
         return;
     }
+    if ( replayCausality.loading.active )
+    {
+        ImGui::TextUnformatted( "Resolving collisions..." );
+        ImGui::ProgressBar( replayCausality.loading.progress, ImVec2( -1.0f, 8.0f ), "" );
+        ImGui::TextDisabled( "Evidence appears when ready. %.0f%%", replayCausality.loading.progress * 100.0f );
+        ImGui::End();
+        return;
+    }
     ImGui::Text( "Context: %s", ImGuiEditorCausalityStateName( causality.status.state ) );
     ImGui::SameLine();
 
@@ -2919,6 +2927,14 @@ void ImGuiEditorOwner::DrawCausalityDetailPanel( const ImGuiEditorCausalityProje
 
     if ( !ImGui::Begin( ImGuiEditorPanel::CausalityDetail, &m_showCausalityDetail ) )
     {
+        ImGui::End();
+        return;
+    }
+    if ( replayCausality.loading.active )
+    {
+        ImGui::TextUnformatted( "Resolving collisions..." );
+        ImGui::ProgressBar( replayCausality.loading.progress, ImVec2( -1.0f, 8.0f ), "" );
+        ImGui::TextDisabled( "Evidence appears when ready. %.0f%%", replayCausality.loading.progress * 100.0f );
         ImGui::End();
         return;
     }

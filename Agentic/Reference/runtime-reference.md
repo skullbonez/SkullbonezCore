@@ -243,6 +243,12 @@ Interaction automation supports Director takes with `loadShotList`, `directorPla
 
 ## Replay Capture And Scrub
 
+The causal panel shows a loading bar while a high-detail prediction resolves.
+The percentage follows resolved simulation time across the requested horizon.
+Collision rows remain empty until the selected target's complete prediction and
+causal tree are ready, then appear together. Partial future paths still draw in
+the viewport, independently of the panel and the future-path reveal speed.
+
 After a predicted causal row has settled into paused inspection, hold Right Arrow
 to play its retained future forward or Left Arrow to play backward. Releasing
 the arrow pauses; holding both leaves time unchanged. Playback stops at the

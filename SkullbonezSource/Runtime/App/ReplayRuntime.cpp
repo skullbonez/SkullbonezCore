@@ -1255,7 +1255,10 @@ ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView(
                ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ), m_timeline.RecordingConfigured(),
                m_timeline.RecordingEnabled(), m_timeline.RecordingLockedByHashLog() },
              { m_planningOwner.InterceptView(), m_planningOwner.PorkchopView(), m_planningOwner.TripPlannerView() },
-             { m_authoring.CauseTree(), m_planningOwner.CauseInspectionView(), prediction.diagnostics.detailMode } };
+             { m_authoring.CauseTree(), m_planningOwner.CauseInspectionView(), prediction.diagnostics.detailMode,
+               ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology, prediction.controls,
+                                                           m_visualPresentation.PathVisualizer(),
+                                                           prediction.diagnostics.detailMode ) } };
 }
 
 const UI::UIDrawList& ReplayRuntime::ComposeOverlayDrawList( const ReplayOverlay::ReplayOverlayStateView& replay,

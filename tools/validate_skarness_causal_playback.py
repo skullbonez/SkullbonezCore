@@ -17,6 +17,52 @@ from validate_skarness_prediction_matrix import ReplayStateReader, vector_distan
 REPO = Path(__file__).resolve().parents[1]
 
 
+def verify_causal_loading(connection: SkarnessConnection, session: Path) -> None:
+    """Observe an empty loading panel becoming a complete, selectable hierarchy."""
+    offset = 0
+    cause = None
+    observations = []
+    captured = False
+    for _ in range(3000):
+        result = connection.wait(connection.send("run.step_frames", {"count": 1}))
+        assert result.get("status") == "applied", result
+        with (session / "runtime.skarness.ndjson").open(encoding="utf-8") as trace:
+            trace.seek(offset)
+            for line in trace:
+                event = json.loads(line)
+                if event.get("topic") == "replay.cause":
+                    cause = event["payload"]
+                    if cause["loading"]:
+                        assert cause["loadingTargetId"] == 6
+                        assert cause["rowCount"] == 0, "partial collisions populated the loading panel"
+                        assert cause["selectedRow"] == -1
+                        assert 0.0 <= cause["loadingProgress"] < 1.0
+                        observations.append(cause["loadingProgress"])
+            offset = trace.tell()
+        if cause and cause["loading"] and cause["loadingProgress"] > 0.0 and not captured:
+            result = connection.wait(connection.send("capture.screenshot", {
+                "path": str((session / "causal-loading.png").resolve())}))
+            assert result.get("status") == "applied", result
+            captured = True
+        if cause and not cause["loading"] and cause["rowCount"]:
+            assert cause["rows"][0]["id"] == 6
+            break
+    else:
+        raise AssertionError("causal loading never resolved")
+    assert observations and max(observations) > min(observations), "loading bar did not advance"
+    assert captured, "no loading screenshot captured"
+    with Image.open(session / "causal-loading.png") as image:
+        panel = image.convert("RGB").crop((image.width - 400, 200, image.width - 24, 350))
+        bar_rows = sum(sum(1 for red, green, blue in (panel.getpixel((x, y)) for x in range(panel.width))
+                           if 15 < red < 70 and 150 < green < 205 and 180 < blue < 235) >= 8
+                       for y in range(panel.height))
+        assert bar_rows >= 3, "loading screenshot is missing the cyan progress fill"
+    (session / "causal-loading-progress.json").write_text(json.dumps(observations), encoding="utf-8")
+    result = connection.wait(connection.send("capture.screenshot", {
+        "path": str((session / "causal-ready.png").resolve())}))
+    assert result.get("status") == "applied", result
+
+
 def verify_position_gate(path: Path) -> None:
     """The followed primary object's projected center must carry the cyan diamond."""
     with Image.open(path) as image:
@@ -160,9 +206,11 @@ def run(session: Path, executable: Path) -> None:
         assert outside["causeInspectionMode"] == 0
         objects = send("scene.object.list")["result"]["objects"]
         assert any(row["name"] == "path_striker" and row["sceneObjectId"] == 6 for row in objects)
-        send("replay.set_prediction_horizon", seconds=7.5)
+        send("replay.set_prediction_horizon", seconds=60.0)
         send("prediction.select_target", name="path_striker")
         send("replay.set_prediction_enabled", enabled=True)
+        verify_causal_loading(connection, session)
+        send("replay.set_prediction_horizon", seconds=7.5)
         send("run.until", condition="prediction.complete", maxFrames=3000)
         send("replay.select_cause_row", row=2)
         send("run.until", condition="camera.inspection_settled", maxFrames=1000)

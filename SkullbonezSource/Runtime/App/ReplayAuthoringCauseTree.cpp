@@ -35,6 +35,7 @@ Related:
 #include "../Replay/ReplayCoordination.h"
 #include "../Replay/ReplayOverlayLayout.h"
 #include "ReplayAuthoringCauseTree.h"
+#include "../Planning/ReplayOverlayPackets.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Prediction/ReplayPredictionPublicationOperations.h"
 #include "../Replay/ReplayPresentation.h"
@@ -101,6 +102,7 @@ uint64_t ReplayCauseTreeSourceFingerprint( const ReplayPrediction& predictionOwn
     MixReplayCauseTreeTextFingerprint( fingerprint, path.targetName, sizeof( path.targetName ) );
     MixReplayCauseTreeFingerprint( fingerprint, prediction.enabled ? 1u : 0u );
     MixReplayCauseTreeFingerprint( fingerprint, predictionView.timeline.complete ? 1u : 0u );
+    MixReplayCauseTreeFingerprint( fingerprint, predictionView.topology.treeReady ? 1u : 0u );
     MixReplayCauseTreeFingerprint( fingerprint, predictionView.topology.targetId.value );
     MixReplayCauseTreeFingerprint( fingerprint, predictionView.timeline.generation );
     MixReplayCauseTreeFingerprint( fingerprint, predictionView.topology.ragdollVisualsEnabled ? 1u : 0u );
@@ -1147,6 +1149,15 @@ bool SkullbonezCore::Runtime::BuildReplayCauseTreeRows(
     const bool usePrediction = prediction.enabled;
 
     if ( usePrediction && !ReplayPredictionCauseWindowAvailable( predictionOwner.DetailMode(), true ) )
+    {
+        return false;
+    }
+
+    // Why: the panel publishes one resolved hierarchy. Partial future paths
+    // remain useful in the viewport, but their changing collision rows do not.
+    if ( BuildReplayCauseLoadingView( predictionView.timeline, predictionView.topology, predictionView.controls, path,
+                                      predictionOwner.DetailMode() )
+             .active )
     {
         return false;
     }

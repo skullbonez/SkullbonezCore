@@ -18,6 +18,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayOverlayPackets.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
@@ -30,6 +31,52 @@ using namespace SkullbonezCore::Runtime;
 
 namespace
 {
+TEST_CASE( "Causal panel waits for the complete selected prediction and reports resolved time" )
+{
+    RunReplayPathVisualizerState path;
+    path.hasTarget = true;
+    path.targetId.value = 6;
+    ReplayPredictionPresentationView prediction;
+    prediction.controls.enabled = true;
+    prediction.controls.horizonSeconds = 10.0f;
+    const auto loading = [&]()
+    {
+        return ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology,
+                                                            prediction.controls, path, prediction.diagnostics.detailMode );
+    };
+    CHECK( loading().active );
+    CHECK( loading().progress == 0.0f );
+    std::array<RunReplayPredictionFrame, 2> frames;
+    frames[0].simulationSeconds = 50.0;
+    frames[1].simulationSeconds = 55.0;
+    prediction.timeline.frames = frames;
+    prediction.topology.targetId = path.targetId;
+    CHECK( loading().active );
+    CHECK( loading().progress == doctest::Approx( 0.5f ) );
+    prediction.timeline.complete = true;
+    CHECK( loading().active );
+    prediction.topology.treeReady = true;
+    CHECK_FALSE( loading().active );
+    prediction.topology.targetId.value = 7;
+    CHECK( loading().active );
+    CHECK( loading().progress == 0.0f );
+    prediction.topology.targetId = path.targetId;
+    prediction.timeline.complete = false;
+    prediction.controls.building = true;
+    CHECK( loading().progress == 0.0f );
+    prediction.timeline.usingBuildFrames = true;
+    frames[1].simulationSeconds = 70.0;
+    CHECK( loading().progress == doctest::Approx( 0.99f ) );
+    prediction.diagnostics.detailMode = ReplayPredictionDetailMode::Low;
+    CHECK_FALSE( loading().active );
+    prediction.diagnostics.detailMode = ReplayPredictionDetailMode::High;
+    prediction.controls.enabled = false;
+    CHECK_FALSE( loading().active );
+    prediction.controls.enabled = true;
+    path.hasTarget = false;
+    CHECK_FALSE( loading().active );
+}
+
 ReplayRecorderStats RetainedSolverWindow()
 {
     ReplayRecorderStats stats;

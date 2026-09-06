@@ -1451,13 +1451,34 @@ static void ComposeReplayPorkchopOverlay( UI::UIDrawList& drawList, const Replay
                palette.accentStrong.b, readout );
 }
 
+static void DrawReplayCauseLoading( const UI::UIDrawContext& draw, const UI::UIRect& content,
+                                    const ReplayCauseLoadingView& loading )
+{
+    const UI::Style::UIPalette& palette = UI::Style::Palette();
+    const float left = content.x + 20.0f;
+    const float width = (std::max)( 0.0f, content.w - 40.0f );
+    const float top = content.y + 34.0f;
+    draw.Text( left, top, 13.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
+               "Resolving collisions..." );
+    char progressText[32] = {};
+    sprintf_s( progressText, "%d%%", static_cast<int>( loading.progress * 100.0f ) );
+    draw.Text( left + width - UI::UIFontMetrics::MeasureText( 11.0f, progressText ), top + 29.0f, 11.0f, CAUSE_MANIFOLD.r,
+               CAUSE_MANIFOLD.g, CAUSE_MANIFOLD.b, progressText );
+    draw.RoundedRect( left, top + 51.0f, width, 8.0f, 4.0f, CAUSE_SELECTED.r, CAUSE_SELECTED.g, CAUSE_SELECTED.b, 1.0f );
+    draw.RoundedRect( left, top + 51.0f, width * loading.progress, 8.0f, 4.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g,
+                      CAUSE_MANIFOLD.b, 1.0f );
+    draw.Text( left, top + 77.0f, 10.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
+               "Evidence appears when ready." );
+}
+
 static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const ReplayOverlayCausalityView& causality,
                                            const ReplayPresentationSelection& selection, int screenW, int screenH )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
-    const bool predictionRows = !causality.tree.rows.empty() && causality.tree.rows.front().prediction;
+    const bool predictionRows = causality.loading.active ||
+                                ( !causality.tree.rows.empty() && causality.tree.rows.front().prediction );
 
-    if ( screenW <= 0 || screenH <= 0 || causality.tree.rows.empty() ||
+    if ( screenW <= 0 || screenH <= 0 || ( causality.tree.rows.empty() && !causality.loading.active ) ||
          !ReplayPredictionCauseWindowAvailable( causality.predictionDetailMode, predictionRows ) )
     {
         return;
@@ -1497,7 +1518,10 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
     UI::Style::UIColor panelBorder = CAUSE_RULE;
     panelBorder.a = 0.72f;
     draw.RoundedPanel( panel, 6.0f, CAUSE_NAVY, panelBorder );
-    RenderReplayCauseInspectorToggle( draw, inspectorLayout, causality.inspection, causality.tree );
+    if ( !causality.loading.active )
+    {
+        RenderReplayCauseInspectorToggle( draw, inspectorLayout, causality.inspection, causality.tree );
+    }
     draw.Rect( title.x + 12.0f, title.y + title.h - 2.0f, (std::max)( 0.0f, title.w - 24.0f ), 2.0f, CAUSE_RULE.r,
                CAUSE_RULE.g, CAUSE_RULE.b, 0.82f );
 
@@ -1514,6 +1538,12 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
     draw.Text( panel.x + panel.w - sourceW - 9.0f, panel.y + 13.0f, 10.0f,
                predictionRows ? CAUSE_PREDICTION.r : CAUSE_RULE.r, predictionRows ? CAUSE_PREDICTION.g : CAUSE_RULE.g,
                predictionRows ? CAUSE_PREDICTION.b : CAUSE_RULE.b, sourceLabel );
+
+    if ( causality.loading.active )
+    {
+        DrawReplayCauseLoading( draw, content, causality.loading );
+        return;
+    }
 
     draw.RoundedRect( filterField.x, filterField.y, filterField.w, filterField.h, 4.0f,
                       causality.tree.filterFocused ? CAUSE_SELECTED.r : CAUSE_NAVY_ALT.r,
