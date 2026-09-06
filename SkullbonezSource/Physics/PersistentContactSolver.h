@@ -169,6 +169,8 @@ struct SolverBodyState
     Math::Transformation::RotationMatrix orientation;
     float invMass = 0.0f;
     bool useWorldInertia = false;
+
+    Math::Vector::Vector3 ApplyInverseInertia( const Math::Vector::Vector3& value ) const;
 };
 } // namespace Physics
 } // namespace SkullbonezCore

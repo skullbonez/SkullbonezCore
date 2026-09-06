@@ -135,6 +135,12 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.cpp">
       <Filter>Source Files\Stages</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PointJointBlock.cpp">
+      <Filter>Source Files\Solver</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\ConstraintIslandSchedule.cpp">
+      <Filter>Source Files\Solver</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp">
       <Filter>Source Files\Bodies</Filter>
     </ClCompile>
@@ -258,7 +264,16 @@
       <Filter>Header Files\Forces</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PointJointSettings.h">
-      <Filter>Header Files\Bodies</Filter>
+      <Filter>Header Files\Solver</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PointJointBlock.h">
+      <Filter>Header Files\Solver</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PointJointConstraint.h">
+      <Filter>Header Files\Solver</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\ConstraintIslandSchedule.h">
+      <Filter>Header Files\Solver</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h">
       <Filter>Header Files\Bodies</Filter>

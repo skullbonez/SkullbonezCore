@@ -1,43 +1,7 @@
-/*
-File: SkullbonezSource/Physics/Ragdoll.h
-Purpose:
-  Describes simple ragdoll prefab geometry and solves point-joint constraints.
-
-Summary:
-  This is deliberately a small bridge toward a future generic constraint
-  system. Ragdoll prefab data is value metadata; scene/authored owners decide
-  how those values become renderable objects while physics keeps handle-keyed
-  point-joint descriptors, solver math, and one retained world-space warm-start
-  impulse per row. That vector participates in byte-exact replay continuation.
-  The neck policy exposes one deterministic vector-angle seam so rounded
-  endpoint and fallback behavior can be tested without a complete solver world.
-
-Glossary:
-  Preview lines: Editor-only visualization geometry for placement feedback.
-  Part display name: Deterministic `<prefix>_<suffix>` identity shared by
-    parser collision checks and runtime construction.
-
-Invariants:
-  - Constraint order is deterministic and scene-authored.
-  - Constraint bodies refer to PhysicsBodyHandle values; only owners with a live
-    PhysicsBodyStore may resolve those handles to current model-order rows.
-  - The joint solver mutates PhysicsBodyStore records and the handle-keyed
-    accumulated impulse only; later presentation mirrors are owner-side side
-    effects, not ragdoll solver state.
-  - Every simple-ragdoll part name is preflighted against the engine's 64-byte
-    display-name field before the first part is appended.
-  - Neck swing angle construction clamps its dot input, derives angle from the
-    paired cross magnitude, and retains the torso-local fallback axis for
-    parallel or anti-parallel vectors.
-
-Related:
-  - SkullbonezSource/Physics/Ragdoll.cpp
-  - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - SkullbonezSource/Maths/DeterministicMath.h
-  - Agentic/Reference/engine-glossary.md
-*/
+// Simple ragdoll prefab geometry and placement names. Physics owns registered
+// point joints separately; the neck helper supplies only an angular cone policy.
 #pragma once
-#include "PointJointSettings.h"
+#include "PointJointConstraint.h"
 
 #include <cstdint>
 #include <cstring>
@@ -73,64 +37,6 @@ struct RagdollJointDesc
     Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
     float slack = 0.25f;
     uint8_t flags = 0;
-};
-
-struct PointJointConstraint
-{
-    static constexpr uint8_t FLAG_LIMIT_NECK_SWING = 1u << 0;
-
-    PhysicsConstraintHandle handle; // Stable identity; dense solver-row movement never retargets it.
-    PhysicsBodyHandle bodyA;
-    PhysicsBodyHandle bodyB;
-    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
-    float slack = 0.25f;
-    float frequencyHz = SkullbonezCore::Physics::POINT_JOINT_DEFAULT_FREQUENCY_HZ;
-    float dampingRatio = SkullbonezCore::Physics::POINT_JOINT_DEFAULT_DAMPING_RATIO;
-    Math::Vector::Vector3
-        accumulatedImpulse = Math::Vector::ZERO_VECTOR; // World-space impulse on body A, retained with this stable handle.
-    uint32_t groupId = 0;
-    uint8_t flags = 0;
-
-    void SetBodies( PhysicsBodyHandle bodyAHandle, PhysicsBodyHandle bodyBHandle )
-    {
-        if ( bodyA == bodyAHandle && bodyB == bodyBHandle )
-        {
-            return;
-        }
-        bodyA = bodyAHandle;
-        bodyB = bodyBHandle;
-
-        // Invariant: an impulse cached for another body pair is not valid for
-        // the newly authored constraint, even when the handle is unchanged.
-        accumulatedImpulse = Math::Vector::ZERO_VECTOR;
-    }
-
-    int BodyAIndex( const PhysicsBodyStore& bodyStore ) const;
-    int BodyBIndex( const PhysicsBodyStore& bodyStore ) const;
-
-    bool HasValidBodies() const
-    {
-        return bodyA.IsValid() && bodyB.IsValid() && bodyA != bodyB;
-    }
-};
-
-// Detached per-iteration evidence. The caller supplies fixed storage; sample
-// order is joint-major with the requested iterations per joint. An unvisited
-// or unsolvable block keeps iteration -1. Diagnostics never affect solver state.
-struct PointJointIterationSample
-{
-    PhysicsConstraintHandle constraint;
-    int iteration = -1;
-    Math::Vector::Vector3 anchorErrorBeforeCorrection = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 relativeAnchorVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 accumulatedImpulse = Math::Vector::ZERO_VECTOR;
-    float minimumScaledPivot = 0.0f;
-    // Signed kinetic-energy change from this corrective impulse, excluding
-    // warm start, gravity/integration, and the separate neck angular limiter.
-    float impulseWorkJoules = 0.0f;
-    float biasRatePerSecond = 0.0f;
-    float complianceScale = 0.0f;
 };
 
 struct RagdollBuildOptions
@@ -197,13 +103,9 @@ class Ragdoll
                                              const Math::Vector::Vector3& fallbackAxis,
                                              Math::Vector::Vector3& outCorrectionAxis, float& outCorrectionAngle ) noexcept;
 
-    // Caller contract: constraints are mutable solver rows. Their accumulated
-    // impulses persist across steps, so body, anchor, or solver-policy edits
-    // must invalidate the cache before the next call.
-    static bool SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJointConstraint> constraints,
-                                  std::span<const uint8_t> sleepState, float dt,
-                                  std::span<PointJointIterationSample> diagnostics = {},
-                                  int iterations = POINT_JOINT_SOLVER_ITERATIONS );
+    // This separate angular cone policy runs once after the shared velocity solve.
+    static bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
+                                      std::span<const uint8_t> sleepState );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

@@ -2,7 +2,24 @@
 
 Date: 2026-09-07
 Branch: `codex/ragdoll-physics-unification`
-Status: RAGDOLL_PHYSICS active at 7/10; portfolio 145/148
+Status: RAGDOLL_PHYSICS active at 8/10; portfolio 146/148
+
+## Ragdoll FP7 acceptance (2026-09-07)
+
+Contacts and point joints now share deterministic island sweeps and solver-body
+velocities. Release continuation wakes connected articulation and incorporates
+new support before cache publication. Separate joint-wake scratch preserves
+contact sleep topology; sleeping joint caches and unrelated islands remain
+exact. No body field or runtime allocation privilege was added.
+
+All three native builds, 183 focused tests / 2,552,691 assertions, 126-file
+compiler checks, Physics worker determinism, and the complete independent
+200-box replay repeat with negative controls pass. Exact baseline transitions
+retain old/new first-party producers under the FP7 artifact directory. Dynamic
+allocation smoke, selected path, physics benchmark, repeated DX12 timing and
+five scale runs pass. The 95 exact inherited static findings and 13 existing
+causal render allocations remain explicit full-plan closure work; archived FP6
+reproduces the latter at the same callsite. FP8 speculative contacts is next.
 
 ## Native UI and profiling dependency cleanup (2026-09-07)
 

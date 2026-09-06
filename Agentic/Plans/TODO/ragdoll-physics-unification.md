@@ -1,8 +1,8 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Reactivated by owner direction on 2026-09-07. 7/10 phases complete;
-FP6 is complete; FP7 is next on `codex/ragdoll-physics-unification`.
+Status: Reactivated by owner direction on 2026-09-07. 8/10 phases complete; FP8 next
+on `codex/ragdoll-physics-unification`.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
 Priority: Active. Execute FP5-FP9 in strict internal order.
@@ -12,8 +12,8 @@ Commit name: `RAGDOLL_PHYSICS`
 
 On 2026-09-07 the owner reactivated the remaining phases on a child branch
 of cleanup commit `88d09e78f`, while its hosted validation runs independently.
-FP5 and FP6 are accepted. Required FP7 completion subject:
-`RAGDOLL_PHYSICS, TASK 8/10 — unify contact and joint iteration`.
+FP5 through FP7 are accepted. Required FP8 completion subject:
+`RAGDOLL_PHYSICS, TASK 9/10 — add speculative ragdoll contacts`.
 
 The owner explicitly activated this plan on 2026-08-22, assigned the
 `RAGDOLL_PHYSICS` commit token, placed it ahead of every existing master-plan
@@ -930,6 +930,38 @@ so one convergence process owns the coupled constrained system.
 - Physics, replay visual fidelity, and performance gates pass after any
   archived exact golden transition.
 
+### FP7 Completion Evidence — 2026-09-07
+
+Shared contact/joint sweeps, typed blocks, deterministic dynamic components,
+per-component convergence, and same-tick release continuation are complete.
+The old post-contact point-joint production pass is deleted. Newly awakened
+support participates before final publication, while unrelated sleeping caches
+and contact sleep topology remain exact. Combined publication shares the
+existing capped manifold budget and rejects overflow before partial writes.
+No body-store field, growth privilege or replay cap is added.
+
+Debug/Profile/Automation builds, 183 focused tests / 2,552,691 assertions,
+compiler-backed source design (126 files / 1,150 contexts plus final fixes),
+project ownership, dependency and formatting checks pass. Independent review
+has no findings. Physics 0/repeat/1/4-worker output is byte-exact, with the
+archived CSV transition 03088b30... to 50bca7c0.... The complete independent
+200-box replay repeat and all negative controls pass after exact producer-bound
+visual (22ce605c...) and causal (e3ad2a89...) transitions.
+
+Dynamic allocation smoke, selected-path structure, physics benchmark, repeated
+DX12 comparison and all five measurement-only scale lanes pass. The overall
+performance script retains 95 exact parent allocation-policy findings. Its
+corrected causal fixture additionally reproduces the same 13 render allocations
+with archived FP6 and FP7 executables. These inherited failures remain explicit
+full-plan closure work; no performance golden or allocation exception hides
+them. Three repository-owned causal manifests no longer invoke the removed
+UI-switch action. FP6 hosted CPU validation's missing PointJointSettings filter
+rule is repaired alongside the new shared-solver file ownership rules.
+
+Ownership, numerical differences, exact producers and validation evidence:
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP7/README.md`.
+FP7 is closed at 8/10. FP8 is next; full-plan gates remain due at FP9.
+
 ---
 
 ## FP8 — Late Predictive Ragdoll Speculative Contacts
@@ -1052,7 +1084,7 @@ solver changes.
   3-by-3 effective mass and vector warm start.
 - [x] **FP6 — Explicit ragdoll softness.** Use principled frequency/damping or
   compliance across timestep and iteration variations.
-- [ ] **FP7 — Shared contact/joint iteration.** Unify deterministic PGS sweeps.
+- [x] **FP7 — Shared contact/joint iteration.** Unify deterministic PGS sweeps.
 - [ ] **FP8 — Late predictive ragdoll contacts.** Add uniform-step speculative
   contacts only after every prior proof is closed.
 - [ ] **FP9 — Predictive determinism, performance A/B, and closure.** Isolate the

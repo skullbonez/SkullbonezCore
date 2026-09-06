@@ -396,6 +396,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
+    <ClInclude Include="SkullbonezTests\TestPointJointSolver.h" />
     <ClInclude Include="SkullbonezTests\TestCollisionShapeFixtures.h" />
     <ClInclude Include="SkullbonezTests\TestFixedSeed.h" />
     <ClInclude Include="SkullbonezTests\TestReplaySolverHashWitness.h" />

@@ -367,7 +367,7 @@ void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::si
     m_broadphase.ReserveSceneCapacity( bodyCapacity );
     m_motionEligibility.ReserveBodyCapacity( bodyCapacity );
     m_narrowphase.ReserveSceneCapacity( bodyCapacity );
-    m_contactSolverStage.ReserveSceneCapacity( bodyCapacity );
+    m_contactSolverStage.ReserveSceneCapacity( bodyCapacity, pointJointCapacity );
     m_stepDiagnostics.ReserveSceneCapacity( bodyCapacity );
     m_sleepController.ReserveBodyCapacity( bodyCapacity, pointJointCapacity );
     m_terrain.ReserveSceneCapacity( bodyCapacity );
@@ -807,9 +807,7 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 #undef SB_REPLAY_SOLVER_VECTOR_FIELDS
 
 
-void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                                    std::span<BuoyancyBodyFacts> buoyancyFacts,
-                                                    const PhysicsWorldForces& worldForces )
+void PhysicsWorld::CommitContactSolverConsequences()
 {
     const PersistentContactSolverSideEffects& effects = m_contactSolverStage.GetSideEffects();
 
@@ -830,11 +828,6 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
     for ( int index : effects.collisionVisualBodies )
     {
         m_stepDiagnostics.MarkCollisionVisualContact( index );
-    }
-
-    for ( int index : effects.releaseWakeBodies )
-    {
-        WakeModel( bodyStore, colliderStore, buoyancyFacts, worldForces, index );
     }
 }
 
@@ -1287,17 +1280,45 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     // time-of-impact advancement from m_timeRemaining. The contact solver must
     // borrow these exact rows so its time-scaled terms describe the remaining
     // integration interval without changing the partial-CCD sequence.
-    m_contactSolverStage.Solve( bodyStore, colliderStore, contactPolicy, candidatePairs, sleepStates, m_timeRemaining,
-                                m_sleepController.MutableSupportEdgesForContactSolver(), m_terrain.GetContactManifolds(),
-                                m_terrain.GetRestApplied(), m_sleepController.MutableSupportedStatesForTerrain(),
-                                m_stepDiagnostics );
-
-    CommitContactSolverConsequences( bodyStore, colliderStore, buoyancyFacts, worldForces );
     m_sleepController.WakePointJointConnectedBodies( bodyStore, colliderStore, m_terrainView, worldForces, buoyancyFacts,
                                                      m_timeRemaining, m_contactSolverStage.CreateWakeAccess(),
                                                      m_pointJointConstraints, dt );
 
-    (void)Ragdoll::SolvePointJoints( bodyStore, m_pointJointConstraints, m_sleepController.GetSleepStates(), dt );
+    m_terrain.PublishRestSupport( bodyStore, sleepStates );
+    m_contactSolverStage.Solve( bodyStore, colliderStore, contactPolicy, candidatePairs, sleepStates, m_timeRemaining,
+                                m_sleepController.MutableSupportEdgesForContactSolver(), m_terrain.GetContactManifolds(),
+                                m_sleepController.MutableSupportedStatesForTerrain(), m_stepDiagnostics,
+                                m_pointJointConstraints );
+
+    for ( int index : m_contactSolverStage.GetSideEffects().releaseWakeBodies )
+    {
+        WakeModel( bodyStore, colliderStore, buoyancyFacts, worldForces, index );
+    }
+    if ( m_contactSolverStage.HasPendingReleasedConstraints() )
+    {
+        m_sleepController.WakePointJointConnectedBodies( bodyStore, colliderStore, m_terrainView, worldForces, buoyancyFacts,
+                                                         m_timeRemaining, m_contactSolverStage.CreateWakeAccess(),
+                                                         m_pointJointConstraints, dt );
+        m_contactSolverStage.PrepareReleasedBodies( bodyStore, sleepStates );
+        const BroadphaseBodyActivityView releasedActivity( modelCount, sleepStates, m_sleepController.GetAwakeBodyIndices(),
+                                                           m_motionEligibility.State(),
+                                                           m_motionEligibility.AngularBroadphaseExpansion() );
+        const auto releasedPairs = m_broadphase.RefreshCurrentContacts( bodyStore, colliderStore, m_pointJointConstraints,
+                                                                        releasedActivity, settings.body.contactEpsilon );
+        m_terrain.AppendReactivatedContacts( bodyStore, colliderStore, buoyancyFacts, m_terrainView, settings,
+                                             m_contactSolverStage.ReactivatedBodies(),
+                                             m_sleepController.MutableSupportedStatesForTerrain(),
+                                             m_sleepController.MutableInhibitedStatesForTerrain(), dt );
+        m_terrain.PublishRestSupport( bodyStore, sleepStates );
+        m_contactSolverStage.ContinueReleasedConstraints( bodyStore, colliderStore, contactPolicy, releasedPairs,
+                                                          sleepStates, m_timeRemaining,
+                                                          m_sleepController.MutableSupportEdgesForContactSolver(),
+                                                          m_terrain.GetContactManifolds(), m_stepDiagnostics,
+                                                          m_pointJointConstraints );
+    }
+    CommitContactSolverConsequences();
+
+    (void)Ragdoll::ApplyNeckSwingLimits( bodyStore, m_pointJointConstraints, m_sleepController.GetSleepStates() );
     m_sleepController.AppendPointJointSupportEdges( bodyStore, m_pointJointConstraints, modelCount );
 
     // Object contacts are converted into stack support only after terrain
@@ -1699,7 +1720,8 @@ PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
                                     m_motionEligibility.LinearTravelSquared(),
                                     m_motionEligibility.LinearDirectionalBoundary(),
                                     m_motionEligibility.AngularTravelSquared(),
-                                    m_motionEligibility.Stats() };
+                                    m_motionEligibility.Stats(),
+                                    m_contactSolverStage.GetJointSamples() };
 }
 
 uint64_t PhysicsWorld::CollectMemoryBytes() const

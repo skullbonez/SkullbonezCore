@@ -534,3 +534,30 @@ TEST_CASE( "Physics sleep controller: point-joint support is bidirectional and r
     CHECK( supported[2] == 1u );
     CheckAwakeIndices( fixture.owners.controller, { 1, 2 } );
 }
+
+TEST_CASE( "Physics sleep controller: joint wake scratch preserves retained contact wake topology" )
+{
+    SleepFixture fixture;
+    for ( int i = 0; i < 3; ++i )
+    {
+        fixture.AddSphere( Vector3( static_cast<float>( i ) * 10.0f, 5.0f, 0.0f ) );
+    }
+    fixture.Mirror();
+    for ( int i = 0; i < 3; ++i )
+    {
+        fixture.Sleep( i );
+    }
+    std::array<PersistentContact, 1> contacts {};
+    contacts[0].bodyA = 0;
+    contacts[0].bodyB = 1;
+    const std::array<PointJointConstraint, 1> joints { fixture.Joint( 1, 2 ) };
+    fixture.owners.controller.RestoreSimulationIslandTopology( fixture.owners.bodies, contacts, joints );
+    std::array<BuoyancyBodyFacts, 3> buoyancy {};
+    std::array<float, 3> remaining {};
+    PhysicsWorldForces forces;
+    fixture.owners.controller.WakePointJointConnectedBodies( fixture.owners.bodies, fixture.owners.colliders, {}, forces,
+                                                             buoyancy, remaining, fixture.WakeAccess(), joints,
+                                                             1.0f / 120.0f );
+    fixture.owners.controller.WakeModel( fixture.owners.bodies, fixture.WakeAccess(), 0 );
+    CheckAwakeIndices( fixture.owners.controller, { 0, 1, 2 } );
+}

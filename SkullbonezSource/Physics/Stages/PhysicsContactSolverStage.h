@@ -9,10 +9,10 @@ Invariants:
   - Solve proves every consequence lane's required capacity independently,
     then prepares a fresh batch before invoking the row solver.
   - Contact phases advance in one adjacent order. The two existing no-work
-    exits may terminate only from entry/setup or terrain-row completion.
+    exits may terminate only from entry/setup or joint preparation.
   - The solve transaction owns solver-body scratch and impulse application; it
     retains no borrowed store, span, stage, or world pointer.
-  - Normal, sliding, rolling, and spin impulses share the PGS transaction. The
+  - Normal, sliding, rolling, spin and point-joint impulses share one transaction. The
     later terrain-rest phase publishes support policy and mutates no velocity.
   - Pipeline event counts remain exact in both payload modes; count-only
     specializations leave the consequence record list empty.
@@ -33,6 +33,8 @@ Invariants:
 #include <vector>
 
 #include "../PersistentContactSolver.h"
+#include "../PointJointBlock.h"
+#include "../ConstraintIslandSchedule.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsDiagnosticsView.h"
 #include "../PhysicsRuntimeSettings.h"
@@ -50,7 +52,7 @@ class Profiler;
 
 namespace Physics
 {
-struct PersistentContactSolveTransactionTestAccess;
+struct ConstraintSolveTransactionTestAccess;
 struct PersistentContactPositionCorrectionTestAccess;
 class ColliderStore;
 class PhysicsBodyStore;
@@ -69,7 +71,7 @@ using PhysicsContactBodyList = PhysicsFixedList<int, PHYSICS_MAX_CONTACT_ROWS>;
 using PhysicsReleaseWakeBodyList = PhysicsFixedList<int, PHYSICS_MAX_BODY_ROWS>;
 using PhysicsFixedTreeReleaseList = PhysicsFixedList<PhysicsFixedTreeReleaseEvent, PHYSICS_MAX_BODY_ROWS>;
 
-class PersistentContactSolvePhaseCursor
+class ConstraintSolvePhaseCursor
 {
   public:
     enum class Phase : uint8_t
@@ -79,26 +81,35 @@ class PersistentContactSolvePhaseCursor
         BodySetup,
         BuildManifolds,
         TerrainRows,
+        PrepareJoints,
         Precompute,
+        WarmStartJoints,
         SolveRows,
         PointSupportInstability,
-        TerrainRestPolicy,
         WriteBack,
         DebugContacts,
         PositionCorrection,
-        CacheStore,
         FixedContactRelease,
+        ReleasedBodySetup,
+        ReleasedManifolds,
+        ReleasedTerrainRows,
+        ReleasedJoints,
+        ReleasedPrecompute,
+        ReleasedSolveRows,
+        ReleasedWriteBack,
+        ReleasedDebugContacts,
+        CacheStore,
         Complete,
         Count
     };
 
     static constexpr bool IsLegalTransition( Phase from, Phase to )
     {
-        const bool adjacent = from >= Phase::Idle && from < Phase::FixedContactRelease &&
+        const bool adjacent = from >= Phase::Idle && from < Phase::Complete &&
                               to == static_cast<Phase>( static_cast<uint8_t>( from ) + 1u );
         const bool noInput = from == Phase::EntryPolicySetup && to == Phase::Complete;
-        const bool noRows = from == Phase::TerrainRows && to == Phase::Complete;
-        const bool normalCompletion = from == Phase::FixedContactRelease && to == Phase::Complete;
+        const bool noRows = from == Phase::PrepareJoints && to == Phase::Complete;
+        const bool normalCompletion = from == Phase::FixedContactRelease && to == Phase::CacheStore;
         return adjacent || noInput || noRows || normalCompletion;
     }
 
@@ -133,41 +144,37 @@ class PersistentContactSolvePhaseCursor
     Phase m_phase = Phase::Idle;
 };
 
-// Invariant:
-// - A fixed-step solve follows EntryPolicySetup -> BodySetup -> BuildManifolds
-//   -> TerrainRows -> Precompute -> SolveRows -> PointSupportInstability
-//   -> TerrainRestPolicy -> WriteBack -> DebugContacts -> PositionCorrection
-//   -> CacheStore -> FixedContactRelease -> Complete.
-// - The existing empty-input and empty-row exits may reach Complete only from
-//   EntryPolicySetup and TerrainRows respectively.
-// - Solver-body storage, impulse application, and every phase advancement have
-//   one owner. Phase methods synchronously borrow the stage only to mutate its
-//   retained rows, cache statistics, and consequence lists; no caller borrow
-//   survives a transaction method return.
-//   TestRuntimeContracts.cpp proves the complete transition matrix, every
-//   illegal fatal invariant edge, and non-copyability.
-class PersistentContactSolveTransaction
+// Owns the shared body scratch, preparation, warm starts, sweeps, and publication.
+// Fixed-contact release precedes cache storage. When release changes connectivity,
+// PhysicsWorld wakes the new component and resumes explicit Released* phases;
+// the same transaction then publishes final caches and reaches Complete.
+// TestRuntimeContracts proves every legal/illegal phase edge and non-copyability.
+class ConstraintSolveTransaction
 {
   public:
-    PersistentContactSolveTransaction() = default;
-    PersistentContactSolveTransaction( const PersistentContactSolveTransaction& ) = delete;
-    PersistentContactSolveTransaction& operator=( const PersistentContactSolveTransaction& ) = delete;
-    PersistentContactSolveTransaction( PersistentContactSolveTransaction&& ) = delete;
-    PersistentContactSolveTransaction& operator=( PersistentContactSolveTransaction&& ) = delete;
+    ConstraintSolveTransaction() = default;
+    ConstraintSolveTransaction( const ConstraintSolveTransaction& ) = delete;
+    ConstraintSolveTransaction& operator=( const ConstraintSolveTransaction& ) = delete;
+    ConstraintSolveTransaction( ConstraintSolveTransaction&& ) = delete;
+    ConstraintSolveTransaction& operator=( ConstraintSolveTransaction&& ) = delete;
 
     void BeginEntryPolicySetup();
     void Complete();
 
-    PersistentContactSolvePhaseCursor::Phase Phase() const
+    ConstraintSolvePhaseCursor::Phase Phase() const
     {
         return m_phase.Current();
     }
 
-    void ReserveSceneCapacity( std::size_t bodyCapacity );
+    void ReserveSceneCapacity( std::size_t bodyCapacity, std::size_t jointCapacity = 0u );
     void Clear();
     uint64_t CollectDynamicMemoryBytes() const;
     void ResetBodies( std::size_t bodyCount );
     std::size_t BodyCount() const;
+    std::span<const PointJointIterationSample> JointSamples() const
+    {
+        return m_jointSamples;
+    }
     SolverBodyState& Body( std::size_t index );
     const SolverBodyState& Body( std::size_t index ) const;
 
@@ -178,9 +185,17 @@ class PersistentContactSolveTransaction
 
   private:
     friend class PhysicsContactSolverStage;
-    friend struct PersistentContactSolveTransactionTestAccess;
+    friend struct ConstraintSolveTransactionTestAccess;
     friend struct PersistentContactPositionCorrectionTestAccess;
 
+    bool IsReactivatedPair( int a, int b ) const;
+    void RecomputeContactMass( PersistentContact& contact );
+    void OrderCandidatePairs( const PhysicsBodyStore& bodyStore, std::span<const std::pair<int, int>> candidates );
+    void PrepareJoints( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                        std::span<const PointJointConstraint> constraints, const PersistentContactSolverStepPolicy& policy );
+    void WarmStartJoints();
+    void StoreJointImpulses( std::span<PointJointConstraint> constraints ) const;
+    template <bool CollectDiagnostics> void SolveJointBlocks( const PhysicsBodyStore& bodyStore, int iteration );
     void SetupBodies( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState, int modelCount,
                       Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
@@ -213,10 +228,6 @@ class PersistentContactSolveTransaction
                                        const PersistentContactSolverStepPolicy& stepPolicy,
                                        std::span<const uint8_t> sleepState, std::span<const uint8_t> sleepSupportedThisFrame,
                                        int modelCount, float dt, Core::Profiler* profiler );
-    void ApplyTerrainRestPolicy( const PhysicsBodyStore& bodyStore,
-                                 PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-                                 std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount,
-                                 Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
     void WriteBack( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState,
                     int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
@@ -231,9 +242,19 @@ class PersistentContactSolveTransaction
                      Core::Profiler* profiler );
     void ReleaseFixedContacts( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, int modelCount,
                                Core::Profiler* profiler );
-    void AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase next, const char* operation );
+    void AdvanceOrFatal( ConstraintSolvePhaseCursor::Phase next, const char* operation );
 
-    PersistentContactSolvePhaseCursor m_phase;
+    PhysicsCandidatePairList m_candidatePairs { "ConstraintSolveTransaction.candidatePairs",
+                                                PhysicsCapacityReason::CandidatePairs };
+    PhysicsBodyRowList<int> m_reactivatedBodies { "ConstraintSolveTransaction.reactivatedBodies",
+                                                  PhysicsCapacityReason::SceneBodies };
+    std::size_t m_continuationContactCount = 0u;
+    ConstraintIslandSchedule m_islands;
+    PhysicsBodyRowList<PointJointBlock> m_jointBlocks { "ConstraintSolveTransaction.jointBlocks",
+                                                        PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<PointJointIterationSample> m_jointSamples { "ConstraintSolveTransaction.jointSamples",
+                                                                   PhysicsCapacityReason::SceneBodies };
+    ConstraintSolvePhaseCursor m_phase;
     SolverBodyStateList m_bodies { "PhysicsContactSolverStage.solverBodies", PhysicsCapacityReason::SceneBodies };
 };
 
@@ -274,7 +295,7 @@ class PhysicsContactCacheWakeAccess
 class PhysicsContactSolverStage
 {
   private:
-    friend class PersistentContactSolveTransaction;
+    friend class ConstraintSolveTransaction;
     friend struct PersistentContactPositionCorrectionTestAccess;
     friend struct PhysicsContactSolverStageTestAccess;
 
@@ -288,18 +309,22 @@ class PhysicsContactSolverStage
                                                            PhysicsCapacityReason::SceneBodies };
     PersistentContactCountList m_persistentRestingContactCounts { "PhysicsContactSolverStage.persistentRestingContactCounts",
                                                                   PhysicsCapacityReason::SceneBodies };
-    PersistentContactSolveTransaction m_solveTransaction;
+    ConstraintSolveTransaction m_solveTransaction;
     PersistentContactSolverSideEffects m_sideEffects;
 
     // Invariant: all five consequence lanes are proved independently before
     // Solve can publish into fixed-capacity storage.
+    bool CanAppendObjectManifold( std::size_t pointCount ) const;
+    void RestoreContactRows( std::span<const PhysicsSolverPersistentContactSample> samples );
+    void RestoreContactCache( std::span<const PhysicsSolverContactCacheSample> samples );
+
     void PrepareSideEffects( int modelCount, std::size_t candidatePairCount, int pipelineRecordCapacity );
 
   public:
     PhysicsContactSolverStage();
 
     void Clear();
-    void ReserveSceneCapacity( std::size_t bodyCapacity );
+    void ReserveSceneCapacity( std::size_t bodyCapacity, std::size_t jointCapacity = 0u );
 
     // Returns the single per-solve normalization of raw stamped settings and
     // live world-force policy. Tests use this seam to pin bounds without
@@ -311,8 +336,24 @@ class PhysicsContactSolverStage
                 const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs,
                 std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
                 PhysicsCandidatePairList& sleepSupportEdges,
-                PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied,
-                std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics );
+                PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
+                std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics,
+                std::span<PointJointConstraint> joints = {} );
+    bool HasPendingReleasedConstraints() const
+    {
+        return m_solveTransaction.Phase() == ConstraintSolvePhaseCursor::Phase::FixedContactRelease;
+    }
+    void PrepareReleasedBodies( const PhysicsBodyStore& bodies, std::span<const uint8_t> sleepState );
+    std::span<const int> ReactivatedBodies() const
+    {
+        return m_solveTransaction.m_reactivatedBodies;
+    }
+    void ContinueReleasedConstraints( PhysicsBodyStore& bodies, const ColliderStore& colliders,
+                                      const PersistentContactSolverStepPolicy& policy,
+                                      std::span<const std::pair<int, int>> candidates, std::span<const uint8_t> sleep,
+                                      std::span<const float> timeRemaining, PhysicsCandidatePairList& supportEdges,
+                                      PhysicsBodyRowList<TerrainContactManifold>& terrain,
+                                      PhysicsStepDiagnostics& diagnostics, std::span<PointJointConstraint> joints );
     PhysicsContactCacheWakeAccess CreateWakeAccess();
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
@@ -326,6 +367,10 @@ class PhysicsContactSolverStage
     std::span<const PersistentContactCacheEntry> GetPersistentContactCache() const;
     const PersistentContactSolverStats& GetStats() const;
     const PersistentContactConvergenceTrace& GetConvergenceTrace() const;
+    std::span<const PointJointIterationSample> GetJointSamples() const
+    {
+        return m_solveTransaction.JointSamples();
+    }
     std::span<const uint16_t> GetPersistentContactCounts() const;
     std::span<const uint16_t> GetPersistentRestingContactCounts() const;
     const PersistentContactSolverSideEffects& GetSideEffects() const;

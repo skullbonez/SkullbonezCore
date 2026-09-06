@@ -65,6 +65,8 @@ set(SKULLBONEZ_PORTABLE_CPU_SOURCES
     SkullbonezSource/Physics/PhysicsObjectPolicy.cpp
     SkullbonezSource/Physics/PhysicsTerrainView.cpp
     SkullbonezSource/Physics/PhysicsWorld.cpp
+    SkullbonezSource/Physics/ConstraintIslandSchedule.cpp
+    SkullbonezSource/Physics/PointJointBlock.cpp
     SkullbonezSource/Physics/Ragdoll.cpp
     SkullbonezSource/Physics/SleepIslandSystem.cpp
     SkullbonezSource/Physics/SpatialGrid.cpp

@@ -614,9 +614,9 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-struct PersistentContactSolveTransactionTestAccess
+struct ConstraintSolveTransactionTestAccess
 {
-    static void Advance( PersistentContactSolveTransaction& transaction, PersistentContactSolvePhaseCursor::Phase next )
+    static void Advance( ConstraintSolveTransaction& transaction, ConstraintSolvePhaseCursor::Phase next )
     {
         transaction.AdvanceOrFatal( next, "ExhaustiveFatalProbe" );
     }
@@ -641,6 +641,36 @@ struct PhysicsBodyStoreTestAccess
 
 struct PhysicsContactSolverStageTestAccess
 {
+    static void CheckCombinedManifoldCapacity()
+    {
+        PhysicsContactSolverStage stage;
+        {
+            Core::Allocation::RuntimeAllocationScope loading( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            stage.ReserveSceneCapacity( PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES + 1u );
+        }
+        const std::size_t pairs = PHYSICS_MAX_CANDIDATE_PAIRS;
+        stage.m_persistentContacts.ResetDefault( ( pairs - 1u ) * 4u );
+        stage.m_sideEffects.collisionVisualBodies.ResetDefault( ( pairs - 1u ) * 2u );
+        const uint64_t bytes = stage.CollectDynamicMemoryBytes();
+        REQUIRE( stage.CanAppendObjectManifold( 4u ) );
+        for ( int point = 0; point < 4; ++point )
+        {
+            stage.m_persistentContacts.push_back( PersistentContact {} );
+        }
+        stage.m_sideEffects.collisionVisualBodies.push_back( 0 );
+        stage.m_sideEffects.collisionVisualBodies.push_back( 1 );
+        // A second query cannot reset the fixed-tick union budget. Rejection
+        // precedes every append, preserving complete manifold publication.
+        CHECK_FALSE( stage.CanAppendObjectManifold( 4u ) );
+        CHECK( stage.m_persistentContacts.size() == pairs * 4u );
+        CHECK( stage.m_sideEffects.collisionVisualBodies.size() == pairs * 2u );
+        CHECK( stage.CollectDynamicMemoryBytes() == bytes );
+        stage.m_sideEffects.collisionVisualBodies.clear();
+        stage.m_persistentContacts.ResetDefault( stage.m_persistentContacts.capacity() - 3u );
+        CHECK_FALSE( stage.CanAppendObjectManifold( 4u ) );
+        CHECK( stage.CanAppendObjectManifold( 3u ) );
+    }
+
     static void ReserveAndPrepare( PhysicsContactSolverStage& stage, std::size_t collisionVisualCapacity,
                                    std::size_t fixedContactCapacity, std::size_t releaseWakeCapacity,
                                    std::size_t fixedTreeCapacity, std::size_t pipelineCapacity )
@@ -796,7 +826,8 @@ TEST_CASE( "Runtime renderer world-to-overlay transaction rejects abandonment an
     static_assert( !std::is_copy_assignable_v<Transaction> );
     static_assert( !std::is_move_constructible_v<Transaction> );
     static_assert( !std::is_move_assignable_v<Transaction> );
-    static_assert( std::is_same_v<decltype( &Transaction::SubmitOverlays ), bool ( Transaction::* )( const OverlaySubmission& )> );
+    static_assert(
+        std::is_same_v<decltype( &Transaction::SubmitOverlays ), bool ( Transaction::* )( const OverlaySubmission& )> );
     CHECK( std::is_destructible_v<Transaction> );
     ExpectRuntimeFatalCase( "renderer-frame-transaction-abandoned",
                             { "FATAL[RunRender]", "ended before overlay submission" } );
@@ -932,7 +963,6 @@ TEST_CASE( "SDF atlas contracts reject malformed metrics and incomplete publicat
         Text2d::charAdvance[index] = originalAdvances[index];
     }
 }
-
 
 
 TEST_CASE( "Lock-order Debug probes classify invalid ids, cycles, and held-stack exhaustion" )
@@ -2354,24 +2384,33 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
 
     if ( sscanf_s( caseName, "contact-solve-phase-%u-%u", &contactSolvePhaseFrom, &contactSolvePhaseTo ) == 2 )
     {
-        using SkullbonezCore::Physics::PersistentContactSolvePhaseCursor;
-        using SkullbonezCore::Physics::PersistentContactSolveTransaction;
-        using SkullbonezCore::Physics::PersistentContactSolveTransactionTestAccess;
-        using Phase = PersistentContactSolvePhaseCursor::Phase;
+        using SkullbonezCore::Physics::ConstraintSolvePhaseCursor;
+        using SkullbonezCore::Physics::ConstraintSolveTransaction;
+        using SkullbonezCore::Physics::ConstraintSolveTransactionTestAccess;
+        using Phase = ConstraintSolvePhaseCursor::Phase;
         constexpr std::array phases { Phase::Idle,
                                       Phase::EntryPolicySetup,
                                       Phase::BodySetup,
                                       Phase::BuildManifolds,
                                       Phase::TerrainRows,
+                                      Phase::PrepareJoints,
                                       Phase::Precompute,
+                                      Phase::WarmStartJoints,
                                       Phase::SolveRows,
                                       Phase::PointSupportInstability,
-                                      Phase::TerrainRestPolicy,
                                       Phase::WriteBack,
                                       Phase::DebugContacts,
                                       Phase::PositionCorrection,
-                                      Phase::CacheStore,
                                       Phase::FixedContactRelease,
+                                      Phase::ReleasedBodySetup,
+                                      Phase::ReleasedManifolds,
+                                      Phase::ReleasedTerrainRows,
+                                      Phase::ReleasedJoints,
+                                      Phase::ReleasedPrecompute,
+                                      Phase::ReleasedSolveRows,
+                                      Phase::ReleasedWriteBack,
+                                      Phase::ReleasedDebugContacts,
+                                      Phase::CacheStore,
                                       Phase::Complete,
                                       Phase::Count };
 
@@ -2380,14 +2419,14 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
             return false;
         }
 
-        PersistentContactSolveTransaction transaction;
+        ConstraintSolveTransaction transaction;
 
         for ( unsigned int phaseIndex = 1u; phaseIndex <= contactSolvePhaseFrom; ++phaseIndex )
         {
-            PersistentContactSolveTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
+            ConstraintSolveTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
         }
 
-        PersistentContactSolveTransactionTestAccess::Advance( transaction, phases[contactSolvePhaseTo] );
+        ConstraintSolveTransactionTestAccess::Advance( transaction, phases[contactSolvePhaseTo] );
         return true;
     }
 
@@ -4023,28 +4062,37 @@ TEST_CASE( "Physics invariant guards admit exact scratch and consequence capacit
 
 TEST_CASE( "Persistent contact solve transaction enforces every phase edge through fatal invariant" )
 {
-    using SkullbonezCore::Physics::PersistentContactSolvePhaseCursor;
-    using SkullbonezCore::Physics::PersistentContactSolveTransaction;
-    using SkullbonezCore::Physics::PersistentContactSolveTransactionTestAccess;
-    using Phase = PersistentContactSolvePhaseCursor::Phase;
+    using SkullbonezCore::Physics::ConstraintSolvePhaseCursor;
+    using SkullbonezCore::Physics::ConstraintSolveTransaction;
+    using SkullbonezCore::Physics::ConstraintSolveTransactionTestAccess;
+    using Phase = ConstraintSolvePhaseCursor::Phase;
     constexpr std::array phases { Phase::Idle,
                                   Phase::EntryPolicySetup,
                                   Phase::BodySetup,
                                   Phase::BuildManifolds,
                                   Phase::TerrainRows,
+                                  Phase::PrepareJoints,
                                   Phase::Precompute,
+                                  Phase::WarmStartJoints,
                                   Phase::SolveRows,
                                   Phase::PointSupportInstability,
-                                  Phase::TerrainRestPolicy,
                                   Phase::WriteBack,
                                   Phase::DebugContacts,
                                   Phase::PositionCorrection,
-                                  Phase::CacheStore,
                                   Phase::FixedContactRelease,
+                                  Phase::ReleasedBodySetup,
+                                  Phase::ReleasedManifolds,
+                                  Phase::ReleasedTerrainRows,
+                                  Phase::ReleasedJoints,
+                                  Phase::ReleasedPrecompute,
+                                  Phase::ReleasedSolveRows,
+                                  Phase::ReleasedWriteBack,
+                                  Phase::ReleasedDebugContacts,
+                                  Phase::CacheStore,
                                   Phase::Complete,
                                   Phase::Count };
     constexpr std::size_t entryIndex = 1u;
-    constexpr std::size_t terrainRowsIndex = 4u;
+    constexpr std::size_t jointPreparationIndex = 5u;
     constexpr std::size_t completeIndex = phases.size() - 2u;
 
     for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
@@ -4053,9 +4101,11 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
         {
             const bool adjacent = fromIndex < completeIndex && toIndex == fromIndex + 1u;
             const bool emptyInput = fromIndex == entryIndex && toIndex == completeIndex;
-            const bool emptyRows = fromIndex == terrainRowsIndex && toIndex == completeIndex;
-            const bool expected = adjacent || emptyInput || emptyRows;
-            CHECK( PersistentContactSolvePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
+            const bool emptyRows = fromIndex == jointPreparationIndex && toIndex == completeIndex;
+            const bool normalCompletion = phases[fromIndex] == Phase::FixedContactRelease &&
+                                          phases[toIndex] == Phase::CacheStore;
+            const bool expected = adjacent || emptyInput || emptyRows || normalCompletion;
+            CHECK( ConstraintSolvePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
 
             // Count is a sentinel and cannot become the cursor's current state.
             if ( fromIndex == phases.size() - 1u || expected )
@@ -4065,22 +4115,22 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
 
             char caseName[96] = {};
             std::snprintf( caseName, sizeof( caseName ), "contact-solve-phase-%zu-%zu", fromIndex, toIndex );
-            ExpectFatalCase( caseName, { "FATAL[Physics/PersistentContactSolveTransaction]", "Illegal phase transition",
+            ExpectFatalCase( caseName, { "FATAL[Physics/ConstraintSolveTransaction]", "Illegal phase transition",
                                          "operation=ExhaustiveFatalProbe" } );
         }
     }
 
-    PersistentContactSolveTransaction transaction;
+    ConstraintSolveTransaction transaction;
     CHECK( transaction.Phase() == Phase::Idle );
 
     for ( std::size_t phaseIndex = 1u; phaseIndex <= completeIndex; ++phaseIndex )
     {
-        PersistentContactSolveTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
+        ConstraintSolveTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
     }
 
     CHECK( transaction.Phase() == Phase::Complete );
-    static_assert( !std::is_copy_constructible_v<PersistentContactSolveTransaction> );
-    static_assert( !std::is_copy_assignable_v<PersistentContactSolveTransaction> );
+    static_assert( !std::is_copy_constructible_v<ConstraintSolveTransaction> );
+    static_assert( !std::is_copy_assignable_v<ConstraintSolveTransaction> );
 }
 
 TEST_CASE( "UI stress policy publishes deterministic bounded commands without borrowed references" )
@@ -4586,4 +4636,9 @@ TEST_CASE( "Render model selection encodes all marked and unmarked modes" )
     CHECK( unmarked.Includes( 0 ) );
     CHECK_FALSE( unmarked.Includes( 1 ) );
     CHECK( unmarked.Includes( 2 ) );
+}
+
+TEST_CASE( "Shared solver continuation retains one capped manifold publication budget above 256 bodies" )
+{
+    SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::CheckCombinedManifoldCapacity();
 }

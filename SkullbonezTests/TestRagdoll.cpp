@@ -31,6 +31,7 @@ Related:
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/engine-glossary.md
 */
+#include "TestPointJointSolver.h"
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
@@ -136,7 +137,7 @@ LoadedChainMeasurement RunLoadedChain( bool clearWarmStartEveryStep, int stepHz 
             StorePhysicsBodyHotState( bodies.MutableHotFields(), row, hot );
         }
 
-        REQUIRE( Ragdoll::SolvePointJoints( bodies, constraints, sleepState, stepSeconds, {}, iterations ) );
+        REQUIRE( SkullbonezTests::SolvePointJointsForTest( bodies, constraints, sleepState, stepSeconds, {}, iterations ) );
 
         for ( int bodyIndex = 1; bodyIndex <= kLoadedChainBodyCount; ++bodyIndex )
         {
@@ -257,7 +258,7 @@ TEST_CASE( "Ragdoll neck swing: point-joint host applies correction and damping"
     std::array<PointJointConstraint, 1> constraints = { neck };
     const std::array<uint8_t, 2> sleepState = { 0u, 0u };
 
-    REQUIRE( Ragdoll::SolvePointJoints( bodies, constraints, sleepState, 1.0f / 120.0f ) );
+    REQUIRE( SkullbonezTests::SolvePointJointsForTest( bodies, constraints, sleepState, 1.0f / 120.0f ) );
     const int headIndex = bodies.ModelIndexForHandle( headHandle );
     REQUIRE( headIndex >= 0 );
     const auto corrected = LoadPhysicsBodyHotState( bodies.HotFields(), static_cast<std::size_t>( headIndex ) );
@@ -311,7 +312,7 @@ TEST_CASE( "Ragdoll point joint: coincident anchors constrain off-axis relative 
     joint.dampingRatio = 0.0f;
     std::array<PointJointConstraint, 1> joints = { joint };
     const std::array<uint8_t, 2> sleep = {};
-    REQUIRE( Ragdoll::SolvePointJoints( bodies, joints, sleep, 1.0f / 120.0f ) );
+    REQUIRE( SkullbonezTests::SolvePointJointsForTest( bodies, joints, sleep, 1.0f / 120.0f ) );
     const auto result = LoadPhysicsBodyHotState( bodies.HotFields(), 1u );
     CHECK( result.linearVelocity.x == doctest::Approx( 0.0f ).epsilon( 0.00001f ) );
     CHECK( result.linearVelocity.y == doctest::Approx( 2.0f / ( 1.0f + 4.38649084f ) ).epsilon( 0.00001f ) );
@@ -363,7 +364,7 @@ static void CheckJointRotationSymmetry( bool fixedA )
         std::array<PointJointConstraint, 1> joints = { joint };
         std::array<SkullbonezCore::Physics::PointJointIterationSample, 8> samples;
         const std::array<uint8_t, 2> sleep = {};
-        REQUIRE( Ragdoll::SolvePointJoints( bodies, joints, sleep, 1.0f / 120.0f, samples ) );
+        REQUIRE( SkullbonezTests::SolvePointJointsForTest( bodies, joints, sleep, 1.0f / 120.0f, samples ) );
         REQUIRE( samples.back().iteration == 7 );
         CHECK( samples.back().minimumScaledPivot > 0.0f );
         const Vector3 residual = samples.back().relativeAnchorVelocity;
@@ -424,7 +425,7 @@ TEST_CASE( "Ragdoll point joint: degenerate mass blocks remain finite without wa
         joint.accumulatedImpulse = Vector3( 1.0f, 2.0f, 3.0f );
         std::array<PointJointConstraint, 1> joints = { joint };
         const std::array<uint8_t, 2> sleep = {};
-        REQUIRE( Ragdoll::SolvePointJoints( bodies, joints, sleep, 1.0f / 120.0f ) );
+        REQUIRE( SkullbonezTests::SolvePointJointsForTest( bodies, joints, sleep, 1.0f / 120.0f ) );
         for ( std::size_t row = 0; row < 2u; ++row )
         {
             const auto result = LoadPhysicsBodyHotState( bodies.HotFields(), row );
@@ -484,7 +485,7 @@ static void CheckImpactEnergy( int hz, float dampingRatio )
     {
         const auto before = LoadPhysicsBodyHotState( bodies.HotFields(), 1u );
         std::array<SkullbonezCore::Physics::PointJointIterationSample, 8> samples;
-        REQUIRE( Ragdoll::SolvePointJoints( bodies, joints, sleep, dt, samples ) );
+        REQUIRE( SkullbonezTests::SolvePointJointsForTest( bodies, joints, sleep, dt, samples ) );
         auto after = LoadPhysicsBodyHotState( bodies.HotFields(), 1u );
         if ( frame == 0 )
         {
@@ -557,7 +558,7 @@ TEST_CASE( "Ragdoll softness: free swing and common motion are not body-speed da
         joint.slack = 0.0f;
         std::array<PointJointConstraint, 1> joints = { joint };
         const std::array<uint8_t, 2> sleep = {};
-        REQUIRE( Ragdoll::SolvePointJoints( bodies, joints, sleep, 1.0f / 120.0f ) );
+        REQUIRE( SkullbonezTests::SolvePointJointsForTest( bodies, joints, sleep, 1.0f / 120.0f ) );
         const auto after = LoadPhysicsBodyHotState( bodies.HotFields(), 1u );
         CheckVectorExact( after.linearVelocity, body.hot.linearVelocity );
         CheckVectorExact( after.angularVelocity, body.hot.angularVelocity );
@@ -592,7 +593,7 @@ TEST_CASE( "Ragdoll softness: zero frequency disables warm start and hard limit 
     joint.accumulatedImpulse = Vector3( 1.0f, 2.0f, 3.0f );
     std::array<PointJointConstraint, 1> joints = { joint };
     const std::array<uint8_t, 2> sleep = {};
-    REQUIRE( Ragdoll::SolvePointJoints( bodies, joints, sleep, 1.0f / 120.0f ) );
+    REQUIRE( SkullbonezTests::SolvePointJointsForTest( bodies, joints, sleep, 1.0f / 120.0f ) );
     CheckVectorExact( joints[0].accumulatedImpulse, Vector3( 0.0f, 0.0f, 0.0f ) );
     CheckVectorExact( LoadPhysicsBodyHotState( bodies.HotFields(), 0u ).linearVelocity, body.hot.linearVelocity );
     CheckVectorExact( LoadPhysicsBodyHotState( bodies.HotFields(), 1u ).linearVelocity, body.hot.linearVelocity );

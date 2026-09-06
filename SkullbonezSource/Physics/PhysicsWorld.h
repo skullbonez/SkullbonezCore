@@ -171,9 +171,7 @@ class PhysicsWorld
                            std::span<BuoyancyBodyFacts> buoyancyFacts, float dt, const PhysicsWorldForces& worldForces,
                            const ExternalForceFrameInput& externalForces, Threading::WorkerPool& workerPool,
                            bool probeDormantUnderwaterLocks );
-    void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                          std::span<BuoyancyBodyFacts> buoyancyFacts,
-                                          const PhysicsWorldForces& worldForces );
+    void CommitContactSolverConsequences();
     void ApplyExternalForces( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                               std::span<BuoyancyBodyFacts> buoyancyFacts, const PhysicsWorldForces& worldForces,
                               const ExternalForceFrameInput& input, const PhysicsExecutionSettings& execution,

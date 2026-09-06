@@ -1,37 +1,4 @@
-/*
-File: SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h
-Purpose:
-  Owns Discrete/promoted terrain-detection scratch, contact manifolds, and rest-policy rows.
-
-Summary:
-  PhysicsTerrainStage detects a quiet downward speculative boundary for
-  Discrete bodies and the full remaining-time path for linearly promoted bodies,
-  then converts hits into terrain manifolds. The Discrete look-ahead remains a
-  zero-time contact so pose clamping cannot erase support or consume a swept
-  time of impact. A typed two-phase commit lets PhysicsWorld preserve
-  the exact diagnostics and visual-emission point while the stage owns terrain
-  storage and writes borrowed sleep-support outputs. Detection dispatch borrows
-  the sleep owner's ascending awake index list.
-
-Glossary:
-  Detection candidate: Per-body swept terrain result produced independently.
-  Prepared commit: Stack value containing the manifold and diagnostic record
-    computed before sequencer-owned side effects are emitted.
-  Rest-applied row: Solver scratch preventing duplicate terrain rest response.
-
-Invariants:
-  - Detection workers write only the candidate slot matching their body index.
-  - Candidate commit remains serial in ascending model order.
-  - Detection worker slots map to ascending awake indices and retain per-body
-    candidate identity regardless of worker scheduling.
-  - Manifold and candidate lists are committed to exact scene capacity.
-
-Related:
-  - SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp
-  - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - SkullbonezSource/Physics/PersistentContactSolver.cpp
-  - Agentic/Reference/engine-glossary.md
-*/
+// Owns terrain detection, committed contact manifolds, and support classification.
 #pragma once
 
 #include <array>
@@ -137,6 +104,12 @@ class PhysicsTerrainStage
     std::span<const TerrainDetectionCandidate> GetDetectionCandidates() const;
     PhysicsBodyRowList<TerrainContactManifold>& GetContactManifolds();
     std::span<const TerrainContactManifold> GetContactManifolds() const;
+    // Call after articulation wake-up and before contact-driven fixed-body release.
+    void AppendReactivatedContacts( const PhysicsBodyStore& bodies, const ColliderStore& colliders,
+                                    std::span<const BuoyancyBodyFacts> buoyancy, PhysicsTerrainView terrain,
+                                    const PhysicsRuntimeSettings& settings, std::span<const int> reactivated,
+                                    std::span<uint8_t> supported, std::span<uint8_t> inhibited, float stepSeconds );
+    void PublishRestSupport( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState );
     std::span<uint8_t> GetRestApplied();
     uint64_t CollectDynamicMemoryBytes() const;
 };

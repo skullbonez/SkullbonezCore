@@ -163,11 +163,15 @@ PHYSICS_FORCE_PREFIXES = (
 )
 
 PHYSICS_SOLVER_PREFIXES = (
+    "ConstraintIslandSchedule",
     "ContactSolverCommon",
     "DisjointSet",
     "PersistentContactSolver",
     "PhysicsBroadphaseStepValues",
     "PhysicsMotionEligibility",
+    "PointJointBlock",
+    "PointJointConstraint",
+    "PointJointSettings",
     "SleepIslandSystem",
     "SolverBroadphaseStage",
 )
