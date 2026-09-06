@@ -32,6 +32,7 @@ Related:
 #include "../Replay/ReplayPathPackets.h"
 #include "../Replay/ReplayPresentationPackets.h"
 #include "../Replay/ReplayTimelinePackets.h"
+#include "../../Maths/Matrix4.h"
 
 namespace SkullbonezCore::Rendering
 {
@@ -59,10 +60,11 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 struct ReplayOverlayViewport
 {
-    // One presentation value keeps width and height coupled at every overlay
-    // call site; neither dimension has meaning without the other.
+    // Viewport dimensions and the active world projection jointly define
+    // screen placement for this presentation frame.
     int width = 1;
     int height = 1;
+    Math::Transformation::Matrix4 viewProjection;
 };
 
 struct ReplayOverlayGestureView

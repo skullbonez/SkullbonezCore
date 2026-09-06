@@ -252,6 +252,12 @@ visible. Leaving causal inspection retains the displayed time in the paused
 prediction timeline. The arrows have no scene-navigation binding and do nothing
 outside paused prediction inspection or while a text field owns keyboard input.
 
+A cyan position gate marks the selected object's displayed location on its
+prediction path. A selected manifold marks both participants. The hollow diamond
+and white cross ticks follow playback, keep a fixed screen size during zoom, and
+align with the projected motion direction. Planning draws them in the screen
+overlay, separately from the retained future geometry and prediction caches.
+
 Outside launcher mode, `Ctrl+Left Click` selects a separate closest-approach target without replacing the replay path root. With mutual gravity and prediction enabled, GameUI shows either the closest miss distance and ETA or an intercept ETA. In launcher mode, `Ctrl+Left Click` retains its existing path-target selection behavior instead of firing.
 
 Replay capture requests 60 seconds of presentation and solver samples by default for generated and interactive runs. Before allocating either ring, Replay resolves that request against the selected 32-512 MiB memory budget and configured body capacity. Automatic visual history retains at least 20 seconds (2,400 samples); solver diagnostics remain the first data reduced by the budget and may retain one second (120 samples) at the maximum 2,048-body configuration. Ordinary past scrubbing follows the longer presentation track, while a published prediction timeline selects the solver track for its future span. The shared recorder owner remains bounded by the 512 MiB hard ceiling. Scene/suite automation leaves replay off unless the command line opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. With the in-game UI minimized and editor mode off, move the mouse near the bottom edge to reveal the scrubber. Click-hold or drag a row thumb left to inspect earlier retained frames; physics pauses while a historical frame is selected. Drag the active thumb back to the live end to resume simulation. Historical cursor movement does not enter, exit, or tween the camera; only explicit replay focus and live-advance actions may change camera ownership. Press `P` to toggle replay play/pause through the shared transport command in live, predicted, historical, and inspection views. Space steps physics without clearing the current prediction drawing.

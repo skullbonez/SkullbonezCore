@@ -8,11 +8,43 @@ import json
 from pathlib import Path
 import time
 
+from PIL import Image
+
 from skarness import SkarnessConnection, launch
 from validate_skarness_prediction_matrix import ReplayStateReader, vector_distance
 
 
 REPO = Path(__file__).resolve().parents[1]
+
+
+def verify_position_gate(path: Path) -> None:
+    """The followed primary object's projected center must carry the cyan diamond."""
+    with Image.open(path) as image:
+        center_x, center_y = image.width // 2, image.height // 2
+        pixels = image.convert("RGB").crop((center_x - 24, center_y - 24, center_x + 24, center_y + 24))
+        samples = (pixels.getpixel((x, y)) for y in range(pixels.height) for x in range(pixels.width))
+        cyan_count = sum(1 for red, green, blue in samples
+                         if red < 110 and green > 200 and blue > 230)
+        assert cyan_count >= 35, f"selected-object position gate missing from {path}: {cyan_count} cyan pixels"
+
+
+def verify_retained_geometry(session: Path) -> None:
+    start = json.loads((session / "selected.json").read_text(encoding="utf-8"))["runtimeTurn"]
+    end = json.loads((session / "stopped.json").read_text(encoding="utf-8"))["runtimeTurn"]
+    retained = None
+    initial = None
+    with (session / "runtime.skarness.ndjson").open(encoding="utf-8") as trace:
+        for line in trace:
+            event = json.loads(line)
+            if event.get("runtimeTurn", 0) > end:
+                break
+            if event.get("topic") == "replay.visual_packet":
+                payload = event["payload"]
+                retained = (payload["retainedStreamId"], payload["retainedRevision"])
+            if event.get("runtimeTurn", 0) >= start and retained:
+                initial = initial or retained
+                assert retained == initial, "causal playback rebuilt retained future geometry"
+    assert initial and initial[0] != 0, "no retained prediction geometry was observed"
 
 
 def run(session: Path, executable: Path) -> None:
@@ -58,6 +90,8 @@ def run(session: Path, executable: Path) -> None:
         before = state("selected")
         assert before["inspectionCameraFocusKind"] == 2
         assert before["selectedCausePrimaryId"] == 1
+        send("capture.screenshot", path=str((session / "selected.png").resolve()))
+        verify_position_gate(session / "selected.png")
         send("camera.orbit_inspection", yawRadians=0.25, pitchRadians=0.1, wheelDelta=120)
         orbit = state("orbit")
         radius = vector_distance(orbit["cameraPrimaryEye"], orbit["inspectionPivot"])
@@ -66,6 +100,8 @@ def run(session: Path, executable: Path) -> None:
         send("run.step_frames", count=60)
         forward = state("forward")
         send("input.set_arrows", left=False, right=False)
+        send("capture.screenshot", path=str((session / "forward.png").resolve()))
+        verify_position_gate(session / "forward.png")
         paused = state("paused")
         send("run.step_frames", count=60)
         held = state("held")
@@ -77,6 +113,8 @@ def run(session: Path, executable: Path) -> None:
         send("input.set_arrows", left=False, right=False)
         stopped = state("stopped")
         send("capture.screenshot", path=str((session / "playback.png").resolve()))
+        verify_position_gate(session / "playback.png")
+        verify_retained_geometry(session)
         send("replay.return_from_cause")
         exited = state("exited")
         send("input.set_arrows", left=True, right=False)

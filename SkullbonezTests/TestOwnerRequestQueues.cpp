@@ -2527,6 +2527,78 @@ TEST_CASE( "Planning fixes replay overlay composition order before generic rende
     CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[4] == ReplayOverlaySurfaceKind::Scrubber );
 }
 
+TEST_CASE( "Prediction position gates follow displayed identity and frame without changing samples" )
+{
+    using namespace SkullbonezCore::Runtime;
+    using namespace SkullbonezCore::Runtime::ReplayOverlay;
+    RunReplayPredictionFrame frame;
+    frame.frameIndex = 120;
+    frame.bodies.resize( 2 );
+    frame.bodies[0].id.value = 7;
+    frame.bodies[0].position = { 0.0f, 0.0f, 0.5f };
+    frame.bodies[0].linearVelocity = { 1.0f, 1.0f, 0.0f };
+    frame.bodies[1].id.value = 8;
+    frame.bodies[1].position = { 0.5f, 0.0f, 0.5f };
+    ReplayOverlayViewport viewport { 1000, 500 };
+    const ReplayPositionGate gate = BuildReplayPositionGate( frame, { 7 }, viewport );
+    REQUIRE( gate.visible );
+    CHECK( gate.id.value == 7 );
+    CHECK( gate.frame == 120 );
+    CHECK( gate.center.x == doctest::Approx( 500.0f ) );
+    CHECK( gate.center.y == doctest::Approx( 250.0f ) );
+    CHECK( gate.tangent.x == doctest::Approx( 0.894427f ) );
+    CHECK( gate.tangent.y == doctest::Approx( -0.447214f ) );
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 99 }, viewport ).visible );
+    CHECK_FALSE( BuildReplayPositionGate( frame, {}, viewport ).visible );
+    CHECK( frame.bodies[0].position.x == 0.0f );
+    CHECK( frame.frameIndex == 120 );
+
+    frame.frameIndex = 121;
+    frame.bodies[0].position.x = 0.2f;
+    CHECK( BuildReplayPositionGate( frame, { 7 }, viewport ).center.x == doctest::Approx( 600.0f ) );
+    frame.frameIndex = 119;
+    frame.bodies[0].position.x = -0.2f;
+    CHECK( BuildReplayPositionGate( frame, { 7 }, viewport ).center.x == doctest::Approx( 400.0f ) );
+    CHECK( BuildReplayPositionGate( frame, { 7 }, viewport ).frame == 119 );
+    const ReplayPositionGate stationary = BuildReplayPositionGate( frame, { 8 }, viewport );
+    CHECK( stationary.center.x == doctest::Approx( 750.0f ) );
+    CHECK( stationary.tangent.x == 1.0f );
+    CHECK( stationary.tangent.y == 0.0f );
+
+    frame.bodies[0].position.z = -0.5f;
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 7 }, viewport ).visible );
+    frame.bodies[0].position.z = 1.5f;
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 7 }, viewport ).visible );
+    frame.bodies[0].position = { 2.0f, 0.0f, 0.5f };
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 7 }, viewport ).visible );
+    viewport.viewProjection.m[15] = -1.0f;
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 8 }, viewport ).visible );
+}
+
+TEST_CASE( "Prediction position gates select only the active inspection participants" )
+{
+    using namespace SkullbonezCore::Runtime;
+    using namespace SkullbonezCore::Runtime::ReplayOverlay;
+    RunReplayCauseTreeState tree;
+    tree.rows.resize( 2 );
+    tree.rows[0].id.value = 7;
+    tree.rows[0].counterpartId.value = 8;
+    tree.rows[1].id.value = 9;
+    tree.rows[1].counterpartId.value = 9;
+    ReplayOverlayCausalityView causality { tree, {} };
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[0].value == 3 );
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[1].value == 0 );
+    causality.inspection.mode = ReplayCauseInspectionMode::DetailPaused;
+    causality.inspection.selectedRow = 0;
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[0].value == 7 );
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[1].value == 8 );
+    causality.inspection.selectedRow = 1;
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[0].value == 9 );
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[1].value == 0 );
+    causality.inspection.selectedRow = 2;
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[0].value == 0 );
+}
+
 TEST_CASE( "Compact causality projection is bounded and exposes explicit edge states" )
 {
     using namespace SkullbonezCore::Runtime::DevelopmentTools;

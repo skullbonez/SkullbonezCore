@@ -901,12 +901,14 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
 
     if ( submission.submitReplay )
     {
-        const UI::UIDrawList& drawList = m_replayRuntime.ComposeOverlayDrawList( replayOverlay,
-                                                                                 projection.uiText.gameUiActive,
-                                                                                 scene.isScenePhysics,
-                                                                                 projection.uiText.interactionGestureKind,
-                                                                                 { viewport.screenW, viewport.screenH },
-                                                                                 metrics.simulationTotalSeconds );
+        const UI::UIDrawList&
+            drawList = m_replayRuntime.ComposeOverlayDrawList( replayOverlay, projection.uiText.gameUiActive,
+                                                               scene.isScenePhysics,
+                                                               projection.uiText.interactionGestureKind,
+                                                               { viewport.screenW, viewport.screenH,
+                                                                 m_window.GetProjectionMatrix() *
+                                                                     m_sceneController.Scene().Cameras().GetViewMatrix() },
+                                                               metrics.simulationTotalSeconds );
         renderer.SubmitUiDrawList( drawList, viewport );
     }
 

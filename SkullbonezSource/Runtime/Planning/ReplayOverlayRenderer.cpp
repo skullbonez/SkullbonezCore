@@ -954,6 +954,86 @@ void ReplayScrubberComposer::DrawPredictionStatus()
     }
 }
 
+static void DrawReplayGateStroke( UI::UIDrawList& drawList, UI::UIPoint start, UI::UIPoint end,
+                                  const UI::Style::UIColor& color, float width )
+{
+    const float dx = end.x - start.x;
+    const float dy = end.y - start.y;
+    const float scale = width * 0.5f / std::sqrt( dx * dx + dy * dy );
+    const UI::UIPoint offset { -dy * scale, dx * scale };
+    const UI::UIPoint a { start.x + offset.x, start.y + offset.y };
+    const UI::UIPoint b { end.x + offset.x, end.y + offset.y };
+    const UI::UIPoint c { end.x - offset.x, end.y - offset.y };
+    const UI::UIPoint d { start.x - offset.x, start.y - offset.y };
+    drawList.AddTriangle( { a, b, c }, color );
+    drawList.AddTriangle( { a, c, d }, color );
+}
+
+static void DrawReplayPositionGate( UI::UIDrawList& drawList, const ReplayPositionGate& gate )
+{
+    if ( !gate.visible )
+    {
+        return;
+    }
+
+    const auto point = [&]( float along, float across ) -> UI::UIPoint
+    {
+        return { gate.center.x + gate.tangent.x * along - gate.tangent.y * across,
+                 gate.center.y + gate.tangent.y * along + gate.tangent.x * across };
+    };
+    const std::array<UI::UIPoint, 4> diamond = { point( -9.0f, 0.0f ), point( 0.0f, -7.0f ), point( 9.0f, 0.0f ),
+                                                 point( 0.0f, 7.0f ) };
+
+    // Why: a thin dark backing keeps the crisp cue readable over bright bodies
+    // and pale paths without bloom. It is drawn before panels so UI still wins.
+    for ( int pass = 0; pass < 2; ++pass )
+    {
+        const float width = pass == 0 ? 4.0f : 2.0f;
+        const UI::Style::UIColor cyan = pass == 0 ? UI::Style::UIColor { 0.015f, 0.06f, 0.075f, 0.85f }
+                                                  : UI::Style::UIColor { 0.2f, 0.95f, 1.0f, 1.0f };
+        const UI::Style::UIColor white = pass == 0 ? cyan : UI::Style::UIColor { 0.96f, 1.0f, 1.0f, 1.0f };
+
+        for ( std::size_t edge = 0; edge < diamond.size(); ++edge )
+        {
+            DrawReplayGateStroke( drawList, diamond[edge], diamond[( edge + 1 ) % diamond.size()], cyan, width );
+        }
+
+        for ( float along : { -16.0f, 16.0f } )
+        {
+            DrawReplayGateStroke( drawList, point( along, -5.0f ), point( along, 5.0f ), white, width );
+        }
+    }
+}
+
+static void ComposeReplayPositionGates( UI::UIDrawList& drawList, const ReplayOverlayTimelineView& timeline,
+                                        const ReplayOverlayCausalityView& causality, const ReplayOverlayViewport& viewport )
+{
+    if ( !timeline.prediction.controls.enabled || timeline.prediction.timeline.frames.empty() )
+    {
+        return;
+    }
+
+    // Invariant: use the same immutable sample as the rendered bodies, never the
+    // collision's original frame or a nearest spatial match on a looping path.
+    const RunReplayPredictionFrame* frame = timeline.selectedPrediction;
+
+    if ( !frame )
+    {
+        // A live or historical pose need not match the prediction's source
+        // frame. Hide the gate until an actual future sample is presented.
+        return;
+    }
+
+    drawList.PushClip( { 0.0f, 0.0f, static_cast<float>( viewport.width ), static_cast<float>( viewport.height ) } );
+
+    for ( Physics::PhysicsSceneObjectId id : ReplayPositionGateSelection( causality, timeline.pathVisualizer.targetId ) )
+    {
+        DrawReplayPositionGate( drawList, BuildReplayPositionGate( *frame, id, viewport ) );
+    }
+
+    drawList.PopClip();
+}
+
 // Concept: the replay overlay is a read-only projection of replay state.
 //
 // Input code owns mutations such as dragging, toggling prediction, and branch
@@ -971,6 +1051,7 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
     }
 
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
+    ComposeReplayPositionGates( m_drawList, replay.timeline, replay.causality, viewport );
 
     for ( ReplayOverlaySurfaceKind surface : REPLAY_OVERLAY_COMPOSITION_ORDER )
     {
