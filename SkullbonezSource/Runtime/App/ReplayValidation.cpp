@@ -788,6 +788,12 @@ bool SelectReplayRestoreTargetAndCheckpoint( const ReplayRestoreArtifactData& ar
         return false;
     }
 
+    if ( !ReplayRestoreOperations::ValidateSolverContinuation( outCheckpoint->worldSnapshot.physics, outReason,
+                                                               reasonSize ) )
+    {
+        return false;
+    }
+
     if ( outCheckpoint->frameIndex > outTarget->frameIndex )
     {
         WriteReplayProbeReason( outReason, reasonSize, "selected checkpoint after target frame" );

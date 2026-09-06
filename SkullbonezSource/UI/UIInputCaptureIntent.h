@@ -25,6 +25,5 @@ struct InputCaptureIntent
     bool keyboard = false;
     bool text = false;
     bool nativePointerStateTouched = false;
-
 };
 } // namespace SkullbonezCore::UI

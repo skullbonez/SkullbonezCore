@@ -76,7 +76,9 @@ SOLVER_STATS = struct.Struct("<iiiiiiiff")
 # Snapshot v4 appends counted uint8 motion-eligibility state after these rows;
 # v5 widens tornado elapsed time and v6 widens sleep counters to uint32.
 # the nested schema is independent of outer replay artifact versions 2 through 5.
-POINT_JOINT_RECORD = struct.Struct("<3I10fIB")
+POINT_JOINT_RECORD_V3 = struct.Struct("<3I10fIB")
+# Snapshot v7 adds the Y/Z components of the world-space impulse.
+POINT_JOINT_RECORD = struct.Struct("<3I12fIB")
 SOLVER_BODY = struct.Struct("<I" + ("f" * 21) + "5s3siHHff")
 VISUAL_PACKET_RECORD = struct.Struct("<" + ("Q" * 5) + ("I" * 9) + ("f" * 6) + ("Q" * 18) + ("I" * 13))
 
@@ -804,7 +806,7 @@ class ReplayV2:
             struct.Struct("<IiiBB2s")
         )
         reader.unpack(TORNADO_CONFIG)
-        if version < 1 or version > 6:
+        if version < 1 or version > 7:
             raise ReplayQueryError(f"unsupported solver snapshot version {version}")
         tornado_system_vortex_count = 0
         if version >= 2:
@@ -843,7 +845,8 @@ class ReplayV2:
         pipeline_trace_count = reader.u32()
         reader.skip(56 * pipeline_trace_count)
         collision_cell_key_count = ReplayV2._skip_counted(reader, COUNTED_I64)
-        point_joint_count = ReplayV2._skip_counted(reader, POINT_JOINT_RECORD) if version >= 3 else 0
+        joint_layout = POINT_JOINT_RECORD if version >= 7 else POINT_JOINT_RECORD_V3
+        point_joint_count = ReplayV2._skip_counted(reader, joint_layout) if version >= 3 else 0
         motion_eligibility_state_count = ReplayV2._skip_counted(reader, COUNTED_U8) if version >= 4 else 0
         sleep_pose_anchor_position_count = ReplayV2._skip_counted(reader, struct.Struct("<3f")) if version >= 6 else 0
         sleep_pose_anchor_orientation_count = ReplayV2._skip_counted(reader, struct.Struct("<4f")) if version >= 6 else 0

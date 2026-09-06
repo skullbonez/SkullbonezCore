@@ -121,7 +121,7 @@ LoadedChainMeasurement RunLoadedChain( bool clearWarmStartEveryStep )
         {
             for ( PointJointConstraint& joint : constraints )
             {
-                joint.accumulatedImpulse = 0.0f;
+                joint.accumulatedImpulse = Vector3( 0.0f, 0.0f, 0.0f );
             }
         }
 
@@ -149,7 +149,7 @@ LoadedChainMeasurement RunLoadedChain( bool clearWarmStartEveryStep )
         measurement.finalBottomSag = bottomSag;
     }
 
-    measurement.topJointAccumulatedImpulse = constraints.front().accumulatedImpulse;
+    measurement.topJointAccumulatedImpulse = VectorMag( constraints.front().accumulatedImpulse );
     return measurement;
 }
 } // namespace
@@ -268,9 +268,143 @@ TEST_CASE( "Ragdoll point joint: retained impulse reduces zero-slack loaded-chai
     CAPTURE( warm.maximumBottomSag );
     CAPTURE( warm.topJointAccumulatedImpulse );
     CHECK( warm.topJointAccumulatedImpulse > 0.0f );
-    // Invariant: clearing each cache before SolvePointJoints reproduces the
-    // pre-warm-start solver. Retention must materially reduce both settled and
+    // Invariant: clearing each cache isolates the current solver
+    // without temporal warm starting. Retention must materially reduce both settled and
     // peak numerical stretch, not merely perturb the trajectory.
     CHECK( warm.finalBottomSag <= cold.finalBottomSag * 0.75f );
     CHECK( warm.maximumBottomSag <= cold.maximumBottomSag * 0.90f );
+}
+
+TEST_CASE( "Ragdoll point joint: coincident anchors constrain off-axis relative velocity" )
+{
+    PhysicsBodyStore bodies;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodies.ReserveCapacity( 2u );
+    }
+    PhysicsBodyCreateRecord anchor;
+    anchor.hot.fixed = true;
+    const auto fixedHandle = bodies.CreateBodyRecord( anchor );
+    PhysicsBodyCreateRecord moving;
+    moving.cold.mass = 1.0f;
+    moving.hot.inverseMass = 1.0f;
+    moving.hot.inverseRotationalInertia = Vector3( 1.0f, 1.0f, 1.0f );
+    moving.hot.linearVelocity = Vector3( 0.0f, 2.0f, -3.0f );
+    const auto movingHandle = bodies.CreateBodyRecord( moving );
+    PointJointConstraint joint;
+    joint.SetBodies( fixedHandle, movingHandle );
+    joint.slack = 0.0f;
+    joint.damping = 0.0f;
+    std::array<PointJointConstraint, 1> joints = { joint };
+    const std::array<uint8_t, 2> sleep = {};
+    REQUIRE( Ragdoll::SolvePointJoints( bodies, joints, sleep, 1.0f / 120.0f ) );
+    const auto result = LoadPhysicsBodyHotState( bodies.HotFields(), 1u );
+    CHECK( result.linearVelocity.x == doctest::Approx( 0.0f ).epsilon( 0.00001f ) );
+    CHECK( result.linearVelocity.y == doctest::Approx( 0.0f ).epsilon( 0.00001f ) );
+    CHECK( result.linearVelocity.z == doctest::Approx( 0.0f ).epsilon( 0.00001f ) );
+}
+
+TEST_CASE( "Ragdoll point joint: coupled anchor response is rotation invariant" )
+{
+    for ( const bool fixedA : { false, true } )
+    {
+        Vector3 referenceImpulse( 0.0f, 0.0f, 0.0f );
+        for ( int rotated = 0; rotated < 2; ++rotated )
+        {
+            PhysicsBodyStore bodies;
+            {
+                SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                    SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+                bodies.ReserveCapacity( 2u );
+            }
+            auto orientation = SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION;
+            if ( rotated ) { orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), 1.5707963267948966f ); }
+            const auto rotation = orientation.GetOrientationMatrix();
+            PhysicsBodyCreateRecord a;
+            a.cold.mass = 2.0f;
+            a.cold.usesWorldInertia = true;
+            a.hot.fixed = fixedA;
+            a.hot.inverseMass = 0.5f;
+            a.hot.orientation = orientation;
+            a.hot.inverseRotationalInertia = Vector3( 0.3f, 0.8f, 0.7f );
+            PhysicsBodyCreateRecord b;
+            b.cold.mass = 1.0f;
+            b.cold.usesWorldInertia = true;
+            b.hot.inverseMass = 1.0f;
+            b.hot.orientation = orientation;
+            b.hot.position = rotation * Vector3( 0.1f, -0.6f, 0.2f );
+            b.hot.linearVelocity = rotation * Vector3( 1.0f, 2.0f, -1.0f );
+            b.hot.angularVelocity = rotation * Vector3( 0.2f, -0.1f, 0.3f );
+            b.hot.inverseRotationalInertia = Vector3( 0.5f, 0.4f, 0.9f );
+            PointJointConstraint joint;
+            const auto handleA = bodies.CreateBodyRecord( a );
+            const auto handleB = bodies.CreateBodyRecord( b );
+            joint.SetBodies( handleA, handleB );
+            joint.localAnchorA = Vector3( 0.4f, 0.2f, -0.3f );
+            joint.localAnchorB = Vector3( 0.3f, 0.8f, -0.5f );
+            joint.slack = 0.0f;
+            joint.stiffness = 0.0f;
+            joint.damping = 0.0f;
+            std::array<PointJointConstraint, 1> joints = { joint };
+            std::array<SkullbonezCore::Physics::PointJointIterationSample, 4> samples;
+            const std::array<uint8_t, 2> sleep = {};
+            REQUIRE( Ragdoll::SolvePointJoints( bodies, joints, sleep, 1.0f / 120.0f, samples ) );
+            REQUIRE( samples.back().iteration == 3 );
+            CHECK( samples.back().minimumScaledPivot > 0.0f );
+            const Vector3 residual = samples.back().relativeAnchorVelocity;
+            CHECK( std::abs( residual.x ) < 0.00001f );
+            CHECK( std::abs( residual.y ) < 0.00001f );
+            CHECK( std::abs( residual.z ) < 0.00001f );
+            if ( rotated == 0 ) { referenceImpulse = joints[0].accumulatedImpulse; }
+            else
+            {
+                const Vector3 expected = rotation * referenceImpulse;
+                CHECK( joints[0].accumulatedImpulse.x == doctest::Approx( expected.x ).epsilon( 0.00001f ) );
+                CHECK( joints[0].accumulatedImpulse.y == doctest::Approx( expected.y ).epsilon( 0.00001f ) );
+                CHECK( joints[0].accumulatedImpulse.z == doctest::Approx( expected.z ).epsilon( 0.00001f ) );
+            }
+            if ( !fixedA )
+            {
+                const auto resultA = LoadPhysicsBodyHotState( bodies.HotFields(), 0u );
+                const auto resultB = LoadPhysicsBodyHotState( bodies.HotFields(), 1u );
+                const Vector3 momentum = resultA.linearVelocity * 2.0f + resultB.linearVelocity;
+                CHECK( momentum.x == doctest::Approx( b.hot.linearVelocity.x ).epsilon( 0.00001f ) );
+                CHECK( momentum.y == doctest::Approx( b.hot.linearVelocity.y ).epsilon( 0.00001f ) );
+                CHECK( momentum.z == doctest::Approx( b.hot.linearVelocity.z ).epsilon( 0.00001f ) );
+            }
+        }
+    }
+}
+
+TEST_CASE( "Ragdoll point joint: degenerate mass blocks remain finite without warm-start mutation" )
+{
+    for ( const bool fixed : { false, true } )
+    {
+        PhysicsBodyStore bodies;
+        {
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            bodies.ReserveCapacity( 2u );
+        }
+        PhysicsBodyCreateRecord body;
+        body.hot.fixed = fixed;
+        body.hot.inverseMass = 1.0f;
+        body.hot.inverseRotationalInertia = Vector3( 1.0e20f, 0.0f, 0.0f );
+        PointJointConstraint joint;
+        const auto handleA = bodies.CreateBodyRecord( body );
+        const auto handleB = bodies.CreateBodyRecord( body );
+        joint.SetBodies( handleA, handleB );
+        joint.localAnchorA = joint.localAnchorB = Vector3( 0.0f, 1.0f, 0.0f );
+        joint.accumulatedImpulse = Vector3( 1.0f, 2.0f, 3.0f );
+        std::array<PointJointConstraint, 1> joints = { joint };
+        const std::array<uint8_t, 2> sleep = {};
+        REQUIRE( Ragdoll::SolvePointJoints( bodies, joints, sleep, 1.0f / 120.0f ) );
+        for ( std::size_t row = 0; row < 2u; ++row )
+        {
+            const auto result = LoadPhysicsBodyHotState( bodies.HotFields(), row );
+            CheckVectorExact( result.linearVelocity, Vector3( 0.0f, 0.0f, 0.0f ) );
+            CheckVectorExact( result.angularVelocity, Vector3( 0.0f, 0.0f, 0.0f ) );
+        }
+    }
 }

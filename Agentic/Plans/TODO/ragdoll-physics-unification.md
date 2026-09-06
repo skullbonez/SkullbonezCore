@@ -1,15 +1,19 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Owner-parked by explicit owner direction on 2026-08-25. 5/10 phases
-complete; FP5-FP9 are not selectable until the owner reactivates this plan.
+Status: Reactivated by owner direction on 2026-09-07. 6/10 phases complete;
+FP5 is complete; FP6 is next on `codex/ragdoll-physics-unification`.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
-Priority: Parked and excluded from active master-plan ordering. If reactivated,
-execute FP5-FP9 in strict internal order.
+Priority: Active. Execute FP5-FP9 in strict internal order.
 Commit name: `RAGDOLL_PHYSICS`
 
 ## Owner Direction
+
+On 2026-09-07 the owner reactivated the remaining phases on a child branch
+of cleanup commit `88d09e78f`, while its hosted validation runs independently.
+FP5 resumes from the accepted FP4 result. Required FP5 completion subject:
+`RAGDOLL_PHYSICS, TASK 6/10 — implement the 3-DOF point joint`.
 
 The owner explicitly activated this plan on 2026-08-22, assigned the
 `RAGDOLL_PHYSICS` commit token, placed it ahead of every existing master-plan
@@ -737,6 +741,55 @@ linear dimensions while still allowing the bodies to rotate around the joint.
 
 ---
 
+### FP5 implementation evidence — 2026-09-07
+
+The point joint now solves a guarded 3-by-3 effective-mass block and retains a
+world-space vector impulse on the stable constraint row. A separate warm-start
+pass visits every joint before the first solve iteration. Changed bodies,
+anchors, and solver settings clear that cache; assigning the same body pair
+preserves it. A bounded caller-owned span receives vector error, impulse,
+scaled Cholesky pivots, and per-iteration velocity residuals without hot-path
+allocation.
+
+The coincident-anchor off-axis regression fails with the scalar solver and
+passes with FP5. Fixed/dynamic, dynamic/dynamic, anisotropic inertia, rotated
+fixtures, zero-error motion, singular blocks, cache invalidation, and snapshot
+migration are covered. Snapshot version 7 carries all three impulse components
+through hashing, sparse deltas, durable C++ serialization, and Python queries.
+Historical scalar checkpoints retain readable bytes and hashes; explicit
+Physics import reconstructs their old axis. App rejects historical
+**authoritative continuation** before mutation because migrated state cannot
+match the historical solver's hashes. Presentation and inspection remain
+available. A persisted-v6 regression covers this boundary.
+
+Actual historical source comparisons are retained under
+`Agentic/Plans/Artifacts/ragdoll-physics-unification/FP5/`. Final chain sag is
+35.084 mm before stage (a), 24.379 mm in stage (a), and 7.113 mm in FP5.
+FP5 is not uniformly better: settled jitter rises from 0.281 to 1.730 mm/step,
+settled kinetic energy from 0.02275 to 0.18876 J, and solve cost from 0.153 to
+0.286 microseconds per joint iteration. These measured tradeoffs are inputs
+to FP6's explicit softness/damping replacement.
+
+The Debug worker/repeat Physics matrix passes with the core CSV unchanged.
+The focused Physics/replay/rotation tests, compiler-backed source-design gate,
+Python versions 1–7/future-version fixtures, dependency graph, and plain-language
+checks pass. Native replay resolves 200 wall bricks, 201 causal nodes, and
+2,401 samples in one generation. Its altered impact timing and causal order
+are bound to the exact old/new Automation archive and guarded visual/causal
+transition in the FP5 artifact directory. All offline durable-artifact and
+negative controls and the complete native repeat pass. The native saved-replay
+save/query/restore/rollback gate also passes. It exposed a prior diagnostic
+serialization typo (`summary.frame` instead of `frame`), repaired in emitted
+keys and CLI hints with a runtime-trace regression. The final Debug Physics
+worker matrix passes after that repair.
+
+`validate_perf` remains blocked by the same 91 allocation-policy findings as
+cleanup commit `88d09e78f` (zero new findings). Independent review found one
+legacy-continuation defect, now fixed and re-reviewed; no implementation
+blocker remains. FP5 is closed; FP6 is the next binding phase.
+
+---
+
 ## FP6 — Ragdoll Stage (c): Explicit Softness Model
 
 ### What This Aims To Solve
@@ -950,7 +1003,7 @@ solver changes.
   before any predictive implementation.
 - [x] **FP4 — Discrete performance A/B and review decision.** Isolate and record the
   performance improvement.
-- [ ] **FP5 — Ragdoll 3-DOF point joint.** Pin linear anchor coincidence with a
+- [x] **FP5 — Ragdoll 3-DOF point joint.** Pin linear anchor coincidence with a
   3-by-3 effective mass and vector warm start.
 - [ ] **FP6 — Explicit ragdoll softness.** Use principled frequency/damping or
   compliance across timestep and iteration variations.

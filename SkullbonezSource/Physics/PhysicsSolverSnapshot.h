@@ -16,6 +16,8 @@ Glossary:
   Sleep state: Per-body flag that lets stable bodies skip simulation until woken.
 
 Invariants:
+  - Version 7 stores a world-space point-joint impulse; v3-v6 import their
+    scalar into x until Physics reconstructs its historical anchor-error axis.
   - Snapshot compatibility is explicit and versioned when fields are added.
   - Version 5 lets the composed replay snapshot encode its Gameplay clock as
     double; version 4 artifacts retain their historical float payload.
@@ -47,7 +49,7 @@ Related:
 namespace SkullbonezCore::Physics
 {
 inline constexpr const char* PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
-inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 6u;
+inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 7u;
 
 // Test probe: the strict two-generation prediction probe measured 3,401,552 bytes.
 // Eight MiB preserves 2.466112x measured headroom.
@@ -75,7 +77,7 @@ struct PhysicsSolverPointJointSample
     float slack = 0.0f;
     float stiffness = 0.0f;
     float damping = 0.0f;
-    float accumulatedImpulse = 0.0f;
+    Math::Vector::Vector3 accumulatedImpulse = Math::Vector::ZERO_VECTOR;
     uint32_t groupId = 0;
     uint8_t flags = 0;
 };

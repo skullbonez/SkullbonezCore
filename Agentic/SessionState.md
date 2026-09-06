@@ -1,9 +1,8 @@
 # Session State
 
 Date: 2026-09-07
-Branch: `nightrunner-5th-SEP-26`
-Status: Skarness Command And State Harness complete at 7/7; prior portfolio
-143/143
+Branch: `codex/ragdoll-physics-unification`
+Status: RAGDOLL_PHYSICS active at 6/10; portfolio 144/148
 
 ## Native UI and profiling dependency cleanup (2026-09-07)
 
@@ -35,7 +34,43 @@ assertion and loading implementation are unchanged by this cleanup. The first
 matrix run also found no contacts in the time-seeded demo's selected target.
 The final affected UI/input rerun passes 126 cases and 4,441 assertions.
 
+## Ragdoll FP5 acceptance (2026-09-07)
+
+The coupled 3-DOF point joint and world-space vector warm start are implemented.
+Current and historical snapshot codecs, import migration, and pre-mutation
+legacy-continuation rejection have focused regressions. The Python query reader
+supports nested versions 1-7 and rejects version 8. Native saved replay
+save/query/restore/rollback, the complete 200-box native replay repeat and its
+negative controls, the final Debug worker matrix, source design, dependency,
+formatting, and focused unit checks pass. The core Physics CSV is unchanged;
+the visual and causal transitions retain exact old/new first-party producers
+under the FP5 artifact directory. A pre-existing SkullScope frame-key typo
+found by the native artifact gate is repaired with a generated-trace assertion.
+
+Historical loaded-chain comparisons measure final sag of 35.084/24.379/7.113
+mm for pre-(a)/stage-(a)/FP5. Against stage (a), FP5 increases jitter from
+0.281 to 1.730 mm/step, settled kinetic energy from 0.02275 to 0.18876 J, and
+solve cost from 0.153 to 0.286 microseconds per joint iteration. These are
+explicit FP6 inputs, not a universal performance claim. The performance gate
+still reports the same 91 inherited allocation-policy findings, zero new.
+Independent review has no remaining implementation blocker.
+
 ## Current State
+
+Current objective: complete `TODO/ragdoll-physics-unification.md` FP5-FP9.
+Plan progress: 6/10; portfolio progress: 144/148. Next binding task: FP6,
+explicit joint softness and damping. The cleanup CI jobs
+34042905345, 34042907156 and 34042908720 were dispatched on `88d09e78f`.
+They have completed: Linux diagnostics passed; mandatory CPU preflight failed
+changed-source formatting; native Windows diagnostics failed because its
+formatter rejects the existing `BinPackLongBracedList` configuration key.
+The cleanup's trailing blank line in `UIInputCaptureIntent.h` is repaired on
+this child branch, and all 59 cleanup/FP5 source files pass local formatting.
+The hosted formatter-version mismatch remains unresolved.
+The pre-existing live ledger belongs to an unfinished GOV1 task; this run
+preserves it. A separate ledger initialization also fails because the helper
+lacks verified `gpt-6-astra` pricing. No usage counters or costs are fabricated;
+implementation continues with timestamped command evidence.
 
 The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish
 the plan without stopping. The bootstrap checkpoint repairs prediction

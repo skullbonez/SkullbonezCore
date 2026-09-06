@@ -6,7 +6,7 @@ Purpose:
 Summary:
   The body layout is prefab value data. Scene owners turn the descriptors into
   authored objects; Physics keeps handle-keyed point-joint descriptors, solver
-  rows, and one retained scalar warm-start impulse per row. That scalar affects
+  rows, and one retained world-space warm-start impulse per row. That vector affects
   byte-exact replay continuation. This keeps the ragdoll feature isolated and
   leaves a clear migration path to a full constraint solver. Neck swing
   correction uses the repository-owned deterministic vector-angle and axis-
@@ -174,6 +174,16 @@ struct ConstraintImpulseBody
     const Vector3& leverArm;
     float inverseMass = 0.0f;
 
+    Vector3 AnchorVelocityResponse( const Vector3& impulse ) const
+    {
+        if ( inverseMass <= 0.0f )
+        {
+            return ZERO_VECTOR;
+        }
+        return impulse * inverseMass +
+               CrossProduct( ApplyRecordInvInertia( record, hot, CrossProduct( leverArm, impulse ) ), leverArm );
+    }
+
     void ApplyPositive( const Vector3& impulse ) const
     {
         if ( inverseMass > 0.0f )
@@ -210,6 +220,91 @@ void ApplyConstraintImpulse( const ConstraintImpulseBody& bodyA, const Constrain
     bodyA.ClampVelocity();
     bodyB.ClampVelocity();
 }
+
+
+// Concept: K = (mA^-1 + mB^-1) I - [rA]x IA^-1 [rA]x - [rB]x IB^-1 [rB]x.
+// Columns are the relative anchor-velocity response to unit world impulses.
+// The fixed-order, scaled Cholesky solve rejects non-finite or ill-conditioned
+// blocks before division; it never substitutes a preferred world axis.
+class PointJointEffectiveMass
+{
+    float m_scale = 0.0f;
+    float m_l00 = 0.0f, m_l10 = 0.0f, m_l20 = 0.0f;
+    float m_l11 = 0.0f, m_l21 = 0.0f, m_l22 = 0.0f;
+    float m_minimumScaledPivot = 0.0f;
+
+  public:
+    PointJointEffectiveMass( const ConstraintImpulseBody& bodyA, const ConstraintImpulseBody& bodyB )
+    {
+        const auto response = [&]( const Vector3& axis )
+        { return bodyA.AnchorVelocityResponse( axis ) + bodyB.AnchorVelocityResponse( axis ); };
+        const Vector3 x = response( Vector3( 1.0f, 0.0f, 0.0f ) );
+        const Vector3 y = response( Vector3( 0.0f, 1.0f, 0.0f ) );
+        const Vector3 z = response( Vector3( 0.0f, 0.0f, 1.0f ) );
+        const float scale = (std::max)( x.x, (std::max)( y.y, z.z ) );
+        if ( !std::isfinite( scale ) || scale <= 0.0f )
+        {
+            return;
+        }
+        constexpr float minimumPivot = 1.0e-8f;
+        const float xx = x.x / scale;
+        const float yx = ( x.y * 0.5f + y.x * 0.5f ) / scale;
+        const float zx = ( x.z * 0.5f + z.x * 0.5f ) / scale;
+        const float yy = y.y / scale;
+        const float zy = ( y.z * 0.5f + z.y * 0.5f ) / scale;
+        const float zz = z.z / scale;
+        if ( !std::isfinite( xx ) || xx <= minimumPivot )
+        {
+            return;
+        }
+        m_l00 = sqrtf( xx );
+        m_l10 = yx / m_l00;
+        m_l20 = zx / m_l00;
+        const float pivot1 = yy - m_l10 * m_l10;
+        if ( !std::isfinite( pivot1 ) || pivot1 <= minimumPivot )
+        {
+            return;
+        }
+        m_l11 = sqrtf( pivot1 );
+        m_l21 = ( zy - m_l20 * m_l10 ) / m_l11;
+        const float pivot2 = zz - m_l20 * m_l20 - m_l21 * m_l21;
+        if ( !std::isfinite( pivot2 ) || pivot2 <= minimumPivot )
+        {
+            return;
+        }
+        m_l22 = sqrtf( pivot2 );
+        m_scale = scale;
+        m_minimumScaledPivot = (std::min)( xx, (std::min)( pivot1, pivot2 ) );
+    }
+    bool IsValid() const
+    {
+        return m_scale > 0.0f;
+    }
+    float MinimumScaledPivot() const
+    {
+        return m_minimumScaledPivot;
+    }
+    bool Solve( const Vector3& velocityTarget, Vector3& outImpulse ) const
+    {
+        if ( !IsValid() )
+        {
+            return false;
+        }
+        const Vector3 rhs = velocityTarget / m_scale;
+        const float a = rhs.x / m_l00;
+        const float b = ( rhs.y - m_l10 * a ) / m_l11;
+        const float c = ( rhs.z - m_l20 * a - m_l21 * b ) / m_l22;
+        const float iz = c / m_l22;
+        const float iy = ( b - m_l21 * iz ) / m_l11;
+        const float ix = ( a - m_l10 * iy - m_l20 * iz ) / m_l00;
+        if ( !std::isfinite( ix ) || !std::isfinite( iy ) || !std::isfinite( iz ) )
+        {
+            return false;
+        }
+        outImpulse = Vector3( ix, iy, iz );
+        return true;
+    }
+};
 
 
 bool IsBodySleeping( int bodyIndex, std::span<const uint8_t> sleepState )
@@ -434,8 +529,11 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData, const Vector3& terr
 }
 
 bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJointConstraint> constraints,
-                                std::span<const uint8_t> sleepState, float dt )
+                                std::span<const uint8_t> sleepState, float dt,
+                                std::span<PointJointIterationSample> diagnostics )
 {
+    std::fill( diagnostics.begin(), diagnostics.end(), PointJointIterationSample {} );
+
     if ( constraints.empty() || dt <= TOLERANCE )
     {
         return false;
@@ -446,7 +544,7 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJoin
     const int modelCount = bodyStore.Count();
     const float invDt = 1.0f / dt;
 
-    for ( int iteration = 0; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )
+    for ( int iteration = -1; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )
     {
         for ( PointJointConstraint& constraint : constraints )
         {
@@ -484,11 +582,6 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJoin
             Vector3 error = anchorB - anchorA;
             float distance = VectorMag( error );
 
-            if ( distance <= constraint.slack && iteration > 0 )
-            {
-                continue;
-            }
-
             Vector3 axis( 1.0f, 0.0f, 0.0f );
 
             if ( distance > TOLERANCE )
@@ -496,40 +589,40 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJoin
                 axis = error / distance;
             }
 
-            // CATTO REF:
-            //   Section 8.1 reapplies the previous step's accumulated impulse
-            //   when iterative solving begins.
-            // ENGINE-SPECIFIC:
-            //   This joint retains one signed scalar on its stable handle row
-            //   and reapplies it along the current error axis on this row's
-            //   first visit in iteration zero. It is not a three-degree-of-
-            //   freedom point-to-point block.
-            if ( iteration == 0 && constraint.accumulatedImpulse != 0.0f )
+            const PointJointEffectiveMass effectiveMass( { bodyA, hotA, rA, invMassA }, { bodyB, hotB, rB, invMassB } );
+            if ( !effectiveMass.IsValid() )
             {
+                constraint.accumulatedImpulse = ZERO_VECTOR;
+                continue;
+            }
+
+            // Lifetime: warm start is a world-space vector for this body pair,
+            // independent of the current error direction, including zero error.
+            if ( iteration < 0 )
+            {
+                // Invariant: every joint applies its cached impulse before any
+                // joint solves. Interleaving warm start and solve would expose
+                // only half the supporting force to an upstream chain link.
                 ApplyConstraintImpulse( { bodyA, hotA, rA, invMassA }, { bodyB, hotB, rB, invMassB },
-                                        axis * constraint.accumulatedImpulse );
+                                        constraint.accumulatedImpulse );
+                StorePhysicsBodyHotState( hotFields, hotAIndex, hotA );
+                StorePhysicsBodyHotState( hotFields, hotBIndex, hotB );
+                continue;
             }
 
             const Vector3 velA = hotA.linearVelocity + CrossProduct( hotA.angularVelocity, rA );
             const Vector3 velB = hotB.linearVelocity + CrossProduct( hotB.angularVelocity, rB );
-            const float relVel = Dot( ( velB - velA ), axis );
             const float distanceError = (std::max)( 0.0f, distance - constraint.slack );
             const float biasSpeed = std::clamp( distanceError * constraint.stiffness * invDt, 0.0f,
                                                 RAGDOLL_JOINT_MAX_BIAS_SPEED );
-
-            const float velocityTarget = std::clamp( ( relVel + biasSpeed ) * ( 1.0f + constraint.damping ),
-                                                     -RAGDOLL_JOINT_MAX_BIAS_SPEED, RAGDOLL_JOINT_MAX_BIAS_SPEED );
-
-            const float effectiveMass = ContactSolver::ComputeTwoBodyEffectiveMass(
-                invMassA, invMassB, axis, rA, rB, [&]( const Vector3& v )
-                { return invMassA > 0.0f ? ApplyRecordInvInertia( bodyA, hotA, v ) : ZERO_VECTOR; }, [&]( const Vector3& v )
-                { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, hotB, v ) : ZERO_VECTOR; } );
-
-            if ( effectiveMass > 0.0f )
+            const Vector3 velocityTarget = ClampVectorMagnitude( ( velB - velA + axis * biasSpeed ) *
+                                                                     ( 1.0f + constraint.damping ),
+                                                                 RAGDOLL_JOINT_MAX_BIAS_SPEED );
+            Vector3 impulseDelta = ZERO_VECTOR;
+            if ( effectiveMass.Solve( velocityTarget, impulseDelta ) )
             {
-                const float impulseDelta = effectiveMass * velocityTarget;
                 constraint.accumulatedImpulse += impulseDelta;
-                ApplyConstraintImpulse( { bodyA, hotA, rA, invMassA }, { bodyB, hotB, rB, invMassB }, axis * impulseDelta );
+                ApplyConstraintImpulse( { bodyA, hotA, rA, invMassA }, { bodyB, hotB, rB, invMassB }, impulseDelta );
             }
 
             if ( distanceError > TOLERANCE )
@@ -548,6 +641,21 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJoin
                 {
                     hotB.position -= correction * invMassB;
                 }
+            }
+
+            const std::size_t diagnosticIndex = static_cast<std::size_t>( &constraint - constraints.data() ) *
+                                                    RAGDOLL_SOLVER_ITERATIONS +
+                                                static_cast<std::size_t>( iteration );
+            if ( diagnosticIndex < diagnostics.size() )
+            {
+                PointJointIterationSample& sample = diagnostics[diagnosticIndex];
+                sample.constraint = constraint.handle;
+                sample.iteration = iteration;
+                sample.anchorErrorBeforeCorrection = error;
+                sample.accumulatedImpulse = constraint.accumulatedImpulse;
+                sample.relativeAnchorVelocity = hotB.linearVelocity + CrossProduct( hotB.angularVelocity, rB ) -
+                                                hotA.linearVelocity - CrossProduct( hotA.angularVelocity, rA );
+                sample.minimumScaledPivot = effectiveMass.MinimumScaledPivot();
             }
 
             StorePhysicsBodyHotState( hotFields, hotAIndex, hotA );

@@ -7,8 +7,8 @@ Summary:
   This is deliberately a small bridge toward a future generic constraint
   system. Ragdoll prefab data is value metadata; scene/authored owners decide
   how those values become renderable objects while physics keeps handle-keyed
-  point-joint descriptors, solver math, and one retained scalar warm-start
-  impulse per row. That scalar participates in byte-exact replay continuation.
+  point-joint descriptors, solver math, and one retained world-space warm-start
+  impulse per row. That vector participates in byte-exact replay continuation.
   The neck policy exposes one deterministic vector-angle seam so rounded
   endpoint and fallback behavior can be tested without a complete solver world.
 
@@ -78,7 +78,7 @@ struct PointJointConstraint
 {
     static constexpr uint8_t FLAG_LIMIT_NECK_SWING = 1u << 0;
 
-    PhysicsConstraintHandle handle;          // Stable identity; dense solver-row movement never retargets it.
+    PhysicsConstraintHandle handle; // Stable identity; dense solver-row movement never retargets it.
     PhysicsBodyHandle bodyA;
     PhysicsBodyHandle bodyB;
     Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
@@ -86,18 +86,23 @@ struct PointJointConstraint
     float slack = 0.25f;
     float stiffness = 0.22f;
     float damping = 0.35f;
-    float accumulatedImpulse = 0.0f;         // Signed scalar warm start retained with this stable handle.
+    Math::Vector::Vector3
+        accumulatedImpulse = Math::Vector::ZERO_VECTOR; // World-space impulse on body A, retained with this stable handle.
     uint32_t groupId = 0;
     uint8_t flags = 0;
 
     void SetBodies( PhysicsBodyHandle bodyAHandle, PhysicsBodyHandle bodyBHandle )
     {
+        if ( bodyA == bodyAHandle && bodyB == bodyBHandle )
+        {
+            return;
+        }
         bodyA = bodyAHandle;
         bodyB = bodyBHandle;
 
         // Invariant: an impulse cached for another body pair is not valid for
         // the newly authored constraint, even when the handle is unchanged.
-        accumulatedImpulse = 0.0f;
+        accumulatedImpulse = Math::Vector::ZERO_VECTOR;
     }
 
     int BodyAIndex( const PhysicsBodyStore& bodyStore ) const;
@@ -107,6 +112,19 @@ struct PointJointConstraint
     {
         return bodyA.IsValid() && bodyB.IsValid() && bodyA != bodyB;
     }
+};
+
+// Detached per-iteration evidence. The caller supplies fixed storage; sample
+// order is joint-major with four consecutive iterations per joint. An unvisited
+// or unsolvable block keeps iteration -1. Diagnostics never affect solver state.
+struct PointJointIterationSample
+{
+    PhysicsConstraintHandle constraint;
+    int iteration = -1;
+    Math::Vector::Vector3 anchorErrorBeforeCorrection = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 relativeAnchorVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 accumulatedImpulse = Math::Vector::ZERO_VECTOR;
+    float minimumScaledPivot = 0.0f;
 };
 
 struct RagdollBuildOptions
@@ -177,7 +195,8 @@ class Ragdoll
     // impulses persist across steps, so body, anchor, or solver-policy edits
     // must invalidate the cache before the next call.
     static bool SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJointConstraint> constraints,
-                                  std::span<const uint8_t> sleepState, float dt );
+                                  std::span<const uint8_t> sleepState, float dt,
+                                  std::span<PointJointIterationSample> diagnostics = {} );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

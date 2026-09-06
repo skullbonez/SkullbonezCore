@@ -688,6 +688,14 @@ bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& 
                 }
 
                 const PhysicsSolverPointJointSample& sample = snapshot.pointJoints[survivingConstraintIndex];
+                if ( !std::isfinite( sample.accumulatedImpulse.x ) || !std::isfinite( sample.accumulatedImpulse.y ) ||
+                     !std::isfinite( sample.accumulatedImpulse.z ) ||
+                     ( snapshot.version < 7u &&
+                       ( sample.accumulatedImpulse.y != 0.0f || sample.accumulatedImpulse.z != 0.0f ) ) )
+                {
+                    return false;
+                }
+
 
                 // Invariant: the filtered row ordinal and durable scene ids are
                 // the persisted topology identity. Public constraint/body handle
@@ -756,6 +764,20 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
             if ( bodyA >= 0 && bodyA < modelCount && bodyB >= 0 && bodyB < modelCount )
             {
                 constraint.accumulatedImpulse = snapshot.pointJoints[sampleIndex++].accumulatedImpulse;
+                if ( snapshot.version < 7u )
+                {
+                    // Compatibility: v3-v6 saved a scalar on the historical
+                    // anchor-error axis. Reconstruct it from restored poses once;
+                    // every subsequent step retains a world-space vector.
+                    auto hotA = LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( bodyA ) );
+                    auto hotB = LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( bodyB ) );
+                    const Vector3 armA = hotA.orientation.GetOrientationMatrix() * constraint.localAnchorA;
+                    const Vector3 armB = hotB.orientation.GetOrientationMatrix() * constraint.localAnchorB;
+                    const Vector3 error = ( hotB.position + armB ) - ( hotA.position + armA );
+                    const float distance = VectorMag( error );
+                    const Vector3 axis = distance > TOLERANCE ? error / distance : Vector3( 1.0f, 0.0f, 0.0f );
+                    constraint.accumulatedImpulse = axis * constraint.accumulatedImpulse.x;
+                }
             }
         }
     }
@@ -766,7 +788,7 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
         // retaining an unrelated live impulse.
         for ( PointJointConstraint& constraint : m_pointJointConstraints )
         {
-            constraint.accumulatedImpulse = 0.0f;
+            constraint.accumulatedImpulse = ZERO_VECTOR;
         }
     }
 
@@ -1536,10 +1558,10 @@ bool PhysicsWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
 
     if ( invalidateWarmStart )
     {
-        // Invariant: a scalar impulse is meaningful only for the bodies,
+        // Invariant: a cached impulse is meaningful only for the bodies,
         // anchors, and solver policy that produced it. Handle identity survives
         // authoring updates, but stale solver state must not.
-        joint.accumulatedImpulse = 0.0f;
+        joint.accumulatedImpulse = ZERO_VECTOR;
     }
 
     m_sleepController.QueueConstraintTopologyWake( previousBodyA, previousBodyB );

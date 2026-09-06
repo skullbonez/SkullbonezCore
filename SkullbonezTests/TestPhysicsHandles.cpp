@@ -167,6 +167,11 @@ bool FloatBitsEqual( float left, float right )
     return std::memcmp( &left, &right, sizeof( left ) ) == 0;
 }
 
+bool FloatBitsEqual( const Vector3& left, const Vector3& right )
+{
+    return FloatBitsEqual( left.x, right.x ) && FloatBitsEqual( left.y, right.y ) && FloatBitsEqual( left.z, right.z );
+}
+
 void CheckVectorBitsEqual( const Vector3& left, const Vector3& right )
 {
     CHECK( FloatBitsEqual( left.x, right.x ) );
@@ -1228,7 +1233,7 @@ void CheckPhysicsCapacityRows()
 
 void CheckPredictionSnapshotRejections( PhysicsEngine& predictionEngine,
                                         const SkullbonezCore::Physics::PhysicsSolverSnapshot& solverSnapshot,
-                                        int bodyCount, float advancedJointImpulse )
+                                        int bodyCount, const Vector3& advancedJointImpulse )
 {
     using SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt;
 
@@ -1370,7 +1375,7 @@ void CheckPredictionSnapshotRejections( PhysicsEngine& predictionEngine,
     legacySnapshot.motionEligibilityState.clear();
     REQUIRE( predictionEngine.RestoreReplaySolverSnapshot( legacySnapshot,
                                                            MakePhysicsBodyCountFromNonNegativeInt( bodyCount ) ) );
-    CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse == 0.0f );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse == Vector3( 0.0f, 0.0f, 0.0f ) );
 }
 } // namespace
 
@@ -1767,7 +1772,7 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     CHECK( FloatBitsEqual( sourceJoints[0].stiffness, clonedJoints[0].stiffness ) );
     CHECK( FloatBitsEqual( sourceJoints[0].damping, clonedJoints[0].damping ) );
     CHECK( FloatBitsEqual( sourceJoints[0].accumulatedImpulse, clonedJoints[0].accumulatedImpulse ) );
-    CHECK( sourceJoints[0].accumulatedImpulse != 0.0f );
+    CHECK( sourceJoints[0].accumulatedImpulse != Vector3( 0.0f, 0.0f, 0.0f ) );
     CHECK( sourceJoints[0].groupId == clonedJoints[0].groupId );
     CHECK( sourceJoints[0].flags == clonedJoints[0].flags );
 
@@ -1787,8 +1792,8 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     }
 
     REQUIRE( solverSnapshot.pointJoints.size() == 1u );
-    const float historicalJointImpulse = solverSnapshot.pointJoints[0].accumulatedImpulse;
-    const float advancedJointImpulse = PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse;
+    const Vector3 historicalJointImpulse = solverSnapshot.pointJoints[0].accumulatedImpulse;
+    const Vector3 advancedJointImpulse = PhysicsEngine::ReadPointJointConstraints( predictionEngine )[0].accumulatedImpulse;
     REQUIRE_FALSE( FloatBitsEqual( historicalJointImpulse, advancedJointImpulse ) );
     CheckPredictionSnapshotRejections( predictionEngine, solverSnapshot, bodyCount, advancedJointImpulse );
 
@@ -1831,7 +1836,7 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     REQUIRE( liveEngine->UpdatePointJoint( solverUpdate ) );
     // Invariant: an authored solver-policy change keeps handle identity but
     // invalidates the scalar impulse produced under the previous policy.
-    CHECK( sourceJoints[0].accumulatedImpulse == 0.0f );
+    CHECK( sourceJoints[0].accumulatedImpulse == Vector3( 0.0f, 0.0f, 0.0f ) );
 
     // Lifetime: ColliderStore cloned every shape into destination-owned backing.
     // Destroying the live engine must not invalidate prediction references.
@@ -1865,7 +1870,7 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
 TEST_CASE( "Point-joint body rebinding clears a restored warm-start impulse" )
 {
     constexpr int bodyCount = 3;
-    constexpr float seededImpulse = 7.25f;
+    const Vector3 seededImpulse = Vector3( 7.25f, -2.0f, 3.0f );
     PhysicsEngine engine;
     const CollisionShape shape = MakeColliderShape( 0.5f );
     SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration registrations[bodyCount] = {};
@@ -1879,7 +1884,7 @@ TEST_CASE( "Point-joint body rebinding clears a restored warm-start impulse" )
         {
             const auto sceneObjectId = MakePhysicsSceneObjectId( 820u + static_cast<uint32_t>( row ) );
             auto body = SkullbonezCore::Physics::
-                MakePhysicsBodyCreateDesc( sceneObjectId, shape, Vector3( static_cast<float>( row ), 10.0f, 0.0f ),
+                MakePhysicsBodyCreateDesc( sceneObjectId, shape, Vector3( 0.0f, 10.0f + static_cast<float>( row ), 0.0f ),
                                            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
                                            Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
                                            Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, 0.0f,
@@ -1910,6 +1915,8 @@ TEST_CASE( "Point-joint body rebinding clears a restored warm-start impulse" )
     REQUIRE( warmedJoints.size() == 1u );
     REQUIRE( FloatBitsEqual( warmedJoints[0].accumulatedImpulse, seededImpulse ) );
 
+    SUBCASE( "body-only rebind" )
+    {
     SkullbonezCore::Physics::PhysicsPointJointUpdateDesc rebind;
     rebind.constraint = jointHandle;
     rebind.updateMask = SkullbonezCore::Physics::PHYSICS_POINT_JOINT_UPDATE_BODIES;
@@ -1922,7 +1929,54 @@ TEST_CASE( "Point-joint body rebinding clears a restored warm-start impulse" )
     CHECK( reboundJoints[0].handle == jointHandle );
     CHECK( reboundJoints[0].bodyA == registrations[1].body );
     CHECK( reboundJoints[0].bodyB == registrations[2].body );
-    CHECK( reboundJoints[0].accumulatedImpulse == 0.0f );
+    CHECK( reboundJoints[0].accumulatedImpulse == Vector3( 0.0f, 0.0f, 0.0f ) );
+    }
+    SUBCASE( "same body pair preserves the cache" )
+    {
+        SkullbonezCore::Physics::PhysicsPointJointUpdateDesc unchanged;
+        unchanged.constraint = jointHandle;
+        unchanged.updateMask = SkullbonezCore::Physics::PHYSICS_POINT_JOINT_UPDATE_BODIES;
+        unchanged.bodyA = registrations[0].body;
+        unchanged.bodyB = registrations[1].body;
+        REQUIRE( engine.UpdatePointJoint( unchanged ) );
+        CheckVectorBitsEqual( PhysicsEngine::ReadPointJointConstraints( engine )[0].accumulatedImpulse, seededImpulse );
+    }
+    SUBCASE( "anchor-only edit invalidates the cache" )
+    {
+        SkullbonezCore::Physics::PhysicsPointJointUpdateDesc changed;
+        changed.constraint = jointHandle;
+        changed.updateMask = SkullbonezCore::Physics::PHYSICS_POINT_JOINT_UPDATE_ANCHORS;
+        changed.localAnchorA = Vector3( 0.0f, 0.5f, 0.0f );
+        REQUIRE( engine.UpdatePointJoint( changed ) );
+        CheckVectorBitsEqual( PhysicsEngine::ReadPointJointConstraints( engine )[0].accumulatedImpulse,
+                              Vector3( 0.0f, 0.0f, 0.0f ) );
+    }
+    SUBCASE( "solver-only edit invalidates the cache" )
+    {
+        SkullbonezCore::Physics::PhysicsPointJointUpdateDesc changed;
+        changed.constraint = jointHandle;
+        changed.updateMask = SkullbonezCore::Physics::PHYSICS_POINT_JOINT_UPDATE_SOLVER;
+        changed.stiffness = 0.1f;
+        changed.damping = 0.5f;
+        REQUIRE( engine.UpdatePointJoint( changed ) );
+        CheckVectorBitsEqual( PhysicsEngine::ReadPointJointConstraints( engine )[0].accumulatedImpulse,
+                              Vector3( 0.0f, 0.0f, 0.0f ) );
+    }
+    SUBCASE( "legacy scalar snapshot reconstructs its restored anchor-error axis" )
+    {
+        snapshot.version = 6u;
+        snapshot.pointJoints[0].accumulatedImpulse = Vector3( 2.0f, 0.0f, 0.0f );
+        REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot, snapshotBodyCount ) );
+        CheckVectorBitsEqual( PhysicsEngine::ReadPointJointConstraints( engine )[0].accumulatedImpulse,
+                              Vector3( 0.0f, 2.0f, 0.0f ) );
+    }
+    SUBCASE( "non-finite vector snapshots reject before changing the cache" )
+    {
+        snapshot.pointJoints[0].accumulatedImpulse.z = std::numeric_limits<float>::infinity();
+        CHECK_FALSE( engine.RestoreReplaySolverSnapshot( snapshot, snapshotBodyCount ) );
+        CheckVectorBitsEqual( PhysicsEngine::ReadPointJointConstraints( engine )[0].accumulatedImpulse, seededImpulse );
+    }
+
 }
 
 
