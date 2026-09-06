@@ -216,6 +216,13 @@ struct ReplayCauseInspectionView : ReplayCauseTransportView,
                                    ReplayCauseSolverDetailView,
                                    ReplayCauseDisplayView
 {
+    bool HasVisibleContactGeometry() const noexcept
+    {
+        return ( mode == ReplayCauseInspectionMode::Transporting || mode == ReplayCauseInspectionMode::DetailPaused ||
+                 mode == ReplayCauseInspectionMode::AftermathFollow ) &&
+               contactPresentation.HasGeometry();
+    }
+
     // Concept: the inherited value layout keeps automation serialization flat,
     // while these typed projections prevent runtime operations from receiving
     // transport, selection, evidence, and drawer state they do not consume.

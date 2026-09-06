@@ -31,6 +31,24 @@ using namespace SkullbonezCore::Runtime;
 
 namespace
 {
+TEST_CASE( "Causal contact geometry replaces fallback markers only while presented" )
+{
+    ReplayCauseInspectionView inspection;
+    for ( const auto mode : { ReplayCauseInspectionMode::Transporting, ReplayCauseInspectionMode::DetailPaused,
+                              ReplayCauseInspectionMode::AftermathFollow } )
+    {
+        inspection.mode = mode;
+        inspection.contactPresentation.pointCount = 0;
+        CHECK_FALSE( inspection.HasVisibleContactGeometry() );
+        inspection.contactPresentation.pointCount = 1;
+        CHECK( inspection.HasVisibleContactGeometry() );
+    }
+    inspection.mode = ReplayCauseInspectionMode::Inactive;
+    CHECK_FALSE( inspection.HasVisibleContactGeometry() );
+    inspection.mode = ReplayCauseInspectionMode::Returning;
+    CHECK_FALSE( inspection.HasVisibleContactGeometry() );
+}
+
 TEST_CASE( "Causal panel waits for the complete selected prediction and reports resolved time" )
 {
     RunReplayPathVisualizerState path;

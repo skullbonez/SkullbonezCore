@@ -1041,59 +1041,7 @@ static void ComposeReplayPositionGates( UI::UIDrawList& drawList, const ReplayOv
     drawList.PopClip();
 }
 
-static void DrawReplayContactStroke( UI::UIDrawList& drawList, UI::UIPoint start, UI::UIPoint end, UI::Style::UIColor color,
-                                     float flash )
-{
-    color.r += ( 1.0f - color.r ) * flash;
-    color.g += ( 1.0f - color.g ) * flash;
-    color.b += ( 1.0f - color.b ) * flash;
-    const float width = 2.5f + 1.5f * flash;
-    DrawReplayGateStroke( drawList, start, end, { 0.02f, 0.035f, 0.045f, 0.9f }, width + 2.0f );
-    DrawReplayGateStroke( drawList, start, end, color, width );
-}
-
-static void DrawReplayContactAxis( UI::UIDrawList& drawList, const ReplayOverlayViewport& viewport,
-                                   const Rendering::ContactPointPresentation& contact,
-                                   const Math::Vector::Vector3& direction, const UI::Style::UIColor& color, float flash,
-                                   bool arrow )
-{
-    UI::UIPoint start;
-    UI::UIPoint end;
-
-    if ( !ProjectReplayGatePoint( contact.point, viewport, start ) ||
-         !ProjectReplayGatePoint( contact.point + direction, viewport, end ) )
-    {
-        return;
-    }
-
-    const float dx = end.x - start.x;
-    const float dy = end.y - start.y;
-    const float length = std::sqrt( dx * dx + dy * dy );
-
-    if ( !std::isfinite( length ) || length <= 0.001f )
-    {
-        return;
-    }
-
-    // Why: these glyphs identify the contact basis, not force magnitude. A
-    // bounded pixel length keeps them legible during zoom without obscuring bodies.
-    const float axisLength = std::clamp( length, arrow ? 18.0f : 10.0f, 72.0f );
-    const UI::UIPoint unit { dx / length, dy / length };
-    end = { start.x + unit.x * axisLength, start.y + unit.y * axisLength };
-    DrawReplayContactStroke( drawList, start, end, color, flash );
-
-    if ( arrow )
-    {
-        for ( float side : { -1.0f, 1.0f } )
-        {
-            const UI::UIPoint wing { end.x - unit.x * 6.0f - unit.y * 3.0f * side,
-                                     end.y - unit.y * 6.0f + unit.x * 3.0f * side };
-            DrawReplayContactStroke( drawList, end, wing, color, flash );
-        }
-    }
-}
-
-static void DrawReplayContactPoint( UI::UIDrawList& drawList, const ReplayOverlayViewport& viewport,
+static void DrawReplayContactFlash( UI::UIDrawList& drawList, const ReplayOverlayViewport& viewport,
                                     const Rendering::ContactPointPresentation& contact, float flash )
 {
     UI::UIPoint center;
@@ -1103,36 +1051,27 @@ static void DrawReplayContactPoint( UI::UIDrawList& drawList, const ReplayOverla
         return;
     }
 
-    DrawReplayContactAxis( drawList, viewport, contact, contact.normal * 2.5f, { 0.1f, 0.9f, 1.0f, 1.0f }, flash, true );
-    DrawReplayContactAxis( drawList, viewport, contact, contact.tangent1 * 1.25f, { 1.0f, 0.5f, 0.1f, 1.0f }, flash, false );
-    DrawReplayContactAxis( drawList, viewport, contact, contact.tangent2 * 1.25f, { 1.0f, 0.5f, 0.1f, 1.0f }, flash, false );
-    const UI::Style::UIColor gold { 1.0f, contact.exactSourcePoint ? 0.95f : 0.62f, 0.15f, 1.0f };
-    DrawReplayContactStroke( drawList, { center.x - 5.0f, center.y }, { center.x + 5.0f, center.y }, gold, flash );
-    DrawReplayContactStroke( drawList, { center.x, center.y - 5.0f }, { center.x, center.y + 5.0f }, gold, flash );
+    // Why: PhysicsDebugVisualizer owns the contact basis. This transient ring
+    // highlights its retained point without duplicating axes or rebuilding futures.
+    constexpr int sides = 16;
+    UI::UIPoint previous { center.x + 11.0f, center.y };
 
-    if ( flash > 0.0f )
+    for ( int side = 1; side <= sides; ++side )
     {
-        // A local ring makes the force event distinct from the steady normal
-        // and tangents. Only its alpha changes; the contact location is retained.
-        constexpr int sides = 16;
-        UI::UIPoint previous { center.x + 11.0f, center.y };
-
-        for ( int side = 1; side <= sides; ++side )
-        {
-            const float angle = static_cast<float>( side ) * 6.28318530718f / sides;
-            const UI::UIPoint next { center.x + 11.0f * std::cos( angle ), center.y + 11.0f * std::sin( angle ) };
-            DrawReplayGateStroke( drawList, previous, next, { 1.0f, 1.0f, 1.0f, flash }, 3.0f );
-            previous = next;
-        }
+        const float angle = static_cast<float>( side ) * 6.28318530718f / sides;
+        const UI::UIPoint next { center.x + 11.0f * std::cos( angle ), center.y + 11.0f * std::sin( angle ) };
+        DrawReplayGateStroke( drawList, previous, next, { 1.0f, 1.0f, 1.0f, flash }, 3.0f );
+        previous = next;
     }
 }
 
-static void ComposeReplayContactManifold( UI::UIDrawList& drawList, const ReplayCauseInspectionView& inspection,
-                                          const ReplayOverlayViewport& viewport )
+static void ComposeReplayContactFlash( UI::UIDrawList& drawList, const ReplayCauseInspectionView& inspection,
+                                       const ReplayOverlayViewport& viewport )
 {
     const auto mode = inspection.Transport().mode;
 
-    if ( mode != ReplayCauseInspectionMode::DetailPaused && mode != ReplayCauseInspectionMode::Transporting )
+    if ( ( mode != ReplayCauseInspectionMode::DetailPaused && mode != ReplayCauseInspectionMode::Transporting ) ||
+         inspection.Display().contactFlashAlpha <= 0.0f )
     {
         return;
     }
@@ -1144,7 +1083,7 @@ static void ComposeReplayContactManifold( UI::UIDrawList& drawList, const Replay
 
     for ( std::size_t index = 0; index < count; ++index )
     {
-        DrawReplayContactPoint( drawList, viewport, presentation.points[index], inspection.Display().contactFlashAlpha );
+        DrawReplayContactFlash( drawList, viewport, presentation.points[index], inspection.Display().contactFlashAlpha );
     }
 
     drawList.PopClip();
@@ -1168,7 +1107,7 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
 
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
     ComposeReplayPositionGates( m_drawList, replay.timeline, replay.causality, viewport );
-    ComposeReplayContactManifold( m_drawList, replay.causality.inspection, viewport );
+    ComposeReplayContactFlash( m_drawList, replay.causality.inspection, viewport );
 
     for ( ReplayOverlaySurfaceKind surface : REPLAY_OVERLAY_COMPOSITION_ORDER )
     {

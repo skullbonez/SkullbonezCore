@@ -925,8 +925,16 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics, const SceneEntit
 
     const PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
     const ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( physics );
-    m_predictionPresentation.RenderCauseFocusOverlay( m_visualPresentation.CameraView(), m_authoring.CauseTree(), prediction,
-                                                      currentSolverSample, bodyStore, colliderStore, entities, tracer );
+    // Why: exact contact geometry is submitted separately to PhysicsDebugVisualizer.
+    // The generic manifold marker is a fallback; individual solver rows still
+    // submit their separate impulse vector through the focus overlay.
+    if ( !m_planningOwner.CauseInspectionView().HasVisibleContactGeometry() ||
+         m_visualPresentation.CameraView().focusKind == RunReplayCameraFocusKind::SolverRow )
+    {
+        m_predictionPresentation.RenderCauseFocusOverlay( m_visualPresentation.CameraView(), m_authoring.CauseTree(),
+                                                          prediction, currentSolverSample, bodyStore, colliderStore,
+                                                          entities, tracer );
+    }
 
     const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
     ReplayVelocityOverlayCommand velocityOverlay;
@@ -1470,7 +1478,7 @@ ReplayRenderFrameViews ReplayRuntime::BuildRenderFrameViews( const ReplayFrameSe
     const ReplayRenderTimeView time { presentationSample, solverSample,
                                       ( presentationSample || solverSample ) ? nullptr : predictionFrame,
                                       inputView.liveAdvanceHeld };
-    const Rendering::ContactManifoldPresentation contactPresentation = causeFocusActive
+    const Rendering::ContactManifoldPresentation contactPresentation = causeInspection.HasVisibleContactGeometry()
                                                                            ? causeInspection.SolverDetail()
                                                                                  .contactPresentation
                                                                            : Rendering::ContactManifoldPresentation {};
