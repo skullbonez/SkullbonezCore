@@ -622,14 +622,32 @@ void AuthoredSceneParser::ApplyPointJointConstraint( const Json& jointJson, cons
         joint.slack = (std::max)( 0.0f, ReadFloat( *slack, path, "ragdollJoint.slack" ) );
     }
 
-    if ( const Json* stiffness = FindMember( jointJson, "stiffness" ) )
+    const bool physicalSettings = m_currentDocumentVersion >= 5u;
+    const char* frequencyKey = physicalSettings ? "frequencyHz" : "stiffness";
+    const char* dampingKey = physicalSettings ? "dampingRatio" : "damping";
+    if ( FindMember( jointJson, physicalSettings ? "stiffness" : "frequencyHz" ) ||
+         FindMember( jointJson, physicalSettings ? "damping" : "dampingRatio" ) )
     {
-        joint.stiffness = std::clamp( ReadFloat( *stiffness, path, "ragdollJoint.stiffness" ), 0.0f, 1.0f );
+        Fail( path, "ragdollJoint settings do not match scene schema version; frequencyHz/dampingRatio require version 5" );
+        return;
     }
 
-    if ( const Json* damping = FindMember( jointJson, "damping" ) )
+    if ( const Json* frequency = FindMember( jointJson, frequencyKey ) )
     {
-        joint.damping = std::clamp( ReadFloat( *damping, path, "ragdollJoint.damping" ), 0.0f, 1.0f );
+        const float value = ReadFloat( *frequency, path, frequencyKey );
+        joint.frequencyHz = physicalSettings ? value : Physics::PointJointFrequencyFromLegacy( value );
+    }
+
+    if ( const Json* damping = FindMember( jointJson, dampingKey ) )
+    {
+        const float value = ReadFloat( *damping, path, dampingKey );
+        joint.dampingRatio = physicalSettings ? value : Physics::PointJointDampingFromLegacy( value );
+    }
+
+    if ( joint.frequencyHz < 0.0f || joint.dampingRatio < 0.0f )
+    {
+        Fail( path, "ragdollJoint frequencyHz and dampingRatio must be non-negative" );
+        return;
     }
 
     if ( const Json* group = FindMember( jointJson, "groupId" ) )

@@ -279,6 +279,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
     <ClInclude Include="SkullbonezSource\Physics\TerrainSupportClassifier.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PointJointSettings.h" />
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h" />
     <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBroadphaseStepValues.h" />

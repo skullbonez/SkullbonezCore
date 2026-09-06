@@ -2,7 +2,7 @@
 
 Date: 2026-09-07
 Branch: `codex/ragdoll-physics-unification`
-Status: RAGDOLL_PHYSICS active at 6/10; portfolio 144/148
+Status: RAGDOLL_PHYSICS active at 7/10; portfolio 145/148
 
 ## Native UI and profiling dependency cleanup (2026-09-07)
 
@@ -55,11 +55,35 @@ explicit FP6 inputs, not a universal performance claim. The performance gate
 still reports the same 91 inherited allocation-policy findings, zero new.
 Independent review has no remaining implementation blocker.
 
+## Ragdoll FP6 acceptance (2026-09-07)
+
+Explicit 40 Hz/damping-ratio-1 softness, eight sweeps, physical scene schema v5
+and solver snapshot v8 are complete. Legacy controls migrate with matching
+binary32 arithmetic and incompatible warm starts clear on explicit import.
+The archive now retains a bounded high-detail prefix with an explicit RVPD v7
+coverage boundary, preserving later causal topology and exact sparse re-save.
+No body-store field, reserve owner or growth cap was added.
+
+Debug/Profile/Automation builds, 63 focused cases/32,678 assertions, source
+design, dependency, formatting, plain-language and migration checks pass. The
+Debug worker matrix is unchanged. Native saved replay checks and the corrected
+200-box capture plus independent full fidelity repeat and negative controls
+pass. The guarded transition `FP6/golden-transitions/joint-softness-9499cda6/`
+retains exact old/new producers and matching scene inputs. The Physics CSV is
+unchanged. The 91 allocation findings and intentional non-unit hull-normal
+migration fixture remain inherited limitations. Independent review is clean.
+The measured tradeoff is 15.531 mm physical sag and 0.00321 mm/step settled
+jitter with about 63% more total solve cost than FP5. Full plan closure remains
+FP9; no FP7-FP9 implementation is included in this checkpoint.
+
+Branch CI runs 34045496086 (mandatory CPU) and 34045497777 (Linux diagnostics)
+passed on FP5. Fresh runs will be dispatched after the FP6 push.
+
 ## Current State
 
 Current objective: complete `TODO/ragdoll-physics-unification.md` FP5-FP9.
-Plan progress: 6/10; portfolio progress: 144/148. Next binding task: FP6,
-explicit joint softness and damping. The cleanup CI jobs
+Plan progress: 7/10; portfolio progress: 145/148. Next binding task: FP7,
+shared contact/joint iteration. The cleanup CI jobs
 34042905345, 34042907156 and 34042908720 were dispatched on `88d09e78f`.
 They have completed: Linux diagnostics passed; mandatory CPU preflight failed
 changed-source formatting; native Windows diagnostics failed because its

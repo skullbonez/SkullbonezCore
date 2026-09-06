@@ -1485,8 +1485,8 @@ uint64_t HashPointJoint( uint64_t hash, const SkullbonezCore::Physics::PhysicsSo
     hash = HashVector( hash, joint.localAnchorA );
     hash = HashVector( hash, joint.localAnchorB );
     hash = HashFloat( hash, joint.slack );
-    hash = HashFloat( hash, joint.stiffness );
-    hash = HashFloat( hash, joint.damping );
+    hash = HashFloat( hash, joint.frequencyHz );
+    hash = HashFloat( hash, joint.dampingRatio );
     hash = snapshotVersion >= 7u ? HashVector( hash, joint.accumulatedImpulse )
                                  : HashFloat( hash, joint.accumulatedImpulse.x );
     hash = HashUint32( hash, joint.groupId );

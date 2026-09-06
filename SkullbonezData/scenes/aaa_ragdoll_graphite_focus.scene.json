@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 3,
+  "version": 5,
   "name": "AAA Ragdoll Graphite Focus",
   "cinematic": {
     "rendering": true,

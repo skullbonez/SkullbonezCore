@@ -257,6 +257,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h">
       <Filter>Header Files\Forces</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PointJointSettings.h">
+      <Filter>Header Files\Bodies</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h">
       <Filter>Header Files\Bodies</Filter>
     </ClInclude>

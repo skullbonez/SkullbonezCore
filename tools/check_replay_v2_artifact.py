@@ -81,7 +81,7 @@ def remove_if_exists(path):
 
 
 def validate_snapshot_query_versions():
-    # Synthetic v1-v7 payloads pin every nested solver-snapshot width change
+    # Synthetic v1-v8 payloads pin every nested solver-snapshot width change
     # without launching the runtime. The v6 row exceeds the retired byte limit.
     def make_fixture(version, point_joint_count, motion_eligibility_state, sleep_counters=()):
         raw = bytearray()
@@ -128,6 +128,7 @@ def validate_snapshot_query_versions():
         (5, 1, (0, 1, 1), (255,)),
         (6, 1, (0, 1, 1), (1000,)),
         (7, 2, (0, 1, 1), (1000,)),
+        (8, 2, (0, 1, 1), (1000,)),
     )
     for version, expected_joint_count, expected_motion_state, expected_sleep_counters in fixtures:
         raw = make_fixture(version, expected_joint_count, expected_motion_state, expected_sleep_counters)
@@ -144,13 +145,13 @@ def validate_snapshot_query_versions():
         if int(summary.get("sleepCounterCount") or 0) != len(expected_sleep_counters):
             raise RuntimeError(f"snapshot v{version} fixture reported the wrong sleep-counter count")
 
-    future_reader = ChunkReader(make_fixture(8, 1, (1,), (1000,)), "snapshot-v8-fixture")
+    future_reader = ChunkReader(make_fixture(9, 1, (1,), (1000,)), "snapshot-v9-fixture")
     try:
         ReplayV2._parse_snapshot_summary(future_reader)
     except ReplayQueryError:
         pass
     else:
-        raise RuntimeError("future solver snapshot v8 fixture was accepted")
+        raise RuntimeError("future solver snapshot v9 fixture was accepted")
 
 
 def run_checked(args, cwd):
@@ -1055,7 +1056,7 @@ def query_artifact():
     if int(first_checkpoint.get("bodyCount") or 0) <= 0 or not first_checkpoint.get("bodies"):
         raise RuntimeError("replay checkpoint query did not return solver body payloads")
     snapshot = first_checkpoint.get("snapshot") or {}
-    if int(snapshot.get("version") or 0) not in (1, 2, 3, 4, 5, 6, 7):
+    if int(snapshot.get("version") or 0) not in (1, 2, 3, 4, 5, 6, 7, 8):
         raise RuntimeError("replay checkpoint query returned an unsupported snapshot version")
     if int(snapshot.get("modelCount") or 0) != int(first_checkpoint.get("bodyCount") or 0):
         raise RuntimeError("replay checkpoint snapshot model count did not match body count")
@@ -1110,7 +1111,7 @@ def query_artifact():
 
 def main():
     try:
-        print("  Checking replay query snapshot v1-v7 fixtures...")
+        print("  Checking replay query snapshot v1-v8 fixtures...")
         validate_snapshot_query_versions()
         print("  Generating replay v2 artifact...")
         generate_artifact()

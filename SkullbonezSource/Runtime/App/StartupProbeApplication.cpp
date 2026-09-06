@@ -143,7 +143,8 @@ PhysicsAuthoredBodyRegistration RegisterPhysicsSmokeBody( PhysicsEngine& engine,
 
     PhysicsColliderCreateDesc collider = MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) );
     collider.sceneObjectId = sceneObjectId;
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     return engine.RegisterAuthoredBody( body, std::move( collider ) );
 }
 
@@ -192,7 +193,8 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     const Math::CollisionDetection::BoundingSphere updatedShape( 1.25f, Math::Vector::ZERO_VECTOR );
     const bool updatedBodyAndCollider = engine.UpdateAuthoredBodyAndCollider( bodyUpdate,
                                                                               MakeColliderCreateDesc( updatedShape, 0.2f,
-                                                                                                      HashStr( "default" ) ) );
+                                                                                                      HashStr(
+                                                                                                          "default" ) ) );
 
     PhysicsPointJointCreateDesc firstJointDesc;
     firstJointDesc.bodyA = fixed.body;
@@ -210,8 +212,8 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     jointUpdate.localAnchorA = Math::Vector::Vector3( 0.5f, 0.0f, 0.0f );
     jointUpdate.localAnchorB = Math::Vector::Vector3( -0.5f, 0.0f, 0.0f );
     jointUpdate.slack = 0.5f;
-    jointUpdate.stiffness = 0.4f;
-    jointUpdate.damping = 0.3f;
+    jointUpdate.frequencyHz = 0.4f;
+    jointUpdate.dampingRatio = 0.3f;
     jointUpdate.groupId = 17u;
     jointUpdate.flags = 3u;
     const bool updatedJoint = engine.UpdatePointJoint( jointUpdate );
@@ -234,8 +236,8 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
                                       survivorRecord.localAnchorA == jointUpdate.localAnchorA &&
                                       survivorRecord.localAnchorB == jointUpdate.localAnchorB &&
                                       survivorRecord.slack == jointUpdate.slack &&
-                                      survivorRecord.stiffness == jointUpdate.stiffness &&
-                                      survivorRecord.damping == jointUpdate.damping &&
+                                      survivorRecord.frequencyHz == jointUpdate.frequencyHz &&
+                                      survivorRecord.dampingRatio == jointUpdate.dampingRatio &&
                                       survivorRecord.groupId == jointUpdate.groupId &&
                                       survivorRecord.flags == jointUpdate.flags;
 
@@ -363,8 +365,8 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     hash = HashPhysicsSmokeVector( hash, survivorRecord.localAnchorA );
     hash = HashPhysicsSmokeVector( hash, survivorRecord.localAnchorB );
     hash = HashPhysicsSmokeFloat( hash, survivorRecord.slack );
-    hash = HashPhysicsSmokeFloat( hash, survivorRecord.stiffness );
-    hash = HashPhysicsSmokeFloat( hash, survivorRecord.damping );
+    hash = HashPhysicsSmokeFloat( hash, survivorRecord.frequencyHz );
+    hash = HashPhysicsSmokeFloat( hash, survivorRecord.dampingRatio );
     hash = HashPhysicsSmokeU32( hash, survivorRecord.groupId );
     hash = HashPhysicsSmokeU32( hash, survivorRecord.flags );
     hash = HashPhysicsSmokeHandle( hash, rayHit.body );

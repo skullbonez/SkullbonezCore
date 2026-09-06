@@ -1,8 +1,8 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Reactivated by owner direction on 2026-09-07. 6/10 phases complete;
-FP5 is complete; FP6 is next on `codex/ragdoll-physics-unification`.
+Status: Reactivated by owner direction on 2026-09-07. 7/10 phases complete;
+FP6 is complete; FP7 is next on `codex/ragdoll-physics-unification`.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
 Priority: Active. Execute FP5-FP9 in strict internal order.
@@ -12,8 +12,8 @@ Commit name: `RAGDOLL_PHYSICS`
 
 On 2026-09-07 the owner reactivated the remaining phases on a child branch
 of cleanup commit `88d09e78f`, while its hosted validation runs independently.
-FP5 resumes from the accepted FP4 result. Required FP5 completion subject:
-`RAGDOLL_PHYSICS, TASK 6/10 — implement the 3-DOF point joint`.
+FP5 and FP6 are accepted. Required FP7 completion subject:
+`RAGDOLL_PHYSICS, TASK 8/10 — unify contact and joint iteration`.
 
 The owner explicitly activated this plan on 2026-08-22, assigned the
 `RAGDOLL_PHYSICS` commit token, placed it ahead of every existing master-plan
@@ -832,6 +832,51 @@ predictable across the supported fixed-step envelope.
 - Any authored-data migration retains its separate schema ruling; an exact
   golden transition uses the archived automated Physics lane.
 
+### FP6 implementation evidence — 2026-09-07
+
+Physics/PointJointSettings owns an implicit frequency/damping model: 40 Hz,
+damping ratio 1, eight sweeps. Bias and effective-mass-scaled compliance include
+the accumulated impulse term with explicit units. Positional postcorrection and
+absolute linear/angular speed clamps are removed. Diagnostics retain signed
+corrective impulse work, bias rate and compliance; the separate angular neck
+limiter is excluded from the point-joint energy claim.
+
+The 60/120/240 Hz and 8/12-sweep loaded-chain fixtures remain bounded. Alternating
+FP5/candidate measurements show 15.531 mm physical sag, 23.993 mm peak error,
+0.00321 mm/step settled jitter and 0.000000365 J settled energy. Eight sweeps cost
+about 63% more per joint step than FP5's four; the lower per-iteration cost is
+not presented as a total speed improvement. Model selection and raw measurements
+are retained under `Agentic/Plans/Artifacts/ragdoll-physics-unification/FP6/`.
+
+Scene v5 writes physical parameters; all 150 active scenes are current. Legacy
+conversion rounds each operation to binary32 in Python and C++. Nested solver
+snapshot v8 assigns physical meaning to the two floats; v3-v7 preserve old raw
+bytes for inspection, explicit import migrates settings and clears warm start,
+and older authoritative continuation is rejected before live mutation.
+
+The 200-box run exposed an archive failure when the 320 MiB detailed evidence
+bank ended at frame 1295 before a causal event at frame 1587. RVPD v7 now retains
+an explicit exclusive evidence boundary alongside complete lightweight futures.
+Historical v4/v6 reads and exact sparse re-save remain supported; malformed
+boundaries, missing in-prefix evidence and nonexistent timeline references fail
+atomically. No reserve cap, growth privilege or body-store field was added.
+
+Debug/Profile/Automation builds, 63 focused cases/32,678 assertions, compiler-
+backed source checks, dependency proof/scan, formatting, plain-language scan,
+migrator self-tests and active-scene idempotence pass. The Debug worker matrix
+and native saved replay save/query/restore/rollback pass. The corrected 2401-
+frame capture and independent full replay gate pass, including every negative
+control. Exact old/new producers and v3/v5 scene inputs are retained in
+`FP6/golden-transitions/joint-softness-9499cda6/`; visual and causal goldens are
+9499cda6... and 128d2bd0..., while the core Physics CSV remains 03088b30....
+The allocation gate retains 91 inherited findings, zero new. The general format
+migrator still flags the deliberate non-unit hull-normal fixture; its bytes
+remain unchanged. These inherited findings are recorded, not reported as passes.
+
+Independent review by 01a0779b-e345-7222-93f5-148a1da70b97 has zero blocking and
+zero non-blocking findings after the float-conversion and archive membership
+corrections. FP6 is closed; FP7 is next. Full-plan gates remain due at FP9.
+
 ---
 
 ## FP7 — Ragdoll Stage (d): Shared Contact And Joint Iteration
@@ -1005,7 +1050,7 @@ solver changes.
   performance improvement.
 - [x] **FP5 — Ragdoll 3-DOF point joint.** Pin linear anchor coincidence with a
   3-by-3 effective mass and vector warm start.
-- [ ] **FP6 — Explicit ragdoll softness.** Use principled frequency/damping or
+- [x] **FP6 — Explicit ragdoll softness.** Use principled frequency/damping or
   compliance across timestep and iteration variations.
 - [ ] **FP7 — Shared contact/joint iteration.** Unify deterministic PGS sweeps.
 - [ ] **FP8 — Late predictive ragdoll contacts.** Add uniform-step speculative

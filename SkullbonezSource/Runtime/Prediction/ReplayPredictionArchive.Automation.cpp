@@ -513,14 +513,14 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
 
     const uint64_t evidenceOffset = ReadLittleEndianU64( bytes, ARCHIVE_SECOND_SECTION_OFFSET_FIELD );
 
-    if ( evidenceOffset > bytes.size() - 12u )
+    if ( evidenceOffset > bytes.size() - 28u )
     {
         WriteAutomationReason( outReason, reasonSize, "prediction evidence section is too small for mutation tests" );
         return false;
     }
 
     mutation.assign( bytes.begin(), bytes.end() );
-    WriteLittleEndianU32( mutation, static_cast<std::size_t>( evidenceOffset ) + 4u, 1u );
+    WriteLittleEndianU32( mutation, static_cast<std::size_t>( evidenceOffset ) + 12u, 1u );
 
     if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,
                                                *restoredEvidenceStorage, ReplayPredictionArchiveDetailCapability::Low,
@@ -530,7 +530,7 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
     }
 
     mutation.assign( bytes.begin(), bytes.end() );
-    WriteLittleEndianU32( mutation, static_cast<std::size_t>( evidenceOffset ) + 8u, 1'000'001u );
+    WriteLittleEndianU32( mutation, static_cast<std::size_t>( evidenceOffset ) + 20u, 1'000'001u );
 
     if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,
                                                *restoredEvidenceStorage, ReplayPredictionArchiveDetailCapability::Low,
@@ -599,7 +599,7 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
     // Hazard: bytes 4..7 are the little-endian schema field immediately after
     // the fixed RVPD magic. A future value must fail closed before any payload
     // values are accepted.
-    WriteLittleEndianU32( futureBytes, ARCHIVE_SCHEMA_OFFSET, 7u );
+    WriteLittleEndianU32( futureBytes, ARCHIVE_SCHEMA_OFFSET, 8u );
 
     if ( !VerifyRejectedArchivePreservesState( futureBytes, rebuiltBytes, restoredPathVisualizer, restoredPrediction,
                                                *restoredEvidenceStorage, ReplayPredictionArchiveDetailCapability::Low,

@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-09-07
-Status: 144/148 tasks complete; RAGDOLL_PHYSICS active at 6/10; bug ledger 126/126 fixed
+Status: 145/148 tasks complete; RAGDOLL_PHYSICS active at 7/10; bug ledger 126/126 fixed
 
 ## Owner Direction
 
@@ -372,7 +372,7 @@ hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
-| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 6 | FP6: explicit joint softness | `TODO/ragdoll-physics-unification.md` |
+| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 7 | FP7: shared contact/joint iteration | `TODO/ragdoll-physics-unification.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -409,7 +409,7 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`RAGDOLL_PHYSICS` FP6 is the next binding task, followed strictly by FP7-FP9.
+`RAGDOLL_PHYSICS` FP7 is the next binding task, followed strictly by FP8-FP9.
 `SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete.
 
 `RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
@@ -494,8 +494,8 @@ completed TODO plan is deleted under repository convention. Five serial
 read-only review passes closed nine matcher, scope, fixture, and metadata
 findings; the final pass is clean. No scanner, fixture, build, test, or
 validation command ran by explicit owner direction.
-The five unfinished Ragdoll Physics phases are active; current portfolio
-progress is 144/148, with the completed five phases already counted historically. The nine completed Ragdoll and Recorded Cursor phases remain part
+The three unfinished Ragdoll Physics phases are active; current portfolio
+progress is 145/148, with the completed five phases already counted historically. The nine completed Ragdoll and Recorded Cursor phases remain part
 of the historical completed count.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.

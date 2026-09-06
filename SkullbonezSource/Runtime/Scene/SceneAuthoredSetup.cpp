@@ -296,8 +296,6 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
         desc.localAnchorA = ScaleSceneVector( joints[i].localAnchorA, scale );
         desc.localAnchorB = ScaleSceneVector( joints[i].localAnchorB, scale );
         desc.slack = joints[i].slack * scale;
-        desc.stiffness = 0.22f;
-        desc.damping = 0.35f;
         desc.groupId = groupId;
         desc.flags = joints[i].flags;
         sceneWorld.Physics().CreatePointJoint( desc );
@@ -999,8 +997,8 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
         joint.localAnchorA = sceneJoint.localAnchorA;
         joint.localAnchorB = sceneJoint.localAnchorB;
         joint.slack = sceneJoint.slack;
-        joint.stiffness = sceneJoint.stiffness;
-        joint.damping = sceneJoint.damping;
+        joint.frequencyHz = sceneJoint.frequencyHz;
+        joint.dampingRatio = sceneJoint.dampingRatio;
         joint.groupId = sceneJoint.groupId;
         joint.flags = sceneJoint.flags;
 

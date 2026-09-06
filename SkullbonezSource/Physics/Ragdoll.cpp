@@ -54,14 +54,10 @@ constexpr float RAGDOLL_DEFAULT_SCALE = 1.0f;
 constexpr float RAGDOLL_MIN_SCALE = 0.25f;
 constexpr float RAGDOLL_MAX_SCALE = 8.0f;
 constexpr float RAGDOLL_JOINT_MAX_BIAS_SPEED = 28.0f;
-constexpr float RAGDOLL_JOINT_MAX_POSITION_CORRECTION = 0.35f;
-constexpr float RAGDOLL_JOINT_MAX_LINEAR_SPEED = 70.0f;
-constexpr float RAGDOLL_JOINT_MAX_ANGULAR_SPEED = 18.0f;
 constexpr float RAGDOLL_NECK_MAX_SWING_RADIANS = 0.52359878f;
 constexpr float RAGDOLL_NECK_MAX_SWING_COSINE = 0.86602539f;
 constexpr float RAGDOLL_NECK_MAX_CORRECTION_RADIANS = 0.20f;
 constexpr float RAGDOLL_NECK_ANGULAR_DAMPING = 0.45f;
-constexpr int RAGDOLL_SOLVER_ITERATIONS = 4;
 
 enum SimplePart
 {
@@ -143,30 +139,6 @@ Vector3 ApplyRecordInvInertia( const PhysicsBodyRecord& record, const PhysicsBod
     return applied ? worldResult : ZERO_VECTOR;
 }
 
-Vector3 ClampVectorMagnitude( const Vector3& value, float limit )
-{
-    if ( !std::isfinite( value.x ) || !std::isfinite( value.y ) || !std::isfinite( value.z ) )
-    {
-        return ZERO_VECTOR;
-    }
-
-    const float limitSq = limit * limit;
-    const float magSq = Dot( value, value );
-
-    if ( magSq <= limitSq || magSq <= TOLERANCE )
-    {
-        return value;
-    }
-
-    return value * ( limit / sqrtf( magSq ) );
-}
-
-void ClampRagdollBodyVelocity( PhysicsBodyHotState& hot )
-{
-    hot.linearVelocity = ClampVectorMagnitude( hot.linearVelocity, RAGDOLL_JOINT_MAX_LINEAR_SPEED );
-    hot.angularVelocity = ClampVectorMagnitude( hot.angularVelocity, RAGDOLL_JOINT_MAX_ANGULAR_SPEED );
-}
-
 struct ConstraintImpulseBody
 {
     PhysicsBodyRecord& record;
@@ -201,24 +173,14 @@ struct ConstraintImpulseBody
             hot.angularVelocity -= ApplyRecordInvInertia( record, hot, CrossProduct( leverArm, impulse ) );
         }
     }
-
-    void ClampVelocity() const
-    {
-        if ( inverseMass > 0.0f )
-        {
-            ClampRagdollBodyVelocity( hot );
-        }
-    }
 };
 
 void ApplyConstraintImpulse( const ConstraintImpulseBody& bodyA, const ConstraintImpulseBody& bodyB, const Vector3& impulse )
 {
-    // Invariant: A then B impulse application and A then B clamping preserve
-    // the established per-pair floating-point and saturation order.
+    // Equal and opposite impulses preserve momentum. Absolute body-speed
+    // clamps would remove unrelated motion and conceal the spring's energy.
     bodyA.ApplyPositive( impulse );
     bodyB.ApplyNegative( impulse );
-    bodyA.ClampVelocity();
-    bodyB.ClampVelocity();
 }
 
 
@@ -530,11 +492,11 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData, const Vector3& terr
 
 bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJointConstraint> constraints,
                                 std::span<const uint8_t> sleepState, float dt,
-                                std::span<PointJointIterationSample> diagnostics )
+                                std::span<PointJointIterationSample> diagnostics, int iterations )
 {
     std::fill( diagnostics.begin(), diagnostics.end(), PointJointIterationSample {} );
 
-    if ( constraints.empty() || dt <= TOLERANCE )
+    if ( constraints.empty() || !std::isfinite( dt ) || dt <= TOLERANCE || iterations < 1 || iterations > 32 )
     {
         return false;
     }
@@ -542,9 +504,8 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJoin
     const auto bodyRecords = bodyStore.MutableRecords();
     const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const int modelCount = bodyStore.Count();
-    const float invDt = 1.0f / dt;
 
-    for ( int iteration = -1; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )
+    for ( int iteration = -1; iteration < iterations; ++iteration )
     {
         for ( PointJointConstraint& constraint : constraints )
         {
@@ -582,11 +543,18 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJoin
             Vector3 error = anchorB - anchorA;
             float distance = VectorMag( error );
 
-            Vector3 axis( 1.0f, 0.0f, 0.0f );
+            Vector3 axis = ZERO_VECTOR;
 
-            if ( distance > TOLERANCE )
+            if ( distance > 0.0f )
             {
                 axis = error / distance;
+            }
+
+            const PointJointSoftness softness( constraint.frequencyHz, constraint.dampingRatio, dt );
+            if ( !softness.IsEnabled() )
+            {
+                constraint.accumulatedImpulse = ZERO_VECTOR;
+                continue;
             }
 
             const PointJointEffectiveMass effectiveMass( { bodyA, hotA, rA, invMassA }, { bodyB, hotB, rB, invMassB } );
@@ -613,38 +581,22 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJoin
             const Vector3 velA = hotA.linearVelocity + CrossProduct( hotA.angularVelocity, rA );
             const Vector3 velB = hotB.linearVelocity + CrossProduct( hotB.angularVelocity, rB );
             const float distanceError = (std::max)( 0.0f, distance - constraint.slack );
-            const float biasSpeed = std::clamp( distanceError * constraint.stiffness * invDt, 0.0f,
-                                                RAGDOLL_JOINT_MAX_BIAS_SPEED );
-            const Vector3 velocityTarget = ClampVectorMagnitude( ( velB - velA + axis * biasSpeed ) *
-                                                                     ( 1.0f + constraint.damping ),
-                                                                 RAGDOLL_JOINT_MAX_BIAS_SPEED );
+            // Units: bias is m/s. Only positional recovery is capped; physical
+            // relative motion remains in the equation without a speed clamp.
+            const float biasSpeed = std::clamp( distanceError * softness.BiasRate(), 0.0f, RAGDOLL_JOINT_MAX_BIAS_SPEED );
+            const Vector3 velocityTarget = velB - velA + axis * biasSpeed;
             Vector3 impulseDelta = ZERO_VECTOR;
             if ( effectiveMass.Solve( velocityTarget, impulseDelta ) )
             {
+                // Concept: solve (K+gamma*K) dLambda = Cdot+bias-gamma*K*lambda.
+                // The cached-impulse term makes compliance independent of the
+                // number of visits to this block within the step.
+                impulseDelta = impulseDelta * softness.MassScale() - constraint.accumulatedImpulse * softness.ImpulseScale();
                 constraint.accumulatedImpulse += impulseDelta;
                 ApplyConstraintImpulse( { bodyA, hotA, rA, invMassA }, { bodyB, hotB, rB, invMassB }, impulseDelta );
             }
 
-            if ( distanceError > TOLERANCE )
-            {
-                const float correctionAmount = (std::min)( distanceError * constraint.stiffness,
-                                                           RAGDOLL_JOINT_MAX_POSITION_CORRECTION );
-
-                const Vector3 correction = axis * ( correctionAmount / totalInvMass );
-
-                if ( invMassA > 0.0f )
-                {
-                    hotA.position += correction * invMassA;
-                }
-
-                if ( invMassB > 0.0f )
-                {
-                    hotB.position -= correction * invMassB;
-                }
-            }
-
-            const std::size_t diagnosticIndex = static_cast<std::size_t>( &constraint - constraints.data() ) *
-                                                    RAGDOLL_SOLVER_ITERATIONS +
+            const std::size_t diagnosticIndex = static_cast<std::size_t>( &constraint - constraints.data() ) * iterations +
                                                 static_cast<std::size_t>( iteration );
             if ( diagnosticIndex < diagnostics.size() )
             {
@@ -656,6 +608,9 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJoin
                 sample.relativeAnchorVelocity = hotB.linearVelocity + CrossProduct( hotB.angularVelocity, rB ) -
                                                 hotA.linearVelocity - CrossProduct( hotA.angularVelocity, rA );
                 sample.minimumScaledPivot = effectiveMass.MinimumScaledPivot();
+                sample.impulseWorkJoules = -0.5f * Dot( impulseDelta, velB - velA + sample.relativeAnchorVelocity );
+                sample.biasRatePerSecond = softness.BiasRate();
+                sample.complianceScale = softness.ImpulseScale() / softness.MassScale();
             }
 
             StorePhysicsBodyHotState( hotFields, hotAIndex, hotA );

@@ -607,8 +607,8 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
         sample.localAnchorA = constraint.localAnchorA;
         sample.localAnchorB = constraint.localAnchorB;
         sample.slack = constraint.slack;
-        sample.stiffness = constraint.stiffness;
-        sample.damping = constraint.damping;
+        sample.frequencyHz = constraint.frequencyHz;
+        sample.dampingRatio = constraint.dampingRatio;
         sample.accumulatedImpulse = constraint.accumulatedImpulse;
         sample.groupId = constraint.groupId;
         sample.flags = constraint.flags;
@@ -697,6 +697,13 @@ bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& 
                 }
 
 
+                // Compatibility: v3-v7 retain raw historical coefficients in
+                // the detached sample so old artifact hashes remain readable.
+                const float frequencyHz = snapshot.version >= 8u ? sample.frequencyHz
+                                                                 : PointJointFrequencyFromLegacy( sample.frequencyHz );
+                const float dampingRatio = snapshot.version >= 8u ? sample.dampingRatio
+                                                                  : PointJointDampingFromLegacy( sample.dampingRatio );
+
                 // Invariant: the filtered row ordinal and durable scene ids are
                 // the persisted topology identity. Public constraint/body handle
                 // generations are intentionally absent because Clear advances them.
@@ -706,8 +713,8 @@ bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& 
                      std::memcmp( &constraint.localAnchorA, &sample.localAnchorA, sizeof( sample.localAnchorA ) ) != 0 ||
                      std::memcmp( &constraint.localAnchorB, &sample.localAnchorB, sizeof( sample.localAnchorB ) ) != 0 ||
                      std::memcmp( &constraint.slack, &sample.slack, sizeof( sample.slack ) ) != 0 ||
-                     std::memcmp( &constraint.stiffness, &sample.stiffness, sizeof( sample.stiffness ) ) != 0 ||
-                     std::memcmp( &constraint.damping, &sample.damping, sizeof( sample.damping ) ) != 0 ||
+                     std::memcmp( &constraint.frequencyHz, &frequencyHz, sizeof( frequencyHz ) ) != 0 ||
+                     std::memcmp( &constraint.dampingRatio, &dampingRatio, sizeof( dampingRatio ) ) != 0 ||
                      constraint.groupId != sample.groupId || constraint.flags != sample.flags )
                 {
                     return false;
@@ -763,21 +770,12 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 
             if ( bodyA >= 0 && bodyA < modelCount && bodyB >= 0 && bodyB < modelCount )
             {
-                constraint.accumulatedImpulse = snapshot.pointJoints[sampleIndex++].accumulatedImpulse;
-                if ( snapshot.version < 7u )
-                {
-                    // Compatibility: v3-v6 saved a scalar on the historical
-                    // anchor-error axis. Reconstruct it from restored poses once;
-                    // every subsequent step retains a world-space vector.
-                    auto hotA = LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( bodyA ) );
-                    auto hotB = LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( bodyB ) );
-                    const Vector3 armA = hotA.orientation.GetOrientationMatrix() * constraint.localAnchorA;
-                    const Vector3 armB = hotB.orientation.GetOrientationMatrix() * constraint.localAnchorB;
-                    const Vector3 error = ( hotB.position + armB ) - ( hotA.position + armA );
-                    const float distance = VectorMag( error );
-                    const Vector3 axis = distance > TOLERANCE ? error / distance : Vector3( 1.0f, 0.0f, 0.0f );
-                    constraint.accumulatedImpulse = axis * constraint.accumulatedImpulse.x;
-                }
+                // A historical impulse came from a different constitutive
+                // model. Explicit import starts cold; App rejects authoritative
+                // continuation of historical solver versions before mutation.
+                constraint.accumulatedImpulse = snapshot.version >= 8u ? snapshot.pointJoints[sampleIndex].accumulatedImpulse
+                                                                       : ZERO_VECTOR;
+                ++sampleIndex;
             }
         }
     }
@@ -1472,7 +1470,8 @@ void PhysicsWorld::TrimPointJointsToBodyCount( const PhysicsBodyStore& bodyStore
 
 PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
 {
-    if ( !desc.bodyA.IsValid() || !desc.bodyB.IsValid() || desc.bodyA == desc.bodyB )
+    if ( !desc.bodyA.IsValid() || !desc.bodyB.IsValid() || desc.bodyA == desc.bodyB || !std::isfinite( desc.frequencyHz ) ||
+         desc.frequencyHz < 0.0f || !std::isfinite( desc.dampingRatio ) || desc.dampingRatio < 0.0f )
     {
         return PhysicsConstraintHandle {};
     }
@@ -1492,8 +1491,8 @@ PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointC
     constraint.localAnchorA = desc.localAnchorA;
     constraint.localAnchorB = desc.localAnchorB;
     constraint.slack = desc.slack;
-    constraint.stiffness = desc.stiffness;
-    constraint.damping = desc.damping;
+    constraint.frequencyHz = desc.frequencyHz;
+    constraint.dampingRatio = desc.dampingRatio;
     constraint.groupId = desc.groupId;
     constraint.flags = desc.flags;
 
@@ -1516,6 +1515,13 @@ PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointC
 
 bool PhysicsWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
 {
+    if ( ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_SOLVER ) &&
+         ( !std::isfinite( desc.frequencyHz ) || desc.frequencyHz < 0.0f || !std::isfinite( desc.dampingRatio ) ||
+           desc.dampingRatio < 0.0f ) )
+    {
+        return false;
+    }
+
     const auto found = std::find_if( m_pointJointConstraints.begin(), m_pointJointConstraints.end(),
                                      [&]( const PointJointConstraint& constraint )
                                      { return constraint.handle == desc.constraint; } );
@@ -1545,8 +1551,8 @@ bool PhysicsWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
     if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_SOLVER )
     {
         joint.slack = desc.slack;
-        joint.stiffness = desc.stiffness;
-        joint.damping = desc.damping;
+        joint.frequencyHz = desc.frequencyHz;
+        joint.dampingRatio = desc.dampingRatio;
         invalidateWarmStart = true;
     }
 

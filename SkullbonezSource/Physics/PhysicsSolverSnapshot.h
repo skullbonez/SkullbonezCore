@@ -16,8 +16,10 @@ Glossary:
   Sleep state: Per-body flag that lets stable bodies skip simulation until woken.
 
 Invariants:
-  - Version 7 stores a world-space point-joint impulse; v3-v6 import their
-    scalar into x until Physics reconstructs its historical anchor-error axis.
+  - Version 8 stores physical spring settings. Older versions remain readable
+    with historical raw coefficients/impulses for hashes; explicit Physics
+    import migrates settings and clears the old-model point-joint impulse.
+  - Version 7 stores vector impulses; v3-v6 decode their scalar into x.
   - Snapshot compatibility is explicit and versioned when fields are added.
   - Version 5 lets the composed replay snapshot encode its Gameplay clock as
     double; version 4 artifacts retain their historical float payload.
@@ -25,7 +27,8 @@ Invariants:
     convert their historical byte counters during load.
   - Version 4 stores exactly one valid motion-eligibility byte per body; older
     versions omit the field and restore cold classification state.
-  - Restored snapshots contain enough state for the next fixed step to match.
+  - Current-version snapshots preserve exact continuation. App rejects older
+    authoritative continuation before mutation; explicit import starts cold.
   - Replay-only vector growth is registered under one fixed owner and cannot
     exceed the measured 8 MiB hard cap.
 
@@ -49,7 +52,7 @@ Related:
 namespace SkullbonezCore::Physics
 {
 inline constexpr const char* PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
-inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 7u;
+inline constexpr uint32_t PHYSICS_SOLVER_SNAPSHOT_VERSION = 8u;
 
 // Test probe: the strict two-generation prediction probe measured 3,401,552 bytes.
 // Eight MiB preserves 2.466112x measured headroom.
@@ -75,8 +78,9 @@ struct PhysicsSolverPointJointSample
     Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
     float slack = 0.0f;
-    float stiffness = 0.0f;
-    float damping = 0.0f;
+    // Versions 3-7 retain raw legacy stiffness/damping here for historical hashes.
+    float frequencyHz = 0.0f;
+    float dampingRatio = 0.0f;
     Math::Vector::Vector3 accumulatedImpulse = Math::Vector::ZERO_VECTOR;
     uint32_t groupId = 0;
     uint8_t flags = 0;

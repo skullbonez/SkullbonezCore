@@ -585,8 +585,8 @@ void AppendPointJoint( std::vector<uint8_t>& out, const SkullbonezCore::Physics:
     AppendVec3( out, joint.localAnchorA );
     AppendVec3( out, joint.localAnchorB );
     AppendPod( out, joint.slack );
-    AppendPod( out, joint.stiffness );
-    AppendPod( out, joint.damping );
+    AppendPod( out, joint.frequencyHz );
+    AppendPod( out, joint.dampingRatio );
     if ( snapshotVersion >= 7u )
     {
         AppendVec3( out, joint.accumulatedImpulse );
@@ -1742,7 +1742,7 @@ bool ReadPointJoint( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolverP
     return ReadPod( cursor, outJoint.topologyOrdinal ) && ReadPod( cursor, outJoint.bodyASceneObjectId.value ) &&
            ReadPod( cursor, outJoint.bodyBSceneObjectId.value ) && ReadVec3( cursor, outJoint.localAnchorA ) &&
            ReadVec3( cursor, outJoint.localAnchorB ) && ReadPod( cursor, outJoint.slack ) &&
-           ReadPod( cursor, outJoint.stiffness ) && ReadPod( cursor, outJoint.damping ) &&
+           ReadPod( cursor, outJoint.frequencyHz ) && ReadPod( cursor, outJoint.dampingRatio ) &&
            ( snapshotVersion >= 7u ? ReadVec3( cursor, outJoint.accumulatedImpulse )
                                    : ReadPod( cursor, outJoint.accumulatedImpulse.x ) ) &&
            ReadPod( cursor, outJoint.groupId ) && ReadPod( cursor, outJoint.flags );

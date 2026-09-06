@@ -315,7 +315,7 @@ SbResult AppendSimulationJson( SkullbonezCore::Core::SbDiagnosticStore& diagnost
     const SceneWorldSaveState& sceneView = request.world;
     const SceneSessionSaveState& session = request.session;
     scene["format"] = "skullbonez.scene.json";
-    scene["version"] = 4;
+    scene["version"] = 5;
     scene["simulation"] = Json::object();
     scene["simulation"]["physics"] = session.physicsOn;
     scene["simulation"]["text"] = session.textOn;
@@ -581,8 +581,8 @@ void AppendPointJointsJson( const SceneWorldSaveState& sceneView, Json& scene )
             { "localAnchorA", Vec3Json( joint.localAnchorA ) },
             { "localAnchorB", Vec3Json( joint.localAnchorB ) },
             { "slack", joint.slack },
-            { "stiffness", joint.stiffness },
-            { "damping", joint.damping },
+            { "frequencyHz", joint.frequencyHz },
+            { "dampingRatio", joint.dampingRatio },
             { "groupId", joint.groupId },
         };
         if ( joint.flags != 0 )

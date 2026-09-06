@@ -37,6 +37,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+#include "PointJointSettings.h"
 
 #include <cstdint>
 #include <cstring>
@@ -84,8 +85,8 @@ struct PointJointConstraint
     Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
     float slack = 0.25f;
-    float stiffness = 0.22f;
-    float damping = 0.35f;
+    float frequencyHz = SkullbonezCore::Physics::POINT_JOINT_DEFAULT_FREQUENCY_HZ;
+    float dampingRatio = SkullbonezCore::Physics::POINT_JOINT_DEFAULT_DAMPING_RATIO;
     Math::Vector::Vector3
         accumulatedImpulse = Math::Vector::ZERO_VECTOR; // World-space impulse on body A, retained with this stable handle.
     uint32_t groupId = 0;
@@ -115,7 +116,7 @@ struct PointJointConstraint
 };
 
 // Detached per-iteration evidence. The caller supplies fixed storage; sample
-// order is joint-major with four consecutive iterations per joint. An unvisited
+// order is joint-major with the requested iterations per joint. An unvisited
 // or unsolvable block keeps iteration -1. Diagnostics never affect solver state.
 struct PointJointIterationSample
 {
@@ -125,6 +126,11 @@ struct PointJointIterationSample
     Math::Vector::Vector3 relativeAnchorVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 accumulatedImpulse = Math::Vector::ZERO_VECTOR;
     float minimumScaledPivot = 0.0f;
+    // Signed kinetic-energy change from this corrective impulse, excluding
+    // warm start, gravity/integration, and the separate neck angular limiter.
+    float impulseWorkJoules = 0.0f;
+    float biasRatePerSecond = 0.0f;
+    float complianceScale = 0.0f;
 };
 
 struct RagdollBuildOptions
@@ -196,7 +202,8 @@ class Ragdoll
     // must invalidate the cache before the next call.
     static bool SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJointConstraint> constraints,
                                   std::span<const uint8_t> sleepState, float dt,
-                                  std::span<PointJointIterationSample> diagnostics = {} );
+                                  std::span<PointJointIterationSample> diagnostics = {},
+                                  int iterations = POINT_JOINT_SOLVER_ITERATIONS );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

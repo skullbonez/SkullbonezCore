@@ -723,6 +723,9 @@ struct RunReplayPredictionState
     // prefixes. Offline reveal projection may derive markers from those values,
     // but must not resume the live builders from retained scratch capacity.
     bool archivePresentationRestored = false;
+    // Invariant: exclusive high-detail coverage boundary of a restored archive.
+    // Sparse retained event records cannot reconstruct this value on re-save.
+    ReplayFrameIndex archiveEvidenceEndFrame = 0u;
 
     // Concept: the butterfly baseline is a retained presentation snapshot of
     // the pre-nudge future. It is intentionally smaller than the committed
