@@ -77,11 +77,18 @@ mandatory first-choice driver and observation surface. Read
 `Agentic/Skills/skarness/SKILL.md` before reproducing, debugging, or validating
 that behavior.
 
+**Standing authorization:** If a control, state topic, query, diagnostic output,
+or other Skarness capability needed to reproduce, debug, or validate the current
+task does not exist, **add it yourself as part of the task**. The user explicitly
+grants permission to implement these extensions; do not stop to ask permission
+or report the missing capability as a blocker. Implement and validate the
+narrowest useful capability, then use it to complete the work.
+
 1. Launch `Automation\SKULLBONEZ_CORE.exe` through `tools\skarness.py`; do not
    substitute desktop keyboard or mouse input for a supported Skarness command.
-2. Check `capabilities` before assuming a control or state topic exists. When a
-   player-facing control needed by the task is missing, extend Skarness as part
-   of the task instead of silently falling back to PC input.
+2. Check `capabilities` before assuming a control or state topic exists. Extend
+   missing capabilities under the standing authorization above instead of
+   silently falling back to PC input.
 3. Subscribe to or query the owning state topic and preserve the resulting
    event stream under `TestOutput/skarness/`. A command acknowledgement proves
    only that input was applied, not that the requested result occurred.
