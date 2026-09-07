@@ -13,10 +13,6 @@ Summary:
   value projection, applies the phase owner's submission plan, and retains no
   frame values after returning commands to the frame sequencer.
 
-Glossary:
-  Cold detail: Inspector and diagnostics data sampled only while ImGui is shown.
-  Late UI pass: Presentation work recorded after the 3D game view.
-
 Invariants:
   - Owner references are borrowed for this call only and never retained.
   - Dense physics rows are used only after typed-handle validation.
@@ -29,6 +25,7 @@ Related:
   - Runtime/RuntimeFrameViews.h retains the value-only late-UI facts.
   - Agentic/Reference/engine-glossary.md
 */
+
 #include "Run.h"
 #include "../UI/OperatorUiProjection.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
@@ -46,7 +43,6 @@ Related:
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
-#include "../../Core/TracyClientOwner.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -246,124 +242,6 @@ Core::MainMemoryStats SampleMainMemoryOverlayStats( const DiagnosticsRuntime& di
 }
 } // namespace
 
-void Run::SampleSecondaryOperatorDiagnostics( const RuntimeFrameMetricsSnapshot& frameMetrics,
-                                              const RuntimeUiTextFrameFacts& uiTextFacts, const OverlayDebugState& debug,
-                                              bool shadowsEnabled, bool cinematicRendering,
-                                              const Core::CinematicRenderConfig& cinematic,
-                                              RuntimeViewModel& runtimeViewModel,
-                                              RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
-                                              RenderDiagnosticsReadout& renderDiagnosticsReadout,
-                                              OperatorUiSecondaryDiagnosticsFacts& facts )
-{
-    // Why: the secondary surface can be visible while GameUI is hidden. This
-    // cold projection samples its bounded diagnostics independently of the GPU
-    // submission decision made by RenderOperatorUiPhase.
-    runtimeViewModel = SampleRuntimeViewModel( m_sceneController.State(), m_sceneController.Scene(),
-                                               m_sceneController.QueueSize(), m_capture.Screenshot(),
-                                               m_config.runtimeRender.presentationInterpolation,
-                                               uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
-
-    renderTargetPreviews = Renderer()
-                               .ResourceLifecycle()
-                               .BuildRenderTargetPreviewSnapshot( shadowsEnabled, cinematicRendering,
-                                                                  cinematicRendering &&
-                                                                      cinematic.volumetricLightingEnabled );
-
-    const Core::MainMemoryStats& mainMemory = m_diagnosticsRuntime.MainMemoryStatsSnapshot();
-    renderDiagnosticsReadout = Renderer().BuildDiagnosticsReadout();
-    facts.rendererName = renderDiagnosticsReadout.rendererName.data();
-    facts.drawCalls = renderDiagnosticsReadout.drawCalls;
-    facts.uiDrawCalls = frameMetrics.uiDrawCalls;
-    facts.workerThreadCount = m_workerPool.GetThreadCount();
-    facts.maxWorkerThreadCount = Threading::WorkerPool::MaxThreadCount();
-    facts.fps = frameMetrics.rollingFrameSeconds > 0.0f
-                    ? 1.0f / frameMetrics.rollingFrameSeconds
-                    : ( frameMetrics.secondsPerFrame > 0.0 ? static_cast<float>( 1.0 / frameMetrics.secondsPerFrame )
-                                                           : 0.0f );
-    facts.renderMs = ( frameMetrics.rollingRenderSeconds > 0.0f ? frameMetrics.rollingRenderSeconds
-                                                                : frameMetrics.renderSeconds ) *
-                     1000.0f;
-    facts.physicsMs = ( frameMetrics.rollingPhysicsSeconds > 0.0f ? frameMetrics.rollingPhysicsSeconds
-                                                                  : frameMetrics.physicsSeconds ) *
-                      1000.0f;
-    facts.cpuFrameMs = frameMetrics.cpuFrameWorkMs;
-    facts.gpuFrameMs = frameMetrics.gpuFrameWorkMs;
-
-    facts.physicsDebugFlags = debug.physicsDebugFlags;
-    const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
-    int stageIndex = stageCount > 0 ? debug.physicsDebugPipelineStageCursor % stageCount : 0;
-
-    if ( stageIndex < 0 )
-    {
-        stageIndex += stageCount;
-    }
-
-    facts.physicsPipelineStageIndex = stageIndex;
-    facts.physicsPipelineStageCount = stageCount;
-    facts.physicsPipelineStageName = PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
-    facts.physicsDebugAlpha = debug.physicsDebugAlpha;
-    facts.physicsDebugContactLinger = debug.physicsDebugContactLinger;
-    facts.rayCastImpulseStrength = m_runtimeTools.RayCastTest().impulseStrength;
-    facts.launcherProjectileSpeed = m_runtimeTools.RayCastTest().projectileSpeed;
-    facts.collisionVisualizer = debug.isCollisionVisualizer;
-    facts.physicsDebugTransparent = debug.isPhysicsDebugTransparent;
-    facts.broadphaseOverlay = debug.isBroadphaseOverlay;
-    facts.tornadoVisualShell = m_sceneController.Scene().Tornado().VisualSettings().enabled;
-    facts.tornadoFieldVectors = m_sceneController.Scene().Tornado().GetFieldConfig().visualizeVelocityField;
-    facts.rayCastVisualization = m_runtimeTools.RayCastTest().visualizeRays;
-    facts.trackedEngineBytes = mainMemory.trackedEngineBytes;
-    facts.reconciledTotalBytes = mainMemory.reconciledTotalBytes;
-    facts.uploadUsedBytes = renderDiagnosticsReadout.memory.uploadUsedBytes;
-    facts.uploadCapacityBytes = renderDiagnosticsReadout.memory.uploadCapacityBytes;
-    facts.replayReserveGrowthEvents = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
-    facts.renderTargetCount = (std::min)( renderTargetPreviews.count, UI::OPERATOR_EDITOR_RENDER_TARGET_CAPACITY );
-
-    for ( int index = 0; index < facts.renderTargetCount; ++index )
-    {
-        const RuntimeRenderTargetPreview& source = renderTargetPreviews.targets[static_cast<size_t>( index )];
-        facts.renderTargets[static_cast<std::size_t>( index )] = { source.label,
-                                                                   source.width,
-                                                                   source.height,
-                                                                   source.available && source.textureHandle != 0u,
-                                                                   source.depth,
-                                                                   source.hdr };
-    }
-}
-
-void Run::ApplyOperatorUiProcessCommands( const OperatorUiProcessCommands& commands )
-{
-    // App applies native-surface and process effects only after both presenters
-    // have released their borrows of the immutable operator snapshot.
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
-    if ( commands.surface == OperatorUiSurfaceCommand::ShowGameUi )
-    {
-        SelectDevelopmentUiSurface( DevelopmentUiMode::GameUI );
-    }
-
-    if ( commands.requestTracyStandardCapture )
-    {
-        bool tracyStarted = false;
-#if defined( TRACY_ENABLE )
-
-        if ( m_tracyClientOwner )
-        {
-            CoreAllocation::RuntimeAllocationScope tracyStartScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
-            tracyStarted = m_tracyClientOwner->StartStandardCapture();
-
-            if ( tracyStarted )
-            {
-                m_workerPool.Initialise( m_config.runtimeCapacity.workerThreads );
-                m_workerPool.BindProfiler( m_profiler );
-            }
-        }
-#endif
-        m_imguiEditor.ReportTracyClientStartResult( tracyStarted );
-    }
-#else
-    (void)commands;
-#endif
-}
 
 OperatorUiProjectionFacts Run::SampleOperatorUiProjectionFacts( const RuntimeUiTextFrameFacts& uiTextFacts,
                                                                 const RuntimeFrameMetricsSnapshot& frameMetrics,
@@ -478,121 +356,7 @@ void Run::ProjectOperatorEditorHierarchyView( UI::OperatorEditorFrameView& view 
 
 void Run::ProjectOperatorEditorInspectorView( UI::OperatorEditorFrameView& view )
 {
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    if ( !view.surfaces.secondaryVisible )
-    {
-        return;
-    }
-
-    const RunEditorPlacementState& editor = m_editorTools.Editor();
-    const SceneWorld& sceneWorld = m_sceneController.Scene();
-    const SceneEntityStore& entities = sceneWorld.Entities();
-    const int selectedRow = PeekSelectedEditorModelIndex( editor, sceneWorld.BodyStore() );
-    UI::OperatorEditorInspectorView inspector;
-
-    if ( editor.selectedBody.IsValid() && selectedRow < 0 )
-    {
-        inspector.selectionState = UI::OperatorEditorInspectorSelectionState::Stale;
-    }
-    else if ( selectedRow >= 0 )
-    {
-        const SceneEntityRecord* entity = entities.TryGet( selectedRow );
-        const PhysicsBodyStore& bodyStore = sceneWorld.BodyStore();
-        const ColliderStore& colliderStore = sceneWorld.Colliders();
-        const std::span<const BuoyancyBodyFacts> buoyancy = PhysicsEngine::ReadBuoyancyFacts( sceneWorld.Physics() );
-        const PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
-        const PhysicsColliderHandle colliderHandle = entity ? colliderStore.HandleForBodyHandle( entity->body )
-                                                            : PhysicsColliderHandle {};
-        const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
-        const ColliderAuthoringRecord* authoring = colliderStore.AuthoringRecordForHandle( colliderHandle );
-
-        if ( !entity || !body || !collider || !authoring || selectedRow >= static_cast<int>( buoyancy.size() ) )
-        {
-            inspector.selectionState = UI::OperatorEditorInspectorSelectionState::Stale;
-        }
-        else
-        {
-            const PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
-            const std::size_t row = static_cast<std::size_t>( selectedRow );
-            const auto position = PhysicsBodyPosition( hot, row );
-            const auto orientation = PhysicsBodyOrientation( hot, row );
-            const auto linearVelocity = PhysicsBodyLinearVelocity( hot, row );
-            const auto angularVelocity = PhysicsBodyAngularVelocity( hot, row );
-            inspector.displayName = entity->displayName;
-            inspector.renderMaterialName = entity->renderMaterial.name[0] != '\0'
-                                               ? entity->renderMaterial.name
-                                               : Rendering::RenderMaterialKindName( entity->renderMaterial.kind );
-            inspector.contactMaterialName = authoring->contactMaterialName;
-            inspector.assetName = entity->asset.assetName;
-            inspector.assetInstanceName = entity->asset.instanceName;
-            inspector.assetPartName = entity->asset.partName;
-            inspector.selectionState = UI::OperatorEditorInspectorSelectionState::Single;
-            inspector.sceneObjectId = entity->sceneObjectId.value;
-            inspector.selectionCount = 1u;
-            inspector.renderMaterialKind = static_cast<int>( entity->renderMaterial.kind );
-            inspector.colliderShapeKind = static_cast<int>( collider->shapeKind );
-            inspector.behaviorGroupKind = static_cast<int>( entity->behaviorGroup.kind );
-            inspector.behaviorPartIndex = entity->behaviorGroup.partIndex;
-            inspector.position[0] = position.x;
-            inspector.position[1] = position.y;
-            inspector.position[2] = position.z;
-            orientation.GetComponents( inspector.orientation[0], inspector.orientation[1], inspector.orientation[2],
-                                       inspector.orientation[3] );
-            inspector.linearVelocity[0] = linearVelocity.x;
-            inspector.linearVelocity[1] = linearVelocity.y;
-            inspector.linearVelocity[2] = linearVelocity.z;
-            inspector.angularVelocity[0] = angularVelocity.x;
-            inspector.angularVelocity[1] = angularVelocity.y;
-            inspector.angularVelocity[2] = angularVelocity.z;
-
-            for ( int channel = 0; channel < 4; ++channel )
-            {
-                inspector.baseColor[channel] = entity->renderMaterial.baseColor[channel];
-            }
-
-            inspector.mass = body->mass;
-            inspector.volume = buoyancy[row].volume;
-            inspector.boundingRadius = collider->boundingRadius;
-            inspector.dragCoefficient = collider->dragCoefficient;
-            inspector.friction = collider->friction;
-            inspector.restitution = collider->restitution;
-            inspector.roughness = entity->renderMaterial.roughness;
-            inspector.metallic = entity->renderMaterial.metallic;
-            inspector.specular = entity->renderMaterial.specular;
-            inspector.visible = entity->editorVisible;
-            inspector.locked = entity->editorLocked;
-            inspector.fixed = hot.fixed[row] != 0u;
-            inspector.sleeping = hot.awake[row] == 0u;
-            inspector.assetBacked = entity->asset.isAssetBacked;
-        }
-    }
-
-    const SceneSessionState& scene = m_sceneController.State();
-    const Gameplay::TornadoFieldConfig& tornado = sceneWorld.Tornado().GetFieldConfig();
-    const OperatorUiWorldFacts world { scene.modelCount,
-                                       m_config.runtimeCapacity.sceneObjectCapacity,
-                                       scene.solverBallCount,
-                                       scene.solverBoxCount,
-                                       static_cast<int>( scene.rngSeed ),
-                                       scene.timeScale,
-                                       sceneWorld.Environment().GetGravity(),
-                                       sceneWorld.Environment().GetFluidSurfaceHeight(),
-                                       sceneWorld.Environment().GetFluidDensity(),
-                                       m_config.physicsMaterial.frictionCoeff,
-                                       m_config.physicsMaterial.objectFrictionCoeff,
-                                       m_config.physicsMaterial.rollingFrictionCoeff,
-                                       tornado.radius,
-                                       tornado.height,
-                                       tornado.inwardAcceleration,
-                                       tornado.swirlAcceleration,
-                                       tornado.liftAcceleration,
-                                       scene.isFixedStep,
-                                       sceneWorld.Physics().IsSleepEnabled(),
-                                       tornado.enabled };
-    ProjectOperatorEditorInspectorAndWorld( view, inspector, world );
-#else
     (void)view;
-#endif
 }
 
 void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts, const RuntimeRenderFrameViews& renderFrame,
@@ -657,12 +421,6 @@ void Run::SampleOperatorUiDiagnosticsFacts( OperatorUiDiagnosticsFacts& facts, c
         target.spanStartMs = source.spanStartMs;
         target.spanEndMs = source.spanEndMs;
     }
-#endif
-#if defined( TRACY_ENABLE )
-    const Core::DevelopmentTools::TracyClientStatus tracy = Core::DevelopmentTools::TracyClientOwner::CopyStatus();
-    facts.tracyBuildEnabled = tracy.buildEnabled;
-    facts.tracyInitialized = tracy.initialized;
-    facts.tracyViewerConnected = tracy.viewerConnected;
 #endif
 
     UI::InGameUI& ui = *m_operatorUi;
@@ -901,12 +659,14 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
 
     if ( submission.submitReplay )
     {
-        const UI::UIDrawList& drawList = m_replayRuntime.ComposeOverlayDrawList( replayOverlay,
-                                                                                 projection.uiText.gameUiActive,
-                                                                                 scene.isScenePhysics,
-                                                                                 projection.uiText.interactionGestureKind,
-                                                                                 { viewport.screenW, viewport.screenH },
-                                                                                 metrics.simulationTotalSeconds );
+        const UI::UIDrawList&
+            drawList = m_replayRuntime.ComposeOverlayDrawList( replayOverlay, projection.uiText.gameUiActive,
+                                                               scene.isScenePhysics,
+                                                               projection.uiText.interactionGestureKind,
+                                                               { viewport.screenW, viewport.screenH,
+                                                                 m_window.GetProjectionMatrix() *
+                                                                     m_sceneController.Scene().Cameras().GetViewMatrix() },
+                                                               metrics.simulationTotalSeconds );
         renderer.SubmitUiDrawList( drawList, viewport );
     }
 
@@ -920,89 +680,13 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
     return drawCalls;
 }
 
-bool Run::RenderDevelopmentOperatorUi( const UI::OperatorEditorFrameView& operatorEditorView,
-                                       const ReplayOverlay::ReplayOverlayStateView& replayOverlay, double secondsPerFrame,
-                                       bool& requestSurfaceSwap, bool& requestTracyStandardCapture )
+
+void Run::RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha,
+                                 bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive,
+                                 const RuntimeFrameMetricsSnapshot& frameMetrics )
 {
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
-    const float dpiScale = windowDpi > 0u ? static_cast<float>( windowDpi ) / 96.0f : 1.0f;
-    bool tracyInitialized = false;
-    bool tracyViewerConnected = false;
-    bool tracyHeavyMode = false;
-#if defined( TRACY_ENABLE )
-    const Core::DevelopmentTools::TracyClientStatus tracy = Core::DevelopmentTools::TracyClientOwner::CopyStatus();
-    tracyInitialized = tracy.initialized;
-    tracyViewerConnected = tracy.viewerConnected;
-    tracyHeavyMode = tracy.heavyMode;
-#endif
-    const DevelopmentTools::ImGuiEditorFrameInput input { m_window.ClientWidth(),
-                                                          m_window.ClientHeight(),
-                                                          dpiScale,
-                                                          static_cast<float>( secondsPerFrame ),
-                                                          tracyInitialized,
-                                                          tracyViewerConnected,
-                                                          tracyHeavyMode };
-
-    if ( !m_imguiEditor.BeginFrame( input ) )
-    {
-        return true;
-    }
-
-    m_imguiEditor.BuildEditorShell( operatorEditorView, replayOverlay );
-    DevelopmentTools::ImGuiEditorFrameResult result = m_imguiEditor.EndFrame();
-
-    if ( result.status.Ok() )
-    {
-        const DevelopmentTools::ImGuiPreparedDrawDataView drawData = m_imguiEditor.PreparedDrawData();
-        result.status = Renderer().RenderDevelopmentUi( drawData.context, drawData.drawData );
-    }
-
-    if ( !result.status.Ok() )
-    {
-        m_timers.FinishPresentedFrame();
-        PROFILE_FRAME_END( m_profiler );
-        m_applicationExit.RequestPhaseFailure( result.status );
-        return false;
-    }
-
-    requestSurfaceSwap = result.commands.requestSurfaceSwap;
-    requestTracyStandardCapture = result.commands.requestTracyStandardCapture;
-#else
-    (void)operatorEditorView;
-    (void)replayOverlay;
-    (void)secondsPerFrame;
-    (void)requestSurfaceSwap;
-    (void)requestTracyStandardCapture;
-#endif
-    return true;
-}
-
-OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha,
-                                                      bool capturePresentationPinned, double secondsPerFrame,
-                                                      bool gameUiActive, const RuntimeFrameMetricsSnapshot& frameMetrics )
-{
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Invariant: copy the completed world backbuffer before either operator
-    // surface draws, preserving one presentation owner at a time.
-    if ( m_imguiEditor.IsVisible() )
-    {
-        const SkullbonezCore::Core::SbResult viewportCapture = m_imguiEditor.CaptureGameViewport();
-
-        if ( !viewportCapture.Ok() )
-        {
-            m_timers.FinishPresentedFrame();
-            PROFILE_FRAME_END( m_profiler );
-            m_applicationExit.RequestPhaseFailure( viewportCapture );
-            return {};
-        }
-    }
-#endif
     SkullbonezCore::UI::OperatorEditorFrameView operatorEditorView;
     bool secondarySurfaceVisible = false;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    secondarySurfaceVisible = m_imguiEditor.IsVisible();
-#endif
     OperatorUiFrameSnapshot operatorUiSnapshot;
     operatorUiSnapshot.uiText = { RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
                                                                 m_sceneController.Scene().SceneEntityCount() ),
@@ -1020,9 +704,6 @@ OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderFrameVi
     operatorUiSnapshot.metrics = frameMetrics;
     operatorUiSnapshot.viewportWidth = m_window.ClientWidth();
     operatorUiSnapshot.viewportHeight = m_window.ClientHeight();
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    operatorUiSnapshot.secondarySurfaceVisible = m_imguiEditor.IsVisible();
-#endif
 
     OperatorUiPhaseOwner operatorUiPhase;
     operatorUiPhase.Begin( operatorUiSnapshot );
@@ -1047,17 +728,6 @@ OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderFrameVi
     ProjectOperatorEditorInspectorView( operatorEditorView );
 
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
-    RenderDiagnosticsReadout renderDiagnosticsReadout;
-    OperatorUiSecondaryDiagnosticsFacts secondaryDiagnostics;
-
-    if ( operatorEditorView.surfaces.secondaryVisible )
-    {
-        RuntimeViewModel runtime = projection.runtime;
-        SampleSecondaryOperatorDiagnostics( frameMetrics, uiTextFacts, debug, projection.shadowsEnabled,
-                                            projection.cinematicRendering, projection.cinematic, runtime,
-                                            renderTargetPreviews, renderDiagnosticsReadout, secondaryDiagnostics );
-        ProjectOperatorEditorDiagnostics( operatorEditorView, secondaryDiagnostics );
-    }
 
     const bool profilerBars = debug.overlayMode == OverlayMode::BarsNormalized ||
                               debug.overlayMode == OverlayMode::BarsAbsolute;
@@ -1068,18 +738,7 @@ OperatorUiProcessCommands Run::RenderOperatorUiPhase( const RuntimeRenderFrameVi
     operatorUiPhase.RecordGpuSubmission( gameUiDrawCalls );
     m_timers.RecordUiDrawCalls( operatorUiPhase.GameUiDrawCalls() );
 
-    bool requestSurfaceSwap = false;
-    bool requestTracyStandardCapture = false;
-
-    if ( !RenderDevelopmentOperatorUi( operatorEditorView, replayOverlay, secondsPerFrame, requestSurfaceSwap,
-                                       requestTracyStandardCapture ) )
-    {
-        return {};
-    }
-    operatorUiPhase.EmitCommands( requestSurfaceSwap, requestTracyStandardCapture );
     operatorUiPhase.Complete();
-
-    return operatorUiPhase.Commands();
 }
 
 

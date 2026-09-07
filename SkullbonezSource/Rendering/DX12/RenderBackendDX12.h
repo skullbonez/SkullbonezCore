@@ -63,9 +63,6 @@ Related:
 #include "Dx12Diagnostics.h"
 #include "Dx12ShaderDevelopment.h"
 #include "Dx12FrameOwner.h"
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "Dx12ImGuiRendererOwner.h"
-#endif
 #include "BLASDX12.h"
 #include "TLASDX12.h"
 #include "SBTDX12.h"
@@ -1038,11 +1035,6 @@ class RenderBackendDX12
     Dx12ShaderDevelopment m_shaderDevelopment;
     Dx12ResourceBuilder m_resourceBuilder;
     Dx12RaytracingOwner m_raytracingOwner;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Lifetime: this development renderer borrows the preceding concrete
-    // device/descriptor/frame owners and is unbound before their shutdown.
-    Dx12ImGuiRendererOwner m_imguiRenderer;
-#endif
 
     // Lifetime: uncertain screenshot resources remain inside this owner until
     // shutdown proves both command-queue and present-queue completion.
@@ -1077,12 +1069,6 @@ class RenderBackendDX12
     SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height, UINT frameCount,
                                          const char* retainedGeometryShaderBaseName );
     void Shutdown();
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    Dx12ImGuiRendererOwner& DevelopmentUiRenderer() noexcept
-    {
-        return m_imguiRenderer;
-    }
-#endif
     Dx12ShaderDevelopment& ShaderDevelopment() noexcept
     {
         return m_shaderDevelopment;

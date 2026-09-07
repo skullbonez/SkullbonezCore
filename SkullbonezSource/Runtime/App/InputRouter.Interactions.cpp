@@ -831,8 +831,6 @@ InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracte
         }
         else if ( !gameUiActive )
         {
-            // ImGui owns Escape/focus policy in this process. Remember the tap
-            // for the existing quick-exit gesture without activating GameUI.
             RecordTap( event.action, nowSeconds );
         }
         else

@@ -3,17 +3,6 @@ File: SkullbonezSource/Core/Profiler.h
 Purpose:
   Records hierarchical CPU/GPU timing markers for runtime diagnostics.
 
-Summary:
-  Profiler hashes hierarchical marker paths into fixed CPU/GPU sample stores,
-  diagnoses hash or begin/end mismatches, and mirrors established owner zones
-  to Tracy. Public macros compile to no-ops when profiling is disabled.
-
-Glossary:
-  QPC (QueryPerformanceCounter): Windows high-resolution CPU timer used for
-  wall-clock marker spans.
-  External owner zone: Tracy interval that reuses the same path and nesting as
-    an established engine profiler marker.
-
 Invariants:
   - Public macros are the supported entry points; direct calls risk mismatched
     marker hashes and begin/end pairs.
@@ -23,7 +12,6 @@ Invariants:
     families must account for MAX_MARKERS and MAX_DEPTH.
   - Worker spans enter a frame-tokened staging store; only FrameEnd merges them
     into the main-thread-owned marker registry and finalized history.
-  - Tracy mirrors owner intervals; it does not become a second marker taxonomy.
   - Core stores profiler values only. Rendering owns timestamp queries, GPU
     events, and overlay presentation and submits completed samples here.
 
@@ -33,6 +21,7 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */
+
 #pragma once
 
 
@@ -54,7 +43,6 @@ namespace Core
 class Profiler
 {
   public:
-
     // Lifetime: startup owns one active profiler for the synchronous RunApp
     // lifetime. CPU marker macros resolve it ambiently so instrumentation never
     // widens domain APIs or adds retained service borrows.
@@ -64,13 +52,13 @@ class Profiler
     {
         return s_active;
     }
-    static constexpr int MAX_MARKERS = 192;                  // Registry capacity; overflow is a profiling contract bug.
-    static constexpr int MAX_COUNTERS = 16;                  // Scalar diagnostic columns carried beside marker timings.
-    static constexpr int MAX_WORKER_CORES = 128;             // Worker overlay capacity, not a thread-spawn request.
-    static constexpr int MAX_DEPTH = 16;                     // Nested marker stack depth before begin/end mismatch becomes unsafe.
-    static constexpr int RING_SIZE = 600;                    // ~10 s @ 60 fps
-    static constexpr int GPU_QUERY_DEPTH = 4;                // pending query ring depth (non-blocking readback)
-    static constexpr int WARMUP_FRAMES = 30;                 // frames excluded from ring-buffer stats at session/pass start
+    static constexpr int MAX_MARKERS = 192;      // Registry capacity; overflow is a profiling contract bug.
+    static constexpr int MAX_COUNTERS = 16;      // Scalar diagnostic columns carried beside marker timings.
+    static constexpr int MAX_WORKER_CORES = 128; // Worker overlay capacity, not a thread-spawn request.
+    static constexpr int MAX_DEPTH = 16;         // Nested marker stack depth before begin/end mismatch becomes unsafe.
+    static constexpr int RING_SIZE = 600;        // ~10 s @ 60 fps
+    static constexpr int GPU_QUERY_DEPTH = 4;    // pending query ring depth (non-blocking readback)
+    static constexpr int WARMUP_FRAMES = 30;     // frames excluded from ring-buffer stats at session/pass start
 
     // 20-colour palette for visual bar segments. Assigned round-robin to leaf markers.
     static constexpr int BAR_PALETTE_SIZE = 20;
@@ -79,40 +67,39 @@ class Profiler
         float r, g, b;
     };
     static constexpr BarColor BAR_PALETTE[BAR_PALETTE_SIZE] = {
-        { 0.90f, 0.30f, 0.30f },                             // red
-        { 0.30f, 0.75f, 0.93f },                             // sky blue
-        { 0.40f, 0.85f, 0.40f },                             // green
-        { 0.95f, 0.70f, 0.20f },                             // amber
-        { 0.70f, 0.40f, 0.90f },                             // purple
-        { 0.20f, 0.90f, 0.80f },                             // teal
-        { 0.95f, 0.50f, 0.70f },                             // pink
-        { 0.55f, 0.80f, 0.25f },                             // lime
-        { 0.30f, 0.50f, 0.95f },                             // blue
-        { 0.95f, 0.85f, 0.30f },                             // yellow
-        { 0.85f, 0.45f, 0.20f },                             // orange
-        { 0.50f, 0.90f, 0.60f },                             // mint
-        { 0.80f, 0.30f, 0.70f },                             // magenta
-        { 0.60f, 0.70f, 0.85f },                             // steel
-        { 0.90f, 0.60f, 0.40f },                             // peach
-        { 0.35f, 0.65f, 0.55f },                             // sage
-        { 0.75f, 0.55f, 0.85f },                             // lavender
-        { 0.65f, 0.85f, 0.75f },                             // seafoam
-        { 0.85f, 0.75f, 0.55f },                             // tan
-        { 0.45f, 0.45f, 0.80f },                             // indigo
+        { 0.90f, 0.30f, 0.30f }, // red
+        { 0.30f, 0.75f, 0.93f }, // sky blue
+        { 0.40f, 0.85f, 0.40f }, // green
+        { 0.95f, 0.70f, 0.20f }, // amber
+        { 0.70f, 0.40f, 0.90f }, // purple
+        { 0.20f, 0.90f, 0.80f }, // teal
+        { 0.95f, 0.50f, 0.70f }, // pink
+        { 0.55f, 0.80f, 0.25f }, // lime
+        { 0.30f, 0.50f, 0.95f }, // blue
+        { 0.95f, 0.85f, 0.30f }, // yellow
+        { 0.85f, 0.45f, 0.20f }, // orange
+        { 0.50f, 0.90f, 0.60f }, // mint
+        { 0.80f, 0.30f, 0.70f }, // magenta
+        { 0.60f, 0.70f, 0.85f }, // steel
+        { 0.90f, 0.60f, 0.40f }, // peach
+        { 0.35f, 0.65f, 0.55f }, // sage
+        { 0.75f, 0.55f, 0.85f }, // lavender
+        { 0.65f, 0.85f, 0.75f }, // seafoam
+        { 0.85f, 0.75f, 0.55f }, // tan
+        { 0.45f, 0.45f, 0.80f }, // indigo
     };
 
     struct Marker
     {
-        const char* name;                                    // full path literal, e.g. "Render/Skybox"
-        const char* leafName;                                // pointer into name after last '/'
-        uint32_t hash;                                       // FNV-1a of full path
-        uint32_t tracySourceLocationHandle;                  // Fixed Tracy source row; zero when the client is not compiled.
-        int parentIndex;                                     // -1 if top-level (parent of "Render/Skybox" is "Render")
-        int depth;                                           // count of '/' characters (0 = top)
-        int colorIndex;                                      // index into BAR_PALETTE (assigned at registration for leaf markers, -1 otherwise)
-        int openCount;                                       // recursion guard (must be 0 at frame end)
-        int64_t openStartTicks;                              // QPC ticks at most recent Begin
-        double accumSecondsThisFrame;                        // Marker-thread span time only; worker spans accumulate below.
+        const char* name;             // full path literal, e.g. "Render/Skybox"
+        const char* leafName;         // pointer into name after last '/'
+        uint32_t hash;                // FNV-1a of full path
+        int parentIndex;              // -1 if top-level (parent of "Render/Skybox" is "Render")
+        int depth;                    // count of '/' characters (0 = top)
+        int colorIndex;               // index into BAR_PALETTE (assigned at registration for leaf markers, -1 otherwise)
+        int openCount;                // recursion guard (must be 0 at frame end)
+        int64_t openStartTicks;       // QPC ticks at most recent Begin
+        double accumSecondsThisFrame; // Marker-thread span time only; worker spans accumulate below.
 
         // Concept: one marker path is reached from both the frame thread and
         // worker threads, because worker jobs reuse the same instrumented code.
@@ -123,10 +110,10 @@ class Profiler
         // Invariant: these three are written only under m_workerSampleMutex or
         // at a frame boundary, never from a marker Begin/End on the frame thread.
         double workerAccumSecondsThisFrame;
-        float lastFrameWorkerMs;                             // Most recent finished-frame worker total for this marker.
-        float workerAvgMs;                                   // Worker moving average, refreshed on the CPU/GPU cadence.
-        double workerAvgAccumMs;                             // Running worker sum inside the current average window.
-        int workerAvgFrameCount;                             // Frames accumulated into workerAvgAccumMs.
+        float lastFrameWorkerMs; // Most recent finished-frame worker total for this marker.
+        float workerAvgMs;       // Worker moving average, refreshed on the CPU/GPU cadence.
+        double workerAvgAccumMs; // Running worker sum inside the current average window.
+        int workerAvgFrameCount; // Frames accumulated into workerAvgAccumMs.
 
         // Latches on the first worker sample and drives this marker's `_worker`
         // perf CSV column, mirroring how hasGpu drives `_gpu`. A changed column
@@ -136,30 +123,30 @@ class Profiler
         double firstStartSecondsThisFrame;
         double lastEndSecondsThisFrame;
         bool spanWrittenThisFrame;
-        float ringMs[RING_SIZE];                             // last RING_SIZE finished-frame totals
-        int ringFilled;                                      // number of valid samples (saturates at RING_SIZE)
-        int ringHead;                                        // next write index
-        float lastFrameMs;                                   // most recent finished-frame total
-        float lastSelfMs;                                    // most recent finished-frame direct time after direct child totals
-        float lastFrameStartMs;                              // first Begin point within the most recent frame
-        float lastFrameEndMs;                                // final End point within the most recent frame
-        float avgMs;                                         // moving average refreshed every 500 ms
-        float selfAvgMs;                                     // moving average of direct time after direct child totals
-        float p50Ms;                                         // recomputed every frame
-        float p99Ms;                                         // recomputed every frame
-        float p99_9Ms;                                       // recomputed every frame (for perf CSV)
-        float minMs;                                         // session-wide minimum
-        float maxMs;                                         // session-wide maximum
+        float ringMs[RING_SIZE]; // last RING_SIZE finished-frame totals
+        int ringFilled;          // number of valid samples (saturates at RING_SIZE)
+        int ringHead;            // next write index
+        float lastFrameMs;       // most recent finished-frame total
+        float lastSelfMs;        // most recent finished-frame direct time after direct child totals
+        float lastFrameStartMs;  // first Begin point within the most recent frame
+        float lastFrameEndMs;    // final End point within the most recent frame
+        float avgMs;             // moving average refreshed every 500 ms
+        float selfAvgMs;         // moving average of direct time after direct child totals
+        float p50Ms;             // recomputed every frame
+        float p99Ms;             // recomputed every frame
+        float p99_9Ms;           // recomputed every frame (for perf CSV)
+        float minMs;             // session-wide minimum
+        float maxMs;             // session-wide maximum
         float selfRingMs[RING_SIZE];
         int selfRingFilled;
         int selfRingHead;
 
         // GPU timestamp query state
-        bool hasGpu;                                         // true if this marker uses GPU timing
-        bool gpuWrittenThisFrame;                            // Set when Rendering opens a timestamp query; cleared at FrameEnd.
-        float gpuLastFrameMs;                                // most recent GPU sample
-        float gpuAvgMs;                                      // GPU moving average
-        float gpuRingMs[RING_SIZE];                          // GPU ring buffer
+        bool hasGpu;                // true if this marker uses GPU timing
+        bool gpuWrittenThisFrame;   // Set when Rendering opens a timestamp query; cleared at FrameEnd.
+        float gpuLastFrameMs;       // most recent GPU sample
+        float gpuAvgMs;             // GPU moving average
+        float gpuRingMs[RING_SIZE]; // GPU ring buffer
         int gpuRingFilled;
         int gpuRingHead;
     };
@@ -176,17 +163,17 @@ class Profiler
 
     struct Counter
     {
-        const char* name;                                    // Stable CSV column name, e.g. "Counter/Physics/AwakeBodies".
-        uint32_t hash;                                       // FNV-1a of the full counter name.
-        double valueThisFrame;                               // Most recent value recorded in the current render frame.
-        double lastFrameValue;                               // Value exported after FrameEnd; zero when not recorded.
-        bool writtenThisFrame;                               // Distinguishes a real zero from a counter omitted this frame.
+        const char* name;      // Stable CSV column name, e.g. "Counter/Physics/AwakeBodies".
+        uint32_t hash;         // FNV-1a of the full counter name.
+        double valueThisFrame; // Most recent value recorded in the current render frame.
+        double lastFrameValue; // Value exported after FrameEnd; zero when not recorded.
+        bool writtenThisFrame; // Distinguishes a real zero from a counter omitted this frame.
     };
 
     struct GpuTimingSample
     {
-        uint32_t markerHash = 0;                             // Core marker identity; never a backend query-slot identity.
-        float milliseconds = 0.0f;                           // Completed non-blocking renderer measurement.
+        uint32_t markerHash = 0;   // Core marker identity; never a backend query-slot identity.
+        float milliseconds = 0.0f; // Completed non-blocking renderer measurement.
     };
 
     struct ProfilerFrameView
@@ -218,7 +205,7 @@ class Profiler
     void InvalidateGpuSamples();
 
     void FrameBegin();
-    void FrameEnd();                                         // commits per-frame totals; recomputes p50/p99; refreshes moving avg every 500 ms
+    void FrameEnd(); // commits per-frame totals; recomputes p50/p99; refreshes moving avg every 500 ms
 
     // Wipes the marker registry at the start of the next frame so stale markers disappear.
     // Safe to call mid-frame (deferred until FrameBegin). No-op when profiling is disabled.
@@ -256,7 +243,6 @@ class Profiler
     void WritePerfCSVRow( FILE* f, int pass, int frame ) const;
 
   private:
-
     friend class WorkerProfilerScope;
 
     // Non-owning process marker target; the sole startup owner clears it on destruction.
@@ -275,6 +261,7 @@ class Profiler
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     uint64_t CaptureWorkerFrameToken() const;
     void CloseWorkerFrameAndMergeSamples();
+    void RefreshMarkerAverages();
 #endif
 
     struct WorkerCoreAccumulator
@@ -316,22 +303,19 @@ class Profiler
     WorkerCoreSample m_workerCoreSamples[MAX_WORKER_CORES];
     int m_workerCoreSampleCount;
 
-    int m_stackIndices[MAX_DEPTH];                           // marker indices currently open (top of stack at [m_stackTop-1])
+    int m_stackIndices[MAX_DEPTH]; // marker indices currently open (top of stack at [m_stackTop-1])
     bool m_platformProfilerCpuOpen[MAX_DEPTH];
     bool m_platformProfilerRenderRecordOpen[MAX_DEPTH];
-    uint32_t m_tracyZoneIds[MAX_DEPTH];
-    int32_t m_tracyZoneActive[MAX_DEPTH];
-    uint64_t m_tracyZoneConnectionIds[MAX_DEPTH];
     int m_stackTop;
 
     int64_t m_qpcFrequency;
     int64_t m_frameStartTicks;
     int64_t m_lastAvgTicks;
     bool m_inFrame;
-    int m_warmupFrames;                                      // frames remaining in warmup window; ring-buffer stats not recorded when > 0
-    bool m_resetPending;                                     // set by ScheduleReset(); applied at the next FrameBegin()
-    int m_nextColorIndex;                                    // round-robin colour assignment for leaf markers
-    uint32_t m_markerEpoch;                                  // Advances when marker identities are cleared at a frame boundary.
+    int m_warmupFrames;     // frames remaining in warmup window; ring-buffer stats not recorded when > 0
+    bool m_resetPending;    // set by ScheduleReset(); applied at the next FrameBegin()
+    int m_nextColorIndex;   // round-robin colour assignment for leaf markers
+    uint32_t m_markerEpoch; // Advances when marker identities are cleared at a frame boundary.
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     mutable std::mutex m_workerSampleMutex;
     WorkerMarkerAccumulator m_workerMarkerAccumulators[MAX_MARKERS];
@@ -362,7 +346,6 @@ class ProfilerScope
     ProfilerScope& operator=( const ProfilerScope& ) = delete;
 
   private:
-
     // Lifetime: captured only for this lexical scope; the startup owner outlives it.
     Profiler* m_profiler;
     const char* m_fullPath;
@@ -390,7 +373,6 @@ class WorkerProfilerScope
     void Close();
 
   private:
-
     // Lifetime: captured only for this worker scope; the startup owner outlives it.
     Profiler* m_profiler;
     const char* m_fullPath;
@@ -403,10 +385,6 @@ class WorkerProfilerScope
     // Profiler::RecordWorkerSample for why only that level feeds core occupancy.
     bool m_outermostOnThread;
     bool m_platformProfilerOpen;
-    uint32_t m_tracySourceLocationHandle;
-    uint32_t m_tracyZoneId;
-    int32_t m_tracyZoneActive;
-    uint64_t m_tracyZoneConnectionId;
 };
 
 } // namespace Core

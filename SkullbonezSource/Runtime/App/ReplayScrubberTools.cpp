@@ -11,8 +11,6 @@ Invariants:
   - Transport dispatch borrows host owners synchronously and retains none.
   - Intermediate causal restores retain their source timeline; only the exact
     endpoint may commit the normal branch reset.
-  - The inactive GameUI pointer surface cannot reset durable replay state after
-    a typed command has arrived from the selected ImGui surface.
   - Causal restore completion must acknowledge the generation that issued it;
     an interrupted or superseded row cannot reveal stale detail.
   - Causal contact geometry and body poses are copied from the exact recorded
@@ -20,6 +18,7 @@ Invariants:
   - Drawer wheel and title input are consumed only inside the visible compound
     bounds and cannot fall through to the cause-tree or scrubber surfaces.
 */
+
 #include "../Replay/ReplayScrubber.h"
 #include "ReplayRuntime.h"
 #include "ReplayAuthoringCauseTree.h"
@@ -597,10 +596,14 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
     const RunReplayPredictionFrame* presentedPrediction = CurrentPredictionScrubFrame();
     const ReplaySolverFrameSample* presentedSolver = CurrentSolverScrubSample();
     const ReplaySolverFrameSample* latestSolver = m_timeline.Solver().LatestSample();
-    const ReplayFrameIndex presentedFrame = presentedPrediction ? presentedPrediction->frameIndex
-                                            : presentedSolver   ? presentedSolver->frameIndex
-                                            : latestSolver      ? latestSolver->frameIndex
-                                                                : 0;
+    // Prediction frames use a local clock beginning at zero; solver-history
+    // frame identities are absolute. Mixing them makes a new cause selection
+    // scrub backward through an unrelated future pose before reaching its row.
+    const ReplayFrameIndex presentedFrame = seek.source == ReplayCauseSeekSource::Prediction
+                                                ? ( presentedPrediction ? presentedPrediction->frameIndex : 0 )
+                                            : presentedSolver ? presentedSolver->frameIndex
+                                            : latestSolver    ? latestSolver->frameIndex
+                                                              : 0;
     const bool simulationAlreadyPaused = m_scrubberOwner.View().liveAdvanceHeld;
     Vector3 targetPosition = Vector3( 0.0f, 0.0f, 0.0f );
     float targetRadius = 0.0f;
@@ -690,6 +693,25 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
 
     if ( ReplayCauseInspectionAcceptsOrbit( view.Transport().mode ) )
     {
+        if ( const RunReplayPredictionFrame* frame = CurrentPredictionScrubFrame() )
+        {
+            const auto body = std::find_if( frame->bodies.begin(), frame->bodies.end(), [&]( const auto& sample )
+                                            { return sample.id == attachedCamera.State().target.sceneObjectId; } );
+
+            if ( body != frame->bodies.end() )
+            {
+                attachedCamera.SetFocusedInspectionPosition( body->id, body->position );
+            }
+
+            const auto frames = m_predictionOwner.ActiveFrames();
+            const float predictionT = frames.size() > 1 ? static_cast<float>( frame->frameIndex ) /
+                                                              static_cast<float>( frames.size() - 1u )
+                                                        : 0.0f;
+            const float presentT = SolverPresentTrackPosition();
+            m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, presentT + ( 1.0f - presentT ) * predictionT );
+            m_scrubberOwner.SetHistoricalSamplePaused( true );
+        }
+
         // Right-drag always orbits the selected causal point once entry has
         // landed. It never hands the causal slot to generic free-look.
         const float mouseScale = pointerBlocked ? 0.0f : input.cameraMouseRadiansPerPixel;
@@ -850,7 +872,9 @@ void ReplayRuntime::ApplyCauseInspectionLifecycle( int requestedRow, bool exitCa
         return;
     }
 
-    if ( exit.releasePause )
+    // Keep the reached prediction time selected after leaving its camera.
+    // Resuming live time is a separate explicit transport operation.
+    if ( exit.releasePause && inspection.Transport().seekSource != ReplayCauseSeekSource::Prediction )
     {
         m_scrubberOwner.SetLiveAdvanceHeld( false );
         m_visualPresentation.SetCameraPauseOwnership( false );
@@ -877,9 +901,6 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     if ( !input.gameUiPointerSurfaceActive )
     {
-        // Why: semantic commands from ImGui have already reached ReplayRuntime.
-        // The inactive GameUI pointer surface must neither compete for capture
-        // nor interpret its hidden window as a reason to reset durable replay state.
         ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
         return;
     }
@@ -1145,6 +1166,14 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     ApplyCauseTreeSelection( requestedCauseTreeFocusRow, input, inputRouter, interaction, world, attachedCamera, camera,
                              mousePickup, output );
+    const DeviceInputFrame& device = inputRouter.DeviceFrame();
+    const bool playbackKeysAvailable = device.appFocused && !inputRouter.UiSnapshot().blocksKeyboard &&
+                                       !m_authoring.CauseTree().filterFocused;
+    const int playbackDirection = playbackKeysAvailable ? static_cast<int>( device.keys.IsDown( VK_RIGHT ) ) -
+                                                              static_cast<int>( device.keys.IsDown( VK_LEFT ) )
+                                                        : 0;
+    m_planningOwner.CauseInspection().AdvancePredictionPlayback( m_predictionOwner.ActiveFrames(), playbackDirection,
+                                                                 input.now );
     ApplyCauseInspectionTransition( input, input.uiBlocksMouse || causeTreeOwnsMouse, world, attachedCamera, camera,
                                     output );
 
@@ -1152,9 +1181,11 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
                                         solverDetailOwnsMouse || pointerOverCauseWindow ||
                                         interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
 
-    ApplyCauseInspectionLifecycle( requestedCauseTreeFocusRow, exitCauseTreeInspection, scrubberHostAction,
-                                   causeInteractionActive, input, inputRouter, interaction, cameras, terrain, camera,
-                                   attachedCamera );
+    const bool causeReturnRequested = m_causeReturnRequested;
+    m_causeReturnRequested = false;
+    ApplyCauseInspectionLifecycle( requestedCauseTreeFocusRow, exitCauseTreeInspection || causeReturnRequested,
+                                   scrubberHostAction, causeInteractionActive, input, inputRouter, interaction, cameras,
+                                   terrain, camera, attachedCamera );
 
     ApplyAuthoringPredictionRequest();
 
@@ -2105,6 +2136,27 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayScrubCommand& command, Ru
     (void)SetTransportCursor( command.normalized, interaction, now, output );
 }
 
+bool ReplayRuntime::SeekReplayFrame( ReplayFrameIndex frame, RuntimeInteractionController& interaction, double now,
+                                     ReplayWorkspaceOutput& output, ReplayFrameIndex& appliedFrame )
+{
+    const RunReplayTrack track = m_scrubberOwner.View().activeTrack;
+    const ReplayRecorderStats stats = track == RunReplayTrack::Solver ? m_timeline.Solver().GetStats()
+                                                                      : m_timeline.Presentation().GetStats();
+
+    if ( stats.sampleCount == 0u )
+    {
+        return false;
+    }
+
+    const ReplayFrameIndex oldest = stats.nextFrameIndex - static_cast<ReplayFrameIndex>( stats.sampleCount );
+    const ReplayFrameIndex newest = stats.nextFrameIndex - 1u;
+    appliedFrame = std::clamp( frame, oldest, newest );
+    const float normalized = stats.sampleCount > 1u
+                                 ? static_cast<float>( appliedFrame - oldest ) / static_cast<float>( stats.sampleCount - 1u )
+                                 : 0.0f;
+    return SetTransportCursor( normalized, interaction, now, output );
+}
+
 
 void ReplayRuntime::ApplyTransportCommand( const ReplayTogglePredictionCommand&, RuntimeInteractionController& interaction,
                                            double now, ReplayWorkspaceOutput& output )
@@ -2249,6 +2301,8 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayReturnToLiveCommand&, Env
                                            RuntimeInteractionController& interaction, InputRouter& inputRouter, double now,
                                            ReplayWorkspaceOutput& output )
 {
+    const ReplayCauseExitAction causeExit = m_planningOwner.CauseInspection().BeginReturn();
+
     if ( HasLoadedPresentation() )
     {
         m_timeline.ClearLoadedPresentation();
@@ -2265,6 +2319,10 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayReturnToLiveCommand&, Env
     m_pendingCauseSelectionRow = -1;
     ExitInspectionCamera( cameras, terrain, camera, normalizedRestoreMode, attachedFollow, directorGrabbed, interaction,
                           inputRouter );
+    if ( causeExit.apply )
+    {
+        m_planningOwner.CauseInspection().CompleteReturn();
+    }
     output.enterInteractive = output.enterInteractive || enterInteractive;
     PublishTransportFeedback( "LIVE", now );
 }

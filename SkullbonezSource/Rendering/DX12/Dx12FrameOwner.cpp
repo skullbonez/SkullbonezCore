@@ -29,7 +29,6 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include "../../Core/TracyClientOwner.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 
 #include <algorithm>
@@ -460,7 +459,7 @@ void Dx12FrameOwner::EndProfilerEvent()
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::SubmitClosed()
 {
-    SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/CommandSubmission", ::HashStr( "Frame/DX12/CommandSubmission" ) );
+
 
     if ( m_recording.HasFailure() )
     {

@@ -3,13 +3,6 @@ File: SkullbonezSource/Runtime/Render/UIRenderAuthoringCatalog.h
 Purpose:
   Defines the canonical metadata for ordinary and cinematic render controls.
 
-Summary:
-  GameUI and Dear ImGui operator surfaces share these enum-indexed labels,
-  groups, ranges, steps, and formats. GameUI quantizes pointer input with each
-  step, ImGui treats it as drag speed, and App authoritatively clamp-snaps typed
-  render commands against the same rows. Concrete configuration values remain
-  outside this catalog.
-
 Glossary:
   Section: Canonical right-rail grouping used to merge former Render, Sky, and
     Cine concepts without changing their established command enums.
@@ -25,6 +18,7 @@ Related:
   - SkullbonezSource/Runtime/App/OperatorCommandBoundaryPolicy.h
   - Agentic/Reference/engine-glossary.md
 */
+
 #pragma once
 
 #include "../Interaction/OperatorUiCommands.h"

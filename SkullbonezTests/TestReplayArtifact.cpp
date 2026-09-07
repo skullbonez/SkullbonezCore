@@ -46,6 +46,7 @@
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h"
+#include "../SkullbonezSource/Runtime/App/ReplayRestoreOperations.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
 #include "../SkullbonezSource/World/Terrain.h"
 #include "TestCollisionShapeFixtures.h"
@@ -465,6 +466,151 @@ TEST_CASE( "Replay artifact codec: malformed header and table ranges fail closed
 
 namespace
 {
+template <typename T> void AppendFixtureValue( std::vector<uint8_t>& bytes, const T& value )
+{
+    const auto* first = reinterpret_cast<const uint8_t*>( &value );
+    bytes.insert( bytes.end(), first, first + sizeof( value ) );
+}
+
+std::size_t FindUniqueFixtureBytes( const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& needle )
+{
+    const auto found = std::search( bytes.begin(), bytes.end(), needle.begin(), needle.end() );
+    REQUIRE( found != bytes.end() );
+    REQUIRE( std::search( found + 1, bytes.end(), needle.begin(), needle.end() ) == bytes.end() );
+    return static_cast<std::size_t>( found - bytes.begin() );
+}
+
+void CheckLegacyPointJointArtifact( const char* currentPath, ReplaySolverFrameSample checkpoint, uint32_t version )
+{
+    // Build historical wire fixtures independently: v6 has a scalar impulse;
+    // v7 has the current width but still uses unitless joint coefficients.
+    std::vector<uint8_t> bytes = ReadFile( currentPath );
+    REQUIRE( checkpoint.worldSnapshot.physics.pointJoints.size() == 1u );
+    auto& physics = checkpoint.worldSnapshot.physics;
+    auto& joint = physics.pointJoints[0];
+    std::vector<uint8_t> jointBytes;
+    AppendFixtureValue( jointBytes, joint.topologyOrdinal );
+    AppendFixtureValue( jointBytes, joint.bodyASceneObjectId.value );
+    AppendFixtureValue( jointBytes, joint.bodyBSceneObjectId.value );
+    AppendFixtureValue( jointBytes, joint.localAnchorA );
+    AppendFixtureValue( jointBytes, joint.localAnchorB );
+    AppendFixtureValue( jointBytes, joint.slack );
+    AppendFixtureValue( jointBytes, joint.frequencyHz );
+    AppendFixtureValue( jointBytes, joint.dampingRatio );
+    const std::size_t scalarOffset = jointBytes.size();
+    AppendFixtureValue( jointBytes, joint.accumulatedImpulse );
+    AppendFixtureValue( jointBytes, joint.groupId );
+    AppendFixtureValue( jointBytes, joint.flags );
+    const std::size_t eraseOffset = FindUniqueFixtureBytes( bytes, jointBytes ) + scalarOffset + sizeof( float );
+
+    std::vector<uint8_t> snapshotPrefix;
+    AppendFixtureValue( snapshotPrefix, physics.version );
+    AppendFixtureValue( snapshotPrefix, physics.modelCount );
+    AppendFixtureValue( snapshotPrefix, physics.nextSleepIslandVisualId );
+    WriteValue<uint32_t>( bytes, FindUniqueFixtureBytes( bytes, snapshotPrefix ), version );
+    const uint64_t oldHash = checkpoint.solverHash;
+    physics.version = version;
+    if ( version < 7u )
+    {
+        joint.accumulatedImpulse.y = 0.0f;
+        joint.accumulatedImpulse.z = 0.0f;
+    }
+    const uint64_t removedBytes = version < 7u ? 8u : 0u;
+    checkpoint.solverHash = SkullbonezCore::Runtime::ReplaySolverHashForSample( checkpoint );
+    for ( std::size_t offset = 0; offset + sizeof( uint64_t ) <= bytes.size(); ++offset )
+    {
+        if ( ReadValue<uint64_t>( bytes, offset ) == oldHash )
+        {
+            WriteValue<uint64_t>( bytes, offset, checkpoint.solverHash );
+        }
+    }
+    const std::size_t table = static_cast<std::size_t>( ReadValue<uint64_t>( bytes, kChunkTableOffsetOffset ) );
+    const uint32_t count = ReadValue<uint32_t>( bytes, kChunkCountOffset );
+    for ( uint32_t index = 0; index < count; ++index )
+    {
+        const std::size_t entry = table + index * kChunkEntryBytes;
+        const uint64_t start = ReadValue<uint64_t>( bytes, entry + kChunkPayloadOffset );
+        const uint64_t size = ReadValue<uint64_t>( bytes, entry + kChunkSizeOffset );
+        if ( start > eraseOffset )
+        {
+            WriteValue<uint64_t>( bytes, entry + kChunkPayloadOffset, start - removedBytes );
+        }
+        else if ( start <= eraseOffset && eraseOffset < start + size )
+        {
+            WriteValue<uint64_t>( bytes, entry + kChunkSizeOffset, size - removedBytes );
+        }
+    }
+    bytes.erase( bytes.begin() + eraseOffset, bytes.begin() + eraseOffset + removedBytes );
+    WriteValue<uint64_t>( bytes, kFileSizeOffset, static_cast<uint64_t>( bytes.size() ) );
+    const std::string legacyPath = ArtifactPath( version == 6u ? "point_joint_v6.skreplay" : "point_joint_v7.skreplay" );
+    WriteFile( legacyPath, bytes );
+    std::vector<ReplaySolverFrameSample> decoded;
+    REQUIRE( ReplayV2Artifact::LoadSolverCheckpoints( legacyPath.c_str(), decoded ) );
+    REQUIRE( decoded.size() == 1u );
+    REQUIRE( decoded[0].worldSnapshot.physics.pointJoints.size() == 1u );
+    CHECK( decoded[0].worldSnapshot.physics.version == version );
+    CHECK( decoded[0].worldSnapshot.physics.pointJoints[0].accumulatedImpulse == joint.accumulatedImpulse );
+    CHECK( SkullbonezCore::Runtime::ReplaySolverHashForSample( decoded[0] ) == checkpoint.solverHash );
+    std::vector<ReplayPresentationSample> presentation;
+    REQUIRE( ReplayV2Artifact::LoadPresentation( legacyPath.c_str(), presentation ) );
+    CHECK_FALSE( presentation.empty() );
+    char reason[256] = {};
+    CHECK_FALSE(
+        SkullbonezCore::Runtime::ReplayRestoreOperations::ValidateSolverContinuation( decoded[0].worldSnapshot.physics,
+                                                                                      reason, sizeof( reason ) ) );
+    CHECK( std::string( reason ).find( "inspection only" ) != std::string::npos );
+    // A joint-free legacy file has the same version/hash incompatibility.
+    decoded[0].worldSnapshot.physics.pointJoints.clear();
+    CHECK_FALSE(
+        SkullbonezCore::Runtime::ReplayRestoreOperations::ValidateSolverContinuation( decoded[0].worldSnapshot.physics,
+                                                                                      reason, sizeof( reason ) ) );
+}
+
+void CheckGuardedPredictionSave( const ReplayRecorder& presentation, const ReplaySolverRecorder& solver,
+                                 const ReplayEventRecorder& events )
+{
+    std::array<ReplayVisualArchiveSample, 1> guardedVisualPackets {};
+    guardedVisualPackets[0].schemaVersion = REPLAY_VISUAL_PACKET_SCHEMA_VERSION;
+    ReplayV2SaveResult guardedSave;
+    const std::string guardedPath = ArtifactPath( "guarded_runtime_style_save.skreplay" );
+
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
+    const uint64_t guardedViolationsBefore = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    bool fallbackBuiltInCapturePhase = false;
+    const bool guardedSaved = ReplayArtifactOperations::SaveColdWithOptionalPredictionState(
+        guardedVisualPackets, {},
+        [&]( std::vector<uint8_t>& fallbackPredictionState )
+        {
+            fallbackBuiltInCapturePhase = SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase() ==
+                                          SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture;
+            fallbackPredictionState.assign( { 0x52u, 0x50u, 0x53u, 0x31u } );
+            return true;
+        },
+        [&]( std::span<const uint8_t> predictionState )
+        {
+            return ReplayV2Artifact::SavePresentationWithSolverHashes( presentation, solver, events, guardedVisualPackets,
+                                                                       predictionState, guardedPath.c_str(), &guardedSave );
+        } );
+    const uint64_t guardedViolationsAfter = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    const auto guardedRestoredPhase = SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase();
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Startup );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
+
+    CHECK( guardedSaved );
+    CHECK( fallbackBuiltInCapturePhase );
+    CHECK( guardedRestoredPhase == SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
+    CHECK( guardedViolationsAfter == guardedViolationsBefore );
+    CHECK( guardedSave.visualPacketCount == guardedVisualPackets.size() );
+    std::vector<uint8_t> guardedPredictionState;
+    REQUIRE( ReplayV2Artifact::LoadVisualPredictionState( guardedPath.c_str(), guardedPredictionState ) );
+    CHECK_FALSE( guardedPredictionState.empty() );
+}
+
 std::string FullArtifactPath()
 {
     return "TestOutput/coverage_floor_unit/full_tracks.skreplay";
@@ -519,8 +665,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
         joint.localAnchorA = Vector3( 0.0f, 1.0f, 0.0f );
         joint.localAnchorB = Vector3( 0.0f, -1.0f, 0.0f );
         joint.slack = 0.125f;
-        joint.stiffness = 0.375f;
-        joint.damping = 0.625f;
+        joint.frequencyHz = 0.375f;
+        joint.dampingRatio = 0.625f;
         joint.groupId = 7u;
         joint.flags = 1u;
         originalJointHandle = engine.CreatePointJoint( joint );
@@ -604,13 +750,13 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( sample->worldSnapshot.physics.pointJoints.size() == 1u );
     REQUIRE( sample->worldSnapshot.physics.motionEligibilityState.size() == 2u );
     const std::vector<uint8_t> capturedMotionEligibilityState = sample->worldSnapshot.physics.motionEligibilityState;
-    const float capturedJointImpulse = sample->worldSnapshot.physics.pointJoints[0].accumulatedImpulse;
-    REQUIRE( capturedJointImpulse != 0.0f );
+    const auto capturedJointImpulse = sample->worldSnapshot.physics.pointJoints[0].accumulatedImpulse;
+    REQUIRE( capturedJointImpulse != SkullbonezCore::Math::Vector::ZERO_VECTOR );
     const uint64_t capturedSolverHash = sample->solverHash;
     presentation.CaptureFrameFromSolverSample( *sample );
 
     auto changedJointSnapshot = sample->worldSnapshot.physics;
-    changedJointSnapshot.pointJoints[0].accumulatedImpulse += 1.0f;
+    changedJointSnapshot.pointJoints[0].accumulatedImpulse.y += 1.0f;
     REQUIRE( engine.RestoreReplaySolverSnapshot( changedJointSnapshot,
                                                  SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
 
@@ -645,9 +791,9 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
 
     REQUIRE( engine.SetBodyVelocity( registration.body, Vector3( 2.0f, 1.0f, -1.0f ), Vector3( 0.1f, 0.2f, 0.3f ), true ) );
     auto changedDeltaSnapshot = sample->worldSnapshot.physics;
-    changedDeltaSnapshot.pointJoints[0].accumulatedImpulse += 0.5f;
+    changedDeltaSnapshot.pointJoints[0].accumulatedImpulse.z += 0.5f;
     changedDeltaSnapshot.motionEligibilityState[0] ^= 1u;
-    const float changedDeltaImpulse = changedDeltaSnapshot.pointJoints[0].accumulatedImpulse;
+    const auto changedDeltaImpulse = changedDeltaSnapshot.pointJoints[0].accumulatedImpulse;
     const std::vector<uint8_t> changedDeltaMotionEligibilityState = changedDeltaSnapshot.motionEligibilityState;
     REQUIRE( engine.RestoreReplaySolverSnapshot( changedDeltaSnapshot,
                                                  SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt( 2 ) ) );
@@ -681,46 +827,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
         events.RecordEvent( event );
     }
 
-    std::array<ReplayVisualArchiveSample, 1> guardedVisualPackets {};
-    guardedVisualPackets[0].schemaVersion = REPLAY_VISUAL_PACKET_SCHEMA_VERSION;
-    ReplayV2SaveResult guardedSave;
-    const std::string guardedPath = ArtifactPath( "guarded_runtime_style_save.skreplay" );
-
-    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
-    SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
-    const uint64_t guardedViolationsBefore = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
-    bool fallbackBuiltInCapturePhase = false;
-    const bool guardedSaved = ReplayArtifactOperations::SaveColdWithOptionalPredictionState(
-        guardedVisualPackets, {},
-        [&]( std::vector<uint8_t>& fallbackPredictionState )
-        {
-            fallbackBuiltInCapturePhase = SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase() ==
-                                          SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Capture;
-            fallbackPredictionState.assign( { 0x52u, 0x50u, 0x53u, 0x31u } );
-            return true;
-        },
-        [&]( std::span<const uint8_t> predictionState )
-        {
-            return ReplayV2Artifact::SavePresentationWithSolverHashes( presentation, solver, events, guardedVisualPackets,
-                                                                       predictionState, guardedPath.c_str(), &guardedSave );
-        } );
-    const uint64_t guardedViolationsAfter = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
-    const auto guardedRestoredPhase = SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase();
-    SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Startup );
-    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
-
-    CHECK( guardedSaved );
-    CHECK( fallbackBuiltInCapturePhase );
-    CHECK( guardedRestoredPhase == SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay );
-    CHECK( guardedViolationsAfter == guardedViolationsBefore );
-    CHECK( guardedSave.visualPacketCount == guardedVisualPackets.size() );
-    std::vector<uint8_t> guardedPredictionState;
-    REQUIRE( ReplayV2Artifact::LoadVisualPredictionState( guardedPath.c_str(), guardedPredictionState ) );
-    CHECK_FALSE( guardedPredictionState.empty() );
+    CheckGuardedPredictionSave( presentation, solver, events );
 
     ReplayV2SaveResult save;
     const std::string path = FullArtifactPath();
@@ -786,8 +893,8 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     CHECK( loadedJoint.localAnchorA == Vector3( 0.0f, 1.0f, 0.0f ) );
     CHECK( loadedJoint.localAnchorB == Vector3( 0.0f, -1.0f, 0.0f ) );
     CHECK( loadedJoint.slack == doctest::Approx( 0.125f ) );
-    CHECK( loadedJoint.stiffness == doctest::Approx( 0.375f ) );
-    CHECK( loadedJoint.damping == doctest::Approx( 0.625f ) );
+    CHECK( loadedJoint.frequencyHz == doctest::Approx( 0.375f ) );
+    CHECK( loadedJoint.dampingRatio == doctest::Approx( 0.625f ) );
     CHECK( std::memcmp( &loadedJoint.accumulatedImpulse, &capturedJointImpulse, sizeof( capturedJointImpulse ) ) == 0 );
     CHECK( loadedJoint.groupId == 7u );
     CHECK( loadedJoint.flags == 1u );
@@ -797,6 +904,13 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     // Clear, apply the loaded body/solver state, and require the next step to
     // match the original handle epoch bit-for-bit.
     const ReplaySolverFrameSample loadedCheckpoint = checkpoints[0];
+    char continuationReason[256] = {};
+    REQUIRE(
+        SkullbonezCore::Runtime::ReplayRestoreOperations::ValidateSolverContinuation( loadedCheckpoint.worldSnapshot.physics,
+                                                                                      continuationReason,
+                                                                                      sizeof( continuationReason ) ) );
+    CheckLegacyPointJointArtifact( path.c_str(), loadedCheckpoint, 6u );
+    CheckLegacyPointJointArtifact( path.c_str(), loadedCheckpoint, 7u );
     const auto applyLoadedBodies =
         [&]( SkullbonezCore::Physics::PhysicsBodyHandle bodyA, SkullbonezCore::Physics::PhysicsBodyHandle bodyB )
     {

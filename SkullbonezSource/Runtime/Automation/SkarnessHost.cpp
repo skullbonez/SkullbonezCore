@@ -1,4 +1,5 @@
 #include "SkarnessHost.h"
+#include "SkarnessStateSerialization.h"
 
 #if defined( SKULLBONEZ_SKARNESS )
 
@@ -11,8 +12,11 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cfloat>
+#include <climits>
 #include <cmath>
 #include <cstring>
+#include <functional>
 #include <iomanip>
 #include <random>
 #include <sstream>
@@ -26,6 +30,96 @@ using Json = nlohmann::ordered_json;
 constexpr std::size_t SKARNESS_COMMAND_CAPACITY = 128u;
 constexpr std::size_t SKARNESS_REQUEST_HISTORY_CAPACITY = 256u;
 constexpr std::size_t SKARNESS_RECEIVE_CAPACITY = 1024u * 1024u;
+
+struct StateSubscription
+{
+    std::array<bool, SKARNESS_STATE_TOPICS.size()> topics = {};
+    SkarnessStateDetail detail = SkarnessStateDetail::Normal;
+};
+
+bool SelectStateTopic( const std::string& name, StateSubscription& subscription )
+{
+    if ( name == "*" )
+    {
+        subscription.topics.fill( true );
+        return true;
+    }
+
+    if ( name == "scene" || name == "scene.state" )
+    {
+        subscription.topics[1] = true;
+        subscription.topics[2] = true;
+        subscription.topics[16] = true;
+        return true;
+    }
+
+    if ( name == "replay" || name == "replay.state" )
+    {
+        for ( std::size_t index = 6; index < subscription.topics.size(); ++index )
+        {
+            subscription.topics[index] = true;
+        }
+        return true;
+    }
+
+    for ( std::size_t index = 0; index < SKARNESS_STATE_TOPICS.size(); ++index )
+    {
+        if ( name == SKARNESS_STATE_TOPICS[index].name )
+        {
+            subscription.topics[index] = true;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ReadStateSubscription( const Json& arguments, StateSubscription& out )
+{
+    if ( !arguments.contains( "topics" ) || !arguments["topics"].is_array() )
+    {
+        return false;
+    }
+
+    for ( const Json& topic : arguments["topics"] )
+    {
+        if ( !topic.is_string() )
+        {
+            return false;
+        }
+
+        if ( !SelectStateTopic( topic.get<std::string>(), out ) )
+        {
+            return false;
+        }
+    }
+
+    if ( arguments.contains( "detail" ) )
+    {
+        if ( !arguments["detail"].is_string() )
+        {
+            return false;
+        }
+        const std::string detail = arguments["detail"].get<std::string>();
+        if ( detail == "summary" )
+        {
+            out.detail = SkarnessStateDetail::Summary;
+        }
+        else if ( detail == "normal" )
+        {
+            out.detail = SkarnessStateDetail::Normal;
+        }
+        else if ( detail == "full" )
+        {
+            out.detail = SkarnessStateDetail::Full;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 HANDLE NativePipe( void* pipe )
 {
@@ -127,7 +221,7 @@ bool ReadNumber( const Json& arguments, const char* name, double& out )
     }
 
     out = found->get<double>();
-    return true;
+    return std::isfinite( out );
 }
 
 bool ReadInteger( const Json& arguments, const char* name, int& out )
@@ -156,6 +250,42 @@ bool ReadUnsignedInteger( const Json& arguments, const char* name, uint64_t& out
     return out != 0;
 }
 
+bool ReadUnsignedIntegerIncludingZero( const Json& arguments, const char* name, uint64_t& out )
+{
+    const auto found = arguments.find( name );
+
+    if ( found == arguments.end() || !found->is_number_unsigned() )
+    {
+        return false;
+    }
+
+    out = found->get<uint64_t>();
+    return true;
+}
+
+bool ReadVector3( const Json& arguments, const char* name, double& x, double& y, double& z )
+{
+    const auto found = arguments.find( name );
+
+    if ( found == arguments.end() || !found->is_array() || found->size() != 3u )
+    {
+        return false;
+    }
+
+    for ( const Json& component : *found )
+    {
+        if ( !component.is_number() )
+        {
+            return false;
+        }
+    }
+
+    x = ( *found )[0].get<double>();
+    y = ( *found )[1].get<double>();
+    z = ( *found )[2].get<double>();
+    return std::isfinite( x ) && std::isfinite( y ) && std::isfinite( z );
+}
+
 bool ReadString( const Json& arguments, const char* name, std::string& out )
 {
     const auto found = arguments.find( name );
@@ -168,6 +298,319 @@ bool ReadString( const Json& arguments, const char* name, std::string& out )
     out = found->get<std::string>();
     return !out.empty();
 }
+
+enum class CommandParseStatus : uint8_t
+{
+    Unknown,
+    Invalid,
+    Valid
+};
+
+struct NamedCommand
+{
+    const char* name;
+    SkarnessCommandType type;
+};
+
+CommandParseStatus ParseBasicCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
+{
+    static constexpr std::array noArgumentCommands = {
+        NamedCommand { "scene.reset", SkarnessCommandType::SceneReset },
+        NamedCommand { "scene.load_demo", SkarnessCommandType::SceneLoadDemo },
+        NamedCommand { "scene.object.list", SkarnessCommandType::SceneObjectList },
+        NamedCommand { "replay.jump_to_start", SkarnessCommandType::ReplayJumpToStart },
+        NamedCommand { "replay.jump_to_end", SkarnessCommandType::ReplayJumpToEnd },
+        NamedCommand { "replay.step_backward", SkarnessCommandType::ReplayStepBackward },
+        NamedCommand { "replay.step_forward", SkarnessCommandType::ReplayStepForward },
+        NamedCommand { "replay.velocity_commit", SkarnessCommandType::ReplayVelocityCommit },
+        NamedCommand { "replay.velocity_cancel", SkarnessCommandType::ReplayVelocityCancel },
+        NamedCommand { "prediction.reveal_reset", SkarnessCommandType::PredictionRevealReset },
+        NamedCommand { "replay.restore_branch", SkarnessCommandType::ReplayRestoreBranch },
+        NamedCommand { "replay.return_to_live", SkarnessCommandType::ReplayReturnToLive },
+        NamedCommand { "replay.return_from_cause", SkarnessCommandType::ReplayReturnFromCause },
+        NamedCommand { "replay.copy_cause_record", SkarnessCommandType::ReplayCopyCauseRecord },
+        NamedCommand { "replay.trip_plan", SkarnessCommandType::ReplayTripPlan },
+        NamedCommand { "replay.trip_commit", SkarnessCommandType::ReplayTripCommit },
+        NamedCommand { "replay.trip_cancel", SkarnessCommandType::ReplayTripCancel },
+        NamedCommand { "prediction.forecast_start", SkarnessCommandType::PredictionForecastStart },
+        NamedCommand { "prediction.forecast_reset", SkarnessCommandType::PredictionForecastReset },
+        NamedCommand { "prediction.forecast_stop", SkarnessCommandType::PredictionForecastStop },
+    };
+    struct BooleanCommand : NamedCommand
+    {
+        const char* argument;
+    };
+    static constexpr std::array booleanCommands = {
+        BooleanCommand { { "replay.set_recording_enabled", SkarnessCommandType::ReplaySetRecordingEnabled }, "enabled" },
+        BooleanCommand { { "replay.set_playback_paused", SkarnessCommandType::ReplaySetPlaybackPaused }, "paused" },
+        BooleanCommand { { "replay.set_prediction_enabled", SkarnessCommandType::ReplaySetPredictionEnabled }, "enabled" },
+        BooleanCommand { { "replay.set_prediction_detail", SkarnessCommandType::ReplaySetPredictionDetailMode },
+                         "highDetail" },
+        BooleanCommand { { "replay.set_velocity_edit_enabled", SkarnessCommandType::ReplaySetVelocityEditEnabled },
+                         "enabled" },
+        BooleanCommand { { "replay.set_ragdoll_visuals_enabled", SkarnessCommandType::ReplaySetRagdollVisualsEnabled },
+                         "enabled" },
+        BooleanCommand { { "replay.set_past_path_visible", SkarnessCommandType::ReplaySetPastPathVisible }, "visible" },
+        BooleanCommand { { "replay.set_guide_arcs_enabled", SkarnessCommandType::ReplaySetGuideArcsEnabled }, "enabled" },
+        BooleanCommand { { "replay.set_cause_inspector_open", SkarnessCommandType::ReplaySetCauseInspectorOpen }, "open" },
+        BooleanCommand { { "replay.set_porkchop_visible", SkarnessCommandType::ReplaySetPorkchopVisible }, "visible" },
+    };
+
+    for ( const NamedCommand& entry : noArgumentCommands )
+    {
+        if ( name == entry.name )
+        {
+            command.type = entry.type;
+            return CommandParseStatus::Valid;
+        }
+    }
+
+    for ( const BooleanCommand& entry : booleanCommands )
+    {
+        if ( name == entry.name )
+        {
+            command.type = entry.type;
+            return ReadBoolean( arguments, entry.argument, command.enabled ) ? CommandParseStatus::Valid
+                                                                             : CommandParseStatus::Invalid;
+        }
+    }
+
+    if ( name == "replay.close_cause_detail" )
+    {
+        command.type = SkarnessCommandType::ReplaySetCauseInspectorOpen;
+        command.enabled = false;
+        return CommandParseStatus::Valid;
+    }
+
+    return CommandParseStatus::Unknown;
+}
+
+CommandParseStatus ParseNumericCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
+{
+    struct IntegerCommand : NamedCommand
+    {
+        const char* argument;
+        int minimum;
+        int maximum;
+    };
+    static constexpr std::array integerCommands = {
+        IntegerCommand { { "replay.set_retention_seconds", SkarnessCommandType::ReplaySetRetentionSeconds },
+                         "seconds",
+                         20,
+                         600 },
+        IntegerCommand { { "replay.set_memory_budget_mib", SkarnessCommandType::ReplaySetMemoryBudgetMiB }, "mib", 32, 512 },
+        IntegerCommand { { "prediction.reveal_advance", SkarnessCommandType::PredictionRevealAdvance },
+                         "frames",
+                         1,
+                         100000 },
+        IntegerCommand { { "replay.select_cause_row", SkarnessCommandType::ReplaySelectCauseRow }, "row", 0, INT_MAX },
+        IntegerCommand { { "replay.select_porkchop_cell", SkarnessCommandType::ReplaySelectPorkchopCell }, "cell", 0, 3071 },
+    };
+    struct NumberCommand : NamedCommand
+    {
+        const char* argument;
+        double minimum;
+        double maximum;
+        bool minimumExclusive;
+    };
+    static constexpr std::array numberCommands = {
+        NumberCommand { { "replay.set_reveal_speed", SkarnessCommandType::ReplaySetRevealSpeed },
+                        "rate",
+                        0.0,
+                        DBL_MAX,
+                        true },
+        NumberCommand { { "replay.scrub", SkarnessCommandType::ReplayScrub }, "normalized", 0.0, 1.0, false },
+        NumberCommand { { "replay.set_prediction_horizon", SkarnessCommandType::ReplaySetPredictionHorizon },
+                        "seconds",
+                        1.0,
+                        120.0,
+                        false },
+        NumberCommand { { "replay.set_trip_time_of_flight", SkarnessCommandType::ReplaySetTripTimeOfFlight },
+                        "seconds",
+                        2.0,
+                        120.0,
+                        false },
+    };
+
+    for ( const IntegerCommand& entry : integerCommands )
+    {
+        if ( name == entry.name )
+        {
+            command.type = entry.type;
+            const bool valid = ReadInteger( arguments, entry.argument, command.integer ) &&
+                               command.integer >= entry.minimum && command.integer <= entry.maximum;
+            return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+        }
+    }
+
+    for ( const NumberCommand& entry : numberCommands )
+    {
+        if ( name == entry.name )
+        {
+            command.type = entry.type;
+            const bool valid = ReadNumber( arguments, entry.argument, command.number ) &&
+                               ( entry.minimumExclusive ? command.number > entry.minimum
+                                                        : command.number >= entry.minimum ) &&
+                               command.number <= entry.maximum;
+            return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+        }
+    }
+
+    if ( name == "replay.seek_frame" )
+    {
+        command.type = SkarnessCommandType::ReplaySeekFrame;
+        return ReadUnsignedIntegerIncludingZero( arguments, "frame", command.unsignedInteger ) ? CommandParseStatus::Valid
+                                                                                               : CommandParseStatus::Invalid;
+    }
+
+    return CommandParseStatus::Unknown;
+}
+
+bool ReadSceneIdentity( const Json& arguments, SkarnessCommand& command )
+{
+    const bool hasName = arguments.contains( "name" );
+    const bool hasId = arguments.contains( "sceneObjectId" );
+    return hasName != hasId && ( hasName ? ReadString( arguments, "name", command.text )
+                                         : ReadUnsignedInteger( arguments, "sceneObjectId", command.unsignedInteger ) );
+}
+
+CommandParseStatus ParseValueCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
+{
+    if ( name == "capture.screenshot" || name == "replay.save" || name == "replay.load" )
+    {
+        command.type = name == "capture.screenshot" ? SkarnessCommandType::CaptureScreenshot
+                       : name == "replay.save"      ? SkarnessCommandType::ReplaySave
+                                                    : SkarnessCommandType::ReplayLoad;
+        // Invariant: the App-side replay commands carry a fixed path buffer.
+        // Reject overflow at the protocol boundary instead of silently changing
+        // the caller's requested file through truncation.
+        const bool valid = ReadString( arguments, "path", command.text ) && command.text.size() < 260u;
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "scene.load" )
+    {
+        command.type = SkarnessCommandType::SceneLoad;
+        const bool hasName = arguments.contains( "name" );
+        const bool hasPath = arguments.contains( "path" );
+        return hasName != hasPath && ReadString( arguments, hasName ? "name" : "path", command.text )
+                   ? CommandParseStatus::Valid
+                   : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "scene.object.resolve" || name == "replay.set_intercept_target" || name == "prediction.select_target" ||
+         name == "replay.set_path_target" )
+    {
+        command.type = name == "scene.object.resolve"          ? SkarnessCommandType::SceneObjectResolve
+                       : name == "replay.set_intercept_target" ? SkarnessCommandType::ReplaySetInterceptTarget
+                                                               : SkarnessCommandType::PredictionSelectTarget;
+        return ReadSceneIdentity( arguments, command ) ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "scene.object.select" )
+    {
+        command.type = SkarnessCommandType::SceneObjectSelect;
+        const bool valid = ReadString( arguments, "scope", command.secondText ) &&
+                           ( command.secondText == "inspect" || command.secondText == "editor" ) &&
+                           ReadSceneIdentity( arguments, command );
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "scene.object.clear_selection" )
+    {
+        command.type = SkarnessCommandType::SceneObjectClearSelection;
+        const bool valid = ReadString( arguments, "scope", command.secondText ) &&
+                           ( command.secondText == "inspect" || command.secondText == "editor" );
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    return CommandParseStatus::Unknown;
+}
+
+CommandParseStatus ParsePlanningCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
+{
+    if ( name == "replay.set_path_color_mode" || name == "replay.set_cause_filter" ||
+         name == "replay.set_cause_inspector_tab" )
+    {
+        const char* argument = name == "replay.set_path_color_mode" ? "mode"
+                               : name == "replay.set_cause_filter"  ? "filter"
+                                                                    : "tab";
+        command.type = name == "replay.set_path_color_mode" ? SkarnessCommandType::ReplaySetPathColorMode
+                       : name == "replay.set_cause_filter"  ? SkarnessCommandType::ReplaySetCauseFilter
+                                                            : SkarnessCommandType::ReplaySetCauseInspectorTab;
+        if ( !ReadString( arguments, argument, command.text ) )
+        {
+            return CommandParseStatus::Invalid;
+        }
+        const bool valid = name == "replay.set_path_color_mode"
+                               ? command.text == "lane" || command.text == "velocity" || command.text == "time" ||
+                                     command.text == "object" || command.text == "causal"
+                           : name == "replay.set_cause_filter"
+                               ? command.text == "all" || command.text == "prediction" || command.text == "contacts"
+                               : command.text == "summary" || command.text == "raw" || command.text == "iterations";
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "replay.set_cause_filter_text" )
+    {
+        command.type = SkarnessCommandType::ReplaySetCauseFilterText;
+        const auto found = arguments.find( "text" );
+        const bool valid = found != arguments.end() && found->is_string();
+        command.text = valid ? found->get<std::string>() : "";
+        return valid && command.text.size() < 48u ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "replay.velocity_preview" )
+    {
+        command.type = SkarnessCommandType::ReplayVelocityPreview;
+        const bool valid = ReadVector3( arguments, "linear", command.number, command.secondNumber, command.thirdNumber ) &&
+                           ReadVector3( arguments, "angular", command.fourthNumber, command.fifthNumber,
+                                        command.sixthNumber );
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "replay.select_cause" )
+    {
+        command.type = SkarnessCommandType::ReplaySelectCause;
+        const bool valid = ReadInteger( arguments, "row", command.integer ) && command.integer >= 0 &&
+                           ReadUnsignedInteger( arguments, "sceneObjectId", command.unsignedInteger ) &&
+                           ReadUnsignedIntegerIncludingZero( arguments, "frame", command.secondUnsignedInteger ) &&
+                           ReadUnsignedIntegerIncludingZero( arguments, "generation", command.thirdUnsignedInteger ) &&
+                           ReadUnsignedIntegerIncludingZero( arguments, "bankEpoch", command.fourthUnsignedInteger ) &&
+                           ReadUnsignedIntegerIncludingZero( arguments, "topologyVersion", command.fifthUnsignedInteger ) &&
+                           ReadUnsignedIntegerIncludingZero( arguments, "publicationVersion", command.sixthUnsignedInteger );
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    if ( name == "camera.orbit_inspection" )
+    {
+        command.type = SkarnessCommandType::CameraOrbitInspection;
+        const bool valid = ReadNumber( arguments, "yawRadians", command.number ) &&
+                           ReadNumber( arguments, "pitchRadians", command.secondNumber ) &&
+                           ( !arguments.contains( "wheelDelta" ) ||
+                             ReadInteger( arguments, "wheelDelta", command.integer ) ) &&
+                           command.integer >= -1200 && command.integer <= 1200 &&
+                           std::fabs( command.number ) <= 6.283185307 && std::fabs( command.secondNumber ) <= 6.283185307;
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
+    return CommandParseStatus::Unknown;
+}
+
+CommandParseStatus ParseCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
+{
+    for ( const auto parser : { ParseBasicCommand, ParseNumericCommand, ParseValueCommand, ParsePlanningCommand } )
+    {
+        const CommandParseStatus status = parser( name, arguments, command );
+
+        if ( status != CommandParseStatus::Unknown )
+        {
+            return status;
+        }
+    }
+
+    return CommandParseStatus::Unknown;
+}
 } // namespace
 
 SkarnessHost::~SkarnessHost()
@@ -175,7 +618,7 @@ SkarnessHost::~SkarnessHost()
     Shutdown( "closed" );
 }
 
-bool SkarnessHost::Configure( const char* sessionDirectory, std::string& outReason )
+bool SkarnessHost::Configure( const char* sessionDirectory, bool manualInput, std::string& outReason )
 {
     if ( !sessionDirectory || sessionDirectory[0] == '\0' )
     {
@@ -213,7 +656,8 @@ bool SkarnessHost::Configure( const char* sessionDirectory, std::string& outReas
     }
 
     m_enabled = true;
-    m_paused = true;
+    m_manualInput = manualInput;
+    m_paused = !manualInput;
 
     if ( !WriteManifest( "waiting" ) )
     {
@@ -309,22 +753,10 @@ void SkarnessHost::DisconnectClient()
     }
 
     m_connected = false;
+    m_stateSubscriptions.fill( false );
     m_receiveBuffer.clear();
-    m_paused = true;
-    m_stepFramesRemaining = 0;
-    m_renderFramesRemaining = 0;
-    m_stepRequestId.clear();
-    m_renderStepRequestId.clear();
-    m_untilRequestId.clear();
-    m_untilCondition.clear();
-    m_stopRequestId.clear();
-    m_pendingSceneTransition = PendingSceneTransition {};
-    m_pendingPointerDrag = PendingPointerDrag {};
-    m_stepCompletesAfterFrame = false;
-    m_untilFramesRemaining = 0;
-    m_untilStepsPhysics = false;
-    m_stopAfterFrame = false;
-    m_stopRequested = false;
+    // Invariant: transport loss never changes accepted work. Terminal results
+    // are retained by request id and replayed after a reconnect.
     (void)WriteManifest( "waiting" );
 }
 
@@ -396,21 +828,71 @@ void SkarnessHost::PollCommands()
     }
 }
 
-bool SkarnessHost::RememberRequestId( const std::string& requestId )
+SkarnessHost::RememberRequestResult SkarnessHost::RememberRequestId( const std::string& requestId )
 {
     if ( std::find( m_recentRequestIds.begin(), m_recentRequestIds.end(), requestId ) != m_recentRequestIds.end() )
     {
-        return false;
+        return RememberRequestResult::Duplicate;
+    }
+
+    if ( m_recentRequestIds.size() >= SKARNESS_REQUEST_HISTORY_CAPACITY )
+    {
+        // Invariant: an in-flight id cannot be forgotten and applied twice.
+        // Reclaim the oldest completed slot, or reject new work while every
+        // retained id still has an unresolved command.
+        const auto evict = std::find_if( m_recentRequestIds.begin(), m_recentRequestIds.end(),
+                                         [this]( const std::string& retainedId )
+                                         {
+                                             return std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
+                                                                  [&retainedId]( const CompletedRequest& result )
+                                                                  { return result.requestId == retainedId; } ) !=
+                                                    m_completedRequests.end();
+                                         } );
+
+        if ( evict == m_recentRequestIds.end() )
+        {
+            return RememberRequestResult::Full;
+        }
+
+        const auto completed = std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
+                                             [&evict]( const CompletedRequest& result )
+                                             { return result.requestId == *evict; } );
+        m_completedRequests.erase( completed );
+        m_recentRequestIds.erase( evict );
     }
 
     m_recentRequestIds.push_back( requestId );
+    return RememberRequestResult::Inserted;
+}
 
-    if ( m_recentRequestIds.size() > SKARNESS_REQUEST_HISTORY_CAPACITY )
+bool SkarnessHost::AdmitRequestId( const std::string& requestId )
+{
+    const RememberRequestResult remember = RememberRequestId( requestId );
+
+    if ( remember == RememberRequestResult::Inserted )
     {
-        m_recentRequestIds.pop_front();
+        return true;
     }
 
-    return true;
+    if ( remember == RememberRequestResult::Duplicate )
+    {
+        const auto completed = std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
+                                             [&requestId]( const CompletedRequest& result )
+                                             { return result.requestId == requestId; } );
+
+        if ( completed != m_completedRequests.end() )
+        {
+            (void)SendJsonLine( completed->response );
+        }
+        else
+        {
+            SendLifecycle( requestId, "duplicate", "the original request is still pending" );
+        }
+        return false;
+    }
+
+    SendLifecycle( requestId, "rejected", "request history is full", false );
+    return false;
 }
 
 void SkarnessHost::ConsumeRequestLine( const std::string& line )
@@ -444,24 +926,12 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
     if ( schemaVersion != SKARNESS_SCHEMA_VERSION || sessionToken != m_sessionToken || requestId.empty() ||
          commandName.empty() )
     {
-        SendLifecycle( requestId, "rejected", "schema, token, requestId, or command is invalid" );
+        SendLifecycle( requestId, "rejected", "schema, token, requestId, or command is invalid", false );
         return;
     }
 
-    if ( !RememberRequestId( requestId ) )
+    if ( !AdmitRequestId( requestId ) )
     {
-        const auto completed = std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
-                                             [&requestId]( const CompletedRequest& result )
-                                             { return result.requestId == requestId; } );
-
-        if ( completed != m_completedRequests.end() )
-        {
-            (void)SendJsonLine( completed->response );
-        }
-        else
-        {
-            SendLifecycle( requestId, "duplicate", "the original request is still pending" );
-        }
         return;
     }
 
@@ -494,6 +964,7 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         m_untilRequestId.clear();
         m_untilCondition.clear();
         m_stepCompletesAfterFrame = false;
+        m_untilLimit = 0;
         m_untilFramesRemaining = 0;
         m_untilStepsPhysics = false;
         SendLifecycle( requestId, "accepted" );
@@ -503,13 +974,60 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
 
     if ( commandName == "state.subscribe" )
     {
+        if ( !m_subscriptionRequestId.empty() )
+        {
+            SendLifecycle( requestId, "rejected", "a subscription snapshot is already pending" );
+            return;
+        }
+        StateSubscription subscription;
+
+        if ( !ReadStateSubscription( arguments, subscription ) )
+        {
+            SendLifecycle( requestId, "rejected", "topics must be an array of strings" );
+            return;
+        }
+
+        // Invariant: subscription completion is deferred until the next
+        // after-render snapshot batch is durable. A client can therefore query
+        // every selected topic immediately after receiving "applied".
+        m_stateSubscriptions = subscription.topics;
+        m_stateDetail = subscription.detail;
+        m_stateInitialized.fill( false );
+        m_statePayloadHashes.fill( 0u );
+        m_stateOwnerVersions.fill( 0u );
+        m_stateAppendCursors.fill( 0u );
+        m_stateEvictCursors.fill( 0u );
+        m_subscriptionSnapshotPending = true;
+        m_subscriptionRequestId = requestId;
         SendLifecycle( requestId, "accepted" );
-        SendLifecycle( requestId, "applied" );
+        return;
+    }
+
+    if ( commandName == "input.set_arrows" )
+    {
+        bool left = false;
+        bool right = false;
+
+        if ( m_manualInput || !ReadBoolean( arguments, "left", left ) || !ReadBoolean( arguments, "right", right ) )
+        {
+            SendLifecycle( requestId, "rejected", "automated input and boolean left/right values are required" );
+            return;
+        }
+
+        m_arrowKeysDown = static_cast<uint8_t>( ( left ? 1 : 0 ) | ( right ? 2 : 0 ) );
+        SendLifecycle( requestId, "accepted" );
+        CompleteCommand( requestId, true );
         return;
     }
 
     if ( commandName == "input.pointer_drag" )
     {
+        if ( m_manualInput )
+        {
+            SendLifecycle( requestId, "rejected", "manual input owns the pointer" );
+            return;
+        }
+
         std::string buttonName;
         PendingPointerDrag drag;
         bool validButton = true;
@@ -610,6 +1128,7 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         std::string condition;
         int maximum = 0;
         const bool hasMaxFrames = arguments.contains( "maxFrames" );
+        const bool hasMaxTicks = arguments.contains( "maxTicks" );
         const char* maximumName = hasMaxFrames ? "maxFrames" : "maxTicks";
 
         if ( !m_untilRequestId.empty() || !m_stepRequestId.empty() || !m_renderStepRequestId.empty() )
@@ -618,10 +1137,11 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
             return;
         }
 
-        if ( !ReadString( arguments, "condition", condition ) ||
+        if ( hasMaxFrames == hasMaxTicks || !ReadString( arguments, "condition", condition ) ||
              ( condition != "prediction.complete" && condition != "prediction.geometry" &&
                condition != "prediction.submitted" && condition != "prediction.rendered" &&
-               condition != "prediction.causal_rendered" ) ||
+               condition != "prediction.causal_rendered" && condition != "camera.inspection_settled" &&
+               condition != "camera.main_restored" ) ||
              !ReadInteger( arguments, maximumName, maximum ) || maximum < 1 || maximum > 100000 )
         {
             SendLifecycle( requestId, "rejected", "condition or maxFrames/maxTicks is invalid" );
@@ -631,6 +1151,7 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         m_paused = true;
         m_untilRequestId = requestId;
         m_untilCondition = std::move( condition );
+        m_untilLimit = static_cast<uint32_t>( maximum );
         m_untilFramesRemaining = static_cast<uint32_t>( maximum );
         m_untilStepsPhysics = !hasMaxFrames;
         SendLifecycle( requestId, "accepted" );
@@ -639,149 +1160,20 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
 
     SkarnessCommand command;
     command.requestId = requestId;
-    bool valid = true;
 
-    if ( commandName == "capture.screenshot" )
-    {
-        command.type = SkarnessCommandType::CaptureScreenshot;
-        valid = ReadString( arguments, "path", command.text );
-    }
-    else if ( commandName == "scene.load" )
-    {
-        command.type = SkarnessCommandType::SceneLoad;
-        const bool hasName = arguments.contains( "name" );
-        const bool hasPath = arguments.contains( "path" );
-        valid = hasName != hasPath && ReadString( arguments, hasName ? "name" : "path", command.text );
-    }
-    else if ( commandName == "scene.reset" )
-    {
-        command.type = SkarnessCommandType::SceneReset;
-    }
-    else if ( commandName == "scene.load_demo" )
-    {
-        command.type = SkarnessCommandType::SceneLoadDemo;
-    }
-    else if ( commandName == "replay.set_recording_enabled" )
-    {
-        command.type = SkarnessCommandType::ReplaySetRecordingEnabled;
-        valid = ReadBoolean( arguments, "enabled", command.enabled );
-    }
-    else if ( commandName == "replay.jump_to_start" )
-    {
-        command.type = SkarnessCommandType::ReplayJumpToStart;
-    }
-    else if ( commandName == "replay.jump_to_end" )
-    {
-        command.type = SkarnessCommandType::ReplayJumpToEnd;
-    }
-    else if ( commandName == "replay.set_playback_paused" )
-    {
-        command.type = SkarnessCommandType::ReplaySetPlaybackPaused;
-        valid = ReadBoolean( arguments, "paused", command.enabled );
-    }
-    else if ( commandName == "replay.step_backward" )
-    {
-        command.type = SkarnessCommandType::ReplayStepBackward;
-    }
-    else if ( commandName == "replay.step_forward" )
-    {
-        command.type = SkarnessCommandType::ReplayStepForward;
-    }
-    else if ( commandName == "replay.set_reveal_speed" )
-    {
-        command.type = SkarnessCommandType::ReplaySetRevealSpeed;
-        valid = ReadNumber( arguments, "rate", command.number ) && command.number > 0.0;
-    }
-    else if ( commandName == "replay.scrub" )
-    {
-        command.type = SkarnessCommandType::ReplayScrub;
-        valid = ReadNumber( arguments, "normalized", command.number ) && command.number >= 0.0 && command.number <= 1.0;
-    }
-    else if ( commandName == "replay.set_prediction_enabled" )
-    {
-        command.type = SkarnessCommandType::ReplaySetPredictionEnabled;
-        valid = ReadBoolean( arguments, "enabled", command.enabled );
-    }
-    else if ( commandName == "replay.set_prediction_detail" )
-    {
-        command.type = SkarnessCommandType::ReplaySetPredictionDetailMode;
-        valid = ReadBoolean( arguments, "highDetail", command.enabled );
-    }
-    else if ( commandName == "replay.set_prediction_horizon" )
-    {
-        command.type = SkarnessCommandType::ReplaySetPredictionHorizon;
-        valid = ReadNumber( arguments, "seconds", command.number ) && command.number >= 1.0 && command.number <= 120.0;
-    }
-    else if ( commandName == "replay.set_velocity_edit_enabled" )
-    {
-        command.type = SkarnessCommandType::ReplaySetVelocityEditEnabled;
-        valid = ReadBoolean( arguments, "enabled", command.enabled );
-    }
-    else if ( commandName == "replay.set_ragdoll_visuals_enabled" )
-    {
-        command.type = SkarnessCommandType::ReplaySetRagdollVisualsEnabled;
-        valid = ReadBoolean( arguments, "enabled", command.enabled );
-    }
-    else if ( commandName == "replay.set_past_path_visible" )
-    {
-        command.type = SkarnessCommandType::ReplaySetPastPathVisible;
-        valid = ReadBoolean( arguments, "visible", command.enabled );
-    }
-    else if ( commandName == "replay.restore_branch" )
-    {
-        command.type = SkarnessCommandType::ReplayRestoreBranch;
-    }
-    else if ( commandName == "replay.save" )
-    {
-        command.type = SkarnessCommandType::ReplaySave;
-        valid = !arguments.contains( "path" ) || ReadString( arguments, "path", command.text );
-    }
-    else if ( commandName == "replay.load" )
-    {
-        command.type = SkarnessCommandType::ReplayLoad;
-        valid = ReadString( arguments, "path", command.text );
-    }
-    else if ( commandName == "replay.return_to_live" )
-    {
-        command.type = SkarnessCommandType::ReplayReturnToLive;
-    }
-    else if ( commandName == "replay.select_cause_row" )
-    {
-        command.type = SkarnessCommandType::ReplaySelectCauseRow;
-        valid = ReadInteger( arguments, "row", command.integer ) && command.integer >= 0;
-    }
-    else if ( commandName == "replay.set_cause_inspector_open" )
-    {
-        command.type = SkarnessCommandType::ReplaySetCauseInspectorOpen;
-        valid = ReadBoolean( arguments, "open", command.enabled );
-    }
-    else if ( commandName == "prediction.select_target" || commandName == "replay.set_path_target" )
-    {
-        command.type = SkarnessCommandType::PredictionSelectTarget;
-        const bool hasName = arguments.contains( "name" );
-        const bool hasId = arguments.contains( "sceneObjectId" );
-        valid = hasName != hasId && ( hasName ? ReadString( arguments, "name", command.text )
-                                              : ReadUnsignedInteger( arguments, "sceneObjectId", command.unsignedInteger ) );
-    }
-    else if ( commandName == "camera.orbit_inspection" )
-    {
-        command.type = SkarnessCommandType::CameraOrbitInspection;
-        valid = ReadNumber( arguments, "yawRadians", command.number ) &&
-                ReadNumber( arguments, "pitchRadians", command.secondNumber ) &&
-                std::fabs( command.number ) <= 6.283185307 && std::fabs( command.secondNumber ) <= 6.283185307;
-    }
-    else
+    const CommandParseStatus parseStatus = ParseCommand( commandName, arguments, command );
+
+    if ( parseStatus == CommandParseStatus::Unknown )
     {
         SendLifecycle( requestId, "rejected", "unknown command" );
         return;
     }
 
-    if ( !valid )
+    if ( parseStatus == CommandParseStatus::Invalid )
     {
         SendLifecycle( requestId, "rejected", "missing or invalid command arguments" );
         return;
     }
-
     if ( m_commands.size() >= SKARNESS_COMMAND_CAPACITY )
     {
         SendLifecycle( requestId, "rejected", "command queue is full" );
@@ -809,6 +1201,23 @@ void SkarnessHost::CompleteCommand( const std::string& requestId, bool applied, 
     PendingCompletion completion;
     completion.requestId = requestId;
     completion.applied = applied;
+
+    if ( reason )
+    {
+        completion.reason = reason;
+    }
+
+    m_pendingCompletions.push_back( std::move( completion ) );
+}
+
+void SkarnessHost::CompleteCommand( const std::string& requestId, bool applied, const SkarnessCommandResult& result,
+                                    const char* reason )
+{
+    PendingCompletion completion;
+    completion.requestId = requestId;
+    completion.result = result;
+    completion.applied = applied;
+    completion.hasResult = true;
 
     if ( reason )
     {
@@ -857,7 +1266,7 @@ void SkarnessHost::CompleteCapture( uint64_t token, bool applied, const char* re
 
 bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
 {
-    if ( m_pendingPointerDrag.requestId.empty() )
+    if ( !m_connected || m_pendingPointerDrag.requestId.empty() )
     {
         return false;
     }
@@ -891,12 +1300,25 @@ bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
     return true;
 }
 
+uint8_t SkarnessHost::ArrowKeysDown() const noexcept
+{
+    return m_connected ? m_arrowKeysDown : 0;
+}
+
 SkarnessProceedPolicy SkarnessHost::TakeProceedPolicy()
 {
     SkarnessProceedPolicy policy;
 
     if ( !m_enabled )
     {
+        return policy;
+    }
+
+    // Invariant: an accepted command retains its remaining work across pipe
+    // loss, but no physics tick is consumed until its controller reconnects.
+    if ( !m_connected )
+    {
+        policy.pauseLocked = true;
         return policy;
     }
 
@@ -941,7 +1363,32 @@ bool SkarnessHost::SendJsonLine( const std::string& line )
     return true;
 }
 
-void SkarnessHost::SendLifecycle( const std::string& requestId, const char* status, const char* reason )
+void SkarnessHost::StoreCompletedResponse( const std::string& requestId, const std::string& response )
+{
+    const bool retained = std::find( m_recentRequestIds.begin(), m_recentRequestIds.end(), requestId ) !=
+                          m_recentRequestIds.end();
+
+    if ( requestId.empty() || !retained )
+    {
+        return;
+    }
+
+    const auto existing = std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
+                                        [&requestId]( const CompletedRequest& result )
+                                        { return result.requestId == requestId; } );
+
+    if ( existing != m_completedRequests.end() )
+    {
+        existing->response = response;
+    }
+    else
+    {
+        m_completedRequests.push_back( CompletedRequest { requestId, response } );
+    }
+}
+
+void SkarnessHost::SendLifecycle( const std::string& requestId, const char* status, const char* reason, bool retainResult,
+                                  const SkarnessCommandResult* result )
 {
     Json response = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
                       { "sequence", ++m_sequence },
@@ -954,30 +1401,55 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
         response["reason"] = reason;
     }
 
+    if ( result )
+    {
+        Json values = Json::object();
+
+        if ( !result->objects.empty() )
+        {
+            Json objects = Json::array();
+
+            for ( const SkarnessSceneObjectResult& object : result->objects )
+            {
+                objects.push_back( { { "sceneObjectId", object.sceneObjectId },
+                                     { "modelRow", object.modelRow },
+                                     { "name", object.name } } );
+            }
+
+            values["objects"] = std::move( objects );
+        }
+
+        if ( result->hasTextValue )
+        {
+            values[result->valueName] = result->textValue;
+        }
+        else if ( result->hasNumberValue )
+        {
+            values[result->valueName] = result->numberValue;
+        }
+        else if ( result->hasUnsignedValue )
+        {
+            values[result->valueName] = result->unsignedValue;
+        }
+        else if ( result->hasIntegerValue )
+        {
+            values[result->valueName] = result->integerValue;
+        }
+        else if ( result->hasBoolValue )
+        {
+            values[result->valueName] = result->boolValue;
+        }
+
+        response["result"] = std::move( values );
+    }
+
     const std::string line = response.dump();
     m_trace << line << '\n';
     m_trace.flush();
 
-    if ( status && ( std::strcmp( status, "applied" ) == 0 || std::strcmp( status, "rejected" ) == 0 ) &&
-         !requestId.empty() )
+    if ( retainResult && status && ( std::strcmp( status, "applied" ) == 0 || std::strcmp( status, "rejected" ) == 0 ) )
     {
-        const auto existing = std::find_if( m_completedRequests.begin(), m_completedRequests.end(),
-                                            [&requestId]( const CompletedRequest& result )
-                                            { return result.requestId == requestId; } );
-
-        if ( existing != m_completedRequests.end() )
-        {
-            existing->response = line;
-        }
-        else
-        {
-            m_completedRequests.push_back( CompletedRequest { requestId, line } );
-        }
-
-        if ( m_completedRequests.size() > SKARNESS_REQUEST_HISTORY_CAPACITY )
-        {
-            m_completedRequests.pop_front();
-        }
+        StoreCompletedResponse( requestId, line );
     }
 
     (void)SendJsonLine( line );
@@ -985,63 +1457,48 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
 
 void SkarnessHost::SendCapabilities( const std::string& requestId )
 {
-    static const std::array<const char*, 36> commands = { "capabilities.get",
-                                                          "session.stop",
-                                                          "capture.screenshot",
-                                                          "scene.load",
-                                                          "scene.reset",
-                                                          "scene.load_demo",
-                                                          "run.pause",
-                                                          "run.resume",
-                                                          "run.step",
-                                                          "run.step_frames",
-                                                          "run.until",
-                                                          "replay.set_recording_enabled",
-                                                          "replay.jump_to_start",
-                                                          "replay.jump_to_end",
-                                                          "replay.set_playback_paused",
-                                                          "replay.step_backward",
-                                                          "replay.step_forward",
-                                                          "replay.set_reveal_speed",
-                                                          "replay.scrub",
-                                                          "replay.set_prediction_enabled",
-                                                          "replay.set_prediction_detail",
-                                                          "replay.set_prediction_horizon",
-                                                          "replay.set_velocity_edit_enabled",
-                                                          "replay.set_ragdoll_visuals_enabled",
-                                                          "replay.set_past_path_visible",
-                                                          "replay.restore_branch",
-                                                          "replay.save",
-                                                          "replay.load",
-                                                          "replay.return_to_live",
-                                                          "replay.select_cause_row",
-                                                          "replay.set_cause_inspector_open",
-                                                          "prediction.select_target",
-                                                          "replay.set_path_target",
-                                                          "camera.orbit_inspection",
-                                                          "input.pointer_drag",
-                                                          "state.subscribe" };
+    Json commandNames = Json::array();
+    Json catalog = Json::array();
+    Json topics = Json::array();
+
+    for ( const SkarnessCapability& capability : SKARNESS_CAPABILITIES )
+    {
+        const bool available = capability.availability == SkarnessCapabilityAvailability::Always || !m_manualInput;
+
+        if ( available )
+        {
+            commandNames.push_back( capability.name );
+        }
+
+        catalog.push_back( { { "name", capability.name },
+                             { "owner", capability.owner },
+                             { "arguments", capability.arguments },
+                             { "available", available } } );
+    }
+
+    for ( const SkarnessStateTopic& topic : SKARNESS_STATE_TOPICS )
+    {
+        topics.push_back( { { "name", topic.name }, { "owner", topic.owner } } );
+    }
+
     Json response = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
                       { "sequence", ++m_sequence },
                       { "kind", "capabilities" },
                       { "requestId", requestId },
                       { "status", "applied" },
-                      { "commands", commands },
-                      { "topics", { "scene.state", "replay.state" } } };
+                      { "commands", std::move( commandNames ) },
+                      { "catalog", std::move( catalog ) },
+                      { "topics", std::move( topics ) },
+                      { "stateDetail", { "summary", "normal", "full" } } };
     const std::string line = response.dump();
     m_trace << line << '\n';
     m_trace.flush();
-    m_completedRequests.push_back( CompletedRequest { requestId, line } );
-
-    if ( m_completedRequests.size() > SKARNESS_REQUEST_HISTORY_CAPACITY )
-    {
-        m_completedRequests.pop_front();
-    }
+    StoreCompletedResponse( requestId, line );
 
     (void)SendJsonLine( line );
 }
 
-void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
+void SkarnessHost::PublishFrameState( const SkarnessFrameState& state, const ReplayAutomationView& replay )
 {
     if ( !m_enabled )
     {
@@ -1049,126 +1506,101 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
     }
 
     const uint64_t renderFrame = ++m_renderFrame;
-    Json scenePayload = { { "scenePath", state.scenePath },
-                          { "sceneObjectCount", state.sceneObjectCount },
-                          { "physicsBodyCount", state.physicsBodyCount },
-                          { "lifecycleEvent", state.sceneLifecycleEvent },
-                          { "ready", state.sceneReady },
-                          { "sceneMode", state.sceneMode } };
-    Json sceneEvent = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
-                        { "sequence", ++m_sequence },
-                        { "kind", "state" },
-                        { "topic", "scene.state" },
-                        { "renderFrame", renderFrame },
-                        { "sceneGeneration", state.sceneGeneration },
-                        { "sceneFrame", state.sceneFrame },
-                        { "simulationSeconds", state.simulationSeconds },
-                        { "paused", state.paused },
-                        { "payload", std::move( scenePayload ) } };
-    const std::string sceneLine = sceneEvent.dump();
-    m_trace << sceneLine << '\n';
-    m_trace.flush();
-    (void)SendJsonLine( sceneLine );
+    SkarnessSerializedStateTopics topics;
+    BuildSkarnessStateTopics( state, replay, m_stateDetail, topics );
+    std::vector<std::string> traceLines;
+    std::vector<std::string> notificationLines;
+    const bool sceneReset = m_lastPublishedSceneGeneration != ~uint64_t { 0 } &&
+                            m_lastPublishedSceneGeneration != state.sceneGeneration;
 
-    Json payload = { { "replayCaptureEnabled", state.replayCaptureEnabled },
-                     { "replayScrubPaused", state.replayScrubPaused },
-                     { "replayPlaybackPaused", state.replayPlaybackPaused },
-                     { "predictionEnabled", state.predictionEnabled },
-                     { "predictionBuilding", state.predictionBuilding },
-                     { "predictionComplete", state.predictionComplete },
-                     { "predictionDirty", state.predictionDirty },
-                     { "predictionRestartPending", state.predictionRestartPending },
-                     { "predictionGenerationPermitted", state.predictionGenerationPermitted },
-                     { "predictionHighDetail", state.predictionHighDetail },
-                     { "velocityEditEnabled", state.velocityEditEnabled },
-                     { "ragdollVisualsEnabled", state.ragdollVisualsEnabled },
-                     { "pastPathVisible", state.pastPathVisible },
-                     { "hasPathTarget", state.hasPathTarget },
-                     { "pathTargetId", state.pathTargetId },
-                     { "pathTargetModelRow", state.pathTargetModelRow },
-                     { "predictionHorizonSeconds", state.predictionHorizonSeconds },
-                     { "predictionRevealProgress", state.predictionRevealProgress },
-                     { "predictionGeneration", state.predictionGeneration },
-                     { "predictionSourceTargetId", state.predictionSourceTargetId },
-                     { "predictionSourceFrame", state.predictionSourceFrame },
-                     { "predictionSourceSolverHash", state.predictionSourceSolverHash },
-                     { "committedPredictionFrames", state.committedPredictionFrames },
-                     { "incompleteContactFrameCount", state.incompleteContactFrameCount },
-                     { "publishedPredictionTargetId", state.publishedPredictionTargetId },
-                     { "publishedPredictionFrames", state.publishedPredictionFrames },
-                     { "trajectoryRecordCount", state.trajectoryRecordCount },
-                     { "selectedPastRootPointCount", state.selectedPastRootPointCount },
-                     { "selectedFutureRootPointCount", state.selectedFutureRootPointCount },
-                     { "contactChildIncomingCount", state.contactChildIncomingCount },
-                     { "contactChildOutgoingCount", state.contactChildOutgoingCount },
-                     { "childOutgoingPreEntryPointCount", state.childOutgoingPreEntryPointCount },
-                     { "retainedEntryMarkerCount", state.retainedEntryMarkerCount },
-                     { "retainedEndMarkerCount", state.retainedEndMarkerCount },
-                     { "drawnCollisionWireframeCount", state.drawnCollisionWireframeCount },
-                     { "drawnEndingWireframeCount", state.drawnEndingWireframeCount },
-                     { "collisionWireframePathMismatchCount", state.collisionWireframePathMismatchCount },
-                     { "endingWireframePathMismatchCount", state.endingWireframePathMismatchCount },
-                     { "futureNodeCount", state.futureNodeCount },
-                     { "retainedLineFloatCount", state.retainedLineFloatCount },
-                     { "retainedRibbonVertexFloatCount", state.retainedRibbonVertexFloatCount },
-                     { "causeTreeRowCount", state.causeTreeRowCount },
-                     { "causeTreeRowBuildCount", state.causeTreeRowBuildCount },
-                     { "causeTreeRowCacheHitCount", state.causeTreeRowCacheHitCount },
-                     { "causeWindowAvailable", state.causeWindowAvailable },
-                     { "causeInspectorOpen", state.causeInspectorOpen },
-                     { "causeInspectorDrawerProgress", state.causeInspectorDrawerProgress },
-                     { "selectedCauseRow", state.selectedCauseRow },
-                     { "causeInspectionMode", state.causeInspectionMode },
-                     { "causeTransitionProgress", state.causeTransitionProgress },
-                     { "inspectionCameraActive", state.inspectionCameraActive },
-                     { "inspectionCameraFocusKind", state.inspectionCameraFocusKind },
-                     { "inspectionFocusFadeActive", state.inspectionFocusFadeActive },
-                     { "inspectionFocusObjectCount", state.inspectionFocusObjectCount },
-                     { "selectedCausePrimaryId", state.selectedCausePrimaryId },
-                     { "selectedCauseCounterpartId", state.selectedCauseCounterpartId },
-                     { "causeContactPointCount", state.causeContactPointCount },
-                     { "submittedCauseContactPointCount", state.submittedCauseContactPointCount },
-                     { "submittedCauseContactBodyCount", state.submittedCauseContactBodyCount },
-                     { "inspectionPathFocusPrimaryId", state.inspectionPathFocusPrimaryId },
-                     { "inspectionPathFocusCounterpartId", state.inspectionPathFocusCounterpartId },
-                     { "inspectionFocusedPathRangeCount", state.inspectionFocusedPathRangeCount },
-                     { "inspectionContextPathRangeCount", state.inspectionContextPathRangeCount },
-                     { "inspectionFocusedPathSegmentCount", state.inspectionFocusedPathSegmentCount },
-                     { "inspectionContextPathSegmentCount", state.inspectionContextPathSegmentCount },
-                     { "inspectionPathOpacityMismatchCount", state.inspectionPathOpacityMismatchCount },
-                     { "inspectionPathFocusActive", state.inspectionPathFocusActive },
-                     { "inspectionPivot", { state.inspectionPivotX, state.inspectionPivotY, state.inspectionPivotZ } },
-                     { "selectedCameraHash", state.selectedCameraHash },
-                     { "cameraTweenActive", state.cameraTweenActive },
-                     { "cameraTweenProgress", state.cameraTweenProgress },
-                     { "cameraPrimaryEye", { state.cameraPrimaryEyeX, state.cameraPrimaryEyeY, state.cameraPrimaryEyeZ } },
-                     { "cameraPrimaryView",
-                       { state.cameraPrimaryViewX, state.cameraPrimaryViewY, state.cameraPrimaryViewZ } },
-                     { "cameraPrimaryUp", { state.cameraPrimaryUpX, state.cameraPrimaryUpY, state.cameraPrimaryUpZ } },
-                     { "cameraRenderEye", { state.cameraRenderEyeX, state.cameraRenderEyeY, state.cameraRenderEyeZ } },
-                     { "cameraRenderView", { state.cameraRenderViewX, state.cameraRenderViewY, state.cameraRenderViewZ } },
-                     { "cameraRenderUp", { state.cameraRenderUpX, state.cameraRenderUpY, state.cameraRenderUpZ } },
-                     { "cameraRenderRollRadians", state.cameraRenderRollRadians },
-                     { "retainedPathGeometrySaturated", state.retainedPathGeometrySaturated },
-                     { "visualPacketHasGeometry", state.visualPacketHasGeometry },
-                     { "trajectorySubmitted", state.trajectorySubmitted },
-                     { "submittedSegmentCount", state.submittedSegmentCount },
-                     { "submittedVertexCount", state.submittedVertexCount },
-                     { "submittedFutureTreeReady", state.submittedFutureTreeReady } };
-    Json event = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
-                   { "sequence", ++m_sequence },
-                   { "kind", "state" },
-                   { "topic", "replay.state" },
-                   { "renderFrame", renderFrame },
-                   { "sceneGeneration", state.sceneGeneration },
-                   { "sceneFrame", state.sceneFrame },
-                   { "simulationSeconds", state.simulationSeconds },
-                   { "paused", state.paused },
-                   { "payload", std::move( payload ) } };
-    const std::string line = event.dump();
-    m_trace << line << '\n';
+    const auto emit = [&]( std::size_t index, const char* kind, const std::string& payload, uint64_t payloadHash )
+    {
+        Json event = { { "schemaVersion", SKARNESS_SCHEMA_VERSION },
+                       { "sequence", ++m_sequence },
+                       { "runId", m_runId },
+                       { "runtimeTurn", renderFrame },
+                       { "sceneGeneration", state.sceneGeneration },
+                       { "simulationTick", state.sceneFrame },
+                       { "sceneFrame", state.sceneFrame },
+                       { "simulationSeconds", state.simulationSeconds },
+                       { "paused", state.paused },
+                       { "renderFrame", renderFrame },
+                       { "replayFrame", state.presentedReplayFrame },
+                       { "topic", SKARNESS_STATE_TOPICS[index].name },
+                       { "kind", kind },
+                       { "ownerVersion", topics[index].ownerVersion },
+                       { "payload", Json::parse( payload ) } };
+        traceLines.push_back( event.dump() );
+        if ( m_stateSubscriptions[index] )
+        {
+            if ( index < 16u )
+            {
+                event["payload"] = { { "durable", true }, { "bytes", payload.size() }, { "hash", payloadHash } };
+            }
+            notificationLines.push_back( event.dump() );
+        }
+    };
+
+    for ( std::size_t index = 0; index < topics.size(); ++index )
+    {
+        const uint64_t payloadHash = std::hash<std::string> {}( topics[index].payload );
+        const bool snapshot = !m_stateInitialized[index] || sceneReset ||
+                              ( m_subscriptionSnapshotPending && m_stateSubscriptions[index] );
+
+        if ( sceneReset )
+        {
+            emit( index, "reset", "{}", 0u );
+        }
+
+        if ( snapshot )
+        {
+            emit( index, "snapshot", topics[index].payload, payloadHash );
+        }
+        else if ( index >= 16u )
+        {
+            emit( index, "state", topics[index].payload, payloadHash );
+        }
+        else
+        {
+            if ( topics[index].evictCursor > m_stateEvictCursors[index] )
+            {
+                emit( index, "evict", topics[index].payload, payloadHash );
+            }
+            if ( topics[index].appendCursor > m_stateAppendCursors[index] )
+            {
+                emit( index, "append", topics[index].payload, payloadHash );
+            }
+            if ( payloadHash != m_statePayloadHashes[index] && topics[index].appendCursor <= m_stateAppendCursors[index] &&
+                 topics[index].evictCursor <= m_stateEvictCursors[index] )
+            {
+                emit( index, "change", topics[index].payload, payloadHash );
+            }
+        }
+
+        m_stateInitialized[index] = true;
+        m_statePayloadHashes[index] = payloadHash;
+        m_stateOwnerVersions[index] = topics[index].ownerVersion;
+        m_stateAppendCursors[index] = topics[index].appendCursor;
+        m_stateEvictCursors[index] = topics[index].evictCursor;
+    }
+
+    for ( const std::string& line : traceLines )
+    {
+        m_trace << line << '\n';
+    }
     m_trace.flush();
-    (void)SendJsonLine( line );
+    for ( const std::string& line : notificationLines )
+    {
+        (void)SendJsonLine( line );
+    }
+    m_lastPublishedSceneGeneration = state.sceneGeneration;
+    m_subscriptionSnapshotPending = false;
+
+    if ( !m_subscriptionRequestId.empty() )
+    {
+        SendLifecycle( m_subscriptionRequestId, "applied" );
+        m_subscriptionRequestId.clear();
+    }
 
     if ( !m_pendingSceneTransition.requestId.empty() )
     {
@@ -1183,7 +1615,8 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
                            expectedScene ? nullptr : "a different scene became active" );
             m_pendingSceneTransition = PendingSceneTransition {};
         }
-        else if ( m_pendingSceneTransition.framesRemaining > 0 && --m_pendingSceneTransition.framesRemaining == 0 )
+        else if ( m_connected && m_pendingSceneTransition.framesRemaining > 0 &&
+                  --m_pendingSceneTransition.framesRemaining == 0 )
         {
             SendLifecycle( m_pendingSceneTransition.requestId, "rejected",
                            "scene transition did not reach an activated generation" );
@@ -1198,7 +1631,7 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
         m_stepCompletesAfterFrame = false;
     }
 
-    if ( m_renderFramesRemaining > 0 && --m_renderFramesRemaining == 0 )
+    if ( m_connected && m_renderFramesRemaining > 0 && --m_renderFramesRemaining == 0 )
     {
         SendLifecycle( m_renderStepRequestId, "applied" );
         m_renderStepRequestId.clear();
@@ -1211,15 +1644,17 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
             SendLifecycle( m_untilRequestId, "applied" );
             m_untilRequestId.clear();
             m_untilCondition.clear();
+            m_untilLimit = 0;
             m_untilFramesRemaining = 0;
             m_untilStepsPhysics = false;
         }
-        else if ( m_untilFramesRemaining > 0 && --m_untilFramesRemaining == 0 )
+        else if ( m_connected && m_untilFramesRemaining > 0 && --m_untilFramesRemaining == 0 )
         {
             const std::string reason = UntilTimeoutReason( state );
             SendLifecycle( m_untilRequestId, "rejected", reason.c_str() );
             m_untilRequestId.clear();
             m_untilCondition.clear();
+            m_untilLimit = 0;
             m_untilStepsPhysics = false;
         }
     }
@@ -1228,7 +1663,8 @@ void SkarnessHost::PublishFrameState( const SkarnessFrameState& state )
     {
         const PendingCompletion& completion = m_pendingCompletions.front();
         SendLifecycle( completion.requestId, completion.applied ? "applied" : "rejected",
-                       completion.reason.empty() ? nullptr : completion.reason.c_str() );
+                       completion.reason.empty() ? nullptr : completion.reason.c_str(), true,
+                       completion.hasResult ? &completion.result : nullptr );
         m_pendingCompletions.pop_front();
     }
 
@@ -1273,6 +1709,10 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
 {
     const bool selectedTargetPublished = state.hasPathTarget && state.pathTargetId != 0u &&
                                          state.pathTargetId == state.publishedPredictionTargetId;
+    const bool currentSubmission = state.trajectorySubmitted && state.submittedPredictionTargetId == state.pathTargetId &&
+                                   state.submittedPredictionSourceFrame == state.predictionSourceFrame &&
+                                   state.submittedPredictionTopologyVersion == state.publishedPredictionTopologyVersion &&
+                                   state.submittedGeometryHash != 0u && state.submittedGeometryBytes != 0u;
 
     if ( m_untilCondition == "prediction.complete" )
     {
@@ -1284,15 +1724,13 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
     }
     if ( m_untilCondition == "prediction.submitted" )
     {
-        return selectedTargetPublished && state.trajectorySubmitted && state.submittedSegmentCount > 0 &&
-               state.submittedVertexCount > 0;
+        return selectedTargetPublished && currentSubmission;
     }
     if ( m_untilCondition == "prediction.rendered" )
     {
         return state.predictionEnabled && selectedTargetPublished && state.predictionComplete &&
                state.publishedPredictionFrames >= 2 && state.trajectoryRecordCount > 0 && state.visualPacketHasGeometry &&
-               state.trajectorySubmitted && state.submittedSegmentCount > 0 && state.submittedVertexCount > 0 &&
-               state.submittedFutureTreeReady;
+               currentSubmission && state.submittedFutureTreeReady;
     }
     if ( m_untilCondition == "prediction.causal_rendered" )
     {
@@ -1304,10 +1742,17 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
                state.drawnEndingWireframeCount == state.retainedEndMarkerCount &&
                state.collisionWireframePathMismatchCount == 0 && state.endingWireframePathMismatchCount == 0 &&
                // Why: causal validity is proven by the child/marker/wireframe
-               // agreement above. A fixed segment floor rejects valid compact
-               // trees whose renderer submits fewer than 32 segments.
-               state.trajectorySubmitted && state.submittedSegmentCount > 0 &&
-               state.submittedVertexCount >= state.submittedSegmentCount * 6 && state.submittedFutureTreeReady;
+               // agreement above. Submission is geometry-format neutral because
+               // stable predictions may use retained line or ribbon lanes.
+               currentSubmission && state.submittedFutureTreeReady;
+    }
+    if ( m_untilCondition == "camera.inspection_settled" )
+    {
+        return state.inspectionCameraActive && state.causeInspectionMode == 2 && !state.cameraTweenActive;
+    }
+    if ( m_untilCondition == "camera.main_restored" )
+    {
+        return !state.inspectionCameraActive && state.causeInspectionMode == 0 && !state.cameraTweenActive;
     }
 
     return false;
@@ -1316,7 +1761,8 @@ bool SkarnessHost::UntilConditionMet( const SkarnessFrameState& state ) const no
 std::string SkarnessHost::UntilTimeoutReason( const SkarnessFrameState& state ) const
 {
     std::ostringstream reason;
-    reason << "condition '" << m_untilCondition << "' timed out: enabled=" << state.predictionEnabled
+    reason << "condition '" << m_untilCondition << "' timed out: limitKind=" << ( m_untilStepsPhysics ? "ticks" : "frames" )
+           << " limit=" << m_untilLimit << " observations=" << m_untilLimit << " enabled=" << state.predictionEnabled
            << " target=" << state.hasPathTarget << " targetId=" << state.pathTargetId
            << " publishedTargetId=" << state.publishedPredictionTargetId << " building=" << state.predictionBuilding
            << " complete=" << state.predictionComplete << " frames=" << state.publishedPredictionFrames
@@ -1343,6 +1789,7 @@ bool SkarnessHost::WriteManifest( const char* status )
                       { "sessionToken", m_sessionToken },
                       { "stateTrace", m_tracePath.string() },
                       { "physicsTrace", m_physicsTracePath.string() },
+                      { "manualInput", m_manualInput },
                       { "status", status ? status : "unknown" } };
     const std::filesystem::path partial = m_manifestPath.string() + ".partial";
     {

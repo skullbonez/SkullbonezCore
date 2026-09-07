@@ -55,9 +55,6 @@ Related:
 #include "../../World/SkyBox.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
-#endif
 
 #include <algorithm>
 #include <chrono>
@@ -328,19 +325,6 @@ struct ReplayGhostGraphInvocation
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
 };
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-struct DevelopmentUiGraphInvocation
-{
-    SkullbonezCore::Rendering::Dx12ImGuiRendererOwner* renderer = nullptr;
-    ImGuiContext* context = nullptr;
-    ImDrawData* drawData = nullptr;
-    SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
-    size_t expectedTransitionCount = 0;
-    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
-};
-
-#endif
 
 size_t CountCompiledTransitionsForPass( const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
                                         uint32_t passIndex );
@@ -545,19 +529,6 @@ void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGra
                                   *data.textures, data.cinematic, data.shadow );
 }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void ExecuteDevelopmentUiGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
-                                        DevelopmentUiGraphInvocation& data )
-{
-    if ( !data.renderer || !data.context || !data.drawData )
-    {
-        SB_FATAL( "RunRender", "ImGuiEditorPass graph callback missing prepared draw data." );
-    }
-
-    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.status = data.renderer->RenderDrawData( *data.context, *data.drawData );
-}
-#endif
 
 void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                       SceneTargetGraphInvocation& data )
@@ -1764,11 +1735,7 @@ RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resul
                                   int sceneIndex, int sceneLoadCount )
     : m_resultDiagnostics( resultDiagnostics ),
       m_resources( resultDiagnostics, backend, assets, config, profiler, sceneIndex, sceneLoadCount ), m_window( window ),
-      m_world( worldEnvironment ), m_profiler( profiler ),
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-      m_developmentUiRenderer( &backend.DevelopmentUiRenderer() ),
-#endif
-      m_fullscreenQuadPass( m_resources.PassResources().fullscreen ),
+      m_world( worldEnvironment ), m_profiler( profiler ), m_fullscreenQuadPass( m_resources.PassResources().fullscreen ),
       m_skyPass( m_resources.PassResources().sky, m_resources.PassResources().fullscreen, m_resources.SkyBoxOwner(),
                  m_resources.Config(), m_profiler ),
       m_sceneTargetPass( m_resources.PassResources().cinematicScene, m_skyPass, m_profiler ),
@@ -2489,44 +2456,8 @@ void RuntimeRenderer::BeginFrameGraph()
 
 void RuntimeRenderer::PrepareUiFrameTarget()
 {
-    // Text-only and ImGui-only frames do not necessarily execute a world or
-    // tonemap pass. This graph callback is their normal backbuffer acquisition;
-    // on ordinary frames it validates the already-render-target state.
     ExecuteBackbufferAcquireThroughRenderGraph( { m_resources.RenderGraph(), m_resources.RenderFrame(), false } );
 }
-
-
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-SkullbonezCore::Core::SbResult RuntimeRenderer::RenderDevelopmentUi( ImGuiContext* context, ImDrawData* drawData )
-{
-    if ( !m_frameGraphRenderGraph )
-    {
-        return m_resultDiagnostics.Failure( "RuntimeRenderer", "Development UI has no active frame graph" );
-    }
-
-    if ( !m_developmentUiRenderer || !context || !drawData )
-    {
-        return m_resultDiagnostics.Failure( "RuntimeRenderer", "Development UI has no prepared DX12 draw data" );
-    }
-
-    Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *m_frameGraphRenderGraph );
-    const uint32_t pass = graph.AddPass( "ImGuiEditorPass" );
-    graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
-
-    DevelopmentUiGraphInvocation callbackData;
-    callbackData.renderer = m_developmentUiRenderer;
-    callbackData.context = context;
-    callbackData.drawData = drawData;
-    callbackData.renderGraph = m_frameGraphRenderGraph;
-    graph.SetPassCallback<ExecuteDevelopmentUiGraphCallback>( pass, callbackData, true, "Frame/UI/ImGuiEditor" );
-    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
-    callbackData.compiled = &compiled;
-    callbackData.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
-    ExecuteGraphCallbacksOrFatal( graph, 1u, "ImGuiEditor" );
-    return callbackData.status;
-}
-#endif
 
 
 void RuntimeRenderer::FinalizeFrameGraph()

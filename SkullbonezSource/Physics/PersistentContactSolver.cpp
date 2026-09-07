@@ -35,6 +35,7 @@ Invariants:
 #include "../Core/Profiler.h"
 
 #include <algorithm>
+#include <tuple>
 #include <cassert>
 #include <cmath>
 #include <type_traits>
@@ -410,34 +411,39 @@ PersistentContactSolverStepPolicy PhysicsContactSolverStage::ResolveStepPolicy( 
     return policy;
 }
 
-void PersistentContactSolveTransaction::AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase next,
-                                                        const char* operation )
+void ConstraintSolveTransaction::AdvanceOrFatal( ConstraintSolvePhaseCursor::Phase next, const char* operation )
 {
-    const PersistentContactSolvePhaseCursor::Phase current = m_phase.Current();
+    const ConstraintSolvePhaseCursor::Phase current = m_phase.Current();
 
     if ( !m_phase.TryAdvance( next ) )
     {
         // Fatal invariant: running a contact phase twice, backward, or after skipping a
         // predecessor can publish rows, velocities, or cache state from a
         // partially solved fixed tick.
-        SB_FATAL( "Physics/PersistentContactSolveTransaction", "Illegal phase transition. operation=%s current=%u next=%u",
+        SB_FATAL( "Physics/ConstraintSolveTransaction", "Illegal phase transition. operation=%s current=%u next=%u",
                   operation, static_cast<unsigned int>( current ), static_cast<unsigned int>( next ) );
     }
 }
 
-void PersistentContactSolveTransaction::BeginEntryPolicySetup()
+void ConstraintSolveTransaction::BeginEntryPolicySetup()
 {
-    if ( m_phase.Current() == PersistentContactSolvePhaseCursor::Phase::Complete && !m_phase.ResetAfterComplete() )
+    if ( m_phase.Current() == ConstraintSolvePhaseCursor::Phase::Complete && !m_phase.ResetAfterComplete() )
     {
-        SB_FATAL( "Physics/PersistentContactSolveTransaction", "Completed solve cursor could not reset." );
+        SB_FATAL( "Physics/ConstraintSolveTransaction", "Completed solve cursor could not reset." );
     }
 
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::EntryPolicySetup, "BeginEntryPolicySetup" );
+    AdvanceOrFatal( ConstraintSolvePhaseCursor::Phase::EntryPolicySetup, "BeginEntryPolicySetup" );
+    m_jointSamples.clear();
+    m_jointBlocks.clear();
+    m_islands.Clear();
+    m_candidatePairs.clear();
+    m_reactivatedBodies.clear();
+    m_continuationContactCount = 0u;
 }
 
-void PersistentContactSolveTransaction::Complete()
+void ConstraintSolveTransaction::Complete()
 {
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::Complete, "Complete" );
+    AdvanceOrFatal( ConstraintSolvePhaseCursor::Phase::Complete, "Complete" );
 }
 
 // CATTO REF:
@@ -449,12 +455,12 @@ void PersistentContactSolveTransaction::Complete()
 //   authored hull face/edge identifiers are not truncated before warm starting.
 //   The shared 15-bit body mask leaves 32 bits for the feature and one high kind
 //   bit for terrain rows.
-int64_t PersistentContactSolveTransaction::MakeKey( int bodyA, int bodyB, uint32_t featureId )
+int64_t ConstraintSolveTransaction::MakeKey( int bodyA, int bodyB, uint32_t featureId )
 {
     return MakePersistentContactCacheKey( bodyA, bodyB, featureId );
 }
 
-float PersistentContactSolveTransaction::ConservativeContactRadius( const ColliderRecord& collider )
+float ConstraintSolveTransaction::ConservativeContactRadius( const ColliderRecord& collider )
 {
     // Broadphase radii must include any local shape offset. If a shape is not
     // centered on the body origin, the conservative sphere reaches the farthest
@@ -477,23 +483,25 @@ float PersistentContactSolveTransaction::ConservativeContactRadius( const Collid
 //   Equations 26-28: I_world^-1 = R * I_body^-1 * R^T.
 // Inertia is rotational mass. Boxes need world-space inertia because their
 // local inertia axes rotate with orientation; spheres remain isotropic.
-Vector3 PersistentContactSolveTransaction::ApplyInverseInertia( int bodyIndex, const Vector3& value ) const
+Vector3 ConstraintSolveTransaction::ApplyInverseInertia( int bodyIndex, const Vector3& value ) const
 {
     if ( bodyIndex == TERRAIN_BODY_INDEX )
     {
         return ZERO_VECTOR;
     }
 
-    const SolverBodyState& body = Body( static_cast<std::size_t>( bodyIndex ) );
+    return Body( static_cast<std::size_t>( bodyIndex ) ).ApplyInverseInertia( value );
+}
 
+Vector3 SolverBodyState::ApplyInverseInertia( const Vector3& value ) const
+{
     Vector3 result;
     const auto multiplyByBodyInverseInertia = [&]( const Vector3& bodyValue, Vector3& outBodyResult )
     {
-        outBodyResult = Vector::VectorMultiply( body.invInertia, bodyValue );
-
+        outBodyResult = Vector::VectorMultiply( invInertia, bodyValue );
         return true;
     };
-    TryApplyWorldInertiaResponse( body.orientation, body.useWorldInertia, value, multiplyByBodyInverseInertia, result );
+    TryApplyWorldInertiaResponse( orientation, useWorldInertia, value, multiplyByBodyInverseInertia, result );
     return result;
 }
 
@@ -504,7 +512,7 @@ Vector3 PersistentContactSolveTransaction::ApplyInverseInertia( int bodyIndex, c
 // Why: applying one impulse changes linear velocity by invMass*impulse and
 // angular velocity by I^-1*(r cross impulse). Body A receives the equal and
 // opposite impulse from body B.
-void PersistentContactSolveTransaction::ApplyImpulse( const PersistentContact& contact, const Vector3& impulse )
+void ConstraintSolveTransaction::ApplyImpulse( const PersistentContact& contact, const Vector3& impulse )
 {
     SolverBodyState& bodyA = Body( static_cast<std::size_t>( contact.bodyA ) );
     bodyA.linearVelocity -= impulse * bodyA.invMass;
@@ -518,11 +526,24 @@ void PersistentContactSolveTransaction::ApplyImpulse( const PersistentContact& c
     }
 }
 
-void PersistentContactSolveTransaction::SetupBodies( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState,
-                                                     int modelCount, Core::Profiler* )
+void ConstraintSolveTransaction::SetupBodies( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState,
+                                              int modelCount, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BodySetup" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::BodySetup, "SetupBodies" );
+    using Phase = ConstraintSolvePhaseCursor::Phase;
+    const bool continuation = m_phase.Current() == Phase::FixedContactRelease;
+    AdvanceOrFatal( continuation ? Phase::ReleasedBodySetup : Phase::BodySetup, "SetupBodies" );
+    if ( continuation )
+    {
+        const auto hot = bodyStore.HotFields();
+        for ( int i = 0; i < modelCount; ++i )
+        {
+            if ( m_bodies[i].invMass == 0.0f && hot.fixed[i] == 0u && sleepState[i] == 0u )
+            {
+                m_reactivatedBodies.push_back( i );
+            }
+        }
+    }
     ResetBodies( static_cast<std::size_t>( modelCount ) );
 
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
@@ -569,16 +590,19 @@ void PersistentContactSolveTransaction::SetupBodies( const PhysicsBodyStore& bod
 }
 
 template <bool RetainPipelineRecords>
-void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                                                        const ColliderStore& colliderStore,
-                                                        const PersistentContactSolverStepPolicy& stepPolicy,
-                                                        std::span<const std::pair<int, int>> candidatePairs,
-                                                        std::span<const uint8_t> sleepState,
-                                                        PhysicsCandidatePairList& sleepSupportEdges, int modelCount,
-                                                        std::size_t pipelineRecordCapacity, Core::Profiler* profiler )
+void ConstraintSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                                 const ColliderStore& colliderStore,
+                                                 const PersistentContactSolverStepPolicy& stepPolicy,
+                                                 std::span<const std::pair<int, int>> candidatePairs,
+                                                 std::span<const uint8_t> sleepState,
+                                                 PhysicsCandidatePairList& sleepSupportEdges, int modelCount,
+                                                 std::size_t pipelineRecordCapacity, Core::Profiler* profiler )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::BuildManifolds, "BuildManifolds" );
+    AdvanceOrFatal( m_phase.Current() == ConstraintSolvePhaseCursor::Phase::ReleasedBodySetup
+                        ? ConstraintSolvePhaseCursor::Phase::ReleasedManifolds
+                        : ConstraintSolvePhaseCursor::Phase::BuildManifolds,
+                    "BuildManifolds" );
 
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
     const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
@@ -723,6 +747,16 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
             std::swap( aIndex, bIndex );
         }
 
+        if ( m_phase.Current() == ConstraintSolvePhaseCursor::Phase::ReleasedManifolds )
+        {
+            const auto previousEnd = stage.m_persistentContacts.begin() + m_continuationContactCount;
+            if ( !IsReactivatedPair( aIndex, bIndex ) ||
+                 std::any_of( stage.m_persistentContacts.begin(), previousEnd, [&]( const PersistentContact& row )
+                              { return !row.isTerrain && row.bodyA == aIndex && row.bodyB == bIndex; } ) )
+            {
+                continue;
+            }
+        }
         const ColliderRecord& colliderA = colliderRecords[static_cast<std::size_t>( aIndex )];
         const ColliderRecord& colliderB = colliderRecords[static_cast<std::size_t>( bIndex )];
         const ObjectContactBodyView bodyA = contactBodyViewForIndex( aIndex );
@@ -809,6 +843,12 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
                                                                      manifold, selectedPointIndices );
             }
 
+            // One fixed-tick budget covers both the initial and release passes.
+            // Check the entire manifold before publishing any of its rows.
+            if ( !stage.CanAppendObjectManifold( selectedPointCount ) )
+            {
+                SB_FATAL( "Physics/PhysicsContactSolverStage", "Combined contact manifold capacity exhausted." );
+            }
             for ( uint8_t selectedIndex = 0; selectedIndex < selectedPointCount; ++selectedIndex )
             {
                 const uint8_t pointIndex = selectedPointIndices[selectedIndex];
@@ -871,14 +911,19 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
 }
 
 template <bool RetainPipelineRecords>
-void PersistentContactSolveTransaction::BuildTerrainRows(
-    PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy,
-    PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<const uint8_t> sleepState,
-    std::span<const float> timeRemaining, int modelCount, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
+void ConstraintSolveTransaction::BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                                   const PersistentContactSolverStepPolicy& stepPolicy,
+                                                   PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
+                                                   std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
+                                                   int modelCount, std::size_t pipelineRecordCapacity, float dt,
+                                                   Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain" );
     PROFILE_SCOPED( "Frame/Physics/Terrain/Rows" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::TerrainRows, "BuildTerrainRows" );
+    AdvanceOrFatal( m_phase.Current() == ConstraintSolvePhaseCursor::Phase::ReleasedManifolds
+                        ? ConstraintSolvePhaseCursor::Phase::ReleasedTerrainRows
+                        : ConstraintSolvePhaseCursor::Phase::TerrainRows,
+                    "BuildTerrainRows" );
 
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
@@ -902,6 +947,16 @@ void PersistentContactSolveTransaction::BuildTerrainRows(
     // normal/friction solving.
     for ( const Physics::TerrainContactManifold& manifold : terrainContactManifolds )
     {
+        if ( m_phase.Current() == ConstraintSolvePhaseCursor::Phase::ReleasedTerrainRows )
+        {
+            const auto previousEnd = stage.m_persistentContacts.begin() + m_continuationContactCount;
+            if ( !IsReactivatedPair( manifold.bodyA, -1 ) ||
+                 std::any_of( stage.m_persistentContacts.begin(), previousEnd, [&]( const PersistentContact& row )
+                              { return row.isTerrain && row.bodyA == manifold.bodyA; } ) )
+            {
+                continue;
+            }
+        }
         // Skip invalid/no-op manifolds before they affect profiler counts,
         // pipeline records, or the warm-start cache. Sleeping bodies do not
         // need fresh terrain rows; their accepted support state is already
@@ -994,9 +1049,10 @@ void PersistentContactSolveTransaction::BuildTerrainRows(
     }
 }
 
-void PersistentContactSolveTransaction::PrecomputeTerrainAngularResistance(
-    PersistentContact& contact, const ColliderRecord& collider, const PersistentContactSolverStepPolicy& stepPolicy,
-    float normalVelocity )
+void ConstraintSolveTransaction::PrecomputeTerrainAngularResistance( PersistentContact& contact,
+                                                                     const ColliderRecord& collider,
+                                                                     const PersistentContactSolverStepPolicy& stepPolicy,
+                                                                     float normalVelocity )
 {
     if ( !contact.isTerrain || !contact.supportsRestingPolicy || !contact.allowsTangentFriction ||
          stepPolicy.elasticCollisions || normalVelocity <= -stepPolicy.contactRestitutionThreshold ||
@@ -1048,16 +1104,49 @@ void PersistentContactSolveTransaction::PrecomputeTerrainAngularResistance(
                                                  } );
 }
 
+bool ConstraintSolveTransaction::IsReactivatedPair( int a, int b ) const
+{
+    return std::find( m_reactivatedBodies.begin(), m_reactivatedBodies.end(), a ) != m_reactivatedBodies.end() ||
+           ( b >= 0 && std::find( m_reactivatedBodies.begin(), m_reactivatedBodies.end(), b ) != m_reactivatedBodies.end() );
+}
+void ConstraintSolveTransaction::RecomputeContactMass( PersistentContact& c )
+{
+    const SolverBodyState terrain;
+    const auto& bodyA = Body( static_cast<std::size_t>( c.bodyA ) );
+    const auto& bodyB = c.isTerrain ? terrain : Body( static_cast<std::size_t>( c.bodyB ) );
+    auto applyInvInertiaA = [&]( const Vector3& v ) -> Vector3 { return ApplyInverseInertia( c.bodyA, v ); };
+
+    auto applyInvInertiaB = [&]( const Vector3& v ) -> Vector3
+    { return c.isTerrain ? ZERO_VECTOR : ApplyInverseInertia( c.bodyB, v ); };
+
+    c.normalMass = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.normal, c.rA, c.rB,
+                                                                        applyInvInertiaA, applyInvInertiaB );
+
+    c.tangentMass1 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.tangent1, c.rA,
+                                                                          c.rB, applyInvInertiaA, applyInvInertiaB );
+
+    c.tangentMass2 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.tangent2, c.rA,
+                                                                          c.rB, applyInvInertiaA, applyInvInertiaB );
+
+    if ( !c.allowsTangentFriction )
+    {
+        c.tangentMass1 = 0.0f;
+        c.tangentMass2 = 0.0f;
+    }
+}
+
 template <bool RetainPipelineRecords>
-void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                                                        const ColliderStore& colliderStore,
-                                                        const PersistentContactSolverStepPolicy& stepPolicy,
-                                                        std::span<const uint8_t> sleepState,
-                                                        std::span<const float> timeRemaining,
-                                                        std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
+void ConstraintSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                                 const ColliderStore& colliderStore,
+                                                 const PersistentContactSolverStepPolicy& stepPolicy,
+                                                 std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
+                                                 std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::Precompute, "PrecomputeRows" );
+    AdvanceOrFatal( m_phase.Current() == ConstraintSolvePhaseCursor::Phase::ReleasedJoints
+                        ? ConstraintSolvePhaseCursor::Phase::ReleasedPrecompute
+                        : ConstraintSolvePhaseCursor::Phase::Precompute,
+                    "PrecomputeRows" );
 
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
@@ -1090,8 +1179,11 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
     //   below expands that sparse matrix math into scalar effective masses.
     // The setup below builds friction axes, effective masses, bias, friction
     // limits, and pulls the previous frame's accumulated impulses from the cache.
-    for ( PersistentContact& c : stage.m_persistentContacts )
+    const bool continuation = m_phase.Current() == ConstraintSolvePhaseCursor::Phase::ReleasedPrecompute;
+    const std::size_t firstNewRow = continuation ? m_continuationContactCount : 0u;
+    for ( std::size_t rowIndex = firstNewRow; rowIndex < stage.m_persistentContacts.size(); ++rowIndex )
     {
+        PersistentContact& c = stage.m_persistentContacts[rowIndex];
         const SolverBodyState& bodyA = Body( static_cast<std::size_t>( c.bodyA ) );
         const SolverBodyState& bodyB = c.isTerrain ? staticTerrainBody : Body( static_cast<std::size_t>( c.bodyB ) );
         const PreviousObjectContactLookup
@@ -1126,19 +1218,7 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         // Effective mass says how stubborn this contact is. A light body pushed
         // through its center moves easily; a heavy or off-center body resists more
         // because some of the push also has to rotate it.
-        auto applyInvInertiaA = [&]( const Vector3& v ) -> Vector3 { return ApplyInverseInertia( c.bodyA, v ); };
-
-        auto applyInvInertiaB = [&]( const Vector3& v ) -> Vector3
-        { return c.isTerrain ? ZERO_VECTOR : ApplyInverseInertia( c.bodyB, v ); };
-
-        c.normalMass = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.normal, c.rA,
-                                                                            c.rB, applyInvInertiaA, applyInvInertiaB );
-
-        c.tangentMass1 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.tangent1, c.rA,
-                                                                              c.rB, applyInvInertiaA, applyInvInertiaB );
-
-        c.tangentMass2 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.tangent2, c.rA,
-                                                                              c.rB, applyInvInertiaA, applyInvInertiaB );
+        RecomputeContactMass( c );
 
         const float contactMass = ResolveContactMassShare( bodyRecords, stage.m_persistentContactCounts, c );
 
@@ -1188,7 +1268,7 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         // lookup does not linearly scan every previous-frame contact.
         // Why: warm-start cache is a stack-support tool. In elastic space it
         // can preserve last frame's push and make grazing bodies look glued.
-        const bool canUseCachedWarmStart = c.supportsRestingPolicy && !stepPolicy.elasticCollisions;
+        const bool canUseCachedWarmStart = !continuation && c.supportsRestingPolicy && !stepPolicy.elasticCollisions;
         const PersistentContactCacheEntry* cachedEntry = nullptr;
 
         if ( canUseCachedWarmStart )
@@ -1300,11 +1380,125 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
     }
 }
 
+void ConstraintSolveTransaction::OrderCandidatePairs( const PhysicsBodyStore& bodyStore,
+                                                      std::span<const std::pair<int, int>> candidates )
+{
+    const auto records = bodyStore.Records();
+    m_candidatePairs.clear();
+    for ( auto pair : candidates )
+    {
+        if ( pair.first > pair.second )
+        {
+            std::swap( pair.first, pair.second );
+        }
+        if ( pair.first >= 0 && pair.second < bodyStore.Count() && pair.first != pair.second )
+        {
+            m_candidatePairs.push_back( pair );
+        }
+    }
+    const auto bodyKey = [&]( int row )
+    {
+        const auto& body = records[static_cast<std::size_t>( row )];
+        return std::tuple( body.sceneObjectId.value, body.handle.index, body.handle.generation );
+    };
+    const auto less = [&]( const auto& a, const auto& b )
+    {
+        return std::tuple( bodyKey( a.first ), bodyKey( a.second ) ) < std::tuple( bodyKey( b.first ), bodyKey( b.second ) );
+    };
+    // Preserve the manifold builder's deterministic geometric feature order.
+    // Sorting individual points changes the support footprint's PGS response.
+    if ( !std::is_sorted( m_candidatePairs.begin(), m_candidatePairs.end(), less ) )
+    {
+        std::sort( m_candidatePairs.begin(), m_candidatePairs.end(), less );
+    }
+}
+
+void ConstraintSolveTransaction::PrepareJoints( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                                std::span<const PointJointConstraint> constraints,
+                                                const PersistentContactSolverStepPolicy& policy )
+{
+    using Phase = ConstraintSolvePhaseCursor::Phase;
+    const bool continuation = m_phase.Current() == Phase::ReleasedTerrainRows;
+    AdvanceOrFatal( continuation ? Phase::ReleasedJoints : Phase::PrepareJoints, "PrepareJoints" );
+    if ( !continuation )
+    {
+        m_jointBlocks.ResetDefault( constraints.size() );
+        m_jointSamples.clear();
+        if ( policy.collectConvergenceDiagnostics )
+        {
+            m_jointSamples.ResetDefault( constraints.size() );
+        }
+    }
+    for ( std::size_t i = 0; i < constraints.size(); ++i )
+    {
+        auto& block = m_jointBlocks[i];
+        const bool wasActive = block.Active();
+        const std::size_t source = continuation ? block.SourceIndex() : i;
+        PointJointConstraint descriptor = constraints[source];
+        if ( continuation )
+        {
+            descriptor.accumulatedImpulse = block.AccumulatedImpulse();
+        }
+        block.Prepare( descriptor, bodyStore, m_bodies, policy.stepDurationSeconds, source );
+        if ( continuation && !wasActive && block.Active() )
+        {
+            block.ClearImpulse();
+        }
+    }
+    std::sort( m_jointBlocks.begin(), m_jointBlocks.end(),
+               []( const PointJointBlock& a, const PointJointBlock& b )
+               {
+                   return std::tuple( a.Handle().generation, a.Handle().index, a.BodyA(), a.BodyB() ) <
+                          std::tuple( b.Handle().generation, b.Handle().index, b.BodyA(), b.BodyB() );
+               } );
+    m_islands.Prepare( bodyStore, m_bodies, stage.m_persistentContacts, m_jointBlocks, policy.iterations );
+}
+
+void ConstraintSolveTransaction::WarmStartJoints()
+{
+    AdvanceOrFatal( ConstraintSolvePhaseCursor::Phase::WarmStartJoints, "WarmStartJoints" );
+    for ( const auto& block : m_jointBlocks )
+    {
+        block.WarmStart( m_bodies );
+    }
+}
+void ConstraintSolveTransaction::StoreJointImpulses( std::span<PointJointConstraint> constraints ) const
+{
+    if ( m_phase.Current() != ConstraintSolvePhaseCursor::Phase::CacheStore )
+    {
+        SB_FATAL( "Physics/ConstraintSolveTransaction", "Joint cache publication requires the cache-store phase." );
+    }
+    for ( const auto& block : m_jointBlocks )
+    {
+        block.StoreImpulse( constraints );
+    }
+}
+template <bool CollectDiagnostics>
+void ConstraintSolveTransaction::SolveJointBlocks( const PhysicsBodyStore& bodyStore, int iteration )
+{
+    for ( auto& block : m_jointBlocks )
+    {
+        if ( !block.Active() || !m_islands.Active( block.BodyA(), block.BodyB() ) )
+        {
+            continue;
+        }
+        PointJointIterationSample* sample = nullptr;
+        if constexpr ( CollectDiagnostics )
+        {
+            sample = &m_jointSamples[block.SourceIndex()];
+            sample->iteration = iteration;
+            const int root = m_islands.RootForPair( block.BodyA(), block.BodyB() );
+            sample->islandRoot = bodyStore.Records()[static_cast<std::size_t>( root )].handle;
+        }
+        const float deltaSq = block.Solve( m_bodies, sample );
+        m_islands.Observe( block.BodyA(), block.BodyB(), deltaSq );
+    }
+}
+
 template <bool CollectConvergenceDiagnostics, bool RetainPipelineRecords>
-void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolverStage& stage,
-                                                             const PhysicsBodyStore& bodyStore,
-                                                             const PersistentContactSolverStepPolicy& stepPolicy,
-                                                             std::size_t pipelineRecordCapacity )
+void ConstraintSolveTransaction::SolveRowsIterations( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                                      const PersistentContactSolverStepPolicy& stepPolicy,
+                                                      std::size_t pipelineRecordCapacity )
 {
     const SolverBodyState staticTerrainBody;
 
@@ -1332,8 +1526,11 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
     // In engine terms, each contact computes the extra impulse needed to reduce
     // its current violation, adds that to the accumulated total, clamps the total
     // to valid bounds, then applies only the difference.
-    for ( int iter = 0; iter < stepPolicy.iterations; ++iter )
+    const int maximumSweeps = m_jointBlocks.empty() ? stepPolicy.iterations
+                                                    : (std::max)( stepPolicy.iterations, POINT_JOINT_SOLVER_ITERATIONS );
+    for ( int iter = 0; iter < maximumSweeps; ++iter )
     {
+        m_islands.BeginSweep();
         stage.m_persistentContactSolverStats.solverIterations = iter + 1;
         float iterImpulseSq = 0.0f;
         float maxRowImpulseDeltaSq = 0.0f;
@@ -1347,6 +1544,10 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
         for ( std::size_t contactIndex = 0; contactIndex < stage.m_persistentContacts.size(); ++contactIndex )
         {
             PersistentContact& c = stage.m_persistentContacts[contactIndex];
+            if ( !m_islands.Active( c.bodyA, c.bodyB ) )
+            {
+                continue;
+            }
             SolverBodyState& a = Body( static_cast<std::size_t>( c.bodyA ) );
             const SolverBodyState& b = c.isTerrain ? staticTerrainBody : Body( static_cast<std::size_t>( c.bodyB ) );
             Vector3 velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
@@ -1455,6 +1656,7 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
                                          rollingLinearDeltaT2 * rollingLinearDeltaT2 + spinLinearDelta * spinLinearDelta;
             const float tangentFamilyDeltaSq = tangentDeltaSq + rollingDeltaSq;
             const float rowDeltaSq = normalDeltaSq + tangentFamilyDeltaSq;
+            m_islands.Observe( c.bodyA, c.bodyB, rowDeltaSq );
 
             // Invariant: convergence is a per-row property. Adding individually
             // quiet rows must not change whether this global sweep is complete.
@@ -1472,6 +1674,8 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
                     iterationDiagnostics.maxRowBodyB = c.bodyB;
                     iterationDiagnostics.maxRowFeatureId = c.featureId;
                     iterationDiagnostics.maxRowIsTerrain = c.isTerrain;
+                    const int root = m_islands.RootForPair( c.bodyA, c.bodyB );
+                    iterationDiagnostics.maxRowIslandBody = bodyStore.Records()[static_cast<std::size_t>( root )].handle;
                 }
             }
 
@@ -1522,25 +1726,29 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
             stage.m_persistentContactConvergenceTrace.Append( iterationDiagnostics );
         }
 
+        SolveJointBlocks<CollectConvergenceDiagnostics>( bodyStore, iter );
+
         // CATTO REF:
         //   Catto lists max(abs(delta lambda_i)) convergence on PDF p. 15,
         //   Section 7.1. Squaring both sides preserves that max-row decision
         //   while avoiding a square root; diagnostic sums cannot make it depend
         //   on how many otherwise independent rows the scene contains.
-        if ( maxRowImpulseDeltaSq < 1.0e-6f )
+        if ( !m_islands.FinishSweep() )
         {
             break;
         }
     }
 }
 
-void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                                                   const PersistentContactSolverStepPolicy& stepPolicy,
-                                                   bool retainPipelineRecords, std::size_t pipelineRecordCapacity,
-                                                   Core::Profiler* )
+void ConstraintSolveTransaction::SolveRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                            const PersistentContactSolverStepPolicy& stepPolicy, bool retainPipelineRecords,
+                                            std::size_t pipelineRecordCapacity, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/SolveRows" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::SolveRows, "SolveRows" );
+    AdvanceOrFatal( m_phase.Current() == ConstraintSolvePhaseCursor::Phase::ReleasedPrecompute
+                        ? ConstraintSolvePhaseCursor::Phase::ReleasedSolveRows
+                        : ConstraintSolvePhaseCursor::Phase::SolveRows,
+                    "SolveRows" );
     stage.m_persistentContactConvergenceTrace.Clear();
 
     // Why: one branch per solve selects an attributed or clean PGS loop.
@@ -1566,13 +1774,13 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
     }
 }
 
-void PersistentContactSolveTransaction::ApplyPointSupportInstability(
+void ConstraintSolveTransaction::ApplyPointSupportInstability(
     PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
     const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
     std::span<const uint8_t> sleepSupportedThisFrame, int modelCount, float dt, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PointSupportInstability" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::PointSupportInstability, "ApplyPointSupportInstability" );
+    AdvanceOrFatal( ConstraintSolvePhaseCursor::Phase::PointSupportInstability, "ApplyPointSupportInstability" );
 
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
@@ -1717,44 +1925,16 @@ void PersistentContactSolveTransaction::ApplyPointSupportInstability(
     }
 }
 
-void PersistentContactSolveTransaction::ApplyTerrainRestPolicy(
-    const PhysicsBodyStore& bodyStore, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-    std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount, Core::Profiler* )
-{
-    PROFILE_SCOPED( "Frame/Physics/Terrain" );
-    PROFILE_SCOPED( "Frame/Physics/Terrain/RestPolicy" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::TerrainRestPolicy, "ApplyTerrainRestPolicy" );
-
-    const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
-    auto isFixedBody = [&]( int index ) -> bool { return hotRead.fixed[static_cast<size_t>( index )] != 0u; };
-
-    // Invariant: physical rolling resistance now belongs to the PGS row. This
-    // post-solve pass publishes only the stable-support classification consumed
-    // by later policy; it must never mutate velocity or become a second tangent
-    // or angular impulse owner.
-    std::fill_n( terrainRestApplied.begin(), static_cast<size_t>( modelCount ), static_cast<uint8_t>( 0 ) );
-
-    for ( const Physics::TerrainContactManifold& manifold : terrainContactManifolds )
-    {
-        const int bodyIndex = manifold.bodyA;
-
-        if ( bodyIndex < 0 || bodyIndex >= modelCount || terrainRestApplied[bodyIndex] || !manifold.supportsRestingPolicy ||
-             sleepState[bodyIndex] || isFixedBody( bodyIndex ) )
-        {
-            continue;
-        }
-
-        terrainRestApplied[bodyIndex] = 1;
-    }
-}
-
 template <bool RetainPipelineRecords>
-void PersistentContactSolveTransaction::WriteBack( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
-                                                   std::span<const uint8_t> sleepState, int modelCount,
-                                                   std::size_t pipelineRecordCapacity, Core::Profiler* )
+void ConstraintSolveTransaction::WriteBack( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
+                                            std::span<const uint8_t> sleepState, int modelCount,
+                                            std::size_t pipelineRecordCapacity, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/WriteBack" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::WriteBack, "WriteBack" );
+    AdvanceOrFatal( m_phase.Current() == ConstraintSolvePhaseCursor::Phase::ReleasedSolveRows
+                        ? ConstraintSolvePhaseCursor::Phase::ReleasedWriteBack
+                        : ConstraintSolvePhaseCursor::Phase::WriteBack,
+                    "WriteBack" );
 
     PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const PhysicsBodyHotFieldsConstView hotRead = ConstPhysicsBodyHotFields( hotFields );
@@ -1774,7 +1954,8 @@ void PersistentContactSolveTransaction::WriteBack( PhysicsContactSolverStage& st
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( sleepState[i] || isFixedBody( i ) )
+        if ( sleepState[i] || isFixedBody( i ) ||
+             ( m_phase.Current() == ConstraintSolvePhaseCursor::Phase::ReleasedWriteBack && !m_islands.Included( i ) ) )
         {
             continue;
         }
@@ -1801,18 +1982,21 @@ void PersistentContactSolveTransaction::WriteBack( PhysicsContactSolverStage& st
     }
 }
 
-void PersistentContactSolveTransaction::PublishDebugContacts( PhysicsContactSolverStage& stage,
-                                                              const PhysicsBodyStore& bodyStore,
-                                                              PhysicsStepDiagnostics& stepDiagnostics, Core::Profiler* )
+void ConstraintSolveTransaction::PublishDebugContacts( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                                       PhysicsStepDiagnostics& stepDiagnostics, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/DebugContacts" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::DebugContacts, "PublishDebugContacts" );
+    AdvanceOrFatal( m_phase.Current() == ConstraintSolvePhaseCursor::Phase::ReleasedWriteBack
+                        ? ConstraintSolvePhaseCursor::Phase::ReleasedDebugContacts
+                        : ConstraintSolvePhaseCursor::Phase::DebugContacts,
+                    "PublishDebugContacts" );
 
     auto& physicsDebugContacts = stepDiagnostics.MutableDebugContacts();
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
     auto isFixedBody = [&]( int index ) -> bool { return hotRead.fixed[static_cast<size_t>( index )] != 0u; };
     auto markFixedContact = [&]( int index ) { stage.m_sideEffects.fixedContactBodies.push_back( index ); };
     physicsDebugContacts.clear();
+    stage.m_sideEffects.fixedContactBodies.clear();
 
     for ( const PersistentContact& c : stage.m_persistentContacts )
     {
@@ -1848,13 +2032,13 @@ void PersistentContactSolveTransaction::PublishDebugContacts( PhysicsContactSolv
 }
 
 template <bool RetainPipelineRecords>
-void PersistentContactSolveTransaction::CorrectPositions( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
-                                                          const PersistentContactSolverStepPolicy& stepPolicy,
-                                                          std::span<const uint8_t> sleepState,
-                                                          std::size_t pipelineRecordCapacity, Core::Profiler* )
+void ConstraintSolveTransaction::CorrectPositions( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
+                                                   const PersistentContactSolverStepPolicy& stepPolicy,
+                                                   std::span<const uint8_t> sleepState, std::size_t pipelineRecordCapacity,
+                                                   Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::PositionCorrection, "CorrectPositions" );
+    AdvanceOrFatal( ConstraintSolvePhaseCursor::Phase::PositionCorrection, "CorrectPositions" );
 
     PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const PhysicsBodyHotFieldsConstView hotRead = ConstPhysicsBodyHotFields( hotFields );
@@ -1991,11 +2175,11 @@ void PersistentContactSolveTransaction::CorrectPositions( PhysicsContactSolverSt
 }
 
 template <bool RetainPipelineRecords>
-void PersistentContactSolveTransaction::StoreCache( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                                                    std::size_t pipelineRecordCapacity, Core::Profiler* )
+void ConstraintSolveTransaction::StoreCache( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                             std::size_t pipelineRecordCapacity, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/CacheStore" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::CacheStore, "StoreCache" );
+    AdvanceOrFatal( ConstraintSolvePhaseCursor::Phase::CacheStore, "StoreCache" );
 
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
     auto observePipelineEvent = [&]()
@@ -2074,11 +2258,11 @@ void PersistentContactSolveTransaction::StoreCache( PhysicsContactSolverStage& s
     }
 }
 
-void PersistentContactSolveTransaction::ReleaseFixedContacts( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
-                                                              int modelCount, Core::Profiler* )
+void ConstraintSolveTransaction::ReleaseFixedContacts( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
+                                                       int modelCount, Core::Profiler* )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/FixedContactRelease" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::FixedContactRelease, "ReleaseFixedContacts" );
+    AdvanceOrFatal( ConstraintSolvePhaseCursor::Phase::FixedContactRelease, "ReleaseFixedContacts" );
 
     std::span<PhysicsBodyRecord> bodyRecords = bodyStore.MutableRecords();
     PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
@@ -2163,8 +2347,8 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                                        std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
                                        PhysicsCandidatePairList& sleepSupportEdges,
                                        PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-                                       std::span<uint8_t> terrainRestApplied, std::span<uint8_t> sleepSupportedThisFrame,
-                                       PhysicsStepDiagnostics& stepDiagnostics )
+                                       std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics,
+                                       std::span<PointJointConstraint> joints )
 {
     m_solveTransaction.BeginEntryPolicySetup();
 
@@ -2225,7 +2409,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     m_persistentContactCounts.assign( modelCount, 0 );
     m_persistentRestingContactCounts.assign( modelCount, 0 );
 
-    if ( modelCount <= 0 || ( candidatePairs.empty() && terrainContactManifolds.empty() ) )
+    if ( modelCount <= 0 || ( candidatePairs.empty() && terrainContactManifolds.empty() && joints.empty() ) )
     {
         m_persistentContacts.clear();
         m_persistentContactCache.clear();
@@ -2237,6 +2421,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     m_persistentContacts.clear();
 
     m_solveTransaction.SetupBodies( bodyStore, sleepState, modelCount, nullptr );
+    m_solveTransaction.OrderCandidatePairs( bodyStore, candidatePairs );
 
     if ( m_persistentContactCache.size() > 1 )
     {
@@ -2254,22 +2439,26 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
     if ( retainPipelineRecords )
     {
-        m_solveTransaction.BuildManifolds<true>( *this, bodyStore, colliderStore, stepPolicy, candidatePairs, sleepState,
-                                                 sleepSupportEdges, modelCount, pipelineRecordCapacity, nullptr );
+        m_solveTransaction.BuildManifolds<true>( *this, bodyStore, colliderStore, stepPolicy,
+                                                 m_solveTransaction.m_candidatePairs, sleepState, sleepSupportEdges,
+                                                 modelCount, pipelineRecordCapacity, nullptr );
         m_solveTransaction.BuildTerrainRows<true>( *this, bodyStore, stepPolicy, terrainContactManifolds, sleepState,
                                                    timeRemaining, modelCount, pipelineRecordCapacity,
                                                    stepPolicy.stepDurationSeconds, nullptr );
     }
     else
     {
-        m_solveTransaction.BuildManifolds<false>( *this, bodyStore, colliderStore, stepPolicy, candidatePairs, sleepState,
-                                                  sleepSupportEdges, modelCount, pipelineRecordCapacity, nullptr );
+        m_solveTransaction.BuildManifolds<false>( *this, bodyStore, colliderStore, stepPolicy,
+                                                  m_solveTransaction.m_candidatePairs, sleepState, sleepSupportEdges,
+                                                  modelCount, pipelineRecordCapacity, nullptr );
         m_solveTransaction.BuildTerrainRows<false>( *this, bodyStore, stepPolicy, terrainContactManifolds, sleepState,
                                                     timeRemaining, modelCount, pipelineRecordCapacity,
                                                     stepPolicy.stepDurationSeconds, nullptr );
     }
 
-    if ( m_persistentContacts.empty() )
+    m_solveTransaction.PrepareJoints( *this, bodyStore, joints, stepPolicy );
+
+    if ( m_persistentContacts.empty() && joints.empty() )
     {
         m_persistentContactCache.clear();
         physicsDebugContacts.clear();
@@ -2290,13 +2479,12 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                                                   pipelineRecordCapacity, stepPolicy.stepDurationSeconds, nullptr );
     }
 
+    // Invariant: both families have applied every warm impulse before sweep zero.
+    m_solveTransaction.WarmStartJoints();
     m_solveTransaction.SolveRows( *this, bodyStore, stepPolicy, retainPipelineRecords, pipelineRecordCapacity, nullptr );
     m_solveTransaction.ApplyPointSupportInstability( *this, bodyStore, colliderStore, stepPolicy, sleepState,
                                                      sleepSupportedThisFrame, modelCount, stepPolicy.stepDurationSeconds,
                                                      nullptr );
-
-    m_solveTransaction.ApplyTerrainRestPolicy( bodyStore, terrainContactManifolds, terrainRestApplied, sleepState,
-                                               modelCount, nullptr );
 
     if ( retainPipelineRecords )
     {
@@ -2313,15 +2501,103 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     {
         m_solveTransaction.CorrectPositions<true>( *this, bodyStore, stepPolicy, sleepState, pipelineRecordCapacity,
                                                    nullptr );
-        m_solveTransaction.StoreCache<true>( *this, bodyStore, pipelineRecordCapacity, nullptr );
     }
     else
     {
         m_solveTransaction.CorrectPositions<false>( *this, bodyStore, stepPolicy, sleepState, pipelineRecordCapacity,
                                                     nullptr );
+    }
+    m_solveTransaction.ReleaseFixedContacts( *this, bodyStore, modelCount, nullptr );
+    if ( !m_sideEffects.releaseWakeBodies.empty() )
+    {
+        // Lifetime: PhysicsWorld wakes the new articulation and refreshes current
+        // contacts before resuming this same transaction. No cache is published yet.
+        m_solveTransaction.m_continuationContactCount = m_persistentContacts.size();
+        return;
+    }
+    if ( retainPipelineRecords )
+    {
+        m_solveTransaction.StoreCache<true>( *this, bodyStore, pipelineRecordCapacity, nullptr );
+    }
+    else
+    {
         m_solveTransaction.StoreCache<false>( *this, bodyStore, pipelineRecordCapacity, nullptr );
     }
+    m_solveTransaction.StoreJointImpulses( joints );
+    m_solveTransaction.Complete();
+}
 
-    m_solveTransaction.ReleaseFixedContacts( *this, bodyStore, modelCount, nullptr );
+void PhysicsContactSolverStage::PrepareReleasedBodies( const PhysicsBodyStore& bodies, std::span<const uint8_t> sleepState )
+{
+    if ( !HasPendingReleasedConstraints() )
+    {
+        SB_FATAL( "Physics/ConstraintSolveTransaction", "No pending contact release." );
+    }
+    m_solveTransaction.SetupBodies( bodies, sleepState, bodies.Count(), nullptr );
+    for ( auto& contact : m_persistentContacts )
+    {
+        m_solveTransaction.RecomputeContactMass( contact );
+    }
+}
+
+void PhysicsContactSolverStage::ContinueReleasedConstraints(
+    PhysicsBodyStore& bodies, const ColliderStore& colliders, const PersistentContactSolverStepPolicy& policy,
+    std::span<const std::pair<int, int>> candidates, std::span<const uint8_t> sleep, std::span<const float> timeRemaining,
+    PhysicsCandidatePairList& supportEdges, PhysicsBodyRowList<TerrainContactManifold>& terrain,
+    PhysicsStepDiagnostics& diagnostics, std::span<PointJointConstraint> joints )
+{
+    const bool full = diagnostics.RetainsFullPipelineRecords();
+    const std::size_t capacity = static_cast<std::size_t>( diagnostics.RemainingPipelineRecordCapacity() );
+    const int count = bodies.Count();
+    m_solveTransaction.OrderCandidatePairs( bodies, candidates );
+    if ( full )
+    {
+        m_solveTransaction.BuildManifolds<true>( *this, bodies, colliders, policy, m_solveTransaction.m_candidatePairs,
+                                                 sleep, supportEdges, count, capacity, nullptr );
+        m_solveTransaction.BuildTerrainRows<true>( *this, bodies, policy, terrain, sleep, timeRemaining, count, capacity,
+                                                   policy.stepDurationSeconds, nullptr );
+    }
+    else
+    {
+        m_solveTransaction.BuildManifolds<false>( *this, bodies, colliders, policy, m_solveTransaction.m_candidatePairs,
+                                                  sleep, supportEdges, count, capacity, nullptr );
+        m_solveTransaction.BuildTerrainRows<false>( *this, bodies, policy, terrain, sleep, timeRemaining, count, capacity,
+                                                    policy.stepDurationSeconds, nullptr );
+    }
+    m_solveTransaction.PrepareJoints( *this, bodies, joints, policy );
+    m_solveTransaction.m_islands.RestrictToReleasedComponents( m_sideEffects.releaseWakeBodies );
+    if ( full )
+    {
+        m_solveTransaction.PrecomputeRows<true>( *this, bodies, colliders, policy, sleep, timeRemaining, capacity,
+                                                 policy.stepDurationSeconds, nullptr );
+    }
+    else
+    {
+        m_solveTransaction.PrecomputeRows<false>( *this, bodies, colliders, policy, sleep, timeRemaining, capacity,
+                                                  policy.stepDurationSeconds, nullptr );
+    }
+    // Applied impulses and original bounce targets survive. Only newly active
+    // contacts prepare cold; there is no second joint warm start, positional
+    // correction, or release decision at this boundary.
+    m_solveTransaction.SolveRows( *this, bodies, policy, full, capacity, nullptr );
+    m_persistentContactSolverStats.rowCount = static_cast<int>( m_persistentContacts.size() );
+    if ( full )
+    {
+        m_solveTransaction.WriteBack<true>( *this, bodies, sleep, count, capacity, nullptr );
+    }
+    else
+    {
+        m_solveTransaction.WriteBack<false>( *this, bodies, sleep, count, capacity, nullptr );
+    }
+    m_solveTransaction.PublishDebugContacts( *this, bodies, diagnostics, nullptr );
+    if ( full )
+    {
+        m_solveTransaction.StoreCache<true>( *this, bodies, capacity, nullptr );
+    }
+    else
+    {
+        m_solveTransaction.StoreCache<false>( *this, bodies, capacity, nullptr );
+    }
+    m_solveTransaction.StoreJointImpulses( joints );
     m_solveTransaction.Complete();
 }

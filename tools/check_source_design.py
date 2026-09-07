@@ -383,10 +383,6 @@ def compile_contexts(
 ) -> list[CompileContext]:
     """Use exact source settings or every distinct first-party header context."""
     relative = source.resolve().relative_to(repo.resolve()).as_posix().casefold()
-    source_text = source.read_text(encoding="utf-8", errors="replace") if source.is_file() else ""
-    development_only_header = source.suffix.lower() in {".h", ".hpp", ".inl"} and (
-        "DevelopmentToolsCapability.h" in source_text or "SKULLBONEZ_DEVELOPMENT_TOOLS" in source_text
-    )
     exact = [row for row in rows if row.file == relative]
     sibling_rows: list[CompileRow] = []
     if not exact and source.suffix.lower() in {".h", ".hpp", ".inl"}:
@@ -403,8 +399,6 @@ def compile_contexts(
         if configuration not in {"Debug", "Profile", "Automation"}:
             continue
         arguments = _row_arguments(repo, row)
-        if development_only_header and "-DSKULLBONEZ_DEVELOPMENT_TOOLS" not in arguments:
-            continue
         key = row.project, configuration, arguments
         contexts[key] = CompileContext(row.project, row.configuration, arguments)
     if not contexts:
@@ -1014,29 +1008,11 @@ def prove_compile_contexts(repo: Path) -> None:
     expected_include = str(repo / "ThirdPtySource/stb")
     if not all(expected_include in context.arguments for context in contexts):
         raise AssertionError("Assets source contexts omit the effective stb include directory")
-    imgui = repo / "SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.cpp"
-    imgui_contexts = compile_contexts(repo, imgui, rows)
-    imgui_header_contexts = compile_contexts(repo, imgui.with_suffix(".h"), rows)
-    expected_imgui_include = str(repo / "ThirdPtySource/imgui")
-    if not all(
-        "-DSKULLBONEZ_DEVELOPMENT_TOOLS" in context.arguments and expected_imgui_include in context.arguments
-        for context in imgui_contexts + imgui_header_contexts
-    ):
-        raise AssertionError("development source contexts omit imported ImGui compile settings")
     for root_name in ("Assets", "Gameplay"):
         header = repo / f"SkullbonezSource/{root_name}/ContextProbe.h"
         header_contexts = compile_contexts(repo, header, rows)
         if any(context.project == "fixture" for context in header_contexts):
             raise AssertionError(f"{root_name} headers fell back to the synthetic fixture context")
-    reserve_header = repo / "SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
-    reserve_contexts = compile_contexts(repo, reserve_header, rows)
-    if any(
-        "DevelopmentToolsCapability.h" in argument
-        for context in reserve_contexts
-        for argument in context.arguments
-    ):
-        raise AssertionError("header context leaked unrelated third-party per-file metadata")
-
     sibling_row = next(
         row
         for row in rows

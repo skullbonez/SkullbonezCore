@@ -73,6 +73,7 @@ class AttachedCameraController
                           bool uiBlocksCameraMouse );
     bool BeginFocusedInspection( Runtime::SceneWorld& collection, const AttachedCameraFocusRequest& request,
                                  AttachedCameraPose& outPreparedPose );
+    void SetFocusedInspectionPosition( Physics::PhysicsSceneObjectId id, const Math::Vector::Vector3& position );
     bool TickFocusedInspection( Runtime::SceneWorld& collection, float orbitYawDelta, float orbitPitchDelta,
                                 int wheelDelta );
     void EndFocusedInspection();

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 12, "assert": { "gameUiReplayPresentationActive": true } },
+    { "frame": 18, "resizeWindow": [1024, 720] },
+    { "frame": 22, "screenshot": "TestOutput/interaction/native_ui_resize.bmp" },
+    { "frame": 28, "pressKey": "0", "control": true },
+    { "frame": 30, "assert": { "gameUiReplayPresentationActive": true } },
+    { "frame": 36, "pressKey": "0" },
+    { "frame": 38, "assert": { "gameUiReplayPresentationActive": true } }
+  ]
+}

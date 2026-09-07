@@ -8,20 +8,11 @@ Summary:
   Establishes the Windows process environment, delegates early-exit
   startup work, constructs the window and DX12 backend, and starts the run loop.
 
-Glossary:
-  Startup owner: A focused helper unit that parses options, resolves launch
-    policy, runs an early probe, or installs crash diagnostics before Run exists.
-  Manual profiler lifetime: Development-build Tracy ownership explicitly
-    bracketed around every engine thread instead of static initialization.
-
 Invariants:
   - Startup owners finish option resolution before Run owns subsystems, keeping
     validation launches deterministic from their command line.
   - Early-exit smoke modes must return before worker, window, renderer, or Run
     startup if their evidence claims subsystem isolation.
-  - Startup-selected Tracy begins before the initial WorkerPool. An interactive
-    Standard start recreates that pool before simulation resumes, and Tracy
-    still stops after all workers join while platform logging remains alive.
   - Every normal WinMain return reports the diagnostic store's active and
     session high-water counts while the App-owned store is still alive.
 
@@ -29,13 +20,13 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/engine-glossary.md
 */
+
 #include "../../Core/Log.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/SbDiagnosticStore.h"
-#include "../../Core/TracyClientOwner.h"
 #include "../Input/Input.h"
 #include "ReplayPredictionRetainedGeometry.h"
 #include "Run.h"
@@ -168,14 +159,13 @@ SkullbonezCore::Core::SbResult InitRenderBackend( SkullbonezCore::Core::SbDiagno
 
 int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window, ParsedArgs& args,
             SkullbonezCore::Core::EngineConfig& cfg, WorkerPool& workerPool, SkullbonezCore::Core::Profiler* profiler,
-            RenderBackendDX12& renderBackend, SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner )
+            RenderBackendDX12& renderBackend )
 {
     // Lifetime: Run releases all render-owned resources before its borrowed
     // DX12 backend and Win32 window are torn down by the process owner.
     {
         std::unique_ptr<Run> cRun = std::make_unique<Run>( diagnostics, *window, std::move( args.sceneList ), cfg,
-                                                           workerPool, profiler, renderBackend.BackbufferCapture(),
-                                                           tracyClientOwner );
+                                                           workerPool, profiler, renderBackend.BackbufferCapture() );
 
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
         auto reportRunResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
@@ -424,14 +414,6 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
         return ReportDiagnosticStoreSession( diagnostics, standalonePhysicsExitCode );
     }
 
-    SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClient = nullptr;
-#if defined( TRACY_ENABLE )
-    // Lifetime: this owner starts before WorkerPool creates instrumentable
-    // threads and is explicitly stopped after their joins on every exit path.
-    SkullbonezCore::Core::DevelopmentTools::TracyClientOwner tracyClientOwner;
-    tracyClientOwner.Start();
-    tracyClient = &tracyClientOwner;
-#endif
 
     // Lifetime: declaration order keeps the Debug lock graph alive until after
     // WorkerPool joins and destroys every mutex borrow.
@@ -443,9 +425,6 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
     {
         const bool workersOk = RunWorkerSystemSelfTest( workerPool, stdout );
         workerPool.Shutdown();
-#if defined( TRACY_ENABLE )
-        tracyClientOwner.Shutdown();
-#endif
         CoUninitialize();
         return ReportDiagnosticStoreSession( diagnostics, workersOk ? 0 : 1 );
     }
@@ -461,9 +440,6 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
     {
         ReportStartupFailure( windowResult, "SkullbonezCore Startup Failed" );
         workerPool.Shutdown();
-#if defined( TRACY_ENABLE )
-        tracyClientOwner.Shutdown();
-#endif
         CoUninitialize();
         return ReportDiagnosticStoreSession( diagnostics, 1 );
     }
@@ -474,16 +450,10 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
     SkullbonezCore::Hardware::Input::BindCallbackBridge( nativeWindow );
     const SkullbonezCore::Core::SbResult
         rawMouseResult = SkullbonezCore::Hardware::Input::RegisterRawMouseInput( diagnostics, nativeWindow );
-    const auto shutdownDevelopmentTools = [&]()
-    {
-#if defined( TRACY_ENABLE )
-        tracyClientOwner.Shutdown();
-#endif
-    };
     const SkullbonezCore::Core::SbResult
         rendererStartupResult = SkullbonezCore::Runtime::StartRendererAfterRawMouseRegistration(
             rawMouseResult, []( const SkullbonezCore::Core::SbResult& failure, const char* title )
-            { ReportStartupFailure( failure, title ); }, [&]() { workerPool.Shutdown(); }, shutdownDevelopmentTools,
+            { ReportStartupFailure( failure, title ); }, [&]() { workerPool.Shutdown(); },
             [&]() { CleanupWindow( window, instance, renderBackend ); }, []() { CoUninitialize(); },
             [&]()
             {
@@ -505,9 +475,6 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
     {
         ReportStartupFailure( initialResizeResult, "SkullbonezCore Renderer Startup Failed" );
         workerPool.Shutdown();
-#if defined( TRACY_ENABLE )
-        tracyClientOwner.Shutdown();
-#endif
         CleanupWindow( window, instance, renderBackend );
         CoUninitialize();
         return ReportDiagnosticStoreSession( diagnostics, 1 );
@@ -526,16 +493,11 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
 #endif
     workerPool.BindProfiler( profiler );
 
-    const int runExitCode = RunApp( diagnostics, window, args, cfg, workerPool, profiler, *renderBackend, tracyClient );
+    const int runExitCode = RunApp( diagnostics, window, args, cfg, workerPool, profiler, *renderBackend );
 
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
         workerPool.Shutdown();
-#if defined( TRACY_ENABLE )
-        // Lifetime: no engine worker can publish another marker after this
-        // point, while logging and COM/platform teardown are still available.
-        tracyClientOwner.Shutdown();
-#endif
         CleanupWindow( window, instance, renderBackend );
     }
     CoreAllocation::PrintRuntimeAllocationSummary( stdout );

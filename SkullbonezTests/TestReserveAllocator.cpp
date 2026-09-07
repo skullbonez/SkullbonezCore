@@ -36,9 +36,6 @@ Related:
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Core/StdioFile.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
-#endif
 
 #include <algorithm>
 #include <array>
@@ -106,15 +103,6 @@ using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase;
 using SkullbonezCore::Physics::PhysicsFixedList;
 using SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-using SkullbonezCore::Core::Allocation::CopyDevelopmentToolAllocationStats;
-using SkullbonezCore::Core::Allocation::DevelopmentToolAllocationOwner;
-using SkullbonezCore::Core::Allocation::DevelopmentToolAllocationScope;
-using SkullbonezCore::Core::Allocation::DevelopmentToolAllocationStats;
-using SkullbonezCore::Core::Allocation::DevelopmentToolBackingAllocationTicket;
-using SkullbonezCore::Core::Allocation::ReleaseDevelopmentToolBackingMemory;
-using SkullbonezCore::Core::Allocation::TryAccountDevelopmentToolBackingMemory;
-#endif
 
 static_assert( !std::is_copy_constructible_v<RuntimeReserveGrowthResult> );
 static_assert( !std::is_copy_assignable_v<RuntimeReserveGrowthResult> );
@@ -546,11 +534,6 @@ TEST_CASE( "RuntimeReserveAllocator: duplicate owner names require one identical
     conflicting = canonical;
     conflicting.elementSizeBytes = 32;
     requireMismatchRejected( conflicting );
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    conflicting = canonical;
-    conflicting.allowDevelopmentToolAllocations = !canonical.allowDevelopmentToolAllocations;
-    requireMismatchRejected( conflicting );
-#endif
 
     CHECK( RuntimeReserveAllocator::RegisterOwner( canonical ) == owner );
     RuntimeReserveOwnerStatsView stats = {};
@@ -578,11 +561,6 @@ TEST_CASE( "RuntimeReserveAllocator: duplicate equality uses effective normalize
     equivalentElementSize.elementSizeBytes = -32;
     CHECK( RuntimeReserveAllocator::RegisterOwner( equivalentElementSize ) == owner );
 
-#if !defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    RuntimeReserveOwnerDesc ignoredDevelopmentPermission = canonical;
-    ignoredDevelopmentPermission.allowDevelopmentToolAllocations = !canonical.allowDevelopmentToolAllocations;
-    CHECK( RuntimeReserveAllocator::RegisterOwner( ignoredDevelopmentPermission ) == owner );
-#endif
 
     CHECK( RuntimeReserveAllocator::PolicyViolationCount() == 0u );
     RuntimeReserveOwnerStatsView stats = {};
@@ -733,83 +711,6 @@ TEST_CASE( "RuntimeAllocationTracker: gameplay guard reports a physics allocatio
     CHECK( summary.find( "VIOLATION:" ) != std::string::npos );
 }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-TEST_CASE( "Development tool allocation scopes remain separate without masking gameplay violations" )
-{
-    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
-    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Render );
-
-    {
-        DevelopmentToolAllocationScope imguiScope( DevelopmentToolAllocationOwner::DearImGui );
-        void* imguiBlock = ::operator new( 32u );
-        ::operator delete( imguiBlock );
-    }
-    {
-        DevelopmentToolAllocationScope tracyScope( DevelopmentToolAllocationOwner::Tracy );
-        void* tracyBlock = ::operator new( 48u );
-        ::operator delete( tracyBlock );
-    }
-    DevelopmentToolBackingAllocationTicket tracyBackingTicket;
-    const bool tracyBackingReserved = TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner::Tracy,
-                                                                              64u * 1024u, tracyBackingTicket );
-
-    const uint64_t toolScopeViolations = RuntimeAllocationGuardViolationCount();
-    DevelopmentToolAllocationStats imguiStats;
-    DevelopmentToolAllocationStats tracyStats;
-    const bool copiedImGui = CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner::DearImGui, imguiStats );
-    const bool copiedTracy = CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner::Tracy, tracyStats );
-
-    if ( tracyBackingReserved )
-    {
-        ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner::Tracy, 64u * 1024u, tracyBackingTicket );
-    }
-
-    // Test probe: this unscoped allocation uses the same Render phase as
-    // the tool calls. It must still fail the gameplay guard.
-    void* gameplayBlock = ::operator new( 16u );
-    ::operator delete( gameplayBlock );
-    const uint64_t finalViolations = RuntimeAllocationGuardViolationCount();
-    const bool guardFailed = RuntimeAllocationGuardHasGameplayViolations();
-    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
-
-    CHECK( toolScopeViolations == 0u );
-    CHECK( copiedImGui );
-    CHECK( copiedTracy );
-    CHECK( tracyBackingReserved );
-    CHECK( imguiStats.allocations == 1u );
-    CHECK( tracyStats.allocations == 2u );
-    CHECK( imguiStats.highWaterBytes >= 32u );
-    CHECK( tracyStats.activeBytes >= 64u * 1024u );
-    CHECK( tracyStats.highWaterBytes >= 64u * 1024u );
-    CHECK( imguiStats.hardCapBytes == 64 * 1024 * 1024 );
-    CHECK( tracyStats.hardCapBytes == 512 * 1024 * 1024 );
-    CHECK( finalViolations >= 1u );
-    CHECK( guardFailed );
-}
-
-
-TEST_CASE( "Development tool backing tickets release live bytes across owner counter reset" )
-{
-    RuntimeReserveAllocator::ResetCounters();
-    DevelopmentToolBackingAllocationTicket oldTicket;
-    REQUIRE( TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner::Tracy, 64u * 1024u, oldTicket ) );
-    RuntimeReserveAllocator::ResetCounters();
-    DevelopmentToolBackingAllocationTicket newTicket;
-    REQUIRE( TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner::Tracy, 32u * 1024u, newTicket ) );
-
-    DevelopmentToolAllocationStats stats;
-    REQUIRE( CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner::Tracy, stats ) );
-    CHECK( stats.activeBytes == 96u * 1024u );
-    ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner::Tracy, 64u * 1024u, oldTicket );
-    REQUIRE( CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner::Tracy, stats ) );
-    CHECK( stats.activeBytes == 32u * 1024u );
-    CHECK( stats.allocations == 1u );
-
-    ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner::Tracy, 32u * 1024u, newTicket );
-    REQUIRE( CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner::Tracy, stats ) );
-    CHECK( stats.activeBytes == 0u );
-}
-#endif
 
 TEST_CASE( "RuntimeAllocationTracker: global allocation overloads preserve alignment and null-delete behavior" )
 {

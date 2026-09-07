@@ -779,3 +779,24 @@ uint64_t PhysicsBroadphaseStage::CollectDebugAndBroadphaseMemoryBytes() const
 }
 } // namespace Physics
 } // namespace SkullbonezCore
+
+namespace SkullbonezCore::Physics
+{
+std::span<const std::pair<int, int>>
+PhysicsBroadphaseStage::RefreshCurrentContacts( const PhysicsBodyStore& bodies, const ColliderStore& colliders,
+                                                std::span<const PointJointConstraint> joints,
+                                                BroadphaseBodyActivityView activity, float contactEpsilon )
+{
+    const BroadphaseSweepContactEnvelope envelope( 0.0f, (std::max)( 0.0f, contactEpsilon ), contactEpsilon );
+    const BroadphasePairFilter filter( bodies, colliders, activity, envelope );
+    m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, filter, false );
+    m_candidatePairs.erase( std::remove_if( m_candidatePairs.begin(), m_candidatePairs.end(),
+                                            FixedSolverCandidatePairPredicate { bodies.HotFields(), bodies.Count() } ),
+                            m_candidatePairs.end() );
+    m_candidatePairs.erase( std::remove_if( m_candidatePairs.begin(), m_candidatePairs.end(),
+                                            PointJointCandidatePairPredicate { bodies, joints } ),
+                            m_candidatePairs.end() );
+    return m_candidatePairs;
+}
+
+} // namespace SkullbonezCore::Physics

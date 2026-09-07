@@ -3,11 +3,6 @@ File: RuntimeFrameViews.h
 Purpose:
   Defines the value-only facts selected for the late runtime UI pass.
 
-Summary:
-  Runtime frame work uses concrete operands or direct `Run` coordinator member
-  reach. This header retains only the immutable value snapshot shared by the
-  GameUI and ImGui presentation paths.
-
 Invariants:
   - UI facts contain no mutable owner references.
   - Stable label pointers name process-lifetime vocabulary.
@@ -17,6 +12,7 @@ Related:
   - Runtime/App/RunFrame.cpp selects the facts.
   - Runtime/Render/UiTextPass.cpp consumes them.
 */
+
 #pragma once
 
 #include <cstdint>

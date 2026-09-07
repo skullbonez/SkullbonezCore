@@ -1,4 +1,4 @@
-﻿/*
+/*
 File: SkullbonezSource/Runtime/UI/OperatorUiProjection.h
 Purpose:
   Declares UI-owned projection from detached Runtime facts into operator rows.
@@ -287,55 +287,6 @@ struct OperatorUiWorkerCoreFacts
     float spanEndMs = 0.0f;
 };
 
-// Invariant: one secondary-diagnostics row describes one catalog identity
-// without its backend texture handle; its label borrow is frame-local.
-struct OperatorUiSecondaryRenderTargetFacts
-{
-    const char* label = "";
-    int width = 0;
-    int height = 0;
-    bool available = false;
-    bool depth = false;
-    bool hdr = false;
-};
-
-// Invariant: secondary diagnostics are one bounded measurement generation;
-// every render-target row belongs to the same renderer snapshot.
-struct OperatorUiSecondaryDiagnosticsFacts
-{
-    std::array<OperatorUiSecondaryRenderTargetFacts, UI::OPERATOR_EDITOR_RENDER_TARGET_CAPACITY> renderTargets = {};
-    const char* rendererName = "";
-    const char* physicsPipelineStageName = "";
-    int renderTargetCount = 0;
-    int drawCalls = 0;
-    int uiDrawCalls = 0;
-    int workerThreadCount = 0;
-    int maxWorkerThreadCount = 1;
-    int physicsPipelineStageIndex = 0;
-    int physicsPipelineStageCount = 0;
-    float fps = 0.0f;
-    float renderMs = 0.0f;
-    float physicsMs = 0.0f;
-    float cpuFrameMs = 0.0f;
-    float gpuFrameMs = 0.0f;
-    float physicsDebugAlpha = 0.0f;
-    float physicsDebugContactLinger = 0.0f;
-    float rayCastImpulseStrength = 0.0f;
-    float launcherProjectileSpeed = 0.0f;
-    uint64_t trackedEngineBytes = 0u;
-    uint64_t reconciledTotalBytes = 0u;
-    uint64_t uploadUsedBytes = 0u;
-    uint64_t uploadCapacityBytes = 0u;
-    uint64_t replayReserveGrowthEvents = 0u;
-    uint32_t physicsDebugFlags = 0u;
-    bool collisionVisualizer = false;
-    bool physicsDebugTransparent = false;
-    bool broadphaseOverlay = false;
-    bool tornadoVisualShell = false;
-    bool tornadoFieldVectors = false;
-    bool rayCastVisualization = false;
-};
-
 class OperatorUiRenderTargetListFacts;
 inline void ProjectOperatorUiRenderTargets( UI::InGameUIFrameData& uiData, const OperatorUiRenderTargetListFacts& facts );
 
@@ -408,9 +359,6 @@ struct OperatorUiDiagnosticsFacts
     uint64_t reserveGrowthEventDroppedCount = 0u;
     double now = 0.0;
     float predictionRevealRate = 0.0f;
-    bool tracyBuildEnabled = false;
-    bool tracyInitialized = false;
-    bool tracyViewerConnected = false;
     bool replayMemoryBudgetClamped = false;
     bool replayMemorySolverWindowReduced = false;
     bool renderMemoryAvailable = false;
@@ -464,12 +412,6 @@ inline void AppendOperatorEditorHierarchyRow( UI::OperatorEditorFrameView& view,
         view.hierarchy.selectedSceneObjectId = row.sceneObjectId;
     }
 }
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
-                                             const UI::OperatorEditorInspectorView& inspector,
-                                             const OperatorUiWorldFacts& world );
-#endif
-void ProjectOperatorEditorDiagnostics( UI::OperatorEditorFrameView& view, const OperatorUiSecondaryDiagnosticsFacts& facts );
 
 void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& uiData, const OperatorUiDiagnosticsFacts& facts,
                                    UI::UIRuntimeReserveCapacityRow* reserveCapacityRows );

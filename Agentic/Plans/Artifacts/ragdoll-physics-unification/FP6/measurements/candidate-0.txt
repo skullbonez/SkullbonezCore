@@ -1,0 +1,15 @@
+[doctest] doctest version is "2.4.12"
+[doctest] run with "--help" for options
+FP5_METRICS run=0 sag_m=0.0155305862 peak_sag_m=0.0239934921 jitter_step_rms_m=3.21172629e-06 settled_kinetic_j=3.64717111e-07 peak_kinetic_j=0.279893427 solve_us_per_joint_iteration=0.235058021
+FP5_METRICS run=1 sag_m=0.0155305862 peak_sag_m=0.0239934921 jitter_step_rms_m=3.21172629e-06 settled_kinetic_j=3.64717111e-07 peak_kinetic_j=0.279893427 solve_us_per_joint_iteration=0.23479875
+FP5_METRICS run=2 sag_m=0.0155305862 peak_sag_m=0.0239934921 jitter_step_rms_m=3.21172629e-06 settled_kinetic_j=3.64717111e-07 peak_kinetic_j=0.279893427 solve_us_per_joint_iteration=0.230284063
+FP5_METRICS run=3 sag_m=0.0155305862 peak_sag_m=0.0239934921 jitter_step_rms_m=3.21172629e-06 settled_kinetic_j=3.64717111e-07 peak_kinetic_j=0.279893427 solve_us_per_joint_iteration=0.230643542
+FP5_METRICS run=4 sag_m=0.0155305862 peak_sag_m=0.0239934921 jitter_step_rms_m=3.21172629e-06 settled_kinetic_j=3.64717111e-07 peak_kinetic_j=0.279893427 solve_us_per_joint_iteration=0.230324271
+FP5_METRICS run=5 sag_m=0.0155305862 peak_sag_m=0.0239934921 jitter_step_rms_m=3.21172629e-06 settled_kinetic_j=3.64717111e-07 peak_kinetic_j=0.279893427 solve_us_per_joint_iteration=0.230431771
+FP5_METRICS run=6 sag_m=0.0155305862 peak_sag_m=0.0239934921 jitter_step_rms_m=3.21172629e-06 settled_kinetic_j=3.64717111e-07 peak_kinetic_j=0.279893427 solve_us_per_joint_iteration=0.230267083
+FP5_METRICS run=7 sag_m=0.0155305862 peak_sag_m=0.0239934921 jitter_step_rms_m=3.21172629e-06 settled_kinetic_j=3.64717111e-07 peak_kinetic_j=0.279893427 solve_us_per_joint_iteration=0.233241875
+FP5_METRICS run=8 sag_m=0.0155305862 peak_sag_m=0.0239934921 jitter_step_rms_m=3.21172629e-06 settled_kinetic_j=3.64717111e-07 peak_kinetic_j=0.279893427 solve_us_per_joint_iteration=0.23045224
+FP5_METRICS run=9 sag_m=0.0155305862 peak_sag_m=0.0239934921 jitter_step_rms_m=3.21172629e-06 settled_kinetic_j=3.64717111e-07 peak_kinetic_j=0.279893427 solve_us_per_joint_iteration=0.230456563
+[doctest] test cases:      1 |      1 passed | 0 failed | 0 skipped
+[doctest] assertions: 240240 | 240240 passed | 0 failed |
+[doctest] Status: SUCCESS!

@@ -246,9 +246,6 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
 
     if ( capture.mouse )
     {
-        // Invariant: ImGui already received these native events in WndProc.
-        // Engine, GameUI, camera, gizmo, and replay see a neutral device
-        // class rather than independently consuming the same click or drag.
         routedFrame.rawMouseX = 0;
         routedFrame.rawMouseY = 0;
         routedFrame.wheelDelta = 0;
@@ -581,10 +578,6 @@ void InputRouter::CancelPointerPresentation()
 
 void InputRouter::DeferPointerPresentationCommit()
 {
-    // Hazard: imgui_impl_win32 and the engine both use HWND-scoped SetCapture.
-    // While the editor owns mouse intent the engine must not release the same
-    // HWND capture; invalidating here makes the first returning engine frame
-    // reassert its complete desired state.
     m_pointerPresentationCommitted = false;
 }
 

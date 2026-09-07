@@ -761,29 +761,13 @@ void Run::ApplyReplayOperatorCommands( RuntimeUIFrameResult& result, const Runti
 }
 
 #if defined( SKULLBONEZ_SKARNESS )
-bool Run::ApplySkarnessCameraCommand( const SkarnessCommand& command, const char*& reason )
+namespace
 {
-    const ReplayCauseInspectionMode mode = m_replayRuntime.CauseInspectionView().Transport().mode;
-
-    if ( !ReplayCauseInspectionAcceptsOrbit( mode ) )
-    {
-        reason = "causal inspection camera is not ready for orbit input";
-        return false;
-    }
-
-    const bool applied = m_attachedCamera.TickFocusedInspection( m_sceneController.Scene(),
-                                                                 static_cast<float>( command.number ),
-                                                                 static_cast<float>( command.secondNumber ), 0 );
-    reason = applied ? "" : "causal inspection orbit could not resolve its selected pivot";
-    return applied;
-}
-
-bool Run::ApplySkarnessPredictionTargetCommand( const SkarnessCommand& command, const char*& reason )
+bool ResolveSkarnessSceneObject( SceneWorld& world, const SkarnessCommand& command, int& modelIndex, const char*& reason )
 {
-    SceneWorld& world = m_sceneController.Scene();
-    int modelIndex = -1;
+    modelIndex = -1;
 
-    if ( command.unsignedInteger != 0 )
+    if ( command.unsignedInteger != 0u )
     {
         if ( command.unsignedInteger > UINT32_MAX )
         {
@@ -805,27 +789,91 @@ bool Run::ApplySkarnessPredictionTargetCommand( const SkarnessCommand& command, 
 
             if ( modelIndex >= 0 )
             {
-                modelIndex = -2;
-                break;
+                reason = "display name is ambiguous; supply sceneObjectId";
+                return false;
             }
 
             modelIndex = entityIndex;
         }
     }
 
-    if ( modelIndex == -2 )
-    {
-        reason = "display name is ambiguous; supply sceneObjectId";
-        return false;
-    }
-
     const Physics::PhysicsBodyRecord* body = modelIndex >= 0 ? world.BodyStore().RecordForModelIndex( modelIndex ) : nullptr;
 
     if ( !body || !body->sceneObjectId.IsValid() )
     {
-        reason = "scene object name did not resolve to a physics body";
+        reason = "scene object did not resolve to a physics body";
         return false;
     }
+
+    return true;
+}
+
+SkarnessSceneObjectResult BuildSkarnessSceneObjectResult( const SceneWorld& world, int modelIndex )
+{
+    SkarnessSceneObjectResult result;
+    const Physics::PhysicsBodyRecord* body = world.BodyStore().RecordForModelIndex( modelIndex );
+
+    if ( body )
+    {
+        result.sceneObjectId = body->sceneObjectId.value;
+        result.modelRow = modelIndex;
+        result.name = world.Entities().At( modelIndex ).displayName;
+    }
+
+    return result;
+}
+
+void SetSkarnessNumberResult( SkarnessCommandApplication& application, const char* name, double value )
+{
+    application.result.valueName = name;
+    application.result.numberValue = value;
+    application.result.hasNumberValue = true;
+}
+
+void SetSkarnessIntegerResult( SkarnessCommandApplication& application, const char* name, int value )
+{
+    application.result.valueName = name;
+    application.result.integerValue = value;
+    application.result.hasIntegerValue = true;
+}
+
+void SetSkarnessUnsignedResult( SkarnessCommandApplication& application, const char* name, uint64_t value )
+{
+    application.result.valueName = name;
+    application.result.unsignedValue = value;
+    application.result.hasUnsignedValue = true;
+}
+} // namespace
+
+bool Run::ApplySkarnessCameraCommand( const SkarnessCommand& command, const char*& reason )
+{
+    const ReplayCauseInspectionMode mode = m_replayRuntime.CauseInspectionView().Transport().mode;
+
+    if ( !ReplayCauseInspectionAcceptsOrbit( mode ) )
+    {
+        reason = "causal inspection camera is not ready for orbit input";
+        return false;
+    }
+
+    const bool applied = m_attachedCamera.TickFocusedInspection( m_sceneController.Scene(),
+                                                                 static_cast<float>( command.number ),
+                                                                 static_cast<float>( command.secondNumber ),
+                                                                 command.integer );
+    reason = applied ? "" : "causal inspection orbit could not resolve its selected pivot";
+    return applied;
+}
+
+bool Run::ApplySkarnessPredictionTargetCommand( const SkarnessCommand& command, const char*& reason )
+{
+    SceneWorld& world = m_sceneController.Scene();
+    int modelIndex = -1;
+
+    if ( !ResolveSkarnessSceneObject( world, command, modelIndex, reason ) )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsBodyRecord* body = world.BodyStore().RecordForModelIndex( modelIndex );
 
     ReplayFrameIntent intent;
     intent.setPathTarget = true;
@@ -840,91 +888,269 @@ bool Run::ApplySkarnessPredictionTargetCommand( const SkarnessCommand& command, 
     return true;
 }
 
-bool Run::ApplySkarnessReplayCommand( const SkarnessCommand& command, RuntimeUIFrameResult& result,
-                                      const RuntimeInputFrameFacts& facts )
+void Run::ApplySkarnessReplayCommand( const SkarnessCommand& command, RuntimeUIFrameResult& frameResult,
+                                      const RuntimeInputFrameFacts& facts, SkarnessCommandApplication& application )
 {
+    application.handled = true;
+
     switch ( command.type )
     {
     case SkarnessCommandType::ReplaySetRecordingEnabled:
-        ApplyReplayTransportCommand( result, facts, ReplaySetRecordingEnabledCommand { command.enabled } );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplaySetRecordingEnabledCommand { command.enabled } );
+        application.result.valueName = "enabled";
+        application.result.boolValue = m_replayRuntime.BuildInputView().captureEnabled;
+        application.result.hasBoolValue = true;
+        return;
+    case SkarnessCommandType::ReplaySetRetentionSeconds:
+    case SkarnessCommandType::ReplaySetMemoryBudgetMiB:
+    {
+        ReplayMemoryPolicyRequest request;
+        request.retentionSeconds = command.type == SkarnessCommandType::ReplaySetRetentionSeconds ? command.integer : -1;
+        request.budgetMiB = command.type == SkarnessCommandType::ReplaySetMemoryBudgetMiB ? command.integer : -1;
+        (void)m_replayRuntime.ApplyMemoryPolicyRequest( request );
+        const ReplayHudStatus status = m_replayRuntime.BuildHudStatus( false );
+        SetSkarnessIntegerResult( application,
+                                  command.type == SkarnessCommandType::ReplaySetRetentionSeconds ? "seconds" : "mib",
+                                  command.type == SkarnessCommandType::ReplaySetRetentionSeconds
+                                      ? status.requestedRetentionSeconds
+                                      : status.requestedBudgetMiB );
+        return;
+    }
     case SkarnessCommandType::ReplayJumpToStart:
-        ApplyReplayTransportCommand( result, facts, ReplayJumpToStartCommand {} );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplayJumpToStartCommand {} );
+        return;
     case SkarnessCommandType::ReplayJumpToEnd:
-        ApplyReplayTransportCommand( result, facts, ReplayJumpToEndCommand {} );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplayJumpToEndCommand {} );
+        return;
     case SkarnessCommandType::ReplaySetPlaybackPaused:
         if ( m_replayRuntime.BuildInputView().liveAdvanceHeld != command.enabled )
         {
-            ApplyReplayTransportCommand( result, facts, ReplayTogglePlayPauseCommand {} );
+            ApplyReplayTransportCommand( frameResult, facts, ReplayTogglePlayPauseCommand {} );
         }
-        return true;
+        return;
     case SkarnessCommandType::ReplayStepBackward:
-        ApplyReplayTransportCommand( result, facts, ReplayStepBackwardCommand {} );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplayStepBackwardCommand {} );
+        return;
     case SkarnessCommandType::ReplayStepForward:
-        ApplyReplayTransportCommand( result, facts, ReplayStepForwardCommand {} );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplayStepForwardCommand {} );
+        return;
     case SkarnessCommandType::ReplaySetRevealSpeed:
-        ApplyReplayTransportCommand( result, facts, ReplaySetRevealSpeedCommand { static_cast<float>( command.number ) } );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts,
+                                     ReplaySetRevealSpeedCommand { static_cast<float>( command.number ) } );
+        SetSkarnessNumberResult( application, "rate", m_replayRuntime.BuildHudStatus( false ).predictionRevealRate );
+        return;
     case SkarnessCommandType::ReplayScrub:
-        ApplyReplayTransportCommand( result, facts, ReplayScrubCommand { static_cast<float>( command.number ) } );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplayScrubCommand { static_cast<float>( command.number ) } );
+        SetSkarnessNumberResult( application, "normalized",
+                                 m_replayRuntime.BuildInputView().activeTrack == RunReplayTrack::Solver
+                                     ? m_replayRuntime.BuildInputView().solverTrackPosition
+                                     : m_replayRuntime.BuildInputView().presentationTrackPosition );
+        return;
+    case SkarnessCommandType::ReplaySeekFrame:
+    {
+        ReplayWorkspaceOutput output;
+        ReplayFrameIndex appliedFrame = 0u;
+        application.applied = m_replayRuntime.SeekReplayFrame( command.unsignedInteger, m_interaction,
+                                                               m_timers.SimulationTotalSeconds(), output, appliedFrame );
+        application.reason = application.applied ? nullptr : "active replay track has no retained frames";
+        frameResult.enterInteractiveScene = frameResult.enterInteractiveScene || output.enterInteractive;
+        SetSkarnessUnsignedResult( application, "frame", appliedFrame );
+        return;
+    }
     case SkarnessCommandType::ReplaySetPredictionEnabled:
         if ( m_replayRuntime.BuildInputView().predictionEnabled != command.enabled )
         {
-            ApplyReplayTransportCommand( result, facts, ReplayTogglePredictionCommand {} );
+            ApplyReplayTransportCommand( frameResult, facts, ReplayTogglePredictionCommand {} );
         }
-        return true;
+        return;
     case SkarnessCommandType::ReplaySetPredictionDetailMode:
         if ( m_replayRuntime.BuildSkarnessState().predictionHighDetail != command.enabled )
         {
-            ApplyReplayTransportCommand( result, facts, ReplaySetPredictionDetailModeCommand { command.enabled } );
+            ApplyReplayTransportCommand( frameResult, facts, ReplaySetPredictionDetailModeCommand { command.enabled } );
         }
-        return true;
+        return;
     case SkarnessCommandType::ReplaySetPredictionHorizon:
-        ApplyReplayTransportCommand( result, facts,
+        ApplyReplayTransportCommand( frameResult, facts,
                                      ReplaySetPredictionHorizonCommand { static_cast<float>( command.number ) } );
-        return true;
+        SetSkarnessNumberResult( application, "seconds", m_replayRuntime.BuildSkarnessState().predictionHorizonSeconds );
+        return;
     case SkarnessCommandType::ReplaySetVelocityEditEnabled:
-        ApplyReplayTransportCommand( result, facts, ReplaySetVelocityEditEnabledCommand { command.enabled } );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplaySetVelocityEditEnabledCommand { command.enabled } );
+        return;
     case SkarnessCommandType::ReplaySetRagdollVisualsEnabled:
-        ApplyReplayTransportCommand( result, facts, ReplaySetRagdollVisualsEnabledCommand { command.enabled } );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplaySetRagdollVisualsEnabledCommand { command.enabled } );
+        return;
     case SkarnessCommandType::ReplaySetPastPathVisible:
-        ApplyReplayTransportCommand( result, facts, ReplaySetPastPathVisibleCommand { command.enabled } );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplaySetPastPathVisibleCommand { command.enabled } );
+        return;
+    case SkarnessCommandType::ReplaySetGuideArcsEnabled:
+        m_replayRuntime.SetGuideArcsEnabled( command.enabled );
+        return;
+    case SkarnessCommandType::ReplaySetPathColorMode:
+        m_replayRuntime.SetPathColorMode( command.text == "velocity" ? ReplayPathColorMode::VelocityHeat
+                                          : command.text == "time"   ? ReplayPathColorMode::TimeGradient
+                                          : command.text == "object" ? ReplayPathColorMode::PerObjectHue
+                                          : command.text == "causal" ? ReplayPathColorMode::CausalDepth
+                                                                     : ReplayPathColorMode::LaneFlat );
+        return;
+    case SkarnessCommandType::ReplaySetInterceptTarget:
+    {
+        SceneWorld& world = m_sceneController.Scene();
+        int modelIndex = -1;
+        application.applied = ResolveSkarnessSceneObject( world, command, modelIndex, application.reason );
+
+        if ( application.applied )
+        {
+            const Physics::PhysicsBodyRecord* body = world.BodyStore().RecordForModelIndex( modelIndex );
+            ReplayFrameIntent intent;
+            intent.setInterceptTarget = true;
+            intent.interceptTargetId = body->sceneObjectId;
+            intent.interceptTargetModelRow.value = modelIndex;
+            (void)m_replayRuntime.ApplyFrameIntent( intent );
+            application.result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex ) );
+        }
+        return;
+    }
+    case SkarnessCommandType::ReplayVelocityPreview:
+        application.applied = m_replayRuntime
+                                  .PreviewVelocity( m_sceneController.Scene().Physics(),
+                                                    Math::Vector::Vector3( static_cast<float>( command.number ),
+                                                                           static_cast<float>( command.secondNumber ),
+                                                                           static_cast<float>( command.thirdNumber ) ),
+                                                    Math::Vector::Vector3( static_cast<float>( command.fourthNumber ),
+                                                                           static_cast<float>( command.fifthNumber ),
+                                                                           static_cast<float>( command.sixthNumber ) ) );
+        application.reason = application.applied ? nullptr : "velocity preview requires a live selected physics body";
+        return;
+    case SkarnessCommandType::ReplayVelocityCommit:
+        application.applied = m_replayRuntime.CommitVelocityPreview();
+        application.reason = application.applied ? nullptr : "no changed velocity preview is active";
+        return;
+    case SkarnessCommandType::ReplayVelocityCancel:
+        application.applied = m_replayRuntime.CancelVelocityPreview( m_sceneController.Scene().Physics() );
+        application.reason = application.applied ? nullptr : "no velocity preview is active";
+        return;
+    case SkarnessCommandType::PredictionRevealReset:
+        SetSkarnessUnsignedResult( application, "frame", m_replayRuntime.ResetDeterministicReveal() );
+        return;
+    case SkarnessCommandType::PredictionRevealAdvance:
+        SetSkarnessUnsignedResult( application, "frame",
+                                   m_replayRuntime.AdvanceDeterministicReveal(
+                                       static_cast<ReplayFrameIndex>( command.integer ) ) );
+        return;
     case SkarnessCommandType::ReplayRestoreBranch:
-        ApplyReplayTransportCommand( result, facts, ReplayRestoreBranchCommand {} );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplayRestoreBranchCommand {} );
+        return;
     case SkarnessCommandType::ReplaySave:
     {
         ReplaySaveCommand save;
         strncpy_s( save.path, sizeof( save.path ), command.text.c_str(), _TRUNCATE );
-        ApplyReplayTransportCommand( result, facts, save );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, save );
+        return;
     }
     case SkarnessCommandType::ReplayLoad:
     {
         ReplayLoadCommand load;
         strncpy_s( load.path, sizeof( load.path ), command.text.c_str(), _TRUNCATE );
-        ApplyReplayTransportCommand( result, facts, load );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, load );
+        return;
     }
     case SkarnessCommandType::ReplayReturnToLive:
-        ApplyReplayTransportCommand( result, facts, ReplayReturnToLiveCommand {} );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplayReturnToLiveCommand {} );
+        return;
+    case SkarnessCommandType::ReplayReturnFromCause:
+        m_replayRuntime.RequestCauseReturn();
+        return;
     case SkarnessCommandType::ReplaySelectCauseRow:
-        ApplyReplayTransportCommand( result, facts, ReplaySelectCauseRowCommand { command.integer } );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplaySelectCauseRowCommand { command.integer } );
+        return;
+    case SkarnessCommandType::ReplaySelectCause:
+    {
+        const RunReplayCauseTreeState& cause = m_replayRuntime.CauseTree();
+        const RunReplayCauseTreeRow* row = command.integer >= 0 && command.integer < static_cast<int>( cause.rows.size() )
+                                               ? &cause.rows[command.integer]
+                                               : nullptr;
+        application.applied = row && row->id.value == command.unsignedInteger &&
+                              row->firstFrame == command.secondUnsignedInteger &&
+                              row->sourceGeneration == command.thirdUnsignedInteger &&
+                              row->sourceBankEpoch == command.fourthUnsignedInteger &&
+                              row->sourceTopologyVersion == command.fifthUnsignedInteger &&
+                              row->sourcePublicationVersion == command.sixthUnsignedInteger;
+        application.reason = application.applied ? nullptr : "cause row identity is stale";
+
+        if ( application.applied )
+        {
+            ApplyReplayTransportCommand( frameResult, facts, ReplaySelectCauseRowCommand { command.integer } );
+        }
+        return;
+    }
     case SkarnessCommandType::ReplaySetCauseInspectorOpen:
-        ApplyReplayTransportCommand( result, facts, ReplaySetCauseInspectorOpenCommand { command.enabled } );
-        return true;
+        ApplyReplayTransportCommand( frameResult, facts, ReplaySetCauseInspectorOpenCommand { command.enabled } );
+        return;
+    case SkarnessCommandType::ReplaySetCauseFilterText:
+        m_replayRuntime.SetCauseTreeFilterText( command.text.c_str() );
+        return;
+    case SkarnessCommandType::ReplaySetCauseFilter:
+        m_replayRuntime.SetCauseTreeFilter( command.text == "prediction" ? RunReplayCauseTreeFilter::Prediction
+                                            : command.text == "contacts" ? RunReplayCauseTreeFilter::Contacts
+                                                                         : RunReplayCauseTreeFilter::All );
+        return;
+    case SkarnessCommandType::ReplaySetCauseInspectorTab:
+        m_replayRuntime.SetCauseInspectorTab( command.text == "raw"          ? ReplayCauseInspectorTab::RawRecord
+                                              : command.text == "iterations" ? ReplayCauseInspectorTab::Iterations
+                                                                             : ReplayCauseInspectorTab::Summary );
+        return;
+    case SkarnessCommandType::ReplayCopyCauseRecord:
+    {
+        char copy[REPLAY_CAUSE_INSPECTOR_COPY_TEXT_CAPACITY] = {};
+        application.applied = m_replayRuntime.CopySelectedCauseRecord( copy, sizeof( copy ) );
+        application.reason = application.applied ? nullptr : "selected cause has no copyable solver record";
+        application.result.valueName = "record";
+        application.result.textValue = copy;
+        application.result.hasTextValue = application.applied;
+        return;
+    }
+    case SkarnessCommandType::ReplaySetPorkchopVisible:
+        m_replayRuntime.SetPorkchopPanelVisible( command.enabled );
+        return;
+    case SkarnessCommandType::ReplaySelectPorkchopCell:
+        application.applied = m_replayRuntime.SelectPorkchopCell( static_cast<std::size_t>( command.integer ) );
+        application.reason = application.applied ? nullptr : "porkchop cell is not currently available";
+        SetSkarnessIntegerResult( application, "cell", command.integer );
+        return;
+    case SkarnessCommandType::ReplaySetTripTimeOfFlight:
+        application.applied = m_replayRuntime.QueueTripPlannerCommand(
+            { ReplayTripPlannerCommandKind::SetTimeOfFlight, static_cast<float>( command.number ) } );
+        application.reason = application.applied ? nullptr : "trip planner command queue is full";
+        SetSkarnessNumberResult( application, "seconds", command.number );
+        return;
+    case SkarnessCommandType::ReplayTripPlan:
+    case SkarnessCommandType::ReplayTripCommit:
+    case SkarnessCommandType::ReplayTripCancel:
+        application.applied = m_replayRuntime.QueueTripPlannerCommand(
+            { command.type == SkarnessCommandType::ReplayTripPlan     ? ReplayTripPlannerCommandKind::Plan
+              : command.type == SkarnessCommandType::ReplayTripCommit ? ReplayTripPlannerCommandKind::Commit
+                                                                      : ReplayTripPlannerCommandKind::Cancel,
+              0.0f } );
+        application.reason = application.applied ? nullptr : "trip planner command queue is full";
+        return;
+    case SkarnessCommandType::PredictionForecastStart:
+    case SkarnessCommandType::PredictionForecastReset:
+    case SkarnessCommandType::PredictionForecastStop:
+    {
+        SkullbonezCore::UI::OperatorEditorCommandQueues commands;
+        commands.forecast.count = 1u;
+        commands.forecast.commands[0].type = command.type == SkarnessCommandType::PredictionForecastReset
+                                                 ? SkullbonezCore::UI::OperatorEditorForecastCommandType::Reset
+                                             : command.type == SkarnessCommandType::PredictionForecastStop
+                                                 ? SkullbonezCore::UI::OperatorEditorForecastCommandType::Exit
+                                                 : SkullbonezCore::UI::OperatorEditorForecastCommandType::ToggleContinuous;
+        ApplyForecastOperatorCommands( frameResult, facts, commands );
+        return;
+    }
     default:
-        return false;
+        application.handled = false;
+        return;
     }
 }
 
@@ -980,6 +1206,207 @@ bool Run::ApplySkarnessSceneLoadCommand( const SkarnessCommand& command, bool& d
     return true;
 }
 
+void Run::ApplySkarnessSceneLifecycleCommand( const SkarnessCommand& command, SkarnessCommandApplication& application )
+{
+    application.handled = true;
+
+    switch ( command.type )
+    {
+    case SkarnessCommandType::CaptureScreenshot:
+    {
+        const uint64_t token = m_skarness.BeginCapture( command.requestId );
+        const Core::SbResult queued = m_capture.QueuePostRenderPng( command.text.c_str(),
+                                                                    PostRenderCaptureOwner::ExternalAutomation, token );
+
+        if ( !queued.Ok() )
+        {
+            m_skarness.CompleteCapture( token, false, queued.ErrorMessage() );
+        }
+
+        application.deferred = true;
+        return;
+    }
+    case SkarnessCommandType::SceneLoad:
+        application.applied = ApplySkarnessSceneLoadCommand( command, application.deferred, application.reason );
+        return;
+    case SkarnessCommandType::SceneReset:
+    {
+        const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+        const std::string* currentPath = m_sceneController.CurrentPath();
+        const bool expectDemo = !currentPath || currentPath->empty();
+
+        if ( !m_skarness.BeginSceneTransition( command.requestId, lifecycle.generation,
+                                               currentPath ? currentPath->c_str() : "", expectDemo ) )
+        {
+            application.applied = false;
+            application.reason = "another scene transition is pending";
+            return;
+        }
+
+        m_sceneController.SubmitResetCurrentScene();
+        application.deferred = true;
+        return;
+    }
+    case SkarnessCommandType::SceneLoadDemo:
+    {
+        const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
+
+        if ( !m_skarness.BeginSceneTransition( command.requestId, lifecycle.generation, "", true ) )
+        {
+            application.applied = false;
+            application.reason = "another scene transition is pending";
+            return;
+        }
+
+        m_sceneController.SubmitLoadDemoScene();
+        application.deferred = true;
+        return;
+    }
+    default:
+        application.handled = false;
+        return;
+    }
+}
+
+void Run::ApplySkarnessObjectLookupCommand( const SkarnessCommand& command, SkarnessCommandApplication& application )
+{
+    switch ( command.type )
+    {
+    case SkarnessCommandType::SceneObjectList:
+    {
+        const SceneWorld& world = m_sceneController.Scene();
+        application.result.objects.reserve( static_cast<std::size_t>( world.SceneEntityCount() ) );
+
+        for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
+        {
+            const SkarnessSceneObjectResult object = BuildSkarnessSceneObjectResult( world, modelIndex );
+
+            if ( object.sceneObjectId != 0u )
+            {
+                application.result.objects.push_back( object );
+            }
+        }
+        return;
+    }
+    case SkarnessCommandType::SceneObjectResolve:
+    {
+        SceneWorld& world = m_sceneController.Scene();
+        int modelIndex = -1;
+        application.applied = ResolveSkarnessSceneObject( world, command, modelIndex, application.reason );
+
+        if ( application.applied )
+        {
+            application.result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex ) );
+        }
+        return;
+    }
+    default:
+        application.handled = false;
+        return;
+    }
+}
+
+void Run::ApplySkarnessSelectObjectCommand( const SkarnessCommand& command, SkarnessCommandApplication& application )
+{
+    if ( command.secondText == "inspect" )
+    {
+        application.applied = ApplySkarnessPredictionTargetCommand( command, application.reason );
+        if ( application.applied )
+        {
+            SceneWorld& world = m_sceneController.Scene();
+            int modelIndex = -1;
+            const char* ignoredReason = nullptr;
+            if ( ResolveSkarnessSceneObject( world, command, modelIndex, ignoredReason ) )
+            {
+                application.result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex ) );
+            }
+        }
+        return;
+    }
+
+    if ( !m_editorTools.Editor().editorModeEnabled )
+    {
+        application.applied = false;
+        application.reason = "editor selection requires editor mode";
+        return;
+    }
+
+    SceneWorld& world = m_sceneController.Scene();
+    int modelIndex = -1;
+    application.applied = ResolveSkarnessSceneObject( world, command, modelIndex, application.reason );
+
+    if ( application.applied )
+    {
+        const SceneEntityRecord& entity = world.Entities().At( modelIndex );
+        RuntimeInteractionCommand selection;
+        selection.type = RuntimeInteractionCommandType::SetEditorSelection;
+        selection.body = entity.body;
+        selection.collider = world.Colliders().HandleForSceneObjectId( entity.sceneObjectId );
+        selection.claimSelectionOwner = false;
+        application.applied = m_editorTools.ApplySelectionCommand( selection, world );
+        application.reason = application.applied ? nullptr : "editor selection owner rejected the scene object";
+        if ( application.applied )
+        {
+            application.result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex ) );
+        }
+    }
+}
+
+void Run::ApplySkarnessClearSelectionCommand( const SkarnessCommand& command, SkarnessCommandApplication& application )
+{
+    if ( command.secondText == "inspect" )
+    {
+        m_replayRuntime.ClearPathSelection();
+    }
+    else if ( m_editorTools.Editor().editorModeEnabled )
+    {
+        RuntimeInteractionCommand selection;
+        selection.type = RuntimeInteractionCommandType::SetEditorSelection;
+        selection.claimSelectionOwner = false;
+        application.applied = m_editorTools.ApplySelectionCommand( selection, m_sceneController.Scene() );
+        application.reason = application.applied ? nullptr : "editor selection owner rejected clear";
+    }
+    else
+    {
+        application.applied = false;
+        application.reason = "editor selection requires editor mode";
+    }
+}
+
+void Run::ApplySkarnessSelectionCommand( const SkarnessCommand& command, SkarnessCommandApplication& application )
+{
+    switch ( command.type )
+    {
+    case SkarnessCommandType::SceneObjectSelect:
+        ApplySkarnessSelectObjectCommand( command, application );
+        return;
+    case SkarnessCommandType::SceneObjectClearSelection:
+        ApplySkarnessClearSelectionCommand( command, application );
+        return;
+    case SkarnessCommandType::PredictionSelectTarget:
+        application.applied = ApplySkarnessPredictionTargetCommand( command, application.reason );
+        return;
+    case SkarnessCommandType::CameraOrbitInspection:
+        application.applied = ApplySkarnessCameraCommand( command, application.reason );
+        return;
+    default:
+        application.handled = false;
+        return;
+    }
+}
+
+void Run::ApplySkarnessObjectCommand( const SkarnessCommand& command, SkarnessCommandApplication& application )
+{
+    application.handled = true;
+    ApplySkarnessObjectLookupCommand( command, application );
+
+    if ( !application.handled )
+    {
+        application.handled = true;
+        ApplySkarnessSelectionCommand( command, application );
+    }
+}
+
 void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts )
 {
     if ( !m_skarness.Enabled() )
@@ -991,82 +1418,25 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
 
     while ( m_skarness.PopCommand( command ) )
     {
-        bool applied = true;
-        const char* reason = nullptr;
+        SkarnessCommandApplication application;
 
-        if ( ApplySkarnessReplayCommand( command, result, facts ) )
+        ApplySkarnessReplayCommand( command, result, facts, application );
+
+        if ( !application.handled )
         {
-            m_skarness.CompleteCommand( command.requestId, true, nullptr );
-            continue;
+            ApplySkarnessSceneLifecycleCommand( command, application );
         }
 
-        switch ( command.type )
+        if ( !application.handled )
         {
-        case SkarnessCommandType::CaptureScreenshot:
-        {
-            const uint64_t token = m_skarness.BeginCapture( command.requestId );
-            const Core::SbResult queued = m_capture.QueuePostRenderPng( command.text.c_str(),
-                                                                        PostRenderCaptureOwner::ExternalAutomation, token );
-
-            if ( !queued.Ok() )
-            {
-                m_skarness.CompleteCapture( token, false, queued.ErrorMessage() );
-            }
-
-            continue;
-        }
-        case SkarnessCommandType::SceneLoad:
-        {
-            bool deferred = false;
-            applied = ApplySkarnessSceneLoadCommand( command, deferred, reason );
-
-            if ( deferred )
-            {
-                continue;
-            }
-
-            break;
-        }
-        case SkarnessCommandType::SceneReset:
-        {
-            const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
-            const std::string* currentPath = m_sceneController.CurrentPath();
-            const bool expectDemo = !currentPath || currentPath->empty();
-
-            if ( !m_skarness.BeginSceneTransition( command.requestId, lifecycle.generation,
-                                                   currentPath ? currentPath->c_str() : "", expectDemo ) )
-            {
-                applied = false;
-                reason = "another scene transition is pending";
-                break;
-            }
-
-            m_sceneController.SubmitResetCurrentScene();
-            continue;
-        }
-        case SkarnessCommandType::SceneLoadDemo:
-        {
-            const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
-
-            if ( !m_skarness.BeginSceneTransition( command.requestId, lifecycle.generation, "", true ) )
-            {
-                applied = false;
-                reason = "another scene transition is pending";
-                break;
-            }
-
-            m_sceneController.SubmitLoadDemoScene();
-            continue;
-        }
-        case SkarnessCommandType::PredictionSelectTarget:
-            applied = ApplySkarnessPredictionTargetCommand( command, reason );
-            break;
-        case SkarnessCommandType::CameraOrbitInspection:
-            applied = ApplySkarnessCameraCommand( command, reason );
-            break;
+            ApplySkarnessObjectCommand( command, application );
         }
 
-        m_skarness.CompleteCommand( command.requestId, applied, reason );
+        if ( !application.deferred )
+        {
+            m_skarness.CompleteCommand( command.requestId, application.applied, application.result,
+                                        application.handled ? application.reason : "command has no App route" );
+        }
     }
 }
 #endif

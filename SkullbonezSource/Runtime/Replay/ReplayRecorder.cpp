@@ -1476,7 +1476,8 @@ uint64_t HashContactCache( uint64_t hash, const SkullbonezCore::Physics::Physics
 
 // Invariant: hash exactly the persisted durable joint identity, descriptor, and
 // cached impulse. Process-local handle generations are intentionally excluded.
-uint64_t HashPointJoint( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint )
+uint64_t HashPointJoint( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint,
+                         uint32_t snapshotVersion )
 {
     hash = HashUint32( hash, joint.topologyOrdinal );
     hash = HashUint32( hash, joint.bodyASceneObjectId.value );
@@ -1484,9 +1485,10 @@ uint64_t HashPointJoint( uint64_t hash, const SkullbonezCore::Physics::PhysicsSo
     hash = HashVector( hash, joint.localAnchorA );
     hash = HashVector( hash, joint.localAnchorB );
     hash = HashFloat( hash, joint.slack );
-    hash = HashFloat( hash, joint.stiffness );
-    hash = HashFloat( hash, joint.damping );
-    hash = HashFloat( hash, joint.accumulatedImpulse );
+    hash = HashFloat( hash, joint.frequencyHz );
+    hash = HashFloat( hash, joint.dampingRatio );
+    hash = snapshotVersion >= 7u ? HashVector( hash, joint.accumulatedImpulse )
+                                 : HashFloat( hash, joint.accumulatedImpulse.x );
     hash = HashUint32( hash, joint.groupId );
     hash = HashUint32( hash, static_cast<uint32_t>( joint.flags ) );
     return hash;
@@ -1591,7 +1593,7 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
 
         for ( const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint : physics.pointJoints )
         {
-            hash = HashPointJoint( hash, joint );
+            hash = HashPointJoint( hash, joint, physics.version );
         }
     }
 

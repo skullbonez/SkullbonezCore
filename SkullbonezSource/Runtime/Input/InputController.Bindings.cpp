@@ -89,8 +89,6 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] =
       { VK_F6, RuntimeInputAction::ToggleMemoryOverlay, kKeyboardUnblockedContext },
       { VK_F10, RuntimeInputAction::RerollLookLab, kKeyboardUnblockedContext },
       { VK_F11, RuntimeInputAction::SaveLookLabBundle, kKeyboardUnblockedContext },
-      { VK_LEFT, RuntimeInputAction::NavigateScenePrevious, kKeyboardUnblockedContext },
-      { VK_RIGHT, RuntimeInputAction::NavigateSceneNext, kKeyboardUnblockedContext },
       { VK_ESCAPE, RuntimeInputAction::DismissOrExitUI,
         kAfterUIUpdateContext | RuntimeInputBindingContext::UINotInteracted },
       { VK_F2, RuntimeInputAction::SaveSceneSnapshot, kCaptureContext },

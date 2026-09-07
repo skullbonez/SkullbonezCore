@@ -126,27 +126,6 @@ SkullbonezCore::Core::SbResult Dx12DescriptorHeaps::Init( ID3D12Device* device, 
                     device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ), MAX_STATIC_SRVS,
                     MAX_TRANSIENT_SRVS, frameCount );
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Concept: development UI textures use a separate bounded shader-visible
-    // table. The vendor backend can bind this heap without gaining authority
-    // over the engine's global SM6.6 descriptor rows.
-    desc = {};
-    desc.NumDescriptors = MAX_DEVELOPMENT_UI_SRVS;
-    desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    result = DescriptorInitResult( m_resultDiagnostics,
-                                   device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_developmentUiSrvHeap ) ),
-                                   "CreateDescriptorHeap (development UI) failed" );
-
-    if ( !result.Ok() )
-    {
-        Shutdown();
-        return result;
-    }
-
-    NameDx12Object( m_developmentUiSrvHeap, L"Skore DX12 Development UI SRV Heap" );
-    m_developmentUiDescriptorSize = device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-#endif
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -155,21 +134,6 @@ void Dx12DescriptorHeaps::Shutdown()
     m_srvRows.Reset();
     m_rtvRows.Reset();
     m_dsvRows.Reset();
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
-    if ( m_developmentUiSrvHeap )
-    {
-        m_developmentUiSrvHeap->Release();
-        m_developmentUiSrvHeap = nullptr;
-    }
-
-    m_developmentUiRows = {};
-    m_developmentUiDescriptorSize = 0;
-    m_developmentUiUsed = 0;
-    m_developmentUiHighWater = 0;
-    m_developmentUiAllocations = 0;
-    m_developmentUiFrees = 0;
-#endif
 
     if ( m_srvStagingHeap )
     {
@@ -267,99 +231,6 @@ void Dx12DescriptorHeaps::Bind( ID3D12GraphicsCommandList* commandList ) const
     commandList->SetDescriptorHeaps( 1, heaps );
 }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-Dx12DevelopmentUiDescriptor Dx12DescriptorHeaps::AllocateDevelopmentUi()
-{
-    if ( !m_developmentUiSrvHeap || m_developmentUiDescriptorSize == 0u )
-    {
-        SB_FATAL( "Dx12DescriptorHeaps", "Development UI descriptor allocation has no live heap." );
-    }
-
-    for ( UINT index = 0; index < MAX_DEVELOPMENT_UI_SRVS; ++index )
-    {
-        if ( m_developmentUiRows[index] != 0u )
-        {
-            continue;
-        }
-
-        m_developmentUiRows[index] = 1u;
-        ++m_developmentUiUsed;
-        ++m_developmentUiAllocations;
-        m_developmentUiHighWater = (std::max)( m_developmentUiHighWater, m_developmentUiUsed );
-
-        Dx12DevelopmentUiDescriptor descriptor;
-        descriptor.cpuHandle = m_developmentUiSrvHeap->GetCPUDescriptorHandleForHeapStart();
-        descriptor.cpuHandle.ptr += static_cast<SIZE_T>( index ) * m_developmentUiDescriptorSize;
-        descriptor.gpuHandle = m_developmentUiSrvHeap->GetGPUDescriptorHandleForHeapStart();
-        descriptor.gpuHandle.ptr += static_cast<UINT64>( index ) * m_developmentUiDescriptorSize;
-        return descriptor;
-    }
-
-    // Fatal invariant: the vendor callback cannot return allocation failure. Capacity is
-    // a fixed owner contract, so exhaustion terminates with actionable usage.
-    SB_FATAL( "Dx12DescriptorHeaps", "Development UI descriptor heap exhausted. owner=DearImGui capacity=%u high_water=%u",
-              MAX_DEVELOPMENT_UI_SRVS, m_developmentUiHighWater );
-}
-
-void Dx12DescriptorHeaps::FreeDevelopmentUi( D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle )
-{
-    if ( !m_developmentUiSrvHeap || m_developmentUiDescriptorSize == 0u )
-    {
-        SB_FATAL( "Dx12DescriptorHeaps", "Development UI descriptor free has no live heap." );
-    }
-
-    const D3D12_CPU_DESCRIPTOR_HANDLE cpuBase = m_developmentUiSrvHeap->GetCPUDescriptorHandleForHeapStart();
-    const D3D12_GPU_DESCRIPTOR_HANDLE gpuBase = m_developmentUiSrvHeap->GetGPUDescriptorHandleForHeapStart();
-
-    if ( cpuHandle.ptr < cpuBase.ptr || gpuHandle.ptr < gpuBase.ptr )
-    {
-        SB_FATAL( "Dx12DescriptorHeaps", "Development UI descriptor free received a foreign handle." );
-    }
-
-    const SIZE_T cpuOffset = cpuHandle.ptr - cpuBase.ptr;
-    const UINT64 gpuOffset = gpuHandle.ptr - gpuBase.ptr;
-
-    if ( cpuOffset % m_developmentUiDescriptorSize != 0u || gpuOffset % m_developmentUiDescriptorSize != 0u ||
-         cpuOffset / m_developmentUiDescriptorSize != gpuOffset / m_developmentUiDescriptorSize )
-    {
-        SB_FATAL( "Dx12DescriptorHeaps", "Development UI descriptor handles do not name the same row." );
-    }
-
-    const UINT index = static_cast<UINT>( cpuOffset / m_developmentUiDescriptorSize );
-
-    if ( index >= MAX_DEVELOPMENT_UI_SRVS || m_developmentUiRows[index] == 0u || m_developmentUiUsed == 0u )
-    {
-        SB_FATAL( "Dx12DescriptorHeaps", "Development UI descriptor double/invalid free. index=%u", index );
-    }
-
-    m_developmentUiRows[index] = 0u;
-    --m_developmentUiUsed;
-    ++m_developmentUiFrees;
-}
-
-void Dx12DescriptorHeaps::BindDevelopmentUi( ID3D12GraphicsCommandList* commandList ) const
-{
-    if ( !commandList || !m_developmentUiSrvHeap )
-    {
-        SB_FATAL( "Dx12DescriptorHeaps", "Cannot bind development UI descriptors. command_list=%p heap=%p", commandList,
-                  m_developmentUiSrvHeap );
-    }
-
-    ID3D12DescriptorHeap* heaps[] = { m_developmentUiSrvHeap };
-    commandList->SetDescriptorHeaps( 1, heaps );
-}
-
-Dx12DevelopmentUiDescriptorStats Dx12DescriptorHeaps::DevelopmentUiStats() const
-{
-    Dx12DevelopmentUiDescriptorStats stats;
-    stats.used = m_developmentUiUsed;
-    stats.capacity = MAX_DEVELOPMENT_UI_SRVS;
-    stats.highWater = m_developmentUiHighWater;
-    stats.allocations = m_developmentUiAllocations;
-    stats.frees = m_developmentUiFrees;
-    return stats;
-}
-#endif
 
 Dx12CpuDescriptorAllocation Dx12DescriptorHeaps::AllocateRtv()
 {

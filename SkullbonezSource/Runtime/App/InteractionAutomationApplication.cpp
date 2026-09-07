@@ -13,10 +13,6 @@ Invariants:
     pointers beyond the synchronous automation turn.
   - Forecast presentation assertions observe the detached post-render view;
     they never read the worker-owned rolling ring directly.
-  - Surface selection accepts GameUI or ImGui only; one frame can publish at
-    most one process-surface request.
-  - Development UI application stops on the first recoverable command failure;
-    Run owns process exit policy and converts that result at its boundary.
   - Recorded numeric fields are range-checked before narrowing so malformed
     evidence remains a recoverable automation failure.
   - Each turn trace row is flushed after rendering; a write failure fails the
@@ -26,6 +22,7 @@ Invariants:
   - Orderly process exit saves an active interaction recording before Run
     resolves its final status; an owned save failure outranks normal exit.
 */
+
 #include "../Automation/InteractionAutomationController.h"
 #include "../Automation/InteractionAutomationRecorder.h"
 #include "../Automation/InteractionRecordingSidecarDigest.h"
@@ -56,9 +53,6 @@ Invariants:
 #include "../Direction/DemoDirectorPlayback.h"
 #include "../Tools/RuntimeFileWriter.h"
 #include "../Interaction/RuntimePickService.h"
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../DevelopmentTools/ImGuiEditorOwner.h"
-#endif
 
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsTimestep.h"
@@ -791,16 +785,6 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "captureEditorSelectionState";
     case RunInteractionAutomationActionType::LoadScene:
         return "loadScene";
-    case RunInteractionAutomationActionType::SetDevelopmentUiSurface:
-        return "setDevelopmentUiSurface";
-    case RunInteractionAutomationActionType::SetImGuiPanelVisible:
-        return "setImGuiPanelVisible";
-    case RunInteractionAutomationActionType::ResetImGuiLayout:
-        return "resetImGuiLayout";
-    case RunInteractionAutomationActionType::FocusImGuiPanel:
-        return "focusImGuiPanel";
-    case RunInteractionAutomationActionType::SetImGuiDpiScale:
-        return "setImGuiDpiScale";
     case RunInteractionAutomationActionType::ResizeWindow:
         return "resizeWindow";
     case RunInteractionAutomationActionType::AssertState:
@@ -1000,26 +984,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "editorSelectionHasTerrain";
     case RunInteractionAutomationAssertKind::EditorSelectionMatchesCapture:
         return "editorSelectionMatchesCapture";
-    case RunInteractionAutomationAssertKind::DevelopmentUiSurface:
-        return "developmentUiSurface";
-    case RunInteractionAutomationAssertKind::ImGuiVisible:
-        return "imguiVisible";
     case RunInteractionAutomationAssertKind::GameUiReplayPresentationActive:
         return "gameUiReplayPresentationActive";
-    case RunInteractionAutomationAssertKind::ImGuiPanelMask:
-        return "imguiPanelMask";
-    case RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin:
-        return "imguiLayoutResetCountMin";
-    case RunInteractionAutomationAssertKind::ImGuiFocusCountMin:
-        return "imguiFocusCountMin";
-    case RunInteractionAutomationAssertKind::ImGuiDpiScale:
-        return "imguiDpiScale";
-    case RunInteractionAutomationAssertKind::ImGuiDescriptorHighWaterMax:
-        return "imguiDescriptorHighWaterMax";
-    case RunInteractionAutomationAssertKind::ImGuiViewportRecreationsMin:
-        return "imguiViewportRecreationsMin";
-    case RunInteractionAutomationAssertKind::ImGuiPreferencesRecovered:
-        return "imguiPreferencesRecovered";
     }
 
     return "unknown";
@@ -2180,90 +2146,6 @@ bool ParseLoadSceneAction( const Json& entry, RunInteractionAutomationAction& ou
     return true;
 }
 
-bool ParseSetDevelopmentUiSurfaceAction( const Json& entry, RunInteractionAutomationAction& outAction,
-                                         std::string& outError )
-{
-    if ( !entry["setDevelopmentUiSurface"].is_string() )
-    {
-        outError = "setDevelopmentUiSurface must be game or imgui";
-        return false;
-    }
-
-    const std::string surface = entry["setDevelopmentUiSurface"].get<std::string>();
-
-    if ( surface != "game" && surface != "imgui" )
-    {
-        outError = "setDevelopmentUiSurface must be game or imgui";
-        return false;
-    }
-
-    outAction.type = RunInteractionAutomationActionType::SetDevelopmentUiSurface;
-    CopyText( outAction.text, sizeof( outAction.text ), surface );
-    return true;
-}
-
-bool ParseSetImGuiPanelVisibleAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
-{
-    const Json& panel = entry["setImGuiPanelVisible"];
-
-    if ( !panel.is_object() || !panel.contains( "panel" ) || !panel["panel"].is_string() || !panel.contains( "visible" ) ||
-         !IsBoolValue( panel["visible"] ) )
-    {
-        outError = "setImGuiPanelVisible requires string panel and boolean visible";
-        return false;
-    }
-
-    outAction.type = RunInteractionAutomationActionType::SetImGuiPanelVisible;
-    CopyText( outAction.text, sizeof( outAction.text ), panel["panel"].get<std::string>() );
-    outAction.boolValue = ReadBool( panel["visible"] );
-    return true;
-}
-
-bool ParseResetImGuiLayoutAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
-{
-    if ( !IsBoolValue( entry["resetImGuiLayout"] ) || !ReadBool( entry["resetImGuiLayout"] ) )
-    {
-        outError = "resetImGuiLayout must be true";
-        return false;
-    }
-
-    outAction.type = RunInteractionAutomationActionType::ResetImGuiLayout;
-    return true;
-}
-
-bool ParseFocusImGuiPanelAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
-{
-    if ( !entry["focusImGuiPanel"].is_string() )
-    {
-        outError = "focusImGuiPanel must be a string panel name";
-        return false;
-    }
-
-    outAction.type = RunInteractionAutomationActionType::FocusImGuiPanel;
-    CopyText( outAction.text, sizeof( outAction.text ), entry["focusImGuiPanel"].get<std::string>() );
-    return true;
-}
-
-bool ParseSetImGuiDpiScaleAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
-{
-    if ( !entry["setImGuiDpiScale"].is_number() )
-    {
-        outError = "setImGuiDpiScale must be a number";
-        return false;
-    }
-
-    const float dpiScale = entry["setImGuiDpiScale"].get<float>();
-
-    if ( !std::isfinite( dpiScale ) || dpiScale < 0.75f || dpiScale > 4.0f )
-    {
-        outError = "setImGuiDpiScale must be within 0.75..4.0";
-        return false;
-    }
-
-    outAction.type = RunInteractionAutomationActionType::SetImGuiDpiScale;
-    outAction.numberValue = dpiScale;
-    return true;
-}
 
 bool ParseResizeWindowAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
@@ -2812,29 +2694,6 @@ AssertionParseStatus ParseRuntimeAssertion( const std::string& name, const Json&
         return AssertionParseStatus::Success;
     }
 
-    if ( name == "developmentUiSurface" )
-    {
-        const std::string surface = expected.get<std::string>();
-
-        if ( surface != "game" && surface != "imgui" )
-        {
-            outError = "developmentUiSurface must be game or imgui";
-            return AssertionParseStatus::Failure;
-        }
-
-        outAction.assertKind = RunInteractionAutomationAssertKind::DevelopmentUiSurface;
-        CopyText( outAction.text, sizeof( outAction.text ), surface );
-
-        return AssertionParseStatus::Success;
-    }
-
-    if ( name == "imguiVisible" )
-    {
-        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiVisible;
-        outAction.boolValue = ReadBool( expected );
-
-        return AssertionParseStatus::Success;
-    }
 
     if ( name == "gameUiReplayPresentationActive" )
     {
@@ -2844,69 +2703,6 @@ AssertionParseStatus ParseRuntimeAssertion( const std::string& name, const Json&
         return AssertionParseStatus::Success;
     }
 
-    if ( name == "imguiPanelMask" )
-    {
-        const int mask = expected.get<int>();
-
-        if ( mask < 0 || mask > 4095 )
-        {
-            outError = "imguiPanelMask must be within 0..4095";
-            return AssertionParseStatus::Failure;
-        }
-
-        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiPanelMask;
-        outAction.numberValue = static_cast<float>( mask );
-
-        return AssertionParseStatus::Success;
-    }
-
-    if ( name == "imguiLayoutResetCountMin" )
-    {
-        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin;
-        outAction.numberValue = expected.get<float>();
-
-        return AssertionParseStatus::Success;
-    }
-
-    if ( name == "imguiFocusCountMin" )
-    {
-        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiFocusCountMin;
-        outAction.numberValue = expected.get<float>();
-
-        return AssertionParseStatus::Success;
-    }
-
-    if ( name == "imguiDpiScale" )
-    {
-        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiDpiScale;
-        outAction.numberValue = expected.get<float>();
-
-        return AssertionParseStatus::Success;
-    }
-
-    if ( name == "imguiDescriptorHighWaterMax" )
-    {
-        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiDescriptorHighWaterMax;
-        outAction.numberValue = expected.get<float>();
-
-        return AssertionParseStatus::Success;
-    }
-
-    if ( name == "imguiViewportRecreationsMin" )
-    {
-        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiViewportRecreationsMin;
-        outAction.numberValue = expected.get<float>();
-
-        return AssertionParseStatus::Success;
-    }
-
-    if ( name == "imguiPreferencesRecovered" )
-    {
-        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiPreferencesRecovered;
-        outAction.boolValue = ReadBool( expected );
-
-        return AssertionParseStatus::Success;
-    }
 
     return AssertionParseStatus::NoMatch;
 }
@@ -2943,11 +2739,10 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
     const bool expectsString = name == "selectedObject" || name == "owner" || name == "cameraMode" ||
                                name == "directorPhaseName" || name == "directorPhaseStylePath" ||
                                name == "replayPathTarget" || name == "replayTripPlannerState" ||
-                               name == "predictionBuildMode" || name == "pointerCapture" || name == "replayActiveTrack" ||
-                               name == "developmentUiSurface";
+                               name == "predictionBuildMode" || name == "pointerCapture" || name == "replayActiveTrack";
 
     const bool expectsInteger = name == "directorPhaseIndex" || name == "editorUndoDepth" || name == "editorRedoDepth" ||
-                                name == "editorSelectionMatchesCapture" || name == "imguiPanelMask";
+                                name == "editorSelectionMatchesCapture";
 
     const bool expectsNumber = name == "replayPastTrajectoryFullRebuildCountMax" ||
                                name == "replayPastTrajectoryIncrementalTrimCountMin" ||
@@ -2971,10 +2766,7 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                                name == "predictionCauseSyntheticRowsMax" ||
                                name == "predictionAppearanceInvalidationCountMin" ||
                                name == "continuousForecastAbsoluteTickMin" || name == "continuousForecastOldestTickMin" ||
-                               name == "continuousForecastRibbonSegmentsMin" ||
-                               name == "continuousForecastHeadMarkerCount" || name == "imguiLayoutResetCountMin" ||
-                               name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
-                               name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
+                               name == "continuousForecastRibbonSegmentsMin" || name == "continuousForecastHeadMarkerCount";
 
     const bool expectsBool = name == "directorGrabbed" || name == "replayPredictionEnabled" ||
                              name == "predictionPathVisible" || name == "predictionFullHorizonComplete" ||
@@ -2994,8 +2786,7 @@ bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAc
                              name == "uiBlocksMouse" || name == "launcherRayActive" ||
                              name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
                              name == "editorSelectionExists" || name == "editorSelectionHasTerrain" ||
-                             name == "imguiVisible" || name == "gameUiReplayPresentationActive" ||
-                             name == "imguiPreferencesRecovered";
+                             name == "gameUiReplayPresentationActive";
 
     const bool expectsPositionTolerance = name == "predictionTargetLastNear";
     const bool positionToleranceValid = !expectsPositionTolerance ||
@@ -3061,11 +2852,6 @@ constexpr std::pair<const char*, InteractionActionParser> INTERACTION_ACTION_PAR
     { "pressKey", ParsePressKeyAction },
     { "captureEditorSelectionState", ParseCaptureEditorSelectionStateAction },
     { "loadScene", ParseLoadSceneAction },
-    { "setDevelopmentUiSurface", ParseSetDevelopmentUiSurfaceAction },
-    { "setImGuiPanelVisible", ParseSetImGuiPanelVisibleAction },
-    { "resetImGuiLayout", ParseResetImGuiLayoutAction },
-    { "focusImGuiPanel", ParseFocusImGuiPanelAction },
-    { "setImGuiDpiScale", ParseSetImGuiDpiScaleAction },
     { "resizeWindow", ParseResizeWindowAction },
     { "screenshot", ParseScreenshotAction },
     { "assert", ParseAssertAction },
@@ -4017,91 +3803,16 @@ bool EvaluateEditorAutomationAssertion( EditorToolsOwner& editorTools, const Sce
     return true;
 }
 
-bool EvaluateDevelopmentUiAutomationAssertion( const InteractionAutomationDevelopmentUiView& developmentUi,
-                                               const RunInteractionAutomationAction& action,
-                                               InteractionAutomationAssertionEvaluation& evaluation )
+bool EvaluateGameUiAutomationAssertion( bool gameUiActive, const RunInteractionAutomationAction& action,
+                                        InteractionAutomationAssertionEvaluation& evaluation )
 {
-    switch ( action.assertKind )
+    if ( action.assertKind != RunInteractionAutomationAssertKind::GameUiReplayPresentationActive )
     {
-    case RunInteractionAutomationAssertKind::DevelopmentUiSurface:
-        evaluation.expected = action.text;
-        evaluation.actual = developmentUi.available ? ( developmentUi.selectedImGui ? "imgui" : "game" ) : "unavailable";
-
-        evaluation.passed = developmentUi.available && evaluation.actual == evaluation.expected &&
-                            !( developmentUi.gameUiVisible && developmentUi.imguiVisible );
-
-        break;
-    case RunInteractionAutomationAssertKind::ImGuiVisible:
-        evaluation.expected = BoolString( action.boolValue );
-        evaluation.actual = BoolString( developmentUi.imguiVisible );
-        evaluation.passed = developmentUi.available && developmentUi.imguiVisible == action.boolValue;
-        break;
-    case RunInteractionAutomationAssertKind::GameUiReplayPresentationActive:
-        evaluation.expected = BoolString( action.boolValue );
-        evaluation.actual = BoolString( developmentUi.gameUiReplayPresentationActive );
-        evaluation.passed = developmentUi.available && developmentUi.gameUiReplayPresentationActive == action.boolValue;
-        break;
-    case RunInteractionAutomationAssertKind::ImGuiPanelMask:
-    {
-        const uint32_t expected = static_cast<uint32_t>( action.numberValue );
-        evaluation.expected = std::to_string( expected );
-        evaluation.actual = std::to_string( developmentUi.panelVisibilityMask );
-        evaluation.passed = developmentUi.available && developmentUi.panelVisibilityMask == expected;
-        break;
-    }
-    case RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin:
-    {
-        const uint32_t expected = static_cast<uint32_t>( action.numberValue );
-        evaluation.expected = ">=" + std::to_string( expected );
-        evaluation.actual = std::to_string( developmentUi.layoutResetCount );
-        evaluation.passed = developmentUi.available && developmentUi.layoutResetCount >= expected;
-        break;
-    }
-    case RunInteractionAutomationAssertKind::ImGuiFocusCountMin:
-    {
-        const uint32_t expected = static_cast<uint32_t>( action.numberValue );
-        evaluation.expected = ">=" + std::to_string( expected );
-        evaluation.actual = std::to_string( developmentUi.automationFocusCount );
-        evaluation.passed = developmentUi.available && developmentUi.automationFocusCount >= expected;
-        break;
-    }
-    case RunInteractionAutomationAssertKind::ImGuiDpiScale:
-    {
-        std::ostringstream expected;
-        expected << action.numberValue;
-        std::ostringstream actual;
-        actual << developmentUi.appliedDpiScale;
-        evaluation.expected = expected.str();
-        evaluation.actual = actual.str();
-        evaluation.passed = developmentUi.available &&
-                            std::fabs( developmentUi.appliedDpiScale - action.numberValue ) <= 0.01f;
-
-        break;
-    }
-    case RunInteractionAutomationAssertKind::ImGuiDescriptorHighWaterMax:
-    {
-        const uint32_t expected = static_cast<uint32_t>( action.numberValue );
-        evaluation.expected = "<=" + std::to_string( expected );
-        evaluation.actual = std::to_string( developmentUi.rendererDescriptorHighWater );
-        evaluation.passed = developmentUi.available && developmentUi.rendererDescriptorHighWater <= expected;
-        break;
-    }
-    case RunInteractionAutomationAssertKind::ImGuiViewportRecreationsMin:
-    {
-        const uint32_t expected = static_cast<uint32_t>( action.numberValue );
-        evaluation.expected = ">=" + std::to_string( expected );
-        evaluation.actual = std::to_string( developmentUi.gameViewportRecreations );
-        evaluation.passed = developmentUi.available && developmentUi.gameViewportRecreations >= expected;
-        break;
-    }
-    case RunInteractionAutomationAssertKind::ImGuiPreferencesRecovered:
-        evaluation.expected = BoolString( action.boolValue );
-        evaluation.actual = BoolString( developmentUi.preferencesRecovered );
-        evaluation.passed = developmentUi.available && developmentUi.preferencesRecovered == action.boolValue;
-        break;
-    default:
         return false;
     }
+    evaluation.expected = BoolString( action.boolValue );
+    evaluation.actual = BoolString( gameUiActive );
+    evaluation.passed = gameUiActive == action.boolValue;
     return true;
 }
 
@@ -4490,6 +4201,7 @@ bool LoadRecordedInteractionManifest( InteractionAutomationController& state, co
     int worldOwner = 0;
     int objectType = 0;
     int activeUiTab = 0;
+    // Compatibility: version 1 recordings retain a reserved surface slot; only native UI (zero) is supported.
     int developmentUiSurface = 0;
     int replayTrack = 0;
     int causeMode = 0;
@@ -4527,8 +4239,8 @@ bool LoadRecordedInteractionManifest( InteractionAutomationController& state, co
          worldOwner < static_cast<int>( WorldInteractionOwner::None ) ||
          worldOwner > static_cast<int>( WorldInteractionOwner::Manipulator ) || objectType < 0 ||
          objectType >= SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT || activeUiTab < 0 ||
-         activeUiTab >= static_cast<int>( SkullbonezCore::UI::InGameUITab::Count ) || developmentUiSurface < 0 ||
-         developmentUiSurface > 1 || replayTrack < static_cast<int>( RunReplayTrack::Presentation ) ||
+         activeUiTab >= static_cast<int>( SkullbonezCore::UI::InGameUITab::Count ) || developmentUiSurface != 0 ||
+         replayTrack < static_cast<int>( RunReplayTrack::Presentation ) ||
          replayTrack > static_cast<int>( RunReplayTrack::Solver ) ||
          causeMode < static_cast<int>( ReplayCauseInspectionMode::Inactive ) ||
          causeMode > static_cast<int>( ReplayCauseInspectionMode::Returning ) || causeSelectedRow < -1 ||
@@ -4568,7 +4280,6 @@ bool LoadRecordedInteractionManifest( InteractionAutomationController& state, co
     state.recordedBaseline.uiVisible = ui.value( "visible", true );
     state.recordedBaseline.uiMinimized = ui.value( "minimized", false );
     state.recordedBaseline.activeUiTab = activeUiTab;
-    state.recordedBaseline.developmentUiSurface = developmentUiSurface;
     state.recordedBaseline.replayActive = replay.value( "active", false );
     state.recordedBaseline.replayScrubPaused = replay.value( "scrubPaused", false );
     state.recordedBaseline.replayLiveAdvanceHeld = replay.value( "liveAdvanceHeld", false );
@@ -4699,102 +4410,6 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::ResolveRunExitAfterInter
     return applicationExit.Resolve( messageExitCode );
 }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-InteractionAutomationDevelopmentUiApplyResult SkullbonezCore::Runtime::ApplyInteractionAutomationDevelopmentUiCommands(
-    const InteractionAutomationController& state, const InteractionAutomationFrameResult& frame, Window& window,
-    DevelopmentTools::ImGuiEditorOwner& editor )
-{
-    InteractionAutomationDevelopmentUiApplyResult result;
-
-    for ( std::size_t commandIndex = 0u; commandIndex < frame.developmentUiCommandCount; ++commandIndex )
-    {
-        const InteractionAutomationDevelopmentUiCommand& command = frame.developmentUiCommands[commandIndex];
-        SkullbonezCore::Core::SbResult commandStatus = SkullbonezCore::Core::SbResult::Success();
-
-        switch ( command.type )
-        {
-        case InteractionAutomationDevelopmentUiCommandType::SelectSurface:
-
-            // Process selection remains Run-owned; publish the typed request
-            // after interpreting the script command alongside its peers.
-            result.selectSurface = true;
-            result.surface = std::strcmp( command.target, "imgui" ) == 0 ? DevelopmentUiMode::ImGui
-                                                                         : DevelopmentUiMode::GameUI;
-
-            break;
-        case InteractionAutomationDevelopmentUiCommandType::SetPanelVisible:
-        case InteractionAutomationDevelopmentUiCommandType::FocusPanel:
-        {
-            DevelopmentTools::ImGuiEditorPanelId panel = DevelopmentTools::ImGuiEditorPanelId::Count;
-
-            if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
-            {
-                commandStatus = state.resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
-                                                                 "Interaction script names an unknown ImGui panel: %s",
-                                                                 command.target );
-
-                break;
-            }
-
-            DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
-            editorCommand.type = command.type == InteractionAutomationDevelopmentUiCommandType::SetPanelVisible
-                                     ? DevelopmentTools::ImGuiEditorAutomationCommandType::SetPanelVisible
-                                     : DevelopmentTools::ImGuiEditorAutomationCommandType::FocusPanel;
-
-            editorCommand.panel = panel;
-            editorCommand.visible = command.boolValue;
-            commandStatus = editor.ApplyAutomationCommand( editorCommand );
-            break;
-        }
-        case InteractionAutomationDevelopmentUiCommandType::ResetLayout:
-        {
-            DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
-            editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::ResetLayout;
-            commandStatus = editor.ApplyAutomationCommand( editorCommand );
-            break;
-        }
-        case InteractionAutomationDevelopmentUiCommandType::SetDpiScale:
-        {
-            DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
-            editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::SetDpiScale;
-            editorCommand.dpiScale = command.numberValue;
-            commandStatus = editor.ApplyAutomationCommand( editorCommand );
-            break;
-        }
-        case InteractionAutomationDevelopmentUiCommandType::ResizeWindow:
-        {
-            // Why: scripts describe client pixels because those are the
-            // editor's layout coordinates. Win32 resizes the outer frame, so
-            // include the current style and monitor DPI exactly once.
-            RECT outer { 0, 0, command.width, command.height };
-
-            const HWND nativeWindow = window.NativeWindowHandle();
-            const DWORD style = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_STYLE ) );
-            const DWORD extendedStyle = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_EXSTYLE ) );
-            const UINT dpi = GetDpiForWindow( nativeWindow );
-
-            if ( !AdjustWindowRectExForDpi( &outer, style, FALSE, extendedStyle, dpi ) ||
-                 !SetWindowPos( nativeWindow, nullptr, 0, 0, outer.right - outer.left, outer.bottom - outer.top,
-                                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
-            {
-                commandStatus = state.resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
-                                                                 "Failed to resize the automation client area to %dx%d",
-                                                                 command.width, command.height );
-            }
-
-            break;
-        }
-        }
-
-        if ( !commandStatus.Ok() )
-        {
-            result.status = commandStatus;
-            break;
-        }
-    }
-
-    return result;
-}
 
 SkullbonezCore::Core::SbResult
 InteractionAutomationController::SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
@@ -4819,27 +4434,6 @@ InteractionAutomationController::SubmitOperatorEditorForecastCommand( const Inte
 
     return UI::SubmitOperatorEditorCommand( resultDiagnostics, commands.forecast, frame.operatorEditorForecastCommand );
 }
-
-InteractionAutomationDevelopmentUiView
-InteractionAutomationController::BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
-                                                         bool gameUiVisible, bool gameUiReplayPresentationActive ) const
-{
-    InteractionAutomationDevelopmentUiView view;
-    view.available = editor.initialized;
-    view.selectedImGui = editor.selectedSurface == DevelopmentUiMode::ImGui;
-    view.gameUiVisible = gameUiVisible;
-    view.imguiVisible = editor.visible;
-    view.gameUiReplayPresentationActive = gameUiReplayPresentationActive;
-    view.panelVisibilityMask = editor.panelVisibilityMask;
-    view.layoutResetCount = editor.layoutResetCount;
-    view.automationFocusCount = editor.automationFocusCount;
-    view.appliedDpiScale = editor.appliedDpiScale;
-    view.rendererDescriptorHighWater = editor.rendererDescriptorHighWater;
-    view.gameViewportRecreations = editor.gameViewportRecreations;
-    view.preferencesRecovered = editor.preferencesRecovered;
-    return view;
-}
-#endif
 
 bool TryFindInteractionAutomationModel( const SceneWorld& world, const char* name, int& outIndex )
 {
@@ -5102,17 +4696,6 @@ InteractionAutomationFrameResult TickRecordedInteractionBeforeInput( Interaction
             }
         }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
-        if ( result.developmentUiCommandCount < result.developmentUiCommands.size() )
-        {
-            InteractionAutomationDevelopmentUiCommand&
-                command = result.developmentUiCommands[result.developmentUiCommandCount++];
-            command.type = InteractionAutomationDevelopmentUiCommandType::SelectSurface;
-            strcpy_s( command.target,
-                      baseline.developmentUiSurface == static_cast<int>( DevelopmentUiMode::ImGui ) ? "imgui" : "game" );
-        }
-#endif
         state.recordedBaselineApplied = true;
     }
 
@@ -5282,73 +4865,28 @@ bool ApplyDirectorReplayAutomationAction( InteractionAutomationController& state
     return true;
 }
 
-void ApplyDevelopmentUiAutomationCommand( InteractionAutomationController& state, InteractionAutomationFrameResult& result,
-                                          RunInteractionAutomationAction& action, int frame )
+void ApplyResizeWindowAutomationCommand( InteractionAutomationController& state, Window* window,
+                                         RunInteractionAutomationAction& action, int frame )
 {
-    const bool hasCapacity = result.developmentUiCommandCount < result.developmentUiCommands.size();
-    bool duplicateSurfaceSelection = false;
-    if ( action.type == RunInteractionAutomationActionType::SetDevelopmentUiSurface )
+    bool resized = false;
+    if ( window )
     {
-        for ( std::size_t commandIndex = 0u; commandIndex < result.developmentUiCommandCount; ++commandIndex )
-        {
-            duplicateSurfaceSelection = result.developmentUiCommands[commandIndex].type ==
-                                        InteractionAutomationDevelopmentUiCommandType::SelectSurface;
-            if ( duplicateSurfaceSelection )
-            {
-                break;
-            }
-        }
+        // Why: recordings specify client pixels; native frame borders and DPI
+        // must be included once when requesting the outer window dimensions.
+        RECT outer { 0, 0, action.mouse.x, action.mouse.y };
+        const HWND nativeWindow = window->NativeWindowHandle();
+        const DWORD style = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_STYLE ) );
+        const DWORD extendedStyle = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_EXSTYLE ) );
+        resized = AdjustWindowRectExForDpi( &outer, style, FALSE, extendedStyle, GetDpiForWindow( nativeWindow ) ) &&
+                  SetWindowPos( nativeWindow, nullptr, 0, 0, outer.right - outer.left, outer.bottom - outer.top,
+                                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE );
     }
-
-    const bool published = hasCapacity && !duplicateSurfaceSelection;
-    if ( published )
+    if ( !resized )
     {
-        InteractionAutomationDevelopmentUiCommand& command = result
-                                                                 .developmentUiCommands[result.developmentUiCommandCount++];
-        command.boolValue = action.boolValue;
-        command.numberValue = action.numberValue;
-        strcpy_s( command.target, action.text );
-
-        switch ( action.type )
-        {
-        case RunInteractionAutomationActionType::SetDevelopmentUiSurface:
-            command.type = InteractionAutomationDevelopmentUiCommandType::SelectSurface;
-            break;
-        case RunInteractionAutomationActionType::SetImGuiPanelVisible:
-            command.type = InteractionAutomationDevelopmentUiCommandType::SetPanelVisible;
-            break;
-        case RunInteractionAutomationActionType::ResetImGuiLayout:
-            command.type = InteractionAutomationDevelopmentUiCommandType::ResetLayout;
-            break;
-        case RunInteractionAutomationActionType::FocusImGuiPanel:
-            command.type = InteractionAutomationDevelopmentUiCommandType::FocusPanel;
-            break;
-        case RunInteractionAutomationActionType::SetImGuiDpiScale:
-            command.type = InteractionAutomationDevelopmentUiCommandType::SetDpiScale;
-            break;
-        case RunInteractionAutomationActionType::ResizeWindow:
-            command.type = InteractionAutomationDevelopmentUiCommandType::ResizeWindow;
-            command.width = static_cast<int>( action.mouse.x );
-            command.height = static_cast<int>( action.mouse.y );
-            break;
-        default:
-            break;
-        }
+        FailAutomation( state, "failed to resize the automation client area" );
     }
-    else if ( duplicateSurfaceSelection )
-    {
-        // Invariant: Run receives at most one process-surface request per frame.
-        FailAutomation( state, "multiple development UI surface selections share one frame" );
-    }
-    else
-    {
-        FailAutomation( state, "development UI automation command capacity exceeded" );
-    }
-
-    AppendReportAction( state, frame, action.type, action.text, nullptr, published,
-                        published ? "development UI command published"
-                                  : ( duplicateSurfaceSelection ? "duplicate frame surface selection"
-                                                                : "command capacity exceeded" ) );
+    AppendReportAction( state, frame, action.type, "window", nullptr, resized,
+                        resized ? "client area resized" : "client resize failed" );
     action.processed = true;
 }
 
@@ -5428,13 +4966,8 @@ bool ApplyEditorUiAutomationAction( InteractionAutomationController& state, Wind
         action.processed = true;
         break;
     }
-    case RunInteractionAutomationActionType::SetDevelopmentUiSurface:
-    case RunInteractionAutomationActionType::SetImGuiPanelVisible:
-    case RunInteractionAutomationActionType::ResetImGuiLayout:
-    case RunInteractionAutomationActionType::FocusImGuiPanel:
-    case RunInteractionAutomationActionType::SetImGuiDpiScale:
     case RunInteractionAutomationActionType::ResizeWindow:
-        ApplyDevelopmentUiAutomationCommand( state, result, action, frame );
+        ApplyResizeWindowAutomationCommand( state, window, action, frame );
         break;
     case RunInteractionAutomationActionType::MoveMouse:
     {
@@ -5914,13 +5447,6 @@ InteractionAutomationFrameResult Run::RunInteractionAutomationAfterRender( bool 
         return result;
     }
 
-    InteractionAutomationDevelopmentUiView developmentUi;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    const DevelopmentTools::ImGuiEditorStatus imguiStatus = m_imguiEditor.CopyStatus();
-    developmentUi = state.BuildDevelopmentUiView( imguiStatus, m_operatorUi->IsVisible(), gameUiActive );
-#else
-    (void)gameUiActive;
-#endif
     const ReplayAutomationView replay = m_replayRuntime.BuildAutomationView();
     const ContinuousOrbitalForecastView forecast = m_continuousForecast.View();
     const Rendering::RenderSceneSnapshot& renderSnapshot = Renderer().FrameGraphSnapshot();
@@ -5971,7 +5497,7 @@ InteractionAutomationFrameResult Run::RunInteractionAutomationAfterRender( bool 
                                                                       evaluation ) ||
                                    EvaluateEditorAutomationAssertion( m_editorTools, m_sceneController.Scene(), state,
                                                                       action, evaluation ) ||
-                                   EvaluateDevelopmentUiAutomationAssertion( developmentUi, action, evaluation );
+                                   EvaluateGameUiAutomationAssertion( gameUiActive, action, evaluation );
             if ( !evaluated )
             {
                 evaluation.actual = "unknown assertion kind";

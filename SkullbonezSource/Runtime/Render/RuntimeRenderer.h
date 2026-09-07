@@ -34,10 +34,6 @@ Invariants:
 #include <cstdint>
 #include <vector>
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-struct ImDrawData;
-struct ImGuiContext;
-#endif
 
 namespace SkullbonezCore
 {
@@ -45,12 +41,6 @@ namespace Rendering
 {
 class RenderBackendDX12;
 }
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-namespace Rendering
-{
-class Dx12ImGuiRendererOwner;
-}
-#endif
 namespace Runtime
 {
 struct RuntimeRendererWorldOverlayTransactionTestAccess;
@@ -255,9 +245,6 @@ class RuntimeRenderer
     }
     const char* RendererName() const;
     void PrepareUiFrameTarget();
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    SkullbonezCore::Core::SbResult RenderDevelopmentUi( ImGuiContext* context, ImDrawData* drawData );
-#endif
 
     // Adds the sole declaration-only Present edge and validates the submitted
     // frame contract before the swap-chain owner presents.
@@ -410,9 +397,6 @@ class RuntimeRenderer
     BroadphaseVisualizer m_broadphaseVisualizer;
     PhysicsDebugVisualizer m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    Rendering::Dx12ImGuiRendererOwner* m_developmentUiRenderer = nullptr;
-#endif
     std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_dxrReflectionTransforms =
         {}; // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance
 

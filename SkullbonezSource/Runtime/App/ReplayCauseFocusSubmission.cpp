@@ -133,6 +133,7 @@ Vector3 ReplayContactNormalForModel( const PhysicsSolverPersistentContactSample&
 
     return ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) );
 }
+
 } // namespace
 
 namespace SkullbonezCore::Runtime::ReplayPresentationSubmissionOperations
@@ -177,27 +178,6 @@ bool TryAddReplayTargetMarkerFromStores( EditorTracer& tracer, const PhysicsBody
     tracer.AddReplayTargetMarker( PhysicsBodyPosition( hotFields, bodyIndex ),
                                   PhysicsBodyOrientation( hotFields, bodyIndex ), collider->shape, radius );
 
-    return true;
-}
-
-bool TryRenderReplayBodyFocus( const RunReplayCameraState& camera, const PhysicsBodyStore& bodyStore,
-                               const ColliderStore& colliderStore, EditorTracer& tracer )
-{
-    if ( camera.focusKind != RunReplayCameraFocusKind::Body )
-    {
-        return false;
-    }
-
-    ModelRowHint focusHint;
-    focusHint.value = camera.focusModelRow.value;
-    int focusedModelIndex = -1;
-
-    if ( !TryResolveReplayBodyModelIndex( bodyStore, camera.focusedId, focusHint, bodyStore.Count(), focusedModelIndex ) )
-    {
-        return false;
-    }
-
-    (void)TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, focusedModelIndex );
     return true;
 }
 
@@ -339,14 +319,21 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
                                                             const SceneEntityStore& entities, EditorTracer& tracer )
 {
     using namespace ReplayPresentationSubmissionOperations;
+    (void)bodyStore;
+    (void)colliderStore;
+
+    m_causeFocusDrawStats = {};
 
     if ( camera.focusKind == RunReplayCameraFocusKind::None )
     {
         return;
     }
 
-    if ( TryRenderReplayBodyFocus( camera, bodyStore, colliderStore, tracer ) )
+    if ( camera.focusKind == RunReplayCameraFocusKind::Body )
     {
+        // Body rows move the replay presentation to their retained frame. The
+        // ordinary object at that frame is the focus; no duplicate wireframe is
+        // submitted at either the live or prediction-start pose.
         return;
     }
 

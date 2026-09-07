@@ -26,7 +26,6 @@ Related:
 #include "Profiler.h"
 #include "FatalError.h"
 #include "PlatformProfiler.h"
-#include "TracyClientOwner.h"
 #include "WorkerPool.h"
 
 #include <algorithm>
@@ -122,8 +121,8 @@ const char* FindLeafName( const char* fullPath )
 } // namespace
 
 Profiler::Profiler()
-    : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ),
-      m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
+    : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ),
+      m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
       m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ), m_markerEpoch( 1 ),
       m_workerMarkerAccumulatorCount( 0 ), m_workerFrameToken( 0 )
 {
@@ -148,9 +147,6 @@ Profiler::Profiler()
     std::memset( m_stackIndices, 0, sizeof( m_stackIndices ) );
     std::memset( m_platformProfilerCpuOpen, 0, sizeof( m_platformProfilerCpuOpen ) );
     std::memset( m_platformProfilerRenderRecordOpen, 0, sizeof( m_platformProfilerRenderRecordOpen ) );
-    std::memset( m_tracyZoneIds, 0, sizeof( m_tracyZoneIds ) );
-    std::memset( m_tracyZoneActive, 0, sizeof( m_tracyZoneActive ) );
-    std::memset( m_tracyZoneConnectionIds, 0, sizeof( m_tracyZoneConnectionIds ) );
 }
 
 
@@ -245,10 +241,6 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     m.leafName = FindLeafName( fullPath );
     m.hash = hash;
 
-    // Concept: the established engine marker is the source of truth. Tracy
-    // receives the exact same owner path and therefore remains comparable to
-    // platform-profiler and perf-CSV evidence.
-    m.tracySourceLocationHandle = SKORE_TRACY_REGISTER_OWNER_ZONE( fullPath, hash );
     m.depth = CountSlashes( fullPath );
     m.colorIndex = m_nextColorIndex;
     m_nextColorIndex = ( m_nextColorIndex + 1 ) % BAR_PALETTE_SIZE;
@@ -539,8 +531,7 @@ void Profiler::CloseWorkerFrameAndMergeSamples()
         }
         else
         {
-            marker.firstStartSecondsThisFrame = (std::min)( marker.firstStartSecondsThisFrame,
-                                                            pending.firstStartSeconds );
+            marker.firstStartSecondsThisFrame = (std::min)( marker.firstStartSecondsThisFrame, pending.firstStartSeconds );
             marker.lastEndSecondsThisFrame = (std::max)( marker.lastEndSecondsThisFrame, pending.lastEndSeconds );
         }
     }
@@ -566,9 +557,8 @@ void Profiler::RecordCounter( const char* fullPath, uint32_t hash, double value 
 
 
 WorkerProfilerScope::WorkerProfilerScope() noexcept
-    : m_profiler( nullptr ), m_fullPath( nullptr ), m_hash( 0u ), m_workerIndex( -1 ), m_startTicks( 0 ),
-      m_frameToken( 0u ), m_outermostOnThread( false ), m_platformProfilerOpen( false ),
-      m_tracySourceLocationHandle( 0u ), m_tracyZoneId( 0u ), m_tracyZoneActive( 0 ), m_tracyZoneConnectionId( 0u )
+    : m_profiler( nullptr ), m_fullPath( nullptr ), m_hash( 0u ), m_workerIndex( -1 ), m_startTicks( 0 ), m_frameToken( 0u ),
+      m_outermostOnThread( false ), m_platformProfilerOpen( false )
 {
 }
 
@@ -610,13 +600,6 @@ void WorkerProfilerScope::Open( Profiler* profiler, const char* fullPath, uint32
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
     m_startTicks = t.QuadPart;
-#if defined( TRACY_ENABLE )
-    m_tracySourceLocationHandle = SKORE_TRACY_REGISTER_OWNER_ZONE( fullPath, hash );
-    const auto tracyToken = SKORE_TRACY_BEGIN_OWNER_ZONE( m_tracySourceLocationHandle );
-    m_tracyZoneId = tracyToken.id;
-    m_tracyZoneActive = tracyToken.active;
-    m_tracyZoneConnectionId = tracyToken.connectionId;
-#endif
 
     if ( PlatformProfiler::AreDetailedRangesEnabled() )
     {
@@ -661,15 +644,6 @@ void WorkerProfilerScope::Close()
 
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
-#if defined( TRACY_ENABLE )
-    const SkullbonezCore::Core::DevelopmentTools::TracyZoneToken tracyToken { m_tracyZoneId, m_tracyZoneActive,
-                                                                              m_tracyZoneConnectionId };
-
-    SKORE_TRACY_END_OWNER_ZONE( tracyToken );
-    m_tracyZoneId = 0u;
-    m_tracyZoneActive = 0;
-    m_tracyZoneConnectionId = 0u;
-#endif
 
     if ( m_platformProfilerOpen )
     {
@@ -722,15 +696,6 @@ void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuP
     m_stackIndices[stackSlot] = idx;
     m_platformProfilerCpuOpen[stackSlot] = false;
     m_platformProfilerRenderRecordOpen[stackSlot] = false;
-    m_tracyZoneIds[stackSlot] = 0u;
-    m_tracyZoneActive[stackSlot] = 0;
-    m_tracyZoneConnectionIds[stackSlot] = 0u;
-#if defined( TRACY_ENABLE )
-    const auto tracyToken = SKORE_TRACY_BEGIN_OWNER_ZONE( m.tracySourceLocationHandle );
-    m_tracyZoneIds[stackSlot] = tracyToken.id;
-    m_tracyZoneActive[stackSlot] = tracyToken.active;
-    m_tracyZoneConnectionIds[stackSlot] = tracyToken.connectionId;
-#endif
 
     if ( emitCpuPlatformProfiler && PlatformProfiler::IsEnabled() )
     {
@@ -752,14 +717,6 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
     Marker& top = m_markers[topIdx];
     const bool cpuPlatformOpen = m_platformProfilerCpuOpen[stackSlot];
     m_platformProfilerCpuOpen[stackSlot] = false;
-#if defined( TRACY_ENABLE )
-    const uint32_t tracyZoneId = m_tracyZoneIds[stackSlot];
-    const int32_t tracyZoneActive = m_tracyZoneActive[stackSlot];
-    const uint64_t tracyZoneConnectionId = m_tracyZoneConnectionIds[stackSlot];
-    m_tracyZoneIds[stackSlot] = 0u;
-    m_tracyZoneActive[stackSlot] = 0;
-    m_tracyZoneConnectionIds[stackSlot] = 0u;
-#endif
 
     if ( top.hash != hash )
     {
@@ -781,12 +738,6 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
 
     top.openCount = 0;
     --m_stackTop;
-#if defined( TRACY_ENABLE )
-    const SkullbonezCore::Core::DevelopmentTools::TracyZoneToken tracyToken { tracyZoneId, tracyZoneActive,
-                                                                              tracyZoneConnectionId };
-
-    SKORE_TRACY_END_OWNER_ZONE( tracyToken );
-#endif
 
     if ( emitCpuPlatformProfiler && cpuPlatformOpen )
     {
@@ -1283,105 +1234,68 @@ void Profiler::FrameEnd()
         }
     }
 
-#if defined( TRACY_ENABLE )
-
-    if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
-    {
-        // Why: fixed snapshots already computed for the legacy profiler are
-        // the cheapest trustworthy capacity facts. No-viewer runs skip these
-        // copies, including the renderer memory snapshot.
-        double workerCoreMs = 0.0;
-        int workerJobs = 0;
-
-        for ( int index = 0; index < m_workerCoreSampleCount; ++index )
-        {
-            workerCoreMs += (std::max)( 0.0f, m_workerCoreSamples[index].coreMs );
-            workerJobs += (std::max)( 0, m_workerCoreSamples[index].jobCount );
-        }
-
-        double frameMs = 0.0;
-
-        for ( int index = 0; index < m_markerCount; ++index )
-        {
-            if ( m_markers[index].hash == kFrameHash )
-            {
-                frameMs = m_markers[index].lastFrameMs;
-                break;
-            }
-        }
-
-        const double workerUtilization = frameMs > 0.0 && m_workerCoreSampleCount > 0
-                                             ? (std::min)( 100.0,
-                                                           workerCoreMs * 100.0 / ( frameMs * m_workerCoreSampleCount ) )
-                                             : 0.0;
-
-        SKORE_TRACY_PLOT_VALUE( "Counter/Workers/ActiveWorkers", m_workerCoreSampleCount );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Workers/Jobs", workerJobs );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Workers/CoreMilliseconds", workerCoreMs );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Workers/UtilizationPercent", workerUtilization );
-
-        for ( int index = 0; index < m_counterCount; ++index )
-        {
-            SKORE_TRACY_PLOT_VALUE( m_counters[index].name, m_counters[index].lastFrameValue );
-        }
-    }
-#endif
 
     if ( refreshAverages )
     {
-        for ( int i = 0; i < m_markerCount; ++i )
+        RefreshMarkerAverages();
+    }
+}
+
+
+// The frame owner calls this after closing worker admission and refreshing worker samples.
+void Profiler::RefreshMarkerAverages()
+{
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        Marker& m = m_markers[i];
+
+        // CPU average
+        int n = m.ringFilled;
+
+        if ( n > 0 )
         {
-            Marker& m = m_markers[i];
+            double sum = 0.0;
 
-            // CPU average
-            int n = m.ringFilled;
-
-            if ( n > 0 )
+            for ( int k = 0; k < n; ++k )
             {
-                double sum = 0.0;
-
-                for ( int k = 0; k < n; ++k )
-                {
-                    sum += m.ringMs[k];
-                }
-
-                m.avgMs = static_cast<float>( sum / n );
+                sum += m.ringMs[k];
             }
 
-            int sn = m.selfRingFilled;
+            m.avgMs = static_cast<float>( sum / n );
+        }
 
-            if ( sn > 0 )
+        int sn = m.selfRingFilled;
+
+        if ( sn > 0 )
+        {
+            double selfSum = 0.0;
+
+            for ( int k = 0; k < sn; ++k )
             {
-                double selfSum = 0.0;
-
-                for ( int k = 0; k < sn; ++k )
-                {
-                    selfSum += m.selfRingMs[k];
-                }
-
-                m.selfAvgMs = static_cast<float>( selfSum / sn );
+                selfSum += m.selfRingMs[k];
             }
 
-            // GPU average
-            if ( m.hasGpu )
+            m.selfAvgMs = static_cast<float>( selfSum / sn );
+        }
+
+        // GPU average
+        if ( m.hasGpu )
+        {
+            int gn = m.gpuRingFilled;
+
+            if ( gn > 0 )
             {
-                int gn = m.gpuRingFilled;
+                double gsum = 0.0;
 
-                if ( gn > 0 )
+                for ( int k = 0; k < gn; ++k )
                 {
-                    double gsum = 0.0;
-
-                    for ( int k = 0; k < gn; ++k )
-                    {
-                        gsum += m.gpuRingMs[k];
-                    }
-
-                    m.gpuAvgMs = static_cast<float>( gsum / gn );
+                    gsum += m.gpuRingMs[k];
                 }
+
+                m.gpuAvgMs = static_cast<float>( gsum / gn );
             }
         }
     }
-
 }
 
 
@@ -1664,8 +1578,8 @@ void Profiler::WritePerfCSVRow( FILE*, int, int ) const
 
 
 WorkerProfilerScope::WorkerProfilerScope() noexcept
-    : m_profiler( nullptr ), m_fullPath( nullptr ), m_hash( 0u ), m_workerIndex( -1 ), m_startTicks( 0 ),
-      m_frameToken( 0u ), m_outermostOnThread( false ), m_platformProfilerOpen( false )
+    : m_profiler( nullptr ), m_fullPath( nullptr ), m_hash( 0u ), m_workerIndex( -1 ), m_startTicks( 0 ), m_frameToken( 0u ),
+      m_outermostOnThread( false ), m_platformProfilerOpen( false )
 {
 }
 

@@ -32,6 +32,7 @@ Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
 */
 
+#include "TestPointJointSolver.h"
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
@@ -253,7 +254,7 @@ PhysicsBodyHotState SolveAnchorCase( const Vector3& anchorForBodyA )
     joint.slack = 0.001f;
     std::array<PointJointConstraint, 1> constraints = { joint };
     const std::array<uint8_t, 2> sleepState = { 0u, 0u };
-    CHECK( Ragdoll::SolvePointJoints( bodies, constraints, sleepState, 1.0f / 120.0f ) );
+    CHECK( SkullbonezTests::SolvePointJointsForTest( bodies, constraints, sleepState, 1.0f / 120.0f ) );
 
     const int dynamicRow = bodies.ModelIndexForHandle( dynamicHandle );
     REQUIRE( dynamicRow >= 0 );
@@ -572,7 +573,7 @@ TEST_CASE( "Physics API frames: point-joint anchors are body-local rather than w
     // lever after the body-to-world rotation. Its response proves the API does
     // not silently reinterpret anchors as absolute positions.
     const PhysicsBodyHotState wrongFrameResult = SolveAnchorCase( Vector3( 10.0f, 24.0f, 30.0f ) );
-    CHECK( SkullbonezCore::Math::Vector::VectorMag( wrongFrameResult.position - dynamicStart ) > 0.01f );
+    CHECK( SkullbonezCore::Math::Vector::VectorMag( wrongFrameResult.linearVelocity ) > 0.01f );
     CHECK( SkullbonezCore::Math::Vector::VectorMag( wrongFrameResult.angularVelocity ) > 0.01f );
 }
 
@@ -636,4 +637,130 @@ TEST_CASE( "Physics API frames: isotropic angular drag retains exact world-path 
     const Vector3 actual = RunAngularDragCase( shape, isotropicInertia, orientation, initialWorldAngularVelocity,
                                                dragCoefficient, gasDensity, deltaSeconds, false );
     CheckVectorExact( actual, expected );
+}
+
+namespace
+{
+std::array<float, 12> RunReleasedArticulation( bool impact )
+{
+    using namespace SkullbonezCore::Physics;
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsExecution.parallel = false;
+    config.worldForces.gravity = -30.0f;
+    config.worldForces.fluidDensity = 0.0f;
+    config.worldForces.gasDensity = 0.0f;
+    config.physicsSleep.frames = 1000;
+    SkullbonezCore::Geometry::Terrain terrain( 0.0f, 0.0f, 0.0f, config );
+    PhysicsEngine engine;
+    engine.ApplyRuntimeConfig( config );
+    engine.SetTerrainView( terrain.PhysicsView() );
+    engine.SetPipelineTraceFullRecordConsumerActive( true );
+    std::array<PhysicsAuthoredBodyRegistration, 5> registered {};
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( 5u, 5u, 0u, 0u, 1u );
+        const CollisionShape sphere = BoundingSphere( 1.0f, ZERO_VECTOR, 0.0f );
+        const std::array<Vector3, 5> positions { Vector3( 0, 3, 0 ), Vector3( 0, 1, 0 ), Vector3( -10.0f, 3, 0 ),
+                                                 Vector3( 30, 4, 0 ), Vector3( 30, 5.9f, 0 ) };
+        for ( std::size_t i = 0; i < registered.size(); ++i )
+        {
+            const Vector3 velocity = i == 4u ? Vector3( 0, -12, 0 ) : ZERO_VECTOR;
+            auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 17000u + static_cast<uint32_t>( i ) ), sphere,
+                                                   positions[i], SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                   velocity, ZERO_VECTOR, Vector3( 0.8f, 0.8f, 0.8f ), 2.0f, 0.0f,
+                                                   i == 0u ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic );
+            body.startsAsleep = i == 1u;
+            body.releasesFromFixedOnContact = i == 0u;
+            body.contactReleaseImpulseThreshold = 0.1f;
+            auto collider = MakeColliderCreateDesc( sphere, 0.0f, 0u, "release-contact" );
+            collider.sceneObjectId = body.sceneObjectId;
+            registered[i] = engine.RegisterAuthoredBody( body, collider );
+            REQUIRE( registered[i].IsValid() );
+        }
+        PhysicsPointJointCreateDesc joint;
+        joint.bodyA = registered[0].body;
+        joint.bodyB = registered[1].body;
+        joint.localAnchorA = Vector3( 0, -1, 0 );
+        joint.localAnchorB = Vector3( 0, 1, 0 );
+        joint.slack = 0.0f;
+        REQUIRE( engine.CreatePointJoint( joint ).IsValid() );
+    }
+    SkullbonezCore::Threading::LockOrderValidator order;
+    SkullbonezCore::Threading::WorkerPool workers( order );
+    PhysicsWorldForces forces;
+    forces.gravity = -30.0f;
+    forces.fluidDensity = 0.0f;
+    forces.gasDensity = 0.0f;
+    forces.angularDragMultiplier = 0.0f;
+    PhysicsWorldForces bootstrapForces = forces;
+    bootstrapForces.gravity = 0.0f;
+    engine.Step( PHYSICS_FIXED_DT, bootstrapForces, workers, PhysicsDiagnosticsCsvWriter {} );
+    // Joint construction queues a deliberate topology wake. Consume it before
+    // establishing the sleeping state whose impact transition this test covers.
+    engine.SeedBodyAsleep( registered[1].body );
+    REQUIRE( PhysicsEngine::ReadSleepStates( engine )[1] != 0u );
+    PhysicsBodyRestoreState projectile;
+    projectile.body = registered[2].body;
+    projectile.sceneObjectId = MakePhysicsSceneObjectId( 17002u );
+    projectile.position = Vector3( impact ? -1.9f : -10.0f, 3.0f, 0.0f );
+    projectile.linearVelocity = Vector3( 20.0f, 0.0f, 0.0f );
+    projectile.mass = 2.0f;
+    projectile.inverseMass = 0.5f;
+    projectile.rotationalInertia = Vector3( 0.8f, 0.8f, 0.8f );
+    projectile.inverseRotationalInertia = Vector3( 1.25f, 1.25f, 1.25f );
+    REQUIRE( engine.RestoreReplayBodyState( projectile ) );
+    engine.Step( PHYSICS_FIXED_DT, forces, workers, PhysicsDiagnosticsCsvWriter {} );
+    const auto hot = PhysicsEngine::ReadBodies( engine ).HotFields();
+    const auto diagnostics = engine.GetDiagnosticsView();
+    if ( impact )
+    {
+        CHECK( hot.fixed[0] == 0u );
+        CHECK( PhysicsEngine::ReadSleepStates( engine )[1] == 0u );
+        CHECK( hot.linearVelocityX[1] > 0.01f );
+        CHECK( SkullbonezCore::Math::Vector::VectorMagSquared(
+                   PhysicsEngine::ReadPointJointConstraints( engine )[0].accumulatedImpulse ) > 0.001f );
+        const auto contacts = diagnostics.persistentContacts;
+        const auto support = std::find_if( contacts.begin(), contacts.end(),
+                                           []( const PersistentContact& row ) { return row.isTerrain && row.bodyA == 1; } );
+        REQUIRE( support != contacts.end() );
+        CHECK( support->accN > 0.0f );
+        CHECK( std::count_if( diagnostics.terrainContactManifolds.begin(), diagnostics.terrainContactManifolds.end(),
+                              []( const TerrainContactManifold& row ) { return row.bodyA == 1; } ) == 1 );
+        CHECK( std::count_if( diagnostics.physicsPipelineTrace.begin(), diagnostics.physicsPipelineTrace.end(),
+                              []( const PhysicsPipelineRecord& row )
+                              {
+                                  return row.stage == PhysicsPipelineStage::WarmStart && row.bodyA == 0 && row.bodyB == 2;
+                              } ) == 1 );
+        CHECK( std::count_if( diagnostics.physicsPipelineTrace.begin(), diagnostics.physicsPipelineTrace.end(),
+                              []( const PhysicsPipelineRecord& row )
+                              {
+                                  return row.stage == PhysicsPipelineStage::PositionCorrection && row.bodyA == 0 &&
+                                         row.bodyB == 2;
+                              } ) <= 1 );
+        CHECK( hot.linearVelocityY[1] > -0.02f );
+    }
+    else
+    {
+        CHECK( hot.fixed[0] != 0u );
+        CHECK( PhysicsEngine::ReadSleepStates( engine )[1] != 0u );
+    }
+    std::array<float, 12> unrelated {};
+    for ( std::size_t i = 3u; i < 5u; ++i )
+    {
+        const std::size_t offset = ( i - 3u ) * 6u;
+        unrelated[offset] = hot.positionX[i];
+        unrelated[offset + 1u] = hot.positionY[i];
+        unrelated[offset + 2u] = hot.positionZ[i];
+        unrelated[offset + 3u] = hot.linearVelocityX[i];
+        unrelated[offset + 4u] = hot.linearVelocityY[i];
+        unrelated[offset + 5u] = hot.linearVelocityZ[i];
+    }
+    return unrelated;
+}
+} // namespace
+TEST_CASE( "Shared solver release wakes supported articulation within the same tick and preserves unrelated islands" )
+{
+    const auto quiet = RunReleasedArticulation( false );
+    CHECK( RunReleasedArticulation( true ) == quiet );
 }

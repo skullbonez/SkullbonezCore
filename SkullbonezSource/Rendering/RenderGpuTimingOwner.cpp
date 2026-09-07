@@ -3,11 +3,6 @@ File: SkullbonezSource/Rendering/RenderGpuTimingOwner.cpp
 Purpose:
   Owns DX12 timing-query brackets and publishes completed GPU samples.
 
-Summary:
-  Rendering translates Core profiler marker identities into backend query
-  slots, reads completed results, and publishes renderer counters to Tracy.
-  Operator-facing layout and labels live in UIProfilerOverlayPresenter.
-
 Glossary:
   Render GPU timing owner: Renderer lifecycle object that owns query brackets.
   Completed sample: Hash plus milliseconds returned from a finished GPU query.
@@ -24,12 +19,12 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - Agentic/Reference/engine-glossary.md
 */
+
 #include "RenderGpuTimingOwner.h"
 
 #include "../Core/FatalError.h"
 #include "../Core/PlatformProfiler.h"
 #include "../Core/Profiler.h"
-#include "../Core/TracyClientOwner.h"
 #include "../Core/WorkerPool.h"
 #include "DX12/Dx12Diagnostics.h"
 
@@ -88,27 +83,8 @@ void RenderGpuTimingOwner::BeginFrame()
         }
     }
 
-    m_profiler->ApplyGpuTimingSamples( std::span<const Core::Profiler::GpuTimingSample>( m_completedSamples, static_cast<std::size_t>( completedCount ) ) );
-
-#if defined( TRACY_ENABLE )
-
-    if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
-    {
-        const RenderMemoryStats memory = m_diagnostics->GetRenderMemoryStats();
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/DrawCalls", m_diagnostics->GetFrameDrawCallCount() );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/UploadUsedBytes", memory.uploadUsedBytes );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/UploadPeakBytes", memory.uploadPeakBytes );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/RTVDescriptorsUsed", memory.rtvDescriptorsUsed );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/DSVDescriptorsUsed", memory.dsvDescriptorsUsed );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsUsed", memory.srvStaticDescriptorsUsed );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsHighWater", memory.srvStaticDescriptorsHighWater );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsUsed", memory.srvTransientDescriptorsUsedThisFrame );
-
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsPeak", memory.srvTransientDescriptorsPeakThisRun );
-
-        SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::PublishDevelopmentAllocationPlots();
-    }
-#endif
+    m_profiler->ApplyGpuTimingSamples(
+        std::span<const Core::Profiler::GpuTimingSample>( m_completedSamples, static_cast<std::size_t>( completedCount ) ) );
 }
 
 

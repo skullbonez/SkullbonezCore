@@ -164,6 +164,16 @@ void ReplayPlanningRuntime::TogglePorkchopPanel() noexcept
     m_porkchopPanel.Toggle();
 }
 
+void ReplayPlanningRuntime::SetPorkchopPanelVisible( bool visible ) noexcept
+{
+    m_porkchopPanel.SetVisible( visible );
+}
+
+bool ReplayPlanningRuntime::SelectPorkchopCell( std::size_t cellIndex ) noexcept
+{
+    return m_porkchopPanel.SelectCell( cellIndex );
+}
+
 bool ReplayPlanningRuntime::QueueTripPlannerCommand( const ReplayTripPlannerCommand& command ) noexcept
 {
     return m_tripPlanner.QueueCommand( command );

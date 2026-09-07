@@ -61,9 +61,6 @@ Related:
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Render/RuntimeRenderHost.h"
 #include "../Render/RuntimeRenderer.h"
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../DevelopmentTools/ImGuiEditorOwner.h"
-#endif
 #include "../Startup/RunLaunchOptions.h"
 #include "../Camera/CameraControlState.h"
 #include "../Automation/InteractionAutomationRecorder.h"
@@ -87,10 +84,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class Profiler;
-namespace DevelopmentTools
-{
-class TracyClientOwner;
-}
+
 } // namespace Core
 namespace Rendering
 {
@@ -99,9 +93,6 @@ class Dx12Diagnostics;
 class Dx12FrameOwner;
 class Dx12GeometryOwner;
 class Dx12GraphTransientPool;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-class Dx12ImGuiRendererOwner;
-#endif
 class Dx12RaytracingOwner;
 class Dx12RenderDevice;
 class Dx12ResourceBuilder;
@@ -138,8 +129,6 @@ struct RuntimeRenderFrameViews;
 struct RuntimeUiTextFrameFacts;
 struct OperatorUiDiagnosticsFacts;
 struct OperatorUiProjectionFacts;
-struct OperatorUiProcessCommands;
-struct OperatorUiSecondaryDiagnosticsFacts;
 class OperatorUiPhaseOwner;
 class SceneLoadTransaction;
 class OperatorCommandTransaction;
@@ -177,10 +166,8 @@ class Run
     Threading::WorkerPool& m_workerPool;          // Startup-owned worker service borrowed for process lifetime.
     SkullbonezCore::Core::EngineConfig& m_config; // Borrowed process config loaded and CLI-patched by Runtime/App/Init.cpp.
     SkullbonezCore::Core::Profiler* m_profiler;   // Startup-owned profiler borrow; null outside profiling builds.
-    SkullbonezCore::Core::DevelopmentTools::TracyClientOwner*
-        m_tracyClientOwner;            // Startup-owned development profiler lifetime borrow; null when unavailable.
-    Assets::AssetSystem m_assets;      // Process source-asset registry shared by scene and renderer owners.
-    SceneController m_sceneController; // Owns scene queue, cameras, world, entities, physics, and models.
+    Assets::AssetSystem m_assets;                 // Process source-asset registry shared by scene and renderer owners.
+    SceneController m_sceneController;            // Owns scene queue, cameras, world, entities, physics, and models.
     SkullbonezCore::Core::SbResult m_lastSceneLoadResult; // Last queue load outcome observed by startup/load-only paths.
     bool m_skipExecute = false;       // Startup-only probes can complete without entering the frame loop.
     RunLaunchOptions m_launchOptions; // CLI/startup policy reapplied across scene loads.
@@ -231,11 +218,6 @@ class Run
     ContinuousOrbitalForecast m_continuousForecast; // Planning-owned private forecast lifecycle and detached diagnostics.
     EditorToolsOwner m_editorTools;                 // Retains editor placement, selection, gizmo, and history authority.
     RuntimeTools m_runtimeTools;                    // Launcher, manipulator, and transient render feedback.
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Lifetime: the development editor owns only its ImGui CPU context and
-    // presentation lifecycle; it receives no subsystem owner references.
-    DevelopmentTools::ImGuiEditorOwner m_imguiEditor;
-#endif
 
     // Lifetime: renderer and frame helpers borrow this cohesive UI owner; the
     // opaque allocation keeps UI.h out of the composition-root header.
@@ -266,8 +248,9 @@ class Run
     static RuntimeRenderFramePolicy ProjectRenderFramePolicy( const RuntimeOverlayFramePolicy& overlay );
 
     bool PumpFrameMessages( int& messageExitCode ); // Bounded Win32 drain; true ends the frame loop.
-    double BeginFrameTurn();                        // Starts timing/profiling and validates renderer composition.
-    void AdvanceInteractionRecordingBoundary();     // Commits the prior pending turn or captures an armed baseline.
+    bool DrainNativeHostEvents( int& messageExitCode );
+    double BeginFrameTurn();                    // Starts timing/profiling and validates renderer composition.
+    void AdvanceInteractionRecordingBoundary(); // Commits the prior pending turn or captures an armed baseline.
     void CaptureInteractionRecordingTurn( double secondsPerFrame ); // Copies the routed device frame after input completes.
     SkullbonezCore::Core::SbResult
     ResolveExecuteExit( int messageExitCode ); // Finalizes recorder evidence before publishing process status.
@@ -280,15 +263,21 @@ class Run
 #if defined( SKULLBONEZ_SKARNESS )
     bool ApplySkarnessCameraCommand( const SkarnessCommand& command, const char*& reason );
     bool ApplySkarnessPredictionTargetCommand( const SkarnessCommand& command, const char*& reason );
-    bool ApplySkarnessReplayCommand( const SkarnessCommand& command, RuntimeUIFrameResult& result,
-                                     const RuntimeInputFrameFacts& facts );
+    void ApplySkarnessReplayCommand( const SkarnessCommand& command, RuntimeUIFrameResult& frameResult,
+                                     const RuntimeInputFrameFacts& facts, SkarnessCommandApplication& application );
+    void ApplySkarnessSceneLifecycleCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ApplySkarnessObjectCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ApplySkarnessObjectLookupCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ApplySkarnessSelectObjectCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ApplySkarnessClearSelectionCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
+    void ApplySkarnessSelectionCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
     bool ApplySkarnessSceneLoadCommand( const SkarnessCommand& command, bool& deferred, const char*& reason );
     void ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts );
     void PublishSkarnessFrameState();
 #endif
     SceneFrameProceedPolicy RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput,
                                            bool& gameUiActive );
-    SceneFrameProceedPolicy CompleteRuntimeInputPhase( bool& gameUiActive, bool requestDevelopmentUiSurfaceSwap );
+    SceneFrameProceedPolicy CompleteRuntimeInputPhase();
     RunCameraMode NormalizeInputCameraMode( RunCameraMode mode ) const;
     uint32_t CurrentCameraModeEnabledMask() const;
     void EnterInteractiveInputScene();
@@ -307,8 +296,7 @@ class Run
     bool HandlePreUiDirectorAction( const InputActionEvent& event, OverlayDebugState& debug );
     bool HandlePreUiDiagnosticsAction( const InputActionEvent& event, OverlayDebugState& debug );
     bool HandlePreUiReplayAction( const InputActionEvent& event, bool gameUiActive );
-    bool HandlePreUiSurfaceAction( const InputActionEvent& event, const DeviceInputFrame& deviceFrame, bool gameUiActive,
-                                   OverlayDebugState& debug, bool& requestDevelopmentUiSurfaceSwap );
+    bool HandlePreUiSurfaceAction( const InputActionEvent& event, bool gameUiActive, OverlayDebugState& debug );
     bool HandlePreUiSceneNavigationAction( const InputActionEvent& event, RuntimeOverlayPresentationEdit& presentationEdit );
     void ApplyKeyboardEditorReplayInput( const EditorKeyboardShortcutResult& shortcut );
     RuntimeUIFrameResult RunOperatorInputFrame( const UI::InputCaptureIntent& externalUiCapture,
@@ -328,9 +316,9 @@ class Run
     RuntimeRenderFrameViews PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha );
 
-    OperatorUiProcessCommands RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha,
-                                                     bool capturePresentationPinned, double secondsPerFrame,
-                                                     bool gameUiActive, const RuntimeFrameMetricsSnapshot& frameMetrics );
+    void RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame, float presentationAlpha,
+                                bool capturePresentationPinned, double secondsPerFrame, bool gameUiActive,
+                                const RuntimeFrameMetricsSnapshot& frameMetrics );
     OperatorUiProjectionFacts SampleOperatorUiProjectionFacts( const RuntimeUiTextFrameFacts& uiTextFacts,
                                                                const RuntimeFrameMetricsSnapshot& frameMetrics,
                                                                const OverlayDebugState& debug );
@@ -352,18 +340,6 @@ class Run
                                   const UI::OperatorEditorFrameView& operatorEditorView,
                                   const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
                                   RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews, const OverlayDebugState& debug );
-    bool RenderDevelopmentOperatorUi( const UI::OperatorEditorFrameView& operatorEditorView,
-                                      const ReplayOverlay::ReplayOverlayStateView& replayOverlay, double secondsPerFrame,
-                                      bool& requestSurfaceSwap, bool& requestTracyStandardCapture );
-    void SampleSecondaryOperatorDiagnostics( const RuntimeFrameMetricsSnapshot& frameMetrics,
-                                             const RuntimeUiTextFrameFacts& uiTextFacts, const OverlayDebugState& debug,
-                                             bool shadowsEnabled, bool cinematicRendering,
-                                             const Core::CinematicRenderConfig& cinematic,
-                                             RuntimeViewModel& runtimeViewModel,
-                                             RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
-                                             RenderDiagnosticsReadout& renderDiagnosticsReadout,
-                                             OperatorUiSecondaryDiagnosticsFacts& facts );
-    void ApplyOperatorUiProcessCommands( const OperatorUiProcessCommands& commands );
     void RunPostDrawDiagnosticsPhase( bool gameUiActive );
     void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );
     void PresentFramePhase();
@@ -438,18 +414,12 @@ class Run
     // ApplyStartupOverrides because that boundary precedes the first scene load,
     // so the named body does not exist yet; the frame loop retries until it does.
     void ApplyStartupPredictionRequest();
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    void ApplyDevelopmentUiMode(); // Reapplies the process-lifetime surface selection.
-    void SelectDevelopmentUiSurface(
-        DevelopmentUiMode surface ); // Atomically hides the source before showing the target surface.
-#endif
 
   public:
     Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& window, std::vector<std::string> sceneQueue,
          SkullbonezCore::Core::EngineConfig& config, Threading::WorkerPool& workerPool,
-         SkullbonezCore::Core::Profiler* profiler, Rendering::Dx12BackbufferCapture& backbufferCapture,
-         SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner =
-             nullptr ); // sceneQueue empty string selects generated demo mode.
+         SkullbonezCore::Core::Profiler* profiler,
+         Rendering::Dx12BackbufferCapture& backbufferCapture ); // sceneQueue empty string selects generated demo mode.
     SkullbonezCore::Core::SbResult BindRenderBackend( Rendering::RenderBackendDX12& backend );
     ~Run();
     void Initialise(); // Initialises shared resources and loads first scene

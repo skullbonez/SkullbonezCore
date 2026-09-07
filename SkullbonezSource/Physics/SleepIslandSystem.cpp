@@ -57,8 +57,8 @@ uint64_t HashJointDescriptor( const PointJointConstraint& joint )
     add( std::bit_cast<uint32_t>( joint.localAnchorB.y ) );
     add( std::bit_cast<uint32_t>( joint.localAnchorB.z ) );
     add( std::bit_cast<uint32_t>( joint.slack ) );
-    add( std::bit_cast<uint32_t>( joint.stiffness ) );
-    add( std::bit_cast<uint32_t>( joint.damping ) );
+    add( std::bit_cast<uint32_t>( joint.frequencyHz ) );
+    add( std::bit_cast<uint32_t>( joint.dampingRatio ) );
     add( joint.groupId );
     add( joint.flags );
     return hash;

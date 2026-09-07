@@ -1,4 +1,4 @@
-﻿/*
+/*
 File: UIFrameComposition.cpp
 Purpose:
   Implements stateless UI frame signatures, preview-catalog policy, and
@@ -13,8 +13,6 @@ Invariants:
   - Hash field order is part of draw-cache invalidation behavior.
   - Preview helpers clamp every authored/runtime count to fixed UI capacities.
   - Functions retain no UI owner pointer or mutable frame state.
-  - Tracy status participates in the profiler signature so a viewer connection
-    transition invalidates the cached draw without per-frame text allocation.
   - Preview helpers expose identities and layout only; Runtime/Render resolves
     current GPU resources and submits them.
   - Capacity hashes cover every owned label and numeric field.
@@ -24,6 +22,7 @@ Related:
   - UI.cpp owns the surrounding UI frame.
   - Agentic/Reference/engine-glossary.md
 */
+
 #include "UIFrameComposition.h"
 #include "../../../UI/UIFontMetrics.h"
 
@@ -205,11 +204,6 @@ uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnaps
 {
     // Invariant: profiler tab draw caching depends on bounded snapshot values,
     // not live singleton reads. Hash only the fixed arrays copied into UIData.
-#if defined( TRACY_ENABLE )
-    hash = HashBool( hash, frame.tracyBuildEnabled );
-    hash = HashBool( hash, frame.tracyInitialized );
-    hash = HashBool( hash, frame.tracyViewerConnected );
-#endif
     const int markerCount = std::clamp( frame.markerCount, 0, ProfilerTab::MAX_MARKERS );
     hash = HashInt( hash, markerCount );
 

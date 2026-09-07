@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/skarness-command-and-state-harness.md",
+  "phase": "SK0",
+  "transition_id": "runtime-prediction-causal-publication-20260905",
+  "source_commit": "e22711c69ab1ac6e40c2fb46cd5be3abb87f9284",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/replay_visual_fidelity_200_box.json",
+      "old_sha256": "468e6f28f901e6c624fa66b4e946b5562f627643af4d785b566119ea005e7ddf",
+      "new_sha256": "7fe2616a63dac63416171463cc12b4db5ad10fa7db0aaf88d46782d62469dfb6"
+    },
+    {
+      "path": "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json",
+      "old_sha256": "3e5e739b8256d30e83a5ce13ed1bedd384d2935dc74d3e8160fb5d9082aaeb94",
+      "new_sha256": "9baa8a5189225bc413344b6a22de6b52e44890c7af966518920e4623c34db8fe"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "730fc838295dc853eb7b65584607f57965b596fd",
+    "golden_sha256": {
+      "TestOutput/baselines/replay_visual_fidelity_200_box.json": "468e6f28f901e6c624fa66b4e946b5562f627643af4d785b566119ea005e7ddf",
+      "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json": "3e5e739b8256d30e83a5ce13ed1bedd384d2935dc74d3e8160fb5d9082aaeb94"
+    },
+    "executables": [
+      {
+        "configuration": "Automation|x64",
+        "path": "Agentic/Plans/Artifacts/skarness-command-and-state-harness/SK0/golden-transitions/runtime-prediction-causal-publication-20260905/old/SKULLBONEZ_CORE-Automation.exe",
+        "size": 4995072,
+        "sha256": "66df169f7382818b21379989f694b30d2ae6ea5d8904462e2bdaa15929ee6b2e",
+        "launch_command": "old/SKULLBONEZ_CORE-Automation.exe --renderer dx12 --vsync on --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json --interaction-report TestOutput/validation/replay_visual_fidelity/full_reveal_probe_profile.json --frames 6800 --replay on --replay-seconds 21 --fixed-step",
+        "dependency_scan_command": "dumpbin /DEPENDENTS old/SKULLBONEZ_CORE-Automation.exe",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "e22711c69ab1ac6e40c2fb46cd5be3abb87f9284",
+    "golden_sha256": {
+      "TestOutput/baselines/replay_visual_fidelity_200_box.json": "7fe2616a63dac63416171463cc12b4db5ad10fa7db0aaf88d46782d62469dfb6",
+      "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json": "9baa8a5189225bc413344b6a22de6b52e44890c7af966518920e4623c34db8fe"
+    },
+    "executables": [
+      {
+        "configuration": "Automation|x64",
+        "path": "Agentic/Plans/Artifacts/skarness-command-and-state-harness/SK0/golden-transitions/runtime-prediction-causal-publication-20260905/new/SKULLBONEZ_CORE-Automation.exe",
+        "size": 5310464,
+        "sha256": "ad2f4928d09c95c815b5c41612c14ffd9b0cefc8b11ba4e1d2d35a47e4ae65d3",
+        "launch_command": "new/SKULLBONEZ_CORE-Automation.exe --renderer dx12 --vsync on --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json --interaction-report TestOutput/validation/replay_visual_fidelity/full_reveal_probe_profile.json --frames 6800 --replay on --replay-seconds 21 --fixed-step",
+        "dependency_scan_command": "dumpbin /DEPENDENTS new/SKULLBONEZ_CORE-Automation.exe",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

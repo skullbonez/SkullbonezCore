@@ -70,7 +70,7 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     const RuntimeInputKeyBindingView table = TakeInputKeyboardBindings();
 
     REQUIRE( table.bindings != nullptr );
-    CHECK( table.count == 48u );
+    CHECK( table.count == 46u );
     CheckExactBinding( VK_OEM_3, keyboard, RuntimeInputAction::ToggleEditor );
     CheckExactBinding( VK_TAB, keyboard, RuntimeInputAction::CycleCameraMode );
     CheckExactBinding( 'F', keyboard, RuntimeInputAction::ToggleFlyCamera );
@@ -90,8 +90,8 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     CheckExactBinding( 'I', keyboard, RuntimeInputAction::ToggleReplayPorkchopPanel );
     CheckExactBinding( 'P', keyboard, RuntimeInputAction::ToggleReplayPlayPause );
     CHECK( FindExactBinding( VK_OEM_PERIOD, keyboard ) == nullptr );
-    CheckExactBinding( VK_LEFT, keyboard, RuntimeInputAction::NavigateScenePrevious );
-    CheckExactBinding( VK_RIGHT, keyboard, RuntimeInputAction::NavigateSceneNext );
+    CHECK( FindExactBinding( VK_LEFT, keyboard ) == nullptr );
+    CHECK( FindExactBinding( VK_RIGHT, keyboard ) == nullptr );
     CheckExactBinding( 'Z', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::UndoEditor );
     CheckExactBinding( 'Y', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::RedoEditor );
     CheckExactBinding( VK_DELETE, keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::DeleteEditorSelection );

@@ -34,10 +34,6 @@ CANDIDATE kind='context-family record with at least four fields' location=Skullb
 CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Camera/CameraControlState.h:77 contexts=14
 CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Camera/DemoDirector.h:84 contexts=14
 CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Capture/CaptureSystem.h:51 contexts=14
-CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:61 contexts=14
-CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:150 contexts=10
-CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:158 contexts=10
-CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:64 contexts=10
 CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h:49 contexts=14
 CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h:114 contexts=14
 CANDIDATE kind='context-family record with at least four fields' location=SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h:144 contexts=6
@@ -445,7 +441,6 @@ CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSou
 CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Capture/CaptureSystem.cpp:498 contexts=3
 CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Capture/CaptureSystem.h:113 contexts=14
 CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Capture/CaptureSystem.h:117 contexts=14
-CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp:1215 contexts=3
 CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Diagnostics/DiagnosticsKeyboardShortcuts.h:47 contexts=14
 CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp:46 contexts=5
 CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp:611 contexts=2

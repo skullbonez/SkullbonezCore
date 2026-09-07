@@ -3,22 +3,17 @@ File: OperatorUiPhase.h
 Purpose:
   Owns the value-only phase walk for one operator UI frame.
 
-Summary:
-  App supplies one detached snapshot shared by GameUI and ImGui. The phase
-  owner resolves which UI presentations belong to that snapshot, records GPU
-  submission completion, arbitrates presenter signals into typed process
-  commands, and retains no subsystem pointer or callback.
-
 Invariants:
-  - The only phase walk is Idle -> Snapshot -> Composed -> Submitted -> CommandsEmitted -> Complete.
+  - The only phase walk is Idle -> Snapshot -> Composed -> Submitted -> Complete.
   - The owner terminates on every repeated, skipped, or backward phase operation.
-  - The stored snapshot and returned commands are values; no borrowed reference survives a call.
-  - Surface visibility never changes which immutable frame facts either UI consumes.
+  - The stored snapshot and submission plan are values; no borrowed reference survives a call.
+  - UI visibility never changes the immutable frame facts consumed by GameUI.
 
 Related:
   - Runtime/App/OperatorEditorFramePhase.cpp
   - Runtime/RuntimeFrameViews.h
 */
+
 #pragma once
 
 #include "../../Core/FatalError.h"
@@ -28,12 +23,6 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
-enum class OperatorUiSurfaceCommand : uint8_t
-{
-    None,
-    ShowGameUi,
-    ShowImGui
-};
 
 struct OperatorUiFrameSnapshot
 {
@@ -41,14 +30,8 @@ struct OperatorUiFrameSnapshot
     RuntimeFrameMetricsSnapshot metrics;
     int viewportWidth = 0;
     int viewportHeight = 0;
-    bool secondarySurfaceVisible = false;
 };
 
-struct OperatorUiProcessCommands
-{
-    OperatorUiSurfaceCommand surface = OperatorUiSurfaceCommand::None;
-    bool requestTracyStandardCapture = false;
-};
 
 struct OperatorUiSubmissionPlan
 {
@@ -67,7 +50,6 @@ class OperatorUiPhaseOwner
         Snapshot,
         Composed,
         Submitted,
-        CommandsEmitted,
         Complete
     };
 
@@ -78,8 +60,7 @@ class OperatorUiPhaseOwner
         return ( current == Phase::Idle && next == Phase::Snapshot ) ||
                ( current == Phase::Snapshot && next == Phase::Composed ) ||
                ( current == Phase::Composed && next == Phase::Submitted ) ||
-               ( current == Phase::Submitted && next == Phase::CommandsEmitted ) ||
-               ( current == Phase::CommandsEmitted && next == Phase::Complete );
+               ( current == Phase::Submitted && next == Phase::Complete );
     }
 
     void Begin( const OperatorUiFrameSnapshot& snapshot )
@@ -109,16 +90,6 @@ class OperatorUiPhaseOwner
         m_gameUiDrawCalls = gameUiDrawCalls;
     }
 
-    // Presenter results are facts, not process authority. This method owns
-    // their translation into the only command value App may apply.
-    void EmitCommands( bool requestSurfaceSwap, bool requestTracyStandardCapture )
-    {
-        AdvanceOrFatal( Phase::CommandsEmitted, "EmitCommands" );
-
-        m_commands.surface = requestSurfaceSwap ? OperatorUiSurfaceCommand::ShowGameUi : OperatorUiSurfaceCommand::None;
-        m_commands.requestTracyStandardCapture = requestTracyStandardCapture;
-    }
-
     void Complete()
     {
         AdvanceOrFatal( Phase::Complete, "Complete" );
@@ -130,10 +101,6 @@ class OperatorUiPhaseOwner
     const OperatorUiFrameSnapshot& Snapshot() const
     {
         return m_snapshot;
-    }
-    const OperatorUiProcessCommands& Commands() const
-    {
-        return m_commands;
     }
     const OperatorUiSubmissionPlan& SubmissionPlan() const
     {
@@ -161,7 +128,6 @@ class OperatorUiPhaseOwner
     Phase m_phase = Phase::Idle;
     OperatorUiFrameSnapshot m_snapshot;
     OperatorUiSubmissionPlan m_submissionPlan;
-    OperatorUiProcessCommands m_commands;
     int m_gameUiDrawCalls = 0;
 };
 } // namespace SkullbonezCore::Runtime

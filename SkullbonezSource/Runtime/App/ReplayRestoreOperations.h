@@ -65,6 +65,22 @@ class ReplayRestoreOperations
   public:
     using ResolvedBodyTable = std::array<Physics::PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
+    static bool ValidateSolverContinuation( const Physics::PhysicsSolverSnapshot& snapshot, char* outReason,
+                                            std::size_t reasonSize )
+    {
+        // Why: historical checkpoints remain readable for presentation and import,
+        // but their hashes describe the historical solver, not a migrated simulation.
+        // Reject before App rebuilds topology or changes any live owner.
+        if ( snapshot.version != Physics::PHYSICS_SOLVER_SNAPSHOT_VERSION )
+        {
+            WriteReason( outReason, reasonSize,
+                         "saved solver version supports inspection only; authoritative continuation requires the current "
+                         "solver" );
+            return false;
+        }
+        return true;
+    }
+
     static void ApplyCameraSample( Environment::CameraCollection& cameras, const ReplayCameraSample& sample )
     {
         // Invariant: eye, target, and up form one recorded pose. Publishing
@@ -153,7 +169,8 @@ class ReplayRestoreOperations
         // live topology. Physics validates the exact joint rows that will
         // survive the requested body-count trim, not the larger live set.
         if ( !physics.CanRestoreReplaySolverSnapshot( sample.worldSnapshot.physics,
-                                                      Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
+                                                      Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                          restoreModelCount ) ) )
         {
             WriteReason( outReason, reasonSize, "snapshot solver topology mismatch" );
             return false;

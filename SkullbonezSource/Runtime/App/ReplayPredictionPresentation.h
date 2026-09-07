@@ -81,6 +81,13 @@ struct ReplayPredictionRetainedMarkerDrawStats
     bool pathGeometrySaturated = false;
 };
 
+struct ReplayCauseFocusDrawStats
+{
+    Physics::PhysicsSceneObjectId bodyId;
+    Math::Vector::Vector3 markerPosition = Math::Vector::ZERO_VECTOR;
+    bool bodyMarkerSubmitted = false;
+};
+
 struct ReplayInspectionFocusSelection
 {
     Physics::PhysicsSceneObjectId primaryId;
@@ -98,6 +105,10 @@ class ReplayPredictionPresentation
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
     ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;
     ReplayPredictionRetainedMarkerDrawStats RetainedMarkerDrawStatsSnapshot() const noexcept;
+    ReplayCauseFocusDrawStats CauseFocusDrawStatsSnapshot() const noexcept
+    {
+        return m_causeFocusDrawStats;
+    }
     ReplayOverlay::ReplayPredictionPathFocusStats InspectionPathFocusStatsSnapshot() const noexcept;
     const ReplayVisualPacket& PublishedVisualPacketView() const noexcept;
     std::span<const ReplayPredictionGhostDrawRequest> GhostDrawRequestsView() const noexcept;
@@ -155,6 +166,7 @@ class ReplayPredictionPresentation
     bool HasGhostDrawRequests() const noexcept;
     bool PrepareRenderPoseBodyMatch( int modelCount ) noexcept;
     void StorePublishedVisualPacket( ReplayVisualPacket packet );
+    void ResetTrajectorySubmissionWindow() noexcept;
 
     // Lifetime: startup-bound diagnostics borrow; never retained by worker work.
     Core::Profiler* m_profiler;
@@ -172,6 +184,7 @@ class ReplayPredictionPresentation
     std::unique_ptr<ReplayPredictionPresentationRetainedState> m_retainedState;
     EditorTracer m_retainedMarkerDrawList;
     ReplayVisualPacket m_retainedDrawPacket;
+    ReplayCauseFocusDrawStats m_causeFocusDrawStats;
     uint64_t m_retainedDrawStreamId = 1;
     uint64_t m_retainedDrawRevision = 0;
     uint64_t m_retainedAppearanceInvalidationCount = 0;

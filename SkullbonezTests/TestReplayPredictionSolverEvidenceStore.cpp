@@ -253,3 +253,22 @@ TEST_CASE( "Prediction evidence store: overflow and hard-cap requests fail witho
     CHECK( reserved.build.pipelineCount == 0u );
     CHECK( reserved.build.publishedFrameCount == 0u );
 }
+
+TEST_CASE( "Prediction evidence store: an explicit empty generation retires older evidence" )
+{
+    ReplayPredictionSolverEvidenceBanks banks;
+    const std::array<Physics::PhysicsSolverPersistentContactSample, 1> contacts = {};
+    const std::array<Physics::PhysicsPipelineRecord, 1> pipeline = {};
+
+    banks.BeginBuild( 1u, ReplayPredictionDetailMode::High );
+    REQUIRE( banks.AppendBuildFrame( 0u, 1u, 1u, contacts, pipeline, 0 ) );
+    REQUIRE( banks.PromoteBuild() );
+    REQUIRE( banks.Committed().PublishedFrameCount() == 1u );
+
+    banks.BeginBuild( 2u, ReplayPredictionDetailMode::High );
+    REQUIRE( banks.Build().PublishedFrameCount() == 0u );
+    REQUIRE( banks.PromoteEmptyBuild() );
+    CHECK( banks.Committed().Generation() == 2u );
+    CHECK( banks.Committed().PublishedFrameCount() == 0u );
+    CHECK_FALSE( banks.PromoteEmptyBuild() );
+}

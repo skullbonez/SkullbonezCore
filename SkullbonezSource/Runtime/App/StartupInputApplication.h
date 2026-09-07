@@ -10,7 +10,7 @@ Summary:
 
 Invariants:
   - Renderer startup is unreachable after raw-input registration failure.
-  - Worker, development-tool, Window, and COM cleanup each run exactly once on
+  - Worker, Window, and COM cleanup each run exactly once on
     either startup failure and never run on success.
 
 Related:
@@ -25,18 +25,16 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
-template <typename FailureReporter, typename WorkerShutdown, typename DevelopmentToolShutdown,
-          typename WindowCleanup, typename ComUninitialize, typename RendererStart>
+template <typename FailureReporter, typename WorkerShutdown, typename WindowCleanup, typename ComUninitialize,
+          typename RendererStart>
 SkullbonezCore::Core::SbResult StartRendererAfterRawMouseRegistration(
-    const SkullbonezCore::Core::SbResult& rawMouseResult, FailureReporter&& reportFailure,
-    WorkerShutdown&& shutdownWorkers, DevelopmentToolShutdown&& shutdownDevelopmentTools,
+    const SkullbonezCore::Core::SbResult& rawMouseResult, FailureReporter&& reportFailure, WorkerShutdown&& shutdownWorkers,
     WindowCleanup&& cleanupWindow, ComUninitialize&& uninitializeCom, RendererStart&& startRenderer )
 {
     const auto finishFailure = [&]( const SkullbonezCore::Core::SbResult& failure, const char* title )
     {
         reportFailure( failure, title );
         shutdownWorkers();
-        shutdownDevelopmentTools();
         cleanupWindow();
         uninitializeCom();
         return failure;

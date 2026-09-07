@@ -15,13 +15,12 @@ Glossary:
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
     constants.
-  - Optional Tracy instrumentation never changes the detached snapshot layout;
-    producers without Tracy leave its capability flags false.
 
 Related:
   - SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.cpp
   - Agentic/Reference/engine-glossary.md
 */
+
 #pragma once
 
 #include "../../../UI/UICheckBox.h"
@@ -114,12 +113,6 @@ struct FrameSnapshot
     WorkerCoreSampleSnapshot workerCoreSamples[MAX_WORKER_CORE_SAMPLES] = {};
     int workerCoreSampleCount = 0;
     DrawTraceSnapshot drawTrace;
-
-    // ABI invariant: detached UI values never change layout with optional
-    // profiler instrumentation. Non-Tracy producers leave these false.
-    bool tracyBuildEnabled = false;
-    bool tracyInitialized = false;
-    bool tracyViewerConnected = false;
 };
 
 struct TimelineSegment
@@ -131,16 +124,16 @@ struct TimelineSegment
 
 struct PerformanceHistogramSample
 {
-    float markerMs[MAX_MARKERS + 1] = {};                // Per cached profiler option slot, in milliseconds.
-    float markerSpikeMs[MAX_MARKERS + 1] = {};           // Non-zero when that slot owns a spike label for this sample.
+    float markerMs[MAX_MARKERS + 1] = {};      // Per cached profiler option slot, in milliseconds.
+    float markerSpikeMs[MAX_MARKERS + 1] = {}; // Non-zero when that slot owns a spike label for this sample.
     float secondaryMs = 0.0f;
-    bool hasMarker[MAX_MARKERS + 1] = {};                // Guards sparse slots when markers are toggled or unavailable.
+    bool hasMarker[MAX_MARKERS + 1] = {}; // Guards sparse slots when markers are toggled or unavailable.
     bool hasSecondary = false;
 };
 
 struct UIProfilerTabState
 {
-    FrameSnapshot frame;                                 // Last bounded runtime snapshot used by layout and input hit tests.
+    FrameSnapshot frame; // Last bounded runtime snapshot used by layout and input hit tests.
     uint32_t expandedHashes[MAX_MARKERS] = {};
     int expandedHashCount = 0;
     uint32_t drawExpandedHashes[MAX_MARKERS] = {};
@@ -165,8 +158,8 @@ struct UIProfilerTabState
     bool histogramBucketOpen = false;
     float histogramAxisMs = 33.3f;                       // Default F5 frame-total CPU scale: 0..33.3ms.
     double histogramAverageTextLastUpdateSeconds = -1.0; // Runtime seconds; -1 = footer average not latched yet.
-    float histogramAverageCpuMs = 0.0f;                  // Latched selected-marker footer average refreshed on a 0.5s cadence.
-    float histogramAverageWorkerMs = 0.0f;               // Latched worker-core footer average for Frame Total.
+    float histogramAverageCpuMs = 0.0f;    // Latched selected-marker footer average refreshed on a 0.5s cadence.
+    float histogramAverageWorkerMs = 0.0f; // Latched worker-core footer average for Frame Total.
     bool histogramPanelInitialized = false;
     float histogramPanelX = 16.0f;
     float histogramPanelY = 16.0f;

@@ -105,6 +105,9 @@ class PhysicsStepDiagnostics
     PhysicsPipelineTraceRecorder m_pipelineTrace;
     bool m_pipelineTraceFullRecordConsumerActive = true;
     PhysicsDiagnosticsSink m_sink;
+#if defined( _DEBUG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+    PhysicsDiagnosticsCorrelation m_correlation;
+#endif
 
   public:
     PhysicsStepDiagnostics();
@@ -139,6 +142,7 @@ class PhysicsStepDiagnostics
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
+    void SetPhysicsDiagnosticsCorrelation( const PhysicsDiagnosticsCorrelation& correlation );
 #endif
 
     void CaptureReplayState( PhysicsSolverSnapshot& snapshot, bool capturePipelineTrace ) const;

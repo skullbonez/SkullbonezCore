@@ -65,6 +65,14 @@ void ReplayPorkchopPanel::Toggle() noexcept
     }
 }
 
+void ReplayPorkchopPanel::SetVisible( bool visible ) noexcept
+{
+    if ( m_view.visible != visible )
+    {
+        Toggle();
+    }
+}
+
 void ReplayPorkchopPanel::Reset() noexcept
 {
     m_view.visible = false;

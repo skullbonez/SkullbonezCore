@@ -1,10 +1,178 @@
 # Session State
 
-Date: 2026-09-01
-Branch: `nightrunner-31st-AUG-26`
-Status: No active implementation plan; Engine Signature And Context Cohesion complete at 8/8; portfolio 143/143
+Date: 2026-09-07
+Branch: `codex/ragdoll-physics-unification`
+Status: RAGDOLL_PHYSICS active at 8/10; portfolio 146/148
+
+## Ragdoll FP7 acceptance (2026-09-07)
+
+Contacts and point joints now share deterministic island sweeps and solver-body
+velocities. Release continuation wakes connected articulation and incorporates
+new support before cache publication. Separate joint-wake scratch preserves
+contact sleep topology; sleeping joint caches and unrelated islands remain
+exact. No body field or runtime allocation privilege was added.
+
+All three native builds, 183 focused tests / 2,552,691 assertions, 126-file
+compiler checks, Physics worker determinism, and the complete independent
+200-box replay repeat with negative controls pass. Exact baseline transitions
+retain old/new first-party producers under the FP7 artifact directory. Dynamic
+allocation smoke, selected path, physics benchmark, repeated DX12 timing and
+five scale runs pass. The 95 exact inherited static findings and 13 existing
+causal render allocations remain explicit full-plan closure work; archived FP6
+reproduces the latter at the same callsite. FP8 speculative contacts is next.
+
+## Native UI and profiling dependency cleanup (2026-09-07)
+
+The obsolete docked editor and remote-profiler integrations, vendor submodules,
+build properties, renderer resources, startup switches, allocation privileges,
+fixtures, settings, and documentation references are removed. Native GameUI,
+its profiler, causal inspection, and Skarness remain. Recorded version-1 files
+retain a reserved zero-valued UI slot so existing evidence stays readable.
+Window events sent synchronously now drain even without a queued message;
+the native UI smoke checks actual 1024-by-720 capture dimensions after resizing.
+
+Validation passes the 926-case unit suite, portable CPU tests, compiler-backed
+source checks, dependency/build metadata checks, native UI and graphics stress,
+200-box replay fidelity, and gameplay allocation-guard smoke. The two inherited
+DX12 terrain screenshot mismatches remain (water 4.9171, solver 4.0154; space
+exact and zero InfoQueue errors). Allocation-policy scanning reports the same
+91 findings as starting revision `3475567b1`, with no new findings. No physics
+or replay baseline was refreshed. The native profiler stream now matches its
+existing portable fingerprint after removal of the remote status badge.
+Archived regression executables remain historical evidence.
+The Debug 0/repeat/1/4-worker physics proof is byte-exact (44,401 lines,
+SHA-256 `03088b30b8826f88a6193e511b7f4205aff9324d06ad08456610aac0e13a3f6b`).
+The full Skarness lane passes transport, control, commands, state, queries,
+rendered futures and causal playback; the scene matrix passes 14 of 15 cases.
+The demo's live assertion still expects cause rows during prediction, contrary
+to the loading policy introduced by `f23993067`. An isolated rerun produces 15
+completed causal nodes and fails only that live-row assertion. Both the
+assertion and loading implementation are unchanged by this cleanup. The first
+matrix run also found no contacts in the time-seeded demo's selected target.
+The final affected UI/input rerun passes 126 cases and 4,441 assertions.
+
+## Ragdoll FP5 acceptance (2026-09-07)
+
+The coupled 3-DOF point joint and world-space vector warm start are implemented.
+Current and historical snapshot codecs, import migration, and pre-mutation
+legacy-continuation rejection have focused regressions. The Python query reader
+supports nested versions 1-7 and rejects version 8. Native saved replay
+save/query/restore/rollback, the complete 200-box native replay repeat and its
+negative controls, the final Debug worker matrix, source design, dependency,
+formatting, and focused unit checks pass. The core Physics CSV is unchanged;
+the visual and causal transitions retain exact old/new first-party producers
+under the FP5 artifact directory. A pre-existing SkullScope frame-key typo
+found by the native artifact gate is repaired with a generated-trace assertion.
+
+Historical loaded-chain comparisons measure final sag of 35.084/24.379/7.113
+mm for pre-(a)/stage-(a)/FP5. Against stage (a), FP5 increases jitter from
+0.281 to 1.730 mm/step, settled kinetic energy from 0.02275 to 0.18876 J, and
+solve cost from 0.153 to 0.286 microseconds per joint iteration. These are
+explicit FP6 inputs, not a universal performance claim. The performance gate
+still reports the same 91 inherited allocation-policy findings, zero new.
+Independent review has no remaining implementation blocker.
+
+## Ragdoll FP6 acceptance (2026-09-07)
+
+Explicit 40 Hz/damping-ratio-1 softness, eight sweeps, physical scene schema v5
+and solver snapshot v8 are complete. Legacy controls migrate with matching
+binary32 arithmetic and incompatible warm starts clear on explicit import.
+The archive now retains a bounded high-detail prefix with an explicit RVPD v7
+coverage boundary, preserving later causal topology and exact sparse re-save.
+No body-store field, reserve owner or growth cap was added.
+
+Debug/Profile/Automation builds, 63 focused cases/32,678 assertions, source
+design, dependency, formatting, plain-language and migration checks pass. The
+Debug worker matrix is unchanged. Native saved replay checks and the corrected
+200-box capture plus independent full fidelity repeat and negative controls
+pass. The guarded transition `FP6/golden-transitions/joint-softness-9499cda6/`
+retains exact old/new producers and matching scene inputs. The Physics CSV is
+unchanged. The 91 allocation findings and intentional non-unit hull-normal
+migration fixture remain inherited limitations. Independent review is clean.
+The measured tradeoff is 15.531 mm physical sag and 0.00321 mm/step settled
+jitter with about 63% more total solve cost than FP5. Full plan closure remains
+FP9; no FP7-FP9 implementation is included in this checkpoint.
+
+Branch CI runs 34045496086 (mandatory CPU) and 34045497777 (Linux diagnostics)
+passed on FP5. Fresh runs will be dispatched after the FP6 push.
 
 ## Current State
+
+Current objective: complete `TODO/ragdoll-physics-unification.md` FP5-FP9.
+Plan progress: 7/10; portfolio progress: 145/148. Next binding task: FP7,
+shared contact/joint iteration. The cleanup CI jobs
+34042905345, 34042907156 and 34042908720 were dispatched on `88d09e78f`.
+They have completed: Linux diagnostics passed; mandatory CPU preflight failed
+changed-source formatting; native Windows diagnostics failed because its
+formatter rejects the existing `BinPackLongBracedList` configuration key.
+The cleanup's trailing blank line in `UIInputCaptureIntent.h` is repaired on
+this child branch, and all 59 cleanup/FP5 source files pass local formatting.
+The hosted formatter-version mismatch remains unresolved.
+The pre-existing live ledger belongs to an unfinished GOV1 task; this run
+preserves it. A separate ledger initialization also fails because the helper
+lacks verified `gpt-6-astra` pricing. No usage counters or costs are fabricated;
+implementation continues with timestamped command evidence.
+
+The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish
+the plan without stopping. The bootstrap checkpoint repairs prediction
+publication, causal inspection timing/camera behavior, deterministic manual
+control, subscription durability, and renderer-bound identity evidence. Its
+15-case persistent Automation matrix, focused run-control checks, prediction
+unit cases, and two independent 6,800-frame replay captures pass. The replay
+visual baseline now records the corrected publication and the causal baseline
+transition from 200 to 201 topology nodes is archived with its exact old and
+new Automation executables in checkpoint `7b6d74367`. SK0's versioned protocol
+and initial capability inventory landed in `f0c60b2a`. SK1 completes the
+session-host/client contract: Debug and Automation own the feature, Profile and
+Release reject its flags, manifests publish atomically with a current-user pipe,
+and reconnect/deduplication remain correct through 260 completed requests and
+an exact 128-command queue saturation. `tools/validate_skarness_transport.py`
+owns that focused regression. SK2 now publishes state
+after the committed scene-frame boundary and proves exact three-tick, four-
+render-frame, immediate-condition, three-frame timeout, three-tick timeout, and
+25-tick disconnect/reconnect behavior. Accepted work freezes while its controller
+is absent, then resumes without lost or duplicate ticks. Automation and Debug
+builds, the transport regression, and `validate_fast` pass; no baseline changed.
+SK3 now exposes the immutable replay/player capability catalog and routes scene
+identity, selection, replay capture/timeline, prediction presentation, causal
+inspection, velocity editing, porkchop/trip planning, and continuous forecast
+commands through App and their existing owners. Numeric setters return applied
+values, path commands reject truncation, and full cause selection rejects stale
+identity. `tools/validate_skarness_command_coverage.py` proves catalog uniqueness,
+player-control inventory coverage, retry-safe setters, explicit replay paths,
+and live command routes in Automation. Automation and Debug builds, focused
+source design, dependency enforcement, and the live command proof pass with no
+baseline change. SK4 now publishes snapshot-first registered replay-family
+topics with summary, normal, and full detail, explicit append/change/evict/reset
+rows, and complete production visual-packet buffers. Physics-owned SkullScope
+emits in Automation as well as Debug and carries exact runtime-turn, scene-
+generation, and committed simulation-tick correlation without a Runtime include.
+`tools/validate_skarness_state_stream.py` proves ordering, sequence monotonicity,
+ring wrap, scene resets, full buffers, and cross-trace joins in both builds. SK5
+now adds a replace-safe incremental SQLite importer for both sidecars, preserves
+Physics correlation across imported row batches, ignores incomplete final lines,
+and exposes bounded summary, replay, prediction, cause, render-submission,
+Physics, and sequence-tail queries with exact byte accounting. Diagnostic log
+handles permit shared reads, and App flushes Physics once at the durable after-
+render boundary, so queries work before session shutdown. The client now accepts
+the planned `send`, `--detail`, `--ticks`, frame-range, target, and `--full`
+shapes. `tools/validate_skarness_queries.py` proves incremental recovery, source
+replacement invalidation, name-to-id filtering, cursor tails, and live cross-
+trace joins. SK6 now drives the future-path gate entirely through Skarness,
+binds every published and rendered fact to the selected target and source frame,
+validates complete child ancestry and trajectories, and proves renderer-bound
+bytes and hashes remain stable for 120 render frames. Automation and Debug live
+witnesses pass with six causal nodes, one child, 241 root points, 9,792 geometry
+bytes, and 3,396 connected raster-change pixels. The full 15-scene matrix and
+the complete 443.149-second Automation/Skarness lane pass. Independent review
+reports zero blockers and `READY`.
+
+The exactly-once plan-completion command passed Debug, Automation, fast checks,
+source design, Profile, all CPU lanes, and the Automation/Skarness lane. It
+exited 1 only at the inherited DX12 terrain-UV screenshot mismatch documented
+before this plan: water averaged 4.9171, solver averaged 4.0155, space remained
+pixel-exact, and DX12 InfoQueue reported zero errors. Skarness is compiled out
+of Profile. No visual, replay, causal, Physics, or SkullScope baseline changed.
 
 The owner completed `SIGNATURE_COHESION` SC0-SC7 on the current Night Runner
 branch and requested substantial related batches instead of a build after each
@@ -56,8 +224,8 @@ source-design passes seven files under 53 consumer contexts. The next grouped
 App slice decomposes `RunInputPhase` into capture/default draining, pre-UI
 action families, operator input, replay restore, recording diagnostics, camera
 control, and deferred owner requests. `RenderOperatorUiPhase` now shares one
-detached projection between GameUI and ImGui and separately projects hierarchy,
-inspector, diagnostics, GameUI data, text/GPU submission, and development UI.
+detached projection for GameUI and separately projects hierarchy,
+inspector, diagnostics, GameUI data, and text/GPU submission.
 The Profile solution builds warning-clean; 913 cases and 2,692,437 assertions
 pass with one expected skip; source-design passes three files under 16 consumer
 contexts; format, dependency/project ownership, build-configuration, and
@@ -683,7 +851,7 @@ the inherited causal-depth oracle and historical Physics performance baseline
 remain external recorded failures without refresh authority.
 Recorded Interaction Playback Cursor RIC0-RIC3 is complete at 4/4. The
 Automation-owned frame value crosses one bounded Runtime/UI compositor and one
-App submission edge after GameUI, replay overlays, UI finalization, and ImGui
+App submission edge after GameUI, replay overlays, UI finalization
 but before screenshots and Present. The exact unchanged 413-turn recording
 contains 256 visible turns and 157 cursorless right-look turns; command high
 water and capacity are both `2`; recorded coordinates and every legacy trace
@@ -746,9 +914,9 @@ and zero blockers. No dead-production candidate was approved merely to create
 savings. The accepted work is the GameUI naming correction plus exact DX12
 completed-fence, Replay capacity, cold `FILE` deleter, and render-lifecycle log
 duplication. CR1 renamed the complete built-in development surface to GameUI,
-including `--dev-ui game`, automation values/assertions, runtime fields, labels,
+including automation values/assertions, runtime fields, labels,
 fixtures, and manuals. The focused 7-case/170-assertion set, 832-item project
-filters, explicit GameUI launch, and full GameUI/ImGui stress matrix pass across
+filters, explicit GameUI launch, and full GameUI stress matrix pass across
 Profile, Debug, and Automation with zero DX12 validation errors. CR2 reran the
 current reachability inventory: all 93 rows remain explicitly ruled, zero rows
 block, and the CR0 ledger still approves no production deletion. CR2 therefore
@@ -828,8 +996,8 @@ include, reserve privilege, Physics row field, or post-start growth path.
 
 ORBIT_FORECAST OF4 is complete. Planning now composes the continuous producer
 and stability analyzer; App owns lifetime, frame admission, mutual exclusion
-with bounded `PREDICT`, scene-transition joins, and shutdown. GameUI and ImGui
-route typed continuous/reset/exit commands and publish aligned detached status,
+with bounded `PREDICT`, scene-transition joins, and shutdown. GameUI
+routes typed continuous/reset/exit commands and publish aligned detached status,
 timing, first-cause, and conservation readouts while retaining the accepted
 bounded-horizon control discrepancy. `validate_fast`, all 620 unit cases,
 dependency, allocation-policy, and performance gates pass; the 21/21 touched-
@@ -1152,7 +1320,7 @@ diagnostic gates. The repair's two commit bodies retain the measured output.
 
 ## Next Work
 
-No active plan. Await owner direction.
+No owner-selected implementation plan is active. Await owner direction.
 
 ## Blockers
 
@@ -1488,28 +1656,6 @@ Per owner direction, no build, test, scanner, inventory, formatter, or
 repository validation was run; compile/link and focused runtime behavior remain
 unexecuted evidence.
 
-## Runtime DevelopmentTools Bug Ledger Closure (2026-08-26)
-
-DEV-001 through DEV-006 are fixed as one subsystem batch. Retrying startup now
-discards an incomplete ImGui context before rebinding the renderer. Ordered
-panel reducers preserve first-build commands, make reset establish complete
-defaults, and cancel focus requests whose target is later hidden. Shutdown
-clears pending commands, diagnostics, counters, and presentation state before a
-new editor epoch begins.
-
-Responsive dock sizing now reserves a valid central region and keeps every
-split fraction bounded even below the normal minimum client size. Game Viewport
-capture also requires that panel to remain visible, so closing it stops the
-unused per-frame GPU copy while the rest of the editor stays open.
-
-One consolidated read-only rubber-duck review covered all six Runtime
-DevelopmentTools rows in task `01a03961-d56f-70d1-a7f2-56d4651b858b`. It found
-and closed two command-ordering defects plus one focused-evidence gap. Final
-counts were 0 Blocking, 0 Non-blocking, and 1 Missing evidence. Per owner
-direction, no build, test, scanner, inventory, formatter, or repository
-validation was run; compile/link and live ImGui behavior therefore remain
-unexecuted evidence.
-
 ## Runtime Direction Bug Ledger Closure (2026-08-26)
 
 DIR-001 through DIR-009 are fixed as one subsystem batch. Shot-list loading now
@@ -1531,15 +1677,7 @@ and 1 Missing evidence. Per owner direction, no build, test, scanner, inventory,
 formatter, or repository validation was run; compile/link and focused runtime
 behavior therefore remain unexecuted evidence.
 
-## Engine Signature Cohesion SC4 DevelopmentTools And Render Slices (2026-09-01)
-
-Branch `nightrunner-31st-AUG-26` and PR 165 remain active. The ninth SC4 slice
-replaces `ImGuiEditorCausalityContext` with separate selected-cause, bounded
-related-row, and status values. The editor presenter now sequences focused panel
-methods that receive exact detached UI slices, and the former 2,100-line shell
-operation no longer owns inline submission/edit helpers or a wide parameterized
-edit declaration. The existing Physics Solver filter rule now includes
-`PhysicsBroadphaseStepValues`.
+## Engine Signature Cohesion SC4 Render Slices (2026-09-01)
 
 Profile builds warning-clean. The current render-frame slice deletes the
 19-field model frame bag and ten-part frame-entry bag in favor of consumer-owned
@@ -1617,8 +1755,7 @@ required task 8/8 terminal closure.
 The seventeenth SC4 slice deletes the duplicated 36-field operator inspector
 projection record and its field-by-field copy. The canonical detached inspector
 value now exposes selection, transform, identity, render-material, and Physics
-children; App builds it directly and ImGui delegates each section to the exact
-child it presents. The established flat fingerprint values remain intact.
+children; App builds it directly from the scene and editor owners. The established flat fingerprint values remain intact.
 Profile builds warning-clean; 10 focused cases and 225 assertions pass;
 source-design passes six targets across 35 contexts with zero findings.
 Formatting, dependency/project ownership, build-configuration, project-filter,

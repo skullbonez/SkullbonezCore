@@ -2530,3 +2530,154 @@ TEST_CASE( "Replay visual and exact fingerprints exclude process-local diagnosti
     CHECK( expectedHash.semanticHash != actualHash.semanticHash );
     CHECK( expectedHash.exactHash == actualHash.exactHash );
 }
+
+namespace
+{
+uint64_t ReadArchiveU64( const std::vector<uint8_t>& bytes, std::size_t offset )
+{
+    uint64_t result = 0;
+    for ( std::size_t byte = 0; byte < 8u; ++byte )
+    {
+        result |= static_cast<uint64_t>( bytes[offset + byte] ) << ( byte * 8u );
+    }
+    return result;
+}
+
+void WriteArchiveU64( std::vector<uint8_t>& bytes, std::size_t offset, uint64_t value )
+{
+    for ( std::size_t byte = 0; byte < 8u; ++byte )
+    {
+        bytes[offset + byte] = static_cast<uint8_t>( value >> ( byte * 8u ) );
+    }
+}
+} // namespace
+
+TEST_CASE( "Replay prediction archive preserves bounded high-detail coverage and later causal nodes" )
+{
+    auto state = std::make_unique<RunReplayPredictionState>();
+    state->build.complete = true;
+    state->build.generationBeginCount = 3u;
+    state->simulation.frames.resize( 5u );
+    state->simulation.committedFrameCount = 5u;
+    for ( std::size_t i = 0; i < 5u; ++i )
+    {
+        state->simulation.frames[i].frameIndex = i;
+        state->simulation.frames[i].bodies.resize( 1u );
+    }
+    for ( const ReplayFrameIndex frame : { 1u, 4u } )
+    {
+        RunReplayPathTraceNode node;
+        node.id.value = static_cast<uint32_t>( frame + 10u );
+        node.contactDerived = true;
+        node.firstFrame = frame;
+        state->futureNodeCache.futureNodes.push_back( node );
+    }
+    state->futureNodeCache.futureNodesCacheValid = true;
+    state->futureNodeCache.futureNodesTopologyVersion = 1u;
+    state->trajectoryBuild.valid = true;
+    state->trajectoryBuild.topologyVersion = 1u;
+    state->trajectoryBuild.builtNodeCount = 2u;
+
+    auto evidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();
+    evidence->BeginBuild( 3u, ReplayPredictionDetailMode::High );
+    REQUIRE( evidence->ReserveBuild( 5u, 0u, 0u, 0 ) );
+    REQUIRE( evidence->AppendBuildFrame( 0u, 1u, 1u, {}, {}, 0 ) );
+    bool fullCoverage = false;
+    SUBCASE( "partial prefix remains high detail" )
+    {
+    }
+    SUBCASE( "historical full-coverage section remains readable" )
+    {
+        fullCoverage = true;
+    }
+    SUBCASE( "missing event inside coverage is rejected" )
+    {
+        REQUIRE( evidence->AppendBuildFrame( 2u, 1u, 1u, {}, {}, 2 ) );
+        REQUIRE( evidence->PromoteBuild() );
+        std::vector<uint8_t> invalidBytes;
+        RunReplayPathVisualizerState path;
+        CHECK_FALSE(
+            ReplayPredictionArchiveOperations::BuildReplayPredictionArchive( path, *state, ReplayPredictionDetailMode::High,
+                                                                             evidence->Committed(), invalidBytes ) );
+        return;
+    }
+    for ( ReplayFrameIndex frame = 1u; frame < ( fullCoverage ? 5u : 3u ); ++frame )
+    {
+        REQUIRE( evidence->AppendBuildFrame( frame, 1u, 1u, {}, {}, static_cast<int>( frame ) ) );
+    }
+    REQUIRE( evidence->PromoteBuild() );
+    RunReplayPathVisualizerState path;
+    std::vector<uint8_t> bytes;
+    REQUIRE( ReplayPredictionArchiveOperations::BuildReplayPredictionArchive( path, *state, ReplayPredictionDetailMode::High,
+                                                                              evidence->Committed(), bytes ) );
+    const std::size_t evidenceOffset = static_cast<std::size_t>( ReadArchiveU64( bytes, 56u ) );
+    REQUIRE( bytes[4] == 7u );
+    CHECK( ReadArchiveU64( bytes, evidenceOffset ) == ( fullCoverage ? 5u : 3u ) );
+    const auto currentBytes = bytes;
+    if ( fullCoverage )
+    {
+        // Independent v6 fixture: its evidence section begins with event count,
+        // and has no coverage scalar. Descriptor and total sizes shrink by eight.
+        bytes.erase( bytes.begin() + evidenceOffset, bytes.begin() + evidenceOffset + 8u );
+        bytes[4] = 6u;
+        WriteArchiveU64( bytes, 16u, bytes.size() );
+        WriteArchiveU64( bytes, 64u, ReadArchiveU64( currentBytes, 64u ) - 8u );
+    }
+    auto restored = std::make_unique<RunReplayPredictionState>();
+    auto restoredEvidence = std::make_unique<ReplayPredictionSolverEvidenceBanks>();
+    ReplayPredictionArchiveDetailCapability capability = ReplayPredictionArchiveDetailCapability::Low;
+    char reason[256] = {};
+    INFO( reason );
+    REQUIRE( ReplayPredictionArchiveOperations::LoadReplayPredictionArchive( bytes, path, *restored, *restoredEvidence,
+                                                                             ReplayPredictionDetailMode::High, capability,
+                                                                             reason, sizeof( reason ) ) );
+    CHECK( capability == ReplayPredictionArchiveDetailCapability::High );
+    CHECK( restored->archiveEvidenceEndFrame == ( fullCoverage ? 5u : 3u ) );
+    REQUIRE( restored->futureNodeCache.futureNodes.size() == 2u );
+    CHECK( restored->futureNodeCache.futureNodes[1].firstFrame == 4u );
+    CHECK( restored->CommittedFrames().size() == 5u );
+    CHECK( restoredEvidence->Committed().PublishedFrameCount() == ( fullCoverage ? 3u : 2u ) );
+    std::vector<uint8_t> rebuilt;
+    REQUIRE( ReplayPredictionArchiveOperations::BuildReplayPredictionArchive( path, *restored,
+                                                                              ReplayPredictionDetailMode::High,
+                                                                              restoredEvidence->Committed(), rebuilt ) );
+    CHECK( rebuilt == currentBytes );
+
+    // Rejection must preserve both sparse evidence and its coverage identity.
+    for ( const uint64_t boundary : { 0u, 1u, 6u } )
+    {
+        auto invalid = currentBytes;
+        WriteArchiveU64( invalid, evidenceOffset, boundary );
+        CHECK_FALSE(
+            ReplayPredictionArchiveOperations::LoadReplayPredictionArchive( invalid, path, *restored, *restoredEvidence,
+                                                                            ReplayPredictionDetailMode::High, capability,
+                                                                            reason, sizeof( reason ) ) );
+        REQUIRE( ReplayPredictionArchiveOperations::BuildReplayPredictionArchive( path, *restored,
+                                                                                  ReplayPredictionDetailMode::High,
+                                                                                  restoredEvidence->Committed(), rebuilt ) );
+        CHECK( rebuilt == currentBytes );
+    }
+    for ( const bool missingTimelineFrame : { false, true } )
+    {
+        state->futureNodeCache.futureNodes[1].firstFrame = missingTimelineFrame ? 4u : 999u;
+        state->simulation.frames[4].frameIndex = missingTimelineFrame ? 5u : 4u;
+        std::vector<uint8_t> malformedLightweight;
+        REQUIRE(
+            ReplayPredictionArchiveOperations::BuildReplayPredictionArchive( path, *state, ReplayPredictionDetailMode::Low,
+                                                                             evidence->Committed(), malformedLightweight ) );
+        auto invalid = currentBytes;
+        REQUIRE( malformedLightweight.size() - 48u == evidenceOffset - 72u );
+        std::copy( malformedLightweight.begin() + 48u, malformedLightweight.end(), invalid.begin() + 72u );
+        CHECK_FALSE(
+            ReplayPredictionArchiveOperations::LoadReplayPredictionArchive( invalid, path, *restored, *restoredEvidence,
+                                                                            ReplayPredictionDetailMode::High, capability,
+                                                                            reason, sizeof( reason ) ) );
+        REQUIRE( ReplayPredictionArchiveOperations::BuildReplayPredictionArchive( path, *restored,
+                                                                                  ReplayPredictionDetailMode::High,
+                                                                                  restoredEvidence->Committed(), rebuilt ) );
+        CHECK( rebuilt == currentBytes );
+        CHECK_FALSE( ReplayPredictionArchiveOperations::BuildReplayPredictionArchive( path, *state,
+                                                                                      ReplayPredictionDetailMode::High,
+                                                                                      evidence->Committed(), rebuilt ) );
+    }
+}
