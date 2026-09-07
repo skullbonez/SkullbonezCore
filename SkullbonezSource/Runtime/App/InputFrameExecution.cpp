@@ -1292,6 +1292,7 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
         {
             automation.hasMouseClientPosition = true;
             automation.mouseClientPosition = { skarnessPointer.clientX, skarnessPointer.clientY };
+            automation.mouseWheelDelta = skarnessPointer.wheelDelta;
             automation.rawMouseDeltaX = skarnessPointer.rawMouseX;
             automation.rawMouseDeltaY = skarnessPointer.rawMouseY;
             automation.leftMouseDown = skarnessPointer.button == SkarnessPointerButton::Left && skarnessPointer.buttonDown;

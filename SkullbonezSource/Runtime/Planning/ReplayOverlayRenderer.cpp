@@ -116,74 +116,261 @@ static inline int ReplayCauseSelectedContactIndex( const ReplayCauseInspectionVi
     return 0;
 }
 
-static void RenderReplayCauseSummaryTab( const UI::UIDrawContext& draw, const ReplayCauseInspectionView& inspection,
-                                         const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
+// Invariant: every summary primitive stays within its visible content rectangle.
+// Why: current UI submission applies clip commands only to preview images, so
+// this scrollable surface must clip geometry and complete text rows itself.
+class CauseSummaryDrawing
 {
-    const int contactIndex = ReplayCauseSelectedContactIndex( inspection );
-    const Physics::PhysicsSolverPersistentContactSample& contact = inspection.SolverDetail()
-                                                                       .solverDetailContacts[contactIndex];
-    const ReplayCauseSummaryText summary = BuildReplayCauseSummaryText( inspection.SolverDetail(), contactIndex );
-    static constexpr const char* CARD_LABELS[] = { "NORMAL IMPULSE", "FRICTION |T|", "PENETRATION", "EFFECTIVE MASS" };
-    const char* cardValues[] = { summary.normalImpulse, summary.frictionImpulse, summary.penetration,
-                                 summary.effectiveMass };
-    const float gap = 8.0f;
-    const float cardW = ( layout.content.w - gap ) * 0.5f;
-    const float cardH = 56.0f;
-
-    for ( int cardIndex = 0; cardIndex < 4; ++cardIndex )
+  public:
+    CauseSummaryDrawing( const UI::UIDrawContext& draw, const UI::UIRect& clip ) : m_draw( draw ), m_clip( clip )
     {
-        const int column = cardIndex % 2;
-        const int row = cardIndex / 2;
-        const UI::UIRect card { layout.content.x + static_cast<float>( column ) * ( cardW + gap ),
-                                layout.content.y + static_cast<float>( row ) * ( cardH + gap ), cardW, cardH };
-        const UI::Style::UIColor& accent = cardIndex < 2 ? CAUSE_SOLVER : CAUSE_MANIFOLD;
-        draw.RoundedRect( card.x, card.y, card.w, card.h, 5.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
-        draw.Rect( card.x, card.y, 3.0f, card.h, accent.r, accent.g, accent.b, 0.9f );
-        draw.Text( card.x + 11.0f, card.y + 9.0f, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
-                   CARD_LABELS[cardIndex] );
-        draw.Text( card.x + 11.0f, card.y + 27.0f, 15.0f, accent.r, accent.g, accent.b, cardValues[cardIndex] );
     }
 
-    const float basisY = layout.content.y + 128.0f;
-    draw.Text( layout.content.x, basisY, 10.0f, CAUSE_PREDICTION.r, CAUSE_PREDICTION.g, CAUSE_PREDICTION.b,
-               "CONTACT BASIS COMPONENTS  [-1, +1]" );
-    const Math::Vector::Vector3 basis[] = { contact.normal, contact.tangent1, contact.tangent2 };
-    static constexpr const char* BASIS_LABELS[] = { "NORMAL", "TANGENT 1", "TANGENT 2" };
-
-    for ( int basisIndex = 0; basisIndex < 3; ++basisIndex )
+    CauseSummaryDrawing Clipped( const UI::UIRect& clip ) const
     {
-        const float rowY = basisY + 20.0f + static_cast<float>( basisIndex ) * 34.0f;
-        const float components[] = { basis[basisIndex].x, basis[basisIndex].y, basis[basisIndex].z };
-        draw.Text( layout.content.x, rowY + 5.0f, 9.5f, palette.textSecondary.r, palette.textSecondary.g,
-                   palette.textSecondary.b, BASIS_LABELS[basisIndex] );
+        return { m_draw, UI::IntersectRect( m_clip, clip ) };
+    }
 
-        for ( int componentIndex = 0; componentIndex < 3; ++componentIndex )
+    void Rect( float x, float y, float width, float height, float r, float g, float b, float alpha ) const
+    {
+        const auto visible = UI::IntersectRect( m_clip, { x, y, width, height } );
+        if ( visible.w > 0.0f && visible.h > 0.0f )
         {
-            const float componentX = layout.content.x + 80.0f + static_cast<float>( componentIndex ) * 118.0f;
-            const float centerX = componentX + 48.0f;
-            const float value = std::clamp( components[componentIndex], -1.0f, 1.0f );
-            draw.Rect( componentX, rowY, 96.0f, 18.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
-            draw.Rect( centerX, rowY + 2.0f, 1.0f, 14.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.45f );
-            draw.Rect( value < 0.0f ? centerX + value * 42.0f : centerX, rowY + 5.0f, std::abs( value ) * 42.0f, 8.0f,
-                       CAUSE_PREDICTION.r, CAUSE_PREDICTION.g, CAUSE_PREDICTION.b, 0.88f );
-            char component[32] = {};
-            sprintf_s( component, sizeof( component ), "%c %.3f", "XYZ"[componentIndex], components[componentIndex] );
-            draw.Text( componentX + 5.0f, rowY + 4.0f, 8.5f, palette.textPrimary.r, palette.textPrimary.g,
-                       palette.textPrimary.b, component );
+            m_draw.Rect( visible.x, visible.y, visible.w, visible.h, r, g, b, alpha );
         }
     }
 
-    const float dynamicsY = basisY + 128.0f;
-    draw.RoundedRect( layout.content.x, dynamicsY, layout.content.w, 86.0f, 5.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g,
-                      CAUSE_NAVY_ALT.b, 1.0f );
-    draw.Text( layout.content.x + 10.0f, dynamicsY + 10.0f, 10.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g, CAUSE_MANIFOLD.b,
-               "ROW DYNAMICS" );
-    draw.Text( layout.content.x + 10.0f, dynamicsY + 28.0f, 9.5f, palette.textPrimary.r, palette.textPrimary.g,
-               palette.textPrimary.b, summary.identity );
-    draw.Text( layout.content.x + 10.0f, dynamicsY + 46.0f, 9.0f, palette.textSecondary.r, palette.textSecondary.g,
-               palette.textSecondary.b, summary.dynamics );
-    draw.Text( layout.content.x + 10.0f, dynamicsY + 64.0f, 9.0f, palette.textMuted.r, palette.textMuted.g,
-               palette.textMuted.b, summary.policy );
+    void RoundedRect( float x, float y, float width, float height, float radius, float r, float g, float b,
+                      float alpha ) const
+    {
+        const auto visible = UI::IntersectRect( m_clip, { x, y, width, height } );
+        if ( visible.w > 1.0f && visible.h > 1.0f )
+        {
+            m_draw.RoundedRect( visible.x, visible.y, visible.w, visible.h, radius, r, g, b, alpha );
+        }
+    }
+
+    void Text( float x, float y, float size, float r, float g, float b, const char* text ) const
+    {
+        if ( x < m_clip.x || x >= m_clip.x + m_clip.w || y < m_clip.y || y + size > m_clip.y + m_clip.h )
+        {
+            return;
+        }
+        char fitted[256] = {};
+        strncpy_s( fitted, text, _TRUNCATE );
+        const float width = m_clip.x + m_clip.w - x;
+        if ( UI::UIFontMetrics::MeasureText( size, fitted ) > width )
+        {
+            std::size_t length = std::strlen( fitted );
+            while ( length > 0 &&
+                    UI::UIFontMetrics::MeasureText( size, fitted ) + UI::UIFontMetrics::MeasureText( size, "..." ) > width )
+            {
+                fitted[--length] = 0;
+            }
+            if ( length == 0 )
+            {
+                return;
+            }
+            strcat_s( fitted, "..." );
+        }
+        m_draw.Text( x, y, size, r, g, b, fitted );
+    }
+
+  private:
+    const UI::UIDrawContext& m_draw;
+    UI::UIRect m_clip;
+};
+
+static void RenderCauseObjectCard( UI::UIDrawList& drawList, const CauseSummaryDrawing& draw,
+                                   const ReplayCauseObjectDetails& object, const UI::UIRect& card, int ordinal,
+                                   const UI::Style::UIPalette& palette )
+{
+    draw.RoundedRect( card.x, card.y, card.w, card.h, 6.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b, 1.0f );
+    drawList.PushClip( { card.x + 10.0f, card.y, card.w - 20.0f, card.h } );
+    const auto cardDraw = draw.Clipped( { card.x + 10.0f, card.y, card.w - 20.0f, card.h } );
+    char text[128] = {};
+    sprintf_s( text, "Object %d%s", ordinal, object.fixed ? "  /  Fixed" : "" );
+    cardDraw.Text( card.x + 12.0f, card.y + 10.0f, 11.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g, CAUSE_MANIFOLD.b, text );
+    cardDraw.Text( card.x + 12.0f, card.y + 30.0f, 13.0f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, object.name[0] ? object.name : "Object unavailable" );
+    if ( object.available )
+    {
+        sprintf_s( text, "Mass  %.5g", object.mass );
+    }
+    else
+    {
+        strcpy_s( text, object.terrain ? "Mass  N/A (terrain)" : "Mass  unavailable" );
+    }
+    cardDraw.Text( card.x + 12.0f, card.y + 55.0f, 17.0f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, text );
+    cardDraw.Text( card.x + 12.0f, card.y + 83.0f, 10.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
+                   "Dimensions X / Y / Z  (u)" );
+    if ( object.dimensionsAvailable )
+    {
+        sprintf_s( text, "%.5g / %.5g / %.5g", object.dimensions.x, object.dimensions.y, object.dimensions.z );
+    }
+    else
+    {
+        strcpy_s( text, object.terrain ? "N/A (terrain surface)" : "Unavailable" );
+    }
+    cardDraw.Text( card.x + 12.0f, card.y + 102.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, text );
+    drawList.PopClip();
+}
+
+static void RenderCauseValueRow( const CauseSummaryDrawing& draw, const UI::UIRect& row, const char* label,
+                                 const char* value, const UI::Style::UIPalette& palette )
+{
+    draw.Text( row.x + 8.0f, row.y + 7.0f, 11.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+               label );
+    draw.Text( row.x + row.w * 0.48f, row.y + 7.0f, 11.0f, palette.textPrimary.r, palette.textPrimary.g,
+               palette.textPrimary.b, value );
+    draw.Rect( row.x, row.y + row.h - 1.0f, row.w, 1.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.18f );
+}
+
+static void RenderCauseGeometry( const CauseSummaryDrawing& draw, const ReplayCauseSolverDetailView& detail,
+                                 int contactIndex, const UI::UIRect& header, const UI::Style::UIPalette& palette )
+{
+    const auto& contact = detail.solverDetailContacts[contactIndex];
+    const Math::Vector::Vector3 point = static_cast<std::size_t>( contactIndex ) < detail.contactPresentation.pointCount
+                                            ? detail.contactPresentation.points[contactIndex].point
+                                            : Math::Vector::ZERO_VECTOR;
+    const Math::Vector::Vector3 vectors[] = { contact.normal, contact.tangent1, contact.tangent2,
+                                              point,          contact.rA,       contact.rB };
+    const char* labels[] = { "Normal", "Tangent 1", "Tangent 2", "Point (u)", "Arm 1 (u)", "Arm 2 (u)" };
+    const float columnWidth = header.w * 0.21f;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        char label[] = { "XYZ"[axis], 0 };
+        draw.Text( header.x + header.w * 0.39f + axis * columnWidth, header.y + 39.0f, 10.0f, palette.textMuted.r,
+                   palette.textMuted.g, palette.textMuted.b, label );
+    }
+    for ( int row = 0; row < 6; ++row )
+    {
+        const float y = header.y + 62.0f + row * 25.0f;
+        draw.Text( header.x + 8.0f, y, 11.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
+                   labels[row] );
+        const float components[] = { vectors[row].x, vectors[row].y, vectors[row].z };
+        for ( int axis = 0; axis < 3; ++axis )
+        {
+            char value[32] = {};
+            sprintf_s( value, "%.4g", components[axis] );
+            draw.Text( header.x + header.w * 0.35f + axis * columnWidth, y, 11.0f, palette.textPrimary.r,
+                       palette.textPrimary.g, palette.textPrimary.b, value );
+        }
+        draw.Rect( header.x, y + 20.0f, header.w, 1.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.18f );
+    }
+}
+
+static void RenderCauseCoefficients( const CauseSummaryDrawing& draw,
+                                     const Physics::PhysicsSolverPersistentContactSample& contact, const UI::UIRect& header,
+                                     const UI::Style::UIPalette& palette )
+{
+    const char* labels[] = { "Normal mass", "Tangent mass 1", "Tangent mass 2", "Bias velocity", "Friction limit" };
+    const float values[] = { contact.normalMass, contact.tangentMass1, contact.tangentMass2, contact.bias,
+                             contact.frictionLimit };
+    for ( int row = 0; row < 5; ++row )
+    {
+        char value[64] = {};
+        sprintf_s( value, "%.6g %s", values[row], row < 3 ? "mass" : row == 3 ? "u/s" : "mass*u/s" );
+        RenderCauseValueRow( draw, { header.x, header.y + 34.0f + row * 27.0f, header.w, 27.0f }, labels[row], value,
+                             palette );
+    }
+}
+
+static void RenderReplayCauseSummaryTab( UI::UIDrawList& drawList, const UI::UIDrawContext& uiDraw,
+                                         const ReplayCauseInspectionView& inspection,
+                                         const ReplayCauseInspectorLayout& layout, const UI::Style::UIPalette& palette )
+{
+    const CauseSummaryDrawing draw( uiDraw, UI::IntersectRect( layout.content, layout.visibleDrawer ) );
+    const int contactIndex = ReplayCauseSelectedContactIndex( inspection );
+    const auto& contact = inspection.SolverDetail().solverDetailContacts[contactIndex];
+    drawList.PushClip( layout.content );
+    const float x = layout.content.x;
+    const float y = layout.content.y - inspection.Display().summaryScrollOffset;
+    const float width = layout.content.w - 10.0f;
+    const float objectWidth = ( width - 10.0f ) * 0.5f;
+    for ( int index = 0; index < 2; ++index )
+    {
+        const int bodyRow = index == 0 ? contact.bodyA : contact.bodyB;
+        ReplayCauseObjectDetails object;
+        for ( const auto& candidate : inspection.SolverDetail().objects )
+        {
+            if ( candidate.bodyRow == bodyRow )
+            {
+                object = candidate;
+            }
+        }
+        RenderCauseObjectCard( drawList, draw, object, { x + index * ( objectWidth + 10.0f ), y, objectWidth, 130.0f },
+                               index + 1, palette );
+    }
+    const char* labels[] = { "Normal impulse", "Friction impulse", "Penetration" };
+    const float values[] = { contact.accN, std::sqrt( contact.accT1 * contact.accT1 + contact.accT2 * contact.accT2 ),
+                             contact.penetration };
+    const float cardWidth = ( width - 16.0f ) / 3.0f;
+    for ( int index = 0; index < 3; ++index )
+    {
+        const float cardX = x + index * ( cardWidth + 8.0f );
+        draw.RoundedRect( cardX, y + 142.0f, cardWidth, 76.0f, 5.0f, CAUSE_NAVY_ALT.r, CAUSE_NAVY_ALT.g, CAUSE_NAVY_ALT.b,
+                          1.0f );
+        draw.Text( cardX + 10.0f, y + 152.0f, 10.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
+                   labels[index] );
+        char value[32] = {};
+        sprintf_s( value, "%.5g", values[index] );
+        draw.Text( cardX + 10.0f, y + 173.0f, 21.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
+                   value );
+        draw.Text( cardX + 10.0f, y + 199.0f, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
+                   index == 2 ? "u" : "mass*u/s" );
+    }
+    char policy[128] = {};
+    sprintf_s( policy, "Warm start: %s    Friction: %s    Sleep: %s", contact.warmStarted ? "yes" : "no",
+               contact.allowsTangentFriction ? "enabled" : "disabled", contact.inhibitsSleep ? "inhibited" : "allowed" );
+    draw.Text( x, y + 232.0f, 10.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, policy );
+    const char* sections[] = { "Contact geometry", "Solver coefficients", "Identity & exact values" };
+    for ( int section = 0; section < 3; ++section )
+    {
+        const UI::UIRect header = ReplayCauseSummarySectionRect( layout, inspection.Display(), section );
+        const bool expanded = inspection.Display().summaryExpandedSection == section;
+        draw.Rect( header.x, header.y, header.w, 1.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.3f );
+        draw.Text( header.x + 4.0f, header.y + 11.0f, 12.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g, CAUSE_MANIFOLD.b,
+                   expanded ? "v" : ">" );
+        draw.Text( header.x + 22.0f, header.y + 11.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, sections[section] );
+        if ( !expanded )
+        {
+            continue;
+        }
+        if ( section == 0 )
+        {
+            RenderCauseGeometry( draw, inspection.SolverDetail(), contactIndex, header, palette );
+        }
+        else if ( section == 1 )
+        {
+            RenderCauseCoefficients( draw, contact, header, palette );
+        }
+        else
+        {
+            char value[64] = {};
+            sprintf_s( value, "%u", contact.featureId );
+            RenderCauseValueRow( draw, { header.x, header.y + 34.0f, header.w, 27.0f }, "Feature ID", value, palette );
+            sprintf_s( value, "%d / %d", contact.bodyA, contact.bodyB );
+            RenderCauseValueRow( draw, { header.x, header.y + 61.0f, header.w, 27.0f }, "Body rows", value, palette );
+            sprintf_s( value, "%llu", static_cast<unsigned long long>( contact.key ) );
+            RenderCauseValueRow( draw, { header.x, header.y + 88.0f, header.w, 27.0f }, "Persistent key", value, palette );
+            draw.Text( header.x + 8.0f, header.y + 122.0f, 10.0f, palette.textMuted.r, palette.textMuted.g,
+                       palette.textMuted.b, "Full precision and Copy Record in Raw Record" );
+        }
+    }
+    drawList.PopClip();
+    const int maxScroll = ReplayCauseSummaryMaxScroll( layout, inspection.Display() );
+    if ( maxScroll > 0 )
+    {
+        const float thumbHeight = layout.content.h * layout.content.h / ( layout.content.h + maxScroll );
+        const float thumbY = layout.content.y +
+                             ( layout.content.h - thumbHeight ) * inspection.Display().summaryScrollOffset / maxScroll;
+        draw.RoundedRect( layout.drawerScrollbar.x, thumbY, 4.0f, thumbHeight, 2.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g,
+                          CAUSE_MANIFOLD.b, 0.8f );
+    }
 }
 
 static void RenderReplayCauseRawRecordTab( UI::UIDrawList& drawList, const UI::UIDrawContext& draw,
@@ -428,6 +615,22 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
     draw.Text( layout.drawer.x + 12.0f, layout.drawer.y + 55.0f, 9.0f, palette.textMuted.r, palette.textMuted.g,
                palette.textMuted.b, "SIGNS  +penetration=overlap  normal A->B  CLAMP=friction limit" );
 
+    const CauseSummaryDrawing footerDraw( draw, layout.visibleDrawer );
+    for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
+    {
+        const UI::UIRect& toggle = layout.outlineToggles[index];
+        const bool visible = index == 0 ? inspection.Display().blueOutlinesVisible
+                                        : inspection.Display().greyOutlinesVisible;
+        footerDraw.Rect( toggle.x, toggle.y + 3.0f, 16.0f, 16.0f, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 1.0f );
+        footerDraw.Rect( toggle.x + 2.0f, toggle.y + 5.0f, 12.0f, 12.0f, CAUSE_NAVY.r, CAUSE_NAVY.g, CAUSE_NAVY.b, 1.0f );
+        if ( visible )
+        {
+            footerDraw.Rect( toggle.x + 4.0f, toggle.y + 7.0f, 8.0f, 8.0f, 0.26f, 0.78f, 0.95f, 1.0f );
+        }
+        footerDraw.Text( toggle.x + 25.0f, toggle.y + 4.0f, 11.0f, palette.textPrimary.r, palette.textPrimary.g,
+                         palette.textPrimary.b, index == 0 ? "Blue prediction outlines" : "Grey resting outlines" );
+    }
+
     if ( inspection.SolverDetail().solverDetailAvailability != ReplayCauseSolverDetailAvailability::Available ||
          inspection.SolverDetail().solverDetailContacts.empty() )
     {
@@ -442,7 +645,7 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
     switch ( inspection.Display().activeTab )
     {
     case ReplayCauseInspectorTab::Summary:
-        RenderReplayCauseSummaryTab( draw, inspection, layout, palette );
+        RenderReplayCauseSummaryTab( drawList, draw, inspection, layout, palette );
         break;
     case ReplayCauseInspectorTab::RawRecord:
         RenderReplayCauseRawRecordTab( drawList, draw, inspection, layout, palette );
@@ -1060,7 +1263,7 @@ static void DrawReplayContactFlash( UI::UIDrawList& drawList, const ReplayOverla
     {
         const float angle = static_cast<float>( side ) * 6.28318530718f / sides;
         const UI::UIPoint next { center.x + 11.0f * std::cos( angle ), center.y + 11.0f * std::sin( angle ) };
-        DrawReplayGateStroke( drawList, previous, next, { 1.0f, 1.0f, 1.0f, flash }, 3.0f );
+        DrawReplayGateStroke( drawList, previous, next, { 1.0f, 0.08f, 0.08f, flash }, 3.0f );
         previous = next;
     }
 }

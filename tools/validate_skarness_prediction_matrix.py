@@ -233,8 +233,12 @@ def validate_live_cause(states: list[dict[str, object]], selected_target_id: int
         failures.append("live demo produced no selected prediction state")
     if not building:
         failures.append("live demo never exposed an in-flight prediction generation")
-    if any(int(payload.get("causeTreeRowCount", 0)) == 0 or not bool(payload.get("causeWindowAvailable"))
-           for payload in live):
+    # Partial predictions intentionally show a loading panel without selectable rows.
+    # A ready prediction, a missing panel, or a loading panel for another target still fails.
+    if any(not bool(payload.get("causeWindowAvailable")) or
+           (int(payload.get("causeTreeRowCount", 0)) == 0 and not
+            (payload.get("causeLoading") and not payload.get("predictionComplete") and
+             int(payload.get("causeLoadingTargetId", 0)) == selected_target_id)) for payload in live):
         failures.append("cause hierarchy vanished while live prediction continued presenting future frames")
     if not any(bool(payload.get("visualPacketHasGeometry")) for payload in live):
         failures.append("live demo presented no future geometry")
@@ -505,6 +509,15 @@ def run_self_test() -> int:
     broken_live_states[0]["payload"]["causeWindowAvailable"] = False
     if not validate_live_cause(broken_live_states, 7):
         return 1
+
+    loading_live = [{"payload": dict(valid_live_states[0]["payload"], causeTreeRowCount=0,
+                                     causeLoading=True, causeLoadingTargetId=7)}]
+    if validate_live_cause(loading_live, 7):
+        return 1
+    for changes in ({"causeLoadingTargetId": 8}, {"predictionComplete": True}, {"causeWindowAvailable": False}):
+        invalid_loading = [{"payload": dict(loading_live[0]["payload"], **changes)}]
+        if not validate_live_cause(invalid_loading, 7):
+            return 1
 
     stable_before = {"payload": {"causeTreeRowBuildCount": 4, "causeTreeRowCacheHitCount": 10,
                                   "causeTreeRowCount": 12, "futureNodeCount": 3}}

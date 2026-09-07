@@ -1116,6 +1116,24 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         return;
     }
 
+    if ( commandName == "input.pointer_wheel" )
+    {
+        PendingPointerDrag pointer;
+        if ( m_manualInput || !m_pendingPointerDrag.requestId.empty() || !ReadInteger( arguments, "x", pointer.clientX ) ||
+             !ReadInteger( arguments, "y", pointer.clientY ) ||
+             !ReadInteger( arguments, "wheelDelta", pointer.wheelDelta ) || pointer.clientX < 0 || pointer.clientX > 65535 ||
+             pointer.clientY < 0 || pointer.clientY > 65535 || pointer.wheelDelta < -12000 || pointer.wheelDelta > 12000 )
+        {
+            SendLifecycle( requestId, "rejected", "wheel arguments invalid or pointer unavailable" );
+            return;
+        }
+        pointer.requestId = requestId;
+        pointer.phase = 2;
+        m_pendingPointerDrag = std::move( pointer );
+        SendLifecycle( requestId, "accepted" );
+        return;
+    }
+
     if ( commandName == "input.pointer_drag" )
     {
         if ( m_manualInput )
@@ -1373,6 +1391,7 @@ bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
     outFrame.clientX = m_pendingPointerDrag.clientX;
     outFrame.clientY = m_pendingPointerDrag.clientY;
     outFrame.button = m_pendingPointerDrag.button;
+    outFrame.wheelDelta = m_pendingPointerDrag.wheelDelta;
     if ( m_pendingPointerDrag.moveClient && m_pendingPointerDrag.phase > 0 )
     {
         outFrame.clientX += m_pendingPointerDrag.deltaX;

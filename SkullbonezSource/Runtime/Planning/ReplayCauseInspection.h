@@ -186,6 +186,21 @@ struct ReplayCauseSelectionView
     int sourceContactIndex = -1;
 };
 
+struct ReplayCauseObjectDetails
+{
+    // Invariant: the stable ID resolves the selected contact's body row before
+    // App copies these display facts. No live body or collider is retained.
+    Physics::PhysicsSceneObjectId id;
+    int bodyRow = -1;
+    char name[64] = {};
+    Math::Vector::Vector3 dimensions = Math::Vector::ZERO_VECTOR;
+    float mass = 0.0f;
+    bool available = false;
+    bool dimensionsAvailable = false;
+    bool fixed = false;
+    bool terrain = false;
+};
+
 struct ReplayCauseSolverDetailView
 {
     ReplayCauseSolverDetailAvailability
@@ -196,6 +211,7 @@ struct ReplayCauseSolverDetailView
     std::span<const Physics::PhysicsPipelineRecord> solverDetailPipelineRecords;
     const char* solverDetailFeedback = "Solver detail not available";
     Rendering::ContactManifoldPresentation contactPresentation;
+    std::array<ReplayCauseObjectDetails, 2> objects;
 };
 
 struct ReplayCauseDisplayView
@@ -205,6 +221,10 @@ struct ReplayCauseDisplayView
     int solverDetailFirstRow = 0;
     int rawRecordFirstRow = 0;
     int iterationsFirstRow = 0;
+    int summaryExpandedSection = -1;
+    int summaryScrollOffset = 0;
+    bool blueOutlinesVisible = true;
+    bool greyOutlinesVisible = true;
     ReplayCauseInspectorTab activeTab = ReplayCauseInspectorTab::Summary;
     bool detailVisible = false;
     bool drawerOpen = false;
@@ -315,7 +335,7 @@ inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT = 82.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT = 12.0f;
 inline constexpr float REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT = 21.0f;
 inline constexpr float REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT = 28.0f;
-inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_OPACITY = 0.78f;
+inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_OPACITY = 0.97f;
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE = 4;
 inline constexpr const char*
     REPLAY_CAUSE_SOLVER_PANEL_UNITS = "UNITS: vectors/penetration/correction = scene units; bias/linear writeback = u/s;";
@@ -361,7 +381,7 @@ struct ReplayCauseRawRecordRow
     char unit[24] = {};
 };
 
-inline constexpr std::size_t REPLAY_CAUSE_RAW_RECORD_ROW_CAPACITY = 48u;
+inline constexpr std::size_t REPLAY_CAUSE_RAW_RECORD_ROW_CAPACITY = 64u;
 
 struct ReplayCauseRawRecordProjection
 {
@@ -431,6 +451,7 @@ struct ReplayCauseInspectorLayout
     UI::UIRect drawerToggle;
     std::array<UI::UIRect, 3> tabs;
     UI::UIRect content;
+    std::array<UI::UIRect, 2> outlineToggles;
     UI::UIRect rawTable;
     UI::UIRect rawCopy;
     UI::UIRect iterationsTable;
@@ -444,6 +465,11 @@ struct ReplayCauseInspectorLayout
     int rawVisibleRows = 0;
     int iterationsVisibleRows = 0;
 };
+
+// Drawing and pointer routing share the same accordion geometry and scroll cap.
+UI::UIRect ReplayCauseSummarySectionRect( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display,
+                                          int section ) noexcept;
+int ReplayCauseSummaryMaxScroll( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display ) noexcept;
 
 // Concept: one projection describes both retained Replay placement and the
 // Planning-owned attached drawer. `drawerProgress` is already eased; CHUI3's
@@ -490,7 +516,8 @@ class ReplayCauseInspection
                                     double nowSeconds ) noexcept;
     bool TakeTransportRequest( ReplayCauseTransportRequest& outRequest ) noexcept;
     void PublishSolverDetail( uint64_t generation, const ReplayCauseSolverDetailResult& detail,
-                              const Rendering::ContactManifoldPresentation& contactPresentation = {} ) noexcept;
+                              const Rendering::ContactManifoldPresentation& contactPresentation = {},
+                              const std::array<ReplayCauseObjectDetails, 2>& objects = {} ) noexcept;
     void CompleteTransport( uint64_t generation, bool succeeded ) noexcept;
     bool BeginAftermath( bool& outReleasePause ) noexcept;
     ReplayCauseExitAction BeginReturn() noexcept;
@@ -524,6 +551,7 @@ class ReplayCauseInspection
     double m_startedAtSeconds = 0.0;
     double m_lastAdvanceSeconds = 0.0;
     double m_playbackSeconds = 0.0;
+    double m_playbackHoldAfterSeconds = 0.0;
     int m_playbackDirection = 0;
     double m_contactFlashStartedAtSeconds = -1.0;
     double m_drawerStartedAtSeconds = 0.0;

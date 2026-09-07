@@ -311,6 +311,8 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability { "input.pointer_wheel", "Input", "{x:int,y:int,wheelDelta:int}",
+                         SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.pointer_drag", "Input",
                          "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int,moveClient?:bool}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
@@ -335,6 +337,7 @@ struct SkarnessPointerInputFrame
 {
     int clientX = 0;
     int clientY = 0;
+    int wheelDelta = 0;
     long rawMouseX = 0;
     long rawMouseY = 0;
     SkarnessPointerButton button = SkarnessPointerButton::Right;

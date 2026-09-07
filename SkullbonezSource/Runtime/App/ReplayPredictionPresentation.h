@@ -137,7 +137,8 @@ class ReplayPredictionPresentation
     bool PrepareRetainedGeometryDrawList( const ReplayPredictionPresentationView& prediction,
                                           const RunReplayPathVisualizerState& path, const SceneEntityStore& entities,
                                           const Physics::ColliderStore& colliderStore, EditorTracer& frameTracer,
-                                          const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance );
+                                          const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance,
+                                          bool blueOutlinesVisible = true, bool greyOutlinesVisible = true );
     void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet, const Math::Vector::Vector3& cameraEye,
                                            const Math::Vector::Vector3& cameraUp );
     void PublishVisualPacket( ReplayVisualPacket packet, const ReplayPredictionPresentationView& prediction,

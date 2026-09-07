@@ -64,6 +64,8 @@ class EditorTracer
     ReplayRibbonStyle m_replayMarkerStyle = { 1.5f, 1.0f, 1.0f, 0.0f };
     float m_replaySelectedEmphasis = 0.45f;
     bool m_replayTrajectoryAppearanceInitialized = false;
+    bool m_blueOutlinesVisible = true;
+    bool m_greyOutlinesVisible = true;
 
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     std::vector<float> m_lineData;
@@ -115,6 +117,7 @@ class EditorTracer
   public:
     explicit EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
 
+    bool SetPredictionOutlineVisibility( bool blueVisible, bool greyVisible ) noexcept;
     bool SetReplayTrajectoryAppearance( const SkullbonezCore::Core::ReplayTrajectoryAppearanceConfig& appearance );
     void Clear();
     void ClearReplayTrajectoryStats();

@@ -32,7 +32,11 @@ EXPECTED_COMMANDS = {
     "replay.set_porkchop_visible", "replay.select_porkchop_cell", "replay.set_trip_time_of_flight",
     "replay.trip_plan", "replay.trip_commit", "replay.trip_cancel", "prediction.forecast_start",
     "prediction.forecast_reset", "prediction.forecast_stop", "prediction.select_target", "replay.set_path_target",
-    "camera.orbit_inspection", "state.subscribe", "input.pointer_drag", "input.set_arrows",
+    "camera.orbit_inspection", "state.subscribe", "input.pointer_drag", "input.pointer_wheel", "input.set_arrows", "input.set_movement",
+    "comparison.setting", "comparison.step", "comparison.mode", "comparison.state", "comparison.seek",
+    "comparison.select", "comparison.camera", "comparison.event", "comparison.focus", "comparison.finding.load",
+    "comparison.loop", "comparison.next_difference", "comparison.finding.save", "comparison.close",
+    "comparison.play", "comparison.load",
 }
 EXPECTED_OPERATOR_REPLAY_CONTROLS = {
     "SetRecordingEnabled", "JumpToStart", "JumpToEnd", "TogglePlayPause", "StepBackward", "StepForward",

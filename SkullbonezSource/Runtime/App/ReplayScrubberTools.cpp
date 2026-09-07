@@ -59,6 +59,109 @@ using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using SkullbonezCore::Geometry::XZBounds;
 
+namespace
+{
+Vector3 CauseObjectDimensions( const SkullbonezCore::Physics::ColliderRecord& collider )
+{
+    using namespace SkullbonezCore::Math::CollisionDetection;
+    return VisitCollisionShape( collider.shape,
+                                []( const auto& shape ) -> Vector3
+                                {
+                                    if constexpr ( requires { shape.GetHalfExtents(); } )
+                                    {
+                                        return shape.GetHalfExtents() * 2.0f;
+                                    }
+                                    else if constexpr ( requires { shape.GetRadius(); } )
+                                    {
+                                        const float diameter = shape.GetRadius() * 2.0f;
+                                        return { diameter, diameter, diameter };
+                                    }
+                                    else
+                                    {
+                                        if ( shape.GetVertexCount() == 0 )
+                                        {
+                                            return {};
+                                        }
+                                        Vector3 minimum = shape.GetVertex( 0 );
+                                        Vector3 maximum = minimum;
+                                        for ( uint16_t index = 1; index < shape.GetVertexCount(); ++index )
+                                        {
+                                            const Vector3 vertex = shape.GetVertex( index );
+                                            minimum = { (std::min)( minimum.x, vertex.x ), (std::min)( minimum.y, vertex.y ),
+                                                        (std::min)( minimum.z, vertex.z ) };
+                                            maximum = { (std::max)( maximum.x, vertex.x ), (std::max)( maximum.y, vertex.y ),
+                                                        (std::max)( maximum.z, vertex.z ) };
+                                        }
+                                        return maximum - minimum;
+                                    }
+                                } );
+}
+
+template <typename Frame>
+std::array<ReplayCauseObjectDetails, 2> BuildCauseObjectDetails( const ReplayCauseSolverDetailResult& detail,
+                                                                 const Frame& frame, const SceneWorld& world )
+{
+    std::array<ReplayCauseObjectDetails, 2> objects;
+    if ( !detail.HasDetail() || detail.frame != frame.frameIndex )
+    {
+        return objects;
+    }
+    for ( int index = 0; index < 2; ++index )
+    {
+        auto& object = objects[index];
+        object.bodyRow = index == 0 ? detail.bodyA : detail.bodyB;
+        if ( index == 1 && detail.terrain )
+        {
+            object.terrain = true;
+            object.fixed = true;
+            strcpy_s( object.name, "Terrain" );
+            continue;
+        }
+        const auto body = std::find_if( frame.bodies.begin(), frame.bodies.end(), [&]( const auto& candidate )
+                                        { return candidate.modelRow.value == object.bodyRow; } );
+        if ( body == frame.bodies.end() )
+        {
+            continue;
+        }
+        object.id = body->id;
+        if constexpr ( requires {
+                           body->mass;
+                           body->name;
+                       } )
+        {
+            object.mass = body->mass;
+            object.fixed = body->fixed;
+            strcpy_s( object.name, body->name );
+            object.available = true;
+        }
+        else
+        {
+            const auto* record = world.BodyStore().RecordForHandle( world.BodyStore().HandleForSceneObjectId( body->id ) );
+            const auto* entity = world.Entities().TryGet( world.Entities().FindBySceneObjectId( body->id ) );
+            if ( record && entity )
+            {
+                object.mass = record->mass;
+                object
+                    .fixed = world.BodyStore().HotFields().fixed[world.BodyStore().ModelIndexForHandle( record->handle )] !=
+                             0u;
+                strcpy_s( object.name, entity->displayName );
+                object.available = true;
+            }
+        }
+        // Units: full local collider extents in scene units, including authored
+        // scale. Stable identity prevents a recycled dense row supplying shape
+        // facts from another object. Hulls use their local vertex bounds.
+        const auto* collider = world.Colliders().RecordForHandle( world.Colliders().HandleForSceneObjectId( body->id ) );
+        if ( collider )
+        {
+            object.dimensions = CauseObjectDimensions( *collider );
+            object.dimensionsAvailable = true;
+        }
+    }
+    return objects;
+}
+} // namespace
+
 bool ReplayScrubber::BuildRestoreRequest( const ReplayScrubberRestoreSources& sources, double now,
                                           ReplayLiveRestoreRequest& outRequest, char* outReason, std::size_t reasonSize )
 {
@@ -634,7 +737,8 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
         const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
         m_planningOwner.CauseInspection().PublishSolverDetail( inspection.Transport().generation, detail,
                                                                BuildReplayCauseContactPresentation( detail,
-                                                                                                    *presentedSolver ) );
+                                                                                                    *presentedSolver ),
+                                                               BuildCauseObjectDetails( detail, *presentedSolver, world ) );
     }
     else if ( seek.source == ReplayCauseSeekSource::Prediction )
     {
@@ -650,9 +754,17 @@ void ReplayRuntime::ApplyCauseTreeSelection( int requestedRow, const ReplayWorks
                                                                                                            *exactFrame )
                                                                     : Rendering::ContactManifoldPresentation {};
         const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
-        m_planningOwner.CauseInspection().PublishSolverDetail( inspection.Transport().generation, detail, manifold );
+        m_planningOwner.CauseInspection().PublishSolverDetail( inspection.Transport().generation, detail, manifold,
+                                                               exactFrame != predictionFrames.end()
+                                                                   ? BuildCauseObjectDetails( detail, *exactFrame, world )
+                                                                   : std::array<ReplayCauseObjectDetails, 2> {} );
     }
 
+    const auto contactPatch = m_planningOwner.CauseInspectionView().SolverDetail().contactPresentation;
+    if ( contactPatch.HasGeometry() )
+    {
+        targetPosition = contactPatch.Center();
+    }
     AttachedCameraPose preparedPose;
     const AttachedCameraFocusRequest focusRequest { selectedRow.id, selectedRow.modelRow, targetPosition, targetRadius };
 
@@ -693,12 +805,19 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
 
     if ( ReplayCauseInspectionAcceptsOrbit( view.Transport().mode ) )
     {
+        // The selected patch remains the pivot for both recorded and predicted
+        // inspection, including when recorded evidence arrives after transport.
+        if ( view.SolverDetail().contactPresentation.HasGeometry() )
+        {
+            attachedCamera.SetFocusedInspectionPosition( attachedCamera.State().target.sceneObjectId,
+                                                         view.SolverDetail().contactPresentation.Center() );
+        }
         if ( const RunReplayPredictionFrame* frame = CurrentPredictionScrubFrame() )
         {
             const auto body = std::find_if( frame->bodies.begin(), frame->bodies.end(), [&]( const auto& sample )
                                             { return sample.id == attachedCamera.State().target.sceneObjectId; } );
 
-            if ( body != frame->bodies.end() )
+            if ( !view.SolverDetail().contactPresentation.HasGeometry() && body != frame->bodies.end() )
             {
                 attachedCamera.SetFocusedInspectionPosition( body->id, body->position );
             }
@@ -762,7 +881,8 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
             const ReplayCauseSolverDetailResult detail = EvaluateReplayCauseSolverDetail( selectedRow, detailSeek,
                                                                                           detailSource );
             transition.PublishSolverDetail( transport.generation, detail,
-                                            BuildReplayCauseContactPresentation( detail, *sources.solverSample ) );
+                                            BuildReplayCauseContactPresentation( detail, *sources.solverSample ),
+                                            BuildCauseObjectDetails( detail, *sources.solverSample, world ) );
         }
 
         (void)m_scrubberOwner.BuildRestoreRequest( sources, input.now, output.restoreRequest );
@@ -811,8 +931,8 @@ void ReplayRuntime::ApplyCauseInspectionTransition( const ReplayWorkspaceFrameIn
                                                                                         {},
                                                                                         {},
                                                                                         &evidence } );
-        transition.PublishSolverDetail( transport.generation, detail,
-                                        BuildReplayCauseContactPresentation( detail, *found ) );
+        transition.PublishSolverDetail( transport.generation, detail, BuildReplayCauseContactPresentation( detail, *found ),
+                                        BuildCauseObjectDetails( detail, *found, world ) );
     }
 
     transition.CompleteTransport( transport.generation, true );
@@ -1174,12 +1294,14 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
                                                         : 0;
     m_planningOwner.CauseInspection().AdvancePredictionPlayback( m_predictionOwner.ActiveFrames(), playbackDirection,
                                                                  input.now );
-    ApplyCauseInspectionTransition( input, input.uiBlocksMouse || causeTreeOwnsMouse, world, attachedCamera, camera,
-                                    output );
-
     const bool causeInteractionActive = input.uiBlocksMouse || scrubberOwnsMouse || causeTreeOwnsMouse ||
                                         solverDetailOwnsMouse || pointerOverCauseWindow ||
                                         interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
+
+    // Invariant: an inspector wheel event has already been consumed above.
+    // Use the complete UI ownership result before advancing the inspection camera.
+    ApplyCauseInspectionTransition( input, causeInteractionActive || planningOwnsMouse, world, attachedCamera, camera,
+                                    output );
 
     const bool causeReturnRequested = m_causeReturnRequested;
     m_causeReturnRequested = false;

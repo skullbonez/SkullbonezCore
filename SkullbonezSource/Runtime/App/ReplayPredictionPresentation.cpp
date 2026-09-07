@@ -548,12 +548,14 @@ bool ReplayPredictionPresentation::BuildGhostDrawRequests(
 bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList(
     const ReplayPredictionPresentationView& prediction, const RunReplayPathVisualizerState& path,
     const SceneEntityStore& entities, const Physics::ColliderStore& colliderStore, EditorTracer& frameTracer,
-    const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance )
+    const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance, bool blueOutlinesVisible, bool greyOutlinesVisible )
 {
     const bool retainedAppearanceChanged = m_retainedState->geometry.SetAppearance( trajectoryAppearance );
     const bool markerAppearanceChanged = m_retainedMarkerDrawList.SetReplayTrajectoryAppearance( trajectoryAppearance );
 
-    if ( retainedAppearanceChanged || markerAppearanceChanged )
+    const bool outlineVisibilityChanged = m_retainedMarkerDrawList.SetPredictionOutlineVisibility( blueOutlinesVisible,
+                                                                                                   greyOutlinesVisible );
+    if ( retainedAppearanceChanged || markerAppearanceChanged || outlineVisibilityChanged )
     {
         // Invariant: packed retained records carry style values. A live UI edit
         // invalidates geometry only; prediction samples remain authoritative.

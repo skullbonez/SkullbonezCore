@@ -1627,28 +1627,24 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
                                                      "unsupported replay control" );
 }
 
-void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController& state, Window* window,
-                                                 const SkullbonezCore::Core::EngineConfig& config,
-                                                 const RuntimeFrameMetricsSnapshot& timers, ReplayFrameIntent& replayIntent,
+void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController& state,
+                                                 InteractionAutomationFrameResult& result,
                                                  const ReplayAutomationView& replay, RunInteractionAutomationAction& action,
                                                  int frame )
 {
-    const int screenW = window ? window->ClientWidth() : config.window.screenX;
-    const int screenH = window ? window->ClientHeight() : config.window.screenY;
-    const ReplayRecorderStats solverReplayStats = replay.solverStats;
-    const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-
-    if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
+    const bool available = replay.solverStats.enabled && replay.solverStats.sampleCount >= 2;
+    if ( available )
     {
-        // Why: replay branch tests need a historical solver selection, but the
-        // selection still comes from the scrubber track hitbox and normal
-        // drag/release handling.
-        const SkullbonezCore::UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, RunReplayTrack::Solver );
-        SkullbonezCore::UI::UIRect target = track;
-        target.x = track.x + track.w * std::clamp( action.numberValue, 0.0f, 1.0f );
-        target.w = 1.0f;
-        InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame, target,
-                                                       "mouse press injected at solver replay track" );
+        // Why: the shared viewport track normally selects presentation history.
+        // This explicit solver setup must resolve retained Physics evidence;
+        // physical replay-control coverage uses clickReplayControl instead.
+        result.restoreRecordedReplayBaseline = true;
+        result.recordedReplayTrack = RunReplayTrack::Solver;
+        result.recordedReplaySolverTrackPosition = std::clamp( action.numberValue, 0.0f, 1.0f );
+        result.recordedReplayPresentationTrackPosition = replay.scrubber.presentationPosition;
+        result.recordedReplayScrubPaused = true;
+        result.recordedReplayLiveAdvanceHeld = true;
+        AppendReportAction( state, frame, action.type, "solver", nullptr, true, "retained solver sample selected" );
     }
     else
     {
@@ -4997,8 +4993,7 @@ bool ApplyEditorUiAutomationAction( InteractionAutomationController& state, Wind
         action.processed = true;
         break;
     case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
-        ApplyInteractionAutomationSolverTrackScrub( state, window, config, timers, result.replayIntent, replay, action,
-                                                    frame );
+        ApplyInteractionAutomationSolverTrackScrub( state, result, replay, action, frame );
 
         action.processed = true;
         break;
