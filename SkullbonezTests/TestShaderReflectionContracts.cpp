@@ -12,7 +12,7 @@ Glossary:
     rejects the same class of defect it is intended to prevent.
 
 Invariants:
-  - The pinned reflection inventory contains 44 raster, compute, and library stages.
+  - The pinned reflection inventory contains 46 raster, compute, and library stages.
   - Compute reflection remains represented even though it has no raster PSO.
 
 Related:
@@ -43,7 +43,7 @@ const char* ReflectionSourceForContract( const char* contractBaseName )
 
 TEST_CASE( "Shader reflection contracts: every shipping stage is represented" )
 {
-    REQUIRE( GeneratedShaderReflection::StageCount == 44u );
+    REQUIRE( GeneratedShaderReflection::StageCount == 46u );
     for ( size_t i = 0; i < GeneratedShaderReflection::StageCount; ++i )
     {
         const auto& stage = GeneratedShaderReflection::Stages[i];
@@ -66,9 +66,8 @@ TEST_CASE( "Shader reflection contracts: every shipping stage is represented" )
         foundMaterialWrap = foundMaterialWrap ||
                             ( std::string( resource.name ) == "gSampler" && resource.registerClass == 's' &&
                               resource.slot == UnifiedRasterRootSignature::STATIC_SAMPLERS[0].shaderRegister );
-        foundSkyClamp = foundSkyClamp ||
-                        ( std::string( resource.name ) == "gSkySampler" && resource.registerClass == 's' &&
-                          resource.slot == UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister );
+        foundSkyClamp = foundSkyClamp || ( std::string( resource.name ) == "gSkySampler" && resource.registerClass == 's' &&
+                                           resource.slot == UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister );
     }
     CHECK( foundMaterialWrap );
     CHECK( foundSkyClamp );
@@ -111,8 +110,7 @@ TEST_CASE( "Shader behavior contracts: procedural longitude inputs meet at the w
     const float beforeSeam = 1.0f - 1.0e-5f;
     CHECK( std::abs( PeriodicLongitudeX( beforeSeam ) - PeriodicLongitudeX( 0.0f ) ) < 1.0e-4f );
     CHECK( std::abs( PeriodicLongitudeY( beforeSeam ) - PeriodicLongitudeY( 0.0f ) ) < 1.0e-4f );
-    CHECK( std::abs( PeriodicTriangle( beforeSeam, 6.0f, 0.68f ) - PeriodicTriangle( 0.0f, 6.0f, 0.68f ) ) <
-           1.0e-3f );
+    CHECK( std::abs( PeriodicTriangle( beforeSeam, 6.0f, 0.68f ) - PeriodicTriangle( 0.0f, 6.0f, 0.68f ) ) < 1.0e-3f );
     CHECK( std::abs( PeriodicStreak( beforeSeam, 0.63f ) - PeriodicStreak( 0.0f, 0.63f ) ) < 1.0e-3f );
 }
 
@@ -164,11 +162,8 @@ TEST_CASE( "Shader reflection contracts: CPU declarations match baked DXIL" )
     {
         std::string error;
         CHECK_MESSAGE( ValidateGeneratedShaderProgramContract( ReflectionSourceForContract( contracts[i].baseName ),
-                                                               contracts[i],
-                                                               error ),
-                       std::string( contracts[i].baseName ),
-                       ": ",
-                       error );
+                                                               contracts[i], error ),
+                       std::string( contracts[i].baseName ), ": ", error );
     }
 }
 
@@ -181,8 +176,7 @@ TEST_CASE( "Shader reflection contracts: bindless raster owns b1 and no t regist
     {
         const auto& resource = GeneratedShaderReflection::Resources[pixelStage->resourceStart + i];
         CHECK( resource.registerClass != 't' );
-        if ( resource.registerClass == 'b' &&
-             resource.slot == UnifiedRasterRootSignature::SHADER_REGISTER_TEXTURE_INDICES )
+        if ( resource.registerClass == 'b' && resource.slot == UnifiedRasterRootSignature::SHADER_REGISTER_TEXTURE_INDICES )
         {
             foundTextureIndices = true;
         }
@@ -255,7 +249,7 @@ TEST_CASE( "Shader reflection contracts: separate skybox faces use the clamp sam
 TEST_CASE( "Shader reflection contracts: every raster input signature matches the CPU table" )
 {
     const ShaderVertexInputContract* contracts = ShippingShaderVertexInputContracts();
-    REQUIRE( ShippingShaderVertexInputContractCount() == 21u );
+    REQUIRE( ShippingShaderVertexInputContractCount() == 22u );
     for ( size_t contractIndex = 0; contractIndex < ShippingShaderVertexInputContractCount(); ++contractIndex )
     {
         const auto* stage = FindGeneratedShaderStage( ReflectionSourceForContract( contracts[contractIndex].baseName ),

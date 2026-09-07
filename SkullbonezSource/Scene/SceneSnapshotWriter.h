@@ -99,8 +99,7 @@ struct SceneSaveRequest
 class SceneSnapshotWriter
 {
   public:
-
-    // Saves one current schema-v4 snapshot. External path/write failures return recoverable error;
+    // Saves one current schema-v5 snapshot. External path/write failures return recoverable error;
     // mismatched owner topology fails through the engine fatal-invariant lane.
     static SkullbonezCore::Core::SbResult Save( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                 const SceneSaveRequest& request );

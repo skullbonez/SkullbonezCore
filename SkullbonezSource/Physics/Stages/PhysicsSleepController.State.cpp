@@ -358,6 +358,8 @@ uint64_t PhysicsSleepController::CollectDynamicMemoryBytes() const
     bytes += ListCapacityBytes( m_sleepIslandAssignedVisualId );
     bytes += ListCapacityBytes( m_sleepSupportEdges );
     bytes += m_simulationIslands.CollectDynamicMemoryBytes();
+    bytes += ListCapacityBytes( m_jointWakeParent );
+    bytes += ListCapacityBytes( m_jointWakeRank );
     bytes += ListCapacityBytes( m_sleepIslandParent );
     bytes += ListCapacityBytes( m_sleepIslandRank );
     bytes += ListCapacityBytes( m_sleepIslandHasAwake );

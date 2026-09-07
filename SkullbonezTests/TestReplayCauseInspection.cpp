@@ -18,6 +18,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Planning/ReplayCauseInspection.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayOverlayPackets.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
@@ -30,6 +31,70 @@ using namespace SkullbonezCore::Runtime;
 
 namespace
 {
+TEST_CASE( "Causal contact geometry replaces fallback markers only while presented" )
+{
+    ReplayCauseInspectionView inspection;
+    for ( const auto mode : { ReplayCauseInspectionMode::Transporting, ReplayCauseInspectionMode::DetailPaused,
+                              ReplayCauseInspectionMode::AftermathFollow } )
+    {
+        inspection.mode = mode;
+        inspection.contactPresentation.pointCount = 0;
+        CHECK_FALSE( inspection.HasVisibleContactGeometry() );
+        inspection.contactPresentation.pointCount = 1;
+        CHECK( inspection.HasVisibleContactGeometry() );
+    }
+    inspection.mode = ReplayCauseInspectionMode::Inactive;
+    CHECK_FALSE( inspection.HasVisibleContactGeometry() );
+    inspection.mode = ReplayCauseInspectionMode::Returning;
+    CHECK_FALSE( inspection.HasVisibleContactGeometry() );
+}
+
+TEST_CASE( "Causal panel waits for the complete selected prediction and reports resolved time" )
+{
+    RunReplayPathVisualizerState path;
+    path.hasTarget = true;
+    path.targetId.value = 6;
+    ReplayPredictionPresentationView prediction;
+    prediction.controls.enabled = true;
+    prediction.controls.horizonSeconds = 10.0f;
+    const auto loading = [&]()
+    {
+        return ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology,
+                                                            prediction.controls, path, prediction.diagnostics.detailMode );
+    };
+    CHECK( loading().active );
+    CHECK( loading().progress == 0.0f );
+    std::array<RunReplayPredictionFrame, 2> frames;
+    frames[0].simulationSeconds = 50.0;
+    frames[1].simulationSeconds = 55.0;
+    prediction.timeline.frames = frames;
+    prediction.topology.targetId = path.targetId;
+    CHECK( loading().active );
+    CHECK( loading().progress == doctest::Approx( 0.5f ) );
+    prediction.timeline.complete = true;
+    CHECK( loading().active );
+    prediction.topology.treeReady = true;
+    CHECK_FALSE( loading().active );
+    prediction.topology.targetId.value = 7;
+    CHECK( loading().active );
+    CHECK( loading().progress == 0.0f );
+    prediction.topology.targetId = path.targetId;
+    prediction.timeline.complete = false;
+    prediction.controls.building = true;
+    CHECK( loading().progress == 0.0f );
+    prediction.timeline.usingBuildFrames = true;
+    frames[1].simulationSeconds = 70.0;
+    CHECK( loading().progress == doctest::Approx( 0.99f ) );
+    prediction.diagnostics.detailMode = ReplayPredictionDetailMode::Low;
+    CHECK_FALSE( loading().active );
+    prediction.diagnostics.detailMode = ReplayPredictionDetailMode::High;
+    prediction.controls.enabled = false;
+    CHECK_FALSE( loading().active );
+    prediction.controls.enabled = true;
+    path.hasTarget = false;
+    CHECK_FALSE( loading().active );
+}
+
 ReplayRecorderStats RetainedSolverWindow()
 {
     ReplayRecorderStats stats;
@@ -1102,6 +1167,173 @@ TEST_CASE( "Replay cause inspector drawer: seam toggle is the only default-open 
     CHECK( inspection.TickSolverDetailPanelInput( causeTree, toggleX, toggleY, true, false, true, 0, 1920, 1080 ) );
     CHECK_FALSE( inspection.View().Display().drawerOpen );
     CHECK( inspection.View().Transport().mode == ReplayCauseInspectionMode::Transporting );
+}
+
+TEST_CASE( "Replay cause inspection: held prediction playback retains selection and pauses on release" )
+{
+    std::array<RunReplayPredictionFrame, 11> frames;
+
+    for ( std::size_t index = 0; index < frames.size(); ++index )
+    {
+        frames[index].frameIndex = index;
+        frames[index].simulationSeconds = 10.0 + static_cast<double>( index ) * 0.1;
+    }
+
+    ReplayCauseInspection inspection;
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::Prediction;
+    seek.frame = 4;
+    REQUIRE( inspection.Select( 7, seek, 0, true, 0.0 ) );
+    inspection.AdvancePredictionPlayback( frames, 1, 0.5 );
+    CHECK( inspection.View().presentedFrame == 0 );
+    inspection.Advance( 1.5 );
+    ReplayCauseTransportRequest request;
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    inspection.CompleteTransport( request.generation, true );
+    REQUIRE( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
+
+    inspection.AdvancePredictionPlayback( frames, 1, 1.75 );
+    inspection.Advance( 1.75 );
+    CHECK( inspection.View().presentedFrame == 6 );
+    inspection.AdvancePredictionPlayback( frames, 1, 1.85 );
+    inspection.Advance( 1.85 );
+    CHECK( inspection.View().presentedFrame == 7 );
+    inspection.AdvancePredictionPlayback( frames, 0, 2.0 );
+    inspection.Advance( 2.0 );
+    inspection.AdvancePredictionPlayback( frames, 0, 3.0 );
+    inspection.Advance( 3.0 );
+    CHECK( inspection.View().presentedFrame == 7 );
+    inspection.AdvancePredictionPlayback( frames, -1, 3.25 );
+    inspection.Advance( 3.25 );
+    CHECK( inspection.View().presentedFrame == 5 );
+    CHECK( inspection.View().selectedRow == 7 );
+    CHECK( inspection.View().targetFrame == 4 );
+    CHECK( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
+    CHECK_FALSE( inspection.TakeTransportRequest( request ) );
+
+    inspection.AdvancePredictionPlayback( frames, -1, 20.0 );
+    inspection.Advance( 20.0 );
+    CHECK( inspection.View().presentedFrame == 0 );
+    inspection.AdvancePredictionPlayback( frames, 1, 20.15 );
+    inspection.Advance( 20.15 );
+    CHECK( inspection.View().presentedFrame == 1 );
+    inspection.AdvancePredictionPlayback( frames, 1, 30.0 );
+    inspection.Advance( 30.0 );
+    CHECK( inspection.View().presentedFrame == 10 );
+    (void)inspection.BeginReturn();
+    inspection.AdvancePredictionPlayback( frames, -1, 31.0 );
+    CHECK( inspection.View().presentedFrame == 10 );
+}
+
+TEST_CASE( "Replay cause inspection: arrows cannot play solver history or inactive inspection" )
+{
+    std::array<RunReplayPredictionFrame, 2> frames;
+    frames[1].frameIndex = 1;
+    frames[1].simulationSeconds = 1.0;
+    ReplayCauseInspection inspection;
+    inspection.AdvancePredictionPlayback( frames, 1, 10.0 );
+    CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.frame = 0;
+    REQUIRE( inspection.Select( 0, seek, 0, true, 0.0 ) );
+    inspection.Advance( 1.5 );
+    REQUIRE( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
+    inspection.AdvancePredictionPlayback( frames, 1, 10.0 );
+    CHECK( inspection.View().presentedFrame == 0 );
+}
+
+TEST_CASE( "Replay cause inspection: contact flash fades in 200 ms and retriggers on either crossing" )
+{
+    std::array<RunReplayPredictionFrame, 11> frames;
+
+    for ( std::size_t index = 0; index < frames.size(); ++index )
+    {
+        frames[index].frameIndex = index;
+        frames[index].simulationSeconds = static_cast<double>( index ) * 0.1;
+    }
+
+    ReplayCauseInspection inspection;
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::Prediction;
+    seek.frame = 4;
+    REQUIRE( inspection.Select( 7, seek, 0, true, 0.0 ) );
+    inspection.Advance( 2.0 );
+    ReplayCauseTransportRequest request;
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    std::array<SkullbonezCore::Physics::PhysicsSolverPersistentContactSample, 1> contacts;
+    contacts[0].bodyA = 0;
+    contacts[0].bodyB = 1;
+    contacts[0].accN = 10.0f;
+    ReplayCauseSolverDetailResult detail;
+    detail.frame = 4;
+    detail.availability = ReplayCauseSolverDetailAvailability::Available;
+    detail.sourceContacts = contacts;
+    detail.bodyA = 0;
+    detail.bodyB = 1;
+    detail.contactRowCount = 1;
+    SkullbonezCore::Rendering::ContactManifoldPresentation patch;
+    patch.pointCount = 1;
+    patch.points[0].point = { 12.0f, 3.0f, 4.0f };
+    inspection.PublishSolverDetail( request.generation, detail, patch );
+    inspection.CompleteTransport( request.generation, true );
+    REQUIRE( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
+    CHECK( inspection.View().contactFlashSequence == 1 );
+    CHECK( inspection.View().contactFlashAlpha == 1.0f );
+
+    inspection.Advance( 2.1 );
+    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.5f ) );
+    inspection.Advance( 2.2 );
+    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
+    inspection.Advance( 2.4 );
+    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    CHECK( inspection.View().contactFlashSequence == 1 );
+
+    // Leaving the event does not flash; crossing back over it does, even when
+    // more than one simulation frame elapses between rendered samples.
+    inspection.AdvancePredictionPlayback( frames, 1, 2.7 );
+    inspection.Advance( 2.7 );
+    CHECK( inspection.View().presentedFrame > 4 );
+    CHECK( inspection.View().contactFlashSequence == 1 );
+    inspection.AdvancePredictionPlayback( frames, -1, 3.1 );
+    inspection.Advance( 3.1 );
+    CHECK( inspection.View().presentedFrame <= 4 );
+    CHECK( inspection.View().contactFlashSequence == 2 );
+    CHECK( inspection.View().contactFlashAlpha == 1.0f );
+    inspection.AdvancePredictionPlayback( frames, 0, 3.2 );
+    inspection.Advance( 3.2 );
+    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.5f ) );
+    inspection.Advance( 3.31 );
+    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    inspection.AdvancePredictionPlayback( frames, -1, 3.45 );
+    inspection.Advance( 3.45 );
+    CHECK( inspection.View().presentedFrame < 4 );
+    CHECK( inspection.View().contactFlashSequence == 2 );
+    inspection.AdvancePredictionPlayback( frames, 1, 3.85 );
+    inspection.Advance( 3.85 );
+    CHECK( inspection.View().presentedFrame > 4 );
+    CHECK( inspection.View().contactFlashSequence == 3 );
+    CHECK( inspection.View().contactFlashAlpha == 1.0f );
+    CHECK( inspection.View().targetFrame == 4 );
+    CHECK( inspection.View().selectedRow == 7 );
+    CHECK( inspection.View().contactPresentation.points[0].point.x == 12.0f );
+
+    (void)inspection.BeginReturn();
+    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    inspection.Advance( 3.9 );
+    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    inspection.Reset();
+    CHECK( inspection.View().contactFlashSequence == 0 );
+
+    // No borrowed/stale geometry may flash when a new selection has no detail.
+    REQUIRE( inspection.Select( 8, seek, 0, true, 3.0 ) );
+    inspection.Advance( 5.0 );
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    inspection.CompleteTransport( request.generation, true );
+    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    CHECK( inspection.View().contactFlashSequence == 0 );
 }
 
 TEST_CASE( "Replay cause inspection: newest selection coalesces behind one in-flight restore" )

@@ -12,7 +12,6 @@ Invariants:
     action sequencer or hot-path gameplay storage.
   - Synthetic input is cleared through `InteractionAutomationInputDriver` after
     actions complete or fail.
-  - Development UI commands are fixed-capacity and select at most one surface.
   - Replay intercept assertions consume a copied value snapshot and cannot
     retarget or advance the retained closest-approach scan.
   - Prediction cause-row assertions count only typed rows already published by
@@ -65,11 +64,6 @@ namespace UI
 }
 namespace Runtime
 {
-namespace DevelopmentTools
-{
-class ImGuiEditorOwner;
-struct ImGuiEditorStatus;
-} // namespace DevelopmentTools
 struct RuntimeFrameMetricsSnapshot;
 enum class RunInteractionAutomationActionType
 {
@@ -102,11 +96,6 @@ enum class RunInteractionAutomationActionType
     PressKey,
     CaptureEditorSelectionState,
     LoadScene,
-    SetDevelopmentUiSurface,
-    SetImGuiPanelVisible,
-    ResetImGuiLayout,
-    FocusImGuiPanel,
-    SetImGuiDpiScale,
     ResizeWindow,
     AssertState,
     Screenshot
@@ -212,66 +201,7 @@ enum class RunInteractionAutomationAssertKind
     EditorSelectionExists,
     EditorSelectionHasTerrain,
     EditorSelectionMatchesCapture,
-    DevelopmentUiSurface,
-    ImGuiVisible,
     GameUiReplayPresentationActive,
-    ImGuiPanelMask,
-    ImGuiLayoutResetCountMin,
-    ImGuiFocusCountMin,
-    ImGuiDpiScale,
-    ImGuiDescriptorHighWaterMax,
-    ImGuiViewportRecreationsMin,
-    ImGuiPreferencesRecovered
-};
-
-enum class InteractionAutomationDevelopmentUiCommandType : uint8_t
-{
-    SelectSurface,
-    SetPanelVisible,
-    ResetLayout,
-    FocusPanel,
-    SetDpiScale,
-    ResizeWindow
-};
-
-struct InteractionAutomationDevelopmentUiCommand
-{
-    InteractionAutomationDevelopmentUiCommandType type = InteractionAutomationDevelopmentUiCommandType::ResetLayout;
-    char target[64] = {};
-    bool boolValue = false;
-    float numberValue = 0.0f;
-    int width = 0;
-    int height = 0;
-};
-
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-struct InteractionAutomationDevelopmentUiApplyResult
-{
-    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
-    bool selectSurface = false;
-    DevelopmentUiMode surface = DevelopmentUiMode::GameUI;
-};
-#endif
-
-// Immutable after-render evidence used by automation assertions. It exposes
-// resource counters and visibility facts, never mutable editor or renderer state.
-struct InteractionAutomationDevelopmentUiView
-{
-    bool available = false;
-    bool selectedImGui = false;
-    bool gameUiVisible = false;
-    bool imguiVisible = false;
-
-    // Exact authority consumed by the completed late replay-render pass. This
-    // may differ from next-frame selection during an ImGui-to-GameUI swap.
-    bool gameUiReplayPresentationActive = false;
-    uint32_t panelVisibilityMask = 0u;
-    uint32_t layoutResetCount = 0u;
-    uint32_t automationFocusCount = 0u;
-    float appliedDpiScale = 0.0f;
-    uint32_t rendererDescriptorHighWater = 0u;
-    uint32_t gameViewportRecreations = 0u;
-    bool preferencesRecovered = false;
 };
 
 struct RunInteractionAutomationAction
@@ -351,25 +281,15 @@ struct InteractionAutomationController
     InteractionAutomationInputDriver inputDriver;
     InteractionAutomationReportWriter reportWriter;
     RecordedCursorPresentationObservation recordedCursorPresentation;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Interprets the automation-owned replay command and submits it through
-    // the same bounded queue used by real editor widgets.
-    SkullbonezCore::Core::SbResult SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
-                                                                      UI::OperatorEditorCommandQueues& commands ) const;
-    SkullbonezCore::Core::SbResult SubmitOperatorEditorForecastCommand( const InteractionAutomationFrameResult& frame,
-                                                                        UI::OperatorEditorCommandQueues& commands ) const;
-
-    // Projects copied editor facts into the exact after-render assertion view;
-    // no editor owner or mutable renderer state crosses this value boundary.
-    InteractionAutomationDevelopmentUiView BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
-                                                                   bool gameUiVisible,
-                                                                   bool gameUiReplayPresentationActive ) const;
-#endif
+    // Automation joins the same bounded command queues as native controls.
+    Core::SbResult SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
+                                                      UI::OperatorEditorCommandQueues& commands ) const;
+    Core::SbResult SubmitOperatorEditorForecastCommand( const InteractionAutomationFrameResult& frame,
+                                                        UI::OperatorEditorCommandQueues& commands ) const;
 };
 
 struct InteractionAutomationFrameResult
 {
-    static constexpr std::size_t DEVELOPMENT_UI_COMMAND_CAPACITY = 8u;
 
     bool requestQuit = false;
     bool hasRecordedDeltaSeconds = false;
@@ -386,7 +306,6 @@ struct InteractionAutomationFrameResult
     int requestedReplayCauseRow = -1;
 
     // Value-only editor automation joins the same bounded command arbitration
-    // used by a real ImGui widget; the sequencer never reaches into replay state.
     bool hasOperatorEditorReplayCommand = false;
     UI::OperatorEditorReplayCommand operatorEditorReplayCommand;
     bool hasOperatorEditorForecastCommand = false;
@@ -410,8 +329,6 @@ struct InteractionAutomationFrameResult
     float recordedReplaySolverTrackPosition = 1.0f;
     bool restoreRecordedReplayCauseBaseline = false;
     InteractionRecordingBaseline recordedReplayCauseBaseline;
-    std::array<InteractionAutomationDevelopmentUiCommand, DEVELOPMENT_UI_COMMAND_CAPACITY> developmentUiCommands = {};
-    std::size_t developmentUiCommandCount = 0u;
 };
 
 // Resolves the exact policy used by ConfigureInteractionAutomation before it

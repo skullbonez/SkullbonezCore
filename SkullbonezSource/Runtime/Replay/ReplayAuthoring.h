@@ -204,6 +204,18 @@ class ReplayAuthoring
         m_causeTree.selectedRow = rowIndex;
     }
 
+    void SetCauseTreeFilterText( const char* text ) noexcept
+    {
+        strncpy_s( m_causeTree.filterText, sizeof( m_causeTree.filterText ), text ? text : "", _TRUNCATE );
+        m_causeTree.scrollY = 0.0f;
+    }
+
+    void SetCauseTreeFilter( RunReplayCauseTreeFilter filter ) noexcept
+    {
+        m_causeTree.filter = filter;
+        m_causeTree.scrollY = 0.0f;
+    }
+
     // Cause-window commands retain layout mutation inside the authoring owner;
     // input and rendering consume only the published const state.
     void BeginCauseTreeInputFrame() noexcept;
@@ -349,6 +361,23 @@ class ReplayAuthoring
         m_velocityEdit.dragChanged = false;
         m_pendingPrediction.finishVelocityPreview = true;
         QueuePredictionRefresh();
+        return true;
+    }
+
+    bool CancelVelocityEditDrag() noexcept
+    {
+        if ( !m_velocityEdit.dragTargetId.IsValid() )
+        {
+            return false;
+        }
+
+        m_pendingPrediction.velocityPreviewTargetId = m_velocityEdit.dragTargetId;
+        m_pendingPrediction.velocityPreviewDelta = Math::Vector::ZERO_VECTOR;
+        m_pendingPrediction.updateVelocityPreview = true;
+        m_pendingPrediction.finishVelocityPreview = true;
+        QueuePredictionRefresh();
+        m_velocityEdit.dragChanged = false;
+        m_velocityEdit.dragTargetId = {};
         return true;
     }
 

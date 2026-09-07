@@ -86,8 +86,6 @@ struct ReplayWorkspaceFrameInput
     HWND window = nullptr;
     bool uiBlocksMouse = false;
 
-    // Invariant: GameUI pointer tools must not sample or reset replay state
-    // while the mutually exclusive ImGui development surface owns input.
     bool gameUiPointerSurfaceActive = true;
     int wheelDelta = 0;
     ReplayPathPickInput pointerRay;
@@ -126,9 +124,6 @@ struct ReplayWorkspaceOutput
     bool loadPresentationRequested = false;
 };
 
-// Semantic transport actions are independent of the GameUI overlay and the
-// ImGui presentation. ReplayRuntime translates these value commands into the
-// existing timeline, scrubber, prediction, authoring, and cold-I/O owners.
 enum class ReplayTransportAction : uint8_t
 {
     SetRecordingEnabled,

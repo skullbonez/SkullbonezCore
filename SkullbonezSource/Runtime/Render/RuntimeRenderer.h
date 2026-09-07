@@ -28,16 +28,13 @@ Invariants:
 #include "../../Rendering/RenderDiagnosticsTypes.h"
 #include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../Rendering/WorldRenderExtension.h"
+#include "../../Rendering/PairedViewRenderer.h"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-struct ImDrawData;
-struct ImGuiContext;
-#endif
 
 namespace SkullbonezCore
 {
@@ -45,12 +42,6 @@ namespace Rendering
 {
 class RenderBackendDX12;
 }
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-namespace Rendering
-{
-class Dx12ImGuiRendererOwner;
-}
-#endif
 namespace Runtime
 {
 struct RuntimeRendererWorldOverlayTransactionTestAccess;
@@ -66,6 +57,8 @@ struct RenderDiagnosticsReadout
 class RuntimeRenderer
 {
   private:
+    struct PairPass;
+    static void ExecutePairPass( const Rendering::RenderGraphPassContext& context, PairPass& pass );
     class WorldOverlayPhaseCursor
     {
       public:
@@ -225,6 +218,7 @@ class RuntimeRenderer
     // Opens the one frame-owned graph before Run chooses world or text-only
     // rendering. The caller must close it exactly once through a finalizer below.
     void BeginFrameGraph();
+    void RenderPairedViews( const Rendering::PairedViewFrame& frame );
     Rendering::Dx12FrameOwner& RenderFrame() const
     {
         return m_resources.RenderFrame();
@@ -255,9 +249,6 @@ class RuntimeRenderer
     }
     const char* RendererName() const;
     void PrepareUiFrameTarget();
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    SkullbonezCore::Core::SbResult RenderDevelopmentUi( ImGuiContext* context, ImDrawData* drawData );
-#endif
 
     // Adds the sole declaration-only Present edge and validates the submitted
     // frame contract before the swap-chain owner presents.
@@ -405,14 +396,12 @@ class RuntimeRenderer
     // Owner: render presentation policy survives backend rebuilds here; physics
     // state remains in its respective owner.
     RenderPresentationSettings m_presentationSettings;
+    Rendering::PairedViewRenderer m_pairedViews;
     Environment::WorldEnvironment& m_world; // Fluid surface and gravity owner for pass contexts.
     CollisionVisualizer m_collisionVisualizer;
     BroadphaseVisualizer m_broadphaseVisualizer;
     PhysicsDebugVisualizer m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    Rendering::Dx12ImGuiRendererOwner* m_developmentUiRenderer = nullptr;
-#endif
     std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_dxrReflectionTransforms =
         {}; // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance
 

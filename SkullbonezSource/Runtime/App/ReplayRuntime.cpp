@@ -18,9 +18,8 @@ Invariants:
   - The render frame receives only the generic contact packet and synchronous
     spans into Planning-owned solver copies, never the transition owner or
     ReplayRecorder borrows.
-  - Tracy plots sample existing owner stats only; they never traverse retained
-    payloads or influence replay state.
 */
+
 #include "ReplayRuntime.h"
 #include "ReplayAuthoringCauseTree.h"
 #include "ReplayPredictionComposition.h"
@@ -33,7 +32,6 @@ Invariants:
 #include "../Replay/ReplayV2Artifact.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../../Core/TracyClientOwner.h"
 #include "../Tools/RuntimeFileWriter.h"
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
@@ -396,6 +394,132 @@ void ReplayRuntime::ApplyPredictionRevealRate( float revealRate )
     m_predictionOwner.SetRevealRatePreservingCursor( static_cast<double>( revealRate ) );
 }
 
+void ReplayRuntime::SetPathColorMode( ReplayPathColorMode mode ) noexcept
+{
+    m_visualPresentation.SetPathColorMode( mode );
+}
+
+void ReplayRuntime::SetPorkchopPanelVisible( bool visible ) noexcept
+{
+    m_planningOwner.SetPorkchopPanelVisible( visible );
+}
+
+bool ReplayRuntime::SelectPorkchopCell( std::size_t cellIndex ) noexcept
+{
+    return m_planningOwner.SelectPorkchopCell( cellIndex );
+}
+
+void ReplayRuntime::SetCauseTreeFilterText( const char* text ) noexcept
+{
+    m_authoring.SetCauseTreeFilterText( text );
+}
+
+void ReplayRuntime::SetCauseTreeFilter( RunReplayCauseTreeFilter filter ) noexcept
+{
+    m_authoring.SetCauseTreeFilter( filter );
+}
+
+void ReplayRuntime::SetCauseInspectorTab( ReplayCauseInspectorTab tab ) noexcept
+{
+    m_planningOwner.CauseInspection().SetActiveTab( tab );
+}
+
+bool ReplayRuntime::CopySelectedCauseRecord( char* destination, std::size_t destinationCapacity ) noexcept
+{
+    return m_planningOwner.CauseInspection().CopySelectedRecord( destination, destinationCapacity );
+}
+
+void ReplayRuntime::RequestCauseReturn() noexcept
+{
+    m_causeReturnRequested = true;
+}
+
+void ReplayRuntime::ClearPathSelection() noexcept
+{
+    m_visualPresentation.ClearPathState();
+    m_planningOwner.ClearInterceptTarget();
+    m_predictionOwner.MarkDirty();
+}
+
+ReplayFrameIndex ReplayRuntime::ResetDeterministicReveal() noexcept
+{
+    m_predictionOwner.ArmDeterministicReveal( 0u, true );
+    return 0u;
+}
+
+ReplayFrameIndex ReplayRuntime::AdvanceDeterministicReveal( ReplayFrameIndex frames ) noexcept
+{
+    const RunReplayPredictionState& state = m_predictionOwner.State();
+    const std::size_t frameCount = state.BuildPrefixShouldBePresented() ? state.PublishedBuildFrameCount()
+                                                                        : state.CommittedFrameCount();
+    const ReplayFrameIndex lastFrame = frameCount > 0u ? static_cast<ReplayFrameIndex>( frameCount - 1u ) : 0u;
+    const ReplayFrameIndex requested = state.revealClock.presentedFrame + frames;
+    const ReplayFrameIndex applied = (std::min)( requested, lastFrame );
+    m_predictionOwner.ArmDeterministicReveal( applied, false );
+    return applied;
+}
+
+bool ReplayRuntime::PreviewVelocity( Physics::PhysicsEngine& physics, const Math::Vector::Vector3& linearVelocity,
+                                     const Math::Vector::Vector3& angularVelocity ) noexcept
+{
+    const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
+    const Physics::PhysicsBodyStore& bodies = Physics::PhysicsEngine::ReadBodies( physics );
+    const Physics::PhysicsBodyHandle handle = bodies.HandleForSceneObjectId( path.targetId, path.targetModelRow.value );
+    const int modelRow = bodies.ModelIndexForHandle( handle );
+
+    if ( !path.hasTarget || modelRow < 0 )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsBodyHotFieldsConstView hot = bodies.HotFields();
+    const RunReplayVelocityEditState& edit = m_authoring.VelocityEdit();
+
+    if ( edit.dragTargetId != path.targetId )
+    {
+        ReplayVelocityEditDragStart start;
+        start.targetId = path.targetId;
+        start.linearVelocity = Physics::PhysicsBodyLinearVelocity( hot, static_cast<std::size_t>( modelRow ) );
+        start.angularVelocity = Physics::PhysicsBodyAngularVelocity( hot, static_cast<std::size_t>( modelRow ) );
+        m_authoring.QueueVelocityMutationBaselinePreparation();
+        m_authoring.BeginVelocityEditDrag( start );
+    }
+
+    if ( !physics.SetBodyVelocity( handle, linearVelocity, angularVelocity, true ) )
+    {
+        return false;
+    }
+
+    m_authoring.QueueVelocityEditPreview( path.targetId,
+                                          linearVelocity - m_authoring.VelocityEdit().dragStartLinearVelocity );
+    return true;
+}
+
+bool ReplayRuntime::CommitVelocityPreview() noexcept
+{
+    return m_authoring.FinishVelocityEditDrag();
+}
+
+bool ReplayRuntime::CancelVelocityPreview( Physics::PhysicsEngine& physics ) noexcept
+{
+    const RunReplayVelocityEditState edit = m_authoring.VelocityEdit();
+
+    if ( !edit.dragTargetId.IsValid() )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsBodyStore& bodies = Physics::PhysicsEngine::ReadBodies( physics );
+    const Physics::PhysicsBodyHandle handle = bodies.HandleForSceneObjectId( edit.dragTargetId );
+
+    if ( !physics.SetBodyVelocity( handle, edit.dragStartLinearVelocity, edit.dragStartAngularVelocity, true ) )
+    {
+        return false;
+    }
+
+    return m_authoring.CancelVelocityEditDrag();
+}
+
 
 ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent& intent )
 {
@@ -577,7 +701,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
                                                SceneSessionState& scene, OverlayDebugState& debug,
                                                RuntimeTools& runtimeTools, const ReplaySolverFrameSample& sample )
 {
-    SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/Replay/Restore", ::HashStr( "Frame/Replay/Restore" ) );
+
 
     // Invariant: every product and probe entry reaches the same cancellation
     // barrier before mutating live physics authority.
@@ -799,8 +923,16 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics, const SceneEntit
 
     const PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
     const ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( physics );
-    m_predictionPresentation.RenderCauseFocusOverlay( m_visualPresentation.CameraView(), m_authoring.CauseTree(), prediction,
-                                                      currentSolverSample, bodyStore, colliderStore, entities, tracer );
+    // Why: exact contact geometry is submitted separately to PhysicsDebugVisualizer.
+    // The generic manifold marker is a fallback; individual solver rows still
+    // submit their separate impulse vector through the focus overlay.
+    if ( !m_planningOwner.CauseInspectionView().HasVisibleContactGeometry() ||
+         m_visualPresentation.CameraView().focusKind == RunReplayCameraFocusKind::SolverRow )
+    {
+        m_predictionPresentation.RenderCauseFocusOverlay( m_visualPresentation.CameraView(), m_authoring.CauseTree(),
+                                                          prediction, currentSolverSample, bodyStore, colliderStore,
+                                                          entities, tracer );
+    }
 
     const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
     ReplayVelocityOverlayCommand velocityOverlay;
@@ -927,12 +1059,22 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     state.predictionSourceFrame = prediction.simulation.sourceFrameIndex;
     state.predictionSourceSolverHash = prediction.simulation.sourceSolverHash;
     state.committedPredictionFrames = static_cast<uint32_t>( prediction.CommittedFrameCount() );
+    state.predictionBuildPublishedFrames = static_cast<uint32_t>( prediction.PublishedBuildFrameCount() );
+    state.predictionWorkerFailed = prediction.build.publication.WorkerFailed();
+    const ReplayPredictionSolverEvidenceCaptureStats evidenceCapture = m_predictionOwner.SolverEvidenceCaptureStats();
+    const ReplayPredictionSolverEvidenceBanksMemoryStats evidenceMemory = m_predictionOwner.SolverEvidenceMemoryStats();
+    state.predictionEvidenceCapacityTruncated = evidenceCapture.capacityTruncated;
+    state.predictionEvidenceFirstTruncatedFrame = evidenceCapture.firstTruncatedFrame;
+    state.predictionEvidenceEmptyBuildCommitCount = evidenceCapture.emptyBuildCommitCount;
+    state.predictionEvidenceBuildFrames = static_cast<uint32_t>( evidenceMemory.build.publishedFrameCount );
+    state.predictionEvidenceCommittedFrames = static_cast<uint32_t>( evidenceMemory.committed.publishedFrameCount );
 
     for ( const RunReplayPredictionFrame& frame : m_predictionOwner.ActiveFrames() )
     {
         state.incompleteContactFrameCount += frame.contactsIncomplete ? 1u : 0u;
     }
     state.publishedPredictionTargetId = packet.header.targetId.value;
+    state.publishedPredictionTopologyVersion = packet.header.topologyVersion;
     state.publishedPredictionFrames = static_cast<uint32_t>( m_predictionOwner.ActiveFrames().size() );
     state.trajectoryRecordCount = static_cast<uint32_t>( packet.trajectoryRecords.size() );
     const Physics::PhysicsSceneObjectId selectedTarget { static_cast<uint32_t>( state.input.pathTargetId ) };
@@ -1004,6 +1146,10 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     state.selectedCauseRow = causeInspection.Selection().selectedRow;
     state.causeInspectionMode = static_cast<int>( causeInspection.Transport().mode );
     state.causeTransitionProgress = causeInspection.Transport().easedProgress;
+    state.causeSourceFrame = causeInspection.Transport().sourceFrame;
+    state.causeTargetFrame = causeInspection.Transport().targetFrame;
+    state.causePresentedFrame = causeInspection.Transport().presentedFrame;
+    state.causeSeekSource = static_cast<int>( causeInspection.Transport().seekSource );
     state.causeContactPointCount = causeInspection.SolverDetail().contactPresentation.pointCount;
     state.submittedCauseContactPointCount = m_lastSubmittedCauseContactPointCount;
     state.submittedCauseContactBodyCount = m_lastSubmittedCauseContactBodyCount;
@@ -1013,6 +1159,18 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     {
         state.selectedCausePrimaryId = selectedCauseRow.id.value;
         state.selectedCauseCounterpartId = selectedCauseRow.counterpartId.value;
+        state.selectedCauseFrame = selectedCauseRow.firstFrame;
+    }
+
+    if ( const RunReplayPredictionFrame* presentedPrediction = CurrentPredictionScrubFrame() )
+    {
+        state.presentedReplayFrame = presentedPrediction->frameIndex;
+        state.presentedReplayFrameSource = 2;
+    }
+    else if ( const ReplaySolverFrameSample* presentedSolver = CurrentSolverScrubSample() )
+    {
+        state.presentedReplayFrame = presentedSolver->frameIndex;
+        state.presentedReplayFrameSource = 1;
     }
 
     state.inspectionCameraFocusKind = static_cast<int>( m_visualPresentation.CameraView().focusKind );
@@ -1033,6 +1191,10 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     state.inspectionFocusedPathSegmentCount = pathFocus.focusedSegmentCount;
     state.inspectionContextPathSegmentCount = pathFocus.contextSegmentCount;
     state.inspectionPathOpacityMismatchCount = pathFocus.opacityMismatchCount;
+    const ReplayCauseFocusDrawStats causeFocus = m_predictionPresentation.CauseFocusDrawStatsSnapshot();
+    state.inspectionBodyMarkerId = causeFocus.bodyId.value;
+    state.inspectionBodyMarkerPosition = causeFocus.markerPosition;
+    state.inspectionBodyMarkerSubmitted = causeFocus.bodyMarkerSubmitted;
     state.visualPacketHasGeometry = packet.HasGeometry();
     state.trajectorySubmission = m_predictionPresentation.TrajectorySubmissionProbeSnapshot();
     return state;
@@ -1040,7 +1202,7 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
 #endif
 
 
-#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS ) || defined( SKULLBONEZ_SKARNESS )
 ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 {
     return { m_predictionOwner.State(),
@@ -1099,7 +1261,10 @@ ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView(
                ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ), m_timeline.RecordingConfigured(),
                m_timeline.RecordingEnabled(), m_timeline.RecordingLockedByHashLog() },
              { m_planningOwner.InterceptView(), m_planningOwner.PorkchopView(), m_planningOwner.TripPlannerView() },
-             { m_authoring.CauseTree(), m_planningOwner.CauseInspectionView(), prediction.diagnostics.detailMode } };
+             { m_authoring.CauseTree(), m_planningOwner.CauseInspectionView(), prediction.diagnostics.detailMode,
+               ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology, prediction.controls,
+                                                           m_visualPresentation.PathVisualizer(),
+                                                           prediction.diagnostics.detailMode ) } };
 }
 
 const UI::UIDrawList& ReplayRuntime::ComposeOverlayDrawList( const ReplayOverlay::ReplayOverlayStateView& replay,
@@ -1125,22 +1290,23 @@ ReplayFrameSelection ReplayRuntime::BuildPresentationSelection() const
     const float solverPresentTrackPosition = SolverPresentTrackPosition();
     const bool futureSelected = !loadedPresentation &&
                                 ReplayTrackPositionIsFuture( trackPosition, solverPresentTrackPosition );
+    const RunReplayPredictionFrame* selectedPrediction = loadedPresentation ? nullptr : CurrentPredictionScrubFrame();
 
     ReplayFrameSelection selection;
     selection.replay.selectedPresentation = loadedPresentation ? LoadedPresentationSampleAtNormalized( trackPosition )
                                                                : nullptr;
 
     selection.replay.latestPresentation = loadedPresentation ? LoadedPresentationLatestSample() : nullptr;
-    selection.replay.selectedSolver = ( loadedPresentation || futureSelected )
+    selection.replay.selectedSolver = ( loadedPresentation || futureSelected || selectedPrediction )
                                           ? nullptr
                                           : m_timeline.Solver().SampleAtNormalized(
                                                 ReplaySolverNormalizedFromTrack( trackPosition,
                                                                                  solverPresentTrackPosition ) );
 
     selection.replay.latestSolver = loadedPresentation ? nullptr : m_timeline.Solver().LatestSample();
-    selection.selectedPrediction = futureSelected ? CurrentPredictionScrubFrame() : nullptr;
+    selection.selectedPrediction = selectedPrediction;
     selection.replay.currentPresentation = CurrentScrubSample();
-    selection.replay.currentSolver = scrubber.activeTrack == RunReplayTrack::Solver && IsScrubPaused()
+    selection.replay.currentSolver = !selectedPrediction && scrubber.activeTrack == RunReplayTrack::Solver && IsScrubPaused()
                                          ? selection.replay.selectedSolver
                                          : nullptr;
 
@@ -1310,7 +1476,7 @@ ReplayRenderFrameViews ReplayRuntime::BuildRenderFrameViews( const ReplayFrameSe
     const ReplayRenderTimeView time { presentationSample, solverSample,
                                       ( presentationSample || solverSample ) ? nullptr : predictionFrame,
                                       inputView.liveAdvanceHeld };
-    const Rendering::ContactManifoldPresentation contactPresentation = causeFocusActive
+    const Rendering::ContactManifoldPresentation contactPresentation = causeInspection.HasVisibleContactGeometry()
                                                                            ? causeInspection.SolverDetail()
                                                                                  .contactPresentation
                                                                            : Rendering::ContactManifoldPresentation {};
@@ -1821,48 +1987,6 @@ void ReplayRuntime::CaptureFrame( int sceneFrame, float physicsDt, const ReplayW
     {
         AppendSolverTrajectorySampleToStore( *solverSample );
     }
-
-#if defined( TRACY_ENABLE )
-
-    if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
-    {
-        // Why: recorder counts and reserve rows are already-owned fixed
-        // snapshots. No-viewer runs skip even these value copies, and the
-        // name-based reserve registry is sampled only once per 60 frames.
-        const ReplayRecorderStats presentationStats = m_timeline.Presentation().GetStats();
-        const ReplayRecorderStats solverStats = m_timeline.Solver().GetStats();
-        const ReplayEventRecorderStats eventStats = m_timeline.Events().GetStats();
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/PresentationRetainedSamples", presentationStats.sampleCount );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/PresentationSampleCapacity", presentationStats.sampleCapacity );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/SolverRetainedSamples", solverStats.sampleCount );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/SolverSampleCapacity", solverStats.sampleCapacity );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/RetainedEvents", eventStats.eventCount );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Replay/EventCapacity", eventStats.eventCapacity );
-
-        if ( solverStats.nextFrameIndex % 60u == 0u )
-        {
-            constexpr const char* reserveHighWaterPlots[] = { "Counter/Replay/RecorderReserveHighWaterBytes",
-                                                              "Counter/Replay/SolverReserveHighWaterBytes",
-                                                              "Counter/Replay/PredictionReserveHighWaterBytes" };
-
-            constexpr const char* reserveCapacityPlots[] = { "Counter/Replay/RecorderReserveHighWaterCapacity",
-                                                             "Counter/Replay/SolverReserveHighWaterCapacity",
-                                                             "Counter/Replay/PredictionReserveHighWaterCapacity" };
-
-            for ( std::size_t index = 0; index < REPLAY_GROWTH_OWNER_POLICIES.size(); ++index )
-            {
-                SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView reserveStats;
-
-                if ( SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::
-                         CopyOwnerStatsByName( REPLAY_GROWTH_OWNER_POLICIES[index].ownerName, reserveStats ) )
-                {
-                    SKORE_TRACY_PLOT_VALUE( reserveHighWaterPlots[index], reserveStats.highWaterBytes );
-                    SKORE_TRACY_PLOT_VALUE( reserveCapacityPlots[index], reserveStats.highWaterCapacity );
-                }
-            }
-        }
-    }
-#endif
 }
 
 bool ReplayRuntime::HasLoadedPresentation() const
@@ -1983,6 +2107,23 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
                                                                                                  frameCount );
 
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
+
+    const ReplayCauseTransportView causeTransport = m_planningOwner.CauseInspectionView().Transport();
+    const bool causalPredictionFrame = causeTransport.seekSource == ReplayCauseSeekSource::Prediction &&
+                                       causeTransport.mode != ReplayCauseInspectionMode::Inactive &&
+                                       causeTransport.mode != ReplayCauseInspectionMode::Returning;
+
+    if ( causalPredictionFrame )
+    {
+        // Why: prediction frame zero occupies the solver scrubber's present
+        // dead-zone. Causal transport has exact frame identity, so it must not
+        // round that frame back to live time merely to satisfy pointer UX.
+        const ReplayFrameIndex presentedFrame = causeTransport.presentedFrame;
+        if ( presentedFrame < frameCount && frames[static_cast<std::size_t>( presentedFrame )].frameIndex == presentedFrame )
+        {
+            return &frames[static_cast<std::size_t>( presentedFrame )];
+        }
+    }
 
     if ( scrubber.activeTrack != RunReplayTrack::Solver || !scrubber.historicalSamplePaused || frameCount < 2 )
     {
@@ -2205,8 +2346,7 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path, ReplayV2
                                                       std::span<const ReplayVisualArchiveSample> visualPackets,
                                                       std::span<const uint8_t> visualPredictionState ) const
 {
-    SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/Replay/ColdIO/SavePresentation",
-                                   ::HashStr( "Frame/Replay/ColdIO/SavePresentation" ) );
+
 
     return ReplayArtifactOperations::SaveColdWithOptionalPredictionState(
         visualPackets, visualPredictionState, [&]( std::vector<uint8_t>& fallbackPredictionState )

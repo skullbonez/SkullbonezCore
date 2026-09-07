@@ -32,6 +32,10 @@ Related:
 #include "../Replay/ReplayPathPackets.h"
 #include "../Replay/ReplayPresentationPackets.h"
 #include "../Replay/ReplayTimelinePackets.h"
+#include "../../Maths/Matrix4.h"
+
+#include <algorithm>
+#include <cmath>
 
 namespace SkullbonezCore::Rendering
 {
@@ -59,10 +63,11 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 struct ReplayOverlayViewport
 {
-    // One presentation value keeps width and height coupled at every overlay
-    // call site; neither dimension has meaning without the other.
+    // Viewport dimensions and the active world projection jointly define
+    // screen placement for this presentation frame.
     int width = 1;
     int height = 1;
+    Math::Transformation::Matrix4 viewProjection;
 };
 
 struct ReplayOverlayGestureView
@@ -137,11 +142,51 @@ struct ReplayOverlayPlanningSurfacesView
     const ReplayTripPlannerView& tripPlanner;
 };
 
+struct ReplayCauseLoadingView
+{
+    bool active = false;
+    float progress = 0.0f;
+};
+
+inline ReplayCauseLoadingView BuildReplayCauseLoadingView( const ReplayPredictionTimelineView& timeline,
+                                                           const ReplayPredictionTopologyView& topology,
+                                                           const ReplayPredictionControlsView& controls,
+                                                           const RunReplayPathVisualizerState& path,
+                                                           ReplayPredictionDetailMode detailMode ) noexcept
+{
+    ReplayCauseLoadingView loading;
+
+    if ( !controls.enabled || !path.hasTarget || path.targetId.value == 0 || detailMode != ReplayPredictionDetailMode::High )
+    {
+        return loading;
+    }
+
+    const bool matchingTarget = topology.targetId == path.targetId;
+    loading.active = !matchingTarget || !timeline.complete || !topology.treeReady;
+
+    // Invariant: a completed prefix from another target must never advance this
+    // request's bar or admit its rows. Collision resolution uses simulation time,
+    // independently of the user's future-path reveal speed.
+    if ( matchingTarget && timeline.frames.size() >= 2 && controls.horizonSeconds > 0.0f &&
+         ( !controls.building || timeline.usingBuildFrames ) )
+    {
+        const double seconds = timeline.frames.back().simulationSeconds - timeline.frames.front().simulationSeconds;
+        if ( std::isfinite( seconds ) )
+        {
+            loading.progress = std::clamp( static_cast<float>( seconds / controls.horizonSeconds ), 0.0f,
+                                           loading.active ? 0.99f : 1.0f );
+        }
+    }
+
+    return loading;
+}
+
 struct ReplayOverlayCausalityView
 {
     const RunReplayCauseTreeState& tree;
     ReplayCauseInspectionView inspection;
     ReplayPredictionDetailMode predictionDetailMode = ReplayPredictionDetailMode::High;
+    ReplayCauseLoadingView loading;
 };
 
 struct ReplayOverlayStateView

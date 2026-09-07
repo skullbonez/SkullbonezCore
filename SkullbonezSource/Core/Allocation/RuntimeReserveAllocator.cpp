@@ -37,9 +37,9 @@ Invariants:
 Related:
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
   - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp
-  - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.cpp
   - Agentic/Reference/engine-glossary.md
 */
+
 #include "RuntimeReserveAllocator.h"
 
 #include <algorithm>
@@ -95,9 +95,6 @@ struct OwnerRecord
     int elementSizeBytes;
     int capacityRowIndex;
     std::atomic<uint32_t> capacityPublisher;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    bool allowDevelopmentToolAllocations;
-#endif
     OwnerCounters counters;
 };
 
@@ -380,9 +377,6 @@ bool RegistrationMatchesOwnerPolicy( const OwnerRecord& owner, const RuntimeRese
                    owner.initialCapacity == desc.initialCapacity && owner.hardCapacity == hardCapacity &&
                    owner.replayGrowthLimit == desc.replayGrowthLimit && owner.allowReplayGrowth == desc.allowReplayGrowth &&
                    owner.elementSizeBytes == elementSizeBytes;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    matches = matches && owner.allowDevelopmentToolAllocations == desc.allowDevelopmentToolAllocations;
-#endif
     return matches;
 }
 
@@ -632,9 +626,6 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
     owner.elementSizeBytes = desc.elementSizeBytes > 0 ? desc.elementSizeBytes : 0;
     owner.capacityRowIndex = -1;
     owner.capacityPublisher.store( INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER, std::memory_order_relaxed );
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    owner.allowDevelopmentToolAllocations = desc.allowDevelopmentToolAllocations;
-#endif
     ResetOwnerCounters( owner.counters, owner.initialCapacity );
 
     if ( owner.elementSizeBytes > 0 )
@@ -816,75 +807,6 @@ bool RuntimeReserveAllocator::TryConsumeApprovedReplayGrowthAllocation( RuntimeR
     return true;
 }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-bool RuntimeReserveAllocator::IsApprovedDevelopmentToolAllocation( RuntimeReserveOwnerHandle ownerHandle,
-                                                                   int phaseIndex ) noexcept
-{
-    const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
-
-    if ( !IsGameplayPhaseIndex( phaseIndex ) || ownerIndex == UNREGISTERED_OWNER )
-    {
-        return false;
-    }
-
-    const OwnerRecord& owner = OwnerForHandle( ownerIndex );
-    const uint64_t activeBytes = owner.counters.activeBytes.load( std::memory_order_relaxed );
-    return owner.allowDevelopmentToolAllocations && owner.hardCapacity > 0 &&
-           activeBytes <= static_cast<uint64_t>( owner.hardCapacity );
-}
-
-bool RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle ownerHandle,
-                                                                         int phaseIndex, uint64_t bytes,
-                                                                         uint64_t* outAccountingGeneration ) noexcept
-{
-    ReplayBudgetLock accountingLock;
-    const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
-
-    if ( ownerIndex == UNREGISTERED_OWNER || bytes == 0u )
-    {
-        return false;
-    }
-
-    OwnerRecord& owner = OwnerForHandle( ownerIndex );
-
-    if ( !owner.allowDevelopmentToolAllocations || owner.hardCapacity <= 0 )
-    {
-        return false;
-    }
-
-    const uint64_t hardBytes = static_cast<uint64_t>( owner.hardCapacity );
-    uint64_t activeBefore = owner.counters.activeBytes.load( std::memory_order_relaxed );
-
-    for ( ;; )
-    {
-        if ( activeBefore > hardBytes || bytes > hardBytes - activeBefore )
-        {
-            // Fatal invariant precursor: the caller reports the named vendor and map
-            // request before terminating. Count the rejected request here so
-            // allocation-policy summaries cannot present the cap as healthy.
-            owner.counters.failedGrowths.fetch_add( 1u, std::memory_order_relaxed );
-            s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
-            return false;
-        }
-
-        if ( owner.counters.activeBytes.compare_exchange_weak( activeBefore, activeBefore + bytes, std::memory_order_relaxed,
-                                                               std::memory_order_relaxed ) )
-        {
-            break;
-        }
-    }
-
-    owner.counters.allocations.fetch_add( 1u, std::memory_order_relaxed );
-    owner.counters.allocatedBytes.fetch_add( bytes, std::memory_order_relaxed );
-    owner.counters.lastPhaseIndex.store( phaseIndex, std::memory_order_relaxed );
-    UpdateHighWaterU64( owner.counters.highWaterBytes, activeBefore + bytes );
-    if ( outAccountingGeneration )
-    {
-        *outAccountingGeneration = s_allocationAccountingGeneration.load( std::memory_order_relaxed );
-    }
-    return true;
-}
-#endif
 
 uint64_t RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerHandle, int phaseIndex,
                                                     uint64_t bytes ) noexcept
@@ -935,24 +857,6 @@ uint64_t RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ow
                       static_cast<unsigned long long>( bytes ) );
     }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
-    if ( ownerIndex != UNREGISTERED_OWNER && owner.allowDevelopmentToolAllocations &&
-         ( owner.hardCapacity <= 0 || activeAfter > static_cast<uint64_t>( owner.hardCapacity ) ) )
-    {
-        // Invariant: the tool exception is bounded by live bytes. Crossing the
-        // cap remains a policy violation even though the allocation itself has
-        // already succeeded inside the third-party library.
-        s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
-        std::fprintf( stdout,
-                      "[runtime-reserve] policy_violation owner=%s phase=%s bytes=%llu active_bytes=%llu "
-                      "hard_capacity=%d reason=development_tool_byte_cap\n",
-                      SafeOwnerName( owner, ownerIndex ),
-                      RuntimeReservePhaseName( RuntimeReservePhaseFromAllocationPhaseIndex( phaseIndex ) ),
-                      static_cast<unsigned long long>( bytes ), static_cast<unsigned long long>( activeAfter ),
-                      owner.hardCapacity );
-    }
-#endif
     return accountingGeneration;
 }
 
@@ -1037,9 +941,6 @@ bool RuntimeReserveAllocator::CopyOwnerStats( RuntimeReserveOwnerHandle ownerHan
     outStats.highWaterCapacity = owner.counters.highWaterCapacity.load( std::memory_order_relaxed );
     outStats.lastGrowthFrame = owner.counters.lastGrowthFrame.load( std::memory_order_relaxed );
     outStats.allowReplayGrowth = owner.allowReplayGrowth;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    outStats.allowDevelopmentToolAllocations = owner.allowDevelopmentToolAllocations;
-#endif
     return true;
 }
 
@@ -1388,9 +1289,6 @@ bool RuntimeReserveAllocator::HasPolicyViolations() noexcept
     {
         const OwnerRecord& owner = s_owners[index];
         bool hasByteCap = owner.subsystem == RuntimeReserveSubsystem::Replay;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-        hasByteCap = hasByteCap || owner.allowDevelopmentToolAllocations;
-#endif
         if ( owner.active.load( std::memory_order_acquire ) == 0u || !hasByteCap || owner.hardCapacity <= 0 )
         {
             continue;
@@ -1445,10 +1343,6 @@ const char* RuntimeReserveSubsystemName( RuntimeReserveSubsystem subsystem ) noe
         return "diagnostics";
     case RuntimeReserveSubsystem::AllocationTracker:
         return "allocation_tracker";
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    case RuntimeReserveSubsystem::DevelopmentTools:
-        return "development_tools";
-#endif
     default:
         return "unknown";
     }

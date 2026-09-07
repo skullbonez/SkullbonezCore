@@ -8,24 +8,19 @@ Summary:
   and worker controls. The detachable performance histogram is implemented in
   UITabProfilerHistogram.cpp behind the same bounded UIProfilerTabState.
 
-Glossary:
-  Tool connection badge: Bounded profiler-row text derived from the copied
-    Tracy build/lifetime/viewer flags rather than a live tool query.
-
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
     constants.
   - Histogram sampling and panel interaction remain behind the public profiler
     tab API; this coordinator does not reach into histogram implementation
     helpers.
-  - The Tracy badge formats into the tab's fixed stack buffer and performs no
-    retained-state or heap growth.
 
 Related:
   - SkullbonezSource/Runtime/UI/GameUI/UITabProfiler.h
   - SkullbonezSource/Runtime/UI/GameUI/UITabProfilerHistogram.cpp
   - Agentic/Reference/engine-glossary.md
 */
+
 #include "UITabProfiler.h"
 #include "../../../Assets/AssetKeys.h"
 
@@ -615,7 +610,8 @@ bool HandleContentClick( UIProfilerTabState& state, InGameUIInputResult& result,
     if ( state.workerThreadSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_WORKER_THREADS;
-        state.previewWorkerThreads = static_cast<int>( state.workerThreadSlider.ValueFromMouse( mouseX, 0.0f, static_cast<float>( workerMax ), 1.0f ) );
+        state.previewWorkerThreads = static_cast<int>(
+            state.workerThreadSlider.ValueFromMouse( mouseX, 0.0f, static_cast<float>( workerMax ), 1.0f ) );
 
         return true;
     }
@@ -718,7 +714,8 @@ bool UpdateActiveSlider( UIProfilerTabState& state, int activeSlider, int mouseX
     }
 
     const int workerMax = (std::max)( 1, maxWorkerThreads );
-    state.previewWorkerThreads = static_cast<int>( state.workerThreadSlider.ValueFromMouse( mouseX, 0.0f, static_cast<float>( workerMax ), 1.0f ) );
+    state.previewWorkerThreads = static_cast<int>(
+        state.workerThreadSlider.ValueFromMouse( mouseX, 0.0f, static_cast<float>( workerMax ), 1.0f ) );
 
     return true;
 }
@@ -736,11 +733,146 @@ bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIIn
 }
 
 
+// All bars use one frame snapshot and one axis so per-core values remain comparable.
+void DrawWorkerCoreChart( const UIDrawContext& draw, const FrameSnapshot& frame, int displayWorkerCount,
+                          const UIRect& bounds, float coreChartY )
+{
+    char buf[128];
+    const float coreChartH = PROFILER_CORE_CHART_H;
+    const WorkerCoreSampleSnapshot* workerSamples[MAX_WORKER_CORE_SAMPLES] = {};
+    const int coreSampleCount = frame.workerCoreSampleCount;
+
+    for ( int i = 0; i < coreSampleCount; ++i )
+    {
+        const WorkerCoreSampleSnapshot& sample = frame.workerCoreSamples[i];
+
+        if ( sample.workerIndex >= 0 && sample.workerIndex < MAX_WORKER_CORE_SAMPLES )
+        {
+            workerSamples[sample.workerIndex] = &sample;
+        }
+    }
+
+    const int chartCoreCount = std::clamp( displayWorkerCount, 0, MAX_WORKER_CORE_SAMPLES );
+    float coreAvgMs[MAX_WORKER_CORE_SAMPLES] = {};
+
+    float totalCoreAvgMs = 0.0f;
+    float maxCoreAvgMs = 0.0f;
+    int hottestCore = -1;
+
+    for ( int coreIndex = 0; coreIndex < chartCoreCount; ++coreIndex )
+    {
+        const WorkerCoreSampleSnapshot* sample = workerSamples[coreIndex];
+
+        if ( sample )
+        {
+            coreAvgMs[coreIndex] = sample->avgCoreMs > 0.0f ? sample->avgCoreMs : sample->coreMs;
+        }
+
+        totalCoreAvgMs += coreAvgMs[coreIndex];
+
+        if ( coreAvgMs[coreIndex] > maxCoreAvgMs )
+        {
+            maxCoreAvgMs = coreAvgMs[coreIndex];
+            hottestCore = coreIndex;
+        }
+    }
+
+    const float coreAxisMs = (std::max)( PROFILER_CORE_CHART_AXIS_MIN_MS, maxCoreAvgMs );
+
+    if ( coreChartY + coreChartH < bounds.y + 32.0f || coreChartY > bounds.y + bounds.h )
+    {
+        return;
+    }
+
+    draw.Rect( bounds.x, coreChartY, bounds.w, coreChartH, 0.014f, 0.024f, 0.031f, 0.64f );
+    draw.Rect( bounds.x, coreChartY + coreChartH - 1.0f, bounds.w, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
+    snprintf( buf, sizeof( buf ), "CPU Core Work (%d columns, 0.5s avg ms/frame)", chartCoreCount );
+    draw.Text( bounds.x + 18.0f, coreChartY + 10.0f, 10.0f, 0.78f, 0.88f, 0.91f, buf );
+
+    if ( hottestCore >= 0 )
+    {
+        snprintf( buf, sizeof( buf ), "Scale %.2f ms/frame   total %.2f   hot core %d %.2f", coreAxisMs, totalCoreAvgMs,
+                  hottestCore, maxCoreAvgMs );
+    }
+    else
+    {
+        snprintf( buf, sizeof( buf ), "Scale %.2f ms/frame   total %.2f", coreAxisMs, totalCoreAvgMs );
+    }
+
+    draw.Text( bounds.x + bounds.w * 0.73f - 88.0f, coreChartY + 10.0f, 10.0f, 0.68f, 0.78f, 0.82f, buf );
+
+    const float plotX = bounds.x + 18.0f;
+    const float plotY = coreChartY + 36.0f;
+    const float plotW = (std::max)( 10.0f, bounds.w - 36.0f );
+    const float plotH = 76.0f;
+    const float baselineY = plotY + plotH;
+    draw.Rect( plotX, plotY, plotW, plotH, 0.025f, 0.040f, 0.048f, 0.88f );
+    draw.Outline( plotX, plotY, plotW, plotH, 0.18f, 0.30f, 0.34f, 0.62f );
+    draw.Rect( plotX, baselineY - 1.0f, plotW, 1.0f, 0.52f, 0.62f, 0.64f, 0.72f );
+    draw.Rect( plotX, baselineY - plotH * ( PROFILER_CORE_CHART_AXIS_MIN_MS / coreAxisMs ), plotW, 1.0f, 0.38f, 0.50f, 0.52f,
+               0.38f );
+
+    draw.Text( plotX + 4.0f, plotY + 3.0f, 8.0f, 0.45f, 0.56f, 0.59f, "0.50 ms/frame" );
+
+    if ( chartCoreCount <= 0 )
+    {
+        draw.Text( plotX + 10.0f, plotY + 30.0f, 11.0f, 0.88f, 0.74f, 0.38f, "Workers disabled" );
+    }
+    else
+    {
+        if ( coreSampleCount <= 0 )
+        {
+            draw.Text( plotX + 10.0f, plotY + 24.0f, 10.0f, 0.76f, 0.84f, 0.86f,
+                       "No worker jobs in this 0.5s window (idle, threshold, or config)" );
+        }
+
+        const float pitch = plotW / static_cast<float>( chartCoreCount );
+        const float columnW = std::clamp( pitch * 0.62f, 2.0f, 24.0f );
+        float lastValueLabelRight = plotX - 100.0f;
+
+        for ( int coreIndex = 0; coreIndex < chartCoreCount; ++coreIndex )
+        {
+            const float ms = coreAvgMs[coreIndex];
+            const float fillH = std::clamp( ms / coreAxisMs, 0.0f, 1.0f ) * plotH;
+            const float x = plotX + static_cast<float>( coreIndex ) * pitch + ( pitch - columnW ) * 0.5f;
+            const ProfilerUiColor& color = ProfilerPaletteColor( coreIndex + 9 );
+            draw.Rect( x, baselineY - 1.0f, columnW, 1.0f, color.r, color.g, color.b, 0.72f );
+
+            if ( fillH > 0.0f )
+            {
+                draw.Rect( x, baselineY - fillH, columnW, fillH, color.r, color.g, color.b, 0.90f );
+            }
+
+            if ( pitch >= 18.0f )
+            {
+                snprintf( buf, sizeof( buf ), "%d", coreIndex );
+                draw.Text( x, baselineY + 6.0f, 7.5f, 0.48f, 0.58f, 0.60f, buf );
+            }
+
+            if ( ms > 0.0f )
+            {
+                snprintf( buf, sizeof( buf ),
+                          pitch >= 38.0f ? ( ms >= 10.0f ? "%.0fms" : ( ms >= 1.0f ? "%.1fms" : "%.2fms" ) )
+                                         : ( ms >= 10.0f ? "%.0f" : ( ms >= 1.0f ? "%.1f" : "%.2f" ) ),
+                          ms );
+
+                const float labelX = x - 2.0f;
+                const float labelY = (std::max)( plotY + 8.0f, baselineY - fillH - 12.0f );
+
+                if ( pitch >= 28.0f || labelX > lastValueLabelRight + 2.0f || ms >= PROFILER_CORE_CHART_AXIS_MIN_MS )
+                {
+                    draw.Text( labelX, labelY, 7.5f, 0.94f, 0.98f, 0.99f, buf );
+                    lastValueLabelRight = labelX + 26.0f;
+                }
+            }
+        }
+    }
+}
+
 void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data, float contentX,
            float contentY, float contentW, float contentH, float scrollY, int activeSlider )
 {
     char buf[128];
-    const FrameSnapshot& frame = state.frame;
     const int workerMax = (std::max)( 1, data.maxWorkerThreadCount );
     const int rawWorkerCount = ( activeSlider == SLIDER_WORKER_THREADS && state.previewWorkerThreads >= 0 )
                                    ? state.previewWorkerThreads
@@ -752,17 +884,6 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
     if ( IsProfilerRowVisible( contentY, contentH, contentY + PROFILER_WORKER_TOGGLE_Y, 24.0f ) )
     {
         state.workerToggle.DrawToggle( draw, "Workers", displayWorkerCount > 0, 0.30f, 0.82f, 0.95f );
-#if defined( TRACY_ENABLE )
-        const char* tracyState = frame.tracyViewerConnected ? "connected"
-                                 : frame.tracyInitialized   ? "waiting for viewer"
-                                                            : "stopped";
-
-        snprintf( buf, sizeof( buf ), "Tracy: %s", tracyState );
-        draw.Text( contentX + 190.0f, contentY + PROFILER_WORKER_TOGGLE_Y + 6.0f, 10.5f,
-                   frame.tracyViewerConnected ? 0.35f : 0.88f, frame.tracyViewerConnected ? 0.88f : 0.74f,
-                   frame.tracyViewerConnected ? 0.55f : 0.32f, buf );
-
-#endif
     }
 
     snprintf( buf, sizeof( buf ), "%d / %d", displayWorkerCount, workerMax );
@@ -796,9 +917,9 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
     float timelineBudgetMs = PROFILER_UI_TIMELINE_BUDGET_MS;
 
-    for ( int i = 0; i < frame.markerCount; ++i )
+    for ( int i = 0; i < state.frame.markerCount; ++i )
     {
-        const MarkerSnapshot& marker = frame.markers[i];
+        const MarkerSnapshot& marker = state.frame.markers[i];
 
         if ( marker.hash == kFrameHash )
         {
@@ -829,8 +950,8 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
 
     BuildTimelineSegments( state, visibleRows, visibleRowCount, timelineSegments );
 
-    auto profilerRow = [&]( int rowIndex,
-                           const MarkerSnapshot& marker, const TimelineSegment& segment, bool hasChildren, bool isExpanded )
+    auto profilerRow =
+        [&]( int rowIndex, const MarkerSnapshot& marker, const TimelineSegment& segment, bool hasChildren, bool isExpanded )
     {
         const float rowY = tableY + headerH + static_cast<float>( rowIndex ) * rowH - scrollY;
 
@@ -908,12 +1029,12 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
     for ( int visibleRow = 0; visibleRow < visibleRowCount; ++visibleRow )
     {
         const int markerIndex = visibleRows[visibleRow];
-        const MarkerSnapshot& marker = frame.markers[markerIndex];
-        const bool hasChildren = ProfilerMarkerHasChildren( frame, markerIndex );
+        const MarkerSnapshot& marker = state.frame.markers[markerIndex];
+        const bool hasChildren = ProfilerMarkerHasChildren( state.frame, markerIndex );
         profilerRow( visibleRow, marker, timelineSegments[visibleRow], hasChildren, IsMarkerExpanded( state, marker.hash ) );
     }
 
-    const DrawTraceSnapshot& drawSnapshot = frame.drawTrace;
+    const DrawTraceSnapshot& drawSnapshot = state.frame.drawTrace;
     int visibleDrawRows[MAX_MARKERS] = {};
 
     const int visibleDrawRowCount = BuildVisibleDrawRows( state, drawSnapshot, visibleDrawRows, MAX_MARKERS );
@@ -952,132 +1073,10 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
         }
     }
 
-    const WorkerCoreSampleSnapshot* workerSamples[MAX_WORKER_CORE_SAMPLES] = {};
-    const int coreSampleCount = frame.workerCoreSampleCount;
-
-    for ( int i = 0; i < coreSampleCount; ++i )
+    if ( visibleDrawRowCount > 0 )
     {
-        const WorkerCoreSampleSnapshot& sample = frame.workerCoreSamples[i];
-
-        if ( sample.workerIndex >= 0 && sample.workerIndex < MAX_WORKER_CORE_SAMPLES )
-        {
-            workerSamples[sample.workerIndex] = &sample;
-        }
-    }
-
-    const int chartCoreCount = std::clamp( displayWorkerCount, 0, MAX_WORKER_CORE_SAMPLES );
-    float coreAvgMs[MAX_WORKER_CORE_SAMPLES] = {};
-
-    float totalCoreAvgMs = 0.0f;
-    float maxCoreAvgMs = 0.0f;
-    int hottestCore = -1;
-
-    for ( int coreIndex = 0; coreIndex < chartCoreCount; ++coreIndex )
-    {
-        const WorkerCoreSampleSnapshot* sample = workerSamples[coreIndex];
-
-        if ( sample )
-        {
-            coreAvgMs[coreIndex] = sample->avgCoreMs > 0.0f ? sample->avgCoreMs : sample->coreMs;
-        }
-
-        totalCoreAvgMs += coreAvgMs[coreIndex];
-
-        if ( coreAvgMs[coreIndex] > maxCoreAvgMs )
-        {
-            maxCoreAvgMs = coreAvgMs[coreIndex];
-            hottestCore = coreIndex;
-        }
-    }
-
-    const float coreAxisMs = (std::max)( PROFILER_CORE_CHART_AXIS_MIN_MS, maxCoreAvgMs );
-    const float coreChartY = drawSectionY + drawHeaderH;
-
-    if ( visibleDrawRowCount > 0 && coreChartY + coreChartH >= tableY + headerH && coreChartY <= tableY + tableH )
-    {
-        draw.Rect( tableX, coreChartY, tableW, coreChartH, 0.014f, 0.024f, 0.031f, 0.64f );
-        draw.Rect( tableX, coreChartY + coreChartH - 1.0f, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
-        snprintf( buf, sizeof( buf ), "CPU Core Work (%d columns, 0.5s avg ms/frame)", chartCoreCount );
-        draw.Text( colScope, coreChartY + 10.0f, 10.0f, 0.78f, 0.88f, 0.91f, buf );
-
-        if ( hottestCore >= 0 )
-        {
-            snprintf( buf, sizeof( buf ), "Scale %.2f ms/frame   total %.2f   hot core %d %.2f", coreAxisMs, totalCoreAvgMs,
-                      hottestCore, maxCoreAvgMs );
-        }
-        else
-        {
-            snprintf( buf, sizeof( buf ), "Scale %.2f ms/frame   total %.2f", coreAxisMs, totalCoreAvgMs );
-        }
-
-        draw.Text( barX - 88.0f, coreChartY + 10.0f, 10.0f, 0.68f, 0.78f, 0.82f, buf );
-
-        const float plotX = tableX + 18.0f;
-        const float plotY = coreChartY + 36.0f;
-        const float plotW = (std::max)( 10.0f, tableW - 36.0f );
-        const float plotH = 76.0f;
-        const float baselineY = plotY + plotH;
-        draw.Rect( plotX, plotY, plotW, plotH, 0.025f, 0.040f, 0.048f, 0.88f );
-        draw.Outline( plotX, plotY, plotW, plotH, 0.18f, 0.30f, 0.34f, 0.62f );
-        draw.Rect( plotX, baselineY - 1.0f, plotW, 1.0f, 0.52f, 0.62f, 0.64f, 0.72f );
-        draw.Rect( plotX, baselineY - plotH * ( PROFILER_CORE_CHART_AXIS_MIN_MS / coreAxisMs ), plotW, 1.0f, 0.38f, 0.50f,
-                   0.52f, 0.38f );
-
-        draw.Text( plotX + 4.0f, plotY + 3.0f, 8.0f, 0.45f, 0.56f, 0.59f, "0.50 ms/frame" );
-
-        if ( chartCoreCount <= 0 )
-        {
-            draw.Text( plotX + 10.0f, plotY + 30.0f, 11.0f, 0.88f, 0.74f, 0.38f, "Workers disabled" );
-        }
-        else
-        {
-            if ( coreSampleCount <= 0 )
-            {
-                draw.Text( plotX + 10.0f, plotY + 24.0f, 10.0f, 0.76f, 0.84f, 0.86f,
-                           "No worker jobs in this 0.5s window (idle, threshold, or config)" );
-            }
-
-            const float pitch = plotW / static_cast<float>( chartCoreCount );
-            const float columnW = std::clamp( pitch * 0.62f, 2.0f, 24.0f );
-            float lastValueLabelRight = plotX - 100.0f;
-
-            for ( int coreIndex = 0; coreIndex < chartCoreCount; ++coreIndex )
-            {
-                const float ms = coreAvgMs[coreIndex];
-                const float fillH = std::clamp( ms / coreAxisMs, 0.0f, 1.0f ) * plotH;
-                const float x = plotX + static_cast<float>( coreIndex ) * pitch + ( pitch - columnW ) * 0.5f;
-                const ProfilerUiColor& color = ProfilerPaletteColor( coreIndex + 9 );
-                draw.Rect( x, baselineY - 1.0f, columnW, 1.0f, color.r, color.g, color.b, 0.72f );
-
-                if ( fillH > 0.0f )
-                {
-                    draw.Rect( x, baselineY - fillH, columnW, fillH, color.r, color.g, color.b, 0.90f );
-                }
-
-                if ( pitch >= 18.0f )
-                {
-                    snprintf( buf, sizeof( buf ), "%d", coreIndex );
-                    draw.Text( x, baselineY + 6.0f, 7.5f, 0.48f, 0.58f, 0.60f, buf );
-                }
-
-                if ( ms > 0.0f )
-                {
-                    snprintf( buf, sizeof( buf ),
-                              pitch >= 38.0f ? ( ms >= 10.0f ? "%.0fms" : ( ms >= 1.0f ? "%.1fms" : "%.2fms" ) )
-                                             : ( ms >= 10.0f ? "%.0f" : ( ms >= 1.0f ? "%.1f" : "%.2f" ) ),
-                              ms );
-
-                    const float labelX = x - 2.0f;
-                    const float labelY = (std::max)( plotY + 8.0f, baselineY - fillH - 12.0f );
-
-                    if ( pitch >= 28.0f || labelX > lastValueLabelRight + 2.0f || ms >= PROFILER_CORE_CHART_AXIS_MIN_MS )
-                    {
-                        draw.Text( labelX, labelY, 7.5f, 0.94f, 0.98f, 0.99f, buf );
-                        lastValueLabelRight = labelX + 26.0f;
-                    }
-                }
-            }
-        }
+        DrawWorkerCoreChart( draw, state.frame, displayWorkerCount, { tableX, tableY, tableW, tableH },
+                             drawSectionY + drawHeaderH );
     }
 
     auto drawTraceRow = [&]( int rowIndex, const DrawTraceNodeSnapshot& node, bool hasChildren, bool isExpanded )

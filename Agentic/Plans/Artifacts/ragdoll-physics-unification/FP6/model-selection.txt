@@ -1,0 +1,24 @@
+Rejected/accepted tuning probes; repeated capacity announcements omitted.
+[doctest] doctest version is "2.4.12"
+[doctest] run with "--help" for options
+FP6 f=20 iterations=4 hz=60 sag=0.0628452301 peak_sag=0.102972031 jitter=0.000785458754 settled_energy=0.00559988309 peak_energy=1.30697496
+FP6 f=20 iterations=4 hz=120 sag=0.0625276566 peak_sag=0.100870132 jitter=0.000294097012 settled_energy=0.00313081813 peak_energy=1.25894383
+FP6 f=20 iterations=4 hz=240 sag=0.063000679 peak_sag=0.103406906 jitter=0.000203631948 settled_energy=0.00600770395 peak_energy=1.33699024
+FP6 f=20 iterations=8 hz=60 sag=0.0621423721 peak_sag=0.0959749222 jitter=0.000314483366 settled_energy=0.000894953395 peak_energy=1.1197213
+FP6 f=20 iterations=8 hz=120 sag=0.0624008179 peak_sag=0.0999259949 jitter=0.000261634079 settled_energy=0.0024793247 peak_energy=1.23033189
+FP6 f=20 iterations=8 hz=240 sag=0.0629787445 peak_sag=0.103327751 jitter=0.000201675231 settled_energy=0.00589350726 peak_energy=1.33448912
+FP6 f=20 iterations=12 hz=60 sag=0.0620994568 peak_sag=0.0944805145 jitter=0.000254762868 settled_energy=0.000587723006 peak_energy=1.07402418
+FP6 f=20 iterations=12 hz=120 sag=0.0623874664 peak_sag=0.0998306274 jitter=0.000258548902 settled_energy=0.00242127903 peak_energy=1.22741726
+FP6 f=20 iterations=12 hz=240 sag=0.0629787445 peak_sag=0.103325844 jitter=0.000201648593 settled_energy=0.00589226182 peak_energy=1.33444587
+FP6 f=40 iterations=4 hz=60 sag=0.244713783 peak_sag=0.254598618 jitter=0.0454877646 settled_energy=25.0446162 peak_energy=124.636838
+FP6 f=40 iterations=4 hz=120 sag=0.0155334473 peak_sag=0.0257520676 jitter=1.76513497e-05 settled_energy=1.13299608e-05 peak_energy=0.327338927
+FP6 f=40 iterations=4 hz=240 sag=0.0155305862 peak_sag=0.0252246857 jitter=5.01699769e-06 settled_energy=3.636896e-06 peak_energy=0.315231938
+FP6 f=40 iterations=8 hz=60 sag=0.0155382156 peak_sag=0.0271930695 jitter=0.000145208568 settled_energy=0.00019842425 peak_energy=0.333558801
+FP6 f=40 iterations=8 hz=120 sag=0.0155305862 peak_sag=0.0240001678 jitter=3.21644248e-06 settled_energy=3.64653208e-07 peak_energy=0.280498374
+FP6 f=40 iterations=8 hz=240 sag=0.0155305862 peak_sag=0.0249891281 jitter=4.04000499e-06 settled_energy=2.36012668e-06 peak_energy=0.308049228
+FP6 f=40 iterations=12 hz=60 sag=0.0155305862 peak_sag=0.024066925 jitter=8.33033287e-06 settled_energy=6.33120471e-07 peak_energy=0.271118782
+FP6 f=40 iterations=12 hz=120 sag=0.0155305862 peak_sag=0.0236263275 jitter=2.21271624e-06 settled_energy=1.76180803e-07 peak_energy=0.26903873
+FP6 f=40 iterations=12 hz=240 sag=0.0155305862 peak_sag=0.0249643326 jitter=3.94268694e-06 settled_energy=2.25164193e-06 peak_energy=0.307347849
+[doctest] test cases:    1 |    1 passed | 0 failed | 0 skipped
+[doctest] assertions: 5040 | 5040 passed | 0 failed |
+[doctest] Status: SUCCESS!

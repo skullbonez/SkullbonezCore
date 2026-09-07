@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 5,
   "simulation": {
     "seed": 20260620,
     "physics": true,

@@ -261,8 +261,8 @@ void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed, co
         if ( regressionLogEnabled || frameLogEnabled )
         {
             const PhysicsDiagnosticsNameView names = m_sink.RegisteredNames();
-            const PhysicsDiagnosticsFrameInput frame { diagnosticsView,      bodyStore,   colliderStore, names,
-                                                       diagnosticsCsvWriter, deltaSeconds };
+            const PhysicsDiagnosticsFrameInput frame { diagnosticsView,      bodyStore,     colliderStore, names,
+                                                       diagnosticsCsvWriter, m_correlation, deltaSeconds };
 
             if ( regressionLogEnabled )
             {
@@ -304,6 +304,10 @@ void PhysicsStepDiagnostics::SetPhysicsDiagnosticsPath( const char* path )
 void PhysicsStepDiagnostics::SetPhysicsDiagnosticsRunId( const char* runId )
 {
     m_sink.SetPhysicsDiagnosticsRunId( runId );
+}
+void PhysicsStepDiagnostics::SetPhysicsDiagnosticsCorrelation( const PhysicsDiagnosticsCorrelation& correlation )
+{
+    m_correlation = correlation;
 }
 #endif
 

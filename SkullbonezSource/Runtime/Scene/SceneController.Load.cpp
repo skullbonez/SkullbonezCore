@@ -642,20 +642,6 @@ void SceneLoadTransaction::RecordCompletedRequest( const SceneRequest& request )
 }
 
 
-void SceneLoadTransaction::PreserveInactiveDevelopmentUi()
-{
-    if ( m_phase.Current() != SceneLoadPhaseCursor::Phase::Load )
-    {
-        SB_FATAL( "Runtime/SceneLoadTransaction", "Development UI policy changed outside the load phase. current=%u",
-                  static_cast<unsigned int>( m_phase.Current() ) );
-    }
-
-    m_outputs.uiActivation.preserveUIState = true;
-    m_outputs.uiActivation.forceVisible = false;
-    m_outputs.uiActivation.forceUnminimized = false;
-}
-
-
 const SceneLoadResult& SceneLoadTransaction::BeginRuntimeReactions()
 {
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::RuntimeReactions, "BeginRuntimeReactions" );

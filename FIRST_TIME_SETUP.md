@@ -5,20 +5,6 @@ C++ tools, Python, and Pillow available to the validation scripts.
 
 For agent workflow rules, read `AGENTS.md` first, then `Agentic/README.md`.
 
-## Initialize Pinned Dependencies
-
-After cloning, initialize the exact Dear ImGui and Tracy revisions recorded by
-the repository. This command checks out the committed gitlinks; it does not
-resolve a moving latest version:
-
-```powershell
-git submodule update --init --recursive
-git submodule status
-```
-
-The expected pins, licenses, compiled source list, and update procedure are in
-`ThirdPtySource/README.md` and `THIRD_PARTY_NOTICES.md`.
-
 ## Install Tools
 
 Install Visual Studio with the Desktop development with C++ workload, LLVM

@@ -183,7 +183,8 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
         {
             ragdoll.firstSceneObjectId = AllocateVersion1SceneObjectIdRange( next,
 
-                                                                             static_cast<uint32_t>( Physics::Ragdoll::SIMPLE_PART_COUNT ),
+                                                                             static_cast<uint32_t>(
+                                                                                 Physics::Ragdoll::SIMPLE_PART_COUNT ),
                                                                              path );
 
             if ( ParserFailed() )
@@ -657,7 +658,7 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
         return;
     }
 
-    if ( documentVersion < 1 || documentVersion > 4 )
+    if ( documentVersion < 1 || documentVersion > 5 )
     {
         Fail( path, "Unsupported scene schema version: " + std::to_string( documentVersion ) );
         return;

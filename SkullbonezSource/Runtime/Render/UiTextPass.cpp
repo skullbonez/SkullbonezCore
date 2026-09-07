@@ -7,8 +7,6 @@ Invariants:
     before backend teardown.
   - Every scheduled UI path flushes Text2d before the graph completes, so later
     frame work cannot inherit queued UI glyphs.
-  - Development-tool status is copied into the UI snapshot; draw code never
-    reaches back into the live Tracy owner.
   - Operation-specific graph ABI records borrow direct values only until their
     synchronous callback returns; no owner reference is retained between calls.
   - Backend preview handles stay in the Runtime snapshot, whose bounded append
@@ -18,6 +16,7 @@ Invariants:
   - An invalid Replay memory sample publishes a cleared unavailable value and
     never reuses or refreshes stale accounting.
 */
+
 #include "RuntimeRenderPasses.h"
 #include "RuntimeRenderFrameValues.h"
 #include "../../Core/Profiler.h"
@@ -160,16 +159,18 @@ void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, 
 }
 } // namespace
 
-SkullbonezCore::Core::SbResult
-UiTextPass::EnsureGpuResources( Rendering::Dx12TextureOwner& renderTextures,
-                                Rendering::Dx12GeometryOwner& renderGeometry,
-                                std::unique_ptr<Rendering::ShaderDX12> textShader,
-                                std::unique_ptr<Rendering::ShaderDX12> solidShader,
-                                std::unique_ptr<Rendering::ShaderDX12> solidBatchShader, int screenW, int screenH )
+SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12TextureOwner& renderTextures,
+                                                               Rendering::Dx12GeometryOwner& renderGeometry,
+                                                               std::unique_ptr<Rendering::ShaderDX12> textShader,
+                                                               std::unique_ptr<Rendering::ShaderDX12> solidShader,
+                                                               std::unique_ptr<Rendering::ShaderDX12> solidBatchShader,
+                                                               int screenW, int screenH )
 {
-    const SkullbonezCore::Core::SbResult fontResult =
-        Text2d::BuildFont( m_resultDiagnostics, m_textBatch, renderTextures, renderGeometry, std::move( textShader ),
-                           std::move( solidShader ), std::move( solidBatchShader ), screenW, screenH, "Verdana" );
+    const SkullbonezCore::Core::SbResult fontResult = Text2d::BuildFont( m_resultDiagnostics, m_textBatch, renderTextures,
+                                                                         renderGeometry, std::move( textShader ),
+                                                                         std::move( solidShader ),
+                                                                         std::move( solidBatchShader ), screenW, screenH,
+                                                                         "Verdana" );
 
     if ( !fontResult.Ok() )
     {

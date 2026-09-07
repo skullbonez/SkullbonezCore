@@ -26,7 +26,7 @@ starting this plan.
 
 The current top bar contains eleven tabs:
 
-1. `Prof` - worker controls, Tracy state, timing hierarchy, percentiles, and timeline spans.
+1. `Prof` - worker controls, timing hierarchy, percentiles, and timeline spans.
 2. `Scene` - scene and replay selection, reset/save actions, run status, simulation speed, and continuous forecast.
 3. `Edit` - editor/place/static modes, object selection, viewport state, and history depth.
 4. `Phys` - physics overlays, pipeline inspection, ray tools, gravity, friction, sleep enable, and tornado controls.

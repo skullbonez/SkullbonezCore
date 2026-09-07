@@ -9,9 +9,12 @@ from dataclasses import replace
 import json
 from pathlib import Path
 import sys
+import tempfile
 import time
 
-from skarness import SkarnessConnection, launch, query_latest_state
+from skarness import SkarnessConnection, launch
+
+STATE_KINDS = {"snapshot", "append", "change", "evict", "reset", "state"}
 
 
 @dataclass(frozen=True)
@@ -27,8 +30,11 @@ class PredictionCase:
     screenshot: bool = False
     continuity: bool = False
     cache_stability: bool = False
+    generation_stability: bool = False
+    capacity_transition: bool = False
     live_cause_stability: bool = False
     causal_camera: bool = False
+    causal_child_body: bool = False
     retarget_after_ticks: int = 0
     retarget_name: str | None = None
 
@@ -36,7 +42,7 @@ class PredictionCase:
 CASES = (
     PredictionCase("ragdoll-wall-first", "prediction_ragdoll_wall_200.scene.json", "prediction_striker_ball",
                    horizon=20.0, warmup_ticks=0, causal=True, screenshot=True, cache_stability=True,
-                   causal_camera=True, retarget_after_ticks=120,
+                   causal_camera=True, causal_child_body=True, retarget_after_ticks=120,
                    retarget_name="prediction_wall_brick_r05_c19"),
     PredictionCase("at-rest", "at_rest.scene.json", "ball_a", warmup_ticks=120, screenshot=True),
     PredictionCase("box-only-rest", "box_only_rest.scene.json", "base_a", warmup_ticks=120),
@@ -49,6 +55,9 @@ CASES = (
     PredictionCase("nbody-chaos", "nbody_chaos_playground.scene.json", "chaos_a"),
     PredictionCase("box-pile", "box_pile_throw_300.scene.json", "throw_box_000"),
     PredictionCase("box-slope", "box_slope_test.scene.json", "box_slope_flat"),
+    PredictionCase("ten-pin-bowling", "ten_pin_bowling_strike.scene.json", "bowling_ball",
+                   horizon=63.0, warmup_ticks=240, screenshot=True, generation_stability=True,
+                   capacity_transition=True),
     # Generated demo placement is intentionally time-seeded. Search a bounded,
     # stable ID prefix for a body with actual causal descendants instead of
     # turning one random body's lack of contacts into a flaky renderer result.
@@ -66,12 +75,22 @@ def require_applied(connection: SkarnessConnection, command: str, arguments: dic
         raise RuntimeError(f"{command} failed: {json.dumps(result, separators=(',', ':'))}")
 
 
+def warm_mismatched_prediction_capacity(connection: SkarnessConnection) -> None:
+    """Build a shorter, wider frame bank before a longer small-scene prediction."""
+    require_applied(connection, "scene.load", {"name": "box_pile_throw_300.scene.json"})
+    require_applied(connection, "replay.set_prediction_horizon", {"seconds": 30.0})
+    require_applied(connection, "prediction.select_target", {"name": "throw_box_000"})
+    require_applied(connection, "replay.set_prediction_enabled", {"enabled": True})
+    require_applied(connection, "run.until", {"condition": "prediction.geometry", "maxFrames": 3000})
+    require_applied(connection, "replay.set_prediction_enabled", {"enabled": False})
+
+
 def collect_live_replay_states(connection: SkarnessConnection, duration_seconds: float) -> list[dict[str, object]]:
     states: list[dict[str, object]] = []
     deadline = time.monotonic() + duration_seconds
     while time.monotonic() < deadline:
         event = connection.read_event()
-        if event.get("kind") == "state" and event.get("topic") == "replay.state":
+        if event.get("kind") in STATE_KINDS and event.get("topic") == "replay.state":
             states.append(event)
     return states
 
@@ -95,6 +114,15 @@ def validate_prediction(case: PredictionCase, state: dict[str, object]) -> list[
     expect(int(payload.get("publishedPredictionFrames", 0)) >= 2, "future frame prefix is missing")
     expect(int(payload.get("selectedFutureRootPointCount", 0)) >= 2, "root future trajectory is missing")
     expect(int(payload.get("trajectoryRecordCount", 0)) >= 1, "trajectory packet is empty")
+    expect(bool(payload.get("trajectorySubmitted")), "current prediction was not submitted to rendering")
+    expect(payload.get("submittedPredictionTargetId") == payload.get("pathTargetId"),
+           "render submission target is stale")
+    expect(payload.get("submittedPredictionSourceFrame") == payload.get("predictionSourceFrame"),
+           "render submission source frame is stale")
+    expect(payload.get("submittedPredictionTopologyVersion") == payload.get("publishedPredictionTopologyVersion"),
+           "render submission topology is stale")
+    expect(int(payload.get("submittedGeometryHash", 0)) != 0, "render submission has no content hash")
+    expect(int(payload.get("submittedGeometryBytes", 0)) != 0, "render submission has no geometry bytes")
     if case.continuity:
         expect(bool(payload.get("pastPathVisible")), "past path visibility was not retained")
         expect(int(payload.get("selectedPastRootPointCount", 0)) >= 2, "selected past trajectory is missing")
@@ -119,20 +147,53 @@ def validate_prediction(case: PredictionCase, state: dict[str, object]) -> list[
     return failures
 
 
-def replay_states_after(session: Path, render_frame: int) -> list[dict[str, object]]:
-    states: list[dict[str, object]] = []
-    trace = session / "runtime.skarness.ndjson"
-    with trace.open("r", encoding="utf-8") as stream:
-        for line in stream:
-            if not line.endswith("\n"):
-                # The host may still be appending the final event while this
-                # read reaches EOF; the next query will observe it complete.
+def validate_prediction_generation_stability(before: dict[str, object], after: dict[str, object],
+                                             stepped_frames: int) -> list[str]:
+    before_payload = before.get("payload", {})
+    after_payload = after.get("payload", {})
+    failures: list[str] = []
+
+    if after_payload.get("predictionGeneration") != before_payload.get("predictionGeneration"):
+        failures.append(f"completed prediction restarted across {stepped_frames} stable frames")
+    if bool(after_payload.get("predictionBuilding")) or bool(after_payload.get("predictionDirty")):
+        failures.append(f"completed prediction re-entered its build loop across {stepped_frames} stable frames")
+    if not bool(after_payload.get("predictionComplete")):
+        failures.append(f"completed prediction lost its terminal state across {stepped_frames} stable frames")
+
+    return failures
+
+
+class ReplayStateReader:
+    """Incrementally retains only legacy replay rows from the growing trace."""
+
+    def __init__(self, trace: Path):
+        self.trace = trace
+        self.offset = 0
+        self.pending = b""
+        self.rows: list[dict[str, object]] = []
+
+    def consume(self) -> None:
+        with self.trace.open("rb") as stream:
+            stream.seek(self.offset)
+            chunk = stream.read()
+        self.offset += len(chunk)
+        complete = self.pending + chunk
+        lines = complete.split(b"\n")
+        self.pending = lines.pop()
+        for line in lines:
+            if not line:
                 continue
             event = json.loads(line)
-            if (event.get("kind") == "state" and event.get("topic") == "replay.state" and
-                    int(event.get("renderFrame", 0)) > render_frame):
-                states.append(event)
-    return states
+            if event.get("kind") in STATE_KINDS and event.get("topic") == "replay.state":
+                self.rows.append(event)
+
+    def latest(self) -> dict[str, object] | None:
+        self.consume()
+        return self.rows[-1] if self.rows else None
+
+    def after(self, render_frame: int) -> list[dict[str, object]]:
+        self.consume()
+        return [row for row in self.rows if int(row.get("renderFrame", 0)) > render_frame]
 
 
 def validate_continuity(states: list[dict[str, object]], selected_target_id: int) -> list[str]:
@@ -218,6 +279,12 @@ def validate_causal_camera(states: list[dict[str, object]], source: dict[str, ob
     if len(transporting) < 2:
         return ["causal camera exposed fewer than two transport samples"]
 
+    if any(int(payload.get("causeSourceFrame", -1)) != 0 for payload in transporting):
+        failures.append("prediction-root transport did not begin on local future frame zero")
+    if any(int(payload.get("causeTargetFrame", -1)) != 0 or
+           int(payload.get("causePresentedFrame", -1)) != 0 for payload in transporting):
+        failures.append("prediction-root transport moved through an unrelated future frame")
+
     endpoint = transporting[0].get("cameraPrimaryEye")
     if any(vector_distance(payload.get("cameraPrimaryEye"), endpoint) > 0.001 for payload in transporting):
         failures.append("causal camera endpoint moved during its entry tween")
@@ -236,6 +303,26 @@ def validate_causal_camera(states: list[dict[str, object]], source: dict[str, ob
         failures.append("causal camera did not reach its detail pose")
     elif vector_distance(completed.get("cameraRenderEye"), completed.get("cameraPrimaryEye")) > 0.001:
         failures.append("completed causal render pose did not land on its prepared endpoint")
+
+    return failures
+
+
+def validate_causal_return(states: list[dict[str, object]], source: dict[str, object]) -> list[str]:
+    failures: list[str] = []
+    payloads = [state.get("payload", {}) for state in states]
+    settled = next((payload for payload in reversed(payloads)
+                    if int(payload.get("causeInspectionMode", -1)) == 0), None)
+
+    if settled is None:
+        return ["causal camera did not return to inactive mode"]
+    if settled.get("inspectionCameraActive") or int(settled.get("selectedCauseRow", -2)) != -1:
+        failures.append("return-to-live retained causal inspection state")
+    if settled.get("selectedCameraHash") != source.get("selectedCameraHash"):
+        failures.append("return-to-live did not restore the main camera identity")
+    if vector_distance(settled.get("cameraRenderEye"), source.get("cameraRenderEye")) > 0.1:
+        failures.append("return-to-live did not land on the original main camera pose")
+    if abs(float(settled.get("cameraRenderRollRadians", 1.0))) > 0.001:
+        failures.append("return-to-live restored a rolled camera pose")
 
     return failures
 
@@ -295,18 +382,66 @@ def validate_causal_focus(payload: dict[str, object]) -> list[str]:
     return failures
 
 
+def validate_body_root_focus(payload: dict[str, object], row_index: int = 0,
+                             require_future_frame: bool = False) -> list[str]:
+    failures: list[str] = []
+
+    if int(payload.get("inspectionCameraFocusKind", 0)) != 1 or \
+            int(payload.get("selectedCauseRow", -1)) != row_index:
+        failures.append(f"cause body row {row_index} did not activate body inspection")
+    if payload.get("inspectionBodyMarkerSubmitted"):
+        failures.append("cause root submitted a duplicate body wireframe")
+
+    selected_frame = int(payload.get("selectedCauseFrame", -1))
+    target_frame = int(payload.get("causeTargetFrame", -2))
+    presented_frame = int(payload.get("causePresentedFrame", -3))
+    replay_frame = int(payload.get("presentedReplayFrame", -4))
+    if require_future_frame and selected_frame <= 0:
+        failures.append("child cause body did not retain its first affected frame")
+    if selected_frame != target_frame:
+        failures.append("cause root transport target does not match the selected row frame")
+    if int(payload.get("causeInspectionMode", 0)) != 2 or presented_frame != target_frame:
+        failures.append("cause root transport did not settle on its target frame")
+    if int(payload.get("causeSeekSource", -1)) != 1 or int(payload.get("presentedReplayFrameSource", 0)) != 2:
+        failures.append("cause root did not present from the prediction frame bank")
+    if replay_frame != target_frame:
+        failures.append("cause root visible replay frame does not match the selected row frame")
+
+    return failures
+
+
 def run_self_test() -> int:
+    with tempfile.TemporaryDirectory(prefix="skarness-reader-") as temporary:
+        trace = Path(temporary) / "trace.ndjson"
+        first = json.dumps({"kind": "state", "topic": "replay.state", "renderFrame": 10,
+                            "payload": {"pathTargetId": 7}}, separators=(",", ":")).encode("utf-8")
+        second = json.dumps({"kind": "change", "topic": "replay.state", "renderFrame": 20,
+                             "payload": {"pathTargetId": 8}}, separators=(",", ":")).encode("utf-8")
+        split = len(second) // 2
+        trace.write_bytes(first + b"\n" + second[:split])
+        reader = ReplayStateReader(trace)
+        if reader.latest() is None or int(reader.latest().get("renderFrame", 0)) != 10:
+            return 1
+        with trace.open("ab") as stream:
+            stream.write(second[split:] + b"\n")
+        latest = reader.latest()
+        if latest is None or int(latest.get("renderFrame", 0)) != 20 or reader.after(10) != [latest]:
+            return 1
+
     case = PredictionCase("self-test", "fixture.scene.json", "ball", causal=True)
     valid_payload = {
         "predictionEnabled": True, "predictionComplete": True, "predictionBuilding": False,
         "predictionDirty": False, "predictionRestartPending": False, "predictionGenerationPermitted": True,
-        "pathTargetId": 7, "publishedPredictionTargetId": 7, "publishedPredictionFrames": 3,
+        "pathTargetId": 7, "publishedPredictionTargetId": 7, "predictionSourceFrame": 12,
+        "publishedPredictionFrames": 3, "publishedPredictionTopologyVersion": 5,
         "pastPathVisible": True, "selectedPastRootPointCount": 3,
         "selectedFutureRootPointCount": 3, "trajectoryRecordCount": 3, "visualPacketHasGeometry": True,
         "drawnEndingWireframeCount": 2, "retainedEndMarkerCount": 2, "endingWireframePathMismatchCount": 0,
         "collisionWireframePathMismatchCount": 0, "incompleteContactFrameCount": 0, "futureNodeCount": 1,
         "contactChildIncomingCount": 1, "contactChildOutgoingCount": 1, "drawnCollisionWireframeCount": 1,
-        "retainedEntryMarkerCount": 1, "submittedFutureTreeReady": True,
+        "retainedEntryMarkerCount": 1, "trajectorySubmitted": True, "submittedPredictionTargetId": 7,
+        "submittedPredictionSourceFrame": 12, "submittedPredictionTopologyVersion": 5,
+        "submittedGeometryHash": 99, "submittedGeometryBytes": 1024, "submittedFutureTreeReady": True,
         "causeTreeRowCount": 2, "causeWindowAvailable": True,
     }
     if validate_prediction(case, {"payload": valid_payload}):
@@ -321,6 +456,20 @@ def run_self_test() -> int:
     broken = dict(valid_payload)
     broken["endingWireframePathMismatchCount"] = 1
     if not validate_prediction(case, {"payload": broken}):
+        return 1
+
+    stale_submission = dict(valid_payload)
+    stale_submission["submittedPredictionTargetId"] = 6
+    if not validate_prediction(case, {"payload": stale_submission}):
+        return 1
+
+    stable_generation = {"payload": {"predictionGeneration": 9, "predictionBuilding": False,
+                                      "predictionDirty": False, "predictionComplete": True}}
+    if validate_prediction_generation_stability(stable_generation, stable_generation, 120):
+        return 1
+    restarted_generation = {"payload": {"predictionGeneration": 10, "predictionBuilding": True,
+                                         "predictionDirty": False, "predictionComplete": False}}
+    if not validate_prediction_generation_stability(stable_generation, restarted_generation, 120):
         return 1
 
     valid_continuity_states = [
@@ -371,13 +520,16 @@ def run_self_test() -> int:
 
     source_camera = {"selectedCameraHash": 1, "cameraRenderEye": [0.0, 0.0, 0.0]}
     valid_camera_states = [
-        {"payload": {"selectedCauseRow": 1, "causeInspectionMode": 1, "selectedCameraHash": 2,
+        {"payload": {"selectedCauseRow": 0, "causeInspectionMode": 1, "selectedCameraHash": 2,
+                     "causeSourceFrame": 0, "causeTargetFrame": 0, "causePresentedFrame": 0,
                      "cameraPrimaryEye": [10.0, 0.0, 0.0], "cameraRenderEye": [0.0, 0.0, 0.0],
                      "cameraRenderRollRadians": 0.0}},
-        {"payload": {"selectedCauseRow": 1, "causeInspectionMode": 1, "selectedCameraHash": 2,
+        {"payload": {"selectedCauseRow": 0, "causeInspectionMode": 1, "selectedCameraHash": 2,
+                     "causeSourceFrame": 0, "causeTargetFrame": 0, "causePresentedFrame": 0,
                      "cameraPrimaryEye": [10.0, 0.0, 0.0], "cameraRenderEye": [5.0, 0.0, 0.0],
                      "cameraRenderRollRadians": 0.0}},
-        {"payload": {"selectedCauseRow": 1, "causeInspectionMode": 2, "selectedCameraHash": 2,
+        {"payload": {"selectedCauseRow": 0, "causeInspectionMode": 2, "selectedCameraHash": 2,
+                     "causeSourceFrame": 0, "causeTargetFrame": 0, "causePresentedFrame": 0,
                      "cameraPrimaryEye": [10.0, 0.0, 0.0], "cameraRenderEye": [10.0, 0.0, 0.0],
                      "cameraRenderRollRadians": 0.0}},
     ]
@@ -388,6 +540,22 @@ def run_self_test() -> int:
     broken_camera_states[1] = {"payload": dict(valid_camera_states[1]["payload"])}
     broken_camera_states[1]["payload"]["selectedCameraHash"] = 1
     if not validate_causal_camera(broken_camera_states, source_camera):
+        return 1
+
+    valid_return_states = [
+        {"payload": {"causeInspectionMode": 3, "inspectionCameraActive": True,
+                     "selectedCauseRow": 0, "selectedCameraHash": 2,
+                     "cameraRenderEye": [5.0, 0.0, 0.0], "cameraRenderRollRadians": 0.0}},
+        {"payload": {"causeInspectionMode": 0, "inspectionCameraActive": False,
+                     "selectedCauseRow": -1, "selectedCameraHash": 1,
+                     "cameraRenderEye": [0.0, 0.0, 0.0], "cameraRenderRollRadians": 0.0}},
+    ]
+    if validate_causal_return(valid_return_states, source_camera):
+        return 1
+    broken_return_states = list(valid_return_states)
+    broken_return_states[-1] = {"payload": dict(valid_return_states[-1]["payload"])}
+    broken_return_states[-1]["payload"]["selectedCameraHash"] = 2
+    if not validate_causal_return(broken_return_states, source_camera):
         return 1
 
     orbit_before = {"inspectionCameraFocusKind": 2, "inspectionFocusFadeActive": True,
@@ -403,6 +571,20 @@ def run_self_test() -> int:
                          "inspectionPathOpacityMismatchCount": 0, "causeContactPointCount": 2,
                          "submittedCauseContactPointCount": 2, "submittedCauseContactBodyCount": 2})
     if validate_causal_focus(orbit_before):
+        return 1
+    valid_root = {"inspectionCameraFocusKind": 1, "selectedCauseRow": 0,
+                  "inspectionBodyMarkerSubmitted": False, "selectedCauseFrame": 0,
+                  "causeTargetFrame": 0, "causePresentedFrame": 0, "causeInspectionMode": 2,
+                  "causeSeekSource": 1, "presentedReplayFrame": 0, "presentedReplayFrameSource": 2}
+    if validate_body_root_focus(valid_root):
+        return 1
+    broken_root = dict(valid_root)
+    broken_root["presentedReplayFrame"] = 1
+    if not validate_body_root_focus(broken_root):
+        return 1
+    wireframe_root = dict(valid_root)
+    wireframe_root["inspectionBodyMarkerSubmitted"] = True
+    if not validate_body_root_focus(wireframe_root):
         return 1
     broken_focus = dict(orbit_before)
     broken_focus["inspectionPathFocusCounterpartId"] = 99
@@ -427,14 +609,23 @@ def run_matrix(session: Path, executable: Path, case_label: str | None = None) -
         return 1
 
     results: list[dict[str, object]] = []
+    state_reader = ReplayStateReader(session / "runtime.skarness.ndjson")
     connection = SkarnessConnection(session)
     stop_requested = False
     try:
         selected_cases = tuple(case for case in CASES if case_label is None or case.label == case_label)
         for case in selected_cases:
             require_applied(connection, "replay.set_prediction_enabled", {"enabled": False})
+            if case.capacity_transition:
+                # A clean scene cannot expose uneven retained per-frame capacity.
+                # Warm a shorter 300-body bank before loading the longer 11-body case.
+                warm_mismatched_prediction_capacity(connection)
             require_applied(connection, "scene.load" if case.scene else "scene.load_demo",
                             {"name": case.scene} if case.scene else {})
+
+            cleared_state = state_reader.latest()
+            if cleared_state and bool(cleared_state.get("payload", {}).get("trajectorySubmitted")):
+                raise RuntimeError(f"{case.label}: prior render submission survived the scene transition")
 
             if case.warmup_ticks:
                 require_applied(connection, "run.step", {"count": case.warmup_ticks})
@@ -455,9 +646,11 @@ def run_matrix(session: Path, executable: Path, case_label: str | None = None) -
                 live_target = targets[0]
                 require_applied(connection, "prediction.select_target", live_target)
                 require_applied(connection, "replay.set_prediction_enabled", {"enabled": True})
+                require_applied(connection, "state.subscribe", {"topics": ["replay.state"]})
                 require_applied(connection, "run.resume")
                 live_states = collect_live_replay_states(connection, 3.0)
                 require_applied(connection, "run.pause")
+                require_applied(connection, "state.subscribe", {"topics": []})
                 selected_target_id = next(
                     (int(state.get("payload", {}).get("pathTargetId", 0)) for state in reversed(live_states)
                      if int(state.get("payload", {}).get("pathTargetId", 0)) != 0), 0)
@@ -470,21 +663,21 @@ def run_matrix(session: Path, executable: Path, case_label: str | None = None) -
             attempt_start_frame = 0
 
             for target_index, target in enumerate(targets):
-                latest_before = query_latest_state(session)
+                latest_before = state_reader.latest()
                 attempt_start_frame = int(latest_before.get("renderFrame", 0)) if latest_before else 0
                 require_applied(connection, "prediction.select_target", target)
                 require_applied(connection, "replay.set_prediction_enabled", {"enabled": True})
                 require_applied(connection, "run.until", {"condition": "prediction.complete", "maxFrames": 3000})
                 require_applied(connection, "run.step_frames", {"count": 4})
 
-                state = query_latest_state(session)
+                state = state_reader.latest()
                 if state is None:
                     raise RuntimeError(f"{case.label}: replay.state was not published")
 
                 if case.causal and int(state.get("payload", {}).get("futureNodeCount", 0)) > 0:
                     require_applied(connection, "run.until", {"condition": "prediction.causal_rendered",
                                                                "maxFrames": 3000})
-                    state = query_latest_state(session)
+                    state = state_reader.latest()
                     if state is None:
                         raise RuntimeError(f"{case.label}: rendered replay.state was not published")
 
@@ -493,17 +686,27 @@ def run_matrix(session: Path, executable: Path, case_label: str | None = None) -
                 selected_target = target
 
                 if case.continuity:
-                    failures.extend(validate_continuity(replay_states_after(session, attempt_start_frame),
+                    failures.extend(validate_continuity(state_reader.after(attempt_start_frame),
                                                         int(state["payload"].get("pathTargetId", 0))))
 
                 if case.cache_stability and not failures:
                     stable_before = state
                     stable_frames = 120
                     require_applied(connection, "run.step_frames", {"count": stable_frames})
-                    state = query_latest_state(session)
+                    state = state_reader.latest()
                     if state is None:
                         raise RuntimeError(f"{case.label}: stable replay.state was not published")
                     failures.extend(validate_cause_cache(stable_before, state, stable_frames))
+                    failures.extend(validate_prediction(case, state))
+
+                if case.generation_stability and not failures:
+                    stable_before = state
+                    stable_frames = 120
+                    require_applied(connection, "run.step_frames", {"count": stable_frames})
+                    state = state_reader.latest()
+                    if state is None:
+                        raise RuntimeError(f"{case.label}: stable replay.state was not published")
+                    failures.extend(validate_prediction_generation_stability(stable_before, state, stable_frames))
                     failures.extend(validate_prediction(case, state))
 
                 if case.retarget_name and not failures:
@@ -511,14 +714,14 @@ def run_matrix(session: Path, executable: Path, case_label: str | None = None) -
                     require_applied(connection, "prediction.select_target", {"name": case.retarget_name})
                     require_applied(connection, "run.until", {"condition": "prediction.complete", "maxFrames": 3000})
                     require_applied(connection, "run.step_frames", {"count": 4})
-                    state = query_latest_state(session)
+                    state = state_reader.latest()
                     if state is None:
                         raise RuntimeError(f"{case.label}: retargeted replay.state was not published")
 
                     if case.causal and int(state.get("payload", {}).get("futureNodeCount", 0)) > 0:
                         require_applied(connection, "run.until", {"condition": "prediction.causal_rendered",
                                                                    "maxFrames": 3000})
-                        state = query_latest_state(session)
+                        state = state_reader.latest()
                         if state is None:
                             raise RuntimeError(f"{case.label}: retargeted causal replay.state was not published")
 
@@ -527,23 +730,49 @@ def run_matrix(session: Path, executable: Path, case_label: str | None = None) -
 
                 if case.causal_camera and not failures:
                     camera_source = state.get("payload", {})
+                    camera_start = int(state.get("renderFrame", 0))
+                    require_applied(connection, "replay.select_cause_row", {"row": 0})
+                    require_applied(connection, "run.until",
+                                    {"condition": "camera.inspection_settled", "maxFrames": 1000})
+                    root_states = state_reader.after(camera_start)
+                    root_focus = root_states[-1].get("payload", {}) if root_states else {}
+                    failures.extend(validate_body_root_focus(root_focus))
+                    failures.extend(validate_causal_camera(root_states, camera_source))
+                    if case.screenshot:
+                        root_screenshot = (session / f"{case.label}-causal-root.png").resolve()
+                        require_applied(connection, "capture.screenshot", {"path": str(root_screenshot)})
+                    child_start = int(root_states[-1].get("renderFrame", camera_start)) if root_states else camera_start
                     require_applied(connection, "replay.select_cause_row", {"row": 1})
-                    camera_states = collect_live_replay_states(connection, 2.0)
-                    failures.extend(validate_causal_camera(camera_states, camera_source))
+                    require_applied(connection, "run.until",
+                                    {"condition": "camera.inspection_settled", "maxFrames": 1000})
+                    child_states = state_reader.after(child_start)
+                    if case.causal_child_body:
+                        child_focus = child_states[-1].get("payload", {}) if child_states else {}
+                        failures.extend(validate_body_root_focus(child_focus, 1, True))
+                    manifold_start = int(child_states[-1].get("renderFrame", child_start)) if child_states else child_start
                     require_applied(connection, "replay.select_cause_row", {"row": 2})
-                    manifold_states = collect_live_replay_states(connection, 2.0)
+                    require_applied(connection, "run.until",
+                                    {"condition": "camera.inspection_settled", "maxFrames": 1000})
+                    manifold_states = state_reader.after(manifold_start)
                     orbit_before = manifold_states[-1].get("payload", {}) if manifold_states else {}
                     failures.extend(validate_causal_focus(orbit_before))
                     if case.screenshot:
                         causal_screenshot = (session / f"{case.label}-causal-focus.png").resolve()
                         require_applied(connection, "capture.screenshot", {"path": str(causal_screenshot)})
+                    orbit_start = int(manifold_states[-1].get("renderFrame", manifold_start)) \
+                        if manifold_states else manifold_start
                     require_applied(connection, "input.pointer_drag",
                                     {"button": "right", "x": 800, "y": 450,
                                      "deltaX": -65, "deltaY": 20})
-                    orbit_states = collect_live_replay_states(connection, 0.25)
+                    require_applied(connection, "run.step_frames", {"count": 2})
+                    orbit_states = state_reader.after(orbit_start)
                     orbit_after = orbit_states[-1].get("payload", {}) if orbit_states else {}
                     failures.extend(validate_causal_orbit(orbit_before, orbit_after))
+                    return_start = int(orbit_states[-1].get("renderFrame", orbit_start)) if orbit_states else orbit_start
                     require_applied(connection, "replay.return_to_live")
+                    require_applied(connection, "run.until", {"condition": "camera.main_restored", "maxFrames": 1000})
+                    return_states = state_reader.after(return_start)
+                    failures.extend(validate_causal_return(return_states, camera_source))
 
                 if not failures or live_failures or baseline_failures or target_index + 1 == len(targets):
                     break

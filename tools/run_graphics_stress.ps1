@@ -57,7 +57,7 @@ function Split-ArgumentLine {
 
     # The batch file passes simple switch/value pairs without embedded spaces.
     # Keep splitting explicit here so future quoted paths are a deliberate change.
-    return $Text -split " "
+    return @("--automation-hidden-window") + ($Text -split " ")
 }
 
 function Write-MemorySample {
@@ -106,7 +106,7 @@ $timedOut = $false
 $scriptExitCode = 0
 
 try {
-    $process = Start-Process `
+    $process = Start-Process -WindowStyle Hidden `
         -FilePath $Exe `
         -ArgumentList $argv `
         -WorkingDirectory $Repo `

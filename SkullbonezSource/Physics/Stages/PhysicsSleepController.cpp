@@ -98,6 +98,8 @@ void PhysicsSleepController::ReserveBodyCapacity( std::size_t bodyCapacity, std:
     reserveBodyRows( m_underwaterSleepLocked );
     reserveBodyRows( m_sleepIslandVisualId );
     reserveBodyRows( m_sleepIslandAssignedVisualId );
+    reserveBodyRows( m_jointWakeParent );
+    reserveBodyRows( m_jointWakeRank );
     reserveBodyRows( m_sleepIslandParent );
     reserveBodyRows( m_sleepIslandRank );
     reserveBodyRows( m_sleepIslandHasAwake );
@@ -138,6 +140,8 @@ void PhysicsSleepController::Clear()
     m_sleepIslandAssignedVisualId.clear();
     m_sleepSupportEdges.clear();
     m_simulationIslands.Clear();
+    m_jointWakeParent.clear();
+    m_jointWakeRank.clear();
     m_sleepIslandParent.clear();
     m_sleepIslandRank.clear();
     m_sleepIslandHasAwake.clear();
@@ -477,6 +481,8 @@ bool PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
             anchor.flags = 0u;
         }
         std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
+        m_jointWakeParent.clear();
+        m_jointWakeRank.clear();
         m_sleepIslandParent.clear();
         m_sleepIslandRank.clear();
         m_resetDenseSleepHistoryForBodyTopologyChange = false;
@@ -584,8 +590,8 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
     const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const PhysicsBodyHotFieldsConstView hotRead = ConstPhysicsBodyHotFields( hotFields );
     const int modelCount = (std::min)( bodyStore.Count(), static_cast<int>( bodyRecords.size() ) );
-    m_sleepIslandParent.assign( modelCount, 0 );
-    m_sleepIslandRank.assign( modelCount, 0 );
+    m_jointWakeParent.assign( modelCount, 0 );
+    m_jointWakeRank.assign( modelCount, 0 );
     EnsureScratchFlagsSize( modelCount );
 
     for ( PhysicsSleepScratchFlags& flags : m_sleepScratchFlags )
@@ -598,10 +604,10 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        m_sleepIslandParent[i] = i;
+        m_jointWakeParent[i] = i;
     }
 
-    DisjointSet sleepIslands( m_sleepIslandParent, m_sleepIslandRank, modelCount );
+    DisjointSet sleepIslands( m_jointWakeParent, m_jointWakeRank, modelCount );
 
     for ( const PointJointConstraint& constraint : pointJointConstraints )
     {

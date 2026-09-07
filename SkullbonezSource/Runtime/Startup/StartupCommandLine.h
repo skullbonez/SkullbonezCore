@@ -122,6 +122,7 @@ struct ParsedArgs
     int interactionRecordMaxMinutes = 1; // Integer 1..60; one minute is the default allocation ceiling.
 #if defined( SKULLBONEZ_SKARNESS )
     char skarnessSessionDirectory[260] = {};
+    bool skarnessManualInput = false;
 #endif
 
     // CLI --predict <body> arms the replay prediction workflow at startup so a
@@ -137,10 +138,6 @@ struct ParsedArgs
     bool showBroadphaseVisualizer = false;
     bool replayGuideArcsAtStartup = false;
     bool workerSelfTest = false;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::GameUI;
-    bool developmentUiModeExplicit = false;
-#endif
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;

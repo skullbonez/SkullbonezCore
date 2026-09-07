@@ -1,36 +1,6 @@
-/*
-File: SkullbonezSource/Physics/Ragdoll.cpp
-Purpose:
-  Defines simple humanoid ragdoll descriptors and point-joint solving.
-
-Summary:
-  The body layout is prefab value data. Scene owners turn the descriptors into
-  authored objects; Physics keeps handle-keyed point-joint descriptors, solver
-  rows, and one retained scalar warm-start impulse per row. That scalar affects
-  byte-exact replay continuation. This keeps the ragdoll feature isolated and
-  leaves a clear migration path to a full constraint solver. Neck swing
-  correction uses the repository-owned deterministic vector-angle and axis-
-  angle routines.
-
-Glossary:
-  Neck swing limit: Special angular clamp applied to the head/torso joint.
-  Prefab descriptor: Immutable local part or joint facts consumed by authored
-    scene setup.
-
-Invariants:
-  - Body and constraint creation order must stay deterministic.
-  - Constraint solving must not allocate per row while physics is stepping.
-  - This file does not construct scene objects; callers build renderable bodies
-    from descriptors before registering point joints by handle.
-  - Neck correction reuses one cross product for angle magnitude and axis,
-    clamps its rounded dot input, and caps each correction at 0.20 radians.
-
-Related:
-  - SkullbonezSource/Physics/Ragdoll.h
-  - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - SkullbonezSource/Maths/DeterministicMath.h
-  - Agentic/Reference/engine-glossary.md
-*/
+// Simple humanoid prefab geometry, placement previews and the separate neck
+// angular cone policy. Linear point joints are solved by the shared constraint
+// transaction; this file does not own its velocity iteration or warm cache.
 #include "Ragdoll.h"
 
 #include "../Core/Common.h"
@@ -53,15 +23,10 @@ constexpr float RAGDOLL_SURFACE_EPSILON = 0.08f;
 constexpr float RAGDOLL_DEFAULT_SCALE = 1.0f;
 constexpr float RAGDOLL_MIN_SCALE = 0.25f;
 constexpr float RAGDOLL_MAX_SCALE = 8.0f;
-constexpr float RAGDOLL_JOINT_MAX_BIAS_SPEED = 28.0f;
-constexpr float RAGDOLL_JOINT_MAX_POSITION_CORRECTION = 0.35f;
-constexpr float RAGDOLL_JOINT_MAX_LINEAR_SPEED = 70.0f;
-constexpr float RAGDOLL_JOINT_MAX_ANGULAR_SPEED = 18.0f;
 constexpr float RAGDOLL_NECK_MAX_SWING_RADIANS = 0.52359878f;
 constexpr float RAGDOLL_NECK_MAX_SWING_COSINE = 0.86602539f;
 constexpr float RAGDOLL_NECK_MAX_CORRECTION_RADIANS = 0.20f;
 constexpr float RAGDOLL_NECK_ANGULAR_DAMPING = 0.45f;
-constexpr int RAGDOLL_SOLVER_ITERATIONS = 4;
 
 enum SimplePart
 {
@@ -119,179 +84,13 @@ RotationMatrix BodyRotation( const PhysicsBodyHotState& hot )
     return q.GetOrientationMatrix();
 }
 
-Vector3 ApplyRecordInvInertia( const PhysicsBodyRecord& record, const PhysicsBodyHotState& hot, const Vector3& value )
-{
-    if ( !record.usesWorldInertia )
-    {
-        return VectorMultiply( hot.inverseRotationalInertia, value );
-    }
-
-    const RotationMatrix rotation = BodyRotation( hot );
-    Vector3 worldResult;
-    const auto multiplyByBodyInverseInertia = [&]( const Vector3& bodyValue, Vector3& outBodyResult )
-    {
-        outBodyResult = VectorMultiply( hot.inverseRotationalInertia, bodyValue );
-
-        return true;
-    };
-
-    // Why: ragdoll rows keep their value-returning, infallible inverse-inertia
-    // seam, while the frame conversion is owned by the same helper as contact,
-    // force, and gameplay impulses. The direct isotropic path above stays in
-    // place so its arithmetic and hot-loop cost remain byte-for-byte unchanged.
-    const bool applied = TryApplyWorldInertiaResponse( rotation, true, value, multiplyByBodyInverseInertia, worldResult );
-    return applied ? worldResult : ZERO_VECTOR;
-}
-
-Vector3 ClampVectorMagnitude( const Vector3& value, float limit )
-{
-    if ( !std::isfinite( value.x ) || !std::isfinite( value.y ) || !std::isfinite( value.z ) )
-    {
-        return ZERO_VECTOR;
-    }
-
-    const float limitSq = limit * limit;
-    const float magSq = Dot( value, value );
-
-    if ( magSq <= limitSq || magSq <= TOLERANCE )
-    {
-        return value;
-    }
-
-    return value * ( limit / sqrtf( magSq ) );
-}
-
-void ClampRagdollBodyVelocity( PhysicsBodyHotState& hot )
-{
-    hot.linearVelocity = ClampVectorMagnitude( hot.linearVelocity, RAGDOLL_JOINT_MAX_LINEAR_SPEED );
-    hot.angularVelocity = ClampVectorMagnitude( hot.angularVelocity, RAGDOLL_JOINT_MAX_ANGULAR_SPEED );
-}
-
-struct ConstraintImpulseBody
-{
-    PhysicsBodyRecord& record;
-    PhysicsBodyHotState& hot;
-    const Vector3& leverArm;
-    float inverseMass = 0.0f;
-
-    void ApplyPositive( const Vector3& impulse ) const
-    {
-        if ( inverseMass > 0.0f )
-        {
-            hot.linearVelocity += impulse * inverseMass;
-            hot.angularVelocity += ApplyRecordInvInertia( record, hot, CrossProduct( leverArm, impulse ) );
-        }
-    }
-
-    void ApplyNegative( const Vector3& impulse ) const
-    {
-        if ( inverseMass > 0.0f )
-        {
-            hot.linearVelocity -= impulse * inverseMass;
-            hot.angularVelocity -= ApplyRecordInvInertia( record, hot, CrossProduct( leverArm, impulse ) );
-        }
-    }
-
-    void ClampVelocity() const
-    {
-        if ( inverseMass > 0.0f )
-        {
-            ClampRagdollBodyVelocity( hot );
-        }
-    }
-};
-
-void ApplyConstraintImpulse( const ConstraintImpulseBody& bodyA, const ConstraintImpulseBody& bodyB, const Vector3& impulse )
-{
-    // Invariant: A then B impulse application and A then B clamping preserve
-    // the established per-pair floating-point and saturation order.
-    bodyA.ApplyPositive( impulse );
-    bodyB.ApplyNegative( impulse );
-    bodyA.ClampVelocity();
-    bodyB.ClampVelocity();
-}
-
-
 bool IsBodySleeping( int bodyIndex, std::span<const uint8_t> sleepState )
 {
     return bodyIndex >= 0 && bodyIndex < static_cast<int>( sleepState.size() ) && sleepState[bodyIndex] != 0;
 }
 
 
-bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
-                           std::span<const uint8_t> sleepState )
-{
-    const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
-    const int modelCount = bodyStore.Count();
-    bool changed = false;
-
-    for ( const PointJointConstraint& constraint : constraints )
-    {
-        if ( ( constraint.flags & PointJointConstraint::FLAG_LIMIT_NECK_SWING ) == 0 )
-        {
-            continue;
-        }
-
-        const int bodyAIndex = constraint.BodyAIndex( bodyStore );
-        const int bodyBIndex = constraint.BodyBIndex( bodyStore );
-
-        if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= modelCount || bodyBIndex >= modelCount )
-        {
-            continue;
-        }
-
-        const size_t headIndex = static_cast<size_t>( bodyBIndex );
-
-        if ( hotFields.fixed[headIndex] != 0u || IsBodySleeping( bodyBIndex, sleepState ) )
-        {
-            continue;
-        }
-
-        const PhysicsBodyHotState torsoHot = LoadPhysicsBodyHotState( hotFields, static_cast<size_t>( bodyAIndex ) );
-        PhysicsBodyHotState headHot = LoadPhysicsBodyHotState( hotFields, headIndex );
-        const RotationMatrix torsoRot = BodyRotation( torsoHot );
-        const RotationMatrix headRot = BodyRotation( headHot );
-        Vector3 torsoUp = torsoRot * Vector3( 0.0f, 1.0f, 0.0f );
-        Vector3 headUp = headRot * Vector3( 0.0f, 1.0f, 0.0f );
-        torsoUp.Normalise();
-        headUp.Normalise();
-
-        const float rawDot = Dot( headUp, torsoUp );
-        const Vector3 correctionCross = CrossProduct( headUp, torsoUp );
-        const Vector3 fallbackAxis = torsoRot * Vector3( 1.0f, 0.0f, 0.0f );
-        Vector3 correctionAxis;
-        float correctionAngle = 0.0f;
-
-        if ( !Ragdoll::TryBuildNeckSwingCorrection( rawDot, correctionCross, fallbackAxis, correctionAxis,
-                                                    correctionAngle ) )
-        {
-            continue;
-        }
-
-        Quaternion orientation = headHot.orientation;
-        orientation.RotateAboutAxis( correctionAxis, correctionAngle );
-        headHot.orientation = orientation;
-        headHot.angularVelocity = headHot.angularVelocity * RAGDOLL_NECK_ANGULAR_DAMPING;
-        StorePhysicsBodyHotState( hotFields, headIndex, headHot );
-        changed = true;
-    }
-
-    return changed;
-}
-
 } // namespace
-
-int PointJointConstraint::BodyAIndex( const PhysicsBodyStore& bodyStore ) const
-{
-    return bodyStore.ModelIndexForHandle( bodyA );
-}
-
-
-int PointJointConstraint::BodyBIndex( const PhysicsBodyStore& bodyStore ) const
-{
-    return bodyStore.ModelIndexForHandle( bodyB );
-}
-
 
 float Ragdoll::ClampScale( float scale )
 {
@@ -433,128 +232,64 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData, const Vector3& terr
     }
 }
 
-bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<PointJointConstraint> constraints,
-                                std::span<const uint8_t> sleepState, float dt )
-{
-    if ( constraints.empty() || dt <= TOLERANCE )
-    {
-        return false;
-    }
 
-    const auto bodyRecords = bodyStore.MutableRecords();
+bool Ragdoll::ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
+                                    std::span<const uint8_t> sleepState )
+{
     const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const int modelCount = bodyStore.Count();
-    const float invDt = 1.0f / dt;
+    bool changed = false;
 
-    for ( int iteration = 0; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )
+    for ( const PointJointConstraint& constraint : constraints )
     {
-        for ( PointJointConstraint& constraint : constraints )
+        if ( ( constraint.flags & PointJointConstraint::FLAG_LIMIT_NECK_SWING ) == 0 )
         {
-            const int bodyAIndex = constraint.BodyAIndex( bodyStore );
-            const int bodyBIndex = constraint.BodyBIndex( bodyStore );
-
-            if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= modelCount || bodyBIndex >= modelCount )
-            {
-                continue;
-            }
-
-            PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( bodyAIndex )];
-            PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( bodyBIndex )];
-            const size_t hotAIndex = static_cast<size_t>( bodyAIndex );
-            const size_t hotBIndex = static_cast<size_t>( bodyBIndex );
-            PhysicsBodyHotState hotA = LoadPhysicsBodyHotState( hotFields, hotAIndex );
-            PhysicsBodyHotState hotB = LoadPhysicsBodyHotState( hotFields, hotBIndex );
-            const bool aSleeping = bodyAIndex < static_cast<int>( sleepState.size() ) && sleepState[bodyAIndex] != 0;
-            const bool bSleeping = bodyBIndex < static_cast<int>( sleepState.size() ) && sleepState[bodyBIndex] != 0;
-            const float invMassA = ( hotA.fixed || aSleeping ) ? 0.0f : hotA.inverseMass;
-            const float invMassB = ( hotB.fixed || bSleeping ) ? 0.0f : hotB.inverseMass;
-            const float totalInvMass = invMassA + invMassB;
-
-            if ( totalInvMass <= TOLERANCE )
-            {
-                continue;
-            }
-
-            const RotationMatrix rotA = BodyRotation( hotA );
-            const RotationMatrix rotB = BodyRotation( hotB );
-            const Vector3 rA = rotA * constraint.localAnchorA;
-            const Vector3 rB = rotB * constraint.localAnchorB;
-            const Vector3 anchorA = hotA.position + rA;
-            const Vector3 anchorB = hotB.position + rB;
-            Vector3 error = anchorB - anchorA;
-            float distance = VectorMag( error );
-
-            if ( distance <= constraint.slack && iteration > 0 )
-            {
-                continue;
-            }
-
-            Vector3 axis( 1.0f, 0.0f, 0.0f );
-
-            if ( distance > TOLERANCE )
-            {
-                axis = error / distance;
-            }
-
-            // CATTO REF:
-            //   Section 8.1 reapplies the previous step's accumulated impulse
-            //   when iterative solving begins.
-            // ENGINE-SPECIFIC:
-            //   This joint retains one signed scalar on its stable handle row
-            //   and reapplies it along the current error axis on this row's
-            //   first visit in iteration zero. It is not a three-degree-of-
-            //   freedom point-to-point block.
-            if ( iteration == 0 && constraint.accumulatedImpulse != 0.0f )
-            {
-                ApplyConstraintImpulse( { bodyA, hotA, rA, invMassA }, { bodyB, hotB, rB, invMassB },
-                                        axis * constraint.accumulatedImpulse );
-            }
-
-            const Vector3 velA = hotA.linearVelocity + CrossProduct( hotA.angularVelocity, rA );
-            const Vector3 velB = hotB.linearVelocity + CrossProduct( hotB.angularVelocity, rB );
-            const float relVel = Dot( ( velB - velA ), axis );
-            const float distanceError = (std::max)( 0.0f, distance - constraint.slack );
-            const float biasSpeed = std::clamp( distanceError * constraint.stiffness * invDt, 0.0f,
-                                                RAGDOLL_JOINT_MAX_BIAS_SPEED );
-
-            const float velocityTarget = std::clamp( ( relVel + biasSpeed ) * ( 1.0f + constraint.damping ),
-                                                     -RAGDOLL_JOINT_MAX_BIAS_SPEED, RAGDOLL_JOINT_MAX_BIAS_SPEED );
-
-            const float effectiveMass = ContactSolver::ComputeTwoBodyEffectiveMass(
-                invMassA, invMassB, axis, rA, rB, [&]( const Vector3& v )
-                { return invMassA > 0.0f ? ApplyRecordInvInertia( bodyA, hotA, v ) : ZERO_VECTOR; }, [&]( const Vector3& v )
-                { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, hotB, v ) : ZERO_VECTOR; } );
-
-            if ( effectiveMass > 0.0f )
-            {
-                const float impulseDelta = effectiveMass * velocityTarget;
-                constraint.accumulatedImpulse += impulseDelta;
-                ApplyConstraintImpulse( { bodyA, hotA, rA, invMassA }, { bodyB, hotB, rB, invMassB }, axis * impulseDelta );
-            }
-
-            if ( distanceError > TOLERANCE )
-            {
-                const float correctionAmount = (std::min)( distanceError * constraint.stiffness,
-                                                           RAGDOLL_JOINT_MAX_POSITION_CORRECTION );
-
-                const Vector3 correction = axis * ( correctionAmount / totalInvMass );
-
-                if ( invMassA > 0.0f )
-                {
-                    hotA.position += correction * invMassA;
-                }
-
-                if ( invMassB > 0.0f )
-                {
-                    hotB.position -= correction * invMassB;
-                }
-            }
-
-            StorePhysicsBodyHotState( hotFields, hotAIndex, hotA );
-            StorePhysicsBodyHotState( hotFields, hotBIndex, hotB );
+            continue;
         }
+
+        const int bodyAIndex = constraint.BodyAIndex( bodyStore );
+        const int bodyBIndex = constraint.BodyBIndex( bodyStore );
+
+        if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= modelCount || bodyBIndex >= modelCount )
+        {
+            continue;
+        }
+
+        const size_t headIndex = static_cast<size_t>( bodyBIndex );
+
+        if ( hotFields.fixed[headIndex] != 0u || IsBodySleeping( bodyBIndex, sleepState ) )
+        {
+            continue;
+        }
+
+        const PhysicsBodyHotState torsoHot = LoadPhysicsBodyHotState( hotFields, static_cast<size_t>( bodyAIndex ) );
+        PhysicsBodyHotState headHot = LoadPhysicsBodyHotState( hotFields, headIndex );
+        const RotationMatrix torsoRot = BodyRotation( torsoHot );
+        const RotationMatrix headRot = BodyRotation( headHot );
+        Vector3 torsoUp = torsoRot * Vector3( 0.0f, 1.0f, 0.0f );
+        Vector3 headUp = headRot * Vector3( 0.0f, 1.0f, 0.0f );
+        torsoUp.Normalise();
+        headUp.Normalise();
+
+        const float rawDot = Dot( headUp, torsoUp );
+        const Vector3 correctionCross = CrossProduct( headUp, torsoUp );
+        const Vector3 fallbackAxis = torsoRot * Vector3( 1.0f, 0.0f, 0.0f );
+        Vector3 correctionAxis;
+        float correctionAngle = 0.0f;
+
+        if ( !Ragdoll::TryBuildNeckSwingCorrection( rawDot, correctionCross, fallbackAxis, correctionAxis,
+                                                    correctionAngle ) )
+        {
+            continue;
+        }
+
+        Quaternion orientation = headHot.orientation;
+        orientation.RotateAboutAxis( correctionAxis, correctionAngle );
+        headHot.orientation = orientation;
+        headHot.angularVelocity = headHot.angularVelocity * RAGDOLL_NECK_ANGULAR_DAMPING;
+        StorePhysicsBodyHotState( hotFields, headIndex, headHot );
+        changed = true;
     }
 
-    (void)ApplyNeckSwingLimits( bodyStore, constraints, sleepState );
-    return true;
+    return changed;
 }

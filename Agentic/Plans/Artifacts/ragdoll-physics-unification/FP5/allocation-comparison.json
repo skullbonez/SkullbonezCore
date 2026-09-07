@@ -1,0 +1,6 @@
+{
+  "priorEvidence": "TestOutput/native-ui-purge-allocation-comparison.json",
+  "priorCount": 91,
+  "currentCount": 91,
+  "newFindings": []
+}

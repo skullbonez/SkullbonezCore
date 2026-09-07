@@ -1,0 +1,8 @@
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:202 contexts=15
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:208 contexts=15
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:214 contexts=15
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:226 contexts=15
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:335 contexts=15
+CANDIDATE kind='operation with at least eight parameters' location=SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h:351 contexts=15
+PASS: compiler-backed source-design inventory files=4 contexts=60 candidates=6
+source_design_summary mode=inventory sources=4 contexts=60 tidy_processes=0 query_processes=60 jobs=4 peak_workers=4 context_seconds=0.551 tidy_seconds=0.000 query_seconds=39.484 dead_code_seconds=0.000 total_seconds=10.698 findings=6 infrastructure_errors=0

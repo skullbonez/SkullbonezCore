@@ -1,0 +1,18 @@
+{
+  "fp5": {
+    "sag_m": 0.00711250305,
+    "peak_sag_m": 0.00711250305,
+    "jitter_step_rms_m": 0.00172971522,
+    "settled_kinetic_j": 0.188763669,
+    "peak_kinetic_j": 0.5966953,
+    "solve_us_per_joint_iteration": 0.28704744800000004
+  },
+  "candidate": {
+    "sag_m": 0.0155305862,
+    "peak_sag_m": 0.0239934921,
+    "jitter_step_rms_m": 3.21172629e-06,
+    "settled_kinetic_j": 3.64717111e-07,
+    "peak_kinetic_j": 0.279893427,
+    "solve_us_per_joint_iteration": 0.23426544249999998
+  }
+}

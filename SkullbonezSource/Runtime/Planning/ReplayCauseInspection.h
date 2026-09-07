@@ -200,6 +200,8 @@ struct ReplayCauseSolverDetailView
 
 struct ReplayCauseDisplayView
 {
+    float contactFlashAlpha = 0.0f;
+    uint64_t contactFlashSequence = 0;
     int solverDetailFirstRow = 0;
     int rawRecordFirstRow = 0;
     int iterationsFirstRow = 0;
@@ -214,6 +216,13 @@ struct ReplayCauseInspectionView : ReplayCauseTransportView,
                                    ReplayCauseSolverDetailView,
                                    ReplayCauseDisplayView
 {
+    bool HasVisibleContactGeometry() const noexcept
+    {
+        return ( mode == ReplayCauseInspectionMode::Transporting || mode == ReplayCauseInspectionMode::DetailPaused ||
+                 mode == ReplayCauseInspectionMode::AftermathFollow ) &&
+               contactPresentation.HasGeometry();
+    }
+
     // Concept: the inherited value layout keeps automation serialization flat,
     // while these typed projections prevent runtime operations from receiving
     // transport, selection, evidence, and drawer state they do not consume.
@@ -477,6 +486,8 @@ class ReplayCauseInspection
     bool Select( int rowIndex, const ReplayCauseSeekResult& seek, ReplayFrameIndex presentedFrame,
                  bool simulationAlreadyPaused, double nowSeconds ) noexcept;
     void Advance( double nowSeconds ) noexcept;
+    void AdvancePredictionPlayback( std::span<const RunReplayPredictionFrame> frames, int direction,
+                                    double nowSeconds ) noexcept;
     bool TakeTransportRequest( ReplayCauseTransportRequest& outRequest ) noexcept;
     void PublishSolverDetail( uint64_t generation, const ReplayCauseSolverDetailResult& detail,
                               const Rendering::ContactManifoldPresentation& contactPresentation = {} ) noexcept;
@@ -487,6 +498,8 @@ class ReplayCauseInspection
     void RestoreInteractionRecordingBaseline( const ReplayCauseInspectionRecordingState& baseline,
                                               double nowSeconds ) noexcept;
     void SetDrawerOpen( bool open, double nowSeconds ) noexcept;
+    void SetActiveTab( ReplayCauseInspectorTab tab ) noexcept;
+    bool CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept;
     bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
                                      bool hasClientPosition, bool pointerBlocked, bool leftPressed, int wheelDelta,
                                      int screenWidth, int screenHeight,
@@ -498,6 +511,7 @@ class ReplayCauseInspection
     void ClearFocusedSurface() noexcept;
     void SetDrawerTarget( bool open, double nowSeconds ) noexcept;
     void AdvanceDrawer( double nowSeconds ) noexcept;
+    void ObserveContactFrame( ReplayFrameIndex previousFrame, double nowSeconds ) noexcept;
 
     ReplayCauseInspectionView m_state;
 
@@ -509,6 +523,9 @@ class ReplayCauseInspection
     std::array<Physics::PhysicsPipelineRecord, Physics::PHYSICS_MAX_PIPELINE_TRACE_RECORDS> m_solverDetailPipelineRecords {};
     double m_startedAtSeconds = 0.0;
     double m_lastAdvanceSeconds = 0.0;
+    double m_playbackSeconds = 0.0;
+    int m_playbackDirection = 0;
+    double m_contactFlashStartedAtSeconds = -1.0;
     double m_drawerStartedAtSeconds = 0.0;
     float m_drawerStartProgress = 0.0f;
     bool m_drawerTargetOpen = false;

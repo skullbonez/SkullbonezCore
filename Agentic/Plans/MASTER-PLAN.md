@@ -1,10 +1,39 @@
 # MASTER PLAN
 
-Date: 2026-09-01
-Status: No active implementation plan; 143/143 tasks complete; bug ledger
-126/126 fixed
+Date: 2026-09-07
+Status: 146/154 tasks complete; PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 8/10; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-07 the owner requested one PR containing both branches and the
+  local A/B viewer, after replacing the README with the original skull and
+  COMIN' REAL SOON. PR #167 is the combined destination. PHYSICS_AB remains
+  0/6 and RAGDOLL_PHYSICS 8/10; publishing the checkpoint is not plan closure.
+
+- On 2026-09-07 the owner activated Physics A/B Comparison with Causal
+  Differences. Implement AB1-AB6 before resuming ragdoll FP8/FP9. Preserve both
+  solver implementations and all baselines; compare independent recordings.
+
+- On 2026-09-07 the owner reactivated `RAGDOLL_PHYSICS` on a child branch
+  of cleanup commit `88d09e78f`: `codex/ragdoll-physics-unification`.
+  Execute FP5-FP9 in order, beginning with the 3-DOF point joint; the earlier
+  FP0-FP4 acceptance and governed baseline authority remain in force.
+
+- On 2026-09-05 the owner activated Skarness Command And State Harness and
+  directed the Night Runner to complete it without stopping. The current
+  prediction/cause-camera repair checkpoint, its identity-bound Automation
+  matrix, and its governed replay-fidelity transition enter as the bootstrap
+  slice. SK1 now completes the session host and client contract: unsupported
+  builds reject Skarness explicitly, atomic current-user sessions reconnect
+  safely, request ids remain deduplicated under history pressure, and bounded
+  queue saturation is covered by the focused transport regression. SK2 now
+  samples committed scene frames after render, gives fixed-tick and render-only
+  steps exact completion boundaries, suspends accepted work across controller
+  disconnects, and reports typed `run.until` limits and observations.
+  SK3-SK6 complete replay/player command coverage, publish correlated Replay,
+  Prediction, Planning, render, and Physics state, add replace-safe live SQLite
+  queries, and replace the fragile prediction smoke with a selected-target,
+  production-buffer, stable-submission, and supplemental-raster proof.
 
 - Engine Signature And Context Cohesion completed at 8/8 on 2026-09-01. SC0-SC7
   refreshed the whole-engine compiler inventory, repaired confirmed
@@ -57,8 +86,7 @@ Status: No active implementation plan; 143/143 tasks complete; bug ledger
   On 2026-08-25 the owner signed off FP4's same-executable performance result,
   made direction-valid radius eligibility the sole shipping policy, retired the
   absolute threshold and runtime selector, and authorized the resulting governed
-  baseline transition. FP5-FP9 are not selectable while the plan remains in
-  `WNF/`.
+  baseline transition. The 2026-09-07 reactivation now makes FP5 selectable.
 
 - Runtime Boundary Separation And Project Topology is complete by owner
   direction at 8/8 phases. RBS0-RBS7 make Runtime/App a true composition root,
@@ -351,9 +379,10 @@ hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
 
 ## Active Plans
 
-| Plan | Status | Phases | File |
-|---|---|---|---|
-| None | Await owner direction | - | - |
+| Plan | Code | Total | Complete | Next task | File |
+|---|---|---|---|---|---|
+| Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
+| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 8 | FP8: speculative ragdoll contacts | `TODO/ragdoll-physics-unification.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -370,9 +399,9 @@ an owner decision, not a run decision.
 
 | Plan | Status | Phases | File |
 |---|---|---|---|
+| Skarness Command And State Harness | Complete 2026-09-05 | 7/7 | `DONE/skarness-command-and-state-harness.md` |
 | Governance Simplification And Scar Removal | Complete 2026-08-28 | 5/5 | `DONE/governance-simplification-and-scar-removal.md` |
 | Recorded Interaction Playback Cursor | Complete 2026-08-28 | 4/4 | `DONE/recorded-interaction-playback-cursor.md` |
-| Deterministic Collision Modes And Ragdoll Unification | Owner-parked 2026-08-25 | 5/10 | `WNF/ragdoll-physics-unification.md` |
 | Contact Stack Stability Techniques | Owner-parked 2026-08-02 | 0/7 | `WNF/contact-stack-stability-techniques.md` |
 | Deterministic Trigonometry Adoption | Owner-parked 2026-08-18 | 0/8 | `WNF/deterministic-trigonometry-adoption.md` |
 | Persistent Simulation-Island Sleep | Owner-accepted scoped implementation 2026-08-31 | Archived scope | `WNF/persistent-simulation-island-sleep.md` |
@@ -390,8 +419,9 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`SIGNATURE_COHESION` SC0-SC7 is complete. No implementation plan is active;
-selection of a parked or backlog plan requires owner direction.
+`PHYSICS_AB` AB1-AB6 is the next binding work by owner direction.
+`RAGDOLL_PHYSICS` FP8 then FP9 remain pending.
+`SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete.
 
 `RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
 complete on `codex/replay-capture-bugfixes`.
@@ -400,7 +430,7 @@ complete on `codex/replay-capture-bugfixes`.
 re-review. `RECORDED_CURSOR` RIC0-RIC3 is complete, and the bug ledger has no
 unresolved row.
 
-`RAGDOLL_PHYSICS` remains parked, while `RUNTIME_BOUNDARIES` and
+`RAGDOLL_PHYSICS` is active at 5/10, while `RUNTIME_BOUNDARIES` and
 `GAME_UI_COMPONENTS` and `RECORDED_CURSOR` are complete.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
@@ -425,7 +455,8 @@ selection/placement owner, widen Replay reserve privilege, or move feature
 contracts into Rendering.
 ## Portfolio Progress
 
-143/143 implementation tasks complete, and all 126 bug-ledger rows are fixed.
+The prior portfolio remains 143/143 complete and all 126 bug-ledger rows are
+fixed. Skarness is complete at 7/7 phases.
 Engine Signature And Context Cohesion is complete at 8/8. Governance
 De-Bureaucratization and Jargon Removal is
 complete at 8/8. DB0
@@ -474,8 +505,8 @@ completed TODO plan is deleted under repository convention. Five serial
 read-only review passes closed nine matcher, scope, fixture, and metadata
 findings; the final pass is clean. No scanner, fixture, build, test, or
 validation command ran by explicit owner direction.
-The five unfinished Ragdoll Physics phases remain parked and excluded from the
-denominator. The nine completed Ragdoll and Recorded Cursor phases remain part
+The two unfinished Ragdoll Physics phases are active; current portfolio
+progress is 146/148, with the completed five phases already counted historically. The nine completed Ragdoll and Recorded Cursor phases remain part
 of the historical completed count.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
@@ -486,8 +517,8 @@ Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
-Deterministic Collision Modes And Ragdoll Unification is owner-parked at 5/10;
-FP0-FP4 are complete and FP5-FP9 are not selectable. FP4 makes its direction-valid radius
+Deterministic Collision Modes And Ragdoll Unification is active at 5/10;
+FP0-FP4 are complete and FP5-FP9 execute in order. FP4 makes its direction-valid radius
 policy the sole shipping path and retains the SkullScope policy timeline,
 same-executable A/B artifacts, and exact historical/current performance producers. FP2's archived automated transition
 retains the prior and new producers, its core/deep Physics gates pass, and its
@@ -514,7 +545,7 @@ performance baseline remain external recorded failures, not UI6 passes or
 refresh authority.
 Recorded Interaction Playback Cursor RIC0-RIC3 is complete at 4/4. The
 Automation-owned frame value crosses one detached Runtime/UI compositor and one
-App submission edge after GameUI, replay overlays, UI finalization, and ImGui
+App submission edge after GameUI, replay overlays, UI finalization
 but before screenshots and Present. The unchanged 413-turn recording proves
 256 visible turns, 157 cursorless right-look turns, command high water and
 capacity `2`, exact injected coordinates, truthful submission, and zero legacy

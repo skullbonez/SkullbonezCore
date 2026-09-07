@@ -1,7 +1,6 @@
 {
   "version": 1,
   "actions": [
-    { "frame": 6, "setDevelopmentUiSurface": "game" },
     { "frame": 45, "showReplayScrubber": true },
     { "frame": 60, "clickObject": "prediction_striker_ball", "button": "left" },
     { "frame": 61, "setReplayPredictionHorizonSeconds": 1.0 },

@@ -83,7 +83,6 @@ consumer parameter.
 | `--cinematic` | optional `on`, `off` | Force cinematic HDR/post rendering on or off for every loaded scene. Bare flag means `on`. Alias: `--cinematic-rendering`. |
 | `--shadows` | optional `on`, `off` | Force directional shadow maps on or off for every loaded scene. Bare flag means `on`; shadows work in normal and cinematic rendering. Aliases: `--shadow-maps`, `--cinematic-shadows`, `--cinematic_shadows`. |
 | `--interactive` | optional `on`, `off` | Keep scene automation from quitting the app so a screenshot/validation scene can be inspected live. Bare flag means `on`. Alias: `--hold`. |
-| `--dev-ui` | `game`, `imgui` | Select the exclusive development UI surface. Omitted or `game` uses the built-in GameUI game/level-editor presentation; `imgui` selects the optional ImGui development surface. |
 | `--live-style-control` | directory | Watch `<directory>\live.style.json` and `<directory>\capture.txt` while the scene keeps running. Applies style-only JSON descriptors without reloading physics and saves requested screenshots after the current frame is drawn. Aliases: `--style-harness`, `--live_style_control`, `--style_harness`. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
 | `--platform-profiler-markers` | flag | Emit existing profiler markers to the platform profiler marker API when support is available. Enabled by default in Debug and Profile builds while PIX marker support is compiled in. Aliases: `--platform-profiler`, `--pix-markers`, `--pix`. Environment fallback/override: `SKULLBONEZ_PLATFORM_PROFILER_MARKERS=1`; set it to `0` to disable the default. `SKULLBONEZ_PIX_MARKERS=1` is still accepted as a Windows PIX compatibility alias. |
@@ -242,6 +241,33 @@ Director authoring keys:
 Interaction automation supports Director takes with `loadShotList`, `directorPlay`, `directorAdvance`, `directorGrab`, `directorRelease`, `setPhaseStyle`, `setCameraPose`, and `screenshot`. Assertions include `directorGrabbed`, `directorPhaseIndex`, `directorPhaseName`, and `directorPhaseStylePath`, so scripted screenshots can be pinned to exact phases.
 
 ## Replay Capture And Scrub
+
+The causal panel shows a loading bar while a high-detail prediction resolves.
+The percentage follows resolved simulation time across the requested horizon.
+Collision rows remain empty until the selected target's complete prediction and
+causal tree are ready, then appear together. Partial future paths still draw in
+the viewport, independently of the panel and the future-path reveal speed.
+
+After a predicted causal row has settled into paused inspection, hold Right Arrow
+to play its retained future forward or Left Arrow to play backward. Releasing
+the arrow pauses; holding both leaves time unchanged. Playback stops at the
+available prediction endpoints. The camera follows the focused object while
+right-drag orbit and wheel zoom remain adjustable, and all predicted paths stay
+visible. Leaving causal inspection retains the displayed time in the paused
+prediction timeline. The arrows have no scene-navigation binding and do nothing
+outside paused prediction inspection or while a text field owns keyboard input.
+
+A cyan position gate marks the selected object's displayed location on its
+prediction path. A selected manifold marks both participants. The hollow diamond
+and white cross ticks follow playback, keep a fixed screen size during zoom, and
+align with the projected motion direction. Planning draws them in the screen
+overlay, separately from the retained future geometry and prediction caches.
+
+The selected contact manifold uses thick screen-space strokes for its contact
+point, normal arrow, and tangents. Reaching or crossing its exact force frame in
+either playback direction flashes the contact white with a local ring. The flash
+fades back to the steady glyph over 200 ms of presentation time, including while
+paused. Remaining on the frame does not retrigger it; crossing it again does.
 
 Outside launcher mode, `Ctrl+Left Click` selects a separate closest-approach target without replacing the replay path root. With mutual gravity and prediction enabled, GameUI shows either the closest miss distance and ETA or an intercept ETA. In launcher mode, `Ctrl+Left Click` retains its existing path-target selection behavior instead of firing.
 

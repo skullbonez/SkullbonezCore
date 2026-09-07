@@ -68,13 +68,13 @@ using SkullbonezCore::Math::Vector::CrossProduct;
 using SkullbonezCore::Math::Vector::Dot;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
+using SkullbonezCore::Physics::ConstraintSolveTransaction;
 using SkullbonezCore::Physics::ObjectContactBodyView;
 using SkullbonezCore::Physics::ObjectContactCandidate;
 using SkullbonezCore::Physics::ObjectContactCandidateSelection;
 using SkullbonezCore::Physics::ObjectContactManifold;
 using SkullbonezCore::Physics::PersistentContactCacheEntry;
 using SkullbonezCore::Physics::PersistentContactCacheList;
-using SkullbonezCore::Physics::PersistentContactSolveTransaction;
 using SkullbonezCore::Physics::SelectObjectContactCandidateIndices;
 using SkullbonezCore::Physics::SweepObjectContact;
 using SkullbonezTests::CollisionShapeFixtures::BoxShape;
@@ -1003,7 +1003,7 @@ TEST_CASE( "Object contact manifold identity: a changed narrowphase feature miss
                                       SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
     cache.Reserve( 1u );
     PersistentContactCacheEntry cached;
-    cached.key = PersistentContactSolveTransaction::MakeKey( faceX.bodyA, faceX.bodyB, faceX.points[0].featureId );
+    cached.key = ConstraintSolveTransaction::MakeKey( faceX.bodyA, faceX.bodyB, faceX.points[0].featureId );
     cached.accN = 1.0f;
     cache.push_back( cached );
 
@@ -1187,8 +1187,8 @@ TEST_CASE( "Object CCD: shallow oblique sphere motion reaches a box face" )
     movingSphere.position = Vector3( 1.1005f, 0.0f, 0.0f );
     ObjectContactBodyView stationaryBox;
 
-    const auto sweep =
-        SweepObjectContact( movingSphere, sphere, shallowObliqueVelocity, stationaryBox, box, stationary, 1.0f );
+    const auto sweep = SweepObjectContact( movingSphere, sphere, shallowObliqueVelocity, stationaryBox, box, stationary,
+                                           1.0f );
 
     REQUIRE( sweep.hit );
     CHECK( sweep.collisionTime == doctest::Approx( 0.5f ).epsilon( 0.0001f ) );

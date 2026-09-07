@@ -43,10 +43,6 @@ Invariants:
 #include "../SkullbonezSource/Runtime/Render/RenderDefaultsStore.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/RuntimeFrameMetricsOwner.h"
 #include "../SkullbonezSource/Runtime/App/SceneLoadApplication.h"
-#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorControlPolicy.h"
-#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
-#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
-#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
 #include "../SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
@@ -218,19 +214,6 @@ TEST_CASE( "Runtime scene diagnostic facts reject invalid sentinel and count dom
 }
 
 
-TEST_CASE( "Operator editor frame status keeps its lease through owner reset" )
-{
-    SkullbonezCore::Runtime::DevelopmentTools::ImGuiEditorFrameStatusLease status;
-    SkullbonezCore::Core::SbResult producer = diagnostics.Failure( "Runtime/Editor", "frame command rejected" );
-    status.Record( producer );
-    producer = SkullbonezCore::Core::SbResult::Success();
-
-    const SkullbonezCore::Core::SbResult consumed = status.Take();
-    CHECK_FALSE( consumed.Ok() );
-    CHECK( status.Ok() );
-    CHECK( std::strcmp( consumed.ErrorOwner(), "Runtime/Editor" ) == 0 );
-    CHECK( std::strcmp( consumed.ErrorMessage(), "frame command rejected" ) == 0 );
-}
 
 
 TEST_CASE( "Replay velocity drag coalesces preview samples and refreshes only on release" )
@@ -615,26 +598,6 @@ TEST_CASE( "Frame metrics publish first sample and aggregate on the half-second 
     CHECK( snapshot.sceneEnergy == doctest::Approx( 110.0 / 6.0 ) );
 }
 
-TEST_CASE( "Frame metric cadence is identical for hidden GameUI and ImGui surfaces" )
-{
-    std::array<RuntimeFrameMetricsOwner, 3> surfaceOwners;
-    for ( RuntimeFrameMetricsOwner& owner : surfaceOwners )
-    {
-        owner.SampleFrame( { 0.2, 3.0 } );
-        owner.SampleFrame( { 0.2, 6.0 } );
-        owner.SampleFrame( { 0.2, 9.0 } );
-    }
-
-    const RuntimeFrameMetricsSnapshot hidden = surfaceOwners[0].MetricsSnapshot();
-    const RuntimeFrameMetricsSnapshot gameUi = surfaceOwners[1].MetricsSnapshot();
-    const RuntimeFrameMetricsSnapshot imgui = surfaceOwners[2].MetricsSnapshot();
-    CHECK( hidden.secondsPerFrame == gameUi.secondsPerFrame );
-    CHECK( gameUi.secondsPerFrame == imgui.secondsPerFrame );
-    CHECK( hidden.rollingFrameSeconds == gameUi.rollingFrameSeconds );
-    CHECK( gameUi.rollingFrameSeconds == imgui.rollingFrameSeconds );
-    CHECK( hidden.sceneEnergy == gameUi.sceneEnergy );
-    CHECK( gameUi.sceneEnergy == imgui.sceneEnergy );
-}
 
 TEST_CASE( "Scene batch followers prefer presentation values emitted by a completed clear" )
 {
@@ -2100,43 +2063,6 @@ TEST_CASE( "Operator editor inspector typed views retain the flat frame values" 
     CHECK( inspector.mass == doctest::Approx( 12.0f ) );
 }
 
-TEST_CASE( "ImGui diagnostics scalar controls project the shared operator policy" )
-{
-    using SkullbonezCore::Runtime::DevelopmentTools::ResolveImGuiEditorDiagnosticsControlPolicy;
-    using namespace SkullbonezCore::UI;
-    namespace Policy = OperatorControlPolicy;
-
-    struct ExpectedPolicy
-    {
-        OperatorEditorDiagnosticsCommandType type;
-        float minValue;
-        float maxValue;
-        float step;
-    };
-
-    const ExpectedPolicy expected[] = {
-        { OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha, Policy::UI_PHYSICS_ALPHA_MIN,
-          Policy::UI_PHYSICS_ALPHA_MAX, Policy::UI_PHYSICS_ALPHA_STEP },
-        { OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger, Policy::UI_CONTACT_LINGER_MIN,
-          Policy::UI_CONTACT_LINGER_MAX, Policy::UI_CONTACT_LINGER_STEP },
-        { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, Policy::UI_RAY_IMPULSE_MIN,
-          Policy::UI_RAY_IMPULSE_MAX, Policy::UI_RAY_IMPULSE_STEP },
-        { OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed, Policy::UI_LAUNCHER_PROJECTILE_SPEED_MIN,
-          Policy::UI_LAUNCHER_PROJECTILE_SPEED_MAX, Policy::UI_LAUNCHER_PROJECTILE_SPEED_STEP },
-    };
-
-    for ( const ExpectedPolicy& row : expected )
-    {
-        const auto policy = ResolveImGuiEditorDiagnosticsControlPolicy( row.type );
-        REQUIRE( policy.valid );
-        CHECK( policy.minValue == doctest::Approx( row.minValue ) );
-        CHECK( policy.maxValue == doctest::Approx( row.maxValue ) );
-        CHECK( policy.step == doctest::Approx( row.step ) );
-    }
-
-    CHECK_FALSE(
-        ResolveImGuiEditorDiagnosticsControlPolicy( OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag ).valid );
-}
 
 TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner projection" )
 {
@@ -2355,163 +2281,9 @@ TEST_CASE( "Operator editor tool commands coalesce and project into established 
     CHECK( malformed.count == 0u );
 }
 
-TEST_CASE( "Editor dock envelope preserves viewport across supported aspect ratios" )
-{
-    using namespace SkullbonezCore::Runtime::DevelopmentTools;
-    const ImGuiEditorLayoutEnvelope minimum = ResolveImGuiEditorLayoutEnvelope( 1280, 640 );
-    const ImGuiEditorLayoutEnvelope widescreen = ResolveImGuiEditorLayoutEnvelope( 1920, 1000 );
-    const ImGuiEditorLayoutEnvelope ultrawide = ResolveImGuiEditorLayoutEnvelope( 3440, 1360 );
 
-    for ( const ImGuiEditorLayoutEnvelope& envelope : { minimum, widescreen, ultrawide } )
-    {
-        CHECK( envelope.editorLeftWidth + envelope.viewportWidth + envelope.utilityRightWidth == envelope.contentWidth );
-        CHECK( envelope.upperHeight + envelope.replayHeight + envelope.statusHeight == envelope.contentHeight );
-        CHECK( envelope.preservesCentralViewport );
-        CHECK( envelope.statusHeight >= 48 );
-        CHECK( envelope.replayHeight >= 112 );
-    }
 
-    CHECK( minimum.compactToolbarLabels );
-    CHECK_FALSE( widescreen.compactToolbarLabels );
-    CHECK( ultrawide.viewportWidth > widescreen.viewportWidth );
-    CHECK( ultrawide.editorLeftWidth == 420 );
-    CHECK( ultrawide.utilityRightWidth == 460 );
-    CHECK( FingerprintImGuiEditorDefaultTopology() == 12435707336326486392ull );
-    CHECK( std::strcmp( IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR,
-                        "v2|status:bottommost|replay:bottom|left:scene,hierarchy,assets|center:game-viewport|"
-                        "right:inspector,world,rendering,diagnostics,causality" ) == 0 );
-}
 
-TEST_CASE( "Editor dock envelope remains possible at narrow client extents" )
-{
-    using namespace SkullbonezCore::Runtime::DevelopmentTools;
-
-    for ( const ImGuiEditorLayoutEnvelope& envelope :
-          { ResolveImGuiEditorLayoutEnvelope( 539, 360 ), ResolveImGuiEditorLayoutEnvelope( 2, 2 ),
-            ResolveImGuiEditorLayoutEnvelope( 1, 1 ), ResolveImGuiEditorLayoutEnvelope( 0, -4 ) } )
-    {
-        CHECK( envelope.contentWidth >= 1 );
-        CHECK( envelope.contentHeight >= 1 );
-        CHECK( envelope.editorLeftWidth >= 0 );
-        CHECK( envelope.utilityRightWidth >= 0 );
-        CHECK( envelope.viewportWidth >= 1 );
-        CHECK( envelope.statusHeight >= 0 );
-        CHECK( envelope.replayHeight >= 0 );
-        CHECK( envelope.upperHeight >= 1 );
-        CHECK( envelope.editorLeftWidth + envelope.viewportWidth + envelope.utilityRightWidth == envelope.contentWidth );
-        CHECK( envelope.upperHeight + envelope.replayHeight + envelope.statusHeight == envelope.contentHeight );
-        CHECK( envelope.statusSplitFraction >= 0.0f );
-        CHECK( envelope.statusSplitFraction <= 1.0f );
-        CHECK( envelope.replaySplitFraction >= 0.0f );
-        CHECK( envelope.replaySplitFraction <= 1.0f );
-        CHECK( envelope.preservesCentralViewport == ( envelope.viewportWidth >= 480 && envelope.upperHeight >= 360 ) );
-    }
-}
-
-TEST_CASE( "Editor lifecycle policies retain acknowledged state and require completed effects" )
-{
-    using namespace SkullbonezCore::Runtime::DevelopmentTools;
-
-    CHECK( ResolveImGuiEditorStartDisposition( false, false ) == ImGuiEditorStartDisposition::StartFresh );
-    CHECK( ResolveImGuiEditorStartDisposition( true, true ) == ImGuiEditorStartDisposition::ReturnReady );
-    CHECK( ResolveImGuiEditorStartDisposition( true, false ) == ImGuiEditorStartDisposition::RestartIncomplete );
-
-    const uint32_t requestedMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK &
-                                   ~ImGuiEditorPanelBit( ImGuiEditorPanelId::GameViewport );
-    CHECK( ResolveImGuiEditorPanelMaskAfterDockBuild( requestedMask ) == requestedMask );
-    CHECK( ResolveImGuiEditorPanelMaskAfterDockBuild( ( std::numeric_limits<uint32_t>::max )() ) ==
-           IMGUI_EDITOR_ALL_PANEL_MASK );
-
-    const uint32_t staleMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK & ~ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics );
-    uint32_t resetThenHideGame = ResetImGuiEditorPanelMask();
-    resetThenHideGame = ResolveImGuiEditorPanelVisibilityCommand( resetThenHideGame, ImGuiEditorPanelId::GameViewport,
-                                                                  false );
-    CHECK( ResolveImGuiEditorPanelMaskAfterDockBuild( resetThenHideGame ) == resetThenHideGame );
-    CHECK( ( resetThenHideGame & ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics ) ) != 0u );
-    CHECK( ( resetThenHideGame & ImGuiEditorPanelBit( ImGuiEditorPanelId::GameViewport ) ) == 0u );
-
-    uint32_t hideThenReset = ResolveImGuiEditorPanelVisibilityCommand( staleMask, ImGuiEditorPanelId::GameViewport, false );
-    hideThenReset = ResetImGuiEditorPanelMask();
-    CHECK( hideThenReset == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
-
-    CHECK( ShouldCaptureImGuiGameViewport( true, true ) );
-    CHECK_FALSE( ShouldCaptureImGuiGameViewport( false, true ) );
-    CHECK_FALSE( ShouldCaptureImGuiGameViewport( true, false ) );
-    CHECK_FALSE( ShouldCaptureImGuiGameViewport( false, false ) );
-
-    CHECK( CanCompleteImGuiPanelFocus( true, true, true ) );
-    CHECK_FALSE( CanCompleteImGuiPanelFocus( false, true, true ) );
-    CHECK_FALSE( CanCompleteImGuiPanelFocus( true, false, true ) );
-    CHECK_FALSE( CanCompleteImGuiPanelFocus( true, true, false ) );
-
-    const ImGuiEditorPanelId requestedFocus = ImGuiEditorPanelId::CausalityDetail;
-    CHECK( ResolveImGuiPendingFocusAfterVisibility( requestedFocus, ImGuiEditorPanelId::Diagnostics, false ) ==
-           requestedFocus );
-    const ImGuiEditorPanelId cancelledFocus = ResolveImGuiPendingFocusAfterVisibility( requestedFocus, requestedFocus,
-                                                                                       false );
-    CHECK( cancelledFocus == ImGuiEditorPanelId::Count );
-    CHECK( ResolveImGuiPendingFocusAfterVisibility( cancelledFocus, requestedFocus, true ) == ImGuiEditorPanelId::Count );
-
-    ImGuiEditorCommands frameCommands;
-    frameCommands.requestSurfaceSwap = true;
-    frameCommands.operatorEditor.tools.count = 1u;
-    SkullbonezCore::UI::OperatorEditorCommandQueues pendingCommands;
-    pendingCommands.scene.count = 1u;
-    ImGuiEditorFrameStatusLease frameStatus;
-    frameStatus.Record( diagnostics.Failure( "Tests/ImGuiEditor", "stale frame failure" ) );
-    REQUIRE_FALSE( frameStatus.Ok() );
-
-    ResetImGuiEditorPendingEpoch( frameCommands, pendingCommands, frameStatus );
-    CHECK_FALSE( frameCommands.requestSurfaceSwap );
-    CHECK( frameCommands.operatorEditor.Empty() );
-    CHECK( pendingCommands.Empty() );
-    CHECK( frameStatus.Ok() );
-}
-
-TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
-{
-    using namespace SkullbonezCore::Runtime::DevelopmentTools;
-
-    ImGuiEditorPreferences preferences;
-    preferences.topologyFingerprint = FingerprintImGuiEditorDefaultTopology();
-    preferences.panelVisibilityMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK &
-                                      ~ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics );
-
-    strcpy_s( preferences.sceneFilter, "stack" );
-    strcpy_s( preferences.hierarchyFilter, "crate" );
-    strcpy_s( preferences.assetFilter, "terrain" );
-
-    char serialized[IMGUI_EDITOR_PREFERENCES_TEXT_CAPACITY] = {};
-    const std::size_t bytes = SerializeImGuiEditorPreferences( preferences, serialized, sizeof( serialized ) );
-    REQUIRE( bytes > 0u );
-    const ImGuiEditorPreferenceParseResult roundTrip = ParseImGuiEditorPreferences( serialized, bytes );
-    REQUIRE( roundTrip.valid );
-    CHECK_FALSE( roundTrip.layoutResetRequired );
-    CHECK_FALSE( roundTrip.recoveredDefaults );
-    CHECK( roundTrip.preferences.panelVisibilityMask == preferences.panelVisibilityMask );
-    CHECK( std::strcmp( roundTrip.preferences.sceneFilter, "stack" ) == 0 );
-    CHECK( std::strcmp( roundTrip.preferences.hierarchyFilter, "crate" ) == 0 );
-    CHECK( std::strcmp( roundTrip.preferences.assetFilter, "terrain" ) == 0 );
-
-    constexpr const char* stale = "schema=1\nlayout=1\ntopology=17\npanels=0\nscene_filter=keep\nhierarchy_filter="
-                                  "bounded\nasset_filter=text\n";
-
-    const ImGuiEditorPreferenceParseResult migrated = ParseImGuiEditorPreferences( stale, std::strlen( stale ) );
-    REQUIRE( migrated.valid );
-    CHECK( migrated.layoutResetRequired );
-    CHECK( migrated.recoveredDefaults );
-    CHECK( migrated.preferences.layoutVersion == IMGUI_EDITOR_LAYOUT_VERSION );
-    CHECK( migrated.preferences.topologyFingerprint == FingerprintImGuiEditorDefaultTopology() );
-    CHECK( migrated.preferences.panelVisibilityMask == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
-    CHECK( std::strcmp( migrated.preferences.sceneFilter, "keep" ) == 0 );
-
-    constexpr const char* malformed = "schema=1\nlayout=2\ntopology=not-a-number\npanels=4294967295\n";
-    const ImGuiEditorPreferenceParseResult recovered = ParseImGuiEditorPreferences( malformed, std::strlen( malformed ) );
-    CHECK_FALSE( recovered.valid );
-    CHECK( recovered.layoutResetRequired );
-    CHECK( recovered.recoveredDefaults );
-    CHECK( recovered.preferences.panelVisibilityMask == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
-}
 
 TEST_CASE( "Planning fixes replay overlay composition order before generic render submission" )
 {
@@ -2527,127 +2299,74 @@ TEST_CASE( "Planning fixes replay overlay composition order before generic rende
     CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[4] == ReplayOverlaySurfaceKind::Scrubber );
 }
 
-TEST_CASE( "Compact causality projection is bounded and exposes explicit edge states" )
+TEST_CASE( "Prediction position gates follow displayed identity and frame without changing samples" )
 {
-    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+    using namespace SkullbonezCore::Runtime;
     using namespace SkullbonezCore::Runtime::ReplayOverlay;
+    RunReplayPredictionFrame frame;
+    frame.frameIndex = 120;
+    frame.bodies.resize( 2 );
+    frame.bodies[0].id.value = 7;
+    frame.bodies[0].position = { 0.0f, 0.0f, 0.5f };
+    frame.bodies[0].linearVelocity = { 1.0f, 1.0f, 0.0f };
+    frame.bodies[1].id.value = 8;
+    frame.bodies[1].position = { 0.5f, 0.0f, 0.5f };
+    ReplayOverlayViewport viewport { 1000, 500 };
+    const ReplayPositionGate gate = BuildReplayPositionGate( frame, { 7 }, viewport );
+    REQUIRE( gate.visible );
+    CHECK( gate.id.value == 7 );
+    CHECK( gate.frame == 120 );
+    CHECK( gate.center.x == doctest::Approx( 500.0f ) );
+    CHECK( gate.center.y == doctest::Approx( 250.0f ) );
+    CHECK( gate.tangent.x == doctest::Approx( 0.894427f ) );
+    CHECK( gate.tangent.y == doctest::Approx( -0.447214f ) );
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 99 }, viewport ).visible );
+    CHECK_FALSE( BuildReplayPositionGate( frame, {}, viewport ).visible );
+    CHECK( frame.bodies[0].position.x == 0.0f );
+    CHECK( frame.frameIndex == 120 );
 
-    ReplayScrubberView scrubber;
-    ReplayPredictionPresentationView prediction;
-    ReplayInterceptView intercept;
-    ReplayPorkchopPanelView porkchop;
-    ReplayTripPlannerView planner;
-    RunReplayPathVisualizerState path;
-    RunReplayVelocityEditState velocity;
-    RunReplayCauseTreeState tree;
-    ReplayRecorderStats solverStats;
-    ReplayOverlayStateView replay { { scrubber, prediction, path, velocity, solverStats, 1.0f, 120.0f },
-                                    { intercept, porkchop, planner },
-                                    { tree, {}, ReplayPredictionDetailMode::High } };
+    frame.frameIndex = 121;
+    frame.bodies[0].position.x = 0.2f;
+    CHECK( BuildReplayPositionGate( frame, { 7 }, viewport ).center.x == doctest::Approx( 600.0f ) );
+    frame.frameIndex = 119;
+    frame.bodies[0].position.x = -0.2f;
+    CHECK( BuildReplayPositionGate( frame, { 7 }, viewport ).center.x == doctest::Approx( 400.0f ) );
+    CHECK( BuildReplayPositionGate( frame, { 7 }, viewport ).frame == 119 );
+    const ReplayPositionGate stationary = BuildReplayPositionGate( frame, { 8 }, viewport );
+    CHECK( stationary.center.x == doctest::Approx( 750.0f ) );
+    CHECK( stationary.tangent.x == 1.0f );
+    CHECK( stationary.tangent.y == 0.0f );
 
-    CHECK( replay.timeline.prediction.controls.revealRateMinimum == doctest::Approx( 1.0 ) );
-    CHECK( replay.timeline.prediction.controls.revealRateMaximum == doctest::Approx( 1000.0 ) );
-    CHECK( replay.timeline.predictionHorizonMinimum == doctest::Approx( 1.0f ) );
-    CHECK( replay.timeline.predictionHorizonMaximum == doctest::Approx( 120.0f ) );
-
-    ImGuiEditorCausalityProjection projection = BuildImGuiEditorCausalityProjection( replay.timeline, replay.causality );
-    CHECK( projection.status.state == ImGuiEditorCausalityState::Empty );
-    CHECK( projection.related.Rows().empty() );
-
-    path.hasTarget = true;
-    path.targetId.value = 17u;
-    projection = BuildImGuiEditorCausalityProjection( replay.timeline, replay.causality );
-    CHECK( projection.status.state == ImGuiEditorCausalityState::CapacityLimited );
-
-    tree.rows.reserve( 32u );
-    tree.focusedId.value = 17u;
-    projection = BuildImGuiEditorCausalityProjection( replay.timeline, replay.causality );
-    CHECK( projection.status.state == ImGuiEditorCausalityState::Stale );
-
-    RunReplayCauseTreeRow root;
-    root.id.value = 7u;
-    strcpy_s( root.name, "Root crate" );
-    strcpy_s( root.detail, "retained root state" );
-    tree.rows.push_back( root );
-
-    RunReplayCauseTreeRow child;
-    child.id.value = 17u;
-    child.parentId.value = 7u;
-    child.firstFrame = 41u;
-    child.depth = 1;
-    strcpy_s( child.name, "Affected sphere" );
-    strcpy_s( child.detail, "first affected frame 41" );
-    tree.rows.push_back( child );
-    tree.selectedRow = 1;
-
-    ReplaySolverFrameSample selectedSolver;
-    selectedSolver.frameIndex = 42u;
-    replay.timeline.selection.selectedSolver = &selectedSolver;
-    replay.timeline.prediction.controls.enabled = true;
-    replay.timeline.prediction.controls.building = true;
-    replay.timeline.prediction.topology.targetId.value = 17u;
-
-    projection = BuildImGuiEditorCausalityProjection( replay.timeline, replay.causality );
-    REQUIRE( projection.selected.selectedObjectRow != nullptr );
-    REQUIRE( projection.selected.immediateCauseRow != nullptr );
-    CHECK( projection.status.state == ImGuiEditorCausalityState::Ready );
-    CHECK( projection.selected.selectedObjectRow->id.value == 17u );
-    CHECK( projection.selected.immediateCauseRow->id.value == 7u );
-    CHECK( projection.status.hasReplayTick );
-    CHECK( projection.status.replayTick == 42u );
-    CHECK( projection.status.predictionState == ImGuiEditorPredictionState::Building );
-
-    for ( int index = 0; index < 12; ++index )
-    {
-        RunReplayCauseTreeRow detail;
-        detail.kind = RunReplayCauseTreeRowKind::SolverRow;
-        detail.id.value = 17u;
-        detail.parentId.value = 7u;
-        detail.depth = 2;
-        sprintf_s( detail.name, "Solver row %d", index );
-        tree.rows.push_back( detail );
-    }
-
-    projection = BuildImGuiEditorCausalityProjection( replay.timeline, replay.causality );
-    CHECK( projection.status.state == ImGuiEditorCausalityState::Truncated );
-    CHECK( projection.related.Rows().size() == IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY );
-    CHECK( projection.status.compactScanTruncated );
-    CHECK( projection.status.totalRowCount == 14u );
+    frame.bodies[0].position.z = -0.5f;
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 7 }, viewport ).visible );
+    frame.bodies[0].position.z = 1.5f;
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 7 }, viewport ).visible );
+    frame.bodies[0].position = { 2.0f, 0.0f, 0.5f };
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 7 }, viewport ).visible );
+    viewport.viewProjection.m[15] = -1.0f;
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 8 }, viewport ).visible );
 }
 
-TEST_CASE( "Game viewport policy letterboxes and maps physical client pixels" )
+TEST_CASE( "Prediction position gates select only the active inspection participants" )
 {
-    using namespace SkullbonezCore::Runtime::DevelopmentTools;
-    const ImGuiGameViewportRect widePane = ResolveImGuiGameViewportRect( 100.0f, 50.0f, 1000.0f, 500.0f, 800, 600, 1.5f );
-    REQUIRE( widePane.valid );
-    CHECK( widePane.letterboxed );
-    CHECK( widePane.imageMinX == doctest::Approx( 266.6667f ) );
-    CHECK( widePane.imageMinY == doctest::Approx( 50.0f ) );
-    CHECK( widePane.imageWidth == doctest::Approx( 666.6667f ) );
-    CHECK( widePane.imageHeight == doctest::Approx( 500.0f ) );
-    CHECK( widePane.dpiScale == doctest::Approx( 1.5f ) );
-
-    int sourceX = -1;
-    int sourceY = -1;
-    CHECK( MapImGuiGameViewportPoint( widePane, 600.0f, 300.0f, sourceX, sourceY ) );
-    CHECK( sourceX == 400 );
-    CHECK( sourceY == 300 );
-    CHECK_FALSE( MapImGuiGameViewportPoint( widePane, 120.0f, 300.0f, sourceX, sourceY ) );
-    CHECK( sourceX == 0 );
-    CHECK( sourceY == 0 );
-
-    const ImGuiGameViewportRect tallPane = ResolveImGuiGameViewportRect( 10.0f, 20.0f, 500.0f, 900.0f, 1920, 1080, 2.0f );
-    REQUIRE( tallPane.valid );
-    CHECK( tallPane.letterboxed );
-    CHECK( tallPane.imageMinX == doctest::Approx( 10.0f ) );
-    CHECK( tallPane.imageMinY == doctest::Approx( 329.375f ) );
-    CHECK( tallPane.imageWidth == doctest::Approx( 500.0f ) );
-    CHECK( tallPane.imageHeight == doctest::Approx( 281.25f ) );
-    CHECK( MapImGuiGameViewportPoint( tallPane, 509.9f, 610.5f, sourceX, sourceY ) );
-    CHECK( sourceX == 1919 );
-    CHECK( sourceY == 1079 );
-
-    const ImGuiGameViewportRect invalid = ResolveImGuiGameViewportRect( 0.0f, 0.0f, 0.0f, 100.0f, 800, 600, 0.0f );
-    CHECK_FALSE( invalid.valid );
-    CHECK( invalid.dpiScale == doctest::Approx( 1.0f ) );
+    using namespace SkullbonezCore::Runtime;
+    using namespace SkullbonezCore::Runtime::ReplayOverlay;
+    RunReplayCauseTreeState tree;
+    tree.rows.resize( 2 );
+    tree.rows[0].id.value = 7;
+    tree.rows[0].counterpartId.value = 8;
+    tree.rows[1].id.value = 9;
+    tree.rows[1].counterpartId.value = 9;
+    ReplayOverlayCausalityView causality { tree, {} };
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[0].value == 3 );
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[1].value == 0 );
+    causality.inspection.mode = ReplayCauseInspectionMode::DetailPaused;
+    causality.inspection.selectedRow = 0;
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[0].value == 7 );
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[1].value == 8 );
+    causality.inspection.selectedRow = 1;
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[0].value == 9 );
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[1].value == 0 );
+    causality.inspection.selectedRow = 2;
+    CHECK( ReplayPositionGateSelection( causality, { 3 } )[0].value == 0 );
 }

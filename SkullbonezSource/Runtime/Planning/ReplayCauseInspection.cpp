@@ -1260,13 +1260,92 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
     m_startedAtSeconds = nowSeconds;
     m_lastAdvanceSeconds = nowSeconds;
     m_pendingFrame = presentedFrame;
+    m_playbackDirection = 0;
     return true;
+}
+
+void ReplayCauseInspection::AdvancePredictionPlayback( std::span<const RunReplayPredictionFrame> frames, int direction,
+                                                       double nowSeconds ) noexcept
+{
+    if ( m_state.mode != ReplayCauseInspectionMode::DetailPaused ||
+         m_state.seekSource != ReplayCauseSeekSource::Prediction || frames.empty() || direction == 0 )
+    {
+        m_playbackDirection = 0;
+        return;
+    }
+
+    const auto current = std::find_if( frames.begin(), frames.end(),
+                                       [&]( const auto& frame ) { return frame.frameIndex == m_state.presentedFrame; } );
+
+    if ( current == frames.end() )
+    {
+        m_playbackDirection = 0;
+        return;
+    }
+
+    if ( direction != m_playbackDirection )
+    {
+        m_playbackSeconds = current->simulationSeconds;
+        m_playbackDirection = direction;
+    }
+
+    // Units: wall-clock seconds traverse the retained prediction's simulation
+    // timestamps. Fractional progress survives render frames; endpoints discard
+    // overshoot so reversing a held arrow responds immediately.
+    const double elapsed = (std::max)( 0.0, nowSeconds - m_lastAdvanceSeconds );
+    m_playbackSeconds = std::clamp( m_playbackSeconds + elapsed * ( direction < 0 ? -1.0 : 1.0 ),
+                                    frames.front().simulationSeconds, frames.back().simulationSeconds );
+    auto frame = std::lower_bound( frames.begin(), frames.end(), m_playbackSeconds,
+                                   []( const auto& sample, double seconds ) { return sample.simulationSeconds < seconds; } );
+
+    if ( frame == frames.end() )
+    {
+        --frame;
+    }
+    else if ( frame != frames.begin() && frame->simulationSeconds > m_playbackSeconds && direction > 0 )
+    {
+        --frame;
+    }
+
+    // Invariant: playback updates presentation and its flash; the selected
+    // manifold and detached collision evidence retain their original stamp.
+    const ReplayFrameIndex previousFrame = m_state.presentedFrame;
+    m_state.presentedFrame = frame->frameIndex;
+    ObserveContactFrame( previousFrame, nowSeconds );
+}
+
+void ReplayCauseInspection::ObserveContactFrame( ReplayFrameIndex previousFrame, double nowSeconds ) noexcept
+{
+    if ( !m_state.contactPresentation.HasGeometry() )
+    {
+        return;
+    }
+
+    // Invariant: entry is directional and includes skipped-over simulation
+    // frames. Leaving the force frame or remaining on it cannot retrigger.
+    const bool crossed = ( previousFrame < m_state.targetFrame && m_state.presentedFrame >= m_state.targetFrame ) ||
+                         ( previousFrame > m_state.targetFrame && m_state.presentedFrame <= m_state.targetFrame );
+    const bool firstArrival = m_contactFlashStartedAtSeconds < 0.0 && m_state.presentedFrame == m_state.targetFrame;
+
+    if ( crossed || firstArrival )
+    {
+        m_contactFlashStartedAtSeconds = nowSeconds;
+        m_state.contactFlashAlpha = 1.0f;
+        ++m_state.contactFlashSequence;
+    }
 }
 
 void ReplayCauseInspection::Advance( double nowSeconds ) noexcept
 {
     m_lastAdvanceSeconds = nowSeconds;
     AdvanceDrawer( nowSeconds );
+    // Units: presentation time keeps the 200 ms fade running while physics and
+    // arrow playback are paused. The selected contact evidence stays immutable.
+    m_state.contactFlashAlpha = m_contactFlashStartedAtSeconds >= 0.0
+                                    ? static_cast<float>(
+                                          std::clamp( 1.0 - ( nowSeconds - m_contactFlashStartedAtSeconds ) / 0.2, 0.0,
+                                                      1.0 ) )
+                                    : 0.0f;
 
     if ( m_state.mode != ReplayCauseInspectionMode::Transporting )
     {
@@ -1290,6 +1369,7 @@ void ReplayCauseInspection::Advance( double nowSeconds ) noexcept
          !m_state.transportPending )
     {
         m_state.mode = ReplayCauseInspectionMode::DetailPaused;
+        ObserveContactFrame( m_state.presentedFrame, nowSeconds );
     }
 }
 
@@ -1404,7 +1484,9 @@ void ReplayCauseInspection::CompleteTransport( uint64_t generation, bool succeed
         return;
     }
 
+    const ReplayFrameIndex previousFrame = m_state.presentedFrame;
     m_state.presentedFrame = m_inFlightFrame;
+    ObserveContactFrame( previousFrame, m_lastAdvanceSeconds );
 
     if ( m_state.easedProgress >= 1.0f && m_state.presentedFrame == m_state.targetFrame && !m_state.transportPending )
     {
@@ -1488,6 +1570,8 @@ void ReplayCauseInspection::RestoreInteractionRecordingBaseline( const ReplayCau
     m_state.returnIssued = baseline.returnIssued;
     m_state.easedProgress = std::clamp( baseline.easedProgress, 0.0f, 1.0f );
     m_state.drawerProgress = std::clamp( baseline.drawerProgress, 0.0f, 1.0f );
+    m_contactFlashStartedAtSeconds = -1.0;
+    m_state.contactFlashAlpha = 0.0f;
 
     const double transitionUnit = 1.0 - std::cbrt( 1.0 - static_cast<double>( m_state.easedProgress ) );
     m_startedAtSeconds = nowSeconds - transitionUnit * REPLAY_CAUSE_TRANSITION_SECONDS;
@@ -1611,6 +1695,7 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
 void ReplayCauseInspection::Reset() noexcept
 {
     m_state = ReplayCauseInspectionView {};
+    m_contactFlashStartedAtSeconds = -1.0;
     m_startedAtSeconds = 0.0;
     m_lastAdvanceSeconds = 0.0;
     m_drawerStartedAtSeconds = 0.0;
@@ -1624,6 +1709,31 @@ void ReplayCauseInspection::Reset() noexcept
 void ReplayCauseInspection::SetDrawerOpen( bool open, double nowSeconds ) noexcept
 {
     SetDrawerTarget( open, nowSeconds );
+}
+
+void ReplayCauseInspection::SetActiveTab( ReplayCauseInspectorTab tab ) noexcept
+{
+    m_state.activeTab = tab;
+    m_state.solverDetailFirstRow = 0;
+    m_state.rawRecordFirstRow = 0;
+    m_state.iterationsFirstRow = 0;
+}
+
+bool ReplayCauseInspection::CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept
+{
+    if ( !destination || destinationCapacity == 0u || m_state.solverDetailContacts.empty() )
+    {
+        return false;
+    }
+
+    const int contactRow = m_state.selectedDetailContactRow >= 0 &&
+                                   static_cast<std::size_t>( m_state.selectedDetailContactRow ) <
+                                       m_state.solverDetailContacts.size()
+                               ? m_state.selectedDetailContactRow
+                               : 0;
+    const ReplayCauseRawRecordProjection projection = BuildReplayCauseRawRecordProjection( m_state.SolverDetail(),
+                                                                                           m_state.Transport(), contactRow );
+    return SerializeReplayCauseRawRecord( projection, destination, destinationCapacity );
 }
 
 void ReplayCauseInspection::ClearFocusedSurface() noexcept
@@ -1641,6 +1751,8 @@ void ReplayCauseInspection::ClearFocusedSurface() noexcept
     m_state.rawRecordFirstRow = 0;
     m_state.iterationsFirstRow = 0;
     m_state.contactPresentation = {};
+    m_state.contactFlashAlpha = 0.0f;
+    m_contactFlashStartedAtSeconds = -1.0;
 }
 
 void ReplayCauseInspection::SetDrawerTarget( bool open, double nowSeconds ) noexcept

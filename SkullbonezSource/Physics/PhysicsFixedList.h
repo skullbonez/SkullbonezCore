@@ -442,7 +442,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         using namespace SkullbonezCore::Core::Allocation;
         return RuntimeReserveAllocator::RegisterOwner( { ownerName, RuntimeReserveSubsystem::Physics,
                                                          RuntimeReservePhase::SceneLoad, 0, static_cast<int>( Capacity ), 0,
-                                                         false, capacityReason, false, static_cast<int>( sizeof( T ) ) } );
+                                                         false, capacityReason, static_cast<int>( sizeof( T ) ) } );
     }
 
     struct alignas( alignof( T ) ) Storage

@@ -1,10 +1,10 @@
 /*
 File: SkullbonezSource/Core/Log.h
 Purpose:
-  Writes debug-only runtime, crash, and diagnostics logs.
+  Writes developer, test, and Automation runtime diagnostics logs.
 
 Summary:
-  EngineLog serializes one lazily opened file map for Debug/test diagnostics.
+  EngineLog serializes one lazily opened file map for diagnostic builds.
   Bulk rows stay buffered, event rows flush immediately, and the Release
   interface compiles to no-op methods without retained file state.
 
@@ -15,11 +15,13 @@ Glossary:
 Invariants:
   - File handles are opened lazily and owned by EngineLog until process exit,
     FlushAll teardown, or an explicit ResetLog that drops one retained handle.
-  - Debug/test logging serializes map and FILE access so a worker-side fatal invariant
+  - Diagnostic logging serializes map and FILE access so a worker-side fatal invariant
     diagnostic cannot race an ordinary main-thread write or flush.
   - Writef appends through retained buffered handles; WriteEventf flushes its
     event row immediately, ResetLog closes and drops one named handle so its next
     write truncates, and process teardown closes every retained handle.
+  - Retained handles allow shared reads so local tools can query flushed rows
+    while a diagnostic session is still running.
   - Release builds keep the interface shape but carry no FILE handle state.
   - EngineLog::Get is the sole sanctioned cold/fatal magic static. It must not
     become a frame-service locator or be resolved from ordinary hot loops.
@@ -34,7 +36,7 @@ Related:
 
 #include <cstdarg>
 
-#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG )
+#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include <cstdio>
 #include <mutex>
 #include <string>
@@ -84,7 +86,7 @@ class EngineLog
     // Invariant: callers hold m_logMutex for the complete OpenLog + FILE
     // operation. Returning a borrowed FILE outside that critical section would
     // make the map safe while leaving the CRT stream itself racy.
-#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG )
+#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG ) || defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     FILE* OpenLog( const char* fileName );
     std::mutex m_logMutex;
     std::unordered_map<std::string, FILE*> m_logs;

@@ -33,6 +33,7 @@ struct ReplayTrajectorySubmissionProbeStats
     int firstFrame = -1;
     int lastFrame = -1;
     uint64_t stableHash = 0;
+    uint64_t geometryBytes = 0;
     uint64_t vertexBytes = 0;
     uint32_t vertexCount = 0;
     uint32_t segmentCount = 0;
@@ -40,6 +41,7 @@ struct ReplayTrajectorySubmissionProbeStats
     uint64_t reserveGrowthEventsAtEnd = 0;
     uint64_t presentationTargetId = 0;
     uint64_t presentationSourceFrame = 0;
+    uint32_t presentationTopologyVersion = 0;
     uint32_t futureTreeReadinessDropCount = 0;
     bool presentationKeyValid = false;
     bool futureTreeReadySeen = false;

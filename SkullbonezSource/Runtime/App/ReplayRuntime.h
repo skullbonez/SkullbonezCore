@@ -476,8 +476,16 @@ struct ReplaySkarnessState
     ReplayFrameIndex predictionSourceFrame = 0;
     uint64_t predictionSourceSolverHash = 0;
     uint32_t committedPredictionFrames = 0;
+    uint32_t predictionBuildPublishedFrames = 0;
+    bool predictionWorkerFailed = false;
+    bool predictionEvidenceCapacityTruncated = false;
+    ReplayFrameIndex predictionEvidenceFirstTruncatedFrame = 0;
+    uint64_t predictionEvidenceEmptyBuildCommitCount = 0;
+    uint32_t predictionEvidenceBuildFrames = 0;
+    uint32_t predictionEvidenceCommittedFrames = 0;
     uint32_t incompleteContactFrameCount = 0;
     uint64_t publishedPredictionTargetId = 0;
+    uint32_t publishedPredictionTopologyVersion = 0;
     uint32_t publishedPredictionFrames = 0;
     uint32_t trajectoryRecordCount = 0;
     uint32_t selectedPastRootPointCount = 0;
@@ -503,6 +511,13 @@ struct ReplaySkarnessState
     int selectedCauseRow = -1;
     int causeInspectionMode = 0;
     float causeTransitionProgress = 0.0f;
+    uint64_t selectedCauseFrame = 0;
+    uint64_t causeSourceFrame = 0;
+    uint64_t causeTargetFrame = 0;
+    uint64_t causePresentedFrame = 0;
+    int causeSeekSource = 0;
+    uint64_t presentedReplayFrame = 0;
+    int presentedReplayFrameSource = 0;
     int inspectionCameraFocusKind = 0;
     bool inspectionFocusFadeActive = false;
     uint32_t inspectionFocusObjectCount = 0;
@@ -519,6 +534,9 @@ struct ReplaySkarnessState
     uint32_t inspectionContextPathSegmentCount = 0;
     uint32_t inspectionPathOpacityMismatchCount = 0;
     bool inspectionPathFocusActive = false;
+    uint64_t inspectionBodyMarkerId = 0;
+    Math::Vector::Vector3 inspectionBodyMarkerPosition = Math::Vector::ZERO_VECTOR;
+    bool inspectionBodyMarkerSubmitted = false;
     bool retainedPathGeometrySaturated = false;
     bool visualPacketHasGeometry = false;
     ReplayTrajectorySubmissionProbeStats trajectorySubmission;
@@ -537,7 +555,7 @@ class ReplayRuntime
 #if defined( SKULLBONEZ_SKARNESS )
     ReplaySkarnessState BuildSkarnessState() const noexcept;
 #endif
-#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS ) || defined( SKULLBONEZ_SKARNESS )
     // Lifetime: returned references/spans are synchronous validation evidence;
     // callers must rebuild the view after any replay mutation. The method is
     // absent from ordinary builds so diagnostics cannot enter the frame path.
@@ -584,10 +602,27 @@ class ReplayRuntime
     // Forwards the presentation-only palette command; prediction/capture state
     // and published trajectory records are not rebuilt.
     ReplayPathColorMode CyclePathColorMode() noexcept;
+    void SetPathColorMode( ReplayPathColorMode mode ) noexcept;
     void ToggleGuideArcs() noexcept;
     void SetGuideArcsEnabled( bool enabled ) noexcept;
     void TogglePorkchopPanel() noexcept;
+    void SetPorkchopPanelVisible( bool visible ) noexcept;
+    bool SelectPorkchopCell( std::size_t cellIndex ) noexcept;
     bool QueueTripPlannerCommand( const ReplayTripPlannerCommand& command ) noexcept;
+    void SetCauseTreeFilterText( const char* text ) noexcept;
+    void SetCauseTreeFilter( RunReplayCauseTreeFilter filter ) noexcept;
+    void SetCauseInspectorTab( ReplayCauseInspectorTab tab ) noexcept;
+    bool CopySelectedCauseRecord( char* destination, std::size_t destinationCapacity ) noexcept;
+    void RequestCauseReturn() noexcept;
+    void ClearPathSelection() noexcept;
+    ReplayFrameIndex ResetDeterministicReveal() noexcept;
+    ReplayFrameIndex AdvanceDeterministicReveal( ReplayFrameIndex frames ) noexcept;
+    bool PreviewVelocity( Physics::PhysicsEngine& physics, const Math::Vector::Vector3& linearVelocity,
+                          const Math::Vector::Vector3& angularVelocity ) noexcept;
+    bool CommitVelocityPreview() noexcept;
+    bool CancelVelocityPreview( Physics::PhysicsEngine& physics ) noexcept;
+    bool SeekReplayFrame( ReplayFrameIndex frame, RuntimeInteractionController& interaction, double now,
+                          ReplayWorkspaceOutput& output, ReplayFrameIndex& appliedFrame );
 
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
 
@@ -928,6 +963,7 @@ class ReplayRuntime
     // tick. Retain one semantic row request until the next tick can run the
     // same selection, transport, camera, and pause path as a pointer click.
     int m_pendingCauseSelectionRow = -1;
+    bool m_causeReturnRequested = false;
 
     // Invariant: App records both complete replay aggregates around the exact
     // synchronous evidence release; Prediction cannot observe sibling owners.

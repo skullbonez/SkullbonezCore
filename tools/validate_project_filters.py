@@ -61,8 +61,13 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         # Skarness serializes the automation-only state stream and command
         # lifecycle at the named-pipe boundary.
         "Runtime/Automation/SkarnessHost.cpp",
+        "Runtime/Automation/SkarnessStateSerialization.cpp",
         "Runtime/App/InteractionAutomationReportApplication.cpp",
         "Runtime/Replay/ReplayV2Artifact.cpp",
+        # Comparison decodes bundles/diagnostics and saves findings only at the
+        # explicit Capture boundary, never during steady playback.
+        "Runtime/Planning/PhysicsComparison.Persistence.cpp",
+        "Runtime/Planning/PhysicsComparison.Diagnostics.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
         "Runtime/Scene/SceneController.Creation.cpp",
         "Runtime/App/StartupLaunchApplication.cpp",
@@ -162,11 +167,15 @@ PHYSICS_FORCE_PREFIXES = (
 )
 
 PHYSICS_SOLVER_PREFIXES = (
+    "ConstraintIslandSchedule",
     "ContactSolverCommon",
     "DisjointSet",
     "PersistentContactSolver",
     "PhysicsBroadphaseStepValues",
     "PhysicsMotionEligibility",
+    "PointJointBlock",
+    "PointJointConstraint",
+    "PointJointSettings",
     "SleepIslandSystem",
     "SolverBroadphaseStage",
 )
@@ -225,7 +234,6 @@ DX12_RENDERING_PREFIXES = (
     "Dx12Diagnostics",
     "Dx12ShaderDevelopment",
     "Dx12FrameOwner",
-    "Dx12ImGuiRendererOwner",
     "Dx12RenderGraphExecutor",
     "Dx12TextureRegistry",
     "Dx12ResourceBuilder",
@@ -242,6 +250,7 @@ DX12_RENDERING_PREFIXES = (
 )
 
 RENDERING_PREFIXES = (
+    "PairedViewRenderer",
     "ContactManifoldPresentation",
     "DrawCallTrace",
     "RenderInstanceRenderer",
@@ -368,6 +377,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "RuntimeValidationHarness",
     "SkarnessHost",
     "SkarnessProtocol",
+    "SkarnessStateSerialization",
 )
 
 RUNTIME_INTERACTION_PREFIXES = (
@@ -415,8 +425,6 @@ RUNTIME_SCENE_PREFIXES = (
 )
 
 CORE_ALLOCATION_PREFIXES = (
-    "DevelopmentToolAllocation",
-    "DevelopmentToolsCapability",
     "RuntimeAllocationTracker",
     "RuntimeReserveAllocator",
 )
@@ -440,6 +448,8 @@ RUNTIME_PREDICTION_PREFIXES = (
 )
 
 RUNTIME_PLANNING_PREFIXES = (
+    "PhysicsComparisonPanel",
+    "PhysicsComparison",
     "ContinuousOrbitalForecast",
     "ContinuousOrbitalStability",
     "ReplayCauseInspection",
@@ -454,6 +464,7 @@ RUNTIME_PLANNING_PREFIXES = (
 )
 
 RUNTIME_APP_PREFIXES = (
+    "RunComparison",
     "CameraFrameApplication",
     "InteractionAutomationApplication",
     "InteractionAutomationReportApplication",
@@ -470,10 +481,6 @@ RUNTIME_APP_PREFIXES = (
     "ReplayScrubberTools",
     "ReplayValidation",
     "StartupInputApplication",
-)
-
-RUNTIME_DEVELOPMENT_TOOLS_PREFIXES = (
-    "ImGuiEditorControlPolicy",
 )
 
 RUNTIME_REPLAY_PREFIXES = (
@@ -536,8 +543,6 @@ RUNTIME_EDITOR_PREFIXES = (
     "EditorTools",
     "EditorOverlayTools",
     "EditorCommandHistory",
-    "ImGuiEditorCausalityProjection",
-    "ImGuiEditorLayoutPolicy",
 )
 
 RUNTIME_TOOLS_PREFIXES = (
@@ -554,8 +559,6 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsKeyboardShortcuts",
     "DiagnosticsPhysicsUI",
     "DiagnosticsRuntime",
-    "ImGuiEditorInputPolicy",
-    "ImGuiEditorOwner",
     "RuntimeDiagnostics",
     "RuntimeFrameMetricsOwner",
     "SceneMemoryDiagnostics",
@@ -616,7 +619,6 @@ CORE_PREFIXES = (
     "StdioFile",
     "StringHash",
     "Timer",
-    "TracyClientOwner",
     "WorkerPool",
     "WindowConstants",
 )
@@ -639,7 +641,6 @@ AREA_PREFIXES = (
     ("Runtime\\Prediction", RUNTIME_PREDICTION_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
-    ("Runtime\\DevelopmentTools", RUNTIME_DEVELOPMENT_TOOLS_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
     ("Runtime\\Tools", RUNTIME_TOOLS_PREFIXES),
     ("Runtime\\Diagnostics", RUNTIME_DIAGNOSTICS_PREFIXES),

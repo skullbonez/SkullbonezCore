@@ -97,6 +97,7 @@ class ReplayPorkchopPanel
 {
   public:
     void Toggle() noexcept;
+    void SetVisible( bool visible ) noexcept;
     void Reset() noexcept;
     bool NeedsRefresh( Physics::PhysicsSceneObjectId targetId, bool mutualGravityEnabled ) const noexcept;
     void BeginSweep( const ReplayPorkchopSweepInput& input ) noexcept;

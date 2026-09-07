@@ -17,6 +17,7 @@ Invariants:
     storage.
 */
 #pragma once
+#include "PointJointSettings.h"
 
 #include <algorithm>
 #include <cmath>
@@ -277,8 +278,8 @@ struct PhysicsPointJointCreateDesc
     Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR; // Offset from body A's center in body A axes.
     Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR; // Offset from body B's center in body B axes.
     float slack = 0.25f;
-    float stiffness = 0.22f;
-    float damping = 0.35f;
+    float frequencyHz = SkullbonezCore::Physics::POINT_JOINT_DEFAULT_FREQUENCY_HZ;
+    float dampingRatio = SkullbonezCore::Physics::POINT_JOINT_DEFAULT_DAMPING_RATIO;
     uint32_t groupId = 0;
     uint8_t flags = 0;
 };
@@ -292,8 +293,8 @@ struct PhysicsPointJointUpdateDesc
     Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR; // Offset from body A's center in body A axes.
     Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR; // Offset from body B's center in body B axes.
     float slack = 0.25f;
-    float stiffness = 0.22f;
-    float damping = 0.35f;
+    float frequencyHz = SkullbonezCore::Physics::POINT_JOINT_DEFAULT_FREQUENCY_HZ;
+    float dampingRatio = SkullbonezCore::Physics::POINT_JOINT_DEFAULT_DAMPING_RATIO;
     uint32_t groupId = 0;
     uint8_t flags = 0;
 };

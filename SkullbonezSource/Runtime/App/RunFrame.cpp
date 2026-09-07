@@ -7,11 +7,6 @@ Invariants:
     in a stable order used by validation and replay comparisons.
   - Capture pinning is decided before physics and camera work for that frame.
   - Delegated operations receive concrete operands and retain none.
-  - A successful submitted game frame emits exactly one development profiler
-    frame mark; failed or capture-only turns emit none.
-  - A development surface swap hides the source before the target begins a frame.
-  - Run sequences development UI automation but retains only process-wide
-    surface selection and application-failure policy.
   - Physics and input owners publish complete policy/results; Run applies them
     without reconstructing or overriding their domain decisions.
   - Frame work enters only through an active Run renderer epoch; missing or
@@ -47,10 +42,6 @@ Invariants:
 #include "../Editor/EditorTools.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../../Core/TracyClientOwner.h"
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../DevelopmentTools/ImGuiEditorOwner.h"
-#endif
 #include "../Scene/SceneCinematicPolicy.h"
 
 #include "../../Core/FatalError.h"
@@ -286,13 +277,6 @@ bool Run::PumpFrameMessages( int& messageExitCode )
         }
 
         NativeHostMessageRoute route;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-        const DevelopmentTools::ImGuiEditorNativeMessageRoute
-            developmentUiRoute = m_imguiEditor.HandleNativeMessage( message.window, message.id, message.wParam,
-                                                                    message.lParam );
-        route.engineConsumes = developmentUiRoute.decision.engineConsumes;
-        route.capturedResult = developmentUiRoute.backendResult;
-#endif
 
         if ( route.engineConsumes )
         {
@@ -316,45 +300,57 @@ bool Run::PumpFrameMessages( int& messageExitCode )
 
         m_window.DispatchNativeMessage( message, route );
 
-        NativeHostEvent event;
-
-        while ( m_window.ConsumeNativeEvent( event ) )
+        if ( DrainNativeHostEvents( messageExitCode ) )
         {
-            if ( event.type == NativeHostEventType::MouseWheel )
-            {
-                SkullbonezCore::Hardware::Input::AccumulateMouseWheelDelta( event.window, event.first );
-                continue;
-            }
-
-            if ( event.type == NativeHostEventType::RawMouse )
-            {
-                SkullbonezCore::Hardware::Input::AccumulateRawMouseSample( event.window, event.first, event.second,
-                                                                           event.absolute, event.virtualDesktop );
-                continue;
-            }
-
-            if ( event.first <= 0 || event.second <= 0 )
-            {
-                continue;
-            }
-
-            const SkullbonezCore::Core::SbResult resize = Renderer().RenderFrame().Resize( event.first, event.second );
-
-            if ( !resize.Ok() )
-            {
-                const char* owner = resize.ErrorOwner()[0] != '\0' ? resize.ErrorOwner() : "Runtime/Window";
-                const char* reason = resize.ErrorMessage()[0] != '\0' ? resize.ErrorMessage() : "window resize failed";
-                SkullbonezCore::Core::Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"", owner, reason );
-                std::fprintf( stderr, "[window] Resize failed owner=%s reason=\"%s\"\n", owner, reason );
-                std::fflush( stderr );
-                SkullbonezCore::Core::Log().FlushAll();
-                m_applicationExit.RequestOwnedFailure( resize );
-                messageExitCode = 1;
-                return true;
-            }
-
-            m_window.UpdateProjectionForCurrentClient();
+            return true;
         }
+    }
+
+    // Why: native APIs can send resize callbacks synchronously between frame
+    // pumps, including when a hidden window has no queued message to dispatch.
+    return DrainNativeHostEvents( messageExitCode );
+}
+
+bool Run::DrainNativeHostEvents( int& messageExitCode )
+{
+    NativeHostEvent event;
+
+    while ( m_window.ConsumeNativeEvent( event ) )
+    {
+        if ( event.type == NativeHostEventType::MouseWheel )
+        {
+            SkullbonezCore::Hardware::Input::AccumulateMouseWheelDelta( event.window, event.first );
+            continue;
+        }
+
+        if ( event.type == NativeHostEventType::RawMouse )
+        {
+            SkullbonezCore::Hardware::Input::AccumulateRawMouseSample( event.window, event.first, event.second,
+                                                                       event.absolute, event.virtualDesktop );
+            continue;
+        }
+
+        if ( event.first <= 0 || event.second <= 0 )
+        {
+            continue;
+        }
+
+        const SkullbonezCore::Core::SbResult resize = Renderer().RenderFrame().Resize( event.first, event.second );
+
+        if ( !resize.Ok() )
+        {
+            const char* owner = resize.ErrorOwner()[0] != '\0' ? resize.ErrorOwner() : "Runtime/Window";
+            const char* reason = resize.ErrorMessage()[0] != '\0' ? resize.ErrorMessage() : "window resize failed";
+            SkullbonezCore::Core::Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"", owner, reason );
+            std::fprintf( stderr, "[window] Resize failed owner=%s reason=\"%s\"\n", owner, reason );
+            std::fflush( stderr );
+            SkullbonezCore::Core::Log().FlushAll();
+            m_applicationExit.RequestOwnedFailure( resize );
+            messageExitCode = 1;
+            return true;
+        }
+
+        m_window.UpdateProjectionForCurrentClient();
     }
 
     return false;
@@ -421,9 +417,6 @@ void Run::AdvanceInteractionRecordingBoundary()
                        m_sceneController.Scene().Entities().At( selectedEditorModel ).displayName, _TRUNCATE );
         }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-        baseline.developmentUiSurface = static_cast<int>( m_imguiEditor.SelectedSurface() );
-#endif
         const ReplayInputView replay = m_replayRuntime.BuildInputView();
         const bool replayBaselineRequired = replay.activeInteraction || replay.scrubPaused || replay.predictionEnabled ||
                                             replay.hasPathTarget || replay.hasCameraFocus;
@@ -572,21 +565,6 @@ SceneFrameProceedPolicy Run::RunAutomationAndInputPhase( bool& gameUiActive, Rec
                                                             result.directorCameraPose.up );
     }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    const InteractionAutomationDevelopmentUiApplyResult
-        developmentUiApply = ApplyInteractionAutomationDevelopmentUiCommands( m_interactionAutomation, result, m_window,
-                                                                              m_imguiEditor );
-
-    if ( developmentUiApply.selectSurface )
-    {
-        SelectDevelopmentUiSurface( developmentUiApply.surface );
-    }
-
-    if ( !developmentUiApply.status.Ok() )
-    {
-        m_applicationExit.RequestPhaseFailure( developmentUiApply.status );
-    }
-#endif
 
     if ( result.applyCameraMode )
     {
@@ -723,13 +701,13 @@ float Run::RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPo
 {
 #if defined( SKULLBONEZ_SKARNESS )
     const uint64_t sceneGeneration = m_sceneController.LifecyclePacket().generation;
+    Physics::PhysicsEngine& physics = m_sceneController.Scene().Physics();
 
-    if ( m_skarness.BeginPhysicsSceneGeneration( sceneGeneration ) )
-    {
-        Physics::PhysicsEngine& physics = m_sceneController.Scene().Physics();
-        physics.SetPhysicsDiagnosticsPath( m_skarness.PhysicsTracePath() );
-        physics.SetPhysicsDiagnosticsRunId( m_skarness.RunId() );
-    }
+    // Invariant: Skarness lockstep publishes after the one fixed tick begun
+    // here, so Physics labels that work with the committed tick it will join.
+    physics.SetPhysicsDiagnosticsCorrelation(
+        { m_skarness.NextRuntimeTurn(), sceneGeneration,
+          static_cast<uint64_t>( (std::max)( m_sceneController.State().currentFrame + 1, 0 ) ) } );
 #endif
     m_sceneController.Scene().BeginCollisionVisualFrame();
 
@@ -815,10 +793,6 @@ float Run::PrepareRenderPhase( bool gameUiActive, bool capturePresentationPinned
 
             const bool loaded = LoadSceneRequest( sceneLoad, stressLoad.request ).Ok();
 
-            if ( !gameUiActive )
-            {
-                sceneLoad.PreserveInactiveDevelopmentUi();
-            }
 
             ApplyRuntimeFrameMetricsLifecycle( m_metricsSceneLifecyclePolicy, m_sceneController.LifecyclePacket(),
                                                m_timers );
@@ -1120,9 +1094,7 @@ void Run::PresentFramePhase()
         return;
     }
 
-    // Invariant: Tracy counts submitted game frames, not attempted render turns,
-    // capture-only continues, or failed Presents.
-    SKORE_TRACY_MARK_SUBMITTED_FRAME();
+
     m_timers.FinishPresentedFrame();
     PROFILE_FRAME_END( m_profiler );
 }
@@ -1229,10 +1201,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
         m_timers.SampleFrame( { secondsPerFrame, renderFrame.diagnostics.sceneKineticEnergy } );
         const RuntimeFrameMetricsSnapshot frameMetrics = m_timers.Publish();
         RenderWorldPhase( renderFrame, presentationAlpha );
-        const OperatorUiProcessCommands operatorUiCommands = RenderOperatorUiPhase( renderFrame, presentationAlpha,
-                                                                                    capturePresentationPinned,
-                                                                                    secondsPerFrame, gameUiActive,
-                                                                                    frameMetrics );
+        RenderOperatorUiPhase( renderFrame, presentationAlpha, capturePresentationPinned, secondsPerFrame, gameUiActive,
+                               frameMetrics );
 
         if ( m_applicationExit.ExitRequested() )
         {
@@ -1241,7 +1211,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
         // App applies process effects only after every presenter has released
         // the phase owner's detached values and returned its typed commands.
-        ApplyOperatorUiProcessCommands( operatorUiCommands );
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
         {
@@ -1251,9 +1220,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
             const UI::UIDrawList::Stats recordedCursorDrawStats = recordedCursorDrawList.GetStats();
             bool recordedCursorSubmitted = false;
 
-            // Invariant: RenderOperatorUiPhase has already submitted GameUI,
-            // overlays, UI finalization, and ImGui. This unconditional App seam
-            // stays ahead of diagnostics, every screenshot path, and Present.
             if ( !recordedCursorDrawList.Empty() )
             {
                 Renderer().SubmitUiDrawList( recordedCursorDrawList, { m_window.ClientWidth(), m_window.ClientHeight() } );
@@ -1288,7 +1254,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
         FinishFrameWorkPhase( proceedPolicy );
         PresentFramePhase();
+        const bool restartFrame = CompleteFramePhase( proceedPolicy );
 #if defined( SKULLBONEZ_SKARNESS )
+        // Invariant: command completion observes the committed scene frame, not
+        // the pre-AdvanceFrame counter that produced the rendered image.
         PublishSkarnessFrameState();
 
         if ( m_skarness.TakeStopRequested() )
@@ -1302,7 +1271,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             return ResolveExecuteExit( 0 );
         }
 
-        if ( CompleteFramePhase( proceedPolicy ) )
+        if ( restartFrame )
         {
             continue;
         }
@@ -1357,6 +1326,13 @@ void Run::PublishSkarnessFrameState()
     state.predictionSourceFrame = replay.predictionSourceFrame;
     state.predictionSourceSolverHash = replay.predictionSourceSolverHash;
     state.committedPredictionFrames = replay.committedPredictionFrames;
+    state.predictionBuildPublishedFrames = replay.predictionBuildPublishedFrames;
+    state.predictionWorkerFailed = replay.predictionWorkerFailed;
+    state.predictionEvidenceCapacityTruncated = replay.predictionEvidenceCapacityTruncated;
+    state.predictionEvidenceFirstTruncatedFrame = replay.predictionEvidenceFirstTruncatedFrame;
+    state.predictionEvidenceEmptyBuildCommitCount = replay.predictionEvidenceEmptyBuildCommitCount;
+    state.predictionEvidenceBuildFrames = replay.predictionEvidenceBuildFrames;
+    state.predictionEvidenceCommittedFrames = replay.predictionEvidenceCommittedFrames;
     state.incompleteContactFrameCount = replay.incompleteContactFrameCount;
     state.publishedPredictionTargetId = replay.publishedPredictionTargetId;
     state.publishedPredictionFrames = replay.publishedPredictionFrames;
@@ -1384,6 +1360,13 @@ void Run::PublishSkarnessFrameState()
     state.selectedCauseRow = replay.selectedCauseRow;
     state.causeInspectionMode = replay.causeInspectionMode;
     state.causeTransitionProgress = replay.causeTransitionProgress;
+    state.selectedCauseFrame = replay.selectedCauseFrame;
+    state.causeSourceFrame = replay.causeSourceFrame;
+    state.causeTargetFrame = replay.causeTargetFrame;
+    state.causePresentedFrame = replay.causePresentedFrame;
+    state.causeSeekSource = replay.causeSeekSource;
+    state.presentedReplayFrame = replay.presentedReplayFrame;
+    state.presentedReplayFrameSource = replay.presentedReplayFrameSource;
     state.inspectionCameraActive = replay.input.inspectionCameraActive;
     state.inspectionCameraFocusKind = replay.inspectionCameraFocusKind;
     state.inspectionFocusFadeActive = replay.inspectionFocusFadeActive;
@@ -1401,6 +1384,11 @@ void Run::PublishSkarnessFrameState()
     state.inspectionContextPathSegmentCount = replay.inspectionContextPathSegmentCount;
     state.inspectionPathOpacityMismatchCount = replay.inspectionPathOpacityMismatchCount;
     state.inspectionPathFocusActive = replay.inspectionPathFocusActive;
+    state.inspectionBodyMarkerId = replay.inspectionBodyMarkerId;
+    state.inspectionBodyMarkerX = replay.inspectionBodyMarkerPosition.x;
+    state.inspectionBodyMarkerY = replay.inspectionBodyMarkerPosition.y;
+    state.inspectionBodyMarkerZ = replay.inspectionBodyMarkerPosition.z;
+    state.inspectionBodyMarkerSubmitted = replay.inspectionBodyMarkerSubmitted;
     const AttachedCameraState& inspectionCamera = m_attachedCamera.State();
     state.inspectionPivotX = inspectionCamera.inspectionPivot.x;
     state.inspectionPivotY = inspectionCamera.inspectionPivot.y;
@@ -1454,10 +1442,27 @@ void Run::PublishSkarnessFrameState()
     state.trajectorySubmitted = replay.trajectorySubmission.hasSubmission;
     state.submittedSegmentCount = replay.trajectorySubmission.segmentCount;
     state.submittedVertexCount = replay.trajectorySubmission.vertexCount;
+    state.submittedPredictionTargetId = replay.trajectorySubmission.presentationTargetId;
+    state.submittedPredictionSourceFrame = replay.trajectorySubmission.presentationSourceFrame;
+    state.submittedPredictionTopologyVersion = replay.trajectorySubmission.presentationTopologyVersion;
+    state.submittedGeometryHash = replay.trajectorySubmission.stableHash;
+    state.submittedGeometryBytes = replay.trajectorySubmission.geometryBytes;
+    state.publishedPredictionTopologyVersion = replay.publishedPredictionTopologyVersion;
     state.submittedFutureTreeReady = replay.trajectorySubmission.futureTreeReadyLastFrame;
 
+    if ( state.sceneReady && m_skarness.BeginPhysicsSceneGeneration( state.sceneGeneration ) )
+    {
+        Physics::PhysicsEngine& physics = m_sceneController.Scene().Physics();
+        physics.SetPhysicsDiagnosticsPath( m_skarness.PhysicsTracePath() );
+        physics.SetPhysicsDiagnosticsRunId( m_skarness.RunId() );
+    }
+
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
-    m_skarness.PublishFrameState( state );
+    // Invariant: a Skarness command is not applied until both trace owners are
+    // durable. Physics keeps buffered writes hot; App flushes that lower-layer
+    // sidecar once at this after-render diagnostics boundary.
+    Core::Log().FlushAll();
+    m_skarness.PublishFrameState( state, m_replayRuntime.BuildAutomationView() );
 }
 #endif
 

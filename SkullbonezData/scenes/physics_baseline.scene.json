@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 4,
+  "version": 5,
   "cinematic": {},
   "simulation": {
     "physics": true,

@@ -303,6 +303,25 @@ std::span<const TerrainContactManifold> PhysicsTerrainStage::GetContactManifolds
     return m_contactManifolds;
 }
 
+void PhysicsTerrainStage::PublishRestSupport( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState )
+{
+    PROFILE_SCOPED( "Frame/Physics/Terrain/RestPolicy" );
+    const auto hotFields = bodyStore.HotFields();
+    const int bodyCount = bodyStore.Count();
+    m_restApplied.fill( 0u );
+    // Invariant: this is geometry-based support classification only. Contact
+    // and joint impulses share the solver scratch; terrain owns no velocity response.
+    for ( const auto& manifold : m_contactManifolds )
+    {
+        const int bodyIndex = manifold.bodyA;
+        if ( bodyIndex >= 0 && bodyIndex < bodyCount && manifold.supportsRestingPolicy && !sleepState[bodyIndex] &&
+             !IsSolverBodyFixed( hotFields, bodyIndex ) )
+        {
+            m_restApplied[bodyIndex] = 1u;
+        }
+    }
+}
+
 std::span<uint8_t> PhysicsTerrainStage::GetRestApplied()
 {
     return m_restApplied;
@@ -311,4 +330,35 @@ std::span<uint8_t> PhysicsTerrainStage::GetRestApplied()
 uint64_t PhysicsTerrainStage::CollectDynamicMemoryBytes() const
 {
     return ListCapacityBytes( m_detectionCandidates ) + ListCapacityBytes( m_contactManifolds );
+}
+
+void PhysicsTerrainStage::AppendReactivatedContacts( const PhysicsBodyStore& bodies, const ColliderStore& colliders,
+                                                     std::span<const BuoyancyBodyFacts> buoyancy, PhysicsTerrainView terrain,
+                                                     const PhysicsRuntimeSettings& settings,
+                                                     std::span<const int> reactivated, std::span<uint8_t> supported,
+                                                     std::span<uint8_t> inhibited, float stepSeconds )
+{
+    const auto hot = bodies.HotFields();
+    const auto shapes = colliders.Records();
+    for ( int index : reactivated )
+    {
+        if ( std::any_of( m_contactManifolds.begin(), m_contactManifolds.end(),
+                          [&]( const TerrainContactManifold& contact ) { return contact.bodyA == index; } ) )
+        {
+            continue;
+        }
+        const auto body = TerrainContactBodyViewForIndex( buoyancy, hot, terrain, settings, index );
+        const auto sweep = SweepTerrainContact( body, shapes[index].shape, 0.0f );
+        PreparedTerrainCandidateCommit commit;
+        // Newly awakened support enters at the current pose. This boundary must
+        // not advance a limb independently or consume another integration interval.
+        if ( sweep.hit &&
+             BuildTerrainContactManifold( nullptr, body, shapes[index].shape, index, sweep, stepSeconds, commit.manifold ) )
+        {
+            commit.hit = 1u;
+            commit.hasManifold = 1u;
+            commit.bodyIndex = index;
+            CommitCandidate( commit, supported, inhibited );
+        }
+    }
 }

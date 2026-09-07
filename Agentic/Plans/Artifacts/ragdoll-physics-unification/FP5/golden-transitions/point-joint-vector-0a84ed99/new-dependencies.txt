@@ -1,0 +1,32 @@
+Microsoft (R) COFF/PE Dumper Version 14.51.36248.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file C:\SkullbonezCore\Agentic\Plans\Artifacts\ragdoll-physics-unification\FP5\golden-transitions\point-joint-vector-0a84ed99\new\SKULLBONEZ_CORE-Automation.exe
+
+File Type: EXECUTABLE IMAGE
+
+  Image has the following dependencies:
+
+    WinPixEventRuntime.dll
+    KERNEL32.dll
+    USER32.dll
+    GDI32.dll
+    COMDLG32.dll
+    ADVAPI32.dll
+    ole32.dll
+    bcrypt.dll
+    d3d12.dll
+    dxgi.dll
+    D3DCOMPILER_47.dll
+    dxcompiler.dll
+
+  Summary
+
+       4A000 .data
+        1000 .fptable
+       24000 .pdata
+       B1000 .rdata
+        3000 .reloc
+        1000 .rsrc
+      391000 .text

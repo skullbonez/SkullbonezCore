@@ -1,0 +1,54 @@
+{
+  "pre_stage_a": {
+    "sourceRevision": "12cb856d9dd45898c5f57477d65fc8fccc4ab305",
+    "sourceIsWorkingTree": false,
+    "measurements": 20,
+    "median": {
+      "sag_m": 0.0350837708,
+      "peak_sag_m": 0.0500001907,
+      "jitter_step_rms_m": 0.000372557839,
+      "settled_kinetic_j": 0.348361115,
+      "peak_kinetic_j": 1.10978542,
+      "solve_us_per_joint_iteration": 0.1448989065
+    },
+    "timingMin": 0.143954063,
+    "timingMax": 0.148405625,
+    "solverSourceSha256": "5342ece6b00abc2dedf7a7fefd670aa4572fe8a1036affb960e1e0c5e29162ae",
+    "executableSha256": "2f7b586fe57c03a6e6bc9e90670266347b35dbfb154cf7c625611da402c18bd7"
+  },
+  "stage_a": {
+    "sourceRevision": "87d501af5fa816e50ca9615b9a338104687b8deb",
+    "sourceIsWorkingTree": false,
+    "measurements": 20,
+    "median": {
+      "sag_m": 0.0243787766,
+      "peak_sag_m": 0.0441045761,
+      "jitter_step_rms_m": 0.000280603914,
+      "settled_kinetic_j": 0.0227519368,
+      "peak_kinetic_j": 0.999546379,
+      "solve_us_per_joint_iteration": 0.1529934375
+    },
+    "timingMin": 0.150131354,
+    "timingMax": 0.154482813,
+    "solverSourceSha256": "488ad98a2e497a412142bce3c00f124b139f4f7a1dd8f32878e38a00206c97fb",
+    "executableSha256": "fd816c4be2aba7ebf661d3832e10100a43a7f560f419086185c22fcb3803b1d2"
+  },
+  "candidate": {
+    "sourceRevision": "88d09e78f9d8a8f5d1867945065fb5c8f6e78ee9",
+    "sourceIsWorkingTree": true,
+    "measurements": 20,
+    "median": {
+      "sag_m": 0.00711250305,
+      "peak_sag_m": 0.00711250305,
+      "jitter_step_rms_m": 0.00172971522,
+      "settled_kinetic_j": 0.188763669,
+      "peak_kinetic_j": 0.5966953,
+      "solve_us_per_joint_iteration": 0.285832708
+    },
+    "timingMin": 0.285058646,
+    "timingMax": 0.291987604,
+    "solverSourceSha256": "fceb1ccb47c22799761fc6884b24de60cef40f0021730828cf82df61d1e70047",
+    "executableSha256": "11bebb1e0754b853c0e2a2a213dbaed2cf030c64f13ea725e23b4898a4890d83"
+  },
+  "supportLibrarySha256": "f304d4deba777ddf35c21186ca1b33b976e25bb06384e5f7992e6868445df0e2"
+}

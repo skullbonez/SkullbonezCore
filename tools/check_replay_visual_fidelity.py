@@ -817,7 +817,8 @@ def replay_artifact_determinism_contract(report: dict[str, Any]) -> dict[str, An
 
 
 def determinism_contract(report: dict[str, Any]) -> dict[str, Any]:
-    ticks = validate_report_shape(report)
+    raw_ticks = validate_report_shape(report)
+    ticks = visual_ticks(raw_ticks)
     causal = validate_causal_shape(report)
     validate_artifact_roundtrip(report)
     artifact = replay_artifact_determinism_contract(report)
@@ -826,7 +827,7 @@ def determinism_contract(report: dict[str, Any]) -> dict[str, Any]:
     start_frame = report["replayVisualFidelity"]["startFrame"]
     reveal_mapping = [
         {"sceneFrame": tick["sceneFrame"], "revealFrame": tick["revealFrame"]}
-        for tick in ticks
+        for tick in raw_ticks
     ]
     for index, mapping in enumerate(reveal_mapping):
         if mapping["sceneFrame"] != start_frame + index:
@@ -954,7 +955,7 @@ def run_determinism_negative_controls(
         ("event-mutation", "artifact.events[0].kind"),
         ("non-fixed-step", "artifact.frameHeaders[0].fixedStep"),
         ("truncated-horizon", "horizon.tickCount"),
-        ("record-reordering", "visualTicks[100].sceneFrame"),
+        ("record-reordering", "visualTicks[100].revealFrame"),
         ("vertex-byte-change", f"visualTicks[{NEGATIVE_CONTROL_TICK}].ordinaryVertexBytes"),
         ("dropped-geometry", f"visualTicks[{NEGATIVE_CONTROL_TICK}].segmentCount"),
         ("reserve-growth", "workerAndReserve.reserveGrowthDelta"),

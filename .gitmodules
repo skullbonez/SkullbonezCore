@@ -1,6 +1,0 @@
-[submodule "ThirdPtySource/imgui"]
-	path = ThirdPtySource/imgui
-	url = https://github.com/ocornut/imgui.git
-[submodule "ThirdPtySource/tracy"]
-	path = ThirdPtySource/tracy
-	url = https://github.com/wolfpld/tracy.git

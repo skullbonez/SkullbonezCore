@@ -53,6 +53,7 @@
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Physics/SleepIslandSystem.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h"
 #include "../SkullbonezSource/Physics/TerrainContactManifold.h"
@@ -74,6 +75,7 @@ using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::ConstraintSolveTransaction;
 using SkullbonezCore::Physics::ContactEnergyMeasurement;
 using SkullbonezCore::Physics::MAX_SLEEP_SUPPORT_EDGES;
 using SkullbonezCore::Physics::ObjectContactBodyView;
@@ -81,7 +83,6 @@ using SkullbonezCore::Physics::ObjectContactManifold;
 using SkullbonezCore::Physics::PersistentContact;
 using SkullbonezCore::Physics::PersistentContactCacheEntry;
 using SkullbonezCore::Physics::PersistentContactSolverStepPolicy;
-using SkullbonezCore::Physics::PersistentContactSolveTransaction;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyLinearVelocity;
 using SkullbonezCore::Physics::PhysicsBodyOrientation;
@@ -119,17 +120,17 @@ struct PersistentContactPositionCorrectionTestAccess
 
         stage.m_persistentContactSolverStats = PersistentContactSolverStats();
         stage.m_sideEffects.pipelineEventCount = 0u;
-        PersistentContactSolveTransaction& transaction = stage.m_solveTransaction;
+        ConstraintSolveTransaction& transaction = stage.m_solveTransaction;
         transaction.Clear();
         transaction.ResetBodies( static_cast<std::size_t>( bodyStore.Count() ) );
         transaction.BeginEntryPolicySetup();
 
-        using Phase = PersistentContactSolvePhaseCursor::Phase;
-        constexpr std::array phasesToCorrection { Phase::BodySetup,         Phase::BuildManifolds,
-                                                  Phase::TerrainRows,       Phase::Precompute,
-                                                  Phase::SolveRows,         Phase::PointSupportInstability,
-                                                  Phase::TerrainRestPolicy, Phase::WriteBack,
-                                                  Phase::DebugContacts };
+        using Phase = ConstraintSolvePhaseCursor::Phase;
+        constexpr std::array phasesToCorrection { Phase::BodySetup,   Phase::BuildManifolds,
+                                                  Phase::TerrainRows, Phase::PrepareJoints,
+                                                  Phase::Precompute,  Phase::WarmStartJoints,
+                                                  Phase::SolveRows,   Phase::PointSupportInstability,
+                                                  Phase::WriteBack,   Phase::DebugContacts };
 
         for ( const Phase phase : phasesToCorrection )
         {
@@ -201,15 +202,13 @@ struct SolverFixture
     PhysicsBodyStore& bodyStore;
     ColliderStore& colliderStore;
     std::vector<std::pair<int, int>> candidatePairs;
+    std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
     std::vector<uint8_t> sleepState;
     std::vector<float> timeRemaining;
     SkullbonezCore::Physics::PhysicsCandidatePairList
         sleepSupportEdges { "TestPersistentContactSolver.sleepSupportEdges",
                             SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
-    SkullbonezCore::Physics::PhysicsBodyRowList<TerrainContactManifold>
-        terrainContactManifolds { "TestPersistentContactSolver.terrainContactManifolds",
-                                  SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
-    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> terrainRestApplied = {};
+    SkullbonezCore::Physics::PhysicsTerrainStage terrain;
     std::vector<uint8_t> sleepSupportedThisFrame;
     SkullbonezCore::Physics::PhysicsRuntimeSettings config;
     PhysicsWorldForces worldForces;
@@ -224,8 +223,8 @@ struct SolverFixture
                 SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
 
             sleepSupportEdges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
-            terrainContactManifolds.Reserve( 16u );
-            solver.ReserveSceneCapacity( 16u );
+            terrain.ReserveSceneCapacity( 16u );
+            solver.ReserveSceneCapacity( 16u, 16u );
         }
 
         config.execution.parallel = false;
@@ -370,7 +369,7 @@ struct SolverFixture
                                    manifold.points[0].rA;
 
         manifold.points[0].penetration = penetration;
-        terrainContactManifolds.push_back( manifold );
+        terrain.GetContactManifolds().push_back( manifold );
     }
 
     void AddTerrainContact( int bodyIndex, uint32_t featureId, float penetration, bool supportsRestingPolicy = true,
@@ -388,6 +387,19 @@ struct SolverFixture
         solver.RestoreReplayState( snapshot );
     }
 
+    void AddPointJoint( int bodyA, int bodyB, const Vector3& anchorA, const Vector3& anchorB )
+    {
+        SkullbonezCore::Physics::PointJointConstraint joint;
+        joint.handle.index = static_cast<uint32_t>( joints.size() );
+        joint.handle.generation = 1u;
+        joint.SetBodies( bodyStore.Records()[static_cast<std::size_t>( bodyA )].handle,
+                         bodyStore.Records()[static_cast<std::size_t>( bodyB )].handle );
+        joint.localAnchorA = anchorA;
+        joint.localAnchorB = anchorB;
+        joint.slack = 0.0f;
+        joints.push_back( joint );
+    }
+
     void Solve( bool collectConvergenceDiagnostics = true, bool retainPipelineRecords = true )
     {
         worldForces.gravity = config.worldForces.gravity;
@@ -395,8 +407,21 @@ struct SolverFixture
         diagnostics.BeginStep( bodyStore.Count() );
         auto policy = PhysicsContactSolverStage::ResolveStepPolicy( config, worldForces, kSolverDt );
         policy.collectConvergenceDiagnostics = collectConvergenceDiagnostics;
+        terrain.PublishRestSupport( bodyStore, sleepState );
         solver.Solve( bodyStore, colliderStore, policy, candidatePairs, sleepState, timeRemaining, sleepSupportEdges,
-                      terrainContactManifolds, terrainRestApplied, sleepSupportedThisFrame, diagnostics );
+                      terrain.GetContactManifolds(), sleepSupportedThisFrame, diagnostics, joints );
+        if ( solver.HasPendingReleasedConstraints() )
+        {
+            for ( int body : solver.GetSideEffects().releaseWakeBodies )
+            {
+                sleepState[body] = 0u;
+            }
+            // Production's force-aware wake is covered through PhysicsEngine;
+            // this direct stage fixture supplies its explicit zero-force sleep rows.
+            solver.PrepareReleasedBodies( bodyStore, sleepState );
+            solver.ContinueReleasedConstraints( bodyStore, colliderStore, policy, candidatePairs, sleepState, timeRemaining,
+                                                sleepSupportEdges, terrain.GetContactManifolds(), diagnostics, joints );
+        }
     }
 };
 
@@ -848,7 +873,7 @@ TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anis
     const Vector3
         gameplayAngularVelocity = SkullbonezCore::Physics::PhysicsBodyAngularVelocity( fixture.bodyStore.HotFields(), 0u );
 
-    PersistentContactSolveTransaction contactPath;
+    ConstraintSolveTransaction contactPath;
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
@@ -1327,7 +1352,7 @@ TEST_CASE( "Persistent contact solver: full terrain seed prevents first-frame re
     const float expectedWeightImpulse = fixture.bodyStore.Records()[0].mass * gravityStepSpeed;
     CHECK( contact.terrainWarmStart == doctest::Approx( expectedWeightImpulse ).epsilon( 0.00001 ) );
     CHECK( fixture.solver.GetStats().warmStartedRows == 1 );
-    CHECK( fixture.terrainRestApplied[0] == 1u );
+    CHECK( fixture.terrain.GetRestApplied()[0] == 1u );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] >= -0.00001f );
 }
 
@@ -1414,7 +1439,7 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     CHECK( stageSupported[0] == 0u );
     CHECK( stageInhibited[0] == 1u );
 
-    shoreline.terrainContactManifolds.push_back( shorelineManifold );
+    shoreline.terrain.GetContactManifolds().push_back( shorelineManifold );
     shoreline.Solve();
 
     REQUIRE( shoreline.solver.GetPersistentContacts().size() == shorelineManifold.pointCount );
@@ -1432,7 +1457,7 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     CHECK( shorelineWarmStart == doctest::Approx( expectedShorelineImpulse ).epsilon( 0.00001 ) );
     CHECK( shoreline.solver.GetStats().warmStartedRows == shorelineManifold.pointCount );
     CHECK( shoreline.solver.GetPersistentContactCache().empty() );
-    CHECK( shoreline.terrainRestApplied[0] == 0u );
+    CHECK( shoreline.terrain.GetRestApplied()[0] == 0u );
     const float shorelineFinalVerticalVelocity = shoreline.bodyStore.HotFields().linearVelocityY[0];
     CHECK( fabsf( shorelineFinalVerticalVelocity ) <= 0.0002f );
 
@@ -1441,14 +1466,13 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     TerrainContactManifold slidingEdgeManifold = buildUnsupportedTerrainEdge( slidingEdge, shorelineResidualSpeed );
     constexpr float initialSlideSpeed = 1.0f;
     slidingEdge.bodyStore.MutableHotFields().linearVelocityX[0] = initialSlideSpeed;
-    slidingEdge.terrainContactManifolds.push_back( slidingEdgeManifold );
+    slidingEdge.terrain.GetContactManifolds().push_back( slidingEdgeManifold );
     slidingEdge.Solve();
 
     REQUIRE( slidingEdge.solver.GetPersistentContacts().size() == slidingEdgeManifold.pointCount );
     const auto& slidingHotFields = slidingEdge.bodyStore.HotFields();
     CHECK( fabsf( slidingHotFields.linearVelocityX[0] ) < initialSlideSpeed );
-    CHECK( std::any_of( slidingEdge.solver.GetPersistentContacts().begin(),
-                        slidingEdge.solver.GetPersistentContacts().end(),
+    CHECK( std::any_of( slidingEdge.solver.GetPersistentContacts().begin(), slidingEdge.solver.GetPersistentContacts().end(),
                         []( const PersistentContact& contact )
                         { return fabsf( contact.accT1 ) > 0.0f || fabsf( contact.accT2 ) > 0.0f; } ) );
 
@@ -1469,7 +1493,7 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     unseeded.config.solver.iterations = 1;
     TerrainContactManifold unseededManifold = buildUnsupportedTerrainEdge( unseeded, shorelineResidualSpeed );
     unseededManifold.inhibitsSleep = false;
-    unseeded.terrainContactManifolds.push_back( unseededManifold );
+    unseeded.terrain.GetContactManifolds().push_back( unseededManifold );
     unseeded.Solve();
 
     REQUIRE( unseeded.solver.GetPersistentContacts().size() == unseededManifold.pointCount );
@@ -1640,7 +1664,7 @@ TEST_CASE( "Persistent contact solver: terrain restitution ignores manifold row 
                               Vector3( 0.0f, -6.0f, 0.0f ), ZERO_VECTOR, 1.0f, 0.75f, false );
         fixture.AddTerrainContactAtOffset( 0, 100u, 0.0f, contactOffsets[0], true, false );
 
-        TerrainContactManifold& manifold = fixture.terrainContactManifolds[0];
+        TerrainContactManifold& manifold = fixture.terrain.GetContactManifolds()[0];
         manifold.pointCount = static_cast<uint8_t>( contactOffsets.size() );
         const auto hotFields = fixture.bodyStore.HotFields();
 
@@ -1733,7 +1757,7 @@ TEST_CASE( "Persistent contact solver: rolling resistance and tangent friction p
     REQUIRE_FALSE( convergence.empty() );
     CHECK( convergence.front().tangentImpulseDeltaSq > 0.0f );
     CHECK( convergence.front().tangentChangedRowCount > 0 );
-    CHECK( fixture.terrainRestApplied[0] == 1u );
+    CHECK( fixture.terrain.GetRestApplied()[0] == 1u );
 }
 
 
@@ -1853,7 +1877,7 @@ TEST_CASE( "Persistent contact solver: rolling resistance keeps a no-slip sphere
     fixture.AddDynamicSphere( terrainNormal, downSlope * initialSpeed );
     fixture.bodyStore.MutableHotFields().angularVelocityX[0] = rollingAxis.x * initialSpeed;
     fixture.AddTerrainContactAtOffset( 0, 203u, 0.0f, -terrainNormal, true, false );
-    fixture.terrainContactManifolds[0].normal = terrainNormal;
+    fixture.terrain.GetContactManifolds()[0].normal = terrainNormal;
     fixture.Solve();
 
     REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
@@ -2034,4 +2058,205 @@ TEST_CASE( "Persistent contact solver: box edge metadata does not disable ordina
         CHECK( contact.supportsRestingPolicy );
         CHECK_FALSE( contact.inhibitsSleep );
     }
+}
+
+
+TEST_CASE( "Shared contact and joint sweeps preserve support while transferring impact" )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
+    fixture.AddDynamicSphere( Vector3( 0.0f, 3.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
+    fixture.AddTerrainContact( 0, 41u, 0.0f );
+    fixture.AddPointJoint( 0, 1, Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
+    fixture.Solve();
+    const auto hot = fixture.bodyStore.HotFields();
+    // A separate contact-then-joint pass pulls the supported body down again.
+    // Shared sweeps keep support while the upper body approaches the soft target.
+    CHECK( PhysicsBodyLinearVelocity( hot, 0u ).y > -0.001f );
+    CHECK( PhysicsBodyLinearVelocity( hot, 1u ).y > -0.3f );
+    CHECK( fixture.joints[0].accumulatedImpulse.y < -0.5f );
+    const auto samples = fixture.solver.GetJointSamples();
+    REQUIRE( samples.size() == 1u );
+    CHECK( samples[0].constraint == fixture.joints[0].handle );
+    CHECK( samples[0].islandRoot == fixture.bodyStore.Records()[0].handle );
+    CHECK( samples[0].iteration >= 7 );
+    CHECK( VectorMagSquared( samples[0].constraintResidualVelocity ) < 1.0e-8f );
+}
+
+namespace
+{
+std::array<float, 15> SolveSupportedChain( bool unrelatedImpact, bool reverseJointRows )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
+    fixture.AddDynamicSphere( Vector3( 0.0f, 3.0f, 0.0f ), Vector3( 0.0f, -2.0f, 0.0f ) );
+    fixture.AddDynamicSphere( Vector3( 0.0f, 5.0f, 0.0f ), Vector3( 0.0f, -3.0f, 0.0f ) );
+    fixture.AddTerrainContact( 0, 41u, 0.0f );
+    fixture.AddPointJoint( 0, 1, Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
+    fixture.AddPointJoint( 1, 2, Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
+    if ( unrelatedImpact )
+    {
+        fixture.AddDynamicSphere( Vector3( 20.0f, 1.0f, 0.0f ), Vector3( 0.0f, -20.0f, 0.0f ) );
+        fixture.AddDynamicSphere( Vector3( 20.0f, 2.9f, 0.0f ), Vector3( 0.0f, -100.0f, 0.0f ) );
+        fixture.AddTerrainContact( 3, 51u, 0.0f );
+        fixture.candidatePairs.emplace_back( 3, 4 );
+    }
+    if ( reverseJointRows )
+    {
+        std::reverse( fixture.joints.begin(), fixture.joints.end() );
+    }
+    fixture.Solve();
+    std::array<float, 15> result {};
+    for ( std::size_t i = 0; i < 3u; ++i )
+    {
+        const auto velocity = PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), i );
+        result[i * 3u] = velocity.x;
+        result[i * 3u + 1u] = velocity.y;
+        result[i * 3u + 2u] = velocity.z;
+    }
+    for ( std::size_t i = 0; i < fixture.joints.size(); ++i )
+    {
+        const auto& joint = fixture.joints[i];
+        const auto& sample = fixture.solver.GetJointSamples()[i];
+        CHECK( sample.constraint == joint.handle );
+        CHECK( sample.islandRoot == fixture.bodyStore.Records()[0].handle );
+        const std::size_t offset = 9u + joint.handle.index * 3u;
+        result[offset] = joint.accumulatedImpulse.x;
+        result[offset + 1u] = joint.accumulatedImpulse.y;
+        result[offset + 2u] = static_cast<float>( sample.iteration );
+    }
+    return result;
+}
+} // namespace
+
+TEST_CASE( "Shared constraint ordering and unrelated islands preserve the supported chain exactly" )
+{
+    const auto isolated = SolveSupportedChain( false, false );
+    CHECK( SolveSupportedChain( false, true ) == isolated );
+    CHECK( SolveSupportedChain( true, false ) == isolated );
+    CHECK( SolveSupportedChain( true, true ) == isolated );
+}
+
+TEST_CASE( "Shared static joint anchors do not merge dynamic convergence ownership" )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 3.0f, 0.0f ), ZERO_VECTOR, 0.0f, true );
+    fixture.AddDynamicSphere( Vector3( -2.0f, 3.0f, 0.0f ), Vector3( -1.0f, 0.0f, 0.0f ) );
+    fixture.AddDynamicSphere( Vector3( 2.0f, 3.0f, 0.0f ), Vector3( 4.0f, 0.0f, 0.0f ) );
+    fixture.AddPointJoint( 0, 1, Vector3( -1.0f, 0.0f, 0.0f ), Vector3( 1.0f, 0.0f, 0.0f ) );
+    fixture.AddPointJoint( 0, 2, Vector3( 1.0f, 0.0f, 0.0f ), Vector3( -1.0f, 0.0f, 0.0f ) );
+    fixture.Solve();
+    const auto samples = fixture.solver.GetJointSamples();
+    REQUIRE( samples.size() == 2u );
+    CHECK( samples[0].islandRoot == fixture.bodyStore.Records()[1].handle );
+    CHECK( samples[1].islandRoot == fixture.bodyStore.Records()[2].handle );
+    CHECK( samples[0].islandRoot != samples[1].islandRoot );
+    CHECK( PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), 0u ).x == 0.0f );
+}
+
+TEST_CASE( "Shared solver clears joint diagnostics after topology becomes empty" )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), ZERO_VECTOR );
+    fixture.AddDynamicSphere( Vector3( 0.0f, 3.0f, 0.0f ), ZERO_VECTOR );
+    fixture.AddPointJoint( 0, 1, Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
+    fixture.Solve();
+    REQUIRE( fixture.solver.GetJointSamples().size() == 1u );
+    fixture.joints.clear();
+    fixture.Solve();
+    CHECK( fixture.solver.GetJointSamples().empty() );
+    CHECK( fixture.solver.GetPersistentContacts().empty() );
+}
+
+TEST_CASE( "Shared solver uses only committed storage across warm and attributed steps" )
+{
+    using namespace SkullbonezCore::Core::Allocation;
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
+    fixture.AddDynamicSphere( Vector3( 0.0f, 2.9f, 0.0f ), Vector3( 0.0f, -2.0f, 0.0f ) );
+    fixture.AddTerrainContact( 0, 41u, 0.0f );
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    fixture.AddPointJoint( 0, 1, Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
+    fixture.Solve();
+    const uint64_t bytesBefore = fixture.solver.CollectDynamicMemoryBytes();
+    const uint64_t violationsBefore = RuntimeAllocationGuardViolationCount();
+    const auto oldGuard = GetRuntimeAllocationGuardMode();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    {
+        RuntimeAllocationScope physicsPhase( RuntimeAllocationPhase::Physics );
+        for ( int step = 0; step < 100; ++step )
+        {
+            fixture.Solve( step % 2 == 0, step % 3 == 0 );
+        }
+    }
+    SetRuntimeAllocationGuardMode( oldGuard );
+    CHECK( RuntimeAllocationGuardViolationCount() == violationsBefore );
+    CHECK( fixture.solver.CollectDynamicMemoryBytes() == bytesBefore );
+    CHECK( fixture.solver.GetStats().rowCount > 0 );
+}
+
+TEST_CASE( "Shared contact schedule preserves feature rows under candidate permutation" )
+{
+    auto solve = []( bool reverse )
+    {
+        SolverFixture fixture;
+        fixture.AddBox( Vector3( 0.0f, 1.0f, 0.0f ), 0.0f, false );
+        fixture.AddBox( Vector3( 0.0f, 2.98f, 0.0f ), 0.0f, false );
+        fixture.AddBox( Vector3( 0.0f, 4.96f, 0.0f ), 0.0f, false );
+        fixture.AddTerrainContact( 0, 41u, 0.0f );
+        fixture.AddPointJoint( 0, 1, Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -1.0f, 0.0f ) );
+        fixture.candidatePairs = reverse ? std::vector<std::pair<int, int>> { { 2, 1 }, { 1, 0 } }
+                                         : std::vector<std::pair<int, int>> { { 0, 1 }, { 1, 2 } };
+        fixture.Solve();
+        PhysicsSolverSnapshot snapshot;
+        fixture.solver.CaptureReplayState( snapshot );
+        std::array<float, 12> state {};
+        for ( std::size_t i = 0; i < 3u; ++i )
+        {
+            const Vector3 velocity = PhysicsBodyLinearVelocity( fixture.bodyStore.HotFields(), i );
+            state[i * 3u] = velocity.x;
+            state[i * 3u + 1u] = velocity.y;
+            state[i * 3u + 2u] = velocity.z;
+        }
+        state[9] = fixture.joints[0].accumulatedImpulse.x;
+        state[10] = fixture.joints[0].accumulatedImpulse.y;
+        state[11] = fixture.joints[0].accumulatedImpulse.z;
+        return std::make_pair( state, snapshot );
+    };
+    const auto forward = solve( false );
+    const auto reversed = solve( true );
+    CHECK( forward.first == reversed.first );
+    REQUIRE( forward.second.persistentContacts.size() == reversed.second.persistentContacts.size() );
+    for ( std::size_t i = 0; i < forward.second.persistentContacts.size(); ++i )
+    {
+        const auto& a = forward.second.persistentContacts[i];
+        const auto& b = reversed.second.persistentContacts[i];
+        CHECK( a.key == b.key );
+        CHECK( a.accN == b.accN );
+        CHECK( a.accT1 == b.accT1 );
+        CHECK( a.accT2 == b.accT2 );
+    }
+}
+
+TEST_CASE( "Shared release preserves unrelated sleeping joint warm impulses exactly" )
+{
+    SolverFixture fixture;
+    fixture.AddDynamicSphere( Vector3( 0, 3, 0 ), ZERO_VECTOR, 0.0f, true );
+    fixture.bodyStore.MutableRecords()[0].releasesFromFixedOnContact = true;
+    fixture.bodyStore.MutableRecords()[0].contactReleaseImpulseThreshold = 0.1f;
+    fixture.AddDynamicSphere( Vector3( -1.9f, 3, 0 ), Vector3( 20, 0, 0 ) );
+    fixture.AddDynamicSphere( Vector3( 30, 3, 0 ), ZERO_VECTOR );
+    fixture.AddDynamicSphere( Vector3( 30, 5, 0 ), ZERO_VECTOR );
+    fixture.AddPointJoint( 2, 3, Vector3( 0, 1, 0 ), Vector3( 0, -1, 0 ) );
+    fixture.sleepState[2] = 1u;
+    fixture.sleepState[3] = 1u;
+    fixture.joints[0].accumulatedImpulse = Vector3( 1.25f, -2.5f, 0.75f );
+    fixture.candidatePairs.emplace_back( 0, 1 );
+    fixture.Solve();
+    REQUIRE( fixture.solver.GetSideEffects().releaseWakeBodies.size() == 1u );
+    CHECK( fixture.joints[0].accumulatedImpulse.x == 1.25f );
+    CHECK( fixture.joints[0].accumulatedImpulse.y == -2.5f );
+    CHECK( fixture.joints[0].accumulatedImpulse.z == 0.75f );
+    CHECK( fixture.sleepState[2] == 1u );
+    CHECK( fixture.sleepState[3] == 1u );
 }

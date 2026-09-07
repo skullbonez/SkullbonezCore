@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "actions": [
-    { "frame": 8, "assert": { "developmentUiSurface": "game" } },
-    { "frame": 8, "assert": { "imguiVisible": false } },
-    { "frame": 12, "screenshot": "TestOutput/interaction/imgui_e17_game_ui_default.bmp" }
-  ]
-}

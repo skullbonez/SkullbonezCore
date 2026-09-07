@@ -246,9 +246,6 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
 
     if ( capture.mouse )
     {
-        // Invariant: ImGui already received these native events in WndProc.
-        // Engine, GameUI, camera, gizmo, and replay see a neutral device
-        // class rather than independently consuming the same click or drag.
         routedFrame.rawMouseX = 0;
         routedFrame.rawMouseY = 0;
         routedFrame.wheelDelta = 0;
@@ -258,6 +255,10 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
     }
 
     m_deviceFrame = routedFrame;
+    if ( !routedFrame.appFocused || !routedFrame.leftDown )
+    {
+        m_timelineDrag = false;
+    }
     m_uiSnapshot = {};
     m_runtimeSnapshot = {};
     m_runtimeSnapshot.appFocused = routedFrame.appFocused;
@@ -412,6 +413,7 @@ void InputRouter::Reset()
     m_phaseRoutedThisFrame.fill( false );
     m_lastTapSeconds.fill( -1000.0 );
     m_deviceFrame = {};
+    m_timelineDrag = false;
     m_uiSnapshot = {};
     m_runtimeSnapshot = {};
     m_nativeCaptureRequested = false;
@@ -559,6 +561,21 @@ void InputRouter::RequestNativeCapture()
     m_nativeCaptureRequested = true;
 }
 
+bool InputRouter::UpdateTimelineDrag( bool pressHitsTimeline )
+{
+    // Ownership lasts from the initial press through release, independently of
+    // later hit tests. Native capture keeps sampling outside the client area.
+    if ( m_deviceFrame.appFocused && m_actions.mouse.leftPressed && pressHitsTimeline )
+    {
+        m_timelineDrag = true;
+    }
+    if ( m_timelineDrag )
+    {
+        RequestNativeCapture();
+    }
+    return m_timelineDrag;
+}
+
 
 void InputRouter::ReleaseNativeCapture()
 {
@@ -581,10 +598,6 @@ void InputRouter::CancelPointerPresentation()
 
 void InputRouter::DeferPointerPresentationCommit()
 {
-    // Hazard: imgui_impl_win32 and the engine both use HWND-scoped SetCapture.
-    // While the editor owns mouse intent the engine must not release the same
-    // HWND capture; invalidating here makes the first returning engine frame
-    // reassert its complete desired state.
     m_pointerPresentationCommitted = false;
 }
 
@@ -644,6 +657,25 @@ void InputRouter::RecordTap( RuntimeInputAction action, double nowSeconds )
 bool InputRouter::AppFocused() const
 {
     return m_appFocused;
+}
+
+bool InputRouter::ConsumeRepeatingAction( RuntimeInputAction action, double nowSeconds, double repeatSeconds )
+{
+    if ( !m_appFocused || !IsActionValid( action ) )
+    {
+        return false;
+    }
+    const auto index = ActionIndex( action );
+    if ( !m_actionDown[index] || nowSeconds == m_lastTapSeconds[index] )
+    {
+        return false;
+    }
+    if ( m_frameEdges[index] != InputActionEdge::Pressed && nowSeconds - m_lastTapSeconds[index] < repeatSeconds )
+    {
+        return false;
+    }
+    m_lastTapSeconds[index] = nowSeconds;
+    return true;
 }
 
 

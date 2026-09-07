@@ -1,7 +1,7 @@
 /*
 File: SkullbonezTests/TestSceneSnapshotWriter.cpp
 Purpose:
-  Verifies version-4 scene snapshots preserve every owner-published save field
+  Verifies version-5 scene snapshots preserve every owner-published save field
   and asset-instance live part state.
 
 Summary:
@@ -22,7 +22,7 @@ Glossary:
 
 Invariants:
   - Asset parts are emitted once in contiguous authored part order.
-  - Direct entities remain in objects[] and retain explicit schema-v4 ids.
+  - Direct entities remain in objects[] and retain explicit scene ids.
   - Reparse uses live state rather than recomposing the asset recipe transform.
   - Contact-material text survives save/reparse through the cold authoring row.
   - Dormant emissive color survives while strength is zero and mode is not emissive.
@@ -36,6 +36,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneSaveOperations.cpp
   - SkullbonezSource/Scene/AuthoredSceneParser.cpp
 */
+#include "../SkullbonezSource/Physics/Ragdoll.h"
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"
 #include "TestResultLoadFixtures.h"
@@ -200,6 +201,52 @@ void CheckCompleteOwnerPublication( const char* path, const SceneWorldSaveState&
 }
 
 
+static void CheckAtomicSaveFailure( const SceneWorldSaveState& world, const SceneSessionSaveState& session,
+                                    const PresentationSaveState& presentation )
+{
+    constexpr const char* priorScene = "{\"format\":\"prior.scene\",\"version\":17}\n";
+    struct FailureCase
+    {
+        Core::AtomicTextFileTestFailure stage;
+        const char* diagnosticAction;
+    };
+    constexpr FailureCase failureCases[] = {
+        { Core::AtomicTextFileTestFailure::Write, "Write temporary sibling" },
+        { Core::AtomicTextFileTestFailure::Flush, "Flush temporary sibling" },
+        { Core::AtomicTextFileTestFailure::Close, "Close temporary sibling" },
+        { Core::AtomicTextFileTestFailure::Replace, "Replace destination" },
+    };
+
+    for ( const FailureCase& failureCase : failureCases )
+    {
+        {
+            std::ofstream priorOutput( kEditableSnapshotPath, std::ios::binary | std::ios::trunc );
+            REQUIRE( priorOutput.good() );
+            priorOutput << priorScene;
+            priorOutput.close();
+            REQUIRE( priorOutput.good() );
+        }
+
+        Core::SetAtomicTextFileTestFailure( failureCase.stage );
+        const Core::SbResult result = SaveEditableSceneBeforeReplacement( diagnostics, kEditableSnapshotPath, world, session,
+                                                                          presentation );
+        Core::SetAtomicTextFileTestFailure( Core::AtomicTextFileTestFailure::None );
+        REQUIRE_FALSE( result.Ok() );
+        CHECK( std::string( result.ErrorOwner() ) == "Scene/SceneSnapshotWriter" );
+        CHECK( std::string( result.ErrorMessage() ).find( failureCase.diagnosticAction ) != std::string::npos );
+
+        std::ifstream preservedInput( kEditableSnapshotPath, std::ios::binary );
+        REQUIRE( preservedInput.good() );
+        const std::string preserved( ( std::istreambuf_iterator<char>( preservedInput ) ),
+                                     std::istreambuf_iterator<char>() );
+        CHECK( preserved == priorScene );
+
+        std::error_code directoryError;
+        CHECK_FALSE( HasAtomicTemporarySibling( kEditableSnapshotPath, directoryError ) );
+        CHECK_FALSE( directoryError );
+    }
+}
+
 TEST_CASE( "Scene save entry policies serialize complete owner publications" )
 {
     TemporarySnapshotFiles cleanup;
@@ -264,8 +311,8 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
         std::filesystem::remove( kEditorSnapshotPath, ignored );
         int sequence = 9100;
         char path[256] = {};
-        REQUIRE( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Scenes", "snapshot_", ".scene.json",
-                                                      sequence, 100 ) );
+        REQUIRE( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Scenes", "snapshot_", ".scene.json", sequence,
+                                                      100 ) );
         REQUIRE( SceneSnapshotWriter::Save( diagnostics, SceneSaveRequest { path, world, session, presentation } ).Ok() );
         CHECK( sequence == 9101 );
         CheckCompleteOwnerPublication( kEditorSnapshotPath, world, session, presentation );
@@ -296,60 +343,14 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
 
     SUBCASE( "editable replacement preserves its prior bytes when atomic publication fails" )
     {
-        constexpr const char* priorScene = "{\"format\":\"prior.scene\",\"version\":17}\n";
-        struct FailureCase
-        {
-            Core::AtomicTextFileTestFailure stage;
-            const char* diagnosticAction;
-        };
-        constexpr FailureCase failureCases[] = {
-            { Core::AtomicTextFileTestFailure::Write, "Write temporary sibling" },
-            { Core::AtomicTextFileTestFailure::Flush, "Flush temporary sibling" },
-            { Core::AtomicTextFileTestFailure::Close, "Close temporary sibling" },
-            { Core::AtomicTextFileTestFailure::Replace, "Replace destination" },
-        };
-
-        for ( const FailureCase& failureCase : failureCases )
-        {
-            {
-                std::ofstream priorOutput( kEditableSnapshotPath, std::ios::binary | std::ios::trunc );
-                REQUIRE( priorOutput.good() );
-                priorOutput << priorScene;
-                priorOutput.close();
-                REQUIRE( priorOutput.good() );
-            }
-
-            Core::SetAtomicTextFileTestFailure( failureCase.stage );
-            const Core::SbResult result =
-                SaveEditableSceneBeforeReplacement( diagnostics, kEditableSnapshotPath, world, session, presentation );
-            Core::SetAtomicTextFileTestFailure( Core::AtomicTextFileTestFailure::None );
-            REQUIRE_FALSE( result.Ok() );
-            CHECK( std::string( result.ErrorOwner() ) == "Scene/SceneSnapshotWriter" );
-            CHECK( std::string( result.ErrorMessage() ).find( failureCase.diagnosticAction ) != std::string::npos );
-
-            std::ifstream preservedInput( kEditableSnapshotPath, std::ios::binary );
-            REQUIRE( preservedInput.good() );
-            const std::string preserved( ( std::istreambuf_iterator<char>( preservedInput ) ),
-                                         std::istreambuf_iterator<char>() );
-            CHECK( preserved == priorScene );
-
-            std::error_code directoryError;
-            CHECK_FALSE( HasAtomicTemporarySibling( kEditableSnapshotPath, directoryError ) );
-            CHECK_FALSE( directoryError );
-        }
+        CheckAtomicSaveFailure( world, session, presentation );
     }
 }
 
-void AppendEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, ColliderStore& colliders, uint32_t id,
-                   const char* displayName, const CollisionShape& shape, const Vector3& position, const Vector3& velocity,
-                   const Vector3& angularVelocity, const Vector3& inertia, float mass, float restitution,
-                   const char* contactMaterial, bool fixed, bool sleeping, const char* assetPart, uint32_t assetPartIndex,
-                   SceneBehaviorGroupKind behaviorKind = SceneBehaviorGroupKind::None,
-                   PhysicsSceneObjectId behaviorRoot = {}, int behaviorPartIndex = -1 )
+PhysicsBodyCreateRecord MakeSavedBody( uint32_t id, const Vector3& position, const Vector3& velocity,
+                                       const Vector3& angularVelocity, const Vector3& inertia, float mass, bool fixed,
+                                       bool sleeping, bool releasesOnContact )
 {
-
-    // Invariant: handles are assigned by the stores, while the stable scene id
-    // is copied into all three owner rows before the entity becomes visible.
     PhysicsBodyCreateRecord body;
     body.cold.sceneObjectId = PhysicsSceneObjectId { id };
     body.hot.position = position;
@@ -362,20 +363,16 @@ void AppendEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, Collide
     body.hot.inverseMass = fixed ? 0.0f : 1.0f / mass;
     body.hot.fixed = fixed;
     body.hot.awake = !sleeping;
-    body.cold.releasesFromFixedOnContact = assetPartIndex == 2;
+    body.cold.releasesFromFixedOnContact = releasesOnContact;
     body.cold.contactReleaseImpulseThreshold = 4.25f;
-    const PhysicsBodyHandle bodyHandle = bodies.CreateBodyRecord( body );
+    return body;
+}
 
-    ColliderRecord collider;
-    collider.body = bodyHandle;
-    collider.sceneObjectId = body.cold.sceneObjectId;
-    collider.restitution = restitution;
-    ColliderAuthoringRecord colliderAuthoring;
-    strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
-    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, shape, colliderAuthoring );
-
+SceneEntityCreateDesc MakeSavedEntity( const char* displayName, const char* assetPart, uint32_t assetPartIndex,
+                                       SceneBehaviorGroupKind behaviorKind = SceneBehaviorGroupKind::None,
+                                       PhysicsSceneObjectId behaviorRoot = {}, int behaviorPartIndex = -1 )
+{
     SceneEntityCreateDesc entity;
-    entity.sceneObjectId = body.cold.sceneObjectId;
     entity.SetName( displayName );
     entity.SetRenderTint( 0.1f * static_cast<float>( assetPartIndex + 1u ), 0.4f, 0.7f, 1.0f );
     Rendering::RenderMaterial completeMaterial = entity.renderMaterial;
@@ -403,6 +400,25 @@ void AppendEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, Collide
         entity.SetBehaviorGroup( behaviorKind, behaviorRoot, behaviorPartIndex );
     }
 
+    return entity;
+}
+
+void AppendEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, ColliderStore& colliders,
+                   SceneEntityCreateDesc entity, const PhysicsBodyCreateRecord& body, const CollisionShape& shape,
+                   float restitution, const char* contactMaterial )
+{
+    // The created body handle and scene identity bind all three owner rows.
+    const PhysicsBodyHandle bodyHandle = bodies.CreateBodyRecord( body );
+    ColliderRecord collider;
+    collider.body = bodyHandle;
+    collider.sceneObjectId = body.cold.sceneObjectId;
+    collider.restitution = restitution;
+    ColliderAuthoringRecord colliderAuthoring;
+    strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
+    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, shape, colliderAuthoring );
+
+    entity.sceneObjectId = body.cold.sceneObjectId;
+    REQUIRE( entities.PreflightAppend( entity ).Ok() );
     entities.CommitAppend( entity, bodyHandle );
 }
 
@@ -615,46 +631,54 @@ void ApplyParsedMaterial( SceneEntityCreateDesc& entity, const AuthoredScene& sc
     }
 }
 
+template <typename State>
 void AppendParsedEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, ColliderStore& colliders,
-                         const AuthoredScene& scene, SceneAssetPartSource source, uint32_t sourceIndex,
-                         PhysicsSceneObjectId id, const char* displayName, const CollisionShape& shape,
-                         const Vector3& position, const Quaternion& orientation, const Vector3& velocity,
-                         const Vector3& angularVelocity, const Vector3& inertia, float mass, float restitution,
-                         const char* contactMaterial, bool fixed, bool sleeping, bool releasesOnContact,
-                         float releaseThreshold, const SceneObjectGroupMetadata* group )
+                         const AuthoredScene& scene, const State& state, const CollisionShape& shape,
+                         SceneAssetPartSource source, uint32_t sourceIndex )
 {
     PhysicsBodyCreateRecord body;
-    body.cold.sceneObjectId = id;
-    body.hot.position = position;
-    body.hot.orientation = orientation;
-    body.hot.linearVelocity = velocity;
-    body.hot.angularVelocity = angularVelocity;
-    body.cold.rotationalInertia = inertia;
-    body.cold.mass = mass;
-    body.hot.inverseMass = fixed ? 0.0f : 1.0f / mass;
-    body.hot.fixed = fixed;
-    body.hot.awake = !sleeping;
-    body.cold.releasesFromFixedOnContact = releasesOnContact;
-    body.cold.contactReleaseImpulseThreshold = releaseThreshold;
+    body.cold.sceneObjectId = state.sceneObjectId;
+    body.hot.position = Vector3( state.posX, state.posY, state.posZ );
+    body.hot.orientation = Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW );
+    body.hot.linearVelocity = Vector3( state.velX, state.velY, state.velZ );
+    body.hot.angularVelocity = Vector3( state.angVelX, state.angVelY, state.angVelZ );
+    body.cold.rotationalInertia = Vector3( state.inertiaX, state.inertiaY, state.inertiaZ );
+    body.cold.mass = state.mass;
+    body.hot.inverseMass = state.isFixed ? 0.0f : 1.0f / state.mass;
+    body.hot.fixed = state.isFixed;
+    body.hot.awake = !state.isSleeping;
+    if constexpr ( requires { state.contactReleaseOnImpact; } )
+    {
+        body.cold.releasesFromFixedOnContact = state.contactReleaseOnImpact;
+        body.cold.contactReleaseImpulseThreshold = state.contactReleaseImpulseThreshold;
+    }
+    else
+    {
+        body.cold.contactReleaseImpulseThreshold = 1.0f;
+    }
     const PhysicsBodyHandle bodyHandle = bodies.CreateBodyRecord( body );
 
     ColliderRecord collider;
     collider.body = bodyHandle;
-    collider.sceneObjectId = id;
-    collider.restitution = restitution;
+    collider.sceneObjectId = state.sceneObjectId;
+    collider.restitution = state.restitution;
     ColliderAuthoringRecord colliderAuthoring;
-    strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
+    strncpy_s( colliderAuthoring.contactMaterialName, state.contactMaterial, _TRUNCATE );
     (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, shape, colliderAuthoring );
 
     SceneEntityCreateDesc entity;
-    entity.sceneObjectId = id;
-    entity.SetName( displayName );
+    entity.sceneObjectId = state.sceneObjectId;
+    entity.SetName( state.name );
     ApplyParsedAffiliation( entity, scene, source, sourceIndex );
-    ApplyParsedMaterial( entity, scene, displayName );
+    ApplyParsedMaterial( entity, scene, state.name );
 
-    if ( group && group->kind == SceneObjectGroupKind::ReleasableTree )
+    if constexpr ( requires { state.group; } )
     {
-        entity.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, group->rootObjectId, group->partIndex );
+        if ( state.group.kind == SceneObjectGroupKind::ReleasableTree )
+        {
+            entity.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, state.group.rootObjectId,
+                                     state.group.partIndex );
+        }
     }
 
     REQUIRE( entities.PreflightAppend( entity ).Ok() );
@@ -672,28 +696,16 @@ void RecreateParsedOwners( const AuthoredScene& scene, SceneEntityStore& entitie
     for ( int index = 0; index < scene.GetBallStateCount(); ++index )
     {
         const SceneBallState& state = scene.GetBallState( index );
-        AppendParsedEntity( entities, bodies, colliders, scene, SceneAssetPartSource::BallState,
-                            static_cast<uint32_t>( index ), state.sceneObjectId, state.name,
-                            BoundingSphere( state.radius, ZERO_VECTOR ), Vector3( state.posX, state.posY, state.posZ ),
-                            Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ),
-                            Vector3( state.velX, state.velY, state.velZ ),
-                            Vector3( state.angVelX, state.angVelY, state.angVelZ ),
-                            Vector3( state.inertiaX, state.inertiaY, state.inertiaZ ), state.mass, state.restitution,
-                            state.contactMaterial, state.isFixed, state.isSleeping, false, 1.0f, nullptr );
+        AppendParsedEntity( entities, bodies, colliders, scene, state, BoundingSphere( state.radius, ZERO_VECTOR ),
+                            SceneAssetPartSource::BallState, static_cast<uint32_t>( index ) );
     }
 
     for ( int index = 0; index < scene.GetBoxStateCount(); ++index )
     {
         const SceneBoxState& state = scene.GetBoxState( index );
-        AppendParsedEntity( entities, bodies, colliders, scene, SceneAssetPartSource::BoxState,
-                            static_cast<uint32_t>( index ), state.sceneObjectId, state.name,
+        AppendParsedEntity( entities, bodies, colliders, scene, state,
                             BoundingBox( Vector3( state.halfX, state.halfY, state.halfZ ), ZERO_VECTOR ),
-                            Vector3( state.posX, state.posY, state.posZ ),
-                            Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ),
-                            Vector3( state.velX, state.velY, state.velZ ),
-                            Vector3( state.angVelX, state.angVelY, state.angVelZ ),
-                            Vector3( state.inertiaX, state.inertiaY, state.inertiaZ ), state.mass, state.restitution,
-                            state.contactMaterial, state.isFixed, state.isSleeping, false, 1.0f, nullptr );
+                            SceneAssetPartSource::BoxState, static_cast<uint32_t>( index ) );
     }
 
     for ( int index = 0; index < scene.GetConvexHullStateCount(); ++index )
@@ -702,20 +714,13 @@ void RecreateParsedOwners( const AuthoredScene& scene, SceneEntityStore& entitie
         ConvexHullShape hull;
         const std::string hullPath = std::string( "SkullbonezData/hulls/" ) + state.hullPath + ".hull";
         REQUIRE( ConvexHullShape::TryLoadFromFile( diagnostics, hullPath.c_str(), hull ).Ok() );
-        AppendParsedEntity( entities, bodies, colliders, scene, SceneAssetPartSource::ConvexHullState,
-                            static_cast<uint32_t>( index ), state.sceneObjectId, state.name, hull,
-                            Vector3( state.posX, state.posY, state.posZ ),
-                            Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ),
-                            Vector3( state.velX, state.velY, state.velZ ),
-                            Vector3( state.angVelX, state.angVelY, state.angVelZ ),
-                            Vector3( state.inertiaX, state.inertiaY, state.inertiaZ ), state.mass, state.restitution,
-                            state.contactMaterial, state.isFixed, state.isSleeping, state.contactReleaseOnImpact,
-                            state.contactReleaseImpulseThreshold, &state.group );
+        AppendParsedEntity( entities, bodies, colliders, scene, state, hull, SceneAssetPartSource::ConvexHullState,
+                            static_cast<uint32_t>( index ) );
     }
 }
 } // namespace
 
-TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritative live state" )
+TEST_CASE( "SceneSnapshotWriter: schema-v5 asset parts reparse from authoritative live state" )
 {
     const TemporarySnapshotFiles cleanup;
     WriteAssetLibrary();
@@ -740,25 +745,32 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-        AppendEntity( entities, bodies, colliders, 300u, "saved_box",
-                      BoundingBox( Vector3( 2.0f, 3.0f, 4.0f ), ZERO_VECTOR ), Vector3( 10.0f, 11.0f, 12.0f ),
-                      Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 4.0f, 5.0f, 6.0f ), Vector3( 7.0f, 8.0f, 9.0f ), 12.0f, 0.25f,
-                      "wood", false, true, "box", 0u );
+        AppendEntity( entities, bodies, colliders, MakeSavedEntity( "saved_box", "box", 0u ),
+                      MakeSavedBody( 300u, Vector3( 10.0f, 11.0f, 12.0f ), Vector3( 1.0f, 2.0f, 3.0f ),
+                                     Vector3( 4.0f, 5.0f, 6.0f ), Vector3( 7.0f, 8.0f, 9.0f ), 12.0f, false, true,
+                                     0u == 2u ),
+                      BoundingBox( Vector3( 2.0f, 3.0f, 4.0f ), ZERO_VECTOR ), 0.25f, "wood" );
 
-        AppendEntity( entities, bodies, colliders, 42u, "saved_sphere", BoundingSphere( 2.5f, ZERO_VECTOR ),
-                      Vector3( 20.0f, 21.0f, 22.0f ), Vector3( 2.0f, 3.0f, 4.0f ), Vector3( 5.0f, 6.0f, 7.0f ),
-                      Vector3( 8.0f, 9.0f, 10.0f ), 13.0f, 0.35f, "stone", true, false, "sphere", 1u );
+        AppendEntity( entities, bodies, colliders, MakeSavedEntity( "saved_sphere", "sphere", 1u ),
+                      MakeSavedBody( 42u, Vector3( 20.0f, 21.0f, 22.0f ), Vector3( 2.0f, 3.0f, 4.0f ),
+                                     Vector3( 5.0f, 6.0f, 7.0f ), Vector3( 8.0f, 9.0f, 10.0f ), 13.0f, true, false,
+                                     1u == 2u ),
+                      BoundingSphere( 2.5f, ZERO_VECTOR ), 0.35f, "stone" );
 
         ConvexHullShape hull;
         REQUIRE( ConvexHullShape::TryLoadFromFile( diagnostics, "SkullbonezData/hulls/pyramid.hull", hull ).Ok() );
-        AppendEntity( entities, bodies, colliders, 777u, "saved_hull", hull, Vector3( 30.0f, 31.0f, 32.0f ),
-                      Vector3( 3.0f, 4.0f, 5.0f ), Vector3( 6.0f, 7.0f, 8.0f ), Vector3( 9.0f, 10.0f, 11.0f ), 14.0f, 0.45f,
-                      "metal", true, false, "hull", 2u, SceneBehaviorGroupKind::ReleasableTree,
-                      PhysicsSceneObjectId { 777u }, 0 );
+        AppendEntity( entities, bodies, colliders,
+                      MakeSavedEntity( "saved_hull", "hull", 2u, SceneBehaviorGroupKind::ReleasableTree,
+                                       PhysicsSceneObjectId { 777u }, 0 ),
+                      MakeSavedBody( 777u, Vector3( 30.0f, 31.0f, 32.0f ), Vector3( 3.0f, 4.0f, 5.0f ),
+                                     Vector3( 6.0f, 7.0f, 8.0f ), Vector3( 9.0f, 10.0f, 11.0f ), 14.0f, true, false,
+                                     2u == 2u ),
+                      hull, 0.45f, "metal" );
 
-        AppendEntity( entities, bodies, colliders, 99u, "direct_sphere", BoundingSphere( 0.75f, ZERO_VECTOR ),
-                      Vector3( 40.0f, 41.0f, 42.0f ), ZERO_VECTOR, ZERO_VECTOR, Vector3( 1.0f, 1.0f, 1.0f ), 2.0f, 0.15f,
-                      "default", false, false, nullptr, 0u );
+        AppendEntity( entities, bodies, colliders, MakeSavedEntity( "direct_sphere", nullptr, 0u ),
+                      MakeSavedBody( 99u, Vector3( 40.0f, 41.0f, 42.0f ), ZERO_VECTOR, ZERO_VECTOR,
+                                     Vector3( 1.0f, 1.0f, 1.0f ), 2.0f, false, false, 0u == 2u ),
+                      BoundingSphere( 0.75f, ZERO_VECTOR ), 0.15f, "default" );
 
         // Regression: this otherwise-default material carries only a sub-epsilon
         // color edit, which remains durable intent for a later strength change.
@@ -769,13 +781,19 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
         dormantEmissive.emissiveStrength = 0.0f;
         entities.MutableAt( dormantEmissiveIndex ).renderMaterial = dormantEmissive;
 
-        AppendEntity( entities, bodies, colliders, 1001u, "tree_root", hull, Vector3( 50.0f, 51.0f, 52.0f ), ZERO_VECTOR,
-                      ZERO_VECTOR, Vector3( 3.0f, 4.0f, 5.0f ), 5.0f, 0.2f, "wood", true, false, nullptr, 0u,
-                      SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId { 1001u }, 0 );
+        AppendEntity( entities, bodies, colliders,
+                      MakeSavedEntity( "tree_root", nullptr, 0u, SceneBehaviorGroupKind::ReleasableTree,
+                                       PhysicsSceneObjectId { 1001u }, 0 ),
+                      MakeSavedBody( 1001u, Vector3( 50.0f, 51.0f, 52.0f ), ZERO_VECTOR, ZERO_VECTOR,
+                                     Vector3( 3.0f, 4.0f, 5.0f ), 5.0f, true, false, 0u == 2u ),
+                      hull, 0.2f, "wood" );
 
-        AppendEntity( entities, bodies, colliders, 555u, "tree_child", hull, Vector3( 53.0f, 54.0f, 55.0f ), ZERO_VECTOR,
-                      ZERO_VECTOR, Vector3( 4.0f, 5.0f, 6.0f ), 6.0f, 0.3f, "wood", true, false, nullptr, 0u,
-                      SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId { 1001u }, 1 );
+        AppendEntity( entities, bodies, colliders,
+                      MakeSavedEntity( "tree_child", nullptr, 0u, SceneBehaviorGroupKind::ReleasableTree,
+                                       PhysicsSceneObjectId { 1001u }, 1 ),
+                      MakeSavedBody( 555u, Vector3( 53.0f, 54.0f, 55.0f ), ZERO_VECTOR, ZERO_VECTOR,
+                                     Vector3( 4.0f, 5.0f, 6.0f ), 6.0f, true, false, 0u == 2u ),
+                      hull, 0.3f, "wood" );
     }
 
     MutualGravitySettings mutualGravity;
@@ -794,11 +812,15 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
     orbitalStability.members[1].innerRadius = 60.0;
     orbitalStability.members[1].outerRadius = 100.0;
     orbitalStability.members[1].escapeStartRadius = 90.0;
+    Physics::PointJointConstraint savedJoint;
+    savedJoint.SetBodies( bodies.Records()[0].handle, bodies.Records()[1].handle );
+    savedJoint.frequencyHz = 23.0f;
+    savedJoint.dampingRatio = 0.75f;
     const SceneWorldSaveState world { entities,
                                       bodies,
                                       colliders,
-                                      nullptr,
-                                      0,
+                                      &savedJoint,
+                                      1,
                                       -9.81f,
                                       5.0f,
                                       1000.0f,
@@ -815,7 +837,10 @@ TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritativ
 
     AuthoredScene saved;
     REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene( diagnostics, kSnapshotPath, saved ) );
-    CHECK( saved.GetSchemaVersion() == 4u );
+    CHECK( saved.GetSchemaVersion() == 5u );
+    REQUIRE( saved.GetPointJointConstraintCount() == 1 );
+    CHECK( saved.GetPointJointConstraint( 0 ).frequencyHz == 23.0f );
+    CHECK( saved.GetPointJointConstraint( 0 ).dampingRatio == 0.75f );
     CHECK( saved.IsPhysicsEnabled() );
     CHECK_FALSE( saved.IsTextEnabled() );
     CHECK( saved.PredictionShowsAllBodies() );

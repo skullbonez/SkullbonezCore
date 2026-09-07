@@ -267,7 +267,6 @@ class SceneLoadTransaction
 
     // The stress lane may suppress GameUI activation without recovering the
     // complete private output record.
-    void PreserveInactiveDevelopmentUi();
 
     SceneLoadPhaseCursor::Phase Phase() const
     {

@@ -53,8 +53,8 @@
 
 using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Runtime::AuthoredScene;
-using SkullbonezCore::Runtime::SceneCamera;
 using SkullbonezCore::Runtime::SceneAssetPartSource;
+using SkullbonezCore::Runtime::SceneCamera;
 using SkullbonezCore::Runtime::SceneObjectGroupKind;
 using SkullbonezCore::Runtime::SceneObjectMaterialOverride;
 using SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene;
@@ -153,8 +153,8 @@ std::string BuildSingleObjectScene( const std::string& object )
 
 std::string BuildSceneWithSection( const std::string& section )
 {
-    return std::string( R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,)" ) +
-           section + R"(,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})";
+    return std::string( R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,)" ) + section +
+           R"(,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})";
 }
 
 // Invariant: one row binds a field's document splice, exact cardinality, and
@@ -513,13 +513,10 @@ TEST_CASE( "AuthoredSceneParser: fixed-cardinality fields fail recoverably befor
           R"(,"view":[0,0,1],"up":[0,1,0]}]})", 3u, "numbers" },
         { "ballState.orientation",
           R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"objects":[{"type":"ballState","sceneObjectId":12,"name":"probe","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":)",
-          R"(,"radius":1,"mass":1,"restitution":0.1,"inertia":[1,1,1],"fixed":false,"sleeping":false}]})", 4u,
-          "numbers" },
-        { "ui.rect",
-          R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"ui":{"rect":)",
+          R"(,"radius":1,"mass":1,"restitution":0.1,"inertia":[1,1,1],"fixed":false,"sleeping":false}]})", 4u, "numbers" },
+        { "ui.rect", R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"ui":{"rect":)",
           R"(},"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})", 4u, "integers" },
-        { "ui.mouse",
-          R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"ui":{"mouse":)",
+        { "ui.mouse", R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"ui":{"mouse":)",
           R"(},"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}]})", 2u, "integers" },
         { "cinematic.shadowParticipation",
           R"({"format":"skullbonez.scene.json","version":4,"physics":false,"text":false,"cinematic":{"shadowParticipation":)",
@@ -542,8 +539,8 @@ TEST_CASE( "AuthoredSceneParser: fixed-cardinality fields fail recoverably befor
             CAPTURE( failureCase.context );
             CAPTURE( variant );
             const std::size_t arraySize = variant == 1 ? failureCase.cardinality - 1u : failureCase.cardinality + 1u;
-            const std::string malformedValue =
-                variant == 0 ? BuildSameCardinalityObject( failureCase.cardinality ) : BuildNumberArray( arraySize );
+            const std::string malformedValue = variant == 0 ? BuildSameCardinalityObject( failureCase.cardinality )
+                                                            : BuildNumberArray( arraySize );
             const std::string document = failureCase.prefix + malformedValue + failureCase.suffix;
             constexpr const char* path = "TestOutput/scene_parser_fixed_array_invalid.scene.json";
             const TemporaryMalformedSceneFile fixture( path, document );
@@ -553,10 +550,11 @@ TEST_CASE( "AuthoredSceneParser: fixed-cardinality fields fail recoverably befor
             const SceneCamera retainedCamera = scene.GetCamera( 0 );
 
             const SbResult result = AuthoredScene::TryLoadFromFile( diagnostics, path, scene );
-            const std::string expectedMessage =
-                variant == 0 ? std::string( failureCase.context ) + " must be an array, got object"
-                             : std::string( failureCase.context ) + " must contain exactly " +
-                                   std::to_string( failureCase.cardinality ) + ' ' + failureCase.elementDescription;
+            const std::string expectedMessage = variant == 0
+                                                    ? std::string( failureCase.context ) + " must be an array, got object"
+                                                    : std::string( failureCase.context ) + " must contain exactly " +
+                                                          std::to_string( failureCase.cardinality ) + ' ' +
+                                                          failureCase.elementDescription;
             CheckLoadFailure( result, path, expectedMessage.c_str() );
 
             // Invariant: TryLoad assigns only after a complete parse. A
@@ -602,10 +600,10 @@ TEST_CASE( "AuthoredSceneParser: quaternion representation is versioned at the s
     SUBCASE( "future schema fails closed" )
     {
         const TemporaryMalformedSceneFile future( "unit_scene_parser_future_quaternion.scene.json",
-                                                  BuildVersionedQuaternionScene( 5 ) );
+                                                  BuildVersionedQuaternionScene( 6 ) );
         AuthoredScene scene;
         CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, future.path, scene ), future.path,
-                          "Unsupported scene schema version: 5" );
+                          "Unsupported scene schema version: 6" );
     }
 }
 
@@ -865,8 +863,7 @@ TEST_CASE( "AuthoredSceneParser: physical body values fail closed before scene p
         REQUIRE( retainedBallCount > 0 );
         const std::string retainedBallName = scene.GetBall( 0 ).name;
         const float retainedBallMass = scene.GetBall( 0 ).m_mass;
-        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ), path,
-                          failureCase.expectedMessage );
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ), path, failureCase.expectedMessage );
         REQUIRE( scene.GetCameraCount() == 1 );
         CHECK( scene.GetCamera( 0 ).m_position.x == retainedCamera.m_position.x );
         REQUIRE( scene.GetBallCount() == retainedBallCount );
@@ -906,8 +903,8 @@ TEST_CASE( "AuthoredSceneParser: styles reject scene-owned top-level sections" )
     for ( const ForbiddenStyleField& field : forbiddenFields )
     {
         CAPTURE( field.name );
-        const std::string document = std::string( R"({"format":"skullbonez.style.json","version":4,")" ) +
-                                     field.name + R"(":)" + field.value + '}';
+        const std::string document = std::string( R"({"format":"skullbonez.style.json","version":4,")" ) + field.name +
+                                     R"(":)" + field.value + '}';
         constexpr const char* path = "unit_scene_parser_forbidden_style.style.json";
         const TemporaryMalformedSceneFile fixture( path, document );
         AuthoredScene scene;
@@ -937,8 +934,7 @@ TEST_CASE( "AuthoredSceneParser: signed integer fields reject 64-bit narrowing" 
     for ( const char* value : values )
     {
         CAPTURE( value );
-        const std::string section = std::string( R"("capture":{"screenshot":{"path":"probe.png","frame":)" ) +
-                                    value + "}}";
+        const std::string section = std::string( R"("capture":{"screenshot":{"path":"probe.png","frame":)" ) + value + "}}";
         constexpr const char* path = "unit_scene_parser_int32_overflow.scene.json";
         const TemporaryMalformedSceneFile fixture( path, BuildSceneWithSection( section ) );
         AuthoredScene scene;
@@ -979,10 +975,9 @@ TEST_CASE( "AuthoredSceneParser: authored output and filter text rejects truncat
     const std::string pathText( 256u, 'p' );
     const std::string filterText( 64u, 'f' );
     const TextFailureCase cases[] = {
-        { "capture.screenshot.path",
-          std::string( R"("capture":{"screenshot":{"path":")" ) + pathText + R"(","frame":1}})", 256u },
-        { "capture.interval.dir", std::string( R"("capture":{"interval":{"dir":")" ) + pathText +
-                                      R"(","frames":1}})",
+        { "capture.screenshot.path", std::string( R"("capture":{"screenshot":{"path":")" ) + pathText + R"(","frame":1}})",
+          256u },
+        { "capture.interval.dir", std::string( R"("capture":{"interval":{"dir":")" ) + pathText + R"(","frames":1}})",
           256u },
         { "logging.perfLog", std::string( R"("logging":{"perfLog":")" ) + pathText + R"("})", 256u },
         { "ui.sceneFilter", std::string( R"("ui":{"sceneFilter":")" ) + filterText + R"("})", 64u },
@@ -1003,8 +998,9 @@ TEST_CASE( "AuthoredSceneParser: authored output and filter text rejects truncat
 TEST_CASE( "AuthoredSceneParser: authored output paths reject embedded NUL truncation" )
 {
     constexpr const char* path = "unit_scene_parser_path_nul.scene.json";
-    const TemporaryMalformedSceneFile fixture(
-        path, BuildSceneWithSection( R"("capture":{"screenshot":{"path":"before\u0000after","frame":1}})" ) );
+    const TemporaryMalformedSceneFile fixture( path,
+                                               BuildSceneWithSection(
+                                                   R"("capture":{"screenshot":{"path":"before\u0000after","frame":1}})" ) );
     AuthoredScene scene;
     CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ), path,
                       "capture.screenshot.path must not contain NUL" );
@@ -1013,9 +1009,35 @@ TEST_CASE( "AuthoredSceneParser: authored output paths reject embedded NUL trunc
 TEST_CASE( "AuthoredSceneParser: material modes reject values outside the finite float domain" )
 {
     constexpr const char* path = "unit_scene_parser_material_mode_overflow.scene.json";
-    const TemporaryMalformedSceneFile fixture(
-        path, BuildSceneWithSection( R"("objectMaterials":[{"target":"probe","mode":1e100}])" ) );
+    const TemporaryMalformedSceneFile fixture( path, BuildSceneWithSection(
+                                                         R"("objectMaterials":[{"target":"probe","mode":1e100}])" ) );
     AuthoredScene scene;
     CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, path, scene ), path,
                       "objectMaterial.mode must fit a finite float" );
+}
+
+TEST_CASE( "AuthoredSceneParser: joint softness has an explicit version boundary" )
+{
+    for ( unsigned version : { 4u, 5u } )
+    {
+        const std::string prefix =
+            std::string( R"({"format":"skullbonez.scene.json","version":)" ) + std::to_string( version ) +
+            R"(,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,10],"view":[0,0,0],"up":[0,1,0]}],"ragdollJoints":[{"bodyA":"a","bodyB":"b","localAnchorA":[0,0,0],"localAnchorB":[0,0,0],)";
+        const std::string settings = version == 4u ? R"("stiffness":0.375,"damping":0.3)"
+                                                   : R"("frequencyHz":68.18182373046875,"dampingRatio":0.8571429252624512)";
+        TemporaryMalformedSceneFile file( "TestOutput/joint_softness_schema.scene.json", prefix + settings + "}]}" );
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, file.path, scene ) );
+        REQUIRE( scene.GetPointJointConstraintCount() == 1 );
+        CHECK( scene.GetPointJointConstraint( 0 ).frequencyHz == 68.18182373046875f );
+        CHECK( scene.GetPointJointConstraint( 0 ).dampingRatio == 0.8571429252624512f );
+    }
+    for ( const char* settings : { R"("stiffness":0.22)", R"("frequencyHz":-1)", R"("dampingRatio":-1)" } )
+    {
+        const std::string prefix =
+            R"({"format":"skullbonez.scene.json","version":5,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,10],"view":[0,0,0],"up":[0,1,0]}],"ragdollJoints":[{"bodyA":"a","bodyB":"b","localAnchorA":[0,0,0],"localAnchorB":[0,0,0],)";
+        TemporaryMalformedSceneFile file( "TestOutput/joint_softness_invalid.scene.json", prefix + settings + "}]}" );
+        AuthoredScene scene;
+        CHECK_FALSE( TryLoadAuthoredScene( diagnostics, file.path, scene ) );
+    }
 }

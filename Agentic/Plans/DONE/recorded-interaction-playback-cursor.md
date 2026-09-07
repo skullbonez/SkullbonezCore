@@ -4,7 +4,7 @@ Date: 2026-08-22
 Status: Complete on 2026-08-28. 4/4 phases complete; RIC3 closed with
 unchanged-manifest replay evidence and blocker-free independent review.
 Impact area: recorded interaction-manifest playback, detached Runtime/Automation
-presentation values, GameUI/ImGui draw ordering, DX12 UI submission, tests, and
+presentation values, GameUI draw ordering, DX12 UI submission, tests, and
 documentation
 Owner: Runtime/Automation owns recorded-turn evidence; the post-RBS product UI
 owner composes the fake cursor; Runtime/Render submits backend-neutral draw values
@@ -36,32 +36,6 @@ stream as input evidence.
 Evidence recorded on 2026-08-22 at `5e0f78279` on `main`, with the existing
 dirty Physics/Ragdoll work and ledger edits preserved as user-owned:
 
-- CodeGraph is current at 1,179 files, 36,661 nodes, and 110,198 edges.
-- `RecordedInputFrame` already retains normalized absolute pointer coordinates,
-  pointer availability, focus, buttons, wheel, raw mouse deltas, and an optional
-  semantic UI anchor for every recorded turn.
-- `InteractionAutomationRecorder::CapturePendingTurn` captures that complete
-  device value without moving the operating-system pointer.
-- `InteractionAutomationController` resolves semantic anchors and publishes the
-  selected recorded turn through
-  `InteractionAutomationInputDriver::PublishRecordedFrame`.
-- `PublishRecordedFrame` already scales normalized coordinates into the current
-  client area and forwards them through `Input::AutomationState`; no new
-  interaction-manifest field or schema version is required for the basic cursor.
-- `InputRouter::EvaluatePointerPresentation` already resolves frame-local
-  mouse-look/editor/replay-look cursor policy. RIC0 must ratify which of those
-  logical facts govern only the fake cursor without changing native presentation.
-- Native cursor visibility/capture belongs to `Input`, `InputRouter`, and
-  `Window`. Those owners and their `ShowCursor`, `SetCursor`, capture, and cursor
-  request paths are protected non-targets of this plan.
-- Backend-neutral triangles and rectangles already flow through `UIDrawList`,
-  `UIDrawContext`, `UiDrawSubmission`, and `UiTextPass`. A vector cursor therefore
-  needs no texture asset, descriptor, or new renderer capability.
-- GameUI/replay overlays and the development ImGui surface currently have
-  distinct late draw paths. RIC2 must prove one final cursor layer appears above
-  the selected operator surface rather than assuming GameUI ordering covers
-  ImGui.
-
 Historical counts describe the starting point; they are not budgets or closure
 ratchets.
 
@@ -75,7 +49,7 @@ ratchets.
   including pointer absence, focus, free-look/mouse-look, capture, and playback
   completion.
 - Keep the hardware cursor completely independent and unchanged.
-- Draw above world content, GameUI, replay overlays, and ImGui without adding a
+- Draw above world content, GameUI, replay overlays without adding a
   second retained input or interaction owner.
 - Preserve interaction-manifest compatibility, semantic-anchor resolution,
   deterministic playback, fixed-capacity/no-growth behavior, and existing input
@@ -99,7 +73,7 @@ ratchets.
 - No texture asset or animated cursor framework unless RIC0 proves vector draw
   values cannot meet the visibility requirement.
 - No redesign of cursor policy, camera modes, editor interaction, GameUI,
-  replay controls, ImGui, or recording format.
+  replay controls, or recording format.
 - No golden refresh merely to accept the new overlay.
 
 ## Dependencies And Decisions
@@ -169,7 +143,7 @@ policy.
 - Preserve the recorded hot point at the arrow tip.
 - Optional button feedback may change only fake-cursor presentation and must be
   derived from the same recorded turn.
-- Draw after the selected GameUI or ImGui surface and after replay overlays so
+- Draw after the selected GameUI surface and after replay overlays so
   the cursor cannot disappear behind the action it is demonstrating.
 - The draw path is fixed-capacity and allocation-free in steady playback.
 
@@ -194,12 +168,12 @@ adding presentation code.
       findings, and the post-UI6 source/project ownership map.
 - [x] Inventory the recorded-frame capture, semantic-anchor resolution,
       playback publication, input routing, native cursor/capture, GameUI,
-      replay-overlay, ImGui, screenshot, and Present paths.
+      replay-overlay, screenshot, and Present paths.
 - [x] Build an explicit fake-cursor visibility matrix for focused/unfocused,
       pointer present/absent, ordinary cursor mode, free-look/mouse-look,
       editor viewport look, replay inspection look, tool capture, playback
       failure, and playback completion.
-- [x] Identify the final draw point that is above both GameUI and ImGui and is
+- [x] Identify the final draw point that is above GameUI and is
       included in backbuffer screenshots.
 - [x] Add focused pure-policy tests and negative controls for the visibility
       matrix.
@@ -255,15 +229,6 @@ The selected-turn path is fixed as follows:
    `PointerPresentationPolicy` facts. `InputRouter` remains the sole owner of
    native capture/cursor requests and commits; App remains the sole caller of
    `Input::SetNativeMouseCapture` and `Input::SetSystemCursorVisible`.
-
-The late presentation order is world, GameUI operator draw list, generic UI
-overlay, Planning replay overlay, UI finalization, and then the selected ImGui
-surface. The approved RIC2 insertion point is one generic `UIDrawList` graph
-pass immediately after `RuntimeRenderer::RenderDevelopmentUi` returns and
-before `RunPostDrawDiagnosticsPhase`, `TickScreenshots`, frame-graph
-finalization, and Present. It is therefore above both operator surfaces and is
-already part of every backbuffer screenshot path without a second capture or
-Present.
 
 ### RIC0 Visibility Matrix
 
@@ -321,24 +286,6 @@ changes under this task.
 
 ### RIC0 Validation Evidence
 
-- `clang-format 21.1.8 --dry-run --Werror` passed for the new policy header and
-  focused test; `git diff --check` passed; exact write scope was 8/8 approved
-  paths.
-- `tools\validate_project_filters.bat` passed with 0 errors across 862
-  production project and filter items. The partial `SKULLBONEZ_TESTS` project
-  check passed with 0 errors across 174 project and filter items.
-- `tools\validate_dependency_graph.bat` passed with the generated proof current,
-  0 repair-plan debt, and 0 findings.
-- The Profile `SKULLBONEZ_TESTS.vcxproj` build passed with the configured v145
-  toolset, 0 warnings, and 0 errors.
-- `Profile\SKULLBONEZ_TESTS.exe "--test-case=Recorded cursor presentation*"
-  --no-skip --no-colors` passed 3 test cases and 27 assertions, including
-  negative controls for both native capture and visibility observations.
-- No baseline, golden, manifest/schema, Replay storage/reserve, Rendering/UI
-  foundation, native cursor API, hardware capture policy, or GPU artifact was
-  changed. The registered ImGui and Tracy submodules were initialized at their
-  pinned commits for the local build with zero superproject gitlink diff.
-
 **Acceptance:** Every relevant mode has one expected fake-cursor outcome; the
 topmost draw point is identified for both operator surfaces; negative controls
 can detect a hardware-cursor mutation; no manifest, Replay, native host, or
@@ -384,16 +331,6 @@ terminates at that final-draw-seam local; RIC2 consumes it after development UI
 and before screenshots/Present, then removes the temporary non-consumption
 cast.
 
-Focused Profile tests passed 6/6 cases and 91/91 assertions for production
-mapping, semantic precedence, exact normal-input equivalence, policy priority,
-all clear paths, and native desired/committed byte equality. Profile and
-Automation builds passed with zero warnings and errors. Dependency
-proof/fixtures/repository scan, allocation self-test/repository scan, project
-filters, build-configuration consistency, and affected ownership inventories
-passed. No manifest/schema/sidecar/Replay/native API, baseline, golden, or
-tracked artifact changed; ImGui and Tracy were initialized locally at their
-pinned commits with zero gitlink diff.
-
 ## Phase RIC2 - Draw The Topmost Fake Cursor
 
 **Goal:** Render a polished software cursor above every supported operator
@@ -401,7 +338,7 @@ surface while leaving the hardware cursor untouched.
 
 - [x] Implement the approved vector arrow from component-neutral bounded draw
       values, preserving the recorded hot point and viewport-edge safety.
-- [x] Submit the cursor after GameUI, replay overlays, and ImGui according to
+- [x] Submit the cursor after GameUI, replay overlays according to
       the RIC0 ordering proof.
 - [x] Ensure hidden/minimized GameUI and the selected development surface do not
       accidentally suppress an otherwise visible fake cursor.
@@ -416,7 +353,7 @@ surface while leaving the hardware cursor untouched.
 - [x] Prove fixed command capacity, no post-start allocation, no new texture or
       descriptor, and no DX12 validation error.
 
-**Acceptance:** The fake cursor is readable and topmost on GameUI and ImGui,
+**Acceptance:** The fake cursor is readable and topmost on GameUI,
 tracks the resolved recorded position, disappears only under the ratified
 logical conditions, appears in playback screenshots, and causes no hardware
 cursor/capture or input-routing change.
@@ -476,7 +413,7 @@ and visual ordering end to end.
 - [x] Run focused tests for visibility, clearing, coordinate mapping, draw
       fingerprints, command capacity, and native cursor/capture
       non-interference.
-- [x] Exercise GameUI, ImGui, hidden/minimized UI, free-look/mouse-look, focus
+- [x] Exercise GameUI, hidden/minimized UI, free-look/mouse-look, focus
       loss, viewport edges, playback completion, and overlapping live/fake
       cursors.
 - [x] Audit every touched source-bearing file with the comment-style audit and
@@ -591,7 +528,7 @@ Heavy validation remains concentrated in RIC3.
 |---|---|---|
 | RIC0 | visibility matrix, draw-order map, native non-interference negative controls | documentation and focused CPU policy tests |
 | RIC1 | coordinate/anchor, transitions, clearing, unchanged input/artifact tests | focused unit tests, dependency and allocation scans, Automation build |
-| RIC2 | draw fingerprints, GameUI/ImGui ordering, unchanged-manifest screenshot witness | unit tests, Automation, UI stress, DX12, bounded graphics stress |
+| RIC2 | draw fingerprints, GameUI ordering, unchanged-manifest screenshot witness | unit tests, Automation, UI stress, DX12, bounded graphics stress |
 | RIC3 | exact manifest replay, trace/screenshot evidence, audits and independent review | all focused rows plus fast/CPU, Automation, UI stress, DX12, graphics stress, full/plan-completion |
 
 ## Mandatory Review Questions
@@ -605,7 +542,7 @@ Heavy validation remains concentrated in RIC3.
    than the live hardware cursor?
 4. Is the hot point exactly the position used by normal recorded input routing,
    including semantic-anchor precedence?
-5. Is the cursor topmost for GameUI, replay overlays, ImGui, and screenshots?
+5. Is the cursor topmost for GameUI, replay overlays, and screenshots?
 6. Does playback completion or failure clear presentation without changing the
    native cursor path?
 7. Are drawing and policy fixed-capacity, allocation-free, and free of Replay
@@ -615,18 +552,10 @@ Heavy validation remains concentrated in RIC3.
 
 ## Stop Conditions
 
-Stop for owner review if RBS7 or UI6 is incomplete/stale at execution time; the
-feature appears to require a hardware cursor or capture mutation; a recorded
-position cannot be obtained without changing the manifest schema; GameUI and
-ImGui cannot share a topmost draw boundary without a new reverse edge; a second
-retained input/pointer owner appears necessary; a Runtime feature contract would
-enter Rendering or UI foundation; steady-state allocation grows; or a visual,
-Replay, interaction, or Physics golden refresh appears necessary.
-
 ## Completion Reporting
 
 The closing handoff reports the exact visibility matrix, detached value and
-owners, final draw ordering for GameUI/ImGui/screenshots, unchanged-manifest
+owners, final draw ordering for GameUI/screenshots, unchanged-manifest
 command/report/trace evidence, hardware cursor/capture before-and-after proof,
 draw-command capacity/high water, allocation result, tests and focused gates,
 touched-source checklist counts, independent-review fixes, baseline

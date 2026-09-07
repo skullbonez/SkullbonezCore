@@ -630,15 +630,15 @@ void ReplayPredictionPresentation::PublishVisualPacket( ReplayVisualPacket packe
 {
     const bool samePresentation = m_trajectorySubmissionProbe.presentationKeyValid &&
                                   m_trajectorySubmissionProbe.presentationTargetId == prediction.topology.targetId.value &&
-                                  m_trajectorySubmissionProbe.presentationSourceFrame == prediction.timeline.sourceFrame;
+                                  m_trajectorySubmissionProbe.presentationSourceFrame == prediction.timeline.sourceFrame &&
+                                  m_trajectorySubmissionProbe.presentationTopologyVersion == prediction.topology.version;
 
     if ( !samePresentation )
     {
+        m_trajectorySubmissionProbe = {};
         m_trajectorySubmissionProbe.presentationTargetId = prediction.topology.targetId.value;
         m_trajectorySubmissionProbe.presentationSourceFrame = prediction.timeline.sourceFrame;
-        m_trajectorySubmissionProbe.futureTreeReadinessDropCount = 0;
-        m_trajectorySubmissionProbe.futureTreeReadySeen = false;
-        m_trajectorySubmissionProbe.futureTreeReadyLastFrame = false;
+        m_trajectorySubmissionProbe.presentationTopologyVersion = prediction.topology.version;
         m_trajectorySubmissionProbe.presentationKeyValid = prediction.topology.targetId.IsValid();
     }
 
@@ -675,6 +675,14 @@ void ReplayPredictionPresentation::PublishVisualPacket( ReplayVisualPacket packe
     packet.retainedMarkers = prediction.markers.retainedMarkers;
     packet.ghostRequests = ghostRequests;
     packet.trajectoryDiagnostics = TrajectoryVisualStatsSnapshot();
+
+    if ( !packet.HasGeometry() )
+    {
+        // Hazard: a prior submission must not satisfy a wait after the current
+        // presentation clears or is still rebuilding its renderer-bound spans.
+        ResetTrajectorySubmissionWindow();
+    }
+
     StorePublishedVisualPacket( packet );
 }
 
@@ -693,6 +701,25 @@ void ReplayPredictionPresentation::ResetTrajectoryVisualStats() noexcept
 }
 
 
+void ReplayPredictionPresentation::ResetTrajectorySubmissionWindow() noexcept
+{
+    m_trajectorySubmissionProbe.hasSubmission = false;
+    m_trajectorySubmissionProbe.stableWindowReady = false;
+    m_trajectorySubmissionProbe.noReserveGrowth = true;
+    m_trajectorySubmissionProbe.observedFrameCount = 0;
+    m_trajectorySubmissionProbe.stableFrameCount = 0;
+    m_trajectorySubmissionProbe.firstFrame = -1;
+    m_trajectorySubmissionProbe.lastFrame = -1;
+    m_trajectorySubmissionProbe.stableHash = 0;
+    m_trajectorySubmissionProbe.geometryBytes = 0;
+    m_trajectorySubmissionProbe.vertexBytes = 0;
+    m_trajectorySubmissionProbe.vertexCount = 0;
+    m_trajectorySubmissionProbe.segmentCount = 0;
+    m_trajectorySubmissionProbe.reserveGrowthEventsAtStart = 0;
+    m_trajectorySubmissionProbe.reserveGrowthEventsAtEnd = 0;
+}
+
+
 void ReplayPredictionPresentation::RecordTrajectoryFrameStats(
     const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats )
 {
@@ -708,16 +735,40 @@ void ReplayPredictionPresentation::RecordTrajectorySubmissionFrame(
     const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats, int frameNumber,
     uint64_t reserveGrowthEventCount )
 {
-    if ( !submissionStats.hasGeometry || submissionStats.vertexBytes == 0 || submissionStats.vertexCount == 0 )
+    const uint64_t lineBytes = submissionStats.ordinaryLineBytes + submissionStats.priorityLineBytes;
+    const uint64_t ribbonBytes = submissionStats.ordinaryRibbonBytes + submissionStats.priorityRibbonBytes;
+    const uint64_t geometryBytes = lineBytes + ribbonBytes + submissionStats.vertexBytes;
+    if ( !submissionStats.hasGeometry || geometryBytes == 0 )
     {
         return;
     }
+
+    const uint64_t
+        lineHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( submissionStats.ordinaryLineHash,
+                                                                                      submissionStats.ordinaryLineBytes,
+                                                                                      submissionStats.priorityLineHash,
+                                                                                      submissionStats.priorityLineBytes );
+    const uint64_t
+        ribbonHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( submissionStats.ordinaryRibbonHash,
+                                                                                        submissionStats.ordinaryRibbonBytes,
+                                                                                        submissionStats.priorityRibbonHash,
+                                                                                        submissionStats
+                                                                                            .priorityRibbonBytes );
+    const uint64_t geometryHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( lineHash, lineBytes,
+                                                                                                     ribbonHash,
+                                                                                                     ribbonBytes );
+    const uint64_t
+        submittedHash = ReplayVisualPacketOperations::CombineReplayVisualSubmissionHashes( geometryHash,
+                                                                                           lineBytes + ribbonBytes,
+                                                                                           submissionStats.vertexHash,
+                                                                                           submissionStats.vertexBytes );
 
     ++m_trajectorySubmissionProbe.observedFrameCount;
     m_trajectorySubmissionProbe.hasSubmission = true;
     m_trajectorySubmissionProbe.stableWindowTargetFrameCount = REPLAY_TRAJECTORY_SUBMISSION_STEADY_FRAME_TARGET;
     const bool sameSubmittedBytes = m_trajectorySubmissionProbe.stableFrameCount > 0 &&
-                                    m_trajectorySubmissionProbe.stableHash == submissionStats.vertexHash &&
+                                    m_trajectorySubmissionProbe.stableHash == submittedHash &&
+                                    m_trajectorySubmissionProbe.geometryBytes == geometryBytes &&
                                     m_trajectorySubmissionProbe.vertexBytes == submissionStats.vertexBytes &&
                                     m_trajectorySubmissionProbe.vertexCount == submissionStats.vertexCount &&
                                     m_trajectorySubmissionProbe.segmentCount == submissionStats.segmentCount;
@@ -730,7 +781,8 @@ void ReplayPredictionPresentation::RecordTrajectorySubmissionFrame(
         // evidence begins only once submitted bytes and counters hold steady.
         m_trajectorySubmissionProbe.stableFrameCount = 1;
         m_trajectorySubmissionProbe.firstFrame = frameNumber;
-        m_trajectorySubmissionProbe.stableHash = submissionStats.vertexHash;
+        m_trajectorySubmissionProbe.stableHash = submittedHash;
+        m_trajectorySubmissionProbe.geometryBytes = geometryBytes;
         m_trajectorySubmissionProbe.vertexBytes = submissionStats.vertexBytes;
         m_trajectorySubmissionProbe.vertexCount = submissionStats.vertexCount;
         m_trajectorySubmissionProbe.segmentCount = submissionStats.segmentCount;

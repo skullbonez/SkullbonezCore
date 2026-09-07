@@ -225,6 +225,7 @@ class ReplayPresentation
     // Advances the value-only path palette in its stable UI order. Existing
     // trajectory records remain unchanged and are recolored on the next draw.
     ReplayPathColorMode CyclePathColorMode() noexcept;
+    void SetPathColorMode( ReplayPathColorMode mode ) noexcept;
     bool SetPathTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow, const char* name );
     ReplayPathPickResult ApplyPathPickResult( const ReplayPathPickResult& resolved );
     bool PrepareRenderPoseBodyMatch( int modelCount ) noexcept;

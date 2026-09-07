@@ -1,4 +1,4 @@
-﻿/*
+/*
 File: SkullbonezSource/Runtime/UI/OperatorUiProjection.cpp
 Purpose:
   Projects detached domain facts into one operator UI frame.
@@ -294,77 +294,6 @@ void ProjectOperatorEditorSurfaces( UI::OperatorEditorFrameView& view, bool prim
     view.surfaces = { primaryVisible, secondaryVisible };
 }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void ProjectOperatorEditorInspectorAndWorld( UI::OperatorEditorFrameView& view,
-                                             const UI::OperatorEditorInspectorView& inspector,
-                                             const OperatorUiWorldFacts& world )
-{
-    view.inspector = inspector;
-
-    view.world = { world.modelCount,
-                   world.modelCapacity,
-                   world.solverBallCount,
-                   world.solverBoxCount,
-                   world.rngSeed,
-                   world.timeScale,
-                   world.gravity,
-                   world.fluidHeight,
-                   world.fluidDensity,
-                   world.terrainFriction,
-                   world.objectFriction,
-                   world.rollingFriction,
-                   world.tornadoRadius,
-                   world.tornadoHeight,
-                   world.tornadoInward,
-                   world.tornadoSwirl,
-                   world.tornadoLift,
-                   world.fixedStep,
-                   world.physicsSleepEnabled,
-                   world.tornadoEnabled };
-}
-#endif
-
-void ProjectOperatorEditorDiagnostics( UI::OperatorEditorFrameView& view, const OperatorUiSecondaryDiagnosticsFacts& facts )
-{
-    UI::OperatorEditorDiagnosticsView& target = view.diagnostics;
-    target.rendererName = facts.rendererName;
-    target.physicsPipelineStageName = facts.physicsPipelineStageName;
-    target.renderTargetCount = (std::clamp)( facts.renderTargetCount, 0, UI::OPERATOR_EDITOR_RENDER_TARGET_CAPACITY );
-    target.drawCalls = facts.drawCalls;
-    target.uiDrawCalls = facts.uiDrawCalls;
-    target.workerThreadCount = facts.workerThreadCount;
-    target.maxWorkerThreadCount = facts.maxWorkerThreadCount;
-    target.physicsPipelineStageIndex = facts.physicsPipelineStageIndex;
-    target.physicsPipelineStageCount = facts.physicsPipelineStageCount;
-    target.fps = facts.fps;
-    target.renderMs = facts.renderMs;
-    target.physicsMs = facts.physicsMs;
-    target.cpuFrameMs = facts.cpuFrameMs;
-    target.gpuFrameMs = facts.gpuFrameMs;
-    target.physicsDebugAlpha = facts.physicsDebugAlpha;
-    target.physicsDebugContactLinger = facts.physicsDebugContactLinger;
-    target.rayCastImpulseStrength = facts.rayCastImpulseStrength;
-    target.launcherProjectileSpeed = facts.launcherProjectileSpeed;
-    target.trackedEngineBytes = facts.trackedEngineBytes;
-    target.reconciledTotalBytes = facts.reconciledTotalBytes;
-    target.uploadUsedBytes = facts.uploadUsedBytes;
-    target.uploadCapacityBytes = facts.uploadCapacityBytes;
-    target.replayReserveGrowthEvents = facts.replayReserveGrowthEvents;
-    target.physicsDebugFlags = facts.physicsDebugFlags;
-    target.collisionVisualizer = facts.collisionVisualizer;
-    target.physicsDebugTransparent = facts.physicsDebugTransparent;
-    target.broadphaseOverlay = facts.broadphaseOverlay;
-    target.tornadoVisualShell = facts.tornadoVisualShell;
-    target.tornadoFieldVectors = facts.tornadoFieldVectors;
-    target.rayCastVisualization = facts.rayCastVisualization;
-
-    for ( int index = 0; index < target.renderTargetCount; ++index )
-    {
-        const OperatorUiSecondaryRenderTargetFacts& source = facts.renderTargets[static_cast<std::size_t>( index )];
-        target.renderTargets[index] = { source.label,     source.width, source.height,
-                                        source.available, source.depth, source.hdr };
-    }
-}
 
 namespace
 {
@@ -492,9 +421,6 @@ void ProjectOperatorUiDiagnostics( UI::InGameUIFrameData& UIData, const Operator
                                     std::span<const OperatorUiWorkerCoreFacts>( facts.workerSamples.data(),
                                                                                 workerSampleCount ) );
 #endif
-    UIData.diagnostics.profiler.tracyBuildEnabled = facts.tracyBuildEnabled;
-    UIData.diagnostics.profiler.tracyInitialized = facts.tracyInitialized;
-    UIData.diagnostics.profiler.tracyViewerConnected = facts.tracyViewerConnected;
     {
         // Concept: marker enumeration stays in the runtime pass that owns
         // profiler access. The UI receives a bounded frame snapshot so

@@ -1,0 +1,167 @@
+[
+  {
+    "name": "allocation-self-test",
+    "exit": 0,
+    "command": [
+      "python",
+      "tools/check_allocation_policy.py",
+      "--self-test"
+    ]
+  },
+  {
+    "name": "allocation-guard",
+    "exit": 0,
+    "command": [
+      "Profile/SKULLBONEZ_CORE.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--automation-hidden-window",
+      "--allocation-guard",
+      "gameplay",
+      "--frames",
+      "180",
+      "--scene",
+      "SkullbonezData/scenes/perf_1000.scene.json"
+    ]
+  },
+  {
+    "name": "selected-path",
+    "exit": 0,
+    "command": [
+      "Automation/SKULLBONEZ_CORE.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--automation-hidden-window",
+      "--replay",
+      "on",
+      "--replay-seconds",
+      "1",
+      "--frames",
+      "330",
+      "--scene",
+      "SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json",
+      "--interaction-script",
+      "SkullbonezData/interaction/selected_ball_path_perf.json",
+      "--interaction-report",
+      "C:\\SkullbonezCore\\TestOutput\\ragdoll-physics-unification\\FP7\\performance\\selected-path.json"
+    ]
+  },
+  {
+    "name": "causal-inspection",
+    "exit": 1,
+    "command": [
+      "python",
+      "tools/measure_causal_inspection_perf.py",
+      "--repo",
+      "C:\\SkullbonezCore"
+    ]
+  },
+  {
+    "name": "dx12",
+    "exit": 0,
+    "command": [
+      "Profile/SKULLBONEZ_CORE.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--automation-hidden-window",
+      "--scene",
+      "SkullbonezData/scenes/perf_test.scene.json"
+    ]
+  },
+  {
+    "name": "dx12-analysis",
+    "exit": 0,
+    "command": [
+      "python",
+      "Agentic/Skills/skore-render-test/analyze_perf.py",
+      "--renderer",
+      "dx12",
+      "--csv",
+      "C:\\SkullbonezCore\\TestOutput\\ragdoll-physics-unification\\FP7\\performance\\dx12_perf_log.csv",
+      "--out-dir",
+      "C:\\SkullbonezCore\\TestOutput\\ragdoll-physics-unification\\FP7\\performance"
+    ]
+  },
+  {
+    "name": "dx12-budgets",
+    "exit": 0,
+    "command": [
+      "python",
+      "tools/check_perf_budgets.py",
+      "--artifact",
+      "C:\\SkullbonezCore\\TestOutput\\ragdoll-physics-unification\\FP7\\performance\\dx12_perf.json"
+    ]
+  },
+  {
+    "name": "dx12-comparison",
+    "exit": 1,
+    "command": [
+      "python",
+      "Agentic/Skills/skore-render-test/perf_compare.py",
+      "--current",
+      "C:\\SkullbonezCore\\TestOutput\\ragdoll-physics-unification\\FP7\\performance\\dx12_perf.json",
+      "--previous",
+      "C:\\SkullbonezCore\\TestOutput\\baselines\\dx12_perf.json"
+    ]
+  },
+  {
+    "name": "physics_bench",
+    "exit": 0,
+    "command": [
+      "Profile/SKULLBONEZ_CORE.exe",
+      "--renderer",
+      "dx12",
+      "--vsync",
+      "off",
+      "--fixed-step",
+      "--automation-hidden-window",
+      "--scene",
+      "SkullbonezData/scenes/physics_bench_varied.scene.json"
+    ]
+  },
+  {
+    "name": "physics_bench-analysis",
+    "exit": 0,
+    "command": [
+      "python",
+      "Agentic/Skills/skore-render-test/analyze_perf.py",
+      "--renderer",
+      "physics_bench",
+      "--csv",
+      "C:\\SkullbonezCore\\TestOutput\\ragdoll-physics-unification\\FP7\\performance\\physics_bench_perf_log.csv",
+      "--out-dir",
+      "C:\\SkullbonezCore\\TestOutput\\ragdoll-physics-unification\\FP7\\performance"
+    ]
+  },
+  {
+    "name": "physics_bench-budgets",
+    "exit": 0,
+    "command": [
+      "python",
+      "tools/check_perf_budgets.py",
+      "--artifact",
+      "C:\\SkullbonezCore\\TestOutput\\ragdoll-physics-unification\\FP7\\performance\\physics_bench_perf.json"
+    ]
+  },
+  {
+    "name": "physics_bench-comparison",
+    "exit": 0,
+    "command": [
+      "python",
+      "Agentic/Skills/skore-render-test/perf_compare.py",
+      "--current",
+      "C:\\SkullbonezCore\\TestOutput\\ragdoll-physics-unification\\FP7\\performance\\physics_bench_perf.json",
+      "--previous",
+      "C:\\SkullbonezCore\\TestOutput\\baselines\\physics_bench_perf.json"
+    ]
+  }
+]

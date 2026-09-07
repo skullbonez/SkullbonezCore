@@ -251,7 +251,7 @@ def run_self_tests() -> list[str]:
     )
     expect_violation("large temp report", [CandidateFile("Agentic/Temp/huge.txt", large)], "Agentic/Temp/huge.txt")
     expect_violation("large root file", [CandidateFile("huge.bin", large)], "huge.bin")
-    if entry_mode("160000 deadbeef 0\tThirdPtySource/imgui", "ThirdPtySource/imgui") != "160000":
+    if entry_mode("160000 deadbeef 0\tThirdPtySource/example", "ThirdPtySource/example") != "160000":
         failures.append("staged gitlink mode: expected 160000")
     if entry_mode("100644 blob deadbeef\tREADME.md", "README.md") != "100644":
         failures.append("HEAD blob mode: expected 100644")

@@ -1,39 +1,7 @@
-/*
-File: SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp
-Purpose:
-  Serializes and restores the presentation-bearing state of one completed prediction.
-
-Summary:
-  Schema v6 wraps the precise v5 lightweight prediction payload in an ordered
-  section table and adds only the unique root/contact-event solver frames when
-  the captured capability is High. The reader validates byte closure, counts,
-  references, and path policy into replay-reserve-accounted candidate owners,
-  then swaps them into the caller only after the complete artifact succeeds.
-
-Glossary:
-  Scalar codec: Explicit little-endian encoding for one integer or float field.
-  Presentation cache: Derived prediction values consumed by overlay drawing.
-  All-body bank: Additional body-keyed FutureRoot records used by space scenes.
-  Captured capability: Detail present in the artifact, independent of the
-    reader's active High/Low preference.
-
-Invariants:
-  - Every vector count is checked against a presentation-specific hard limit.
-  - The complete payload fails closed above 128 MiB.
-  - High evidence contains frame zero plus each unique contact-derived node's
-    first frame in ascending order; Low archives have no evidence section.
-  - Schemas v3-v6 use canonical Hamilton quaternion components; the reader
-    conjugates schema v2 vector parts exactly once. Sectioned v4 remains readable.
-  - Active Low validates a High evidence section but commits zero evidence
-    capacity; v2/v3 artifacts always load with Low captured capability.
-  - A failed load leaves prior lightweight state, evidence rows, capacity, and
-    publication identity unchanged.
-  - No deserialized value can create or schedule prediction physics work.
-
-Related:
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.h
-  - SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp
-*/
+// Serializes one completed prediction through failure-atomic candidate owners.
+// High detail retains frame zero and causal event records within an explicit
+// coverage prefix; later trajectory and topology values remain available.
+// The byte cap and replay reserve accounting apply to every decoded section.
 #include "ReplayPredictionArchive.h"
 #include "ReplayPrediction.h"
 #include "ReplayPredictionReserve.h"
@@ -60,7 +28,8 @@ constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_QUATERNION_SCHEMA = 3u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_HISTORICAL_LIGHTWEIGHT_SCHEMA = 3u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA = 4u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_PRECISE_LIGHTWEIGHT_SCHEMA = 5u;
-constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 6u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_FULL_EVIDENCE_SCHEMA = 6u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 7u;
 bool IsLightweightPredictionArchiveSchema( uint32_t schema )
 {
     return ( schema >= REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA &&
@@ -70,7 +39,8 @@ bool IsLightweightPredictionArchiveSchema( uint32_t schema )
 
 bool IsSectionedPredictionArchiveSchema( uint32_t schema )
 {
-    return schema == REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA || schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA;
+    return schema == REPLAY_PREDICTION_ARCHIVE_HISTORICAL_SECTIONED_SCHEMA ||
+           schema == REPLAY_PREDICTION_ARCHIVE_FULL_EVIDENCE_SCHEMA || schema == REPLAY_PREDICTION_ARCHIVE_SCHEMA;
 }
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0u;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1u;
@@ -1127,7 +1097,7 @@ bool ReadPipeline( ArchiveReader& reader, Physics::PhysicsPipelineRecord& record
     return true;
 }
 
-std::size_t CollectRequiredEvidenceFrames( const RunReplayPredictionState& prediction,
+std::size_t CollectRequiredEvidenceFrames( const RunReplayPredictionState& prediction, ReplayFrameIndex endFrame,
                                            std::array<ReplayFrameIndex, REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES>& out )
 {
     std::size_t count = 1u;
@@ -1137,6 +1107,18 @@ std::size_t CollectRequiredEvidenceFrames( const RunReplayPredictionState& predi
     for ( const RunReplayPathTraceNode& node : presentation.topology.futureNodes )
     {
         if ( !node.contactDerived )
+        {
+            continue;
+        }
+        // Invariant: a bounded evidence prefix never legitimizes topology
+        // outside the complete timeline, including holes before its last frame.
+        const auto frames = presentation.timeline.frames;
+        if ( std::none_of( frames.begin(), frames.end(), [&node]( const RunReplayPredictionFrame& frame )
+                           { return frame.frameIndex == node.firstFrame; } ) )
+        {
+            return 0u;
+        }
+        if ( node.firstFrame >= endFrame )
         {
             continue;
         }
@@ -1178,8 +1160,26 @@ const ReplayPredictionSolverEvidenceFrame* FindEvidenceFrameByNumber( const Repl
 bool BuildEvidenceSection( const RunReplayPredictionState& prediction, const ReplayPredictionSolverEvidenceStore& evidence,
                            std::vector<uint8_t>& outBytes, uint32_t& outEventCount )
 {
+    const auto frames = ReplayPrediction::PresentationViewFromState( prediction, false ).timeline.frames;
+    const auto* lastEvidence = evidence.PublishedFrameCount() > 0u
+                                   ? evidence.PublishedFrame( evidence.PublishedFrameCount() - 1u )
+                                   : nullptr;
+    if ( frames.empty() || !lastEvidence || !lastEvidence->complete ||
+         lastEvidence->identity.frame >= frames.back().frameIndex + 1u )
+    {
+        return false;
+    }
+
+    // Why: restored evidence contains sparse event frames. Preserve the captured
+    // exclusive boundary instead of inferring it from the last retained event.
+    const ReplayFrameIndex endFrame = prediction.archivePresentationRestored ? prediction.archiveEvidenceEndFrame
+                                                                             : lastEvidence->identity.frame + 1u;
+    if ( endFrame == 0u || endFrame > frames.back().frameIndex + 1u )
+    {
+        return false;
+    }
     std::array<ReplayFrameIndex, REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES> requiredFrames = {};
-    const std::size_t eventCount = CollectRequiredEvidenceFrames( prediction, requiredFrames );
+    const std::size_t eventCount = CollectRequiredEvidenceFrames( prediction, endFrame, requiredFrames );
 
     if ( eventCount == 0u || evidence.Mode() != ReplayPredictionDetailMode::High )
     {
@@ -1187,6 +1187,7 @@ bool BuildEvidenceSection( const RunReplayPredictionState& prediction, const Rep
     }
 
     ArchiveWriter writer;
+    writer.Scalar( endFrame );
     writer.Scalar( static_cast<uint32_t>( eventCount ) );
     uint64_t totalContacts = 0;
     uint64_t totalPipeline = 0;
@@ -1298,14 +1299,23 @@ bool ValidateEvidenceRows( std::span<const Physics::PhysicsSolverPersistentConta
     return true;
 }
 
-bool ParseEvidenceSection( std::span<const uint8_t> bytes, const RunReplayPredictionState& prediction,
+bool ParseEvidenceSection( std::span<const uint8_t> bytes, RunReplayPredictionState& prediction, uint32_t schema,
                            ReplayPredictionDetailMode activePreference, ReplayPredictionSolverEvidenceBanks& outEvidence,
                            char* outReason, std::size_t reasonSize )
 {
     ArchiveReader reader( bytes );
     uint32_t eventCount = 0;
+    const auto frames = prediction.CommittedFrames();
+    ReplayFrameIndex endFrame = frames.empty() ? 0u : frames.back().frameIndex + 1u;
+    if ( ( schema >= REPLAY_PREDICTION_ARCHIVE_SCHEMA && !reader.Scalar( endFrame ) ) || frames.empty() || endFrame == 0u ||
+         endFrame > frames.back().frameIndex + 1u )
+    {
+        WriteReason( outReason, reasonSize, "invalid prediction evidence coverage boundary" );
+        return false;
+    }
+    prediction.archiveEvidenceEndFrame = endFrame;
     std::array<ReplayFrameIndex, REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES> requiredFrames = {};
-    const std::size_t requiredCount = CollectRequiredEvidenceFrames( prediction, requiredFrames );
+    const std::size_t requiredCount = CollectRequiredEvidenceFrames( prediction, endFrame, requiredFrames );
 
     if ( requiredCount == 0u || !ReadBoundedCount( reader, REPLAY_PREDICTION_ARCHIVE_MAX_EVENT_FRAMES, eventCount ) ||
          eventCount != requiredCount )
@@ -1483,6 +1493,7 @@ void CommitArchivePayload( RunReplayPathVisualizerState& destinationPath, RunRep
     destinationPrediction.trajectoryBuild = candidatePrediction.trajectoryBuild;
     destinationPrediction.committedPublication.Reset();
     destinationPrediction.archivePresentationRestored = true;
+    destinationPrediction.archiveEvidenceEndFrame = candidatePrediction.archiveEvidenceEndFrame;
     destinationPrediction.baseline = std::move( candidatePrediction.baseline );
     destinationPrediction.velocityDragPreview.Clear();
     destinationPrediction.revealClock = candidatePrediction.revealClock;
@@ -1743,8 +1754,8 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
         }
 
         if ( capability == ReplayPredictionArchiveDetailCapability::High &&
-             !ParseEvidenceSection( evidenceBytes, *candidatePrediction, activePreference, *candidateEvidence, outReason,
-                                    reasonSize ) )
+             !ParseEvidenceSection( evidenceBytes, *candidatePrediction, schema, activePreference, *candidateEvidence,
+                                    outReason, reasonSize ) )
         {
             return false;
         }

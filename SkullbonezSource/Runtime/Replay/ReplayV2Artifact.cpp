@@ -184,6 +184,13 @@ template <typename T> void AppendPod( std::vector<uint8_t>& out, const T& value 
     out.insert( out.end(), bytes.begin(), bytes.end() );
 }
 
+// Invariant: serialized counts cannot allocate storage until their minimum
+// encoded bytes fit the remaining payload. Division avoids count overflow.
+bool RecordsFit( const ByteCursor& cursor, uint32_t count, std::size_t recordBytes )
+{
+    return cursor.offset <= cursor.size && count <= ( cursor.size - cursor.offset ) / recordBytes;
+}
+
 template <typename T> bool ReadPod( ByteCursor& cursor, T& out )
 {
     static_assert( std::is_trivially_copyable<T>::value, "Replay v2 payload values must be POD" );
@@ -576,7 +583,8 @@ void AppendContactCache( std::vector<uint8_t>& out, const SkullbonezCore::Physic
     AppendPod( out, cache.accT2 );
 }
 
-void AppendPointJoint( std::vector<uint8_t>& out, const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint )
+void AppendPointJoint( std::vector<uint8_t>& out, const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint,
+                       uint32_t snapshotVersion )
 {
     AppendPod( out, joint.topologyOrdinal );
     AppendPod( out, joint.bodyASceneObjectId.value );
@@ -584,9 +592,16 @@ void AppendPointJoint( std::vector<uint8_t>& out, const SkullbonezCore::Physics:
     AppendVec3( out, joint.localAnchorA );
     AppendVec3( out, joint.localAnchorB );
     AppendPod( out, joint.slack );
-    AppendPod( out, joint.stiffness );
-    AppendPod( out, joint.damping );
-    AppendPod( out, joint.accumulatedImpulse );
+    AppendPod( out, joint.frequencyHz );
+    AppendPod( out, joint.dampingRatio );
+    if ( snapshotVersion >= 7u )
+    {
+        AppendVec3( out, joint.accumulatedImpulse );
+    }
+    else
+    {
+        AppendPod( out, joint.accumulatedImpulse.x );
+    }
     AppendPod( out, joint.groupId );
     AppendPod( out, joint.flags );
 }
@@ -710,7 +725,7 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const SkullbonezCore::Runt
 
         for ( const SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint : physics.pointJoints )
         {
-            AppendPointJoint( out, joint );
+            AppendPointJoint( out, joint, physics.version );
         }
     }
 
@@ -990,6 +1005,13 @@ bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes, const ChunkTabl
         return false;
     }
 
+    if ( !RecordsFit( cursor, bodyCount,
+                      version >= REPLAY_PRESENTATION_VISUAL_VERSION ? REPLAY_V3_BODY_DICTIONARY_ENTRY_BYTES
+                                                                    : REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES ) )
+    {
+        return false;
+    }
+
     outDictionary.reserve( bodyCount );
 
     for ( uint32_t i = 0; i < bodyCount; ++i )
@@ -1060,6 +1082,11 @@ bool ParseIndex( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& c
         return false;
     }
 
+    if ( !RecordsFit( cursor, frameCount, REPLAY_V2_INDEX_ENTRY_BYTES ) )
+    {
+        return false;
+    }
+
     outFrames.reserve( frameCount );
 
     for ( uint32_t i = 0; i < frameCount; ++i )
@@ -1096,6 +1123,11 @@ bool ParseBranchRecords( const std::vector<uint8_t>& fileBytes, const ChunkTable
     uint32_t branchCount = 0;
 
     if ( !ReadPod( cursor, branchCount ) || branchCount != chunk.recordCount )
+    {
+        return false;
+    }
+
+    if ( !RecordsFit( cursor, branchCount, REPLAY_V2_BRANCH_ENTRY_BYTES ) )
     {
         return false;
     }
@@ -1150,6 +1182,11 @@ bool ParseEventCursorRecords( const std::vector<uint8_t>& fileBytes, const Chunk
         return false;
     }
 
+    if ( !RecordsFit( cursor, cursorCount, REPLAY_V2_EVENT_CURSOR_ENTRY_BYTES ) )
+    {
+        return false;
+    }
+
     outRecords.reserve( cursorCount );
 
     for ( uint32_t i = 0; i < cursorCount; ++i )
@@ -1184,6 +1221,11 @@ bool ParseEventRecords( const std::vector<uint8_t>& fileBytes, const ChunkTableE
     uint32_t eventCount = 0;
 
     if ( !ReadPod( cursor, eventCount ) || eventCount != chunk.recordCount )
+    {
+        return false;
+    }
+
+    if ( !RecordsFit( cursor, eventCount, REPLAY_V2_EVENT_ENTRY_BYTES ) )
     {
         return false;
     }
@@ -1305,14 +1347,19 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes, const Chun
         return false;
     }
 
+    if ( !RecordsFit( presentation, frameCount, REPLAY_V2_FRAME_HEADER_BYTES ) )
+    {
+        return false;
+    }
     outSamples.reserve( frameCount );
+    uint64_t nextFrameOffset = sizeof( uint32_t );
 
     for ( const IndexedFrame& indexed : indexedFrames )
     {
         // Invariant: INDX offsets are relative to the PRES payload, not the
         // whole file. Add the chunk offset only after proving the relative seek
         // stays inside the presentation chunk.
-        if ( indexed.presentationChunkOffset > chunk.size )
+        if ( indexed.presentationChunkOffset != nextFrameOffset || indexed.presentationChunkOffset > chunk.size )
         {
             return false;
         }
@@ -1359,6 +1406,12 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes, const Chun
 
         sample.checkpointBoundary = checkpointBoundary != 0;
         ApplyWorldFlags( worldFlags, sample.world );
+        const uint32_t encodedBodyBytes = version >= REPLAY_PRESENTATION_VISUAL_VERSION ? REPLAY_V3_BODY_VISUAL_STATE_BYTES
+                                                                                        : REPLAY_V2_BODY_POSE_BYTES;
+        if ( !RecordsFit( frameCursor, bodyCount, encodedBodyBytes ) )
+        {
+            return false;
+        }
         sample.bodies.reserve( bodyCount );
 
         for ( uint32_t i = 0; i < bodyCount; ++i )
@@ -1411,6 +1464,7 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes, const Chun
         const std::size_t expectedFrameBytes = REPLAY_V2_FRAME_HEADER_BYTES +
                                                static_cast<std::size_t>( bodyCount ) * bodyBytes;
 
+        nextFrameOffset += expectedFrameBytes;
         if ( frameCursor.offset != expectedFrameBytes )
         {
             return false;
@@ -1455,6 +1509,11 @@ template <typename T> bool ReadCountedPodVector( ByteCursor& cursor, std::vector
         return false;
     }
 
+    if ( !RecordsFit( cursor, count, sizeof( T ) ) )
+    {
+        return false;
+    }
+
     outValues.resize( count );
 
     for ( T& value : outValues )
@@ -1479,6 +1538,11 @@ bool ReadSleepCounterVector( ByteCursor& cursor, uint32_t snapshotVersion, std::
     uint32_t count = 0;
 
     if ( !ReadPod( cursor, count ) )
+    {
+        return false;
+    }
+
+    if ( !RecordsFit( cursor, count, sizeof( uint8_t ) ) )
     {
         return false;
     }
@@ -1510,6 +1574,11 @@ bool ReadCountedIntVector( ByteCursor& cursor, std::vector<int>& outValues )
         return false;
     }
 
+    if ( !RecordsFit( cursor, count, sizeof( int32_t ) ) )
+    {
+        return false;
+    }
+
     outValues.resize( count );
 
     for ( int& value : outValues )
@@ -1533,6 +1602,11 @@ bool ReadCountedPairVector( ByteCursor& cursor, std::vector<std::pair<int, int>>
     uint32_t count = 0;
 
     if ( !ReadPod( cursor, count ) )
+    {
+        return false;
+    }
+
+    if ( !RecordsFit( cursor, count, 2 * sizeof( int32_t ) ) )
     {
         return false;
     }
@@ -1567,14 +1641,15 @@ bool ReadCountedStructVector( ByteCursor& cursor, std::vector<T>& outValues, Rea
         return false;
     }
 
-    outValues.resize( count );
-
-    for ( T& value : outValues )
+    // Decode before growth: a corrupt count cannot reserve unbacked records.
+    for ( uint32_t i = 0; i < count; ++i )
     {
+        T value {};
         if ( !readFunc( cursor, value ) )
         {
             return false;
         }
+        outValues.push_back( std::move( value ) );
     }
 
     return true;
@@ -1728,14 +1803,16 @@ bool ReadContactCache( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolve
            ReadPod( cursor, outCache.accT2 );
 }
 
-bool ReadPointJoint( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolverPointJointSample& outJoint )
+bool ReadPointJoint( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolverPointJointSample& outJoint,
+                     uint32_t snapshotVersion )
 {
     return ReadPod( cursor, outJoint.topologyOrdinal ) && ReadPod( cursor, outJoint.bodyASceneObjectId.value ) &&
            ReadPod( cursor, outJoint.bodyBSceneObjectId.value ) && ReadVec3( cursor, outJoint.localAnchorA ) &&
            ReadVec3( cursor, outJoint.localAnchorB ) && ReadPod( cursor, outJoint.slack ) &&
-           ReadPod( cursor, outJoint.stiffness ) && ReadPod( cursor, outJoint.damping ) &&
-           ReadPod( cursor, outJoint.accumulatedImpulse ) && ReadPod( cursor, outJoint.groupId ) &&
-           ReadPod( cursor, outJoint.flags );
+           ReadPod( cursor, outJoint.frequencyHz ) && ReadPod( cursor, outJoint.dampingRatio ) &&
+           ( snapshotVersion >= 7u ? ReadVec3( cursor, outJoint.accumulatedImpulse )
+                                   : ReadPod( cursor, outJoint.accumulatedImpulse.x ) ) &&
+           ReadPod( cursor, outJoint.groupId ) && ReadPod( cursor, outJoint.flags );
 }
 
 bool ReadPhysicsDebugContact( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsDebugContact& outContact )
@@ -1860,7 +1937,10 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
     // Wire schema: these conditionals use the nested solver snapshot version,
     // not the outer replay artifact version. v1/v2 end after collision-cell
     // keys, v3 adds point joints, and v4 adds motion eligibility.
-    if ( physics.version >= 3u && !ReadCountedStructVector( cursor, physics.pointJoints, ReadPointJoint ) )
+    if ( physics.version >= 3u &&
+         !ReadCountedStructVector( cursor, physics.pointJoints,
+                                   [&]( ByteCursor& source, SkullbonezCore::Physics::PhysicsSolverPointJointSample& joint )
+                                   { return ReadPointJoint( source, joint, physics.version ); } ) )
     {
         return false;
     }
@@ -1922,6 +2002,10 @@ bool ReadLauncherVisual( ByteCursor& cursor, ReplayLauncherVisualSample& outLaun
         return false;
     }
 
+    if ( !RecordsFit( cursor, rayLineCount, 32 ) )
+    {
+        return false;
+    }
     outLauncher.rayLines.resize( rayLineCount );
 
     for ( ReplayRayCastLineSample& line : outLauncher.rayLines )
@@ -1946,6 +2030,10 @@ bool ReadLauncherVisual( ByteCursor& cursor, ReplayLauncherVisualSample& outLaun
         return false;
     }
 
+    if ( !RecordsFit( cursor, laserShotCount, 60 ) )
+    {
+        return false;
+    }
     outLauncher.laserShots.resize( laserShotCount );
 
     for ( LauncherLaserShotSnapshot& shot : outLauncher.laserShots )
@@ -2037,7 +2125,8 @@ bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes, const ChunkT
         return false;
     }
 
-    outCheckpoints.reserve( checkpointCount );
+    // Checkpoints contain versioned vectors. Append only fully decoded records;
+    // the untrusted count must never reserve an entire checkpoint array.
 
     for ( uint32_t i = 0; i < checkpointCount; ++i )
     {
@@ -2066,6 +2155,10 @@ bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes, const ChunkT
         sample.sceneFrame = sceneFrame;
         sample.checkpointBoundary = checkpointBoundary != 0;
         ApplyWorldFlags( worldFlags, sample.world );
+        if ( !RecordsFit( cursor, bodyCount, REPLAY_V2_SOLVER_BODY_ENTRY_BYTES ) )
+        {
+            return false;
+        }
         sample.bodies.resize( bodyCount );
 
         for ( ReplaySolverBodySample& body : sample.bodies )
@@ -2097,6 +2190,11 @@ bool ParseSolverHashRecords( const std::vector<uint8_t>& fileBytes, const ChunkT
     uint32_t hashCount = 0;
 
     if ( !ReadPod( cursor, hashCount ) || hashCount != chunk.recordCount )
+    {
+        return false;
+    }
+
+    if ( !RecordsFit( cursor, hashCount, REPLAY_V2_HASH_ENTRY_BYTES ) )
     {
         return false;
     }

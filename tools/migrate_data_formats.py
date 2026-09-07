@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import struct
 import re
 import sys
 import tempfile
@@ -23,7 +25,7 @@ import bake_hulls
 
 ASSET_LIBRARY_VERSION = 1
 CONFIG_VERSION = 6
-SCENE_VERSION = 4
+SCENE_VERSION = 5
 ASSET_FORMAT = "skullbonez.asset_library.json"
 SCENE_FORMAT = "skullbonez.scene.json"
 CONFIG_VERSION_RE = re.compile(r"^(?P<indent>\s*)format_version\s*=\s*(?P<version>[^#\s]+)(?P<tail>\s*(?:#.*)?)$")
@@ -76,6 +78,15 @@ def _count_scene_key(value: object, target: str) -> int:
     return 0
 
 
+def _joint_float(value: float) -> float:
+    # Match ReadFloat and each C++ float operation exactly. Descriptor identity
+    # is byte-compared during legacy snapshot import after scene migration.
+    try:
+        return struct.unpack("<f", struct.pack("<f", value))[0]
+    except (OverflowError, struct.error) as exc:
+        raise MigrationError("joint setting exceeds the finite float range") from exc
+
+
 def migrate_scene_text(text: str, path: Path) -> str:
     try:
         document = json.loads(text)
@@ -126,6 +137,37 @@ def migrate_scene_text(text: str, path: Path) -> str:
         migrated, count = LEGACY_IMPULSE_OFFSET_KEY_RE.subn('"impulseWorldOffsetFromCenter"', migrated)
         if count != expected_count:
             raise MigrationError(f"{path}: parsed {expected_count} forcePosition keys but rewrote {count}")
+
+    # Named v4->v5 step: unitless joint controls become frequency (Hz) and
+    # damping ratio. Defaults map to 40 Hz / 1; this is an explicit retuning,
+    # not numerical equivalence with the retired joint equation.
+    joints = document.get("ragdollJoints", [])
+    if not isinstance(joints, list):
+        raise MigrationError(f"{path}: ragdollJoints must be an array")
+    for joint in joints:
+        if not isinstance(joint, dict):
+            raise MigrationError(f"{path}: ragdollJoints entries must be objects")
+        forbidden = ("stiffness", "damping") if version >= 5 else ("frequencyHz", "dampingRatio")
+        if any(key in joint for key in forbidden):
+            raise MigrationError(f"{path}: joint settings do not match scene version {version}")
+    if version < 5 and joints:
+        converted = []
+        for joint in joints:
+            value = dict(joint)
+            stiffness = value.pop("stiffness", 0.22)
+            damping = value.pop("damping", 0.35)
+            if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+                   for v in (stiffness, damping)):
+                raise MigrationError(f"{path}: joint settings must be finite numbers")
+            value["frequencyHz"] = _joint_float(_joint_float(min(1.0, max(0.0, _joint_float(stiffness))) / _joint_float(0.22)) * 40.0)
+            value["dampingRatio"] = _joint_float(min(1.0, max(0.0, _joint_float(damping))) / _joint_float(0.35))
+            converted.append(value)
+        matches = list(re.finditer(r'"ragdollJoints"\s*:\s*', migrated))
+        if len(matches) != 1:
+            raise MigrationError(f"{path}: expected one ragdollJoints field")
+        start = matches[0].end()
+        _, length = json.JSONDecoder().raw_decode(migrated[start:])
+        migrated = migrated[:start] + json.dumps(converted, indent=2, allow_nan=False) + migrated[start + length:]
 
     if version == SCENE_VERSION:
         return migrated
@@ -272,20 +314,10 @@ def expected_text(path: Path) -> str:
 def discover(repo: Path, explicit: list[Path]) -> list[Path]:
     if explicit:
         return [path.resolve() if path.is_absolute() else (repo / path).resolve() for path in explicit]
-    # Why: the default census follows content that needs a named migration. A
-    # current v3 orientation-only scene is outside the v4 vocabulary change and
-    # may be provenance-bound to an artifact that this phase cannot regenerate.
-    scenes = []
-    for path in sorted((repo / "SkullbonezData" / "scenes").glob("*.scene.json")):
-        text = path.read_bytes().decode("utf-8")
-        version_match = SCENE_VERSION_RE.search(text)
-        version = int(version_match.group(2)) if version_match else 0
-        needs_quaternion_step = version < 3 and (
-            '"orientation"' in text or path.name == "buoyancy_inertia_orientation.scene.json"
-        )
-        needs_impulse_offset_step = '"forcePosition"' in text or '"impulseWorldOffsetFromCenter"' in text
-        if needs_quaternion_step or needs_impulse_offset_step:
-            scenes.append(path)
+    # Ordinary authored scenes always stay at the current schema. Historical
+    # immutable plan artifacts and explicit legacy regression fixtures retain
+    # their original versions outside this active-data census.
+    scenes = sorted((repo / "SkullbonezData" / "scenes").glob("*.scene.json"))
     return (
         sorted((repo / "SkullbonezData" / "assets").glob("*.assets.json"))
         + sorted((repo / "SkullbonezData" / "hulls").glob("*.hull"))
@@ -302,7 +334,7 @@ def self_test() -> None:
     )
     scene = migrate_scene_text(legacy_scene, scene_path)
     assert scene == (
-        '{"format":"skullbonez.scene.json","version":4,'
+        '{"format":"skullbonez.scene.json","version":5,'
         '"orientation":[-0.0,0.0,-1.25e-3,-4.0],"impulseWorldOffsetFromCenter":[1,2,3]}'
     )
     assert migrate_scene_text(scene, scene_path) == scene
@@ -312,13 +344,13 @@ def self_test() -> None:
         scene_path,
     )
     assert v3_scene == (
-        '{"format":"skullbonez.scene.json","version":4,'
+        '{"format":"skullbonez.scene.json","version":5,'
         '"orientation":[0.25,-0.5,0.75,1.0],"impulseWorldOffsetFromCenter":[4,5,6]}'
     )
     try:
-        migrate_scene_text('{"format":"skullbonez.scene.json","version":5}', scene_path)
+        migrate_scene_text('{"format":"skullbonez.scene.json","version":6}', scene_path)
     except MigrationError as exc:
-        assert "newer than current version 4" in str(exc)
+        assert "newer than current version 5" in str(exc)
     else:
         raise AssertionError("future scene version must fail")
     try:
@@ -396,6 +428,15 @@ def self_test() -> None:
             assert "newer than current version 2" in str(exc)
         else:
             raise AssertionError("future hull version must fail")
+
+    legacy_joint = '{"format":"skullbonez.scene.json","version":4,"ragdollJoints":[{"stiffness":0.22,"damping":0.35}]}'
+    migrated_joint = migrate_scene_text(legacy_joint, scene_path)
+    parsed = json.loads(migrated_joint)
+    assert parsed["version"] == 5
+    assert parsed["ragdollJoints"] == [{"frequencyHz":40.0,"dampingRatio":1.0}]
+    assert migrate_scene_text(migrated_joint, scene_path) == migrated_joint
+    nondefault = json.loads(migrate_scene_text(legacy_joint.replace("0.22", "0.375").replace("0.35", "0.3"), scene_path))
+    assert nondefault["ragdollJoints"] == [{"frequencyHz":68.18182373046875,"dampingRatio":0.8571429252624512}]
 
 
 def main() -> int:

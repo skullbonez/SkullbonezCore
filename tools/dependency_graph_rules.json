@@ -4,19 +4,43 @@
   "include_rules": [
     {
       "id": "core_floor",
-      "source_prefixes": ["Core"],
+      "source_prefixes": [
+        "Core"
+      ],
       "mode": "deny",
-      "target_prefixes": ["Assets", "Gameplay", "Physics", "Rendering", "Scene", "World", "Runtime", "UI"],
+      "target_prefixes": [
+        "Assets",
+        "Gameplay",
+        "Physics",
+        "Rendering",
+        "Scene",
+        "World",
+        "Runtime",
+        "UI"
+      ],
       "positive_target": "Maths/Vector3.h",
       "negative_target": "Runtime/App/Run.h"
     },
     {
       "id": "physics_direction",
-      "source_prefixes": ["Physics"],
+      "source_prefixes": [
+        "Physics"
+      ],
       "mode": "deny",
-      "target_prefixes": ["Assets", "Gameplay", "Scene", "World", "Runtime", "UI"],
+      "target_prefixes": [
+        "Assets",
+        "Gameplay",
+        "Scene",
+        "World",
+        "Runtime",
+        "UI"
+      ],
       "positive_target": "Core/Common.h",
-      "negative_targets": ["Assets/AssetKeys.h", "Scene/AuthoredScene.h", "Runtime/Scene/SceneSessionState.h"],
+      "negative_targets": [
+        "Assets/AssetKeys.h",
+        "Scene/AuthoredScene.h",
+        "Runtime/Scene/SceneSessionState.h"
+      ],
       "negative_include_fixtures": [
         {
           "target": "World/Terrain.h",
@@ -26,35 +50,71 @@
     },
     {
       "id": "rendering_direction",
-      "source_prefixes": ["Rendering"],
+      "source_prefixes": [
+        "Rendering"
+      ],
       "mode": "deny",
-      "target_prefixes": ["Gameplay", "Runtime", "UI"],
+      "target_prefixes": [
+        "Gameplay",
+        "Runtime",
+        "UI"
+      ],
       "positive_target": "Core/Common.h",
       "negative_target": "UI/UIDraw.h"
     },
     {
       "id": "gameplay_direction",
-      "source_prefixes": ["Gameplay"],
+      "source_prefixes": [
+        "Gameplay"
+      ],
       "mode": "deny",
-      "target_prefixes": ["Assets", "Scene", "World", "Runtime", "UI"],
+      "target_prefixes": [
+        "Assets",
+        "Scene",
+        "World",
+        "Runtime",
+        "UI"
+      ],
       "positive_target": "Physics/PhysicsApi.h",
       "negative_target": "Scene/AuthoredScene.h"
     },
     {
       "id": "ui_direction",
-      "source_prefixes": ["UI"],
+      "source_prefixes": [
+        "UI"
+      ],
       "mode": "deny",
-      "target_prefixes": ["Runtime", "Rendering"],
+      "target_prefixes": [
+        "Runtime",
+        "Rendering"
+      ],
       "positive_target": "Core/Common.h",
-      "negative_targets": ["Runtime/UI/GameUI/UI.h", "Rendering/Text.h"]
+      "negative_targets": [
+        "Runtime/UI/GameUI/UI.h",
+        "Rendering/Text.h"
+      ]
     },
     {
       "id": "replay_downward_boundary",
-      "source_prefixes": ["Physics", "Rendering", "Scene", "World", "Core"],
+      "source_prefixes": [
+        "Physics",
+        "Rendering",
+        "Scene",
+        "World",
+        "Core"
+      ],
       "mode": "deny",
-      "target_prefixes": ["Runtime/Replay", "Runtime/Prediction", "Runtime/Planning"],
+      "target_prefixes": [
+        "Runtime/Replay",
+        "Runtime/Prediction",
+        "Runtime/Planning"
+      ],
       "positive_target": "Core/Common.h",
-      "negative_targets": ["Runtime/Replay/ReplayTimeline.h", "Runtime/Prediction/ReplayPrediction.h", "Runtime/Planning/ReplayPlanningRuntime.h"]
+      "negative_targets": [
+        "Runtime/Replay/ReplayTimeline.h",
+        "Runtime/Prediction/ReplayPrediction.h",
+        "Runtime/Planning/ReplayPlanningRuntime.h"
+      ]
     }
   ],
   "runtime_package_policy": {
@@ -151,7 +211,9 @@
           "Runtime/Replay/ReplayOverlayLayout.h",
           "Runtime/Replay/ReplayPathPackets.h",
           "Runtime/Replay/ReplayPresentationPackets.h",
-          "Runtime/Replay/ReplayTimelinePackets.h"
+          "Runtime/Replay/ReplayRecorder.h",
+          "Runtime/Replay/ReplayTimelinePackets.h",
+          "Runtime/Replay/ReplayV2Artifact.h"
         ]
       },
       {
@@ -230,19 +292,8 @@
         ]
       },
       {
-        "package": "Runtime/DevelopmentTools",
-        "rank": 15,
-        "allowed_exact_target_files": [
-          "Runtime/Interaction/OperatorEditorExchange.h",
-          "Runtime/Interaction/OperatorEditorObjectCatalog.h",
-          "Runtime/Planning/ReplayOverlayPackets.h",
-          "Runtime/Render/UIRenderAuthoringCatalog.h",
-          "Runtime/Startup/RunLaunchOptions.h"
-        ]
-      },
-      {
         "package": "Runtime/Capture",
-        "rank": 16,
+        "rank": 15,
         "allowed_exact_target_files": [
           "Runtime/Interaction/OperatorUiCommands.h",
           "Runtime/RuntimeFrameViews.h",
@@ -254,7 +305,7 @@
       },
       {
         "package": "Runtime/Direction",
-        "rank": 17,
+        "rank": 16,
         "allowed_exact_target_files": [
           "Runtime/Camera/DemoDirector.h",
           "Runtime/Tools/RuntimeFileWriter.h"
@@ -262,10 +313,9 @@
       },
       {
         "package": "Runtime/Automation",
-        "rank": 18,
+        "rank": 17,
         "allowed_exact_target_files": [
           "Runtime/Camera/RuntimeCameraMode.h",
-          "Runtime/DevelopmentTools/ImGuiEditorOwner.h",
           "Runtime/Camera/DemoDirector.h",
           "Runtime/Direction/DemoDirectorPlayback.h",
           "Runtime/Input/Input.h",
@@ -294,7 +344,7 @@
       },
       {
         "package": "Runtime/UI",
-        "rank": 19,
+        "rank": 18,
         "allowed_exact_target_files": [
           "Runtime/Automation/RecordedCursorFrame.h",
           "Runtime/Interaction/OperatorEditorObjectCatalog.h",
@@ -308,18 +358,17 @@
       },
       {
         "package": "Runtime/App",
-        "rank": 20,
+        "rank": 19,
         "allowed_exact_target_files": [
           "Runtime/Automation/InteractionAutomationController.h",
           "Runtime/Automation/InteractionAutomationRecorder.h",
           "Runtime/Automation/InteractionAutomationReportWriter.h",
           "Runtime/Automation/InteractionRecordingBrowser.h",
           "Runtime/Automation/InteractionRecordingSidecarDigest.h",
-          "Runtime/Automation/SkarnessHost.h",
           "Runtime/Automation/ReplayAutomationPackets.h",
           "Runtime/Automation/ReplayAutomationView.h",
           "Runtime/Automation/RuntimeValidationHarness.h",
-          "Runtime/Scene/AttachedCameraController.h",
+          "Runtime/Automation/SkarnessHost.h",
           "Runtime/Camera/CameraCollection.h",
           "Runtime/Camera/CameraControlState.h",
           "Runtime/Camera/RuntimeCameraMode.h",
@@ -327,13 +376,11 @@
           "Runtime/Capture/CaptureSystem.h",
           "Runtime/Capture/GraphicsStressController.h",
           "Runtime/Capture/RuntimeStressController.h",
-          "Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h",
-          "Runtime/DevelopmentTools/ImGuiEditorOwner.h",
-          "Runtime/Diagnostics/RuntimeFrameMetricsOwner.h",
           "Runtime/Diagnostics/DiagnosticsPhysicsUI.h",
           "Runtime/Diagnostics/DiagnosticsRuntime.h",
           "Runtime/Diagnostics/OverlayDebugState.h",
           "Runtime/Diagnostics/RuntimeDiagnostics.h",
+          "Runtime/Diagnostics/RuntimeFrameMetricsOwner.h",
           "Runtime/Diagnostics/RuntimeOverlayDiagnostics.h",
           "Runtime/Diagnostics/SceneMemoryDiagnostics.h",
           "Runtime/Diagnostics/UIStressPolicy.h",
@@ -353,6 +400,7 @@
           "Runtime/Interaction/RuntimeInteractionController.h",
           "Runtime/Interaction/RuntimePickService.h",
           "Runtime/Planning/ContinuousOrbitalForecast.h",
+          "Runtime/Planning/PhysicsComparisonPanel.h",
           "Runtime/Planning/ReplayCauseInspection.h",
           "Runtime/Planning/ReplayOverlayPackets.h",
           "Runtime/Planning/ReplayOverlayRenderer.h",
@@ -366,10 +414,10 @@
           "Runtime/Prediction/TrajectoryStore.h",
           "Runtime/Render/RenderDefaultsStore.h",
           "Runtime/Render/RenderPresentationSettings.h",
-          "Runtime/Render/UIRenderAuthoringCatalog.h",
           "Runtime/Render/RuntimeRenderFrameValues.h",
           "Runtime/Render/RuntimeRenderHost.h",
           "Runtime/Render/RuntimeRenderer.h",
+          "Runtime/Render/UIRenderAuthoringCatalog.h",
           "Runtime/Replay/ReplayAuthoring.h",
           "Runtime/Replay/ReplayCaptureLimits.h",
           "Runtime/Replay/ReplayCoordination.h",
@@ -392,6 +440,7 @@
           "Runtime/Replay/ReplayVisualPacket.h",
           "Runtime/Replay/ReplayVisualPacketFingerprint.h",
           "Runtime/RuntimeFrameViews.h",
+          "Runtime/Scene/AttachedCameraController.h",
           "Runtime/Scene/SceneAuthoredSetup.h",
           "Runtime/Scene/SceneCinematicPolicy.h",
           "Runtime/Scene/SceneController.h",
@@ -400,30 +449,30 @@
           "Runtime/Scene/SceneGeneratedControlTransaction.h",
           "Runtime/Scene/SceneGeneratedSetup.h",
           "Runtime/Scene/SceneLifecycle.h",
-          "Runtime/Scene/SceneLoadTransaction.h",
           "Runtime/Scene/SceneLoadRequest.h",
+          "Runtime/Scene/SceneLoadTransaction.h",
           "Runtime/Scene/SceneSaveOperations.h",
           "Runtime/Scene/SceneSessionState.h",
           "Runtime/Scene/SceneWorld.h",
           "Runtime/Simulation/SimulationSystem.h",
+          "Runtime/Startup/RunLaunchOptions.h",
+          "Runtime/Startup/RunStartupState.h",
           "Runtime/Startup/StartupCommandLine.h",
           "Runtime/Startup/StartupCrashLogging.h",
           "Runtime/Startup/StartupLaunchResolution.h",
           "Runtime/Startup/StartupProbeHarnesses.h",
-          "Runtime/Startup/RunLaunchOptions.h",
-          "Runtime/Startup/RunStartupState.h",
           "Runtime/Startup/Window.h",
           "Runtime/Tools/RuntimeFileWriter.h",
           "Runtime/Tools/RuntimeTools.h",
+          "Runtime/UI/GameUI/UI.h",
+          "Runtime/UI/GameUI/UIFrameComposition.h",
+          "Runtime/UI/GameUI/UITabEditor.h",
           "Runtime/UI/OperatorUiPhase.h",
           "Runtime/UI/OperatorUiProjection.h",
           "Runtime/UI/RecordedCursorDrawing.h",
           "Runtime/UI/RecordedCursorPresentationPolicy.h",
           "Runtime/UI/RenderDiagnosticsProjection.h",
-          "Runtime/UI/RuntimeViewModel.h",
-          "Runtime/UI/GameUI/UI.h",
-          "Runtime/UI/GameUI/UIFrameComposition.h",
-          "Runtime/UI/GameUI/UITabEditor.h"
+          "Runtime/UI/RuntimeViewModel.h"
         ]
       }
     ],
@@ -432,15 +481,19 @@
       "owner": "Runtime architecture",
       "plan": "RUNTIME_BOUNDARIES RBS2-RBS5",
       "reason": "The source-confirmed pre-separation edge remains forbidden by strict evaluation and is sealed only so the ordinary gate rejects new, changed, or stale debt while ignoring comment and line movement during the owning removal phase.",
-      "rulings": [
-      ]
+      "rulings": []
     }
   },
   "content_rules": [
     {
       "id": "rendering_retired_trajectory_vocabulary",
-      "source_prefixes": ["Rendering"],
-      "forbidden_literals": ["RetainedTrajectory", "RETAINED_TRAJECTORY"],
+      "source_prefixes": [
+        "Rendering"
+      ],
+      "forbidden_literals": [
+        "RetainedTrajectory",
+        "RETAINED_TRAJECTORY"
+      ],
       "positive_fixture": {
         "source": "Rendering/RetainedGeometryFixture.h",
         "text": "struct RetainedGeometryStream {};"
@@ -463,7 +516,12 @@
     {
       "id": "ui_single_project_ownership",
       "path_prefix": "SkullbonezSource/UI/",
-      "suffixes": [".cpp", ".h", ".hpp", ".inl"],
+      "suffixes": [
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".inl"
+      ],
       "required_project": "SKULLBONEZ_UI.vcxproj",
       "forbidden_projects": [
         "SKULLBONEZ_CORE.vcxproj",
@@ -476,7 +534,12 @@
     {
       "id": "runtime_ui_product_project_ownership",
       "path_prefix": "SkullbonezSource/Runtime/UI/",
-      "suffixes": [".cpp", ".h", ".hpp", ".inl"],
+      "suffixes": [
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".inl"
+      ],
       "required_project": "SKULLBONEZ_CORE.vcxproj",
       "forbidden_projects": [
         "SKULLBONEZ_MATHS.vcxproj",
@@ -488,9 +551,16 @@
     {
       "id": "rendering_single_project_ownership",
       "path_prefix": "SkullbonezSource/Rendering/",
-      "suffixes": [".cpp", ".h", ".hpp", ".inl"],
+      "suffixes": [
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".inl"
+      ],
       "required_project": "SKULLBONEZ_RENDERING.vcxproj",
-      "forbidden_projects": ["SKULLBONEZ_CORE.vcxproj"]
+      "forbidden_projects": [
+        "SKULLBONEZ_CORE.vcxproj"
+      ]
     }
   ]
 }

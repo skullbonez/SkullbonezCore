@@ -646,17 +646,9 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     };
     constexpr uint64_t expected[] = {
 
-    // Why: the profiler fingerprint was refreshed when the per-marker Work column was added so
-    // worker-thread time stopped being summed into the frame-thread rows.
-    // Only this surface moved; the other ten fingerprints prove the column
-    // did not disturb any other tab's stream.
-#if defined( SKULLBONEZ_PORTABLE_CPU )
-        // Why: the portable target links the non-instrumented UI library, matching
-        // the standalone UI boundary executable rather than the Profile app.
+        // Invariant: every build presents the same native profiler controls;
+        // removing the remote-profiler badge leaves the portable stream unchanged.
         17282268762934632125ull,
-#else
-        16424379413615724563ull,
-#endif
         // Invariant: the Scene stream includes the newest-first replay selector plus
         // the existing continuous-forecast controls and stability rows.
         2399826200700883422ull, // Scene: render-frame lockstep is named as a capture request.

@@ -209,7 +209,7 @@ def self_test() -> None:
         owner = repo / "SkullbonezSource" / "Core" / "Owner.h"
         owner.parent.mkdir(parents=True)
         owner.write_text("// fixture\n", encoding="utf-8")
-        root_props = repo / "SkoreDevelopmentThirdParty.props"
+        root_props = repo / "FixtureSettings.props"
         root_props.write_text("<!-- fixture -->\n", encoding="utf-8")
 
         source = repo / "SkullbonezSource" / "Runtime" / "Fixture.h"
@@ -232,7 +232,7 @@ def self_test() -> None:
         fixture = """/*
 Related:
   - SkullbonezSource/Core/Owner.h
-  - SkoreDevelopmentThirdParty.props
+  - FixtureSettings.props
   - LocalOwner.h
   - Scene/Request.cpp
   - UniqueOwner.h
@@ -246,7 +246,7 @@ Related:
         entries = related_entries(source, fixture)
         assert [entry.path for entry in entries] == [
             "SkullbonezSource/Core/Owner.h",
-            "SkoreDevelopmentThirdParty.props",
+            "FixtureSettings.props",
             "LocalOwner.h",
             "Scene/Request.cpp",
             "UniqueOwner.h",

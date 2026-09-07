@@ -723,6 +723,9 @@ struct RunReplayPredictionState
     // prefixes. Offline reveal projection may derive markers from those values,
     // but must not resume the live builders from retained scratch capacity.
     bool archivePresentationRestored = false;
+    // Invariant: exclusive high-detail coverage boundary of a restored archive.
+    // Sparse retained event records cannot reconstruct this value on re-save.
+    ReplayFrameIndex archiveEvidenceEndFrame = 0u;
 
     // Concept: the butterfly baseline is a retained presentation snapshot of
     // the pre-nudge future. It is intentionally smaller than the committed
@@ -818,6 +821,7 @@ struct ReplayPredictionSolverEvidenceCaptureStats
     uint64_t copiedContactCount = 0;
     uint64_t copiedPipelineCount = 0;
     uint64_t capacityTruncationCount = 0;
+    uint64_t emptyBuildCommitCount = 0;
     ReplayFrameIndex firstTruncatedFrame = 0;
     bool consumerActive = false;
     bool capacityTruncated = false;
@@ -1074,7 +1078,8 @@ class ReplayPrediction
     ReplayPredictionMemoryStats CollectMemoryStats() const;
 
     ReplayPredictionSolverEvidenceCaptureStats SolverEvidenceCaptureStats() const noexcept;
-#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+    ReplayPredictionSolverEvidenceBanksMemoryStats SolverEvidenceMemoryStats() const noexcept;
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS ) || defined( SKULLBONEZ_SKARNESS )
     ReplayPredictionDetailMode AutomationDetailMode() const noexcept
     {
         return m_detailMode;

@@ -66,7 +66,7 @@ CoreAllocation::RuntimeReserveOwnerHandle InteractionRecordingReserveOwner()
         { INTERACTION_RECORDING_RESERVE_OWNER, CoreAllocation::RuntimeReserveSubsystem::Diagnostics,
           CoreAllocation::RuntimeReservePhase::Diagnostics, 0, INTERACTION_RECORDING_HARD_FRAMES,
           CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, false,
-          "F8 interaction tape grows in one-minute chunks only while explicitly recording", false,
+          "F8 interaction tape grows in one-minute chunks only while explicitly recording",
           static_cast<int>( sizeof( RecordedInputFrame ) ) } );
 
     return owner;
@@ -610,7 +610,7 @@ Core::SbResult InteractionAutomationRecorder::SaveManifestAtomically( Core::SbDi
                            { { "visible", m_baseline.uiVisible },
                              { "minimized", m_baseline.uiMinimized },
                              { "activeTab", m_baseline.activeUiTab },
-                             { "developmentSurface", m_baseline.developmentUiSurface } } },
+                             { "developmentSurface", 0 } } },
                          { "replay", std::move( replayBaseline ) } };
     Json frames = Json::array();
 

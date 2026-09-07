@@ -490,6 +490,11 @@ ReplayPathColorMode ReplayPresentation::CyclePathColorMode() noexcept
     return m_pathVisualizer.colorMode;
 }
 
+void ReplayPresentation::SetPathColorMode( ReplayPathColorMode mode ) noexcept
+{
+    m_pathVisualizer.colorMode = mode;
+}
+
 
 bool ReplayPresentation::SetPathTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow, const char* name )
 {

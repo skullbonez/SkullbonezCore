@@ -196,6 +196,11 @@ class PhysicsSleepController
     PhysicsCandidatePairList m_sleepSupportEdges { "PhysicsSleepController.m_sleepSupportEdges",
                                                    PhysicsCapacityReason::CandidatePairs };
     SimulationIslandSystem m_simulationIslands;
+    // Joint wake traversal must not replace the contact graph used by WakeModel.
+    PhysicsBodyRowList<int> m_jointWakeParent { "PhysicsSleepController.jointWakeParent",
+                                                PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_jointWakeRank { "PhysicsSleepController.jointWakeRank",
+                                                  PhysicsCapacityReason::SceneBodies };
     PhysicsBodyRowList<int> m_sleepIslandParent { "PhysicsSleepController.m_sleepIslandParent",
                                                   PhysicsCapacityReason::SceneBodies };
     PhysicsBodyRowList<uint8_t> m_sleepIslandRank { "PhysicsSleepController.m_sleepIslandRank",

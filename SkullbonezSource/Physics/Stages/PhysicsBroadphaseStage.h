@@ -94,6 +94,12 @@ class PhysicsBroadphaseStage
                                               BroadphaseBodyActivityView activity, BroadphaseSweepContactEnvelope envelope,
                                               PhysicsPipelineTraceRecorder& physicsPipelineTrace );
 
+    // Re-query resident membership after same-tick release/wake, without another
+    // movement or CCD pass. Dormant members retain valid grid occupancy.
+    std::span<const std::pair<int, int>> RefreshCurrentContacts( const PhysicsBodyStore& bodies,
+                                                                 const ColliderStore& colliders,
+                                                                 std::span<const PointJointConstraint> joints,
+                                                                 BroadphaseBodyActivityView activity, float contactEpsilon );
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     float GetCellSize() const;
     std::span<const std::pair<int, int>> GetCandidatePairs() const;

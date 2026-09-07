@@ -45,8 +45,7 @@ struct GenerateMipsDispatchPlan
 // Invariant: group-memory reduction is exact only while each reduced axis is
 // either one texel or even. An odd intermediate level must become the source
 // of a new dispatch so the shader's filtered NPOT path includes its edge row.
-inline constexpr GenerateMipsDispatchPlan PlanGenerateMipsDispatch( unsigned int sourceWidth,
-                                                                    unsigned int sourceHeight,
+inline constexpr GenerateMipsDispatchPlan PlanGenerateMipsDispatch( unsigned int sourceWidth, unsigned int sourceHeight,
                                                                     unsigned int remainingMipCount )
 {
     GenerateMipsDispatchPlan plan = {};
@@ -134,6 +133,7 @@ inline const ShaderVertexInputContract* ShippingShaderVertexInputContracts()
           "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xyzw:NONE,TEXCOORD3:xyzw:NONE,TEXCOORD4:"
           "xyzw:NONE,TEXCOORD5:xyzw:NONE" },
         { "grid_line", "POSITION0:xyz:NONE,TEXCOORD0:xyz:NONE" },
+        { "image_pair", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
         { "launcher_laser", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE" },
         { "lit_textured", "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD0:xy:NONE" },
         { "lit_textured_instanced",
@@ -165,7 +165,7 @@ inline const ShaderVertexInputContract* ShippingShaderVertexInputContracts()
 
 inline constexpr size_t ShippingShaderVertexInputContractCount()
 {
-    return 21;
+    return 22;
 }
 
 inline const char* ShaderValueTypeName( ShaderValueType type )
@@ -436,7 +436,10 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
         { "uSunColor", ShaderValueType::Vec3, true },
         { "uVolumetricParams", ShaderValueType::Vec4, true },
     };
+    static constexpr ShaderUniformDecl imagePairUniforms[] = { { "uPair", ShaderValueType::Vec4, true },
+                                                               { "uTexel", ShaderValueType::Vec4, true } };
     static constexpr ShaderProgramDesc contracts[] = {
+        { "image_pair", "post", "FullscreenP2_UV2", imagePairUniforms, 2, nullptr, 0 },
         { "collision_visualizer", "debug", "P3_N3_I4x4_Color3", collisionVisualizerUniforms,
           sizeof( collisionVisualizerUniforms ) / sizeof( collisionVisualizerUniforms[0] ), nullptr, 0 },
         { "grid_line", "debug", "P3_Color3", viewProjectionUniforms,
@@ -485,7 +488,7 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
 
 inline constexpr size_t ShippingRasterShaderContractCount()
 {
-    return 21;
+    return 22;
 }
 
 inline const ShaderProgramDesc* FindShaderProgramDesc( const char* pathOrBaseName )

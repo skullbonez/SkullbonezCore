@@ -44,7 +44,6 @@ from replay_query import (
     EVENT_RECORD,
     FRAME_HEADER,
     HEADER,
-    POINT_JOINT_RECORD,
     SOLVER_STATS,
     TORNADO_CONFIG,
     TORNADO_SYSTEM_HEADER,
@@ -82,7 +81,7 @@ def remove_if_exists(path):
 
 
 def validate_snapshot_query_versions():
-    # Synthetic v1-v6 payloads pin every nested solver-snapshot width change
+    # Synthetic v1-v8 payloads pin every nested solver-snapshot width change
     # without launching the runtime. The v6 row exceeds the retired byte limit.
     def make_fixture(version, point_joint_count, motion_eligibility_state, sleep_counters=()):
         raw = bytearray()
@@ -108,7 +107,11 @@ def validate_snapshot_query_versions():
         if version >= 3:
             raw.extend(U32.pack(point_joint_count))
             for index in range(point_joint_count):
-                raw.extend(POINT_JOINT_RECORD.pack(index, 501, 502, *([0.0] * 10), 7, 1))
+                # Independent ABI literals catch reader width drift, including the
+                # following motion-state count being mistaken for impulse bytes.
+                layout = struct.Struct("<3I12fIB" if version >= 7 else "<3I10fIB")
+                values = [0.0] * 9 + ([1.25, -2.5, 3.75] if version >= 7 else [1.25])
+                raw.extend(layout.pack(index, 501, 502, *values, 7, 1))
 
         if version >= 4:
             raw.extend(U32.pack(len(motion_eligibility_state)))
@@ -124,6 +127,8 @@ def validate_snapshot_query_versions():
         (4, 1, (0, 1, 1), ()),
         (5, 1, (0, 1, 1), (255,)),
         (6, 1, (0, 1, 1), (1000,)),
+        (7, 2, (0, 1, 1), (1000,)),
+        (8, 2, (0, 1, 1), (1000,)),
     )
     for version, expected_joint_count, expected_motion_state, expected_sleep_counters in fixtures:
         raw = make_fixture(version, expected_joint_count, expected_motion_state, expected_sleep_counters)
@@ -140,13 +145,13 @@ def validate_snapshot_query_versions():
         if int(summary.get("sleepCounterCount") or 0) != len(expected_sleep_counters):
             raise RuntimeError(f"snapshot v{version} fixture reported the wrong sleep-counter count")
 
-    future_reader = ChunkReader(make_fixture(7, 1, (1,), (1000,)), "snapshot-v7-fixture")
+    future_reader = ChunkReader(make_fixture(9, 1, (1,), (1000,)), "snapshot-v9-fixture")
     try:
         ReplayV2._parse_snapshot_summary(future_reader)
     except ReplayQueryError:
         pass
     else:
-        raise RuntimeError("future solver snapshot v7 fixture was accepted")
+        raise RuntimeError("future solver snapshot v9 fixture was accepted")
 
 
 def run_checked(args, cwd):
@@ -407,6 +412,29 @@ def probe_generated_topology_restore():
     return len(runtime_stdout.encode("utf-8"))
 
 
+def validate_frame_record_keys(path):
+    # The runtime probe, not source spelling, proves the diagnostic wire keys.
+    # This catches accidental C++ member names leaking into JSON or CLI hints.
+    frame_kinds = {"frame", "body", "contact", "island", "island_member",
+                   "support_edge", "broadphase", "solver_stats", "event",
+                   "motion_policy", "motion_policy_summary", "pipeline_stages",
+                   "solver_iteration_summary", "replay_restore", "replay_scrub"}
+    seen = set()
+    with path.open(encoding="utf-8") as trace:
+        for line_number, line in enumerate(trace, 1):
+            record = json.loads(line)
+            kind = record.get("kind")
+            if kind in frame_kinds:
+                if not isinstance(record.get("frame"), int):
+                    raise RuntimeError(f"{path}:{line_number}: {kind} requires integer frame")
+                seen.add(kind)
+            for command in record.get("data", {}).get("followups", []):
+                if "summary.frame" in command:
+                    raise RuntimeError(f"{path}:{line_number}: invalid frame query hint")
+    if not {"frame", "body", "broadphase", "replay_restore"}.issubset(seen):
+        raise RuntimeError("restore fixture did not exercise diagnostic frame keys")
+
+
 def probe_restore_failure_row():
     command = [
         str(EXE),
@@ -432,6 +460,7 @@ def probe_restore_failure_row():
     if not any("Restore failure probe passed" in line for line in probe_lines):
         raise RuntimeError("runtime restore failure probe did not report expected saved-file failure")
 
+    validate_frame_record_keys(RESTORE_FAILURE_TRACE)
     restore_command = [str(PHYSICS_QUERY_BAT), str(RESTORE_FAILURE_TRACE), "restore", "--limit", "4"]
     print("  Restore failure query command:")
     print(
@@ -1027,7 +1056,7 @@ def query_artifact():
     if int(first_checkpoint.get("bodyCount") or 0) <= 0 or not first_checkpoint.get("bodies"):
         raise RuntimeError("replay checkpoint query did not return solver body payloads")
     snapshot = first_checkpoint.get("snapshot") or {}
-    if int(snapshot.get("version") or 0) not in (1, 2, 3, 4, 5, 6):
+    if int(snapshot.get("version") or 0) not in (1, 2, 3, 4, 5, 6, 7, 8):
         raise RuntimeError("replay checkpoint query returned an unsupported snapshot version")
     if int(snapshot.get("modelCount") or 0) != int(first_checkpoint.get("bodyCount") or 0):
         raise RuntimeError("replay checkpoint snapshot model count did not match body count")
@@ -1082,7 +1111,7 @@ def query_artifact():
 
 def main():
     try:
-        print("  Checking replay query snapshot v1-v4 fixtures...")
+        print("  Checking replay query snapshot v1-v8 fixtures...")
         validate_snapshot_query_versions()
         print("  Generating replay v2 artifact...")
         generate_artifact()

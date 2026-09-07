@@ -954,6 +954,141 @@ void ReplayScrubberComposer::DrawPredictionStatus()
     }
 }
 
+static void DrawReplayGateStroke( UI::UIDrawList& drawList, UI::UIPoint start, UI::UIPoint end,
+                                  const UI::Style::UIColor& color, float width )
+{
+    const float dx = end.x - start.x;
+    const float dy = end.y - start.y;
+    const float length = std::sqrt( dx * dx + dy * dy );
+
+    if ( !std::isfinite( length ) || length <= 0.001f )
+    {
+        return;
+    }
+
+    const float scale = width * 0.5f / length;
+    const UI::UIPoint offset { -dy * scale, dx * scale };
+    const UI::UIPoint a { start.x + offset.x, start.y + offset.y };
+    const UI::UIPoint b { end.x + offset.x, end.y + offset.y };
+    const UI::UIPoint c { end.x - offset.x, end.y - offset.y };
+    const UI::UIPoint d { start.x - offset.x, start.y - offset.y };
+    drawList.AddTriangle( { a, b, c }, color );
+    drawList.AddTriangle( { a, c, d }, color );
+}
+
+static void DrawReplayPositionGate( UI::UIDrawList& drawList, const ReplayPositionGate& gate )
+{
+    if ( !gate.visible )
+    {
+        return;
+    }
+
+    const auto point = [&]( float along, float across ) -> UI::UIPoint
+    {
+        return { gate.center.x + gate.tangent.x * along - gate.tangent.y * across,
+                 gate.center.y + gate.tangent.y * along + gate.tangent.x * across };
+    };
+    const std::array<UI::UIPoint, 4> diamond = { point( -9.0f, 0.0f ), point( 0.0f, -7.0f ), point( 9.0f, 0.0f ),
+                                                 point( 0.0f, 7.0f ) };
+
+    // Why: a thin dark backing keeps the crisp cue readable over bright bodies
+    // and pale paths without bloom. It is drawn before panels so UI still wins.
+    for ( int pass = 0; pass < 2; ++pass )
+    {
+        const float width = pass == 0 ? 4.0f : 2.0f;
+        const UI::Style::UIColor cyan = pass == 0 ? UI::Style::UIColor { 0.015f, 0.06f, 0.075f, 0.85f }
+                                                  : UI::Style::UIColor { 0.2f, 0.95f, 1.0f, 1.0f };
+        const UI::Style::UIColor white = pass == 0 ? cyan : UI::Style::UIColor { 0.96f, 1.0f, 1.0f, 1.0f };
+
+        for ( std::size_t edge = 0; edge < diamond.size(); ++edge )
+        {
+            DrawReplayGateStroke( drawList, diamond[edge], diamond[( edge + 1 ) % diamond.size()], cyan, width );
+        }
+
+        for ( float along : { -16.0f, 16.0f } )
+        {
+            DrawReplayGateStroke( drawList, point( along, -5.0f ), point( along, 5.0f ), white, width );
+        }
+    }
+}
+
+static void ComposeReplayPositionGates( UI::UIDrawList& drawList, const ReplayOverlayTimelineView& timeline,
+                                        const ReplayOverlayCausalityView& causality, const ReplayOverlayViewport& viewport )
+{
+    if ( !timeline.prediction.controls.enabled || timeline.prediction.timeline.frames.empty() )
+    {
+        return;
+    }
+
+    // Invariant: use the same immutable sample as the rendered bodies, never the
+    // collision's original frame or a nearest spatial match on a looping path.
+    const RunReplayPredictionFrame* frame = timeline.selectedPrediction;
+
+    if ( !frame )
+    {
+        // A live or historical pose need not match the prediction's source
+        // frame. Hide the gate until an actual future sample is presented.
+        return;
+    }
+
+    drawList.PushClip( { 0.0f, 0.0f, static_cast<float>( viewport.width ), static_cast<float>( viewport.height ) } );
+
+    for ( Physics::PhysicsSceneObjectId id : ReplayPositionGateSelection( causality, timeline.pathVisualizer.targetId ) )
+    {
+        DrawReplayPositionGate( drawList, BuildReplayPositionGate( *frame, id, viewport ) );
+    }
+
+    drawList.PopClip();
+}
+
+static void DrawReplayContactFlash( UI::UIDrawList& drawList, const ReplayOverlayViewport& viewport,
+                                    const Rendering::ContactPointPresentation& contact, float flash )
+{
+    UI::UIPoint center;
+
+    if ( !ProjectReplayGatePoint( contact.point, viewport, center ) )
+    {
+        return;
+    }
+
+    // Why: PhysicsDebugVisualizer owns the contact basis. This transient ring
+    // highlights its retained point without duplicating axes or rebuilding futures.
+    constexpr int sides = 16;
+    UI::UIPoint previous { center.x + 11.0f, center.y };
+
+    for ( int side = 1; side <= sides; ++side )
+    {
+        const float angle = static_cast<float>( side ) * 6.28318530718f / sides;
+        const UI::UIPoint next { center.x + 11.0f * std::cos( angle ), center.y + 11.0f * std::sin( angle ) };
+        DrawReplayGateStroke( drawList, previous, next, { 1.0f, 1.0f, 1.0f, flash }, 3.0f );
+        previous = next;
+    }
+}
+
+static void ComposeReplayContactFlash( UI::UIDrawList& drawList, const ReplayCauseInspectionView& inspection,
+                                       const ReplayOverlayViewport& viewport )
+{
+    const auto mode = inspection.Transport().mode;
+
+    if ( ( mode != ReplayCauseInspectionMode::DetailPaused && mode != ReplayCauseInspectionMode::Transporting ) ||
+         inspection.Display().contactFlashAlpha <= 0.0f )
+    {
+        return;
+    }
+
+    drawList.PushClip( { 0.0f, 0.0f, static_cast<float>( viewport.width ), static_cast<float>( viewport.height ) } );
+    const Rendering::ContactManifoldPresentation& presentation = inspection.SolverDetail().contactPresentation;
+    const std::size_t count = (std::min)( static_cast<std::size_t>( presentation.pointCount ),
+                                          Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY );
+
+    for ( std::size_t index = 0; index < count; ++index )
+    {
+        DrawReplayContactFlash( drawList, viewport, presentation.points[index], inspection.Display().contactFlashAlpha );
+    }
+
+    drawList.PopClip();
+}
+
 // Concept: the replay overlay is a read-only projection of replay state.
 //
 // Input code owns mutations such as dragging, toggling prediction, and branch
@@ -971,6 +1106,8 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
     }
 
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
+    ComposeReplayPositionGates( m_drawList, replay.timeline, replay.causality, viewport );
+    ComposeReplayContactFlash( m_drawList, replay.causality.inspection, viewport );
 
     for ( ReplayOverlaySurfaceKind surface : REPLAY_OVERLAY_COMPOSITION_ORDER )
     {
@@ -1253,13 +1390,34 @@ static void ComposeReplayPorkchopOverlay( UI::UIDrawList& drawList, const Replay
                palette.accentStrong.b, readout );
 }
 
+static void DrawReplayCauseLoading( const UI::UIDrawContext& draw, const UI::UIRect& content,
+                                    const ReplayCauseLoadingView& loading )
+{
+    const UI::Style::UIPalette& palette = UI::Style::Palette();
+    const float left = content.x + 20.0f;
+    const float width = (std::max)( 0.0f, content.w - 40.0f );
+    const float top = content.y + 34.0f;
+    draw.Text( left, top, 13.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
+               "Resolving collisions..." );
+    char progressText[32] = {};
+    sprintf_s( progressText, "%d%%", static_cast<int>( loading.progress * 100.0f ) );
+    draw.Text( left + width - UI::UIFontMetrics::MeasureText( 11.0f, progressText ), top + 29.0f, 11.0f, CAUSE_MANIFOLD.r,
+               CAUSE_MANIFOLD.g, CAUSE_MANIFOLD.b, progressText );
+    draw.RoundedRect( left, top + 51.0f, width, 8.0f, 4.0f, CAUSE_SELECTED.r, CAUSE_SELECTED.g, CAUSE_SELECTED.b, 1.0f );
+    draw.RoundedRect( left, top + 51.0f, width * loading.progress, 8.0f, 4.0f, CAUSE_MANIFOLD.r, CAUSE_MANIFOLD.g,
+                      CAUSE_MANIFOLD.b, 1.0f );
+    draw.Text( left, top + 77.0f, 10.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
+               "Evidence appears when ready." );
+}
+
 static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const ReplayOverlayCausalityView& causality,
                                            const ReplayPresentationSelection& selection, int screenW, int screenH )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
-    const bool predictionRows = !causality.tree.rows.empty() && causality.tree.rows.front().prediction;
+    const bool predictionRows = causality.loading.active ||
+                                ( !causality.tree.rows.empty() && causality.tree.rows.front().prediction );
 
-    if ( screenW <= 0 || screenH <= 0 || causality.tree.rows.empty() ||
+    if ( screenW <= 0 || screenH <= 0 || ( causality.tree.rows.empty() && !causality.loading.active ) ||
          !ReplayPredictionCauseWindowAvailable( causality.predictionDetailMode, predictionRows ) )
     {
         return;
@@ -1299,7 +1457,10 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
     UI::Style::UIColor panelBorder = CAUSE_RULE;
     panelBorder.a = 0.72f;
     draw.RoundedPanel( panel, 6.0f, CAUSE_NAVY, panelBorder );
-    RenderReplayCauseInspectorToggle( draw, inspectorLayout, causality.inspection, causality.tree );
+    if ( !causality.loading.active )
+    {
+        RenderReplayCauseInspectorToggle( draw, inspectorLayout, causality.inspection, causality.tree );
+    }
     draw.Rect( title.x + 12.0f, title.y + title.h - 2.0f, (std::max)( 0.0f, title.w - 24.0f ), 2.0f, CAUSE_RULE.r,
                CAUSE_RULE.g, CAUSE_RULE.b, 0.82f );
 
@@ -1316,6 +1477,12 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
     draw.Text( panel.x + panel.w - sourceW - 9.0f, panel.y + 13.0f, 10.0f,
                predictionRows ? CAUSE_PREDICTION.r : CAUSE_RULE.r, predictionRows ? CAUSE_PREDICTION.g : CAUSE_RULE.g,
                predictionRows ? CAUSE_PREDICTION.b : CAUSE_RULE.b, sourceLabel );
+
+    if ( causality.loading.active )
+    {
+        DrawReplayCauseLoading( draw, content, causality.loading );
+        return;
+    }
 
     draw.RoundedRect( filterField.x, filterField.y, filterField.w, filterField.h, 4.0f,
                       causality.tree.filterFocused ? CAUSE_SELECTED.r : CAUSE_NAVY_ALT.r,

@@ -2,7 +2,6 @@
   "version": 1,
   "actions": [
     { "frame": 5, "resizeWindow": [1125, 640] },
-    { "frame": 6, "setDevelopmentUiSurface": "game" },
     { "frame": 45, "showReplayScrubber": true },
     { "frame": 60, "clickObject": "prediction_striker_ball", "button": "left" },
     { "frame": 90, "assert": { "replayPathTarget": "prediction_striker_ball" } },

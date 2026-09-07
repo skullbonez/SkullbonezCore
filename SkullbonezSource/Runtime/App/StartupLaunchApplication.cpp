@@ -407,6 +407,30 @@ bool ApplySkarnessSessionDirectory( const char* value, ParsedArgs& args )
     fprintf( stdout, "[skarness] Session: %s\n", args.skarnessSessionDirectory );
     return true;
 }
+
+bool ApplyManualSkarnessSessionDirectory( const char* value, ParsedArgs& args )
+{
+    if ( !CopyCommandLinePath( value, "--skarness-manual", args.skarnessSessionDirectory,
+                               sizeof( args.skarnessSessionDirectory ) ) )
+    {
+        return false;
+    }
+
+    // Manual sessions retain the state stream and command pipe without taking
+    // ownership of hardware input, frame pacing, or the initial pause state.
+    args.skarnessManualInput = true;
+    args.interactiveRun = true;
+    args.suppressExitDialog = true;
+    args.replayRecording = true;
+    args.replayExplicit = true;
+    fprintf( stdout, "[skarness] Manual session: %s\n", args.skarnessSessionDirectory );
+    return true;
+}
+#else
+bool RejectUnsupportedSkarness( const char*, ParsedArgs& )
+{
+    return FailCommandLineParse( "--skarness is available only in Debug and Automation builds." );
+}
 #endif
 bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
 {
@@ -931,10 +955,6 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.physicsDebugAlphaOverride = args.physicsDebugAlphaOverride;
     launch.hasPhysicsDebugContactLingerOverride = args.hasPhysicsDebugContactLingerOverride;
     launch.physicsDebugContactLingerOverride = args.physicsDebugContactLingerOverride;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    launch.developmentUiMode = args.developmentUiMode;
-    launch.developmentUiModeExplicit = args.developmentUiModeExplicit;
-#endif
     strcpy_s( launch.predictTargetName, sizeof( launch.predictTargetName ), args.predictTargetName );
     launch.predictHorizonSeconds = args.predictHorizonSeconds;
     launch.predictPauseOnStart = args.predictPauseOnStart;
@@ -947,6 +967,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.interactionRecordMaxMinutes = args.interactionRecordMaxMinutes;
 #if defined( SKULLBONEZ_SKARNESS )
     overrides.skarnessSessionDirectory = args.skarnessSessionDirectory[0] != '\0' ? args.skarnessSessionDirectory : nullptr;
+    overrides.skarnessManualInput = args.skarnessManualInput;
 #endif
     const bool replayDefaultAllowed = !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
 
@@ -1064,34 +1085,6 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               fprintf( stdout, "[allocation-guard] Requested mode: %s\n", CoreAllocation::RuntimeAllocationGuardModeName( mode ) );
               return true;
           } },
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-        { "--dev-ui",
-          "--dev_ui",
-          []( const char* value, ParsedArgs& args ) -> bool
-          {
-              if ( !value || IsOptionValueMissing( value ) )
-              {
-                  return FailCommandLineParse( "--dev-ui expects game|imgui; the two surfaces are mutually exclusive." );
-              }
-
-              if ( strcmp( value, "game" ) == 0 )
-              {
-                  args.developmentUiMode = DevelopmentUiMode::GameUI;
-              }
-              else if ( strcmp( value, "imgui" ) == 0 )
-              {
-                  args.developmentUiMode = DevelopmentUiMode::ImGui;
-              }
-              else
-              {
-                  return FailCommandLineParse( "--dev-ui expects game|imgui; the two surfaces are mutually exclusive." );
-              }
-
-              args.developmentUiModeExplicit = true;
-              fprintf( stdout, "[dev-ui] Mode: %s\n", value );
-              return true;
-          } },
-#endif
         { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
         { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
         { "--scene-snapshot-out", "--scene_snapshot_out", ApplySceneSnapshotOutPath },
@@ -1101,6 +1094,10 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--interaction-trace", "--interaction_trace", ApplyInteractionTracePath },
 #if defined( SKULLBONEZ_SKARNESS )
         { "--skarness", nullptr, ApplySkarnessSessionDirectory },
+        { "--skarness-manual", "--skarness_manual", ApplyManualSkarnessSessionDirectory },
+#else
+        { "--skarness", nullptr, RejectUnsupportedSkarness },
+        { "--skarness-manual", "--skarness_manual", RejectUnsupportedSkarness },
 #endif
         { "--record-automation", "--record_automation", ApplyInteractionRecordPath },
         { "--record-interaction", "--record_interaction", ApplyInteractionRecordPath },

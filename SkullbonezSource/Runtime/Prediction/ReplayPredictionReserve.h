@@ -219,12 +219,23 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames, std
         return false;
     }
 
-    if ( requestedBytes <= oldBytes )
+    if ( allocationBytes == 0u )
     {
         return true;
     }
 
-    const uint64_t reservationBytes = (std::max)( requestedBytes, allocationBytes );
+    // Hazard: aggregate retained bytes do not prove that every frame owns the
+    // requested payload capacity. A smaller scene can leave excess capacity in
+    // older frame slots while a longer horizon adds empty slots. Account for
+    // the allocations needed to fill those holes even when requestedBytes is
+    // no larger than oldBytes.
+    if ( oldBytes > ( std::numeric_limits<uint64_t>::max )() - allocationBytes )
+    {
+        return false;
+    }
+
+    const uint64_t transientBytes = oldBytes + allocationBytes;
+    const uint64_t reservationBytes = (std::max)( requestedBytes, transientBytes );
 
     if ( reservationBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
          reservationBytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )

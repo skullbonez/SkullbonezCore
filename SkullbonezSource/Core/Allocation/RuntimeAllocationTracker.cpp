@@ -18,7 +18,6 @@ Invariants:
     gameplay allocations retain ordinary violation accounting.
   - Allocation phase and reserve owner are both calling-thread state. Keeping
     only one thread-local would create impossible phase/owner pairs.
-  - Heavy-mode allocation/free events pair only within one viewer connection.
   - A foreign pointer cannot fault the process while the hook copies its
     candidate header; only a fully readable, pointer-bound provenance cookie
     admits tracker-owned field access.
@@ -32,9 +31,6 @@ Related:
 
 #include "../PlatformWin32.h"
 #include "RuntimeReserveAllocator.h"
-#if defined( TRACY_ENABLE )
-#include "DevelopmentToolAllocation.h"
-#endif
 
 #include <atomic>
 #include <cstddef>
@@ -75,7 +71,6 @@ struct AllocationHeader
     uint64_t trackerAccountingGeneration;
     uint64_t ownerAccountingGeneration;
     uint64_t ownershipCookie;
-    uint64_t tracyConnectionId;
 };
 
 struct CallsiteCounters
@@ -161,7 +156,6 @@ uint64_t AllocationOwnershipCookie( const AllocationHeader& header, const void* 
     cookie = MixOwnershipCookieValue( cookie, header.trackerAccountingGeneration );
     cookie = MixOwnershipCookieValue( cookie, header.ownerAccountingGeneration );
 
-    cookie = MixOwnershipCookieValue( cookie, header.tracyConnectionId );
     return cookie;
 }
 
@@ -377,16 +371,9 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
         stackFrames[index] = reinterpret_cast<uintptr_t>( capturedFrames[index] );
     }
 #endif
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    const bool
-        approvedDevelopmentToolAllocation = RuntimeReserveAllocator::IsApprovedDevelopmentToolAllocation( owner,
-                                                                                                          phaseIndex );
-#else
-    constexpr bool approvedDevelopmentToolAllocation = false;
-#endif
     const bool gameplayViolation = CurrentMode() == RuntimeAllocationGuardMode::Gameplay &&
                                    SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase( phase ) &&
-                                   !approvedReplayGrowth && !approvedDevelopmentToolAllocation;
+                                   !approvedReplayGrowth;
 
     // Why: STL allocation helpers often inline several layers below the owner.
     // The fourth captured frame normally clears those helpers while remaining
@@ -488,7 +475,6 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     header->trackerAccountingGeneration = 0u;
     header->ownerAccountingGeneration = 0u;
     header->ownershipCookie = 0u;
-    header->tracyConnectionId = 0u;
 
     // Hazard: recording must never allocate through this same hook. The
     // thread-local guard keeps emergency CRT/STL paths from recursively counting
@@ -509,14 +495,6 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
             header->flags |= ALLOCATION_HEADER_OWNER_RECORDED;
         }
 
-#if defined( TRACY_ENABLE )
-        // Heavy Tracy capture is independent of allocation-guard mode. The
-        // connection id pairs this allocation with a free only inside the same
-        // viewer session, avoiding stale frees after disconnect/reconnect.
-        header->tracyConnectionId = SkullbonezCore::Core::Allocation::RecordTracyAllocation( reinterpret_cast<void*>(
-                                                                                                 userAddress ),
-                                                                                             size );
-#endif
         s_insideAllocationHook = false;
     }
 
@@ -635,9 +613,6 @@ void FreeTrackedMemory( void* pointer ) noexcept
     if ( !s_insideAllocationHook )
     {
         s_insideAllocationHook = true;
-#if defined( TRACY_ENABLE )
-        SkullbonezCore::Core::Allocation::RecordTracyFree( pointer, headerCopy.tracyConnectionId );
-#endif
         RecordFree( headerCopy );
         s_insideAllocationHook = false;
     }

@@ -41,7 +41,7 @@ Related:
 #include "../Maths/Vector3.h"
 #include "PhysicsDebugData.h"
 #include "PhysicsMotionEligibility.h"
-#include "Ragdoll.h"
+#include "PointJointConstraint.h"
 #include "TerrainContactManifold.h"
 
 namespace SkullbonezCore
@@ -128,6 +128,7 @@ struct PersistentContactSolverStats
 
 struct PersistentContactIterationDiagnostics
 {
+    PhysicsBodyHandle maxRowIslandBody;
     int iteration = 0;
     int normalChangedRowCount = 0;
     int tangentChangedRowCount = 0;
@@ -217,6 +218,7 @@ struct PhysicsDiagnosticsView
     std::span<const float> linearDirectionalBoundary;
     std::span<const float> angularTravelSquared;
     const PhysicsMotionEligibilityStats& motionEligibilityStats;
+    std::span<const PointJointIterationSample> pointJointIterations {};
 };
 
 } // namespace Physics

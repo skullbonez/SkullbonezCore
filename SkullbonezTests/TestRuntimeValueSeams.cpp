@@ -238,7 +238,7 @@ TEST_CASE( "Runtime composition maps camera modes into interaction-owned workspa
            WorldInteractionOwner::Manipulator );
 }
 
-TEST_CASE( "Operator UI phase: detached facts and process commands cross one ordered frame" )
+TEST_CASE( "Operator UI phase: detached facts and GPU submission cross one ordered frame" )
 {
     OperatorUiFrameSnapshot snapshot;
     snapshot.uiText.cameraModeLabel = "Orbit";
@@ -246,7 +246,6 @@ TEST_CASE( "Operator UI phase: detached facts and process commands cross one ord
     snapshot.metrics.uiDrawCalls = 9;
     snapshot.viewportWidth = 1920;
     snapshot.viewportHeight = 1080;
-    snapshot.secondarySurfaceVisible = true;
 
     OperatorUiPhaseOwner phase;
     phase.Begin( snapshot );
@@ -256,7 +255,6 @@ TEST_CASE( "Operator UI phase: detached facts and process commands cross one ord
     CHECK( phase.Snapshot().uiText.presentationAlpha == doctest::Approx( 0.25f ) );
     CHECK( phase.Snapshot().metrics.uiDrawCalls == 9 );
     CHECK( phase.Snapshot().viewportWidth == 1920 );
-    CHECK( phase.Snapshot().secondarySurfaceVisible );
     phase.Compose( false, true, true, false );
     CHECK( phase.SubmissionPlan().composeGameUi );
     CHECK_FALSE( phase.SubmissionPlan().submitOverlay );
@@ -264,40 +262,18 @@ TEST_CASE( "Operator UI phase: detached facts and process commands cross one ord
     CHECK_FALSE( phase.SubmissionPlan().finalizeOverlay );
     phase.RecordGpuSubmission( 7 );
 
-    phase.EmitCommands( true, true );
     phase.Complete();
 
     CHECK( phase.CurrentPhase() == OperatorUiPhaseOwner::Phase::Complete );
     CHECK( phase.GameUiDrawCalls() == 7 );
-    CHECK( phase.Commands().surface == OperatorUiSurfaceCommand::ShowGameUi );
-    CHECK( phase.Commands().requestTracyStandardCapture );
 }
 
-TEST_CASE( "Operator UI phase: hidden GameUI and ImGui consume the same immutable facts" )
-{
-    OperatorUiFrameSnapshot shared;
-    shared.uiText.cameraModeEnabledMask = 0x5u;
-    shared.uiText.presentationPinned = true;
-    shared.metrics.sceneEnergy = 12.5f;
-
-    OperatorUiPhaseOwner hidden;
-    OperatorUiPhaseOwner gameUi;
-    OperatorUiPhaseOwner imgui;
-    hidden.Begin( shared );
-    gameUi.Begin( shared );
-    imgui.Begin( shared );
-
-    CHECK( hidden.Snapshot().uiText.cameraModeEnabledMask == gameUi.Snapshot().uiText.cameraModeEnabledMask );
-    CHECK( gameUi.Snapshot().uiText.cameraModeEnabledMask == imgui.Snapshot().uiText.cameraModeEnabledMask );
-    CHECK( hidden.Snapshot().uiText.presentationPinned == imgui.Snapshot().uiText.presentationPinned );
-    CHECK( hidden.Snapshot().metrics.sceneEnergy == doctest::Approx( imgui.Snapshot().metrics.sceneEnergy ) );
-}
 
 TEST_CASE( "Operator UI phase: only adjacent operations belong to the fatal phase walk" )
 {
     using Phase = OperatorUiPhaseOwner::Phase;
     constexpr std::array phases { Phase::Idle, Phase::Snapshot, Phase::Composed,
-                                  Phase::Submitted, Phase::CommandsEmitted, Phase::Complete };
+                                  Phase::Submitted, Phase::Complete };
 
     for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
     {
@@ -359,10 +335,7 @@ TEST_CASE( "Operator UI phase: submission plan preserves text-only hidden and vi
     noCommandPhase.Begin( {} );
     noCommandPhase.Compose( true, false, false, false );
     noCommandPhase.RecordGpuSubmission( 0 );
-    noCommandPhase.EmitCommands( false, false );
     noCommandPhase.Complete();
-    CHECK( noCommandPhase.Commands().surface == OperatorUiSurfaceCommand::None );
-    CHECK_FALSE( noCommandPhase.Commands().requestTracyStandardCapture );
 }
 
 TEST_CASE( "Render policy: unavailable raytracing cannot select DXR reflection" )

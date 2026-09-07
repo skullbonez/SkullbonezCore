@@ -1505,6 +1505,10 @@ void PhysicsEngine::SetPhysicsDiagnosticsRunId( const char* runId )
 {
     m_world->SetPhysicsDiagnosticsRunId( runId );
 }
+void PhysicsEngine::SetPhysicsDiagnosticsCorrelation( const PhysicsDiagnosticsCorrelation& correlation )
+{
+    m_world->SetPhysicsDiagnosticsCorrelation( correlation );
+}
 
 
 #endif

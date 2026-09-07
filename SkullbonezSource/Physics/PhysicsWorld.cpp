@@ -367,7 +367,7 @@ void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::si
     m_broadphase.ReserveSceneCapacity( bodyCapacity );
     m_motionEligibility.ReserveBodyCapacity( bodyCapacity );
     m_narrowphase.ReserveSceneCapacity( bodyCapacity );
-    m_contactSolverStage.ReserveSceneCapacity( bodyCapacity );
+    m_contactSolverStage.ReserveSceneCapacity( bodyCapacity, pointJointCapacity );
     m_stepDiagnostics.ReserveSceneCapacity( bodyCapacity );
     m_sleepController.ReserveBodyCapacity( bodyCapacity, pointJointCapacity );
     m_terrain.ReserveSceneCapacity( bodyCapacity );
@@ -607,8 +607,8 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
         sample.localAnchorA = constraint.localAnchorA;
         sample.localAnchorB = constraint.localAnchorB;
         sample.slack = constraint.slack;
-        sample.stiffness = constraint.stiffness;
-        sample.damping = constraint.damping;
+        sample.frequencyHz = constraint.frequencyHz;
+        sample.dampingRatio = constraint.dampingRatio;
         sample.accumulatedImpulse = constraint.accumulatedImpulse;
         sample.groupId = constraint.groupId;
         sample.flags = constraint.flags;
@@ -688,6 +688,21 @@ bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& 
                 }
 
                 const PhysicsSolverPointJointSample& sample = snapshot.pointJoints[survivingConstraintIndex];
+                if ( !std::isfinite( sample.accumulatedImpulse.x ) || !std::isfinite( sample.accumulatedImpulse.y ) ||
+                     !std::isfinite( sample.accumulatedImpulse.z ) ||
+                     ( snapshot.version < 7u &&
+                       ( sample.accumulatedImpulse.y != 0.0f || sample.accumulatedImpulse.z != 0.0f ) ) )
+                {
+                    return false;
+                }
+
+
+                // Compatibility: v3-v7 retain raw historical coefficients in
+                // the detached sample so old artifact hashes remain readable.
+                const float frequencyHz = snapshot.version >= 8u ? sample.frequencyHz
+                                                                 : PointJointFrequencyFromLegacy( sample.frequencyHz );
+                const float dampingRatio = snapshot.version >= 8u ? sample.dampingRatio
+                                                                  : PointJointDampingFromLegacy( sample.dampingRatio );
 
                 // Invariant: the filtered row ordinal and durable scene ids are
                 // the persisted topology identity. Public constraint/body handle
@@ -698,8 +713,8 @@ bool PhysicsWorld::CanRestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& 
                      std::memcmp( &constraint.localAnchorA, &sample.localAnchorA, sizeof( sample.localAnchorA ) ) != 0 ||
                      std::memcmp( &constraint.localAnchorB, &sample.localAnchorB, sizeof( sample.localAnchorB ) ) != 0 ||
                      std::memcmp( &constraint.slack, &sample.slack, sizeof( sample.slack ) ) != 0 ||
-                     std::memcmp( &constraint.stiffness, &sample.stiffness, sizeof( sample.stiffness ) ) != 0 ||
-                     std::memcmp( &constraint.damping, &sample.damping, sizeof( sample.damping ) ) != 0 ||
+                     std::memcmp( &constraint.frequencyHz, &frequencyHz, sizeof( frequencyHz ) ) != 0 ||
+                     std::memcmp( &constraint.dampingRatio, &dampingRatio, sizeof( dampingRatio ) ) != 0 ||
                      constraint.groupId != sample.groupId || constraint.flags != sample.flags )
                 {
                     return false;
@@ -755,7 +770,12 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 
             if ( bodyA >= 0 && bodyA < modelCount && bodyB >= 0 && bodyB < modelCount )
             {
-                constraint.accumulatedImpulse = snapshot.pointJoints[sampleIndex++].accumulatedImpulse;
+                // A historical impulse came from a different constitutive
+                // model. Explicit import starts cold; App rejects authoritative
+                // continuation of historical solver versions before mutation.
+                constraint.accumulatedImpulse = snapshot.version >= 8u ? snapshot.pointJoints[sampleIndex].accumulatedImpulse
+                                                                       : ZERO_VECTOR;
+                ++sampleIndex;
             }
         }
     }
@@ -766,7 +786,7 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
         // retaining an unrelated live impulse.
         for ( PointJointConstraint& constraint : m_pointJointConstraints )
         {
-            constraint.accumulatedImpulse = 0.0f;
+            constraint.accumulatedImpulse = ZERO_VECTOR;
         }
     }
 
@@ -787,9 +807,7 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 #undef SB_REPLAY_SOLVER_VECTOR_FIELDS
 
 
-void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                                    std::span<BuoyancyBodyFacts> buoyancyFacts,
-                                                    const PhysicsWorldForces& worldForces )
+void PhysicsWorld::CommitContactSolverConsequences()
 {
     const PersistentContactSolverSideEffects& effects = m_contactSolverStage.GetSideEffects();
 
@@ -810,11 +828,6 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
     for ( int index : effects.collisionVisualBodies )
     {
         m_stepDiagnostics.MarkCollisionVisualContact( index );
-    }
-
-    for ( int index : effects.releaseWakeBodies )
-    {
-        WakeModel( bodyStore, colliderStore, buoyancyFacts, worldForces, index );
     }
 }
 
@@ -1267,17 +1280,45 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     // time-of-impact advancement from m_timeRemaining. The contact solver must
     // borrow these exact rows so its time-scaled terms describe the remaining
     // integration interval without changing the partial-CCD sequence.
-    m_contactSolverStage.Solve( bodyStore, colliderStore, contactPolicy, candidatePairs, sleepStates, m_timeRemaining,
-                                m_sleepController.MutableSupportEdgesForContactSolver(), m_terrain.GetContactManifolds(),
-                                m_terrain.GetRestApplied(), m_sleepController.MutableSupportedStatesForTerrain(),
-                                m_stepDiagnostics );
-
-    CommitContactSolverConsequences( bodyStore, colliderStore, buoyancyFacts, worldForces );
     m_sleepController.WakePointJointConnectedBodies( bodyStore, colliderStore, m_terrainView, worldForces, buoyancyFacts,
                                                      m_timeRemaining, m_contactSolverStage.CreateWakeAccess(),
                                                      m_pointJointConstraints, dt );
 
-    (void)Ragdoll::SolvePointJoints( bodyStore, m_pointJointConstraints, m_sleepController.GetSleepStates(), dt );
+    m_terrain.PublishRestSupport( bodyStore, sleepStates );
+    m_contactSolverStage.Solve( bodyStore, colliderStore, contactPolicy, candidatePairs, sleepStates, m_timeRemaining,
+                                m_sleepController.MutableSupportEdgesForContactSolver(), m_terrain.GetContactManifolds(),
+                                m_sleepController.MutableSupportedStatesForTerrain(), m_stepDiagnostics,
+                                m_pointJointConstraints );
+
+    for ( int index : m_contactSolverStage.GetSideEffects().releaseWakeBodies )
+    {
+        WakeModel( bodyStore, colliderStore, buoyancyFacts, worldForces, index );
+    }
+    if ( m_contactSolverStage.HasPendingReleasedConstraints() )
+    {
+        m_sleepController.WakePointJointConnectedBodies( bodyStore, colliderStore, m_terrainView, worldForces, buoyancyFacts,
+                                                         m_timeRemaining, m_contactSolverStage.CreateWakeAccess(),
+                                                         m_pointJointConstraints, dt );
+        m_contactSolverStage.PrepareReleasedBodies( bodyStore, sleepStates );
+        const BroadphaseBodyActivityView releasedActivity( modelCount, sleepStates, m_sleepController.GetAwakeBodyIndices(),
+                                                           m_motionEligibility.State(),
+                                                           m_motionEligibility.AngularBroadphaseExpansion() );
+        const auto releasedPairs = m_broadphase.RefreshCurrentContacts( bodyStore, colliderStore, m_pointJointConstraints,
+                                                                        releasedActivity, settings.body.contactEpsilon );
+        m_terrain.AppendReactivatedContacts( bodyStore, colliderStore, buoyancyFacts, m_terrainView, settings,
+                                             m_contactSolverStage.ReactivatedBodies(),
+                                             m_sleepController.MutableSupportedStatesForTerrain(),
+                                             m_sleepController.MutableInhibitedStatesForTerrain(), dt );
+        m_terrain.PublishRestSupport( bodyStore, sleepStates );
+        m_contactSolverStage.ContinueReleasedConstraints( bodyStore, colliderStore, contactPolicy, releasedPairs,
+                                                          sleepStates, m_timeRemaining,
+                                                          m_sleepController.MutableSupportEdgesForContactSolver(),
+                                                          m_terrain.GetContactManifolds(), m_stepDiagnostics,
+                                                          m_pointJointConstraints );
+    }
+    CommitContactSolverConsequences();
+
+    (void)Ragdoll::ApplyNeckSwingLimits( bodyStore, m_pointJointConstraints, m_sleepController.GetSleepStates() );
     m_sleepController.AppendPointJointSupportEdges( bodyStore, m_pointJointConstraints, modelCount );
 
     // Object contacts are converted into stack support only after terrain
@@ -1450,7 +1491,8 @@ void PhysicsWorld::TrimPointJointsToBodyCount( const PhysicsBodyStore& bodyStore
 
 PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
 {
-    if ( !desc.bodyA.IsValid() || !desc.bodyB.IsValid() || desc.bodyA == desc.bodyB )
+    if ( !desc.bodyA.IsValid() || !desc.bodyB.IsValid() || desc.bodyA == desc.bodyB || !std::isfinite( desc.frequencyHz ) ||
+         desc.frequencyHz < 0.0f || !std::isfinite( desc.dampingRatio ) || desc.dampingRatio < 0.0f )
     {
         return PhysicsConstraintHandle {};
     }
@@ -1470,8 +1512,8 @@ PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointC
     constraint.localAnchorA = desc.localAnchorA;
     constraint.localAnchorB = desc.localAnchorB;
     constraint.slack = desc.slack;
-    constraint.stiffness = desc.stiffness;
-    constraint.damping = desc.damping;
+    constraint.frequencyHz = desc.frequencyHz;
+    constraint.dampingRatio = desc.dampingRatio;
     constraint.groupId = desc.groupId;
     constraint.flags = desc.flags;
 
@@ -1494,6 +1536,13 @@ PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointC
 
 bool PhysicsWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
 {
+    if ( ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_SOLVER ) &&
+         ( !std::isfinite( desc.frequencyHz ) || desc.frequencyHz < 0.0f || !std::isfinite( desc.dampingRatio ) ||
+           desc.dampingRatio < 0.0f ) )
+    {
+        return false;
+    }
+
     const auto found = std::find_if( m_pointJointConstraints.begin(), m_pointJointConstraints.end(),
                                      [&]( const PointJointConstraint& constraint )
                                      { return constraint.handle == desc.constraint; } );
@@ -1523,8 +1572,8 @@ bool PhysicsWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
     if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_SOLVER )
     {
         joint.slack = desc.slack;
-        joint.stiffness = desc.stiffness;
-        joint.damping = desc.damping;
+        joint.frequencyHz = desc.frequencyHz;
+        joint.dampingRatio = desc.dampingRatio;
         invalidateWarmStart = true;
     }
 
@@ -1536,10 +1585,10 @@ bool PhysicsWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
 
     if ( invalidateWarmStart )
     {
-        // Invariant: a scalar impulse is meaningful only for the bodies,
+        // Invariant: a cached impulse is meaningful only for the bodies,
         // anchors, and solver policy that produced it. Handle identity survives
         // authoring updates, but stale solver state must not.
-        joint.accumulatedImpulse = 0.0f;
+        joint.accumulatedImpulse = ZERO_VECTOR;
     }
 
     m_sleepController.QueueConstraintTopologyWake( previousBodyA, previousBodyB );
@@ -1635,6 +1684,10 @@ void PhysicsWorld::SetPhysicsDiagnosticsRunId( const char* runId )
 {
     m_stepDiagnostics.SetPhysicsDiagnosticsRunId( runId );
 }
+void PhysicsWorld::SetPhysicsDiagnosticsCorrelation( const PhysicsDiagnosticsCorrelation& correlation )
+{
+    m_stepDiagnostics.SetPhysicsDiagnosticsCorrelation( correlation );
+}
 
 
 #endif
@@ -1667,7 +1720,8 @@ PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
                                     m_motionEligibility.LinearTravelSquared(),
                                     m_motionEligibility.LinearDirectionalBoundary(),
                                     m_motionEligibility.AngularTravelSquared(),
-                                    m_motionEligibility.Stats() };
+                                    m_motionEligibility.Stats(),
+                                    m_contactSolverStage.GetJointSamples() };
 }
 
 uint64_t PhysicsWorld::CollectMemoryBytes() const

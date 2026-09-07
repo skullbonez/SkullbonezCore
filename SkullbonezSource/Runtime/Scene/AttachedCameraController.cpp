@@ -24,7 +24,7 @@ Invariants:
   - Orbit pitch and distance are clamped before producing a camera pose.
   - Invalid or degenerate pose math fails closed without changing the camera.
   - Presentation sampling never changes the durable attached target identity.
-  - Focused inspection follows the live stable-id target without restarting its
+  - Focused inspection follows the presented stable-id target without restarting its
     entry tween; exit restores the suspended ordinary Attach state exactly once.
 
 Related:
@@ -430,6 +430,15 @@ bool AttachedCameraController::BeginFocusedInspection( Runtime::SceneWorld& coll
 }
 
 
+void AttachedCameraController::SetFocusedInspectionPosition( Physics::PhysicsSceneObjectId id,
+                                                             const Math::Vector::Vector3& position )
+{
+    if ( m_hasSuspendedState && m_state.hasInspectionPivot && m_state.target.sceneObjectId == id )
+    {
+        m_state.inspectionPivot = position;
+    }
+}
+
 bool AttachedCameraController::TickFocusedInspection( Runtime::SceneWorld& collection, float orbitYawDelta,
                                                       float orbitPitchDelta, int wheelDelta )
 {
@@ -450,9 +459,8 @@ bool AttachedCameraController::TickFocusedInspection( Runtime::SceneWorld& colle
         return false;
     }
 
-    // Why: the body may be restored to a different pose or continue through the
-    // aftermath. Causal inspection is about the selected collision point, not
-    // whichever body center happens to be live on this frame.
+    // Why: App supplies the selected prediction pose while the live body stays
+    // at the prediction source. Preserve the user's orbit as that pivot moves.
     target.position = m_state.inspectionPivot;
     target.radius = m_state.inspectionRadius;
 

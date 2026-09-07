@@ -1122,8 +1122,8 @@ void CheckPointJointOrderEqual( const PhysicsEngine& lhs, const PhysicsEngine& r
         CheckVectorBytesEqual( leftJoint.localAnchorA, rightJoint.localAnchorA );
         CheckVectorBytesEqual( leftJoint.localAnchorB, rightJoint.localAnchorB );
         CHECK( std::memcmp( &leftJoint.slack, &rightJoint.slack, sizeof( leftJoint.slack ) ) == 0 );
-        CHECK( std::memcmp( &leftJoint.stiffness, &rightJoint.stiffness, sizeof( leftJoint.stiffness ) ) == 0 );
-        CHECK( std::memcmp( &leftJoint.damping, &rightJoint.damping, sizeof( leftJoint.damping ) ) == 0 );
+        CHECK( std::memcmp( &leftJoint.frequencyHz, &rightJoint.frequencyHz, sizeof( leftJoint.frequencyHz ) ) == 0 );
+        CHECK( std::memcmp( &leftJoint.dampingRatio, &rightJoint.dampingRatio, sizeof( leftJoint.dampingRatio ) ) == 0 );
         CHECK( std::memcmp( &leftJoint.accumulatedImpulse, &rightJoint.accumulatedImpulse,
                             sizeof( leftJoint.accumulatedImpulse ) ) == 0 );
         CHECK( leftJoint.groupId == rightJoint.groupId );

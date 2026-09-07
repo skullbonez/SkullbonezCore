@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
+#include "../Physics/PointJointSettings.h"
 
 
 #include "../Assets/AssetSystem.h"
@@ -227,8 +228,8 @@ struct ScenePointJointConstraint
     Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
     float slack = 0.25f;
-    float stiffness = 0.22f;
-    float damping = 0.35f;
+    float frequencyHz = SkullbonezCore::Physics::POINT_JOINT_DEFAULT_FREQUENCY_HZ;
+    float dampingRatio = SkullbonezCore::Physics::POINT_JOINT_DEFAULT_DAMPING_RATIO;
     uint32_t groupId = 0;
     uint8_t flags = 0;
 };

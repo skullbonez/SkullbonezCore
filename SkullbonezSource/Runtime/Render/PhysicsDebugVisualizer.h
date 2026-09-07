@@ -23,6 +23,7 @@ Related:
 #pragma once
 
 #include <cstddef>
+#include <array>
 #include <span>
 #include <vector>
 #include "../../Core/SceneCapacity.h"
@@ -99,6 +100,12 @@ class PhysicsDebugVisualizer
     static constexpr std::size_t LINE_FLOAT_CAPACITY = static_cast<std::size_t>( Scene::Capacity::MAX_SCENE_OBJECTS ) *
                                                        LINE_FLOATS_PER_BODY_AXES;
     static constexpr std::size_t TRACKED_CONTACT_CAPACITY = Scene::Capacity::MAX_SCENE_OBJECTS;
+    // Two origin triplets, the body-pair line, and eight segments per contact.
+    // Each segment has an outline and a core, expanded to six 19-float vertices.
+    static constexpr std::size_t CONTACT_STROKE_FLOAT_CAPACITY = ( 2u * 3u * 3u + 1u +
+                                                                   Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY *
+                                                                       8u ) *
+                                                                 2u * 6u * 19u;
 
     struct TrackedContact
     {
@@ -114,13 +121,15 @@ class PhysicsDebugVisualizer
     float m_contactLingerSeconds = 0.45f;
     std::vector<float> m_lineData;
     std::vector<TrackedContact> m_trackedContacts;
+    std::array<float, CONTACT_STROKE_FLOAT_CAPACITY> m_contactStrokeVertices;
 
     TrackedContact* FindTrackedContact( const Physics::PhysicsDebugContact& contact );
     float ContactFade( const TrackedContact& contact ) const;
     void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitCross( const Math::Vector::Vector3& p, float size, float r, float g, float bl );
     void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
-    void EmitContactGlyph( const Rendering::ContactPointPresentation& point, float normalImpulse, float fade );
+    void EmitContactGlyph( const Rendering::ContactPointPresentation& point, float normalImpulse, float fade,
+                           bool inspectionStyle = false );
     void EmitRingXZ( const Math::Vector::Vector3& center, float radius, float yOffset, float r, float g, float bl );
     void EmitObjectAxes( const PhysicsDebugBodyView& view );
     void EmitConvexHullWireframes( const PhysicsDebugBodyView& view );
@@ -177,8 +186,11 @@ class PhysicsDebugVisualizer
                  Rendering::Dx12GeometryOwner& renderCommands, bool supportsDebugLines,
                  Geometry::Terrain* terrain = nullptr );
 
-    // Reuses the contact glyph path for an upper-layer-owned detached patch.
-    // The packet is consumed synchronously and never enters the linger cache.
+    // Produces smooth strokes from the existing world-space contact glyphs.
+    // Lifetime: the span borrows fixed scratch storage until the next build.
+    // Detached packets never enter the live-contact linger cache.
+    std::span<const float> BuildContactManifoldStrokes( const Rendering::ContactManifoldPresentation& presentation );
+
     void RenderContactManifold( const Rendering::ContactManifoldPresentation& presentation,
                                 const Math::Transformation::Matrix4& viewProj, Rendering::Dx12GeometryOwner& renderCommands,
                                 bool supportsDebugLines );

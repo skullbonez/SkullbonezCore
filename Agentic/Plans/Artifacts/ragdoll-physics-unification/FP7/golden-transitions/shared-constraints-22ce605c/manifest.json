@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "physics_plan": "Agentic/Plans/TODO/ragdoll-physics-unification.md",
+  "phase": "FP7",
+  "transition_id": "shared-constraints-22ce605c",
+  "source_commit": "fa1acb095391fcf2d772fc79b618d2579e27d5a8",
+  "goldens": [
+    {
+      "path": "TestOutput/baselines/replay_visual_fidelity_200_box.json",
+      "old_sha256": "9499cda65f4e852ee577ab29a6ad6664aa6afca4ac1e5c14c9451be1e10ab8f5",
+      "new_sha256": "22ce605cce6b3401f1e1bd4e94396032afbe879a76c4452e3bdf07243547a7ae"
+    },
+    {
+      "path": "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json",
+      "old_sha256": "128d2bd00202dd0a4149d2d2a096f4347b925e0ab19f00c2e0dc1811e379b9b3",
+      "new_sha256": "e3ad2a891c8123e6c78c92a11299bf16f8895342e4cd82d35699884f681038e4"
+    }
+  ],
+  "old_behavior": {
+    "source_commit": "fa1acb095391fcf2d772fc79b618d2579e27d5a8",
+    "golden_sha256": {
+      "TestOutput/baselines/replay_visual_fidelity_200_box.json": "9499cda65f4e852ee577ab29a6ad6664aa6afca4ac1e5c14c9451be1e10ab8f5",
+      "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json": "128d2bd00202dd0a4149d2d2a096f4347b925e0ab19f00c2e0dc1811e379b9b3"
+    },
+    "executables": [
+      {
+        "configuration": "Automation|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP7/golden-transitions/shared-constraints-22ce605c/old/SKULLBONEZ_CORE-Automation.exe",
+        "size": 4640768,
+        "sha256": "866b3d79a24833d956be195696cad50cb294760c7b04a69a4757916b40e8a6c1",
+        "launch_command": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP7/golden-transitions/shared-constraints-22ce605c/old/SKULLBONEZ_CORE-Automation.exe --renderer dx12 --vsync on --shadows off --hide-top-text --automation-hidden-window --scene Agentic/Plans/Artifacts/ragdoll-physics-unification/FP7/golden-transitions/shared-constraints-22ce605c/old/prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json --interaction-report TestOutput/fp7-old-reproduction.json --frames 6800 --replay on --replay-seconds 21 --fixed-step",
+        "dependency_scan_command": "dumpbin /DEPENDENTS Agentic/Plans/Artifacts/ragdoll-physics-unification/FP7/golden-transitions/shared-constraints-22ce605c/old/SKULLBONEZ_CORE-Automation.exe",
+        "first_party_dlls": []
+      }
+    ]
+  },
+  "new_behavior": {
+    "source_commit": "fa1acb095391fcf2d772fc79b618d2579e27d5a8",
+    "golden_sha256": {
+      "TestOutput/baselines/replay_visual_fidelity_200_box.json": "22ce605cce6b3401f1e1bd4e94396032afbe879a76c4452e3bdf07243547a7ae",
+      "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json": "e3ad2a891c8123e6c78c92a11299bf16f8895342e4cd82d35699884f681038e4"
+    },
+    "executables": [
+      {
+        "configuration": "Automation|x64",
+        "path": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP7/golden-transitions/shared-constraints-22ce605c/new/SKULLBONEZ_CORE-Automation.exe",
+        "size": 4681216,
+        "sha256": "af47cb1277f70ac0c6fb37d6235044441cfff8fb44eec77f56fda25a886d1c92",
+        "launch_command": "Agentic/Plans/Artifacts/ragdoll-physics-unification/FP7/golden-transitions/shared-constraints-22ce605c/new/SKULLBONEZ_CORE-Automation.exe --renderer dx12 --vsync on --shadows off --hide-top-text --automation-hidden-window --scene Agentic/Plans/Artifacts/ragdoll-physics-unification/FP7/golden-transitions/shared-constraints-22ce605c/new/prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json --interaction-report TestOutput/fp7-new-reproduction.json --frames 6800 --replay on --replay-seconds 21 --fixed-step",
+        "dependency_scan_command": "dumpbin /DEPENDENTS Agentic/Plans/Artifacts/ragdoll-physics-unification/FP7/golden-transitions/shared-constraints-22ce605c/new/SKULLBONEZ_CORE-Automation.exe",
+        "first_party_dlls": []
+      }
+    ]
+  }
+}

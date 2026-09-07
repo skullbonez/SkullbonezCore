@@ -91,7 +91,6 @@ Related:
 #include "Dx12RenderGraphExecutor.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include "../../Core/TracyClientOwner.h"
 #include "../../Core/FatalError.h"
 #include <cstdio>
 #include <algorithm>
@@ -165,9 +164,6 @@ RenderBackendDX12::RenderBackendDX12( SkullbonezCore::Core::SbDiagnosticStore& r
                          m_shaderDevelopment, m_diagnostics ),
       m_raytracingOwner( resultDiagnostics, m_renderDevice, m_descriptorHeaps, m_frameOwner, m_textureOwner, m_pipelineOwner,
                          m_geometryOwner ),
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-      m_imguiRenderer( resultDiagnostics, m_renderDevice, m_descriptorHeaps, m_frameOwner, m_pipelineOwner, m_textureOwner ),
-#endif
       m_backbufferCapture( resultDiagnostics, m_frameOwner.CaptureFrame(), m_renderDevice ),
       m_graphTransientPool( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_textureOwner, m_pipelineOwner )
 {
@@ -1007,16 +1003,6 @@ void RenderBackendDX12::Shutdown()
     // Lifetime: the concrete owners release their registries and compiled
     // pipelines only after the terminal GPU drain above proves no command list
     // can still reference them.
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
-    if ( m_imguiRenderer.IsInitialized() )
-    {
-        // Fatal invariant: only the ImGui context owner can safely invoke the vendor
-        // shutdown API. Reaching device teardown still bound would release
-        // descriptor/device storage before its context-owned resources.
-        SB_FATAL( "RenderBackendDX12", "DX12 shutdown reached descriptor teardown with the ImGui renderer still bound." );
-    }
-#endif
     m_geometryOwner.Shutdown();
     m_shaderDevelopment.ResetAfterShutdown();
     m_textureOwner.Shutdown();
@@ -1043,7 +1029,7 @@ void RenderBackendDX12::Shutdown()
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::Present( Dx12Diagnostics& diagnostics )
 {
-    SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/Present", ::HashStr( "Frame/DX12/Present" ) );
+
     SkullbonezCore::Core::SbResult stateResult = EnsureOpen();
 
     if ( !stateResult.Ok() )
@@ -1075,8 +1061,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Present( Dx12Diagnostics& diagnos
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-close
     AssertProfilerClosed( "Present" );
     {
-        SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/CommandRecording/Close",
-                                       ::HashStr( "Frame/DX12/CommandRecording/Close" ) );
+
 
         stateResult = CommitClose( CommandList()->Close(), "Present command list Close" );
     }
@@ -1103,7 +1088,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Present( Dx12Diagnostics& diagnos
     const UINT presentFlags = ( !m_device.VsyncEnabled() && m_device.AllowTearing() ) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
     HRESULT presentResult = S_OK;
     {
-        SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/SwapChainPresent", ::HashStr( "Frame/DX12/SwapChainPresent" ) );
+
         presentResult = m_device.SwapChain()->Present( syncInterval, presentFlags );
     }
 

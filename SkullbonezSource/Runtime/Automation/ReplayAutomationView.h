@@ -26,7 +26,7 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
-#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS ) || defined( SKULLBONEZ_SKARNESS )
 struct ReplayAutomationView
 {
     const RunReplayPredictionState& prediction;

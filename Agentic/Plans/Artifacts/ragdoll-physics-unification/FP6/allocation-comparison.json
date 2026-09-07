@@ -1,0 +1,8 @@
+{
+  "priorEvidence": "TestOutput/fp5-perf-gate.log",
+  "priorCount": 91,
+  "currentCount": 91,
+  "uniqueFindingIdentities": 85,
+  "newFindings": [],
+  "removedFindings": []
+}

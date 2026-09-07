@@ -1462,6 +1462,11 @@ ReplayPredictionSolverEvidenceCaptureStats ReplayPrediction::SolverEvidenceCaptu
     return m_solverEvidenceCaptureStats;
 }
 
+ReplayPredictionSolverEvidenceBanksMemoryStats ReplayPrediction::SolverEvidenceMemoryStats() const noexcept
+{
+    return m_solverEvidence.CollectMemoryStats();
+}
+
 ReplayPredictionSolverEvidenceFrameView
 ReplayPrediction::SolverEvidenceForPresentedFrame( ReplayFrameIndex frame ) const noexcept
 {
@@ -1777,7 +1782,22 @@ bool ReplayPrediction::PromoteSolverEvidenceBuild() noexcept
         m_solverEvidenceCaptureStats.consumerActive = false;
     }
 
-    return m_solverEvidence.PromoteBuild();
+    if ( m_solverEvidence.Build().PublishedFrameCount() > 0u )
+    {
+        return m_solverEvidence.PromoteBuild();
+    }
+
+    if ( !m_solverEvidenceCaptureStats.capacityTruncated )
+    {
+        return false;
+    }
+
+    // Why: exact solver evidence is optional and bounded. If its reserve is
+    // already exhausted at frame zero, commit an explicitly empty evidence bank
+    // instead of rejecting a complete trajectory and restarting it forever.
+    const bool committedEmptyBuild = m_solverEvidence.PromoteEmptyBuild();
+    m_solverEvidenceCaptureStats.emptyBuildCommitCount += committedEmptyBuild ? 1u : 0u;
+    return committedEmptyBuild;
 }
 
 void ReplayPrediction::CancelSolverEvidenceBuild() noexcept

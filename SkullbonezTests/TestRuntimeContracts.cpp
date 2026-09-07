@@ -71,9 +71,6 @@
 #include "../SkullbonezSource/Core/AtomicTextFileWriter.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
-#endif
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Core/FatalError.h"
 #include "../SkullbonezSource/Core/Log.h"
@@ -99,7 +96,6 @@
 #include "../SkullbonezSource/Rendering/RenderInstanceStore.h"
 #include "../SkullbonezSource/Rendering/RenderPipeline.h"
 #include "../SkullbonezSource/Rendering/Text.h"
-#include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/App/Run.h"
 #include "../SkullbonezSource/Runtime/App/InteractionAutomationApplication.h"
 #include "../SkullbonezSource/Runtime/App/ReplayRestoreOperations.h"
@@ -618,9 +614,9 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-struct PersistentContactSolveTransactionTestAccess
+struct ConstraintSolveTransactionTestAccess
 {
-    static void Advance( PersistentContactSolveTransaction& transaction, PersistentContactSolvePhaseCursor::Phase next )
+    static void Advance( ConstraintSolveTransaction& transaction, ConstraintSolvePhaseCursor::Phase next )
     {
         transaction.AdvanceOrFatal( next, "ExhaustiveFatalProbe" );
     }
@@ -645,6 +641,36 @@ struct PhysicsBodyStoreTestAccess
 
 struct PhysicsContactSolverStageTestAccess
 {
+    static void CheckCombinedManifoldCapacity()
+    {
+        PhysicsContactSolverStage stage;
+        {
+            Core::Allocation::RuntimeAllocationScope loading( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            stage.ReserveSceneCapacity( PHYSICS_COMPLETE_PAIR_TOPOLOGY_MAX_BODIES + 1u );
+        }
+        const std::size_t pairs = PHYSICS_MAX_CANDIDATE_PAIRS;
+        stage.m_persistentContacts.ResetDefault( ( pairs - 1u ) * 4u );
+        stage.m_sideEffects.collisionVisualBodies.ResetDefault( ( pairs - 1u ) * 2u );
+        const uint64_t bytes = stage.CollectDynamicMemoryBytes();
+        REQUIRE( stage.CanAppendObjectManifold( 4u ) );
+        for ( int point = 0; point < 4; ++point )
+        {
+            stage.m_persistentContacts.push_back( PersistentContact {} );
+        }
+        stage.m_sideEffects.collisionVisualBodies.push_back( 0 );
+        stage.m_sideEffects.collisionVisualBodies.push_back( 1 );
+        // A second query cannot reset the fixed-tick union budget. Rejection
+        // precedes every append, preserving complete manifold publication.
+        CHECK_FALSE( stage.CanAppendObjectManifold( 4u ) );
+        CHECK( stage.m_persistentContacts.size() == pairs * 4u );
+        CHECK( stage.m_sideEffects.collisionVisualBodies.size() == pairs * 2u );
+        CHECK( stage.CollectDynamicMemoryBytes() == bytes );
+        stage.m_sideEffects.collisionVisualBodies.clear();
+        stage.m_persistentContacts.ResetDefault( stage.m_persistentContacts.capacity() - 3u );
+        CHECK_FALSE( stage.CanAppendObjectManifold( 4u ) );
+        CHECK( stage.CanAppendObjectManifold( 3u ) );
+    }
+
     static void ReserveAndPrepare( PhysicsContactSolverStage& stage, std::size_t collisionVisualCapacity,
                                    std::size_t fixedContactCapacity, std::size_t releaseWakeCapacity,
                                    std::size_t fixedTreeCapacity, std::size_t pipelineCapacity )
@@ -800,7 +826,8 @@ TEST_CASE( "Runtime renderer world-to-overlay transaction rejects abandonment an
     static_assert( !std::is_copy_assignable_v<Transaction> );
     static_assert( !std::is_move_constructible_v<Transaction> );
     static_assert( !std::is_move_assignable_v<Transaction> );
-    static_assert( std::is_same_v<decltype( &Transaction::SubmitOverlays ), bool ( Transaction::* )( const OverlaySubmission& )> );
+    static_assert(
+        std::is_same_v<decltype( &Transaction::SubmitOverlays ), bool ( Transaction::* )( const OverlaySubmission& )> );
     CHECK( std::is_destructible_v<Transaction> );
     ExpectRuntimeFatalCase( "renderer-frame-transaction-abandoned",
                             { "FATAL[RunRender]", "ended before overlay submission" } );
@@ -935,21 +962,6 @@ TEST_CASE( "SDF atlas contracts reject malformed metrics and incomplete publicat
     {
         Text2d::charAdvance[index] = originalAdvances[index];
     }
-}
-
-TEST_CASE( "Tracy disabled marker seams discard caller expressions" )
-{
-    int evaluatedArguments = 0;
-    SKORE_TRACY_NAME_WORKER_THREAD( ++evaluatedArguments );
-    SKORE_TRACY_MARK_SUBMITTED_FRAME();
-    SKORE_TRACY_SCOPED_OWNER_ZONE( "Disabled", ++evaluatedArguments );
-    const uint32_t sourceHandle = SKORE_TRACY_REGISTER_OWNER_ZONE( "Disabled", ++evaluatedArguments );
-    const uint32_t zoneToken = SKORE_TRACY_BEGIN_OWNER_ZONE( ++evaluatedArguments );
-    SKORE_TRACY_END_OWNER_ZONE( ++evaluatedArguments );
-    SKORE_TRACY_PLOT_VALUE( "Disabled", ++evaluatedArguments );
-    CHECK( evaluatedArguments == 0 );
-    CHECK( sourceHandle == 0u );
-    CHECK( zoneToken == 0u );
 }
 
 
@@ -1388,6 +1400,70 @@ TEST_CASE( "IH7 frame resource schedule publishes ordinary sky without cinematic
     CHECK( cinematicSky == 1 );
 }
 
+TEST_CASE( "Detached manifold strokes preserve contact geometry and body origins" )
+{
+    using namespace SkullbonezCore;
+    Runtime::PhysicsDebugVisualizer visualizer;
+    Rendering::ContactManifoldPresentation presentation;
+    presentation.bodyCount = 2;
+    presentation.bodies[0].valid = true;
+    presentation.bodies[0].position = { 10.0f, 20.0f, 30.0f };
+    presentation.bodies[1].valid = true;
+    presentation.bodies[1].position = { -10.0f, -20.0f, -30.0f };
+    presentation.pointCount = 1;
+    presentation.points[0].point = { 3.0f, 4.0f, 5.0f };
+    presentation.points[0].normal = { 0.0f, 1.0f, 0.0f };
+    presentation.points[0].tangent1 = { 1.0f, 0.0f, 0.0f };
+    presentation.points[0].tangent2 = { 0.0f, 0.0f, 1.0f };
+    presentation.points[0].penetration = 0.5f;
+    presentation.points[0].exactSourcePoint = true;
+    const std::size_t lineCapacity = visualizer.DiagnosticLineFloatCapacity();
+    const auto strokes = visualizer.BuildContactManifoldStrokes( presentation );
+    constexpr std::size_t floatsPerSegment = 6u * 19u;
+    // Six origin arrows, one pair link, and the existing eight contact segments.
+    constexpr std::size_t segments = 6u * 3u + 1u + 8u;
+    REQUIRE( strokes.size() == segments * floatsPerSegment * 2u );
+    const auto core = strokes.subspan( segments * floatsPerSegment );
+    CHECK( core[0] == 10.0f );
+    CHECK( core[1] == 20.0f );
+    CHECK( core[2] == 30.0f );
+    CHECK( core[3] == 11.5f );
+    const std::size_t normal = ( 19u + 3u ) * floatsPerSegment;
+    CHECK( core[normal] == 3.0f );
+    CHECK( core[normal + 1] == 4.0f );
+    CHECK( core[normal + 2] == 5.0f );
+    CHECK( core[normal + 3] == 3.0f );
+    CHECK( core[normal + 4] == doctest::Approx( 6.9f ) );
+    CHECK( core[normal + 5] == 5.0f );
+    CHECK( core[25u * floatsPerSegment + 3] == 4.25f );
+    CHECK( core[26u * floatsPerSegment + 5] == 6.25f );
+
+    for ( std::size_t segment = 0; segment < segments; ++segment )
+    {
+        const std::size_t first = segment * floatsPerSegment;
+        for ( std::size_t component = 0; component < 6; ++component )
+        {
+            CHECK( strokes[first + component] == core[first + component] );
+        }
+        CHECK( strokes[first + 6] > core[first + 6] );
+        CHECK( core[first + 6] == doctest::Approx( 2.25f ) );
+        CHECK( core[first + 12] == 0.0f ); // No HDR emphasis or glow.
+    }
+    CHECK( presentation.points[0].point.y == 4.0f );
+    CHECK( presentation.points[0].penetration == 0.5f );
+    CHECK( visualizer.DiagnosticTrackedContactCount() == 0u );
+    CHECK( visualizer.DiagnosticLineFloatCapacity() == lineCapacity );
+
+    for ( auto& point : presentation.points )
+    {
+        point = presentation.points[0];
+    }
+    presentation.pointCount = 255;
+    CHECK( visualizer.BuildContactManifoldStrokes( presentation ).size() == ( 19u + 8u * 8u ) * floatsPerSegment * 2u );
+    presentation.pointCount = 0;
+    CHECK( visualizer.BuildContactManifoldStrokes( presentation ).empty() );
+}
+
 TEST_CASE( "Runtime debug visualizers bound staging and clear transient epochs" )
 {
     using namespace SkullbonezCore;
@@ -1559,17 +1635,6 @@ TEST_CASE( "Tornado visual rotation preserves ordinary bytes and long-time progr
     CHECK( twiceAdvancedPhase != exactFloatAdvancedPhase );
 }
 
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-TEST_CASE( "Tracy allocation events stay inactive outside heavy capture" )
-{
-    using namespace SkullbonezCore::Core::Allocation;
-    int value = 0;
-    SetTracyAllocationTracingEnabled( false );
-    const uint64_t connectionId = RecordTracyAllocation( &value, sizeof( value ) );
-    CHECK( connectionId == 0u );
-    RecordTracyFree( &value, connectionId );
-}
-#endif
 
 namespace
 {
@@ -1628,7 +1693,6 @@ struct ForeignAllocationHeaderLayout
     uint64_t trackerAccountingGeneration = 0u;
     uint64_t ownerAccountingGeneration = 0u;
     uint64_t ownershipCookie = 0u;
-    uint64_t tracyConnectionId = 0u;
 };
 
 static_assert( sizeof( void* ) == 8u, "Runtime allocation foreign-header probes require the supported x64 ABI." );
@@ -1636,7 +1700,7 @@ static_assert( offsetof( ForeignAllocationHeaderLayout, magic ) == 28u );
 static_assert( offsetof( ForeignAllocationHeaderLayout, trackerAccountingGeneration ) == 32u );
 static_assert( offsetof( ForeignAllocationHeaderLayout, ownerAccountingGeneration ) == 40u );
 static_assert( offsetof( ForeignAllocationHeaderLayout, ownershipCookie ) == 48u );
-static_assert( sizeof( ForeignAllocationHeaderLayout ) == 64u );
+static_assert( sizeof( ForeignAllocationHeaderLayout ) == 56u );
 
 constexpr uint32_t FOREIGN_ALLOCATION_HEADER_MAGIC = 0xA110CA7Eu;
 
@@ -2320,24 +2384,33 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
 
     if ( sscanf_s( caseName, "contact-solve-phase-%u-%u", &contactSolvePhaseFrom, &contactSolvePhaseTo ) == 2 )
     {
-        using SkullbonezCore::Physics::PersistentContactSolvePhaseCursor;
-        using SkullbonezCore::Physics::PersistentContactSolveTransaction;
-        using SkullbonezCore::Physics::PersistentContactSolveTransactionTestAccess;
-        using Phase = PersistentContactSolvePhaseCursor::Phase;
+        using SkullbonezCore::Physics::ConstraintSolvePhaseCursor;
+        using SkullbonezCore::Physics::ConstraintSolveTransaction;
+        using SkullbonezCore::Physics::ConstraintSolveTransactionTestAccess;
+        using Phase = ConstraintSolvePhaseCursor::Phase;
         constexpr std::array phases { Phase::Idle,
                                       Phase::EntryPolicySetup,
                                       Phase::BodySetup,
                                       Phase::BuildManifolds,
                                       Phase::TerrainRows,
+                                      Phase::PrepareJoints,
                                       Phase::Precompute,
+                                      Phase::WarmStartJoints,
                                       Phase::SolveRows,
                                       Phase::PointSupportInstability,
-                                      Phase::TerrainRestPolicy,
                                       Phase::WriteBack,
                                       Phase::DebugContacts,
                                       Phase::PositionCorrection,
-                                      Phase::CacheStore,
                                       Phase::FixedContactRelease,
+                                      Phase::ReleasedBodySetup,
+                                      Phase::ReleasedManifolds,
+                                      Phase::ReleasedTerrainRows,
+                                      Phase::ReleasedJoints,
+                                      Phase::ReleasedPrecompute,
+                                      Phase::ReleasedSolveRows,
+                                      Phase::ReleasedWriteBack,
+                                      Phase::ReleasedDebugContacts,
+                                      Phase::CacheStore,
                                       Phase::Complete,
                                       Phase::Count };
 
@@ -2346,14 +2419,14 @@ bool RunRuntimeFatalTransactionAndTerrainCase( const char* caseName )
             return false;
         }
 
-        PersistentContactSolveTransaction transaction;
+        ConstraintSolveTransaction transaction;
 
         for ( unsigned int phaseIndex = 1u; phaseIndex <= contactSolvePhaseFrom; ++phaseIndex )
         {
-            PersistentContactSolveTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
+            ConstraintSolveTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
         }
 
-        PersistentContactSolveTransactionTestAccess::Advance( transaction, phases[contactSolvePhaseTo] );
+        ConstraintSolveTransactionTestAccess::Advance( transaction, phases[contactSolvePhaseTo] );
         return true;
     }
 
@@ -3989,28 +4062,37 @@ TEST_CASE( "Physics invariant guards admit exact scratch and consequence capacit
 
 TEST_CASE( "Persistent contact solve transaction enforces every phase edge through fatal invariant" )
 {
-    using SkullbonezCore::Physics::PersistentContactSolvePhaseCursor;
-    using SkullbonezCore::Physics::PersistentContactSolveTransaction;
-    using SkullbonezCore::Physics::PersistentContactSolveTransactionTestAccess;
-    using Phase = PersistentContactSolvePhaseCursor::Phase;
+    using SkullbonezCore::Physics::ConstraintSolvePhaseCursor;
+    using SkullbonezCore::Physics::ConstraintSolveTransaction;
+    using SkullbonezCore::Physics::ConstraintSolveTransactionTestAccess;
+    using Phase = ConstraintSolvePhaseCursor::Phase;
     constexpr std::array phases { Phase::Idle,
                                   Phase::EntryPolicySetup,
                                   Phase::BodySetup,
                                   Phase::BuildManifolds,
                                   Phase::TerrainRows,
+                                  Phase::PrepareJoints,
                                   Phase::Precompute,
+                                  Phase::WarmStartJoints,
                                   Phase::SolveRows,
                                   Phase::PointSupportInstability,
-                                  Phase::TerrainRestPolicy,
                                   Phase::WriteBack,
                                   Phase::DebugContacts,
                                   Phase::PositionCorrection,
-                                  Phase::CacheStore,
                                   Phase::FixedContactRelease,
+                                  Phase::ReleasedBodySetup,
+                                  Phase::ReleasedManifolds,
+                                  Phase::ReleasedTerrainRows,
+                                  Phase::ReleasedJoints,
+                                  Phase::ReleasedPrecompute,
+                                  Phase::ReleasedSolveRows,
+                                  Phase::ReleasedWriteBack,
+                                  Phase::ReleasedDebugContacts,
+                                  Phase::CacheStore,
                                   Phase::Complete,
                                   Phase::Count };
     constexpr std::size_t entryIndex = 1u;
-    constexpr std::size_t terrainRowsIndex = 4u;
+    constexpr std::size_t jointPreparationIndex = 5u;
     constexpr std::size_t completeIndex = phases.size() - 2u;
 
     for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
@@ -4019,9 +4101,11 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
         {
             const bool adjacent = fromIndex < completeIndex && toIndex == fromIndex + 1u;
             const bool emptyInput = fromIndex == entryIndex && toIndex == completeIndex;
-            const bool emptyRows = fromIndex == terrainRowsIndex && toIndex == completeIndex;
-            const bool expected = adjacent || emptyInput || emptyRows;
-            CHECK( PersistentContactSolvePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
+            const bool emptyRows = fromIndex == jointPreparationIndex && toIndex == completeIndex;
+            const bool normalCompletion = phases[fromIndex] == Phase::FixedContactRelease &&
+                                          phases[toIndex] == Phase::CacheStore;
+            const bool expected = adjacent || emptyInput || emptyRows || normalCompletion;
+            CHECK( ConstraintSolvePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
 
             // Count is a sentinel and cannot become the cursor's current state.
             if ( fromIndex == phases.size() - 1u || expected )
@@ -4031,22 +4115,22 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
 
             char caseName[96] = {};
             std::snprintf( caseName, sizeof( caseName ), "contact-solve-phase-%zu-%zu", fromIndex, toIndex );
-            ExpectFatalCase( caseName, { "FATAL[Physics/PersistentContactSolveTransaction]", "Illegal phase transition",
+            ExpectFatalCase( caseName, { "FATAL[Physics/ConstraintSolveTransaction]", "Illegal phase transition",
                                          "operation=ExhaustiveFatalProbe" } );
         }
     }
 
-    PersistentContactSolveTransaction transaction;
+    ConstraintSolveTransaction transaction;
     CHECK( transaction.Phase() == Phase::Idle );
 
     for ( std::size_t phaseIndex = 1u; phaseIndex <= completeIndex; ++phaseIndex )
     {
-        PersistentContactSolveTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
+        ConstraintSolveTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
     }
 
     CHECK( transaction.Phase() == Phase::Complete );
-    static_assert( !std::is_copy_constructible_v<PersistentContactSolveTransaction> );
-    static_assert( !std::is_copy_assignable_v<PersistentContactSolveTransaction> );
+    static_assert( !std::is_copy_constructible_v<ConstraintSolveTransaction> );
+    static_assert( !std::is_copy_assignable_v<ConstraintSolveTransaction> );
 }
 
 TEST_CASE( "UI stress policy publishes deterministic bounded commands without borrowed references" )
@@ -4423,7 +4507,6 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
 
     int reportedFailures = 0;
     int workerShutdowns = 0;
-    int developmentToolShutdowns = 0;
     int windowCleanups = 0;
     int comUninitializations = 0;
     int rendererStarts = 0;
@@ -4441,11 +4524,6 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
         {
             ++workerShutdowns;
             startupSequence.push_back( 2 );
-        },
-        [&]()
-        {
-            ++developmentToolShutdowns;
-            startupSequence.push_back( 3 );
         },
         [&]()
         {
@@ -4468,11 +4546,10 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     CHECK( failureTitle == "SkullbonezCore Input Startup Failed" );
     CHECK( reportedFailures == 1 );
     CHECK( workerShutdowns == 1 );
-    CHECK( developmentToolShutdowns == 1 );
     CHECK( windowCleanups == 1 );
     CHECK( comUninitializations == 1 );
     CHECK( rendererStarts == 0 );
-    CHECK( startupSequence == std::vector<int> { 1, 2, 3, 4, 5 } );
+    CHECK( startupSequence == std::vector<int> { 1, 2, 4, 5 } );
 
     probe = {};
     const SbResult success = SkullbonezCore::Hardware::InputWindowBridgeTestAccess::RegisterRawMouse( localDiagnostics,
@@ -4495,11 +4572,6 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
         },
         [&]()
         {
-            ++developmentToolShutdowns;
-            startupSequence.push_back( 3 );
-        },
-        [&]()
-        {
             ++windowCleanups;
             startupSequence.push_back( 4 );
         },
@@ -4517,7 +4589,6 @@ TEST_CASE( "Raw mouse startup registration reports the native failure" )
     CHECK( startupSuccess.Ok() );
     CHECK( reportedFailures == 1 );
     CHECK( workerShutdowns == 1 );
-    CHECK( developmentToolShutdowns == 1 );
     CHECK( windowCleanups == 1 );
     CHECK( comUninitializations == 1 );
     CHECK( rendererStarts == 1 );
@@ -4565,4 +4636,9 @@ TEST_CASE( "Render model selection encodes all marked and unmarked modes" )
     CHECK( unmarked.Includes( 0 ) );
     CHECK_FALSE( unmarked.Includes( 1 ) );
     CHECK( unmarked.Includes( 2 ) );
+}
+
+TEST_CASE( "Shared solver continuation retains one capped manifold publication budget above 256 bodies" )
+{
+    SkullbonezCore::Physics::PhysicsContactSolverStageTestAccess::CheckCombinedManifoldCapacity();
 }

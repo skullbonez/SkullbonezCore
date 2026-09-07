@@ -64,6 +64,8 @@ class ReplayPlanningRuntime
     void ToggleGuideArcs() noexcept;
     void SetGuideArcsEnabled( bool enabled ) noexcept;
     void TogglePorkchopPanel() noexcept;
+    void SetPorkchopPanelVisible( bool visible ) noexcept;
+    bool SelectPorkchopCell( std::size_t cellIndex ) noexcept;
     bool QueueTripPlannerCommand( const ReplayTripPlannerCommand& command ) noexcept;
     void SetInterceptTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow ) noexcept;
     void ClearInterceptTarget() noexcept;

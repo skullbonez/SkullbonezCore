@@ -437,6 +437,139 @@
       }
     },
     {
+      "source": "SkullbonezData/shaders/image_pair.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_6",
+      "bytecode": "SkullbonezData/shaders/image_pair.vs.dxil",
+      "dependencies": [],
+      "source_sha256": "f494b46e3b6b7f1286622795cbf7193cfbdff1373339626b5862a2b16f72bf25",
+      "compile_inputs_sha256": "c441a148dee683a824d8638c301b2a78560cb0346fa6554c76fd97797077ef09",
+      "bytecode_sha256": "b20f26d18ef915b03f3dfc9837fc80d161a5fb80f4bdf3883ed616386fa0a708",
+      "bytecode_size": 3092,
+      "dependencies_sha256": {},
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/image_pair.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_6",
+      "bytecode": "SkullbonezData/shaders/image_pair.ps.dxil",
+      "dependencies": [],
+      "source_sha256": "f494b46e3b6b7f1286622795cbf7193cfbdff1373339626b5862a2b16f72bf25",
+      "compile_inputs_sha256": "cec2ae2b4ef4b3ca1fa46d1373e1635987c8a79ebb68b46de9c610bb0108ca5b",
+      "bytecode_sha256": "2c4afe40cfe6325935f61a5b7b84b9fc1e33acc5e9500bee96fff3490764343f",
+      "bytecode_size": 5948,
+      "dependencies_sha256": {},
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 32,
+            "fields": [
+              {
+                "type": "float4",
+                "name": "uPair",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uTexel",
+                "offset": 16,
+                "size": 16
+              }
+            ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "sClamp",
+            "register_class": "s",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
       "source": "SkullbonezData/shaders/launcher_laser.hlsl",
       "entry": "main_vs",
       "stage": "vs",

@@ -38,7 +38,6 @@ Related:
 
 #include <algorithm>
 #include <array>
-#include <limits>
 #include <cassert>
 #include <limits>
 
@@ -100,43 +99,55 @@ template <typename T> uint64_t ListCapacityBytes( const T& values )
 
 PhysicsContactSolverStage::PhysicsContactSolverStage() = default;
 
-void PersistentContactSolveTransaction::ReserveSceneCapacity( std::size_t bodyCapacity )
+void ConstraintSolveTransaction::ReserveSceneCapacity( std::size_t bodyCapacity, std::size_t jointCapacity )
 {
     m_bodies.Reserve( bodyCapacity );
+    m_candidatePairs.Reserve( PhysicsCandidatePairCapacity( bodyCapacity ) );
+    m_islands.Reserve( bodyCapacity );
+    m_reactivatedBodies.Reserve( bodyCapacity );
+    m_jointBlocks.Reserve( jointCapacity );
+    m_jointSamples.Reserve( jointCapacity );
 }
 
-void PersistentContactSolveTransaction::Clear()
+void ConstraintSolveTransaction::Clear()
 {
     m_bodies.clear();
-    m_phase = PersistentContactSolvePhaseCursor();
+    m_candidatePairs.clear();
+    m_islands.Clear();
+    m_reactivatedBodies.clear();
+    m_continuationContactCount = 0u;
+    m_jointBlocks.clear();
+    m_jointSamples.clear();
+    m_phase = ConstraintSolvePhaseCursor();
 }
 
-uint64_t PersistentContactSolveTransaction::CollectDynamicMemoryBytes() const
+uint64_t ConstraintSolveTransaction::CollectDynamicMemoryBytes() const
 {
-    return ListCapacityBytes( m_bodies );
+    return ListCapacityBytes( m_reactivatedBodies ) + ListCapacityBytes( m_candidatePairs ) + ListCapacityBytes( m_bodies ) +
+           m_islands.CapacityBytes() + ListCapacityBytes( m_jointBlocks ) + ListCapacityBytes( m_jointSamples );
 }
 
-void PersistentContactSolveTransaction::ResetBodies( std::size_t bodyCount )
+void ConstraintSolveTransaction::ResetBodies( std::size_t bodyCount )
 {
     m_bodies.ResetDefault( bodyCount );
 }
 
-std::size_t PersistentContactSolveTransaction::BodyCount() const
+std::size_t ConstraintSolveTransaction::BodyCount() const
 {
     return m_bodies.size();
 }
 
-SolverBodyState& PersistentContactSolveTransaction::Body( std::size_t index )
+SolverBodyState& ConstraintSolveTransaction::Body( std::size_t index )
 {
     return m_bodies[index];
 }
 
-const SolverBodyState& PersistentContactSolveTransaction::Body( std::size_t index ) const
+const SolverBodyState& ConstraintSolveTransaction::Body( std::size_t index ) const
 {
     return m_bodies[index];
 }
 
-void PhysicsContactSolverStage::ReserveSceneCapacity( std::size_t bodyCapacity )
+void PhysicsContactSolverStage::ReserveSceneCapacity( std::size_t bodyCapacity, std::size_t jointCapacity )
 {
     const std::size_t pairCapacity = PhysicsCandidatePairCapacity( bodyCapacity );
     const std::size_t contactCapacity = PhysicsContactRowCapacity( bodyCapacity );
@@ -144,7 +155,7 @@ void PhysicsContactSolverStage::ReserveSceneCapacity( std::size_t bodyCapacity )
     m_persistentContactCache.Reserve( contactCapacity );
     m_persistentContactCounts.Reserve( bodyCapacity );
     m_persistentRestingContactCounts.Reserve( bodyCapacity );
-    m_solveTransaction.ReserveSceneCapacity( bodyCapacity );
+    m_solveTransaction.ReserveSceneCapacity( bodyCapacity, jointCapacity );
     m_sideEffects.pipelineRecords.Reserve( PHYSICS_MAX_PIPELINE_TRACE_RECORDS );
     m_sideEffects.collisionVisualBodies.Reserve( pairCapacity * 2u );
     m_sideEffects.fixedContactBodies.Reserve( contactCapacity );
@@ -167,6 +178,12 @@ void PhysicsContactSolverStage::Clear()
     m_sideEffects.fixedContactBodies.clear();
     m_sideEffects.releaseWakeBodies.clear();
     m_sideEffects.fixedTreeReleases.clear();
+}
+
+bool PhysicsContactSolverStage::CanAppendObjectManifold( std::size_t pointCount ) const
+{
+    return pointCount <= m_persistentContacts.capacity() - m_persistentContacts.size() &&
+           m_sideEffects.collisionVisualBodies.capacity() - m_sideEffects.collisionVisualBodies.size() >= 2u;
 }
 
 void PhysicsContactSolverStage::PrepareSideEffects( int modelCount, std::size_t candidatePairCount,
@@ -340,6 +357,36 @@ bool PhysicsContactSolverStage::CanRestoreReplayState( const PhysicsSolverSnapsh
     return true;
 }
 
+void PhysicsContactSolverStage::RestoreContactRows( std::span<const PhysicsSolverPersistentContactSample> samples )
+{
+    m_persistentContacts.clear();
+    m_persistentContacts.Reserve( samples.size() );
+
+    for ( const PhysicsSolverPersistentContactSample& sample : samples )
+    {
+        PersistentContact contact;
+#define RESTORE_REPLAY_CONTACT_SAMPLE_FIELD( field ) contact.field = sample.field;
+        SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( RESTORE_REPLAY_CONTACT_SAMPLE_FIELD )
+#undef RESTORE_REPLAY_CONTACT_SAMPLE_FIELD
+        m_persistentContacts.push_back( contact );
+    }
+}
+
+void PhysicsContactSolverStage::RestoreContactCache( std::span<const PhysicsSolverContactCacheSample> samples )
+{
+    m_persistentContactCache.clear();
+    m_persistentContactCache.Reserve( samples.size() );
+
+    for ( const PhysicsSolverContactCacheSample& sample : samples )
+    {
+        PersistentContactCacheEntry cache;
+#define RESTORE_REPLAY_CONTACT_CACHE_FIELD( field ) cache.field = sample.field;
+        SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( RESTORE_REPLAY_CONTACT_CACHE_FIELD )
+#undef RESTORE_REPLAY_CONTACT_CACHE_FIELD
+        m_persistentContactCache.push_back( cache );
+    }
+}
+
 void PhysicsContactSolverStage::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )
 {
     m_persistentContactCounts.Reserve( snapshot.persistentContactCounts.size() );
@@ -358,29 +405,8 @@ void PhysicsContactSolverStage::RestoreReplayState( const PhysicsSolverSnapshot&
         m_persistentRestingContactCounts.push_back( count );
     }
 
-    m_persistentContacts.clear();
-    m_persistentContacts.Reserve( snapshot.persistentContacts.size() );
-
-    for ( const PhysicsSolverPersistentContactSample& sample : snapshot.persistentContacts )
-    {
-        PersistentContact contact;
-#define RESTORE_REPLAY_CONTACT_SAMPLE_FIELD( field ) contact.field = sample.field;
-        SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( RESTORE_REPLAY_CONTACT_SAMPLE_FIELD )
-#undef RESTORE_REPLAY_CONTACT_SAMPLE_FIELD
-        m_persistentContacts.push_back( contact );
-    }
-
-    m_persistentContactCache.clear();
-    m_persistentContactCache.Reserve( snapshot.persistentContactCache.size() );
-
-    for ( const PhysicsSolverContactCacheSample& sample : snapshot.persistentContactCache )
-    {
-        PersistentContactCacheEntry cache;
-#define RESTORE_REPLAY_CONTACT_CACHE_FIELD( field ) cache.field = sample.field;
-        SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( RESTORE_REPLAY_CONTACT_CACHE_FIELD )
-#undef RESTORE_REPLAY_CONTACT_CACHE_FIELD
-        m_persistentContactCache.push_back( cache );
-    }
+    RestoreContactRows( snapshot.persistentContacts );
+    RestoreContactCache( snapshot.persistentContactCache );
 
     m_persistentContactSolverStats = PersistentContactSolverStats();
 #define RESTORE_REPLAY_SOLVER_STAT_FIELD( field ) m_persistentContactSolverStats.field = snapshot.solverStats.field;
