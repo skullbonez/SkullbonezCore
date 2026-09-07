@@ -1041,6 +1041,11 @@ constexpr ExpectedFixedRowGrowth EXPECTED_PHYSICS_GROWTH[] = {
     { "PhysicsContactSolverStage.persistentContactCounts", 2000 },
     { "PhysicsContactSolverStage.persistentRestingContactCounts", 2000 },
     { "PhysicsContactSolverStage.solverBodies", 2000 },
+    { "ConstraintIslandSchedule.parents", 2000 },
+    { "ConstraintIslandSchedule.convergence", 2000 },
+    { "ConstraintSolveTransaction.reactivatedBodies", 2000 },
+    { "ConstraintSolveTransaction.jointBlocks", 24 },
+    { "ConstraintSolveTransaction.jointSamples", 24 },
     { "PhysicsContactSolverStage.fixedContactBodies", 147072 },
     { "PhysicsContactSolverStage.releaseWakeBodies", 2000 },
     { "PhysicsContactSolverStage.fixedTreeReleases", 2000 },
@@ -1053,6 +1058,8 @@ constexpr ExpectedFixedRowGrowth EXPECTED_PHYSICS_GROWTH[] = {
     { "PhysicsSleepController.m_underwaterSleepLocked", 2000 },
     { "PhysicsSleepController.m_sleepIslandVisualId", 2000 },
     { "PhysicsSleepController.m_sleepIslandAssignedVisualId", 2000 },
+    { "PhysicsSleepController.jointWakeParent", 2000 },
+    { "PhysicsSleepController.jointWakeRank", 2000 },
     { "PhysicsSleepController.m_sleepIslandParent", 2000 },
     { "PhysicsSleepController.m_sleepIslandRank", 2000 },
     { "PhysicsSleepController.m_sleepIslandHasAwake", 2000 },
@@ -1090,6 +1097,7 @@ const ExpectedRegisteredWithoutGrowth EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH
     { "SimulationIslandSystem.activeContactEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
     { "PhysicsBroadphaseStage.candidatePairs", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
     { "PhysicsBroadphaseStage.collisionCellKeys", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+    { "ConstraintSolveTransaction.candidatePairs", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
     { "SpatialGrid.candidatePairNodes", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes },
     { "SpatialGrid.candidatePairSortKeys",
       SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys },
@@ -1111,7 +1119,9 @@ void CheckPhysicsGrowthEventMetadata( const SkullbonezCore::Core::Allocation::Ru
     using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
     using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 
-    REQUIRE( eventCount == 106 );
+    // The shared constraint solver adds seven growing stores; its candidate
+    // pair store is already at the capped capacity before this second reserve.
+    REQUIRE( eventCount == 113 );
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
     for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
@@ -1164,9 +1174,9 @@ void CheckPhysicsRegisteredOwners( int eventCount )
     using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 121 );
+    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 129 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 120 );
+    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 128 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH )
@@ -1185,11 +1195,23 @@ void CheckPhysicsCapacityRows()
     const auto capacityRows = RuntimeReserveAllocator::CapacityRows();
     int physicsCapacityRowCount = 0;
     const char* prefixes[] = {
-        "BuoyancySystem.",         "ColliderStore.",          "ExternalForceStage.",
-        "PhysicsBodyStore.",       "PhysicsBroadphaseStage.", "PhysicsContactSolverStage.",
-        "PhysicsEngine",           "PhysicsForceStage.",      "PhysicsNarrowphaseStage.",
-        "PhysicsSleepController.", "PhysicsStepDiagnostics.", "PhysicsTerrainStage.",
-        "PhysicsWorld.",           "SimulationIslandSystem.", "SpatialGrid.",
+        "BuoyancySystem.",
+        "ColliderStore.",
+        "ExternalForceStage.",
+        "PhysicsBodyStore.",
+        "PhysicsBroadphaseStage.",
+        "PhysicsContactSolverStage.",
+        "PhysicsEngine",
+        "PhysicsForceStage.",
+        "PhysicsNarrowphaseStage.",
+        "PhysicsSleepController.",
+        "PhysicsStepDiagnostics.",
+        "PhysicsTerrainStage.",
+        "PhysicsWorld.",
+        "SimulationIslandSystem.",
+        "SpatialGrid.",
+        "ConstraintIslandSchedule.",
+        "ConstraintSolveTransaction.",
     };
 
     for ( const auto& row : capacityRows )
@@ -1223,9 +1245,9 @@ void CheckPhysicsCapacityRows()
     }
 
 #if defined( _DEBUG )
-    CHECK( physicsCapacityRowCount == 117 );
+    CHECK( physicsCapacityRowCount == 125 );
 #else
-    CHECK( physicsCapacityRowCount == 116 );
+    CHECK( physicsCapacityRowCount == 124 );
 #endif
 }
 

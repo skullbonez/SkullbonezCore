@@ -656,6 +656,9 @@
     <ClInclude Include="SkullbonezTests\TestFixedSeed.h">
       <Filter>Header Files\Tests</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezTests\TestPointJointSolver.h">
+      <Filter>Header Files\Tests</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezTests\TestReplaySolverHashWitness.h">
       <Filter>Header Files\Tests</Filter>
     </ClInclude>
