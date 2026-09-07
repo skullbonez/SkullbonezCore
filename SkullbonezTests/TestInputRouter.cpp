@@ -179,8 +179,6 @@ TEST_CASE( "Runtime copies device levels and pointer edges into a detached UI sn
 }
 
 
-
-
 TEST_CASE( "Input router: captured tool input requires release and repress before gameplay" )
 {
     const RuntimeInputKeyBinding bindings[] = {
@@ -753,4 +751,28 @@ TEST_CASE( "Input router: scene activation publishes cursor reset once per gener
     packet.generation = 2;
     CHECK( ApplySceneActivationInputReaction( packet, true, observer, router ) );
     CHECK_FALSE( ApplySceneActivationInputReaction( packet, true, observer, router ) );
+}
+
+TEST_CASE( "Input router: timeline drag keeps ownership outside its hit area until release" )
+{
+    SbDiagnosticStore diagnostics;
+    InputRouter router( diagnostics );
+    auto& actions = router.Actions();
+    router.BeginFrame( FocusedFrame( {} ), {}, actions );
+    router.BeginFrame( FocusedFrame( {}, true ), {}, actions );
+    CHECK( router.UpdateTimelineDrag( true ) );
+    CHECK( router.NativeCaptureRequested() );
+    router.BeginFrame( FocusedFrame( {}, true ), {}, actions );
+    CHECK( router.UpdateTimelineDrag( false ) );
+    router.BeginFrame( FocusedFrame( {} ), {}, actions );
+    CHECK_FALSE( router.UpdateTimelineDrag( false ) );
+    router.BeginFrame( FocusedFrame( {}, true ), {}, actions );
+    CHECK_FALSE( router.UpdateTimelineDrag( false ) );
+    router.BeginFrame( FocusedFrame( {}, true ), {}, actions );
+    CHECK_FALSE( router.UpdateTimelineDrag( true ) ); // Entering a slider mid-hold cannot steal the gesture.
+    router.BeginFrame( FocusedFrame( {} ), {}, actions );
+    router.BeginFrame( FocusedFrame( {}, true ), {}, actions );
+    CHECK( router.UpdateTimelineDrag( true ) );
+    router.BeginFrame( UnfocusedFrame(), {}, actions );
+    CHECK_FALSE( router.TimelineDragActive() );
 }

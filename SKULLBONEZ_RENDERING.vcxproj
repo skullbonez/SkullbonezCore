@@ -152,4 +152,8 @@
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets" Condition="Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" />
   </ImportGroup>
+  <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Rendering\PairedViewRenderer.h" />
+    <ClCompile Include="SkullbonezSource\Rendering\PairedViewRenderer.cpp" />
+  </ItemGroup>
 </Project>

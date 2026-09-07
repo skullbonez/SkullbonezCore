@@ -2343,6 +2343,10 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner
     // Lifetime: release pass-owned GPU resources while the renderer backend is
     // still alive. The order keeps consumers ahead of their producers, so cached
     // handles are invalidated before targets die.
+    if ( renderGeometry )
+    {
+        m_pairedViews.Release( *renderGeometry );
+    }
     m_tonemapPass.ReleaseGpuResources();
     m_volumetricPass.ReleaseGpuResources();
     m_sceneTargetPass.ReleaseGpuResources();

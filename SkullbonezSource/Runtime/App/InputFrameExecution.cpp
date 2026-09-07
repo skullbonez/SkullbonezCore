@@ -315,6 +315,12 @@ SceneFrameProceedPolicy Run::CompleteRuntimeInputPhase()
                                           m_renderDefaults.CinematicBaseline(), liveStyle );
         m_liveStyle.MarkStyleApplied();
     }
+    if ( ComparisonUiActive() )
+    {
+        proceedPolicy.crossScenePauseLocked = true;
+        proceedPolicy.stepRequested = false;
+        proceedPolicy.proceedAllowed = false;
+    }
     return proceedPolicy;
 }
 
@@ -1269,6 +1275,15 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
         automation.enabled = true;
         automation.overrideAppFocused = true;
         automation.appFocused = true;
+        const uint8_t movement = m_skarness.MovementKeysDown();
+        constexpr int movementKeys[] = { 'W', 'A', 'S', 'D' };
+        for ( int i = 0; i < 4; ++i )
+        {
+            if ( movement & ( 1u << i ) )
+            {
+                automation.keyWords[movementKeys[i] / 64] |= uint64_t { 1 } << ( movementKeys[i] % 64 );
+            }
+        }
         const uint8_t arrows = m_skarness.ArrowKeysDown();
         automation.keyWords[VK_LEFT / 64] |= ( arrows & 1u ) != 0 ? uint64_t { 1 } << ( VK_LEFT % 64 ) : 0;
         automation.keyWords[VK_RIGHT / 64] |= ( arrows & 2u ) != 0 ? uint64_t { 1 } << ( VK_RIGHT % 64 ) : 0;
@@ -1313,6 +1328,31 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
     preUiPointer.unhandledWheelDelta = deviceFrame.wheelDelta;
     inputRouter.PublishUiSnapshot( preUiPointer );
 
+    if ( UpdateComparisonInput( externalUiCapture.text || externalUiCapture.keyboard ||
+                                ( !m_comparison.Active() && ui.BlocksKeyboard() ) ) )
+    {
+        // Comparison owns this complete input turn. Route no live-world or
+        // replay gestures while its independent presentation cursor is active.
+        RuntimeUIFrameResult comparisonResult;
+        RuntimeInputFrameFacts comparisonFacts;
+        comparisonFacts.externalUiCapture = externalUiCapture;
+#if defined( SKULLBONEZ_SKARNESS )
+        ApplySkarnessCommands( comparisonResult, comparisonFacts );
+#endif
+        preUiPointer.blocksKeyboard = true;
+        preUiPointer.blocksCameraMouse = true;
+        preUiPointer.wantsNativeCursor = true;
+        inputRouter.PublishUiSnapshot( preUiPointer );
+        inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput {}, true );
+        if ( !inputRouter.TimelineDragActive() )
+        {
+            inputRouter.ReleaseNativeCapture();
+        }
+        inputRouter.RequestCursorVisible( true );
+        CommitInputPointerPresentation( externalUiCapture );
+        return CompleteRuntimeInputPhase();
+    }
+
     if ( externalUiCapture.nativePointerStateTouched )
     {
         // The vendor backend may have changed shared HWND capture/cursor state
@@ -1323,7 +1363,10 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
 
     if ( externalUiCapture.mouse )
     {
-        inputRouter.ReleaseNativeCapture();
+        if ( !inputRouter.TimelineDragActive() )
+        {
+            inputRouter.ReleaseNativeCapture();
+        }
         inputRouter.RequestCursorVisible( true );
         inputRouter.DeferPointerPresentationCommit();
     }

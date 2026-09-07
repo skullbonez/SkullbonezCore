@@ -28,6 +28,7 @@ Invariants:
 #include "../../Rendering/RenderDiagnosticsTypes.h"
 #include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../Rendering/WorldRenderExtension.h"
+#include "../../Rendering/PairedViewRenderer.h"
 
 #include <array>
 #include <cstddef>
@@ -56,6 +57,8 @@ struct RenderDiagnosticsReadout
 class RuntimeRenderer
 {
   private:
+    struct PairPass;
+    static void ExecutePairPass( const Rendering::RenderGraphPassContext& context, PairPass& pass );
     class WorldOverlayPhaseCursor
     {
       public:
@@ -215,6 +218,7 @@ class RuntimeRenderer
     // Opens the one frame-owned graph before Run chooses world or text-only
     // rendering. The caller must close it exactly once through a finalizer below.
     void BeginFrameGraph();
+    void RenderPairedViews( const Rendering::PairedViewFrame& frame );
     Rendering::Dx12FrameOwner& RenderFrame() const
     {
         return m_resources.RenderFrame();
@@ -392,6 +396,7 @@ class RuntimeRenderer
     // Owner: render presentation policy survives backend rebuilds here; physics
     // state remains in its respective owner.
     RenderPresentationSettings m_presentationSettings;
+    Rendering::PairedViewRenderer m_pairedViews;
     Environment::WorldEnvironment& m_world; // Fluid surface and gravity owner for pass contexts.
     CollisionVisualizer m_collisionVisualizer;
     BroadphaseVisualizer m_broadphaseVisualizer;

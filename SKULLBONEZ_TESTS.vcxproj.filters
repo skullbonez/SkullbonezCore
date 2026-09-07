@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <Filter Include="Header Files\Runtime\Planning">
+      <UniqueIdentifier>{FE9E801A-C34D-4DD9-9854-3AAE30BD6E91}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
     <Filter Include="Source Files">
       <UniqueIdentifier>{B25E98F8-1671-4EF8-A5CB-68B416912E0E}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
@@ -662,5 +667,29 @@
     <ClInclude Include="SkullbonezTests\TestReplaySolverHashWitness.h">
       <Filter>Header Files\Tests</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Evidence.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Persistence.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezTests\TestPhysicsComparison.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Diagnostics.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

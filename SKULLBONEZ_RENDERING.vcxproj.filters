@@ -84,4 +84,12 @@
     <ClInclude Include="SkullbonezSource\Rendering\Text.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\WorldRenderExtension.h"><Filter>Header Files</Filter></ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Rendering\PairedViewRenderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClCompile Include="SkullbonezSource\Rendering\PairedViewRenderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
 </Project>

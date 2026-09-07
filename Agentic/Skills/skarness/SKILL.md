@@ -89,6 +89,28 @@ cursor. Named queries omit large float/sample arrays by default; add `--full`
 only when those exact values are needed. The result reports raw trace, SQLite,
 and model-read bytes so the evidence cost stays visible.
 
+Comparison inspection exposes `comparison.state`, including loading progress,
+linked camera pose, split orientation, orbit mode, and timeline drag ownership.
+`input.set_movement` supplies boolean `w`, `a`, `s`, and `d` levels through the
+normal device-sampling route. `input.pointer_drag` optionally accepts
+`moveClient=true` to move client coordinates with its raw delta; this exercises
+drags leaving a widget. Its default retains the existing fixed-client-position
+camera probe. Both synthetic inputs remain unavailable in manual sessions.
+
+Use `scene.object.resolve` for authoritative live body state. Alongside its
+stable ID and name, the result contains position, linear/angular velocity,
+`fixed`, `sleepStateAvailable`, and `sleeping`. Check availability before making
+a sleep assertion; the sleep owner may not initialize an awake scene until its
+first Physics tick. Bulk `scene.object.list` stays an identity-only catalog.
+
+```powershell
+python tools\skarness.py command TestOutput\skarness\<case> scene.object.resolve sceneObjectId=133
+```
+
+For reproducible fixed-tick measurements, add `--fixed-step` to `launch` and
+advance with `step --ticks`. The Physics interval is 1/120 second; do not infer
+elapsed simulated time from render-frame wall-clock timestamps.
+
 Subscribe when the sequence or state growth matters:
 
 ```powershell

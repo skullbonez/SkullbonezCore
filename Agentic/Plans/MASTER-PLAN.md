@@ -1,9 +1,18 @@
 # MASTER PLAN
 
 Date: 2026-09-07
-Status: 146/148 tasks complete; RAGDOLL_PHYSICS active at 8/10; bug ledger 126/126 fixed
+Status: 146/154 tasks complete; PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 8/10; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-07 the owner requested one PR containing both branches and the
+  local A/B viewer, after replacing the README with the original skull and
+  COMIN' REAL SOON. PR #167 is the combined destination. PHYSICS_AB remains
+  0/6 and RAGDOLL_PHYSICS 8/10; publishing the checkpoint is not plan closure.
+
+- On 2026-09-07 the owner activated Physics A/B Comparison with Causal
+  Differences. Implement AB1-AB6 before resuming ragdoll FP8/FP9. Preserve both
+  solver implementations and all baselines; compare independent recordings.
 
 - On 2026-09-07 the owner reactivated `RAGDOLL_PHYSICS` on a child branch
   of cleanup commit `88d09e78f`: `codex/ragdoll-physics-unification`.
@@ -372,6 +381,7 @@ hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
+| Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 8 | FP8: speculative ragdoll contacts | `TODO/ragdoll-physics-unification.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
@@ -409,7 +419,8 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`RAGDOLL_PHYSICS` FP8 is the next binding task, followed strictly by FP9.
+`PHYSICS_AB` AB1-AB6 is the next binding work by owner direction.
+`RAGDOLL_PHYSICS` FP8 then FP9 remain pending.
 `SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete.
 
 `RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are

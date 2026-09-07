@@ -40,7 +40,14 @@ constexpr RuntimeInputContextMask kAfterUIUpdateContext = RuntimeInputContextBit
 constexpr RuntimeInputContextMask kCaptureContext = RuntimeInputContextBit( RuntimeInputBindingContext::Capture );
 
 const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] =
-    { { VK_OEM_3, RuntimeInputAction::ToggleEditor, kKeyboardUnblockedContext },
+    { { VK_F8, RuntimeInputAction::OpenComparison, RuntimeInputContextBit( RuntimeInputBindingContext::Comparison ) },
+      { VK_LEFT, RuntimeInputAction::ComparisonStepBackward,
+        RuntimeInputContextBit( RuntimeInputBindingContext::Comparison ) },
+      { VK_RIGHT, RuntimeInputAction::ComparisonStepForward,
+        RuntimeInputContextBit( RuntimeInputBindingContext::Comparison ) },
+      { VK_SPACE, RuntimeInputAction::ComparisonPlayPause,
+        RuntimeInputContextBit( RuntimeInputBindingContext::Comparison ) },
+      { VK_OEM_3, RuntimeInputAction::ToggleEditor, kKeyboardUnblockedContext },
       { VK_TAB, RuntimeInputAction::CycleCameraMode, kKeyboardUnblockedContext },
       { 'F', RuntimeInputAction::ToggleFlyCamera, kKeyboardUnblockedContext },
       { 'N', RuntimeInputAction::ToggleLauncher, kKeyboardUnblockedContext },

@@ -70,7 +70,7 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     const RuntimeInputKeyBindingView table = TakeInputKeyboardBindings();
 
     REQUIRE( table.bindings != nullptr );
-    CHECK( table.count == 46u );
+    CHECK( table.count == 50u );
     CheckExactBinding( VK_OEM_3, keyboard, RuntimeInputAction::ToggleEditor );
     CheckExactBinding( VK_TAB, keyboard, RuntimeInputAction::CycleCameraMode );
     CheckExactBinding( 'F', keyboard, RuntimeInputAction::ToggleFlyCamera );
@@ -101,6 +101,10 @@ TEST_CASE( "Runtime input bindings: contextual shortcuts stay on their owning co
 {
     const RuntimeInputContextMask keyboard = Context( RuntimeInputBindingContext::KeyboardUnblocked );
 
+    const auto comparison = Context( RuntimeInputBindingContext::Comparison );
+    CheckExactBinding( VK_LEFT, comparison, RuntimeInputAction::ComparisonStepBackward );
+    CheckExactBinding( VK_RIGHT, comparison, RuntimeInputAction::ComparisonStepForward );
+    CheckExactBinding( VK_SPACE, comparison, RuntimeInputAction::ComparisonPlayPause );
     CheckExactBinding( 'M', keyboard | RuntimeInputBindingContext::Launcher, RuntimeInputAction::CycleLauncherFireMode );
     CheckExactBinding( VK_F1, keyboard | RuntimeInputBindingContext::AttachedCamera,
                        RuntimeInputAction::CycleAttachedCameraSubmode );

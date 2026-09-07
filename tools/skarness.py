@@ -211,6 +211,7 @@ def launch(
     hidden: bool = False,
     manual: bool = False,
     detail: str | None = None,
+    fixed_step: bool = False,
 ) -> int:
     session.mkdir(parents=True, exist_ok=True)
     manifest = session / "session.json"
@@ -222,6 +223,8 @@ def launch(
         command.extend(("--scene", str(scene.resolve())))
     if hidden:
         command.append("--automation-hidden-window")
+    if fixed_step:
+        command.append("--fixed-step")
     stdout = open(session / "process.stdout.log", "wb")
     stderr = open(session / "process.stderr.log", "wb")
     try:
@@ -359,6 +362,7 @@ def build_parser() -> argparse.ArgumentParser:
     launch_parser.add_argument("--scene", type=Path)
     launch_parser.add_argument("--hidden", action="store_true")
     launch_parser.add_argument("--detail", choices=("summary", "normal", "full"))
+    launch_parser.add_argument("--fixed-step", action="store_true", help="advance one fixed Physics tick per active frame")
     launch_parser.add_argument("--manual", action="store_true",
                                help="trace a player-controlled run without replacing native input or frame pacing")
 
@@ -434,7 +438,7 @@ def main() -> int:
         if args.action == "capabilities":
             return run_command(args.session, "capabilities.get", {})
         if args.action == "launch":
-            return launch(args.session, args.exe, args.scene, args.hidden, args.manual, args.detail)
+            return launch(args.session, args.exe, args.scene, args.hidden, args.manual, args.detail, args.fixed_step)
         if args.action in {"command", "send"}:
             return run_command(args.session, args.command, parse_arguments(args.arguments))
         if args.action == "load-scene":

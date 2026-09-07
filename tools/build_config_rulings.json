@@ -510,6 +510,22 @@
     "skullbonezsource/world/terrain.cpp": {
       "ExceptionHandling": "d5c0f9cfa1876fc1e602f5eb679a4cb4e5159b2a64e6e1912e526347616b42df",
       "PreprocessorDefinitions": "2d2b714fa16bfc0aa7fd811dcda59ac0b87c710a25cfdd9f63ab03e61a534630"
+    },
+    "skullbonezsource/runtime/planning/physicscomparison.cpp": {
+      "ExceptionHandling": "f989aecfe83ed0792f2d728f4d68d0cf078a45cabb8aaec19533733c900c1d7d",
+      "PreprocessorDefinitions": "2641ca3b014e47c88d5988be40ab81317e51d8fa5d75f9d35d4781f14b67dfae"
+    },
+    "skullbonezsource/runtime/planning/physicscomparison.diagnostics.cpp": {
+      "ExceptionHandling": "16a7f6aa01fbd4e88ebb2d3e6178ea296e277ac33fd49365f6f06e588b195756",
+      "PreprocessorDefinitions": "bd43de68253f1d7268e48dddffcdad08330ad12240644115c6274a4f7ceb4c93"
+    },
+    "skullbonezsource/runtime/planning/physicscomparison.evidence.cpp": {
+      "ExceptionHandling": "a0883fcbc10d64b50d0966b21d24d07a69e735dd7a9b85ccc8127ea590c99b3c",
+      "PreprocessorDefinitions": "f53300925caf50d1cbcc78499f62c4a78acbcf2fcbdec5f0b03c9c57faed60bd"
+    },
+    "skullbonezsource/runtime/planning/physicscomparison.persistence.cpp": {
+      "ExceptionHandling": "c8b8e7ac93a14e90ccfad5e917b78688683e46bffa43356f6547eb333aad5f62",
+      "PreprocessorDefinitions": "f18bad991b9534a3bde801bc6a8812646a0727c52fef936c74be4ee20eac3a85"
     }
   }
 }

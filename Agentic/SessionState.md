@@ -1,8 +1,91 @@
 # Session State
 
 Date: 2026-09-07
-Branch: `codex/ragdoll-physics-unification`
-Status: RAGDOLL_PHYSICS active at 8/10; portfolio 146/148
+Branch: `codex/physics-baseline-acceptance` (isolated PR checkout)
+Status: PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 8/10; portfolio 146/154
+
+## Combined PR preparation (2026-09-07)
+
+PR #167 (`https://github.com/skullbonez/SkullbonezCore/pull/167`) now combines
+committed causal inspection, dependency cleanup, ragdoll FP0-FP7 and owner-accepted
+baselines with the formerly local A/B viewer. The README contains only the
+original ASCII skull and COMIN' REAL SOON. The original dirty checkout and its
+user-owned viewer are preserved; PR integration lives in `TestOutput/pr-physics/`.
+This is a partial A/B implementation checkpoint, not AB1-AB6 closure.
+
+The native viewer includes five render modes, shared camera and tick transport,
+selected/all causal rows, height/vertical-velocity plots and saved findings.
+Feedback fixes cover persistent timeline dragging, both split orientations,
+correct mouse direction/aspect ratio, object orbit and WASD free camera.
+Causal event clicks preserve the current camera even when clicking the same row
+repeatedly. Summary contacts supplement available recorded checkpoint manifolds.
+A/A repeated contacts match as multisets; ambiguous residuals remain explicit.
+
+Capture verifies both producer asset roots and archives inputs. Loading verifies
+recording/input hashes and actual format versions, reserves diagnostic rows by
+exact count, and checks combined loading capacity before publication. Replay
+readers reject oversized serialized counts before allocating; indexed frames
+cannot repeatedly decode the same payload. Finding identities must match both
+loaded producers. No solver, golden baseline or tolerance changes in this slice.
+
+Local unit validation passes 953 cases / 2,728,772 assertions. Native evidence
+under the isolated checkout includes `TestOutput/skarness/ab-pr-qa-final/` (all five
+modes, linked camera, slider capture, pixel-exact A/A and repeat-click camera
+preservation), `ab-pr-capture-aa-final/` (identical 24-tick A/A bytes), and
+`ab-pr-integrity-final-02/` (hashes, versions, capacity, malformed replay count and
+findings rejection). The complete 2400-tick no-ragdoll wall loads successfully in
+`ab-pr-wall-final-02/`, publishing 1,286,014 events; its screenshot was inspected.
+`TestOutput/ab-preflight-closure.log` passes all fast checks, build and 953 tests;
+final label edits pass the focused compiler gate and Automation build. One-minute
+graphics stress passes. DX12 has zero InfoQueue errors but retains terrain image
+mismatches (water 4.9171; solver 4.0155; space exact). Replay fidelity finishes its
+native run but fails the shader-inventory provenance hash because image_pair was
+added; read-only diagnostic comparison finds identical visual and causal payloads.
+The official gate is still failed, and its baseline remains unchanged. The static
+allocation scan reports 117 findings, including the new cold comparison containers;
+registration/review remains part of AB6 alongside inherited allocation findings.
+Final gate results and
+current hosted checks are recorded in the PR description; earlier green checks
+on `17a6bb12d` or README commit `f39c6639a` do not validate the new A/B head.
+The inherited allocation-policy inventory and two terrain screenshot mismatches
+remain explicit follow-up work. No automatic baseline refresh is authorized.
+
+The owner approved `Plans/TODO/physics-ab-comparison.md`: independent build
+captures, five synchronized visual modes, freely controlled linked cameras,
+selected/all causal differences and restorable findings. AB1 is active; no
+solver or baseline changes. Prior uncommitted Skarness sleep queries remain.
+Work-ledger start failed because another session owns GOV1; preserve its state.
+
+## Comparison feedback and isolated wall run (2026-09-07)
+
+Implemented persistent timeline drag ownership in InputRouter, side-by-side /
+stacked layouts, WASD free look with selected-object orbit, and aspect-aware
+projection shared by picking and rendering. Comparison file loading now runs
+on a Planning-owned worker with progress and cancellation; only complete data
+is published on the UI thread. Native mouse-right/down direction, circular
+sphere proportions in both layouts, camera mode changes, drag continuation,
+load cancellation, and finding restoration pass in
+`TestOutput/skarness/ab-feedback-qa-06/`. Automation builds, 26 focused cases /
+421 assertions, shader bake, and dependency ownership checks pass. Full feature
+closure remains pending; PHYSICS_AB is not complete and no baseline changed.
+
+The requested isolated trial is complete at
+`TestOutput/skarness/ab-post-ragdoll-wall-01/comparison.json`: FP6 A and current
+B, 2400 ticks each, 202 bodies (ball, 200 bricks, catcher), no ragdoll. Both
+start with the exact new-physics ball state at original physics tick 86, after
+its last ragdoll contact at tick 85. Scene fixtures are
+`SkullbonezData/scenes/wall_200_post_ragdoll_fp6.scene.json` and
+`wall_200_post_ragdoll_current.scene.json`; only their display names differ.
+First recorded body states are identical, with the first small solver-result
+difference at isolated tick 89. `isolation-check.json` preserves the proof.
+These are cold scene starts with unchanged wall inputs, not checkpoint
+continuations with inherited contact caches. The user owns baseline approval.
+
+The corrected viewer launch is
+`TestOutput/skarness/ab-post-ragdoll-user-01`, executable
+`Automation/SKULLBONEZ_CORE-PhysicsComparisonPreview3.exe`, PID 22376.
+Leave this user session open. Earlier comparison windows have been closed;
+completed producer sessions were stopped through Skarness.
 
 ## Ragdoll FP7 acceptance (2026-09-07)
 

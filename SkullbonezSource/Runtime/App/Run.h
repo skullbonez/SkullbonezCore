@@ -73,6 +73,7 @@ Related:
 #include "../Startup/RunStartupState.h"
 #include "ReplayRuntime.h"
 #include "../Planning/ContinuousOrbitalForecast.h"
+#include "../Planning/PhysicsComparisonPanel.h"
 #include "../Scene/SceneController.h"
 #include "../Simulation/SimulationSystem.h"
 #include "../Editor/EditorTools.h"
@@ -216,8 +217,25 @@ class Run
     SimulationSystem m_simulation;                  // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                  // Constructs and sequences the concrete replay domain owners.
     ContinuousOrbitalForecast m_continuousForecast; // Planning-owned private forecast lifecycle and detached diagnostics.
-    EditorToolsOwner m_editorTools;                 // Retains editor placement, selection, gizmo, and history authority.
-    RuntimeTools m_runtimeTools;                    // Launcher, manipulator, and transient render feedback.
+    PhysicsComparison m_comparison;
+    PhysicsComparisonPanel m_comparisonPanel;
+    PhysicsComparisonLoadJob m_comparisonLoad;
+    std::string m_comparisonLoadRequest;
+    bool ComparisonUiActive() const
+    {
+        return m_comparison.Active() || m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty();
+    }
+    bool PublishComparisonLoad();
+    void PollComparisonLoad();
+    bool LoadComparison( const char* path, bool finding = false );
+    bool UpdateComparisonInput( bool textActive );
+    void RenderComparison();
+    void FocusComparison();
+    void FlyComparisonCamera( float forward, float strafe, float seconds );
+    void PickComparisonObject( int x, int y );
+    void MoveComparisonCamera( float yaw, float pitch, float panX, float panY, float zoom );
+    EditorToolsOwner m_editorTools; // Retains editor placement, selection, gizmo, and history authority.
+    RuntimeTools m_runtimeTools;    // Launcher, manipulator, and transient render feedback.
 
     // Lifetime: renderer and frame helpers borrow this cohesive UI owner; the
     // opaque allocation keeps UI.h out of the composition-root header.
@@ -273,6 +291,7 @@ class Run
     void ApplySkarnessSelectionCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
     bool ApplySkarnessSceneLoadCommand( const SkarnessCommand& command, bool& deferred, const char*& reason );
     void ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInputFrameFacts& facts );
+    void ApplySkarnessComparisonCommand( const SkarnessCommand& command, SkarnessCommandApplication& application );
     void PublishSkarnessFrameState();
 #endif
     SceneFrameProceedPolicy RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput,

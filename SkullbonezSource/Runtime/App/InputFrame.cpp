@@ -477,6 +477,19 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame || facts.externalUiCapture.mouse;
     result.frameActive = true;
 
+    if ( ComparisonUiActive() )
+    {
+        UiInputHitSnapshot snapshot;
+        snapshot.mouse = m_inputRouter.UiSnapshot().mouse;
+        snapshot.blocksKeyboard = true;
+        snapshot.blocksCameraMouse = true;
+        snapshot.wantsNativeCursor = true;
+        m_inputRouter.PublishUiSnapshot( snapshot );
+        result.suppressWorldActionThisFrame = true;
+        runtimeInput.BeginFrame( true, true, true );
+        return result;
+    }
+
     m_operatorUi->SceneNavigation().browser.selectedSceneIndex = m_operatorUi->SceneNavigation().browser.CurrentIndexForPath(
         m_sceneController.CurrentPath() );
     const HWND windowHandle = m_window.NativeWindowHandle();
@@ -808,7 +821,8 @@ bool ResolveSkarnessSceneObject( SceneWorld& world, const SkarnessCommand& comma
     return true;
 }
 
-SkarnessSceneObjectResult BuildSkarnessSceneObjectResult( const SceneWorld& world, int modelIndex )
+SkarnessSceneObjectResult BuildSkarnessSceneObjectResult( const SceneWorld& world, int modelIndex,
+                                                          bool includePhysicsState = false )
 {
     SkarnessSceneObjectResult result;
     const Physics::PhysicsBodyRecord* body = world.BodyStore().RecordForModelIndex( modelIndex );
@@ -818,6 +832,22 @@ SkarnessSceneObjectResult BuildSkarnessSceneObjectResult( const SceneWorld& worl
         result.sceneObjectId = body->sceneObjectId.value;
         result.modelRow = modelIndex;
         result.name = world.Entities().At( modelIndex ).displayName;
+    }
+
+    if ( body && includePhysicsState )
+    {
+        result.hasPhysicsState = true;
+        const auto hot = world.BodyStore().HotFields();
+        const auto position = Physics::PhysicsBodyPosition( hot, modelIndex );
+        const auto velocity = Physics::PhysicsBodyLinearVelocity( hot, modelIndex );
+        const auto angular = Physics::PhysicsBodyAngularVelocity( hot, modelIndex );
+        result.position = { position.x, position.y, position.z };
+        result.linearVelocity = { velocity.x, velocity.y, velocity.z };
+        result.angularVelocity = { angular.x, angular.y, angular.z };
+        result.fixed = hot.fixed[modelIndex] != 0u;
+        const auto sleep = Physics::PhysicsEngine::ReadSleepStates( world.Physics() );
+        result.sleepStateAvailable = static_cast<std::size_t>( modelIndex ) < sleep.size();
+        result.sleeping = result.sleepStateAvailable && sleep[modelIndex] != 0u;
     }
 
     return result;
@@ -1296,7 +1326,7 @@ void Run::ApplySkarnessObjectLookupCommand( const SkarnessCommand& command, Skar
 
         if ( application.applied )
         {
-            application.result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex ) );
+            application.result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex, true ) );
         }
         return;
     }
@@ -1420,7 +1450,11 @@ void Run::ApplySkarnessCommands( RuntimeUIFrameResult& result, const RuntimeInpu
     {
         SkarnessCommandApplication application;
 
-        ApplySkarnessReplayCommand( command, result, facts, application );
+        ApplySkarnessComparisonCommand( command, application );
+        if ( !application.handled )
+        {
+            ApplySkarnessReplayCommand( command, result, facts, application );
+        }
 
         if ( !application.handled )
         {

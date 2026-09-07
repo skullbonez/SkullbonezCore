@@ -529,6 +529,87 @@ CommandParseStatus ParseValueCommand( const std::string& name, const Json& argum
 
 CommandParseStatus ParsePlanningCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
 {
+    if ( name.starts_with( "comparison." ) )
+    {
+        bool valid = true;
+        if ( name == "comparison.load" || name == "comparison.finding.load" || name == "comparison.finding.save" )
+        {
+            command.type = name == "comparison.load"           ? SkarnessCommandType::ComparisonLoad
+                           : name == "comparison.finding.load" ? SkarnessCommandType::ComparisonLoadFinding
+                                                               : SkarnessCommandType::ComparisonSaveFinding;
+            valid = ReadString( arguments, "path", command.text ) && command.text.size() < 260;
+            if ( name == "comparison.finding.save" )
+            {
+                valid = valid && ReadString( arguments, "note", command.secondText );
+            }
+        }
+        else if ( name == "comparison.seek" || name == "comparison.step" || name == "comparison.play" ||
+                  name == "comparison.event" )
+        {
+            command.type = name == "comparison.seek"   ? SkarnessCommandType::ComparisonSeek
+                           : name == "comparison.step" ? SkarnessCommandType::ComparisonStep
+                           : name == "comparison.play" ? SkarnessCommandType::ComparisonPlay
+                                                       : SkarnessCommandType::ComparisonEvent;
+            valid = ReadInteger( arguments,
+                                 name == "comparison.seek"    ? "tick"
+                                 : name == "comparison.event" ? "index"
+                                                              : "direction",
+                                 command.integer );
+            valid = valid && ( ( name == "comparison.step" || name == "comparison.play" )
+                                   ? command.integer >= -1 && command.integer <= 1
+                                   : command.integer >= 0 );
+        }
+        else if ( name == "comparison.mode" )
+        {
+            command.type = SkarnessCommandType::ComparisonMode;
+            valid = ReadString( arguments, "mode", command.text );
+        }
+        else if ( name == "comparison.select" )
+        {
+            command.type = SkarnessCommandType::ComparisonSelect;
+            valid = ReadUnsignedIntegerIncludingZero( arguments, "sceneObjectId", command.unsignedInteger );
+        }
+        else if ( name == "comparison.setting" )
+        {
+            command.type = SkarnessCommandType::ComparisonSetting;
+            valid = ReadString( arguments, "name", command.text ) && ReadNumber( arguments, "value", command.number );
+        }
+        else if ( name == "comparison.loop" )
+        {
+            command.type = SkarnessCommandType::ComparisonLoop;
+            valid = ReadInteger( arguments, "first", command.integer ) &&
+                    ReadInteger( arguments, "last", command.secondInteger ) &&
+                    ReadBoolean( arguments, "enabled", command.enabled );
+        }
+        else if ( name == "comparison.camera" )
+        {
+            command.type = SkarnessCommandType::ComparisonCamera;
+            valid = ReadVector3( arguments, "orbit", command.number, command.secondNumber, command.thirdNumber ) &&
+                    ReadVector3( arguments, "pan", command.fourthNumber, command.fifthNumber, command.sixthNumber );
+        }
+        else if ( name == "comparison.close" )
+        {
+            command.type = SkarnessCommandType::ComparisonClose;
+        }
+        else if ( name == "comparison.focus" )
+        {
+            command.type = SkarnessCommandType::ComparisonFocus;
+        }
+        else if ( name == "comparison.next_difference" )
+        {
+            command.type = SkarnessCommandType::ComparisonNext;
+        }
+        else if ( name == "comparison.state" )
+        {
+            command.type = SkarnessCommandType::ComparisonState;
+        }
+        else
+        {
+            return CommandParseStatus::Unknown;
+        }
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
+
     if ( name == "replay.set_path_color_mode" || name == "replay.set_cause_filter" ||
          name == "replay.set_cause_inspector_tab" )
     {
@@ -1003,6 +1084,21 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         return;
     }
 
+    if ( commandName == "input.set_movement" )
+    {
+        bool w = false, a = false, s = false, d = false;
+        if ( m_manualInput || !ReadBoolean( arguments, "w", w ) || !ReadBoolean( arguments, "a", a ) ||
+             !ReadBoolean( arguments, "s", s ) || !ReadBoolean( arguments, "d", d ) )
+        {
+            SendLifecycle( requestId, "rejected", "automated input and boolean w/a/s/d values are required" );
+            return;
+        }
+        m_movementKeysDown = static_cast<uint8_t>( ( w ? 1 : 0 ) | ( a ? 2 : 0 ) | ( s ? 4 : 0 ) | ( d ? 8 : 0 ) );
+        SendLifecycle( requestId, "accepted" );
+        CompleteCommand( requestId, true );
+        return;
+    }
+
     if ( commandName == "input.set_arrows" )
     {
         bool left = false;
@@ -1037,8 +1133,10 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
                                   ReadInteger( arguments, "y", drag.clientY ) &&
                                   ReadInteger( arguments, "deltaX", drag.deltaX ) &&
                                   ReadInteger( arguments, "deltaY", drag.deltaY );
-        const bool bounded = drag.clientX >= 0 && drag.clientX <= 65535 && drag.clientY >= 0 && drag.clientY <= 65535 &&
-                             std::abs( drag.deltaX ) <= 150 && std::abs( drag.deltaY ) <= 150;
+        const bool validClientMotion = !arguments.contains( "moveClient" ) ||
+                                       ReadBoolean( arguments, "moveClient", drag.moveClient );
+        const bool bounded = validClientMotion && drag.clientX >= 0 && drag.clientX <= 65535 && drag.clientY >= 0 &&
+                             drag.clientY <= 65535 && std::abs( drag.deltaX ) <= 150 && std::abs( drag.deltaY ) <= 150;
 
         if ( buttonName == "left" )
         {
@@ -1275,6 +1373,11 @@ bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
     outFrame.clientX = m_pendingPointerDrag.clientX;
     outFrame.clientY = m_pendingPointerDrag.clientY;
     outFrame.button = m_pendingPointerDrag.button;
+    if ( m_pendingPointerDrag.moveClient && m_pendingPointerDrag.phase > 0 )
+    {
+        outFrame.clientX += m_pendingPointerDrag.deltaX;
+        outFrame.clientY += m_pendingPointerDrag.deltaY;
+    }
 
     if ( m_pendingPointerDrag.phase == 0 )
     {
@@ -1298,6 +1401,11 @@ bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
     }
 
     return true;
+}
+
+uint8_t SkarnessHost::MovementKeysDown() const noexcept
+{
+    return m_connected ? m_movementKeysDown : 0;
 }
 
 uint8_t SkarnessHost::ArrowKeysDown() const noexcept
@@ -1411,14 +1519,49 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
 
             for ( const SkarnessSceneObjectResult& object : result->objects )
             {
-                objects.push_back( { { "sceneObjectId", object.sceneObjectId },
-                                     { "modelRow", object.modelRow },
-                                     { "name", object.name } } );
+                Json row = { { "sceneObjectId", object.sceneObjectId },
+                             { "modelRow", object.modelRow },
+                             { "name", object.name } };
+
+                // Bulk catalogs stay bounded; detailed state is requested one identity at a time.
+                if ( object.hasPhysicsState )
+                {
+                    row["position"] = object.position;
+                    row["linearVelocity"] = object.linearVelocity;
+                    row["angularVelocity"] = object.angularVelocity;
+                    row["fixed"] = object.fixed;
+                    row["sleepStateAvailable"] = object.sleepStateAvailable;
+                    row["sleeping"] = object.sleeping;
+                }
+
+                objects.push_back( std::move( row ) );
             }
 
             values["objects"] = std::move( objects );
         }
 
+        if ( result->hasComparison )
+        {
+            values["comparison"] = { { "tick", result->comparisonTick },
+                                     { "loading", result->comparisonLoading },
+                                     { "loadPercent", result->comparisonLoadPercent },
+                                     { "lastTick", result->comparisonLastTick },
+                                     { "direction", result->comparisonDirection },
+                                     { "mode", result->comparisonMode },
+                                     { "stackedViews", result->comparisonStacked },
+                                     { "orbitSelected", result->comparisonOrbit },
+                                     { "timelineDragging", result->comparisonDragging },
+                                     { "cameraEye", result->comparisonEye },
+                                     { "cameraView", result->comparisonView },
+                                     { "selected", result->comparisonSelected },
+                                     { "coverage", result->comparisonCoverage },
+                                     { "diagnosticsRecorded", result->comparisonDiagnostics },
+                                     { "positionA", result->comparisonPositionA },
+                                     { "positionB", result->comparisonPositionB },
+                                     { "distanceMetres", result->comparisonDistance },
+                                     { "angleDegrees", result->comparisonAngle },
+                                     { "events", result->comparisonEventCount } };
+        }
         if ( result->hasTextValue )
         {
             values[result->valueName] = result->textValue;

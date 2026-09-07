@@ -107,7 +107,23 @@ enum class SkarnessCommandType : uint8_t
     PredictionForecastReset,
     PredictionForecastStop,
     PredictionSelectTarget,
-    CameraOrbitInspection
+    CameraOrbitInspection,
+    ComparisonLoad,
+    ComparisonClose,
+    ComparisonSeek,
+    ComparisonStep,
+    ComparisonPlay,
+    ComparisonMode,
+    ComparisonSelect,
+    ComparisonEvent,
+    ComparisonFocus,
+    ComparisonNext,
+    ComparisonSaveFinding,
+    ComparisonLoadFinding,
+    ComparisonSetting,
+    ComparisonLoop,
+    ComparisonCamera,
+    ComparisonState
 };
 
 struct SkarnessCommand
@@ -138,12 +154,31 @@ struct SkarnessSceneObjectResult
     uint64_t sceneObjectId = 0;
     int modelRow = -1;
     std::string name;
+    // Detached live Physics values, sampled with the same stable object identity.
+    bool hasPhysicsState = false;
+    std::array<float, 3> position {};
+    std::array<float, 3> linearVelocity {};
+    std::array<float, 3> angularVelocity {};
+    bool fixed = false;
+    bool sleepStateAvailable = false;
+    bool sleeping = false;
 };
 
 // Detached typed result values are serialized only by Automation after the
 // sampled frame is durable. App never assembles protocol JSON.
 struct SkarnessCommandResult
 {
+    bool hasComparison = false;
+    bool comparisonLoading = false;
+    int comparisonLoadPercent = 0;
+    bool comparisonStacked = false, comparisonOrbit = false, comparisonDragging = false;
+    std::array<float, 3> comparisonEye {}, comparisonView {};
+    int comparisonTick = 0, comparisonLastTick = 0, comparisonDirection = 0, comparisonMode = 0;
+    uint64_t comparisonSelected = 0;
+    std::array<bool, 2> comparisonCoverage {}, comparisonDiagnostics {};
+    std::array<float, 3> comparisonPositionA {}, comparisonPositionB {};
+    float comparisonDistance = 0, comparisonAngle = 0;
+    uint64_t comparisonEventCount = 0;
     std::vector<SkarnessSceneObjectResult> objects;
     std::string valueName;
     std::string textValue;
@@ -186,6 +221,22 @@ struct SkarnessCapability
 // This catalog is the one discoverable protocol inventory. Player controls,
 // parsers, and mechanical coverage tests join on these stable command names.
 inline constexpr std::array SKARNESS_CAPABILITIES = {
+    SkarnessCapability { "comparison.load", "Planning", "{path:string}" },
+    SkarnessCapability { "comparison.close", "Planning", "{}" },
+    SkarnessCapability { "comparison.seek", "Planning", "{tick:int}" },
+    SkarnessCapability { "comparison.step", "Planning", "{direction:-1|1}" },
+    SkarnessCapability { "comparison.play", "Planning", "{direction:-1|0|1}" },
+    SkarnessCapability { "comparison.mode", "Planning", "{mode:split|overlay|toggle|heatmap|pixels}" },
+    SkarnessCapability { "comparison.select", "Planning", "{sceneObjectId:uint64}" },
+    SkarnessCapability { "comparison.event", "Planning", "{index:int}" },
+    SkarnessCapability { "comparison.focus", "Planning", "{}" },
+    SkarnessCapability { "comparison.next_difference", "Planning", "{}" },
+    SkarnessCapability { "comparison.finding.save", "Planning", "{path:string,note:string}" },
+    SkarnessCapability { "comparison.finding.load", "Planning", "{path:string}" },
+    SkarnessCapability { "comparison.setting", "Planning", "{name:string,value:number}" },
+    SkarnessCapability { "comparison.loop", "Planning", "{first:int,last:int,enabled:bool}" },
+    SkarnessCapability { "comparison.camera", "Planning", "{orbit:[yaw,pitch,zoom],pan:[x,y,0]}" },
+    SkarnessCapability { "comparison.state", "Planning", "{}" },
     SkarnessCapability { "capabilities.get", "Automation", "{}" },
     SkarnessCapability { "session.stop", "Automation", "{}" },
     SkarnessCapability { "capture.screenshot", "Capture", "{path:string}" },
@@ -256,9 +307,12 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
     SkarnessCapability { "replay.set_path_target", "Replay", "{name:string}|{sceneObjectId:uint64}" },
     SkarnessCapability { "camera.orbit_inspection", "Camera", "{yawRadians:number,pitchRadians:number,wheelDelta?:int}" },
     SkarnessCapability { "state.subscribe", "Automation", "{topics:[string],detail:summary|normal|full}" },
+    SkarnessCapability { "input.set_movement", "Input", "{w:bool,a:bool,s:bool,d:bool}",
+                         SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
-    SkarnessCapability { "input.pointer_drag", "Input", "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int}",
+    SkarnessCapability { "input.pointer_drag", "Input",
+                         "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int,moveClient?:bool}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
 };
 

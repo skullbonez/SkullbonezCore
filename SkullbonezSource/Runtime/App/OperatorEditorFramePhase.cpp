@@ -601,6 +601,18 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
     PROFILE_BEGIN( "Frame/UI" );
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
     const int drawCallStart = renderer.BeginUiTextFrame( viewport );
+    if ( ComparisonUiActive() )
+    {
+        const auto& draw = m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty()
+                               ? m_comparisonPanel.ComposeLoading( viewport.screenW, viewport.screenH,
+                                                                   m_comparisonLoad.Percent(),
+                                                                   m_comparisonLoad.Error().c_str() )
+                               : m_comparisonPanel.Compose( m_comparison, viewport.screenW, viewport.screenH );
+        renderer.SubmitUiDrawList( draw, viewport );
+        const int drawCalls = renderer.EndUiTextFrame( drawCallStart );
+        PROFILE_END( "Frame/UI" );
+        return drawCalls;
+    }
     UiChromeStatusValues chromeStatus;
     chromeStatus.textOnly = debug.isTextOnly;
     chromeStatus.topTextHidden = debug.isTopTextHidden;

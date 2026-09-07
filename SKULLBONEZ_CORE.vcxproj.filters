@@ -2074,4 +2074,37 @@
       <Filter>Style Files</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Evidence.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Persistence.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.PairedViews.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparisonPanel.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\App\RunComparison.cpp">
+      <Filter>Source Files\Runtime\App</Filter>
+    </ClCompile>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparisonPanel.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Diagnostics.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+  </ItemGroup>
 </Project>

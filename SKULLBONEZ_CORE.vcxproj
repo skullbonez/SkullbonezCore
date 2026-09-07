@@ -930,4 +930,19 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets" Condition="Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" />
   </ImportGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Evidence.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Persistence.cpp" />
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.h" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.PairedViews.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparisonPanel.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\RunComparison.cpp" />
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparisonPanel.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Diagnostics.cpp" />
+  </ItemGroup>
 </Project>

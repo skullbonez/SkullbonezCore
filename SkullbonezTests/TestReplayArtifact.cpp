@@ -423,6 +423,29 @@ TEST_CASE( "Replay artifact codec: malformed header and table ranges fail closed
         bytes.pop_back();
         CheckRejected( ArtifactPath( "truncated.skreplay" ), bytes );
     }
+    SUBCASE( "oversized counts fit the table but not the payload" )
+    {
+        for ( const char* tag : { "BODY", "INDX", "PRES" } )
+        {
+            std::vector<uint8_t> bytes = canonical;
+            const std::size_t entry = FindChunkEntry( bytes, tag );
+            const auto payload = static_cast<std::size_t>( ReadValue<uint64_t>( bytes, entry + kChunkPayloadOffset ) );
+            const uint32_t hugeCount = ( std::numeric_limits<uint32_t>::max )();
+            WriteValue<uint32_t>( bytes, entry + kChunkRecordCountOffset, hugeCount );
+            WriteValue<uint32_t>( bytes, payload, hugeCount );
+            CheckRejected( ArtifactPath( "oversized_count.skreplay" ), bytes );
+        }
+    }
+    SUBCASE( "index cannot decode the same payload repeatedly" )
+    {
+        std::vector<uint8_t> bytes = canonical;
+        const std::size_t entry = FindChunkEntry( bytes, "INDX" );
+        const auto payload = static_cast<std::size_t>( ReadValue<uint64_t>( bytes, entry + kChunkPayloadOffset ) );
+        REQUIRE( ReadValue<uint32_t>( bytes, payload ) >= 2u );
+        const uint64_t firstOffset = ReadValue<uint64_t>( bytes, payload + 4u + 8u );
+        WriteValue<uint64_t>( bytes, payload + 4u + 24u + 8u, firstOffset );
+        CheckRejected( ArtifactPath( "aliased_index.skreplay" ), bytes );
+    }
     SUBCASE( "future version" )
     {
         std::vector<uint8_t> bytes = canonical;

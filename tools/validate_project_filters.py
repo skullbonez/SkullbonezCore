@@ -64,6 +64,10 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         "Runtime/Automation/SkarnessStateSerialization.cpp",
         "Runtime/App/InteractionAutomationReportApplication.cpp",
         "Runtime/Replay/ReplayV2Artifact.cpp",
+        # Comparison decodes bundles/diagnostics and saves findings only at the
+        # explicit Capture boundary, never during steady playback.
+        "Runtime/Planning/PhysicsComparison.Persistence.cpp",
+        "Runtime/Planning/PhysicsComparison.Diagnostics.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
         "Runtime/Scene/SceneController.Creation.cpp",
         "Runtime/App/StartupLaunchApplication.cpp",
@@ -246,6 +250,7 @@ DX12_RENDERING_PREFIXES = (
 )
 
 RENDERING_PREFIXES = (
+    "PairedViewRenderer",
     "ContactManifoldPresentation",
     "DrawCallTrace",
     "RenderInstanceRenderer",
@@ -443,6 +448,8 @@ RUNTIME_PREDICTION_PREFIXES = (
 )
 
 RUNTIME_PLANNING_PREFIXES = (
+    "PhysicsComparisonPanel",
+    "PhysicsComparison",
     "ContinuousOrbitalForecast",
     "ContinuousOrbitalStability",
     "ReplayCauseInspection",
@@ -457,6 +464,7 @@ RUNTIME_PLANNING_PREFIXES = (
 )
 
 RUNTIME_APP_PREFIXES = (
+    "RunComparison",
     "CameraFrameApplication",
     "InteractionAutomationApplication",
     "InteractionAutomationReportApplication",

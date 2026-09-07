@@ -313,9 +313,11 @@ inline bool ValidateGeneratedUnifiedRasterRootSignature( std::string& outError )
         }
     }
 
-    if ( rasterStageCount != 42 )
+    const auto expectedRasterStages = ShippingRasterShaderContractCount() * 2;
+    if ( rasterStageCount != expectedRasterStages )
     {
-        outError = "UnifiedRaster expected reflection for 42 raster stages, found " + std::to_string( rasterStageCount );
+        outError = "UnifiedRaster expected reflection for " + std::to_string( expectedRasterStages ) +
+                   " raster stages, found " + std::to_string( rasterStageCount );
         return false;
     }
 

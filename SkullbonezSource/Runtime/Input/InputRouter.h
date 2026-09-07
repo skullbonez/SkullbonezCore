@@ -323,8 +323,10 @@ class InputRouter
                                                         bool suppressWorldAction );
     const RuntimeInputSnapshot& RuntimeSnapshot() const;
     PointerPresentationPolicy EvaluatePointerPresentation( const PointerPresentationPolicyInput& input ) const;
-    void ApplyPointerPresentation( const PointerPresentationPolicy& policy ); // Commits the policy's desired native cursor visibility.
-    bool ReleasePointerToUi( const PointerPresentationPolicy& policy );       // Releases native capture only when mouse look has no stronger claim.
+    void ApplyPointerPresentation(
+        const PointerPresentationPolicy& policy ); // Commits the policy's desired native cursor visibility.
+    bool ReleasePointerToUi(
+        const PointerPresentationPolicy& policy ); // Releases native capture only when mouse look has no stronger claim.
     void ApplyInteractionTransitionCleanup( const RuntimeInteractionTransition& transition, EditorToolsOwner& editorTools,
                                             RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
                                             AttachedCameraController& attachedCamera, CameraControlState& camera,
@@ -335,9 +337,10 @@ class InputRouter
                                      AttachedCameraController& attachedCamera, CameraControlState& camera,
                                      SceneController& sceneController, ReplayRuntime& replayRuntime,
                                      RunCameraMode replayRestoreCameraMode );
-    RuntimeInteractionTransition SetWorldInteractionOwner( WorldInteractionOwner owner, InteractionExitReason reason, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
-                                                           RuntimeInteractionController& interaction, AttachedCameraController& attachedCamera, CameraControlState& camera,
-                                                           SceneController& sceneController, ReplayRuntime& replayRuntime, RunCameraMode replayRestoreCameraMode );
+    RuntimeInteractionTransition SetWorldInteractionOwner(
+        WorldInteractionOwner owner, InteractionExitReason reason, EditorToolsOwner& editorTools, RuntimeTools& runtimeTools,
+        RuntimeInteractionController& interaction, AttachedCameraController& attachedCamera, CameraControlState& camera,
+        SceneController& sceneController, ReplayRuntime& replayRuntime, RunCameraMode replayRestoreCameraMode );
 
     // Camera-mode requests are input-owner transitions: the router sequences
     // interaction cleanup, camera/editor state, and pointer presentation while
@@ -402,6 +405,12 @@ class InputRouter
     // edges, not in a consumer's compatibility input context.
     bool IsQuickRepeat( RuntimeInputAction action, double nowSeconds, double intervalSeconds ) const;
     void RecordTap( RuntimeInputAction action, double nowSeconds );
+    bool ConsumeRepeatingAction( RuntimeInputAction action, double nowSeconds, double repeatSeconds );
+    bool UpdateTimelineDrag( bool pressHitsTimeline );
+    bool TimelineDragActive() const noexcept
+    {
+        return m_timelineDrag;
+    }
     static bool ContextsSatisfied( RuntimeInputContextMask requiredContexts, RuntimeInputContextMask activeContexts );
     static InputActionPhase PhaseForBinding( const RuntimeInputKeyBinding& binding );
 
@@ -431,9 +440,10 @@ class InputRouter
     DeviceInputFrame m_deviceFrame;
     UiInputHitSnapshot m_uiSnapshot;
     RuntimeInputSnapshot m_runtimeSnapshot;
-    RuntimeInputContext m_runtimeContext;                                     // Semantic mode/action history belongs with routed edge memory.
-    InputActions m_actions;                                                   // Fixed per-frame semantic output; reset by BeginFrame.
+    RuntimeInputContext m_runtimeContext; // Semantic mode/action history belongs with routed edge memory.
+    InputActions m_actions;               // Fixed per-frame semantic output; reset by BeginFrame.
     bool m_nativeCaptureRequested = false;
+    bool m_timelineDrag = false;
     bool m_committedNativeCapture = false;
     bool m_cursorVisibleRequested = true;
     bool m_committedCursorVisible = true;

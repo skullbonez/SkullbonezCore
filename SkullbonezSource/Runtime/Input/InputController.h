@@ -166,6 +166,10 @@ enum class RuntimeInputAction
     SetDirectorPhasePose,
     StepDirectorPhase,
     SaveDirectorShotList,
+    OpenComparison,
+    ComparisonStepBackward,
+    ComparisonStepForward,
+    ComparisonPlayPause,
     Count
 };
 
@@ -200,7 +204,8 @@ enum class RuntimeInputBindingContext : RuntimeInputContextMask
     AfterUIUpdate = 1u << 14,
     UINotInteracted = 1u << 15,
     ReplayRestoreNotConsumed = 1u << 16,
-    Capture = 1u << 17
+    Capture = 1u << 17,
+    Comparison = 1u << 18
 };
 
 constexpr RuntimeInputContextMask RuntimeInputContextBit( RuntimeInputBindingContext context )

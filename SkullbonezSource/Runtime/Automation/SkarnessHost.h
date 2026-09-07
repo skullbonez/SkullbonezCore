@@ -36,6 +36,7 @@ class SkarnessHost
     void CompleteCapture( uint64_t token, bool applied, const char* reason = nullptr );
     bool TakePointerInputFrame( SkarnessPointerInputFrame& outFrame );
     uint8_t ArrowKeysDown() const noexcept;
+    uint8_t MovementKeysDown() const noexcept;
     SkarnessProceedPolicy TakeProceedPolicy();
     void PublishFrameState( const SkarnessFrameState& state, const ReplayAutomationView& replay );
     bool TakeStopRequested() noexcept;
@@ -113,6 +114,7 @@ class SkarnessHost
     struct PendingPointerDrag
     {
         std::string requestId;
+        bool moveClient = false;
         int clientX = 0;
         int clientY = 0;
         int deltaX = 0;
@@ -138,6 +140,7 @@ class SkarnessHost
     PendingSceneTransition m_pendingSceneTransition;
     PendingPointerDrag m_pendingPointerDrag;
     uint8_t m_arrowKeysDown = 0;
+    uint8_t m_movementKeysDown = 0;
     uint64_t m_sequence = 0;
     uint64_t m_renderFrame = 0;
     uint64_t m_physicsSceneGeneration = ~uint64_t { 0 };
