@@ -114,7 +114,7 @@ def verify_manifold_flash(connection: SkarnessConnection, session: Path) -> None
             offset = trace.tell()
         return latest["replay.cause"]
 
-    send("run.step_frames", count=20)
+    send("run.step_frames", count=40)
     initial = sample()
     assert initial["contactPointCount"] > 0 and initial["contactFlashAlpha"] == 0
     row = initial["rows"][initial["selectedRow"]]
@@ -147,7 +147,7 @@ def verify_manifold_flash(connection: SkarnessConnection, session: Path) -> None
         (session / f"contact-flash-{index}.json").write_text(json.dumps(current, indent=2), encoding="utf-8")
         flash_path = session / f"contact-flash-{index}.png"
         send("capture.screenshot", path=str(flash_path.resolve()))
-        send("run.step_frames", count=20)
+        send("run.step_frames", count=40)
         faded = sample()
         assert faded["contactFlashAlpha"] == 0
         assert faded["contactFlashSequence"] == sequence + 1
@@ -164,12 +164,102 @@ def verify_manifold_flash(connection: SkarnessConnection, session: Path) -> None
             changed = sum(1 for y in range(crop.height) for x in range(crop.width)
                           if max(crop.getpixel((x, y))) > 40)
             assert changed >= 30, f"contact flash produced no visible local fade: {changed} pixels"
+            red_flash = 0
+            flash_pixels = flashed.convert("RGB")
+            settled_pixels = settled.convert("RGB")
+            for y in range(center_y - 150, center_y + 150):
+                for x in range(center_x - 200, center_x + 200):
+                    delta = [a - b for a, b in zip(flash_pixels.getpixel((x, y)), settled_pixels.getpixel((x, y)))]
+                    red_flash += delta[0] > 25 and delta[0] > delta[1] + 20 and delta[0] > delta[2] + 20
+            assert red_flash >= 20, f"contact flash is not visibly red: {red_flash} pixels"
 
         # Move clear of the contact before reversing so the next pass must re-enter.
         send("input.set_arrows", left=direction < 0, right=direction > 0)
         send("run.step_frames", count=12)
         send("input.set_arrows", left=False, right=False)
         current = sample()
+
+
+def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> None:
+    """Physical UI input must preserve the selected evidence and its prediction."""
+    latest = {}
+    offset = 0
+
+    def send(command: str, **arguments: object) -> None:
+        result = connection.wait(connection.send(command, arguments))
+        assert result.get("status") == "applied", result
+
+    def sample(label: str) -> dict:
+        nonlocal offset
+        send("run.step_frames", count=3)
+        with (session / "runtime.skarness.ndjson").open(encoding="utf-8") as trace:
+            trace.seek(offset)
+            for line in trace:
+                event = json.loads(line)
+                if event.get("topic") in ("replay.cause", "replay.state"):
+                    latest[event["topic"]] = event["payload"]
+            offset = trace.tell()
+        (session / f"controls-{label}.json").write_text(json.dumps(latest, indent=2), encoding="utf-8")
+        return latest["replay.state"].copy()
+
+    send("replay.set_cause_inspector_open", open=True)
+    send("run.step_frames", count=20)
+    initial = sample("initial")
+    cause = latest["replay.cause"]
+    assert cause["blueOutlinesVisible"] and cause["greyOutlinesVisible"]
+    assert all(item["available"] and item["dimensionsAvailable"] and item["mass"] > 0 for item in cause["objects"])
+    assert {item["sceneObjectId"] for item in cause["objects"]} == {
+        initial["selectedCausePrimaryId"], initial["selectedCauseCounterpartId"]}
+    window_x, window_y, window_width, window_height = cause["window"]
+    inspector_x = window_x - 100
+    # Expand geometry so the larger summary needs scrolling.
+    send("input.pointer_drag", button="left", x=inspector_x, y=window_y + 388, deltaX=0, deltaY=0)
+    sample("expanded")
+    assert latest["replay.cause"]["summaryExpandedSection"] == 0
+    eye = initial["cameraPrimaryEye"]
+    for label, x, y in (("summary-wheel", inspector_x, window_y + 200),
+                         ("hierarchy-wheel", window_x + window_width // 2, window_y + 200)):
+        send("input.pointer_wheel", x=x, y=y, wheelDelta=-120)
+        current = sample(label)
+        assert current["cameraPrimaryEye"] == eye, "captured UI wheel moved the world camera"
+        assert current["selectedCauseRow"] == initial["selectedCauseRow"]
+        if label == "summary-wheel":
+            assert latest["replay.cause"]["summaryScrollOffset"] > 0
+
+    send("input.pointer_wheel", x=20, y=window_y + window_height + 20, wheelDelta=120)
+    zoomed = sample("world-wheel")
+    assert vector_distance(eye, zoomed["cameraPrimaryEye"]) > 0.01, "world wheel no longer zooms"
+    initial_counts = (initial["drawnCollisionWireframeCount"], initial["drawnEndingWireframeCount"])
+    assert initial_counts[0] > 0 and initial_counts[1] > 0
+    for index, blue, grey in ((0, False, True), (1, False, False), (0, True, False), (1, True, True)):
+        send("input.pointer_drag", button="left", x=window_x + 50, y=window_y + window_height - 66 + index * 26,
+             deltaX=0, deltaY=0)
+        current = sample(f"blue-{blue}-grey-{grey}")
+        assert latest["replay.cause"]["blueOutlinesVisible"] == blue
+        assert latest["replay.cause"]["greyOutlinesVisible"] == grey
+        assert current["drawnCollisionWireframeCount"] == (initial_counts[0] if blue else 0)
+        if not blue and not grey:
+            assert current["drawnEndingWireframeCount"] == 0
+        if blue and grey:
+            assert current["drawnEndingWireframeCount"] == initial_counts[1]
+        assert current["retainedEntryMarkerCount"] == initial["retainedEntryMarkerCount"]
+        assert current["retainedEndMarkerCount"] == initial["retainedEndMarkerCount"]
+        assert current["predictionGeneration"] == initial["predictionGeneration"]
+        assert current["pathTargetId"] == current["submittedPredictionTargetId"] == initial["pathTargetId"]
+        assert current["selectedCauseRow"] == initial["selectedCauseRow"]
+        assert current["causePresentedFrame"] == initial["causePresentedFrame"]
+    send("replay.set_cause_inspector_open", open=False)
+    send("run.step_frames", count=40)
+    for enabled in (False, True):
+        send("input.pointer_drag", button="left", x=window_x + 50, y=window_y + window_height - 66,
+             deltaX=0, deltaY=0)
+        sample(f"closed-drawer-blue-{enabled}")
+        assert latest["replay.cause"]["drawerProgress"] == 0
+        assert latest["replay.cause"]["blueOutlinesVisible"] == enabled
+    send("replay.set_cause_inspector_open", open=True)
+    send("run.step_frames", count=40)
+    send("input.pointer_wheel", x=inspector_x, y=window_y + 200, wheelDelta=12000)
+    send("capture.screenshot", path=str((session / "inspector-controls.png").resolve()))
 
 
 def run(session: Path, executable: Path) -> None:
@@ -197,6 +287,7 @@ def run(session: Path, executable: Path) -> None:
     try:
         capabilities = send("capabilities.get")
         assert any(row["name"] == "input.set_arrows" for row in capabilities["catalog"])
+        assert any(row["name"] == "input.pointer_wheel" for row in capabilities["catalog"])
         # All topics remain durable on disk; live subscriptions are unnecessary
         # for this synchronous command client and can fill the pipe during QA.
         send("state.subscribe", topics=[], detail="normal")
@@ -247,6 +338,7 @@ def run(session: Path, executable: Path) -> None:
         send("capture.screenshot", path=str((session / "playback.png").resolve()))
         verify_position_gate(session / "playback.png")
         verify_retained_geometry(session)
+        verify_inspector_controls(connection, session)
         send("replay.return_from_cause")
         exited = state("exited")
         send("input.set_arrows", left=True, right=False)

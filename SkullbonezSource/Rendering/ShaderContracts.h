@@ -126,14 +126,15 @@ struct ShaderVertexInputContract
 
 // CPU-owned input-layout vocabulary. Each token is semantic/index, component
 // mask, and system value in the same order used to create the PSO layout.
-inline const ShaderVertexInputContract* ShippingShaderVertexInputContracts()
+inline const auto& ShippingShaderVertexInputContracts()
 {
     static constexpr ShaderVertexInputContract contracts[] = {
         { "collision_visualizer",
           "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xyzw:NONE,TEXCOORD3:xyzw:NONE,TEXCOORD4:"
           "xyzw:NONE,TEXCOORD5:xyzw:NONE" },
-        { "grid_line", "POSITION0:xyz:NONE,TEXCOORD0:xyz:NONE" },
+        { "grid_line", "POSITION0:xyz:NONE,TEXCOORD0:xyz:NONE,TEXCOORD1:xyz:NONE,TEXCOORD2:xyz:NONE,SV_VertexID0:x:VERTID" },
         { "image_pair", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "paired_outline", "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD0:xy:NONE" },
         { "launcher_laser", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE" },
         { "lit_textured", "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD0:xy:NONE" },
         { "lit_textured_instanced",
@@ -163,9 +164,9 @@ inline const ShaderVertexInputContract* ShippingShaderVertexInputContracts()
     return contracts;
 }
 
-inline constexpr size_t ShippingShaderVertexInputContractCount()
+inline size_t ShippingShaderVertexInputContractCount()
 {
-    return 22;
+    return sizeof( ShippingShaderVertexInputContracts() ) / sizeof( ShaderVertexInputContract );
 }
 
 inline const char* ShaderValueTypeName( ShaderValueType type )
@@ -285,9 +286,9 @@ inline bool ShaderContractMatchesBaseName( const char* baseName, const char* pat
 
 // Every shipping raster family has an independent CPU declaration. Generated
 // DXIL reflection is evidence about the artifact, not the source of this table;
-// keeping all 21 rows here catches semantic name/type/slot drift even when a
+// keeping the CPU declarations here catches semantic name/type/slot drift even when a
 // moved resource would still fit the shared root signature.
-inline const ShaderProgramDesc* ShippingRasterShaderContracts()
+inline const auto& ShippingRasterShaderContracts()
 {
     static constexpr ShaderUniformDecl collisionVisualizerUniforms[] = {
         { "uView", ShaderValueType::Mat4, true },
@@ -297,6 +298,10 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
     };
     static constexpr ShaderUniformDecl viewProjectionUniforms[] = {
         { "uViewProj", ShaderValueType::Mat4, true },
+    };
+    static constexpr ShaderUniformDecl gridLineUniforms[] = {
+        { "uViewProj", ShaderValueType::Mat4, true },
+        { "uViewportPixels", ShaderValueType::Vec4, true },
     };
     static constexpr ShaderUniformDecl shadowDepthUniforms[] = {
         { "uModel", ShaderValueType::Mat4, true },
@@ -438,12 +443,15 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
     };
     static constexpr ShaderUniformDecl imagePairUniforms[] = { { "uPair", ShaderValueType::Vec4, true },
                                                                { "uTexel", ShaderValueType::Vec4, true } };
+    static constexpr ShaderUniformDecl pairedOutlineUniforms[] = { { "uModelViewProjection", ShaderValueType::Mat4, true },
+                                                                   { "uOutlineViewport", ShaderValueType::Vec4, true } };
     static constexpr ShaderProgramDesc contracts[] = {
         { "image_pair", "post", "FullscreenP2_UV2", imagePairUniforms, 2, nullptr, 0 },
+        { "paired_outline", "debug", "EdgeEndpoints3_Corner2", pairedOutlineUniforms, 2, nullptr, 0 },
         { "collision_visualizer", "debug", "P3_N3_I4x4_Color3", collisionVisualizerUniforms,
           sizeof( collisionVisualizerUniforms ) / sizeof( collisionVisualizerUniforms[0] ), nullptr, 0 },
-        { "grid_line", "debug", "P3_Color3", viewProjectionUniforms,
-          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ), nullptr, 0 },
+        { "grid_line", "debug", "LineEndpointPair3_Color3", gridLineUniforms,
+          sizeof( gridLineUniforms ) / sizeof( gridLineUniforms[0] ), nullptr, 0 },
         { "launcher_laser", "effects", "P3_Color4", viewProjectionUniforms,
           sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ), nullptr, 0 },
         { "lit_textured_instanced", "objects", "P3_N3_UV2_I4x4_Material4x3", litTexturedInstancedUniforms,
@@ -486,9 +494,9 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
     return contracts;
 }
 
-inline constexpr size_t ShippingRasterShaderContractCount()
+inline size_t ShippingRasterShaderContractCount()
 {
-    return 22;
+    return sizeof( ShippingRasterShaderContracts() ) / sizeof( ShaderProgramDesc );
 }
 
 inline const ShaderProgramDesc* FindShaderProgramDesc( const char* pathOrBaseName )

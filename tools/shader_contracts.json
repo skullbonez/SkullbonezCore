@@ -17,7 +17,22 @@
     {
       "name": "grid_line",
       "status": "active",
-      "stages": ["hlsl"]
+      "stages": ["hlsl"],
+      "uniforms": ["uViewProj", "uViewportPixels"],
+      "requiredSymbols": ["ExpandLineQuad", "LineCoverage", "SV_VertexID"]
+    },
+    {
+      "name": "paired_outline",
+      "status": "active",
+      "stages": ["hlsl"],
+      "uniforms": ["uModelViewProjection", "uOutlineViewport"],
+      "requiredSymbols": ["ExpandLineQuad", "LineCoverage", "ResourceDescriptorHeap"]
+    },
+    {
+      "name": "image_pair",
+      "status": "active",
+      "stages": ["hlsl"],
+      "uniforms": ["uPair", "uTexel"]
     },
     {
       "name": "trajectory_ribbon",

@@ -1,0 +1,49 @@
+{
+  "format": "skullbonez.shot.json",
+  "version": 1,
+  "loop": false,
+  "phases": [
+    {
+      "name": "root-sighting",
+      "camera": {
+        "position": [392.0, 34.0, 570.0],
+        "view": [536.0, 20.0, 500.0],
+        "up": [0.0, 1.0, 0.0]
+      },
+      "stylePath": "SkullbonezData/styles/storm_front.style.json",
+      "advance": "RevealAtLeast",
+      "timerSeconds": 1.0,
+      "revealThreshold": 0.10,
+      "blendInSeconds": 0.15,
+      "revealRate": 0.30
+    },
+    {
+      "name": "chain-bloom",
+      "camera": {
+        "position": [468.0, 88.0, 646.0],
+        "view": [562.0, 32.0, 500.0],
+        "up": [0.0, 1.0, 0.0]
+      },
+      "stylePath": "SkullbonezData/styles/neon_cyberpunk.style.json",
+      "advance": "RevealAtLeast",
+      "timerSeconds": 1.0,
+      "revealThreshold": 0.22,
+      "blendInSeconds": 0.45,
+      "revealRate": 0.55
+    },
+    {
+      "name": "settle-rest",
+      "camera": {
+        "position": [430.0, 126.0, 722.0],
+        "view": [560.0, 30.0, 500.0],
+        "up": [0.0, 1.0, 0.0]
+      },
+      "stylePath": "SkullbonezData/styles/golden_hour_realism.style.json",
+      "advance": "Timer",
+      "timerSeconds": 1.35,
+      "revealThreshold": 1.0,
+      "blendInSeconds": 0.55,
+      "revealRate": 1.0
+    }
+  ]
+}

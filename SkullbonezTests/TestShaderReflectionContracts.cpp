@@ -12,7 +12,7 @@ Glossary:
     rejects the same class of defect it is intended to prevent.
 
 Invariants:
-  - The pinned reflection inventory contains 46 raster, compute, and library stages.
+  - Every raster contract has vertex and pixel reflection, alongside compute and library stages.
   - Compute reflection remains represented even though it has no raster PSO.
 
 Related:
@@ -43,7 +43,7 @@ const char* ReflectionSourceForContract( const char* contractBaseName )
 
 TEST_CASE( "Shader reflection contracts: every shipping stage is represented" )
 {
-    REQUIRE( GeneratedShaderReflection::StageCount == 46u );
+    REQUIRE( GeneratedShaderReflection::StageCount == ShippingRasterShaderContractCount() * 2 + 2 );
     for ( size_t i = 0; i < GeneratedShaderReflection::StageCount; ++i )
     {
         const auto& stage = GeneratedShaderReflection::Stages[i];
@@ -249,7 +249,7 @@ TEST_CASE( "Shader reflection contracts: separate skybox faces use the clamp sam
 TEST_CASE( "Shader reflection contracts: every raster input signature matches the CPU table" )
 {
     const ShaderVertexInputContract* contracts = ShippingShaderVertexInputContracts();
-    REQUIRE( ShippingShaderVertexInputContractCount() == 22u );
+    REQUIRE( ShippingShaderVertexInputContractCount() == ShippingRasterShaderContractCount() );
     for ( size_t contractIndex = 0; contractIndex < ShippingShaderVertexInputContractCount(); ++contractIndex )
     {
         const auto* stage = FindGeneratedShaderStage( ReflectionSourceForContract( contracts[contractIndex].baseName ),

@@ -64,6 +64,20 @@ struct ContactManifoldPresentation
     uint8_t bodyCount = 0;
     uint8_t pointCount = 0;
     bool truncated = false;
+    float normalLengthScale = 1.0f;
+
+    Math::Vector::Vector3 Center() const noexcept
+    {
+        Math::Vector::Vector3 center = Math::Vector::ZERO_VECTOR;
+        const std::size_t count = pointCount < CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY
+                                      ? pointCount
+                                      : CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY;
+        for ( std::size_t index = 0; index < count; ++index )
+        {
+            center = center + points[index].point;
+        }
+        return count ? center / static_cast<float>( count ) : center;
+    }
 
     bool HasGeometry() const noexcept
     {

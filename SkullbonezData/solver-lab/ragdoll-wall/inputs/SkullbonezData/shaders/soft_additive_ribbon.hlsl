@@ -1,0 +1,59 @@
+/*
+File: SkullbonezData/shaders/soft_additive_ribbon.hlsl
+Purpose:
+  Render additive particle trails, thruster exhaust ribbons, and energy arcs.
+
+Summary:
+  Generates camera-facing quad strips with smooth edge alpha falloff and
+  additive blending for high-energy transient visual effects.
+
+Invariants:
+  - Alpha blend state is set to additive (One, One) on the pipeline state.
+  - Ribbon vertices are authored in monotonic timeline sequence.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
+*/
+
+#pragma pack_matrix( column_major )
+
+cbuffer Uniforms : register( b0 )
+{
+    float4x4 uViewProj;
+};
+
+struct VS_IN
+{
+    float3 position : POSITION;
+    float4 color : TEXCOORD0; // rgb, alpha
+    float4 fx : TEXCOORD1;    // edgeCoord, edgeFeather, hdrScale, unused
+};
+
+struct VS_OUT
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR0;
+    float4 fx : TEXCOORD0;
+};
+
+VS_OUT main_vs( VS_IN input )
+{
+    VS_OUT output;
+    output.position = mul( uViewProj, float4( input.position, 1.0 ) );
+    output.color = input.color;
+    output.fx = input.fx;
+    return output;
+}
+
+float4 main_ps( VS_OUT input ) : SV_TARGET
+{
+    const float edge = saturate( abs( input.fx.x ) );
+    const float feather = clamp( input.fx.y, 0.02, 0.95 );
+    const float coverage = 1.0 - smoothstep( 1.0 - feather, 1.0, edge );
+    const float alpha = saturate( input.color.a * coverage );
+    clip( alpha - 0.001 );
+
+    const float hdrScale = max( input.fx.z, 0.0 );
+    return float4( max( input.color.rgb, 0.0 ) * hdrScale, alpha );
+}

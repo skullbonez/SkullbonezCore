@@ -41,6 +41,7 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace SkullbonezCore::Runtime
 {
@@ -91,8 +92,8 @@ class ImmediateUiSubmitter
 
     void Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a )
     {
-        Text::Text2d::BatchTriangle( m_textBatch, m_renderGeometry, PixelX( x0 ), PixelY( y0 ), PixelX( x1 ), PixelY( y1 ),
-                                     PixelX( x2 ), PixelY( y2 ), r, g, b, a );
+        const float positions[] = { PixelX( x0 ), PixelY( y0 ), PixelX( x1 ), PixelY( y1 ), PixelX( x2 ), PixelY( y2 ) };
+        Text::Text2d::BatchTriangle( m_textBatch, m_renderGeometry, positions, r, g, b, a );
     }
 
     void RoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a )
@@ -271,6 +272,14 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
 
             break;
         case UI::UIDrawList::CommandType::Text:
+            // Hazard: Text2d drops glyphs after its fixed batch fills. Drain both
+            // queues before the next label so its background stays below it.
+            if ( std::strlen( drawList.TextAt( command.textOffset ) ) >
+                 static_cast<std::size_t>( textBatch.RemainingTextCharacters() ) )
+            {
+                flushQueued();
+            }
+
             immediateDraw.Text( command.x0 + offsetX, command.y0 + offsetY, command.pxSize, command.r, command.g, command.b,
                                 drawList.TextAt( command.textOffset ) );
 
@@ -317,64 +326,66 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
                                                              ? &previewData->targets[static_cast<size_t>( targetIndex )]
                                                              : nullptr;
 
-            if ( resource && resource->available && resource->textureHandle != 0 )
-            {
-                EnsurePreviewResources( *assets, *renderResources, renderGeometry );
-
-                if ( m_previewShader && m_previewVertexBuffer != 0 )
-                {
-                    const UI::UIRect visible = UI::IntersectRect( bounds, clip );
-
-                    if ( visible.w > 1.0f && visible.h > 1.0f )
-                    {
-                        const float uvLeft = std::clamp( ( visible.x - bounds.x ) / bounds.w, 0.0f, 1.0f );
-                        const float uvRight = std::clamp( ( visible.x + visible.w - bounds.x ) / bounds.w, 0.0f, 1.0f );
-                        const float uvTop = std::clamp( ( visible.y - bounds.y ) / bounds.h, 0.0f, 1.0f );
-                        const float uvBottom = std::clamp( ( visible.y + visible.h - bounds.y ) / bounds.h, 0.0f, 1.0f );
-
-                        screenW = (std::max)( 1, screenW );
-                        screenH = (std::max)( 1, screenH );
-                        const float halfH = std::tan( 22.5f * 3.14159265358979323846f / 180.0f );
-                        const float halfW = halfH * static_cast<float>( screenW ) / static_cast<float>( screenH );
-                        const float scaleX = ( halfW * 2.0f ) / static_cast<float>( screenW );
-                        const float scaleY = ( halfH * 2.0f ) / static_cast<float>( screenH );
-                        const auto textX = [&]( float x ) { return -halfW + x * scaleX; };
-
-                        const auto textY = [&]( float y ) { return halfH - y * scaleY; };
-
-                        const float left = textX( visible.x );
-                        const float right = textX( visible.x + visible.w );
-                        const float top = textY( visible.y );
-                        const float bottom = textY( visible.y + visible.h );
-                        const float vertices[] = {
-                            left, bottom, uvLeft, uvBottom, right, bottom, uvRight, uvBottom, right, top, uvRight, uvTop,
-                            left, bottom, uvLeft, uvBottom, right, top,    uvRight, uvTop,    left,  top, uvLeft,  uvTop,
-                        };
-
-                        const Math::Transformation::Matrix4 projection = Math::Transformation::Matrix4::Ortho( -halfW, halfW,
-                                                                                                               -halfH, halfH,
-                                                                                                               -1.0f, 1.0f );
-
-                        const int mode = resource->depth ? 2 : ( resource->hdr ? 1 : 0 );
-                        m_previewShader->Use();
-                        m_previewShader->SetMat4( "uProjection", projection );
-                        m_previewShader->SetInt( "uTexture", 0 );
-                        m_previewShader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
-                        renderTextures.BindTexture( resource->textureHandle, 0 );
-                        {
-                            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "RenderTargetPreview" );
-                            renderGeometry.UploadAndDrawDynamicVB( m_previewVertexBuffer, vertices, PREVIEW_RASTER_STATE );
-                        }
-                        renderTextures.BindTexture( 0, 0 );
-                    }
-                }
-            }
-            else
+            if ( !resource || !resource->available || resource->textureHandle == 0 )
             {
                 immediateDraw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, command.r, command.g, command.b, command.a );
                 immediateDraw.Text( bounds.x + 12.0f, bounds.y + 12.0f, 12.0f, 0.68f, 0.72f, 0.78f,
                                     drawList.TextAt( command.textOffset ) );
+                break;
             }
+
+            EnsurePreviewResources( *assets, *renderResources, renderGeometry );
+
+            if ( !m_previewShader || m_previewVertexBuffer == 0 )
+            {
+                break;
+            }
+
+            const UI::UIRect visible = UI::IntersectRect( bounds, clip );
+
+            if ( visible.w <= 1.0f || visible.h <= 1.0f )
+            {
+                break;
+            }
+
+            const float uvLeft = std::clamp( ( visible.x - bounds.x ) / bounds.w, 0.0f, 1.0f );
+            const float uvRight = std::clamp( ( visible.x + visible.w - bounds.x ) / bounds.w, 0.0f, 1.0f );
+            const float uvTop = std::clamp( ( visible.y - bounds.y ) / bounds.h, 0.0f, 1.0f );
+            const float uvBottom = std::clamp( ( visible.y + visible.h - bounds.y ) / bounds.h, 0.0f, 1.0f );
+
+            screenW = (std::max)( 1, screenW );
+            screenH = (std::max)( 1, screenH );
+            const float halfH = std::tan( 22.5f * 3.14159265358979323846f / 180.0f );
+            const float halfW = halfH * static_cast<float>( screenW ) / static_cast<float>( screenH );
+            const float scaleX = ( halfW * 2.0f ) / static_cast<float>( screenW );
+            const float scaleY = ( halfH * 2.0f ) / static_cast<float>( screenH );
+            const auto textX = [&]( float x ) { return -halfW + x * scaleX; };
+
+            const auto textY = [&]( float y ) { return halfH - y * scaleY; };
+
+            const float left = textX( visible.x );
+            const float right = textX( visible.x + visible.w );
+            const float top = textY( visible.y );
+            const float bottom = textY( visible.y + visible.h );
+            const float vertices[] = {
+                left, bottom, uvLeft, uvBottom, right, bottom, uvRight, uvBottom, right, top, uvRight, uvTop,
+                left, bottom, uvLeft, uvBottom, right, top,    uvRight, uvTop,    left,  top, uvLeft,  uvTop,
+            };
+
+            const Math::Transformation::Matrix4 projection = Math::Transformation::Matrix4::Ortho( -halfW, halfW, -halfH,
+                                                                                                   halfH, -1.0f, 1.0f );
+
+            const int mode = resource->depth ? 2 : ( resource->hdr ? 1 : 0 );
+            m_previewShader->Use();
+            m_previewShader->SetMat4( "uProjection", projection );
+            m_previewShader->SetInt( "uTexture", 0 );
+            m_previewShader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
+            renderTextures.BindTexture( resource->textureHandle, 0 );
+            {
+                DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "RenderTargetPreview" );
+                renderGeometry.UploadAndDrawDynamicVB( m_previewVertexBuffer, vertices, PREVIEW_RASTER_STATE );
+            }
+            renderTextures.BindTexture( 0, 0 );
 
             break;
         }

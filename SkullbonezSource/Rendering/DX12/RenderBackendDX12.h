@@ -543,6 +543,10 @@ class Dx12PipelineOwner
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat );
     void SetViewport( const D3D12_VIEWPORT& viewport, const D3D12_RECT& scissor );
+    const D3D12_VIEWPORT& CurrentViewport() const
+    {
+        return m_viewport;
+    }
     void InvalidateCommandState();
     void InvalidateTargets();
     DXGI_FORMAT RenderTargetFormat() const;

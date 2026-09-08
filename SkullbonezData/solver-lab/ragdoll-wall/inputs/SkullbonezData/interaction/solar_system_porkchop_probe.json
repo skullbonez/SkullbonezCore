@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 1, "setReplayPathTarget": "ship" },
+    { "frame": 1, "setReplayInterceptTarget": "mars" },
+    { "frame": 1, "setReplayPredictionHorizonSeconds": 20.0 },
+    { "frame": 1, "setReplayPredictionEnabled": true },
+    { "frame": 10, "pressKey": "I" },
+    { "frame": 60, "assert": { "replayPorkchopComplete": true } },
+    { "frame": 60, "assert": { "replayPorkchopMinimumDeltaVMax": 5.0 } },
+    { "frame": 60, "assert": { "replayPorkchopMinimumDepartureDelayMax": 3.0 } },
+    { "frame": 60, "assert": { "replayPorkchopMinimumTimeOfFlightMin": 14.0 } },
+    { "frame": 60, "assert": { "replayPorkchopMinimumTimeOfFlightMax": 18.0 } },
+    { "frame": 60, "assert": { "replayPorkchopRefreshMillisecondsMax": 100.0 } },
+    { "frame": 60, "assert": { "replayPorkchopMaximumFrameMillisecondsMax": 10.0 } },
+    { "frame": 60, "assert": { "replayPorkchopSweepAgeSecondsMax": 2.0 } },
+    { "frame": 61, "moveMouse": [585, 469] },
+    { "frame": 62, "clickPoint": [585, 469], "button": "left" },
+    { "frame": 64, "assert": { "replayPorkchopSelected": true } },
+    { "frame": 64, "assert": { "replayTripPlannerTimeOfFlightMin": 15.0 } },
+    { "frame": 64, "assert": { "replayTripPlannerTimeOfFlightMax": 17.0 } },
+    { "frame": 66, "screenshot": "TestOutput/interaction/solar_system_porkchop.bmp" }
+  ]
+}

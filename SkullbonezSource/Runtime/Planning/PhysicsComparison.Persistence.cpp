@@ -1,4 +1,7 @@
 #include "PhysicsComparison.h"
+#include "PhysicsComparison.Archive.h"
+#include "PhysicsComparison.Binary.h"
+#include "PhysicsComparison.DiagnosticLines.h"
 #include "../Replay/ReplayV2Artifact.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
@@ -16,7 +19,7 @@ namespace fs = std::filesystem;
 
 namespace
 {
-bool MatchesFileHash( const fs::path& path, const std::string& expected )
+bool MatchesFileHash( const fs::path& path, const std::string& expected, ComparisonLoadProgress* progress = nullptr )
 {
     if ( expected.size() != 64 )
     {
@@ -33,6 +36,9 @@ bool MatchesFileHash( const fs::path& path, const std::string& expected )
     std::array<unsigned char, 65536> buffer {};
     std::array<unsigned char, 32> digest {};
     DWORD size = 0, written = 0;
+    std::error_code fileError;
+    const auto fileBytes = fs::file_size( path, fileError );
+    uint64_t processed = 0;
     NTSTATUS status = BCryptOpenAlgorithmProvider( &algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0 );
     if ( status >= 0 )
     {
@@ -49,8 +55,18 @@ bool MatchesFileHash( const fs::path& path, const std::string& expected )
     }
     while ( status >= 0 && input )
     {
+        if ( progress && progress->cancelled.load( std::memory_order_relaxed ) )
+        {
+            status = -1;
+            break;
+        }
         input.read( reinterpret_cast<char*>( buffer.data() ), buffer.size() );
         status = BCryptHashData( hash, buffer.data(), static_cast<ULONG>( input.gcount() ), 0 );
+        processed += static_cast<uint64_t>( input.gcount() );
+        if ( progress && !fileError )
+        {
+            progress->Update( processed, fileBytes );
+        }
     }
     if ( status >= 0 && input.eof() )
     {
@@ -172,12 +188,14 @@ bool VerifyInputs( const Json& manifest, const fs::path& directory, ComparisonLo
         return false;
     }
     const auto& files = manifest["inputs"]["files"];
+    std::size_t processed = 0;
     if ( !files.contains( "scene.scene.json" ) )
     {
         return false;
     }
     for ( const auto& entry : files.items() )
     {
+        progress.Update( processed++, files.size() );
         if ( !entry.value().is_string() || progress.cancelled.load( std::memory_order_relaxed ) )
         {
             return false;
@@ -212,8 +230,109 @@ bool VerifyInputs( const Json& manifest, const fs::path& directory, ComparisonLo
     }
     return true;
 }
-bool PreflightMemory( const Json& manifest, const fs::path& directory, ComparisonLoadProgress& progress, uint64_t& bytes,
-                      std::size_t& events )
+bool ResolveBinaryDiagnosticFile( const Json& metadata, const fs::path& directory, ComparisonLoadProgress& progress,
+                                  fs::path& result )
+{
+    const auto& binary = metadata["diagnosticsBinary"];
+    if ( !binary.is_object() || !binary.contains( "path" ) || !binary["path"].is_string() || !binary.contains( "sha256" ) ||
+         !binary["sha256"].is_string() || !binary.contains( "sourceSha256" ) || !binary["sourceSha256"].is_string() ||
+         !metadata.contains( "diagnosticsSha256" ) || !metadata["diagnosticsSha256"].is_string() ||
+         binary["sourceSha256"] != metadata["diagnosticsSha256"] )
+    {
+        return false;
+    }
+    const fs::path relative = binary["path"].get<std::string>();
+    if ( relative.has_parent_path() || relative.has_root_path() || relative.extension() != ".skobs" )
+    {
+        return false;
+    }
+    result = directory / relative;
+    ComparisonObservationBinary input( result );
+    // Invariant: a binary is admitted only with its own full hash and the
+    // original diagnostic identity. Corrupt declared binaries never fall back
+    // to a different stream that could hide changed comparison evidence.
+    return input.ReadIndex() && input.SourceHash() == binary["sourceSha256"].get<std::string>() &&
+           MatchesFileHash( result, binary["sha256"].get<std::string>(), &progress );
+}
+
+bool ResolveDiagnosticFile( const Json& metadata, const fs::path& directory, ComparisonLoadProgress& progress,
+                            fs::path& result )
+{
+    if ( metadata.is_object() && metadata.contains( "diagnosticsBinary" ) )
+    {
+        return ResolveBinaryDiagnosticFile( metadata, directory, progress, result );
+    }
+    result = directory / "physics.physicsdiag.ndjson";
+    if ( !metadata.is_object() || !metadata.contains( "diagnosticsArchive" ) )
+    {
+        return metadata.is_object();
+    }
+    const auto& parts = metadata["diagnosticsArchive"];
+    if ( !parts.is_array() || parts.empty() || parts.size() > 64 || !metadata.contains( "diagnosticsSha256" ) ||
+         !metadata["diagnosticsSha256"].is_string() || !metadata.contains( "diagnosticsBytes" ) ||
+         !metadata["diagnosticsBytes"].is_number_unsigned() )
+    {
+        return false;
+    }
+    const auto hash = metadata["diagnosticsSha256"].get<std::string>();
+    const auto bytes = metadata["diagnosticsBytes"].get<uint64_t>();
+    if ( hash.size() != 64 || hash.find_first_not_of( "0123456789abcdef" ) != std::string::npos ||
+         bytes > 2ull * 1024 * 1024 * 1024 )
+    {
+        return false;
+    }
+    std::vector<std::string> names;
+    for ( const auto& part : parts )
+    {
+        if ( !part.is_string() )
+        {
+            return false;
+        }
+        names.push_back( part.get<std::string>() );
+    }
+    std::error_code error;
+    const auto cache = fs::temp_directory_path( error ) / "SkullbonezSolverLab";
+    if ( error )
+    {
+        return false;
+    }
+    fs::create_directories( cache, error );
+    if ( error )
+    {
+        return false;
+    }
+    result = cache / ( hash + ".physicsdiag.ndjson" );
+    if ( MatchesFileHash( result, hash, &progress ) )
+    {
+        return true;
+    }
+    const auto space = fs::space( cache, error );
+    if ( error || space.available < bytes + 16ull * 1024 * 1024 )
+    {
+        return false;
+    }
+    const auto temporary = cache / ( hash + "." + std::to_string( GetCurrentProcessId() ) + ".tmp" );
+    // Lifetime: only fully reconstructed, hash-verified evidence enters the
+    // reusable cache. Cancellation and failed decoding leave no partial file.
+    const bool restored = RestoreComparisonDiagnostics( directory, names, temporary, progress ) &&
+                          fs::file_size( temporary, error ) == bytes && !error &&
+                          MatchesFileHash( temporary, hash, &progress );
+    if ( restored && !progress.cancelled.load( std::memory_order_relaxed ) )
+    {
+        fs::remove( result, error );
+        error.clear();
+        fs::rename( temporary, result, error );
+        if ( !error )
+        {
+            return true;
+        }
+    }
+    fs::remove( temporary, error );
+    return false;
+}
+
+bool PreflightMemory( const Json& manifest, const fs::path& directory, const std::array<fs::path, 2>& diagnostics,
+                      ComparisonLoadProgress& progress, uint64_t& bytes, std::size_t& events )
 {
     // V3-V5 write complete body/contact records, not compressed deltas. Charge
     // four times artifact bytes for decoded fields, alignment and transient
@@ -224,6 +343,7 @@ bool PreflightMemory( const Json& manifest, const fs::path& directory, Compariso
     const uint64_t ticks = manifest["ticks"].get<uint64_t>();
     for ( int side = 0; side < 2; ++side )
     {
+        progress.Begin( side ? "B: checking diagnostic capacity" : "A: checking diagnostic capacity", 15 + side * 5, 5 );
         const auto& metadata = manifest["sides"][side];
         if ( !metadata.is_object() || !metadata.contains( "path" ) || !metadata["path"].is_string() ||
              !metadata.contains( "version" ) || !metadata["version"].is_number_integer() )
@@ -253,10 +373,31 @@ bool PreflightMemory( const Json& manifest, const fs::path& directory, Compariso
         bytes += size * 4 + ticks * ( sizeof( ReplayPresentationSample ) + sizeof( ReplaySolverFrameSample ) +
                                       sizeof( ComparisonRecording::Observations ) );
         events += static_cast<std::size_t>( size / 64 );
-        std::ifstream input( directory / ( side ? "B" : "A" ) / "physics.physicsdiag.ndjson" );
-        std::string line;
-        while ( std::getline( input, line ) )
+        if ( diagnostics[side].extension() == ".skobs" )
         {
+            ComparisonObservationBinary binary( diagnostics[side] );
+            if ( !binary.ReadIndex() )
+            {
+                return false;
+            }
+            // The directory replaces the full text counting pass. Charge its
+            // bounded decode scratch as well as retained contacts and events.
+            bytes += binary.Contacts() * sizeof( ComparisonRecording::ContactSummary ) +
+                     binary.Iterations() * sizeof( ComparisonRecording::IterationSummary ) + binary.ScratchBytes() +
+                     sizeof( ComparisonRecording::Observations );
+            events += static_cast<std::size_t>( binary.Contacts() + binary.Iterations() );
+            if ( progress.cancelled.load( std::memory_order_relaxed ) ||
+                 bytes + events * sizeof( ComparisonEvent ) > progress.availableBytes )
+            {
+                return false;
+            }
+            continue;
+        }
+        ComparisonDiagnosticLines input( diagnostics[side] );
+        std::string line;
+        while ( input.Read( line ) )
+        {
+            progress.Update( input.Position(), input.Size() );
             if ( line.size() > 65536 || progress.cancelled.load( std::memory_order_relaxed ) )
             {
                 return false;
@@ -275,6 +416,10 @@ bool PreflightMemory( const Json& manifest, const fs::path& directory, Compariso
             {
                 return false;
             }
+        }
+        if ( !input.Good() )
+        {
+            return false;
         }
     }
     bytes += events * sizeof( ComparisonEvent );
@@ -383,6 +528,7 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
     }
     ComparisonLoadProgress localProgress;
     auto& admission = progress ? *progress : localProgress;
+    admission.Begin( "Checking scene and asset identities", 0, 5 );
     if ( !VerifyInputs( manifest, path.parent_path(), admission ) )
     {
         m_error = "Archived inputs or current scene assets do not match the comparison bundle";
@@ -390,7 +536,18 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
     }
     uint64_t charge = 0;
     std::size_t eventCapacity = 0;
-    if ( !PreflightMemory( manifest, path.parent_path(), admission, charge, eventCapacity ) )
+    std::array<fs::path, 2> diagnostics;
+    for ( int side = 0; side < 2; ++side )
+    {
+        admission.Begin( side ? "B: verifying diagnostic evidence" : "A: verifying diagnostic evidence", 5 + side * 5, 5 );
+        if ( !ResolveDiagnosticFile( manifest["sides"][side], path.parent_path() / ( side ? "B" : "A" ), admission,
+                                     diagnostics[side] ) )
+        {
+            m_error = "Cannot restore archived diagnostics: invalid evidence, insufficient disk space, or cancelled";
+            return false;
+        }
+    }
+    if ( !PreflightMemory( manifest, path.parent_path(), diagnostics, admission, charge, eventCapacity ) )
     {
         m_error = "Comparison exceeds available loading capacity, is cancelled, or has unsupported recording metadata";
         return false;
@@ -399,6 +556,7 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
     uint64_t bytes = 0;
     for ( int side = 0; side < 2; ++side )
     {
+        admission.Begin( side ? "B: reading recorded motion" : "A: reading recorded motion", side ? 55 : 25, 5 );
         const auto& metadata = manifest["sides"][side];
         if ( !metadata.is_object() ||
              !ValidFields( metadata, { "path", "sha256", "executable", "executableSha256", "diagnosticsSha256" },
@@ -441,17 +599,16 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
         }
         candidate[side].executable = metadata.value( "executable", "" );
         candidate[side].executableHash = metadata.value( "executableSha256", "" );
-        if ( metadata.contains( "diagnosticsSha256" ) &&
-             !MatchesFileHash( path.parent_path() / ( side ? "B" : "A" ) / "physics.physicsdiag.ndjson",
-                               metadata["diagnosticsSha256"].get<std::string>() ) )
+        // Archived diagnostics were already fully hash-verified during cache
+        // admission. Avoid reading the same gigabyte stream a second time here.
+        if ( metadata.contains( "diagnosticsSha256" ) && !metadata.contains( "diagnosticsArchive" ) &&
+             !metadata.contains( "diagnosticsBinary" ) &&
+             !MatchesFileHash( diagnostics[side], metadata["diagnosticsSha256"].get<std::string>() ) )
         {
             m_error = "Diagnostic hash does not match the comparison bundle";
             return false;
         }
-        if ( !candidate[side].LoadObservations( ( path.parent_path() / ( side ? "B" : "A" ) / "physics.physicsdiag.ndjson" )
-                                                    .string()
-                                                    .c_str(),
-                                                ticks, bytes, progress, side ) )
+        if ( !candidate[side].LoadObservations( diagnostics[side].string().c_str(), ticks, bytes, progress, side ) )
         {
             m_error = "Invalid or oversized recorded diagnostic stream";
             return false;
@@ -468,7 +625,9 @@ bool PhysicsComparison::Load( const char* bundlePath, ComparisonLoadProgress* pr
     m_fraction = 0;
     m_memoryCharge = charge;
     m_events.reserve( eventCapacity );
+    admission.Begin( "Matching recorded contacts and motion", 85, 14 );
     BuildEvents( progress );
+    admission.Begin( "Preparing scene and viewports", 99, 0 );
     if ( progress && progress->cancelled.load( std::memory_order_relaxed ) )
     {
         m_error = "Loading cancelled";
@@ -603,6 +762,8 @@ bool PhysicsComparisonLoadJob::Start( const char* path, bool finding, uint64_t r
                                     ? PhysicsComparison::MEMORY_BUDGET - retainedBytes
                                     : 0;
     m_progress.percent.store( 0 );
+    m_progress.phase.store( "Starting" );
+    m_progress.phaseStarted = {};
     m_progress.cancelled.store( false );
     m_ready.store( false );
     m_pending = true;
@@ -633,6 +794,8 @@ bool PhysicsComparisonLoadJob::Take( PhysicsComparison& destination, ReplayCamer
         m_candidate = PhysicsComparison {};
         return false;
     }
+    m_progress.percent.store( 100 );
+    m_progress.phase.store( "Ready" );
     destination = std::move( m_candidate );
     camera = m_camera;
     return true;

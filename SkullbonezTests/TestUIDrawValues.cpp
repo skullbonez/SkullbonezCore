@@ -422,10 +422,18 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
     ui->SetWindowBounds( 34, 56, 760, 520 );
     ui->SetActiveTab( InGameUITab::Scene );
 
+    ui->Draw( *data );
+    ui->SetScrollY( 48.0f );
     const UIDrawList& frame = ui->Draw( *data );
     const int labelIndex = FindDrawTextIndex( frame, "Rolling prediction" );
     REQUIRE( labelIndex >= 0 );
     const UIDrawList::Command& label = frame.Commands()[static_cast<std::size_t>( labelIndex )];
+    const int titleIndex = FindDrawTextIndex( frame, "Continuous orbital forecast" );
+    REQUIRE( titleIndex >= 0 );
+    const auto& title = frame.Commands()[static_cast<std::size_t>( titleIndex )];
+    CHECK( title.pxSize == doctest::Approx( 12.0f ) );
+    CHECK( label.y0 - title.y0 > 20.0f );
+    CHECK( label.y0 - title.y0 < 40.0f );
 
     UIInputSnapshot input;
     input.mouseX = static_cast<int>( label.x0 + 6.0f );
@@ -649,9 +657,9 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         // Invariant: every build presents the same native profiler controls;
         // removing the remote-profiler badge leaves the portable stream unchanged.
         17282268762934632125ull,
-        // Invariant: the Scene stream includes the newest-first replay selector plus
-        // the existing continuous-forecast controls and stability rows.
-        2399826200700883422ull, // Scene: render-frame lockstep is named as a capture request.
+        // Scene includes the Solver Lab selector; forecast controls remain
+        // reachable below it through the scrolling/input test above.
+        15360790563338956579ull,
         643319089294822447ull,
         9774020997193876338ull,
         16562541090565446015ull, // Options: the same request is labelled Capture lockstep.
@@ -681,12 +689,10 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
             const int forecastTitleIndex = FindDrawTextIndex( frame, "Continuous orbital forecast" );
             const int forecastButtonIndex = FindDrawTextIndex( frame, "Rolling prediction" );
             REQUIRE( forecastTitleIndex >= 0 );
-            REQUIRE( forecastButtonIndex >= 0 );
-            const UIDrawList::Command& forecastTitle = frame.Commands()[static_cast<std::size_t>( forecastTitleIndex )];
-            const UIDrawList::Command& forecastButton = frame.Commands()[static_cast<std::size_t>( forecastButtonIndex )];
-            CHECK( forecastTitle.pxSize == doctest::Approx( 12.0f ) );
-            CHECK( forecastButton.y0 - forecastTitle.y0 > 20.0f );
-            CHECK( forecastButton.y0 - forecastTitle.y0 < 40.0f );
+            // Solver Lab adds a row; the forecast toggle becomes reachable by
+            // scrolling, as the physical-input test above verifies.
+            CHECK( forecastButtonIndex == -1 );
+            REQUIRE( FindDrawTextIndex( frame, "Solver Lab" ) >= 0 );
         }
 
         if ( tabs[surface] == InGameUITab::Options )

@@ -1,0 +1,80 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      5,
+      5,
+      1,
+      0
+    ],
+    "exposure": 0.72,
+    "gamma": 2.18,
+    "sunScreenX": 0.36,
+    "sunScreenY": 0.64,
+    "sunIntensity": 26.0,
+    "styleGrade": [
+      0.92,
+      1.18,
+      0.68
+    ],
+    "cloudCoverage": 0.94,
+    "cloudIntensity": 1.3,
+    "fogDensity": 0.0042,
+    "fogMaxOpacity": 0.82,
+    "fogStart": 18.0,
+    "fogEnd": 820.0,
+    "sunColorR": 1.2,
+    "sunColorG": 0.72,
+    "sunColorB": 0.28,
+    "skyHorizonR": 0.76,
+    "skyHorizonG": 0.48,
+    "skyHorizonB": 0.2,
+    "skyZenithR": 0.18,
+    "skyZenithG": 0.13,
+    "skyZenithB": 0.08,
+    "terrainTint": [
+      0.84,
+      0.52,
+      0.24
+    ],
+    "terrainAccent": [
+      0.36,
+      0.18,
+      0.05
+    ],
+    "waterTint": [
+      0.08,
+      0.06,
+      0.04
+    ],
+    "waterProfile": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        0.95,
+        0.74,
+        0.42
+      ],
+      "mode": "matte"
+    },
+    {
+      "target": "prefix:dune",
+      "tint": [
+        0.7,
+        0.42,
+        0.18
+      ],
+      "mode": "matte"
+    }
+  ]
+}

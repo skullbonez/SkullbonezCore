@@ -934,6 +934,11 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Evidence.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Persistence.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Archive.cpp" />
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Archive.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.DiagnosticLines.h" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Binary.cpp" />
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Binary.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.h" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.PairedViews.cpp" />
   </ItemGroup>

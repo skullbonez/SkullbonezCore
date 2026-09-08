@@ -1099,6 +1099,20 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         return;
     }
 
+    if ( commandName == "input.set_prediction_key" )
+    {
+        bool down = false;
+        if ( m_manualInput || !ReadBoolean( arguments, "down", down ) )
+        {
+            SendLifecycle( requestId, "rejected", "automated input and a boolean down value are required" );
+            return;
+        }
+        m_predictionKeyDown = down;
+        SendLifecycle( requestId, "accepted" );
+        CompleteCommand( requestId, true );
+        return;
+    }
+
     if ( commandName == "input.set_arrows" )
     {
         bool left = false;
@@ -1113,6 +1127,24 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         m_arrowKeysDown = static_cast<uint8_t>( ( left ? 1 : 0 ) | ( right ? 2 : 0 ) );
         SendLifecycle( requestId, "accepted" );
         CompleteCommand( requestId, true );
+        return;
+    }
+
+    if ( commandName == "input.pointer_wheel" )
+    {
+        PendingPointerDrag pointer;
+        if ( m_manualInput || !m_pendingPointerDrag.requestId.empty() || !ReadInteger( arguments, "x", pointer.clientX ) ||
+             !ReadInteger( arguments, "y", pointer.clientY ) ||
+             !ReadInteger( arguments, "wheelDelta", pointer.wheelDelta ) || pointer.clientX < 0 || pointer.clientX > 65535 ||
+             pointer.clientY < 0 || pointer.clientY > 65535 || pointer.wheelDelta < -12000 || pointer.wheelDelta > 12000 )
+        {
+            SendLifecycle( requestId, "rejected", "wheel arguments invalid or pointer unavailable" );
+            return;
+        }
+        pointer.requestId = requestId;
+        pointer.phase = 2;
+        m_pendingPointerDrag = std::move( pointer );
+        SendLifecycle( requestId, "accepted" );
         return;
     }
 
@@ -1373,6 +1405,7 @@ bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
     outFrame.clientX = m_pendingPointerDrag.clientX;
     outFrame.clientY = m_pendingPointerDrag.clientY;
     outFrame.button = m_pendingPointerDrag.button;
+    outFrame.wheelDelta = m_pendingPointerDrag.wheelDelta;
     if ( m_pendingPointerDrag.moveClient && m_pendingPointerDrag.phase > 0 )
     {
         outFrame.clientX += m_pendingPointerDrag.deltaX;
@@ -1411,6 +1444,11 @@ uint8_t SkarnessHost::MovementKeysDown() const noexcept
 uint8_t SkarnessHost::ArrowKeysDown() const noexcept
 {
     return m_connected ? m_arrowKeysDown : 0;
+}
+
+bool SkarnessHost::PredictionKeyDown() const noexcept
+{
+    return m_connected && m_predictionKeyDown;
 }
 
 SkarnessProceedPolicy SkarnessHost::TakeProceedPolicy()
@@ -1543,8 +1581,11 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
         if ( result->hasComparison )
         {
             values["comparison"] = { { "tick", result->comparisonTick },
+                                     { "active", result->comparisonActive },
+                                     { "bundle", result->comparisonBundle },
                                      { "loading", result->comparisonLoading },
                                      { "loadPercent", result->comparisonLoadPercent },
+                                     { "loadPhase", result->comparisonLoadPhase },
                                      { "lastTick", result->comparisonLastTick },
                                      { "direction", result->comparisonDirection },
                                      { "mode", result->comparisonMode },
@@ -1560,7 +1601,12 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
                                      { "positionB", result->comparisonPositionB },
                                      { "distanceMetres", result->comparisonDistance },
                                      { "angleDegrees", result->comparisonAngle },
-                                     { "events", result->comparisonEventCount } };
+                                     { "events", result->comparisonEventCount },
+                                     { "selectedEvent", result->comparisonSelectedEvent },
+                                     { "eventTick", result->comparisonEventTick },
+                                     { "contactPoints", result->comparisonContactPoints },
+                                     { "contactCenter", result->comparisonContactCenter },
+                                     { "normalLengthScale", result->comparisonNormalScale } };
         }
         if ( result->hasTextValue )
         {

@@ -9,8 +9,8 @@ Summary:
   retarget to remain active.
 
 Invariants:
-  - Pointer clicks are injected through Input; only the initial setup row uses
-    the semantic automation seam.
+  - Solver sample and initial row setup use semantic automation; the two
+    retarget clicks are injected through Input.
   - Recorded hierarchy evidence must extend beyond body/manifold/solver depth.
   - A successful final click keeps replay paused on the selected causal row.
 
@@ -97,6 +97,8 @@ def run_probe(repo: Path, executable: Path, timeout_seconds: float) -> Path:
         "SkullbonezData/interaction/causal_tree_retarget_visual_qa.json",
         "--interaction-report",
         str(report_path),
+        "--interaction-trace",
+        str(output / "interaction.trace.jsonl"),
         "--frames",
         "1250",
         "--replay",

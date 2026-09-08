@@ -399,6 +399,29 @@ ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const Replay
         AddRawInteger( projection, "Persistent Key", contact.key );
     }
 
+    for ( const ReplayCauseObjectDetails& object : solverDetail.objects )
+    {
+        if ( !object.available && !object.terrain )
+        {
+            continue;
+        }
+
+        AddRawSection( projection, object.bodyRow == contact.bodyA ? "OBJECT 1" : "OBJECT 2" );
+        AddRawValue( projection, "Name", object.name );
+        AddRawInteger( projection, "Scene Object ID", object.id.value );
+        AddRawValue( projection, "Motion", object.fixed ? "FIXED" : "DYNAMIC" );
+
+        if ( object.available )
+        {
+            AddRawFloat( projection, "Body Mass", object.mass, "mass" );
+        }
+
+        if ( object.dimensionsAvailable )
+        {
+            AddRawVector( projection, "Local Dimensions X/Y/Z", object.dimensions, "u" );
+        }
+    }
+
     // GEOMETRY
     AddRawSection( projection, "GEOMETRY" );
     AddRawVector( projection, "Contact Point", point, "u" );
@@ -685,6 +708,13 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
                        (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
                        (std::max)( 0.0f, layout.drawer.h - REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT -
                                              REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) };
+    // Visibility belongs to the hierarchy footer, independent of the open detail tab.
+    for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
+    {
+        layout.outlineToggles[index] = { layout.hierarchy.x + 12.0f,
+                                         layout.hierarchy.y + layout.hierarchy.h - 78.0f + index * 26.0f,
+                                         layout.hierarchy.w - 24.0f, 24.0f };
+    }
     layout.drawerScrollbar = { layout.content.x + layout.content.w - REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH,
                                layout.content.y, REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH, layout.content.h };
 
@@ -711,6 +741,24 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
     }
 
     return layout;
+}
+
+UI::UIRect ReplayCauseSummarySectionRect( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display,
+                                          int section ) noexcept
+{
+    const float expandedHeight = display.summaryExpandedSection == 0 ? 196.0f : 140.0f;
+    const float preceding = display.summaryExpandedSection >= 0 && display.summaryExpandedSection < section ? expandedHeight
+                                                                                                            : 0.0f;
+    return { layout.content.x, layout.content.y + 254.0f + section * 34.0f + preceding - display.summaryScrollOffset,
+             layout.content.w - 10.0f, 34.0f };
+}
+
+int ReplayCauseSummaryMaxScroll( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display ) noexcept
+{
+    const float expandedHeight = display.summaryExpandedSection < 0    ? 0.0f
+                                 : display.summaryExpandedSection == 0 ? 196.0f
+                                                                       : 140.0f;
+    return static_cast<int>( (std::max)( 0.0f, 356.0f + expandedHeight - layout.content.h ) );
 }
 
 bool ReplayCauseInspectorContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept
@@ -1255,6 +1303,8 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
     m_state.selectedRow = rowIndex;
     ClearFocusedSurface();
     m_state.activeTab = ReplayCauseInspectorTab::Summary;
+    m_state.summaryExpandedSection = -1;
+    m_state.summaryScrollOffset = 0;
     m_state.transportPending = false;
     m_state.easedProgress = 0.0f;
     m_startedAtSeconds = nowSeconds;
@@ -1285,15 +1335,24 @@ void ReplayCauseInspection::AdvancePredictionPlayback( std::span<const RunReplay
 
     if ( direction != m_playbackDirection )
     {
-        m_playbackSeconds = current->simulationSeconds;
+        // A new press (including reversal) steps exactly one retained Physics
+        // sample. Only subsequent held frames accumulate presentation time.
+        const auto next = direction < 0 ? ( current == frames.begin() ? current : current - 1 )
+                                        : ( current + 1 == frames.end() ? current : current + 1 );
+        m_playbackSeconds = next->simulationSeconds;
+        m_playbackHoldAfterSeconds = nowSeconds + 0.25;
         m_playbackDirection = direction;
+        const ReplayFrameIndex previousFrame = m_state.presentedFrame;
+        m_state.presentedFrame = next->frameIndex;
+        ObserveContactFrame( previousFrame, nowSeconds );
+        return;
     }
 
     // Units: wall-clock seconds traverse the retained prediction's simulation
     // timestamps. Fractional progress survives render frames; endpoints discard
     // overshoot so reversing a held arrow responds immediately.
-    const double elapsed = (std::max)( 0.0, nowSeconds - m_lastAdvanceSeconds );
-    m_playbackSeconds = std::clamp( m_playbackSeconds + elapsed * ( direction < 0 ? -1.0 : 1.0 ),
+    const double elapsed = (std::max)( 0.0, nowSeconds - (std::max)( m_lastAdvanceSeconds, m_playbackHoldAfterSeconds ) );
+    m_playbackSeconds = std::clamp( m_playbackSeconds + elapsed * ( direction < 0 ? -0.1 : 0.1 ),
                                     frames.front().simulationSeconds, frames.back().simulationSeconds );
     auto frame = std::lower_bound( frames.begin(), frames.end(), m_playbackSeconds,
                                    []( const auto& sample, double seconds ) { return sample.simulationSeconds < seconds; } );
@@ -1343,7 +1402,7 @@ void ReplayCauseInspection::Advance( double nowSeconds ) noexcept
     // arrow playback are paused. The selected contact evidence stays immutable.
     m_state.contactFlashAlpha = m_contactFlashStartedAtSeconds >= 0.0
                                     ? static_cast<float>(
-                                          std::clamp( 1.0 - ( nowSeconds - m_contactFlashStartedAtSeconds ) / 0.2, 0.0,
+                                          std::clamp( 1.0 - ( nowSeconds - m_contactFlashStartedAtSeconds ) / 0.4, 0.0,
                                                       1.0 ) )
                                     : 0.0f;
 
@@ -1393,7 +1452,8 @@ bool ReplayCauseInspection::TakeTransportRequest( ReplayCauseTransportRequest& o
 }
 
 void ReplayCauseInspection::PublishSolverDetail( uint64_t generation, const ReplayCauseSolverDetailResult& detail,
-                                                 const Rendering::ContactManifoldPresentation& contactPresentation ) noexcept
+                                                 const Rendering::ContactManifoldPresentation& contactPresentation,
+                                                 const std::array<ReplayCauseObjectDetails, 2>& objects ) noexcept
 {
     if ( generation == 0u || generation != m_state.generation || detail.frame != m_state.targetFrame )
     {
@@ -1411,6 +1471,7 @@ void ReplayCauseInspection::PublishSolverDetail( uint64_t generation, const Repl
     m_state.solverDetailPipelineRecords = {};
     m_state.solverDetailFirstRow = 0;
     m_state.contactPresentation = {};
+    m_state.objects = {};
 
     if ( !detail.HasDetail() || detail.contactRowCount > m_solverDetailContacts.size() ||
          detail.pipelineRecordCount > m_solverDetailPipelineRecords.size() )
@@ -1456,6 +1517,7 @@ void ReplayCauseInspection::PublishSolverDetail( uint64_t generation, const Repl
         .solverDetailPipelineRecords = std::span<const Physics::PhysicsPipelineRecord>( m_solverDetailPipelineRecords.data(),
                                                                                         detail.pipelineRecordCount );
     m_state.contactPresentation = contactPresentation;
+    m_state.objects = objects;
 }
 
 void ReplayCauseInspection::CompleteTransport( uint64_t generation, bool succeeded ) noexcept
@@ -1614,6 +1676,19 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
         return true;
     }
 
+    if ( leftPressed && PointInside( layout.hierarchy, mouseX, mouseY ) )
+    {
+        for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
+        {
+            if ( PointInside( layout.outlineToggles[index], mouseX, mouseY ) )
+            {
+                bool& visible = index == 0 ? m_state.blueOutlinesVisible : m_state.greyOutlinesVisible;
+                visible = !visible;
+                return true;
+            }
+        }
+    }
+
     if ( !m_state.detailVisible || !ReplayCauseInspectorContainsPoint( layout, mouseX, mouseY ) ||
          !PointInside( layout.visibleDrawer, mouseX, mouseY ) )
     {
@@ -1628,6 +1703,15 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
 
     if ( leftPressed )
     {
+        for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
+        {
+            if ( PointInside( layout.outlineToggles[index], mouseX, mouseY ) )
+            {
+                bool& visible = index == 0 ? m_state.blueOutlinesVisible : m_state.greyOutlinesVisible;
+                visible = !visible;
+                return true;
+            }
+        }
         for ( std::size_t tab = 0; tab < layout.tabs.size(); ++tab )
         {
             if ( PointInside( layout.tabs[tab], mouseX, mouseY ) )
@@ -1637,6 +1721,20 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
                 m_state.rawRecordFirstRow = 0;
                 m_state.iterationsFirstRow = 0;
                 return true;
+            }
+        }
+
+        if ( m_state.activeTab == ReplayCauseInspectorTab::Summary && PointInside( layout.content, mouseX, mouseY ) )
+        {
+            for ( int section = 0; section < 3; ++section )
+            {
+                if ( PointInside( ReplayCauseSummarySectionRect( layout, m_state.Display(), section ), mouseX, mouseY ) )
+                {
+                    m_state.summaryExpandedSection = m_state.summaryExpandedSection == section ? -1 : section;
+                    m_state.summaryScrollOffset = (std::min)( m_state.summaryScrollOffset,
+                                                              ReplayCauseSummaryMaxScroll( layout, m_state.Display() ) );
+                    return true;
+                }
             }
         }
 
@@ -1657,7 +1755,13 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
 
     if ( wheelDelta != 0 )
     {
-        if ( m_state.activeTab == ReplayCauseInspectorTab::Iterations && layout.iterationsVisibleRows > 0 )
+        if ( m_state.activeTab == ReplayCauseInspectorTab::Summary )
+        {
+            const int delta = ( wheelDelta > 0 ? -1 : 1 ) * (std::max)( 1, std::abs( wheelDelta ) / 120 ) * 34;
+            m_state.summaryScrollOffset = std::clamp( m_state.summaryScrollOffset + delta, 0,
+                                                      ReplayCauseSummaryMaxScroll( layout, m_state.Display() ) );
+        }
+        else if ( m_state.activeTab == ReplayCauseInspectorTab::Iterations && layout.iterationsVisibleRows > 0 )
         {
             const ReplayCauseIterationsProjection projection = BuildReplayCauseIterationsProjection( m_state.SolverDetail(),
                                                                                                      contactRow );
@@ -1694,7 +1798,12 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
 
 void ReplayCauseInspection::Reset() noexcept
 {
+    // Display preferences survive leaving inspection and selecting another contact.
+    const bool blueVisible = m_state.blueOutlinesVisible;
+    const bool greyVisible = m_state.greyOutlinesVisible;
     m_state = ReplayCauseInspectionView {};
+    m_state.blueOutlinesVisible = blueVisible;
+    m_state.greyOutlinesVisible = greyVisible;
     m_contactFlashStartedAtSeconds = -1.0;
     m_startedAtSeconds = 0.0;
     m_lastAdvanceSeconds = 0.0;
@@ -1751,6 +1860,7 @@ void ReplayCauseInspection::ClearFocusedSurface() noexcept
     m_state.rawRecordFirstRow = 0;
     m_state.iterationsFirstRow = 0;
     m_state.contactPresentation = {};
+    m_state.objects = {};
     m_state.contactFlashAlpha = 0.0f;
     m_contactFlashStartedAtSeconds = -1.0;
 }

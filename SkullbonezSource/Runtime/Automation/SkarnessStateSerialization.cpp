@@ -142,7 +142,6 @@ Json BuildTimeline( const ReplayAutomationView& replay, SkarnessStateDetail deta
                          { "nextSequence", events.nextSequence } } },
                      { "scrubber",
                        { { "visible", replay.scrubber.visible },
-                         { "historicalPaused", replay.scrubber.historicalSamplePaused },
                          { "liveAdvanceHeld", replay.scrubber.liveAdvanceHeld },
                          { "position", replay.scrubber.position },
                          { "presentationPosition", replay.scrubber.presentationPosition },
@@ -377,14 +376,33 @@ Json BuildTrajectories( const ReplayAutomationView& replay, SkarnessStateDetail 
              { "records", std::move( records ) } };
 }
 
-Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail )
+Json BuildCauseObject( const ReplayCauseObjectDetails& object )
+{
+    return { { "sceneObjectId", object.id.value },
+             { "bodyRow", object.bodyRow },
+             { "name", object.name },
+             { "mass", object.mass },
+             { "dimensions", Vec3( object.dimensions ) },
+             { "available", object.available },
+             { "dimensionsAvailable", object.dimensionsAvailable },
+             { "fixed", object.fixed },
+             { "terrain", object.terrain } };
+}
+
+ReplayOverlay::ReplayCauseLoadingView BuildCauseLoading( const ReplayAutomationView& replay )
 {
     const ReplayPredictionPresentationView prediction = ReplayPrediction::PresentationViewFromState( replay.prediction,
                                                                                                      true );
-    const ReplayOverlay::ReplayCauseLoadingView
-        loading = ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology, prediction.controls,
-                                                              replay.path, replay.predictionDetailMode );
+    return ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology, prediction.controls,
+                                                       replay.path, replay.predictionDetailMode );
+}
+
+Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail )
+{
+    const auto loading = BuildCauseLoading( replay );
     Json payload = { { "rowCount", replay.causeTree.rows.size() },
+                     { "window",
+                       { replay.causeTree.x, replay.causeTree.y, replay.causeTree.width, replay.causeTree.height } },
                      { "loading", loading.active },
                      { "loadingProgress", loading.progress },
                      { "loadingTargetId", replay.path.targetId.value },
@@ -402,9 +420,17 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
                      { "detailVisible", replay.causeInspection.detailVisible },
                      { "drawerOpen", replay.causeInspection.drawerOpen },
                      { "drawerProgress", replay.causeInspection.drawerProgress },
+                     { "summaryExpandedSection", replay.causeInspection.summaryExpandedSection },
+                     { "summaryScrollOffset", replay.causeInspection.summaryScrollOffset },
+                     { "blueOutlinesVisible", replay.causeInspection.blueOutlinesVisible },
+                     { "greyOutlinesVisible", replay.causeInspection.greyOutlinesVisible },
+                     { "objects",
+                       { BuildCauseObject( replay.causeInspection.objects[0] ),
+                         BuildCauseObject( replay.causeInspection.objects[1] ) } },
                      { "contactFlashAlpha", replay.causeInspection.contactFlashAlpha },
                      { "contactFlashSequence", replay.causeInspection.contactFlashSequence },
                      { "contactPointCount", replay.causeInspection.contactPresentation.pointCount },
+                     { "contactCenter", Vec3( replay.causeInspection.contactPresentation.Center() ) },
                      { "solverContactCount", replay.causeInspection.solverDetailContactRowCount },
                      { "solverPipelineCount", replay.causeInspection.solverDetailPipelineRecordCount } };
     if ( detail != SkarnessStateDetail::Summary )
@@ -628,8 +654,9 @@ Json BuildRenderSubmission( const SkarnessFrameState& state, const ReplayAutomat
              { "submittedGeometryBytes", state.submittedGeometryBytes } };
 }
 
-Json BuildLegacyReplay( const SkarnessFrameState& state )
+Json BuildLegacyReplay( const SkarnessFrameState& state, const ReplayAutomationView& replay )
 {
+    const auto loading = BuildCauseLoading( replay );
     return { { "predictionEnabled", state.predictionEnabled },
              { "predictionBuilding", state.predictionBuilding },
              { "predictionComplete", state.predictionComplete },
@@ -659,7 +686,9 @@ Json BuildLegacyReplay( const SkarnessFrameState& state )
              { "causeTreeRowCount", state.causeTreeRowCount },
              { "causeTreeRowBuildCount", state.causeTreeRowBuildCount },
              { "causeTreeRowCacheHitCount", state.causeTreeRowCacheHitCount },
-             { "causeWindowAvailable", state.causeWindowAvailable },
+             { "causeWindowAvailable", state.causeWindowAvailable || loading.active },
+             { "causeLoading", loading.active },
+             { "causeLoadingTargetId", replay.path.targetId.value },
              { "selectedCauseRow", state.selectedCauseRow },
              { "causeInspectionMode", state.causeInspectionMode },
              { "selectedCauseFrame", state.selectedCauseFrame },
@@ -734,7 +763,7 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
     Store( outTopics, RenderSubmission, BuildRenderSubmission( state, replay ),
            replay.trajectorySubmission.presentationTopologyVersion );
     Store( outTopics, LegacyScene, BuildScene( state ), state.sceneGeneration );
-    Store( outTopics, LegacyReplay, BuildLegacyReplay( state ), state.predictionGeneration );
+    Store( outTopics, LegacyReplay, BuildLegacyReplay( state, replay ), state.predictionGeneration );
 }
 } // namespace SkullbonezCore::Runtime
 

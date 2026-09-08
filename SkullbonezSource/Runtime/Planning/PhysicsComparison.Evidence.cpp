@@ -146,7 +146,7 @@ void PhysicsComparison::BuildEvents( ComparisonLoadProgress* progress )
             {
                 return;
             }
-            progress->percent.store( 80 + tick * 20 / (std::max)( 1, m_lastTick ), std::memory_order_relaxed );
+            progress->Update( static_cast<uint64_t>( tick ), static_cast<uint64_t>( m_lastTick ) );
         }
         const auto* a = m_recordings[0].Frame( tick );
         const auto* b = m_recordings[1].Frame( tick );

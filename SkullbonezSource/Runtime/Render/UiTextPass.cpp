@@ -687,7 +687,7 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, UiOverlay
         };
 
         static const KeyEntry kRight[nRows] = {
-            { "Esc", "Min/expand UI" },    { "Esc Esc", "Quit" },       { "P", "Replay play/pause" },
+            { "Esc", "Min/expand UI" },    { "Esc Esc", "Quit" },       { "P", "Predict / resume" },
             { "1", "Freeze water" },       { "2", "Reflection mode" },  { "3", "Toggle water flat" },
             { "4", "Toggle terrain" },     { "5", "Toggle water" },     { "6", "Debug body alpha" },
             { "G", "Broadphase overlay" }, { "C", "Physics debug" },    { "O", "Terrain probe" },

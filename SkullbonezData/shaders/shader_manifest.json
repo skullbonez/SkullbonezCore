@@ -353,23 +353,35 @@
       "stage": "vs",
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/grid_line.vs.dxil",
-      "dependencies": [],
-      "source_sha256": "b842b436a7b9ea03bb687ecdbc0407dad5bda5fb85b96dd7005688a63e504878",
-      "compile_inputs_sha256": "5da3644debedf6f9ff5ba67d31e32996f0f70242188cdbbf2df0530663486fd1",
-      "bytecode_sha256": "b1d8b4c75d368641602f6db8d937c65331e679f3432431d3eced0d1b8afd6247",
-      "bytecode_size": 4216,
-      "dependencies_sha256": {},
+      "dependencies": [
+        "SkullbonezData/shaders/line_coverage.hlsli",
+        "SkullbonezData/shaders/shader_behavior.hlsli"
+      ],
+      "source_sha256": "56474ecb8b497fdb8860e3ec81b0049d93fa90cbba3d69e621d2637cbc843d00",
+      "compile_inputs_sha256": "438089361b8bbfb7acaf30d41f49cd5df6c8716e436e975d5bd8b06d56bb6626",
+      "bytecode_sha256": "64abb16eba8180f3d14fb3075804b525c18d1a522d4d07b06adad1c8f4535f00",
+      "bytecode_size": 6452,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/line_coverage.hlsli": "9493bb0fe6858df008709031614b69ef6bf892484d4e69d48bfe85d3491f30cb",
+        "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"
+      },
       "reflection": {
         "cbuffers": [
           {
             "name": "Uniforms",
-            "size": 64,
+            "size": 80,
             "fields": [
               {
                 "type": "float4x4",
                 "name": "uViewProj",
                 "offset": 0,
                 "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uViewportPixels",
+                "offset": 64,
+                "size": 16
               }
             ]
           }
@@ -404,6 +416,33 @@
             "system_value": "NONE",
             "format": "float",
             "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyz",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyz",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "SV_VertexID",
+            "index": 0,
+            "mask": "x",
+            "register": 4,
+            "system_value": "VERTID",
+            "format": "uint",
+            "used": "x"
           }
         ]
       }
@@ -414,12 +453,18 @@
       "stage": "ps",
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/grid_line.ps.dxil",
-      "dependencies": [],
-      "source_sha256": "b842b436a7b9ea03bb687ecdbc0407dad5bda5fb85b96dd7005688a63e504878",
-      "compile_inputs_sha256": "20aed1939c91e57def773272b2520ffe4cae74f5e3a02ac0a8edad1600ecd1f9",
-      "bytecode_sha256": "aa572804f99991182f3dee7c1ec2762ac56204f1814f4a5644f4dad2b3f5bcc1",
-      "bytecode_size": 2972,
-      "dependencies_sha256": {},
+      "dependencies": [
+        "SkullbonezData/shaders/line_coverage.hlsli",
+        "SkullbonezData/shaders/shader_behavior.hlsli"
+      ],
+      "source_sha256": "56474ecb8b497fdb8860e3ec81b0049d93fa90cbba3d69e621d2637cbc843d00",
+      "compile_inputs_sha256": "5b20fcafb73c9adc30b1692aae637431788a8f56e3a80f59969ae7d3e51040c0",
+      "bytecode_sha256": "1e8388dbc473612836f240feca3d2c7d4bed24e1b111f11fad85d8b5e1e4bb4c",
+      "bytecode_size": 3516,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/line_coverage.hlsli": "9493bb0fe6858df008709031614b69ef6bf892484d4e69d48bfe85d3491f30cb",
+        "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"
+      },
       "reflection": {
         "cbuffers": [],
         "resources": [],
@@ -432,6 +477,24 @@
             "system_value": "NONE",
             "format": "float",
             "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "x",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "x"
           }
         ]
       }
@@ -443,8 +506,8 @@
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/image_pair.vs.dxil",
       "dependencies": [],
-      "source_sha256": "f494b46e3b6b7f1286622795cbf7193cfbdff1373339626b5862a2b16f72bf25",
-      "compile_inputs_sha256": "c441a148dee683a824d8638c301b2a78560cb0346fa6554c76fd97797077ef09",
+      "source_sha256": "65f78e2821169a7b981319f0911b2a5d384b605690b1c0e3b3c478fbb01bf8a5",
+      "compile_inputs_sha256": "ba1de129ec046eca86f0395ae624aebba554278a0c614d904c77754a33f2d8af",
       "bytecode_sha256": "b20f26d18ef915b03f3dfc9837fc80d161a5fb80f4bdf3883ed616386fa0a708",
       "bytecode_size": 3092,
       "dependencies_sha256": {},
@@ -480,10 +543,10 @@
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/image_pair.ps.dxil",
       "dependencies": [],
-      "source_sha256": "f494b46e3b6b7f1286622795cbf7193cfbdff1373339626b5862a2b16f72bf25",
-      "compile_inputs_sha256": "cec2ae2b4ef4b3ca1fa46d1373e1635987c8a79ebb68b46de9c610bb0108ca5b",
-      "bytecode_sha256": "2c4afe40cfe6325935f61a5b7b84b9fc1e33acc5e9500bee96fff3490764343f",
-      "bytecode_size": 5948,
+      "source_sha256": "65f78e2821169a7b981319f0911b2a5d384b605690b1c0e3b3c478fbb01bf8a5",
+      "compile_inputs_sha256": "791854150cb8ae8b252773472ae3373d67083e2c1668ae60080abafb050a1cec",
+      "bytecode_sha256": "c9fa1b6499502228b16768b1ae47aa0371ca6e6ee2a38f7794fb8f2e5b8d9690",
+      "bytecode_size": 5412,
       "dependencies_sha256": {},
       "reflection": {
         "cbuffers": [
@@ -1581,6 +1644,198 @@
             "system_value": "NONE",
             "format": "float",
             "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/paired_outline.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_6",
+      "bytecode": "SkullbonezData/shaders/paired_outline.vs.dxil",
+      "dependencies": [
+        "SkullbonezData/shaders/line_coverage.hlsli",
+        "SkullbonezData/shaders/shader_behavior.hlsli"
+      ],
+      "source_sha256": "d3ad8f7021aa71111de381c7bca1c60b4ea2f6b0593b377414e2e0469af93f51",
+      "compile_inputs_sha256": "894e92902b1dbc119ede0759bc14879e019391be30a6a1ca93326a4f002a1ea9",
+      "bytecode_sha256": "52eb9805d372b0edbdac8dec400fb3361d360a57453c7ab632a6ccc61097c00e",
+      "bytecode_size": 5760,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/line_coverage.hlsli": "9493bb0fe6858df008709031614b69ef6bf892484d4e69d48bfe85d3491f30cb",
+        "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"
+      },
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 80,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModelViewProjection",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uOutlineViewport",
+                "offset": 64,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "NORMAL",
+            "index": 0,
+            "mask": "xyz",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/paired_outline.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_6",
+      "bytecode": "SkullbonezData/shaders/paired_outline.ps.dxil",
+      "dependencies": [
+        "SkullbonezData/shaders/line_coverage.hlsli",
+        "SkullbonezData/shaders/shader_behavior.hlsli"
+      ],
+      "source_sha256": "d3ad8f7021aa71111de381c7bca1c60b4ea2f6b0593b377414e2e0469af93f51",
+      "compile_inputs_sha256": "6096b13f625f6301fb6a6ce901ffdbd3d35d5eefc9fd8b7458bb519c3a24151f",
+      "bytecode_sha256": "8d3fdbae862edceb14fdb954f3a967e7d98d92f2883848917b3ff16e91841906",
+      "bytecode_size": 5484,
+      "dependencies_sha256": {
+        "SkullbonezData/shaders/line_coverage.hlsli": "9493bb0fe6858df008709031614b69ef6bf892484d4e69d48bfe85d3491f30cb",
+        "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"
+      },
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 80,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModelViewProjection",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uOutlineViewport",
+                "offset": 64,
+                "size": 16
+              }
+            ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "SV_Position",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 0,
+            "system_value": "POS",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "x",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "x"
           }
         ]
       }
@@ -2972,10 +3227,10 @@
       "dependencies": [
         "SkullbonezData/shaders/shader_behavior.hlsli"
       ],
-      "source_sha256": "55b0b1bc3a88508fe0df050c19a7582397c01d6e6479d1e9ac3c6f358299af85",
-      "compile_inputs_sha256": "4f464b28bdb0720297e9466b1465e76003579dab1e811fa7e037d3a8d35ef7be",
-      "bytecode_sha256": "bf5db25b913568fbbad1097794b595903ee450e3f4b8709decdecfca580c3837",
-      "bytecode_size": 9076,
+      "source_sha256": "d14f7b2aca5949bc9eaf7f285118170b3511e6a6a2a01a06091ae68a97ff9922",
+      "compile_inputs_sha256": "c1a0023e8215903a1b4ef60c532a77d4e764dfa8bf8d9d866012fe417a1d0a2b",
+      "bytecode_sha256": "1c7f033df2702f25f7141d7d1f0c0e211fa1052fb777f545ff2a19bfefb2be82",
+      "bytecode_size": 9120,
       "dependencies_sha256": {
         "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"
       },
@@ -3094,10 +3349,10 @@
       "dependencies": [
         "SkullbonezData/shaders/shader_behavior.hlsli"
       ],
-      "source_sha256": "55b0b1bc3a88508fe0df050c19a7582397c01d6e6479d1e9ac3c6f358299af85",
-      "compile_inputs_sha256": "49c587df136ad7f72a5c8c6e7b8ece44ce5023f6dccc05d30bc18dbdee5917e2",
-      "bytecode_sha256": "1a43fc08b401b0cf88749689a74252f54461187aeb9957da3aff57d7c87b3f03",
-      "bytecode_size": 4988,
+      "source_sha256": "d14f7b2aca5949bc9eaf7f285118170b3511e6a6a2a01a06091ae68a97ff9922",
+      "compile_inputs_sha256": "c5b63332f07ff53ca621f9f2d60aaa98de000bf78188f348ff2366dd0f1ba766",
+      "bytecode_sha256": "b31b3f557c9aeb6a4a41a8310e0cf307d431333eaa14d232f6d2a3072bc5f8ab",
+      "bytecode_size": 5012,
       "dependencies_sha256": {
         "SkullbonezData/shaders/shader_behavior.hlsli": "34a4c9af8026d2fbc0cc704f4e52681eb039ec1fef72e57a5b3847270af99570"
       },

@@ -1,0 +1,89 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      10,
+      10,
+      4,
+      1
+    ],
+    "exposure": 0.88,
+    "gamma": 2.05,
+    "sunScreenX": 0.5,
+    "sunScreenY": 0.84,
+    "sunIntensity": 11.0,
+    "styleGrade": [
+      0.72,
+      1.12,
+      0.86
+    ],
+    "clouds": false,
+    "fog": false,
+    "terrainGrid": [
+      52.0,
+      0.55
+    ],
+    "sunColorR": 0.86,
+    "sunColorG": 0.98,
+    "sunColorB": 1.0,
+    "skyHorizonR": 0.16,
+    "skyHorizonG": 0.18,
+    "skyHorizonB": 0.2,
+    "skyZenithR": 0.02,
+    "skyZenithG": 0.025,
+    "skyZenithB": 0.03,
+    "terrainTint": [
+      0.8,
+      0.82,
+      0.84
+    ],
+    "terrainAccent": [
+      0.72,
+      0.88,
+      1.0
+    ],
+    "waterTint": [
+      0.72,
+      0.78,
+      0.82
+    ],
+    "waterProfile": [
+      0.62,
+      0.54,
+      0.12
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mode": "beachball"
+    },
+    {
+      "target": "prefix:wall",
+      "tint": [
+        0.82,
+        0.84,
+        0.86
+      ],
+      "mode": "matte"
+    },
+    {
+      "target": "prefix:light",
+      "tint": [
+        0.62,
+        0.92,
+        1.0
+      ],
+      "mode": "neon"
+    }
+  ]
+}

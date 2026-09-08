@@ -88,7 +88,7 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     CheckExactBinding( 'H', keyboard, RuntimeInputAction::ToggleReplayGuideArcs );
     CheckExactBinding( 'J', keyboard, RuntimeInputAction::ToggleReplayTripPlanner );
     CheckExactBinding( 'I', keyboard, RuntimeInputAction::ToggleReplayPorkchopPanel );
-    CheckExactBinding( 'P', keyboard, RuntimeInputAction::ToggleReplayPlayPause );
+    CheckExactBinding( 'P', keyboard, RuntimeInputAction::TogglePredictionInspection );
     CHECK( FindExactBinding( VK_OEM_PERIOD, keyboard ) == nullptr );
     CHECK( FindExactBinding( VK_LEFT, keyboard ) == nullptr );
     CHECK( FindExactBinding( VK_RIGHT, keyboard ) == nullptr );

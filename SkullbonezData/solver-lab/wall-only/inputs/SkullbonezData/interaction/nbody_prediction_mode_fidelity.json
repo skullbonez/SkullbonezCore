@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 5, "setReplayPredictionEnabled": true },
+    { "frame": 6, "setReplayPredictionHorizonSeconds": 3.0 },
+    { "frame": 7, "setReplayPathTarget": "chaos_a" },
+    { "frame": 90, "assert": { "predictionFullHorizonComplete": true } },
+    { "frame": 90, "assert": { "predictionTrajectoryFingerprintReady": true } }
+  ]
+}

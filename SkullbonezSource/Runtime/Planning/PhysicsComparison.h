@@ -7,6 +7,8 @@
 #include <thread>
 #include <string>
 #include <vector>
+#include <chrono>
+#include <cstdio>
 
 namespace SkullbonezCore::Runtime
 {
@@ -86,9 +88,43 @@ struct ComparisonSettings
 // The loader is the only writer; the UI reads progress and requests cancellation.
 struct ComparisonLoadProgress
 {
+    // Invariant: the worker advances a monotonic percentage and publishes only
+    // static phase labels. The UI reads atomics; timing and range state stay on
+    // the loading worker until its completion handshake.
     uint64_t availableBytes = 512ull * 1024 * 1024;
     std::atomic<int> percent { 0 };
     std::atomic<bool> cancelled { false };
+    std::atomic<const char*> phase { "Starting" };
+    int rangeStart = 0, rangeLength = 0;
+    std::chrono::steady_clock::time_point phaseStarted {};
+
+    void Begin( const char* label, int start, int length )
+    {
+        const auto now = std::chrono::steady_clock::now();
+        if ( phaseStarted != std::chrono::steady_clock::time_point {} )
+        {
+            std::printf( "[solver-lab] %s: %.3f s\n", phase.load(),
+                         std::chrono::duration<double>( now - phaseStarted ).count() );
+            std::fflush( stdout );
+        }
+        phaseStarted = now;
+        rangeStart = start;
+        rangeLength = length;
+        phase.store( label, std::memory_order_relaxed );
+        percent.store( start, std::memory_order_relaxed );
+    }
+
+    void Update( uint64_t complete, uint64_t total )
+    {
+        if ( total && complete <= total )
+        {
+            const auto value = rangeStart + static_cast<int>( complete * rangeLength / total );
+            if ( value > percent.load( std::memory_order_relaxed ) )
+            {
+                percent.store( value, std::memory_order_relaxed );
+            }
+        }
+    }
 };
 
 // Invariant: Load publishes complete, identity-sorted frames; playback never
@@ -128,6 +164,8 @@ struct ComparisonRecording
     const Observations* Observation( int tick ) const noexcept;
     bool LoadObservations( const char* path, int ticks, uint64_t& residentBytes, ComparisonLoadProgress* progress = nullptr,
                            int side = 0 );
+    bool LoadBinaryObservations( const char* path, int ticks, uint64_t& residentBytes,
+                                 ComparisonLoadProgress* progress = nullptr, int side = 0 );
 };
 
 // Planning retains immutable recordings and a presentation cursor. Neither
@@ -267,6 +305,10 @@ class PhysicsComparisonLoadJob
     int Percent() const noexcept
     {
         return m_progress.percent.load( std::memory_order_relaxed );
+    }
+    const char* Phase() const noexcept
+    {
+        return m_progress.phase.load( std::memory_order_relaxed );
     }
     void Cancel() noexcept
     {

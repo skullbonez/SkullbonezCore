@@ -59,8 +59,8 @@ TEST_CASE( "Causal panel waits for the complete selected prediction and reports 
     prediction.controls.horizonSeconds = 10.0f;
     const auto loading = [&]()
     {
-        return ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology,
-                                                            prediction.controls, path, prediction.diagnostics.detailMode );
+        return ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology, prediction.controls,
+                                                           path, prediction.diagnostics.detailMode );
     };
     CHECK( loading().active );
     CHECK( loading().progress == 0.0f );
@@ -439,7 +439,7 @@ TEST_CASE( "Cause hierarchy inspector negative control: legacy detached panel fa
     CHECK_FALSE( legacy.x == doctest::Approx( target.targetDrawer.x ) ); // Legacy kept a 10 px gutter.
     CHECK_FALSE( legacy.h == doctest::Approx( target.targetDrawer.h ) ); // Legacy grew from row count.
     CHECK( EvaluateReplayCauseTransitionProgress( CAUSE_INSPECTOR_TARGET_DRAWER_SECONDS ) < 1.0f );
-    CHECK( REPLAY_CAUSE_SOLVER_PANEL_OPACITY < 0.9f );
+    CHECK( REPLAY_CAUSE_SOLVER_PANEL_OPACITY >= 0.95f );
 }
 
 TEST_CASE( "Replay cause inspection: recorded row kinds keep exact retained frame eligibility" )
@@ -798,7 +798,7 @@ TEST_CASE( "Replay cause solver detail: predicted rows require the exact immutab
     CHECK( rejected( row, replacementSource ) );
 }
 
-TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and scroll four at a time" )
+TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and summary scrolling preserves selection" )
 {
     using SkullbonezCore::Physics::PhysicsPipelineRecord;
     using SkullbonezCore::Physics::PhysicsPipelineStage;
@@ -897,20 +897,20 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     CHECK( compactUnavailable.targetCompound.x == doctest::Approx( 8.0f ) );
     CHECK( compactUnavailable.targetCompound.w == doctest::Approx( 900.0f ) );
     CHECK( compactUnavailable.visibleRows == 0 );
-    CHECK( REPLAY_CAUSE_SOLVER_PANEL_OPACITY == doctest::Approx( 0.78f ) );
+    CHECK( REPLAY_CAUSE_SOLVER_PANEL_OPACITY == doctest::Approx( 0.97f ) );
 
     causeTree.x = 1180;
     causeTree.y = 140;
     causeTree.width = 430;
-    causeTree.height = 500;
+    causeTree.height = 440;
     const int panelX = static_cast<int>( moved.content.x + 20.0f );
     const int panelY = static_cast<int>( moved.content.y + 20.0f );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
-    CHECK( inspection.View().Display().solverDetailFirstRow == 1 );
+    CHECK( inspection.View().Display().summaryScrollOffset == 34 );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
-    CHECK( inspection.View().Display().solverDetailFirstRow == 2 );
+    CHECK( inspection.View().Display().summaryScrollOffset == 54 );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
-    CHECK( inspection.View().Display().solverDetailFirstRow == 3 );
+    CHECK( inspection.View().Display().summaryScrollOffset == 54 );
     CHECK_FALSE( inspection.TickSolverDetailPanelInput( causeTree, 1919, 1079, true, false, false, -120, 1920, 1080 ) );
 }
 
@@ -1153,7 +1153,7 @@ TEST_CASE( "Replay cause inspector drawer: seam toggle is the only default-open 
     CHECK_FALSE( inspection.View().Display().detailVisible );
 
     const ReplayCauseInspectorLayout closed = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), causeTree,
-                                                                                1920, 1080, 0.0f );
+                                                                               1920, 1080, 0.0f );
     const int toggleX = static_cast<int>( closed.drawerToggle.x + closed.drawerToggle.w * 0.5f );
     const int toggleY = static_cast<int>( closed.drawerToggle.y + closed.drawerToggle.h * 0.5f );
     CHECK( ReplayCauseInspectorToggleContainsPoint( closed, toggleX, toggleY ) );
@@ -1195,18 +1195,18 @@ TEST_CASE( "Replay cause inspection: held prediction playback retains selection 
 
     inspection.AdvancePredictionPlayback( frames, 1, 1.75 );
     inspection.Advance( 1.75 );
-    CHECK( inspection.View().presentedFrame == 6 );
+    CHECK( inspection.View().presentedFrame == 5 );
     inspection.AdvancePredictionPlayback( frames, 1, 1.85 );
     inspection.Advance( 1.85 );
-    CHECK( inspection.View().presentedFrame == 7 );
+    CHECK( inspection.View().presentedFrame == 5 );
     inspection.AdvancePredictionPlayback( frames, 0, 2.0 );
     inspection.Advance( 2.0 );
     inspection.AdvancePredictionPlayback( frames, 0, 3.0 );
     inspection.Advance( 3.0 );
-    CHECK( inspection.View().presentedFrame == 7 );
+    CHECK( inspection.View().presentedFrame == 5 );
     inspection.AdvancePredictionPlayback( frames, -1, 3.25 );
     inspection.Advance( 3.25 );
-    CHECK( inspection.View().presentedFrame == 5 );
+    CHECK( inspection.View().presentedFrame == 4 );
     CHECK( inspection.View().selectedRow == 7 );
     CHECK( inspection.View().targetFrame == 4 );
     CHECK( inspection.View().mode == ReplayCauseInspectionMode::DetailPaused );
@@ -1224,6 +1224,48 @@ TEST_CASE( "Replay cause inspection: held prediction playback retains selection 
     (void)inspection.BeginReturn();
     inspection.AdvancePredictionPlayback( frames, -1, 31.0 );
     CHECK( inspection.View().presentedFrame == 10 );
+}
+
+TEST_CASE( "Replay cause inspection: taps step once and held time runs at one tenth speed" )
+{
+    std::array<RunReplayPredictionFrame, 121> frames;
+    for ( std::size_t index = 0; index < frames.size(); ++index )
+    {
+        frames[index].frameIndex = index;
+        frames[index].simulationSeconds = static_cast<double>( index ) / 120.0;
+    }
+    ReplayCauseInspection inspection;
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.source = ReplayCauseSeekSource::Prediction;
+    seek.frame = 60;
+    REQUIRE( inspection.Select( 2, seek, 0, true, 0.0 ) );
+    inspection.Advance( 2.0 );
+    ReplayCauseTransportRequest request;
+    REQUIRE( inspection.TakeTransportRequest( request ) );
+    inspection.CompleteTransport( request.generation, true );
+    inspection.AdvancePredictionPlayback( frames, 1, 8.0 );
+    inspection.Advance( 8.0 );
+    CHECK( inspection.View().presentedFrame == 61 );
+    inspection.AdvancePredictionPlayback( frames, 0, 8.01 );
+    inspection.Advance( 8.01 );
+    CHECK( inspection.View().presentedFrame == 61 );
+    inspection.AdvancePredictionPlayback( frames, -1, 8.02 );
+    inspection.Advance( 8.02 );
+    CHECK( inspection.View().presentedFrame == 60 );
+    inspection.AdvancePredictionPlayback( frames, -1, 8.22 );
+    inspection.Advance( 8.22 );
+    CHECK( inspection.View().presentedFrame == 60 );
+    inspection.AdvancePredictionPlayback( frames, -1, 9.275 );
+    inspection.Advance( 9.275 );
+    CHECK( inspection.View().presentedFrame == 48 );
+    inspection.AdvancePredictionPlayback( frames, 1, 9.28 );
+    inspection.Advance( 9.28 );
+    CHECK( inspection.View().presentedFrame == 49 );
+    inspection.AdvancePredictionPlayback( frames, 1, 10.535 );
+    CHECK( inspection.View().presentedFrame == 61 );
+    CHECK( inspection.View().targetFrame == 60 );
+    CHECK( inspection.View().selectedRow == 2 );
 }
 
 TEST_CASE( "Replay cause inspection: arrows cannot play solver history or inactive inspection" )
@@ -1244,7 +1286,7 @@ TEST_CASE( "Replay cause inspection: arrows cannot play solver history or inacti
     CHECK( inspection.View().presentedFrame == 0 );
 }
 
-TEST_CASE( "Replay cause inspection: contact flash fades in 200 ms and retriggers on either crossing" )
+TEST_CASE( "Replay cause inspection: contact flash fades in 400 ms and retriggers on either crossing" )
 {
     std::array<RunReplayPredictionFrame, 11> frames;
 
@@ -1283,11 +1325,11 @@ TEST_CASE( "Replay cause inspection: contact flash fades in 200 ms and retrigger
     CHECK( inspection.View().contactFlashSequence == 1 );
     CHECK( inspection.View().contactFlashAlpha == 1.0f );
 
-    inspection.Advance( 2.1 );
-    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.5f ) );
     inspection.Advance( 2.2 );
-    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
+    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.5f ) );
     inspection.Advance( 2.4 );
+    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
+    inspection.Advance( 2.5 );
     CHECK( inspection.View().contactFlashAlpha == 0.0f );
     CHECK( inspection.View().contactFlashSequence == 1 );
 
@@ -1303,17 +1345,17 @@ TEST_CASE( "Replay cause inspection: contact flash fades in 200 ms and retrigger
     CHECK( inspection.View().contactFlashSequence == 2 );
     CHECK( inspection.View().contactFlashAlpha == 1.0f );
     inspection.AdvancePredictionPlayback( frames, 0, 3.2 );
-    inspection.Advance( 3.2 );
+    inspection.Advance( 3.3 );
     CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.5f ) );
-    inspection.Advance( 3.31 );
-    CHECK( inspection.View().contactFlashAlpha == 0.0f );
+    inspection.Advance( 3.41 );
+    CHECK( inspection.View().contactFlashAlpha == doctest::Approx( 0.225f ) );
     inspection.AdvancePredictionPlayback( frames, -1, 3.45 );
     inspection.Advance( 3.45 );
     CHECK( inspection.View().presentedFrame < 4 );
     CHECK( inspection.View().contactFlashSequence == 2 );
     inspection.AdvancePredictionPlayback( frames, 1, 3.85 );
     inspection.Advance( 3.85 );
-    CHECK( inspection.View().presentedFrame > 4 );
+    CHECK( inspection.View().presentedFrame == 4 );
     CHECK( inspection.View().contactFlashSequence == 3 );
     CHECK( inspection.View().contactFlashAlpha == 1.0f );
     CHECK( inspection.View().targetFrame == 4 );
@@ -2316,4 +2358,127 @@ TEST_CASE( "Cause hierarchy inspector: multi-contact selection assigns and consu
     CHECK( copyCmd.kind == ReplayCauseInspectorCommandKind::CopyRecord );
     CHECK( std::strstr( copyCmd.text, "Feature ID: 202" ) != nullptr );
     CHECK( std::strstr( copyCmd.text, "Feature ID: 201" ) == nullptr );
+}
+
+TEST_CASE( "Cause summary: object facts follow publication identity and clear on retarget" )
+{
+    ReplayCauseInspection inspection;
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.frame = 10;
+    REQUIRE( inspection.Select( 0, seek, 0, true, 0.0 ) );
+    std::array<SkullbonezCore::Physics::PhysicsSolverPersistentContactSample, 1> contacts;
+    contacts[0].bodyA = 1;
+    contacts[0].bodyB = 2;
+    ReplayCauseSolverDetailResult detail;
+    detail.availability = ReplayCauseSolverDetailAvailability::Available;
+    detail.frame = 10;
+    detail.bodyA = 1;
+    detail.bodyB = 2;
+    detail.sourceContacts = contacts;
+    detail.contactRowCount = 1;
+    std::array<ReplayCauseObjectDetails, 2> objects;
+    objects[0].bodyRow = 1;
+    objects[0].id.value = 41;
+    objects[0].mass = 8.0f;
+    objects[0].dimensions = { 10.0f, 12.0f, 14.0f };
+    objects[0].available = true;
+    objects[0].dimensionsAvailable = true;
+    strcpy_s( objects[0].name, "Box" );
+    objects[1].bodyRow = 2;
+    objects[1].id.value = 57;
+    objects[1].mass = 3.0f;
+    objects[1].available = true;
+    const auto generation = inspection.View().generation;
+    inspection.PublishSolverDetail( generation + 1, detail, {}, objects );
+    CHECK_FALSE( inspection.View().objects[0].available );
+    inspection.PublishSolverDetail( generation, detail, {}, objects );
+    objects[0].mass = 99.0f;
+    CHECK( inspection.View().objects[0].mass == 8.0f );
+    CHECK( inspection.View().objects[0].id.value == 41 );
+    CHECK( inspection.View().objects[1].mass == 3.0f );
+    char text[REPLAY_CAUSE_INSPECTOR_COPY_TEXT_CAPACITY] = {};
+    const auto view = inspection.View();
+    REQUIRE( SerializeReplayCauseRawRecord( BuildReplayCauseRawRecordProjection( view.SolverDetail(), view.Transport(), 0 ),
+                                            text, sizeof( text ) ) );
+    CHECK( std::strstr( text, "Body Mass: 8" ) != nullptr );
+    CHECK( std::strstr( text, "Local Dimensions X/Y/Z: 10, 12, 14" ) != nullptr );
+    seek.frame = 20;
+    REQUIRE( inspection.Select( 1, seek, 10, true, 1.0 ) );
+    CHECK_FALSE( inspection.View().objects[0].available );
+    CHECK_FALSE( inspection.View().objects[1].available );
+    inspection.PublishSolverDetail( generation, detail, {}, objects );
+    CHECK_FALSE( inspection.View().objects[0].available );
+}
+
+TEST_CASE( "Cause summary: accordion uses visible hit rectangles and clamps scrolling" )
+{
+    ReplayCauseInspection inspection;
+    ReplayCauseInspectionRecordingState baseline;
+    baseline.mode = ReplayCauseInspectionMode::DetailPaused;
+    baseline.detailVisible = true;
+    baseline.drawerProgress = 1.0f;
+    inspection.RestoreInteractionRecordingBaseline( baseline, 0.0 );
+    RunReplayCauseTreeState tree;
+    tree.hasWindowPlacement = true;
+    tree.x = 1180;
+    tree.y = 140;
+    tree.width = 430;
+    tree.height = 520;
+    const auto layout = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), tree, 1920, 1080, 1.0f );
+    const auto header = ReplayCauseSummarySectionRect( layout, inspection.View().Display(), 0 );
+    const int x = static_cast<int>( header.x + 20 );
+    const int y = static_cast<int>( header.y + 15 );
+    CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1920, 1080 ) );
+    CHECK( inspection.View().summaryExpandedSection == 0 );
+    CHECK( ReplayCauseSummarySectionRect( layout, inspection.View().Display(), 1 ).y ==
+           doctest::Approx( header.y + 230.0f ) );
+    CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, false, -12000, 1920, 1080 ) );
+    CHECK( inspection.View().summaryScrollOffset == ReplayCauseSummaryMaxScroll( layout, inspection.View().Display() ) );
+    CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, false, 12000, 1920, 1080 ) );
+    CHECK( inspection.View().summaryScrollOffset == 0 );
+    CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1920, 1080 ) );
+    CHECK( inspection.View().summaryExpandedSection == -1 );
+}
+
+TEST_CASE( "Cause outline controls: default on, independent, and retained across selection" )
+{
+    ReplayCauseInspection inspection;
+    ReplayCauseInspectionRecordingState baseline;
+    baseline.mode = ReplayCauseInspectionMode::DetailPaused;
+    baseline.detailVisible = true;
+    baseline.drawerProgress = 1.0f;
+    inspection.RestoreInteractionRecordingBaseline( baseline, 0.0 );
+    RunReplayCauseTreeState tree;
+    tree.hasWindowPlacement = true;
+    tree.x = 1180;
+    tree.y = 140;
+    tree.width = 430;
+    tree.height = 520;
+    const auto layout = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), tree, 1920, 1080, 1.0f );
+    CHECK( inspection.View().blueOutlinesVisible );
+    CHECK( inspection.View().greyOutlinesVisible );
+    for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
+    {
+        const auto& toggle = layout.outlineToggles[index];
+        const auto hierarchyContent = ReplayOverlay::ReplayCauseWindowContentRect( tree );
+        CHECK( toggle.x >= layout.hierarchy.x );
+        CHECK( toggle.x + toggle.w <= layout.hierarchy.x + layout.hierarchy.w );
+        CHECK( toggle.y >= hierarchyContent.y + hierarchyContent.h );
+        const int x = static_cast<int>( toggle.x + 30 );
+        const int y = static_cast<int>( toggle.y + 10 );
+        CHECK_FALSE( inspection.TickSolverDetailPanelInput( tree, x, y, true, true, true, 0, 1920, 1080 ) );
+        CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1920, 1080 ) );
+        CHECK_FALSE( inspection.View().blueOutlinesVisible );
+        CHECK( inspection.View().greyOutlinesVisible == ( index == 0 ) );
+    }
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.frame = 10;
+    REQUIRE( inspection.Select( 1, seek, 0, true, 1.0 ) );
+    CHECK_FALSE( inspection.View().blueOutlinesVisible );
+    CHECK_FALSE( inspection.View().greyOutlinesVisible );
+    inspection.Reset();
+    CHECK_FALSE( inspection.View().blueOutlinesVisible );
+    CHECK_FALSE( inspection.View().greyOutlinesVisible );
 }

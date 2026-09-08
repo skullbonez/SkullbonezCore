@@ -1,0 +1,121 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      18,
+      13,
+      2,
+      1
+    ],
+    "exposure": 0.84,
+    "gamma": 2.04,
+    "sunScreenX": 0.66,
+    "sunScreenY": 0.8,
+    "sunIntensity": 17.0,
+    "styleGrade": [
+      1.1,
+      1.08,
+      0.84
+    ],
+    "clouds": false,
+    "fog": false,
+    "sunColorR": 0.92,
+    "sunColorG": 0.92,
+    "sunColorB": 0.88,
+    "skyHorizonR": 0.6,
+    "skyHorizonG": 0.6,
+    "skyHorizonB": 0.62,
+    "skyZenithR": 0.25,
+    "skyZenithG": 0.25,
+    "skyZenithB": 0.27,
+    "terrainTint": [
+      0.76,
+      0.76,
+      0.76
+    ],
+    "terrainAccent": [
+      0.18,
+      0.16,
+      0.15
+    ],
+    "waterTint": [
+      0.58,
+      0.58,
+      0.6
+    ],
+    "waterProfile": [
+      0.7,
+      0.58,
+      0.08
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "prefix:chrome",
+      "tint": [
+        0.86,
+        0.88,
+        0.9
+      ],
+      "mode": "chrome"
+    },
+    {
+      "target": "prefix:gold",
+      "tint": [
+        1.0,
+        0.66,
+        0.16
+      ],
+      "mode": "metal"
+    },
+    {
+      "target": "prefix:glass",
+      "tint": [
+        0.58,
+        0.72,
+        1.0
+      ],
+      "mode": "glass"
+    },
+    {
+      "target": "prefix:matte",
+      "tint": [
+        0.92,
+        0.9,
+        0.84
+      ],
+      "mode": "matte"
+    },
+    {
+      "target": "prefix:neon",
+      "tint": [
+        0.18,
+        0.78,
+        1.0
+      ],
+      "mode": "neon"
+    },
+    {
+      "target": "prefix:black",
+      "tint": [
+        0.02,
+        0.02,
+        0.025
+      ],
+      "mode": "shadow"
+    },
+    {
+      "target": "prefix:toon",
+      "tint": [
+        0.42,
+        0.8,
+        0.28
+      ],
+      "mode": "toon"
+    }
+  ]
+}

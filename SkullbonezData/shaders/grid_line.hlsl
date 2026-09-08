@@ -1,74 +1,42 @@
-/*
-File: SkullbonezData/shaders/grid_line.hlsl
-Purpose:
-  Render spatial grid lines and world coordinate planes.
-
-Summary:
-  Transforms dynamic line batches for spatial broadphase grid visualization
-  and editor world axes, applying vertex color and distance attenuation.
-
-Invariants:
-  - CPU-side root signatures, input layouts, and descriptor bindings must match this shader exactly.
-  - Line primitives require line-list topology configured on the pipeline state.
-
-Related:
-  - Agentic/Reference/engine-glossary.md
-  - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp
-*/
-
-// =============================================================================
-// GRID LINE SHADER — Shader Model 6.6 (Combined VS+PS)
-// =============================================================================
-//
-// PURPOSE: Draw per-vertex colored line segments in 3D world space.
-// This is the canonical DX12 grid-line shader.
-//
-// Used by the broadphase spatial grid visualizer to render cell boundaries
-// with colors indicating occupancy and collision state.
-//
-// Vertex layout: [position (float3), color (float3)] = 6 floats per vertex.
-// Topology: LINE_LIST (pairs of vertices form independent line segments).
-//
-// Cell color encoding:
-//  - White (1,1,1):  empty cell
-//  - Yellow (1,1,0): ball just entered (fading to blue)
-//  - Blue (0,0,1):   occupied (steady state)
-//  - Red→Black:      active collision (intensity deepens with collision count)
-//
-// Docs: https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl
-// =============================================================================
-
+// Colored debug lines, world gizmos and retained line overlays. Two existing
+// xyz/rgb endpoints form one instance, expanded into an antialiased capsule.
 #pragma pack_matrix(column_major)
-
+#include "line_coverage.hlsli"
 cbuffer Uniforms : register(b0)
 {
-    float4x4 uViewProj;  // Combined view-projection matrix (world → clip space)
+    float4x4 uViewProj;
+    float4 uViewportPixels;
 };
-
-struct VS_IN
+struct Vertex
 {
-    float3 position : POSITION;   // World-space line endpoint
-    float3 color    : TEXCOORD0;  // Per-vertex RGB color
+    float3 start : POSITION;
+    float3 startColor : TEXCOORD0;
+    float3 end : TEXCOORD1;
+    float3 endColor : TEXCOORD2;
 };
-
-struct VS_OUT
+struct Pixel
 {
-    float4 position : SV_POSITION;  // Clip-space output
-    float3 color    : COLOR0;       // Interpolated color for fragment shader
+    float4 position : SV_POSITION;
+    float3 color : COLOR0;
+    noperspective float2 coordinate : TEXCOORD0;
+    nointerpolation float segmentLength : TEXCOORD1;
 };
-
-VS_OUT main_vs(VS_IN input)
+Pixel main_vs(Vertex input, uint vertexId : SV_VertexID)
 {
-    VS_OUT output;
-    // Transform world-space position to clip space via the combined view-projection matrix.
-    output.position = mul(uViewProj, float4(input.position, 1.0));
-    // Pass per-vertex color through for interpolation along the line segment.
-    output.color = input.color;
+    uint cornerIndex = vertexId % 6;
+    float endpoint = cornerIndex == 1 || cornerIndex == 2 || cornerIndex == 4 ? 1.0 : 0.0;
+    float side = cornerIndex == 2 || cornerIndex == 4 || cornerIndex == 5 ? 1.0 : -1.0;
+    LineQuad quad = ExpandLineQuad(mul(uViewProj, float4(input.start, 1)),
+                                  mul(uViewProj, float4(input.end, 1)),
+                                  float2(endpoint, side), uViewportPixels.xy, 0.7);
+    Pixel output;
+    output.position = quad.position;
+    output.coordinate = quad.coordinate;
+    output.segmentLength = quad.segmentLength;
+    output.color = lerp(input.startColor, input.endColor, endpoint);
     return output;
 }
-
-float4 main_ps(VS_OUT input) : SV_TARGET
+float4 main_ps(Pixel input) : SV_TARGET
 {
-    // Output the interpolated vertex color at full opacity.
-    return float4(input.color, 1.0);
+    return float4(input.color, LineCoverage(input.coordinate, input.segmentLength, 0.7));
 }
