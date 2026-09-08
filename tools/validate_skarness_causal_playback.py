@@ -212,6 +212,10 @@ def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> 
         initial["selectedCausePrimaryId"], initial["selectedCauseCounterpartId"]}
     window_x, window_y, window_width, window_height = cause["window"]
     inspector_x = window_x - 100
+    # Expand geometry so the larger summary needs scrolling.
+    send("input.pointer_drag", button="left", x=inspector_x, y=window_y + 388, deltaX=0, deltaY=0)
+    sample("expanded")
+    assert latest["replay.cause"]["summaryExpandedSection"] == 0
     eye = initial["cameraPrimaryEye"]
     for label, x, y in (("summary-wheel", inspector_x, window_y + 200),
                          ("hierarchy-wheel", window_x + window_width // 2, window_y + 200)):
@@ -228,7 +232,7 @@ def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> 
     initial_counts = (initial["drawnCollisionWireframeCount"], initial["drawnEndingWireframeCount"])
     assert initial_counts[0] > 0 and initial_counts[1] > 0
     for index, blue, grey in ((0, False, True), (1, False, False), (0, True, False), (1, True, True)):
-        send("input.pointer_drag", button="left", x=inspector_x, y=window_y + window_height - 50 + index * 26,
+        send("input.pointer_drag", button="left", x=window_x + 50, y=window_y + window_height - 66 + index * 26,
              deltaX=0, deltaY=0)
         current = sample(f"blue-{blue}-grey-{grey}")
         assert latest["replay.cause"]["blueOutlinesVisible"] == blue
@@ -244,6 +248,16 @@ def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> 
         assert current["pathTargetId"] == current["submittedPredictionTargetId"] == initial["pathTargetId"]
         assert current["selectedCauseRow"] == initial["selectedCauseRow"]
         assert current["causePresentedFrame"] == initial["causePresentedFrame"]
+    send("replay.set_cause_inspector_open", open=False)
+    send("run.step_frames", count=40)
+    for enabled in (False, True):
+        send("input.pointer_drag", button="left", x=window_x + 50, y=window_y + window_height - 66,
+             deltaX=0, deltaY=0)
+        sample(f"closed-drawer-blue-{enabled}")
+        assert latest["replay.cause"]["drawerProgress"] == 0
+        assert latest["replay.cause"]["blueOutlinesVisible"] == enabled
+    send("replay.set_cause_inspector_open", open=True)
+    send("run.step_frames", count=40)
     send("input.pointer_wheel", x=inspector_x, y=window_y + 200, wheelDelta=12000)
     send("capture.screenshot", path=str((session / "inspector-controls.png").resolve()))
 

@@ -52,9 +52,10 @@ using SkullbonezCore::Math::Transformation::Matrix4;
 
 namespace
 {
-constexpr PassRasterStateBucket BROADPHASE_LINE_RASTER = MakePassRasterStateBucket( 0,
-                                                                                    { false, false, false, BlendFactor::One,
-                                                                                      BlendFactor::Zero, CullMode::None } );
+constexpr PassRasterStateBucket BROADPHASE_LINE_RASTER = MakePassRasterStateBucket( 0, { false, false, true,
+                                                                                         BlendFactor::SrcAlpha,
+                                                                                         BlendFactor::OneMinusSrcAlpha,
+                                                                                         CullMode::None } );
 }
 
 

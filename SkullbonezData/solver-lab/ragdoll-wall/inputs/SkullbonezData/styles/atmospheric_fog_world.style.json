@@ -1,0 +1,78 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      8,
+      8,
+      7,
+      1
+    ],
+    "exposure": 0.62,
+    "gamma": 2.12,
+    "sunScreenX": 0.56,
+    "sunScreenY": 0.86,
+    "sunIntensity": 10.0,
+    "styleGrade": [
+      0.46,
+      0.92,
+      0.58
+    ],
+    "fogDensity": 0.007,
+    "fogMaxOpacity": 0.9,
+    "fogStart": 8.0,
+    "fogEnd": 620.0,
+    "sunColorR": 0.7,
+    "sunColorG": 0.84,
+    "sunColorB": 0.88,
+    "skyHorizonR": 0.56,
+    "skyHorizonG": 0.62,
+    "skyHorizonB": 0.62,
+    "skyZenithR": 0.22,
+    "skyZenithG": 0.28,
+    "skyZenithB": 0.32,
+    "terrainTint": [
+      0.36,
+      0.44,
+      0.44
+    ],
+    "terrainAccent": [
+      0.16,
+      0.2,
+      0.2
+    ],
+    "waterTint": [
+      0.05,
+      0.12,
+      0.14
+    ],
+    "waterProfile": [
+      0.78,
+      0.2,
+      0.05
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        0.72,
+        0.7,
+        0.66
+      ],
+      "mode": "beachball"
+    },
+    {
+      "target": "prefix:ghost",
+      "tint": [
+        0.2,
+        0.23,
+        0.24
+      ],
+      "mode": "shadow"
+    }
+  ]
+}

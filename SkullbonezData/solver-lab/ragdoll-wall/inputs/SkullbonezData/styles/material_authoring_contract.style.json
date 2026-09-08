@@ -1,0 +1,63 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {},
+  "objectMaterials": [
+    {
+      "target": "prefix:contract_metal",
+      "mode": "metal",
+      "tint": [
+        0.82,
+        0.84,
+        0.87
+      ],
+      "roughness": 0.18,
+      "metallic": 1.0,
+      "specular": 0.91,
+      "name": "contract_metal"
+    },
+    {
+      "target": "exact_emitter",
+      "mode": "emissive",
+      "tint": [
+        0.1,
+        0.2,
+        0.35
+      ],
+      "emissive": [
+        1.0,
+        0.25,
+        0.05
+      ],
+      "strength": 3.5,
+      "roughness": 0.4,
+      "flags": 7,
+      "name": "contract_emitter"
+    },
+    {
+      "target": "balls",
+      "tint": [
+        0.12,
+        0.24,
+        0.36
+      ],
+      "mode": "toon",
+      "stylization": 0.66
+    },
+    {
+      "target": "prefix:contract_clamp",
+      "mode": "toon",
+      "tint": [
+        0.3,
+        0.4,
+        0.5
+      ],
+      "roughness": -2.0,
+      "metallic": 2.0,
+      "specular": 1.5,
+      "transmission": -0.5,
+      "stylization": 9.0,
+      "name": "contract_clamp"
+    }
+  ]
+}

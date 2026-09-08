@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 10, "pressKey": "F9" }
+  ]
+}

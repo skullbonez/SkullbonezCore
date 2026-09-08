@@ -1,0 +1,89 @@
+/*
+File: SkullbonezData/shaders/ui_render_target_preview.hlsl
+Purpose:
+  Render mini render-target texture previews in editor and profiler UI windows.
+
+Summary:
+  Samples off-screen render targets (depth, normals, shadows, reflections) with
+  channel isolation, gamma remapping, and depth linearization for operator inspection.
+
+Invariants:
+  - Texture descriptor comes from the renderer preview catalog.
+  - Depth linearization parameters match the source target near/far planes.
+
+Related:
+  - Agentic/Reference/engine-glossary.md
+  - SkullbonezSource/Runtime/Render/UiDrawSubmission.h
+*/
+
+#pragma pack_matrix(column_major)
+
+cbuffer Uniforms : register(b0)
+{
+    float4x4 uProjection;
+    float4   uPreviewParams; // x: mode 0=color 1=HDR color 2=depth, y: exposure, z: gamma, w: unused
+};
+
+// Invariant: b1 carries stable indices into the directly indexed shader-visible
+// heap; the pipeline owner writes all six root constants before every draw.
+cbuffer BindlessTextureIndices : register(b1)
+{
+    uint4 _textureDescriptorIndices0;
+    uint2 _textureDescriptorIndices1;
+};
+
+uint BindlessTextureIndex(uint slot)
+{
+    return slot < 4u ? _textureDescriptorIndices0[slot] : _textureDescriptorIndices1[slot - 4u];
+}
+
+SamplerState sSampler0 : register(s0);
+
+struct VS_IN
+{
+    float2 position : POSITION;
+    float2 texCoord : TEXCOORD0;
+};
+
+struct VS_OUT
+{
+    float4 position : SV_POSITION;
+    float2 texCoord : TEXCOORD0;
+};
+
+VS_OUT main_vs(VS_IN input)
+{
+    VS_OUT output;
+    output.position = mul(uProjection, float4(input.position, 0.0f, 1.0f));
+    output.texCoord = input.texCoord;
+    return output;
+}
+
+float3 TonemapPreview(float3 color)
+{
+    color = max(color, float3(0.0f, 0.0f, 0.0f)) * max(uPreviewParams.y, 0.0f);
+    color = saturate((color * (2.51f * color + 0.03f)) /
+                     (color * (2.43f * color + 0.59f) + 0.14f));
+    return pow(color, 1.0f / max(uPreviewParams.z, 0.0001f));
+}
+
+float4 main_ps(VS_OUT input) : SV_TARGET
+{
+    Texture2D<float4> textureSource = ResourceDescriptorHeap[BindlessTextureIndex(0u)];
+    float4 sampleValue = textureSource.Sample(sSampler0, saturate(input.texCoord));
+    const int mode = (int)round(uPreviewParams.x);
+
+    if (mode == 2)
+    {
+        float depth = saturate(sampleValue.r);
+        float contrast = 1.0f - saturate((1.0f - depth) * 36.0f);
+        return float4(contrast.xxx, 1.0f);
+    }
+
+    if (mode == 1)
+    {
+        return float4(TonemapPreview(sampleValue.rgb), 1.0f);
+    }
+
+    return float4(saturate(sampleValue.rgb), 1.0f);
+}

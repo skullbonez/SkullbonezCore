@@ -1116,7 +1116,9 @@ bool EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Qu
         return false;
     }
 
-    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 1.0f, 0.85f, 0.25f );
+    // Why: a future contact is evidence, not selection. Reserve yellow for the
+    // selected object's outline even when many bodies participate in a future.
+    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.26f, 0.78f, 0.95f );
     return true;
 }
 

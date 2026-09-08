@@ -1,0 +1,309 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      11,
+      7,
+      6,
+      4
+    ],
+    "exposure": 1.02,
+    "gamma": 1.5,
+    "sunScreenX": 0.5,
+    "sunScreenY": 0.55,
+    "sunIntensity": 11.2,
+    "skyGlowStrength": 0.52,
+    "styleGrade": [
+      1.44,
+      1.34,
+      0.34
+    ],
+    "cloudCoverage": 0.56,
+    "cloudSoftness": 0.16,
+    "cloudScale": 5.2,
+    "cloudIntensity": 1.08,
+    "sunShaftStrength": 0.34,
+    "sunShaftFalloff": 2.4,
+    "volumetricStrength": 0.12,
+    "volumetricDensity": 0.65,
+    "bloomThreshold": 1.08,
+    "bloomStrength": 0.24,
+    "bloomRadius": 3.0,
+    "fogColorR": 0.82,
+    "fogColorG": 0.66,
+    "fogColorB": 0.58,
+    "fogStart": 360.0,
+    "fogEnd": 1760.0,
+    "fogDensity": 0.00038,
+    "fogMaxOpacity": 0.14,
+    "basinMask": [
+      620.0,
+      650.0,
+      250.0,
+      170.0,
+      0.16
+    ],
+    "sunColorR": 1.56,
+    "sunColorG": 0.85,
+    "sunColorB": 0.42,
+    "skyHorizonR": 1.18,
+    "skyHorizonG": 0.74,
+    "skyHorizonB": 0.68,
+    "skyZenithR": 0.16,
+    "skyZenithG": 0.78,
+    "skyZenithB": 1.58,
+    "terrainTint": [
+      0.34,
+      0.54,
+      0.16
+    ],
+    "terrainAccent": [
+      0.06,
+      0.18,
+      0.045
+    ],
+    "waterTint": [
+      0.018,
+      0.13,
+      0.18
+    ],
+    "waterProfile": [
+      0.92,
+      0.28,
+      1.18
+    ],
+    "shadowDepthBias": 5e-05,
+    "shadowSlopeBias": 0.0001
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mode": "beachball"
+    },
+    {
+      "target": "boxes",
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mode": "texture"
+    },
+    {
+      "target": "prefix:crate",
+      "tint": [
+        0.56,
+        0.37,
+        0.18
+      ],
+      "mode": "matte"
+    },
+    {
+      "target": "prefix:ramp",
+      "tint": [
+        0.48,
+        0.28,
+        0.11
+      ],
+      "mode": "matte"
+    },
+    {
+      "target": "prefix:dock",
+      "tint": [
+        0.46,
+        0.25,
+        0.1
+      ],
+      "mode": "matte"
+    },
+    {
+      "target": "hero",
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mode": "texture"
+    },
+    {
+      "target": "prefix:low_",
+      "tint": [
+        0.13,
+        0.27,
+        0.09
+      ],
+      "mode": "foliage"
+    },
+    {
+      "target": "prefix:sky_",
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mode": "texture"
+    },
+    {
+      "target": "prefix:canopy",
+      "tint": [
+        0.045,
+        0.2,
+        0.035
+      ],
+      "mode": "foliage"
+    },
+    {
+      "target": "prefix:pineleaf",
+      "tint": [
+        0.045,
+        0.2,
+        0.04
+      ],
+      "mode": "pine"
+    },
+    {
+      "target": "prefix:trunk",
+      "tint": [
+        0.3,
+        0.13,
+        0.045
+      ],
+      "mode": "matte"
+    },
+    {
+      "target": "prefix:rock",
+      "tint": [
+        0.26,
+        0.27,
+        0.32
+      ],
+      "mode": "stone"
+    },
+    {
+      "target": "prefix:ridge",
+      "tint": [
+        0.28,
+        0.36,
+        0.18
+      ],
+      "mode": "ridge"
+    },
+    {
+      "target": "prefix:shore",
+      "tint": [
+        0.3,
+        0.28,
+        0.24
+      ],
+      "mode": "stone"
+    },
+    {
+      "target": "prefix:shorecube",
+      "tint": [
+        0.82,
+        0.72,
+        0.56
+      ],
+      "mode": "lowpoly"
+    },
+    {
+      "target": "prefix:grass",
+      "tint": [
+        0.14,
+        0.32,
+        0.08
+      ],
+      "mode": "foliage"
+    },
+    {
+      "target": "prefix:grassd",
+      "tint": [
+        0.06,
+        0.2,
+        0.05
+      ],
+      "mode": "foliage"
+    },
+    {
+      "target": "prefix:grassl",
+      "tint": [
+        0.28,
+        0.44,
+        0.12
+      ],
+      "mode": "foliage"
+    },
+    {
+      "target": "prefix:blade",
+      "tint": [
+        0.14,
+        0.32,
+        0.08
+      ],
+      "mode": "pine"
+    },
+    {
+      "target": "prefix:bladed",
+      "tint": [
+        0.06,
+        0.2,
+        0.05
+      ],
+      "mode": "pine"
+    },
+    {
+      "target": "prefix:bladel",
+      "tint": [
+        0.28,
+        0.44,
+        0.12
+      ],
+      "mode": "pine"
+    },
+    {
+      "target": "prefix:reed",
+      "tint": [
+        0.35,
+        0.45,
+        0.18
+      ],
+      "mode": "foliage"
+    },
+    {
+      "target": "prefix:flower",
+      "tint": [
+        0.98,
+        0.5,
+        0.12
+      ],
+      "mode": "lowpoly"
+    },
+    {
+      "target": "prefix:flowerhot",
+      "tint": [
+        1.05,
+        0.3,
+        0.06
+      ],
+      "mode": "lowpoly"
+    },
+    {
+      "target": "prefix:flowery",
+      "tint": [
+        1.02,
+        0.78,
+        0.1
+      ],
+      "mode": "lowpoly"
+    }
+  ]
+}

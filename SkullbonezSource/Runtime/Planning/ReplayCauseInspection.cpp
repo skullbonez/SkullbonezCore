@@ -708,12 +708,12 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
                        (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
                        (std::max)( 0.0f, layout.drawer.h - REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT -
                                              REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) };
-    // Keep visibility controls fixed below every tab's scrollable content.
-    layout.content.h = (std::max)( 0.0f, layout.content.h - 58.0f );
+    // Visibility belongs to the hierarchy footer, independent of the open detail tab.
     for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
     {
-        layout.outlineToggles[index] = { layout.content.x, layout.drawer.y + layout.drawer.h - 62.0f + index * 26.0f,
-                                         layout.content.w, 24.0f };
+        layout.outlineToggles[index] = { layout.hierarchy.x + 12.0f,
+                                         layout.hierarchy.y + layout.hierarchy.h - 78.0f + index * 26.0f,
+                                         layout.hierarchy.w - 24.0f, 24.0f };
     }
     layout.drawerScrollbar = { layout.content.x + layout.content.w - REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH,
                                layout.content.y, REPLAY_CAUSE_INSPECTOR_SCROLLBAR_WIDTH, layout.content.h };
@@ -1674,6 +1674,19 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
     {
         SetDrawerTarget( !m_drawerTargetOpen, m_lastAdvanceSeconds );
         return true;
+    }
+
+    if ( leftPressed && PointInside( layout.hierarchy, mouseX, mouseY ) )
+    {
+        for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
+        {
+            if ( PointInside( layout.outlineToggles[index], mouseX, mouseY ) )
+            {
+                bool& visible = index == 0 ? m_state.blueOutlinesVisible : m_state.greyOutlinesVisible;
+                visible = !visible;
+                return true;
+            }
+        }
     }
 
     if ( !m_state.detailVisible || !ReplayCauseInspectorContainsPoint( layout, mouseX, mouseY ) ||

@@ -64,6 +64,7 @@ struct ContactManifoldPresentation
     uint8_t bodyCount = 0;
     uint8_t pointCount = 0;
     bool truncated = false;
+    float normalLengthScale = 1.0f;
 
     Math::Vector::Vector3 Center() const noexcept
     {

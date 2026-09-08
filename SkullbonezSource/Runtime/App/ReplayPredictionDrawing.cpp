@@ -783,7 +783,7 @@ void DrawReplayPredictionRetainedMarkers( const ReplayPredictionPresentationView
 {
     // Invariant: marker emission is bounded by SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS and independent
     // of the visualizer budget. Lines may degrade under load; already-revealed
-    // yellow/grey boxes must not.
+    // contact/rest boxes must not.
     for ( std::size_t i = 0; i < prediction.markers.retainedMarkers.size(); ++i )
     {
         const ReplayPredictionRetainedMarker& marker = prediction.markers.retainedMarkers[i];
@@ -2530,29 +2530,25 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPredict
     const PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
     const ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( physics );
 
-    for ( const RunReplayPathTarget& target : pathVisualizer.targets )
+    // Why: retained futures outlive selection and need not contain the new
+    // target yet. Resolve the selection directly for its yellow outline.
+    if ( pathVisualizer.targetId.value != 0 )
     {
-        if ( target.id.value == 0 )
-        {
-            continue;
-        }
-
         PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget" );
 
-        if ( target.id.value == pathVisualizer.targetId.value )
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawRoot" );
-            DrawReplayPastRootTrajectoryFromStore( prediction, target.id, pathVisualizer.colorMode, presentFrame, tracer,
-                                                   ribbonQuota );
+            DrawReplayPastRootTrajectoryFromStore( prediction, pathVisualizer.targetId, pathVisualizer.colorMode,
+                                                   presentFrame, tracer, ribbonQuota );
         }
 
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawMarker" );
             ModelRowHint targetHint;
-            targetHint.value = target.modelRow.value;
+            targetHint.value = pathVisualizer.targetModelRow.value;
             int markerIndex = -1;
-            const bool markerResolved = TryResolveReplayBodyModelIndex( bodyStore, target.id, targetHint, bodyStore.Count(),
-                                                                        markerIndex );
+            const bool markerResolved = TryResolveReplayBodyModelIndex( bodyStore, pathVisualizer.targetId, targetHint,
+                                                                        bodyStore.Count(), markerIndex );
 
             if ( markerResolved )
             {

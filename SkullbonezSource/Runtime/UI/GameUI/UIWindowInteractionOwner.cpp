@@ -193,6 +193,7 @@ void UIWindowInteractionOwner::SetActiveTab( InGameUITab tab )
     CloseSceneCombo();
     m_editorTab.objectCombo.Close();
     SceneTab::CloseRecordingCombo( m_sceneTab );
+    m_sceneTab.solverLabCombo.Close();
     CinematicTab::CloseCombo( m_cinematicTab );
     m_renderTargetCombo.Close();
     m_cameraModeCombo.Close();
@@ -232,7 +233,7 @@ bool UIWindowInteractionOwner::BlocksCameraMouse() const
 bool UIWindowInteractionOwner::BlocksKeyboard() const
 {
     return m_window.isVisible && !m_window.isMinimized &&
-           ( m_sceneTab.combo.IsOpen() || m_sceneTab.recordingCombo.IsOpen() ||
+           ( m_sceneTab.combo.IsOpen() || m_sceneTab.recordingCombo.IsOpen() || m_sceneTab.solverLabCombo.IsOpen() ||
              CinematicTab::IsComboOpen( m_cinematicTab ) || m_editorTab.objectCombo.IsOpen() ||
              m_renderTargetCombo.IsOpen() );
 }
@@ -328,6 +329,7 @@ void UIWindowInteractionOwner::SetRendererComboOpen( bool open )
     if ( open )
     {
         SceneTab::CloseRecordingCombo( m_sceneTab );
+        m_sceneTab.solverLabCombo.Close();
         m_reflectionCombo.Close();
         CloseSceneCombo();
         CinematicTab::CloseCombo( m_cinematicTab );
@@ -528,6 +530,7 @@ void UIWindowInteractionOwner::CloseSceneCombo()
 {
     SceneTab::CloseCombo( m_sceneTab );
     SceneTab::CloseRecordingCombo( m_sceneTab );
+    m_sceneTab.solverLabCombo.Close();
 }
 
 
@@ -1091,8 +1094,9 @@ bool UIWindowInteractionOwner::HandleOpenControlPress( InGameUIInputResult& resu
                                                        const WindowOptionView& options )
 {
     const bool controlOpen = m_sceneTab.combo.IsOpen() || m_sceneTab.recordingCombo.IsOpen() ||
-                             CinematicTab::IsComboOpen( m_cinematicTab ) || m_renderTargetCombo.IsOpen() ||
-                             m_editorTab.objectCombo.IsOpen() || m_reflectionCombo.IsOpen() || m_rendererCombo.IsOpen();
+                             m_sceneTab.solverLabCombo.IsOpen() || CinematicTab::IsComboOpen( m_cinematicTab ) ||
+                             m_renderTargetCombo.IsOpen() || m_editorTab.objectCombo.IsOpen() ||
+                             m_reflectionCombo.IsOpen() || m_rendererCombo.IsOpen();
     if ( !controlOpen )
     {
         return false;
@@ -1119,6 +1123,10 @@ bool UIWindowInteractionOwner::HandleOpenControlPress( InGameUIInputResult& resu
         m_editorTab.objectCombo.Close();
         m_renderTargetCombo.Close();
     }
+    else if ( m_sceneTab.solverLabCombo.IsOpen() )
+    {
+        SceneTab::HandleSolverLabClick( m_sceneTab, result, m_mouseX, m_mouseY );
+    }
     else if ( m_sceneTab.recordingCombo.IsOpen() )
     {
         if ( m_activeTab == InGameUITab::Scene )
@@ -1132,6 +1140,7 @@ bool UIWindowInteractionOwner::HandleOpenControlPress( InGameUIInputResult& resu
         else
         {
             SceneTab::CloseRecordingCombo( m_sceneTab );
+            m_sceneTab.solverLabCombo.Close();
         }
 
         m_rendererCombo.Close();
@@ -1321,6 +1330,11 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UII
                                                                            static_cast<int>( options.recordings.size() ),
                                                                            options.selectedRecording, m_mouseX, m_mouseY,
                                                                            contentX, rowBase, contentW );
+        }
+
+        if ( !sceneClickHandled )
+        {
+            sceneClickHandled = SceneTab::HandleSolverLabClick( m_sceneTab, result, m_mouseX, m_mouseY );
         }
 
         if ( !sceneClickHandled )

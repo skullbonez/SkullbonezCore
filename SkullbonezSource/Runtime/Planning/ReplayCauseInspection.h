@@ -333,7 +333,7 @@ inline constexpr float REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE = 22.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_EMPTY_HEIGHT = 44.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT = 82.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT = 12.0f;
-inline constexpr float REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT = 21.0f;
+inline constexpr float REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT = 52.0f;
 inline constexpr float REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT = 28.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_OPACITY = 0.97f;
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE = 4;
@@ -416,7 +416,7 @@ struct ReplayCauseIterationRow
 };
 
 inline constexpr std::size_t REPLAY_CAUSE_ITERATIONS_ROW_CAPACITY = 32u;
-inline constexpr float REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT = 20.0f;
+inline constexpr float REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT = 84.0f;
 
 struct ReplayCauseIterationsProjection
 {

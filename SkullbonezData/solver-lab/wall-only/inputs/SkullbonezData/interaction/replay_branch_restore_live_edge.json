@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 40, "showReplayScrubber": true },
+    { "frame": 55, "scrubReplaySolverTrack": 0.25 },
+    { "frame": 58, "assert": { "replayActiveTrack": "Solver" } },
+    { "frame": 58, "assert": { "replayHistoricalSamplePaused": true } },
+    { "frame": 62, "clickReplayControl": "branch" },
+    { "frame": 70, "assert": { "replayActiveTrack": "Solver" } },
+    { "frame": 70, "assert": { "replayHistoricalSamplePaused": false } },
+    { "frame": 70, "assert": { "replaySolverTrackAtPresent": true } },
+    { "frame": 80, "screenshot": "TestOutput/interaction/replay_branch_restore_live_edge.bmp" }
+  ]
+}

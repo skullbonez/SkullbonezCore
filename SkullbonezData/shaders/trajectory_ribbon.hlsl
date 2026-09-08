@@ -121,11 +121,13 @@ VS_OUT main_vs( VS_IN input, uint vertexId : SV_VertexID )
     const float2 endNdc = endClip.xy / SafeClipW( endClip.w );
     const float2 previousNdc = previousClip.xy / SafeClipW( previousClip.w );
     const float2 nextNdc = nextClip.xy / SafeClipW( nextClip.w );
-    float2 dir = endNdc - startNdc;
+    const float2 viewport = max( uViewportPixels.xy, float2( 1.0, 1.0 ) );
+    // Width, joins and the pixel-shader distance field all use screen pixels.
+    // NDC directions distort diagonal strokes when the viewport is not square.
+    float2 dir = ( endNdc - startNdc ) * viewport;
     const float dirLenSq = dot( dir, dir );
     dir = dirLenSq > 0.0000001 ? dir * rsqrt( dirLenSq ) : float2( 1.0, 0.0 );
 
-    const float2 viewport = max( uViewportPixels.xy, float2( 1.0, 1.0 ) );
     const float2 segmentPixels = ( endNdc - startNdc ) * viewport * 0.5;
     const float segmentLengthPixels = max( length( segmentPixels ), 0.001 );
     const bool hasPrevious = dot( startNdc - previousNdc, startNdc - previousNdc ) > 0.0000001;
@@ -133,11 +135,11 @@ VS_OUT main_vs( VS_IN input, uint vertexId : SV_VertexID )
     float2 adjacentDir = dir;
     if ( endpointT < 0.5 && hasPrevious )
     {
-        adjacentDir = normalize( startNdc - previousNdc );
+        adjacentDir = normalize( ( startNdc - previousNdc ) * viewport );
     }
     else if ( endpointT > 0.5 && hasNext )
     {
-        adjacentDir = normalize( nextNdc - endNdc );
+        adjacentDir = normalize( ( nextNdc - endNdc ) * viewport );
     }
     const bool joinedEndpoint = endpointT < 0.5 ? hasPrevious : hasNext;
     const float turnAlignment = dot( dir, adjacentDir );
@@ -183,7 +185,8 @@ float4 main_ps( VS_OUT input ) : SV_TARGET
     // either endpoint, producing one crisp vector edge and analytic round caps.
     const float distancePixels = length( float2( abs( input.edgeCoord ), capDistancePixels ) );
     const float aaPixels = clamp( input.style.x, 0.5, 1.25 );
-    const float coverage = 1.0 - smoothstep( halfWidthPixels, halfWidthPixels + aaPixels, distancePixels );
+    const float coverage = 1.0 - smoothstep( max( halfWidthPixels - aaPixels * 0.5, 0.0 ),
+                                           halfWidthPixels + aaPixels * 0.5, distancePixels );
     const float emphasis = saturate( input.style.y );
     const float halo =
         emphasis * ( 1.0 - smoothstep( halfWidthPixels + aaPixels, halfWidthPixels + aaPixels + 3.0, distancePixels ) );

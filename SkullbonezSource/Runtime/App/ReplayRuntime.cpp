@@ -1479,11 +1479,11 @@ ReplayRenderFrameViews ReplayRuntime::BuildRenderFrameViews( const ReplayFrameSe
     const ReplayRenderTimeView time { presentationSample, solverSample,
                                       ( presentationSample || solverSample ) ? nullptr : predictionFrame,
                                       inputView.liveAdvanceHeld };
-    const Rendering::ContactManifoldPresentation contactPresentation = causeInspection.HasVisibleContactGeometry()
-                                                                           ? causeInspection.SolverDetail()
-                                                                                 .contactPresentation
-                                                                           : Rendering::ContactManifoldPresentation {};
+    Rendering::ContactManifoldPresentation contactPresentation = causeInspection.HasVisibleContactGeometry()
+                                                                     ? causeInspection.SolverDetail().contactPresentation
+                                                                     : Rendering::ContactManifoldPresentation {};
 #if defined( SKULLBONEZ_SKARNESS )
+    contactPresentation.normalLengthScale = 1.0f + 0.2f * causeInspection.Display().contactFlashAlpha;
     m_lastSubmittedCauseContactPointCount = contactPresentation.pointCount;
     m_lastSubmittedCauseContactBodyCount = contactPresentation.bodyCount;
 #endif

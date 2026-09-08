@@ -1,0 +1,71 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      13,
+      3,
+      2,
+      1
+    ],
+    "exposure": 0.38,
+    "gamma": 1.82,
+    "sunScreenX": 0.50,
+    "sunScreenY": 0.74,
+    "sunIntensity": 4.4,
+    "styleGrade": [
+      0.24,
+      1.12,
+      0.64
+    ],
+    "bloomThreshold": 0.62,
+    "bloomKnee": 0.72,
+    "bloomStrength": 0.72,
+    "bloomRadius": 4.8,
+    "fogDensity": 0.0014,
+    "fogMaxOpacity": 0.28,
+    "sunColorR": 0.38,
+    "sunColorG": 0.62,
+    "sunColorB": 1.20,
+    "skyHorizonR": 0.22,
+    "skyHorizonG": 0.34,
+    "skyHorizonB": 0.58,
+    "skyZenithR": 0.04,
+    "skyZenithG": 0.08,
+    "skyZenithB": 0.20,
+    "terrainTint": [
+      0.08,
+      0.14,
+      0.18
+    ],
+    "terrainAccent": [
+      0.02,
+      0.07,
+      0.12
+    ],
+    "waterTint": [
+      0.015,
+      0.05,
+      0.09
+    ],
+    "waterProfile": [
+      0.90,
+      0.46,
+      0.18
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        0.62,
+        0.68,
+        0.78
+      ],
+      "mode": "matte"
+    }
+  ]
+}

@@ -1562,8 +1562,11 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
         if ( result->hasComparison )
         {
             values["comparison"] = { { "tick", result->comparisonTick },
+                                     { "active", result->comparisonActive },
+                                     { "bundle", result->comparisonBundle },
                                      { "loading", result->comparisonLoading },
                                      { "loadPercent", result->comparisonLoadPercent },
+                                     { "loadPhase", result->comparisonLoadPhase },
                                      { "lastTick", result->comparisonLastTick },
                                      { "direction", result->comparisonDirection },
                                      { "mode", result->comparisonMode },
@@ -1579,7 +1582,12 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
                                      { "positionB", result->comparisonPositionB },
                                      { "distanceMetres", result->comparisonDistance },
                                      { "angleDegrees", result->comparisonAngle },
-                                     { "events", result->comparisonEventCount } };
+                                     { "events", result->comparisonEventCount },
+                                     { "selectedEvent", result->comparisonSelectedEvent },
+                                     { "eventTick", result->comparisonEventTick },
+                                     { "contactPoints", result->comparisonContactPoints },
+                                     { "contactCenter", result->comparisonContactCenter },
+                                     { "normalLengthScale", result->comparisonNormalScale } };
         }
         if ( result->hasTextValue )
         {

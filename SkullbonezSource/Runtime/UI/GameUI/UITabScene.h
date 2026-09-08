@@ -60,6 +60,8 @@ struct UISceneTabState
     // open state, bounds, filtering, and commands form one interaction.
     UIComboBox combo;
     UIComboBox recordingCombo;
+    UIComboBox solverLabCombo;
+    int selectedSolverLab = -1;
     UIButton resetSceneButton;
     UIButton resetDefaultsButton;
     UIButton saveDefaultsButton;
@@ -115,6 +117,7 @@ bool HandleClosedRecordingComboClick( UISceneTabState& state, int recordingOptio
 
 bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                            float contentX, float rowBase, float contentW );
+bool HandleSolverLabClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY );
 bool HandleForecastClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
                           float rowBase, float contentW );
 

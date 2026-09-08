@@ -867,8 +867,8 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( published.SolverDetail(), causeTree, 1920,
                                                                                1080, 1.0f );
     CHECK( layout.targetDrawer.w == doctest::Approx( 520.0f ) );
-    CHECK( layout.visibleRows == 3 );
-    CHECK( layout.content.h >= layout.rowHeight * 3.0f );
+    CHECK( layout.visibleRows == 4 );
+    CHECK( layout.content.h >= layout.rowHeight * 4.0f );
 
     // Invariant: the panel has no second placement state: every cause-window drag or
     // resize moves the adjacent surface through this same projection.
@@ -902,15 +902,15 @@ TEST_CASE( "Replay cause solver panel: copied rows survive restore sources and s
     causeTree.x = 1180;
     causeTree.y = 140;
     causeTree.width = 430;
-    causeTree.height = 500;
+    causeTree.height = 440;
     const int panelX = static_cast<int>( moved.content.x + 20.0f );
     const int panelY = static_cast<int>( moved.content.y + 20.0f );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
     CHECK( inspection.View().Display().summaryScrollOffset == 34 );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
-    CHECK( inspection.View().Display().summaryScrollOffset == 52 );
+    CHECK( inspection.View().Display().summaryScrollOffset == 54 );
     REQUIRE( inspection.TickSolverDetailPanelInput( causeTree, panelX, panelY, true, false, false, -120, 1920, 1080 ) );
-    CHECK( inspection.View().Display().summaryScrollOffset == 52 );
+    CHECK( inspection.View().Display().summaryScrollOffset == 54 );
     CHECK_FALSE( inspection.TickSolverDetailPanelInput( causeTree, 1919, 1079, true, false, false, -120, 1920, 1080 ) );
 }
 
@@ -2461,7 +2461,10 @@ TEST_CASE( "Cause outline controls: default on, independent, and retained across
     for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
     {
         const auto& toggle = layout.outlineToggles[index];
-        CHECK( toggle.y >= layout.content.y + layout.content.h );
+        const auto hierarchyContent = ReplayOverlay::ReplayCauseWindowContentRect( tree );
+        CHECK( toggle.x >= layout.hierarchy.x );
+        CHECK( toggle.x + toggle.w <= layout.hierarchy.x + layout.hierarchy.w );
+        CHECK( toggle.y >= hierarchyContent.y + hierarchyContent.h );
         const int x = static_cast<int>( toggle.x + 30 );
         const int y = static_cast<int>( toggle.y + 10 );
         CHECK_FALSE( inspection.TickSolverDetailPanelInput( tree, x, y, true, true, true, 0, 1920, 1080 ) );

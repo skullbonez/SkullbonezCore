@@ -169,6 +169,9 @@ struct SkarnessSceneObjectResult
 struct SkarnessCommandResult
 {
     bool hasComparison = false;
+    bool comparisonActive = false;
+    std::string comparisonBundle;
+    std::string comparisonLoadPhase;
     bool comparisonLoading = false;
     int comparisonLoadPercent = 0;
     bool comparisonStacked = false, comparisonOrbit = false, comparisonDragging = false;
@@ -179,6 +182,11 @@ struct SkarnessCommandResult
     std::array<float, 3> comparisonPositionA {}, comparisonPositionB {};
     float comparisonDistance = 0, comparisonAngle = 0;
     uint64_t comparisonEventCount = 0;
+    int comparisonSelectedEvent = -1;
+    int comparisonEventTick = -1;
+    std::array<uint32_t, 2> comparisonContactPoints {};
+    std::array<float, 2> comparisonNormalScale { 1, 1 };
+    std::array<float, 3> comparisonContactCenter {};
     std::vector<SkarnessSceneObjectResult> objects;
     std::string valueName;
     std::string textValue;

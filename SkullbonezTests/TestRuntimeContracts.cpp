@@ -1454,6 +1454,18 @@ TEST_CASE( "Detached manifold strokes preserve contact geometry and body origins
     CHECK( visualizer.DiagnosticTrackedContactCount() == 0u );
     CHECK( visualizer.DiagnosticLineFloatCapacity() == lineCapacity );
 
+    presentation.normalLengthScale = 1.2f;
+    const auto pulsed = visualizer.BuildContactManifoldStrokes( presentation ).subspan( segments * floatsPerSegment );
+    CHECK( pulsed[normal + 4] == doctest::Approx( 4.0f + 2.9f * 1.2f ) );
+    CHECK( pulsed[25u * floatsPerSegment + 3] == 4.25f );
+    CHECK( presentation.points[0].normal.y == 1.0f );
+    CHECK( presentation.Center().x == 3.0f );
+    presentation.pointCount = 2;
+    presentation.points[1].point = { 7.0f, 8.0f, 9.0f };
+    CHECK( presentation.Center().x == 5.0f );
+    CHECK( presentation.Center().y == 6.0f );
+    CHECK( presentation.Center().z == 7.0f );
+
     for ( auto& point : presentation.points )
     {
         point = presentation.points[0];

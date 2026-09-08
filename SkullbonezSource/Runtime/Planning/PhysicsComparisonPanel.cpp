@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <string_view>
 
 using namespace SkullbonezCore;
 using namespace SkullbonezCore::Runtime;
@@ -15,6 +16,23 @@ namespace
 {
 constexpr UI::Style::UIColor ink { 0.88f, 0.93f, 1, 1 }, muted { 0.56f, 0.65f, 0.75f, 1 };
 constexpr UI::Style::UIColor cyan { 0.16f, 0.86f, 1, 1 }, coral { 1, 0.49f, 0.36f, 1 };
+constexpr const char* comparisonOptions[] = { "Ragdoll & Wall: FP6 vs FP7",
+                                              "Wall Only - Post-Ragdoll Velocity: FP6 vs FP7" };
+int SelectedSolverLab( const PhysicsComparison& comparison )
+{
+    const std::string_view path = comparison.BundlePath();
+    if ( path.ends_with( "solver-lab/ragdoll-wall/comparison.json" ) ||
+         path.ends_with( "solver-lab\\ragdoll-wall\\comparison.json" ) )
+    {
+        return 0;
+    }
+    if ( path.ends_with( "solver-lab/wall-only/comparison.json" ) ||
+         path.ends_with( "solver-lab\\wall-only\\comparison.json" ) )
+    {
+        return 1;
+    }
+    return -1;
+}
 void Line( UI::UIDrawList& draw, UI::UIPoint a, UI::UIPoint b, const UI::Style::UIColor& color )
 {
     const float dx = b.x - a.x, dy = b.y - a.y;
@@ -91,6 +109,11 @@ void PhysicsComparisonPanel::Prepare( const Physics::ColliderStore& colliders,
                                       const Rendering::RenderInstanceStore& instances )
 {
     Core::Allocation::RuntimeAllocationScope loading( Core::Allocation::RuntimeAllocationPhase::Capture );
+    m_comparisonCombo.Close();
+    m_eventOffset = 0;
+    m_contactPulseStarted = -1;
+    m_contactSelectionRevision = 0;
+    m_contactTick = -1;
     m_shapes.clear();
     m_shapes.reserve( colliders.Records().size() );
     for ( const auto& collider : colliders.Records() )
@@ -177,9 +200,9 @@ PhysicsComparisonPanel::BuildContacts( const PhysicsComparison& comparison ) con
     const auto& event = comparison.Events()[static_cast<std::size_t>( comparison.SelectedEvent() )];
     for ( int side = 0; side < 2; ++side )
     {
-        const auto* evidence = comparison.Recording( side ).Evidence( comparison.Tick() );
+        const auto* evidence = comparison.Recording( side ).Evidence( event.tick );
         int index = side ? event.contactB : event.contactA;
-        if ( !evidence || index < 0 || event.tick != comparison.Tick() )
+        if ( !evidence || index < 0 )
         {
             continue;
         }
@@ -219,6 +242,18 @@ PhysicsComparisonPanel::BuildContacts( const PhysicsComparison& comparison ) con
     }
     return result;
 }
+bool PhysicsComparisonPanel::ContactPivot( const PhysicsComparison& comparison, Vector3& pivot ) const
+{
+    const auto contacts = BuildContacts( comparison );
+    if ( !contacts[0].HasGeometry() && !contacts[1].HasGeometry() )
+    {
+        return false;
+    }
+    pivot = contacts[0].HasGeometry() && contacts[1].HasGeometry() ? ( contacts[0].Center() + contacts[1].Center() ) * 0.5f
+            : contacts[0].HasGeometry()                            ? contacts[0].Center()
+                                                                   : contacts[1].Center();
+    return true;
+}
 Rendering::PairedViewFrame PhysicsComparisonPanel::BuildFrame( const PhysicsComparison& comparison, int width, int height )
 {
     BuildModels( comparison );
@@ -246,6 +281,31 @@ Rendering::PairedViewFrame PhysicsComparisonPanel::BuildFrame( const PhysicsComp
     frame.outlineAlpha = settings.outlineAlpha;
     frame.occludedOutline = settings.occludedOutline;
     frame.contacts = BuildContacts( comparison );
+    if ( comparison.SelectedEvent() >= 0 && ( frame.contacts[0].HasGeometry() || frame.contacts[1].HasGeometry() ) )
+    {
+        const int eventTick = comparison.Events()[static_cast<std::size_t>( comparison.SelectedEvent() )].tick;
+        const bool newSelection = m_contactSelectionRevision != comparison.EventSelectionRevision();
+        const bool crossed = ( m_contactTick < eventTick && comparison.Tick() >= eventTick ) ||
+                             ( m_contactTick > eventTick && comparison.Tick() <= eventTick );
+        if ( ( newSelection && comparison.Tick() == eventTick ) || ( !newSelection && crossed ) )
+        {
+            m_contactPulseStarted = m_lastTime;
+        }
+        const float alpha = m_contactPulseStarted >= 0
+                                ? static_cast<float>(
+                                      std::clamp( 1.0 - ( m_lastTime - m_contactPulseStarted ) / 0.2, 0.0, 1.0 ) )
+                                : 0.0f;
+        for ( auto& patch : frame.contacts )
+        {
+            patch.normalLengthScale = 1.0f + 0.2f * alpha;
+        }
+    }
+    else
+    {
+        m_contactPulseStarted = -1;
+    }
+    m_contactSelectionRevision = comparison.EventSelectionRevision();
+    m_contactTick = comparison.Tick();
     return frame;
 }
 float PhysicsComparisonPanel::Radius( uint64_t id ) const noexcept
@@ -330,14 +390,18 @@ const UI::UIDrawList& PhysicsComparisonPanel::Compose( const PhysicsComparison& 
     m_draw.Clear();
     m_buttonCount = 0;
     m_draw.AddRect( { 0, 0, static_cast<float>( width ), 82 }, { 0.035f, 0.055f, 0.08f, 1 } );
-    m_draw.AddText( { 16, 12 }, 20, ink, "Physics A/B" );
+    m_draw.AddText( { 16, 12 }, 20, ink, "Solver Lab" );
     ButtonAt( { 172, 7, 72, 30 }, "Open", 1 );
     ButtonAt( { 252, 7, 80, 30 }, "Finding", 4 );
     ButtonAt( { 340, 7, 64, 30 }, "Save", 3 );
     ButtonAt( { 412, 7, 70, 30 }, "Focus", 2 );
     ButtonAt( { 490, 7, 75, 30 }, "Follow A", 10, comparison.Settings().followA );
-    ButtonAt( { 573, 7, 65, 30 }, "Close", 5 );
-    ButtonAt( { 646, 7, 118, 30 }, comparison.Settings().stackedViews ? "Stacked" : "Side by side", 14 );
+    ButtonAt( { static_cast<float>( width - 80 ), 7, 64, 30 }, "exit", 5 );
+    ButtonAt( { 573, 7, 118, 30 }, comparison.Settings().stackedViews ? "Stacked" : "Side by side", 14 );
+    const bool compact = width < 1080;
+    m_comparisonCombo.SetBounds( compact ? 694.0f : 705.0f, compact ? 44.0f : 7.0f,
+                                 std::clamp( static_cast<float>( width - ( compact ? 710 : 801 ) ), 100.0f, 460.0f ), 30 );
+    m_comparisonCombo.SetLabelVisible( false );
     const char* modes[] = { "Split", "Overlay", "Toggle", "Heatmap", "Pixels" };
     for ( int i = 0; i < 5; ++i )
     {
@@ -425,15 +489,42 @@ const UI::UIDrawList& PhysicsComparisonPanel::Compose( const PhysicsComparison& 
     std::snprintf( text, sizeof( text ), "Tick %d / %d  %.4fs", comparison.Tick(), comparison.LastTick(),
                    comparison.Tick() / 120.0 );
     m_draw.AddText( { static_cast<float>( width - 212 ), bottom + 20 }, 12, ink, text );
+    // Draw the popup last so its opaque rows cover the toolbar and scene labels.
+    const UI::UIDrawContext draw( width, height, m_draw );
+    const int selected = SelectedSolverLab( comparison );
+    m_comparisonCombo.Draw( draw, "Comparison",
+                            { std::span<const char* const>( comparisonOptions ), selected, 0,
+                              selected >= 0 ? comparisonOptions[selected] : "Load comparison" },
+                            m_pointer );
     return m_draw;
 }
 bool PhysicsComparisonPanel::Contains( int x, int y ) const
 {
-    return y < 82 || m_sidebar.Contains( x, y ) || y >= m_timeline.y - 15;
+    return m_comparisonCombo.IsOpen() || m_comboConsumedPointer || y < 82 || m_sidebar.Contains( x, y ) ||
+           y >= m_timeline.y - 15;
 }
 ComparisonPanelAction PhysicsComparisonPanel::Input( PhysicsComparison& comparison,
                                                      const UI::InputControl::UIInputSnapshot& input, bool timelineDrag )
 {
+    m_pointer = { input.mouseX, input.mouseY };
+    m_comboConsumedPointer = false;
+    if ( input.leftPressed && m_comparisonCombo.IsOpen() )
+    {
+        const int option = m_comparisonCombo.HitOption( input.mouseX, input.mouseY, 2 );
+        m_comparisonCombo.Close();
+        m_comboConsumedPointer = true;
+        if ( option >= 0 && option != SelectedSolverLab( comparison ) )
+        {
+            return option == 0 ? ComparisonPanelAction::RagdollWall : ComparisonPanelAction::WallOnly;
+        }
+        return ComparisonPanelAction::None;
+    }
+    if ( input.leftPressed && m_comparisonCombo.HitBox( input.mouseX, input.mouseY ) )
+    {
+        m_comparisonCombo.SetOpen( true );
+        m_comboConsumedPointer = true;
+        return ComparisonPanelAction::None;
+    }
     if ( input.wheelDelta && m_sidebar.Contains( input.mouseX, input.mouseY ) )
     {
         m_eventOffset = (std::max)( 0, m_eventOffset + ( input.wheelDelta > 0 ? -5 : 5 ) );
@@ -576,7 +667,8 @@ uint64_t PhysicsComparisonPanel::Pick( const PhysicsComparison& comparison, cons
     return selected;
 }
 
-const UI::UIDrawList& PhysicsComparisonPanel::ComposeLoading( int width, int height, int percent, const char* error )
+const UI::UIDrawList& PhysicsComparisonPanel::ComposeLoading( int width, int height, int percent, const char* error,
+                                                              const char* phase )
 {
     m_draw.Clear();
     m_buttonCount = 0;
@@ -584,7 +676,7 @@ const UI::UIDrawList& PhysicsComparisonPanel::ComposeLoading( int width, int hei
     const float x = ( width - 560.0f ) * 0.5f, y = ( height - 150.0f ) * 0.5f;
     const bool failed = error && *error;
     m_draw.AddText( { x, y }, 23, ink, failed ? "Unable to open comparison" : "Loading comparison" );
-    m_draw.AddText( { x, y + 40 }, 14, muted, failed ? error : "Reading recorded motion and matching contact evidence" );
+    m_draw.AddText( { x, y + 40 }, 14, muted, failed ? error : phase );
     if ( !failed )
     {
         m_draw.AddRoundedRect( { x, y + 75, 560, 16 }, 5, { 0.13f, 0.2f, 0.27f, 1 } );

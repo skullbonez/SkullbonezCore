@@ -13,6 +13,8 @@ Release/
 Profile/
 Profile-WPO/
 Automation/
+CausalAutomation/
+.claude/settings.local.json
 
 # Compiled object files
 *.obj

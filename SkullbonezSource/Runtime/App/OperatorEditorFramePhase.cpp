@@ -606,7 +606,8 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
         const auto& draw = m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty()
                                ? m_comparisonPanel.ComposeLoading( viewport.screenW, viewport.screenH,
                                                                    m_comparisonLoad.Percent(),
-                                                                   m_comparisonLoad.Error().c_str() )
+                                                                   m_comparisonLoad.Error().c_str(),
+                                                                   m_comparisonLoad.Phase() )
                                : m_comparisonPanel.Compose( m_comparison, viewport.screenW, viewport.screenH );
         renderer.SubmitUiDrawList( draw, viewport );
         const int drawCalls = renderer.EndUiTextFrame( drawCallStart );

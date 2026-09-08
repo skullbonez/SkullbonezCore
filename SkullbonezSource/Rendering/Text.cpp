@@ -433,8 +433,8 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
         ch[0] = static_cast<char>( i + 32 );
         const int col = i % FONT_COLS;
         const int row = i / FONT_COLS;
-        gdiResults.glyphsDrawn =
-            TextOutA( memDC, col * FONT_CELL_W_HI, row * FONT_CELL_H_HI, ch, 1 ) != FALSE && gdiResults.glyphsDrawn;
+        gdiResults.glyphsDrawn = TextOutA( memDC, col * FONT_CELL_W_HI, row * FONT_CELL_H_HI, ch, 1 ) != FALSE &&
+                                 gdiResults.glyphsDrawn;
     }
 
     // Flush GDI drawing queue before reading pBits.
@@ -528,15 +528,16 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
             {
                 float sum = 0.0f;
 
-                for ( int sy = 0; sy < SDF_SCALE; ++sy )
+                // Invariant: retain row-major accumulation order when flattening
+                // the sample block, preserving the generated atlas bytes.
+                for ( int sample = 0; sample < SDF_SCALE * SDF_SCALE; ++sample )
                 {
-                    for ( int sx = 0; sx < SDF_SCALE; ++sx )
-                    {
-                        const int hidx = ( fy * SDF_SCALE + sy ) * FONT_CELL_W_HI + ( fx * SDF_SCALE + sx );
-                        const float distOut = sqrtf( edtOut[hidx] );
-                        const float distIn = sqrtf( edtIn[hidx] );
-                        sum += ( distOut - distIn ); // positive inside, negative outside
-                    }
+                    const int sy = sample / SDF_SCALE;
+                    const int sx = sample % SDF_SCALE;
+                    const int hidx = ( fy * SDF_SCALE + sy ) * FONT_CELL_W_HI + ( fx * SDF_SCALE + sx );
+                    const float distOut = sqrtf( edtOut[hidx] );
+                    const float distIn = sqrtf( edtIn[hidx] );
+                    sum += ( distOut - distIn ); // positive inside, negative outside
                 }
 
                 const float avgSdf = sum / static_cast<float>( SDF_SCALE * SDF_SCALE );
@@ -592,8 +593,7 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 
 SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
                                                   TextBatch& batch, Dx12TextureOwner& renderTextures,
-                                                  Dx12GeometryOwner& renderGeometry,
-                                                  std::unique_ptr<ShaderDX12> textShader,
+                                                  Dx12GeometryOwner& renderGeometry, std::unique_ptr<ShaderDX12> textShader,
                                                   std::unique_ptr<ShaderDX12> solidShader,
                                                   std::unique_ptr<ShaderDX12> solidBatchShader, int screenW, int screenH,
                                                   const char* fontName )
@@ -1009,8 +1009,8 @@ void Text2d::BatchQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, flo
 }
 
 
-void Text2d::BatchTriangle( TextBatch& batch, Dx12GeometryOwner& renderCommands, float x0, float y0, float x1, float y1,
-                            float x2, float y2, float r, float g, float b, float a )
+void Text2d::BatchTriangle( TextBatch& batch, Dx12GeometryOwner& renderCommands, std::span<const float, 6> positions,
+                            float r, float g, float b, float a )
 {
     if ( batch.m_quadVertexCount + QUAD_BATCH_VERTS_PER_TRIANGLE > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
     {
@@ -1018,20 +1018,20 @@ void Text2d::BatchTriangle( TextBatch& batch, Dx12GeometryOwner& renderCommands,
     }
 
     float* v = batch.m_quadVertices.data() + batch.m_quadVertexCount * QUAD_BATCH_FLOATS_PER_VERT;
-    v[0] = x0;
-    v[1] = y0;
+    v[0] = positions[0];
+    v[1] = positions[1];
     v[2] = r;
     v[3] = g;
     v[4] = b;
     v[5] = a;
-    v[6] = x1;
-    v[7] = y1;
+    v[6] = positions[2];
+    v[7] = positions[3];
     v[8] = r;
     v[9] = g;
     v[10] = b;
     v[11] = a;
-    v[12] = x2;
-    v[13] = y2;
+    v[12] = positions[4];
+    v[13] = positions[5];
     v[14] = r;
     v[15] = g;
     v[16] = b;

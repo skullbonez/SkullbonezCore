@@ -1,0 +1,171 @@
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
+name disc_16
+source_hash 0xad94756188808771
+
+# Editable source geometry.
+source_vertex 8 -0.6 0
+source_vertex 7.391036 -0.6 3.061467
+source_vertex 5.656854 -0.6 5.656854
+source_vertex 3.061467 -0.6 7.391036
+source_vertex 0 -0.6 8
+source_vertex -3.061467 -0.6 7.391036
+source_vertex -5.656854 -0.6 5.656854
+source_vertex -7.391036 -0.6 3.061467
+source_vertex -8 -0.6 0
+source_vertex -7.391036 -0.6 -3.061467
+source_vertex -5.656854 -0.6 -5.656854
+source_vertex -3.061467 -0.6 -7.391036
+source_vertex 0 -0.6 -8
+source_vertex 3.061467 -0.6 -7.391036
+source_vertex 5.656854 -0.6 -5.656854
+source_vertex 7.391036 -0.6 -3.061467
+source_vertex 8 0.6 0
+source_vertex 7.391036 0.6 3.061467
+source_vertex 5.656854 0.6 5.656854
+source_vertex 3.061467 0.6 7.391036
+source_vertex 0 0.6 8
+source_vertex -3.061467 0.6 7.391036
+source_vertex -5.656854 0.6 5.656854
+source_vertex -7.391036 0.6 3.061467
+source_vertex -8 0.6 0
+source_vertex -7.391036 0.6 -3.061467
+source_vertex -5.656854 0.6 -5.656854
+source_vertex -3.061467 0.6 -7.391036
+source_vertex 0 0.6 -8
+source_vertex 3.061467 0.6 -7.391036
+source_vertex 5.656854 0.6 -5.656854
+source_vertex 7.391036 0.6 -3.061467
+source_face 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+source_face 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+source_face 0 1 17 16
+source_face 1 2 18 17
+source_face 2 3 19 18
+source_face 3 4 20 19
+source_face 4 5 21 20
+source_face 5 6 22 21
+source_face 6 7 23 22
+source_face 7 8 24 23
+source_face 8 9 25 24
+source_face 9 10 26 25
+source_face 10 11 27 26
+source_face 11 12 28 27
+source_face 12 13 29 28
+source_face 13 14 30 29
+source_face 14 15 31 30
+source_face 15 0 16 31
+
+# Baked runtime metadata.
+center_of_mass 6.04406831e-17 -1.08604352e-17 -6.42182258e-17
+volume 235.120683
+default_density 0.9
+default_mass 211.608615
+bounding_radius 8.02246845
+inertia_half_extents 8 0.6 8
+unit_inertia 21.4533333 42.6666667 21.4533333
+projected_surface_area 98.1333333
+
+# Baked centered vertices.
+vertex 8 -0.6 6.42182258e-17
+vertex 7.391036 -0.6 3.061467
+vertex 5.656854 -0.6 5.656854
+vertex 3.061467 -0.6 7.391036
+vertex -6.04406831e-17 -0.6 8
+vertex -3.061467 -0.6 7.391036
+vertex -5.656854 -0.6 5.656854
+vertex -7.391036 -0.6 3.061467
+vertex -8 -0.6 6.42182258e-17
+vertex -7.391036 -0.6 -3.061467
+vertex -5.656854 -0.6 -5.656854
+vertex -3.061467 -0.6 -7.391036
+vertex -6.04406831e-17 -0.6 -8
+vertex 3.061467 -0.6 -7.391036
+vertex 5.656854 -0.6 -5.656854
+vertex 7.391036 -0.6 -3.061467
+vertex 8 0.6 6.42182258e-17
+vertex 7.391036 0.6 3.061467
+vertex 5.656854 0.6 5.656854
+vertex 3.061467 0.6 7.391036
+vertex -6.04406831e-17 0.6 8
+vertex -3.061467 0.6 7.391036
+vertex -5.656854 0.6 5.656854
+vertex -7.391036 0.6 3.061467
+vertex -8 0.6 6.42182258e-17
+vertex -7.391036 0.6 -3.061467
+vertex -5.656854 0.6 -5.656854
+vertex -3.061467 0.6 -7.391036
+vertex -6.04406831e-17 0.6 -8
+vertex 3.061467 0.6 -7.391036
+vertex 5.656854 0.6 -5.656854
+vertex 7.391036 0.6 -3.061467
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 -1 0 0.6 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+face 0 1 0 0.6 31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16
+face 0.980785259 0 0.19509043 7.84628207 16 17 1 0
+face 0.831469635 0 0.5555702 7.84628183 17 18 2 1
+face 0.5555702 0 0.831469635 7.84628183 18 19 3 2
+face 0.19509043 0 0.980785259 7.84628207 19 20 4 3
+face -0.19509043 0 0.980785259 7.84628207 20 21 5 4
+face -0.5555702 0 0.831469635 7.84628183 21 22 6 5
+face -0.831469635 0 0.5555702 7.84628183 22 23 7 6
+face -0.980785259 0 0.19509043 7.84628207 23 24 8 7
+face -0.980785259 0 -0.19509043 7.84628207 24 25 9 8
+face -0.831469635 0 -0.5555702 7.84628183 25 26 10 9
+face -0.5555702 0 -0.831469635 7.84628183 26 27 11 10
+face -0.19509043 0 -0.980785259 7.84628207 27 28 12 11
+face 0.19509043 0 -0.980785259 7.84628207 28 29 13 12
+face 0.5555702 0 -0.831469635 7.84628183 29 30 14 13
+face 0.831469635 0 -0.5555702 7.84628183 30 31 15 14
+face 0.980785259 0 -0.19509043 7.84628207 31 16 0 15
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 2
+edge 1 2 0 3
+edge 2 3 0 4
+edge 3 4 0 5
+edge 4 5 0 6
+edge 5 6 0 7
+edge 6 7 0 8
+edge 7 8 0 9
+edge 8 9 0 10
+edge 9 10 0 11
+edge 10 11 0 12
+edge 11 12 0 13
+edge 12 13 0 14
+edge 13 14 0 15
+edge 14 15 0 16
+edge 0 15 0 17
+edge 30 31 1 16
+edge 29 30 1 15
+edge 28 29 1 14
+edge 27 28 1 13
+edge 26 27 1 12
+edge 25 26 1 11
+edge 24 25 1 10
+edge 23 24 1 9
+edge 22 23 1 8
+edge 21 22 1 7
+edge 20 21 1 6
+edge 19 20 1 5
+edge 18 19 1 4
+edge 17 18 1 3
+edge 16 17 1 2
+edge 16 31 1 17
+edge 1 17 2 3
+edge 0 16 2 17
+edge 2 18 3 4
+edge 3 19 4 5
+edge 4 20 5 6
+edge 5 21 6 7
+edge 6 22 7 8
+edge 7 23 8 9
+edge 8 24 9 10
+edge 9 25 10 11
+edge 10 26 11 12
+edge 11 27 12 13
+edge 12 28 13 14
+edge 13 29 14 15
+edge 14 30 15 16
+edge 15 31 16 17

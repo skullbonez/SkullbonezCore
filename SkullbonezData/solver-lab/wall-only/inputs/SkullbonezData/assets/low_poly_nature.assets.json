@@ -1,0 +1,1061 @@
+{
+  "format": "skullbonez.asset_library.json",
+  "version": 1,
+  "assets": [
+    {
+      "name": "rock.slab_blue",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/rock_slab_flat.hull",
+      "mass": 180.0,
+      "restitution": 0.12,
+      "fixed": true,
+      "material": {
+        "name": "cool_blue_stone",
+        "mode": "stone",
+        "color": [
+          0.34,
+          0.42,
+          0.58
+        ],
+        "roughness": 0.96,
+        "specular": 0.08,
+        "stylization": 0.72
+      }
+    },
+    {
+      "name": "rock.lump_moss",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/rock_lump_large.hull",
+      "mass": 260.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "material": {
+        "name": "moss_grey_stone",
+        "mode": "stone",
+        "color": [
+          0.31,
+          0.39,
+          0.35
+        ],
+        "roughness": 0.98,
+        "specular": 0.07,
+        "stylization": 0.66
+      }
+    },
+    {
+      "name": "rock.shard_violet",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/rock_shard_tall.hull",
+      "mass": 140.0,
+      "restitution": 0.13,
+      "fixed": true,
+      "material": {
+        "name": "violet_granite",
+        "mode": "stone",
+        "color": [
+          0.44,
+          0.38,
+          0.55
+        ],
+        "roughness": 0.95,
+        "specular": 0.11,
+        "stylization": 0.7
+      }
+    },
+    {
+      "name": "rock.chipped_warm",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/rock_chipped_block.hull",
+      "mass": 210.0,
+      "restitution": 0.12,
+      "fixed": true,
+      "material": {
+        "name": "warm_chipped_stone",
+        "mode": "stone",
+        "color": [
+          0.52,
+          0.45,
+          0.4
+        ],
+        "roughness": 0.97,
+        "specular": 0.08,
+        "stylization": 0.62
+      }
+    },
+    {
+      "name": "tree.root_small",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/tree_root_small.hull",
+      "mass": 18.0,
+      "restitution": 0.04,
+      "fixed": true,
+      "material": {
+        "name": "small_tree_root",
+        "mode": "bark",
+        "color": [
+          0.24,
+          0.12,
+          0.055
+        ],
+        "roughness": 0.96,
+        "specular": 0.05,
+        "stylization": 0.5
+      }
+    },
+    {
+      "name": "tree.root_large",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/tree_root_large.hull",
+      "mass": 34.0,
+      "restitution": 0.04,
+      "fixed": true,
+      "material": {
+        "name": "large_tree_root",
+        "mode": "bark",
+        "color": [
+          0.23,
+          0.115,
+          0.052
+        ],
+        "roughness": 0.96,
+        "specular": 0.05,
+        "stylization": 0.5
+      }
+    },
+    {
+      "name": "tree.small_stack",
+      "type": "compound",
+      "parts": [
+        {
+          "name": "trunk",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/tree_trunk_small_faceted.hull",
+          "offset": [
+            0,
+            6.5,
+            0
+          ],
+          "mass": 42.0,
+          "restitution": 0.06,
+          "fixed": false,
+          "material": {
+            "name": "small_tree_bark",
+            "mode": "bark",
+            "color": [
+              0.3,
+              0.14,
+              0.055
+            ],
+            "roughness": 0.94,
+            "specular": 0.06,
+            "stylization": 0.5
+          }
+        },
+        {
+          "name": "low",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/cedar_tier_low.hull",
+          "offset": [
+            0,
+            20,
+            0
+          ],
+          "mass": 26.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "small_tree_needles_low",
+            "mode": "foliage",
+            "color": [
+              0.055,
+              0.24,
+              0.12
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        },
+        {
+          "name": "mid",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/cedar_tier_mid.hull",
+          "offset": [
+            0,
+            28,
+            0
+          ],
+          "mass": 18.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "small_tree_needles_mid",
+            "mode": "foliage",
+            "color": [
+              0.075,
+              0.3,
+              0.15
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        },
+        {
+          "name": "top",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
+          "offset": [
+            0,
+            35,
+            0
+          ],
+          "mass": 12.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "small_tree_needles_top",
+            "mode": "foliage",
+            "color": [
+              0.1,
+              0.36,
+              0.18
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "name": "tree.pine_stack",
+      "type": "compound",
+      "parts": [
+        {
+          "name": "trunk",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+          "offset": [
+            0,
+            9,
+            0
+          ],
+          "mass": 90.0,
+          "restitution": 0.06,
+          "fixed": false,
+          "material": {
+            "name": "pine_bark",
+            "mode": "bark",
+            "color": [
+              0.31,
+              0.16,
+              0.07
+            ],
+            "roughness": 0.94,
+            "specular": 0.06,
+            "stylization": 0.48
+          }
+        },
+        {
+          "name": "low",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_tier_large.hull",
+          "offset": [
+            0,
+            24,
+            0
+          ],
+          "mass": 52.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "pine_needles_deep",
+            "mode": "foliage",
+            "color": [
+              0.045,
+              0.2,
+              0.055
+            ],
+            "roughness": 0.88,
+            "specular": 0.08,
+            "stylization": 0.88
+          }
+        },
+        {
+          "name": "mid",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_tier_mid.hull",
+          "offset": [
+            0,
+            34,
+            0
+          ],
+          "mass": 38.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "pine_needles_mid",
+            "mode": "foliage",
+            "color": [
+              0.06,
+              0.25,
+              0.075
+            ],
+            "roughness": 0.88,
+            "specular": 0.08,
+            "stylization": 0.88
+          }
+        },
+        {
+          "name": "top",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_tier_top.hull",
+          "offset": [
+            0,
+            43,
+            0
+          ],
+          "mass": 24.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "pine_needles_light",
+            "mode": "foliage",
+            "color": [
+              0.09,
+              0.31,
+              0.1
+            ],
+            "roughness": 0.88,
+            "specular": 0.08,
+            "stylization": 0.88
+          }
+        }
+      ]
+    },
+    {
+      "name": "tree.cedar_stack",
+      "type": "compound",
+      "parts": [
+        {
+          "name": "trunk",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+          "offset": [
+            0,
+            9,
+            0
+          ],
+          "mass": 95.0,
+          "restitution": 0.06,
+          "fixed": false,
+          "material": {
+            "name": "cedar_bark",
+            "mode": "bark",
+            "color": [
+              0.28,
+              0.13,
+              0.055
+            ],
+            "roughness": 0.94,
+            "specular": 0.06,
+            "stylization": 0.5
+          }
+        },
+        {
+          "name": "low",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/cedar_tier_tall_low.hull",
+          "offset": [
+            0,
+            25,
+            0
+          ],
+          "mass": 44.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "cedar_needles_low",
+            "mode": "foliage",
+            "color": [
+              0.055,
+              0.24,
+              0.12
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        },
+        {
+          "name": "mid",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/cedar_tier_tall_mid.hull",
+          "offset": [
+            0,
+            38,
+            0
+          ],
+          "mass": 32.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "cedar_needles_mid",
+            "mode": "foliage",
+            "color": [
+              0.075,
+              0.3,
+              0.15
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        },
+        {
+          "name": "top",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
+          "offset": [
+            0,
+            48,
+            0
+          ],
+          "mass": 20.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "cedar_needles_top",
+            "mode": "foliage",
+            "color": [
+              0.1,
+              0.36,
+              0.18
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "name": "tree.pine_shedding_rooted",
+      "type": "compound",
+      "parts": [
+        {
+          "name": "root",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/tree_root_large.hull",
+          "offset": [
+            0,
+            0.75,
+            0
+          ],
+          "mass": 34.0,
+          "restitution": 0.04,
+          "fixed": true,
+          "material": {
+            "name": "shedding_pine_root",
+            "mode": "bark",
+            "color": [
+              0.23,
+              0.115,
+              0.052
+            ],
+            "roughness": 0.96,
+            "specular": 0.05,
+            "stylization": 0.5
+          }
+        },
+        {
+          "name": "trunk",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+          "offset": [
+            0,
+            9,
+            0
+          ],
+          "mass": 90.0,
+          "restitution": 0.06,
+          "fixed": true,
+          "material": {
+            "name": "shedding_pine_bark",
+            "mode": "bark",
+            "color": [
+              0.31,
+              0.16,
+              0.07
+            ],
+            "roughness": 0.94,
+            "specular": 0.06,
+            "stylization": 0.48
+          }
+        },
+        {
+          "name": "low",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_tier_large.hull",
+          "offset": [
+            0,
+            24,
+            0
+          ],
+          "mass": 52.0,
+          "restitution": 0.05,
+          "fixed": true,
+          "material": {
+            "name": "shedding_pine_needles_low",
+            "mode": "foliage",
+            "color": [
+              0.045,
+              0.2,
+              0.055
+            ],
+            "roughness": 0.88,
+            "specular": 0.08,
+            "stylization": 0.88
+          }
+        },
+        {
+          "name": "mid",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_tier_mid.hull",
+          "offset": [
+            0,
+            34,
+            0
+          ],
+          "mass": 38.0,
+          "restitution": 0.05,
+          "fixed": true,
+          "material": {
+            "name": "shedding_pine_needles_mid",
+            "mode": "foliage",
+            "color": [
+              0.06,
+              0.25,
+              0.075
+            ],
+            "roughness": 0.88,
+            "specular": 0.08,
+            "stylization": 0.88
+          }
+        },
+        {
+          "name": "top",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_tier_top.hull",
+          "offset": [
+            0,
+            43,
+            0
+          ],
+          "mass": 24.0,
+          "restitution": 0.05,
+          "fixed": true,
+          "material": {
+            "name": "shedding_pine_needles_top",
+            "mode": "foliage",
+            "color": [
+              0.09,
+              0.31,
+              0.1
+            ],
+            "roughness": 0.88,
+            "specular": 0.08,
+            "stylization": 0.88
+          }
+        },
+        {
+          "name": "needle_00",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            -12,
+            22,
+            -12
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.04,
+              0.2,
+              0.06
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_01",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            -4,
+            21.5,
+            -16
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.045,
+              0.22,
+              0.065
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_02",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            6,
+            22.5,
+            -15
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.05,
+              0.24,
+              0.075
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_03",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            14,
+            23,
+            -7
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.042,
+              0.21,
+              0.06
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_04",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            15,
+            23.5,
+            5
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.04,
+              0.2,
+              0.058
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_05",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            8,
+            22,
+            14
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.05,
+              0.25,
+              0.075
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_06",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            -4,
+            22.5,
+            16
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.045,
+              0.22,
+              0.068
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_07",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            -15,
+            23,
+            7
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.048,
+              0.235,
+              0.07
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_08",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            -9,
+            31,
+            -10
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.052,
+              0.25,
+              0.078
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_09",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            1,
+            31.5,
+            -12
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.046,
+              0.23,
+              0.068
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_10",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            10,
+            32,
+            -5
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.041,
+              0.205,
+              0.06
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_11",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            11,
+            32.5,
+            6
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.05,
+              0.245,
+              0.075
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_12",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            2,
+            31,
+            12
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.044,
+              0.22,
+              0.065
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_13",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            -10,
+            32,
+            4
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.052,
+              0.255,
+              0.078
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_14",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            -6,
+            40,
+            -6
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.044,
+              0.215,
+              0.064
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_15",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            4,
+            40.5,
+            -7
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.048,
+              0.235,
+              0.07
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_16",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            7,
+            41,
+            3
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.04,
+              0.2,
+              0.06
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        },
+        {
+          "name": "needle_17",
+          "type": "convexHull",
+          "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
+          "offset": [
+            -3,
+            41,
+            7
+          ],
+          "mass": 0.34,
+          "restitution": 0.04,
+          "fixed": true,
+          "contactReleaseOnImpact": true,
+          "contactReleaseImpulseThreshold": 1.25,
+          "material": {
+            "name": "loose_pine_needles",
+            "mode": "foliage",
+            "color": [
+              0.052,
+              0.25,
+              0.078
+            ],
+            "roughness": 0.9,
+            "specular": 0.06,
+            "stylization": 0.94
+          }
+        }
+      ]
+    }
+  ]
+}

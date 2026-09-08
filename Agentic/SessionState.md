@@ -1,8 +1,155 @@
 # Session State
 
 Date: 2026-09-07
-Branch: `codex/physics-baseline-acceptance` (isolated PR checkout)
-Status: PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 8/10; portfolio 146/154
+Branch: `codex/solver-lab` (root checkout, from merged main)
+Status: Solver Lab library and loading optimization in final validation.
+
+## Final causal layout and commit-all closure (2026-09-08)
+
+The user requested committing all outstanding project work and preparing PR 168.
+The causal inspector now clips and wraps raw/iteration text at larger sizes.
+Outline controls occupy a reserved hierarchy footer and remain usable with the
+drawer closed. The separate CausalAutomation build passes 42 focused causal
+tests / 725 assertions. Captured summary, raw, iteration, and closed-drawer views
+are under `TestOutput/skarness/final-causal-ui/`; a pixel comparison confirms
+that changing detail tabs does not overwrite the adjacent hierarchy.
+
+The user's running Profile app is preserved. Broader validation and integration
+of the complete Solver Lab, shader, and causal work continue on PR 168 after
+this checkpoint commit. Temporary build output and machine-local tool settings
+are excluded from source control.
+
+## Prediction selection outline (2026-09-07)
+
+Yellow object outlines now resolve the current path target directly instead of
+iterating retained targets. This also handles selection changes before the new
+target enters the retained list. Future contact entry markers use cyan, reserving
+yellow for selection; the main texture shader is unchanged.
+
+Automation and Profile builds pass warning-clean. Recorded Skarness selection
+changes across ball_a, ball_b, ball_c and back to ball_a were inspected visually.
+Pixel assertions bind the selected/published IDs to each object's screen region:
+667, 497 and 613 yellow pixels respectively, with zero yellow pixels outside the
+selected object. Evidence: `TestOutput/skarness/prediction-selection-verified/`.
+Focused source-design (two files, six contexts), dependency and whitespace checks
+pass. No shader algorithm or baseline changed in this follow-up.
+
+## Solver Lab binary diagnostic loading (2026-09-07)
+
+Implemented SKOBS1 indexed binary contact/iteration loading and converted both
+existing library comparisons (four sides, 2,400 frames each). About 3.95 GB of
+source JSON becomes 110,724,024 bytes of derived numeric evidence. Original
+diagnostic archives and motion captures are retained. Manifests now prefer the
+binary files; older manifests retain the JSON fallback. Packaging emits binary
+records too. Runtime verifies binary/source identity and uses directory counts
+instead of the JSON preflight scan and two JSON parse passes.
+
+Conversion completed after hashing the original source bytes. Per the user's
+explicit instruction, no builds or tests were run, and no runtime speedup or
+round-trip equivalence result is claimed. Format and conversion details are in
+`Agentic/Reference/solver-observation-binary.md`. No commit or push.
+
+## Solver Lab cyan brick edges (2026-09-07)
+
+After dotted edges and missing-ball reports, all outline edits to
+`lit_textured_instanced.hlsl` and `RenderMaterial.h` were removed; those source
+files match HEAD. User explicitly requires a dedicated outline shader and no
+further changes to the main texture shader. `paired_outline.hlsl` now owns the
+edge mask in a fourth paired-view graph pass. Boxes use their 12 actual edges,
+hulls use their polygon edges and spheres use a tangent silhouette ring. The
+composite no longer infers edges from depth or object alpha. Depth is consulted
+only for visibility, including X-ray against the other comparison.
+
+User also requested antialiasing for manifold lines and gizmos, specifically in
+the pixel shader. `grid_line.hlsl` now consumes existing endpoint pairs as
+instances and computes smooth capsule coverage in the pixel shader. Its matching
+PSO uses triangle expansion and alpha blending; transient and retained diagnostic
+line callers declare that recipe. No CPU line-storage expansion was introduced.
+Manifold ribbons have a one-pixel feather, pixel-space directions and joins, and
+use the active viewport dimensions (including split views). The dedicated edge
+and diagnostic shaders share `line_coverage.hlsli`; main object shading is separate.
+
+The user subsequently reported startup failure and explicitly required builds
+and runtime verification. Reproduced the fatal startup message: UnifiedRaster
+expected 44 raster stages but found 46. The new outline program had left both
+CPU inventory counts at 22. Both counts now derive from their actual arrays,
+and reflection tests cover the complete inventory without duplicated counts.
+Automation and Profile builds pass with zero warnings/errors; shader reflection
+tests pass 13 cases / 175 assertions. Skarness startup and inspected screenshots
+prove generated Demo balls, cyan brick edges with X-ray on/off, and the selected
+two-point manifold at tick 2281 render. Evidence is under
+`TestOutput/skarness/outline-startup-fixed/` and
+`TestOutput/skarness/outline-render-verified/`. The original earlier missing-ball
+cause remains unproven, but balls render with the restored main shader.
+
+Shader freshness (48 stages), formatting, and dependency checks pass. The Profile
+renderer suite starts, produces all three captures, and reports zero DX12 errors.
+Its baseline comparison retains the previously documented terrain mismatch
+(water 4.9171, solver 4.0155, space exact); no baselines changed. One-minute graphics
+stress exits through its timed PID cleanup with result 0 and empty stderr.
+A diagnostic script tried loading Demo while a comparison was active, then
+loading the same bundle again without closing it; those requests failed. A clean
+session loads the comparison successfully. This does not validate that unsupported
+script sequence or replace the earlier header-switch evidence.
+
+## Recovered manifold controls and Solver Lab header (2026-09-07)
+
+The failed causal-arrow task was resumed in this checkout. Causal taps now
+step one retained Physics sample; a 250 ms hold delay precedes 0.1x playback.
+Solver Lab manifold arrow repeat is 750 ms instead of 75 ms. Contact normals
+pulse to 1.2x and contract over 200 ms. Selected manifold centres own orbit and
+zoom; Solver Lab keeps the patch while scrubbing and WASD still enters free
+camera. The top-right button reads `exit`. The header dropdown reflects the
+loaded library comparison, ignores reselecting it, and releases the old bundle
+before switching so the existing memory cap is respected.
+
+Automation and Profile build warning-clean. Focused tests pass 26 cases / 627 assertions;
+compiler source-design, dependency and whitespace checks pass. Native Skarness
+assertions and inspected screenshots prove the manifold behavior under
+`TestOutput/skarness/manifold-acceptance/` and header no-op/switch/exit behavior
+under `TestOutput/skarness/solver-header-verified/`. Owned sessions were stopped.
+
+Broader validation is not clean: the full unit run has two Scene-tab forecast
+visibility failures from the earlier dirty layout; the UI screenshot checks
+pass with zero DX12 errors but its causal retarget fixture reports an
+unavailable row at frame 1200. The long replay visual generation was stopped
+when the header request superseded that build; no final replay report is
+claimed. Details are in `TestOutput/manifold-handoff.md`. Existing dirty work
+is preserved, with no commit, push, solver change, cap increase or baseline
+refresh. This does not close PHYSICS_AB or RAGDOLL_PHYSICS plan work.
+
+## Solver Lab (2026-09-07)
+
+The Scene tab now has a third dropdown, Solver Lab, offering both full
+Ragdoll & Wall (212 bodies) and Wall Only - Post-Ragdoll Velocity (202 bodies)
+FP6/FP7 comparisons. Exit Solver Lab returns to the normal Scene interface.
+The four original replay files and required inputs are under
+`SkullbonezData/solver-lab/`. Full diagnostic bytes are losslessly archived;
+verbose Skarness transport logs remain local. Recorded evidence and all four
+replay SHA-256 identities were checked against the originals.
+
+The original loader appeared hung at 0% while performing unreported scans.
+An isolated warm-cache ragdoll measurement took 83.313 seconds: about 65 seconds
+in two diagnostic JSON passes and 12 seconds in capacity scans. Bounded block
+reads and SAX field projection replace per-character reads and temporary JSON
+object graphs, preserving full syntax validation and numerical evidence.
+The initial optimized measurement is 33.031 seconds (60.4% less); wall-only
+loads in 28.672 seconds. A final cleanup also avoids rehashing already verified
+archive bytes and is awaiting its timing/check results. Named phases and byte
+progress now cover initial verification, capacity and reservation work.
+
+Evidence: `TestOutput/skarness/solver-lab-qa/` holds physical dropdown, ragdoll,
+wall-only and exit screenshots plus exact input/replay/diagnostic hash assertions.
+`solver-lab-timing-before/` holds original phase timings. `solver-lab-optimized-qa/`
+holds before/after-compatible body/event counts, bundle identities, exact tick
+coverage, monotonic phase progress and physical exit assertions. Both native
+sessions were stopped through Skarness. Final tests and UI checks are pending.
+Independent read-only review found no functional blocker in archive, SAX or
+buffered-reader ownership; new malformed-input tests await the final test gate.
+
+This does not mark unfinished AB1-AB6 plan work complete. PHYSICS_AB remains
+0/6; RAGDOLL_PHYSICS remains 8/10. No solver or baseline changes. The earlier
+PR #167 is merged into main; its preparation notes below are historical.
 
 ## Combined PR preparation (2026-09-07)
 
@@ -1937,3 +2084,29 @@ Every closure commit note must pass both detailed-message validators with
 substantive Why, Ownership, What, Validation, Baselines/Artifacts, and Review
 sections; empty or placeholder commit bodies fail closed. No implementation
 plan is active; await owner direction.
+
+## Combined Solver Lab and causal UI PR (2026-09-08)
+
+Committed all reviewed Solver Lab project work on codex/solver-lab as 55c7cebd6,
+then integrated it with the causal PR using a normal Git merge. The inspector
+uses larger wrapped raw/iteration rows with bounded text submission. Blue and
+grey outline controls now belong to the hierarchy footer and remain usable
+with the detail drawer closed. The footer is excluded from hierarchy scrolling.
+
+The combined Automation and Profile builds passed without warnings. Skarness
+causal playback passed with object identity/mass/dimension assertions, camera
+wheel isolation, independent outline rendering, red contact flash, and controls
+with the drawer closed. Final fast/UI and hosted validation are being completed.
+
+Build review for PhysicsComparison.Binary.cpp: its compiler variants are
+identical to the existing Archive.cpp variants in every configuration. The
+registered fingerprints cover only the existing engine/doctest executable-role
+macros and EHsc distinction; both retain _HAS_EXCEPTIONS=0 and JSON_NOEXCEPTION.
+This follows the shared-test composition used by physics-ab-comparison.md and
+changes no compiler setting or validation rule. Source-design repairs retain
+triangle vertex values, preview submission ordering, and atlas sample order.
+
+The Scene draw-stream fingerprint changes only for the added Solver Lab row.
+The forecast toggle now requires scrolling at the 520-pixel test height; its
+spacing and physical click command remain explicitly tested. Other tab hashes
+remain unchanged. Physics, replay and screenshot golden files are unchanged.

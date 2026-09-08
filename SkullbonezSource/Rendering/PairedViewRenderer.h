@@ -64,7 +64,7 @@ class PairedViewRenderer
     void Release( Dx12GeometryOwner& geometry );
     bool Ready() const noexcept
     {
-        return m_targets[0] && m_targets[1] && m_shader && m_quad;
+        return m_targets[0] && m_targets[1] && m_targets[2] && m_shader && m_outlineShader && m_quad && m_outlineVB;
     }
     FramebufferDX12& Target( int side )
     {
@@ -75,12 +75,18 @@ class PairedViewRenderer
                    int side );
     void Composite( const PairedViewFrame& frame, Dx12FrameOwner& commands, Dx12GeometryOwner& geometry,
                     Dx12TextureOwner& textures );
+    void DrawOutlines( const PairedViewFrame& frame, Dx12FrameOwner& commands, Dx12GeometryOwner& geometry,
+                       Dx12TextureOwner& textures );
 
   private:
     void DrawModels( std::span<const ModelViewItem> models, const PairedViewFrame& frame, PrimitiveBatchRenderer& primitives,
                      const Core::OrdinaryRenderConfig& lighting );
-    std::array<std::unique_ptr<FramebufferDX12>, 2> m_targets;
+    void DrawOutlineModel( const ModelViewItem& model, const PairedViewFrame& frame, Dx12GeometryOwner& geometry );
+    // Two shaded images and an independent geometric-edge mask.
+    std::array<std::unique_ptr<FramebufferDX12>, 3> m_targets;
     std::unique_ptr<ShaderDX12> m_shader;
+    std::unique_ptr<ShaderDX12> m_outlineShader;
     uint32_t m_quad = 0;
+    uint32_t m_outlineVB = 0;
 };
 } // namespace SkullbonezCore::Rendering

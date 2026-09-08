@@ -2084,6 +2084,21 @@
     <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Persistence.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Archive.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Archive.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.DiagnosticLines.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Binary.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.Binary.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Planning\PhysicsComparison.h">
       <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 5, "setCameraMode": "Manipulator" },
+    { "frame": 10, "clickObject": "path_striker", "button": "left", "holdFrames": 8 },
+    { "frame": 10, "assert": { "mousePickupActive": true } },
+    { "frame": 10, "assert": { "pointerCapture": "ToolGesture" } },
+    { "frame": 10, "assert": { "nativeCaptureRequested": true } },
+    { "frame": 11, "assert": { "mousePickupActive": true } },
+    { "frame": 12, "loseFocus": 1 },
+    { "frame": 13, "assert": { "mousePickupActive": false } },
+    { "frame": 13, "assert": { "pointerCapture": "None" } },
+    { "frame": 13, "assert": { "nativeCaptureRequested": false } },
+    { "frame": 13, "assert": { "cursorVisibleRequested": true } },
+    { "frame": 15, "assert": { "cameraMode": "Manipulator" } },
+    { "frame": 20, "clickObject": "path_striker", "button": "left", "holdFrames": 4 },
+    { "frame": 21, "assert": { "mousePickupActive": true } },
+    { "frame": 21, "assert": { "nativeCaptureRequested": true } },
+    { "frame": 22, "moveMouse": [50, 940] },
+    { "frame": 23, "assert": { "mousePickupActive": true } },
+    { "frame": 23, "assert": { "pointerCapture": "ToolGesture" } },
+    { "frame": 23, "assert": { "uiBlocksMouse": true } },
+    { "frame": 25, "assert": { "mousePickupActive": false } },
+    { "frame": 25, "assert": { "pointerCapture": "None" } },
+    { "frame": 25, "assert": { "nativeCaptureRequested": false } },
+    { "frame": 25, "assert": { "cursorVisibleRequested": true } },
+    { "frame": 28, "screenshot": "TestOutput/interaction/manipulator_pickup_after_click.bmp" }
+  ]
+}
