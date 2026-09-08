@@ -89,7 +89,7 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] =
       { 'H', RuntimeInputAction::ToggleReplayGuideArcs, kKeyboardUnblockedContext },
       { 'J', RuntimeInputAction::ToggleReplayTripPlanner, kKeyboardUnblockedContext },
       { 'I', RuntimeInputAction::ToggleReplayPorkchopPanel, kKeyboardUnblockedContext },
-      { 'P', RuntimeInputAction::ToggleReplayPlayPause, kKeyboardUnblockedContext },
+      { 'P', RuntimeInputAction::TogglePredictionInspection, kKeyboardUnblockedContext },
       { 'G', RuntimeInputAction::ToggleBroadphaseOverlay, kKeyboardUnblockedContext },
       { '0', RuntimeInputAction::ToggleUIVisibility, kKeyboardUnblockedContext },
       { VK_F5, RuntimeInputAction::TogglePerformanceHistogram, kKeyboardUnblockedContext },

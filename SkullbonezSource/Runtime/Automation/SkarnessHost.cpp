@@ -1099,6 +1099,20 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         return;
     }
 
+    if ( commandName == "input.set_prediction_key" )
+    {
+        bool down = false;
+        if ( m_manualInput || !ReadBoolean( arguments, "down", down ) )
+        {
+            SendLifecycle( requestId, "rejected", "automated input and a boolean down value are required" );
+            return;
+        }
+        m_predictionKeyDown = down;
+        SendLifecycle( requestId, "accepted" );
+        CompleteCommand( requestId, true );
+        return;
+    }
+
     if ( commandName == "input.set_arrows" )
     {
         bool left = false;
@@ -1430,6 +1444,11 @@ uint8_t SkarnessHost::MovementKeysDown() const noexcept
 uint8_t SkarnessHost::ArrowKeysDown() const noexcept
 {
     return m_connected ? m_arrowKeysDown : 0;
+}
+
+bool SkarnessHost::PredictionKeyDown() const noexcept
+{
+    return m_connected && m_predictionKeyDown;
 }
 
 SkarnessProceedPolicy SkarnessHost::TakeProceedPolicy()

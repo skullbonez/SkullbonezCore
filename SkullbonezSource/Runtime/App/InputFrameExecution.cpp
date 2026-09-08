@@ -793,11 +793,41 @@ bool Run::HandlePreUiReplayAction( const InputActionEvent& event, bool gameUiAct
     case RuntimeInputAction::ToggleCrossScenePause:
         m_sceneController.ToggleCrossScenePause();
         return true;
-    case RuntimeInputAction::ToggleReplayPlayPause:
+    case RuntimeInputAction::TogglePredictionInspection:
     {
         ReplayWorkspaceOutput output;
-        m_replayRuntime.ApplyTransportCommand( ReplayTogglePlayPauseCommand {}, m_inputRouter, m_interaction, m_camera,
-                                               m_timers.SimulationTotalSeconds(), output );
+        const auto replay = m_replayRuntime.BuildInputView();
+        if ( replay.predictionEnabled )
+        {
+            const RunCameraMode restoreMode = NormalizeInputCameraMode(
+                replay.inspectionCameraActive ? replay.restoreCameraMode : m_camera.mode );
+            m_replayRuntime.ApplyTransportCommand( ReplayReturnToLiveCommand {}, &m_sceneController.Scene().Cameras(),
+                                                   m_sceneController.Scene().Terrain().Get(), m_camera, restoreMode,
+                                                   m_attachedCamera.State().activeFollow, m_camera.director.grabbed,
+                                                   m_interaction, m_inputRouter, m_timers.SimulationTotalSeconds(), output );
+            // InputRouter's workspace exit cancels the worker and clears retained
+            // paths, causal inspection, selection and pending tool gestures.
+            m_inputRouter.ApplyCameraMode( restoreMode, RuntimeInputActionSource::Keyboard, m_editorTools, m_runtimeTools,
+                                           m_interaction, m_attachedCamera, m_camera, m_sceneController, m_replayRuntime,
+                                           m_inputRouter.RuntimeContext() );
+            if ( m_sceneController.CrossScenePauseLocked() )
+            {
+                m_sceneController.ToggleCrossScenePause();
+            }
+        }
+        else
+        {
+            m_operatorUi->SetVisible( true, m_timers.SimulationTotalSeconds() );
+            m_operatorUi->SetMinimized( true, m_timers.SimulationTotalSeconds() );
+            m_replayRuntime.ApplyTransportCommand( ReplaySetRecordingEnabledCommand { true },
+                                                   m_timers.SimulationTotalSeconds() );
+            m_inputRouter.SetWorldInteractionOwner( WorldInteractionOwner::ReplayPrediction,
+                                                    InteractionExitReason::EnterReplay, m_editorTools, m_runtimeTools,
+                                                    m_interaction, m_attachedCamera, m_camera, m_sceneController,
+                                                    m_replayRuntime, NormalizeInputCameraMode( replay.restoreCameraMode ) );
+            m_replayRuntime.ApplyTransportCommand( ReplayTogglePredictionCommand {}, m_interaction,
+                                                   m_timers.SimulationTotalSeconds(), output );
+        }
         if ( output.enterInteractive )
         {
             EnterInteractiveInputScene();
@@ -1285,6 +1315,7 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
             }
         }
         const uint8_t arrows = m_skarness.ArrowKeysDown();
+        automation.keyWords['P' / 64] |= m_skarness.PredictionKeyDown() ? uint64_t { 1 } << ( 'P' % 64 ) : 0;
         automation.keyWords[VK_LEFT / 64] |= ( arrows & 1u ) != 0 ? uint64_t { 1 } << ( VK_LEFT % 64 ) : 0;
         automation.keyWords[VK_RIGHT / 64] |= ( arrows & 2u ) != 0 ? uint64_t { 1 } << ( VK_RIGHT % 64 ) : 0;
 

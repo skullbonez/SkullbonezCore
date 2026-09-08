@@ -2110,3 +2110,20 @@ The Scene draw-stream fingerprint changes only for the added Solver Lab row.
 The forecast toggle now requires scrolling at the 520-pixel test height; its
 spacing and physical click command remain explicitly tested. Other tab hashes
 remain unchanged. Physics, replay and screenshot golden files are unchanged.
+
+## P prediction shortcut (2026-09-08)
+
+P now pauses live Physics and enables Predict/recording with the operator UI
+visible and minimized for world selection. The next press returns to live,
+clears prediction/cause/path state through InputRouter workspace cleanup, and
+releases a cross-scene pause lock. Existing UI play/pause commands retain their
+transport behavior. Holding P does not repeat the transition.
+
+The narrow Skarness input.set_prediction_key control drives the physical key
+bit through the normal binding table. The regression proves pause/resume using
+captured live solver frames while the harness pause is released, checks empty
+and selected prediction exits, confirms selected and submitted target 6 agree,
+and checks that late worker output cannot restore cleared overlays. Screenshots
+and trace are under TestOutput/skarness/p-shortcut-ready. Preflight, the affected
+source-design checks and all 960 unit tests passed (2,731,442 assertions).
+The prior full UI and complete Skarness suites passed for the combined layout.

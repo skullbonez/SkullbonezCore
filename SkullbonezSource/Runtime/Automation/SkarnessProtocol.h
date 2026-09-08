@@ -257,6 +257,7 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
                          "{scope:inspect|editor,name:string}|{scope:inspect|editor,sceneObjectId:uint64}" },
     SkarnessCapability { "scene.object.clear_selection", "Interaction", "{scope:inspect|editor}" },
     SkarnessCapability { "run.pause", "Automation", "{}" },
+    SkarnessCapability { "input.set_prediction_key", "Input", "{down:bool}" },
     SkarnessCapability { "run.resume", "Automation", "{}" },
     SkarnessCapability { "run.step", "Automation", "{count:int[1..100000]}" },
     SkarnessCapability { "run.step_frames", "Automation", "{count:int[1..100000]}" },

@@ -43,6 +43,10 @@ echo [skarness] Held causal playback and camera adjustments...
 "%PYTHON_EXE%" "%~dp0validate_skarness_causal_playback.py" --session TestOutput\validation\skarness\causal-playback
 if errorlevel 1 goto fail
 
+echo [skarness] P shortcut pause, predict, clear and resume...
+"%PYTHON_EXE%" "%~dp0validate_skarness_prediction_shortcut.py" --session TestOutput\validation\skarness\prediction-shortcut
+if errorlevel 1 goto fail
+
 echo [skarness] Persistent multi-scene prediction matrix...
 "%PYTHON_EXE%" "%~dp0validate_skarness_prediction_matrix.py" --self-test
 if errorlevel 1 goto fail
