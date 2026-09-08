@@ -41,6 +41,7 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace SkullbonezCore::Runtime
 {
@@ -271,6 +272,14 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
 
             break;
         case UI::UIDrawList::CommandType::Text:
+            // Hazard: Text2d drops glyphs after its fixed batch fills. Drain both
+            // queues before the next label so its background stays below it.
+            if ( std::strlen( drawList.TextAt( command.textOffset ) ) >
+                 static_cast<std::size_t>( textBatch.RemainingTextCharacters() ) )
+            {
+                flushQueued();
+            }
+
             immediateDraw.Text( command.x0 + offsetX, command.y0 + offsetY, command.pxSize, command.r, command.g, command.b,
                                 drawList.TextAt( command.textOffset ) );
 

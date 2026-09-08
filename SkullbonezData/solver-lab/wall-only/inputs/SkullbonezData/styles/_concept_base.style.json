@@ -1,0 +1,94 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": true,
+    "godRays": true,
+    "volumetricLighting": true,
+    "bloom": true,
+    "fog": true,
+    "terrainReliefEnabled": false,
+    "exposure": 0.68,
+    "gamma": 2.05,
+    "sunScreenX": 0.28,
+    "sunScreenY": 0.76,
+    "sunColorR": 1.0,
+    "sunColorG": 0.68,
+    "sunColorB": 0.32,
+    "sunIntensity": 22.0,
+    "skyHorizonR": 0.88,
+    "skyHorizonG": 0.34,
+    "skyHorizonB": 0.08,
+    "skyZenithR": 0.26,
+    "skyZenithG": 0.13,
+    "skyZenithB": 0.12,
+    "skyGlowStrength": 2.85,
+    "cloudCoverage": 0.66,
+    "cloudSoftness": 0.19,
+    "cloudScale": 5.4,
+    "cloudIntensity": 0.62,
+    "sunShaftStrength": 2.28,
+    "sunShaftFalloff": 1.92,
+    "volumetricStrength": 1.28,
+    "volumetricDensity": 1.25,
+    "volumetricDecay": 0.955,
+    "bloomThreshold": 1.05,
+    "bloomKnee": 0.55,
+    "bloomStrength": 0.62,
+    "bloomRadius": 4.2,
+    "terrainRelief": 0.0,
+    "basinDepth": 0.0,
+    "basinRimLift": 0.0,
+    "fogColorR": 0.86,
+    "fogColorG": 0.34,
+    "fogColorB": 0.12,
+    "fogStart": 70.0,
+    "fogEnd": 1550.0,
+    "fogDensity": 0.00145,
+    "fogMaxOpacity": 0.54,
+    "styleModes": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "styleGrade": [
+      1.08,
+      1.08,
+      0.76
+    ],
+    "terrainTint": [
+      0.78,
+      0.6,
+      0.38
+    ],
+    "terrainAccent": [
+      0.2,
+      0.09,
+      0.02
+    ],
+    "terrainGrid": [
+      42.0,
+      0.0
+    ],
+    "waterTint": [
+      0.24,
+      0.13,
+      0.055
+    ],
+    "waterProfile": [
+      0.94,
+      0.22,
+      0.28
+    ],
+    "basinMask": [
+      620.0,
+      615.0,
+      220.0,
+      150.0,
+      0.2
+    ]
+  }
+}

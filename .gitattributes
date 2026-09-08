@@ -33,3 +33,9 @@ ThirdPtySource/**  -text
 *.dll   binary
 *.obj   binary
 *.pdb   binary
+
+# Capture identities hash the original bytes, including archived JSON inputs.
+SkullbonezData/solver-lab/** -text
+*.skreplay binary
+*.skdiag binary
+*.skobs binary

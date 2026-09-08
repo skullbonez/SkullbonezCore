@@ -228,6 +228,7 @@ class Run
     bool PublishComparisonLoad();
     void PollComparisonLoad();
     bool LoadComparison( const char* path, bool finding = false );
+    void LoadSolverLab( UI::UISolverLabChoice choice );
     bool UpdateComparisonInput( bool textActive );
     void RenderComparison();
     void FocusComparison();

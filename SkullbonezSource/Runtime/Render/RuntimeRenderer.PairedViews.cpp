@@ -7,7 +7,7 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Rendering;
 
 // Invariant: each callback packet borrows its resources until the synchronous
-// three-pass execution returns; no graph callback may retain it afterward.
+// four-pass execution returns; no graph callback may retain it afterward.
 struct RuntimeRenderer::PairPass
 {
     PairedViewRenderer& renderer;
@@ -25,6 +25,11 @@ void RuntimeRenderer::ExecutePairPass( const RenderGraphPassContext& context, Pa
     {
         pass.renderer.DrawSide( pass.frame, pass.resources.PrimitiveBatches(), pass.resources.Config().ordinaryRender,
                                 pass.resources.RenderFrame(), pass.resources.RenderTextures(), pass.side );
+    }
+    else if ( pass.side == 2 )
+    {
+        pass.renderer.DrawOutlines( pass.frame, pass.resources.RenderFrame(), pass.resources.RenderGeometry(),
+                                    pass.resources.RenderTextures() );
     }
     else
     {
@@ -66,26 +71,33 @@ void RuntimeRenderer::RenderPairedViews( const PairedViewFrame& frame )
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     auto& transitions = m_resources.RenderGraph();
     const uint32_t first = static_cast<uint32_t>( graph.Passes().size() );
-    std::array<RenderGraphResourceHandle, 2> colors, depths;
-    std::array<PairPass, 3> invocations = { PairPass { m_pairedViews, m_resources, frame, nullptr, 0 },
+    std::array<RenderGraphResourceHandle, 3> colors, depths;
+    std::array<PairPass, 4> invocations = { PairPass { m_pairedViews, m_resources, frame, nullptr, 0 },
                                             PairPass { m_pairedViews, m_resources, frame, nullptr, 1 },
-                                            PairPass { m_pairedViews, m_resources, frame, nullptr, 2 } };
-    for ( int side = 0; side < 2; ++side )
+                                            PairPass { m_pairedViews, m_resources, frame, nullptr, 2 },
+                                            PairPass { m_pairedViews, m_resources, frame, nullptr, 3 } };
+    constexpr const char* colorNames[] = { "ViewOneColor", "ViewTwoColor", "ViewOutlineColor" };
+    constexpr const char* depthNames[] = { "ViewOneDepth", "ViewTwoDepth", "ViewOutlineDepth" };
+    constexpr const char* passNames[] = { "ViewOne", "ViewTwo", "ViewOutlines" };
+    for ( int side = 0; side < 3; ++side )
     {
         auto& target = m_pairedViews.Target( side );
-        colors[side] = graph.AddExternalResource( side ? "ViewTwoColor" : "ViewOneColor",
-                                                  RenderGraphResourceAccess::PixelShaderResource,
+        colors[side] = graph.AddExternalResource( colorNames[side], RenderGraphResourceAccess::PixelShaderResource,
                                                   transitions.ResolveGraphResourceToken( target.GetColorTextureHandle() ) );
-        depths[side] = graph.AddExternalResource( side ? "ViewTwoDepth" : "ViewOneDepth",
-                                                  RenderGraphResourceAccess::PixelShaderResource,
+        depths[side] = graph.AddExternalResource( depthNames[side], RenderGraphResourceAccess::PixelShaderResource,
                                                   transitions.ResolveGraphResourceToken( target.GetDepthTextureHandle() ) );
-        const auto pass = graph.AddPass( side ? "ViewTwo" : "ViewOne" );
+        const auto pass = graph.AddPass( passNames[side] );
+        if ( side == 2 )
+        {
+            graph.AddRead( pass, depths[0], RenderGraphResourceAccess::PixelShaderResource );
+            graph.AddRead( pass, depths[1], RenderGraphResourceAccess::PixelShaderResource );
+        }
         graph.AddWrite( pass, colors[side], RenderGraphResourceAccess::RenderTarget );
         graph.AddWrite( pass, depths[side], RenderGraphResourceAccess::DepthWrite );
         graph.SetPassCallback<ExecutePairPass>( pass, invocations[side] );
     }
     const auto composite = graph.AddPass( "ImagePairComposite" );
-    for ( int side = 0; side < 2; ++side )
+    for ( int side = 0; side < 3; ++side )
     {
         graph.AddRead( composite, colors[side], RenderGraphResourceAccess::PixelShaderResource );
         graph.AddRead( composite, depths[side], RenderGraphResourceAccess::PixelShaderResource );
@@ -94,7 +106,7 @@ void RuntimeRenderer::RenderPairedViews( const PairedViewFrame& frame )
     const auto destination = graph.AddExternalResource( "SwapchainBackbuffer", backbuffer.currentAccess,
                                                         backbuffer.nativeResource );
     graph.AddWrite( composite, destination, RenderGraphResourceAccess::RenderTarget );
-    graph.SetPassCallback<ExecutePairPass>( composite, invocations[2] );
+    graph.SetPassCallback<ExecutePairPass>( composite, invocations[3] );
     for ( auto& invocation : invocations )
     {
         invocation.contacts = &m_physicsDebugVisualizer;
@@ -105,9 +117,9 @@ void RuntimeRenderer::RenderPairedViews( const PairedViewFrame& frame )
         invocation.compiled = &compiled;
     }
     // These callbacks borrow stack packets only for this synchronous range.
-    graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun, first, 3 );
-    const auto executed = graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, first, 3 );
-    if ( executed.executedPassCount != 3 )
+    graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun, first, 4 );
+    const auto executed = graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, first, 4 );
+    if ( executed.executedPassCount != 4 )
     {
         SB_FATAL( "PairedViews", "Missing image pass" );
     }

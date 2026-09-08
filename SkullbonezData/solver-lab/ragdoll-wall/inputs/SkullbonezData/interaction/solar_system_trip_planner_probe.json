@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 1, "setReplayPathTarget": "ship" },
+    { "frame": 1, "setReplayInterceptTarget": "mars" },
+    { "frame": 1, "setReplayPredictionHorizonSeconds": 20.0 },
+    { "frame": 1, "setReplayPredictionEnabled": true },
+    { "frame": 10, "setReplayTripPlannerCommand": "toggle" },
+    { "frame": 240, "assert": { "predictionFullHorizonComplete": true } },
+    { "frame": 250, "setReplayTripPlannerCommand": "tof", "timeOfFlightSeconds": 15.9 },
+    { "frame": 251, "setReplayTripPlannerCommand": "plan" },
+    { "frame": 620, "assert": { "replayTripPlannerState": "Converged" } },
+    { "frame": 620, "assert": { "replayTripPlannerIterationMax": 4 } },
+    { "frame": 620, "assert": { "replayTripPlannerMissMax": 3.205 } },
+    { "frame": 620, "assert": { "replayTripPlannerMissesImprove": true } },
+    { "frame": 625, "screenshot": "TestOutput/interaction/solar_system_trip_planner_converged.bmp" },
+    { "frame": 630, "setReplayTripPlannerCommand": "commit" },
+    { "frame": 640, "assert": { "replayTripPlannerState": "Idle" } },
+    { "frame": 650, "setReplayInterceptTarget": "sun" },
+    { "frame": 651, "setReplayTripPlannerCommand": "tof", "timeOfFlightSeconds": 2.0 },
+    { "frame": 652, "setReplayTripPlannerCommand": "plan" },
+    { "frame": 665, "assert": { "replayTripPlannerState": "Failed" } },
+    { "frame": 666, "screenshot": "TestOutput/interaction/solar_system_trip_planner_no_solution.bmp" },
+    { "frame": 670, "setReplayTripPlannerCommand": "cancel" },
+    { "frame": 680, "assert": { "replayTripPlannerState": "Idle" } }
+  ]
+}

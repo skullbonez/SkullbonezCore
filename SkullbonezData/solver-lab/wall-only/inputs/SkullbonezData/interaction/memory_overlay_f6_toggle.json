@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 10, "pressKey": "F6" },
+    { "frame": 12, "assert": { "memoryOverlayEnabled": true } },
+    { "frame": 30, "screenshot": "TestOutput/interaction/memory_overlay_f6_toggle.bmp" }
+  ]
+}

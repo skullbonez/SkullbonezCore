@@ -1,14 +1,201 @@
 #include "PhysicsComparison.h"
+#include "PhysicsComparison.DiagnosticLines.h"
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
 #include <fstream>
 #include <algorithm>
 #include <tuple>
 #include <cmath>
+#include <filesystem>
+#include <string_view>
 
 using namespace SkullbonezCore::Runtime;
 namespace
 {
 using Json = nlohmann::ordered_json;
+
+class DiagnosticRowReader final : public nlohmann::json_sax<Json>
+{
+    // Invariant: only top-level numeric fields and a three-number normal are
+    // retained. SAX validates the entire JSON row without building millions of
+    // transient maps, strings and value nodes in the process allocation hook.
+    static constexpr const char* FIELDS[] = { "frame",
+                                              "body_a",
+                                              "body_b",
+                                              "warm_started",
+                                              "feature_id",
+                                              "penetration",
+                                              "normal_impulse",
+                                              "tangent_impulse",
+                                              "pre_solve_normal_speed",
+                                              "pre_solve_slip_speed",
+                                              "slip_speed",
+                                              "iteration",
+                                              "dropped_iterations",
+                                              "stopping_impulse_delta_sq",
+                                              "normal_impulse_delta_sq",
+                                              "tangent_impulse_delta_sq" };
+    std::array<double, 19> m_values {};
+    uint32_t m_present = 0, m_unsigned = 0;
+    int m_depth = 0, m_field = -1, m_normalCount = 0;
+    bool m_rootObject = false, m_normalArray = false;
+
+    static int Field( const std::string_view name )
+    {
+        for ( int i = 0; i < 16; ++i )
+        {
+            if ( name == FIELDS[i] )
+            {
+                return i;
+            }
+        }
+        return name == "normal" ? 16 : -1;
+    }
+
+    bool Numeric( double value, bool isUnsigned )
+    {
+        int field = m_depth == 1 ? m_field : -1;
+        if ( m_normalArray && m_depth == 2 )
+        {
+            field = m_normalCount < 3 ? 16 + m_normalCount : -1;
+            ++m_normalCount;
+        }
+        if ( field >= 0 && field < 19 && std::isfinite( value ) && std::abs( value ) <= 1.0e30 )
+        {
+            m_values[field] = value;
+            m_present |= 1u << field;
+            if ( isUnsigned )
+            {
+                m_unsigned |= 1u << field;
+            }
+        }
+        return true;
+    }
+
+  public:
+    bool Parse( const std::string& line )
+    {
+        return Json::sax_parse( line, this ) && m_rootObject;
+    }
+    bool Number( const char* key, float& value ) const
+    {
+        const int field = Field( key );
+        if ( field < 0 || !( m_present & ( 1u << field ) ) )
+        {
+            return false;
+        }
+        value = static_cast<float>( m_values[field] );
+        return true;
+    }
+    bool Feature( uint32_t& value ) const
+    {
+        if ( !( m_unsigned & ( 1u << 4 ) ) || m_values[4] > UINT32_MAX )
+        {
+            return false;
+        }
+        value = static_cast<uint32_t>( m_values[4] );
+        return true;
+    }
+    bool Normal( SkullbonezCore::Math::Vector::Vector3& value ) const
+    {
+        if ( ( m_present & ( 7u << 16 ) ) != ( 7u << 16 ) || m_normalCount != 3 )
+        {
+            return false;
+        }
+        value = { static_cast<float>( m_values[16] ), static_cast<float>( m_values[17] ),
+                  static_cast<float>( m_values[18] ) };
+        return true;
+    }
+    bool SkipScalar()
+    {
+        if ( m_normalArray && m_depth == 2 )
+        {
+            m_normalCount = 4;
+        }
+        return true;
+    }
+    bool null() override
+    {
+        return SkipScalar();
+    }
+    bool boolean( bool ) override
+    {
+        return SkipScalar();
+    }
+    bool string( string_t& ) override
+    {
+        return SkipScalar();
+    }
+    bool binary( binary_t& ) override
+    {
+        return true;
+    }
+    bool number_integer( number_integer_t value ) override
+    {
+        return Numeric( static_cast<double>( value ), false );
+    }
+    bool number_unsigned( number_unsigned_t value ) override
+    {
+        return Numeric( static_cast<double>( value ), true );
+    }
+    bool number_float( number_float_t value, const string_t& ) override
+    {
+        return Numeric( value, false );
+    }
+    bool start_object( std::size_t ) override
+    {
+        SkipScalar();
+        m_rootObject |= m_depth == 0;
+        ++m_depth;
+        return true;
+    }
+    bool end_object() override
+    {
+        --m_depth;
+        return true;
+    }
+    bool key( string_t& key ) override
+    {
+        if ( m_depth == 1 )
+        {
+            m_field = Field( key );
+            if ( m_field >= 0 )
+            {
+                const uint32_t mask = m_field == 16 ? 7u << 16 : 1u << m_field;
+                m_present &= ~mask;
+                m_unsigned &= ~mask;
+                if ( m_field == 16 )
+                {
+                    m_normalCount = 0;
+                }
+            }
+        }
+        return true;
+    }
+    bool start_array( std::size_t ) override
+    {
+        SkipScalar();
+        if ( m_depth == 1 )
+        {
+            m_normalArray = m_field == 16;
+        }
+        ++m_depth;
+        return true;
+    }
+    bool end_array() override
+    {
+        if ( m_depth == 2 )
+        {
+            m_normalArray = false;
+        }
+        --m_depth;
+        return true;
+    }
+    bool parse_error( std::size_t, const std::string&, const nlohmann::detail::exception& ) override
+    {
+        return false;
+    }
+};
+
 uint64_t StableId( const ComparisonRecording& recording, int tick, int row )
 {
     if ( const auto* frame = recording.Frame( tick ) )
@@ -23,36 +210,21 @@ uint64_t StableId( const ComparisonRecording& recording, int tick, int row )
     }
     return 0;
 }
-bool Number( const Json& json, const char* key, float& value )
-{
-    const auto found = json.find( key );
-    if ( found == json.end() || !found->is_number() )
-    {
-        return false;
-    }
-    const double number = found->get<double>();
-    if ( !std::isfinite( number ) || std::abs( number ) > 1.0e30 )
-    {
-        return false;
-    }
-    value = static_cast<float>( number );
-    return true;
-}
-bool Integer( const Json& json, const char* key, int& value )
+bool Integer( const DiagnosticRowReader& json, const char* key, int& value )
 {
     float number = 0;
-    if ( !Number( json, key, number ) || number < -1 || number > 10000000 || std::floor( number ) != number )
+    if ( !json.Number( key, number ) || number < -1 || number > 10000000 || std::floor( number ) != number )
     {
         return false;
     }
     value = static_cast<int>( number );
     return true;
 }
-bool ReadContact( const Json& row, const ComparisonRecording& recording, int tick, ComparisonRecording::ContactSummary& out )
+bool ReadContact( const DiagnosticRowReader& row, const ComparisonRecording& recording, int tick,
+                  ComparisonRecording::ContactSummary& out )
 {
     int bodyA = -1, bodyB = -1, warm = 0;
-    const auto feature = row.find( "feature_id" );
-    if ( feature == row.end() || !feature->is_number_unsigned() || feature->get<uint64_t>() > UINT32_MAX )
+    if ( !row.Feature( out.feature ) || !row.Normal( out.normal ) )
     {
         return false;
     }
@@ -63,33 +235,23 @@ bool ReadContact( const Json& row, const ComparisonRecording& recording, int tic
     out.bodyA = StableId( recording, tick, bodyA );
     out.bodyB = StableId( recording, tick, bodyB );
     out.terrain = bodyB < 0;
-    out.feature = feature->get<uint32_t>();
     out.warmStarted = warm != 0;
-    const auto normal = row.find( "normal" );
-    if ( normal == row.end() || !normal->is_array() || normal->size() != 3 )
-    {
-        return false;
-    }
-    for ( const auto& v : *normal )
-    {
-        if ( !v.is_number() || !std::isfinite( v.get<double>() ) )
-        {
-            return false;
-        }
-    }
-    out.normal = { ( *normal )[0].get<float>(), ( *normal )[1].get<float>(), ( *normal )[2].get<float>() };
-    return Number( row, "penetration", out.penetration ) && Number( row, "normal_impulse", out.normalImpulse ) &&
-           Number( row, "tangent_impulse", out.tangentImpulse ) &&
-           Number( row, "pre_solve_normal_speed", out.preNormalSpeed ) &&
-           Number( row, "pre_solve_slip_speed", out.preSlipSpeed ) && Number( row, "slip_speed", out.postSlipSpeed );
+    return row.Number( "penetration", out.penetration ) && row.Number( "normal_impulse", out.normalImpulse ) &&
+           row.Number( "tangent_impulse", out.tangentImpulse ) &&
+           row.Number( "pre_solve_normal_speed", out.preNormalSpeed ) &&
+           row.Number( "pre_solve_slip_speed", out.preSlipSpeed ) && row.Number( "slip_speed", out.postSlipSpeed );
 }
-bool ReserveObservationRows( std::ifstream& input, std::vector<ComparisonRecording::Observations>& observations,
+bool ReserveObservationRows( ComparisonDiagnosticLines& input, std::vector<ComparisonRecording::Observations>& observations,
                              int tickOffset, ComparisonLoadProgress* progress )
 {
     std::vector<std::array<std::size_t, 2>> counts( observations.size() );
     std::string line;
-    while ( std::getline( input, line ) )
+    while ( input.Read( line ) )
     {
+        if ( progress )
+        {
+            progress->Update( input.Position(), input.Size() );
+        }
         if ( line.size() > 65536 || ( progress && progress->cancelled.load( std::memory_order_relaxed ) ) )
         {
             return false;
@@ -100,9 +262,9 @@ bool ReserveObservationRows( std::ifstream& input, std::vector<ComparisonRecordi
         {
             continue;
         }
-        const auto row = Json::parse( line, nullptr, false );
+        DiagnosticRowReader row;
         int frame = -1;
-        if ( !row.is_object() || !Integer( row, "frame", frame ) || frame < -tickOffset ||
+        if ( !row.Parse( line ) || !Integer( row, "frame", frame ) || frame < -tickOffset ||
              static_cast<std::size_t>( frame + tickOffset ) >= counts.size() )
         {
             return false;
@@ -114,9 +276,7 @@ bool ReserveObservationRows( std::ifstream& input, std::vector<ComparisonRecordi
         observations[tick].contacts.reserve( counts[tick][0] );
         observations[tick].iterations.reserve( counts[tick][1] );
     }
-    input.clear();
-    input.seekg( 0 );
-    return static_cast<bool>( input );
+    return input.Good() && input.Rewind();
 }
 auto Key( const ComparisonRecording::ContactSummary& c )
 {
@@ -140,22 +300,38 @@ const ComparisonRecording::Observations* ComparisonRecording::Observation( int t
 bool ComparisonRecording::LoadObservations( const char* path, int ticks, uint64_t& residentBytes,
                                             ComparisonLoadProgress* progress, int side )
 {
-    std::ifstream input( path );
-    if ( !input )
+    if ( std::filesystem::path( path ).extension() == ".skobs" )
     {
-        return true; // Older producers may not publish this optional stream.
+        return LoadBinaryObservations( path, ticks, residentBytes, progress, side );
+    }
+    ComparisonDiagnosticLines input( path );
+    if ( !input.Open() )
+    {
+        return input.Good(); // Older producers may not publish this optional stream.
     }
     observations.resize( static_cast<std::size_t>( ticks ) + 1 );
     residentBytes += observations.capacity() * sizeof( Observations );
+    if ( progress )
+    {
+        progress->Begin( side ? "B: reserving contact rows" : "A: reserving contact rows", side ? 60 : 30, 10 );
+    }
     // Exact reservations avoid geometric growth for the million-row wall trial.
     // Preflight charged every row; a changed stream cannot grow beyond this pass.
     if ( !ReserveObservationRows( input, observations, tickOffset, progress ) )
     {
         return false;
     }
-    std::string line;
-    while ( std::getline( input, line ) )
+    if ( progress )
     {
+        progress->Begin( side ? "B: reading contact evidence" : "A: reading contact evidence", side ? 70 : 40, 15 );
+    }
+    std::string line;
+    while ( input.Read( line ) )
+    {
+        if ( progress )
+        {
+            progress->Update( input.Position(), input.Size() );
+        }
         if ( progress && progress->cancelled.load( std::memory_order_relaxed ) )
         {
             return false;
@@ -172,17 +348,14 @@ bool ComparisonRecording::LoadObservations( const char* path, int ticks, uint64_
         {
             continue;
         }
-        const auto row = Json::parse( line, nullptr, false );
+        DiagnosticRowReader row;
         int sceneFrame = -1;
-        if ( !row.is_object() || !Integer( row, "frame", sceneFrame ) )
+        if ( !row.Parse( line ) || !Integer( row, "frame", sceneFrame ) )
         {
             return false;
         }
         const int tick = sceneFrame + tickOffset;
-        if ( progress && frame )
-        {
-            progress->percent.store( side * 40 + tick * 40 / (std::max)( 1, ticks ), std::memory_order_relaxed );
-        }
+
         if ( tick < 0 || tick > ticks )
         {
             return false;
@@ -218,9 +391,9 @@ bool ComparisonRecording::LoadObservations( const char* path, int ticks, uint64_
         {
             IterationSummary summary;
             if ( !Integer( row, "iteration", summary.iteration ) || !Integer( row, "dropped_iterations", summary.dropped ) ||
-                 !Number( row, "stopping_impulse_delta_sq", summary.stoppingDeltaSquared ) ||
-                 !Number( row, "normal_impulse_delta_sq", summary.normalDeltaSquared ) ||
-                 !Number( row, "tangent_impulse_delta_sq", summary.tangentDeltaSquared ) )
+                 !row.Number( "stopping_impulse_delta_sq", summary.stoppingDeltaSquared ) ||
+                 !row.Number( "normal_impulse_delta_sq", summary.normalDeltaSquared ) ||
+                 !row.Number( "tangent_impulse_delta_sq", summary.tangentDeltaSquared ) )
             {
                 return false;
             }
@@ -236,7 +409,7 @@ bool ComparisonRecording::LoadObservations( const char* path, int ticks, uint64_
             return false;
         }
     }
-    return input.eof();
+    return input.Good();
 }
 bool PhysicsComparison::BuildObservedContactEvents( int tick )
 {

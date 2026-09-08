@@ -289,6 +289,14 @@ EditorTracer::EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagn
     m_priorityReplayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY );
 }
 
+bool EditorTracer::SetPredictionOutlineVisibility( bool blueVisible, bool greyVisible ) noexcept
+{
+    const bool changed = m_blueOutlinesVisible != blueVisible || m_greyOutlinesVisible != greyVisible;
+    m_blueOutlinesVisible = blueVisible;
+    m_greyOutlinesVisible = greyVisible;
+    return changed;
+}
+
 bool EditorTracer::SetReplayTrajectoryAppearance( const Core::ReplayTrajectoryAppearanceConfig& appearance )
 {
     const auto boundedStyle = []( float width, float alpha, float edgeFeather )
@@ -1096,6 +1104,11 @@ void EditorTracer::AddReplayImpulseVector( const Vector3& point, const Vector3& 
 bool EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Quaternion& orientation,
                                                const CollisionShapeReference& shape )
 {
+    if ( !m_blueOutlinesVisible )
+    {
+        return false;
+    }
+
     // Why: collision wireframes must survive a saturated causal-path ribbon.
     // The dedicated priority-line capacity fits the complete bounded marker set.
     if ( !CanEmitShapeOutlineTo( m_priorityLineData, shape ) )
@@ -1103,7 +1116,9 @@ bool EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Qu
         return false;
     }
 
-    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 1.0f, 0.85f, 0.25f );
+    // Why: a future contact is evidence, not selection. Reserve yellow for the
+    // selected object's outline even when many bodies participate in a future.
+    EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.26f, 0.78f, 0.95f );
     return true;
 }
 
@@ -1111,6 +1126,11 @@ bool EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Qu
 bool EditorTracer::AddReplayCausalRestMarker( const Vector3& position, const Quaternion& orientation,
                                               const CollisionShapeReference& shape )
 {
+    if ( !m_greyOutlinesVisible )
+    {
+        return false;
+    }
+
     if ( !CanEmitShapeOutlineTo( m_priorityLineData, shape ) )
     {
         return false;
@@ -1124,6 +1144,11 @@ bool EditorTracer::AddReplayCausalRestMarker( const Vector3& position, const Qua
 bool EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const Quaternion& orientation,
                                                  const CollisionShapeReference& shape )
 {
+    if ( !m_blueOutlinesVisible )
+    {
+        return false;
+    }
+
     // Concept: horizon ghosts are not landings. They mark "this is where the
     // prediction buffer ends" for a body still mid-flight, so the color stays
     // distinct from grey resting boxes.
@@ -1140,6 +1165,11 @@ bool EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const 
 void EditorTracer::AddReplayBaselineEntryMarker( const Vector3& position, const Quaternion& orientation,
                                                  const CollisionShapeReference& shape )
 {
+    if ( !m_blueOutlinesVisible )
+    {
+        return;
+    }
+
     // Concept: cold baseline markers are the old future's footprint. They stay
     // on the wire path so cyan boxes do not compete with selected-path halos.
     EmitShapeOutline( position, orientation, shape, 0.26f, 0.78f, 0.95f );
@@ -1149,6 +1179,11 @@ void EditorTracer::AddReplayBaselineEntryMarker( const Vector3& position, const 
 void EditorTracer::AddReplayBaselineRestMarker( const Vector3& position, const Quaternion& orientation,
                                                 const CollisionShapeReference& shape )
 {
+    if ( !m_blueOutlinesVisible )
+    {
+        return;
+    }
+
     EmitShapeOutline( position, orientation, shape, 0.18f, 0.62f, 0.78f );
 }
 

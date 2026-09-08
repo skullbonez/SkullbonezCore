@@ -57,13 +57,18 @@ namespace Text
 class TextBatch
 {
   public:
-    static constexpr int TEXT_MAX_CHARS = 2048;
+    static constexpr int TEXT_MAX_CHARS = 4096;
     static constexpr int TEXT_FLOATS_PER_VERTEX = 7;
     static constexpr int TEXT_VERTICES_PER_CHAR = 6;
     static constexpr int QUAD_MAX_QUADS = 8192;
     static constexpr int QUAD_FLOATS_PER_VERTEX = 6;
     static constexpr int QUAD_VERTICES_PER_QUAD = 6;
     static constexpr int QUAD_VERTICES_PER_TRIANGLE = 3;
+
+    int RemainingTextCharacters() const noexcept
+    {
+        return TEXT_MAX_CHARS - m_textVertexCount / TEXT_VERTICES_PER_CHAR;
+    }
 
   private:
     friend class Text2d;

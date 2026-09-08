@@ -1992,6 +1992,7 @@ void Run::ApplyWorldAndCinematicCommands( RuntimeUIFrameResult& result, const Sk
         return;
     }
     RecordSceneUIActions( sceneCommands, recordUiAction );
+    LoadSolverLab( commands.scene.solverLab );
 }
 
 // Lifetime: command application borrows composed owners synchronously through

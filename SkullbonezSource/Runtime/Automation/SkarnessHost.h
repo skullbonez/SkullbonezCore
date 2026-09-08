@@ -115,6 +115,7 @@ class SkarnessHost
     {
         std::string requestId;
         bool moveClient = false;
+        int wheelDelta = 0;
         int clientX = 0;
         int clientY = 0;
         int deltaX = 0;

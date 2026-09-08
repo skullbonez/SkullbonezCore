@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 10, "showReplayScrubber": true },
+    { "frame": 140, "setReplayPathTarget": "path_target_01" },
+    { "frame": 150, "assert": { "replayPathTarget": "path_target_01" } },
+    { "frame": 300, "assert": { "replayPastTrajectoryFullRebuildCountMax": 1 } },
+    { "frame": 300, "assert": { "replayPastTrajectoryIncrementalTrimCountMin": 60 } },
+    { "frame": 300, "assert": { "replayPastTrajectoryPublishedPointCountMin": 2 } }
+  ]
+}

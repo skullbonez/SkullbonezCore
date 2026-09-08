@@ -20,8 +20,7 @@ float4 main_ps(Pixel input) : SV_TARGET
 {
     Texture2D<float4> first = ResourceDescriptorHeap[_textureDescriptorIndices0.x];
     Texture2D<float4> second = ResourceDescriptorHeap[_textureDescriptorIndices0.y];
-    Texture2D<float> depthA = ResourceDescriptorHeap[_textureDescriptorIndices0.z];
-    Texture2D<float> depthB = ResourceDescriptorHeap[_textureDescriptorIndices0.w];
+    Texture2D<float4> outline = ResourceDescriptorHeap[_textureDescriptorIndices1.x];
     float2 uv = input.uv;
     int mode = (int)uPair.x;
     if (mode == 0)
@@ -37,14 +36,8 @@ float4 main_ps(Pixel input) : SV_TARGET
     if (mode == 2) return float4(a, 1);
     if (mode == 3) return float4(b, 1);
     if (mode == 4) return float4(saturate(abs(a - b) * uPair.y), 1);
-    float z = depthA.Sample(sClamp, uv);
-    float edge = 0;
-    [unroll] for (int i = 0; i < 4; ++i)
-    {
-        float2 offset = i == 0 ? float2(1,0) : i == 1 ? float2(-1,0) : i == 2 ? float2(0,1) : float2(0,-1);
-        float neighbor = depthA.Sample(sClamp, uv + offset * uTexel.xy);
-        edge = max(edge, abs(z - neighbor) > 0.00001 ? 1.0 : 0.0);
-    }
-    bool visible = uPair.w > 0.5 || z <= depthB.Sample(sClamp, uv) + 0.00001;
-    return float4(lerp(b, float3(0.1, 0.9, 1), visible ? edge * uPair.z : 0), 1);
+    // Geometric edges already checked both depths in their own shader. Their
+    // antialiased fringe may extend beyond A's silhouette into background pixels.
+    float coverage = outline.Sample(sClamp, uv).r;
+    return float4(lerp(b, float3(0.1, 0.9, 1), coverage * uPair.z), 1);
 }

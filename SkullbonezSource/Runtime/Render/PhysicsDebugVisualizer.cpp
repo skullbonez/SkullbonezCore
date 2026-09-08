@@ -59,10 +59,10 @@ constexpr int PIPELINE_STAGE_COUNT = static_cast<int>( PhysicsPipelineStage::Cou
 constexpr std::size_t CONTACT_MANIFOLD_MAX_LINE_COUNT = 2u * 3u * 3u + 1u +
                                                         CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY * 8u;
 constexpr std::size_t CONTACT_MANIFOLD_LINE_FLOAT_CAPACITY = CONTACT_MANIFOLD_MAX_LINE_COUNT * 12u;
-constexpr PassRasterStateBucket PHYSICS_DEBUG_LINE_RASTER = MakePassRasterStateBucket( 0,
-                                                                                       { false, false, false,
-                                                                                         BlendFactor::One, BlendFactor::Zero,
-                                                                                         CullMode::None } );
+constexpr PassRasterStateBucket PHYSICS_DEBUG_LINE_RASTER = MakePassRasterStateBucket( 0, { false, false, true,
+                                                                                            BlendFactor::SrcAlpha,
+                                                                                            BlendFactor::OneMinusSrcAlpha,
+                                                                                            CullMode::None } );
 constexpr PassRasterStateBucket CONTACT_STROKE_RASTER = MakePassRasterStateBucket( 0, { false, false, true,
                                                                                         BlendFactor::SrcAlpha,
                                                                                         BlendFactor::OneMinusSrcAlpha,
@@ -95,7 +95,7 @@ std::span<const float> BuildContactStrokeVertices( std::span<const float> lines,
                                                  outline ? 0.035f : lines[first + 4],
                                                  outline ? 0.055f : lines[first + 5],
                                                  outline ? 0.72f : 1.0f,
-                                                 0.65f,
+                                                 1.0f,
                                                  0.0f,
                                                  lines[first],
                                                  lines[first + 1],
@@ -785,7 +785,10 @@ std::span<const float> PhysicsDebugVisualizer::BuildContactManifoldStrokes( cons
     for ( uint8_t pointIndex = 0;
           pointIndex < presentation.pointCount && pointIndex < CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY; ++pointIndex )
     {
-        EmitContactGlyph( presentation.points[pointIndex], 0.0f, 1.0f, true );
+        // Scale the detached drawing value; the recorded unit normal stays intact.
+        auto point = presentation.points[pointIndex];
+        point.normal *= presentation.normalLengthScale;
+        EmitContactGlyph( point, 0.0f, 1.0f, true );
     }
 
     return BuildContactStrokeVertices( m_lineData, m_contactStrokeVertices );

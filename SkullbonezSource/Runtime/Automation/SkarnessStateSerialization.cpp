@@ -377,6 +377,19 @@ Json BuildTrajectories( const ReplayAutomationView& replay, SkarnessStateDetail 
              { "records", std::move( records ) } };
 }
 
+Json BuildCauseObject( const ReplayCauseObjectDetails& object )
+{
+    return { { "sceneObjectId", object.id.value },
+             { "bodyRow", object.bodyRow },
+             { "name", object.name },
+             { "mass", object.mass },
+             { "dimensions", Vec3( object.dimensions ) },
+             { "available", object.available },
+             { "dimensionsAvailable", object.dimensionsAvailable },
+             { "fixed", object.fixed },
+             { "terrain", object.terrain } };
+}
+
 Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail )
 {
     const ReplayPredictionPresentationView prediction = ReplayPrediction::PresentationViewFromState( replay.prediction,
@@ -402,9 +415,17 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
                      { "detailVisible", replay.causeInspection.detailVisible },
                      { "drawerOpen", replay.causeInspection.drawerOpen },
                      { "drawerProgress", replay.causeInspection.drawerProgress },
+                     { "summaryExpandedSection", replay.causeInspection.summaryExpandedSection },
+                     { "summaryScrollOffset", replay.causeInspection.summaryScrollOffset },
+                     { "blueOutlinesVisible", replay.causeInspection.blueOutlinesVisible },
+                     { "greyOutlinesVisible", replay.causeInspection.greyOutlinesVisible },
+                     { "objects",
+                       { BuildCauseObject( replay.causeInspection.objects[0] ),
+                         BuildCauseObject( replay.causeInspection.objects[1] ) } },
                      { "contactFlashAlpha", replay.causeInspection.contactFlashAlpha },
                      { "contactFlashSequence", replay.causeInspection.contactFlashSequence },
                      { "contactPointCount", replay.causeInspection.contactPresentation.pointCount },
+                     { "contactCenter", Vec3( replay.causeInspection.contactPresentation.Center() ) },
                      { "solverContactCount", replay.causeInspection.solverDetailContactRowCount },
                      { "solverPipelineCount", replay.causeInspection.solverDetailPipelineRecordCount } };
     if ( detail != SkarnessStateDetail::Summary )

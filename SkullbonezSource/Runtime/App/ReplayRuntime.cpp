@@ -1367,6 +1367,8 @@ void ReplayRuntime::PrepareRenderOverlay( PhysicsEngine& physics, const SceneEnt
     (void)tracer.SetReplayTrajectoryAppearance( trajectoryAppearance );
 
     const ReplayCauseInspectionView causeInspection = m_planningOwner.CauseInspectionView();
+    (void)tracer.SetPredictionOutlineVisibility( causeInspection.Display().blueOutlinesVisible,
+                                                 causeInspection.Display().greyOutlinesVisible );
     const ReplayCauseInspectionMode causeMode = causeInspection.Transport().mode;
     const bool causeFocusActive = causeMode == ReplayCauseInspectionMode::Transporting ||
                                   causeMode == ReplayCauseInspectionMode::DetailPaused ||
@@ -1389,12 +1391,13 @@ void ReplayRuntime::PrepareRenderOverlay( PhysicsEngine& physics, const SceneEnt
     m_predictionPresentation.SetInspectionPathFocus( inspectionFocusView );
 
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
-    const bool retainedRenderingActive = m_predictionPresentation
-                                             .PrepareRetainedGeometryDrawList( prediction,
-                                                                               m_visualPresentation.PathVisualizer(),
-                                                                               entities,
-                                                                               PhysicsEngine::ReadColliders( physics ),
-                                                                               tracer, trajectoryAppearance );
+    const bool
+        retainedRenderingActive = m_predictionPresentation
+                                      .PrepareRetainedGeometryDrawList( prediction, m_visualPresentation.PathVisualizer(),
+                                                                        entities, PhysicsEngine::ReadColliders( physics ),
+                                                                        tracer, trajectoryAppearance,
+                                                                        causeInspection.Display().blueOutlinesVisible,
+                                                                        causeInspection.Display().greyOutlinesVisible );
 
     AppendOverlayTrace( physics, entities, tracer, prediction,
                         ReplayOverlayBuildInput { editorModeEnabled, ProjectReplayToolGesture( gesture ), sceneFrame },
@@ -1476,11 +1479,11 @@ ReplayRenderFrameViews ReplayRuntime::BuildRenderFrameViews( const ReplayFrameSe
     const ReplayRenderTimeView time { presentationSample, solverSample,
                                       ( presentationSample || solverSample ) ? nullptr : predictionFrame,
                                       inputView.liveAdvanceHeld };
-    const Rendering::ContactManifoldPresentation contactPresentation = causeInspection.HasVisibleContactGeometry()
-                                                                           ? causeInspection.SolverDetail()
-                                                                                 .contactPresentation
-                                                                           : Rendering::ContactManifoldPresentation {};
+    Rendering::ContactManifoldPresentation contactPresentation = causeInspection.HasVisibleContactGeometry()
+                                                                     ? causeInspection.SolverDetail().contactPresentation
+                                                                     : Rendering::ContactManifoldPresentation {};
 #if defined( SKULLBONEZ_SKARNESS )
+    contactPresentation.normalLengthScale = 1.0f + 0.2f * causeInspection.Display().contactFlashAlpha;
     m_lastSubmittedCauseContactPointCount = contactPresentation.pointCount;
     m_lastSubmittedCauseContactBodyCount = contactPresentation.bodyCount;
 #endif

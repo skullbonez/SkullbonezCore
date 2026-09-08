@@ -3,6 +3,7 @@
 #include "../../Physics/ColliderStore.h"
 #include "../../Rendering/PairedViewRenderer.h"
 #include "../../UI/UIInput.h"
+#include "../../UI/UIComboBox.h"
 
 namespace SkullbonezCore::Runtime
 {
@@ -13,7 +14,9 @@ enum class ComparisonPanelAction
     Focus,
     Save,
     Restore,
-    Close
+    Close,
+    RagdollWall,
+    WallOnly
 };
 class PhysicsComparisonPanel
 {
@@ -28,9 +31,10 @@ class PhysicsComparisonPanel
         return m_timeline.Contains( x, y );
     }
     bool Contains( int x, int y ) const;
-    const UI::UIDrawList& ComposeLoading( int width, int height, int percent, const char* error );
+    const UI::UIDrawList& ComposeLoading( int width, int height, int percent, const char* error, const char* phase );
     double Advance( PhysicsComparison& comparison, double now );
     float Radius( uint64_t id ) const noexcept;
+    bool ContactPivot( const PhysicsComparison& comparison, Math::Vector::Vector3& pivot ) const;
     uint64_t Pick( const PhysicsComparison& comparison, const Math::Vector::Vector3& origin,
                    const Math::Vector::Vector3& direction, int side ) const;
 
@@ -56,7 +60,13 @@ class PhysicsComparisonPanel
     std::array<Button, 64> m_buttons {};
     std::size_t m_buttonCount = 0;
     UI::UIRect m_sidebar, m_timeline;
+    UI::UIComboBox m_comparisonCombo;
+    UI::UIPointerPosition m_pointer { -1, -1 };
+    bool m_comboConsumedPointer = false;
     double m_lastTime = 0;
+    double m_contactPulseStarted = -1;
+    uint64_t m_contactSelectionRevision = 0;
+    int m_contactTick = -1;
     int m_eventOffset = 0;
 };
 } // namespace SkullbonezCore::Runtime

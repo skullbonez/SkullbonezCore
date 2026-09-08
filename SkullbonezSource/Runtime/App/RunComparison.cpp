@@ -51,6 +51,21 @@ bool Run::LoadComparison( const char* path, bool finding )
     }
     return started;
 }
+
+void Run::LoadSolverLab( UI::UISolverLabChoice choice )
+{
+    switch ( choice )
+    {
+    case UI::UISolverLabChoice::RagdollWall:
+        LoadComparison( "SkullbonezData/solver-lab/ragdoll-wall/comparison.json" );
+        break;
+    case UI::UISolverLabChoice::WallOnly:
+        LoadComparison( "SkullbonezData/solver-lab/wall-only/comparison.json" );
+        break;
+    default:
+        break;
+    }
+}
 bool Run::PublishComparisonLoad()
 {
     Core::Allocation::RuntimeAllocationScope loading( Core::Allocation::RuntimeAllocationPhase::Capture );
@@ -68,6 +83,21 @@ bool Run::PublishComparisonLoad()
         return false;
     }
     m_comparisonPanel.Prepare( m_sceneController.Scene().Colliders(), m_sceneController.Scene().RenderInstances() );
+    if ( !finding )
+    {
+        // Captures need not contain tick zero. Start where both producers have
+        // recorded motion, so a newly selected comparison opens with geometry.
+        int firstTick = 0;
+        for ( int side = 0; side < 2; ++side )
+        {
+            const auto& recording = m_comparison.Recording( side );
+            if ( !recording.frames.empty() )
+            {
+                firstTick = (std::max)( firstTick, recording.frames.front().sceneFrame + recording.tickOffset );
+            }
+        }
+        m_comparison.Seek( firstTick );
+    }
     auto& cameras = m_sceneController.Scene().Cameras();
     cameras.CancelTween();
     if ( finding )
@@ -108,7 +138,8 @@ void Run::FocusComparison()
     {
         return;
     }
-    const Vector3 center = a && b ? ( a->position + b->position ) * 0.5f : a ? a->position : b->position;
+    Vector3 center = a && b ? ( a->position + b->position ) * 0.5f : a ? a->position : b->position;
+    (void)m_comparisonPanel.ContactPivot( m_comparison, center );
     const float radius = m_comparisonPanel.Radius( m_comparison.Selected() ) +
                          ( a && b ? Length( a->position - b->position ) * 0.5f : 0 );
     auto& cameras = m_sceneController.Scene().Cameras();
@@ -132,10 +163,14 @@ void Run::MoveComparisonCamera( float yaw, float pitch, float panX, float panY, 
     {
         selected = m_comparison.Body( 1, m_comparison.Selected(), m_comparison.Tick() );
     }
-    const bool orbit = m_comparison.Settings().orbitSelected && selected;
+    const bool contactPivot = m_comparison.Settings().orbitSelected && m_comparisonPanel.ContactPivot( m_comparison, pivot );
+    const bool orbit = m_comparison.Settings().orbitSelected && ( selected || contactPivot );
     if ( orbit )
     {
-        pivot = selected->position;
+        if ( !contactPivot )
+        {
+            pivot = selected->position;
+        }
     }
     const auto offset = eye - pivot;
     float distance = (std::max)( 0.02f, Length( offset ) );
@@ -277,11 +312,13 @@ bool Run::UpdateComparisonInput( bool textActive )
         }
         if ( !textActive )
         {
-            if ( m_inputRouter.ConsumeRepeatingAction( RuntimeInputAction::ComparisonStepBackward, now, 0.075 ) )
+            Vector3 contactCenter;
+            const double repeatSeconds = m_comparisonPanel.ContactPivot( m_comparison, contactCenter ) ? 0.75 : 0.075;
+            if ( m_inputRouter.ConsumeRepeatingAction( RuntimeInputAction::ComparisonStepBackward, now, repeatSeconds ) )
             {
                 m_comparison.Step( -1 );
             }
-            if ( m_inputRouter.ConsumeRepeatingAction( RuntimeInputAction::ComparisonStepForward, now, 0.075 ) )
+            if ( m_inputRouter.ConsumeRepeatingAction( RuntimeInputAction::ComparisonStepForward, now, repeatSeconds ) )
             {
                 m_comparison.Step( 1 );
             }
@@ -291,8 +328,10 @@ bool Run::UpdateComparisonInput( bool textActive )
             }
         }
         const auto* after = m_comparison.Body( 0, m_comparison.Selected(), m_comparison.Tick() );
-        if ( m_comparison.Settings().followA && previousSelection == m_comparison.Selected() &&
-             previousEvent == m_comparison.EventSelectionRevision() && before && after )
+        Vector3 contactCenter;
+        if ( m_comparison.Settings().followA && !m_comparisonPanel.ContactPivot( m_comparison, contactCenter ) &&
+             previousSelection == m_comparison.Selected() && previousEvent == m_comparison.EventSelectionRevision() &&
+             before && after )
         {
             auto& cameras = m_sceneController.Scene().Cameras();
             const auto delta = after->position - previous;
@@ -330,6 +369,14 @@ bool Run::UpdateComparisonInput( bool textActive )
     else if ( action == ComparisonPanelAction::Close )
     {
         m_comparison.Close();
+    }
+    else if ( action == ComparisonPanelAction::RagdollWall || action == ComparisonPanelAction::WallOnly )
+    {
+        // A library switch replaces the current comparison. Release its large
+        // evidence stores before admitting the next bundle against the same cap.
+        m_comparison.Close();
+        LoadSolverLab( action == ComparisonPanelAction::RagdollWall ? UI::UISolverLabChoice::RagdollWall
+                                                                    : UI::UISolverLabChoice::WallOnly );
     }
     else if ( action == ComparisonPanelAction::Open || action == ComparisonPanelAction::Restore )
     {
@@ -453,8 +500,11 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
     }
     auto& state = application.result;
     state.hasComparison = true;
+    state.comparisonActive = m_comparison.Active();
+    state.comparisonBundle = m_comparison.Active() ? m_comparison.BundlePath() : "";
     state.comparisonLoading = m_comparisonLoad.Pending();
     state.comparisonLoadPercent = m_comparisonLoad.Percent();
+    state.comparisonLoadPhase = m_comparisonLoad.Phase();
     state.comparisonStacked = m_comparison.Settings().stackedViews;
     state.comparisonOrbit = m_comparison.Settings().orbitSelected;
     state.comparisonDragging = m_inputRouter.TimelineDragActive();
@@ -467,8 +517,21 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
     state.comparisonMode = static_cast<int>( m_comparison.Settings().display );
     state.comparisonSelected = m_comparison.Selected();
     state.comparisonEventCount = m_comparison.Events().size();
+    state.comparisonSelectedEvent = m_comparison.SelectedEvent();
+    if ( state.comparisonSelectedEvent >= 0 )
+    {
+        state.comparisonEventTick = m_comparison.Events()[static_cast<std::size_t>( state.comparisonSelectedEvent )].tick;
+    }
+    const auto contactFrame = m_comparisonPanel.BuildFrame( m_comparison, m_window.ClientWidth(), m_window.ClientHeight() );
+    Vector3 contactCenter;
+    if ( m_comparisonPanel.ContactPivot( m_comparison, contactCenter ) )
+    {
+        state.comparisonContactCenter = { contactCenter.x, contactCenter.y, contactCenter.z };
+    }
     for ( int side = 0; side < 2; ++side )
     {
+        state.comparisonContactPoints[side] = contactFrame.contacts[side].pointCount;
+        state.comparisonNormalScale[side] = contactFrame.contacts[side].normalLengthScale;
         state.comparisonCoverage[side] = m_comparison.Recording( side ).Frame( m_comparison.Tick() ) != nullptr;
         state.comparisonDiagnostics[side] = m_comparison.Recording( side ).Evidence( m_comparison.Tick() ) != nullptr;
         if ( const auto* body = m_comparison.Body( side, m_comparison.Selected(), m_comparison.Tick() ) )

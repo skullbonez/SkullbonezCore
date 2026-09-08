@@ -39,7 +39,9 @@ return without failing the draw.
 | Shader | Role |
 |--------|------|
 | `collision_visualizer.hlsl` | Per-instance colored collision/sleep-state overlay. |
-| `grid_line.hlsl` | Broadphase/grid line overlay. |
+| `grid_line.hlsl` | Colored debug lines and world gizmos; endpoint pairs expand to capsules with pixel-shader antialiasing. |
+| `paired_outline.hlsl` | Separate paired-view geometric-edge mask with pixel-shader coverage and depth visibility. |
+| `image_pair.hlsl` | Paired-view composition including the independent outline mask. |
 | `launcher_laser.hlsl` | Launcher-mode transient laser ribbon overlay. |
 | `lit_textured.hlsl` | Non-instanced lit terrain/object rendering. |
 | `lit_textured_instanced.hlsl` | Instanced lit dynamic-object rendering. |
@@ -81,6 +83,7 @@ parameter overrides.
 |--------|------|
 | `generate_mips.hlsl` | DX12 compute mip-generation shader. |
 | `shader_behavior.hlsli` | Dual-language periodic-sky and homogeneous ribbon-clipping behavior compiled by HLSL and focused CPU fixtures. |
+| `line_coverage.hlsli` | Shared screen-space edge expansion and pixel-shader distance coverage for diagnostic lines and paired outlines. |
 | `reflect.rt.hlsl` | DXR reflection raytracing library source. |
 | `reflect.rt.dxil` | Content-addressed DXR library bytecode generated with the raster and compute shader manifest. |
 

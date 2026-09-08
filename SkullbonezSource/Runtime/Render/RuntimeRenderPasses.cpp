@@ -105,8 +105,10 @@ constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_RIBBON_VISIBLE
     MakePassRasterStateBucket( 1,
                                { true, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
                                  SkullbonezCore::Rendering::BlendFactor::One, SkullbonezCore::Rendering::CullMode::None } );
-constexpr SkullbonezCore::Rendering::PassRasterStateBucket
-    REPLAY_LINE_RASTER = SkullbonezCore::Rendering::MakePassRasterStateBucket( 2, { false, false, false } );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_LINE_RASTER = SkullbonezCore::Rendering::
+    MakePassRasterStateBucket( 2, { false, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                    SkullbonezCore::Rendering::BlendFactor::OneMinusSrcAlpha,
+                                    SkullbonezCore::Rendering::CullMode::None } );
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket LAUNCHER_RASTER_BUCKET = SkullbonezCore::Rendering::
     MakePassRasterStateBucket( 0,
                                { false, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
@@ -208,9 +210,9 @@ void RenderReplayVisualPacket( const ReplayVisualPacket& packet, const Matrix4& 
     }
 }
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket DEBUG_LINE_RASTER = SkullbonezCore::Rendering::
-    MakePassRasterStateBucket( 0,
-                               { false, false, false, SkullbonezCore::Rendering::BlendFactor::One,
-                                 SkullbonezCore::Rendering::BlendFactor::Zero, SkullbonezCore::Rendering::CullMode::None } );
+    MakePassRasterStateBucket( 0, { false, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                    SkullbonezCore::Rendering::BlendFactor::OneMinusSrcAlpha,
+                                    SkullbonezCore::Rendering::CullMode::None } );
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket RETAINED_OVERLAY_DEPTH_HINT_RASTER = SkullbonezCore::Rendering::
     MakePassRasterStateBucket( 1,
                                { false, false, true, SkullbonezCore::Rendering::BlendFactor::SrcAlpha,

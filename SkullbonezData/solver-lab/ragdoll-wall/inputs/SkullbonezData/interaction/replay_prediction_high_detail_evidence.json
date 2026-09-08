@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 10, "showReplayScrubber": true },
+    { "frame": 18, "clickReplayControl": "predict" },
+    { "frame": 28, "clickObject": "prediction_striker", "button": "left" },
+    { "frame": 42, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 42, "assert": { "replayPathTarget": "prediction_striker" } },
+    { "frame": 78, "assert": { "predictionPathVisible": true } },
+    { "frame": 90, "assert": { "liveSolverHashStableAcrossPrediction": true } },
+    { "frame": 90, "assert": { "predictionEvidenceConsumerBalanced": true } },
+    { "frame": 90, "assert": { "predictionEvidencePipelineRowsMin": 1 } },
+    { "frame": 90, "assert": { "predictionCauseManifoldRowsMin": 3 } },
+    { "frame": 90, "assert": { "predictionCauseSolverRowsMin": 3 } },
+    { "frame": 90, "assert": { "predictionCauseSyntheticRowsMax": 0 } },
+    { "frame": 92, "selectReplayCauseRow": 2 }
+  ]
+}

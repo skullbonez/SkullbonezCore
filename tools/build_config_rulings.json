@@ -526,6 +526,10 @@
     "skullbonezsource/runtime/planning/physicscomparison.persistence.cpp": {
       "ExceptionHandling": "c8b8e7ac93a14e90ccfad5e917b78688683e46bffa43356f6547eb333aad5f62",
       "PreprocessorDefinitions": "f18bad991b9534a3bde801bc6a8812646a0727c52fef936c74be4ee20eac3a85"
+    },
+    "skullbonezsource/runtime/planning/physicscomparison.archive.cpp": {
+      "ExceptionHandling": "662e2b52981453001323b649285df5836bb5cff94d884da1d52b9d756e784082",
+      "PreprocessorDefinitions": "571cb660b60cfb3b3be30773ea49c45d10bb5920192b5ef84b2ff83faea78610"
     }
   }
 }

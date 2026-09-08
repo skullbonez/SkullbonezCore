@@ -42,12 +42,15 @@ using namespace SkullbonezCore::UI::Widgets;
 
 namespace
 {
-constexpr int UI_SCENE_CONTENT_HEIGHT = 470;
+constexpr int UI_SCENE_CONTENT_HEIGHT = 502;
 constexpr float UI_SCENE_RECORDING_COMBO_Y = 74.0f;
-constexpr float UI_SCENE_TIME_SCALE_SLIDER_Y = 196.0f;
-constexpr float UI_SCENE_PREDICTION_REVEAL_SLIDER_Y = 236.0f;
-constexpr float UI_SCENE_FORECAST_TITLE_Y = 286.0f;
-constexpr float UI_SCENE_FORECAST_BUTTON_Y = 312.0f;
+constexpr float UI_SCENE_SOLVER_LAB_COMBO_Y = 106.0f;
+constexpr const char* SOLVER_LAB_OPTIONS[] = { "Ragdoll & Wall: FP6 vs FP7",
+                                               "Wall Only - Post-Ragdoll Velocity: FP6 vs FP7" };
+constexpr float UI_SCENE_TIME_SCALE_SLIDER_Y = 228.0f;
+constexpr float UI_SCENE_PREDICTION_REVEAL_SLIDER_Y = 268.0f;
+constexpr float UI_SCENE_FORECAST_TITLE_Y = 318.0f;
+constexpr float UI_SCENE_FORECAST_BUTTON_Y = 344.0f;
 
 // Concept: the reveal slider is authored normalized 0..1 and mapped
 // exponentially, because the useful range spans three decades. A linear 1..1000
@@ -743,6 +746,30 @@ bool HandleClosedRecordingComboClick( UISceneTabState& state, int recordingOptio
 }
 
 
+bool HandleSolverLabClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY )
+{
+    if ( state.solverLabCombo.IsOpen() )
+    {
+        const int option = state.solverLabCombo.HitOption( mouseX, mouseY, 2 );
+        if ( option >= 0 && option < 2 )
+        {
+            state.selectedSolverLab = option;
+            result.commands.scene.solverLab = option == 0 ? UISolverLabChoice::RagdollWall : UISolverLabChoice::WallOnly;
+            result.commands.ui.userInteracted = true;
+        }
+        state.solverLabCombo.Close();
+        return true;
+    }
+    if ( !state.solverLabCombo.HitBox( mouseX, mouseY ) )
+    {
+        return false;
+    }
+    CloseCombo( state );
+    CloseRecordingCombo( state );
+    state.solverLabCombo.SetOpen( true );
+    return true;
+}
+
 bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                            float contentX, float rowBase, float contentW )
 {
@@ -920,6 +947,8 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
     SetSceneHeaderBounds( state.combo, state.resetSceneButton, state.resetDefaultsButton, state.saveDefaultsButton, contentX,
                           scrolledY + 42.0f, contentW );
     SetRecordingComboBounds( state.recordingCombo, contentX, scrolledY + 42.0f, contentW );
+    state.solverLabCombo.SetBounds( contentX, scrolledY + UI_SCENE_SOLVER_LAB_COMBO_Y, contentW, 24.0f );
+    state.solverLabCombo.SetDropUp( false );
 
     if ( data.targetFrameCount > 0 )
     {
@@ -933,7 +962,7 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         snprintf( buf, sizeof( buf ), "%d", data.currentFrame );
     }
 
-    if ( !state.combo.IsOpen() && !state.recordingCombo.IsOpen() )
+    if ( !state.combo.IsOpen() && !state.recordingCombo.IsOpen() && !state.solverLabCombo.IsOpen() )
     {
         const float sceneCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
         const Style::UIPalette& palette = Style::Palette();
@@ -943,29 +972,29 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         snprintf( statusBuf, sizeof( statusBuf ), "%s / capture lockstep %s", data.testComplete ? "complete" : "running",
                   data.fixedStep ? "on" : "off" );
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 104.0f, "Renderer", data.rendererName,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 136.0f, "Renderer", data.rendererName,
                           palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
 
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 104.0f, "Status", statusBuf, palette.accent.r,
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 136.0f, "Status", statusBuf, palette.accent.r,
                           palette.accent.g, palette.accent.b );
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 128.0f, "Frame", buf, palette.textPrimary.r,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 160.0f, "Frame", buf, palette.textPrimary.r,
                           palette.textPrimary.g, palette.textPrimary.b );
 
         snprintf( buf, sizeof( buf ), "%.1f FPS", data.fps );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 128.0f, "Frame rate", buf, palette.accentStrong.r,
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 160.0f, "Frame rate", buf, palette.accentStrong.r,
                           palette.accentStrong.g, palette.accentStrong.b );
 
         snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 152.0f, "Scene index", buf, palette.textPrimary.r,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 184.0f, "Scene index", buf, palette.textPrimary.r,
                           palette.textPrimary.g, palette.textPrimary.b );
 
         snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 152.0f, "Kinetic energy", buf,
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 184.0f, "Kinetic energy", buf,
                           palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
 
         snprintf( buf, sizeof( buf ), "%d", data.modelCount );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 176.0f, "Model count", buf, palette.textPrimary.r,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 208.0f, "Model count", buf, palette.textPrimary.r,
                           palette.textPrimary.g, palette.textPrimary.b );
 
         snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
@@ -1016,18 +1045,18 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
 
         const float forecastCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
         snprintf( buf, sizeof( buf ), "%.2fs", forecast.simulatedSeconds );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 346.0f, "Simulated", buf, palette.accentStrong.r,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 378.0f, "Simulated", buf, palette.accentStrong.r,
                           palette.accentStrong.g, palette.accentStrong.b );
         snprintf( buf, sizeof( buf ), "%.1fx", forecast.simulatedSecondsPerRealSecond );
-        DrawLabelValueAt( draw, contentY, contentH, forecastCol2, scrolledY + 346.0f, "Sim / real", buf, palette.accent.r,
+        DrawLabelValueAt( draw, contentY, contentH, forecastCol2, scrolledY + 378.0f, "Sim / real", buf, palette.accent.r,
                           palette.accent.g, palette.accent.b );
 
         snprintf( buf, sizeof( buf ), "%.2fs", forecast.rollingWindowAgeSeconds );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 372.0f, "Window age", buf, palette.textPrimary.r,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 404.0f, "Window age", buf, palette.textPrimary.r,
                           palette.textPrimary.g, palette.textPrimary.b );
         snprintf( buf, sizeof( buf ), "%s / %s", forecast.available ? "available" : "unavailable",
                   forecast.failed ? "failed" : ( forecast.workerInFlight ? "running" : "idle" ) );
-        DrawLabelValueAt( draw, contentY, contentH, forecastCol2, scrolledY + 372.0f, "Producer", buf,
+        DrawLabelValueAt( draw, contentY, contentH, forecastCol2, scrolledY + 404.0f, "Producer", buf,
                           forecast.failed ? palette.warningAccent.r : palette.textPrimary.r,
                           forecast.failed ? palette.warningAccent.g : palette.textPrimary.g,
                           forecast.failed ? palette.warningAccent.b : palette.textPrimary.b );
@@ -1042,7 +1071,7 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
             snprintf( buf, sizeof( buf ), "not started" );
         }
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 398.0f, "Stability", buf, palette.textPrimary.r,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 430.0f, "Stability", buf, palette.textPrimary.r,
                           palette.textPrimary.g, palette.textPrimary.b );
 
         if ( forecast.firstFailureCause == OperatorEditorForecastCause::None )
@@ -1056,7 +1085,7 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
                       forecast.firstFailureSubject, forecast.firstFailureOther );
         }
 
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 424.0f, "First cause", buf,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 456.0f, "First cause", buf,
                           palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
         char energyBuf[48] = "unavailable";
         char angularBuf[48] = "unavailable";
@@ -1074,7 +1103,7 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         }
 
         snprintf( buf, sizeof( buf ), "E %s / L %s", energyBuf, angularBuf );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 450.0f, "Conservation", buf, palette.textPrimary.r,
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 482.0f, "Conservation", buf, palette.textPrimary.r,
                           palette.textPrimary.g, palette.textPrimary.b );
     }
 
@@ -1098,6 +1127,16 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
                                    { std::span<const char* const>( visibleRecordingOptions,
                                                                    static_cast<std::size_t>( recordingVisibleCount ) ),
                                      selectedInSlice, 0u, selectedRecordingName },
+                                   { mouseX, mouseY } );
+    }
+
+    if ( !state.combo.IsOpen() && !state.recordingCombo.IsOpen() &&
+         IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_SOLVER_LAB_COMBO_Y, 24.0f ) )
+    {
+        state.solverLabCombo.Draw( draw, "Solver Lab",
+                                   { std::span<const char* const>( SOLVER_LAB_OPTIONS ), state.selectedSolverLab, 0u,
+                                     state.selectedSolverLab >= 0 ? SOLVER_LAB_OPTIONS[state.selectedSolverLab]
+                                                                  : "Choose a comparison" },
                                    { mouseX, mouseY } );
     }
 

@@ -1,0 +1,83 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      4,
+      4,
+      0,
+      1
+    ],
+    "exposure": 0.76,
+    "gamma": 2.0,
+    "sunScreenX": 0.22,
+    "sunScreenY": 0.7,
+    "sunIntensity": 18.0,
+    "styleGrade": [
+      1.28,
+      1.1,
+      0.72
+    ],
+    "sunColorR": 0.95,
+    "sunColorG": 0.46,
+    "sunColorB": 1.35,
+    "skyHorizonR": 0.48,
+    "skyHorizonG": 0.18,
+    "skyHorizonB": 0.72,
+    "skyZenithR": 0.12,
+    "skyZenithG": 0.04,
+    "skyZenithB": 0.2,
+    "terrainTint": [
+      0.5,
+      0.18,
+      0.68
+    ],
+    "terrainAccent": [
+      0.1,
+      0.95,
+      0.62
+    ],
+    "waterTint": [
+      0.16,
+      0.06,
+      0.26
+    ],
+    "waterProfile": [
+      0.88,
+      0.34,
+      0.42
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mode": "beachball"
+    },
+    {
+      "target": "prefix:rock",
+      "tint": [
+        0.2,
+        0.14,
+        0.28
+      ],
+      "mode": "matte"
+    },
+    {
+      "target": "prefix:crystal",
+      "tint": [
+        0.32,
+        1.0,
+        0.74
+      ],
+      "mode": "glass"
+    }
+  ]
+}

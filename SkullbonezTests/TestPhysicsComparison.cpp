@@ -1,9 +1,91 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "../SkullbonezSource/Runtime/Planning/PhysicsComparison.h"
+#include "../SkullbonezSource/Runtime/Planning/PhysicsComparison.Archive.h"
+#include "../SkullbonezSource/Runtime/Planning/PhysicsComparison.DiagnosticLines.h"
+#include <windows.h>
+#include <compressapi.h>
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 
 using namespace SkullbonezCore::Runtime;
+namespace
+{
+bool WriteDiagnosticArchive( const std::filesystem::path& path, const std::string& raw )
+{
+    COMPRESSOR_HANDLE compressor = nullptr;
+    if ( !CreateCompressor( COMPRESS_ALGORITHM_XPRESS_HUFF, nullptr, &compressor ) )
+    {
+        return false;
+    }
+    std::vector<char> packed( 65536 );
+    SIZE_T size = 0;
+    const bool compressed = Compress( compressor, raw.data(), raw.size(), packed.data(), packed.size(), &size ) != 0;
+    CloseCompressor( compressor );
+    if ( !compressed )
+    {
+        return false;
+    }
+    std::ofstream stream( path, std::ios::binary );
+    stream.write( "SKDIAG1\n", 8 );
+    const std::array<uint32_t, 2> sizes { static_cast<uint32_t>( raw.size() ), static_cast<uint32_t>( size ) };
+    stream.write( reinterpret_cast<const char*>( sizes.data() ), sizeof( sizes ) );
+    stream.write( packed.data(), static_cast<std::streamsize>( size ) );
+    const uint64_t end = 0;
+    stream.write( reinterpret_cast<const char*>( &end ), sizeof( end ) );
+    return static_cast<bool>( stream );
+}
+} // namespace
+
+TEST_CASE( "Physics comparison archives preserve bytes and reject incomplete evidence" )
+{
+    const auto directory = std::filesystem::temp_directory_path() /
+                           ( "solver-lab-archive-test-" + std::to_string( GetCurrentProcessId() ) );
+    std::filesystem::create_directories( directory );
+    const auto output = directory / "restored.ndjson";
+    const std::vector<std::string> parts { "first.skdiag", "second.skdiag" };
+    const std::string first = "{\"kind\":\"contact\",\"impulse\":0.001}\r\n";
+    const std::string second = "{\"kind\":\"frame\",\"tick\":2}\n";
+    REQUIRE( WriteDiagnosticArchive( directory / parts[0], first ) );
+    REQUIRE( WriteDiagnosticArchive( directory / parts[1], second ) );
+    ComparisonLoadProgress progress;
+    REQUIRE( RestoreComparisonDiagnostics( directory, parts, output, progress ) );
+    std::ifstream input( output, std::ios::binary );
+    const std::string restored( ( std::istreambuf_iterator<char>( input ) ), std::istreambuf_iterator<char>() );
+    CHECK( restored == first + second );
+    input.close();
+
+    SUBCASE( "Cancellation never leaves partial evidence" )
+    {
+        progress.cancelled.store( true );
+        CHECK_FALSE( RestoreComparisonDiagnostics( directory, parts, output, progress ) );
+        CHECK_FALSE( std::filesystem::exists( output ) );
+    }
+    SUBCASE( "Truncated terminator cannot publish" )
+    {
+        const auto path = directory / parts[1];
+        std::filesystem::resize_file( path, std::filesystem::file_size( path ) - 1 );
+        CHECK_FALSE( RestoreComparisonDiagnostics( directory, parts, output, progress ) );
+        CHECK_FALSE( std::filesystem::exists( output ) );
+    }
+    SUBCASE( "Parent paths cannot escape the evidence directory" )
+    {
+        const std::vector<std::string> escaped { "../first.skdiag" };
+        CHECK_FALSE( RestoreComparisonDiagnostics( directory, escaped, output, progress ) );
+    }
+    SUBCASE( "Oversized blocks are rejected before decoding" )
+    {
+        std::fstream archive( directory / parts[0], std::ios::binary | std::ios::in | std::ios::out );
+        archive.seekp( 8 );
+        const uint32_t oversized = 2 * 1024 * 1024;
+        archive.write( reinterpret_cast<const char*>( &oversized ), sizeof( oversized ) );
+        archive.close();
+        CHECK_FALSE( RestoreComparisonDiagnostics( directory, parts, output, progress ) );
+        CHECK_FALSE( std::filesystem::exists( output ) );
+    }
+    std::filesystem::remove_all( directory );
+}
+
 namespace SkullbonezCore::Runtime
 {
 struct PhysicsComparisonTestAccess
@@ -216,4 +298,85 @@ TEST_CASE( "Physics comparison supplements equal summaries with recorded manifol
     const auto revision = comparison.EventSelectionRevision();
     REQUIRE( comparison.SelectEvent( 0 ) );
     CHECK( comparison.EventSelectionRevision() > revision );
+}
+
+TEST_CASE( "Physics comparison buffered diagnostics preserve block boundaries and final lines" )
+{
+    const auto path = std::filesystem::temp_directory_path() /
+                      ( "solver-lab-lines-" + std::to_string( GetCurrentProcessId() ) );
+    const std::string first( 65530, 'x' );
+    const std::string second = "a row crossing the block boundary\r";
+    {
+        std::ofstream output( path, std::ios::binary );
+        output << first << '\n' << second << "\nfinal";
+    }
+    ComparisonDiagnosticLines input( path );
+    std::string line;
+    REQUIRE( input.Read( line ) );
+    CHECK( line == first );
+    REQUIRE( input.Read( line ) );
+    CHECK( line == second );
+    REQUIRE( input.Read( line ) );
+    CHECK( line == "final" );
+    CHECK_FALSE( input.Read( line ) );
+    CHECK( input.Good() );
+    REQUIRE( input.Rewind() );
+    REQUIRE( input.Read( line ) );
+    CHECK( line == first );
+    const auto oversized = path.string() + ".oversized";
+    {
+        std::ofstream output( oversized );
+        output << std::string( 65537, 'x' );
+    }
+    ComparisonDiagnosticLines invalid( oversized );
+    CHECK_FALSE( invalid.Read( line ) );
+    CHECK_FALSE( invalid.Good() );
+}
+
+TEST_CASE( "Physics comparison streaming JSON preserves contact values and rejects malformed normals" )
+{
+    PhysicsComparison comparison;
+    PhysicsComparisonTestAccess::Populate( comparison, 1 );
+    auto& recording = PhysicsComparisonTestAccess::Recordings( comparison )[0];
+    recording.frames[0].bodies[0].modelRow.value = 0;
+    const auto path = std::filesystem::temp_directory_path() /
+                      ( "solver-lab-row-" + std::to_string( GetCurrentProcessId() ) );
+    auto load = [&]( const std::string& normal )
+    {
+        recording.observations.clear();
+        std::ofstream output( path, std::ios::binary );
+        output << "{\"kind\":\"frame\",\"frame\":0}\n"
+               << "{\"kind\":\"contact\",\"frame\":0,\"body_a\":0,\"body_b\":-1,\"warm_started\":1,"
+                  "\"feature_id\":4294967295,\"normal\":"
+               << normal
+               << ",\"penetration\":-0.125,"
+                  "\"normal_impulse\":2.5,\"tangent_impulse\":-0.75,\"pre_solve_normal_speed\":-1.25,"
+                  "\"pre_solve_slip_speed\":0.5,\"slip_speed\":0.25,\"ignored\":{\"normal\":[9,9,9]}}\n";
+        output.close();
+        uint64_t bytes = 0;
+        return recording.LoadObservations( path.string().c_str(), 1, bytes );
+    };
+    REQUIRE( load( "[0.25,0.5,-0.75]" ) );
+    const auto* observation = recording.Observation( 1 );
+    REQUIRE( observation );
+    REQUIRE( observation->contacts.size() == 1 );
+    const auto& contact = observation->contacts[0];
+    CHECK( contact.bodyA == 7 );
+    CHECK( contact.terrain );
+    CHECK( contact.feature == UINT32_MAX );
+    CHECK( contact.warmStarted );
+    CHECK( contact.normal.x == 0.25f );
+    CHECK( contact.normal.y == 0.5f );
+    CHECK( contact.normal.z == -0.75f );
+    CHECK( contact.penetration == -0.125f );
+    CHECK( contact.normalImpulse == 2.5f );
+    CHECK( contact.tangentImpulse == -0.75f );
+    CHECK( contact.preNormalSpeed == -1.25f );
+    CHECK( contact.preSlipSpeed == 0.5f );
+    CHECK( contact.postSlipSpeed == 0.25f );
+    for ( const char* normal : { "[1,true,2,3]", "[1,[],2,3]", "[1,2]", "[1,2,3,4]", "[1,2,1e100]", "[1,2,3" } )
+    {
+        CHECK_FALSE( load( normal ) );
+    }
+    std::filesystem::remove( path );
 }
