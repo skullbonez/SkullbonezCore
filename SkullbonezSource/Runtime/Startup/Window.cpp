@@ -16,8 +16,8 @@ Invariants:
   - Window dimensions are client-area dimensions and drive both renderer resize
     and the perspective/text projections.
   - Window retains no Input, renderer, or development-UI owner.
-  - The singleton pointer is a legacy access shim around static storage; native
-    HWND/HDC lifetime still follows CreateAppWindow and OS messages.
+  - Native move/resize loops retain only the latest size; their mouse input
+    belongs to Windows, not a later gameplay frame.
 
 Related:
   - SkullbonezSource/Runtime/Startup/Window.h
@@ -224,15 +224,7 @@ void Window::DispatchNativeMessage( const NativeHostMessage& message, const Nati
 
 bool Window::ConsumeNativeEvent( NativeHostEvent& event )
 {
-    if ( m_eventCount == 0 )
-    {
-        return false;
-    }
-
-    event = m_events[m_eventRead];
-    m_eventRead = ( m_eventRead + 1 ) % m_events.size();
-    --m_eventCount;
-    return true;
+    return m_events.Pop( event );
 }
 
 
@@ -282,17 +274,6 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
 
     const NativeHostMessageRoute route = window && window->m_dispatchActive ? window->m_activeRoute
                                                                             : NativeHostMessageRoute {};
-    const auto pushEvent = []( Window& owner, const NativeHostEvent& event )
-    {
-        if ( owner.m_eventCount >= owner.m_events.size() )
-        {
-            SB_FATAL( "Runtime/Startup/Window", "Native event queue exhausted capacity=%zu", owner.m_events.size() );
-        }
-
-        const std::size_t write = ( owner.m_eventRead + owner.m_eventCount ) % owner.m_events.size();
-        owner.m_events[write] = event;
-        ++owner.m_eventCount;
-    };
 
     // Window callbacks cannot propagate failures through Win32. Engine-owned
     // operations invoked here use explicit result/fatal lanes.
@@ -308,6 +289,16 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
         break;
     }
 
+    case WM_ENTERSIZEMOVE:
+    case WM_EXITSIZEMOVE:
+        if ( window )
+        {
+            // DefWindowProc runs its own modal pump here. App cannot drain this
+            // queue until that outer dispatch returns, regardless of drag length.
+            window->m_events.SetMoveResizeActive( messageId == WM_ENTERSIZEMOVE );
+        }
+        return 0;
+
     // WM_SIZE fired on a resize
     case WM_SIZE:
 
@@ -318,7 +309,7 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
             const int height = HIWORD( lParam );
             window->m_sWindowDimensions.x = width;
             window->m_sWindowDimensions.y = height;
-            pushEvent( *window, NativeHostEvent { NativeHostEventType::Resize, windowHandle, width, height } );
+            window->m_events.Push( NativeHostEvent { NativeHostEventType::Resize, windowHandle, width, height } );
         }
 
         break;
@@ -338,15 +329,16 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
 
         if ( window && GetForegroundWindow() == windowHandle )
         {
-            pushEvent( *window,
-                       NativeHostEvent { NativeHostEventType::MouseWheel, windowHandle, GET_WHEEL_DELTA_WPARAM( wParam ) } );
+            window->m_events.Push(
+                NativeHostEvent { NativeHostEventType::MouseWheel, windowHandle, GET_WHEEL_DELTA_WPARAM( wParam ) } );
         }
 
         break;
 
     case WM_INPUT:
     {
-        if ( !route.engineConsumes || !window || GetForegroundWindow() != windowHandle )
+        if ( !route.engineConsumes || !window || window->m_events.MoveResizeActive() ||
+             GetForegroundWindow() != windowHandle )
         {
             break;
         }
@@ -361,10 +353,10 @@ LRESULT CALLBACK SkullbonezCore::Runtime::WndProc( HWND windowHandle, UINT messa
              raw.header.dwType == RIM_TYPEMOUSE )
         {
             const RAWMOUSE& mouse = raw.data.mouse;
-            pushEvent( *window,
-                       NativeHostEvent { NativeHostEventType::RawMouse, windowHandle, static_cast<int>( mouse.lLastX ),
-                                         static_cast<int>( mouse.lLastY ), ( mouse.usFlags & MOUSE_MOVE_ABSOLUTE ) != 0,
-                                         ( mouse.usFlags & MOUSE_VIRTUAL_DESKTOP ) != 0 } );
+            window->m_events.Push( NativeHostEvent { NativeHostEventType::RawMouse, windowHandle,
+                                                     static_cast<int>( mouse.lLastX ), static_cast<int>( mouse.lLastY ),
+                                                     ( mouse.usFlags & MOUSE_MOVE_ABSOLUTE ) != 0,
+                                                     ( mouse.usFlags & MOUSE_VIRTUAL_DESKTOP ) != 0 } );
         }
 
         break;
@@ -535,8 +527,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE instance, bool
     // CreateWindow/ShowWindow synchronously deliver the initial WM_SIZE. Init
     // applies the final cached client dimensions directly once the renderer
     // exists, so do not replay those construction-only events into frame one.
-    m_eventRead = 0;
-    m_eventCount = 0;
+    m_events.Reset();
 
     return SkullbonezCore::Core::SbResult::Success();
 }

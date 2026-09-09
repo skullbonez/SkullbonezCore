@@ -35,6 +35,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Runtime/Startup/Window.h"
 
 #include "../SkullbonezSource/Runtime/App/InputFrame.h"
 #include "../SkullbonezSource/Runtime/App/GraphicsStressApplication.h"
@@ -1380,4 +1381,87 @@ TEST_CASE( "Trip controls wait for a usable prediction baseline" )
     planner.liveAdvancing = true;
     BuildReplayTripPlannerSurface( planner, { 300.0f, 80.0f, 500.0f, 94.0f }, surface, true );
     CHECK_FALSE( surface.Find( ReplayTripPlannerControl::Plan )->enabled );
+}
+
+TEST_CASE( "Native window modal drags keep final resize without accumulating mouse input" )
+{
+    using namespace SkullbonezCore::Runtime;
+    NativeHostEventQueue queue;
+    NativeHostEvent event;
+    queue.Push( { NativeHostEventType::MouseWheel, nullptr, 120 } );
+    queue.SetMoveResizeActive( true );
+    for ( int sample = 0; sample < 10000; ++sample )
+    {
+        queue.Push( { NativeHostEventType::RawMouse, nullptr, 4, -3 } );
+        queue.Push( { NativeHostEventType::MouseWheel, nullptr, -120 } );
+        queue.Push( { NativeHostEventType::Resize, nullptr, 320 + sample, 240 + sample } );
+    }
+    REQUIRE( queue.Pop( event ) );
+    CHECK( event.type == NativeHostEventType::MouseWheel );
+    CHECK( event.first == 120 );
+    CHECK_FALSE( queue.Pop( event ) );
+    queue.SetMoveResizeActive( false );
+    queue.Push( { NativeHostEventType::RawMouse, nullptr, 7, -9, true, true } );
+    REQUIRE( queue.Pop( event ) );
+    CHECK( event.type == NativeHostEventType::Resize );
+    CHECK( event.first == 10319 );
+    CHECK( event.second == 10239 );
+    REQUIRE( queue.Pop( event ) );
+    CHECK( event.type == NativeHostEventType::RawMouse );
+    CHECK( event.first == 7 );
+    CHECK( event.second == -9 );
+    CHECK( event.absolute );
+    CHECK( event.virtualDesktop );
+    CHECK_FALSE( queue.Pop( event ) );
+}
+
+TEST_CASE( "Native window move-only loops and repeated resizes leave no stale events" )
+{
+    using namespace SkullbonezCore::Runtime;
+    NativeHostEventQueue queue;
+    NativeHostEvent event;
+    for ( int drag = 0; drag < 20; ++drag )
+    {
+        queue.SetMoveResizeActive( true );
+        for ( int sample = 0; sample < 10000; ++sample )
+        {
+            queue.Push( { NativeHostEventType::RawMouse, nullptr, 1, 2 } );
+        }
+        queue.SetMoveResizeActive( false );
+        CHECK_FALSE( queue.Pop( event ) );
+        queue.SetMoveResizeActive( true );
+        queue.Push( { NativeHostEventType::Resize, nullptr, 800 + drag, 600 } );
+        queue.SetMoveResizeActive( false );
+        REQUIRE( queue.Pop( event ) );
+        CHECK( event.first == 800 + drag );
+        CHECK_FALSE( queue.Pop( event ) );
+    }
+    queue.SetMoveResizeActive( true );
+    queue.Push( { NativeHostEventType::Resize, nullptr, 900, 700 } );
+    queue.Reset();
+    CHECK_FALSE( queue.MoveResizeActive() );
+    queue.SetMoveResizeActive( false );
+    CHECK_FALSE( queue.Pop( event ) );
+}
+
+TEST_CASE( "Native window ordinary events remain FIFO across queue wrap" )
+{
+    using namespace SkullbonezCore::Runtime;
+    NativeHostEventQueue queue;
+    NativeHostEvent event;
+    for ( int batch = 0; batch < 20; ++batch )
+    {
+        for ( int sample = 0; sample < 200; ++sample )
+        {
+            queue.Push( { NativeHostEventType::RawMouse, nullptr, batch, sample } );
+        }
+        for ( int sample = 0; sample < 200; ++sample )
+        {
+            REQUIRE( queue.Pop( event ) );
+            CHECK( event.type == NativeHostEventType::RawMouse );
+            CHECK( event.first == batch );
+            CHECK( event.second == sample );
+        }
+        CHECK_FALSE( queue.Pop( event ) );
+    }
 }

@@ -4,6 +4,32 @@ Date: 2026-09-09
 Branch: `codex/unified-ui`
 Status: Unified UI complete at 8/8; portfolio 146/154. Closure is committed on this branch.
 
+## Window move/resize crash follow-up - 2026-09-09
+
+The native window callback queue now keeps only the final client resize while
+Windows runs its title-bar move/resize loop. Mouse motion and wheel input owned
+by that loop never accumulate for a later gameplay frame. Ordinary events keep
+their bounded FIFO behavior, and cached client dimensions still update immediately.
+
+A native callback probe against the previous source reproduces the exact
+`Native event queue exhausted capacity=256` fatal (exit 91). The fixed source
+handles 10,000 nested resize/raw-message pairs, publishes one final resize, and
+accepts the next ordinary resize (exit 0). This exercises real WndProc callbacks;
+it is not a manual title-bar drag. Regression units separately cover copied raw
+input, wheel input, repeated move-only loops, reset and FIFO wrap.
+Evidence: `TestOutput/window-move-native/comparison.json` and
+`TestOutput/window-move-*.log`. No golden baseline changed.
+
+The fast gate's complete preflight passes, including 845 compiler contexts with
+zero findings. The separate unit gate passes 991 cases / 2,746,638 assertions.
+Automation builds warning-clean. The complete Automation/Skarness gate and the
+required Physics commit gate pass, including the clean-process worker matrix.
+Profile linking is currently blocked by the
+user's paused Profile process holding its executable open (LNK1104); the process
+is preserved while its release is requested. The original `validate_fast` run
+therefore remains failed at its build step; its preflight and the separate unit
+gate results above are the completed checks.
+
 ## Unified UI current handoff - 2026-09-09
 
 UNIFIED_UI is complete at 8/8. MASTER and this handoff both report 146/154 after

@@ -18,8 +18,8 @@ Invariants:
   - Cached dimensions store client width/height, not monitor or full window
     bounds.
   - Native callbacks never call Runtime owners or retain subsystem pointers.
-  - App drains events synchronously after each dispatched message, so raw-input
-    values cannot outlive the native packet that produced them.
+  - Raw input is copied while its native packet is valid. App drains the copies
+    after dispatch returns; Windows owns mouse input in its move/resize loop.
   - projectionMatrix uses the scene presentation rectangle and cached depth
     settings. App republishes layout before world input and rendering.
 
@@ -35,6 +35,7 @@ Related:
 
 #include "../../Core/Common.h"
 #include "../../Core/SbResult.h"
+#include "../../Core/FatalError.h"
 #include "../../Maths/Matrix4.h"
 
 #include <array>
@@ -62,6 +63,70 @@ struct NativeHostEvent
     bool virtualDesktop = false;
 };
 
+// Window-owned queue: native move/resize dispatch can outlast arbitrarily many
+// callbacks. Keep only its final client size and never replay OS drag input.
+class NativeHostEventQueue
+{
+  public:
+    void SetMoveResizeActive( bool active )
+    {
+        m_moveResizeActive = active;
+        if ( !active && m_resizePending )
+        {
+            m_resizePending = false;
+            Push( m_pendingResize );
+        }
+    }
+    bool MoveResizeActive() const
+    {
+        return m_moveResizeActive;
+    }
+    void Push( const NativeHostEvent& event )
+    {
+        if ( m_moveResizeActive )
+        {
+            if ( event.type == NativeHostEventType::Resize )
+            {
+                m_pendingResize = event;
+                m_resizePending = true;
+            }
+            return;
+        }
+        if ( m_count >= m_events.size() )
+        {
+            SB_FATAL( "Runtime/Startup/Window", "Native event queue exhausted capacity=%zu", m_events.size() );
+        }
+        m_events[( m_read + m_count ) % m_events.size()] = event;
+        ++m_count;
+    }
+    bool Pop( NativeHostEvent& event )
+    {
+        if ( m_count == 0 )
+        {
+            return false;
+        }
+        event = m_events[m_read];
+        m_read = ( m_read + 1 ) % m_events.size();
+        --m_count;
+        return true;
+    }
+    void Reset()
+    {
+        m_read = 0;
+        m_count = 0;
+        m_moveResizeActive = false;
+        m_resizePending = false;
+    }
+
+  private:
+    std::array<NativeHostEvent, 256> m_events = {};
+    std::size_t m_read = 0;
+    std::size_t m_count = 0;
+    NativeHostEvent m_pendingResize;
+    bool m_moveResizeActive = false;
+    bool m_resizePending = false;
+};
+
 struct NativeHostMessage
 {
     HWND window = nullptr;
@@ -84,8 +149,6 @@ class Window
     friend LRESULT CALLBACK WndProc( HWND windowHandle, UINT messageId, WPARAM wParam, LPARAM lParam );
 
   private:
-    static constexpr std::size_t kEventCapacity = 256;
-
     SkullbonezCore::Core::SbDiagnosticStore&
         m_resultDiagnostics;                        // Process diagnostic lease borrowed for the window lifetime.
     HWND m_sWindow;                                 // Native Win32 window handle owned by startup/window creation.
@@ -97,9 +160,7 @@ class Window
     float m_projectionFarPlane;                     // Far depth plane used by the cached perspective projection.
     int m_startupWindowWidth = 1800;                // Configured initial window width supplied by startup.
     int m_startupWindowHeight = 1000;               // Configured initial window height supplied by startup.
-    std::array<NativeHostEvent, kEventCapacity> m_events = {};
-    std::size_t m_eventRead = 0;
-    std::size_t m_eventCount = 0;
+    NativeHostEventQueue m_events;
     NativeHostMessageRoute m_activeRoute;
     bool m_dispatchActive = false;
     RECT m_presentationViewport = {};
