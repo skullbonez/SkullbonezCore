@@ -29,6 +29,7 @@ Related:
 #include "../../Interaction/OperatorUiCommands.h"
 #include "../../../UI/UIDraw.h"
 #include "../../../UI/UISlider.h"
+#include "../../../UI/UITooltip.h"
 
 namespace SkullbonezCore
 {
@@ -52,6 +53,7 @@ struct UISkyTabState
 };
 
 int ContentHeight();
+UITooltipTarget TooltipAt( const UISkyTabState& state, int mouseX, int mouseY );
 bool HandleContentClick( UISkyTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                          float contentX, float scrolledY, float contentW );
 bool UpdateActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );

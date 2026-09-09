@@ -916,7 +916,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, Rendering:
     }
 
     target.Unbind();
-    renderFrame.SetViewport( 0, 0, m_activeWindowWidth, m_activeWindowHeight );
+    renderFrame.RestorePresentationViewport();
 }
 
 
@@ -1218,7 +1218,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
         PROFILE_GPU_END( gpuTiming, "Frame/Render/Reflection/Balls" );
 
         m_resources.target->Unbind();
-        inputs.renderFrame.SetViewport( 0, 0, inputs.windowWidth, inputs.windowHeight );
+        inputs.renderFrame.RestorePresentationViewport();
         output.reflectionTextureHandle = m_resources.target->GetColorTextureHandle();
         output.reflectionSampleViewProjection = inputs.reflectionViewProjection;
     }
@@ -1775,7 +1775,7 @@ bool VolumetricPass::Render( const RenderCameraLighting& camera,
                              Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
                              Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
                              Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner* gpuTiming,
-                             int windowWidth, int windowHeight, const Rendering::RenderGraphTextureBinding* graphOutput )
+                             const Rendering::RenderGraphTextureBinding* graphOutput )
 {
     if ( !CanRender( true, &cinematic ) )
     {
@@ -1833,7 +1833,7 @@ bool VolumetricPass::Render( const RenderCameraLighting& camera,
     }
 
     renderGraph.EndGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
-    renderFrame.SetViewport( 0, 0, windowWidth, windowHeight );
+    renderFrame.RestorePresentationViewport();
 
     if ( detailMarkers )
     {
@@ -1870,8 +1870,7 @@ void TonemapPass::ReleaseGpuResources()
 void TonemapPass::Render( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                           Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
                           Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12Diagnostics& renderDiagnostics,
-                          Rendering::RenderGpuTimingOwner* gpuTiming, int windowWidth, int windowHeight,
-                          bool sceneAlreadyUnbound, bool volumetricReady,
+                          Rendering::RenderGpuTimingOwner* gpuTiming, bool sceneAlreadyUnbound, bool volumetricReady,
                           const Rendering::RenderGraphTextureBinding* graphVolumetric )
 {
     if ( !m_sceneResources.hdrTarget || !m_tonemapResources.shader || m_fullscreenResources.quadVB == 0 )
@@ -1893,7 +1892,7 @@ void TonemapPass::Render( const SkullbonezCore::Core::CinematicRenderConfig& cin
         m_sceneResources.hdrTarget->Unbind();
     }
 
-    renderFrame.SetViewport( 0, 0, windowWidth, windowHeight );
+    renderFrame.RestorePresentationViewport();
 
     // Concept: "resolve" means "turn our off-screen cinematic render target
     // into the final image on the window." This is where the HDR scene becomes

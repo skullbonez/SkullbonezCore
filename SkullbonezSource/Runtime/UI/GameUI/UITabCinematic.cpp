@@ -20,6 +20,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabCinematic.h"
+#include "UIRenderTooltipText.h"
 
 #include "UI.h"
 #include "../../Render/UIRenderAuthoringCatalog.h"
@@ -674,6 +675,37 @@ void Draw( UICinematicTabState& state, const UIDrawContext& draw, const UICinema
             state.sliders[i].Draw( draw, spec.label, buf, value, policy.minValue, policy.maxValue );
         }
     }
+}
+
+
+UITooltipTarget TooltipAt( const UICinematicTabState& state, int mouseX, int mouseY )
+{
+    const UITooltipTarget action { 3300, state.modeCombo.Bounds(), { "Load an existing cinematic style scene." } };
+    if ( action.bounds.Contains( mouseX, mouseY ) )
+    {
+        auto target = action;
+        target.hovered = true;
+        return target;
+    }
+    for ( int index = 0; index < static_cast<int>( UICinematicFeature::Count ); ++index )
+    {
+        if ( state.featureToggles[index].HitTest( mouseX, mouseY ) )
+        {
+            const int feature = static_cast<int>( kGameCinematicFeatureSpecs[index].feature );
+            return { static_cast<uint32_t>( 3301 + feature ), state.featureToggles[index].Bounds(),
+                     kCinematicFeatureTooltipText[feature], true };
+        }
+    }
+    for ( int index = 0; index < static_cast<int>( UICinematicParam::Count ); ++index )
+    {
+        if ( state.sliders[index].HitTest( mouseX, mouseY ) )
+        {
+            const int parameter = static_cast<int>( kGameCinematicSliderSpecs[index].param );
+            return { static_cast<uint32_t>( 3320 + parameter ), state.sliders[index].Bounds(),
+                     kCinematicTooltipText[parameter], true };
+        }
+    }
+    return {};
 }
 
 } // namespace CinematicTab

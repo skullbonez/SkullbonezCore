@@ -212,6 +212,9 @@ def launch(
     manual: bool = False,
     detail: str | None = None,
     fixed_step: bool = False,
+    layout_file: Path | None = None,
+    model_capacity: int | None = None,
+    render_defaults_file: Path | None = None,
 ) -> int:
     session.mkdir(parents=True, exist_ok=True)
     manifest = session / "session.json"
@@ -225,6 +228,19 @@ def launch(
         command.append("--automation-hidden-window")
     if fixed_step:
         command.append("--fixed-step")
+    if model_capacity is not None:
+        if model_capacity < 1:
+            raise ValueError("model_capacity must be positive")
+        command.extend(("--model-capacity", str(model_capacity)))
+    # Native UI tests get independent preferences; callers may share an explicit
+    # file across sessions when testing launch-to-launch retention.
+    if layout_file is None:
+        layout_file = session / "ui-layout.preferences"
+        layout_file.unlink(missing_ok=True)
+    process_environment = os.environ.copy()
+    process_environment["SKULLBONEZ_UI_LAYOUT_FILE"] = str(layout_file.resolve())
+    if render_defaults_file is not None:
+        process_environment["SKULLBONEZ_RENDER_DEFAULTS_FILE"] = str(render_defaults_file.resolve())
     stdout = open(session / "process.stdout.log", "wb")
     stderr = open(session / "process.stderr.log", "wb")
     try:
@@ -235,6 +251,7 @@ def launch(
             stdout=stdout,
             stderr=stderr,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+            env=process_environment,
         )
     finally:
         stdout.close()

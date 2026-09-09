@@ -66,16 +66,18 @@ using SkullbonezCore::UI::UIVisualState;
 namespace Style = SkullbonezCore::UI::Style;
 namespace Widgets = SkullbonezCore::UI::Widgets;
 
-constexpr uint64_t kExpectedRestingComponentFingerprint = 9585956286470253977ull;
-constexpr uint64_t kExpectedEngagedComponentFingerprint = 15522795272601894673ull;
+// Approved Unified UI appearance: neutral chrome, rounded controls and opaque,
+// clipped foreground popups. Exact wrapper/stateless parity remains required.
+constexpr uint64_t kExpectedRestingComponentFingerprint = 13875932087700791586ull;
+constexpr uint64_t kExpectedEngagedComponentFingerprint = 5423888356771029687ull;
 constexpr std::array<uint64_t, 8> kExpectedStatelessStateFingerprints = {
-    9138081368605736749ull, 49288575029089482ull,   211756514920079498ull,   6302452228787434232ull,
-    2904659679807374515ull, 4645013559851399903ull, 13061036390687143437ull, 5558979605539197941ull,
+    13038061018592724847ull, 5009104184039438485ull,  15066562396268640861ull, 8394683556076108517ull,
+    14123923753461278030ull, 13047580132770480890ull, 7352780170727064552ull,  5558979605539197941ull,
 };
 
 // The fixture contains only production-reachable component operations,
 // including the compact panel and button adopted by Runtime owners.
-constexpr uint64_t kExpectedStatelessFixtureFingerprint = 7518969973781773681ull;
+constexpr uint64_t kExpectedStatelessFixtureFingerprint = 6646648613973527720ull;
 
 bool NearlyEqual( float left, float right )
 {
@@ -233,9 +235,10 @@ bool CheckComponentBaselines()
         if ( engaged )
         {
             const int hoveredOption = Widgets::ComboOptionAtPointer( comboLayout.popupBounds, comboState, 80, 157, 3 );
-            Widgets::DrawComboPopup( draw, comboLayout,
-                                     { std::span<const char* const>( kComboOptions ), 1, 1u }, hoveredOption, comboState,
-                                     kEstablished );
+            drawList->BeginForeground();
+            Widgets::DrawComboPopup( draw, comboLayout, { std::span<const char* const>( kComboOptions ), 1, 1u },
+                                     hoveredOption, comboState, kEstablished );
+            drawList->EndForeground();
         }
 
         Widgets::DrawIconButton( draw, iconBounds, engaged ? Widgets::ComponentIcon::Minus : Widgets::ComponentIcon::Plus,
@@ -585,10 +588,8 @@ bool CheckStatelessComponentContracts()
 
     static constexpr const char* kOptions[] = { "Alpha", "Beta", "Gamma" };
     drawList->Clear();
-    Widgets::DrawPanel( draw, { 8.0f, 68.0f, 218.0f, 44.0f }, kEnabled,
-                        Widgets::ComponentAppearance::Compact, 0.88f );
-    Widgets::DrawButton( draw, { 12.0f, 46.0f, 100.0f, 22.0f }, "Compact", kEnabled,
-                         Widgets::ComponentAppearance::Compact );
+    Widgets::DrawPanel( draw, { 8.0f, 68.0f, 218.0f, 44.0f }, kEnabled, Widgets::ComponentAppearance::Compact, 0.88f );
+    Widgets::DrawButton( draw, { 12.0f, 46.0f, 100.0f, 22.0f }, "Compact", kEnabled, Widgets::ComponentAppearance::Compact );
     Widgets::DrawButton( draw, { 12.0f, 76.0f, 100.0f, 28.0f }, "Apply", kEnabled | UIVisualState::Active );
     Widgets::DrawButton( draw, { 118.0f, 76.0f, 100.0f, 28.0f }, "Blocked", kDisabled );
     Widgets::DrawToggle( draw, { 12.0f, 110.0f, 206.0f, 24.0f }, "Enabled", Style::Palette().accent,

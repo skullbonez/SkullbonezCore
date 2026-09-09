@@ -75,6 +75,7 @@ struct UIMemoryOverlayState
 {
     bool overlayEnabled = false;
     MemoryOverlaySample samples[MEMORY_OVERLAY_SAMPLE_COUNT] = {};
+    UIRect dockedBounds;
     int sampleHead = 0;
     int sampleCount = 0;
     uint64_t axisMinBytes = 0;

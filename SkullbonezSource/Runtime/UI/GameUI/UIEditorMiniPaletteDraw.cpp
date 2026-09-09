@@ -538,6 +538,10 @@ void DrawEditorMiniPalette( const UIDrawContext& draw, const EditorMiniPaletteLa
     const char* tooltipLabel = nullptr;
     UIRect tooltipAnchor = {};
 
+    if ( layout.docked )
+    {
+        draw.PushClip( layout.clip );
+    }
     for ( int i = 0; i < layout.buttonCount; ++i )
     {
         const EditorMiniPaletteEntry& entry = kEditorMiniPaletteEntries[i];
@@ -566,8 +570,13 @@ void DrawEditorMiniPalette( const UIDrawContext& draw, const EditorMiniPaletteLa
         }
     }
 
+    if ( layout.docked )
+    {
+        draw.PopClip();
+    }
     if ( layout.flyoutVisible )
     {
+        draw.BeginForeground();
         draw.RoundedRect( layout.flyoutBounds.x + 2.0f, layout.flyoutBounds.y + 2.0f, layout.flyoutBounds.w,
                           layout.flyoutBounds.h, Style::Radii().control, 0.0f, 0.0f, 0.0f, 0.24f );
 
@@ -603,7 +612,11 @@ void DrawEditorMiniPalette( const UIDrawContext& draw, const EditorMiniPaletteLa
         }
     }
 
-    if ( tooltipLabel )
+    if ( layout.flyoutVisible )
+    {
+        draw.EndForeground();
+    }
+    if ( tooltipLabel && !layout.docked )
     {
         DrawEditorMiniTooltip( draw, tooltipAnchor, tooltipLabel, screenW, screenH );
     }

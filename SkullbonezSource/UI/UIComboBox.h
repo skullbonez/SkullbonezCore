@@ -53,6 +53,11 @@ class UIComboBox
     bool IsOpen() const;
     void SetOpen( bool open );
     void SetDropUp( bool dropUp );
+    void SetPopupViewport( const UIRect& viewport );
+    void SetScrollable( bool enabled );
+    int VisibleOptionCount( int optionCount ) const;
+    int FirstVisibleOption( int optionCount ) const;
+    void ScrollOptions( int rows, int optionCount );
     void SetLabelVisible( bool visible );
     void ToggleOpen();
     void Close();
@@ -60,10 +65,14 @@ class UIComboBox
                UIPointerPosition pointer ) const;
 
   private:
+    bool ResolveDropUp( int optionCount ) const;
     UIRect m_bounds;
+    UIRect m_popupViewport;
     bool m_isOpen = false;
     bool m_dropUp = false;
     bool m_labelVisible = true;
+    bool m_scrollable = false;
+    int m_firstVisibleOption = 0;
 };
 
 } // namespace UI

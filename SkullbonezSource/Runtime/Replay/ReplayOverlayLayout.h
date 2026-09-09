@@ -176,6 +176,11 @@ struct ReplayScrubberSurfaceInput
     bool branchTargetAvailable = false;
     bool scrubTrackDragEnabled = false;
     bool hotZoneEnabled = true;
+    // Optional presentation rectangles. Empty transport retains the floating
+    // surface; control placement never changes the command or availability.
+    UI::UIRect transportBounds;
+    UI::UIRect controlsBounds;
+    float controlsScroll = 0.0f;
 };
 
 using ReplayScrubberSurface = ReplayOverlaySurface;
@@ -244,9 +249,10 @@ float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon );
 UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH );
 UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowTitleRect( const RunReplayCauseTreeState& state );
-UI::UIRect ReplayCauseWindowFilterFieldRect( const RunReplayCauseTreeState& state );
-UI::UIRect ReplayCauseWindowFilterFunnelRect( const RunReplayCauseTreeState& state );
-UI::UIRect ReplayCauseWindowFilterChipRect( const RunReplayCauseTreeState& state, RunReplayCauseTreeFilter filter );
+UI::UIRect ReplayCauseWindowFilterFieldRect( const RunReplayCauseTreeState& state, const UI::UIRect& bounds = {} );
+UI::UIRect ReplayCauseWindowFilterFunnelRect( const RunReplayCauseTreeState& state, const UI::UIRect& bounds = {} );
+UI::UIRect ReplayCauseWindowFilterChipRect( const RunReplayCauseTreeState& state, RunReplayCauseTreeFilter filter,
+                                            const UI::UIRect& bounds = {} );
 UI::UIRect ReplayCauseWindowContentRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state );
 

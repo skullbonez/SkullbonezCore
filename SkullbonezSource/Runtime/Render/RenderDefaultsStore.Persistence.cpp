@@ -26,6 +26,7 @@ Related:
 #include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/WindowConstants.h"
 #include "../../Core/Common.h"
+#include "../../Core/PlatformWin32.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -41,6 +42,21 @@ namespace Runtime
 {
 namespace
 {
+std::string RenderDefaultsPath()
+{
+#if defined( SKULLBONEZ_SKARNESS )
+    // Native save checks rewrite an isolated copy through the actual writer.
+    // Interactive builds continue to save the configured engine defaults.
+    char path[1024] {};
+    const std::size_t length = Core::Platform::ReadEnvironmentVariable( "SKULLBONEZ_RENDER_DEFAULTS_FILE", path,
+                                                                        sizeof( path ) );
+    if ( length != 0 )
+    {
+        return length < sizeof( path ) ? path : "";
+    }
+#endif
+    return std::string( DATA_ROOT ) + "engine.cfg";
+}
 
 bool ConfigLineMatchesKey( const std::string& line, const char* key )
 {
@@ -130,7 +146,8 @@ std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
 
             while ( sectionBody < lines.size() &&
                     ( lines[sectionBody].empty() ||
-                      lines[sectionBody].find( "# ---------------------------------------------------------------------------" ) !=
+                      lines[sectionBody].find(
+                          "# ---------------------------------------------------------------------------" ) !=
                           std::string::npos ) )
             {
                 ++sectionBody;
@@ -170,7 +187,8 @@ std::size_t CinematicConfigInsertIndex( const std::vector<std::string>& lines )
 
             while ( sectionBody < lines.size() &&
                     ( lines[sectionBody].empty() ||
-                      lines[sectionBody].find( "# ---------------------------------------------------------------------------" ) !=
+                      lines[sectionBody].find(
+                          "# ---------------------------------------------------------------------------" ) !=
                           std::string::npos ) )
             {
                 ++sectionBody;
@@ -324,7 +342,7 @@ RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRender
 {
     // Concept: Saving ordinary defaults is a text rewrite, not a full config
     // serialization. Unknown keys and comments must survive the round trip.
-    const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
+    const std::string configPath = RenderDefaultsPath();
     SkullbonezCore::Core::EngineConfig versionProbe;
     const SkullbonezCore::Core::SbResult versionResult = versionProbe.Load( m_resultDiagnostics, configPath.c_str() );
 
@@ -440,7 +458,7 @@ RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRender
 SkullbonezCore::Core::SbResult
 RenderDefaultsStore::PersistCinematic( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
-    const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
+    const std::string configPath = RenderDefaultsPath();
     SkullbonezCore::Core::EngineConfig versionProbe;
     const SkullbonezCore::Core::SbResult versionResult = versionProbe.Load( m_resultDiagnostics, configPath.c_str() );
 

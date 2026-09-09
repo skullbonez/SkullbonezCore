@@ -1,7 +1,7 @@
 # MASTER PLAN
 
-Date: 2026-09-07
-Status: 146/162 tasks complete; UNIFIED_UI active at 0/8; PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 8/10; bug ledger 126/126 fixed
+Date: 2026-09-09
+Status: 146/154 live-inventory tasks complete; UNIFIED_UI closed at 8/8; PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 8/10; bug ledger 126/126 fixed
 
 ## Owner Direction
 
@@ -377,11 +377,54 @@ capture remains pixel-exact. No golden was refreshed. Exact commands, counts,
 hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
 `Artifacts/engine-signature-and-context-cohesion/sc7-closure-evidence.md`.
 
+## Unified UI Closure - 2026-09-09
+
+`UNIFIED_UI` UU0-UU7 is complete at 8/8 on `codex/unified-ui`. Canvas/Editor
+layout and Scene/Solver Lab workspace are independent. The shared header,
+viewport, transport, Tools, pinned diagnostics, editor, Causes/evidence and
+comparison controls preserve their state owners and typed command routes.
+Native coverage includes all eleven Tools tabs, 128 render sliders, editor and
+recording catalogs, dialogs and isolated persistence, narrow panes down to
+320x240, retained Lab lifetime, offset picking and planning cancellation before
+the first physics tick. The unchanged solar planner recording passes all eight
+assertions. Independent implementation review and UI-reference review are clean.
+
+The terminal `agent_validate.bat --plan-completion` invocation stopped at
+preflight format/project-filter failures. Those failures were repaired and the
+remaining mapped gates were completed individually; the failed umbrella log is
+preserved and is not reported as a successful invocation. Final evidence passes:
+988 unit cases / 2,731,966 assertions; Debug coverage floors; runtime interaction,
+scene parser, renderer-free UI and DX12 architecture suites; byte-exact Physics;
+unchanged Replay visual fidelity; all fifteen Skarness prediction scenes; DX12
+with zero validation errors; and a 61.736-second bounded graphics stress run.
+Source design passes 93 sources / 803 contexts, with final focused checks for
+two test sources / 17 contexts and five new UI sources / 42 contexts. Final
+formatting, dependency ownership and plain-language checks pass. Logs are under
+`TestOutput/unified-terminal-*`; native evidence is under `TestOutput/skarness`.
+The informational frame-spike diagnostic failed its fixed-frame full-horizon
+completion assertions. A follow-up trace confirms the first click starts a
+prediction job; worker steps continue at frame 900. This is not a proven UI input
+defect, and no diagnostic deadline or assertion was changed. The fifteen-scene
+state-based prediction matrix passes. No frame-time conclusion is claimed.
+
+Approved UI component/frame fingerprints and three DX12 UI regions were updated
+only after independent review. Every world-reference pixel is unchanged;
+Physics, Replay and evidence goldens remain unchanged. The renderer comparison
+retains its original thresholds and full-image checks. Solver Smoke's fourteen
+world-channel differences of one are evaluated against the original pixels.
+
+The completed plan and control checklist are removed from the live inventory;
+the approved contract and inventory are archived in commit `7d0b347fe`.
+Accepting eight phases gives 154/162 before removing the completed eight-phase
+plan, leaving 146/154. `PHYSICS_AB` remains 0/6 and Ragdoll remains 8/10.
+The live ledger could not start because the model has no configured verified
+pricing. Its unrelated active task is preserved; no usage/cost totals or
+completion-ledger artifacts are invented.
+
 ## Active Plans
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
-| Unified UI | `UNIFIED_UI` | 8 | 0 | UU0: control inventory and baseline | `TODO/unified-ui.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 8 | FP8: speculative ragdoll contacts | `TODO/ragdoll-physics-unification.md` |
 
@@ -420,8 +463,8 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`UNIFIED_UI` UU0-UU7 is the next binding work by owner direction on 2026-09-08.
-`PHYSICS_AB` AB1-AB6 follows this explicitly requested UI migration.
+`UNIFIED_UI` UU0-UU7 is complete at 8/8.
+`PHYSICS_AB` AB1-AB6 is the next binding work after this UI migration.
 `RAGDOLL_PHYSICS` FP8 then FP9 remain pending.
 `SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete.
 

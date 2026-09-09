@@ -438,7 +438,8 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device, VertexF
     if ( rasterState.depthBias.enabled )
     {
         psoDesc.RasterizerState.DepthBias = TranslatePolygonOffsetDepthBiasDX12( rasterState.depthBias.constant );
-        psoDesc.RasterizerState.SlopeScaledDepthBias = TranslatePolygonOffsetSlopeBiasDX12( rasterState.depthBias.slopeScaled );
+        psoDesc.RasterizerState.SlopeScaledDepthBias = TranslatePolygonOffsetSlopeBiasDX12(
+            rasterState.depthBias.slopeScaled );
     }
 
     psoDesc.RasterizerState.DepthClipEnable = TRUE;
@@ -754,6 +755,12 @@ const ShaderDX12* Dx12PipelineOwner::ActiveShader() const
 void Dx12PipelineOwner::SetViewport( const D3D12_VIEWPORT& viewport, const D3D12_RECT& scissor )
 {
     m_viewport = viewport;
+    m_scissorRect = scissor;
+    m_targetsDirty = true;
+}
+
+void Dx12PipelineOwner::SetScissor( const D3D12_RECT& scissor )
+{
     m_scissorRect = scissor;
     m_targetsDirty = true;
 }

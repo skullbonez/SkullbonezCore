@@ -1384,11 +1384,33 @@ void InjectInteractionAutomationReplayControlClick( InteractionAutomationControl
     AppendReportAction( state, frame, action.type, action.text, &action.mouse, true, detail );
 }
 
+SkullbonezCore::UI::UIRect AutomationReplayControlBounds( SkullbonezCore::UI::InGameUI& ui, int width, int height,
+                                                          ReplayScrubberControl control )
+{
+    // Reveal is presentation preparation, like the prior floating scrubber's
+    // visibility intent. The action itself still enters through routed input.
+    ui.RevealReplayControls( width, height );
+    ReplayScrubberSurfaceInput input;
+    input.screenW = width;
+    input.screenH = height;
+    if ( ui.SharedPresentationEnabled() )
+    {
+        input.transportBounds = ui.PresentationBounds().transport;
+        input.controlsBounds = ui.PresentationBounds().replayControls;
+        input.controlsScroll = ui.PresentationBounds().replayScroll;
+    }
+    ReplayScrubberSurface surface;
+    BuildReplayScrubberSurface( input, surface );
+    const ReplayOverlayControl* row = surface.Find( ReplayScrubberControlId( control ) );
+    return row ? row->hitRect : SkullbonezCore::UI::UIRect {};
+}
+
 void ApplyInteractionAutomationReplayControlClick( InteractionAutomationController& state, Window* window,
                                                    const SkullbonezCore::Core::EngineConfig& config,
                                                    const SceneSessionState& scene, const RuntimeFrameMetricsSnapshot& timers,
                                                    ReplayFrameIntent& replayIntent, const ReplayAutomationView& replay,
-                                                   RunInteractionAutomationAction& action, int frame )
+                                                   RunInteractionAutomationAction& action, int frame,
+                                                   SkullbonezCore::UI::InGameUI& ui )
 {
     // Concept: replay-control automation clicks the visible scrubber widgets
     // instead of mutating replay state directly. Normal replay input remains the
@@ -1403,7 +1425,9 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         if ( screenW > 0 && screenH > 0 && predictionToolsEnabled )
         {
             InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
-                                                           ReplayScrubberHighDetailToggleRect( screenW, screenH ),
+                                                           AutomationReplayControlBounds( ui, screenW, screenH,
+                                                                                          ReplayScrubberControl::
+                                                                                              HighDetail ),
                                                            "mouse press injected at high-detail toggle" );
         }
         else
@@ -1429,7 +1453,9 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         if ( screenW > 0 && screenH > 0 && predictionToolsEnabled )
         {
             InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
-                                                           ReplayScrubberPredictToggleRect( screenW, screenH ),
+                                                           AutomationReplayControlBounds( ui, screenW, screenH,
+                                                                                          ReplayScrubberControl::
+                                                                                              PredictionToggle ),
                                                            "mouse press injected at predict toggle" );
         }
         else
@@ -1452,7 +1478,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         if ( screenW > 0 && screenH > 0 && pastPathControlEnabled )
         {
             InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
-                                                           ReplayScrubberPastPathToggleRect( screenW, screenH ),
+                                                           AutomationReplayControlBounds( ui, screenW, screenH,
+                                                                                          ReplayScrubberControl::PastPath ),
                                                            "mouse press injected at past-path toggle" );
         }
         else
@@ -1477,7 +1504,9 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             // then lets the next scripted world click exercise replay velocity
             // targeting through normal input ownership.
             InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
-                                                           ReplayScrubberVelocityEditToggleRect( screenW, screenH ),
+                                                           AutomationReplayControlBounds( ui, screenW, screenH,
+                                                                                          ReplayScrubberControl::
+                                                                                              VelocityEdit ),
                                                            "mouse press injected at velocity toggle" );
         }
         else
@@ -1505,7 +1534,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             // after a scripted scrub, so TickReplayScrubberInput remains the
             // owner of the restore.
             InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
-                                                           ReplayScrubberBranchButtonRect( screenW, screenH ),
+                                                           AutomationReplayControlBounds( ui, screenW, screenH,
+                                                                                          ReplayScrubberControl::Branch ),
                                                            "mouse press injected at branch restore button" );
         }
         else
@@ -1523,7 +1553,10 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
-        const ReplayCauseInspectionView causeInspection = replay.causeInspection;
+        ui.RevealCauseControls( screenW, screenH );
+        ReplayCauseInspectionView causeInspection = replay.causeInspection;
+        causeInspection.sharedShell = ui.SharedPresentationEnabled();
+        causeInspection.shellBounds = ui.PresentationBounds().causeControls;
         const ReplayCauseInspectorLayout inspectorLayout = BuildReplayCauseInspectorLayout( causeInspection,
                                                                                             replay.causeTree, screenW,
                                                                                             screenH,
@@ -1572,14 +1605,20 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
          strcmp( action.text, "causeFilterContacts" ) == 0 || strcmp( action.text, "causeFilterField" ) == 0 ||
          strcmp( action.text, "causeFilterFunnel" ) == 0 )
     {
-        if ( replay.causeTree.hasWindowPlacement )
+        const int screenW = window ? window->ClientWidth() : config.window.screenX;
+        const int screenH = window ? window->ClientHeight() : config.window.screenY;
+        ui.RevealCauseControls( screenW, screenH );
+        const SkullbonezCore::UI::UIRect bounds = ui.SharedPresentationEnabled() ? ui.PresentationBounds().causeControls
+                                                                                 : ReplayCauseWindowRect( replay.causeTree );
+        if ( replay.causeTree.hasWindowPlacement && !replay.causeInspection.drawerOpen )
         {
             if ( strcmp( action.text, "causeFilterAll" ) == 0 )
             {
                 InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
                                                                ReplayCauseWindowFilterChipRect( replay.causeTree,
                                                                                                 RunReplayCauseTreeFilter::
-                                                                                                    All ),
+                                                                                                    All,
+                                                                                                bounds ),
                                                                "mouse press at Filter All chip" );
                 return;
             }
@@ -1589,7 +1628,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
                 InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
                                                                ReplayCauseWindowFilterChipRect( replay.causeTree,
                                                                                                 RunReplayCauseTreeFilter::
-                                                                                                    Prediction ),
+                                                                                                    Prediction,
+                                                                                                bounds ),
                                                                "mouse press at Filter Prediction chip" );
                 return;
             }
@@ -1599,7 +1639,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
                 InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
                                                                ReplayCauseWindowFilterChipRect( replay.causeTree,
                                                                                                 RunReplayCauseTreeFilter::
-                                                                                                    Contacts ),
+                                                                                                    Contacts,
+                                                                                                bounds ),
                                                                "mouse press at Filter Contacts chip" );
                 return;
             }
@@ -1607,7 +1648,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             if ( strcmp( action.text, "causeFilterField" ) == 0 )
             {
                 InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
-                                                               ReplayCauseWindowFilterFieldRect( replay.causeTree ),
+                                                               ReplayCauseWindowFilterFieldRect( replay.causeTree, bounds ),
                                                                "mouse press at Filter Field" );
                 return;
             }
@@ -1615,7 +1656,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             if ( strcmp( action.text, "causeFilterFunnel" ) == 0 )
             {
                 InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
-                                                               ReplayCauseWindowFilterFunnelRect( replay.causeTree ),
+                                                               ReplayCauseWindowFilterFunnelRect( replay.causeTree, bounds ),
                                                                "mouse press at Filter Funnel" );
                 return;
             }
@@ -4988,7 +5029,7 @@ bool ApplyEditorUiAutomationAction( InteractionAutomationController& state, Wind
     }
     case RunInteractionAutomationActionType::ClickReplayControl:
         ApplyInteractionAutomationReplayControlClick( state, window, config, scene.State(), timers, result.replayIntent,
-                                                      replay, action, frame );
+                                                      replay, action, frame, ui );
 
         action.processed = true;
         break;

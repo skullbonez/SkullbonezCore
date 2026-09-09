@@ -42,7 +42,8 @@ using namespace SkullbonezCore::UI::Widgets;
 
 namespace
 {
-constexpr int UI_SCENE_CONTENT_HEIGHT = 502;
+constexpr int UI_SCENE_CONTENT_HEIGHT = 548;
+constexpr float UI_SCENE_PLAYBACK_BUTTON_Y = 516.0f;
 constexpr float UI_SCENE_RECORDING_COMBO_Y = 74.0f;
 constexpr float UI_SCENE_SOLVER_LAB_COMBO_Y = 106.0f;
 constexpr const char* SOLVER_LAB_OPTIONS[] = { "Ragdoll & Wall: FP6 vs FP7",
@@ -149,6 +150,14 @@ void SetRecordingComboBounds( SkullbonezCore::UI::UIComboBox& combo, float conte
 {
     combo.SetBounds( contentX, rowBase + ( UI_SCENE_RECORDING_COMBO_Y - 42.0f ), SceneTabComboWidth( contentW ), 24.0f );
     combo.SetDropUp( false );
+}
+
+void SetPlaybackBounds( SkullbonezCore::UI::SceneTab::UISceneTabState& state, float contentX, float rowBase, float contentW )
+{
+    const float width = ( contentW - 6.0f ) * 0.5f;
+    const float y = rowBase + UI_SCENE_PLAYBACK_BUTTON_Y - 42.0f;
+    state.pauseLockToggle.SetBounds( contentX, y, width, 24.0f );
+    state.singleStepButton.SetBounds( contentX + width + 6.0f, y, width, 24.0f );
 }
 
 void SetForecastBounds( SkullbonezCore::UI::SceneTab::UISceneTabState& state, float contentX, float rowBase, float contentW )
@@ -803,6 +812,26 @@ bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, 
     return false;
 }
 
+bool HandlePlaybackClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
+                          float rowBase, float contentW )
+{
+    SetPlaybackBounds( state, contentX, rowBase, contentW );
+    if ( state.pauseLockToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.scene.toggleCrossScenePause = true;
+    }
+    else if ( state.singleStepButton.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.scene.requestSingleStep = state.lastPauseLocked;
+    }
+    else
+    {
+        return false;
+    }
+    result.commands.ui.userInteracted = true;
+    return true;
+}
+
 bool HandleForecastClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
                           float rowBase, float contentW )
 {
@@ -885,8 +914,10 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
     const int sceneVisibleCount = SceneComboVisibleCount( filteredSceneCount );
     state.comboScroll = ClampSceneComboScroll( state.comboScroll, filteredSceneCount );
     const int sceneFirstOption = state.comboScroll;
-    const int selectedFilteredPosition = FilteredPositionForIndex( data.sceneOptions, data.sceneOptionCount, state.filter,
-                                                                   data.selectedSceneOption );
+    const int selectedFilteredPosition = data.authoredSceneActive && data.selectedSceneOption < 0
+                                             ? -1
+                                             : FilteredPositionForIndex( data.sceneOptions, data.sceneOptionCount,
+                                                                         state.filter, data.selectedSceneOption );
 
     const int sceneSelectedInSlice = selectedFilteredPosition >= sceneFirstOption &&
                                              selectedFilteredPosition < sceneFirstOption + sceneVisibleCount
@@ -918,6 +949,22 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
     if ( data.sceneOptions && data.selectedSceneOption >= 0 && data.selectedSceneOption < data.sceneOptionCount )
     {
         selectedSceneName = data.sceneOptions[data.selectedSceneOption];
+    }
+    if ( data.authoredSceneActive && data.activatedSceneName && data.activatedSceneName[0] )
+    {
+        // Activation can come from the command line or recording, outside the
+        // discovered catalog. A missing browser index does not mean Demo.
+        selectedSceneName = data.activatedSceneName;
+        const char* slash = std::strrchr( selectedSceneName, '/' );
+        const char* backslash = std::strrchr( selectedSceneName, '\\' );
+        if ( slash )
+        {
+            selectedSceneName = slash + 1;
+        }
+        if ( backslash && backslash >= selectedSceneName )
+        {
+            selectedSceneName = backslash + 1;
+        }
     }
 
     if ( state.combo.IsOpen() && sceneFilterActive )
@@ -1028,6 +1075,25 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const UISceneTabFr
         {
             state.predictionRevealSlider.Draw( draw, "Reveal speed", buf,
                                                NormalizedFromPredictionRevealRate( displayRevealRate ), 0.0f, 1.0f );
+        }
+
+        state.lastPauseLocked = data.crossScenePauseLocked;
+        SetPlaybackBounds( state, contentX, scrolledY + 42.0f, contentW );
+        if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_PLAYBACK_BUTTON_Y, 24.0f ) )
+        {
+            const auto& accent = Style::Accent();
+            state.pauseLockToggle.DrawToggle( draw, "Pause lock", data.crossScenePauseLocked, accent.r, accent.g, accent.b );
+            UIVisualState buttonState = UIVisualState::Visible;
+            if ( data.crossScenePauseLocked )
+            {
+                buttonState |= UIVisualState::Enabled;
+            }
+            if ( state.singleStepButton.HitTest( mouseX, mouseY ) )
+            {
+                buttonState |= UIVisualState::Hovered;
+            }
+            DrawButton( draw, state.singleStepButton.Bounds(), "Single step", buttonState,
+                        ComponentAppearance::Established );
         }
 
         const UISceneForecastFrameView& forecast = data.forecast;

@@ -23,6 +23,7 @@ Related:
 #pragma once
 
 #include "ReplayOverlayPackets.h"
+#include "../../UI/UITooltip.h"
 #include "../../UI/UIDrawList.h"
 
 #include <array>
@@ -30,6 +31,12 @@ Related:
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+using ReplayScrubberTooltips = std::array<UI::UITooltipTarget, 10>;
+ReplayScrubberTooltips BuildReplayScrubberTooltips( const ReplayScrubberPresentationView& presentation,
+                                                    const ReplayOverlayViewport& viewport, bool scenePhysicsEnabled );
+using ReplayWorkspaceTooltips = std::array<UI::UITooltipTarget, 32>;
+ReplayWorkspaceTooltips BuildReplayWorkspaceTooltips( const ReplayOverlayStateView& replay,
+                                                      const ReplayOverlayViewport& viewport, bool scenePhysicsEnabled );
 enum class ReplayOverlaySurfaceKind : uint8_t
 {
     Intercept,
@@ -76,7 +83,8 @@ inline bool ProjectReplayGatePoint( const Math::Vector::Vector3& position, const
         return false;
     }
 
-    screen = { ( x / w * 0.5f + 0.5f ) * viewport.width, ( 0.5f - y / w * 0.5f ) * viewport.height };
+    const UI::UIRect bounds = viewport.SceneBounds();
+    screen = { bounds.x + ( x / w * 0.5f + 0.5f ) * bounds.w, bounds.y + ( 0.5f - y / w * 0.5f ) * bounds.h };
     return std::isfinite( screen.x ) && std::isfinite( screen.y );
 }
 
@@ -100,8 +108,10 @@ inline ReplayPositionGate BuildReplayPositionGate( const RunReplayPredictionFram
 
         gate.id = body.id;
         gate.frame = frame.frameIndex;
-        gate.visible = ProjectReplayGatePoint( body.position, viewport, gate.center ) && gate.center.x >= 0.0f &&
-                       gate.center.x <= viewport.width && gate.center.y >= 0.0f && gate.center.y <= viewport.height;
+        const UI::UIRect bounds = viewport.SceneBounds();
+        gate.visible = ProjectReplayGatePoint( body.position, viewport, gate.center ) && gate.center.x >= bounds.x &&
+                       gate.center.x < bounds.x + bounds.w && gate.center.y >= bounds.y &&
+                       gate.center.y < bounds.y + bounds.h;
         UI::UIPoint ahead;
 
         if ( gate.visible && ProjectReplayGatePoint( body.position + body.linearVelocity * 0.01f, viewport, ahead ) )
@@ -147,6 +157,10 @@ ReplayPositionGateSelection( const ReplayOverlayCausalityView& causality, Physic
 class ReplayOverlayDrawOwner
 {
   public:
+    UI::UIDrawList::Stats DrawStats() const noexcept
+    {
+        return m_drawList.GetStats();
+    }
     const UI::UIDrawList& Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive, bool scenePhysicsEnabled,
                                    ReplayOverlayGestureView gesture, ReplayOverlayViewport viewport, double nowSeconds );
 

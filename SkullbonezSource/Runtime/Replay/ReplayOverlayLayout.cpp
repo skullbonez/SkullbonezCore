@@ -356,6 +356,64 @@ UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
              REPLAY_SCRUBBER_HOT_ZONE_HEIGHT };
 }
 
+namespace
+{
+void PlaceScrubberInShell( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& surface )
+{
+    if ( input.transportBounds.w <= 0.0f || input.transportBounds.h <= 0.0f )
+    {
+        return;
+    }
+    const UI::UIRect& transport = input.transportBounds;
+    const UI::UIRect& controls = input.controlsBounds;
+    const float inset = (std::min)( 72.0f, transport.w * 0.22f );
+    const UI::UIRect track { transport.x + inset, transport.y + transport.h * 0.5f - 2.0f,
+                             (std::max)( 1.0f, transport.w - inset - 12.0f ), 4.0f };
+    const float scroll = std::clamp( input.controlsScroll, 0.0f, 1.0f ) * (std::max)( 0.0f, 370.0f - controls.h );
+    for ( std::size_t index = 0; index < surface.controlCount; ++index )
+    {
+        ReplayOverlayControl& control = surface.controls[index];
+        const ReplayScrubberControl id = static_cast<ReplayScrubberControl>( control.id.value );
+        if ( id == ReplayScrubberControl::ScrubTrack )
+        {
+            control.drawRect = track;
+            control.hitRect = { track.x, transport.y, track.w, transport.h };
+        }
+        else if ( id == ReplayScrubberControl::Panel || id == ReplayScrubberControl::HotZone )
+        {
+            control.drawRect = transport;
+            control.hitRect = transport;
+            control.visible = id == ReplayScrubberControl::Panel;
+        }
+        else
+        {
+            const int row = id == ReplayScrubberControl::PredictionPanel ? 4 : static_cast<int>( id ) - 1;
+            control.drawRect = { controls.x + 10.0f, controls.y + 6.0f + static_cast<float>( row ) * 32.0f - scroll,
+                                 (std::max)( 0.0f, controls.w - 20.0f ), 26.0f };
+            if ( id == ReplayScrubberControl::PredictionHorizon )
+            {
+                control.drawRect.x += 8.0f;
+                control.drawRect.y += 9.0f;
+                control.drawRect.w = (std::max)( 1.0f, control.drawRect.w - 54.0f );
+                control.drawRect.h = 8.0f;
+            }
+            control.hitRect = control.drawRect;
+            if ( id == ReplayScrubberControl::PredictionHorizon )
+            {
+                control.hitRect.y -= 9.0f;
+                control.hitRect.h = 26.0f;
+            }
+            // Invariant: scrolling clips hit targets exactly where drawing is
+            // clipped. A hidden row never catches input in the viewport.
+            const float bottom = (std::min)( control.hitRect.y + control.hitRect.h, controls.y + controls.h );
+            control.hitRect.y = (std::max)( control.hitRect.y, controls.y );
+            control.hitRect.h = (std::max)( 0.0f, bottom - control.hitRect.y );
+            control.visible = control.visible && controls.w > 0.0f && control.hitRect.h > 0.0f;
+        }
+    }
+}
+} // namespace
+
 void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface )
 {
     outSurface.Reset();
@@ -450,6 +508,7 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
     addControl( ReplayScrubberControl::HotZone, ReplayScrubberAction::None, ReplayOverlayControlKind::HotZone, hotZone,
                 hotZone, input.hotZoneEnabled, true );
 
+    PlaceScrubberInShell( input, outSurface );
     ReplayScrubberControl active = ReplayScrubberControl::None;
 
     if ( input.gesture == ReplayToolGestureKind::ScrubDrag )
@@ -556,22 +615,23 @@ UI::UIRect ReplayCauseWindowTitleRect( const RunReplayCauseTreeState& state )
     return { panel.x, panel.y, panel.w, REPLAY_CAUSE_WINDOW_TITLE_HEIGHT };
 }
 
-UI::UIRect ReplayCauseWindowFilterFieldRect( const RunReplayCauseTreeState& state )
+UI::UIRect ReplayCauseWindowFilterFieldRect( const RunReplayCauseTreeState& state, const UI::UIRect& bounds )
 {
-    const UI::UIRect panel = ReplayCauseWindowRect( state );
+    const UI::UIRect panel = bounds.w > 0.0f ? bounds : ReplayCauseWindowRect( state );
     return { panel.x + REPLAY_CAUSE_WINDOW_PADDING, panel.y + REPLAY_CAUSE_WINDOW_TITLE_HEIGHT + 7.0f,
              panel.w - REPLAY_CAUSE_WINDOW_PADDING * 2.0f - 32.0f, 24.0f };
 }
 
-UI::UIRect ReplayCauseWindowFilterFunnelRect( const RunReplayCauseTreeState& state )
+UI::UIRect ReplayCauseWindowFilterFunnelRect( const RunReplayCauseTreeState& state, const UI::UIRect& bounds )
 {
-    const UI::UIRect field = ReplayCauseWindowFilterFieldRect( state );
+    const UI::UIRect field = ReplayCauseWindowFilterFieldRect( state, bounds );
     return { field.x + field.w + 6.0f, field.y, 26.0f, field.h };
 }
 
-UI::UIRect ReplayCauseWindowFilterChipRect( const RunReplayCauseTreeState& state, RunReplayCauseTreeFilter filter )
+UI::UIRect ReplayCauseWindowFilterChipRect( const RunReplayCauseTreeState& state, RunReplayCauseTreeFilter filter,
+                                            const UI::UIRect& bounds )
 {
-    const UI::UIRect panel = ReplayCauseWindowRect( state );
+    const UI::UIRect panel = bounds.w > 0.0f ? bounds : ReplayCauseWindowRect( state );
     const float available = panel.w - REPLAY_CAUSE_WINDOW_PADDING * 2.0f;
     const float chipWidth = available / 3.0f;
     const int index = filter == RunReplayCauseTreeFilter::All ? 0

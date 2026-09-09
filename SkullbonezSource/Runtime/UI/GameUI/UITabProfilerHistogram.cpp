@@ -132,14 +132,24 @@ void ClearHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
     }
 }
 
-int HistogramVisibleDropdownRows( int optionCount )
+int HistogramVisibleDropdownRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
-    return std::clamp( optionCount, 0, HISTOGRAM_DROPDOWN_VISIBLE_ROWS );
+    int available = HISTOGRAM_DROPDOWN_VISIBLE_ROWS;
+    if ( state.histogramDockedBounds.h > 0.0f )
+    {
+        // The pinned chart opens upward. Reserve the popup footer and window
+        // margin before choosing rows; scrolling and picking use this count too.
+        const float selectorTop = state.histogramDockedBounds.y + ( state.histogramDockedBounds.h < 100.0f ? 24.0f : 32.0f );
+        available = std::clamp( static_cast<int>( ( selectorTop - 18.0f - HISTOGRAM_DROPDOWN_FOOTER_H ) /
+                                                  HISTOGRAM_DROPDOWN_ROW_H ),
+                                1, HISTOGRAM_DROPDOWN_VISIBLE_ROWS );
+    }
+    return std::clamp( state.histogramOptionCount, 0, available );
 }
 
 int HistogramMaxScroll( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
-    return (std::max)( 0, state.histogramOptionCount - HistogramVisibleDropdownRows( state.histogramOptionCount ) );
+    return (std::max)( 0, state.histogramOptionCount - HistogramVisibleDropdownRows( state ) );
 }
 
 int FindCachedHistogramSelectionIndex( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
@@ -168,6 +178,10 @@ void ToggleHistogramSelectionFromCache( SkullbonezCore::UI::ProfilerTab::UIProfi
 
 void ClampHistogramPanelToScreen( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, int screenW, int screenH )
 {
+    if ( state.histogramDockedBounds.h > 0.0f )
+    {
+        return;
+    }
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
 
@@ -200,6 +214,10 @@ void ClampHistogramPanelToScreen( SkullbonezCore::UI::ProfilerTab::UIProfilerTab
 
 SkullbonezCore::UI::UIRect HistogramPanelBounds( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
+    if ( state.histogramDockedBounds.h > 0.0f )
+    {
+        return state.histogramDockedBounds;
+    }
     return { state.histogramPanelX, state.histogramPanelY, state.histogramPanelW, state.histogramPanelH };
 }
 
@@ -212,7 +230,9 @@ SkullbonezCore::UI::UIRect HistogramHeaderBounds( const SkullbonezCore::UI::Prof
 SkullbonezCore::UI::UIRect HistogramSelectorBounds( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
     const SkullbonezCore::UI::UIRect panel = HistogramPanelBounds( state );
-    return { panel.x + 10.0f, panel.y + 32.0f, (std::max)( 32.0f, panel.w - 20.0f ), HISTOGRAM_SELECTOR_H };
+    const bool shortPanel = state.histogramDockedBounds.h > 0.0f && panel.h < 100.0f;
+    return { panel.x + 10.0f, panel.y + ( shortPanel ? 24.0f : 32.0f ), (std::max)( 32.0f, panel.w - 20.0f ),
+             shortPanel ? 20.0f : HISTOGRAM_SELECTOR_H };
 }
 
 SkullbonezCore::UI::UIRect HistogramResizeBounds( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
@@ -225,8 +245,13 @@ SkullbonezCore::UI::UIRect HistogramResizeBounds( const SkullbonezCore::UI::Prof
 SkullbonezCore::UI::UIRect HistogramPlotBounds( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
     const SkullbonezCore::UI::UIRect panel = HistogramPanelBounds( state );
+    if ( state.histogramDockedBounds.h > 0.0f && panel.h < 100.0f )
+    {
+        return { panel.x + 10.0f, panel.y + 48.0f, (std::max)( 1.0f, panel.w - 20.0f ),
+                 (std::max)( 1.0f, panel.h - 52.0f ) };
+    }
     const float plotY = panel.y + 66.0f;
-    const float plotH = (std::max)( 34.0f, panel.h - 96.0f );
+    const float plotH = (std::max)( 1.0f, panel.h - 96.0f );
     return { panel.x + 10.0f + HISTOGRAM_AXIS_LABEL_GUTTER, plotY,
              (std::max)( 32.0f, panel.w - 20.0f - HISTOGRAM_AXIS_LABEL_GUTTER ), plotH };
 }
@@ -235,7 +260,7 @@ SkullbonezCore::UI::UIRect HistogramDropdownBounds( const SkullbonezCore::UI::Pr
                                                     int screenH )
 {
     const SkullbonezCore::UI::UIRect selector = HistogramSelectorBounds( state );
-    const int visibleRows = HistogramVisibleDropdownRows( state.histogramOptionCount );
+    const int visibleRows = HistogramVisibleDropdownRows( state );
     const float footerH = state.histogramOptionCount > visibleRows ? HISTOGRAM_DROPDOWN_FOOTER_H : 0.0f;
     const float dropdownH = 4.0f + static_cast<float>( visibleRows ) * HISTOGRAM_DROPDOWN_ROW_H + footerH;
     float dropdownY = selector.y + selector.h + 4.0f;
@@ -245,7 +270,12 @@ SkullbonezCore::UI::UIRect HistogramDropdownBounds( const SkullbonezCore::UI::Pr
         dropdownY = selector.y - dropdownH - 4.0f;
     }
 
-    return { selector.x, dropdownY, selector.w, dropdownH };
+    // A narrow pinned chart may borrow adjacent dock space for readable marker
+    // names. Foreground composition and popup hit testing share these bounds.
+    const float popupW = state.histogramDockedBounds.h > 0.0f
+                             ? (std::max)( selector.w, (std::min)( 360.0f, state.histogramDockedBounds.w * 2.0f - 20.0f ) )
+                             : selector.w;
+    return { selector.x, dropdownY, popupW, dropdownH };
 }
 
 int HitHistogramDropdownOption( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, int screenH, int mouseX,
@@ -261,8 +291,7 @@ int HitHistogramDropdownOption( const SkullbonezCore::UI::ProfilerTab::UIProfile
     const int row = static_cast<int>( ( static_cast<float>( mouseY ) - dropdown.y - 2.0f ) / HISTOGRAM_DROPDOWN_ROW_H );
     const int optionIndex = state.histogramSelectorScroll + row;
 
-    if ( row < 0 || row >= HistogramVisibleDropdownRows( state.histogramOptionCount ) ||
-         optionIndex >= state.histogramOptionCount )
+    if ( row < 0 || row >= HistogramVisibleDropdownRows( state ) || optionIndex >= state.histogramOptionCount )
     {
         return -1;
     }
@@ -629,14 +658,14 @@ namespace ProfilerTab
 
 bool PerformanceHistogramEnabled( const UIProfilerTabState& state )
 {
-    return state.performanceHistogramEnabled;
+    return state.performanceHistogramEnabled || state.histogramDockedBounds.h > 0.0f;
 }
 
 void SetPerformanceHistogramEnabled( UIProfilerTabState& state, bool enabled )
 {
     state.performanceHistogramEnabled = enabled;
 
-    if ( !enabled )
+    if ( !PerformanceHistogramEnabled( state ) )
     {
         state.histogramDragging = false;
         state.histogramResizing = false;
@@ -661,7 +690,7 @@ bool HandlePerformanceHistogramInput( UIProfilerTabState& state, InGameUIInputRe
                                       int mouseX, int mouseY, bool leftDown, bool leftPressed, bool leftReleased,
                                       int wheelDelta )
 {
-    if ( !state.performanceHistogramEnabled )
+    if ( !PerformanceHistogramEnabled( state ) )
     {
         return false;
     }
@@ -720,13 +749,13 @@ bool HandlePerformanceHistogramInput( UIProfilerTabState& state, InGameUIInputRe
         {
             state.histogramSelectorOpen = true;
             const int selectedIndex = FindCachedHistogramSelectionIndex( state );
-            const int visibleRows = HistogramVisibleDropdownRows( state.histogramOptionCount );
+            const int visibleRows = HistogramVisibleDropdownRows( state );
             state.histogramSelectorScroll = std::clamp( selectedIndex - visibleRows / 2, 0, HistogramMaxScroll( state ) );
 
             result.commands.ui.userInteracted = true;
             handled = true;
         }
-        else if ( resize.Contains( mouseX, mouseY ) )
+        else if ( state.histogramDockedBounds.h <= 0.0f && resize.Contains( mouseX, mouseY ) )
         {
             state.histogramResizing = true;
             state.histogramResizeStartMouseX = mouseX;
@@ -737,7 +766,7 @@ bool HandlePerformanceHistogramInput( UIProfilerTabState& state, InGameUIInputRe
             result.commands.ui.userInteracted = true;
             handled = true;
         }
-        else if ( header.Contains( mouseX, mouseY ) )
+        else if ( state.histogramDockedBounds.h <= 0.0f && header.Contains( mouseX, mouseY ) )
         {
             state.histogramDragging = true;
             state.histogramDragOffsetX = mouseX - static_cast<int>( std::round( state.histogramPanelX ) );
@@ -945,6 +974,62 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const UIProfiler
     }
 }
 
+namespace
+{
+// Preserve the selected-marker and worker averaging cadence independently of panel geometry.
+void RefreshHistogramAverage( UIProfilerTabState& state, int optionCount, bool mainSelected, double now )
+{
+    float candidateCpuAverageMs = 0.0f;
+    float candidateWorkerAverageMs = 0.0f;
+    {
+        float cpuSum = 0.0f;
+        float workerSum = 0.0f;
+        int cpuCount = 0;
+        int workerCount = 0;
+
+        for ( int i = 0; i < state.histogramCount; ++i )
+        {
+            const int sampleIndex = ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) %
+                                    HISTOGRAM_SAMPLE_COUNT;
+
+            const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
+
+            for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
+            {
+                if ( state.histogramOptionSelected[optionIndex] && sample.hasMarker[optionIndex] )
+                {
+                    cpuSum += sample.markerMs[optionIndex];
+                    ++cpuCount;
+                }
+            }
+
+            if ( mainSelected && sample.hasSecondary )
+            {
+                workerSum += sample.secondaryMs;
+                ++workerCount;
+            }
+        }
+
+        candidateCpuAverageMs = cpuCount > 0 ? cpuSum / static_cast<float>( cpuCount ) : 0.0f;
+        candidateWorkerAverageMs = workerCount > 0 ? workerSum / static_cast<float>( workerCount ) : 0.0f;
+    }
+
+    const bool averageBecameMeaningful = state.histogramAverageCpuMs <= 0.005f && candidateCpuAverageMs > 0.005f;
+    const bool refreshAverageText = state.histogramCount >= 8 &&
+                                    ( state.histogramAverageTextLastUpdateSeconds < 0.0 || averageBecameMeaningful ||
+                                      now < state.histogramAverageTextLastUpdateSeconds ||
+                                      now - state.histogramAverageTextLastUpdateSeconds >=
+                                          HISTOGRAM_AVERAGE_TEXT_REFRESH_SECONDS );
+
+    if ( refreshAverageText )
+    {
+        state.histogramAverageCpuMs = candidateCpuAverageMs;
+        state.histogramAverageWorkerMs = candidateWorkerAverageMs;
+        state.histogramAverageTextLastUpdateSeconds = now;
+    }
+}
+} // namespace
+
 void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data )
 {
     ClampHistogramPanelToScreen( state, data.screenW, data.screenH );
@@ -966,17 +1051,26 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     const bool dropdownOpen = state.histogramSelectorOpen && state.histogramOptionCount > 0;
 
     const Style::UIPalette& palette = Style::Palette();
+    if ( state.histogramDockedBounds.h > 0.0f )
+    {
+        draw.PushClip( panel );
+    }
     draw.RoundedRect( panel.x + 4.0f, panel.y + 5.0f, panel.w, panel.h, Style::Radii().window, 0.0f, 0.0f, 0.0f, 0.22f );
 
     draw.RoundedPanel( panel, Style::Radii().window, palette.windowSubtle, palette.border );
 
+    const bool shortPanel = state.histogramDockedBounds.h > 0.0f && panel.h < 100.0f;
     char text[128] = {};
     draw.Text( panel.x + 10.0f, panel.y + 8.0f, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
-               "Marker History" );
+               panel.w < 250.0f ? "F5 History" : "F5  Marker History" );
 
     snprintf( text, sizeof( text ), mainSelected ? "CPU + WORK" : "CPU" );
-    draw.Text( panel.x + panel.w - 10.0f - UIFontMetrics::MeasureText( 9.6f, text ), panel.y + 8.0f, 9.6f,
-               palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, text );
+    const float titleInset = state.histogramDockedBounds.h > 0.0f ? 92.0f : 10.0f;
+    if ( panel.w >= 320.0f )
+    {
+        draw.Text( panel.x + panel.w - titleInset - UIFontMetrics::MeasureText( 9.6f, text ), panel.y + 8.0f, 9.6f,
+                   palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, text );
+    }
 
     draw.RoundedRect( selector.x, selector.y, selector.w, selector.h, Style::Radii().smallButton, palette.control.r,
                       palette.control.g, palette.control.b, 0.82f );
@@ -1014,13 +1108,13 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                    text );
     };
 
-    if ( !dropdownOpen )
+    if ( !dropdownOpen && !shortPanel )
     {
         drawAxisLabel( plot.y + 2.0f, axisMs );
         drawAxisLabel( budgetY - 5.0f, mainSelected ? HISTOGRAM_FRAME_CPU_BUDGET_MS : axisMs * 0.50f );
     }
 
-    if ( !dropdownOpen && ( state.histogramCount <= 0 || !anySelection ) )
+    if ( !dropdownOpen && !shortPanel && ( state.histogramCount <= 0 || !anySelection ) )
     {
         draw.Text( plot.x + 10.0f, plot.y + plot.h * 0.5f - 6.0f, 10.5f, palette.textMuted.r, palette.textMuted.g,
                    palette.textMuted.b, anySelection ? "Waiting for samples" : "Select markers" );
@@ -1148,7 +1242,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
         }
     }
 
-    if ( !dropdownOpen )
+    if ( !dropdownOpen && !shortPanel )
     {
         for ( int spikeIndex = 0; spikeIndex < spikeLabelCount; ++spikeIndex )
         {
@@ -1167,56 +1261,9 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
         }
     }
 
-    if ( state.histogramCount > 0 && anySelection && !dropdownOpen )
+    if ( state.histogramCount > 0 && anySelection && !dropdownOpen && !shortPanel )
     {
-        float candidateCpuAverageMs = 0.0f;
-        float candidateWorkerAverageMs = 0.0f;
-        {
-            float cpuSum = 0.0f;
-            float workerSum = 0.0f;
-            int cpuCount = 0;
-            int workerCount = 0;
-
-            for ( int i = 0; i < state.histogramCount; ++i )
-            {
-                const int sampleIndex = ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) %
-                                        HISTOGRAM_SAMPLE_COUNT;
-
-                const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
-
-                for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
-                {
-                    if ( state.histogramOptionSelected[optionIndex] && sample.hasMarker[optionIndex] )
-                    {
-                        cpuSum += sample.markerMs[optionIndex];
-                        ++cpuCount;
-                    }
-                }
-
-                if ( mainSelected && sample.hasSecondary )
-                {
-                    workerSum += sample.secondaryMs;
-                    ++workerCount;
-                }
-            }
-
-            candidateCpuAverageMs = cpuCount > 0 ? cpuSum / static_cast<float>( cpuCount ) : 0.0f;
-            candidateWorkerAverageMs = workerCount > 0 ? workerSum / static_cast<float>( workerCount ) : 0.0f;
-        }
-
-        const bool averageBecameMeaningful = state.histogramAverageCpuMs <= 0.005f && candidateCpuAverageMs > 0.005f;
-        const bool refreshAverageText = state.histogramCount >= 8 &&
-                                        ( state.histogramAverageTextLastUpdateSeconds < 0.0 || averageBecameMeaningful ||
-                                          data.now < state.histogramAverageTextLastUpdateSeconds ||
-                                          data.now - state.histogramAverageTextLastUpdateSeconds >=
-                                              HISTOGRAM_AVERAGE_TEXT_REFRESH_SECONDS );
-
-        if ( refreshAverageText )
-        {
-            state.histogramAverageCpuMs = candidateCpuAverageMs;
-            state.histogramAverageWorkerMs = candidateWorkerAverageMs;
-            state.histogramAverageTextLastUpdateSeconds = data.now;
-        }
+        RefreshHistogramAverage( state, optionCount, mainSelected, data.now );
 
         const float footerY = panel.y + panel.h - 20.0f;
         snprintf( text, sizeof( text ), selectedCount > 1 ? "Selected avg %.2f ms" : "CPU avg %.2f ms",
@@ -1236,19 +1283,27 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
         }
     }
 
-    draw.Rect( resize.x + 7.0f, resize.y + 16.0f, 10.0f, 1.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
-               0.54f );
+    if ( state.histogramDockedBounds.h <= 0.0f )
+    {
+        draw.Rect( resize.x + 7.0f, resize.y + 16.0f, 10.0f, 1.0f, palette.textMuted.r, palette.textMuted.g,
+                   palette.textMuted.b, 0.54f );
+        draw.Rect( resize.x + 12.0f, resize.y + 11.0f, 5.0f, 1.0f, palette.textMuted.r, palette.textMuted.g,
+                   palette.textMuted.b, 0.44f );
+    }
 
-    draw.Rect( resize.x + 12.0f, resize.y + 11.0f, 5.0f, 1.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b,
-               0.44f );
-
+    if ( state.histogramDockedBounds.h > 0.0f )
+    {
+        draw.PopClip();
+    }
     if ( dropdownOpen )
     {
+        draw.BeginForeground();
         const UIRect dropdown = HistogramDropdownBounds( state, data.screenH );
+        draw.PushClip( dropdown );
         Style::UIColor dropdownFill = palette.window;
         dropdownFill.a = 1.0f;
         draw.RoundedPanel( dropdown, Style::Radii().control, dropdownFill, palette.border );
-        const int visibleRows = HistogramVisibleDropdownRows( state.histogramOptionCount );
+        const int visibleRows = HistogramVisibleDropdownRows( state );
 
         for ( int row = 0; row < visibleRows; ++row )
         {
@@ -1302,6 +1357,8 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
             draw.Text( dropdown.x + dropdown.w - 54.0f, footerY + 4.0f, 8.0f, palette.textMuted.r, palette.textMuted.g,
                        palette.textMuted.b, text );
         }
+        draw.PopClip();
+        draw.EndForeground();
     }
 }
 

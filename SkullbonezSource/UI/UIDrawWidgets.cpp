@@ -713,17 +713,15 @@ void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const
     const float radius = Style::Radii().control;
     draw.RoundedRect( layout.popupBounds.x - 4.0f, layout.popupBounds.y - 4.0f, layout.popupBounds.w + 8.0f,
                       layout.popupBounds.h + 8.0f, radius + 2.0f, 0.0f, 0.0f, 0.0f, 0.26f );
-    draw.RoundedPanel( layout.popupBounds, radius, palette.windowRaised,
-                       established ? palette.border : ControlBorder( state ) );
+    Style::UIColor popupFill = palette.windowRaised;
+    // A popup covers controls beneath it; underlying labels must not bleed
+    // through its background while they are excluded from pointer routing.
+    popupFill.a = 1.0f;
+    draw.RoundedPanel( layout.popupBounds, radius, popupFill, established ? palette.border : ControlBorder( state ) );
 
-    // Why: Adaptive popups author an explicit clip contract. Established
-    // popups preserve their existing clipping behavior and command order;
-    // adding clip commands there changes the recorded stream. Both modes
-    // share option geometry and disabled-row policy below.
-    if ( !established )
-    {
-        draw.PushClip( layout.popupBounds );
-    }
+    // Invariant: foreground popups escape the parent pane, but their option text
+    // remains inside the popup itself even when the field is narrow.
+    draw.PushClip( layout.popupBounds );
 
     const float optionHeight = optionCount > 0 ? layout.popupBounds.h / static_cast<float>( optionCount ) : 0.0f;
 
@@ -774,10 +772,7 @@ void DrawComboPopup( const UIDrawContext& draw, const ComboLayout& layout, const
                    SafeText( presentation.options[static_cast<std::size_t>( optionIndex )] ) );
     }
 
-    if ( !established )
-    {
-        draw.PopClip();
-    }
+    draw.PopClip();
 }
 
 
@@ -989,7 +984,7 @@ void DrawSectionTitle( const UIDrawContext& draw, float contentX, float contentY
 
 
 void DrawContentToggle( const UIDrawContext& draw, float contentY, float contentH, UICheckBox& toggle, float tx, float rowY,
-                        float controlW, const char* label, bool checked )
+                        float controlW, const char* label, bool checked, bool enabled )
 {
     if ( !IsRowVisible( contentY, contentH, rowY, 24.0f ) )
     {
@@ -998,7 +993,7 @@ void DrawContentToggle( const UIDrawContext& draw, float contentY, float content
 
     const Style::UIColor& accent = Style::Accent();
     toggle.SetBounds( tx, rowY, controlW, 24.0f );
-    toggle.DrawToggle( draw, label, checked, accent.r, accent.g, accent.b );
+    toggle.DrawToggle( draw, label, checked, accent.r, accent.g, accent.b, enabled );
 }
 
 

@@ -28,6 +28,7 @@ Related:
 
 #include "Run.h"
 #include "../UI/OperatorUiProjection.h"
+#include "../Planning/ReplayOverlayRenderer.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
@@ -601,20 +602,22 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
     PROFILE_BEGIN( "Frame/UI" );
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
     const int drawCallStart = renderer.BeginUiTextFrame( viewport );
+    const UI::UIDrawList* comparisonDraw = nullptr;
     if ( ComparisonUiActive() )
     {
-        const auto& draw = m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty()
-                               ? m_comparisonPanel.ComposeLoading( viewport.screenW, viewport.screenH,
-                                                                   m_comparisonLoad.Percent(),
-                                                                   m_comparisonLoad.Error().c_str(),
-                                                                   m_comparisonLoad.Phase() )
-                               : m_comparisonPanel.Compose( m_comparison, viewport.screenW, viewport.screenH );
-        renderer.SubmitUiDrawList( draw, viewport );
-        const int drawCalls = renderer.EndUiTextFrame( drawCallStart );
-        PROFILE_END( "Frame/UI" );
-        return drawCalls;
+        comparisonDraw = m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty()
+                             ? &m_comparisonPanel.ComposeLoading( viewport.screenW, viewport.screenH,
+                                                                  m_comparisonLoad.Percent(),
+                                                                  m_comparisonLoad.Error().c_str(),
+                                                                  m_comparisonLoad.Phase() )
+                             : &m_comparisonPanel.Compose( m_comparison, viewport.screenW, viewport.screenH );
     }
+
     UiChromeStatusValues chromeStatus;
+    if ( submission.composeGameUi )
+    {
+        chromeStatus.contentBounds = ui.PresentationBounds().statusContent;
+    }
     chromeStatus.textOnly = debug.isTextOnly;
     chromeStatus.topTextHidden = debug.isTopTextHidden;
     chromeStatus.sceneMode = scene.isSceneMode;
@@ -659,6 +662,23 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
         gameUiProjection.replayHud = replayHud;
         BuildOperatorGameUiData( uiData, gameUiProjection, renderFrame, operatorEditorView, metrics, viewport, drawCallStart,
                                  debug, renderTargetPreviews );
+        ReplayOverlay::ReplayOverlayViewport tooltipViewport;
+        tooltipViewport.width = viewport.screenW;
+        tooltipViewport.height = viewport.screenH;
+        if ( ui.SharedPresentationEnabled() )
+        {
+            tooltipViewport.sceneBounds = ui.PresentationBounds().viewport;
+            tooltipViewport.planningBounds = ui.PresentationBounds().statusContent;
+            tooltipViewport.transportBounds = ui.PresentationBounds().transport;
+            tooltipViewport.controlsBounds = ui.PresentationBounds().replayControls;
+            tooltipViewport.controlsScroll = ui.PresentationBounds().replayScroll;
+        }
+        const ReplayOverlay::ReplayWorkspaceTooltips
+            replayTooltips = ReplayOverlay::BuildReplayWorkspaceTooltips( replayOverlay, tooltipViewport,
+                                                                          scene.isScenePhysics );
+        const auto comparisonTooltips = m_comparisonPanel.Tooltips();
+        uiData.workspaceTooltips = ComparisonUiActive() ? std::span<const UI::UITooltipTarget>( comparisonTooltips )
+                                                        : std::span<const UI::UITooltipTarget>( replayTooltips );
         const UI::UIDrawList& drawList = ui.Draw( uiData );
         renderer.SubmitOperatorUiDrawList( drawList, renderTargetPreviews, m_assets, viewport );
     }
@@ -670,17 +690,41 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
                                   metrics.sceneEnergy );
     }
 
-    if ( submission.submitReplay )
+    if ( submission.submitReplay && !ComparisonUiActive() )
     {
+        const RECT sceneBounds = m_window.PresentationViewport();
         const UI::UIDrawList&
-            drawList = m_replayRuntime.ComposeOverlayDrawList( replayOverlay, projection.uiText.gameUiActive,
-                                                               scene.isScenePhysics,
-                                                               projection.uiText.interactionGestureKind,
-                                                               { viewport.screenW, viewport.screenH,
-                                                                 m_window.GetProjectionMatrix() *
-                                                                     m_sceneController.Scene().Cameras().GetViewMatrix() },
-                                                               metrics.simulationTotalSeconds );
+            drawList = m_replayRuntime
+                           .ComposeOverlayDrawList( replayOverlay, projection.uiText.gameUiActive, scene.isScenePhysics,
+                                                    projection.uiText.interactionGestureKind,
+                                                    { viewport.screenW,
+                                                      viewport.screenH,
+                                                      m_window.GetProjectionMatrix() *
+                                                          m_sceneController.Scene().Cameras().GetViewMatrix(),
+                                                      { static_cast<float>( sceneBounds.left ),
+                                                        static_cast<float>( sceneBounds.top ),
+                                                        static_cast<float>( sceneBounds.right - sceneBounds.left ),
+                                                        static_cast<float>( sceneBounds.bottom - sceneBounds.top ) },
+                                                      m_operatorUi->SharedPresentationEnabled()
+                                                          ? m_operatorUi->PresentationBounds().transport
+                                                          : UI::UIRect {},
+                                                      m_operatorUi->PresentationBounds().replayControls,
+                                                      m_operatorUi->PresentationBounds().replayScroll,
+                                                      m_operatorUi->SharedPresentationEnabled()
+                                                          ? m_operatorUi->PresentationBounds().statusContent
+                                                          : UI::UIRect {} },
+                                                    metrics.simulationTotalSeconds );
         renderer.SubmitUiDrawList( drawList, viewport );
+    }
+
+    if ( comparisonDraw )
+    {
+        renderer.SubmitUiDrawList( *comparisonDraw, viewport );
+    }
+
+    if ( submission.composeGameUi && !ui.ForegroundDraw().Empty() )
+    {
+        renderer.SubmitUiDrawList( ui.ForegroundDraw(), viewport );
     }
 
     if ( submission.finalizeOverlay )
@@ -728,7 +772,8 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderFrameViews& renderFrame, flo
                                                                m_operatorUi->IsVisible(), m_operatorUi->IsMinimized(),
                                                                m_interaction.Gesture().kind,
                                                                renderFrame.modelPresentation.presentationRecords,
-                                                               renderFrame.debug.physics.bodyStore );
+                                                               renderFrame.debug.physics.bodyStore,
+                                                               m_operatorUi->SharedPresentationEnabled() );
 
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();

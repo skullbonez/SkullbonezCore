@@ -76,13 +76,16 @@ void Run::Render( const RuntimeRenderFrameViews& renderFrame, float presentation
     RuntimeRenderer& renderer = Renderer( "Render" );
     const OverlayDebugState debug = m_overlayDiagnostics->PresentationSnapshot();
     renderer.ResourceLifecycle().SetUiTextDxrReflectionPreviewTexture( 0 );
-    if ( m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty() )
+    if ( ComparisonUiActive() && ( m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty() ) )
     {
         return;
     }
-    if ( m_comparison.Active() )
+    if ( ComparisonUiActive() )
     {
-        RenderComparison();
+        if ( m_comparison.Active() )
+        {
+            RenderComparison();
+        }
         return;
     }
 

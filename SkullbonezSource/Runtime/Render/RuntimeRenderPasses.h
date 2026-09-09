@@ -434,6 +434,9 @@ struct UiTextVisibility
 
 struct UiChromeStatusValues
 {
+    // App supplies the unobscured content rectangle in window coordinates.
+    // A negative width keeps the standalone renderer's full-window default.
+    UI::UIRect contentBounds { 0.0f, 0.0f, -1.0f, -1.0f };
     bool textOnly = false;
     bool topTextHidden = false;
     bool sceneMode = false;
@@ -904,8 +907,8 @@ class VolumetricPass
     bool Render( const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                  Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
                  Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
-                 Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner* gpuTiming, int windowWidth,
-                 int windowHeight, const Rendering::RenderGraphTextureBinding* graphOutput = nullptr );
+                 Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner* gpuTiming,
+                 const Rendering::RenderGraphTextureBinding* graphOutput = nullptr );
 
   private:
     CinematicScenePassResources& m_sceneResources;
@@ -939,8 +942,8 @@ class TonemapPass
     void ReleaseGpuResources();
     void Render( const SkullbonezCore::Core::CinematicRenderConfig& cinematic, Rendering::Dx12GeometryOwner& renderGeometry,
                  Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12FrameOwner& renderFrame,
-                 Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner* gpuTiming, int windowWidth,
-                 int windowHeight, bool sceneAlreadyUnbound, bool volumetricReady,
+                 Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner* gpuTiming,
+                 bool sceneAlreadyUnbound, bool volumetricReady,
                  const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr );
 
   private:

@@ -58,6 +58,25 @@ void Window::SetProjectionFrustum( float nearPlane, float farPlane )
 }
 
 
+bool Window::RequestClientSize( int width, int height )
+{
+    if ( !m_sWindow || m_fIsFullScreenMode || width < 320 || height < 240 || width > 8192 || height > 8192 )
+    {
+        return false;
+    }
+    RECT bounds { 0, 0, width, height };
+    const DWORD style = static_cast<DWORD>( GetWindowLongPtr( m_sWindow, GWL_STYLE ) );
+    const DWORD extended = static_cast<DWORD>( GetWindowLongPtr( m_sWindow, GWL_EXSTYLE ) );
+    if ( !AdjustWindowRectEx( &bounds, style, GetMenu( m_sWindow ) != nullptr, extended ) )
+    {
+        return false;
+    }
+    // The ordinary WM_SIZE queue remains authoritative for resource resizing.
+    // This requests native geometry without changing cached client dimensions.
+    return SetWindowPos( m_sWindow, nullptr, 0, 0, bounds.right - bounds.left, bounds.bottom - bounds.top,
+                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) != FALSE;
+}
+
 void Window::SetStartupWindowSize( int width, int height )
 {
     m_startupWindowWidth = (std::max)( 1, width );
@@ -116,8 +135,9 @@ bool Window::DestroyAppWindow() noexcept
 
 void Window::UpdateProjectionForCurrentClient()
 {
-    const int w = m_sWindowDimensions.x;
-    const int h = m_sWindowDimensions.y;
+    const RECT viewport = PresentationViewport();
+    const int w = viewport.right - viewport.left;
+    const int h = viewport.bottom - viewport.top;
 
     if ( w <= 0 || h <= 0 )
     {
@@ -125,12 +145,40 @@ void Window::UpdateProjectionForCurrentClient()
     }
 
     // DX12 clip-space depth is [0,1], so the perspective matrix must use the
-    // matching projection convention after every resize.
+    // matching projection convention after every viewport or client resize.
     // Invariant: Window owns the projection depth range after startup; resize
     // must not reopen global config while handling OS messages.
     const float aspect = static_cast<float>( w ) / static_cast<float>( h );
     projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, m_projectionNearPlane,
                                                                             m_projectionFarPlane );
+}
+
+RECT Window::PresentationViewport() const
+{
+    const LONG width = (std::max)( 1L, m_sWindowDimensions.x );
+    const LONG height = (std::max)( 1L, m_sWindowDimensions.y );
+    if ( m_presentationViewport.right <= m_presentationViewport.left ||
+         m_presentationViewport.bottom <= m_presentationViewport.top )
+    {
+        return { 0, 0, width, height };
+    }
+    RECT bounds;
+    bounds.left = std::clamp( m_presentationViewport.left, 0L, width - 1 );
+    bounds.top = std::clamp( m_presentationViewport.top, 0L, height - 1 );
+    bounds.right = std::clamp( m_presentationViewport.right, bounds.left + 1, width );
+    bounds.bottom = std::clamp( m_presentationViewport.bottom, bounds.top + 1, height );
+    return bounds;
+}
+
+void Window::SetPresentationViewport( const RECT& bounds )
+{
+    if ( m_presentationViewport.left == bounds.left && m_presentationViewport.top == bounds.top &&
+         m_presentationViewport.right == bounds.right && m_presentationViewport.bottom == bounds.bottom )
+    {
+        return;
+    }
+    m_presentationViewport = bounds;
+    UpdateProjectionForCurrentClient();
 }
 
 

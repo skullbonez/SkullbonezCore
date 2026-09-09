@@ -302,6 +302,8 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_sceneController.Scene().Physics().BindProfiler( profiler );
     m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
+    m_operatorUi->LoadPresentationPreferences();
+    m_replayRuntime.RestoreEvidenceSummarySection( m_operatorUi->EvidenceSummarySectionPreference() );
     m_operatorUi->SceneNavigation().RefreshBrowserList();
     m_operatorUi->SceneNavigation().RefreshInteractionRecordings();
     m_sceneController.Scene().ApplyRuntimeConfig( cfg );
@@ -381,6 +383,8 @@ Run::FinalizeInteractionAutomationReport( const SkullbonezCore::Core::SbResult& 
 Run::~Run()
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
+    m_operatorUi->RememberEvidenceSummarySection( m_replayRuntime.CauseInspectionView().Display().summaryExpandedSection );
+    m_operatorUi->SavePresentationPreferences( m_resultDiagnostics );
     CancelPendingLookLabSave( "shutdown cancelled screenshot" );
     m_continuousForecast.Stop();
 

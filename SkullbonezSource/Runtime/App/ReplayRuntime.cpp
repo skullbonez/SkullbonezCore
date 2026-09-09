@@ -997,6 +997,16 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics, const SceneEntit
 }
 
 
+void ReplayRuntime::RestoreEvidenceSummarySection( int section ) noexcept
+{
+    m_planningOwner.CauseInspection().SetSummaryExpandedSection( section );
+}
+
+bool ReplayRuntime::CauseFilterHasKeyboardFocus() const noexcept
+{
+    return m_authoring.CauseTree().filterFocused;
+}
+
 ReplayInputView ReplayRuntime::BuildInputView() const noexcept
 {
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
@@ -1044,6 +1054,10 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
     const RunReplayPredictionState& prediction = m_predictionOwner.State();
     const ReplayVisualPacket& packet = m_predictionPresentation.PublishedVisualPacketView();
     ReplaySkarnessState state;
+    state.predictionRevealRate = prediction.revealClock.secondsPerSecond;
+    state.memoryPreset = static_cast<int>( m_timeline.MemoryPolicy().preset );
+    state.memoryRetentionSeconds = m_timeline.MemoryPolicy().requestedRetentionSeconds;
+    state.memoryBudgetMiB = m_timeline.MemoryPolicy().requestedBudgetMiB;
     state.input = BuildInputView();
     state.predictionBuilding = prediction.build.building;
     state.predictionComplete = prediction.build.complete;
@@ -1205,6 +1219,7 @@ ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS ) || defined( SKULLBONEZ_SKARNESS )
 ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 {
+    const auto overlayStats = m_planningOwner.OverlayDrawStats();
     return { m_predictionOwner.State(),
              m_predictionOwner.AutomationCommittedSolverEvidence(),
              m_predictionOwner.AutomationDetailMode(),
@@ -1231,14 +1246,23 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
              CollectMemoryStats(),
              BuildInputView(),
              m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ),
-             SolverPresentTrackPosition() };
+             SolverPresentTrackPosition(),
+             m_timeline.LoadedPresentation().path,
+             m_timeline.LoadedPresentation().samples.size(),
+             m_timeline.LoadedPresentation().firstFrame,
+             m_timeline.LoadedPresentation().lastFrame,
+             m_planningOwner.SurfaceScroll(),
+             overlayStats.commandCount,
+             overlayStats.commandOverflow || overlayStats.textOverflow || overlayStats.clipOverflow };
 }
 #endif
 
 
-ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView(
-    bool editorModeEnabled, bool uiVisible, bool uiMinimized, RuntimeInteractionGestureKind gesture,
-    std::span<const Rendering::RenderInstancePresentationRecord> presentation, const PhysicsBodyStore& bodyStore )
+ReplayOverlay::ReplayOverlayStateView
+ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled, bool uiVisible, bool uiMinimized,
+                                      RuntimeInteractionGestureKind gesture,
+                                      std::span<const Rendering::RenderInstancePresentationRecord> presentation,
+                                      const PhysicsBodyStore& bodyStore, bool sharedSurface )
 {
     int focusedCameraRow = -1;
     (void)BuildReplayCauseTreeRows( m_predictionOwner, m_authoring, m_visualPresentation.PathVisualizer(),
@@ -1258,9 +1282,10 @@ ReplayOverlay::ReplayOverlayStateView ReplayRuntime::BuildOverlayStateView(
                m_timeline.Solver().GetStats(), ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
                ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS, selection.replay, selection.selectedPrediction,
                selection.predictionTimelineAvailable,
-               ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ), m_timeline.RecordingConfigured(),
-               m_timeline.RecordingEnabled(), m_timeline.RecordingLockedByHashLog() },
-             { m_planningOwner.InterceptView(), m_planningOwner.PorkchopView(), m_planningOwner.TripPlannerView() },
+               ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture, sharedSurface ),
+               m_timeline.RecordingConfigured(), m_timeline.RecordingEnabled(), m_timeline.RecordingLockedByHashLog() },
+             { m_planningOwner.InterceptView(), m_planningOwner.PorkchopView(), m_planningOwner.TripPlannerView(),
+               m_planningOwner.SurfaceScroll() },
              { m_authoring.CauseTree(), m_planningOwner.CauseInspectionView(), prediction.diagnostics.detailMode,
                ReplayOverlay::BuildReplayCauseLoadingView( prediction.timeline, prediction.topology, prediction.controls,
                                                            m_visualPresentation.PathVisualizer(),
@@ -1770,9 +1795,9 @@ float ReplayRuntime::SolverPresentTrackPosition() const
 }
 
 bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized,
-                                          RuntimeInteractionGestureKind gesture ) const
+                                          RuntimeInteractionGestureKind gesture, bool sharedSurface ) const
 {
-    if ( editorModeEnabled || !uiVisible || !uiMinimized )
+    if ( editorModeEnabled || ( !sharedSurface && ( !uiVisible || !uiMinimized ) ) )
     {
         return false;
     }
@@ -1785,7 +1810,7 @@ bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible
     // Why: visibility is about whether a replay control surface is armed, not
     // whether enough retained frames exist to enable scrub/prediction tools.
     return ( loadedPresentation || solverReplayEnabled ) &&
-           ( scrubber.visible || gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+           ( sharedSurface || scrubber.visible || gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
              gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag || scrubber.historicalSamplePaused ||
              scrubber.liveAdvanceHeld );
 }
@@ -2366,7 +2391,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
                                       const SceneEntityStore& entities, const SkullbonezCore::Core::EngineConfig& config,
                                       const Physics::PhysicsWorldForces& worldForces,
                                       ReplayPredictionPathPresentation pathPresentation, Threading::WorkerPool& workerPool,
-                                      bool scenePhysicsEnabled, double simulationTimeSinceLastStart,
+                                      bool scenePhysicsEnabled, bool liveAdvancing, double simulationTimeSinceLastStart,
                                       double simulationTotalTime )
 {
     // Concept: the composition root samples owner values, then prediction
@@ -2377,11 +2402,13 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
     const ReplayPlanningSceneView planningScene = BuildReplayPlanningSceneView( entities,
                                                                                 m_planningOwner.InterceptView().targetId );
+    // Why: Inspect, the scene pause lock and Replay hold can each stop physics.
+    // App supplies actual simulation advancement so none is mistaken for running.
     const ReplayPredictionPresentationView predictionBeforeFrame = m_predictionOwner.PresentationView();
     (void)ApplyPlanningVelocityMutation( physics,
                                          m_planningOwner.BeginFrameBeforePrediction( physics, planningScene, worldForces,
                                                                                      path, predictionBeforeFrame.controls,
-                                                                                     scrubber.liveAdvanceHeld ) );
+                                                                                     liveAdvancing ) );
 
     const ReplaySolverFrameSample* latestSolverSample = m_timeline.Solver().LatestSample();
     const float solverTrackPosition = m_scrubberOwner.TrackPosition( RunReplayTrack::Solver );
@@ -2444,7 +2471,16 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
                                                                                      predictionAfterFrame.timeline,
                                                                                      predictionAfterFrame.topology,
                                                                                      predictionAfterFrame.controls,
-                                                                                     scrubber.liveAdvanceHeld ) );
+                                                                                     liveAdvancing ) );
+}
+
+void ReplayRuntime::CancelUncommittedTripPlan( Physics::PhysicsEngine& physics )
+{
+    if ( m_planningOwner.TripPlannerView().state == ReplayTripPlannerState::Idle )
+    {
+        return;
+    }
+    (void)ApplyPlanningVelocityMutation( physics, m_planningOwner.CancelActivePlan() );
 }
 
 bool ReplayRuntime::ApplyPlanningVelocityMutation( Physics::PhysicsEngine& physics,

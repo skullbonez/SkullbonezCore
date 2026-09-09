@@ -35,7 +35,8 @@ enum TopicIndex : std::size_t
     VisualPacket,
     RenderSubmission,
     LegacyScene,
-    LegacyReplay
+    LegacyReplay,
+    Presentation
 };
 
 Json Vec3( const Math::Vector::Vector3& value )
@@ -74,7 +75,11 @@ Json BuildScene( const SkarnessFrameState& state )
              { "objectCount", state.sceneObjectCount },
              { "physicsBodyCount", state.physicsBodyCount },
              { "lifecycleEvent", state.sceneLifecycleEvent },
-             { "sceneMode", state.sceneMode } };
+             { "sceneMode", state.sceneMode },
+             { "timeScale", state.sceneTimeScale },
+             { "pauseLocked", state.scenePauseLocked },
+             { "physicsEnabled", state.scenePhysicsEnabled },
+             { "manualResetCount", state.sceneManualResetCount } };
 }
 
 Json BuildSelection( const SkarnessFrameState& state )
@@ -145,7 +150,13 @@ Json BuildTimeline( const ReplayAutomationView& replay, SkarnessStateDetail deta
                          { "liveAdvanceHeld", replay.scrubber.liveAdvanceHeld },
                          { "position", replay.scrubber.position },
                          { "presentationPosition", replay.scrubber.presentationPosition },
-                         { "solverPosition", replay.scrubber.solverPosition } } } };
+                         { "solverPosition", replay.scrubber.solverPosition },
+                         { "feedback", replay.scrubber.saveMessage } } },
+                     { "loaded",
+                       { { "path", replay.loadedPresentationPath },
+                         { "sampleCount", replay.loadedPresentationSamples },
+                         { "firstFrame", replay.loadedPresentationFirstFrame },
+                         { "lastFrame", replay.loadedPresentationLastFrame } } } };
 
     if ( detail != SkarnessStateDetail::Summary )
     {
@@ -197,6 +208,12 @@ Json BuildPredictionControls( const SkarnessFrameState& state )
              { "highDetail", state.predictionHighDetail },
              { "horizonSeconds", state.predictionHorizonSeconds },
              { "revealProgress", state.predictionRevealProgress },
+             { "revealRate", state.predictionRevealRate },
+             { "forecastActive", state.forecastActive },
+             { "forecastAvailable", state.forecastAvailable },
+             { "forecastFailed", state.forecastFailed },
+             { "forecastNewestTick", state.forecastNewestTick },
+             { "forecastSimulatedSeconds", state.forecastSimulatedSeconds },
              { "generation", state.predictionGeneration },
              { "sourceTargetId", state.predictionSourceTargetId },
              { "sourceFrame", state.predictionSourceFrame },
@@ -409,7 +426,10 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
                      { "selectedRow", replay.causeTree.selectedRow },
                      { "focusedId", replay.causeTree.focusedId.value },
                      { "filterText", replay.causeTree.filterText },
+                     { "filterFocused", replay.causeTree.filterFocused },
                      { "filter", static_cast<int>( replay.causeTree.filter ) },
+                     { "scrollY", replay.causeTree.scrollY },
+                     { "activeTab", static_cast<int>( replay.causeInspection.activeTab ) },
                      { "mode", static_cast<int>( replay.causeInspection.mode ) },
                      { "generation", replay.causeInspection.generation },
                      { "sourceFrame", replay.causeInspection.sourceFrame },
@@ -422,6 +442,9 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
                      { "drawerProgress", replay.causeInspection.drawerProgress },
                      { "summaryExpandedSection", replay.causeInspection.summaryExpandedSection },
                      { "summaryScrollOffset", replay.causeInspection.summaryScrollOffset },
+                     { "shellScroll", replay.causeInspection.shellScroll },
+                     { "rawRecordFirstRow", replay.causeInspection.rawRecordFirstRow },
+                     { "iterationsFirstRow", replay.causeInspection.iterationsFirstRow },
                      { "blueOutlinesVisible", replay.causeInspection.blueOutlinesVisible },
                      { "greyOutlinesVisible", replay.causeInspection.greyOutlinesVisible },
                      { "objects",
@@ -495,6 +518,10 @@ Json BuildPlanning( const ReplayAutomationView& replay, SkarnessStateDetail deta
                          { "visible", replay.tripPlanner.visible },
                          { "available", replay.tripPlanner.available },
                          { "noSolution", replay.tripPlanner.noSolution } } } };
+    payload["surfaceScroll"] = replay.planningSurfaceScroll;
+    payload["overlayCommands"] = replay.overlayCommands;
+    payload["overlayOverflow"] = replay.overlayOverflow;
+    payload["porkchop"]["hoveredCell"] = replay.porkchop.hoveredCell;
     if ( detail == SkarnessStateDetail::Full )
     {
         payload["porkchop"]["deltaV"] = Json::array();
@@ -764,6 +791,92 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
            replay.trajectorySubmission.presentationTopologyVersion );
     Store( outTopics, LegacyScene, BuildScene( state ), state.sceneGeneration );
     Store( outTopics, LegacyReplay, BuildLegacyReplay( state, replay ), state.predictionGeneration );
+    Store( outTopics, Presentation,
+           { { "layout", state.presentation.editorLayout ? "Editor" : "Canvas" },
+             { "workspace", state.presentation.solverLabWorkspace ? "Solver Lab" : "Scene" },
+             { "editorMode", state.presentation.editorMode },
+             { "editorPlacement", state.presentation.editorPlacement },
+             { "editorStaticObject", state.presentation.editorStaticObject },
+             { "editorTerrainAlign", state.presentation.editorTerrainAlign },
+             { "cameraMode", state.presentation.cameraMode },
+             { "cameraModeEnabledMask", state.presentation.cameraModeEnabledMask },
+             { "cameraPopupBounds", state.presentation.cameraPopupBounds },
+             { "cameraPopupOpen", state.presentation.cameraPopupOpen },
+             { "toolsPopupBounds", state.presentation.toolsPopupBounds },
+             { "toolsPopupFirstOption", state.presentation.toolsPopupFirstOption },
+             { "toolsPopupVisibleOptions", state.presentation.toolsPopupVisibleOptions },
+             { "toolsPopupOptions", state.presentation.toolsPopupOptions },
+             { "toolsPopupOpen", state.presentation.toolsPopupOpen },
+             { "editorObjectType", state.presentation.editorObjectType },
+             { "editorPopupBounds", state.presentation.editorPopupBounds },
+             { "editorPopupFirstOption", state.presentation.editorPopupFirstOption },
+             { "editorPopupVisibleOptions", state.presentation.editorPopupVisibleOptions },
+             { "editorObjectOptions", state.presentation.editorObjectOptions },
+             { "editorPopupOpen", state.presentation.editorPopupOpen },
+             { "targetPopupBounds", state.presentation.targetPopupBounds },
+             { "targetFirstOption", state.presentation.targetFirstOption },
+             { "targetVisibleOptions", state.presentation.targetVisibleOptions },
+             { "targetOptions", state.presentation.targetOptions },
+             { "selectedTarget", state.presentation.selectedTarget },
+             { "targetDisabledMask", state.presentation.targetDisabledMask },
+             { "recordingPopupBounds", state.presentation.recordingPopupBounds },
+             { "recordingFirstOption", state.presentation.recordingFirstOption },
+             { "recordingVisibleOptions", state.presentation.recordingVisibleOptions },
+             { "recordingOptions", state.presentation.recordingOptions },
+             { "toolsVisible", state.presentation.toolsVisible },
+             { "activeTool", state.presentation.activeTool },
+             { "markerHistoryVisible", state.presentation.markerHistoryVisible },
+             { "memoryWaterlineVisible", state.presentation.memoryWaterlineVisible },
+             { "markerSamples", state.presentation.markerSamples },
+             { "memorySamples", state.presentation.memorySamples },
+             { "focusedDiagnostic", state.presentation.focusedDiagnostic },
+             { "markerSelectionHash", state.presentation.markerSelectionHash },
+             { "profilerTimeline", state.presentation.profilerTimeline },
+             { "profilerMarkerCount", state.presentation.profilerMarkerCount },
+             { "profilerDrawNodeCount", state.presentation.profilerDrawNodeCount },
+             { "profilerExpansionHash", state.presentation.profilerExpansionHash },
+             { "drawExpansionHash", state.presentation.drawExpansionHash },
+             { "profilerDrawExpanderBounds", state.presentation.profilerDrawExpanderBounds },
+             { "workerThreads", state.presentation.workerThreads },
+             { "maxWorkerThreads", state.presentation.maxWorkerThreads },
+             { "replayMemoryPreset", state.presentation.replayMemoryPreset },
+             { "replayRetentionSeconds", state.presentation.replayRetentionSeconds },
+             { "replayBudgetMiB", state.presentation.replayBudgetMiB },
+             { "optionsToggles", state.presentation.optionsToggles },
+             { "sceneControlValues", state.presentation.sceneControlValues },
+             { "modelCapacity", state.presentation.modelCapacity },
+             { "fileDialogResponsesConsumed", state.presentation.fileDialogResponsesConsumed },
+             { "cinematicShadows", state.presentation.cinematicShadows },
+             { "physicsParameters", state.presentation.physicsParameters },
+             { "physicsToggles", state.presentation.physicsToggles },
+             { "physicsPipelineStage", state.presentation.physicsPipelineStage },
+             { "physicsPipelineStages", state.presentation.physicsPipelineStages },
+             { "ordinaryRenderParameters", state.presentation.ordinaryRenderParameters },
+             { "cinematicParameters", state.presentation.cinematicParameters },
+             { "cinematicFeatures", state.presentation.cinematicFeatures },
+             { "toolsScroll", state.presentation.toolsScroll },
+             { "toolsContentBounds", state.presentation.toolsContentBounds },
+             { "tooltipId", state.presentation.tooltipId },
+             { "tooltipAction", state.presentation.tooltipAction },
+             { "tooltipTargetBounds", state.presentation.tooltipTargetBounds },
+             { "window", { state.presentation.windowWidth, state.presentation.windowHeight } },
+             { "viewport",
+               { state.presentation.viewportX, state.presentation.viewportY, state.presentation.viewportWidth,
+                 state.presentation.viewportHeight } },
+             { "projectionScale", { state.presentation.projectionX, state.presentation.projectionY } },
+             { "pointerHasWorldRay", state.presentation.pointerHasWorldRay },
+             { "transportBounds", state.presentation.transportBounds },
+             { "replayControlsBounds", state.presentation.replayControlsBounds },
+             { "causeControlsBounds", state.presentation.causeControlsBounds },
+             { "detailsCausesTabBounds", state.presentation.detailsCausesTabBounds },
+             { "editorControlsBounds", state.presentation.editorControlsBounds },
+             { "editorReplayTabBounds", state.presentation.editorReplayTabBounds },
+             { "leftResizeBounds", state.presentation.leftResizeBounds },
+             { "rightResizeBounds", state.presentation.rightResizeBounds },
+             { "rightFoldBounds", state.presentation.rightFoldBounds },
+             { "replayDetailsBounds", state.presentation.replayDetailsBounds },
+             { "replayScroll", state.presentation.replayScroll },
+             { "pointerRayDirection", state.presentation.pointerRayDirection } } );
 }
 } // namespace SkullbonezCore::Runtime
 

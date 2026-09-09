@@ -24,6 +24,140 @@ Related:
 
 namespace SkullbonezCore::UI::GameLayout
 {
+enum class LayoutMode : uint8_t
+{
+    Canvas,
+    Editor
+};
+
+enum class Workspace : uint8_t
+{
+    Scene,
+    SolverLab
+};
+
+// Presentation values only. A layout switch never owns a scene, camera,
+// simulation clock, comparison recording, or functional editor mode.
+struct PresentationPreferences
+{
+    static constexpr uint32_t VERSION = 1;
+    LayoutMode layout = LayoutMode::Canvas;
+    float leftWidth = 280.0f;
+    float rightWidth = 360.0f;
+    float drawerHeight = 360.0f;
+    float diagnosticsHeight = 140.0f;
+    // Three evidence summary sections; their accordion permits one open row.
+    uint32_t foldedSections = 7;
+    int lastTool = 1;
+    bool leftFolded = false;
+    bool rightFolded = false;
+};
+
+struct PresentationState
+{
+    PresentationPreferences preferences;
+    Workspace workspace = Workspace::Scene;
+    bool toolsOpen = false;
+    bool detailsOpen = false;
+    bool detailsCauses = false;
+    bool editorReplay = false;
+    bool editorInTools = false;
+    int focusedDiagnostic = 0;
+    float replayScroll = 0.0f;
+    float editorScroll = 0.0f;
+};
+
+struct PresentationRects
+{
+    UIRect window;
+    UIRect header;
+    UIRect viewport;
+    UIRect statusContent;
+    UIRect left;
+    UIRect right;
+    UIRect transport;
+    UIRect drawer;
+    UIRect markerHistory;
+    UIRect memoryWaterline;
+    UIRect leftResize;
+    UIRect rightResize;
+    UIRect drawerResize;
+    UIRect replayControls;
+    UIRect replayDetails;
+    UIRect causeControls;
+    UIRect detailsReplayTab;
+    UIRect detailsCausesTab;
+    UIRect editorTab;
+    UIRect editorReplayTab;
+    UIRect editorControls;
+    UIRect leftFold;
+    UIRect rightFold;
+    float editorScroll = 0.0f;
+    float replayScroll = 0.0f;
+};
+
+struct HeaderRects
+{
+    UIRect skull;
+    UIRect scene;
+    UIRect scenes;
+    UIRect camera;
+    UIRect workspace;
+    UIRect layout;
+    UIRect tools;
+};
+
+struct DiagnosticPresentation
+{
+    bool markerHistoryVisible = false;
+    bool memoryWaterlineVisible = false;
+    int markerSamples = 0;
+    int memorySamples = 0;
+    int focusedPanel = 0;
+    uint32_t markerSelectionHash = 0;
+    bool profilerTimeline = false;
+    int profilerMarkerCount = 0;
+    int profilerDrawNodeCount = 0;
+    uint32_t profilerExpansionHash = 0;
+    uint32_t drawExpansionHash = 0;
+    UIRect drawExpanderBounds;
+};
+
+struct ComboPopupPresentation
+{
+    UIRect bounds;
+    int firstOption = 0;
+    int visibleOptions = 0;
+    int totalOptions = 0;
+    bool open = false;
+    int selectedOption = -1;
+    uint32_t disabledMask = 0;
+};
+
+// Shared by drawer drawing, input, and tooltips; compact chrome leaves a locally
+// scrollable content region even when the perimeter consumes most of the window.
+struct ToolsChromeRects
+{
+    UIRect title;
+    UIRect tabs;
+    UIRect content;
+    UIRect footer;
+    UIRect close;
+    bool compact = false;
+};
+ToolsChromeRects ComputeToolsChromeRects( const UIRect& bounds, bool sharedShell );
+inline constexpr const char* TOOL_NAMES[] = { "Profiler", "Scene", "Editor", "Physics",   "Options", "Render",
+                                              "Targets",  "Keys",  "Sky",    "Cinematic", "Memory" };
+
+HeaderRects ComputeHeaderRects( const UIRect& header );
+UIRect DiagnosticDetailsBounds( const UIRect& panel );
+
+// Invariant: all rectangles are window coordinates and computed before input
+// and rendering for that frame. Closed panes have no hit-test area.
+PresentationRects ComputePresentationRects( const PresentationState& state, int width, int height );
+PresentationPreferences SanitizePreferences( const PresentationPreferences& preferences );
+void DrawSkullLogo( const UIDrawContext& draw, const UIRect& bounds );
+
 inline constexpr float CONTENT_TOGGLE_ROW_H = 30.0f;
 
 inline constexpr int UI_SCENE_COMBO_VISIBLE_OPTIONS = 12;

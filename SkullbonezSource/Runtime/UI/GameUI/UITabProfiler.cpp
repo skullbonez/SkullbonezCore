@@ -618,6 +618,10 @@ bool HandleContentClick( UIProfilerTabState& state, InGameUIInputResult& result,
 
     const int headerH = 32;
     const int rowH = 30;
+    if ( mouseY < contentY + PROFILER_TABLE_OFFSET_H + headerH )
+    {
+        return false;
+    }
     const int localY = static_cast<int>( static_cast<float>( mouseY - contentY ) + scrollY - PROFILER_TABLE_OFFSET_H );
 
     if ( localY < headerH )
@@ -639,7 +643,7 @@ bool HandleContentClick( UIProfilerTabState& state, InGameUIInputResult& result,
             return false;
         }
 
-        const float plusX = static_cast<float>( contentX + 18 + marker.depth * 18 );
+        const float plusX = static_cast<float>( contentX + 18 + (std::min)( marker.depth, 8 ) * 18 );
         const float plusY = static_cast<float>( contentY ) + PROFILER_TABLE_OFFSET_H +
                             static_cast<float>( headerH + targetRow * rowH ) - scrollY + 8.0f;
 
@@ -685,7 +689,7 @@ bool HandleContentClick( UIProfilerTabState& state, InGameUIInputResult& result,
     }
 
     const DrawTraceNodeSnapshot& node = snapshot.nodes[nodeIndex];
-    const float plusX = static_cast<float>( contentX + 18 + node.depth * 18 );
+    const float plusX = static_cast<float>( contentX + 18 + (std::min)( node.depth, 8 ) * 18 );
     const float plusY = static_cast<float>( contentY ) + PROFILER_TABLE_OFFSET_H +
                         static_cast<float>( drawHeaderTop + drawHeaderH + coreChartH + drawTargetRow * drawRowH ) - scrollY +
                         6.0f;
@@ -944,6 +948,8 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
     draw.Text( barX + barW - 44.0f, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f,
                state.timelineEnabled ? "Frame" : "16.67 ms" );
 
+    // Invariant: scrolled rows and charts cannot paint over the fixed column headers.
+    draw.PushClip( { tableX, tableY + headerH, tableW, (std::max)( 0.0f, tableH - headerH ) } );
     int visibleRows[MAX_MARKERS] = {};
     const int visibleRowCount = BuildVisibleRows( state, visibleRows, MAX_MARKERS );
     TimelineSegment timelineSegments[MAX_MARKERS] = {};
@@ -1120,6 +1126,93 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
         const bool hasChildren = DrawNodeHasVisibleChildren( drawSnapshot, nodeIndex );
         drawTraceRow( visibleRow, node, hasChildren, IsDrawNodeExpanded( state, node.hash ) );
     }
+    draw.PopClip();
+}
+
+UIRect FirstDrawExpanderBounds( const UIProfilerTabState& state, const UIRect& content, float scrollY )
+{
+    int markerRows[MAX_MARKERS] {};
+    const int markerCount = BuildVisibleRows( state, markerRows, MAX_MARKERS );
+    int drawRows[MAX_MARKERS] {};
+    const int drawCount = BuildVisibleDrawRows( state, state.frame.drawTrace, drawRows, MAX_MARKERS );
+    for ( int row = 0; row < drawCount; ++row )
+    {
+        const auto& node = state.frame.drawTrace.nodes[drawRows[row]];
+        if ( DrawNodeHasVisibleChildren( state.frame.drawTrace, drawRows[row] ) )
+        {
+            return { content.x + 18.0f + (std::min)( node.depth, 8 ) * 18.0f,
+                     content.y + PROFILER_TABLE_OFFSET_H + 32.0f + markerCount * 30.0f + 18.0f + 32.0f +
+                         PROFILER_CORE_CHART_H + row * 26.0f + 6.0f - scrollY,
+                     14.0f, 14.0f };
+        }
+    }
+    return {};
+}
+
+UITooltipTarget TooltipAt( const UIProfilerTabState& state, const UIRect& content, float scrollY, int mouseX, int mouseY )
+{
+    if ( !content.Contains( mouseX, mouseY ) || static_cast<float>( mouseY ) < content.y + PROFILER_TABLE_OFFSET_H )
+    {
+        return {};
+    }
+    if ( static_cast<float>( mouseY ) < content.y + PROFILER_TABLE_OFFSET_H + 32.0f )
+    {
+        return { 4401,
+                 { content.x, content.y + PROFILER_TABLE_OFFSET_H, content.w, 32.0f },
+                 { "CPU includes children; Self excludes them. Work sums worker CPU time. P50 and P99 show percentiles.",
+                   "Milliseconds" },
+                 true };
+    }
+    int visibleRows[MAX_MARKERS] {};
+    const int rowCount = BuildVisibleRows( state, visibleRows, MAX_MARKERS );
+    const float tableY = content.y + PROFILER_TABLE_OFFSET_H - scrollY;
+    const int row = static_cast<int>( ( static_cast<float>( mouseY ) - tableY - 32.0f ) / 30.0f );
+    if ( static_cast<float>( mouseY ) >= tableY + 32.0f && row >= 0 && row < rowCount )
+    {
+        const MarkerSnapshot& marker = state.frame.markers[visibleRows[row]];
+        const UIRect toggle { content.x + 18.0f + static_cast<float>( (std::min)( marker.depth, 8 ) ) * 18.0f,
+                              tableY + 32.0f + static_cast<float>( row ) * 30.0f + 8.0f, 14.0f, 14.0f };
+        if ( ProfilerMarkerHasChildren( state.frame, visibleRows[row] ) && toggle.Contains( mouseX, mouseY ) )
+        {
+            return { static_cast<uint32_t>( 4000 + row ), toggle, { "Fold or expand this marker's children." }, true };
+        }
+        return { static_cast<uint32_t>( 4200 + row ),
+                 { content.x, tableY + 32.0f + static_cast<float>( row ) * 30.0f, content.w, 30.0f },
+                 { "CPU includes children; Self excludes them. Work sums worker CPU time. P50 and P99 show percentiles.",
+                   "Milliseconds" },
+                 true };
+    }
+    const float drawHeaderY = tableY + 32.0f + static_cast<float>( rowCount ) * 30.0f + 18.0f;
+    const float drawRowsY = drawHeaderY + 32.0f + PROFILER_CORE_CHART_H;
+    if ( static_cast<float>( mouseY ) >= drawHeaderY && static_cast<float>( mouseY ) < drawRowsY )
+    {
+        return { 4400,
+                 { content.x, drawHeaderY, content.w, 32.0f + PROFILER_CORE_CHART_H },
+                 { "Per-worker CPU work and job counts from the committed frame.", "Milliseconds of CPU work" },
+                 true };
+    }
+    const int drawRow = static_cast<int>( ( static_cast<float>( mouseY ) - drawRowsY ) / 26.0f );
+    int visibleDrawRows[MAX_MARKERS] {};
+    const int drawRowCount = BuildVisibleDrawRows( state, state.frame.drawTrace, visibleDrawRows, MAX_MARKERS );
+    if ( static_cast<float>( mouseY ) >= drawRowsY && drawRow >= 0 && drawRow < drawRowCount )
+    {
+        const DrawTraceNodeSnapshot& node = state.frame.drawTrace.nodes[visibleDrawRows[drawRow]];
+        const UIRect toggle { content.x + 18.0f + static_cast<float>( (std::min)( node.depth, 8 ) ) * 18.0f,
+                              drawRowsY + static_cast<float>( drawRow ) * 26.0f + 6.0f, 14.0f, 14.0f };
+        if ( DrawNodeHasVisibleChildren( state.frame.drawTrace, visibleDrawRows[drawRow] ) &&
+             toggle.Contains( mouseX, mouseY ) )
+        {
+            return { static_cast<uint32_t>( 4500 + drawRow ),
+                     toggle,
+                     { "Fold or expand this draw-call group's children." },
+                     true };
+        }
+        return { static_cast<uint32_t>( 4700 + drawRow ),
+                 { content.x, drawRowsY + static_cast<float>( drawRow ) * 26.0f, content.w, 26.0f },
+                 { "Draw calls, vertices and instances submitted by this draw group.", "Counts per frame" },
+                 true };
+    }
+    return {};
 }
 
 } // namespace ProfilerTab

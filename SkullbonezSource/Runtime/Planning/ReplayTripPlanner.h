@@ -1,31 +1,4 @@
-/*
-File: SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h
-Purpose:
-  Owns the bounded Lambert-seeded trip-planning state machine and ghost arcs.
-
-Summary:
-  UI and automation enqueue small commands. The composition root supplies live
-  body values and published prediction frames, then applies any returned
-  velocity mutation through the normal Replay velocity-edit boundary.
-
-Glossary:
-  Seed: Analytic Lambert departure velocity used as the first candidate burn.
-  Correction: First-order velocity adjustment derived from a real prediction miss.
-  Ghost arc: Downsampled root path retained from one completed shooting iteration.
-  TOF: Requested time of flight from the current live state to the target.
-
-Invariants:
-  - The owner stores no prediction, Physics, scene, or callback borrow.
-  - Command and ghost storage are fixed-capacity and never allocate.
-  - Analytic math proposes candidates; only completed engine predictions decide
-    convergence or failure.
-  - At most four candidate generations are submitted for one plan.
-
-Related:
-  - SkullbonezSource/Runtime/App/ReplayRuntime.cpp
-  - SkullbonezSource/Maths/OrbitalMechanics.h
-  - SkullbonezTests/TestReplayTripPlanner.cpp
-*/
+// Owns fixed-capacity trip commands and ghost arcs; App applies returned velocity mutations.
 #pragma once
 
 #include "ReplayInterceptReadout.h"
@@ -92,7 +65,7 @@ struct ReplayTripPlannerLiveInput
     float predictionHorizonSeconds = 0.0f;
     bool mutualGravityEnabled = false;
     bool targetSelected = false;
-    bool liveAdvanceHeld = false;
+    bool liveAdvancing = false;
     const char* targetName = nullptr;
 };
 
@@ -105,7 +78,7 @@ struct ReplayTripPlannerPredictionInput
     uint32_t generation = 0;
     bool complete = false;
     bool cancelled = false;
-    bool liveAdvanceHeld = false;
+    bool liveAdvancing = false;
     bool targetAvailable = false;
 };
 
@@ -140,6 +113,7 @@ struct ReplayTripPlannerView
     char targetName[32] = {};
     bool visible = false;
     bool available = false;
+    bool liveAdvancing = false;
     bool noSolution = false;
 };
 

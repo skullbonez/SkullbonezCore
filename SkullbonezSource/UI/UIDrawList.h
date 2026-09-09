@@ -40,11 +40,10 @@ class UIDrawList
     // push rectangles, triangles, and text in UI order; the final draw context
     // translates those records to the active render backend after hit testing
     // has already used the same layout numbers.
-    // Invariant: closure capture measured 289 commands and 1,369 text bytes
-    // across the heaviest editor/render/targets/memory/replay surfaces. These
-    // limits retain at least 7x command and 11x text headroom without making
-    // every retained scratch list carry the obsolete pre-stream 8K/64K budget.
-    static constexpr int MAX_COMMANDS = 2048;
+    // Why: a dense 64 by 48 value grid needs 3,072 rectangles before its
+    // labels, surrounding panels and transport. Storage remains fixed; stats
+    // report exhaustion so larger compositions cannot silently lose controls.
+    static constexpr int MAX_COMMANDS = 4096;
     static constexpr int MAX_TEXT_BYTES = 16384;
     static constexpr int MAX_CLIP_DEPTH = 32;
     static_assert( MAX_TEXT_BYTES > 0 );
@@ -63,7 +62,8 @@ class UIDrawList
         Text,
         PushClip,
         PopClip,
-        PreviewImage
+        PreviewImage,
+        LayerBreak
     };
 
     struct Stats
@@ -98,6 +98,7 @@ class UIDrawList
         float a;
         int textOffset;
         PreviewTargetId preview;
+        bool foreground;
     };
     static_assert( std::is_trivially_copyable_v<Command>, "UI draw commands must remain plain inspectable values." );
 
@@ -107,6 +108,12 @@ class UIDrawList
     void AddTriangle( const UITriangle& triangle, const Style::UIColor& color );
     void AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value );
     void PushClip( const UIRect& bounds );
+    void BeginLayer();
+    // Foreground groups are independently clipped popup/tooltip drawing.
+    // App may extract them and submit them after other workspace presenters.
+    void BeginForeground();
+    void EndForeground();
+    void ExtractForeground( UIDrawList& destination );
     void PopClip();
 
     // Fallback fill and label are part of the recorded value so a missing
@@ -142,6 +149,7 @@ class UIDrawList
     int m_clipDepth = 0;
     int m_suppressedClipDepth = 0;
     int m_maxClipDepth = 0;
+    int m_foregroundDepth = 0;
 };
 
 } // namespace UI

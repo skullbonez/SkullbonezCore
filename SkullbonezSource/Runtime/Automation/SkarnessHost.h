@@ -38,6 +38,13 @@ class SkarnessHost
     uint8_t ArrowKeysDown() const noexcept;
     uint8_t MovementKeysDown() const noexcept;
     bool PredictionKeyDown() const noexcept;
+    std::array<uint64_t, 4> KeyboardWords() const noexcept;
+    bool AppFocused() const noexcept;
+    bool TakeFileDialogResponse( const char* purpose, char ( &path )[260], bool& accepted );
+    uint64_t FileDialogResponsesConsumed() const noexcept
+    {
+        return m_fileDialogResponsesConsumed;
+    }
     SkarnessProceedPolicy TakeProceedPolicy();
     void PublishFrameState( const SkarnessFrameState& state, const ReplayAutomationView& replay );
     bool TakeStopRequested() noexcept;
@@ -74,6 +81,8 @@ class SkarnessHost
     void AcceptClient();
     void DisconnectClient();
     void ConsumeRequestLine( const std::string& line );
+    void QueueFileDialogResponse( const std::string& requestId, std::string purpose, std::string path, bool accepted,
+                                  bool valid );
     RememberRequestResult RememberRequestId( const std::string& requestId );
     bool AdmitRequestId( const std::string& requestId );
     void StoreCompletedResponse( const std::string& requestId, const std::string& response );
@@ -116,6 +125,8 @@ class SkarnessHost
     {
         std::string requestId;
         bool moveClient = false;
+        int holdMilliseconds = 0;
+        double holdUntil = 0.0;
         int wheelDelta = 0;
         int clientX = 0;
         int clientY = 0;
@@ -141,9 +152,19 @@ class SkarnessHost
     std::deque<CompletedRequest> m_completedRequests;
     PendingSceneTransition m_pendingSceneTransition;
     PendingPointerDrag m_pendingPointerDrag;
+    // Stationary synthetic position for hover testing; scripted gestures take
+    // priority. InputRouter still owns all resulting focus and capture state.
+    SkarnessPointerInputFrame m_stationaryPointer;
+    bool m_stationaryPointerEnabled = false;
     uint8_t m_arrowKeysDown = 0;
     uint8_t m_movementKeysDown = 0;
     bool m_predictionKeyDown = false;
+    std::array<uint64_t, 4> m_keyboardWords {};
+    bool m_appFocused = true;
+    std::string m_fileDialogPurpose;
+    std::string m_fileDialogPath;
+    bool m_fileDialogAccepted = false;
+    uint64_t m_fileDialogResponsesConsumed = 0;
     uint64_t m_sequence = 0;
     uint64_t m_renderFrame = 0;
     uint64_t m_physicsSceneGeneration = ~uint64_t { 0 };

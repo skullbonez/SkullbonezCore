@@ -1,6 +1,7 @@
 #include "PhysicsComparisonPanel.h"
 #include "ReplayCauseInspection.h"
 #include "../../UI/UIStyle.h"
+#include "../../UI/UIFontMetrics.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include <algorithm>
 #include <cmath>
@@ -115,6 +116,9 @@ void PhysicsComparisonPanel::Prepare( const Physics::ColliderStore& colliders,
     m_contactSelectionRevision = 0;
     m_contactTick = -1;
     m_shapes.clear();
+    m_spheres.clear();
+    m_boxes.clear();
+    m_hulls.clear();
     m_shapes.reserve( colliders.Records().size() );
     for ( const auto& collider : colliders.Records() )
     {
@@ -131,14 +135,83 @@ void PhysicsComparisonPanel::Prepare( const Physics::ColliderStore& colliders,
         material.kind = Rendering::RenderMaterialKind::Matte;
         material.contactFlashAlpha = 0;
         material.baseColor[3] = 1;
-        m_shapes.push_back( { collider.sceneObjectId.value, collider, material } );
+        m_shapes.push_back( { collider.sceneObjectId.value, collider, material, RetainGeometry( collider ) } );
     }
+    RebindGeometry();
     std::sort( m_shapes.begin(), m_shapes.end(), []( const auto& a, const auto& b ) { return a.id < b.id; } );
     for ( auto& models : m_models )
     {
         models.reserve( m_shapes.size() );
     }
 }
+std::size_t PhysicsComparisonPanel::RetainGeometry( const Physics::ColliderRecord& collider )
+{
+    using namespace Math::CollisionDetection;
+    if ( const auto* sphere = GetShapeIf<BoundingSphere>( &collider.shape ) )
+    {
+        m_spheres.push_back( *sphere );
+        return m_spheres.size() - 1;
+    }
+    if ( const auto* box = GetShapeIf<BoundingBox>( &collider.shape ) )
+    {
+        m_boxes.push_back( *box );
+        return m_boxes.size() - 1;
+    }
+    const auto* hull = GetShapeIf<ConvexHullShape>( &collider.shape );
+    for ( const Shape& retained : m_shapes )
+    {
+        if ( GetShapeIf<ConvexHullShape>( &retained.collider.shape ) == hull )
+        {
+            return retained.geometryIndex;
+        }
+    }
+    m_hulls.push_back( *hull );
+    return m_hulls.size() - 1;
+}
+
+void PhysicsComparisonPanel::RebindGeometry()
+{
+    using namespace Math::CollisionDetection;
+    // Lifetime: copy each shape while Scene still owns the source, then bind
+    // after vector growth. Shared hull variants have one owned copy. Scene
+    // reset/loading can now release its collider storage independently.
+    for ( Shape& shape : m_shapes )
+    {
+        switch ( shape.collider.shapeKind )
+        {
+        case Physics::ColliderShapeKind::Sphere:
+            shape.collider.shape = CollisionShapeReference( m_spheres[shape.geometryIndex],
+                                                            CollisionShapeReference::INVALID_STORAGE_INDEX );
+            break;
+        case Physics::ColliderShapeKind::Box:
+            shape.collider.shape = CollisionShapeReference( m_boxes[shape.geometryIndex],
+                                                            CollisionShapeReference::INVALID_STORAGE_INDEX );
+            break;
+        case Physics::ColliderShapeKind::ConvexHull:
+            shape.collider.shape = CollisionShapeReference( m_hulls[shape.geometryIndex],
+                                                            CollisionShapeReference::INVALID_STORAGE_INDEX );
+            break;
+        }
+    }
+}
+
+void PhysicsComparisonPanel::ReleaseComparison()
+{
+    m_comparisonCombo.Close();
+    m_buttonCount = 0;
+    m_timeline = {};
+    m_eventOffset = 0;
+    m_controlsScroll = m_detailsScroll = 0.0f;
+    for ( auto& models : m_models )
+    {
+        std::vector<Rendering::ModelViewItem> {}.swap( models );
+    }
+    std::vector<Shape> {}.swap( m_shapes );
+    std::vector<Math::CollisionDetection::BoundingSphere> {}.swap( m_spheres );
+    std::vector<Math::CollisionDetection::BoundingBox> {}.swap( m_boxes );
+    std::vector<Math::CollisionDetection::ConvexHullShape> {}.swap( m_hulls );
+}
+
 void PhysicsComparisonPanel::BuildModels( const PhysicsComparison& comparison )
 {
     const auto& settings = comparison.Settings();
@@ -264,6 +337,13 @@ Rendering::PairedViewFrame PhysicsComparisonPanel::BuildFrame( const PhysicsComp
     frame.y = 82;
     frame.width = (std::max)( 2, ( width - 390 ) / 2 * 2 );
     frame.height = (std::max)( 2, ( height - 139 ) / 2 * 2 );
+    if ( m_layout.shared )
+    {
+        frame.x = static_cast<int>( m_layout.viewport.x );
+        frame.y = static_cast<int>( m_layout.viewport.y );
+        frame.width = (std::max)( 2, static_cast<int>( m_layout.viewport.w ) / 2 * 2 );
+        frame.height = (std::max)( 2, static_cast<int>( m_layout.viewport.h ) / 2 * 2 );
+    }
     frame.stacked = settings.stackedViews;
     frame.mode = settings.display == ComparisonDisplay::Split                      ? 0
                  : settings.display == ComparisonDisplay::Overlay                  ? 1
@@ -325,11 +405,69 @@ void PhysicsComparisonPanel::ButtonAt( UI::UIRect bounds, const char* text, int 
     {
         return;
     }
-    m_buttons[m_buttonCount++] = { bounds, action };
+    UI::UIRect hit = bounds;
+    if ( m_layout.shared )
+    {
+        hit.x = (std::max)( bounds.x, m_buttonClip.x );
+        hit.y = (std::max)( bounds.y, m_buttonClip.y );
+        hit.w = (std::min)( bounds.x + bounds.w, m_buttonClip.x + m_buttonClip.w ) - hit.x;
+        hit.h = (std::min)( bounds.y + bounds.h, m_buttonClip.y + m_buttonClip.h ) - hit.y;
+        if ( hit.w <= 0 || hit.h <= 0 )
+        {
+            return;
+        }
+    }
+    m_buttons[m_buttonCount++] = { hit, action };
     m_draw.AddRoundedRect( bounds, 5,
-                           active ? UI::Style::UIColor { 0.13f, 0.35f, 0.44f, 1 }
-                                  : UI::Style::UIColor { 0.12f, 0.17f, 0.23f, 1 } );
-    m_draw.AddText( { bounds.x + 8, bounds.y + 7 }, 13, active ? cyan : ink, text );
+                           active ? UI::Style::UIColor { 0.23f, 0.25f, 0.28f, 1 }
+                                  : UI::Style::UIColor { 0.13f, 0.14f, 0.16f, 1 } );
+    const char* label = text;
+    if ( m_layout.shared && bounds.w < 100.0f )
+    {
+        switch ( action )
+        {
+        case 1:
+            label = "Open";
+            break;
+        case 3:
+            label = "Save";
+            break;
+        case 4:
+            label = "Load";
+            break;
+        case 5:
+            label = "Close";
+            break;
+        case 6:
+            label = "Sel.";
+            break;
+        case 7:
+            label = "All";
+            break;
+        case 8:
+            label = "Diff.";
+            break;
+        case 9:
+            label = "First";
+            break;
+        case 10:
+            label = "Follow";
+            break;
+        case 14:
+            label = std::string_view( text ) == "Stacked" ? "Stack" : "Side";
+            break;
+        default:
+            break;
+        }
+    }
+    float fontSize = m_layout.shared ? 11.0f : 13.0f;
+    while ( fontSize > 8.5f && UI::UIFontMetrics::MeasureText( fontSize, label ) > bounds.w - 6.0f )
+    {
+        fontSize -= 0.5f;
+    }
+    m_draw.PushClip( bounds );
+    m_draw.AddText( { bounds.x + 3, bounds.y + ( bounds.h - fontSize ) * 0.5f - 1 }, fontSize, ink, label );
+    m_draw.PopClip();
 }
 void PhysicsComparisonPanel::Plot( const PhysicsComparison& comparison, UI::UIRect bounds, bool velocity )
 {
@@ -387,6 +525,10 @@ void PhysicsComparisonPanel::Plot( const PhysicsComparison& comparison, UI::UIRe
 }
 const UI::UIDrawList& PhysicsComparisonPanel::Compose( const PhysicsComparison& comparison, int width, int height )
 {
+    if ( m_layout.shared )
+    {
+        return ComposeShell( comparison, width, height );
+    }
     m_draw.Clear();
     m_buttonCount = 0;
     m_draw.AddRect( { 0, 0, static_cast<float>( width ), 82 }, { 0.035f, 0.055f, 0.08f, 1 } );
@@ -500,6 +642,11 @@ const UI::UIDrawList& PhysicsComparisonPanel::Compose( const PhysicsComparison& 
 }
 bool PhysicsComparisonPanel::Contains( int x, int y ) const
 {
+    if ( m_layout.shared )
+    {
+        return m_comparisonCombo.IsOpen() || m_comboConsumedPointer || m_layout.controls.Contains( x, y ) ||
+               m_layout.details.Contains( x, y ) || m_layout.transport.Contains( x, y );
+    }
     return m_comparisonCombo.IsOpen() || m_comboConsumedPointer || y < 82 || m_sidebar.Contains( x, y ) ||
            y >= m_timeline.y - 15;
 }
@@ -508,6 +655,14 @@ ComparisonPanelAction PhysicsComparisonPanel::Input( PhysicsComparison& comparis
 {
     m_pointer = { input.mouseX, input.mouseY };
     m_comboConsumedPointer = false;
+    if ( m_layout.shared && !timelineDrag && !m_comparisonCombo.IsOpen() &&
+         !( m_loadingSurface ? m_layout.viewport.Contains( input.mouseX, input.mouseY )
+                             : m_layout.controls.Contains( input.mouseX, input.mouseY ) ||
+                                   m_layout.details.Contains( input.mouseX, input.mouseY ) ||
+                                   m_layout.transport.Contains( input.mouseX, input.mouseY ) ) )
+    {
+        return ComparisonPanelAction::None;
+    }
     if ( input.leftPressed && m_comparisonCombo.IsOpen() )
     {
         const int option = m_comparisonCombo.HitOption( input.mouseX, input.mouseY, 2 );
@@ -525,7 +680,23 @@ ComparisonPanelAction PhysicsComparisonPanel::Input( PhysicsComparison& comparis
         m_comboConsumedPointer = true;
         return ComparisonPanelAction::None;
     }
-    if ( input.wheelDelta && m_sidebar.Contains( input.mouseX, input.mouseY ) )
+    if ( m_layout.shared && input.wheelDelta && m_layout.controls.Contains( input.mouseX, input.mouseY ) )
+    {
+        m_controlsScroll = std::clamp( m_controlsScroll - input.wheelDelta / 120.0f * 36.0f, 0.0f,
+                                       (std::max)( 0.0f, 460.0f - m_layout.controls.h ) );
+    }
+    if ( m_layout.shared && input.wheelDelta && m_layout.details.Contains( input.mouseX, input.mouseY ) &&
+         m_eventList.Contains( input.mouseX, input.mouseY ) )
+    {
+        m_eventOffset = (std::max)( 0, m_eventOffset + ( input.wheelDelta > 0 ? -1 : 1 ) );
+    }
+    else if ( m_layout.shared && input.wheelDelta && m_layout.details.h < 450.0f &&
+              m_layout.details.Contains( input.mouseX, input.mouseY ) )
+    {
+        m_detailsScroll = std::clamp( m_detailsScroll - input.wheelDelta / 120.0f * 36.0f, 0.0f,
+                                      (std::max)( 0.0f, 450.0f - m_layout.details.h ) );
+    }
+    else if ( input.wheelDelta && m_sidebar.Contains( input.mouseX, input.mouseY ) )
     {
         m_eventOffset = (std::max)( 0, m_eventOffset + ( input.wheelDelta > 0 ? -5 : 5 ) );
     }
@@ -672,19 +843,302 @@ const UI::UIDrawList& PhysicsComparisonPanel::ComposeLoading( int width, int hei
 {
     m_draw.Clear();
     m_buttonCount = 0;
-    m_draw.AddRect( { 0, 0, static_cast<float>( width ), static_cast<float>( height ) }, { 0.035f, 0.055f, 0.08f, 1 } );
-    const float x = ( width - 560.0f ) * 0.5f, y = ( height - 150.0f ) * 0.5f;
+    m_loadingSurface = true;
+    const UI::UIRect viewport = m_layout.shared
+                                    ? m_layout.viewport
+                                    : UI::UIRect { 0, 0, static_cast<float>( width ), static_cast<float>( height ) };
+    m_buttonClip = viewport;
+    m_sidebar = {};
+    m_timeline = {};
+    m_comparisonCombo.Close();
+    m_comparisonCombo.SetBounds( 0, 0, 0, 0 );
+    m_draw.PushClip( viewport );
+    m_draw.AddRect( viewport, { 0.075f, 0.08f, 0.09f, 1 } );
+    const float panelWidth = (std::min)( 560.0f, (std::max)( 100.0f, viewport.w - 32.0f ) );
+    const float x = viewport.x + ( viewport.w - panelWidth ) * 0.5f;
+    const float y = viewport.y + ( viewport.h - 150.0f ) * 0.5f;
     const bool failed = error && *error;
     m_draw.AddText( { x, y }, 23, ink, failed ? "Unable to open comparison" : "Loading comparison" );
     m_draw.AddText( { x, y + 40 }, 14, muted, failed ? error : phase );
     if ( !failed )
     {
-        m_draw.AddRoundedRect( { x, y + 75, 560, 16 }, 5, { 0.13f, 0.2f, 0.27f, 1 } );
-        m_draw.AddRoundedRect( { x, y + 75, 560 * std::clamp( percent, 0, 100 ) / 100.0f, 16 }, 5, cyan );
+        m_draw.AddRoundedRect( { x, y + 75, panelWidth, 16 }, 5, { 0.13f, 0.2f, 0.27f, 1 } );
+        m_draw.AddRoundedRect( { x, y + 75, panelWidth * std::clamp( percent, 0, 100 ) / 100.0f, 16 }, 5, cyan );
         char label[48];
         std::snprintf( label, sizeof( label ), "%d%%", percent );
         m_draw.AddText( { x, y + 108 }, 14, ink, label );
     }
-    ButtonAt( { x + 470, y + 105, 90, 30 }, failed ? "Close" : "Cancel", 5 );
+    ButtonAt( { x + panelWidth - 90, y + 105, 90, 30 }, failed ? "Close" : "Cancel", 5 );
+    m_draw.PopClip();
     return m_draw;
+}
+
+
+const UI::UIDrawList& PhysicsComparisonPanel::ComposeShell( const PhysicsComparison& comparison, int width, int height )
+{
+    m_loadingSurface = false;
+    m_draw.Clear();
+    m_buttonCount = 0;
+    m_sidebar = m_layout.details;
+    m_comparisonCombo.SetPopupViewport( m_layout.window );
+    if ( m_layout.controls.w > 0 )
+    {
+        ComposeShellControls( comparison );
+    }
+    else
+    {
+        m_comparisonCombo.Close();
+        m_comparisonCombo.SetBounds( 0, 0, 0, 0 );
+    }
+    if ( comparison.Active() && m_layout.details.w > 0 )
+    {
+        ComposeShellDetails( comparison );
+    }
+    if ( comparison.Active() )
+    {
+        ComposeShellTransport( comparison );
+    }
+    else
+    {
+        m_timeline = {};
+        m_draw.PushClip( m_layout.viewport );
+        m_draw.AddText( { m_layout.viewport.x + 24, m_layout.viewport.y + 48 }, 18, ink, "Solver Lab" );
+        m_draw.AddText( { m_layout.viewport.x + 24, m_layout.viewport.y + 80 }, 12, muted,
+                        "Open Details to load a comparison, or use Scenes > Solver Lab library." );
+        m_draw.PopClip();
+    }
+    // The library popup is foreground content, using the same handler as the
+    // previous comparison surface. Hidden panes never keep an active popup.
+    if ( m_layout.controls.w > 0 )
+    {
+        const UI::UIDrawContext draw( width, height, m_draw );
+        draw.PushClip( m_layout.controls );
+        const int selected = SelectedSolverLab( comparison );
+        static const char* compactOptions[] = { "Ragdoll", "Wall" };
+        const auto options = m_layout.controls.w < 180.0f ? std::span<const char* const>( compactOptions )
+                                                          : std::span<const char* const>( comparisonOptions );
+        m_comparisonCombo.Draw( draw, "Comparison", { options, selected, 0, selected >= 0 ? options[selected] : "Load" },
+                                m_pointer );
+        draw.PopClip();
+    }
+    // Invariant: popups shed their parent pane clip before the foreground pass,
+    // using the same extraction contract as GameUI.
+    m_draw.ExtractForeground( m_foreground );
+    m_draw.Append( m_foreground );
+    return m_draw;
+}
+
+void PhysicsComparisonPanel::ComposeShellControls( const PhysicsComparison& comparison )
+{
+    m_buttonClip = m_layout.controls;
+    m_draw.PushClip( m_buttonClip );
+    m_controlsScroll = std::clamp( m_controlsScroll, 0.0f, (std::max)( 0.0f, 460.0f - m_buttonClip.h ) );
+    const float x = m_buttonClip.x + 10, y = m_buttonClip.y + 10 - m_controlsScroll;
+    const float w = (std::max)( 1.0f, m_buttonClip.w - 20 ), half = ( w - 6 ) * 0.5f;
+    m_comparisonCombo.SetBounds( x, y + 22, w, 24 );
+    m_comparisonCombo.SetLabelVisible( false );
+    m_draw.AddText( { x, y }, 14, ink, "Comparison" );
+    ButtonAt( { x, y + 56, half, 28 }, "Open file", 1 );
+    ButtonAt( { x + half + 6, y + 56, half, 28 }, "Load finding", 4 );
+    if ( comparison.Active() )
+    {
+        ButtonAt( { x, y + 90, half, 28 }, "Save finding", 3 );
+        ButtonAt( { x + half + 6, y + 90, half, 28 }, "Close comparison", 5 );
+        m_draw.AddText( { x, y + 132 }, 12, muted, "View" );
+        const char* modes[] = { "Split", "Overlay", "Toggle", "Heatmap", "Pixels" };
+        for ( int i = 0; i < 5; ++i )
+        {
+            ButtonAt( { x + static_cast<float>( i % 2 ) * ( half + 6 ), y + 152 + static_cast<float>( i / 2 ) * 34, half,
+                        28 },
+                      modes[i], 20 + i, static_cast<int>( comparison.Settings().display ) == i );
+        }
+        ButtonAt( { x + half + 6, y + 220, half, 28 }, comparison.Settings().showA ? "Show B" : "Show A", 11 );
+        ButtonAt( { x, y + 254, half, 28 }, comparison.Settings().stackedViews ? "Stacked" : "Side by side", 14 );
+        ButtonAt( { x + half + 6, y + 254, half, 28 }, comparison.Settings().occludedOutline ? "X-ray on" : "X-ray off",
+                  12 );
+        ButtonAt( { x, y + 288, half, 28 }, "Focus", 2 );
+        ButtonAt( { x + half + 6, y + 288, half, 28 }, "Follow A", 10, comparison.Settings().followA );
+        ButtonAt( { x, y + 322, half, 28 }, "Reverse", 31, comparison.Direction() < 0 );
+        char speed[48];
+        std::snprintf( speed, sizeof( speed ), "Speed %.2gx", comparison.Settings().speed );
+        ButtonAt( { x + half + 6, y + 322, half, 28 }, speed, 34 );
+        ButtonAt( { x, y + 356, w, 28 }, "Loop selected range", 35, comparison.LoopEnabled() );
+        for ( int side = 0; side < 2; ++side )
+        {
+            char coverage[150];
+            std::snprintf( coverage, sizeof( coverage ), "%s: %s; %s", side ? "B" : "A",
+                           comparison.Recording( side ).Frame( comparison.Tick() ) ? "motion recorded" : "NO TICK COVERAGE",
+                           comparison.Recording( side ).Evidence( comparison.Tick() )      ? "manifold"
+                           : comparison.Recording( side ).Observation( comparison.Tick() ) ? "summary"
+                                                                                           : "no contact evidence" );
+            m_draw.AddText( { x, y + 402 + side * 20.0f }, 10, side ? coral : cyan, coverage );
+        }
+    }
+    m_draw.PopClip();
+}
+
+void PhysicsComparisonPanel::ComposeShellDetails( const PhysicsComparison& comparison )
+{
+    m_buttonClip = m_layout.details;
+    m_draw.PushClip( m_buttonClip );
+    m_detailsScroll = std::clamp( m_detailsScroll, 0.0f, (std::max)( 0.0f, 450.0f - m_buttonClip.h ) );
+    const float x = m_buttonClip.x + 10, top = m_buttonClip.y + 10 - m_detailsScroll;
+    const float w = (std::max)( 1.0f, m_buttonClip.w - 20 ), half = ( w - 6 ) * 0.5f;
+    ButtonAt( { x, top, half, 28 }, "Selected objects", 6, comparison.Settings().selectedOnly );
+    ButtonAt( { x + half + 6, top, half, 28 }, "All differences", 7, !comparison.Settings().selectedOnly );
+    ButtonAt( { x, top + 34, half, 28 }, "Differences only", 8, comparison.Settings().differencesOnly );
+    ButtonAt( { x + half + 6, top + 34, half, 28 }, "First difference", 9 );
+    ButtonAt( { x, top + 68, w, 28 }, "Cycle position threshold", 13 );
+    char text[240];
+    std::snprintf( text, sizeof( text ), "Threshold %.5g m / %.3g deg", comparison.Settings().positionThreshold,
+                   comparison.Settings().angleThreshold );
+    m_draw.AddText( { x, top + 106 }, 11, muted, text );
+    m_draw.AddText( { x, top + 124 }, 11, muted, "Recorded divergence;" );
+    m_draw.AddText( { x, top + 141 }, 11, muted, "not a proven root cause" );
+    const float contentHeight = (std::max)( 450.0f, m_buttonClip.h );
+    float y = top + 166;
+    m_eventList = { x, y, w, contentHeight - 411.0f + 26.0f };
+    int skipped = 0;
+    for ( std::size_t i = 0; i < comparison.Events().size() && y < top + contentHeight - 245; ++i )
+    {
+        const auto& event = comparison.Events()[i];
+        if ( !comparison.VisibleEvent( event ) || skipped++ < m_eventOffset )
+        {
+            continue;
+        }
+        std::snprintf( text, sizeof( text ), "%d | #%llu %s %s", event.tick, event.bodyA,
+                       event.family == ComparisonFamily::SolverIteration ? "solver iteration"
+                       : event.family == ComparisonFamily::Contact || event.family == ComparisonFamily::Terrain ? "contact"
+                       : event.family == ComparisonFamily::Sleep                                                ? "sleep"
+                                                                                                                : "motion",
+                       ChangeName( event.change ) );
+        ButtonAt( { x, y, w, 26 }, text, 1000 + static_cast<int>( i ), comparison.SelectedEvent() == static_cast<int>( i ) );
+        y += 31;
+    }
+    if ( comparison.Selected() )
+    {
+        const float plotsY = (std::max)( y + 8, top + contentHeight - 215 );
+        const auto delta = comparison.Difference( comparison.Selected(), comparison.Tick() );
+        std::snprintf( text, sizeof( text ), "#%llu  d=%.5g m  rot=%.4g deg", comparison.Selected(), delta.distance,
+                       delta.angleDegrees );
+        m_draw.AddText( { x, plotsY }, 11, ink, text );
+        Plot( comparison, { x, plotsY + 22, w, 76 }, false );
+        Plot( comparison, { x, plotsY + 106, w, 76 }, true );
+    }
+    m_draw.PopClip();
+}
+
+void PhysicsComparisonPanel::ComposeShellTransport( const PhysicsComparison& comparison )
+{
+    m_buttonClip = m_layout.transport;
+    m_draw.PushClip( m_buttonClip );
+    const float x = m_buttonClip.x, y = m_buttonClip.y;
+    const bool compact = m_buttonClip.w < 220.0f;
+    const float scale = compact ? m_buttonClip.w / 220.0f : 1.0f;
+    ButtonAt( { x, y + 2, 28 * scale, 24 }, "<", 30 );
+    ButtonAt( { x + 30 * scale, y + 2, 48 * scale, 24 },
+              compact ? ( comparison.Direction() ? "||" : ">" ) : ( comparison.Direction() ? "Pause" : "Play" ), 32 );
+    ButtonAt( { x + 80 * scale, y + 2, 28 * scale, 24 }, ">", 33 );
+    const float labelWidth = m_buttonClip.w >= 380 ? 152.0f : 0.0f;
+    // The visible track is four pixels high; the remaining transport is its hit target.
+    m_timeline = { x + 116 * scale, y, (std::max)( 1.0f, m_buttonClip.w - 124 * scale - labelWidth ), m_buttonClip.h };
+    const float filled = m_timeline.w * comparison.Tick() / (std::max)( 1, comparison.LastTick() );
+    m_draw.AddRoundedRect( { m_timeline.x, y + 12, m_timeline.w, 4 }, 2, { 0.22f, 0.24f, 0.27f, 1 } );
+    m_draw.AddRoundedRect( { m_timeline.x, y + 12, filled, 4 }, 2, cyan );
+    if ( labelWidth > 0 )
+    {
+        char label[80];
+        std::snprintf( label, sizeof( label ), "Tick %d / %d  %.3fs", comparison.Tick(), comparison.LastTick(),
+                       comparison.Tick() / 120.0 );
+        m_draw.AddText( { m_timeline.x + m_timeline.w + 8, y + 8 }, 10, ink, label );
+    }
+    m_draw.PopClip();
+}
+
+
+namespace
+{
+UI::UITooltipText ComparisonActionTooltip( int action )
+{
+    switch ( action )
+    {
+    case 1:
+        return { "Load a comparison bundle through the existing file dialog.", "", "F8" };
+    case 2:
+        return { "Frame the selected object or recorded contact in both views." };
+    case 3:
+        return { "Save this comparison's tick, selection, camera and view settings as a finding." };
+    case 4:
+        return { "Load a saved finding and restore its comparison inspection state." };
+    case 5:
+        return { "Close this comparison and release its recordings and geometry." };
+    case 6:
+        return { "Show recorded differences involving the selected object." };
+    case 7:
+        return { "Show recorded differences for all objects." };
+    case 8:
+        return { "Filter the event list to differences between A and B." };
+    case 9:
+        return { "Seek the first visible recorded difference." };
+    case 10:
+        return { "Move the comparison camera with the selected object's recorded A position." };
+    case 11:
+        return { "Choose which recording is shown by Toggle or Heatmap view." };
+    case 12:
+        return { "Show comparison outlines through occluding objects." };
+    case 13:
+        return { "Cycle the position-difference threshold.", "Metres; angle threshold is in degrees" };
+    case 14:
+        return { "Arrange the paired views side by side or vertically stacked." };
+    case 20:
+        return { "Render A and B in separate views with the same camera." };
+    case 21:
+        return { "Overlay both recorded states in one view." };
+    case 22:
+        return { "Display one recording at a time using Show A / Show B." };
+    case 23:
+        return { "Colour recorded position or angular differences using the current heat scale." };
+    case 24:
+        return { "Display the pixel difference between the two controlled renders." };
+    case 30:
+        return { "Step backward by one exact tick.", "120 ticks per second", "Left arrow" };
+    case 31:
+        return { "Play the recording in reverse at the selected speed." };
+    case 32:
+        return { "Pause playback, or play forward from the current tick.", "", "Space" };
+    case 33:
+        return { "Step forward by one exact tick.", "120 ticks per second", "Right arrow" };
+    case 34:
+        return { "Cycle comparison playback speed from 0.25x to 4x.", "Multiplier of recorded time" };
+    case 35:
+        return { "Enable or disable looping over the current tick range." };
+    default:
+        return { "Select this recorded divergence and seek its evidence tick. It does not prove a root cause." };
+    }
+}
+} // namespace
+
+std::array<UI::UITooltipTarget, 66> PhysicsComparisonPanel::Tooltips() const
+{
+    std::array<UI::UITooltipTarget, 66> result {};
+    if ( m_comparisonCombo.IsOpen() )
+    {
+        return result;
+    }
+    for ( std::size_t i = 0; i < m_buttonCount; ++i )
+    {
+        const Button& button = m_buttons[i];
+        result[i] = { 0x20000000u + static_cast<uint32_t>( button.action ), button.bounds,
+                      m_loadingSurface ? UI::UITooltipText { "Cancel the pending load or dismiss its error." }
+                                       : ComparisonActionTooltip( button.action ) };
+    }
+    result[64] =
+        { 0x21000000u,
+          m_comparisonCombo.Bounds(),
+          { "Choose an existing Solver Lab library comparison. Replacing it releases the current recordings first." } };
+    result[65] = { 0x21000001u,
+                   m_timeline,
+                   { "Drag to seek the paired recordings. Use arrow keys for exact single-tick changes.",
+                     "120 ticks per second", "Left / Right arrow" } };
+    return result;
 }

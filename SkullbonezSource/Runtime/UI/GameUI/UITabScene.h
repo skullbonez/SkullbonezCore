@@ -67,6 +67,9 @@ struct UISceneTabState
     UIButton saveDefaultsButton;
     UICheckBox continuousForecastToggle;
     UIButton resetForecastButton;
+    UICheckBox pauseLockToggle;
+    UIButton singleStepButton;
+    bool lastPauseLocked = false;
     UISlider timeScaleSlider;
 
     // Concept: reveal pacing sits beside simulation speed because both answer
@@ -118,6 +121,8 @@ bool HandleClosedRecordingComboClick( UISceneTabState& state, int recordingOptio
 bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                            float contentX, float rowBase, float contentW );
 bool HandleSolverLabClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY );
+bool HandlePlaybackClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
+                          float rowBase, float contentW );
 bool HandleForecastClick( UISceneTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
                           float rowBase, float contentW );
 

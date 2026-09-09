@@ -187,6 +187,8 @@ struct ReplayCauseTreeInputFrame
     bool filterEscapePressed = false;
     bool filterReturnPressed = false;
     bool rowsReady = false;
+    bool surfaceVisible = true;
+    bool docked = false;
     bool uiBlocksMouse = false;
     bool editorModeEnabled = false;
 };

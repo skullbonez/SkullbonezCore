@@ -81,6 +81,10 @@ class UIDrawContext
     // Records a clip boundary in the same screen-space geometry vocabulary.
     // Callers must balance every accepted push within their draw operation.
     void PushClip( const UIRect& bounds ) const;
+    // Starts an overlay above all previously recorded shapes and text.
+    void BeginLayer() const;
+    void BeginForeground() const;
+    void EndForeground() const;
     void PopClip() const;
     void Text( float x, float y, float pxSize, float r, float g, float b, const char* value ) const;
     float TextX( float x ) const;

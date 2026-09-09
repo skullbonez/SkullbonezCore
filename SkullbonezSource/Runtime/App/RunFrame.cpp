@@ -18,9 +18,11 @@ Invariants:
 #include "InteractionAutomationApplication.h"
 #include "SceneLoadApplication.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
+#include "../Diagnostics/DiagnosticsPhysicsUI.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
 #include "../UI/OperatorUiPhase.h"
+#include "../UI/OperatorUiProjection.h"
 #include "../UI/RecordedCursorDrawing.h"
 #include "../UI/RecordedCursorPresentationPolicy.h"
 #include "../UI/RuntimeViewModel.h"
@@ -724,10 +726,11 @@ float Run::RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPo
 #endif
         ;
 
+    bool physicsAdvanced = false;
     float interpolationAlpha = 1.0f;
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Physics );
-        interpolationAlpha = TickPhysics( secondsPerFrame, capturePresentationPinned, proceedPolicy );
+        interpolationAlpha = TickPhysics( secondsPerFrame, capturePresentationPinned, proceedPolicy, physicsAdvanced );
     }
     {
         // Invariant: prediction publication completes before overlay and render
@@ -740,7 +743,7 @@ float Run::RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPo
                                           m_sceneController.State().predictionAllBodiesSpaceSeed
                                               ? ReplayPredictionPathPresentation::AllBodiesSpace
                                               : ReplayPredictionPathPresentation::SelectedCausalTree,
-                                          m_workerPool, m_sceneController.State().isScenePhysics,
+                                          m_workerPool, m_sceneController.State().isScenePhysics, physicsAdvanced,
                                           m_timers.SceneElapsedSeconds(), m_timers.SimulationTotalSeconds() );
 
         // Why: this frame-side admission has its own five-millisecond check;
@@ -1292,6 +1295,174 @@ void Run::PublishSkarnessFrameState()
     const ReplaySkarnessState replay = m_replayRuntime.BuildSkarnessState();
     const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
     SkarnessFrameState state;
+    const OverlayDebugState overlayPresentation = m_overlayDiagnostics->PresentationSnapshot();
+    const UI::UIPhysicsDebugStatus physicsUi = BuildDiagnosticsPhysicsUIStatus( overlayPresentation );
+    const Gameplay::TornadoFieldConfig& tornado = m_sceneController.Scene().Tornado().GetFieldConfig();
+    const RunRayCastTestState& rayCast = m_runtimeTools.RayCastTest();
+    // Ordering follows the documented Physics tab rows; values come directly
+    // from diagnostic, material, environment and tool owners after UI dispatch.
+    state.presentation.physicsParameters = { physicsUi.alpha,
+                                             physicsUi.contactLinger,
+                                             rayCast.impulseStrength,
+                                             rayCast.projectileSpeed,
+                                             m_sceneController.Scene().Environment().GetGravity(),
+                                             m_config.physicsMaterial.frictionCoeff,
+                                             m_config.physicsMaterial.objectFrictionCoeff,
+                                             m_config.physicsMaterial.rollingFrictionCoeff,
+                                             tornado.radius,
+                                             tornado.height,
+                                             tornado.inwardAcceleration,
+                                             tornado.swirlAcceleration,
+                                             tornado.liftAcceleration };
+    state.presentation.physicsToggles = { physicsUi.collisionVisualizer,
+                                          physicsUi.axes,
+                                          physicsUi.contacts,
+                                          physicsUi.sleep,
+                                          physicsUi.transparent,
+                                          physicsUi.broadphase,
+                                          m_sceneController.Scene().Physics().IsSleepEnabled(),
+                                          physicsUi.pipeline,
+                                          physicsUi.terrainContact,
+                                          tornado.enabled,
+                                          m_sceneController.Scene().Tornado().VisualSettings().enabled,
+                                          tornado.visualizeVelocityField,
+                                          rayCast.visualizeRays };
+    state.presentation.physicsPipelineStage = physicsUi.pipelineStageIndex;
+    state.presentation.physicsPipelineStages = physicsUi.pipelineStageCount;
+    const auto& scene = m_sceneController.State();
+    const bool cinematicRendering = IsSceneCinematicRenderingEnabled( scene, m_config, m_launchOptions,
+                                                                      overlayPresentation.isTextOnly, true );
+    state.presentation.cinematicShadows = cinematicRendering;
+    state.presentation.optionsToggles = { scene.isFixedStep,
+                                          overlayPresentation.isTerrainHidden,
+                                          overlayPresentation.isWaterHidden,
+                                          overlayPresentation.isWaterFreezeDebug,
+                                          overlayPresentation.isWaterFlatDebug,
+                                          cinematicRendering ? ActiveSceneCinematicConfig( scene, m_config ).shadow.enabled
+                                                             : m_config.ordinaryRender.shadow.enabled };
+    state.presentation.sceneControlValues = { static_cast<float>( scene.rngSeed ),
+                                              static_cast<float>( scene.solverBallCount ),
+                                              static_cast<float>( scene.solverBoxCount ),
+                                              m_sceneController.Scene().Environment().GetFluidSurfaceHeight(),
+                                              m_sceneController.Scene().Environment().GetFluidDensity(),
+                                              static_cast<float>( scene.modelCount ) };
+    state.presentation.modelCapacity = Core::ActiveSceneObjectCapacity( m_config );
+    state.presentation.fileDialogResponsesConsumed = m_skarness.FileDialogResponsesConsumed();
+    const RECT viewport = m_window.PresentationViewport();
+    // Read the same completed owner values as the presenters. These arrays
+    // observe native controls; they never write parameters or widget previews.
+    UI::OperatorEditorRenderingView rendering;
+    ProjectOperatorRenderingParameters( rendering, m_config.ordinaryRender,
+                                        ActiveSceneCinematicConfig( m_sceneController.State(), m_config ) );
+    state.presentation.ordinaryRenderParameters.assign( std::begin( rendering.ordinaryParameters ),
+                                                        std::end( rendering.ordinaryParameters ) );
+    state.presentation.cinematicParameters.assign( std::begin( rendering.cinematicParameters ),
+                                                   std::end( rendering.cinematicParameters ) );
+    state.presentation.cinematicFeatures.assign( std::begin( rendering.cinematicFeatures ),
+                                                 std::end( rendering.cinematicFeatures ) );
+    state.presentation.toolsScroll = m_operatorUi->ToolsScroll();
+    const UI::UIRect toolsContent = m_operatorUi->ToolsContentBounds();
+    state.presentation.toolsContentBounds = { toolsContent.x, toolsContent.y, toolsContent.w, toolsContent.h };
+    state.presentation.editorLayout = m_operatorUi->PresentationLayout() == UI::GameLayout::LayoutMode::Editor;
+    state.presentation.solverLabWorkspace = ComparisonUiActive();
+    state.presentation.editorMode = m_editorTools.Editor().editorModeEnabled;
+    state.presentation.editorPlacement = m_editorTools.Editor().placementModeEnabled;
+    state.presentation.editorStaticObject = m_editorTools.Editor().placeStaticObject;
+    state.presentation.editorObjectType = m_editorTools.Editor().objectType;
+    state.presentation.editorTerrainAlign = m_editorTools.Editor().autoTerrainAlign;
+    state.presentation.cameraMode = static_cast<int>( m_camera.mode );
+    state.presentation.cameraModeEnabledMask = RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
+                                                                             m_sceneController.Scene().SceneEntityCount() );
+    const auto cameraPopup = m_operatorUi->CameraPopup();
+    state.presentation.cameraPopupBounds = { cameraPopup.bounds.x, cameraPopup.bounds.y, cameraPopup.bounds.w,
+                                             cameraPopup.bounds.h };
+    state.presentation.cameraPopupOpen = cameraPopup.open;
+    const auto toolsPopup = m_operatorUi->ToolsPopup();
+    state.presentation.toolsPopupBounds = { toolsPopup.bounds.x, toolsPopup.bounds.y, toolsPopup.bounds.w,
+                                            toolsPopup.bounds.h };
+    state.presentation.toolsPopupFirstOption = toolsPopup.firstOption;
+    state.presentation.toolsPopupVisibleOptions = toolsPopup.visibleOptions;
+    state.presentation.toolsPopupOptions = toolsPopup.totalOptions;
+    state.presentation.toolsPopupOpen = toolsPopup.open;
+    const auto editorPopup = m_operatorUi->EditorPopup();
+    state.presentation.editorPopupBounds = { editorPopup.bounds.x, editorPopup.bounds.y, editorPopup.bounds.w,
+                                             editorPopup.bounds.h };
+    state.presentation.editorPopupFirstOption = editorPopup.firstOption;
+    state.presentation.editorPopupVisibleOptions = editorPopup.visibleOptions;
+    state.presentation.editorObjectOptions = editorPopup.totalOptions;
+    state.presentation.editorPopupOpen = editorPopup.open;
+    const auto targetPopup = m_operatorUi->TargetPopup();
+    state.presentation.targetPopupBounds = { targetPopup.bounds.x, targetPopup.bounds.y, targetPopup.bounds.w,
+                                             targetPopup.bounds.h };
+    state.presentation.targetFirstOption = targetPopup.firstOption;
+    state.presentation.targetVisibleOptions = targetPopup.visibleOptions;
+    state.presentation.targetOptions = targetPopup.totalOptions;
+    state.presentation.selectedTarget = targetPopup.selectedOption;
+    state.presentation.targetDisabledMask = targetPopup.disabledMask;
+    const auto recordingPopup = m_operatorUi->RecordingPopup();
+    state.presentation.recordingPopupBounds = { recordingPopup.bounds.x, recordingPopup.bounds.y, recordingPopup.bounds.w,
+                                                recordingPopup.bounds.h };
+    state.presentation.recordingFirstOption = recordingPopup.firstOption;
+    state.presentation.recordingVisibleOptions = recordingPopup.visibleOptions;
+    state.presentation.recordingOptions = recordingPopup.totalOptions;
+    state.presentation.toolsVisible = m_operatorUi->IsVisible() && !m_operatorUi->IsMinimized();
+    state.presentation.activeTool = static_cast<int>( m_operatorUi->GetActiveTab() );
+    const auto diagnostics = m_operatorUi->DiagnosticPresentation();
+    state.presentation.markerHistoryVisible = diagnostics.markerHistoryVisible;
+    state.presentation.memoryWaterlineVisible = diagnostics.memoryWaterlineVisible;
+    state.presentation.markerSamples = diagnostics.markerSamples;
+    state.presentation.memorySamples = diagnostics.memorySamples;
+    state.presentation.focusedDiagnostic = diagnostics.focusedPanel;
+    state.presentation.markerSelectionHash = diagnostics.markerSelectionHash;
+    state.presentation.profilerTimeline = diagnostics.profilerTimeline;
+    state.presentation.profilerMarkerCount = diagnostics.profilerMarkerCount;
+    state.presentation.profilerDrawNodeCount = diagnostics.profilerDrawNodeCount;
+    state.presentation.profilerExpansionHash = diagnostics.profilerExpansionHash;
+    state.presentation.drawExpansionHash = diagnostics.drawExpansionHash;
+    state.presentation.profilerDrawExpanderBounds = { diagnostics.drawExpanderBounds.x, diagnostics.drawExpanderBounds.y,
+                                                      diagnostics.drawExpanderBounds.w, diagnostics.drawExpanderBounds.h };
+    state.presentation.workerThreads = m_workerPool.GetThreadCount();
+    state.presentation.maxWorkerThreads = m_workerPool.MaxThreadCount();
+    state.presentation.replayMemoryPreset = replay.memoryPreset;
+    state.presentation.replayRetentionSeconds = replay.memoryRetentionSeconds;
+    state.presentation.replayBudgetMiB = replay.memoryBudgetMiB;
+    const auto tooltip = m_operatorUi->VisibleTooltip();
+    state.presentation.tooltipId = tooltip.id;
+    strncpy_s( state.presentation.tooltipAction, tooltip.text.action, _TRUNCATE );
+    state.presentation.tooltipTargetBounds = { tooltip.bounds.x, tooltip.bounds.y, tooltip.bounds.w, tooltip.bounds.h };
+    const UI::GameLayout::PresentationRects layout = m_operatorUi->PresentationBounds();
+    state.presentation.transportBounds = { layout.transport.x, layout.transport.y, layout.transport.w, layout.transport.h };
+    state.presentation.replayControlsBounds = { layout.replayControls.x, layout.replayControls.y, layout.replayControls.w,
+                                                layout.replayControls.h };
+    state.presentation.replayDetailsBounds = { layout.replayDetails.x, layout.replayDetails.y, layout.replayDetails.w,
+                                               layout.replayDetails.h };
+    state.presentation.replayScroll = layout.replayScroll;
+    state.presentation.causeControlsBounds = { layout.causeControls.x, layout.causeControls.y, layout.causeControls.w,
+                                               layout.causeControls.h };
+    state.presentation.detailsCausesTabBounds = { layout.detailsCausesTab.x, layout.detailsCausesTab.y,
+                                                  layout.detailsCausesTab.w, layout.detailsCausesTab.h };
+    state.presentation.editorControlsBounds = { layout.editorControls.x, layout.editorControls.y, layout.editorControls.w,
+                                                layout.editorControls.h };
+    state.presentation.editorReplayTabBounds = { layout.editorReplayTab.x, layout.editorReplayTab.y,
+                                                 layout.editorReplayTab.w, layout.editorReplayTab.h };
+    state.presentation.leftResizeBounds = { layout.leftResize.x, layout.leftResize.y, layout.leftResize.w,
+                                            layout.leftResize.h };
+    state.presentation.rightResizeBounds = { layout.rightResize.x, layout.rightResize.y, layout.rightResize.w,
+                                             layout.rightResize.h };
+    state.presentation.rightFoldBounds = { layout.rightFold.x, layout.rightFold.y, layout.rightFold.w, layout.rightFold.h };
+    state.presentation.windowWidth = m_window.ClientWidth();
+    state.presentation.windowHeight = m_window.ClientHeight();
+    state.presentation.viewportX = viewport.left;
+    state.presentation.viewportY = viewport.top;
+    state.presentation.viewportWidth = viewport.right - viewport.left;
+    state.presentation.viewportHeight = viewport.bottom - viewport.top;
+    state.presentation.projectionX = m_window.GetProjectionMatrix().Data()[0];
+    state.presentation.projectionY = m_window.GetProjectionMatrix().Data()[5];
+    Vector3 rayOrigin( 0.0f, 0.0f, 0.0f );
+    Vector3 rayDirection( 0.0f, 0.0f, 0.0f );
+    state.presentation.pointerHasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Scene().Cameras(), m_window,
+                                                                            rayOrigin, rayDirection );
+    state.presentation.pointerRayDirection = { rayDirection.x, rayDirection.y, rayDirection.z };
     state.sceneGeneration = lifecycle.generation;
     state.sceneFrame = m_sceneController.State().currentFrame;
     const std::string* scenePath = m_sceneController.CurrentPath();
@@ -1301,6 +1472,17 @@ void Run::PublishSkarnessFrameState()
     state.sceneLifecycleEvent = static_cast<int>( lifecycle.event );
     state.sceneReady = SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated );
     state.sceneMode = m_sceneController.State().isSceneMode;
+    state.sceneTimeScale = m_sceneController.State().timeScale;
+    state.scenePauseLocked = m_sceneController.CrossScenePauseLocked();
+    state.predictionRevealRate = replay.predictionRevealRate;
+    const auto forecast = m_continuousForecast.View();
+    state.forecastActive = forecast.active;
+    state.forecastAvailable = forecast.available;
+    state.forecastFailed = forecast.failed;
+    state.forecastNewestTick = forecast.newestAbsoluteTick;
+    state.forecastSimulatedSeconds = forecast.simulatedSeconds;
+    state.scenePhysicsEnabled = m_sceneController.State().isScenePhysics;
+    state.sceneManualResetCount = m_sceneController.State().manualResetCount;
     state.simulationSeconds = m_timers.SimulationTotalSeconds();
     state.paused = m_skarness.Paused();
     state.replayCaptureEnabled = replay.input.captureEnabled;
@@ -1466,15 +1648,23 @@ void Run::PublishSkarnessFrameState()
 }
 #endif
 
-float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
-                        const SceneFrameProceedPolicy& proceedPolicy )
+float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned, const SceneFrameProceedPolicy& proceedPolicy,
+                        bool& physicsAdvanced )
 {
+    physicsAdvanced = false;
     // Why: simulation pacing is a reactive frame concern. Sampling the ledger
     // here keeps SimulationSystem out of every cold scene-load call surface.
     const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
     m_simulation.ObserveSceneLifecycle( lifecycle.generation,
                                         SceneLifecycleReached( lifecycle.event,
                                                                SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    // The foreground comparison owns its clock and camera in RunComparison.
+    // Scene logic must not apply terrain clamps or demo camera motion to that
+    // retained inspection. A background comparison does not hold Scene here.
+    if ( ComparisonUiActive() )
+    {
+        return 1.0f;
+    }
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
 
     if ( replayInput.scrubPaused )
@@ -1534,6 +1724,10 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
 
     if ( tick.committedPhysicsTicks > 0 && canStepPhysics )
     {
+        // Invariant: an uncommitted candidate must be rolled back before the
+        // first admitted step, including a single step through Replay's pause.
+        m_replayRuntime.CancelUncommittedTripPlan( m_sceneController.Scene().Physics() );
+        physicsAdvanced = true;
         PROFILE_BEGIN( "Frame/Physics" );
 
         // Why: SimulationSystem decides the Physics tick count but never executes

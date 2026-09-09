@@ -46,9 +46,13 @@ bool UICheckBox::HitTest( int mouseX, int mouseY ) const
 
 
 void UICheckBox::DrawToggle( const UIDrawContext& draw, const char* label, bool checked, float accentR, float accentG,
-                             float accentB ) const
+                             float accentB, bool enabled ) const
 {
-    UIVisualState state = UIVisualState::Visible | UIVisualState::Enabled;
+    UIVisualState state = UIVisualState::Visible;
+    if ( enabled )
+    {
+        state |= UIVisualState::Enabled;
+    }
 
     if ( checked )
     {

@@ -48,11 +48,13 @@ inline constexpr std::array SKARNESS_STATE_TOPICS = {
     // the owner-specific topics above.
     SkarnessStateTopic { "scene.state", "Automation" },
     SkarnessStateTopic { "replay.state", "Automation" },
+    SkarnessStateTopic { "ui.presentation", "UI" },
 };
 
 enum class SkarnessCommandType : uint8_t
 {
     CaptureScreenshot,
+    WindowResize,
     SceneLoad,
     SceneReset,
     SceneLoadDemo,
@@ -172,9 +174,17 @@ struct SkarnessCommandResult
     bool comparisonActive = false;
     std::string comparisonBundle;
     std::string comparisonLoadPhase;
+    std::string comparisonLoadError;
     bool comparisonLoading = false;
+    bool comparisonLibraryOpen = false;
+    std::array<float, 4> comparisonLibraryPopup {};
     int comparisonLoadPercent = 0;
     bool comparisonStacked = false, comparisonOrbit = false, comparisonDragging = false;
+    bool comparisonFollowA = false, comparisonShowA = false, comparisonXray = false;
+    bool comparisonSelectedOnly = false, comparisonDifferencesOnly = false, comparisonLoop = false;
+    int comparisonLoopFirst = 0, comparisonLoopLast = 0;
+    float comparisonSpeed = 1.0f, comparisonPositionThreshold = 0.0f;
+    std::array<float, 4> comparisonViewport {}, comparisonTimeline {};
     std::array<float, 3> comparisonEye {}, comparisonView {};
     int comparisonTick = 0, comparisonLastTick = 0, comparisonDirection = 0, comparisonMode = 0;
     uint64_t comparisonSelected = 0;
@@ -229,6 +239,9 @@ struct SkarnessCapability
 // This catalog is the one discoverable protocol inventory. Player controls,
 // parsers, and mechanical coverage tests join on these stable command names.
 inline constexpr std::array SKARNESS_CAPABILITIES = {
+    SkarnessCapability { "input.file_dialog_response", "Automation",
+                         "{purpose:comparison.open|comparison.save|replay.load,accepted:bool,path?:string}",
+                         SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "comparison.load", "Planning", "{path:string}" },
     SkarnessCapability { "comparison.close", "Planning", "{}" },
     SkarnessCapability { "comparison.seek", "Planning", "{tick:int}" },
@@ -248,6 +261,7 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
     SkarnessCapability { "capabilities.get", "Automation", "{}" },
     SkarnessCapability { "session.stop", "Automation", "{}" },
     SkarnessCapability { "capture.screenshot", "Capture", "{path:string}" },
+    SkarnessCapability { "window.resize", "Startup", "{width:int[320..8192],height:int[240..8192]}" },
     SkarnessCapability { "scene.load", "Scene", "{name:string}|{path:string}" },
     SkarnessCapability { "scene.reset", "Scene", "{}" },
     SkarnessCapability { "scene.load_demo", "Scene", "{}" },
@@ -258,6 +272,9 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
     SkarnessCapability { "scene.object.clear_selection", "Interaction", "{scope:inspect|editor}" },
     SkarnessCapability { "run.pause", "Automation", "{}" },
     SkarnessCapability { "input.set_prediction_key", "Input", "{down:bool}" },
+    SkarnessCapability { "input.set_key", "Input", "{key:int[8..255],down:bool}",
+                         SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability { "input.set_focus", "Input", "{focused:bool}", SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "run.resume", "Automation", "{}" },
     SkarnessCapability { "run.step", "Automation", "{count:int[1..100000]}" },
     SkarnessCapability { "run.step_frames", "Automation", "{count:int[1..100000]}" },
@@ -320,10 +337,13 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability { "input.pointer_position", "Input", "{x:int,y:int,enabled:bool}",
+                         SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.pointer_wheel", "Input", "{x:int,y:int,wheelDelta:int}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.pointer_drag", "Input",
-                         "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int,moveClient?:bool}",
+                         "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int,moveClient?:bool,holdMilliseconds?:"
+                         "int}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
 };
 
@@ -357,6 +377,98 @@ struct SkarnessPointerInputFrame
 // cannot reach Replay, Scene, Prediction, or renderer owners.
 struct SkarnessFrameState
 {
+    struct Presentation
+    {
+        bool editorLayout = false;
+        bool solverLabWorkspace = false;
+        bool editorMode = false;
+        bool editorPlacement = false;
+        bool editorStaticObject = false;
+        bool editorTerrainAlign = false;
+        int cameraMode = 0;
+        uint32_t cameraModeEnabledMask = 0;
+        std::array<float, 4> cameraPopupBounds = {};
+        bool cameraPopupOpen = false;
+        std::array<float, 4> toolsPopupBounds = {};
+        int toolsPopupFirstOption = 0;
+        int toolsPopupVisibleOptions = 0;
+        int toolsPopupOptions = 0;
+        bool toolsPopupOpen = false;
+        int editorObjectType = 0;
+        std::array<float, 4> editorPopupBounds = {};
+        int editorPopupFirstOption = 0;
+        int editorPopupVisibleOptions = 0;
+        int editorObjectOptions = 0;
+        bool editorPopupOpen = false;
+        bool toolsVisible = false;
+        int activeTool = 1;
+        bool markerHistoryVisible = false;
+        bool memoryWaterlineVisible = false;
+        int markerSamples = 0;
+        int memorySamples = 0;
+        int focusedDiagnostic = 0;
+        uint32_t markerSelectionHash = 0;
+        bool profilerTimeline = false;
+        std::array<float, 4> targetPopupBounds {};
+        int targetFirstOption = 0;
+        int targetVisibleOptions = 0;
+        int targetOptions = 0;
+        int selectedTarget = -1;
+        uint32_t targetDisabledMask = 0;
+        std::array<float, 4> recordingPopupBounds {};
+        int recordingFirstOption = 0;
+        int recordingVisibleOptions = 0;
+        int recordingOptions = 0;
+        std::array<float, 4> profilerDrawExpanderBounds {};
+        int profilerMarkerCount = 0;
+        int profilerDrawNodeCount = 0;
+        uint32_t profilerExpansionHash = 0;
+        uint32_t drawExpansionHash = 0;
+        int workerThreads = 0;
+        int maxWorkerThreads = 0;
+        int replayMemoryPreset = 0;
+        int replayRetentionSeconds = 0;
+        int replayBudgetMiB = 0;
+        std::array<bool, 6> optionsToggles = {};
+        std::array<float, 6> sceneControlValues = {};
+        int modelCapacity = 0;
+        uint64_t fileDialogResponsesConsumed = 0;
+        bool cinematicShadows = false;
+        std::array<float, 13> physicsParameters = {};
+        std::array<bool, 13> physicsToggles = {};
+        int physicsPipelineStage = 0;
+        int physicsPipelineStages = 0;
+        std::vector<float> ordinaryRenderParameters;
+        std::vector<float> cinematicParameters;
+        std::vector<bool> cinematicFeatures;
+        float toolsScroll = 0.0f;
+        std::array<float, 4> toolsContentBounds = {};
+        uint32_t tooltipId = 0;
+        char tooltipAction[192] {};
+        std::array<float, 4> tooltipTargetBounds {};
+
+        int windowWidth = 1;
+        int windowHeight = 1;
+        int viewportX = 0;
+        int viewportY = 0;
+        int viewportWidth = 1;
+        int viewportHeight = 1;
+        float projectionX = 0.0f;
+        float projectionY = 0.0f;
+        bool pointerHasWorldRay = false;
+        std::array<float, 3> pointerRayDirection = {};
+        std::array<float, 4> transportBounds = {};
+        std::array<float, 4> replayControlsBounds = {};
+        std::array<float, 4> causeControlsBounds = {};
+        std::array<float, 4> detailsCausesTabBounds = {};
+        std::array<float, 4> editorControlsBounds = {};
+        std::array<float, 4> editorReplayTabBounds = {};
+        std::array<float, 4> leftResizeBounds = {};
+        std::array<float, 4> rightResizeBounds = {};
+        std::array<float, 4> rightFoldBounds = {};
+        std::array<float, 4> replayDetailsBounds = {};
+        float replayScroll = 0.0f;
+    } presentation;
     uint64_t sceneGeneration = 0;
     int sceneFrame = 0;
     char scenePath[512] = {};
@@ -365,6 +477,16 @@ struct SkarnessFrameState
     int sceneLifecycleEvent = 0;
     bool sceneReady = false;
     bool sceneMode = false;
+    float sceneTimeScale = 1.0f;
+    bool scenePauseLocked = false;
+    bool forecastActive = false;
+    bool forecastAvailable = false;
+    bool forecastFailed = false;
+    uint64_t forecastNewestTick = 0;
+    double forecastSimulatedSeconds = 0.0;
+    double predictionRevealRate = 1.0;
+    bool scenePhysicsEnabled = true;
+    int sceneManualResetCount = 0;
     double simulationSeconds = 0.0;
     bool paused = true;
     bool replayCaptureEnabled = false;

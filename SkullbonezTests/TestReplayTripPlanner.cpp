@@ -1,24 +1,3 @@
-/*
-File: SkullbonezTests/TestReplayTripPlanner.cpp
-Purpose:
-  Pins the bounded trip-planner state machine, correction math, and abort edges.
-
-Summary:
-  Synthetic live orbital values seed the same Lambert path used by Runtime.
-  Completed prediction witnesses then drive convergence, correction, failure,
-  commit, cancel, and safety reset without constructing an engine.
-
-Glossary:
-  Mutation: One value request for Runtime to apply to the live ship.
-  Witness generation: Completed prediction prefix observed once by the planner.
-
-Invariants:
-  - Tests assert semantic state and values rather than private representation.
-  - Synthetic frame storage is test-only; the production owner retains fixed arrays.
-
-Related:
-  - SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h
-*/
 #include "doctest/doctest.h"
 #include "../SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h"
@@ -56,11 +35,9 @@ ReplayTripPlannerLiveInput DesignWindow()
     ReplayTripPlannerLiveInput input;
     input.sun = Body( 1, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 10000.0f );
     input.ship = Body( 2, Vector3( 80.0f, 0.0f, 0.0f ), Vector3( 0.0f, std::sqrt( 500.0f ), 0.0f ) );
-    input.target = Body( 3,
-                         Vector3( 121.6f * std::cos( marsPhase ), 121.6f * std::sin( marsPhase ), 0.0f ),
+    input.target = Body( 3, Vector3( 121.6f * std::cos( marsPhase ), 121.6f * std::sin( marsPhase ), 0.0f ),
                          Vector3( -std::sqrt( 40000.0f / 121.6f ) * std::sin( marsPhase ),
-                                  std::sqrt( 40000.0f / 121.6f ) * std::cos( marsPhase ),
-                                  0.0f ) );
+                                  std::sqrt( 40000.0f / 121.6f ) * std::cos( marsPhase ), 0.0f ) );
     input.gravitationalConstant = 4.0f;
     input.predictionHorizonSeconds = 20.0f;
     input.mutualGravityEnabled = true;
@@ -84,11 +61,8 @@ RunReplayPredictionFrame Frame( uint32_t frameIndex, const Vector3& shipPosition
     return frame;
 }
 
-ReplayTripPlannerPredictionInput Prediction( const std::vector<RunReplayPredictionFrame>& frames,
-                                             uint32_t generation,
-                                             float miss,
-                                             float eta,
-                                             const Vector3& shipPosition,
+ReplayTripPlannerPredictionInput Prediction( const std::vector<RunReplayPredictionFrame>& frames, uint32_t generation,
+                                             float miss, float eta, const Vector3& shipPosition,
                                              const Vector3& targetPosition )
 {
     ReplayTripPlannerPredictionInput input;
@@ -132,6 +106,7 @@ TEST_CASE( "Replay trip planner converges and commits a real prediction witness"
     std::vector<RunReplayPredictionFrame> frames;
     frames.push_back( Frame( 0, Vector3( 80.0f, 0.0f, 0.0f ), Vector3( 87.0f, 84.0f, 0.0f ) ) );
     frames.push_back( Frame( 954, Vector3( -121.0f, 0.0f, 0.0f ), Vector3( -120.0f, 0.0f, 0.0f ) ) );
+    frames.front().bodies.front().linearVelocity = planner.View().candidateVelocity;
     const auto result = planner.ObservePrediction(
         Prediction( frames, 1, 1.0f, 15.9f, Vector3( -121.0f, 0.0f, 0.0f ), Vector3( -120.0f, 0.0f, 0.0f ) ) );
     CHECK_FALSE( result.requested );
@@ -154,11 +129,12 @@ TEST_CASE( "Replay trip planner applies bound correction then reports honest fai
     const Vector3 seed = planner.View().candidateVelocity;
     const Vector3 shipAtClosest( 10.0f, -2.0f, 0.0f );
     const Vector3 targetAtClosest( 20.0f, 3.0f, 0.0f );
-    std::vector<RunReplayPredictionFrame> frames{ Frame( 0, live.ship.position, live.target.position ),
-                                                  Frame( 600, shipAtClosest, targetAtClosest ) };
+    std::vector<RunReplayPredictionFrame> frames { Frame( 0, live.ship.position, live.target.position ),
+                                                   Frame( 600, shipAtClosest, targetAtClosest ) };
 
-    const auto correction =
-        planner.ObservePrediction( Prediction( frames, 1, 10.0f, 10.0f, shipAtClosest, targetAtClosest ) );
+    frames.front().bodies.front().linearVelocity = planner.View().candidateVelocity;
+    const auto correction = planner.ObservePrediction(
+        Prediction( frames, 1, 10.0f, 10.0f, shipAtClosest, targetAtClosest ) );
     REQUIRE( correction.requested );
     CHECK( planner.View().state == ReplayTripPlannerState::Correcting );
     CHECK( planner.View().iteration == 2 );
@@ -166,8 +142,8 @@ TEST_CASE( "Replay trip planner applies bound correction then reports honest fai
     CHECK( correction.linearVelocity.y == doctest::Approx( seed.y + 0.4f ) );
     planner.ConfirmVelocityApplied();
 
-    const auto repeated =
-        planner.ObservePrediction( Prediction( frames, 2, 12.0f, 10.0f, shipAtClosest, targetAtClosest ) );
+    frames.front().bodies.front().linearVelocity = planner.View().candidateVelocity;
+    const auto repeated = planner.ObservePrediction( Prediction( frames, 2, 12.0f, 10.0f, shipAtClosest, targetAtClosest ) );
     CHECK_FALSE( repeated.requested );
     CHECK( planner.View().state == ReplayTripPlannerState::Failed );
     CHECK( planner.View().noSolution );
@@ -185,7 +161,7 @@ TEST_CASE( "Replay trip planner cancellation edges restore the original live vel
     ReplayTripPlanner planner;
     ReplayTripPlannerLiveInput live = DesignWindow();
     BeginDesignPlan( planner, live );
-    live.liveAdvanceHeld = true;
+    live.liveAdvancing = true;
     const auto liveAdvanceRestore = planner.BeginFrame( live );
     REQUIRE( liveAdvanceRestore.requested );
     CHECK( liveAdvanceRestore.linearVelocity.x == doctest::Approx( live.ship.linearVelocity.x ) );
@@ -225,16 +201,18 @@ TEST_CASE( "Replay trip planner terminal states reject replanning and TOF mutati
     const ReplayTripPlannerLiveInput live = DesignWindow();
     BeginDesignPlan( planner, live );
 
-    std::vector<RunReplayPredictionFrame> frames{
-        Frame( 0, live.ship.position, live.target.position ),
-        Frame( 954, Vector3( -121.0f, 0.0f, 0.0f ), Vector3( -120.0f, 0.0f, 0.0f ) ) };
+    std::vector<RunReplayPredictionFrame> frames { Frame( 0, live.ship.position, live.target.position ),
+                                                   Frame( 954, Vector3( -121.0f, 0.0f, 0.0f ),
+                                                          Vector3( -120.0f, 0.0f, 0.0f ) ) };
+    frames.front().bodies.front().linearVelocity = planner.View().candidateVelocity;
     (void)planner.ObservePrediction(
         Prediction( frames, 1, 1.0f, 15.9f, Vector3( -121.0f, 0.0f, 0.0f ), Vector3( -120.0f, 0.0f, 0.0f ) ) );
     REQUIRE( planner.View().state == ReplayTripPlannerState::Converged );
     const float originalTof = planner.View().timeOfFlightSeconds;
     const Vector3 originalCandidate = planner.View().candidateVelocity;
     SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerSurface surface;
-    SkullbonezCore::Runtime::ReplayOverlay::BuildReplayTripPlannerSurface( planner.View(), 1800, surface );
+    SkullbonezCore::Runtime::ReplayOverlay::BuildReplayTripPlannerSurface( planner.View(), { 650.0f, 88.0f, 500.0f, 94.0f },
+                                                                           surface, true );
     REQUIRE( surface.Find( SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerControlId(
         SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerControl::Plan ) ) );
     CHECK_FALSE( surface
@@ -284,4 +262,47 @@ TEST_CASE( "Replay trip planner TOF and command queue remain bounded" )
     CHECK( planner.RequiresLiveInput() );
     CHECK( planner.View().timeOfFlightSeconds <= live.predictionHorizonSeconds );
     CHECK( planner.View().timeOfFlightSeconds >= SkullbonezCore::Runtime::REPLAY_TRIP_PLANNER_MIN_TOF_SECONDS );
+}
+
+TEST_CASE( "Replay trip planner preserves paused candidates and rejects advancing live input" )
+{
+    ReplayTripPlanner planner;
+    auto live = DesignWindow();
+    live.liveAdvancing = true;
+    REQUIRE( planner.QueueCommand( { ReplayTripPlannerCommandKind::Plan } ) );
+    CHECK_FALSE( planner.BeginFrame( live ).requested );
+    CHECK( planner.View().state == ReplayTripPlannerState::Idle );
+
+    live.liveAdvancing = false;
+    BeginDesignPlan( planner, live );
+    CHECK_FALSE( planner.BeginFrame( live ).requested );
+    CHECK( planner.View().state == ReplayTripPlannerState::AwaitingPrediction );
+    ReplayTripPlannerPredictionInput prediction;
+    prediction.shipId = live.ship.id;
+    prediction.targetId = live.target.id;
+    prediction.targetAvailable = true;
+    CHECK_FALSE( planner.ObservePrediction( prediction ).requested );
+    CHECK( planner.View().state == ReplayTripPlannerState::AwaitingPrediction );
+    prediction.liveAdvancing = true;
+    const auto restore = planner.ObservePrediction( prediction );
+    REQUIRE( restore.requested );
+    CHECK( restore.restoresPrePlanVelocity );
+    CHECK( restore.linearVelocity.y == doctest::Approx( live.ship.linearVelocity.y ) );
+    CHECK( planner.View().state == ReplayTripPlannerState::Idle );
+}
+
+TEST_CASE( "Replay trip planner waits for the candidate source snapshot" )
+{
+    ReplayTripPlanner planner;
+    const auto live = DesignWindow();
+    BeginDesignPlan( planner, live );
+    std::vector<RunReplayPredictionFrame> frames { Frame( 0, live.ship.position, live.target.position ) };
+    auto input = Prediction( frames, 1, 1.0f, 10.0f, live.ship.position, live.target.position );
+    CHECK_FALSE( planner.ObservePrediction( input ).requested );
+    CHECK( planner.View().state == ReplayTripPlannerState::AwaitingPrediction );
+    CHECK( planner.View().iterationMissCount == 0 );
+    frames.front().bodies.front().linearVelocity = planner.View().candidateVelocity;
+    CHECK_FALSE( planner.ObservePrediction( input ).requested );
+    CHECK( planner.View().state == ReplayTripPlannerState::Converged );
+    CHECK( planner.View().iterationMissCount == 1 );
 }

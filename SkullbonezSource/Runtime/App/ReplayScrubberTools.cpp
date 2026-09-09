@@ -1018,6 +1018,17 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     const auto presentation = world.RenderPresentationRecords();
     Environment::CameraCollection* cameras = &world.Cameras();
     Geometry::Terrain* terrain = world.Terrain().Get();
+    const bool sharedSurface = input.transportBounds.w > 0.0f;
+    const bool causeUiBlocksMouse = sharedSurface ? input.causeUiBlocksMouse : input.uiBlocksMouse;
+    m_planningOwner.CauseInspection().SetShellPresentation( sharedSurface, input.causeBounds );
+    if ( sharedSurface && input.causeBounds.w > 0.0f )
+    {
+        const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
+        const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection, m_authoring.CauseTree(),
+                                                                                   input.screenWidth, input.screenHeight,
+                                                                                   inspection.Display().drawerProgress );
+        m_authoring.SetCauseTreePresentationBounds( layout.hierarchy );
+    }
 
     if ( !input.gameUiPointerSurfaceActive )
     {
@@ -1026,15 +1037,22 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     }
 
     const RuntimePointerEvent& planningPointerEvent = inputRouter.RuntimeSnapshot().pointer;
-    const bool planningOwnsMouse = m_planningOwner.TickPointerSurface( input.uiBlocksMouse, input.screenWidth,
+    const UI::UIRect planningViewport = sharedSurface ? input.planningBounds
+                                                      : UI::UIRect { 0.0f, 0.0f, static_cast<float>( input.screenWidth ),
+                                                                     static_cast<float>( input.screenHeight ) };
+    const bool planningOwnsMouse = m_planningOwner.TickPointerSurface( planningViewport, input.uiBlocksMouse,
                                                                        planningPointerEvent.clientX,
                                                                        planningPointerEvent.clientY,
                                                                        planningPointerEvent.hasClientPosition,
-                                                                       inputRouter.UiSnapshot().mouse.leftPressed );
+                                                                       inputRouter.UiSnapshot().mouse.leftPressed,
+                                                                       input.wheelDelta,
+                                                                       ReplayOverlay::ReplayTripBaselineReady(
+                                                                           m_predictionOwner.PresentationView() ) );
 
     const bool predictionCauseRows = !m_authoring.CauseTree().rows.empty() &&
                                      m_authoring.CauseTree().rows.front().prediction;
-    const bool causeWindowAvailable = !m_authoring.CauseTree().rows.empty() &&
+    const bool causeWindowAvailable = ( !sharedSurface || input.causeBounds.w > 0.0f ) &&
+                                      !m_authoring.CauseTree().rows.empty() &&
                                       ReplayPredictionCauseWindowAvailable( m_predictionOwner.PresentationView()
                                                                                 .diagnostics.detailMode,
                                                                             predictionCauseRows );
@@ -1042,7 +1060,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     // Invariant: reserve the complete target drawer before any pointer phase.
     // Opening the drawer therefore never shifts the Replay-owned hierarchy
     // anchor, including after a compact-window or resolution transition.
-    if ( causeWindowAvailable && input.screenWidth > 0 && input.screenHeight > 0 )
+    if ( !sharedSurface && causeWindowAvailable && input.screenWidth > 0 && input.screenHeight > 0 )
     {
         m_authoring.EnsureCauseTreeWindowPlacement( input.screenWidth, input.screenHeight,
                                                     REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
@@ -1051,9 +1069,8 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     const ReplayCauseInspectionView preScrubberInspection = m_planningOwner.CauseInspection().View();
     const ReplayCauseInspectorLayout
-        preScrubberInspectorLayout = BuildReplayCauseInspectorLayout( preScrubberInspection.SolverDetail(),
-                                                                      m_authoring.CauseTree(), input.screenWidth,
-                                                                      input.screenHeight,
+        preScrubberInspectorLayout = BuildReplayCauseInspectorLayout( preScrubberInspection, m_authoring.CauseTree(),
+                                                                      input.screenWidth, input.screenHeight,
                                                                       preScrubberInspection.Display().drawerProgress );
     const RuntimePointerEvent& preScrubberPointer = inputRouter.RuntimeSnapshot().pointer;
     const bool pointerOverCauseWindow = causeWindowAvailable && preScrubberPointer.hasClientPosition &&
@@ -1064,40 +1081,24 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     // Why: the scrubber runs before cause-row hit testing. Treat the visible
     // cause panel as an upstream surface now so its click cannot first mutate
     // scrubber/camera state and invalidate the row it intends to retarget.
-    const bool scrubberPointerBlocked = input.uiBlocksMouse || planningOwnsMouse || pointerOverCauseWindow;
+    const bool scrubberPointerBlocked = ( input.transportBounds.w > 0.0f ? input.scrubberUiBlocksMouse
+                                                                         : input.uiBlocksMouse ) ||
+                                        planningOwnsMouse || pointerOverCauseWindow;
     const ReplayInspectionCameraAction scrubberHostAction = TickScrubberInput( input, scrubberPointerBlocked, inputRouter,
                                                                                interaction, camera, output );
 
     output.consumesMouse = output.consumesMouse || planningOwnsMouse;
     const bool scrubberOwnsMouse = output.consumesMouse;
-    bool loadedPresentationActivated = false;
-
     if ( output.loadPresentationRequested )
     {
-        char path[MAX_PATH] = {};
-
-        if ( SelectReplayPresentationArtifact( m_scrubberOwner, input.window, input.now, path ) )
-        {
-            const bool loaded = m_timeline.LoadPresentationArtifact( path );
-
-            if ( loaded && BeginLoadedPresentationActivationScrubber( HasLoadedPresentation(), inputRouter, interaction ) )
-            {
-                ExitInspectionCamera( cameras, terrain, camera, input.normalizedRestoreMode, input.attachedFollow,
-                                      input.directorGrabbed, interaction, inputRouter );
-
-                ArmLoadedPresentationScrubber( 0.25f, input.now, interaction );
-                EnterInspectionCamera( cameras, camera, input.normalizedCurrentMode, interaction, inputRouter, mousePickup );
-
-                loadedPresentationActivated = true;
-            }
-
-            PublishReplayLoadResult( m_scrubberOwner, path, loaded, input.now );
-        }
+        // App dispatches the picker and activation through the same transport
+        // handler as menu commands. A file click cannot also exit inspection.
+        return;
     }
 
     const bool causeInspectionOwnsCamera = preScrubberInspection.Transport().mode != ReplayCauseInspectionMode::Inactive;
 
-    if ( !loadedPresentationActivated && !causeInspectionOwnsCamera )
+    if ( !causeInspectionOwnsCamera )
     {
         switch ( scrubberHostAction )
         {
@@ -1140,12 +1141,11 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
         const RuntimePointerEvent& pointer = inputRouter.RuntimeSnapshot().pointer;
         const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspection().View();
         const ReplayCauseInspectorLayout
-            inspectorLayout = BuildReplayCauseInspectorLayout( inspection.SolverDetail(), m_authoring.CauseTree(),
-                                                               input.screenWidth, input.screenHeight,
-                                                               inspection.Display().drawerProgress );
+            inspectorLayout = BuildReplayCauseInspectorLayout( inspection, m_authoring.CauseTree(), input.screenWidth,
+                                                               input.screenHeight, inspection.Display().drawerProgress );
         const RuntimeMouseEdges& pointerEdges = inputRouter.UiSnapshot().mouse;
 
-        if ( inspection.Display().detailVisible && pointer.hasClientPosition && pointerEdges.leftPressed &&
+        if ( !sharedSurface && inspection.Display().detailVisible && pointer.hasClientPosition && pointerEdges.leftPressed &&
              !input.uiBlocksMouse && !scrubberOwnsMouse &&
              ReplayCauseInspectorDrawerTitleContainsPoint( inspectorLayout, pointer.clientX, pointer.clientY ) )
         {
@@ -1170,7 +1170,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
         solverDetailOwnsMouse = m_planningOwner.CauseInspection()
                                     .TickSolverDetailPanelInput( m_authoring.CauseTree(), pointer.clientX, pointer.clientY,
                                                                  pointer.hasClientPosition,
-                                                                 input.uiBlocksMouse || scrubberOwnsMouse,
+                                                                 causeUiBlocksMouse || scrubberOwnsMouse,
                                                                  pointer.leftPressed, input.wheelDelta, input.screenWidth,
                                                                  input.screenHeight, &inspectorCommand );
 
@@ -1185,6 +1185,17 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
                                                              WorldInteractionOwner::ReplayCauseTree,
                                                              InteractionExitReason::EnterReplay );
         }
+    }
+
+    if ( sharedSurface && input.causeBounds.w > 0.0f )
+    {
+        // Folding evidence changes the hierarchy bounds in this input turn;
+        // publish that same rectangle before hierarchy input and rendering.
+        const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
+        const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( inspection, m_authoring.CauseTree(),
+                                                                                   input.screenWidth, input.screenHeight,
+                                                                                   inspection.Display().drawerProgress );
+        m_authoring.SetCauseTreePresentationBounds( layout.hierarchy );
     }
 
     const RuntimeMouseEdges& causePointerEdges = inputRouter.UiSnapshot().mouse;
@@ -1213,7 +1224,10 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     causeInput.filterEscapePressed = causeKeyPressed( VK_ESCAPE );
     causeInput.filterReturnPressed = causeKeyPressed( VK_RETURN );
     causeInput.rowsReady = causeTreeRowsReady;
-    causeInput.uiBlocksMouse = input.uiBlocksMouse || scrubberOwnsMouse || solverDetailOwnsMouse;
+    causeInput.docked = sharedSurface;
+    causeInput.surfaceVisible = !sharedSurface || ( input.causeBounds.w > 0.0f &&
+                                                    !m_planningOwner.CauseInspectionView().Display().drawerOpen );
+    causeInput.uiBlocksMouse = causeUiBlocksMouse || scrubberOwnsMouse || solverDetailOwnsMouse;
     causeInput.editorModeEnabled = input.editorModeEnabled;
     const auto appendCauseCharacter = [&]( char value )
     {
@@ -1264,7 +1278,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     // Drag and resize paths clamp the hierarchy during Replay input; apply the
     // same target attachment extent afterward so the joined surface cannot
     // drift outside the viewport at an edge or corner.
-    if ( input.screenWidth > 0 && input.screenHeight > 0 )
+    if ( !sharedSurface && input.screenWidth > 0 && input.screenHeight > 0 )
     {
         m_authoring.EnsureCauseTreeWindowPlacement( input.screenWidth, input.screenHeight,
                                                     REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
@@ -1854,8 +1868,8 @@ bool HandleReplayScrubPressed( ReplayScrubber& scrubber, InputRouter& inputRoute
 
 
 bool TickReplayScrubDrag( ReplayScrubber& scrubber, InputRouter& inputRouter, RuntimeInteractionController& interaction,
-                          float solverPresentTrackPosition, bool loadedPresentation, int mouseX, int screenWidth,
-                          int screenHeight, bool leftReleased )
+                          float solverPresentTrackPosition, bool loadedPresentation, int mouseX,
+                          const SkullbonezCore::UI::UIRect& trackBounds, bool leftReleased )
 {
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::ReplayScrubDrag )
     {
@@ -1863,8 +1877,9 @@ bool TickReplayScrubDrag( ReplayScrubber& scrubber, InputRouter& inputRouter, Ru
     }
 
     const RunReplayTrack activeTrack = scrubber.View().activeTrack;
-    scrubber.SetTrackPosition( activeTrack,
-                               ReplayScrubberPositionFromMouse( mouseX, screenWidth, screenHeight, activeTrack ) );
+    scrubber.SetTrackPosition( activeTrack, std::clamp( ( static_cast<float>( mouseX ) - trackBounds.x ) /
+                                                            (std::max)( 1.0f, trackBounds.w ),
+                                                        0.0f, 1.0f ) );
 
     if ( loadedPresentation )
     {
@@ -1920,7 +1935,8 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
 
     decision.leftReleased = inputFrame.leftReleased;
 
-    const bool scrubberAllowed = !frame.editorModeEnabled && frame.uiVisible && frame.uiMinimized;
+    const bool sharedSurface = frame.transportBounds.w > 0.0f;
+    const bool scrubberAllowed = !frame.editorModeEnabled && ( sharedSurface || ( frame.uiVisible && frame.uiMinimized ) );
     const bool replaySurfaceAvailable = frame.loadedPresentation || frame.solverStats.enabled;
 
     if ( !scrubberAllowed || !replaySurfaceAvailable || frame.screenWidth <= 0 || frame.screenHeight <= 0 )
@@ -1955,6 +1971,9 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     surfaceInput.screenW = frame.screenWidth;
     surfaceInput.screenH = frame.screenHeight;
     surfaceInput.gesture = frame.gesture;
+    surfaceInput.transportBounds = frame.transportBounds;
+    surfaceInput.controlsBounds = frame.controlsBounds;
+    surfaceInput.controlsScroll = frame.controlsScroll;
     decision.track = surfaceInput.track;
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( surfaceInput, surface );
@@ -1980,6 +1999,7 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     decision.horizonY = horizonControl->drawRect.y;
     decision.horizonWidth = horizonControl->drawRect.w;
     decision.horizonHeight = horizonControl->drawRect.h;
+    decision.trackBounds = surface.Find( ReplayScrubberControlId( ReplayScrubberControl::ScrubTrack ) )->drawRect;
 
     const bool canTakeMouse = frame.uiBlocksMouse == false || scrubDragActive || horizonDragActive;
     const bool pointerRequestsReplayOverlay = pointerControl && pointerControl->requestsReveal;
@@ -1993,12 +2013,12 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     const bool scrubTrackStartTarget = isHotControl( ReplayScrubberControl::ScrubTrack ) ||
                                        isHotControl( ReplayScrubberControl::Panel ) ||
                                        isHotControl( ReplayScrubberControl::HotZone ) ||
-                                       ( scrubber.historicalSamplePaused && !surface.hasPointerControl );
+                                       ( !sharedSurface && scrubber.historicalSamplePaused && !surface.hasPointerControl );
 
     // Why: passive Scene/Demo cameras still reveal the replay bar at its hot
     // zone, while UI-owned mouse regions do not. Active replay state pins the
     // surface open without making empty screen space consume pointer input.
-    if ( pointerRequestsReplayOverlay || replayStateKeepsScrubberVisible )
+    if ( sharedSurface || pointerRequestsReplayOverlay || replayStateKeepsScrubberVisible )
     {
         KeepVisible( frame.now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
         scrubber = View();
@@ -2510,6 +2530,9 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
     pointerFrame.currentSolverAvailable = CurrentSolverScrubSample() != nullptr;
     pointerFrame.scenePhysicsEnabled = input.scenePhysicsEnabled;
     pointerFrame.inspectionCameraActive = m_visualPresentation.CameraView().active;
+    pointerFrame.transportBounds = input.transportBounds;
+    pointerFrame.controlsBounds = input.controlsBounds;
+    pointerFrame.controlsScroll = input.controlsScroll;
     const ReplayScrubberPointerDecision decision = m_scrubberOwner.ResolvePointerAction( pointerFrame );
 
     if ( decision.cancelToolDrag )
@@ -2631,7 +2654,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
 
     const bool scrubberGestureHandled = TickReplayScrubDrag( m_scrubberOwner, inputRouter, interaction,
                                                              solverPresentTrackPosition, loadedPresentation, mouse.x,
-                                                             input.screenWidth, input.screenHeight, leftReleased ) ||
+                                                             decision.trackBounds, leftReleased ) ||
                                         TickReplayPredictionHorizonDrag( m_predictionOwner, m_scrubberOwner, inputRouter,
                                                                          interaction, output.enterInteractive,
                                                                          predictHorizon, mouse.x, leftReleased, input.now );

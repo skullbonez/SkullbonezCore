@@ -221,13 +221,17 @@ class Run
     PhysicsComparisonPanel m_comparisonPanel;
     PhysicsComparisonLoadJob m_comparisonLoad;
     std::string m_comparisonLoadRequest;
-    bool ComparisonUiActive() const
-    {
-        return m_comparison.Active() || m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty();
-    }
+    bool m_comparisonForeground = false;
+    bool m_comparisonCameraValid = false;
+    bool m_comparisonActivatingScene = false;
+    ReplayCameraSample m_comparisonCamera;
+    bool ComparisonUiActive() const;
+    void SyncComparisonWorkspace();
+    void CloseComparison();
     bool PublishComparisonLoad();
     void PollComparisonLoad();
     bool LoadComparison( const char* path, bool finding = false );
+    bool ChooseComparisonFile( char ( &path )[260], bool save );
     void LoadSolverLab( UI::UISolverLabChoice choice );
     bool UpdateComparisonInput( bool textActive );
     void RenderComparison();
@@ -419,9 +423,9 @@ class Run
     void AfterPhysicsStep(); // Post-step hooks that must see committed physics state.
 
     // Per-frame tick helpers (called from Execute()):
-    float TickPhysics( double dt, bool capturePresentationPinned,
-                       const SceneFrameProceedPolicy&
-                           proceedPolicy ); // Returns scheduler alpha; render applies interpolation/capture pinning.
+    // Returns scheduler alpha and reports whether this frame committed any physics ticks.
+    float TickPhysics( double dt, bool capturePresentationPinned, const SceneFrameProceedPolicy& proceedPolicy,
+                       bool& physicsAdvanced );
     bool TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy );  // Screenshot triggers; true restarts frame.
     void TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy );    // Auto-cycle capture; may post WM_QUIT.
     bool TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy ); // Completion/load policy; true restarts frame.

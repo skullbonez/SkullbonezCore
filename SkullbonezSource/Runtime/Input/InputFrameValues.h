@@ -59,6 +59,8 @@ inline UI::InputControl::UIInputSnapshot BuildUIInputSnapshot( const DeviceInput
 
     snapshot.leftDown = mouse.leftDown;
     snapshot.leftPressed = mouse.leftPressed;
+    snapshot.rightDown = frame.rightDown;
+    snapshot.middleDown = frame.middleDown;
     snapshot.leftReleased = mouse.leftReleased;
     return snapshot;
 }

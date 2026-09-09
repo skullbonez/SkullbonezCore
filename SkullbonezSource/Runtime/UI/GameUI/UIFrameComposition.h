@@ -214,6 +214,8 @@ struct EditorMiniPaletteLayout
     UIRect flyoutOptions[EDITOR_MINI_FLYOUT_OPTION_MAX];
     UIRect bounds;
     UIRect flyoutBounds;
+    UIRect clip;
+    bool docked = false;
     float buttonSize = 0.0f;
     int buttonCount = 0;
     int flyoutOptionCount = 0;
@@ -232,13 +234,15 @@ struct EditorMinimizedStatusLayout
 };
 
 
+const char* EditorMiniPaletteEntryLabel( const EditorMiniPaletteEntry& entry );
 bool IsEditorMiniTreePlacementValid( int placement );
 int EditorMiniPaletteFlyoutOptionCount( int holdMode );
 bool EditorMiniTreeTypeForType( int objectType, int& outTreeType, int& outPlacement );
 bool EditorMiniPaletteTreeStateForType( int objectType, bool editorPlaceStatic, int& outPlacement, int& outTreeType );
 int EditorMiniTreeObjectType( int treeType, int placement );
 EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, const UIRect& minimized,
-                                                      int flyoutAnchorEntry, bool flyoutOpen );
+                                                      int flyoutAnchorEntry, bool flyoutOpen, const UIRect& grid = {},
+                                                      const UIRect& clip = {} );
 int HitEditorMiniPaletteButton( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY );
 int HitEditorMiniPaletteFlyoutOption( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY );
 bool EditorMiniPaletteContains( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY );

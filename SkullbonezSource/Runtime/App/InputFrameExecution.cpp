@@ -437,6 +437,11 @@ bool Run::ExecuteInputSceneLoadRequest( const SceneLoadRequest& request, Runtime
         return false;
     }
     PrepareSceneScopedOwnersForTransition();
+    if ( !m_comparisonActivatingScene )
+    {
+        m_operatorUi->SetPresentationWorkspace( UI::GameLayout::Workspace::Scene );
+        SyncComparisonWorkspace();
+    }
     presentationEdit.Commit();
     SceneLoadTransaction sceneLoad;
     sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
@@ -998,6 +1003,7 @@ RuntimeUIFrameResult Run::RunOperatorInputFrame( const UI::InputCaptureIntent& e
                                                  bool keyboardToggleEditorMode,
                                                  RuntimeOverlayPresentationEdit& presentationEdit )
 {
+    const bool comparisonFrame = ComparisonUiActive();
     ReplayPathPickInput pointerRay;
     pointerRay.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Scene().Cameras(), m_window,
                                                              pointerRay.rayOrigin, pointerRay.rayDirection );
@@ -1021,14 +1027,14 @@ RuntimeUIFrameResult Run::RunOperatorInputFrame( const UI::InputCaptureIntent& e
             result.enterInteractiveScene = false;
         }
         presentationEdit.Commit();
-        const InputAfterUiDismissResult dismiss = m_inputRouter.DispatchAfterUiDismiss( m_inputRouter.Actions(),
-                                                                                        result.commands.ui.userInteracted,
-                                                                                        m_timers.SimulationTotalSeconds(),
-                                                                                        gameUiActive, m_camera,
-                                                                                        m_attachedCamera, m_editorTools,
-                                                                                        *m_operatorUi, m_sceneController,
-                                                                                        *m_overlayDiagnostics,
-                                                                                        m_replayRuntime.BuildInputView() );
+        const InputAfterUiDismissResult
+            dismiss = m_inputRouter.DispatchAfterUiDismiss( m_inputRouter.Actions(),
+                                                            result.commands.ui.userInteracted || blocksKeyboard ||
+                                                                result.replayWorkspace.consumesKeyboard,
+                                                            m_timers.SimulationTotalSeconds(), gameUiActive, m_camera,
+                                                            m_attachedCamera, m_editorTools, *m_operatorUi,
+                                                            m_sceneController, *m_overlayDiagnostics,
+                                                            m_replayRuntime.BuildInputView() );
         if ( dismiss.disableCaptureAutomationExit )
         {
             m_capture.DisableAutomationExit();
@@ -1059,6 +1065,10 @@ RuntimeUIFrameResult Run::RunOperatorInputFrame( const UI::InputCaptureIntent& e
     if ( result.status.Ok() && result.frameActive )
     {
         result.status = RunInputUiStressBatch( gameUiActive, presentationEdit );
+    }
+    if ( comparisonFrame || ComparisonUiActive() )
+    {
+        return result;
     }
     result = FinishRuntimeUIFramePointer( result, m_inputRouter, m_camera, m_editorTools, m_interaction, m_attachedCamera,
                                           *m_operatorUi, m_sceneController, m_replayRuntime,
@@ -1304,7 +1314,12 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
         Input::AutomationState automation;
         automation.enabled = true;
         automation.overrideAppFocused = true;
-        automation.appFocused = true;
+        automation.appFocused = m_skarness.AppFocused();
+        const auto keyboardWords = m_skarness.KeyboardWords();
+        for ( std::size_t word = 0; word < keyboardWords.size(); ++word )
+        {
+            automation.keyWords[word] = keyboardWords[word];
+        }
         const uint8_t movement = m_skarness.MovementKeysDown();
         constexpr int movementKeys[] = { 'W', 'A', 'S', 'D' };
         for ( int i = 0; i < 4; ++i )
@@ -1352,6 +1367,12 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
 
     const RuntimeInputKeyBindingView keyboardBindings = TakeInputKeyboardBindings();
     inputRouter.BeginFrame( deviceFrame, keyboardBindings, inputActions, externalUiCapture );
+
+    // Invariant: the native cause filter needs the router's device keys, unlike
+    // external UI capture which removes them. Project its retained focus after
+    // sampling but before pre-UI bindings, so typing cannot execute world actions.
+    externalUiCapture.text = externalUiCapture.text ||
+                             ( !ComparisonUiActive() && replayRuntime.CauseFilterHasKeyboardFocus() );
     UiInputHitSnapshot preUiPointer;
     preUiPointer.mouse = inputActions.mouse;
     preUiPointer.clientX = deviceFrame.clientX;
@@ -1360,31 +1381,27 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
     preUiPointer.unhandledWheelDelta = deviceFrame.wheelDelta;
     inputRouter.PublishUiSnapshot( preUiPointer );
 
-    if ( UpdateComparisonInput( externalUiCapture.text || externalUiCapture.keyboard ||
-                                ( !m_comparison.Active() && ui.BlocksKeyboard() ) ) )
+    // Layout is presentation state: resolve it before comparison or live-world
+    // picking, then publish the exact integer raster rectangle to Window.
+    const bool comparisonPopup = ComparisonUiActive() && m_comparisonPanel.HasOpenPopup();
+    auto presentationInput = BuildUIInputSnapshot( deviceFrame, inputActions.mouse, ui.InputOverride() );
+    if ( comparisonPopup )
     {
-        // Comparison owns this complete input turn. Route no live-world or
-        // replay gestures while its independent presentation cursor is active.
-        RuntimeUIFrameResult comparisonResult;
-        RuntimeInputFrameFacts comparisonFacts;
-        comparisonFacts.externalUiCapture = externalUiCapture;
-#if defined( SKULLBONEZ_SKARNESS )
-        ApplySkarnessCommands( comparisonResult, comparisonFacts );
-#endif
-        preUiPointer.blocksKeyboard = true;
-        preUiPointer.blocksCameraMouse = true;
-        preUiPointer.wantsNativeCursor = true;
-        inputRouter.PublishUiSnapshot( preUiPointer );
-        inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput {}, true );
-        if ( !inputRouter.TimelineDragActive() )
-        {
-            inputRouter.ReleaseNativeCapture();
-        }
-        inputRouter.RequestCursorVisible( true );
-        CommitInputPointerPresentation( externalUiCapture );
-        return CompleteRuntimeInputPhase();
+        // The foreground comparison menu receives the press that dismisses it;
+        // that same press cannot activate chrome behind the popup.
+        presentationInput.leftPressed = false;
+        presentationInput.wheelDelta = 0;
     }
+    ui.UpdatePresentationInput( presentationInput, m_window.ClientWidth(), m_window.ClientHeight(), gameUiActive );
+    const UI::UIRect sceneViewport = ui.PresentationBounds().viewport;
+    m_window.SetPresentationViewport( { static_cast<LONG>( sceneViewport.x ), static_cast<LONG>( sceneViewport.y ),
+                                        static_cast<LONG>( sceneViewport.x + sceneViewport.w ),
+                                        static_cast<LONG>( sceneViewport.y + sceneViewport.h ) } );
 
+    m_comparisonPanel.SetPresentationLayout( { sceneViewport, ui.PresentationBounds().replayControls,
+                                               ui.PresentationBounds().causeControls, ui.PresentationBounds().transport,
+                                               ui.PresentationBounds().window, ui.SharedPresentationEnabled() } );
+    SyncComparisonWorkspace();
     if ( externalUiCapture.nativePointerStateTouched )
     {
         // The vendor backend may have changed shared HWND capture/cursor state
@@ -1406,6 +1423,7 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
     if ( inputRouter.HandleUnfocusedFrame( editorTools, runtimeTools, interaction, attachedCamera, camera, ui,
                                            sceneController, replayRuntime, runtimeInput ) )
     {
+        m_comparisonPanel.CancelInput();
         const SkullbonezCore::Core::SbResult stressResult = RunInputUiStressBatch( gameUiActive, presentationEdit );
 
         if ( !stressResult.Ok() )
@@ -1418,6 +1436,59 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
             PostQuitMessage( 1 );
         }
 
+        CommitInputPointerPresentation( externalUiCapture );
+        return CompleteRuntimeInputPhase();
+    }
+
+    const bool comparisonTurn = ComparisonUiActive();
+    const bool shellInput = comparisonTurn && !comparisonPopup;
+    if ( shellInput )
+    {
+        const double shortcutNow = GetTickCount64() / 1000.0;
+        for ( RuntimeInputAction action :
+              { RuntimeInputAction::TogglePerformanceHistogram, RuntimeInputAction::ToggleMemoryOverlay } )
+        {
+            if ( inputRouter.ConsumeRepeatingAction( action, shortcutNow, 1.0e30 ) )
+            {
+                InputActionEvent event;
+                event.action = action;
+                HandlePreUiSurfaceAction( event, gameUiActive, debug );
+            }
+        }
+        const RuntimeUIFrameResult shellResult = RunOperatorInputFrame( externalUiCapture, externalEditorCommands, -1,
+                                                                        gameUiActive, false, presentationEdit );
+        if ( !shellResult.status.Ok() )
+        {
+            ReportRuntimeInputFailure( shellResult.status );
+            applicationExit.RequestPhaseFailure( shellResult.status );
+            PostQuitMessage( 1 );
+        }
+    }
+    const bool comparisonActive = UpdateComparisonInput( comparisonPopup || externalUiCapture.text ||
+                                                         externalUiCapture.keyboard || ui.BlocksKeyboard() );
+    if ( comparisonTurn || comparisonActive )
+    {
+        // The shared shell has already dispatched its commands exactly once.
+        // This workspace consumes the remainder of the world input turn.
+        RuntimeUIFrameResult comparisonResult;
+        RuntimeInputFrameFacts comparisonFacts;
+        comparisonFacts.externalUiCapture = externalUiCapture;
+#if defined( SKULLBONEZ_SKARNESS )
+        if ( !shellInput )
+        {
+            ApplySkarnessCommands( comparisonResult, comparisonFacts );
+        }
+#endif
+        preUiPointer.blocksKeyboard = true;
+        preUiPointer.blocksCameraMouse = true;
+        preUiPointer.wantsNativeCursor = true;
+        inputRouter.PublishUiSnapshot( preUiPointer );
+        inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput {}, true );
+        if ( !deviceFrame.leftDown && !deviceFrame.rightDown && !deviceFrame.middleDown )
+        {
+            inputRouter.ReleaseNativeCapture();
+        }
+        inputRouter.RequestCursorVisible( true );
         CommitInputPointerPresentation( externalUiCapture );
         return CompleteRuntimeInputPhase();
     }

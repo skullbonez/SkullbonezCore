@@ -33,6 +33,7 @@ Related:
 #include "../Replay/ReplayPresentationPackets.h"
 #include "../Replay/ReplayTimelinePackets.h"
 #include "../../Maths/Matrix4.h"
+#include "../../UI/UIDraw.h"
 
 #include <algorithm>
 #include <cmath>
@@ -63,11 +64,27 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 struct ReplayOverlayViewport
 {
-    // Viewport dimensions and the active world projection jointly define
-    // screen placement for this presentation frame.
+    // UI uses window dimensions; world markers use the scene's raster bounds
+    // and projection. An omitted rectangle retains full-window callers.
     int width = 1;
     int height = 1;
     Math::Transformation::Matrix4 viewProjection;
+    UI::UIRect sceneBounds;
+    UI::UIRect transportBounds;
+    UI::UIRect controlsBounds;
+    float controlsScroll = 0.0f;
+    UI::UIRect planningBounds;
+
+    UI::UIRect SceneBounds() const
+    {
+        return sceneBounds.w > 0.0f && sceneBounds.h > 0.0f
+                   ? sceneBounds
+                   : UI::UIRect { 0.0f, 0.0f, static_cast<float>( width ), static_cast<float>( height ) };
+    }
+    UI::UIRect PlanningBounds() const
+    {
+        return planningBounds.w > 0.0f && planningBounds.h > 0.0f ? planningBounds : SceneBounds();
+    }
 };
 
 struct ReplayOverlayGestureView
@@ -135,11 +152,20 @@ struct ReplayOverlayTimelineView
     }
 };
 
+// Matches Prediction's precondition for preserving a comparison baseline before
+// the first velocity mutation. This is UI availability, not a second mutation gate.
+inline bool ReplayTripBaselineReady( const ReplayPredictionPresentationView& prediction ) noexcept
+{
+    return prediction.baseline.comparisonActive ||
+           ( prediction.timeline.complete && prediction.timeline.frames.size() >= 2 );
+}
+
 struct ReplayOverlayPlanningSurfacesView
 {
     ReplayInterceptView intercept;
     const ReplayPorkchopPanelView& porkchop;
     const ReplayTripPlannerView& tripPlanner;
+    float scroll = 0.0f;
 };
 
 struct ReplayCauseLoadingView

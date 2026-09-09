@@ -355,6 +355,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.surface.scenePhysicsEnabled );
     hash = HashBool( hash, data.surface.sceneTextEnabled );
     hash = HashBool( hash, data.surface.textOnly );
+    hash = HashBool( hash, data.operatorEditor.tools.crossScenePauseLocked );
     hash = HashBool( hash, data.scene.fixedStep );
     hash = HashBool( hash, data.scene.exitOnComplete );
     hash = HashBool( hash, data.scene.testComplete );

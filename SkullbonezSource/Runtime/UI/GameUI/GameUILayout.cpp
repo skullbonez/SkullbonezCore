@@ -17,9 +17,225 @@ Related:
 #include "GameUILayout.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace SkullbonezCore::UI::GameLayout
 {
+namespace
+{
+float FiniteDimension( float value, float fallback )
+{
+    return std::isfinite( value ) ? std::clamp( value, 24.0f, 2048.0f ) : fallback;
+}
+} // namespace
+
+ToolsChromeRects ComputeToolsChromeRects( const UIRect& bounds, bool sharedShell )
+{
+    ToolsChromeRects result;
+    result.compact = sharedShell && ( bounds.h < 240.0f || bounds.w < 540.0f );
+    const float title = result.compact ? 28.0f : 44.0f;
+    const float tabs = result.compact ? 26.0f : 44.0f;
+    const float footer = result.compact ? 28.0f : 78.0f;
+    const float padding = result.compact ? 6.0f : 18.0f;
+    const float gap = result.compact ? 6.0f : 12.0f;
+    result.title = { bounds.x, bounds.y, bounds.w, title };
+    result.tabs = { bounds.x + ( result.compact ? 6.0f : 14.0f ), bounds.y + title,
+                    bounds.w - ( result.compact ? 12.0f : 28.0f ), tabs };
+    result.content = { bounds.x + padding, bounds.y + title + tabs + gap,
+                       (std::max)( 0.0f, bounds.w - padding * 2.0f - 8.0f ),
+                       (std::max)( 0.0f, bounds.h - title - tabs - footer - padding ) };
+    result.footer = { bounds.x, bounds.y + bounds.h - footer, bounds.w, footer };
+    result.close = result.compact ? UIRect { bounds.x + bounds.w - 30.0f, bounds.y + 2.0f, 24.0f, 24.0f }
+                                  : UIRect { bounds.x + bounds.w - 40.0f, bounds.y + 8.0f, 30.0f, 28.0f };
+    return result;
+}
+
+PresentationPreferences SanitizePreferences( const PresentationPreferences& preferences )
+{
+    PresentationPreferences result = preferences;
+    if ( result.layout != LayoutMode::Canvas && result.layout != LayoutMode::Editor )
+    {
+        result.layout = LayoutMode::Canvas;
+    }
+
+    result.leftWidth = FiniteDimension( result.leftWidth, 280.0f );
+    result.rightWidth = FiniteDimension( result.rightWidth, 360.0f );
+    result.drawerHeight = FiniteDimension( result.drawerHeight, 360.0f );
+    result.diagnosticsHeight = FiniteDimension( result.diagnosticsHeight, 140.0f );
+    result.lastTool = std::clamp( result.lastTool, 0, 10 );
+    if ( result.foldedSections != 3 && result.foldedSections != 5 && result.foldedSections != 6 )
+    {
+        result.foldedSections = 7;
+    }
+    return result;
+}
+
+PresentationRects ComputePresentationRects( const PresentationState& state, int width, int height )
+{
+    PresentationRects result;
+    const float w = static_cast<float>( (std::max)( 1, width ) );
+    const float h = static_cast<float>( (std::max)( 1, height ) );
+    const PresentationPreferences preferences = SanitizePreferences( state.preferences );
+    const bool editor = preferences.layout == LayoutMode::Editor;
+    result.window = { 0.0f, 0.0f, w, h };
+    result.header = { 0.0f, 0.0f, w, (std::min)( 42.0f, h * 0.15f ) };
+
+    const float transportHeight = (std::min)( 28.0f, h * 0.1f );
+    const float diagnosticsHeight = editor ? (std::min)( preferences.diagnosticsHeight, h * 0.24f ) : 0.0f;
+    const float diagnosticsY = h - diagnosticsHeight;
+    const float drawerHeight = state.toolsOpen ? (std::min)( preferences.drawerHeight, h * 0.45f ) : 0.0f;
+    const float drawerY = diagnosticsY - drawerHeight;
+    const float contentY = editor ? result.header.h : 0.0f;
+    const float contentBottom = drawerY - ( editor ? transportHeight : 0.0f );
+    const float contentHeight = (std::max)( 0.0f, contentBottom - contentY );
+    const float leftWidth = editor ? (std::min)( preferences.leftFolded ? 24.0f : preferences.leftWidth, w * 0.25f ) : 0.0f;
+    const float rightWidth = editor ? (std::min)( preferences.rightFolded ? 24.0f : preferences.rightWidth, w * 0.3f )
+                                    : 0.0f;
+
+    result.viewport = { leftWidth, contentY, w - leftWidth - rightWidth, contentHeight };
+    if ( editor )
+    {
+        result.left = { 0.0f, contentY, leftWidth, contentHeight };
+        result.right = { w - rightWidth, contentY, rightWidth, contentHeight };
+        result.leftResize = { (std::max)( 0.0f, leftWidth - 3.0f ), contentY, (std::min)( 6.0f, w ), contentHeight };
+        result.rightResize = { (std::max)( 0.0f, w - rightWidth - 3.0f ), contentY, (std::min)( 6.0f, w ), contentHeight };
+        result.markerHistory = { 0.0f, diagnosticsY, w * 0.5f, diagnosticsHeight };
+        result.memoryWaterline = { w * 0.5f, diagnosticsY, w * 0.5f, diagnosticsHeight };
+        result.transport = { leftWidth, contentBottom, result.viewport.w, transportHeight };
+    }
+    else
+    {
+        const float stripWidth = (std::min)( 760.0f, w );
+        result.transport = { ( w - stripWidth ) * 0.5f, (std::max)( 0.0f, drawerY - transportHeight ), stripWidth,
+                             transportHeight };
+        if ( state.detailsOpen )
+        {
+            const float detailsWidth = (std::min)( preferences.rightWidth, w * 0.75f );
+            result.right = { w - detailsWidth, result.header.h, detailsWidth,
+                             (std::max)( 0.0f, result.transport.y - result.header.h ) };
+        }
+    }
+
+    // Status badges occupy clear content without changing scene projection.
+    // Canvas Details is an overlay, so only badge placement yields to its width.
+    result.statusContent = { result.viewport.x, result.header.h, result.viewport.w - ( editor ? 0.0f : result.right.w ),
+                             (std::max)( 0.0f, result.transport.y - result.header.h ) };
+    const UIRect replayPane = editor ? result.left : result.right;
+    if ( replayPane.w > 24.0f &&
+         ( editor ? ( state.editorReplay || state.workspace == Workspace::SolverLab ) : !state.detailsCauses ) )
+    {
+        result.replayControls = { replayPane.x, replayPane.y + 30.0f, replayPane.w,
+                                  (std::max)( 0.0f, replayPane.h - 30.0f ) };
+    }
+    if ( editor && result.right.w > 24.0f )
+    {
+        result.causeControls = { result.right.x, result.right.y + 30.0f, result.right.w,
+                                 (std::max)( 0.0f, result.right.h - 30.0f ) };
+    }
+    if ( editor )
+    {
+        result.leftFold = { result.left.x, result.left.y, (std::min)( 24.0f, result.left.w ), 28.0f };
+        result.rightFold = { result.right.x, result.right.y, (std::min)( 24.0f, result.right.w ), 28.0f };
+        if ( result.left.w > 24.0f && state.workspace == Workspace::Scene )
+        {
+            const float tabWidth = ( result.left.w - 30.0f ) * 0.5f;
+            result.editorTab = { result.left.x + 24.0f, result.left.y + 4.0f, tabWidth, 24.0f };
+            result.editorReplayTab = { result.editorTab.x + tabWidth, result.editorTab.y, tabWidth, 24.0f };
+            if ( !state.editorReplay && !state.editorInTools )
+            {
+                result.editorControls = { result.left.x + 10.0f, result.left.y + 32.0f,
+                                          (std::max)( 0.0f, result.left.w - 20.0f ),
+                                          (std::max)( 0.0f, result.left.h - 32.0f ) };
+            }
+        }
+    }
+    else if ( !editor && result.right.w > 0.0f )
+    {
+        result.detailsReplayTab = { result.right.x + 6.0f, result.right.y + 4.0f, result.right.w * 0.5f - 9.0f, 24.0f };
+        result.detailsCausesTab = { result.right.x + result.right.w * 0.5f + 3.0f, result.right.y + 4.0f,
+                                    result.right.w * 0.5f - 9.0f, 24.0f };
+        if ( state.detailsCauses )
+        {
+            result.causeControls = { result.right.x, result.right.y + 30.0f, result.right.w,
+                                     (std::max)( 0.0f, result.right.h - 30.0f ) };
+        }
+    }
+    const float detailsWidth = (std::min)( 72.0f, result.transport.w * 0.25f );
+    result.replayDetails = { result.transport.x + result.transport.w - detailsWidth, result.transport.y, detailsWidth,
+                             result.transport.h };
+    result.transport.w -= detailsWidth;
+    result.replayScroll = std::clamp( state.replayScroll, 0.0f, 1.0f );
+    result.editorScroll = std::clamp( state.editorScroll, 0.0f,
+                                      (std::max)( 0.0f,
+                                                  ( 320.0f +
+                                                    36.0f * std::ceil(
+                                                                24.0f /
+                                                                (std::max)( 1.0f,
+                                                                            std::floor( ( result.editorControls.w + 4.0f ) /
+                                                                                        36.0f ) ) ) ) -
+                                                      result.editorControls.h ) );
+    if ( state.toolsOpen )
+    {
+        result.drawer = { 0.0f, drawerY, w, drawerHeight };
+        result.drawerResize = { 0.0f, drawerY, w, (std::min)( 6.0f, drawerHeight ) };
+    }
+    return result;
+}
+
+void DrawSkullLogo( const UIDrawContext& draw, const UIRect& bounds )
+{
+    // Concept: the demo logo's round cranium, large paired sockets and three
+    // small teeth share one 24-unit silhouette at every native drawing size.
+    const float size = (std::max)( 0.0f, (std::min)( bounds.w, bounds.h ) );
+    const float scale = size / 24.0f;
+    const float x = bounds.x + ( bounds.w - size ) * 0.5f;
+    const float y = bounds.y + ( bounds.h - size ) * 0.5f;
+    draw.RoundedRect( x + 2.0f * scale, y + scale, 20.0f * scale, 19.0f * scale, 10.0f * scale, 0.9f, 0.92f, 0.94f, 1.0f );
+    for ( int tooth = 0; tooth < 3; ++tooth )
+    {
+        draw.RoundedRect( x + ( 6.0f + static_cast<float>( tooth ) * 4.0f ) * scale, y + 17.0f * scale, 3.0f * scale,
+                          6.0f * scale, scale, 0.9f, 0.92f, 0.94f, 1.0f );
+    }
+    draw.RoundedRect( x + 5.0f * scale, y + 9.0f * scale, 6.0f * scale, 6.0f * scale, 3.0f * scale, 0.10f, 0.12f, 0.15f,
+                      1.0f );
+    draw.RoundedRect( x + 13.0f * scale, y + 9.0f * scale, 6.0f * scale, 6.0f * scale, 3.0f * scale, 0.10f, 0.12f, 0.15f,
+                      1.0f );
+    draw.Triangle( x + 12.0f * scale, y + 14.0f * scale, x + 10.0f * scale, y + 18.0f * scale, x + 14.0f * scale,
+                   y + 18.0f * scale, 0.10f, 0.12f, 0.15f, 1.0f );
+}
+
+HeaderRects ComputeHeaderRects( const UIRect& header )
+{
+    HeaderRects result;
+    const float unit = (std::min)( 1.0f, header.w / 440.0f );
+    const float pad = 8.0f * unit;
+    const float height = (std::max)( 0.0f, header.h - 12.0f * unit );
+    const float y = header.y + 6.0f * unit;
+    result.skull = { header.x + pad, y, 30.0f * unit, height };
+    result.tools = { header.x + header.w - 62.0f * unit, y, 54.0f * unit, height };
+    result.layout = { result.tools.x - 90.0f * unit, y, 82.0f * unit, height };
+    if ( header.w >= 600.0f )
+    {
+        result.scenes = { result.layout.x - 74.0f, y, 66.0f, height };
+    }
+    const float right = result.scenes.w > 0.0f ? result.scenes.x : result.layout.x;
+    const float cameraWidth = header.w >= 600.0f ? 120.0f : 74.0f * unit;
+    result.camera = { right - cameraWidth - pad, y, cameraWidth, height };
+    result.workspace = { result.camera.x - 90.0f * unit, y, 82.0f * unit, height };
+    result.scene = { result.skull.x + result.skull.w + pad, y,
+                     (std::max)( 0.0f, result.workspace.x - result.skull.x - result.skull.w - pad * 2.0f ), height };
+    return result;
+}
+
+UIRect DiagnosticDetailsBounds( const UIRect& panel )
+{
+    if ( panel.w < 100.0f || panel.h < 28.0f )
+    {
+        return {};
+    }
+    return { panel.x + panel.w - 78.0f, panel.y + 4.0f, 68.0f, 22.0f };
+}
+
 int SceneComboVisibleCount( int optionCount )
 {
     return std::clamp( optionCount, 0, UI_SCENE_COMBO_VISIBLE_OPTIONS );

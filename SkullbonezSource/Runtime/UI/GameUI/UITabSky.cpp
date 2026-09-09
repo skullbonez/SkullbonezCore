@@ -24,6 +24,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabSky.h"
+#include "UIRenderTooltipText.h"
 
 #include "UI.h"
 #include "../../Render/UIRenderAuthoringCatalog.h"
@@ -412,6 +413,37 @@ void Draw( UISkyTabState& state, const UIDrawContext& draw, const SkullbonezCore
             state.sliders[i].Draw( draw, spec.label, buf, value, policy.minValue, policy.maxValue );
         }
     }
+}
+
+
+UITooltipTarget TooltipAt( const UISkyTabState& state, int mouseX, int mouseY )
+{
+    const UITooltipTarget action { 3100, state.saveButton.Bounds(), { "Save the current sky settings as sky defaults." } };
+    if ( action.bounds.Contains( mouseX, mouseY ) )
+    {
+        auto target = action;
+        target.hovered = true;
+        return target;
+    }
+    for ( int index = 0; index < UI_SKY_FEATURE_COUNT; ++index )
+    {
+        if ( state.featureToggles[index].HitTest( mouseX, mouseY ) )
+        {
+            const int feature = static_cast<int>( kSkyFeatureSpecs[index].feature );
+            return { static_cast<uint32_t>( 3101 + feature ), state.featureToggles[index].Bounds(),
+                     kCinematicFeatureTooltipText[feature], true };
+        }
+    }
+    for ( int index = 0; index < UI_SKY_SLIDER_COUNT; ++index )
+    {
+        if ( state.sliders[index].HitTest( mouseX, mouseY ) )
+        {
+            const int parameter = static_cast<int>( kSkySliderSpecs[index].param );
+            return { static_cast<uint32_t>( 3120 + parameter ), state.sliders[index].Bounds(),
+                     kCinematicTooltipText[parameter], true };
+        }
+    }
+    return {};
 }
 
 } // namespace SkyTab

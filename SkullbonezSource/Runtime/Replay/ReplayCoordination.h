@@ -103,6 +103,13 @@ struct ReplayWorkspaceFrameInput
     float cameraMouseRadiansPerPixel = 0.0f; // Cached config sample; replay never reopens device/config ownership.
     double now = 0.0;
     int requestedCauseRow = -1; // Frame-local typed input; production pointer hit-testing publishes the same value.
+    UI::UIRect transportBounds;
+    UI::UIRect controlsBounds;
+    float controlsScroll = 0.0f;
+    bool scrubberUiBlocksMouse = false;
+    UI::UIRect causeBounds;
+    bool causeUiBlocksMouse = false;
+    UI::UIRect planningBounds;
 };
 
 struct ReplayWorkspaceOutput

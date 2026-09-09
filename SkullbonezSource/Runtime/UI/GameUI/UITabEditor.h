@@ -43,8 +43,10 @@ struct UIEditorTabState
     UICheckBox editorModeToggle;
     UICheckBox placementModeToggle;
     UICheckBox staticObjectToggle;
+    UICheckBox terrainAlignToggle;
     UIComboBox objectCombo;
     int selectedObjectType = OBJECT_BOX;
+    bool placementModeAvailable = false;
 };
 
 int ContentHeight();

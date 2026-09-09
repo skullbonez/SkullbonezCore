@@ -371,6 +371,8 @@ inline Core::MainMemoryStats ProjectMemoryTabAvailability( bool sourceValid, con
 }
 
 void ProjectOperatorEditorScene( UI::OperatorEditorFrameView& view, const OperatorUiSceneFacts& facts );
+void ProjectOperatorRenderingParameters( UI::OperatorEditorRenderingView& view, const Core::OrdinaryRenderConfig& ordinary,
+                                         const Core::CinematicRenderConfig& cinematic );
 void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view, const OperatorUiRenderingFacts& facts );
 void ProjectOperatorEditorForecast( UI::OperatorEditorFrameView& view, const OperatorUiForecastFacts& facts );
 void ProjectOperatorEditorLookLab( UI::OperatorEditorFrameView& view, const UI::OperatorEditorLookLabView& lookLab );

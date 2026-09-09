@@ -476,6 +476,14 @@ bool ReadSceneIdentity( const Json& arguments, SkarnessCommand& command )
 
 CommandParseStatus ParseValueCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
 {
+    if ( name == "window.resize" )
+    {
+        command.type = SkarnessCommandType::WindowResize;
+        const bool valid = ReadInteger( arguments, "width", command.integer ) &&
+                           ReadInteger( arguments, "height", command.secondInteger ) && command.integer >= 320 &&
+                           command.integer <= 8192 && command.secondInteger >= 240 && command.secondInteger <= 8192;
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
     if ( name == "capture.screenshot" || name == "replay.save" || name == "replay.load" )
     {
         command.type = name == "capture.screenshot" ? SkarnessCommandType::CaptureScreenshot
@@ -1099,6 +1107,48 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         return;
     }
 
+    if ( commandName == "input.file_dialog_response" )
+    {
+        std::string purpose, path;
+        bool accepted = false;
+        const bool valid = ReadString( arguments, "purpose", purpose ) &&
+                           ( purpose == "comparison.open" || purpose == "comparison.save" || purpose == "replay.load" ) &&
+                           ReadBoolean( arguments, "accepted", accepted ) &&
+                           ( !accepted || ( ReadString( arguments, "path", path ) && !path.empty() && path.size() < 260 ) );
+        QueueFileDialogResponse( requestId, purpose, path, accepted, valid );
+        return;
+    }
+
+    if ( commandName == "input.set_key" )
+    {
+        int key = 0;
+        bool down = false;
+        if ( m_manualInput || !ReadInteger( arguments, "key", key ) || key < 8 || key > 255 ||
+             !ReadBoolean( arguments, "down", down ) )
+        {
+            SendLifecycle( requestId, "rejected", "automated input, a virtual key in 8..255 and boolean down are required" );
+            return;
+        }
+        const uint64_t bit = uint64_t { 1 } << ( key % 64 );
+        m_keyboardWords[key / 64] = down ? m_keyboardWords[key / 64] | bit : m_keyboardWords[key / 64] & ~bit;
+        SendLifecycle( requestId, "accepted" );
+        CompleteCommand( requestId, true );
+        return;
+    }
+    if ( commandName == "input.set_focus" )
+    {
+        bool focused = true;
+        if ( m_manualInput || !ReadBoolean( arguments, "focused", focused ) )
+        {
+            SendLifecycle( requestId, "rejected", "automated input and boolean focused are required" );
+            return;
+        }
+        m_appFocused = focused;
+        SendLifecycle( requestId, "accepted" );
+        CompleteCommand( requestId, true );
+        return;
+    }
+
     if ( commandName == "input.set_prediction_key" )
     {
         bool down = false;
@@ -1125,6 +1175,24 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         }
 
         m_arrowKeysDown = static_cast<uint8_t>( ( left ? 1 : 0 ) | ( right ? 2 : 0 ) );
+        SendLifecycle( requestId, "accepted" );
+        CompleteCommand( requestId, true );
+        return;
+    }
+
+    if ( commandName == "input.pointer_position" )
+    {
+        SkarnessPointerInputFrame position {};
+        bool enabled = false;
+        if ( m_manualInput || !ReadInteger( arguments, "x", position.clientX ) ||
+             !ReadInteger( arguments, "y", position.clientY ) || !ReadBoolean( arguments, "enabled", enabled ) ||
+             position.clientX < 0 || position.clientX > 65535 || position.clientY < 0 || position.clientY > 65535 )
+        {
+            SendLifecycle( requestId, "rejected", "pointer position invalid or manual input owns pointer" );
+            return;
+        }
+        m_stationaryPointer = position;
+        m_stationaryPointerEnabled = enabled;
         SendLifecycle( requestId, "accepted" );
         CompleteCommand( requestId, true );
         return;
@@ -1167,8 +1235,12 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
                                   ReadInteger( arguments, "deltaY", drag.deltaY );
         const bool validClientMotion = !arguments.contains( "moveClient" ) ||
                                        ReadBoolean( arguments, "moveClient", drag.moveClient );
-        const bool bounded = validClientMotion && drag.clientX >= 0 && drag.clientX <= 65535 && drag.clientY >= 0 &&
-                             drag.clientY <= 65535 && std::abs( drag.deltaX ) <= 150 && std::abs( drag.deltaY ) <= 150;
+        const bool validHold = !arguments.contains( "holdMilliseconds" ) ||
+                               ( ReadInteger( arguments, "holdMilliseconds", drag.holdMilliseconds ) &&
+                                 drag.holdMilliseconds >= 0 && drag.holdMilliseconds <= 2000 );
+        const bool bounded = validHold && validClientMotion && drag.clientX >= 0 && drag.clientX <= 65535 &&
+                             drag.clientY >= 0 && drag.clientY <= 65535 && std::abs( drag.deltaX ) <= 150 &&
+                             std::abs( drag.deltaY ) <= 150;
 
         if ( buttonName == "left" )
         {
@@ -1394,11 +1466,50 @@ void SkarnessHost::CompleteCapture( uint64_t token, bool applied, const char* re
     m_pendingCaptures.erase( found );
 }
 
-bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
+void SkarnessHost::QueueFileDialogResponse( const std::string& requestId, std::string purpose, std::string path,
+                                            bool accepted, bool valid )
 {
-    if ( !m_connected || m_pendingPointerDrag.requestId.empty() )
+    if ( m_manualInput || !valid || !m_fileDialogPurpose.empty() )
+    {
+        SendLifecycle( requestId, "rejected", "one automated file choice/cancel with a supported purpose is required" );
+        return;
+    }
+    m_fileDialogPurpose = std::move( purpose );
+    m_fileDialogPath = std::move( path );
+    m_fileDialogAccepted = accepted;
+    SendLifecycle( requestId, "accepted" );
+    CompleteCommand( requestId, true );
+}
+
+bool SkarnessHost::TakeFileDialogResponse( const char* purpose, char ( &path )[260], bool& accepted )
+{
+    if ( !m_enabled || m_manualInput || m_fileDialogPurpose != purpose )
     {
         return false;
+    }
+    // The native button must reach its file-selection boundary before this
+    // response is consumed. This never submits a load/save operation itself.
+    accepted = m_fileDialogAccepted;
+    strcpy_s( path, m_fileDialogPath.c_str() );
+    m_fileDialogPurpose.clear();
+    m_fileDialogPath.clear();
+    ++m_fileDialogResponsesConsumed;
+    return true;
+}
+
+bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
+{
+    if ( !m_enabled || m_manualInput )
+    {
+        return false;
+    }
+
+    // CLI clients disconnect between commands. A button-free hover position
+    // remains sampled until explicitly disabled or the automation session ends.
+    if ( !m_connected || m_pendingPointerDrag.requestId.empty() )
+    {
+        outFrame = m_stationaryPointer;
+        return m_stationaryPointerEnabled;
     }
 
     outFrame = {};
@@ -1406,6 +1517,14 @@ bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
     outFrame.clientY = m_pendingPointerDrag.clientY;
     outFrame.button = m_pendingPointerDrag.button;
     outFrame.wheelDelta = m_pendingPointerDrag.wheelDelta;
+    const double pointerNow = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+    if ( m_pendingPointerDrag.phase == 1 && pointerNow < m_pendingPointerDrag.holdUntil )
+    {
+        // A bounded hold exercises the same elapsed-time menus as native input.
+        // Keep the initial client position until the move phase begins.
+        outFrame.buttonDown = true;
+        return true;
+    }
     if ( m_pendingPointerDrag.moveClient && m_pendingPointerDrag.phase > 0 )
     {
         outFrame.clientX += m_pendingPointerDrag.deltaX;
@@ -1414,6 +1533,7 @@ bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
 
     if ( m_pendingPointerDrag.phase == 0 )
     {
+        m_pendingPointerDrag.holdUntil = pointerNow + static_cast<double>( m_pendingPointerDrag.holdMilliseconds ) / 1000.0;
         // First publish the held edge with no movement so InputController seeds
         // its pointer baseline exactly as it does for a physical press.
         outFrame.buttonDown = true;
@@ -1449,6 +1569,16 @@ uint8_t SkarnessHost::ArrowKeysDown() const noexcept
 bool SkarnessHost::PredictionKeyDown() const noexcept
 {
     return m_connected && m_predictionKeyDown;
+}
+
+std::array<uint64_t, 4> SkarnessHost::KeyboardWords() const noexcept
+{
+    return m_connected ? m_keyboardWords : std::array<uint64_t, 4> {};
+}
+
+bool SkarnessHost::AppFocused() const noexcept
+{
+    return m_connected && m_appFocused;
 }
 
 SkarnessProceedPolicy SkarnessHost::TakeProceedPolicy()
@@ -1586,12 +1716,27 @@ void SkarnessHost::SendLifecycle( const std::string& requestId, const char* stat
                                      { "loading", result->comparisonLoading },
                                      { "loadPercent", result->comparisonLoadPercent },
                                      { "loadPhase", result->comparisonLoadPhase },
+                                     { "loadError", result->comparisonLoadError },
                                      { "lastTick", result->comparisonLastTick },
                                      { "direction", result->comparisonDirection },
                                      { "mode", result->comparisonMode },
                                      { "stackedViews", result->comparisonStacked },
                                      { "orbitSelected", result->comparisonOrbit },
                                      { "timelineDragging", result->comparisonDragging },
+                                     { "followA", result->comparisonFollowA },
+                                     { "showA", result->comparisonShowA },
+                                     { "xray", result->comparisonXray },
+                                     { "selectedOnly", result->comparisonSelectedOnly },
+                                     { "differencesOnly", result->comparisonDifferencesOnly },
+                                     { "speed", result->comparisonSpeed },
+                                     { "positionThreshold", result->comparisonPositionThreshold },
+                                     { "loopEnabled", result->comparisonLoop },
+                                     { "loopFirst", result->comparisonLoopFirst },
+                                     { "loopLast", result->comparisonLoopLast },
+                                     { "viewport", result->comparisonViewport },
+                                     { "timeline", result->comparisonTimeline },
+                                     { "libraryPopupOpen", result->comparisonLibraryOpen },
+                                     { "libraryPopup", result->comparisonLibraryPopup },
                                      { "cameraEye", result->comparisonEye },
                                      { "cameraView", result->comparisonView },
                                      { "selected", result->comparisonSelected },

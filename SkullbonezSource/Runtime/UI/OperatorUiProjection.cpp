@@ -65,9 +65,11 @@ SkullbonezCore::UI::OperatorEditorForecastCause MapForecastCause( OperatorUiFore
     }
 }
 
-void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view,
-                                      const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
-                                      const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
+} // namespace
+
+void ProjectOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view,
+                                         const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                         const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     using SkullbonezCore::UI::UICinematicFeature;
     using SkullbonezCore::UI::UICinematicParam;
@@ -199,8 +201,6 @@ void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderin
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::TerrainRelief )] = cinematic.terrainReliefEnabled;
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Shadows )] = cinematic.shadow.enabled;
 }
-} // namespace
-
 void ProjectOperatorEditorScene( UI::OperatorEditorFrameView& view, const OperatorUiSceneFacts& facts )
 {
     view.scene = { facts.currentScenePath ? facts.currentScenePath : "",
@@ -228,7 +228,7 @@ void ProjectOperatorEditorRendering( UI::OperatorEditorFrameView& view, const Op
     rendering.waterFrozen = facts.waterFrozen;
     rendering.waterFlat = facts.waterFlat;
     rendering.waterReflectionMode = facts.waterNoReflect ? 2 : ( facts.waterRtReflect ? 1 : 0 );
-    FillOperatorRenderingParameters( rendering, facts.ordinary, facts.cinematic );
+    ProjectOperatorRenderingParameters( rendering, facts.ordinary, facts.cinematic );
 
     const char* gizmoModeLabel = "translate";
 

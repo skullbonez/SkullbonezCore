@@ -44,17 +44,19 @@ constexpr float EDITOR_STATIC_TOGGLE_Y = 110.0f;
 constexpr float EDITOR_OBJECT_COMBO_Y = 154.0f;
 constexpr float EDITOR_STATUS_Y = 194.0f;
 constexpr float EDITOR_HISTORY_STATUS_Y = 222.0f;
+constexpr float EDITOR_ALIGN_TOGGLE_Y = 250.0f;
 
 void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state, float contentX, float rowBase,
                        float contentW )
 {
     const float contentBaseY = rowBase - EDITOR_MODE_TOGGLE_Y;
-    const float colW = (std::max)( 148.0f, contentW * 0.46f );
+    const float colW = (std::min)( contentW, (std::max)( 148.0f, contentW * 0.46f ) );
     state.editorModeToggle.SetBounds( contentX, contentBaseY + EDITOR_MODE_TOGGLE_Y, colW, 24.0f );
     state.placementModeToggle.SetBounds( contentX, contentBaseY + EDITOR_PLACE_TOGGLE_Y, colW, 24.0f );
     state.staticObjectToggle.SetBounds( contentX, contentBaseY + EDITOR_STATIC_TOGGLE_Y, colW, 24.0f );
-    state.objectCombo.SetBounds( contentX, contentBaseY + EDITOR_OBJECT_COMBO_Y, (std::max)( 190.0f, contentW * 0.55f ),
-                                 24.0f );
+    state.terrainAlignToggle.SetBounds( contentX, contentBaseY + EDITOR_ALIGN_TOGGLE_Y, colW, 24.0f );
+    state.objectCombo.SetBounds( contentX, contentBaseY + EDITOR_OBJECT_COMBO_Y,
+                                 contentW < 400.0f ? contentW : contentW * 0.55f, 24.0f );
 }
 
 } // namespace
@@ -68,7 +70,7 @@ namespace EditorTab
 
 int ContentHeight()
 {
-    return 238;
+    return 282;
 }
 
 
@@ -108,13 +110,19 @@ bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, i
 
     if ( state.placementModeToggle.HitTest( mouseX, mouseY ) )
     {
-        result.commands.editor.togglePlacementMode = true;
+        result.commands.editor.togglePlacementMode = state.placementModeAvailable;
         return true;
     }
 
     if ( state.staticObjectToggle.HitTest( mouseX, mouseY ) )
     {
         result.commands.editor.togglePlaceStatic = true;
+        return true;
+    }
+
+    if ( state.terrainAlignToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.editor.toggleTerrainAlign = true;
         return true;
     }
 
@@ -132,20 +140,21 @@ void Draw( UIEditorTabState& state, const UIDrawContext& draw, const UIEditorTab
            float contentY, float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
 {
     const Style::UIPalette& palette = Style::Palette();
-    const float colW = (std::max)( 148.0f, contentW * 0.46f );
+    state.placementModeAvailable = data.editorModeEnabled;
+    const float colW = (std::min)( contentW, (std::max)( 148.0f, contentW * 0.46f ) );
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Editor" );
     DrawContentToggle( draw, contentY, contentH, state.editorModeToggle, contentX, scrolledY + EDITOR_MODE_TOGGLE_Y, colW,
                        "Editor mode", data.editorModeEnabled );
 
     DrawContentToggle( draw, contentY, contentH, state.placementModeToggle, contentX, scrolledY + EDITOR_PLACE_TOGGLE_Y,
-                       colW, "Place mode", data.editorPlacementMode );
+                       colW, "Place mode", data.editorPlacementMode, data.editorModeEnabled );
 
     DrawContentToggle( draw, contentY, contentH, state.staticObjectToggle, contentX, scrolledY + EDITOR_STATIC_TOGGLE_Y,
                        colW, "Static object", data.editorPlaceStatic );
 
-    state.objectCombo.SetBounds( contentX, scrolledY + EDITOR_OBJECT_COMBO_Y, (std::max)( 190.0f, contentW * 0.55f ),
-                                 24.0f );
+    state.objectCombo.SetBounds( contentX, scrolledY + EDITOR_OBJECT_COMBO_Y,
+                                 contentW < 400.0f ? contentW : contentW * 0.55f, 24.0f );
 
     state.selectedObjectType = std::clamp( data.editorObjectType, 0, OBJECT_TYPE_COUNT - 1 );
 
@@ -154,6 +163,9 @@ void Draw( UIEditorTabState& state, const UIDrawContext& draw, const UIEditorTab
         state.objectCombo.Draw( draw, "Object", { std::span<const char* const>( OBJECT_LABELS ), state.selectedObjectType },
                                 { mouseX, mouseY } );
     }
+
+    DrawContentToggle( draw, contentY, contentH, state.terrainAlignToggle, contentX, scrolledY + EDITOR_ALIGN_TOGGLE_Y, colW,
+                       "Terrain align", data.editorTerrainAlign );
 
     const char* viewportState = "Cursor";
 

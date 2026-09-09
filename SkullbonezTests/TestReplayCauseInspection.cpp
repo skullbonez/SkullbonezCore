@@ -31,6 +31,40 @@ using namespace SkullbonezCore::Runtime;
 
 namespace
 {
+TEST_CASE( "Unified Causes folds evidence inside its assigned pane and rejects hidden input" )
+{
+    RunReplayCauseTreeState tree;
+    tree.x = 900;
+    tree.y = 80;
+    tree.width = 380;
+    tree.height = 520;
+    ReplayCauseInspection inspection;
+    const SkullbonezCore::UI::UIRect bounds { 1420.0f, 40.0f, 360.0f, 390.0f };
+    inspection.SetShellPresentation( true, bounds );
+    const ReplayCauseInspectorLayout closed = BuildReplayCauseInspectorLayout( inspection.View(), tree, 1784, 961, 0.0f );
+    CHECK( closed.hierarchy.x == bounds.x );
+    CHECK( closed.hierarchy.h == bounds.h );
+    CHECK( closed.visibleDrawer.w == 0.0f );
+    CHECK( closed.resize.w == 0.0f );
+    const int x = static_cast<int>( closed.drawerToggle.x + 10.0f );
+    const int y = static_cast<int>( closed.drawerToggle.y + 10.0f );
+    CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1784, 961 ) );
+    CHECK( inspection.View().drawerOpen );
+    const ReplayCauseInspectorLayout opened = BuildReplayCauseInspectorLayout( inspection.View(), tree, 1784, 961, 0.0f );
+    CHECK( opened.hierarchy.h == 38.0f );
+    CHECK( opened.visibleDrawer.x == bounds.x );
+    CHECK( opened.visibleDrawer.y == bounds.y + 38.0f );
+    CHECK( opened.visibleDrawer.y + opened.visibleDrawer.h == bounds.y + bounds.h );
+    CHECK( opened.tabs[2].x + opened.tabs[2].w <= bounds.x + bounds.w );
+    CHECK( opened.outlineToggles[0].w == 0.0f );
+    inspection.SetShellPresentation( true, {} );
+    CHECK_FALSE( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1784, 961 ) );
+    CHECK( inspection.View().drawerOpen );
+    inspection.SetShellPresentation( true, bounds );
+    CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1784, 961 ) );
+    CHECK_FALSE( inspection.View().drawerOpen );
+}
+
 TEST_CASE( "Causal contact geometry replaces fallback markers only while presented" )
 {
     ReplayCauseInspectionView inspection;
@@ -2481,4 +2515,47 @@ TEST_CASE( "Cause outline controls: default on, independent, and retained across
     inspection.Reset();
     CHECK_FALSE( inspection.View().blueOutlinesVisible );
     CHECK_FALSE( inspection.View().greyOutlinesVisible );
+}
+
+TEST_CASE( "Cause summary section preference survives retargeting and reset without retaining evidence" )
+{
+    ReplayCauseInspection inspection;
+    inspection.SetSummaryExpandedSection( 2 );
+    ReplayCauseSeekResult seek;
+    seek.availability = ReplayCauseSeekAvailability::Available;
+    seek.frame = 10;
+    REQUIRE( inspection.Select( 1, seek, 0, true, 1.0 ) );
+    CHECK( inspection.View().summaryExpandedSection == 2 );
+    inspection.Reset();
+    CHECK( inspection.View().summaryExpandedSection == 2 );
+    CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
+    CHECK_FALSE( inspection.View().detailVisible );
+    inspection.SetSummaryExpandedSection( 7 );
+    CHECK( inspection.View().summaryExpandedSection == -1 );
+}
+
+TEST_CASE( "Short Causes panes scroll every header and outline control inside the shell" )
+{
+    RunReplayCauseTreeState tree;
+    ReplayCauseInspection inspection;
+    const SkullbonezCore::UI::UIRect bounds { 224.0f, 66.0f, 96.0f, 90.0f };
+    inspection.SetShellPresentation( true, bounds );
+    auto layout = BuildReplayCauseInspectorLayout( inspection.View(), tree, 320, 240, 0.0f );
+    CHECK( layout.hierarchy.h == REPLAY_CAUSE_SHELL_MIN_CONTENT_HEIGHT );
+    CHECK( layout.outlineToggles[0].y > layout.drawerToggle.y + layout.drawerToggle.h );
+    REQUIRE( inspection.TickSolverDetailPanelInput( tree, 260, 100, true, false, false, -12000, 320, 240 ) );
+    layout = BuildReplayCauseInspectorLayout( inspection.View(), tree, 320, 240, 0.0f );
+    for ( const auto& toggle : layout.outlineToggles )
+    {
+        CHECK( bounds.Contains( static_cast<int>( toggle.x + 3.0f ), static_cast<int>( toggle.y + 12.0f ) ) );
+    }
+    const auto& blue = layout.outlineToggles[0];
+    REQUIRE( inspection.TickSolverDetailPanelInput( tree, static_cast<int>( blue.x + 3 ), static_cast<int>( blue.y + 12 ),
+                                                    true, false, true, 0, 320, 240 ) );
+    CHECK_FALSE( inspection.View().blueOutlinesVisible );
+    CHECK_FALSE( inspection.TickSolverDetailPanelInput( tree, 260, 20, true, false, true, 0, 320, 240 ) );
+    REQUIRE( inspection.TickSolverDetailPanelInput( tree, 260, 100, true, false, false, 12000, 320, 240 ) );
+    CHECK( inspection.View().shellScroll == 0.0f );
+    inspection.SetShellPresentation( true, { 224, 66, 96, 500 } );
+    CHECK( inspection.View().shellScroll == 0.0f );
 }

@@ -37,6 +37,7 @@ void UIDrawList::Clear()
     m_clipDepth = 0;
     m_suppressedClipDepth = 0;
     m_maxClipDepth = 0;
+    m_foregroundDepth = 0;
 
     m_text[0] = '\0';
 }
@@ -129,6 +130,69 @@ void UIDrawList::AddText( UIPoint position, float pxSize, const Style::UIColor& 
 }
 
 
+void UIDrawList::BeginLayer()
+{
+    Command* command = PushCommand();
+    if ( command )
+    {
+        command->type = CommandType::LayerBreak;
+    }
+}
+
+void UIDrawList::BeginForeground()
+{
+    ++m_foregroundDepth;
+    BeginLayer();
+}
+
+void UIDrawList::EndForeground()
+{
+    m_foregroundDepth = (std::max)( 0, m_foregroundDepth - 1 );
+    BeginLayer();
+}
+
+void UIDrawList::ExtractForeground( UIDrawList& destination )
+{
+    if ( this == &destination )
+    {
+        return;
+    }
+    destination.Clear();
+    int retained = 0;
+    for ( const Command& command : Commands() )
+    {
+        if ( !command.foreground )
+        {
+            m_commands[retained++] = command;
+            continue;
+        }
+        Command* copy = destination.PushCommand();
+        if ( !copy )
+        {
+            continue;
+        }
+        *copy = command;
+        copy->foreground = false;
+        if ( command.type == CommandType::Text || command.type == CommandType::PreviewImage )
+        {
+            copy->textOffset = destination.StoreText( TextAt( command.textOffset ) );
+        }
+        if ( command.type == CommandType::PushClip )
+        {
+            ++destination.m_clipDepth;
+            destination.m_maxClipDepth = (std::max)( destination.m_maxClipDepth, destination.m_clipDepth );
+        }
+        else if ( command.type == CommandType::PopClip )
+        {
+            --destination.m_clipDepth;
+        }
+    }
+    m_commandCount = retained;
+    destination.m_commandOverflow = destination.m_commandOverflow || m_commandOverflow;
+    destination.m_textOverflow = destination.m_textOverflow || m_textOverflow;
+    destination.m_clipOverflow = m_clipOverflow;
+}
+
 void UIDrawList::PushClip( const UIRect& bounds )
 {
     if ( m_clipDepth >= MAX_CLIP_DEPTH )
@@ -212,6 +276,8 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
 {
     for ( const Command& command : source.Commands() )
     {
+        const int enclosingForegroundDepth = m_foregroundDepth;
+        m_foregroundDepth += command.foreground ? 1 : 0;
         switch ( command.type )
         {
         case CommandType::Rect:
@@ -242,12 +308,16 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
         case CommandType::PopClip:
             PopClip();
             break;
+        case CommandType::LayerBreak:
+            BeginLayer();
+            break;
         case CommandType::PreviewImage:
             AddPreviewImage( command.preview, { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h },
                              { command.r, command.g, command.b, command.a }, source.TextAt( command.textOffset ) );
 
             break;
         }
+        m_foregroundDepth = enclosingForegroundDepth;
     }
 
     const Stats sourceStats = source.GetStats();
@@ -325,6 +395,10 @@ uint64_t UIDrawList::Fingerprint() const
 
     for ( const Command& command : Commands() )
     {
+        if ( command.foreground )
+        {
+            addByte( 0xff );
+        }
         addByte( static_cast<uint8_t>( command.type ) );
         addFloat( command.x0 );
         addFloat( command.y0 );
@@ -363,6 +437,7 @@ UIDrawList::Command* UIDrawList::PushCommand()
 
     Command& command = m_commands[m_commandCount++];
     command = {};
+    command.foreground = m_foregroundDepth > 0;
 
     return &command;
 }

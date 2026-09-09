@@ -35,6 +35,7 @@ Related:
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../../UI/UIDraw.h"
 
 #include <vector>
 
@@ -221,6 +222,7 @@ class ReplayAuthoring
     void BeginCauseTreeInputFrame() noexcept;
     void EnsureCauseTreeWindowPlacement( int screenWidth, int screenHeight, float desiredAttachedLeftWidth = 0.0f,
                                          float minimumAttachedLeftWidth = 0.0f ) noexcept;
+    void SetCauseTreePresentationBounds( const UI::UIRect& bounds ) noexcept;
     void SetCauseTreePointer( int mouseX, int mouseY, bool blocked ) noexcept;
     void MoveCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept;
     void ResizeCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept;

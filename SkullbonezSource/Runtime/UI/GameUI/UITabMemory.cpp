@@ -67,8 +67,8 @@ constexpr uint64_t MEMORY_BYTES_PER_MIB = 1024ull * 1024ull;
 constexpr int MEMORY_REPLAY_SLIDER_BASE = 9000;
 constexpr int MEMORY_REPLAY_SLIDER_RETENTION = MEMORY_REPLAY_SLIDER_BASE + 0;
 constexpr int MEMORY_REPLAY_SLIDER_BUDGET = MEMORY_REPLAY_SLIDER_BASE + 1;
-constexpr int MEMORY_REPLAY_RETENTION_MIN = 1;
-constexpr int MEMORY_REPLAY_RETENTION_MAX = 120;
+constexpr int MEMORY_REPLAY_RETENTION_MIN = 20;
+constexpr int MEMORY_REPLAY_RETENTION_MAX = 600;
 constexpr int MEMORY_REPLAY_BUDGET_MIN_MIB = 32;
 constexpr int MEMORY_REPLAY_BUDGET_MAX_MIB = 512;
 constexpr int MEMORY_REPLAY_BUDGET_STEP_MIB = 16;
@@ -635,12 +635,11 @@ void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                                   const SkullbonezCore::UI::UIMemoryTabFrameView& data, float contentX, float contentY,
                                   float contentW, float contentH, float panelY, int activeSlider, int mouseX, int mouseY )
 {
+    SetReplayPolicyControlBounds( state, contentX, panelY, contentW );
     if ( !IsMemoryRowVisible( contentY, contentH, panelY, MEMORY_REPLAY_POLICY_BLOCK_H ) )
     {
         return;
     }
-
-    SetReplayPolicyControlBounds( state, contentX, panelY, contentW );
     RefreshReplayPolicySnapshot( state, data );
 
     const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
@@ -654,7 +653,8 @@ void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     snprintf( text, sizeof( text ), "visual %ds  solver %ds%s", state.lastPresentationRetentionSeconds,
               state.lastSolverRetentionSeconds, state.lastSolverWindowReduced ? "  solver trimmed" : "" );
 
-    draw.Text( contentX + contentW - 226.0f, panelY + 10.0f, 8.4f, 0.54f, 0.66f, 0.70f, text );
+    draw.Text( contentW < 390.0f ? contentX + 14.0f : contentX + contentW - 226.0f,
+               panelY + ( contentW < 390.0f ? 22.0f : 10.0f ), 8.4f, 0.54f, 0.66f, 0.70f, text );
 
     for ( int i = 0; i < SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT; ++i )
     {
@@ -854,12 +854,18 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     draw.Text( x, row0 + 140.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
 
     snprintf( text, sizeof( text ), "budget begin %llu step %llu tree %llu retained %llu rebuild d/a %llu/%llu",
-              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin )] ),
-              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionStep )] ),
-              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree )] ),
-              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh )] ),
-              static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty )] ),
-              static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )] ) );
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+                  SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+                  SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionStep )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+                  SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
+                  SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>(
+                  SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>(
+                  SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )] ) );
 
     draw.Text( x, row0 + 154.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
 
@@ -991,22 +997,27 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
 
     draw.Text( x, row0 + 242.0f, 8.0f, 0.54f, 0.72f, 0.74f, text );
 
-    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::Constants )],
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                         SkullbonezCore::UI::UIRenderUploadCategory::Constants )],
                      a, sizeof( a ) );
 
-    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::DynamicVertex )],
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                         SkullbonezCore::UI::UIRenderUploadCategory::DynamicVertex )],
                      b, sizeof( b ) );
 
-    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::InstanceData )],
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                         SkullbonezCore::UI::UIRenderUploadCategory::InstanceData )],
                      c, sizeof( c ) );
 
     snprintf( text, sizeof( text ), "upload peak const %s  dynamic %s  instance %s", a, b, c );
     draw.Text( x, row0 + 256.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
 
-    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::TextureRows )],
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                         SkullbonezCore::UI::UIRenderUploadCategory::TextureRows )],
                      a, sizeof( a ) );
 
-    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::RetainedGeometry )],
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                         SkullbonezCore::UI::UIRenderUploadCategory::RetainedGeometry )],
                      b, sizeof( b ) );
 
     snprintf( text, sizeof( text ), "upload peak texture %s  debug/prediction %s", a, b );
@@ -1234,15 +1245,16 @@ namespace MemoryTab
 
 int ContentHeight()
 {
-    return static_cast<int>( MEMORY_REPLAY_POLICY_BLOCK_H + MEMORY_PANEL_GAP + MEMORY_SUMMARY_BLOCK_H + 18.0f + MEMORY_CAPACITY_HEADER_H +
-                             static_cast<float>( UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX ) * MEMORY_CAPACITY_ROW_H + MEMORY_CAPACITY_BOTTOM_PAD +
-                             MEMORY_EVENT_HEADER_H + static_cast<float>( UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX ) * MEMORY_EVENT_ROW_H +
-                             MEMORY_EVENT_BOTTOM_PAD );
+    return static_cast<int>(
+        MEMORY_REPLAY_POLICY_BLOCK_H + MEMORY_PANEL_GAP + MEMORY_SUMMARY_BLOCK_H + 18.0f + MEMORY_CAPACITY_HEADER_H +
+        static_cast<float>( UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX ) * MEMORY_CAPACITY_ROW_H + MEMORY_CAPACITY_BOTTOM_PAD +
+        MEMORY_EVENT_HEADER_H + static_cast<float>( UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX ) * MEMORY_EVENT_ROW_H +
+        MEMORY_EVENT_BOTTOM_PAD );
 }
 
 bool OverlayEnabled( const UIMemoryOverlayState& state )
 {
-    return state.overlayEnabled;
+    return state.overlayEnabled || state.dockedBounds.h > 0.0f;
 }
 
 void SetOverlayEnabled( UIMemoryOverlayState& state, bool enabled )
@@ -1252,7 +1264,7 @@ void SetOverlayEnabled( UIMemoryOverlayState& state, bool enabled )
 
 void PushOverlayFrame( UIMemoryOverlayState& state, const UIMemoryTabFrameView& data )
 {
-    if ( !state.overlayEnabled )
+    if ( !OverlayEnabled( state ) )
     {
         return;
     }
@@ -1266,7 +1278,7 @@ void PushOverlayFrame( UIMemoryOverlayState& state, const UIMemoryTabFrameView& 
 void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const UIMemoryTabFrameView& data, float preferredX,
                   float preferredY )
 {
-    if ( !state.overlayEnabled )
+    if ( !OverlayEnabled( state ) )
     {
         return;
     }
@@ -1281,13 +1293,23 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
                                      (std::max)( MEMORY_OVERLAY_MARGIN,
                                                  screenH - MEMORY_OVERLAY_PANEL_H - MEMORY_OVERLAY_MARGIN ) );
 
-    const UIRect panel = { panelX, panelY, MEMORY_OVERLAY_PANEL_W, MEMORY_OVERLAY_PANEL_H };
+    const bool docked = state.dockedBounds.h > 0.0f;
+    const UIRect panel = docked ? state.dockedBounds
+                                : UIRect { panelX, panelY, MEMORY_OVERLAY_PANEL_W, MEMORY_OVERLAY_PANEL_H };
 
-    const UIRect plot = { panel.x + 52.0f, panel.y + 38.0f, panel.w - 52.0f - MEMORY_OVERLAY_EVENT_RAIL_W - 14.0f, 66.0f };
+    const bool shortPanel = docked && panel.h < 100.0f;
+    const float gutter = shortPanel ? 10.0f : 52.0f;
+    const float railWidth = shortPanel ? 24.0f : MEMORY_OVERLAY_EVENT_RAIL_W;
+    const UIRect plot = { panel.x + gutter, panel.y + 38.0f, (std::max)( 1.0f, panel.w - gutter - railWidth - 14.0f ),
+                          (std::max)( 1.0f, panel.h - ( shortPanel ? 46.0f : 100.0f ) ) };
 
-    const UIRect eventRail = { plot.x + plot.w + 9.0f, plot.y, MEMORY_OVERLAY_EVENT_RAIL_W, plot.h };
+    const UIRect eventRail = { plot.x + plot.w + 9.0f, plot.y, railWidth, plot.h };
 
-    const UIRect stack = { plot.x, plot.y + plot.h + 10.0f, plot.w + MEMORY_OVERLAY_EVENT_RAIL_W + 9.0f, 7.0f };
+    const UIRect stack = { plot.x, plot.y + plot.h + 10.0f, plot.w + railWidth + 9.0f, 7.0f };
+    if ( docked )
+    {
+        draw.PushClip( panel );
+    }
 
     const Style::UIPalette& palette = Style::Palette();
     Style::UIColor fill = palette.windowSubtle;
@@ -1308,10 +1330,15 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     FormatMemoryMiB( memory.trackedEngineBytes, trackedText, sizeof( trackedText ) );
 
     draw.Text( panel.x + 10.0f, panel.y + 8.0f, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
-               "Memory" );
+               docked ? "F6 Memory" : "Memory" );
 
-    draw.Text( panel.x + 70.0f, panel.y + 9.0f, 9.0f, 0.54f, 0.66f, 0.70f, "F6 waterline" );
-    draw.Text( panel.x + panel.w - 112.0f, panel.y + 8.0f, 10.0f, 0.82f, 0.96f, 0.92f, totalText );
+    if ( !docked )
+    {
+        draw.Text( panel.x + 70.0f, panel.y + 9.0f, 9.0f, 0.54f, 0.66f, 0.70f, "F6 waterline" );
+    }
+    const bool narrowHeader = docked && panel.w < 260.0f;
+    draw.Text( narrowHeader ? panel.x + 10.0f : panel.x + panel.w - ( docked ? 158.0f : 112.0f ),
+               panel.y + ( narrowHeader ? 24.0f : 8.0f ), 10.0f, 0.82f, 0.96f, 0.92f, totalText );
 
     draw.Rect( plot.x, plot.y, plot.w, plot.h, palette.window.r, palette.window.g, palette.window.b, 0.58f );
     draw.Rect( plot.x, plot.y, plot.w, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.20f );
@@ -1320,11 +1347,13 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
 
     draw.Rect( plot.x, plot.y + plot.h, plot.w, 1.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.32f );
 
-    FormatMemoryMiB( state.axisMaxBytes, axisText, sizeof( axisText ) );
-    draw.Text( panel.x + 9.0f, plot.y - 1.0f, 8.2f, 0.52f, 0.64f, 0.68f, axisText );
-    FormatMemoryMiB( state.axisMinBytes, axisText, sizeof( axisText ) );
-    draw.Text( panel.x + 9.0f, plot.y + plot.h - 9.0f, 8.2f, 0.52f, 0.64f, 0.68f, axisText );
-
+    if ( !shortPanel )
+    {
+        FormatMemoryMiB( state.axisMaxBytes, axisText, sizeof( axisText ) );
+        draw.Text( panel.x + 9.0f, plot.y - 1.0f, 8.2f, 0.52f, 0.64f, 0.68f, axisText );
+        FormatMemoryMiB( state.axisMinBytes, axisText, sizeof( axisText ) );
+        draw.Text( panel.x + 9.0f, plot.y + plot.h - 9.0f, 8.2f, 0.52f, 0.64f, 0.68f, axisText );
+    }
     const float totalY = MemoryOverlayYForBytes( state, plot, totalBytes );
     draw.Rect( plot.x, totalY, plot.w, plot.y + plot.h - totalY, 0.17f, 0.45f, 0.48f, 0.18f );
     const float step = plot.w / static_cast<float>( MEMORY_OVERLAY_SAMPLE_COUNT );
@@ -1366,7 +1395,10 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     draw.Outline( eventRail.x, eventRail.y, eventRail.w, eventRail.h, palette.innerBorder.r, palette.innerBorder.g,
                   palette.innerBorder.b, 0.52f );
 
-    draw.Text( eventRail.x + 6.0f, eventRail.y + 5.0f, 8.2f, 0.58f, 0.70f, 0.74f, "Events" );
+    if ( !shortPanel )
+    {
+        draw.Text( eventRail.x + 6.0f, eventRail.y + 5.0f, 8.2f, 0.58f, 0.70f, 0.74f, "Events" );
+    }
     int retainedCount = 0;
 
     for ( int i = 0; i < state.pinnedEventCount; ++i )
@@ -1401,6 +1433,13 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
         }
     }
 
+    // Compact docks retain the waterline and event marks. Expanded diagnostics
+    // keep the allocator summaries, stack legend, and full event descriptions.
+    if ( shortPanel )
+    {
+        draw.PopClip();
+        return;
+    }
     DrawOverlaySubsystemStack( draw, memory, stack );
     draw.Outline( stack.x, stack.y, stack.w, stack.h, palette.innerBorder.r, palette.innerBorder.g, palette.innerBorder.b,
                   0.42f );
@@ -1409,7 +1448,7 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     snprintf( text, sizeof( text ), "tracked %s   pins %d/%llu", trackedText, retainedCount,
               static_cast<unsigned long long>( data.reserveGrowthEventTotalCount ) );
 
-    draw.Text( panel.x + 10.0f, panel.y + 124.0f, 8.6f, 0.52f, 0.64f, 0.68f, text );
+    draw.Text( panel.x + 10.0f, panel.y + panel.h - 42.0f, 8.6f, 0.52f, 0.64f, 0.68f, text );
 
     const MemoryOverlayPinnedEvent* newest = NewestPinnedEvent( state );
 
@@ -1425,11 +1464,11 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
         const float r = newest->event.granted ? 0.42f : 0.96f;
         const float g = newest->event.granted ? 0.86f : 0.32f;
         const float b = newest->event.granted ? 0.94f : 0.24f;
-        draw.Text( panel.x + 10.0f, panel.y + 142.0f, 9.2f, r, g, b, text );
+        draw.Text( panel.x + 10.0f, panel.y + panel.h - 24.0f, 9.2f, r, g, b, text );
     }
     else
     {
-        draw.Text( panel.x + 10.0f, panel.y + 142.0f, 9.2f, 0.46f, 0.58f, 0.62f, "no allocator growth events" );
+        draw.Text( panel.x + 10.0f, panel.y + panel.h - 24.0f, 9.2f, 0.46f, 0.58f, 0.62f, "no allocator growth events" );
     }
 
     if ( state.retainedOverflowEventCount > 0u )
@@ -1437,7 +1476,11 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
         snprintf( text, sizeof( text ), "+%llu coalesced",
                   static_cast<unsigned long long>( state.retainedOverflowEventCount ) );
 
-        draw.Text( panel.x + panel.w - 92.0f, panel.y + 142.0f, 8.2f, 0.90f, 0.62f, 0.38f, text );
+        draw.Text( panel.x + panel.w - 92.0f, panel.y + panel.h - 24.0f, 8.2f, 0.90f, 0.62f, 0.38f, text );
+    }
+    if ( docked )
+    {
+        draw.PopClip();
     }
 }
 
@@ -1474,8 +1517,9 @@ bool HandleContentClick( UIMemoryOverlayState& state, InGameUIInputResult& resul
     if ( state.replayRetentionSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = MEMORY_REPLAY_SLIDER_RETENTION;
-        state.previewRetentionSeconds = static_cast<int>( state.replayRetentionSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
-                                                                                                      static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ), 1.0f ) );
+        state.previewRetentionSeconds = static_cast<int>(
+            state.replayRetentionSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
+                                                        static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ), 1.0f ) );
 
         return true;
     }
@@ -1483,9 +1527,10 @@ bool HandleContentClick( UIMemoryOverlayState& state, InGameUIInputResult& resul
     if ( state.replayBudgetSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = MEMORY_REPLAY_SLIDER_BUDGET;
-        state.previewBudgetMiB = static_cast<int>( state.replayBudgetSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
-                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
-                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
+        state.previewBudgetMiB = static_cast<int>(
+            state.replayBudgetSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
+                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
+                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
 
         return true;
     }
@@ -1497,17 +1542,19 @@ bool UpdateActiveSlider( UIMemoryOverlayState& state, int activeSlider, int mous
 {
     if ( activeSlider == MEMORY_REPLAY_SLIDER_RETENTION )
     {
-        state.previewRetentionSeconds = static_cast<int>( state.replayRetentionSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
-                                                                                                      static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ), 1.0f ) );
+        state.previewRetentionSeconds = static_cast<int>(
+            state.replayRetentionSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
+                                                        static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ), 1.0f ) );
 
         return true;
     }
 
     if ( activeSlider == MEMORY_REPLAY_SLIDER_BUDGET )
     {
-        state.previewBudgetMiB = static_cast<int>( state.replayBudgetSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
-                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
-                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
+        state.previewBudgetMiB = static_cast<int>(
+            state.replayBudgetSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
+                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
+                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
 
         return true;
     }

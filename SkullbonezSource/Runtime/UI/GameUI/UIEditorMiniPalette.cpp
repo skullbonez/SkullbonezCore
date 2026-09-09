@@ -168,7 +168,8 @@ int EditorMiniTreeObjectType( int treeType, int placement )
 }
 
 EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, const UIRect& minimized,
-                                                      int flyoutAnchorEntry, bool flyoutOpen )
+                                                      int flyoutAnchorEntry, bool flyoutOpen, const UIRect& grid,
+                                                      const UIRect& clip )
 {
     // Concept: The mini palette is the minimized editor's primary command
     // surface. One layout object drives drawing, hit boxes, flyout containment,
@@ -205,6 +206,23 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, 
     }
 
     layout.bounds = { x, topY, buttonSize, requiredH };
+    if ( grid.w > 0.0f )
+    {
+        // Invariant: dock clipping participates in hit testing as well as paint;
+        // a scrolled-off button must not receive a new press.
+        layout.docked = true;
+        layout.clip = clip;
+        buttonSize = 32.0f;
+        layout.buttonSize = buttonSize;
+        const int columns = (std::max)( 1, static_cast<int>( ( grid.w + 4.0f ) / 36.0f ) );
+        for ( int i = 0; i < layout.buttonCount; ++i )
+        {
+            layout.buttons[i] = { grid.x + static_cast<float>( i % columns ) * 36.0f,
+                                  grid.y + static_cast<float>( i / columns ) * 36.0f, buttonSize, buttonSize };
+        }
+        layout.bounds = { grid.x, grid.y, grid.w,
+                          static_cast<float>( ( layout.buttonCount + columns - 1 ) / columns ) * 36.0f };
+    }
 
     if ( flyoutOpen && flyoutAnchorEntry >= 0 && flyoutAnchorEntry < layout.buttonCount )
     {
@@ -227,7 +245,7 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, 
 
         if ( flyoutX + flyoutW > static_cast<float>( screenW ) - margin )
         {
-            flyoutX = anchor.x + anchor.w + 4.0f;
+            flyoutX = (std::max)( margin, anchor.x - flyoutW - 8.0f );
         }
 
         const float maxY = (std::max)( margin, static_cast<float>( screenH ) - margin - flyoutH );
@@ -250,6 +268,10 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, 
 
 int HitEditorMiniPaletteButton( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY )
 {
+    if ( layout.docked && !layout.clip.Contains( mouseX, mouseY ) )
+    {
+        return -1;
+    }
     for ( int i = 0; i < layout.buttonCount; ++i )
     {
         if ( layout.buttons[i].Contains( mouseX, mouseY ) )

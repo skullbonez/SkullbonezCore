@@ -33,8 +33,8 @@ namespace UI
 
 bool UIRect::Contains( int px, int py ) const
 {
-    return static_cast<float>( px ) >= x && static_cast<float>( px ) <= x + w && static_cast<float>( py ) >= y &&
-           static_cast<float>( py ) <= y + h;
+    return w > 0.0f && h > 0.0f && static_cast<float>( px ) >= x && static_cast<float>( px ) <= x + w &&
+           static_cast<float>( py ) >= y && static_cast<float>( py ) <= y + h;
 }
 
 UIRect IntersectRect( const UIRect& leftRect, const UIRect& rightRect )
@@ -103,6 +103,21 @@ void UIDrawContext::RoundedPanel( const UIRect& bounds, float radius, const Styl
                  fill.a );
 }
 
+
+void UIDrawContext::BeginLayer() const
+{
+    m_drawList->BeginLayer();
+}
+
+void UIDrawContext::BeginForeground() const
+{
+    m_drawList->BeginForeground();
+}
+
+void UIDrawContext::EndForeground() const
+{
+    m_drawList->EndForeground();
+}
 
 void UIDrawContext::PushClip( const UIRect& bounds ) const
 {

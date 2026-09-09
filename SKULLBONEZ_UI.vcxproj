@@ -179,6 +179,7 @@
     <ClCompile Include="SkullbonezSource\UI\UIStyle.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabBar.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITooltip.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h" />
@@ -200,6 +201,7 @@
     <ClInclude Include="SkullbonezSource\UI\UIStyle.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabBar.h" />
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITooltip.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

@@ -1444,6 +1444,12 @@ void Dx12GeometryOwner::BindResourceOwners( Dx12RenderDevice& device, Dx12FrameO
     m_submissionEpoch.Bind( &device, &frame, &pipeline, &diagnostics );
 }
 
+void Dx12GeometryOwner::SetScissor( const D3D12_RECT& scissor )
+{
+    RequireSubmissionEpoch( "SetScissor" );
+    m_submissionPipeline->SetScissor( scissor );
+}
+
 bool Dx12GeometryOwner::ConfigureRetainedGeometryCapacity( RetainedGeometryCapacity capacity ) noexcept
 {
     if ( !IsRetainedGeometryCapacitySupported( capacity ) )

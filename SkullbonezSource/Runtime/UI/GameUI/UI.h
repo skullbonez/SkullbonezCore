@@ -51,6 +51,7 @@ Related:
 #include "../../Scene/SceneNavigationModel.h"
 #include "../../../UI/UIState.h"
 #include "../../../UI/UIDrawList.h"
+#include "../../../UI/UITooltip.h"
 #include "UITabProfiler.h"
 #include "UIWindowInteractionOwner.h"
 #include <cstdint>
@@ -301,6 +302,9 @@ struct UISceneTabFrameView
     float predictionRevealRate = 1.0f;
     bool fixedStep = false; // Scene/capture render-frame-lockstep request; Runtime resolves effective pacing.
     bool testComplete = false;
+    const char* activatedSceneName = nullptr;
+    bool authoredSceneActive = false;
+    bool crossScenePauseLocked = false;
 };
 
 // Cohesive storage sections keep the root frame readable while the view methods
@@ -456,6 +460,7 @@ struct InGameUIFrameData
     UIFrameEditorData editor;
     UIFrameRenderingData rendering;
     UIFrameRenderTargetsData renderTargets;
+    std::span<const UITooltipTarget> workspaceTooltips;
 
     UIControlsTabFrameView ControlsTabFrame() const;
     UIEditorTabFrameView EditorTabFrame() const;
@@ -480,9 +485,28 @@ class InGameUI
     void SetActiveTab( InGameUITab tab );
     InGameUITab GetActiveTab() const;
     bool BlocksCameraMouse() const;
+    bool BlocksReplayMouse() const;
+    bool BlocksCauseMouse() const;
+    bool SharedPresentationEnabled() const;
+    void RevealReplayControls( int width, int height );
+    void RevealCauseControls( int width, int height );
+    GameLayout::ComboPopupPresentation EditorPopup() const;
+    GameLayout::ComboPopupPresentation CameraPopup() const;
+    GameLayout::ComboPopupPresentation ToolsPopup() const;
+    GameLayout::ComboPopupPresentation TargetPopup() const;
+    GameLayout::ComboPopupPresentation RecordingPopup() const;
     bool BlocksKeyboard() const;
+    bool HasOpenPopup() const;
     bool WantsNativeMouseCursor() const;
     void SetWindowBounds( int x, int y, int width, int height );
+    // The frame prepass resolves layout changes before any world ray is built.
+    void UpdatePresentationInput( const InputControl::UIInputSnapshot& input, int width, int height, bool enabled );
+    GameLayout::PresentationRects PresentationBounds() const;
+    GameLayout::LayoutMode PresentationLayout() const;
+    GameLayout::Workspace PresentationWorkspace() const;
+    void SetPresentationWorkspace( GameLayout::Workspace workspace );
+    GameLayout::DiagnosticPresentation DiagnosticPresentation() const;
+    UITooltipTarget VisibleTooltip() const;
 
     // Captures a window-local semantic pointer anchor when the point belongs to this UI.
     bool CaptureInteractionAnchor( int clientX, int clientY, char* output, std::size_t outputSize ) const;
@@ -503,6 +527,8 @@ class InGameUI
     bool NeedsUiTextPass() const;
     void SetHitboxOverlayEnabled( bool enabled );
     void SetScrollY( float scrollY );
+    float ToolsScroll() const noexcept;
+    UIRect ToolsContentBounds() const noexcept;
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void CancelInputCapture();
 
@@ -521,6 +547,10 @@ class InGameUI
     // Clears UI-owned layout/backdrop caches after presentation invalidation;
     // GPU resource release belongs exclusively to Runtime/Render.
     void ResetPresentationState();
+    void LoadPresentationPreferences();
+    int EvidenceSummarySectionPreference() const noexcept;
+    void RememberEvidenceSummarySection( int section ) noexcept;
+    void SavePresentationPreferences( Core::SbDiagnosticStore& diagnostics ) const;
     SceneNavigationModel& SceneNavigation()
     {
         return m_sceneNavigation;
@@ -540,6 +570,7 @@ class InGameUI
     // Builds one complete ordered frame of backend-neutral draw values. The
     // returned view remains valid until the next Draw call on this owner.
     const UIDrawList& Draw( const InGameUIFrameData& data );
+    const UIDrawList& ForegroundDraw() const;
 
   private:
     // Lifetime: Init owns this profiler beyond the cohesive UI owner; input and
@@ -551,6 +582,7 @@ class InGameUI
     // Lifetime: the interaction owner holds every widget and gesture record
     // shared by hit testing and drawing. It never retains an InGameUI reach-back.
     UIWindowInteractionOwner m_windowInteraction;
+    char m_layoutPreferencesPath[1024] {};
 };
 
 } // namespace UI

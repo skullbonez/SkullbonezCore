@@ -582,6 +582,10 @@ class Dx12FrameOwner
     // Frame/output commands remain on the owner that already governs the
     // recording epoch and active pipeline target.
     void SetViewport( int x, int y, int width, int height );
+    // Offscreen passes may change raster dimensions, then restore the caller's
+    // destination rectangle without assuming a full-window backbuffer.
+    void SetPresentationViewport( int x, int y, int width, int height );
+    void RestorePresentationViewport();
     void Clear( const ClearTargetDesc& target );
 
   private:
@@ -596,6 +600,7 @@ class Dx12FrameOwner
     Dx12TextureOwner& m_textures;
     Dx12DescriptorHeaps& m_descriptors;
     Dx12CommandRecordingState m_recording;
+    RECT m_presentationViewport = {};
     Dx12SubmittedWorkState m_submittedWork;
     Dx12DeviceHealthState m_deviceHealth;
     Dx12FaultInjectionState m_faultInjection;

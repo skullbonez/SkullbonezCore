@@ -52,6 +52,283 @@ UIWindowInteractionOwner::UIWindowInteractionOwner() : m_activeTab( InGameUITab:
 {
 }
 
+void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIInputSnapshot& input, int width, int height,
+                                                        bool enabled )
+{
+    m_presentationEnabled = enabled;
+    m_editorTab.objectCombo.SetScrollable( enabled );
+    m_presentationPointerBlocked = false;
+    if ( !enabled )
+    {
+        m_profilerTab.histogramDockedBounds = {};
+        m_memoryOverlay.dockedBounds = {};
+        m_presentationRects = ComputePresentationRects( PresentationState {}, width, height );
+        return;
+    }
+
+    m_presentation.toolsOpen = m_window.isVisible && !m_window.isMinimized;
+    m_presentationRects = ComputePresentationRects( m_presentation, width, height );
+    const HeaderRects header = ComputeHeaderRects( m_presentationRects.header );
+    const bool headerHovered = m_presentationRects.header.Contains( input.mouseX, input.mouseY );
+    // Invariant: a captured world/tool gesture may cross chrome without
+    // becoming a shell click. Only the router's new press edge selects layout.
+    if ( input.leftPressed && !input.rightDown && !input.middleDown && headerHovered && !HasOpenPopup() )
+    {
+        if ( header.layout.Contains( input.mouseX, input.mouseY ) )
+        {
+            m_presentation.preferences.layout = m_presentation.preferences.layout == LayoutMode::Canvas ? LayoutMode::Editor
+                                                                                                        : LayoutMode::Canvas;
+            m_tooltip.Dismiss();
+        }
+        else if ( header.workspace.Contains( input.mouseX, input.mouseY ) )
+        {
+            m_presentation.workspace = m_presentation.workspace == Workspace::Scene ? Workspace::SolverLab
+                                                                                    : Workspace::Scene;
+            m_tooltip.Dismiss();
+        }
+        else if ( header.scene.Contains( input.mouseX, input.mouseY ) ||
+                  header.scenes.Contains( input.mouseX, input.mouseY ) )
+        {
+            SetActiveTab( InGameUITab::Scene );
+            SetVisible( true, 0.0 );
+            m_window.animationActive = false;
+        }
+        else if ( header.skull.Contains( input.mouseX, input.mouseY ) ||
+                  header.tools.Contains( input.mouseX, input.mouseY ) )
+        {
+            SetMinimized( !m_window.isMinimized, 0.0 );
+            m_window.isVisible = true;
+            m_window.animationActive = false;
+        }
+    }
+    if ( input.leftPressed && !input.rightDown && !input.middleDown && !HasOpenPopup() )
+    {
+        const bool profiler = DiagnosticDetailsBounds( m_presentationRects.markerHistory )
+                                  .Contains( input.mouseX, input.mouseY );
+        const bool memory = DiagnosticDetailsBounds( m_presentationRects.memoryWaterline )
+                                .Contains( input.mouseX, input.mouseY );
+        if ( profiler || memory )
+        {
+            SetActiveTab( profiler ? InGameUITab::Profiler : InGameUITab::Memory );
+            SetVisible( true, 0.0 );
+            m_presentation.focusedDiagnostic = profiler ? 1 : 2;
+        }
+    }
+    if ( input.leftPressed && !input.rightDown && !input.middleDown && !HasOpenPopup() &&
+         m_presentationRects.replayDetails.Contains( input.mouseX, input.mouseY ) )
+    {
+        if ( m_presentation.preferences.layout == LayoutMode::Canvas )
+        {
+            m_presentation.detailsOpen = !m_presentation.detailsOpen;
+        }
+        else
+        {
+            m_presentation.preferences.leftFolded = !m_presentation.preferences.leftFolded;
+        }
+        m_tooltip.Dismiss();
+    }
+    if ( m_presentation.workspace == Workspace::Scene && input.wheelDelta != 0 && !HasOpenPopup() &&
+         m_presentationRects.replayControls.Contains( input.mouseX, input.mouseY ) )
+    {
+        m_presentation.replayScroll = std::clamp( m_presentation.replayScroll -
+                                                      static_cast<float>( input.wheelDelta ) / 1200.0f,
+                                                  0.0f, 1.0f );
+    }
+    if ( input.leftPressed && !HasOpenPopup() )
+    {
+        if ( m_presentationRects.detailsReplayTab.Contains( input.mouseX, input.mouseY ) )
+        {
+            m_presentation.detailsCauses = false;
+            m_tooltip.Dismiss();
+        }
+        else if ( m_presentationRects.detailsCausesTab.Contains( input.mouseX, input.mouseY ) )
+        {
+            m_presentation.detailsCauses = true;
+            m_tooltip.Dismiss();
+        }
+    }
+    UpdateDockPresentationInput( input );
+    UpdateToolsDrawerBounds( input, width, height );
+    m_profilerTab.histogramDockedBounds = m_presentationRects.markerHistory;
+    m_memoryOverlay.dockedBounds = m_presentationRects.memoryWaterline;
+    const float popupBottom = m_presentationRects.markerHistory.h > 0.0f ? m_presentationRects.markerHistory.y
+                                                                         : static_cast<float>( height );
+    const UIRect popupViewport { 0.0f, m_presentationRects.header.h, static_cast<float>( width ),
+                                 popupBottom - m_presentationRects.header.h };
+    for ( UIComboBox* combo : { &m_sceneTab.combo, &m_sceneTab.recordingCombo, &m_sceneTab.solverLabCombo, &m_rendererCombo,
+                                &m_reflectionCombo, &m_renderTargetCombo, &m_cameraModeCombo, &m_editorTab.objectCombo,
+                                &m_cinematicTab.modeCombo, &m_toolsTabCombo, &m_toolsDisplayCombo } )
+    {
+        combo->SetPopupViewport( popupViewport );
+    }
+    m_cameraModeCombo.SetPopupViewport( { 0.0f, 0.0f, static_cast<float>( width ), popupBottom } );
+    m_presentationPointerBlocked = headerHovered || !m_presentationRects.viewport.Contains( input.mouseX, input.mouseY ) ||
+                                   m_presentationRects.right.Contains( input.mouseX, input.mouseY ) ||
+                                   m_presentationRects.transport.Contains( input.mouseX, input.mouseY ) ||
+                                   m_presentationRects.replayDetails.Contains( input.mouseX, input.mouseY );
+}
+
+void UIWindowInteractionOwner::UpdateToolsDrawerBounds( const InputControl::UIInputSnapshot& input, int width, int height )
+{
+    m_presentation.toolsOpen = m_window.isVisible && !m_window.isMinimized;
+    if ( m_presentation.toolsOpen && input.leftPressed && !input.rightDown && !input.middleDown && !HasOpenPopup() )
+    {
+        if ( m_presentationRects.drawerResize.Contains( input.mouseX, input.mouseY ) )
+        {
+            m_interaction.isResizing = true;
+            m_interaction.resizeRegion = 1;
+            m_interaction.resizeStartMouseY = input.mouseY;
+            m_interaction.resizeStartH = static_cast<int>( m_presentationRects.drawer.h );
+        }
+        else if ( ComputeToolsChromeRects( m_presentationRects.drawer, true ).close.Contains( input.mouseX, input.mouseY ) )
+        {
+            SetMinimized( true, 0.0 );
+            m_presentation.toolsOpen = false;
+        }
+    }
+    if ( m_presentation.toolsOpen && m_interaction.isResizing && m_interaction.resizeRegion == 1 && input.leftDown )
+    {
+        // Invariant: resize is applied before App publishes the viewport for
+        // picking and rendering. InputRouter owns the native capture request.
+        m_presentation.preferences.drawerHeight = std::clamp( static_cast<float>( m_interaction.resizeStartH +
+                                                                                  m_interaction.resizeStartMouseY -
+                                                                                  input.mouseY ),
+                                                              (std::min)( 250.0f, static_cast<float>( height ) * 0.45f ),
+                                                              static_cast<float>( height ) * 0.45f );
+    }
+    m_presentation.editorInTools = m_presentation.toolsOpen && m_activeTab == InGameUITab::Editor;
+    m_presentationRects = ComputePresentationRects( m_presentation, width, height );
+    m_window.animationActive = false;
+    if ( m_presentation.toolsOpen )
+    {
+        // Why: SetWindowBounds resets inspection scroll. Dock placement only
+        // updates geometry; the existing tab presenters retain their state.
+        m_window.x = static_cast<int>( m_presentationRects.drawer.x );
+        m_window.y = static_cast<int>( m_presentationRects.drawer.y );
+        m_window.width = static_cast<int>( m_presentationRects.drawer.w );
+        m_window.height = static_cast<int>( m_presentationRects.drawer.h );
+        m_window.isMaximized = false;
+        m_window.hasAppliedDefaultPlacement = true;
+    }
+}
+
+void UIWindowInteractionOwner::UpdateDockPresentationInput( const InputControl::UIInputSnapshot& input )
+{
+    if ( input.leftPressed && !HasOpenPopup() && !input.rightDown && !input.middleDown &&
+         m_presentation.preferences.layout == LayoutMode::Editor )
+    {
+        const bool left = !m_presentation.preferences.leftFolded &&
+                          m_presentationRects.leftResize.Contains( input.mouseX, input.mouseY );
+        const bool right = !m_presentation.preferences.rightFolded &&
+                           m_presentationRects.rightResize.Contains( input.mouseX, input.mouseY );
+        if ( left || right )
+        {
+            m_interaction.isResizing = true;
+            m_interaction.resizeRegion = left ? 2 : 3;
+            m_interaction.resizeStartMouseX = input.mouseX;
+            m_interaction.resizeStartW = static_cast<int>( left ? m_presentationRects.left.w : m_presentationRects.right.w );
+        }
+    }
+    if ( m_interaction.isResizing && m_interaction.resizeRegion >= 2 && input.leftDown )
+    {
+        const bool left = m_interaction.resizeRegion == 2;
+        const float maximum = m_presentationRects.window.w * ( left ? 0.25f : 0.3f );
+        const float width = static_cast<float>( m_interaction.resizeStartW +
+                                                ( left ? 1 : -1 ) * ( input.mouseX - m_interaction.resizeStartMouseX ) );
+        const float bounded = std::clamp( width, (std::min)( 220.0f, maximum ), maximum );
+        if ( left )
+        {
+            m_presentation.preferences.leftWidth = bounded;
+        }
+        else
+        {
+            m_presentation.preferences.rightWidth = bounded;
+        }
+    }
+    if ( input.leftPressed && !HasOpenPopup() && !m_interaction.isResizing && !input.rightDown && !input.middleDown )
+    {
+        if ( m_presentationRects.editorTab.Contains( input.mouseX, input.mouseY ) )
+        {
+            m_presentation.editorReplay = false;
+            m_tooltip.Dismiss();
+        }
+        else if ( m_presentationRects.editorReplayTab.Contains( input.mouseX, input.mouseY ) )
+        {
+            m_presentation.editorReplay = true;
+            m_tooltip.Dismiss();
+        }
+        else if ( m_presentationRects.leftFold.Contains( input.mouseX, input.mouseY ) )
+        {
+            m_presentation.preferences.leftFolded = !m_presentation.preferences.leftFolded;
+            m_tooltip.Dismiss();
+        }
+        else if ( m_presentationRects.rightFold.Contains( input.mouseX, input.mouseY ) )
+        {
+            m_presentation.preferences.rightFolded = !m_presentation.preferences.rightFolded;
+            m_tooltip.Dismiss();
+        }
+    }
+    if ( input.wheelDelta != 0 && !HasOpenPopup() &&
+         m_presentationRects.editorControls.Contains( input.mouseX, input.mouseY ) )
+    {
+        m_presentation.editorScroll = (std::max)( 0.0f, m_presentationRects.editorScroll -
+                                                            static_cast<float>( input.wheelDelta ) * ( 34.0f / 120.0f ) );
+        // Geometry owns the grid-dependent scroll limit, including narrow docks.
+        m_presentation.editorScroll = ComputePresentationRects( m_presentation, m_lastScreenW, m_lastScreenH ).editorScroll;
+    }
+}
+
+EditorMiniPaletteLayout UIWindowInteractionOwner::PresentedEditorPalette() const
+{
+    UIRect content = m_presentationRects.editorControls;
+    float scroll = m_presentationRects.editorScroll;
+    if ( m_presentation.editorInTools )
+    {
+        content = ComputeToolsChromeRects( { static_cast<float>( m_window.x ), static_cast<float>( m_window.y ),
+                                             static_cast<float>( m_window.width ), static_cast<float>( m_window.height ) },
+                                           true )
+                      .content;
+        scroll = m_scrollY;
+    }
+    if ( content.w <= 0.0f )
+    {
+        return {};
+    }
+    return BuildEditorMiniPaletteLayout( m_lastScreenW, m_lastScreenH, {}, m_editorMiniPalettePressedEntry,
+                                         m_editorMiniPaletteFlyoutOpen,
+                                         { content.x, content.y + 316.0f - scroll, content.w, content.h }, content );
+}
+
+bool UIWindowInteractionOwner::HandleEditorDockInput( const InputControl::UIInputSnapshot& input,
+                                                      InGameUIInputResult& result )
+{
+    const UIRect& bounds = m_presentationRects.editorControls;
+    if ( !m_presentationEnabled || m_interaction.isResizing || bounds.w <= 0.0f ||
+         ( !bounds.Contains( m_mouseX, m_mouseY ) && !m_editorTab.objectCombo.IsOpen() ) )
+    {
+        return false;
+    }
+    if ( HasOpenPopup() && !m_editorTab.objectCombo.IsOpen() )
+    {
+        return false;
+    }
+    m_blocksCameraMouse = true;
+    result.unhandledWheelDelta = 0;
+    if ( input.wheelDelta != 0 && m_editorTab.objectCombo.IsOpen() )
+    {
+        m_editorTab.objectCombo.ScrollOptions( -input.wheelDelta / 120, EditorTab::OBJECT_TYPE_COUNT );
+    }
+    if ( input.leftPressed )
+    {
+        if ( EditorTab::HandleContentClick( m_editorTab, result, m_mouseX, m_mouseY, bounds.x,
+                                            bounds.y + 42.0f - m_presentationRects.editorScroll, bounds.w ) )
+        {
+            result.commands.ui.userInteracted = true;
+        }
+    }
+    return true;
+}
+
 void UIWindowInteractionOwner::ResetPresentationResources()
 {
     m_backdropBlur.ResetResources();
@@ -73,6 +350,11 @@ bool UIWindowInteractionOwner::IsMinimized() const
 void UIWindowInteractionOwner::SetVisible( bool visible, double now )
 {
     m_window.isVisible = visible;
+    if ( !visible )
+    {
+        m_toolsTabCombo.Close();
+        m_toolsDisplayCombo.Close();
+    }
     m_cache.Reset();
     m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Visibility );
 
@@ -145,6 +427,11 @@ void UIWindowInteractionOwner::SetMinimized( bool minimized, double now )
         return;
     }
 
+    if ( minimized )
+    {
+        m_toolsTabCombo.Close();
+        m_toolsDisplayCombo.Close();
+    }
     const UIRect currentBounds = Chrome::WindowRect( m_window );
     const UIRect minimizedBounds = Layout::MinimizedRect( m_lastScreenW, m_lastScreenH, m_window.minimizedWidth );
     m_interaction.isDragging = false;
@@ -179,6 +466,7 @@ void UIWindowInteractionOwner::SetMinimized( bool minimized, double now )
 
 void UIWindowInteractionOwner::SetActiveTab( InGameUITab tab )
 {
+    m_tooltip.Dismiss();
     const int tabIndex = static_cast<int>( tab );
 
     if ( tabIndex < 0 || tabIndex >= static_cast<int>( InGameUITab::Count ) )
@@ -186,7 +474,15 @@ void UIWindowInteractionOwner::SetActiveTab( InGameUITab tab )
         tab = InGameUITab::Scene;
     }
 
+    m_toolsTabCombo.Close();
+    m_toolsDisplayCombo.Close();
     m_activeTab = tab;
+    m_presentation.preferences.lastTool = static_cast<int>( tab );
+    if ( m_presentationEnabled )
+    {
+        m_presentation.editorInTools = m_presentation.toolsOpen && tab == InGameUITab::Editor;
+        m_presentationRects = ComputePresentationRects( m_presentation, m_lastScreenW, m_lastScreenH );
+    }
     m_scrollY = 0.0f;
     m_rendererCombo.Close();
     m_reflectionCombo.Close();
@@ -212,6 +508,12 @@ InGameUITab UIWindowInteractionOwner::GetActiveTab() const
 
 void UIWindowInteractionOwner::CancelInputCapture()
 {
+    m_tooltip.Dismiss();
+    // Focus loss can skip UpdateInput for many rendered frames. Keep hover
+    // feedback dismissed until the router supplies the next focused sample.
+    m_tooltipGestureActive = true;
+    m_toolsTabCombo.Close();
+    m_toolsDisplayCombo.Close();
     m_interaction.isDragging = false;
     m_interaction.isResizing = false;
     m_blocksCameraMouse = false;
@@ -226,22 +528,48 @@ void UIWindowInteractionOwner::CancelInputCapture()
 
 bool UIWindowInteractionOwner::BlocksCameraMouse() const
 {
-    return m_blocksCameraMouse;
+    return m_blocksCameraMouse || m_presentationPointerBlocked;
+}
+
+bool UIWindowInteractionOwner::HasOpenPopup() const
+{
+    return m_profilerTab.histogramSelectorOpen || m_toolsTabCombo.IsOpen() || m_toolsDisplayCombo.IsOpen() ||
+           m_sceneTab.combo.IsOpen() || m_sceneTab.recordingCombo.IsOpen() || m_sceneTab.solverLabCombo.IsOpen() ||
+           m_rendererCombo.IsOpen() || m_reflectionCombo.IsOpen() || m_renderTargetCombo.IsOpen() ||
+           m_editorTab.objectCombo.IsOpen() || m_cinematicTab.modeCombo.IsOpen() || m_cameraModeCombo.IsOpen();
+}
+
+bool UIWindowInteractionOwner::BlocksReplayMouse() const
+{
+    const bool replayRegion = m_presentationRects.transport.Contains( m_mouseX, m_mouseY ) ||
+                              m_presentationRects.replayControls.Contains( m_mouseX, m_mouseY );
+    // Chrome still blocks world input. Only its Replay region is offered to
+    // the existing Replay handler; a popup or captured UI gesture takes priority.
+    return m_blocksCameraMouse || ( m_presentationPointerBlocked && !( m_presentationEnabled && replayRegion ) );
+}
+
+bool UIWindowInteractionOwner::BlocksCauseMouse() const
+{
+    const bool causeRegion = m_presentationEnabled && m_presentationRects.causeControls.Contains( m_mouseX, m_mouseY );
+    return m_blocksCameraMouse || ( m_presentationPointerBlocked && !causeRegion );
 }
 
 
 bool UIWindowInteractionOwner::BlocksKeyboard() const
 {
-    return m_window.isVisible && !m_window.isMinimized &&
-           ( m_sceneTab.combo.IsOpen() || m_sceneTab.recordingCombo.IsOpen() || m_sceneTab.solverLabCombo.IsOpen() ||
-             CinematicTab::IsComboOpen( m_cinematicTab ) || m_editorTab.objectCombo.IsOpen() ||
-             m_renderTargetCombo.IsOpen() );
+    return m_profilerTab.histogramSelectorOpen || m_toolsTabCombo.IsOpen() || m_toolsDisplayCombo.IsOpen() ||
+           m_rendererCombo.IsOpen() || m_reflectionCombo.IsOpen() || m_cameraModeCombo.IsOpen() ||
+           ( m_presentationEnabled && m_editorTab.objectCombo.IsOpen() ) ||
+           ( m_window.isVisible && !m_window.isMinimized &&
+             ( m_sceneTab.combo.IsOpen() || m_sceneTab.recordingCombo.IsOpen() || m_sceneTab.solverLabCombo.IsOpen() ||
+               CinematicTab::IsComboOpen( m_cinematicTab ) || m_editorTab.objectCombo.IsOpen() ||
+               m_renderTargetCombo.IsOpen() ) );
 }
 
 
 bool UIWindowInteractionOwner::WantsNativeMouseCursor() const
 {
-    return ( m_window.isVisible && !m_window.isMinimized ) || m_blocksCameraMouse ||
+    return ( m_window.isVisible && !m_window.isMinimized ) || BlocksCameraMouse() ||
            ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
 }
 
@@ -409,6 +737,11 @@ bool UIWindowInteractionOwner::IsPerformanceHistogramEnabled() const
 
 void UIWindowInteractionOwner::TogglePerformanceHistogramEnabled()
 {
+    if ( m_profilerTab.histogramDockedBounds.h > 0.0f )
+    {
+        m_presentation.focusedDiagnostic = 1;
+        return;
+    }
     SetPerformanceHistogramEnabled( !IsPerformanceHistogramEnabled() );
 }
 
@@ -428,13 +761,18 @@ bool UIWindowInteractionOwner::IsMemoryOverlayEnabled() const
 
 void UIWindowInteractionOwner::ToggleMemoryOverlayEnabled()
 {
+    if ( m_memoryOverlay.dockedBounds.h > 0.0f )
+    {
+        m_presentation.focusedDiagnostic = 2;
+        return;
+    }
     SetMemoryOverlayEnabled( !IsMemoryOverlayEnabled() );
 }
 
 
 bool UIWindowInteractionOwner::NeedsUiTextPass() const
 {
-    return m_window.isVisible || IsPerformanceHistogramEnabled() || IsMemoryOverlayEnabled();
+    return m_presentationEnabled || m_window.isVisible || IsPerformanceHistogramEnabled() || IsMemoryOverlayEnabled();
 }
 
 
@@ -507,7 +845,7 @@ int UIWindowInteractionOwner::ContentHeight() const
     case InGameUITab::Memory:
         return MemoryTab::ContentHeight();
     case InGameUITab::Editor:
-        return EditorTab::ContentHeight();
+        return m_presentationEnabled ? 500 : EditorTab::ContentHeight();
     case InGameUITab::Physics:
         return PhysicsTab::ContentHeight();
     case InGameUITab::Options:
@@ -546,12 +884,13 @@ UIWindowInteractionOwner::HandleMinimizedCameraMode( const InputControl::UIInput
                                                      InGameUIInputResult& result )
 {
     MinimizedControlResult control;
-    const UIRect bounds = MinimizedCameraModeComboBounds( minimized );
+    const UIRect bounds = m_presentationEnabled ? ComputeHeaderRects( m_presentationRects.header ).camera
+                                                : MinimizedCameraModeComboBounds( minimized );
     m_cameraModeCombo.SetLabelVisible( false );
     m_cameraModeCombo.SetBounds( bounds.x, bounds.y, bounds.w, bounds.h );
-    m_cameraModeCombo.SetDropUp( true );
+    m_cameraModeCombo.SetDropUp( !m_presentationEnabled );
 
-    if ( showEditorMiniPalette )
+    if ( showEditorMiniPalette && !m_presentationEnabled )
     {
         m_cameraModeCombo.Close();
         return control;
@@ -697,7 +1036,7 @@ void UIWindowInteractionOwner::FinishEditorMiniPalettePress( const EditorMiniPal
         }
     }
     else if ( m_editorMiniPalettePressedEntry >= 0 && m_editorMiniPalettePressedEntry < layout.buttonCount &&
-              layout.buttons[m_editorMiniPalettePressedEntry].Contains( m_mouseX, m_mouseY ) )
+              HitEditorMiniPaletteButton( layout, m_mouseX, m_mouseY ) == m_editorMiniPalettePressedEntry )
     {
         selectedObjectType = m_editorMiniPalettePressedObjectType;
     }
@@ -732,9 +1071,11 @@ UIWindowInteractionOwner::HandleEditorMiniPalette( const InputControl::UIInputSn
         m_editorMiniPaletteFlyoutOpen = true;
     }
 
-    const EditorMiniPaletteLayout layout = BuildEditorMiniPaletteLayout( screenW, screenH, minimized,
-                                                                         m_editorMiniPalettePressedEntry,
-                                                                         m_editorMiniPaletteFlyoutOpen );
+    const EditorMiniPaletteLayout layout = m_presentationEnabled
+                                               ? PresentedEditorPalette()
+                                               : BuildEditorMiniPaletteLayout( screenW, screenH, minimized,
+                                                                               m_editorMiniPalettePressedEntry,
+                                                                               m_editorMiniPaletteFlyoutOpen );
     control.inside = EditorMiniPaletteContains( layout, m_mouseX, m_mouseY );
     if ( input.leftPressed && control.inside )
     {
@@ -820,6 +1161,10 @@ void UIWindowInteractionOwner::UpdateActiveSliderInput( InGameUIInputResult& res
 
 void UIWindowInteractionOwner::UpdateWindowDragAndResize( bool leftNow, int screenW, int screenH, double now )
 {
+    if ( m_presentationEnabled )
+    {
+        return;
+    }
     const int margin = 10;
     const int marginX = (std::min)( margin, ( screenW - 1 ) / 2 );
     const int marginY = (std::min)( margin, ( screenH - 1 ) / 2 );
@@ -905,12 +1250,12 @@ void UIWindowInteractionOwner::FinishPointerRelease( InGameUIInputResult& result
 
 float UIWindowInteractionOwner::WindowPointerLayout::ContentX() const
 {
-    return static_cast<float>( inputX + 18 );
+    return chrome.content.x;
 }
 
 float UIWindowInteractionOwner::WindowPointerLayout::ContentWidth() const
 {
-    return static_cast<float>( inputW ) - 44.0f;
+    return chrome.content.w;
 }
 
 float UIWindowInteractionOwner::WindowPointerLayout::RowBase( float scrollY ) const
@@ -956,14 +1301,15 @@ UIWindowInteractionOwner::WindowPointerLayout UIWindowInteractionOwner::PrepareW
     layout.hitBounds = { static_cast<float>( layout.inputX ), static_cast<float>( layout.inputY ),
                          static_cast<float>( layout.inputW ), static_cast<float>( layout.inputH ) };
     layout.inside = layout.hitBounds.Contains( m_mouseX, m_mouseY );
-    layout.inTitle = layout.inside && m_mouseY < layout.inputY + 44;
-    layout.inTabs = layout.inside && m_mouseY >= layout.inputY + 44 && m_mouseY < layout.inputY + 88;
-    layout.inResize = !m_window.isMaximized && layout.inside &&
+    layout.chrome = ComputeToolsChromeRects( layout.hitBounds, m_presentationEnabled );
+    layout.inTitle = layout.inside && layout.chrome.title.Contains( m_mouseX, m_mouseY );
+    layout.inTabs = layout.inside && layout.chrome.tabs.Contains( m_mouseX, m_mouseY );
+    layout.inResize = !m_presentationEnabled && !m_window.isMaximized && layout.inside &&
                       Chrome::IsResizeHotspot( layout.hitBounds, m_mouseX, m_mouseY );
-    layout.contentY = layout.inputY + 100;
-    layout.contentH = (std::max)( 24, layout.inputH - 44 - 44 - 78 - 18 );
-    layout.bottomY = layout.inputY + layout.inputH - 78;
-    layout.inContent = layout.inside && m_mouseY >= layout.contentY && m_mouseY <= layout.contentY + layout.contentH;
+    layout.contentY = static_cast<int>( layout.chrome.content.y );
+    layout.contentH = static_cast<int>( layout.chrome.content.h );
+    layout.bottomY = static_cast<int>( layout.chrome.footer.y );
+    layout.inContent = layout.inside && layout.chrome.content.Contains( m_mouseX, m_mouseY );
     layout.maxScroll = static_cast<float>( (std::max)( 0, ContentHeight() - layout.contentH ) );
 
     m_tabBar.SetBounds( static_cast<float>( layout.inputX + 14 ), static_cast<float>( layout.inputY + 44 ),
@@ -986,6 +1332,7 @@ UIWindowInteractionOwner::WindowPointerLayout UIWindowInteractionOwner::PrepareW
     m_hitboxToggle.SetBounds( hitboxBounds.x, hitboxBounds.y, hitboxBounds.w, hitboxBounds.h );
     m_histogramToggle.SetBounds( performanceBounds.x, performanceBounds.y, performanceBounds.w, performanceBounds.h );
     m_timelineToggle.SetBounds( timelineBounds.x, timelineBounds.y, timelineBounds.w, timelineBounds.h );
+    PrepareCompactToolsControls( layout.chrome );
     m_renderTargetCombo.SetBounds( layout.ContentX(), layout.ScrolledY( m_scrollY ) + UI_TARGETS_COMBO_Y,
                                    layout.ContentWidth(), 24.0f );
     m_renderTargetCombo.SetDropUp( false );
@@ -1005,12 +1352,30 @@ void UIWindowInteractionOwner::HandleWindowWheel( const InputControl::UIInputSna
     }
 
     bool wheelHandled = false;
+    if ( wheelDelta != 0 && ( m_toolsTabCombo.IsOpen() || m_toolsDisplayCombo.IsOpen() ) )
+    {
+        if ( m_toolsTabCombo.IsOpen() )
+        {
+            m_toolsTabCombo.ScrollOptions( -wheelDelta / 120, static_cast<int>( InGameUITab::Count ) );
+        }
+        else
+        {
+            m_toolsDisplayCombo.ScrollOptions( -wheelDelta / 120, 7 );
+        }
+        return;
+    }
+
+    if ( wheelDelta != 0 && m_editorTab.objectCombo.IsOpen() && m_activeTab == InGameUITab::Editor )
+    {
+        m_editorTab.objectCombo.ScrollOptions( -wheelDelta / 120, EditorTab::OBJECT_TYPE_COUNT );
+        wheelHandled = true;
+    }
 
     if ( wheelDelta != 0 && m_sceneTab.combo.IsOpen() && m_activeTab == InGameUITab::Scene )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
+        const float contentX = layout.ContentX();
         const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentW = layout.ContentWidth();
         wheelHandled = SceneTab::HandleComboWheel( m_sceneTab, options.scenes.data(),
                                                    static_cast<int>( options.scenes.size() ), m_mouseX, m_mouseY, wheelDelta,
                                                    contentX, rowBase, contentW );
@@ -1018,16 +1383,16 @@ void UIWindowInteractionOwner::HandleWindowWheel( const InputControl::UIInputSna
 
     else if ( wheelDelta != 0 && m_sceneTab.recordingCombo.IsOpen() && m_activeTab == InGameUITab::Scene )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
+        const float contentX = layout.ContentX();
         const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentW = layout.ContentWidth();
         wheelHandled = SceneTab::HandleRecordingComboWheel( m_sceneTab, static_cast<int>( options.recordings.size() ),
                                                             m_mouseX, m_mouseY, wheelDelta, contentX, rowBase, contentW );
     }
 
     if ( wheelDelta != 0 && layout.inContent && !wheelHandled )
     {
-        m_scrollY -= static_cast<float>( wheelDelta ) / UI_MOUSE_WHEEL_DELTA * 42.0f;
+        m_scrollY -= static_cast<float>( wheelDelta ) / UI_MOUSE_WHEEL_DELTA * ( layout.chrome.compact ? 12.0f : 42.0f );
         m_scrollY = std::clamp( m_scrollY, 0.0f, layout.maxScroll );
         m_scrollbarVisibleUntil = now + 1.4;
     }
@@ -1037,6 +1402,12 @@ bool UIWindowInteractionOwner::HandleWindowChromePress( InGameUIInputResult& res
                                                         int screenW, int screenH, double now )
 {
     const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( layout.hitBounds );
+    if ( m_presentationEnabled && layout.inTitle )
+    {
+        // The shared pre-input pass handles close and resize before viewport
+        // publication. The drawer title has no floating-window drag controls.
+        return true;
+    }
     const bool chromeHit = titleButtons.close.Contains( m_mouseX, m_mouseY ) ||
                            titleButtons.minimize.Contains( m_mouseX, m_mouseY ) ||
                            titleButtons.maximize.Contains( m_mouseX, m_mouseY ) || layout.inResize || layout.inTitle ||
@@ -1078,6 +1449,11 @@ bool UIWindowInteractionOwner::HandleWindowChromePress( InGameUIInputResult& res
     }
     else if ( layout.inTabs )
     {
+        if ( layout.chrome.compact )
+        {
+            m_toolsTabCombo.ToggleOpen();
+            return true;
+        }
         static const int kTabCount = static_cast<int>( InGameUITab::Count );
         const int index = m_tabBar.HitTest( m_mouseX, m_mouseY, kTabCount );
 
@@ -1093,6 +1469,26 @@ bool UIWindowInteractionOwner::HandleWindowChromePress( InGameUIInputResult& res
 bool UIWindowInteractionOwner::HandleOpenControlPress( InGameUIInputResult& result, const WindowPointerLayout& layout,
                                                        const WindowOptionView& options )
 {
+    if ( m_toolsTabCombo.IsOpen() )
+    {
+        const int index = m_toolsTabCombo.HitOption( m_mouseX, m_mouseY, static_cast<int>( InGameUITab::Count ) );
+        m_toolsTabCombo.Close();
+        if ( index >= 0 )
+        {
+            SetActiveTab( static_cast<InGameUITab>( index ) );
+        }
+        return true;
+    }
+    if ( m_toolsDisplayCombo.IsOpen() )
+    {
+        const int index = m_toolsDisplayCombo.HitOption( m_mouseX, m_mouseY, 7 );
+        m_toolsDisplayCombo.Close();
+        if ( index > 0 )
+        {
+            ApplyFooterAction( index, result );
+        }
+        return true;
+    }
     const bool controlOpen = m_sceneTab.combo.IsOpen() || m_sceneTab.recordingCombo.IsOpen() ||
                              m_sceneTab.solverLabCombo.IsOpen() || CinematicTab::IsComboOpen( m_cinematicTab ) ||
                              m_renderTargetCombo.IsOpen() || m_editorTab.objectCombo.IsOpen() ||
@@ -1105,9 +1501,9 @@ bool UIWindowInteractionOwner::HandleOpenControlPress( InGameUIInputResult& resu
     {
         if ( m_activeTab == InGameUITab::Scene )
         {
-            const float contentX = static_cast<float>( layout.inputX + 18 );
+            const float contentX = layout.ContentX();
             const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+            const float contentW = layout.ContentWidth();
             SceneTab::HandleOpenComboClick( m_sceneTab, result, options.scenes.data(),
                                             static_cast<int>( options.scenes.size() ), m_mouseX, m_mouseY, contentX, rowBase,
                                             contentW );
@@ -1131,9 +1527,9 @@ bool UIWindowInteractionOwner::HandleOpenControlPress( InGameUIInputResult& resu
     {
         if ( m_activeTab == InGameUITab::Scene )
         {
-            const float contentX = static_cast<float>( layout.inputX + 18 );
+            const float contentX = layout.ContentX();
             const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+            const float contentW = layout.ContentWidth();
             SceneTab::HandleOpenRecordingComboClick( m_sceneTab, result, static_cast<int>( options.recordings.size() ),
                                                      m_mouseX, m_mouseY, contentX, rowBase, contentW );
         }
@@ -1198,9 +1594,9 @@ bool UIWindowInteractionOwner::HandleOpenControlPress( InGameUIInputResult& resu
     {
         if ( m_activeTab == InGameUITab::Editor )
         {
-            const float contentX = static_cast<float>( layout.inputX + 18 );
+            const float contentX = layout.ContentX();
             const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+            const float contentW = layout.ContentWidth();
             EditorTab::HandleContentClick( m_editorTab, result, m_mouseX, m_mouseY, contentX, rowBase, contentW );
         }
         else
@@ -1218,7 +1614,7 @@ bool UIWindowInteractionOwner::HandleOpenControlPress( InGameUIInputResult& resu
     {
         const int option = m_reflectionCombo.HitOption( m_mouseX, m_mouseY, 3 );
 
-        if ( option >= 0 && option < 3 )
+        if ( option >= 0 && option < 3 && ( ReflectionDisabledMask() & ( 1u << option ) ) == 0 )
         {
             result.commands.water.requestedWaterReflectionMode = option;
             m_reflectionCombo.Close();
@@ -1276,7 +1672,7 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UII
     }
     if ( layout.inContent && m_activeTab == InGameUITab::Profiler )
     {
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentW = layout.ContentWidth();
 
         if ( ProfilerTab::HandleContentClick( m_profilerTab, result, m_activeSlider, layout.inputX + 18, layout.contentY,
                                               contentW, m_scrollY, m_mouseX, m_mouseY, m_lastWorkerThreadCount,
@@ -1293,8 +1689,8 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UII
     }
     else if ( layout.inContent && m_activeTab == InGameUITab::Memory )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentX = layout.ContentX();
+        const float contentW = layout.ContentWidth();
         const float scrolledY = static_cast<float>( layout.contentY ) - m_scrollY;
 
         if ( MemoryTab::HandleContentClick( m_memoryOverlay, result, m_activeSlider, m_mouseX, m_mouseY, contentX, scrolledY,
@@ -1311,9 +1707,9 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UII
     }
     else if ( layout.inContent && m_activeTab == InGameUITab::Scene )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
+        const float contentX = layout.ContentX();
         const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentW = layout.ContentWidth();
         bool sceneClickHandled = SceneTab::HandleHeaderClick( m_sceneTab, result, m_mouseX, m_mouseY, contentX, rowBase,
                                                               contentW );
 
@@ -1345,6 +1741,11 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UII
 
         if ( !sceneClickHandled )
         {
+            sceneClickHandled = SceneTab::HandlePlaybackClick( m_sceneTab, result, m_mouseX, m_mouseY, contentX, rowBase,
+                                                               contentW );
+        }
+        if ( !sceneClickHandled )
+        {
             sceneClickHandled = SceneTab::HandleForecastClick( m_sceneTab, result, m_mouseX, m_mouseY, contentX, rowBase,
                                                                contentW );
         }
@@ -1360,9 +1761,9 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UII
     }
     else if ( layout.inContent && m_activeTab == InGameUITab::Editor )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
+        const float contentX = layout.ContentX();
         const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentW = layout.ContentWidth();
         EditorTab::HandleContentClick( m_editorTab, result, m_mouseX, m_mouseY, contentX, rowBase, contentW );
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
@@ -1371,9 +1772,9 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UII
     }
     else if ( layout.inContent && m_activeTab == InGameUITab::Physics )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
+        const float contentX = layout.ContentX();
         const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentW = layout.ContentWidth();
         const int previousActiveSlider = m_activeSlider;
 
         if ( PhysicsTab::HandleContentClick( m_physicsTab, result, m_activeSlider, m_mouseX, m_mouseY, contentX, rowBase,
@@ -1389,9 +1790,9 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UII
     }
     else if ( layout.inContent && m_activeTab == InGameUITab::Options )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
+        const float contentX = layout.ContentX();
         const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentW = layout.ContentWidth();
 
         if ( OptionsTab::HandleContentClick( m_optionsTab, result, m_activeSlider, m_mouseX, m_mouseY, contentX, rowBase,
                                              contentW, m_lastModelCapacity ) )
@@ -1413,8 +1814,8 @@ bool UIWindowInteractionOwner::HandleRenderTabPress( InGameUIInputResult& result
     {
         return false;
     }
-    const float contentX = static_cast<float>( layout.inputX + 18 );
-    const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+    const float contentX = layout.ContentX();
+    const float contentW = layout.ContentWidth();
     const float scrolledY = static_cast<float>( layout.contentY ) - m_scrollY;
     bool capturedSlider = false;
 
@@ -1495,8 +1896,8 @@ bool UIWindowInteractionOwner::HandlePresentationTabPress( InGameUIInputResult& 
     }
     if ( layout.inContent && m_activeTab == InGameUITab::Targets )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentX = layout.ContentX();
+        const float contentW = layout.ContentWidth();
         const float scrolledY = static_cast<float>( layout.contentY ) - m_scrollY;
         m_renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
 
@@ -1521,8 +1922,8 @@ bool UIWindowInteractionOwner::HandlePresentationTabPress( InGameUIInputResult& 
     }
     else if ( layout.inContent && m_activeTab == InGameUITab::Sky )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentX = layout.ContentX();
+        const float contentW = layout.ContentWidth();
         const float scrolledY = static_cast<float>( layout.contentY ) - m_scrollY;
         const bool capturedSlider = SkyTab::HandleContentClick( m_skyTab, result, m_activeSlider, m_mouseX, m_mouseY,
                                                                 contentX, scrolledY, contentW );
@@ -1539,8 +1940,8 @@ bool UIWindowInteractionOwner::HandlePresentationTabPress( InGameUIInputResult& 
     }
     else if ( layout.inContent && m_activeTab == InGameUITab::Cinematic )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentX = layout.ContentX();
+        const float contentW = layout.ContentWidth();
         const float scrolledY = static_cast<float>( layout.contentY ) - m_scrollY;
         const bool capturedSlider = CinematicTab::HandleContentClick( m_cinematicTab, result, m_activeSlider, m_mouseX,
                                                                       m_mouseY, contentX, scrolledY, contentW );
@@ -1555,9 +1956,9 @@ bool UIWindowInteractionOwner::HandlePresentationTabPress( InGameUIInputResult& 
     }
     else if ( layout.inContent && m_activeTab == InGameUITab::Keys )
     {
-        const float contentX = static_cast<float>( layout.inputX + 18 );
+        const float contentX = layout.ContentX();
         const float rowBase = static_cast<float>( layout.contentY ) + 42.0f - m_scrollY;
-        const float contentW = static_cast<float>( layout.inputW ) - static_cast<float>( 18 ) * 2.0f - 8.0f;
+        const float contentW = layout.ContentWidth();
 
         if ( ControlsTab::HandleContentClick( m_controlsTab, result, m_activeSlider, m_mouseX, m_mouseY, contentX, rowBase,
                                               contentW, m_lastModelCapacity, m_lastSolverBallCount, m_lastSolverBoxCount ) )
@@ -1572,48 +1973,99 @@ bool UIWindowInteractionOwner::HandlePresentationTabPress( InGameUIInputResult& 
     return true;
 }
 
-void UIWindowInteractionOwner::HandleWindowFallbackPress( InGameUIInputResult& result, const WindowPointerLayout& layout )
+void UIWindowInteractionOwner::PrepareCompactToolsControls( const ToolsChromeRects& chrome )
 {
-    if ( layout.inside && m_mouseY >= layout.inputY + layout.inputH - 78 )
+    if ( !chrome.compact )
     {
-        if ( m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
+        m_reflectionCombo.SetLabelVisible( true );
+        m_toolsTabCombo.Close();
+        m_toolsDisplayCombo.Close();
+        return;
+    }
+    m_toolsTabCombo.SetBounds( chrome.tabs.x, chrome.tabs.y, chrome.tabs.w, chrome.tabs.h );
+    m_toolsTabCombo.SetLabelVisible( false );
+    m_toolsTabCombo.SetScrollable( true );
+    const UIRect footer { chrome.footer.x + 6.0f, chrome.footer.y + 2.0f, chrome.footer.w - 12.0f, 24.0f };
+    m_toolsDisplayCombo.SetBounds( footer.x, footer.y, footer.w, footer.h );
+    m_toolsDisplayCombo.SetLabelVisible( false );
+    m_toolsDisplayCombo.SetScrollable( true );
+    m_toolsDisplayCombo.SetDropUp( true );
+    // The reflection submenu replaces the compact footer field while open.
+    // Hidden wide controls have no geometry and cannot supply hover targets.
+    m_reflectionCombo.SetBounds( footer.x, footer.y, footer.w, footer.h );
+    m_reflectionCombo.SetLabelVisible( false );
+    m_rendererCombo.SetBounds( 0, 0, 0, 0 );
+    m_blurToggle.SetBounds( 0, 0, 0, 0 );
+    m_vsyncToggle.SetBounds( 0, 0, 0, 0 );
+    m_hitboxToggle.SetBounds( 0, 0, 0, 0 );
+    m_histogramToggle.SetBounds( 0, 0, 0, 0 );
+    m_timelineToggle.SetBounds( 0, 0, 0, 0 );
+}
+
+void UIWindowInteractionOwner::ApplyFooterAction( int action, InGameUIInputResult& result )
+{
+    switch ( action )
+    {
+    case 0:
+    case 1:
+        if ( action == 0 )
         {
             m_rendererCombo.ToggleOpen();
             m_reflectionCombo.Close();
-            CloseSceneCombo();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-            m_renderTargetCombo.Close();
         }
-        else if ( m_reflectionCombo.HitBox( m_mouseX, m_mouseY ) )
+        else
         {
             m_reflectionCombo.ToggleOpen();
             m_rendererCombo.Close();
-            CloseSceneCombo();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-            m_renderTargetCombo.Close();
         }
-        else if ( m_blurToggle.HitTest( m_mouseX, m_mouseY ) )
+        CloseSceneCombo();
+        CinematicTab::CloseCombo( m_cinematicTab );
+        m_editorTab.objectCombo.Close();
+        m_renderTargetCombo.Close();
+        break;
+    case 2:
+        SetBlurEnabled( !m_blurPreviewEnabled );
+        break;
+    case 3:
+        result.commands.renderer.toggleVsync = true;
+        break;
+    case 4:
+        SetHitboxOverlayEnabled( !m_hitboxOverlayEnabled );
+        break;
+    case 5:
+        SetPerformanceHistogramEnabled( !ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
+        break;
+    case 6:
+        SetProfilerTimelineEnabled( !ProfilerTab::TimelineEnabled( m_profilerTab ) );
+        break;
+    default:
+        break;
+    }
+}
+
+void UIWindowInteractionOwner::HandleWindowFallbackPress( InGameUIInputResult& result, const WindowPointerLayout& layout )
+{
+    if ( layout.InFooter( m_mouseY ) )
+    {
+        if ( layout.chrome.compact )
         {
-            m_blurPreviewEnabled = !m_blurPreviewEnabled;
-            m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Toggle );
+            if ( m_toolsDisplayCombo.HitBox( m_mouseX, m_mouseY ) )
+            {
+                m_toolsDisplayCombo.ToggleOpen();
+            }
+            return;
         }
-        else if ( m_vsyncToggle.HitTest( m_mouseX, m_mouseY ) )
+        const bool hits[] = { m_rendererCombo.HitBox( m_mouseX, m_mouseY ),  m_reflectionCombo.HitBox( m_mouseX, m_mouseY ),
+                              m_blurToggle.HitTest( m_mouseX, m_mouseY ),    m_vsyncToggle.HitTest( m_mouseX, m_mouseY ),
+                              m_hitboxToggle.HitTest( m_mouseX, m_mouseY ),  m_histogramToggle.HitTest( m_mouseX, m_mouseY ),
+                              m_timelineToggle.HitTest( m_mouseX, m_mouseY ) };
+        for ( int action = 0; action < 7; ++action )
         {
-            result.commands.renderer.toggleVsync = true;
-        }
-        else if ( m_hitboxToggle.HitTest( m_mouseX, m_mouseY ) )
-        {
-            SetHitboxOverlayEnabled( !m_hitboxOverlayEnabled );
-        }
-        else if ( m_histogramToggle.HitTest( m_mouseX, m_mouseY ) )
-        {
-            SetPerformanceHistogramEnabled( !ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
-        }
-        else if ( m_timelineToggle.HitTest( m_mouseX, m_mouseY ) )
-        {
-            SetProfilerTimelineEnabled( !ProfilerTab::TimelineEnabled( m_profilerTab ) );
+            if ( hits[action] )
+            {
+                ApplyFooterAction( action, result );
+                break;
+            }
         }
     }
     else
@@ -1630,8 +2082,10 @@ void UIWindowInteractionOwner::HandleWindowPress( const InputControl::UIInputSna
                                                   const WindowPointerLayout& layout, const WindowOptionView& options,
                                                   int screenW, int screenH, double now )
 {
-    if ( HandleWindowChromePress( result, layout, screenW, screenH, now ) ||
-         HandleOpenControlPress( result, layout, options ) ||
+    // Popups draw above the drawer title and tabs, so their selection or
+    // dismissal owns the press before any underlying chrome can act.
+    if ( HandleOpenControlPress( result, layout, options ) ||
+         HandleWindowChromePress( result, layout, screenW, screenH, now ) ||
          HandleDiagnosticTabPress( input, result, layout, options, now ) || HandlePresentationTabPress( result, layout ) )
     {
         return;
@@ -1661,14 +2115,91 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     m_mouseY = input.mouseY;
 
     m_lastScreenW = screenW;
+    m_tooltipGestureActive = input.leftDown || input.rightDown || input.middleDown || input.wheelDelta != 0;
     m_lastScreenH = screenH;
     const bool leftNow = input.leftDown;
+    const bool popupWasOpen = HasOpenPopup();
+
+    if ( m_presentationEnabled && m_presentation.workspace == Workspace::Scene && !m_interaction.isResizing &&
+         !m_editorMiniPalettePressActive &&
+         ( m_cameraModeCombo.IsOpen() ||
+           ( !HasOpenPopup() && ComputeHeaderRects( m_presentationRects.header ).camera.Contains( m_mouseX, m_mouseY ) ) ) )
+    {
+        const MinimizedControlResult camera = HandleMinimizedCameraMode( input, {}, false, cameraModeEnabledMask, result );
+        if ( camera.BlocksCamera() )
+        {
+            m_blocksCameraMouse = true;
+            result.unhandledWheelDelta = 0;
+            return result;
+        }
+    }
+    if ( m_presentationEnabled && m_presentation.workspace == Workspace::Scene && editorModeEnabled && !HasOpenPopup() &&
+         !m_interaction.isResizing )
+    {
+        const MinimizedControlResult palette = HandleEditorMiniPalette( input, screenW, screenH, {}, now, result );
+        if ( palette.BlocksCamera() || m_editorMiniPalettePressActive )
+        {
+            m_blocksCameraMouse = true;
+            result.unhandledWheelDelta = 0;
+            return result;
+        }
+    }
+    if ( HandleEditorDockInput( input, result ) )
+    {
+        return result;
+    }
+
+    if ( m_presentationEnabled && !popupWasOpen &&
+         ( m_presentationRects.replayControls.Contains( m_mouseX, m_mouseY ) ||
+           m_presentationRects.right.Contains( m_mouseX, m_mouseY ) ||
+           m_presentationRects.replayDetails.Contains( m_mouseX, m_mouseY ) ) &&
+         m_activeSlider == 0 && !m_interaction.isResizing )
+    {
+        result.unhandledWheelDelta = 0;
+        return result;
+    }
+
+    if ( m_presentationEnabled && !popupWasOpen &&
+         ( DiagnosticDetailsBounds( m_presentationRects.markerHistory ).Contains( m_mouseX, m_mouseY ) ||
+           DiagnosticDetailsBounds( m_presentationRects.memoryWaterline ).Contains( m_mouseX, m_mouseY ) ) &&
+         m_activeSlider == 0 && !m_interaction.isResizing )
+    {
+        result.unhandledWheelDelta = 0;
+        return result;
+    }
+
+    if ( m_presentationEnabled && m_interaction.isResizing )
+    {
+        m_blocksCameraMouse = true;
+        result.unhandledWheelDelta = 0;
+        if ( input.leftPressed )
+        {
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
+        }
+        if ( input.leftReleased )
+        {
+            m_interaction.isResizing = false;
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
+        }
+        return result;
+    }
+
+    if ( m_presentationEnabled && !popupWasOpen && m_presentationRects.header.Contains( m_mouseX, m_mouseY ) &&
+         m_activeSlider == 0 && !m_interaction.isDragging && !m_interaction.isResizing &&
+         !ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab ) )
+    {
+        // Presentation clicks do not enter the interactive scene or mutate
+        // simulation state. The router still observes mouse capture below.
+        result.unhandledWheelDelta = 0;
+        return result;
+    }
 
     // Concept: the standalone histogram remains interactive even when the main
     // diagnostics window is hidden, so it gets first chance at mouse input.
     const bool histogramWasInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
 
-    if ( ProfilerTab::HandlePerformanceHistogramInput( m_profilerTab, result, screenW, screenH, m_mouseX, m_mouseY, leftNow,
+    if ( ( !popupWasOpen || m_profilerTab.histogramSelectorOpen ) &&
+         ProfilerTab::HandlePerformanceHistogramInput( m_profilerTab, result, screenW, screenH, m_mouseX, m_mouseY, leftNow,
                                                        input.leftPressed, input.leftReleased, wheelDelta ) )
     {
         const bool histogramIsInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
@@ -1698,13 +2229,20 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     const int minH = 250;
     const int margin = 10;
 
-    if ( !m_window.hasAppliedDefaultPlacement )
+    if ( !m_presentationEnabled && !m_window.hasAppliedDefaultPlacement )
     {
         Chrome::ApplyDefaultWindowPlacement( m_window, screenW, screenH );
     }
 
-    Chrome::ClampWindowToScreen( m_window, screenW, screenH, minW, minH, margin );
+    if ( !m_presentationEnabled )
+    {
+        Chrome::ClampWindowToScreen( m_window, screenW, screenH, minW, minH, margin );
+    }
 
+    if ( m_presentationEnabled && m_window.isMinimized )
+    {
+        return result;
+    }
     if ( m_window.isMinimized )
     {
         return HandleMinimizedInput( input, screenW, screenH, now, editorModeEnabled, placementModeEnabled,
@@ -1743,7 +2281,8 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     }
 
     m_scrollY = std::clamp( m_scrollY, 0.0f, layout.maxScroll );
-    m_blocksCameraMouse = layout.inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0;
+    m_blocksCameraMouse = layout.inside || popupWasOpen || m_interaction.isDragging || m_interaction.isResizing ||
+                          m_activeSlider != 0;
 
     return result;
 }

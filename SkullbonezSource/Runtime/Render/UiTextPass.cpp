@@ -248,7 +248,10 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
     constexpr float TOP_RIGHT_BADGE_MARGIN = 12.0f;
 
     constexpr float TOP_RIGHT_BADGE_GAP = 6.0f;
-    float topRightBadgeY = TOP_RIGHT_BADGE_MARGIN;
+    const UI::UIRect content = values.contentBounds.w >= 0.0f ? values.contentBounds
+                                                              : UI::UIRect { 0, 0, static_cast<float>( viewport.screenW ),
+                                                                             static_cast<float>( viewport.screenH ) };
+    float topRightBadgeY = content.y + TOP_RIGHT_BADGE_MARGIN;
     m_badgeDrawList.Clear();
     const SkullbonezCore::UI::UIDrawContext badgeDraw( (std::max)( 1, viewport.screenW ), (std::max)( 1, viewport.screenH ),
                                                        m_badgeDrawList );
@@ -260,7 +263,7 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
             return;
         }
 
-        const int screenW = (std::max)( 1, viewport.screenW );
+        const float availableW = (std::max)( 0.0f, content.w - 24.0f );
         const SkullbonezCore::UI::UIDrawContext& draw = badgeDraw;
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
@@ -298,10 +301,10 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
         const float contentW = (std::max)( Text2d::MeasureText( titlePx, sceneLine ),
                                            Text2d::MeasureText( valuePx, stateLine ) );
 
-        const float availableW = (std::max)( 80.0f, static_cast<float>( screenW ) - 24.0f );
+
         const float panelW = (std::min)( availableW, contentW + padX * 2.0f + 4.0f );
         const float panelH = 38.0f;
-        const float x = static_cast<float>( screenW ) - TOP_RIGHT_BADGE_MARGIN - panelW;
+        const float x = content.x + content.w - TOP_RIGHT_BADGE_MARGIN - panelW;
         const float y = topRightBadgeY;
 
         SkullbonezCore::UI::Widgets::DrawPanel( draw, { x, y, panelW, panelH },
@@ -338,7 +341,7 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
             return;
         }
 
-        const int screenW = (std::max)( 1, viewport.screenW );
+        const float availableW = (std::max)( 0.0f, content.w - 24.0f );
         const SkullbonezCore::UI::UIDrawContext& draw = badgeDraw;
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
@@ -374,10 +377,10 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
         const float lineGap = 14.0f;
         const float textW = (std::max)( Text2d::MeasureText( titlePx, modeLine ), Text2d::MeasureText( detailPx, detail ) );
 
-        const float availableW = (std::max)( 80.0f, static_cast<float>( screenW ) - 24.0f );
+
         const float panelW = (std::min)( availableW, textW + padX * 2.0f + 4.0f );
         const float panelH = 34.0f;
-        const float x = static_cast<float>( screenW ) - TOP_RIGHT_BADGE_MARGIN - panelW;
+        const float x = content.x + content.w - TOP_RIGHT_BADGE_MARGIN - panelW;
         const float y = topRightBadgeY;
 
         SkullbonezCore::UI::Widgets::DrawPanel( draw, { x, y, panelW, panelH },
@@ -401,8 +404,8 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
         const SkullbonezCore::UI::UIDrawContext& draw = badgeDraw;
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
 
-        constexpr float x = 16.0f;
-        constexpr float y = 16.0f;
+        const float x = content.x + 16.0f;
+        const float y = content.y + 16.0f;
         constexpr float panelW = 286.0f;
         constexpr float panelH = 42.0f;
 
@@ -411,8 +414,8 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
                                                     SkullbonezCore::UI::UIVisualState::Enabled,
                                                 SkullbonezCore::UI::Widgets::ComponentAppearance::Compact, 0.88f );
 
-        constexpr float dotX = x + 8.0f;
-        constexpr float dotY = y + 8.0f;
+        const float dotX = x + 8.0f;
+        const float dotY = y + 8.0f;
         constexpr float dotSize = 12.0f;
         const bool failed = values.interactionFailure[0] != '\0';
         const bool playing = values.interactionPlayback && !failed;
@@ -453,9 +456,11 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const UiChr
         }
     };
 
+    badgeDraw.PushClip( content );
     renderScenePauseBadge();
     renderRuntimeModeBadge();
     renderInteractionIndicator();
+    badgeDraw.PopClip();
 
     if ( !m_badgeDrawList.Empty() )
     {

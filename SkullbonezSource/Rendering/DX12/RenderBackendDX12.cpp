@@ -596,8 +596,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
         return gpuTimerResult;
     }
 
-    m_pipelineOwner.SetViewport( { 0.0f, 0.0f, static_cast<float>( width ), static_cast<float>( height ), 0.0f, 1.0f },
-                                 { 0, 0, static_cast<LONG>( width ), static_cast<LONG>( height ) } );
+    m_frameOwner.SetPresentationViewport( 0, 0, width, height );
 
     m_pipelineOwner.SetCurrentTargets( m_descriptorHeaps.BackBufferRtv( m_frameOwner.FrameIndex() ),
                                        m_descriptorHeaps.MainDsv() );
@@ -1456,8 +1455,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
         oldDepth->Release();
     }
 
-    m_pipeline.SetViewport( { 0.0f, 0.0f, static_cast<float>( width ), static_cast<float>( height ), 0.0f, 1.0f },
-                            { 0, 0, static_cast<LONG>( width ), static_cast<LONG>( height ) } );
+    SetPresentationViewport( 0, 0, width, height );
 
     m_pipeline.SetCurrentTargets( m_descriptors.BackBufferRtv( FrameIndex() ), m_descriptors.MainDsv() );
     const uint64_t recreationGeneration = m_device.PublishResizedExtent( width, height );
@@ -1480,6 +1478,19 @@ void Dx12FrameOwner::SetViewport( int x, int y, int w, int h )
                               static_cast<float>( h ), 0.0f, 1.0f },
                             { static_cast<LONG>( x ), static_cast<LONG>( y ), static_cast<LONG>( x + w ),
                               static_cast<LONG>( y + h ) } );
+}
+
+void Dx12FrameOwner::SetPresentationViewport( int x, int y, int width, int height )
+{
+    m_presentationViewport = { x, y, x + width, y + height };
+    RestorePresentationViewport();
+}
+
+void Dx12FrameOwner::RestorePresentationViewport()
+{
+    SetViewport( m_presentationViewport.left, m_presentationViewport.top,
+                 m_presentationViewport.right - m_presentationViewport.left,
+                 m_presentationViewport.bottom - m_presentationViewport.top );
 }
 
 

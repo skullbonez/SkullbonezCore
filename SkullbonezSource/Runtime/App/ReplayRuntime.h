@@ -461,6 +461,10 @@ struct ReplayInteractionRecordingCauseState
 #if defined( SKULLBONEZ_SKARNESS )
 struct ReplaySkarnessState
 {
+    int memoryPreset = 0;
+    int memoryRetentionSeconds = 0;
+    int memoryBudgetMiB = 0;
+    double predictionRevealRate = 1.0;
     ReplayInputView input;
     bool predictionBuilding = false;
     bool predictionComplete = false;
@@ -550,6 +554,8 @@ class ReplayRuntime
 
     // Publishes scalar input decisions without exposing replay owner storage.
     ReplayInputView BuildInputView() const noexcept;
+    bool CauseFilterHasKeyboardFocus() const noexcept;
+    void RestoreEvidenceSummarySection( int section ) noexcept;
     const RunReplayCauseTreeState& CauseTree() const noexcept;
     ReplayCauseInspectionView CauseInspectionView() const noexcept;
 #if defined( SKULLBONEZ_SKARNESS )
@@ -567,7 +573,7 @@ class ReplayRuntime
     ReplayOverlay::ReplayOverlayStateView
     BuildOverlayStateView( bool editorModeEnabled, bool uiVisible, bool uiMinimized, RuntimeInteractionGestureKind gesture,
                            std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                           const Physics::PhysicsBodyStore& bodyStore );
+                           const Physics::PhysicsBodyStore& bodyStore, bool sharedSurface = false );
     const UI::UIDrawList& ComposeOverlayDrawList( const ReplayOverlay::ReplayOverlayStateView& replay,
                                                   bool gameUiSurfaceActive, bool scenePhysicsEnabled,
                                                   RuntimeInteractionGestureKind gesture,
@@ -621,6 +627,7 @@ class ReplayRuntime
                           const Math::Vector::Vector3& angularVelocity ) noexcept;
     bool CommitVelocityPreview() noexcept;
     bool CancelVelocityPreview( Physics::PhysicsEngine& physics ) noexcept;
+    void CancelUncommittedTripPlan( Physics::PhysicsEngine& physics );
     bool SeekReplayFrame( ReplayFrameIndex frame, RuntimeInteractionController& interaction, double now,
                           ReplayWorkspaceOutput& output, ReplayFrameIndex& appliedFrame );
 
@@ -812,8 +819,8 @@ class ReplayRuntime
     void UpdatePrediction( Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
                            const SceneEntityStore& entities, const SkullbonezCore::Core::EngineConfig& config,
                            const Physics::PhysicsWorldForces& worldForces, ReplayPredictionPathPresentation pathPresentation,
-                           Threading::WorkerPool& workerPool, bool scenePhysicsEnabled, double simulationTimeSinceLastStart,
-                           double simulationTotalTime );
+                           Threading::WorkerPool& workerPool, bool scenePhysicsEnabled, bool liveAdvancing,
+                           double simulationTimeSinceLastStart, double simulationTotalTime );
 
     // Appends replay-owned records after RuntimeTools has rebuilt the shared
     // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.
@@ -916,7 +923,7 @@ class ReplayRuntime
   private:
     float SolverPresentTrackPosition() const;
     bool ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized,
-                               RuntimeInteractionGestureKind gesture ) const;
+                               RuntimeInteractionGestureKind gesture, bool sharedSurface = false ) const;
     bool HasLoadedPresentation() const;
     const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
     const ReplayPresentationSample* LoadedPresentationLatestSample() const;

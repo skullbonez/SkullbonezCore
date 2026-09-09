@@ -543,6 +543,7 @@ class Dx12PipelineOwner
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat );
     void SetViewport( const D3D12_VIEWPORT& viewport, const D3D12_RECT& scissor );
+    void SetScissor( const D3D12_RECT& scissor );
     const D3D12_VIEWPORT& CurrentViewport() const
     {
         return m_viewport;
@@ -622,6 +623,7 @@ class Dx12GeometryOwner
 {
   public:
     Dx12GeometryOwner();
+    void SetScissor( const D3D12_RECT& scissor );
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices );
     void UploadAndDrawDynamicVB( uint32_t handle, std::span<const float> packedVertices, D3D12_GPU_VIRTUAL_ADDRESS address,
                                  uint8_t* uploadPointer, ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,

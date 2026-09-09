@@ -476,7 +476,11 @@ RuntimeInputSnapshot InputRouter::BuildRuntimeSnapshot( const RuntimeInteraction
     snapshot.pointer.shiftDown = m_deviceFrame.keys.IsDown( VK_SHIFT );
     snapshot.pointer.uiWantsNativeMouseCursor = m_uiSnapshot.wantsNativeCursor;
     snapshot.pointer.uiBlocksCameraMouse = m_uiSnapshot.blocksCameraMouse;
-    snapshot.pointer.suppressWorldAction = suppressWorldAction;
+    // A shell press is consumed even when it changes presentation only. A
+    // missing world ray must not become Replay's intentional empty-world click.
+    // Existing captured drags still receive their move and release events.
+    snapshot.pointer.suppressWorldAction = suppressWorldAction ||
+                                           ( m_uiSnapshot.blocksCameraMouse && m_uiSnapshot.mouse.leftPressed );
 
     if ( m_uiSnapshot.mouse.leftPressed || m_uiSnapshot.mouse.leftReleased || m_uiSnapshot.mouse.leftDown )
     {

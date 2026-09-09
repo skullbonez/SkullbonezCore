@@ -1688,13 +1688,16 @@ bool InputRouter::TryBuildWorldRay( const Environment::CameraCollection& cameras
 bool InputRouter::TryBuildWorldRayAt( POINT mouse, const Environment::CameraCollection& cameras, const Window& window,
                                       Vector3& outOrigin, Vector3& outDirection, bool clampToViewport ) const
 {
-    const int screenW = (std::max)( 1, window.ClientWidth() );
-    const int screenH = (std::max)( 1, window.ClientHeight() );
+    const RECT viewport = window.PresentationViewport();
+    const int screenW = viewport.right - viewport.left;
+    const int screenH = viewport.bottom - viewport.top;
+    mouse.x -= viewport.left;
+    mouse.y -= viewport.top;
 
     if ( clampToViewport )
     {
         // Invariant: Captured tool drags keep receiving mouse positions after
-        // the cursor leaves the client area. Clamp those positions to the
+        // the cursor leaves the presentation rectangle. Clamp positions to the
         // nearest viewport edge so drag math remains continuous instead of
         // dropping frames and jumping when the cursor re-enters.
         mouse.x = std::clamp<LONG>( mouse.x, 0L, static_cast<LONG>( screenW - 1 ) );

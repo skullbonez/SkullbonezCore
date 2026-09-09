@@ -1,28 +1,4 @@
-/*
-File: SkullbonezSource/Runtime/Planning/ReplayTripPlanner.cpp
-Purpose:
-  Implements bounded trip-planner command, shooting, and ghost-arc behavior.
-
-Summary:
-  A Lambert solve creates the first heliocentric candidate. Completed engine
-  predictions then either prove the intercept or produce one first-order
-  correction, with a strict four-generation cap and honest recoverable failure.
-
-Glossary:
-  Live input: One copied snapshot of the sun, ship, target, and scene policy.
-  Published generation: Completed isolated-engine prediction inspected once.
-
-Invariants:
-  - Failed analytic solves and non-improving misses never mutate output values.
-  - A prediction generation is observed at most once.
-  - Ghost retention scans a completed frame span synchronously and retains only
-    fixed downsampled positions.
-
-Related:
-  - SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h
-  - SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.cpp
-  - Agentic/Reference/engine-glossary.md
-*/
+// Bounded Lambert candidates are accepted only after completed engine predictions.
 #include "ReplayTripPlanner.h"
 
 #include <algorithm>
@@ -78,11 +54,12 @@ bool ReplayTripPlanner::QueueCommand( const ReplayTripPlannerCommand& command ) 
 
 ReplayTripPlannerVelocityMutation ReplayTripPlanner::BeginFrame( const ReplayTripPlannerLiveInput& input ) noexcept
 {
+    m_view.liveAdvancing = input.liveAdvancing;
     m_view.available = input.mutualGravityEnabled && input.targetSelected && ValidPlannerBody( input.sun ) &&
                        ValidPlannerBody( input.ship ) && ValidPlannerBody( input.target ) &&
                        input.ship.id.value != input.target.id.value && input.gravitationalConstant > 0.0f;
 
-    if ( ( input.liveAdvanceHeld || !m_view.available ) && PlanningState( m_view.state ) )
+    if ( ( input.liveAdvancing || !m_view.available ) && PlanningState( m_view.state ) )
     {
         // Invariant: losing the planning preconditions is cancellation, not an
         // implicit commit of the last candidate already applied to live Physics.
@@ -167,6 +144,11 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::BeginPlan( const ReplayTrip
 {
     ReplayTripPlannerVelocityMutation mutation;
 
+    if ( input.liveAdvancing )
+    {
+        return mutation;
+    }
+
     if ( !m_view.available || input.predictionHorizonSeconds < REPLAY_TRIP_PLANNER_MIN_TOF_SECONDS )
     {
         Fail();
@@ -249,7 +231,7 @@ ReplayTripPlanner::ObservePrediction( const ReplayTripPlannerPredictionInput& in
 {
     ReplayTripPlannerVelocityMutation mutation;
 
-    if ( input.cancelled || input.liveAdvanceHeld || !input.targetAvailable || input.shipId.value != m_view.shipId.value ||
+    if ( input.cancelled || input.liveAdvancing || !input.targetAvailable || input.shipId.value != m_view.shipId.value ||
          input.targetId.value != m_view.targetId.value )
     {
         if ( PlanningState( m_view.state ) )
@@ -262,6 +244,15 @@ ReplayTripPlanner::ObservePrediction( const ReplayTripPlannerPredictionInput& in
 
     if ( m_view.state != ReplayTripPlannerState::AwaitingPrediction || !input.complete || !input.intercept.valid ||
          input.generation == 0 || input.generation == m_lastObservedGeneration )
+    {
+        return mutation;
+    }
+
+    // Invariant: retained presentation may still expose the previous candidate while
+    // its replacement builds. Only a frame-zero snapshot of this velocity is evidence.
+    const auto* source = input.frames.empty() ? nullptr : FindPlannerPredictionBody( input.frames.front(), input.shipId );
+    if ( !source || input.frames.front().frameIndex != 0 || source->linearVelocity.x != m_view.candidateVelocity.x ||
+         source->linearVelocity.y != m_view.candidateVelocity.y || source->linearVelocity.z != m_view.candidateVelocity.z )
     {
         return mutation;
     }

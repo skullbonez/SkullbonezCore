@@ -477,19 +477,6 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame || facts.externalUiCapture.mouse;
     result.frameActive = true;
 
-    if ( ComparisonUiActive() )
-    {
-        UiInputHitSnapshot snapshot;
-        snapshot.mouse = m_inputRouter.UiSnapshot().mouse;
-        snapshot.blocksKeyboard = true;
-        snapshot.blocksCameraMouse = true;
-        snapshot.wantsNativeCursor = true;
-        m_inputRouter.PublishUiSnapshot( snapshot );
-        result.suppressWorldActionThisFrame = true;
-        runtimeInput.BeginFrame( true, true, true );
-        return result;
-    }
-
     m_operatorUi->SceneNavigation().browser.selectedSceneIndex = m_operatorUi->SceneNavigation().browser.CurrentIndexForPath(
         m_sceneController.CurrentPath() );
     const HWND windowHandle = m_window.NativeWindowHandle();
@@ -545,22 +532,52 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
     // the completed interaction policy exists. Publish current post-UI pointer
     // and key facts now; RunInputPhase republishes the final policy facts below.
     m_inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput {}, result.suppressWorldActionThisFrame );
+    if ( ComparisonUiActive() )
+    {
+        result.suppressWorldActionThisFrame = true;
+        runtimeInput.BeginFrame( true, true, true );
+        return result;
+    }
     m_replayRuntime
         .TickWorkspace( ReplayWorkspaceFrameInput { windowHandle,
                                                     m_operatorUi->BlocksCameraMouse() || facts.externalUiCapture.mouse,
-                                                    facts.gameUiActive, result.editorUnhandledWheelDelta, replayPointerRay,
-                                                    facts.replayCurrentCameraMode, facts.replayRestoreCameraMode,
-                                                    m_attachedCamera.State().activeFollow, m_camera.director.grabbed,
+                                                    facts.gameUiActive,
+                                                    m_operatorUi->PresentationBounds()
+                                                            .causeControls.Contains( deviceFrame.clientX,
+                                                                                     deviceFrame.clientY )
+                                                        ? deviceFrame.wheelDelta
+                                                        : result.editorUnhandledWheelDelta,
+                                                    replayPointerRay,
+                                                    facts.replayCurrentCameraMode,
+                                                    facts.replayRestoreCameraMode,
+                                                    m_attachedCamera.State().activeFollow,
+                                                    m_camera.director.grabbed,
                                                     m_editorTools.Editor().editorModeEnabled,
-                                                    m_sceneController.State().isScenePhysics, m_operatorUi->IsVisible(),
+                                                    m_sceneController.State().isScenePhysics,
+                                                    m_operatorUi->IsVisible(),
                                                     m_operatorUi->IsMinimized(),
                                                     m_inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ),
-                                                    m_window.ClientWidth(), m_window.ClientHeight(),
-                                                    m_camera.mouseRadiansPerPixel, m_timers.SimulationTotalSeconds(),
-                                                    facts.requestedReplayCauseRow },
+                                                    m_window.ClientWidth(),
+                                                    m_window.ClientHeight(),
+                                                    m_camera.mouseRadiansPerPixel,
+                                                    m_timers.SimulationTotalSeconds(),
+                                                    facts.requestedReplayCauseRow,
+                                                    m_operatorUi->SharedPresentationEnabled()
+                                                        ? m_operatorUi->PresentationBounds().transport
+                                                        : UI::UIRect {},
+                                                    m_operatorUi->PresentationBounds().replayControls,
+                                                    m_operatorUi->PresentationBounds().replayScroll,
+                                                    m_operatorUi->BlocksReplayMouse() || facts.externalUiCapture.mouse,
+                                                    m_operatorUi->PresentationBounds().causeControls,
+                                                    m_operatorUi->BlocksCauseMouse() || facts.externalUiCapture.mouse,
+                                                    m_operatorUi->PresentationBounds().statusContent },
                         m_inputRouter, m_interaction, m_sceneController.Scene(), m_camera, m_attachedCamera,
                         m_runtimeTools.MousePickup(), result.replayWorkspace );
 
+    if ( result.replayWorkspace.loadPresentationRequested )
+    {
+        ApplyReplayTransportCommand( result, facts, ReplayLoadCommand {} );
+    }
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;
     runtimeInput.BeginFrame( true,
@@ -657,7 +674,16 @@ void Run::ApplyReplayTransportCommand( RuntimeUIFrameResult& result, const Runti
             }
             else if constexpr ( std::is_same_v<Command, ReplayLoadCommand> )
             {
-                const ReplayTransportLoadResult load = m_replayRuntime.BeginTransportLoad( typedCommand,
+                ReplayLoadCommand loadCommand = typedCommand;
+#if defined( SKULLBONEZ_SKARNESS )
+                bool accepted = false;
+                if ( loadCommand.path[0] == '\0' &&
+                     m_skarness.TakeFileDialogResponse( "replay.load", loadCommand.path, accepted ) && !accepted )
+                {
+                    return;
+                }
+#endif
+                const ReplayTransportLoadResult load = m_replayRuntime.BeginTransportLoad( loadCommand,
                                                                                            m_window.NativeWindowHandle(),
                                                                                            now );
 
@@ -1242,6 +1268,10 @@ void Run::ApplySkarnessSceneLifecycleCommand( const SkarnessCommand& command, Sk
 
     switch ( command.type )
     {
+    case SkarnessCommandType::WindowResize:
+        application.applied = m_window.RequestClientSize( command.integer, command.secondInteger );
+        application.reason = application.applied ? nullptr : "native window rejected client resize";
+        return;
     case SkarnessCommandType::CaptureScreenshot:
     {
         const uint64_t token = m_skarness.BeginCapture( command.requestId );
@@ -1990,6 +2020,12 @@ void Run::ApplyWorldAndCinematicCommands( RuntimeUIFrameResult& result, const Sk
     {
         result.status = sceneCommands.status;
         return;
+    }
+    if ( sceneCommands.selectScene || sceneCommands.loadDemoScene || sceneCommands.createScene || sceneCommands.resetScene ||
+         sceneCommands.resetSceneDefaults )
+    {
+        m_operatorUi->SetPresentationWorkspace( UI::GameLayout::Workspace::Scene );
+        SyncComparisonWorkspace();
     }
     RecordSceneUIActions( sceneCommands, recordUiAction );
     LoadSolverLab( commands.scene.solverLab );

@@ -673,8 +673,7 @@ void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGrap
 
     data.state->volumetricRendered = data.pass->Render( *data.camera, *data.cinematic, *data.renderGeometry,
                                                         *data.renderTextures, *data.renderFrame, *data.renderGraph,
-                                                        *data.renderDiagnostics, data.gpuTiming, data.windowWidth,
-                                                        data.windowHeight, graphOutput );
+                                                        *data.renderDiagnostics, data.gpuTiming, graphOutput );
 }
 
 void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
@@ -729,8 +728,7 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
     }
 
     data.pass->Render( *data.cinematic, *data.renderGeometry, *data.renderTextures, *data.renderFrame,
-                       *data.renderDiagnostics, data.gpuTiming, data.windowWidth, data.windowHeight, true,
-                       data.state->volumetricRendered, graphVolumetric );
+                       *data.renderDiagnostics, data.gpuTiming, true, data.state->volumetricRendered, graphVolumetric );
 }
 
 void WriteCinematicPostGraphEvidence(
@@ -1553,6 +1551,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 int RuntimeRenderer::BeginUiTextFrame( const UiTextViewport& viewport )
 {
     Rendering::Dx12Diagnostics& diagnostics = m_resources.RenderDiagnostics();
+    m_resources.RenderFrame().SetViewport( 0, 0, viewport.screenW, viewport.screenH );
     m_resources.UiText().BeginFrame( viewport.screenW, viewport.screenH );
     return diagnostics.GetFrameDrawCallCount();
 }
@@ -1926,8 +1925,10 @@ RuntimeRenderer::WorldOverlayTransaction RuntimeRenderer::RenderWorldFrame( cons
     Rendering::Dx12Diagnostics& renderDiagnostics = m_resources.RenderDiagnostics();
 
     const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && !policy.textOnly;
-    const int windowWidth = (std::max)( 1, m_window.ClientWidth() );
-    const int windowHeight = (std::max)( 1, m_window.ClientHeight() );
+    const RECT viewport = m_window.PresentationViewport();
+    const int windowWidth = viewport.right - viewport.left;
+    const int windowHeight = viewport.bottom - viewport.top;
+    renderFrame.SetPresentationViewport( viewport.left, viewport.top, windowWidth, windowHeight );
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         EnsureFrameResources( world.cinematicRequested, windowWidth, windowHeight );

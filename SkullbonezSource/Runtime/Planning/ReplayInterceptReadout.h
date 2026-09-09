@@ -72,7 +72,6 @@ struct ReplayInterceptUpdateInput
 class ReplayInterceptReadout
 {
   public:
-
     // Selection retains durable scene identity; the model row is a repairable
     // hint that the Runtime composition boundary refreshes after topology work.
     void SetTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow ) noexcept;
@@ -98,6 +97,7 @@ class ReplayInterceptReadout
     uint32_t m_scanGeneration = 0;
     uint32_t m_scanTopologyVersion = 0;
     std::size_t m_scannedFrameCount = 0;
+    const RunReplayPredictionFrame* m_scanFrameBank = nullptr;
     bool m_scanUsingBuildFrames = false;
     bool m_scanKeyValid = false;
     ReplayInterceptView m_view;

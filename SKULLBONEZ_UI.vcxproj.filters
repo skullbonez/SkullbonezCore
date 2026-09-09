@@ -28,6 +28,7 @@
     <ClCompile Include="SkullbonezSource\UI\UIStyle.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UITabBar.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UITooltip.cpp"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h"><Filter>Header Files</Filter></ClInclude>
@@ -49,5 +50,6 @@
     <ClInclude Include="SkullbonezSource\UI\UIStyle.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UITabBar.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UITooltip.h"><Filter>Header Files</Filter></ClInclude>
   </ItemGroup>
 </Project>

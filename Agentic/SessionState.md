@@ -1,28 +1,36 @@
 # Session State
 
 Date: 2026-09-09
-Branch: `codex/unified-ui` (new branch from clean main)
-Status: Unified UI implemented; independent follow-up review and terminal gates remain open. UNIFIED_UI 0/8 provisional; portfolio 146/162.
+Branch: `codex/unified-ui`
+Status: Unified UI complete at 8/8; portfolio 146/154. Closure is committed on this branch.
 
 ## Unified UI current handoff - 2026-09-09
 
-UNIFIED_UI is implemented and in terminal review/validation, 0/8 provisionally
-accepted; MASTER progress is 146/162. See TODO/unified-ui.md and its complete
-control inventory for current evidence. Earlier dated checkpoints below are
-historical and do not supersede this handoff.
+UNIFIED_UI is complete at 8/8. MASTER and this handoff both report 146/154 after
+removing the completed plan and checklist from the live inventory. The approved
+contract and full control inventory remain in Git history at `7d0b347fe`.
+Canvas/Editor and Scene/Solver Lab now share the shell and authoritative viewport.
+All Tools, editor, replay/evidence, planning and comparison controls have native
+coverage, including short panes, dialogs, persistence and retained Lab lifetime.
 
-Final native checks pass for catalogs/dialogs/configuration, short Causes inner
-scrolling and later hierarchy selection, 320x240 Lab events/transport/popups,
-diagnostic retention and popup dismissal, and planning at four widths. The
-unchanged solar-system planner probe now passes eight assertions after actual
-physics advancement and prediction-bank identity repairs. Whole-diff source
-design and focused checks pass; all physics/replay/visual baselines are preserved.
-Independent integrated-review findings are repaired; follow-up review and
-terminal mapped gates remain open. No commit or push has been made.
+Independent implementation review and separately reviewed UI references are
+clean. All mapped terminal checks pass after repairing the initial preflight
+format/filter failures and completing the remaining gates individually. The
+original failed `agent_validate --plan-completion` log remains preserved; this
+handoff does not claim that invocation passed. Final units: 988 cases and
+2,731,966 assertions. Skarness: all fifteen prediction scenes pass. Physics,
+Replay visual fidelity, DX12, coverage, UI/runtime/scene/architecture suites,
+source design and bounded graphics stress pass. See MASTER's Unified UI Closure
+and `TestOutput/unified-terminal-*` for exact evidence. Only approved UI regions
+and fingerprints changed; all world-reference, Physics, Replay and evidence
+pixels/data are preserved. The non-blocking frame-spike diagnostic missed its
+fixed-frame completion assertions; tracing proves the click starts prediction
+and work continues at frame 900. No frame-time conclusion is claimed.
 
-The ledger cannot start with unconfigured model pricing. Preserve its unrelated
-active task and do not invent token counts, timings or costs. Logs are under
-TestOutput, native streams/screenshots under TestOutput/skarness.
+The live ledger cannot start with unconfigured verified model pricing. Its
+unrelated active task remains untouched; token splits, costs and completion-ledger
+HTML/PNG are unavailable. Logs and native streams preserve available evidence.
+Earlier dated checkpoints below are historical and do not supersede this handoff.
 
 ## Final causal layout and commit-all closure (2026-09-08)
 
@@ -348,12 +356,11 @@ passed on FP5. Fresh runs will be dispatched after the FP6 push.
 
 ## Current State
 
-Current objective: finish TODO/unified-ui.md on codex/unified-ui.
-Plan progress: 0/8 provisional; portfolio progress: 146/162.
-Next binding task: UU7 terminal review and mapped validation, then acceptance of
-the eight integrated phases. PHYSICS_AB AB1-AB6 and RAGDOLL_PHYSICS FP8-FP9 follow
-in MASTER order and are outside this UI goal. The live ledger limitation and
-current native evidence are recorded at the top of this file.
+Current objective: Unified UI goal complete on codex/unified-ui.
+Plan progress: UNIFIED_UI 8/8 closed; portfolio progress: 146/154.
+Next binding task: PHYSICS_AB AB1 (independent capture), then AB2-AB6 and
+RAGDOLL_PHYSICS FP8-FP9 in MASTER order. Those plans are outside this UI goal.
+The live ledger limitation and final evidence are recorded at the top of this file.
 
 The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish
 the plan without stopping. The bootstrap checkpoint repairs prediction

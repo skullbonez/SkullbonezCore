@@ -153,7 +153,7 @@ void DrawLabelValueAt( const UIDrawContext& draw, float contentY, float contentH
 void DrawSectionTitle( const UIDrawContext& draw, float contentX, float contentY, float contentH, float rowY, float textSize,
                        const char* text );
 void DrawContentToggle( const UIDrawContext& draw, float contentY, float contentH, UICheckBox& toggle, float tx, float rowY,
-                        float controlW, const char* label, bool checked );
+                        float controlW, const char* label, bool checked, bool enabled = true );
 
 void DrawFooterStatCell( const UIDrawContext& draw, float tx, float bottomY, const char* name, const char* value, float r,
                          float g, float b );

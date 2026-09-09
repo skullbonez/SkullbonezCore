@@ -33,6 +33,7 @@ Related:
 #include "../../Scene/SceneNavigationModel.h"
 #include "../../../UI/UIState.h"
 #include "../../../UI/UITabBar.h"
+#include "../../../UI/UITooltip.h"
 #include "UITabCinematic.h"
 #include "UITabControls.h"
 #include "UITabEditor.h"
@@ -74,6 +75,9 @@ class UIWindowInteractionOwner
     InGameUITab GetActiveTab() const;
     void CancelInputCapture();
     bool BlocksCameraMouse() const;
+    bool BlocksReplayMouse() const;
+    bool BlocksCauseMouse() const;
+    bool HasOpenPopup() const;
     bool BlocksKeyboard() const;
     bool WantsNativeMouseCursor() const;
     void SetWindowBounds( int x, int y, int width, int height );
@@ -103,6 +107,7 @@ class UIWindowInteractionOwner
     void SetMouseOverride( bool enabled, int x, int y );
     void ResetPresentationResources();
     int ContentHeight() const;
+    void UpdatePresentationInput( const InputControl::UIInputSnapshot& input, int width, int height, bool enabled );
 
     // Returns the optional deterministic pointer substitution as a detached
     // value; Runtime applies it while copying the sampled input snapshot.
@@ -122,6 +127,23 @@ class UIWindowInteractionOwner
 #endif
 
     const UIDrawList& Draw( const InGameUIFrameData& data );
+    void DrawTooltips( const InGameUIFrameData& data );
+    UITooltipTarget FindToolsTooltip( const UIRect& content ) const;
+    UITooltipTarget FindRenderTooltip() const;
+    void DrawPresentationHeader( const InGameUIFrameData& data );
+    void DrawPresentationDocks( const InGameUIFrameData& data );
+    void DrawEditorDock( const InGameUIFrameData& data );
+    FrameComposition::EditorMiniPaletteLayout PresentedEditorPalette() const;
+    void DrawPresentedEditorPalette( const InGameUIFrameData& data );
+    void UpdateDockPresentationInput( const InputControl::UIInputSnapshot& input );
+    bool HandleEditorDockInput( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result );
+    void UpdateToolsDrawerBounds( const InputControl::UIInputSnapshot& input, int width, int height );
+    void DrawToolsDrawerChrome( const UIDrawContext& draw, const UIRect& bounds );
+    void DrawDiagnosticLinks( const InGameUIFrameData& data );
+    GameLayout::PresentationState m_presentation;
+    GameLayout::PresentationRects m_presentationRects;
+    bool m_presentationEnabled = false;
+    bool m_presentationPointerBlocked = false;
     void DrawMinimizedContent( const InGameUIFrameData& data, UIDrawList& drawList, int screenW, int screenH );
     void DrawRenderTabContent( const InGameUIFrameData& data, const UIDrawContext& draw, const UIRect& content,
                                float scrolledY );
@@ -153,6 +175,7 @@ class UIWindowInteractionOwner
     struct WindowPointerLayout
     {
         UIRect hitBounds;
+        GameLayout::ToolsChromeRects chrome;
         int inputX = 0;
         int inputY = 0;
         int inputW = 1;
@@ -229,9 +252,17 @@ class UIWindowInteractionOwner
     UIWindowState m_window;
     UIInteractionState m_interaction;
     bool m_blocksCameraMouse = false;
+    UITooltip m_tooltip;
+    bool m_tooltipGestureActive = false;
     bool m_blurPreviewEnabled = false;
     InGameUITab m_activeTab;
     UITabBar m_tabBar;
+    UIComboBox m_toolsTabCombo;
+    UIComboBox m_toolsDisplayCombo;
+    void PrepareCompactToolsControls( const GameLayout::ToolsChromeRects& chrome );
+    void ApplyFooterAction( int action, InGameUIInputResult& result );
+    UIRect DrawCompactToolsFooter( const InGameUIFrameData& data, const UIDrawContext& draw,
+                                   const GameLayout::ToolsChromeRects& chrome );
     UICheckBox m_blurToggle;
     UICheckBox m_vsyncToggle;
     UICheckBox m_timelineToggle;
@@ -286,6 +317,7 @@ class UIWindowInteractionOwner
     int m_editorMiniPalettePressedHoldMode = 0;
     double m_editorMiniPalettePressStart = 0.0;
     UIDrawList m_frameDrawList;
+    UIDrawList m_foregroundDrawList;
     UIDrawList m_histogramDrawList;
     UIDrawList m_memoryOverlayDrawList;
 };

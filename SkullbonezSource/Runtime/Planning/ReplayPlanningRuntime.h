@@ -89,8 +89,16 @@ class ReplayPlanningRuntime
                                                   ReplayOverlay::ReplayOverlayViewport viewport, double nowSeconds );
 
     // Returns whether either visible planning surface owns the pointer.
-    bool TickPointerSurface( bool uiBlocksMouse, int screenWidth, int clientX, int clientY, bool hasClientPosition,
-                             bool leftPressed );
+    bool TickPointerSurface( const UI::UIRect& viewport, bool uiBlocksMouse, int clientX, int clientY,
+                             bool hasClientPosition, bool leftPressed, int wheelDelta, bool baselineReady );
+    UI::UIDrawList::Stats OverlayDrawStats() const noexcept
+    {
+        return m_overlayDrawOwner.DrawStats();
+    }
+    float SurfaceScroll() const noexcept
+    {
+        return m_surfaceScroll;
+    }
     ReplayPathPickResult TryPickInterceptTarget( const ReplayPathPickInput& input,
                                                  const Physics::PhysicsBodyStore& bodyStore,
                                                  const Physics::ColliderStore& colliderStore );
@@ -98,12 +106,12 @@ class ReplayPlanningRuntime
     ReplayTripPlannerVelocityMutation
     BeginFrameBeforePrediction( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
                                 const Physics::PhysicsWorldForces& worldForces, const RunReplayPathVisualizerState& path,
-                                const ReplayPredictionControlsView& predictionControls, bool liveAdvanceHeld );
+                                const ReplayPredictionControlsView& predictionControls, bool liveAdvancing );
     ReplayTripPlannerVelocityMutation FinishFrameAfterPrediction(
         Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
         const Physics::PhysicsWorldForces& worldForces, double nowSeconds, const RunReplayPathVisualizerState& path,
         const ReplayPredictionTimelineView& predictionTimeline, const ReplayPredictionTopologyView& predictionTopology,
-        const ReplayPredictionControlsView& predictionControls, bool liveAdvanceHeld );
+        const ReplayPredictionControlsView& predictionControls, bool liveAdvancing );
 
   private:
     void UpdateInterceptReadout( Physics::PhysicsEngine& physics, bool mutualGravityEnabled,
@@ -117,12 +125,13 @@ class ReplayPlanningRuntime
     ReplayTripPlannerVelocityMutation
     BeginTripPlannerFrame( Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene,
                            const Physics::PhysicsWorldForces& worldForces, const RunReplayPathVisualizerState& path,
-                           const ReplayPredictionControlsView& controls, bool liveAdvanceHeld );
+                           const ReplayPredictionControlsView& controls, bool liveAdvancing );
     ReplayTripPlannerVelocityMutation ObserveTripPlannerPrediction( const RunReplayPathVisualizerState& path,
                                                                     const ReplayPredictionTimelineView& timeline,
                                                                     const ReplayPredictionControlsView& controls,
-                                                                    bool liveAdvanceHeld );
+                                                                    bool liveAdvancing );
 
+    float m_surfaceScroll = 0.0f;
     ReplayInterceptReadout m_interceptReadout;
     ReplayGuideArcs m_guideArcs;
     ReplayPorkchopPanel m_porkchopPanel;

@@ -12,7 +12,7 @@ using namespace SkullbonezCore::Runtime;
 using Math::Vector::Vector3;
 namespace
 {
-bool ChooseComparisonFile( HWND window, char ( &path )[260], bool save )
+bool ChooseNativeComparisonFile( HWND window, char ( &path )[260], bool save )
 {
     OPENFILENAMEA dialog {};
     dialog.lStructSize = sizeof( dialog );
@@ -41,11 +41,74 @@ ReplayCameraSample CameraSample( const Environment::CameraCollection& cameras )
     return camera;
 }
 } // namespace
+bool Run::ComparisonUiActive() const
+{
+    return m_operatorUi && m_operatorUi->PresentationWorkspace() == UI::GameLayout::Workspace::SolverLab;
+}
+
+void Run::SyncComparisonWorkspace()
+{
+    const bool foreground = ComparisonUiActive();
+    if ( foreground == m_comparisonForeground )
+    {
+        return;
+    }
+    m_comparisonPanel.CancelInput();
+    auto& cameras = m_sceneController.Scene().Cameras();
+    if ( !foreground )
+    {
+        m_comparison.Play( 0 );
+        if ( m_comparison.Active() )
+        {
+            m_comparisonCamera = CameraSample( cameras );
+            m_comparisonCameraValid = true;
+        }
+        if ( m_comparisonLoad.Pending() )
+        {
+            m_comparisonLoad.Cancel();
+        }
+    }
+    else if ( m_comparison.Active() && m_comparisonCameraValid )
+    {
+        cameras.CancelTween();
+        cameras.SetPrimaryPose( m_comparisonCamera.eye, m_comparisonCamera.view, m_comparisonCamera.up );
+    }
+    m_comparisonForeground = foreground;
+}
+
+void Run::CloseComparison()
+{
+    m_comparison.Close();
+    m_comparisonPanel.ReleaseComparison();
+    m_comparisonCameraValid = false;
+}
+
+bool Run::ChooseComparisonFile( char ( &path )[260], bool save )
+{
+#if defined( SKULLBONEZ_SKARNESS )
+    bool accepted = false;
+    if ( m_skarness.TakeFileDialogResponse( save ? "comparison.save" : "comparison.open", path, accepted ) )
+    {
+        return accepted;
+    }
+#endif
+    return ChooseNativeComparisonFile( m_window.NativeWindowHandle(), path, save );
+}
+
 bool Run::LoadComparison( const char* path, bool finding )
 {
+    if ( m_comparisonLoad.Pending() )
+    {
+        return false;
+    }
+    // Lifetime: accepting a replacement releases the old evidence before the
+    // loader admits another bundle against its cap. Picker cancellation never
+    // reaches this boundary, so it preserves the current inspection.
+    CloseComparison();
     const bool started = m_comparisonLoad.Start( path, finding, m_comparison.MemoryCharge() );
     if ( started )
     {
+        m_operatorUi->SetPresentationWorkspace( UI::GameLayout::Workspace::SolverLab );
         m_sceneController.EnterInteractiveRun();
         m_capture.DisableAutomationExit();
     }
@@ -75,11 +138,19 @@ bool Run::PublishComparisonLoad()
     {
         return false;
     }
+    if ( !ComparisonUiActive() )
+    {
+        CloseComparison();
+        return false;
+    }
     auto edit = m_overlayDiagnostics->EditPresentation();
     const int index = m_sceneController.Append( m_comparison.ScenePath() );
-    if ( !ExecuteInputSceneLoadRequest( SceneLoadRequest::Load( index, true, true, false, true ), edit ) )
+    m_comparisonActivatingScene = true;
+    const bool loaded = ExecuteInputSceneLoadRequest( SceneLoadRequest::Load( index, true, true, false, true ), edit );
+    m_comparisonActivatingScene = false;
+    if ( !loaded )
     {
-        m_comparison.Close();
+        CloseComparison();
         return false;
     }
     m_comparisonPanel.Prepare( m_sceneController.Scene().Colliders(), m_sceneController.Scene().RenderInstances() );
@@ -104,6 +175,8 @@ bool Run::PublishComparisonLoad()
     {
         cameras.SetPrimaryPose( camera.eye, camera.view, camera.up );
     }
+    m_comparisonCamera = CameraSample( cameras );
+    m_comparisonCameraValid = true;
     m_sceneController.EnterInteractiveRun();
     m_capture.DisableAutomationExit();
     return true;
@@ -272,6 +345,7 @@ void Run::PickComparisonObject( int x, int y )
 }
 bool Run::UpdateComparisonInput( bool textActive )
 {
+    SyncComparisonWorkspace();
     PollComparisonLoad();
     const double now = GetTickCount64() / 1000.0;
     const auto& device = m_inputRouter.DeviceFrame();
@@ -280,7 +354,11 @@ bool Run::UpdateComparisonInput( bool textActive )
     {
         action = ComparisonPanelAction::Open;
     }
-    if ( m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty() )
+    if ( !ComparisonUiActive() && action != ComparisonPanelAction::Open )
+    {
+        return false;
+    }
+    if ( ComparisonUiActive() && ( m_comparisonLoad.Pending() || !m_comparisonLoad.Error().empty() ) )
     {
         const auto ui = BuildUIInputSnapshot( device, m_inputRouter.UiSnapshot().mouse, m_operatorUi->InputOverride() );
         if ( m_comparisonPanel.Input( m_comparison, ui, false ) == ComparisonPanelAction::Close )
@@ -296,7 +374,7 @@ bool Run::UpdateComparisonInput( bool textActive )
         }
         return true;
     }
-    if ( m_comparison.Active() )
+    if ( ComparisonUiActive() && m_comparison.Active() )
     {
         const uint64_t previousSelection = m_comparison.Selected();
         const uint64_t previousEvent = m_comparison.EventSelectionRevision();
@@ -305,7 +383,8 @@ bool Run::UpdateComparisonInput( bool textActive )
         const double elapsed = m_comparisonPanel.Advance( m_comparison, now );
         const auto ui = BuildUIInputSnapshot( device, m_inputRouter.UiSnapshot().mouse, m_operatorUi->InputOverride() );
         const bool dragging = m_inputRouter.UpdateTimelineDrag( m_comparisonPanel.TimelineContains( ui.mouseX, ui.mouseY ) );
-        const auto panelAction = m_comparisonPanel.Input( m_comparison, ui, dragging );
+        const auto panelAction = m_operatorUi->HasOpenPopup() ? ComparisonPanelAction::None
+                                                              : m_comparisonPanel.Input( m_comparison, ui, dragging );
         if ( panelAction != ComparisonPanelAction::None )
         {
             action = panelAction;
@@ -345,7 +424,9 @@ bool Run::UpdateComparisonInput( bool textActive )
             FlyComparisonCamera( forward, strafe,
                                  static_cast<float>( elapsed ) * ( device.keys.IsDown( VK_SHIFT ) ? 3.0f : 1.0f ) );
         }
-        if ( device.appFocused && !dragging && !m_comparisonPanel.Contains( device.clientX, device.clientY ) )
+        if ( device.appFocused && !dragging && !m_operatorUi->HasOpenPopup() && !m_operatorUi->BlocksCameraMouse() &&
+             m_operatorUi->PresentationBounds().viewport.Contains( device.clientX, device.clientY ) &&
+             !m_comparisonPanel.Contains( device.clientX, device.clientY ) )
         {
             if ( ui.leftPressed )
             {
@@ -361,6 +442,15 @@ bool Run::UpdateComparisonInput( bool textActive )
             }
         }
     }
+    if ( ComparisonUiActive() && !m_comparison.Active() && !m_operatorUi->HasOpenPopup() )
+    {
+        const auto ui = BuildUIInputSnapshot( device, m_inputRouter.UiSnapshot().mouse, m_operatorUi->InputOverride() );
+        const auto panelAction = m_comparisonPanel.Input( m_comparison, ui, false );
+        if ( panelAction != ComparisonPanelAction::None )
+        {
+            action = panelAction;
+        }
+    }
     char path[260] {};
     if ( action == ComparisonPanelAction::Focus )
     {
@@ -368,24 +458,21 @@ bool Run::UpdateComparisonInput( bool textActive )
     }
     else if ( action == ComparisonPanelAction::Close )
     {
-        m_comparison.Close();
+        CloseComparison();
     }
     else if ( action == ComparisonPanelAction::RagdollWall || action == ComparisonPanelAction::WallOnly )
     {
-        // A library switch replaces the current comparison. Release its large
-        // evidence stores before admitting the next bundle against the same cap.
-        m_comparison.Close();
         LoadSolverLab( action == ComparisonPanelAction::RagdollWall ? UI::UISolverLabChoice::RagdollWall
                                                                     : UI::UISolverLabChoice::WallOnly );
     }
     else if ( action == ComparisonPanelAction::Open || action == ComparisonPanelAction::Restore )
     {
-        if ( ChooseComparisonFile( m_window.NativeWindowHandle(), path, false ) )
+        if ( ChooseComparisonFile( path, false ) )
         {
             LoadComparison( path, action == ComparisonPanelAction::Restore );
         }
     }
-    else if ( action == ComparisonPanelAction::Save && ChooseComparisonFile( m_window.NativeWindowHandle(), path, true ) )
+    else if ( action == ComparisonPanelAction::Save && ChooseComparisonFile( path, true ) )
     {
         m_comparison.SaveFinding( path, CameraSample( m_sceneController.Scene().Cameras() ),
                                   m_comparison.FindingNote().c_str() );
@@ -436,7 +523,7 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
         switch ( command.type )
         {
         case SkarnessCommandType::ComparisonClose:
-            m_comparison.Close();
+            CloseComparison();
             break;
         case SkarnessCommandType::ComparisonSeek:
             application.applied = command.integer <= m_comparison.LastTick();
@@ -505,7 +592,23 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
     state.comparisonLoading = m_comparisonLoad.Pending();
     state.comparisonLoadPercent = m_comparisonLoad.Percent();
     state.comparisonLoadPhase = m_comparisonLoad.Phase();
+    state.comparisonLoadError = m_comparisonLoad.Error();
     state.comparisonStacked = m_comparison.Settings().stackedViews;
+    state.comparisonFollowA = m_comparison.Settings().followA;
+    state.comparisonShowA = m_comparison.Settings().showA;
+    state.comparisonXray = m_comparison.Settings().occludedOutline;
+    state.comparisonSelectedOnly = m_comparison.Settings().selectedOnly;
+    state.comparisonDifferencesOnly = m_comparison.Settings().differencesOnly;
+    state.comparisonSpeed = m_comparison.Settings().speed;
+    state.comparisonPositionThreshold = m_comparison.Settings().positionThreshold;
+    state.comparisonLoop = m_comparison.LoopEnabled();
+    state.comparisonLoopFirst = m_comparison.LoopStart();
+    state.comparisonLoopLast = m_comparison.LoopEnd();
+    const auto timeline = m_comparisonPanel.TimelineBounds();
+    state.comparisonTimeline = { timeline.x, timeline.y, timeline.w, timeline.h };
+    state.comparisonLibraryOpen = m_comparisonPanel.HasOpenPopup();
+    const auto libraryPopup = m_comparisonPanel.LibraryPopupBounds();
+    state.comparisonLibraryPopup = { libraryPopup.x, libraryPopup.y, libraryPopup.w, libraryPopup.h };
     state.comparisonOrbit = m_comparison.Settings().orbitSelected;
     state.comparisonDragging = m_inputRouter.TimelineDragActive();
     const auto camera = CameraSample( m_sceneController.Scene().Cameras() );
@@ -523,6 +626,8 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
         state.comparisonEventTick = m_comparison.Events()[static_cast<std::size_t>( state.comparisonSelectedEvent )].tick;
     }
     const auto contactFrame = m_comparisonPanel.BuildFrame( m_comparison, m_window.ClientWidth(), m_window.ClientHeight() );
+    state.comparisonViewport = { static_cast<float>( contactFrame.x ), static_cast<float>( contactFrame.y ),
+                                 static_cast<float>( contactFrame.width ), static_cast<float>( contactFrame.height ) };
     Vector3 contactCenter;
     if ( m_comparisonPanel.ContactPivot( m_comparison, contactCenter ) )
     {

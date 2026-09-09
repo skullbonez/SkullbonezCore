@@ -214,8 +214,6 @@ TEST_CASE( "Runtime scene diagnostic facts reject invalid sentinel and count dom
 }
 
 
-
-
 TEST_CASE( "Replay velocity drag coalesces preview samples and refreshes only on release" )
 {
     ReplayAuthoring authoring;
@@ -2282,9 +2280,6 @@ TEST_CASE( "Operator editor tool commands coalesce and project into established 
 }
 
 
-
-
-
 TEST_CASE( "Planning fixes replay overlay composition order before generic render submission" )
 {
     using namespace SkullbonezCore::Runtime::ReplayOverlay;
@@ -2345,6 +2340,27 @@ TEST_CASE( "Prediction position gates follow displayed identity and frame withou
     CHECK_FALSE( BuildReplayPositionGate( frame, { 7 }, viewport ).visible );
     viewport.viewProjection.m[15] = -1.0f;
     CHECK_FALSE( BuildReplayPositionGate( frame, { 8 }, viewport ).visible );
+}
+
+TEST_CASE( "Prediction position gates use the offset scene rectangle inside window chrome" )
+{
+    using namespace SkullbonezCore::Runtime;
+    using namespace SkullbonezCore::Runtime::ReplayOverlay;
+    RunReplayPredictionFrame frame;
+    frame.frameIndex = 120;
+    frame.bodies.resize( 1 );
+    frame.bodies[0].id.value = 7;
+    frame.bodies[0].position = { 0.0f, 0.0f, 0.5f };
+    ReplayOverlayViewport viewport { 1600, 900 };
+    viewport.sceneBounds = { 280.0f, 42.0f, 960.0f, 690.0f };
+    const auto gate = BuildReplayPositionGate( frame, { 7 }, viewport );
+    REQUIRE( gate.visible );
+    CHECK( gate.id.value == 7 );
+    CHECK( gate.frame == 120 );
+    CHECK( gate.center.x == doctest::Approx( 760.0f ) );
+    CHECK( gate.center.y == doctest::Approx( 387.0f ) );
+    frame.bodies[0].position.x = 1.2f;
+    CHECK_FALSE( BuildReplayPositionGate( frame, { 7 }, viewport ).visible );
 }
 
 TEST_CASE( "Prediction position gates select only the active inspection participants" )

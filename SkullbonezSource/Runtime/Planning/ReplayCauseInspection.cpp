@@ -641,9 +641,36 @@ bool ShouldBeginReplayCauseReturn( const ReplayCauseTransportView& transport, bo
            ( nonSelectionClick || scrubExit || transport.mode == ReplayCauseInspectionMode::Returning );
 }
 
+namespace
+{
+void PlaceCauseInspectorInShell( ReplayCauseInspectorLayout& layout, const UI::UIRect& bounds )
+{
+    const bool expanded = layout.drawerProgress > 0.0f;
+    layout.hierarchy = bounds;
+    if ( expanded )
+    {
+        layout.hierarchy.h = (std::min)( 38.0f, bounds.h );
+    }
+    layout.hierarchyTitle = { bounds.x, bounds.y, bounds.w, (std::min)( 38.0f, bounds.h ) };
+    layout.drawer = { bounds.x, bounds.y + 38.0f, bounds.w, (std::max)( 0.0f, bounds.h - 38.0f ) };
+    layout.targetDrawer = layout.drawer;
+    layout.visibleDrawer = expanded ? layout.drawer : UI::UIRect {};
+    layout.drawerToggle = { bounds.x + (std::max)( 0.0f, bounds.w - 88.0f ), bounds.y + 6.0f, (std::min)( 80.0f, bounds.w ),
+                            26.0f };
+    layout.drawerClose = layout.drawerToggle;
+    layout.compound = bounds;
+    layout.targetCompound = bounds;
+    layout.resize = {};
+    layout.sharedSeam = {};
+    layout.hierarchyScrollbar = { bounds.x + bounds.w - 9.0f, bounds.y + 48.0f, 5.0f,
+                                  (std::max)( 0.0f, layout.hierarchy.h - 60.0f ) };
+}
+} // namespace
+
 ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSolverDetailView& solverDetail,
                                                             const RunReplayCauseTreeState& causeTree, int screenWidth,
-                                                            int screenHeight, float drawerProgress ) noexcept
+                                                            int screenHeight, float drawerProgress,
+                                                            const UI::UIRect& shellBounds ) noexcept
 {
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelLayout" );
     (void)screenHeight;
@@ -660,9 +687,12 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
     layout.rowHeight = REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT +
                        static_cast<float>( iterationLines ) * REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT;
 
-    const float targetDrawerWidth = ReplayOverlay::ReplayCauseWindowAttachedWidth( causeTree, screenWidth,
-                                                                                   REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
-                                                                                   REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
+    const float
+        targetDrawerWidth = shellBounds.w > 0.0f
+                                ? shellBounds.w
+                                : ReplayOverlay::ReplayCauseWindowAttachedWidth( causeTree, screenWidth,
+                                                                                 REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
+                                                                                 REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
     layout.drawerProgress = std::clamp( drawerProgress, 0.0f, 1.0f );
     const float visibleDrawerWidth = targetDrawerWidth * layout.drawerProgress;
     layout.hierarchy = ReplayOverlay::ReplayCauseWindowRect( causeTree );
@@ -688,29 +718,36 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
                         layout.hierarchy.h };
     layout.targetCompound = { layout.targetDrawer.x, layout.hierarchy.y, layout.hierarchy.w + targetDrawerWidth,
                               layout.hierarchy.h };
+    if ( shellBounds.w > 0.0f )
+    {
+        PlaceCauseInspectorInShell( layout, shellBounds );
+    }
     layout.drawerTitle = { layout.drawer.x, layout.drawer.y,
                            (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE -
                                                  REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
                            ReplayOverlay::REPLAY_CAUSE_WINDOW_TITLE_HEIGHT };
 
     const float tabWidth = (std::max)( 0.0f, ( targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) / 3.0f );
+    const float headerHeight = shellBounds.w > 0.0f ? 88.0f : REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT;
 
     for ( std::size_t tab = 0; tab < layout.tabs.size(); ++tab )
     {
         layout.tabs[tab] = { layout.drawer.x + REPLAY_CAUSE_INSPECTOR_PADDING + tabWidth * static_cast<float>( tab ),
-                             layout.drawer.y + REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT, tabWidth,
-                             REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT };
+                             layout.drawer.y + headerHeight, tabWidth, REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT };
     }
 
     layout.content = { layout.drawer.x + REPLAY_CAUSE_INSPECTOR_PADDING,
-                       layout.drawer.y + REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT + REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT +
-                           REPLAY_CAUSE_INSPECTOR_PADDING,
+                       layout.drawer.y + headerHeight + REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT + REPLAY_CAUSE_INSPECTOR_PADDING,
                        (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ),
-                       (std::max)( 0.0f, layout.drawer.h - REPLAY_CAUSE_INSPECTOR_DRAWER_HEADER_HEIGHT -
-                                             REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT - REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) };
+                       (std::max)( 0.0f, layout.drawer.h - headerHeight - REPLAY_CAUSE_INSPECTOR_TAB_HEIGHT -
+                                             REPLAY_CAUSE_INSPECTOR_PADDING * 2.0f ) };
     // Visibility belongs to the hierarchy footer, independent of the open detail tab.
     for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
     {
+        if ( shellBounds.w > 0.0f && layout.drawerProgress > 0.0f )
+        {
+            continue;
+        }
         layout.outlineToggles[index] = { layout.hierarchy.x + 12.0f,
                                          layout.hierarchy.y + layout.hierarchy.h - 78.0f + index * 26.0f,
                                          layout.hierarchy.w - 24.0f, 24.0f };
@@ -1303,7 +1340,6 @@ bool ReplayCauseInspection::Select( int rowIndex, const ReplayCauseSeekResult& s
     m_state.selectedRow = rowIndex;
     ClearFocusedSurface();
     m_state.activeTab = ReplayCauseInspectorTab::Summary;
-    m_state.summaryExpandedSection = -1;
     m_state.summaryScrollOffset = 0;
     m_state.transportPending = false;
     m_state.easedProgress = 0.0f;
@@ -1660,15 +1696,32 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
                                                         int wheelDelta, int screenWidth, int screenHeight,
                                                         ReplayCauseInspectorCommand* outCommand ) noexcept
 {
-    if ( !hasClientPosition || pointerBlocked || screenWidth <= 0 || screenHeight <= 0 )
+    if ( !hasClientPosition || pointerBlocked || screenWidth <= 0 || screenHeight <= 0 ||
+         ( m_state.sharedShell && m_state.shellBounds.w <= 0.0f ) )
     {
         return false;
     }
 
+    if ( m_state.sharedShell && !m_state.shellBounds.Contains( mouseX, mouseY ) )
+    {
+        return false;
+    }
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelInput" );
-    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( m_state.SolverDetail(), causeTree,
-                                                                               screenWidth, screenHeight,
+    const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( m_state, causeTree, screenWidth, screenHeight,
                                                                                m_state.drawerProgress );
+    // Why: evidence and hierarchy own wheel input inside their visible content.
+    // The pane edges and chrome scroll the whole short surface to reach its controls.
+    const bool innerContent = m_state.detailVisible
+                                  ? PointInside( layout.content, mouseX, mouseY )
+                                  : ReplayOverlay::ReplayCauseWindowContentRect( causeTree ).Contains( mouseX, mouseY );
+    const bool paneEdge = mouseX < m_state.shellBounds.x + 8.0f ||
+                          mouseX >= m_state.shellBounds.x + m_state.shellBounds.w - 8.0f;
+    const float shellMaxScroll = (std::max)( 0.0f, REPLAY_CAUSE_SHELL_MIN_CONTENT_HEIGHT - m_state.shellBounds.h );
+    if ( m_state.sharedShell && shellMaxScroll > 0.0f && wheelDelta != 0 && ( !innerContent || paneEdge ) )
+    {
+        m_state.shellScroll = std::clamp( m_state.shellScroll - wheelDelta * 36.0f / 120.0f, 0.0f, shellMaxScroll );
+        return true;
+    }
 
     if ( leftPressed && PointInside( layout.drawerToggle, mouseX, mouseY ) )
     {
@@ -1801,9 +1854,15 @@ void ReplayCauseInspection::Reset() noexcept
     // Display preferences survive leaving inspection and selecting another contact.
     const bool blueVisible = m_state.blueOutlinesVisible;
     const bool greyVisible = m_state.greyOutlinesVisible;
+    const int summarySection = m_state.summaryExpandedSection;
+    const UI::UIRect shellBounds = m_state.shellBounds;
+    const bool sharedShell = m_state.sharedShell;
     m_state = ReplayCauseInspectionView {};
     m_state.blueOutlinesVisible = blueVisible;
     m_state.greyOutlinesVisible = greyVisible;
+    m_state.summaryExpandedSection = summarySection;
+    m_state.shellBounds = shellBounds;
+    m_state.sharedShell = sharedShell;
     m_contactFlashStartedAtSeconds = -1.0;
     m_startedAtSeconds = 0.0;
     m_lastAdvanceSeconds = 0.0;
@@ -1818,6 +1877,21 @@ void ReplayCauseInspection::Reset() noexcept
 void ReplayCauseInspection::SetDrawerOpen( bool open, double nowSeconds ) noexcept
 {
     SetDrawerTarget( open, nowSeconds );
+}
+
+void ReplayCauseInspection::SetShellPresentation( bool enabled, const UI::UIRect& bounds ) noexcept
+{
+    m_state.sharedShell = enabled;
+    m_state.shellBounds = enabled ? bounds : UI::UIRect {};
+    m_state.shellScroll = enabled ? std::clamp( m_state.shellScroll, 0.0f,
+                                                (std::max)( 0.0f, REPLAY_CAUSE_SHELL_MIN_CONTENT_HEIGHT - bounds.h ) )
+                                  : 0.0f;
+}
+
+void ReplayCauseInspection::SetSummaryExpandedSection( int section ) noexcept
+{
+    m_state.summaryExpandedSection = section >= 0 && section < 3 ? section : -1;
+    m_state.summaryScrollOffset = 0;
 }
 
 void ReplayCauseInspection::SetActiveTab( ReplayCauseInspectorTab tab ) noexcept

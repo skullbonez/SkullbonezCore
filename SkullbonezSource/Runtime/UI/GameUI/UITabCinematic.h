@@ -23,6 +23,7 @@ Related:
 #include "../../Interaction/OperatorUiCommands.h"
 #include "../../../UI/UIDraw.h"
 #include "../../../UI/UISlider.h"
+#include "../../../UI/UITooltip.h"
 
 namespace SkullbonezCore
 {
@@ -44,6 +45,7 @@ struct UICinematicTabState
 };
 
 int ContentHeight();
+UITooltipTarget TooltipAt( const UICinematicTabState& state, int mouseX, int mouseY );
 bool IsComboOpen( const UICinematicTabState& state );
 void CloseCombo( UICinematicTabState& state );
 bool HandleOpenComboClick( UICinematicTabState& state, InGameUIInputResult& result, const char* const* sceneOptions,

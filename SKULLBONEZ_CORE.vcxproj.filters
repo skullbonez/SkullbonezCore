@@ -610,6 +610,8 @@
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\GameUILayout.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIPresentationPreferences.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIToolsTooltips.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UI.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPalette.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\UI\GameUI\UIEditorMiniPaletteDraw.cpp"><Filter>Source Files\Runtime\UI</Filter></ClCompile>
@@ -1044,6 +1046,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabProfiler.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabScene.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UITabSky.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIRenderTooltipText.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\GameUI\UIWindowInteractionOwner.h"><Filter>Header Files\Runtime\UI</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.h">
       <Filter>Header Files\Runtime\Interaction</Filter>

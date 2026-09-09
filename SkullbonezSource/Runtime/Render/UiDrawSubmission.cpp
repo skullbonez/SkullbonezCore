@@ -11,11 +11,12 @@ Summary:
   appears and in which order; the printer chooses DX12 resources and commands.
 
 Glossary:
-  Submission barrier: Flush of queued shapes and text before an image so later
-    commands remain visually above it.
+  Submission barrier: Flush of queued shapes and text at an image or explicit
+    layer boundary so later groups remain visually above earlier groups.
 
 Invariants:
-  - Command order, clip depth, and preview batch barriers are preserved exactly.
+  - Layer/image boundaries preserve ordering between batches. Ordinary widgets
+    use quads before glyphs within each batch.
   - Pixel coordinates are snapped before conversion to Text2d projection space.
   - A missing or stale preview identity renders the authored fallback panel.
   - Resource handles never travel back into UI-owned retained state.
@@ -239,6 +240,14 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
     ImmediateUiSubmitter immediateDraw( screenW, screenH, textBatch, renderGeometry );
     UI::UIRect clipStack[UI::UIDrawList::MAX_CLIP_DEPTH];
     int clipDepth = 0;
+    const UI::UIRect windowClip = { 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ) };
+    const auto applyClip = [&]()
+    {
+        const UI::UIRect clip = clipDepth > 0 ? UI::IntersectRect( windowClip, clipStack[clipDepth - 1] ) : windowClip;
+        renderGeometry.SetScissor( { static_cast<LONG>( std::floor( clip.x ) ), static_cast<LONG>( std::floor( clip.y ) ),
+                                     static_cast<LONG>( std::ceil( clip.x + clip.w ) ),
+                                     static_cast<LONG>( std::ceil( clip.y + clip.h ) ) } );
+    };
     auto flushQueued = [&]()
     {
         {
@@ -256,6 +265,11 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
     {
         switch ( command.type )
         {
+        case UI::UIDrawList::CommandType::LayerBreak:
+            // Overlay backgrounds must cover earlier glyphs as well as quads.
+            // Keep ordinary widgets batched; only explicit layers split them.
+            flushQueued();
+            break;
         case UI::UIDrawList::CommandType::Rect:
             immediateDraw.Rect( command.x0 + offsetX, command.y0 + offsetY, command.w, command.h, command.r, command.g,
                                 command.b, command.a );
@@ -285,7 +299,9 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
 
             break;
         case UI::UIDrawList::CommandType::PushClip:
-
+            // Geometry and glyph batches must finish with their original
+            // scissor before a nested panel changes the raster boundary.
+            flushQueued();
             if ( clipDepth < UI::UIDrawList::MAX_CLIP_DEPTH )
             {
                 UI::UIRect clip = { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h };
@@ -297,15 +313,15 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
 
                 clipStack[clipDepth++] = clip;
             }
-
+            applyClip();
             break;
         case UI::UIDrawList::CommandType::PopClip:
-
+            flushQueued();
             if ( clipDepth > 0 )
             {
                 --clipDepth;
             }
-
+            applyClip();
             break;
         case UI::UIDrawList::CommandType::PreviewImage:
         {
@@ -393,6 +409,8 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
     }
 
     flushQueued();
+    clipDepth = 0;
+    applyClip();
     PROFILE_GPU_END( gpuTiming, "Frame/UI/Draw" );
 }
 

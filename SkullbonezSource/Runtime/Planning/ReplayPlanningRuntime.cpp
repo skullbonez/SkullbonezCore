@@ -1,22 +1,4 @@
-/*
-File : SkullbonezSource / Runtime / Planning /
-       ReplayPlanningRuntime.cpp Purpose : Implements the planning sibling's input, update, and Physics-mutation sequence.
-
-                                           Summary : Planning samples immutable replay /
-       prediction publications,
-    updates its four retained product owners,
-    and applies planner velocity candidates through Physics.No borrowed sibling owner survives the frame
-            call.
-
-        Invariants : -Planning pointer geometry is shared with rendering.-
-        Stable scene identity is authoritative;
-dense rows are repairable hints.- Baseline capture precedes candidate mutation,
-    and successful mutation commits prediction invalidation before the planner advances.
-
-            Related : -SkullbonezSource /
-            Runtime / Planning / ReplayPlanningRuntime.h -
-        SkullbonezSource / Runtime / Planning / ReplayPlanningOverlayLayout.h - Agentic / Reference / engine -
-        glossary.md */
+// Planning owns inspection state and emits bounded commands for App to apply.
 #include "ReplayPlanningRuntime.h"
 
 #include "ReplayPlanningOverlayLayout.h"
@@ -198,6 +180,7 @@ void ReplayPlanningRuntime::ClearState() noexcept
 
 void ReplayPlanningRuntime::ResetTransientPlanState() noexcept
 {
+    m_surfaceScroll = 0.0f;
     m_porkchopPanel.Reset();
     m_tripPlanner.ResetForSceneDiscard();
     m_causeInspection.Reset();
@@ -270,15 +253,36 @@ const UI::UIDrawList& ReplayPlanningRuntime::ComposeOverlayDrawList( const Repla
 }
 
 
-bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWidth, int clientX, int clientY,
-                                                bool hasClientPosition, bool leftPressed )
+bool ReplayPlanningRuntime::TickPointerSurface( const UI::UIRect& viewport, bool uiBlocksMouse, int clientX, int clientY,
+                                                bool hasClientPosition, bool leftPressed, int wheelDelta,
+                                                bool baselineReady )
 {
+    const auto layoutAtScroll = [&]( float scroll )
+    {
+        return ReplayOverlay::ReplayPlanningLayout( viewport, m_interceptReadout.View().valid,
+                                                    m_tripPlanner.View().visible && m_tripPlanner.View().available,
+                                                    m_porkchopPanel.Visible(), scroll );
+    };
+    auto layout = layoutAtScroll( m_surfaceScroll );
+    const bool inside = hasClientPosition && !uiBlocksMouse && viewport.Contains( clientX, clientY );
+    const auto containsWithGap = [&]( UI::UIRect panel )
+    {
+        panel.h += panel.w > 0.0f ? 8.0f : 0.0f;
+        return panel.Contains( clientX, clientY );
+    };
+    const bool overPanel = inside && ( containsWithGap( layout.Trip() ) || containsWithGap( layout.Porkchop() ) ||
+                                       containsWithGap( layout.Intercept() ) );
+    if ( overPanel && wheelDelta != 0 )
+    {
+        layout = layoutAtScroll( layout.Scroll() - static_cast<float>( wheelDelta ) * 36.0f / 120.0f );
+    }
+    m_surfaceScroll = layout.Scroll();
     bool porkchopOwnsMouse = false;
 
-    if ( m_porkchopPanel.Visible() && hasClientPosition )
+    if ( m_porkchopPanel.Visible() && inside )
     {
         const ReplayPorkchopPanelView& porkchop = m_porkchopPanel.View();
-        const UI::UIRect panel = ReplayOverlay::ReplayPorkchopPanelRect( screenWidth );
+        const UI::UIRect panel = layout.Porkchop();
         const float pointerX = static_cast<float>( clientX );
         const float pointerY = static_cast<float>( clientY );
         porkchopOwnsMouse = !uiBlocksMouse && pointerX >= panel.x && pointerY >= panel.y && pointerX < panel.x + panel.w &&
@@ -286,7 +290,7 @@ bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWi
 
         std::size_t cellIndex = 0u;
         const bool hasCell = porkchopOwnsMouse &&
-                             ReplayOverlay::ReplayPorkchopCellAtPointer( screenWidth, clientX, clientY, cellIndex ) &&
+                             ReplayOverlay::ReplayPorkchopCellAtPointer( layout.Porkchop(), clientX, clientY, cellIndex ) &&
                              cellIndex < porkchop.completedCells;
 
         m_porkchopPanel.SetHoveredCell( hasCell ? static_cast<int>( cellIndex ) : -1 );
@@ -306,10 +310,10 @@ bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWi
     bool tripPlannerOwnsMouse = false;
     const ReplayTripPlannerView& planner = m_tripPlanner.View();
 
-    if ( planner.visible && planner.available && hasClientPosition )
+    if ( planner.visible && planner.available && inside )
     {
         ReplayOverlay::ReplayTripPlannerSurface surface;
-        ReplayOverlay::BuildReplayTripPlannerSurface( planner, screenWidth, surface );
+        ReplayOverlay::BuildReplayTripPlannerSurface( planner, layout.Trip(), surface, baselineReady );
         surface.ResolvePointer( clientX, clientY, uiBlocksMouse || porkchopOwnsMouse );
         tripPlannerOwnsMouse = surface.consumesPointer;
 
@@ -324,7 +328,7 @@ bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWi
         }
     }
 
-    return porkchopOwnsMouse || tripPlannerOwnsMouse;
+    return overPanel || porkchopOwnsMouse || tripPlannerOwnsMouse;
 }
 
 // Invariant: pointer ownership uses the same ReplayOverlay geometry rendered
@@ -373,21 +377,21 @@ ReplayPathPickResult ReplayPlanningRuntime::TryPickInterceptTarget( const Replay
 
 ReplayTripPlannerVelocityMutation ReplayPlanningRuntime::BeginFrameBeforePrediction(
     Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene, const Physics::PhysicsWorldForces& worldForces,
-    const RunReplayPathVisualizerState& path, const ReplayPredictionControlsView& predictionControls, bool liveAdvanceHeld )
+    const RunReplayPathVisualizerState& path, const ReplayPredictionControlsView& predictionControls, bool liveAdvancing )
 {
-    return BeginTripPlannerFrame( physics, scene, worldForces, path, predictionControls, liveAdvanceHeld );
+    return BeginTripPlannerFrame( physics, scene, worldForces, path, predictionControls, liveAdvancing );
 }
 
 ReplayTripPlannerVelocityMutation ReplayPlanningRuntime::FinishFrameAfterPrediction(
     Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene, const Physics::PhysicsWorldForces& worldForces,
     double nowSeconds, const RunReplayPathVisualizerState& path, const ReplayPredictionTimelineView& predictionTimeline,
     const ReplayPredictionTopologyView& predictionTopology, const ReplayPredictionControlsView& predictionControls,
-    bool liveAdvanceHeld )
+    bool liveAdvancing )
 {
     UpdateInterceptReadout( physics, worldForces.mutualGravity.enabled, path, predictionTimeline, predictionTopology,
                             predictionControls );
     const ReplayTripPlannerVelocityMutation mutation = ObserveTripPlannerPrediction( path, predictionTimeline,
-                                                                                     predictionControls, liveAdvanceHeld );
+                                                                                     predictionControls, liveAdvancing );
     UpdateGuideArcs( physics, scene, worldForces, nowSeconds );
     UpdatePorkchopPanel( physics, scene, worldForces, nowSeconds );
     return mutation;
@@ -489,7 +493,7 @@ void ReplayPlanningRuntime::UpdatePorkchopPanel( Physics::PhysicsEngine& physics
 
 ReplayTripPlannerVelocityMutation ReplayPlanningRuntime::BeginTripPlannerFrame(
     Physics::PhysicsEngine& physics, const ReplayPlanningSceneView& scene, const Physics::PhysicsWorldForces& worldForces,
-    const RunReplayPathVisualizerState& path, const ReplayPredictionControlsView& controls, bool liveAdvanceHeld )
+    const RunReplayPathVisualizerState& path, const ReplayPredictionControlsView& controls, bool liveAdvancing )
 {
     if ( !m_tripPlanner.RequiresLiveInput() )
     {
@@ -502,7 +506,7 @@ ReplayTripPlannerVelocityMutation ReplayPlanningRuntime::BeginTripPlannerFrame(
     input.predictionHorizonSeconds = controls.horizonSeconds;
     input.mutualGravityEnabled = worldForces.mutualGravity.enabled;
     input.targetSelected = path.hasTarget && m_interceptReadout.HasTarget();
-    input.liveAdvanceHeld = liveAdvanceHeld;
+    input.liveAdvancing = liveAdvancing;
     (void)ReadPlannerSunState( bodyStore, input.sun );
     (void)ReadPlannerBodyState( bodyStore, path.targetId, input.ship );
     (void)ReadPlannerBodyState( bodyStore, m_interceptReadout.TargetId(), input.target );
@@ -515,7 +519,7 @@ ReplayTripPlannerVelocityMutation ReplayPlanningRuntime::BeginTripPlannerFrame(
 ReplayTripPlannerVelocityMutation
 ReplayPlanningRuntime::ObserveTripPlannerPrediction( const RunReplayPathVisualizerState& path,
                                                      const ReplayPredictionTimelineView& timeline,
-                                                     const ReplayPredictionControlsView& controls, bool liveAdvanceHeld )
+                                                     const ReplayPredictionControlsView& controls, bool liveAdvancing )
 {
     if ( !m_tripPlanner.AwaitingPrediction() )
     {
@@ -530,7 +534,7 @@ ReplayPlanningRuntime::ObserveTripPlannerPrediction( const RunReplayPathVisualiz
     input.generation = timeline.generation;
     input.complete = timeline.complete;
     input.cancelled = !controls.enabled;
-    input.liveAdvanceHeld = liveAdvanceHeld;
+    input.liveAdvancing = liveAdvancing;
     input.targetAvailable = path.hasTarget && m_interceptReadout.HasTarget();
     return m_tripPlanner.ObservePrediction( input );
 }

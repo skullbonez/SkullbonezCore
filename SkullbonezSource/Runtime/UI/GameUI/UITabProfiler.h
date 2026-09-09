@@ -25,6 +25,7 @@ Related:
 
 #include "../../../UI/UICheckBox.h"
 #include "../../../UI/UISlider.h"
+#include "../../../UI/UITooltip.h"
 
 #include <cstdint>
 
@@ -143,6 +144,8 @@ struct UIProfilerTabState
     bool drawDefaultExpansionApplied = false;
     bool timelineEnabled = false;
     bool performanceHistogramEnabled = false;
+    // Presentation override; Canvas visibility and floating bounds survive docking.
+    UIRect histogramDockedBounds;
     PerformanceHistogramSample histogramSamples[HISTOGRAM_SAMPLE_COUNT] = {};
     int histogramHead = 0;
     int histogramCount = 0;
@@ -186,6 +189,8 @@ struct UIProfilerTabState
     int restoreWorkerThreads = -1;
 };
 
+UIRect FirstDrawExpanderBounds( const UIProfilerTabState& state, const UIRect& content, float scrollY );
+UITooltipTarget TooltipAt( const UIProfilerTabState& state, const UIRect& content, float scrollY, int mouseX, int mouseY );
 bool TimelineEnabled( const UIProfilerTabState& state );
 bool PerformanceHistogramEnabled( const UIProfilerTabState& state );
 

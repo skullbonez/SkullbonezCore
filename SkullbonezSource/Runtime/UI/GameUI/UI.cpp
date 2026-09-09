@@ -21,6 +21,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "UI.h"
+#include <chrono>
 #include "UIFrameComposition.h"
 #include "../../../UI/UIFontMetrics.h"
 #include "../../../Core/Profiler.h"
@@ -192,7 +193,10 @@ UISceneTabFrameView InGameUIFrameData::SceneTabFrame() const
              scene.timeScale,
              scene.predictionRevealRate,
              scene.fixedStep,
-             scene.testComplete };
+             scene.testComplete,
+             surface.sceneName,
+             surface.sceneMode,
+             operatorEditor.tools.crossScenePauseLocked };
 }
 
 namespace
@@ -345,6 +349,7 @@ void UIWindowInteractionOwner::DrawRenderTabContent( const InGameUIFrameData& da
                           labels[viewIndex], visibilityText, palette.accent.r, palette.accent.g, palette.accent.b );
     }
 
+    m_saveTrajectoryStyleButton.SetBounds( 0, 0, 0, 0 );
     const float baseY = scrolledY + UI_RENDER_START_Y;
 
     for ( int index = 0; index < static_cast<int>( UIRenderParam::Count ); ++index )
@@ -508,24 +513,25 @@ void DrawWideFooterStats( const InGameUIFrameData& data, const UIFooterDrawConte
         std::clamp( ( data.surface.renderMs + data.surface.physicsMs ) / 16.67f * 100.0f, 0.0f, 99.0f ) );
     const int gpuPercent = static_cast<int>( std::clamp( data.surface.renderMs / 16.67f * 100.0f, 0.0f, 99.0f ) );
     const int drawCalls = data.surface.drawCallsBeforeUI + data.surface.UIDrawCalls;
+    const float cellWidth = statsWidth / 5.0f;
     snprintf( status, sizeof( status ), "%.0f", data.surface.fps );
     DrawFooterStatCell( context.draw, statsX + 18.0f, geometry.footerY, "FPS", status, palette.accent.r, palette.accent.g,
                         palette.accent.b );
-    DrawFooterStatDivider( context.draw, statsX + 78.0f, geometry.footerY );
+    DrawFooterStatDivider( context.draw, statsX + cellWidth, geometry.footerY );
     snprintf( status, sizeof( status ), "%.2f ms", frameDisplayMs );
-    DrawFooterStatCell( context.draw, statsX + 100.0f, geometry.footerY, "Frame Time", status, palette.textPrimary.r,
-                        palette.textPrimary.g, palette.textPrimary.b );
-    DrawFooterStatDivider( context.draw, statsX + 190.0f, geometry.footerY );
+    DrawFooterStatCell( context.draw, statsX + cellWidth + 18.0f, geometry.footerY, "Frame Time", status,
+                        palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
+    DrawFooterStatDivider( context.draw, statsX + cellWidth * 2.0f, geometry.footerY );
     snprintf( status, sizeof( status ), "%d%%", cpuPercent );
-    DrawFooterStatCell( context.draw, statsX + 212.0f, geometry.footerY, "CPU", status, palette.accent.r, palette.accent.g,
-                        palette.accent.b );
-    DrawFooterStatDivider( context.draw, statsX + 266.0f, geometry.footerY );
+    DrawFooterStatCell( context.draw, statsX + cellWidth * 2.0f + 18.0f, geometry.footerY, "CPU", status, palette.accent.r,
+                        palette.accent.g, palette.accent.b );
+    DrawFooterStatDivider( context.draw, statsX + cellWidth * 3.0f, geometry.footerY );
     snprintf( status, sizeof( status ), "%d%%", gpuPercent );
-    DrawFooterStatCell( context.draw, statsX + 288.0f, geometry.footerY, "GPU", status, palette.accent.r, palette.accent.g,
-                        palette.accent.b );
-    DrawFooterStatDivider( context.draw, statsX + 342.0f, geometry.footerY );
+    DrawFooterStatCell( context.draw, statsX + cellWidth * 3.0f + 18.0f, geometry.footerY, "GPU", status, palette.accent.r,
+                        palette.accent.g, palette.accent.b );
+    DrawFooterStatDivider( context.draw, statsX + cellWidth * 4.0f, geometry.footerY );
     snprintf( status, sizeof( status ), "%d / %d", drawCalls, data.surface.UIDrawCalls );
-    DrawFooterStatCell( context.draw, statsX + statsWidth - 112.0f, geometry.footerY, "Draws / UI", status,
+    DrawFooterStatCell( context.draw, statsX + cellWidth * 4.0f + 18.0f, geometry.footerY, "Draws / UI", status,
                         palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
 }
 
@@ -569,17 +575,51 @@ void DrawFooterStats( const InGameUIFrameData& data, const UIFooterDrawContext& 
 
 } // namespace
 
+UIRect UIWindowInteractionOwner::DrawCompactToolsFooter( const InGameUIFrameData& data, const UIDrawContext& draw,
+                                                         const ToolsChromeRects& chrome )
+{
+    PrepareCompactToolsControls( chrome );
+    const char* options[] = { "Renderer: DX12",
+                              "Water reflection...",
+                              m_blurPreviewEnabled ? "Blur: on" : "Blur: off",
+                              data.surface.vsyncEnabled ? "VSync: on" : "VSync: off",
+                              m_hitboxOverlayEnabled ? "UI hitboxes: on" : "UI hitboxes: off",
+                              ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) ? "Canvas performance: on"
+                                                                                        : "Canvas performance: off",
+                              ProfilerTab::TimelineEnabled( m_profilerTab ) ? "Profiler timeline: on"
+                                                                            : "Profiler timeline: off" };
+    if ( m_reflectionCombo.IsOpen() )
+    {
+        static const char* reflections[] = { "FBO", "DXR", "None" };
+        m_reflectionCombo.Draw( draw, "",
+                                { std::span<const char* const>( reflections ), WaterReflectionModeFromData( data ),
+                                  ReflectionDisabledMask() },
+                                { m_mouseX, m_mouseY } );
+    }
+    else
+    {
+        m_toolsDisplayCombo.Draw( draw, "", { std::span<const char* const>( options ), -1, 1u, "Display settings" },
+                                  { m_mouseX, m_mouseY } );
+    }
+    return chrome.footer;
+}
+
 UIRect UIWindowInteractionOwner::DrawFooterContent( const InGameUIFrameData& data, const UIDrawContext& draw, float x,
                                                     float y, float width, float height, float bottomHeight,
                                                     float titleStatWidth, float titleStatX, const char* titleStat )
 {
+    const ToolsChromeRects chrome = ComputeToolsChromeRects( { x, y, width, height }, m_presentationEnabled );
+    if ( chrome.compact )
+    {
+        return DrawCompactToolsFooter( data, draw, chrome );
+    }
     const Style::UIPalette& palette = Style::Palette();
     const UIFooterDrawContext context { draw, x, y, width, height, bottomHeight, titleStatWidth, titleStatX, titleStat };
     UIFooterGeometry geometry;
     geometry.footerY = context.y + context.height - context.bottomHeight;
     geometry.footerX = context.x + 18.0f;
     geometry.footerWidth = (std::max)( 120.0f, context.width - 36.0f );
-    geometry.hasSeparateStats = geometry.footerWidth >= 560.0f;
+    geometry.hasSeparateStats = geometry.footerWidth >= 600.0f;
     geometry.controlsWidth = geometry.hasSeparateStats ? 462.0f : geometry.footerWidth;
     context.draw.Rect( context.x + 16.0f, geometry.footerY, context.width - 32.0f, 1.0f, palette.lineSoft.r,
                        palette.lineSoft.g, palette.lineSoft.b, 0.14f );
@@ -718,6 +758,106 @@ bool InGameUI::BlocksCameraMouse() const
 {
     return m_windowInteraction.BlocksCameraMouse();
 }
+
+bool InGameUI::BlocksReplayMouse() const
+{
+    return m_windowInteraction.BlocksReplayMouse();
+}
+
+bool InGameUI::BlocksCauseMouse() const
+{
+    return m_windowInteraction.BlocksCauseMouse();
+}
+
+bool InGameUI::SharedPresentationEnabled() const
+{
+    return m_windowInteraction.m_presentationEnabled;
+}
+
+void InGameUI::RevealReplayControls( int width, int height )
+{
+    if ( !m_windowInteraction.m_presentationEnabled )
+    {
+        return;
+    }
+    m_windowInteraction.m_presentation.detailsOpen = true;
+    m_windowInteraction.m_presentation.detailsCauses = false;
+    m_windowInteraction.m_presentation.editorReplay = true;
+    m_windowInteraction.m_presentation.preferences.leftFolded = false;
+    m_windowInteraction.m_presentation.replayScroll = 0.0f;
+    m_windowInteraction.m_presentationRects = ComputePresentationRects( m_windowInteraction.m_presentation, width, height );
+}
+void InGameUI::RevealCauseControls( int width, int height )
+{
+    if ( !m_windowInteraction.m_presentationEnabled )
+    {
+        return;
+    }
+    m_windowInteraction.m_presentation.detailsOpen = true;
+    m_windowInteraction.m_presentation.detailsCauses = true;
+    m_windowInteraction.m_presentation.preferences.rightFolded = false;
+    m_windowInteraction.m_presentationRects = ComputePresentationRects( m_windowInteraction.m_presentation, width, height );
+}
+
+GameLayout::ComboPopupPresentation InGameUI::EditorPopup() const
+{
+    const UIComboBox& popup = m_windowInteraction.m_editorTab.objectCombo;
+    return { popup.DropdownBounds( EditorTab::OBJECT_TYPE_COUNT ), popup.FirstVisibleOption( EditorTab::OBJECT_TYPE_COUNT ),
+             popup.VisibleOptionCount( EditorTab::OBJECT_TYPE_COUNT ), EditorTab::OBJECT_TYPE_COUNT, popup.IsOpen() };
+}
+
+GameLayout::ComboPopupPresentation InGameUI::ToolsPopup() const
+{
+    const auto& owner = m_windowInteraction;
+    const bool tabs = owner.m_toolsTabCombo.IsOpen();
+    const bool reflection = owner.m_reflectionCombo.IsOpen();
+    const UIComboBox& popup = tabs ? owner.m_toolsTabCombo
+                                   : ( reflection ? owner.m_reflectionCombo : owner.m_toolsDisplayCombo );
+    const int count = tabs ? static_cast<int>( InGameUITab::Count ) : ( reflection ? 3 : 7 );
+    return { popup.DropdownBounds( count ), popup.FirstVisibleOption( count ), popup.VisibleOptionCount( count ), count,
+             popup.IsOpen() };
+}
+
+GameLayout::ComboPopupPresentation InGameUI::TargetPopup() const
+{
+    const auto& owner = m_windowInteraction;
+    const auto& popup = owner.m_renderTargetCombo;
+    const int count = owner.m_lastRenderTargetPreviewCount;
+    return { popup.DropdownBounds( count ),
+             popup.FirstVisibleOption( count ),
+             popup.VisibleOptionCount( count ),
+             count,
+             popup.IsOpen(),
+             owner.m_selectedRenderTargetPreview,
+             owner.m_lastRenderTargetDisabledMask };
+}
+
+GameLayout::ComboPopupPresentation InGameUI::RecordingPopup() const
+{
+    const auto& owner = m_windowInteraction;
+    const auto& popup = owner.m_sceneTab.recordingCombo;
+    const int count = static_cast<int>( m_sceneNavigation.recordings.paths.size() );
+    const int visible = GameLayout::SceneComboVisibleCount( count );
+    return { popup.DropdownBounds( visible ),
+             owner.m_sceneTab.recordingComboScroll,
+             popup.VisibleOptionCount( visible ),
+             count,
+             popup.IsOpen(),
+             m_sceneNavigation.recordings.selectedIndex };
+}
+
+GameLayout::ComboPopupPresentation InGameUI::CameraPopup() const
+{
+    const UIComboBox& popup = m_windowInteraction.m_cameraModeCombo;
+    return { popup.DropdownBounds( CAMERA_MODE_OPTION_COUNT ), 0, CAMERA_MODE_OPTION_COUNT, CAMERA_MODE_OPTION_COUNT,
+             popup.IsOpen() };
+}
+
+bool InGameUI::HasOpenPopup() const
+{
+    return m_windowInteraction.HasOpenPopup();
+}
+
 bool InGameUI::BlocksKeyboard() const
 {
     return m_windowInteraction.BlocksKeyboard();
@@ -790,6 +930,16 @@ void InGameUI::SetHitboxOverlayEnabled( bool enabled )
 {
     m_windowInteraction.SetHitboxOverlayEnabled( enabled );
 }
+float InGameUI::ToolsScroll() const noexcept
+{
+    return m_windowInteraction.m_scrollY;
+}
+
+UIRect InGameUI::ToolsContentBounds() const noexcept
+{
+    return GameLayout::ComputeToolsChromeRects( m_windowInteraction.m_presentationRects.drawer, true ).content;
+}
+
 void InGameUI::SetScrollY( float scrollY )
 {
     m_windowInteraction.SetScrollY( scrollY );
@@ -984,19 +1134,460 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     return m_windowInteraction.Draw( data );
 }
 
+const UIDrawList& InGameUI::ForegroundDraw() const
+{
+    return m_windowInteraction.m_foregroundDrawList;
+}
+
+void InGameUI::UpdatePresentationInput( const InputControl::UIInputSnapshot& input, int width, int height, bool enabled )
+{
+    m_windowInteraction.UpdatePresentationInput( input, width, height, enabled );
+}
+
+PresentationRects InGameUI::PresentationBounds() const
+{
+    return m_windowInteraction.m_presentationRects;
+}
+
+Workspace InGameUI::PresentationWorkspace() const
+{
+    return m_windowInteraction.m_presentation.workspace;
+}
+
+void InGameUI::SetPresentationWorkspace( Workspace workspace )
+{
+    m_windowInteraction.m_presentation.workspace = workspace;
+    m_windowInteraction.m_tooltip.Dismiss();
+    m_windowInteraction.m_presentationRects = ComputePresentationRects( m_windowInteraction.m_presentation,
+                                                                        m_windowInteraction.m_lastScreenW,
+                                                                        m_windowInteraction.m_lastScreenH );
+}
+
+LayoutMode InGameUI::PresentationLayout() const
+{
+    return m_windowInteraction.m_presentation.preferences.layout;
+}
+
+UITooltipTarget InGameUI::VisibleTooltip() const
+{
+    const double now = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+    return m_windowInteraction.m_tooltip.VisibleTarget( now );
+}
+
+GameLayout::DiagnosticPresentation InGameUI::DiagnosticPresentation() const
+{
+    GameLayout::DiagnosticPresentation view;
+    view.markerHistoryVisible = m_windowInteraction.IsPerformanceHistogramEnabled();
+    view.memoryWaterlineVisible = m_windowInteraction.IsMemoryOverlayEnabled();
+    view.markerSamples = m_windowInteraction.m_profilerTab.histogramCount;
+    view.memorySamples = m_windowInteraction.m_memoryOverlay.sampleCount;
+    view.focusedPanel = m_windowInteraction.m_presentation.focusedDiagnostic;
+    view.profilerTimeline = m_windowInteraction.m_profilerTab.timelineEnabled;
+    view.profilerMarkerCount = m_windowInteraction.m_profilerTab.frame.markerCount;
+    view.profilerDrawNodeCount = m_windowInteraction.m_profilerTab.frame.drawTrace.nodeCount;
+    view.drawExpanderBounds = ProfilerTab::FirstDrawExpanderBounds( m_windowInteraction.m_profilerTab, ToolsContentBounds(),
+                                                                    m_windowInteraction.m_scrollY );
+    for ( int index = 0; index < m_windowInteraction.m_profilerTab.expandedHashCount; ++index )
+    {
+        view.profilerExpansionHash = HashCombine( view.profilerExpansionHash,
+                                                  m_windowInteraction.m_profilerTab.expandedHashes[index] );
+    }
+    for ( int index = 0; index < m_windowInteraction.m_profilerTab.drawExpandedHashCount; ++index )
+    {
+        view.drawExpansionHash = HashCombine( view.drawExpansionHash,
+                                              m_windowInteraction.m_profilerTab.drawExpandedHashes[index] );
+    }
+    for ( int index = 0; index < m_windowInteraction.m_profilerTab.histogramOptionCount; ++index )
+    {
+        if ( m_windowInteraction.m_profilerTab.histogramOptionSelected[index] )
+        {
+            // Main uses hash zero. Include its frame-total identity so selecting
+            // it cannot produce the same observation as an empty selection.
+            view.markerSelectionHash = HashCombine( view.markerSelectionHash,
+                                                    m_windowInteraction.m_profilerTab.histogramOptionFrameTotals[index]
+                                                        ? 1u
+                                                        : 2u );
+            view.markerSelectionHash = HashCombine( view.markerSelectionHash,
+                                                    m_windowInteraction.m_profilerTab.histogramOptionHashes[index] );
+        }
+    }
+    return view;
+}
+
+void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& data )
+{
+    if ( !m_presentationEnabled )
+    {
+        return;
+    }
+    const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
+    const UIRect panes[] = { m_presentationRects.left, m_presentationRects.right, m_presentationRects.markerHistory,
+                             m_presentationRects.memoryWaterline };
+    for ( const UIRect& pane : panes )
+    {
+        if ( pane.w <= 0.0f || pane.h <= 0.0f )
+        {
+            continue;
+        }
+        draw.Rect( pane.x, pane.y, pane.w, pane.h, 0.075f, 0.08f, 0.09f, 1.0f );
+        draw.Outline( pane.x, pane.y, pane.w, pane.h, 0.17f, 0.18f, 0.20f, 1.0f );
+    }
+    if ( m_presentation.preferences.layout == LayoutMode::Editor )
+    {
+        draw.Rect( 0.0f, m_presentationRects.transport.y, m_presentationRects.window.w, m_presentationRects.transport.h,
+                   0.075f, 0.08f, 0.09f, 1.0f );
+    }
+    const UIRect& details = m_presentationRects.replayDetails;
+    draw.RoundedRect( details.x, details.y, details.w, details.h, 4.0f, 0.13f, 0.14f, 0.16f, 1.0f );
+    draw.Text( details.x + 10.0f, details.y + 8.0f, 11.0f, 0.88f, 0.89f, 0.91f, "Details" );
+    const UIRect tabs[] = { m_presentationRects.detailsReplayTab, m_presentationRects.detailsCausesTab };
+    for ( int index = 0; index < 2; ++index )
+    {
+        if ( tabs[index].w > 0.0f )
+        {
+            const bool selected = m_presentation.detailsCauses == ( index == 1 );
+            draw.RoundedRect( tabs[index].x, tabs[index].y, tabs[index].w, tabs[index].h, 4.0f, selected ? 0.20f : 0.12f,
+                              selected ? 0.21f : 0.13f, selected ? 0.23f : 0.15f, 1.0f );
+            draw.Text( tabs[index].x + 10.0f, tabs[index].y + 6.0f, 11.0f, 0.88f, 0.89f, 0.91f,
+                       m_presentation.workspace == Workspace::SolverLab ? ( index == 0 ? "Controls" : "Differences" )
+                                                                        : ( index == 0 ? "Replay" : "Causes" ) );
+        }
+    }
+    draw.BeginLayer();
+}
+
+void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
+{
+    if ( !m_presentationEnabled || m_presentation.preferences.layout != LayoutMode::Editor )
+    {
+        return;
+    }
+    const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
+    const UIRect tabs[] = { m_presentationRects.editorTab, m_presentationRects.editorReplayTab };
+    for ( int index = 0; index < 2; ++index )
+    {
+        if ( tabs[index].w > 0.0f )
+        {
+            const bool selected = m_presentation.editorReplay == ( index == 1 );
+            draw.RoundedRect( tabs[index].x, tabs[index].y, tabs[index].w, tabs[index].h, 4.0f, selected ? 0.20f : 0.12f,
+                              selected ? 0.21f : 0.13f, selected ? 0.23f : 0.15f, 1.0f );
+            draw.PushClip( tabs[index] );
+            const bool compact = tabs[index].w < 50.0f;
+            draw.Text( tabs[index].x + ( compact ? 4.0f : 10.0f ), tabs[index].y + 6.0f, 11.0f, 0.88f, 0.89f, 0.91f,
+                       compact ? ( index == 0 ? "Ed" : "Re" ) : ( index == 0 ? "Editor" : "Replay" ) );
+            draw.PopClip();
+        }
+    }
+    const UIRect folds[] = { m_presentationRects.leftFold, m_presentationRects.rightFold };
+    for ( int index = 0; index < 2; ++index )
+    {
+        const bool folded = index == 0 ? m_presentation.preferences.leftFolded : m_presentation.preferences.rightFolded;
+        draw.Text( folds[index].x + 7.0f, folds[index].y + 8.0f, 12.0f, 0.88f, 0.89f, 0.91f,
+                   ( folded == ( index == 0 ) ) ? ">" : "<" );
+    }
+    if ( m_presentationRects.right.w > 24.0f )
+    {
+        draw.Text( m_presentationRects.right.x + 30.0f, m_presentationRects.right.y + 8.0f, 11.0f, 0.88f, 0.89f, 0.91f,
+                   m_presentation.workspace == Workspace::SolverLab ? "Differences" : "Causes" );
+    }
+    if ( m_presentation.workspace == Workspace::SolverLab && m_presentationRects.left.w > 24.0f )
+    {
+        draw.Text( m_presentationRects.left.x + 30.0f, m_presentationRects.left.y + 8.0f, 11.0f, 0.88f, 0.89f, 0.91f,
+                   "Solver Lab" );
+    }
+    const UIRect& bounds = m_presentationRects.editorControls;
+    if ( bounds.w > 0.0f )
+    {
+        m_frameDrawList.PushClip( bounds );
+        EditorTab::Draw( m_editorTab, draw, data.EditorTabFrame(), bounds.x, bounds.y, bounds.w, bounds.h,
+                         bounds.y - m_presentationRects.editorScroll, m_mouseX, m_mouseY );
+        m_frameDrawList.PopClip();
+    }
+    else if ( !m_presentation.editorReplay && m_presentation.editorInTools && m_presentationRects.left.w > 24.0f )
+    {
+        draw.Text( m_presentationRects.left.x + 12.0f, m_presentationRects.left.y + 52.0f, 11.0f, 0.64f, 0.66f, 0.69f,
+                   "Editor controls are open in Tools." );
+    }
+}
+
+void UIWindowInteractionOwner::DrawPresentedEditorPalette( const InGameUIFrameData& data )
+{
+    if ( !m_presentationEnabled || m_presentation.workspace != Workspace::Scene || !data.editor.editorModeEnabled )
+    {
+        return;
+    }
+    const EditorMiniPaletteLayout layout = PresentedEditorPalette();
+    if ( layout.buttonCount == 0 )
+    {
+        return;
+    }
+    const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
+    draw.PushClip( layout.clip );
+    draw.Text( layout.bounds.x, layout.bounds.y - 24.0f, 12.0f, 0.78f, 0.80f, 0.83f, "Quick objects" );
+    draw.PopClip();
+    DrawEditorMiniPalette( draw, layout, data.editor.editorObjectType, data.editor.editorPlaceStatic, m_mouseX, m_mouseY,
+                           m_editorMiniPalettePressedTreePlacement, m_editorMiniPalettePressedHoldMode,
+                           m_editorMiniPalettePressedEntry, data.surface.screenW, data.surface.screenH );
+}
+
+void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& data )
+{
+    if ( !m_presentationEnabled )
+    {
+        return;
+    }
+    const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
+    const HeaderRects bounds = ComputeHeaderRects( m_presentationRects.header );
+    draw.BeginLayer();
+    draw.PushClip( m_presentationRects.header );
+    draw.Rect( 0.0f, 0.0f, m_presentationRects.header.w, m_presentationRects.header.h, 0.075f, 0.08f, 0.09f, 1.0f );
+    DrawSkullLogo( draw, bounds.skull );
+    const auto button = [&]( const UIRect& rect, const char* label )
+    {
+        if ( rect.w <= 0.0f )
+        {
+            return;
+        }
+        const float shade = rect.Contains( m_mouseX, m_mouseY ) ? 0.22f : 0.135f;
+        draw.RoundedRect( rect.x, rect.y, rect.w, rect.h, 4.0f, shade, shade, shade + 0.01f, 1.0f );
+        draw.Text( rect.x + 10.0f, rect.y + 8.0f, 11.0f, 0.88f, 0.89f, 0.91f, label );
+    };
+    button( bounds.scenes, "Scenes" );
+    button( bounds.layout, m_presentation.preferences.layout == LayoutMode::Canvas ? "Canvas" : "Editor" );
+    button( bounds.tools, "Tools" );
+    button( bounds.workspace, m_presentation.workspace == Workspace::SolverLab ? "Solver Lab" : "Scene" );
+    char scene[192] = {};
+    const char* sceneName = data.surface.sceneName && data.surface.sceneName[0] ? data.surface.sceneName : "Generated demo";
+    const char* slash = std::strrchr( sceneName, '/' );
+    const char* backslash = std::strrchr( sceneName, '\\' );
+    if ( slash )
+    {
+        sceneName = slash + 1;
+    }
+    if ( backslash && backslash >= sceneName )
+    {
+        sceneName = backslash + 1;
+    }
+    snprintf( scene, sizeof( scene ), "%s", sceneName );
+    if ( char* suffix = std::strstr( scene, ".scene.json" ); suffix && std::strcmp( suffix, ".scene.json" ) == 0 )
+    {
+        *suffix = '\0';
+    }
+    Chrome::FitTitleText( scene, sizeof( scene ), 12.0f, (std::max)( 0.0f, bounds.scene.w - 16.0f ) );
+    draw.Text( bounds.scene.x + 8.0f, bounds.scene.y + 7.0f, 12.0f, 0.88f, 0.89f, 0.91f, scene );
+    draw.PopClip();
+    if ( m_presentation.workspace == Workspace::SolverLab )
+    {
+        draw.PushClip( bounds.camera );
+        draw.Text( bounds.camera.x + 4.0f, bounds.camera.y + 8.0f, 11.0f, 0.65f, 0.67f, 0.70f,
+                   bounds.camera.w < 80.0f ? "Pair" : "Paired view" );
+        draw.PopClip();
+        return;
+    }
+    m_cameraModeCombo.SetLabelVisible( false );
+    m_cameraModeCombo.SetBounds( bounds.camera.x, bounds.camera.y, bounds.camera.w, bounds.camera.h );
+    m_cameraModeCombo.SetDropUp( false );
+    const uint32_t disabled = ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) & ~data.surface.cameraModeEnabledMask;
+    m_cameraModeCombo.Draw( draw, "",
+                            { std::span<const char* const>( kCameraModeOptions ),
+                              std::clamp( data.surface.cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 ), disabled },
+                            { m_mouseX, m_mouseY } );
+}
+
+void UIWindowInteractionOwner::DrawToolsDrawerChrome( const UIDrawContext& draw, const UIRect& bounds )
+{
+    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, 0.075f, 0.08f, 0.09f, 1.0f );
+    draw.Rect( bounds.x, bounds.y, bounds.w, 1.0f, 0.25f, 0.26f, 0.28f, 1.0f );
+    const ToolsChromeRects chrome = ComputeToolsChromeRects( bounds, true );
+    const float logoY = bounds.y + ( chrome.compact ? 4.0f : 11.0f );
+    DrawSkullLogo( draw, { bounds.x + 14.0f, logoY, 22.0f, 22.0f } );
+    draw.Text( bounds.x + 46.0f, logoY + 5.0f, 12.0f, 0.9f, 0.91f, 0.93f, "Tools" );
+    draw.RoundedRect( bounds.x + bounds.w * 0.5f - 24.0f, bounds.y + 3.0f, 48.0f, 2.0f, 1.0f, 0.40f, 0.41f, 0.44f, 1.0f );
+    const UIRect close = chrome.close;
+    const float shade = close.Contains( m_mouseX, m_mouseY ) ? 0.28f : 0.16f;
+    draw.RoundedRect( close.x, close.y, close.w, close.h, 3.0f, shade, shade, shade, 1.0f );
+    draw.Text( close.x + 8.0f, close.y + 5.0f, 12.0f, 0.9f, 0.91f, 0.93f, "x" );
+}
+
+
+void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
+{
+    const bool sceneAvailable = m_window.isVisible && !m_window.isMinimized && m_activeTab == InGameUITab::Scene &&
+                                !m_sceneTab.combo.IsOpen() && !m_sceneTab.recordingCombo.IsOpen() &&
+                                !m_sceneTab.solverLabCombo.IsOpen();
+    if ( !sceneAvailable && !m_presentationEnabled )
+    {
+        m_tooltip.Dismiss();
+        return;
+    }
+
+    const UIRect window = Chrome::CurrentWindowRect( m_window, data.surface.now );
+    const UIRect content = ComputeToolsChromeRects( window, m_presentationEnabled ).content;
+    const HeaderRects header = ComputeHeaderRects( m_presentationRects.header );
+    const bool solverLab = m_presentation.workspace == Workspace::SolverLab;
+    const UITooltipTarget candidates[] =
+        { { 1, m_sceneTab.resetSceneButton.Bounds(), { "Rebuild this scene while preserving live runtime controls." } },
+          { 2, m_sceneTab.resetDefaultsButton.Bounds(), { "Discard live scene edits and reload authored defaults." } },
+          { 3,
+            m_sceneTab.saveDefaultsButton.Bounds(),
+            { "Save current authored scene settings through scene persistence." } },
+          { 4,
+            m_sceneTab.combo.Bounds(),
+            { "Filter and load a scene, return to Demo, or create a scene using the filter name." } },
+          { 5,
+            m_sceneTab.recordingCombo.Bounds(),
+            { "Play an existing interaction recording from the recording catalog." } },
+          { 6, m_sceneTab.solverLabCombo.Bounds(), { "Open a recorded physics comparison in Solver Lab." } },
+          { 7,
+            m_sceneTab.timeScaleSlider.Bounds(),
+            { "Control how quickly the simulation advances.", "Multiplier of real time" } },
+          { 8,
+            m_sceneTab.predictionRevealSlider.Bounds(),
+            { "Reveal an already-computed prediction at this speed.", "Multiplier; maximum reveals instantly" } },
+          { 9, m_sceneTab.continuousForecastToggle.Bounds(), { "Start or stop the continuous orbital forecast." } },
+          { 10, m_sceneTab.resetForecastButton.Bounds(), { "Restart the orbital forecast from the current scene state." } },
+          { 11, header.skull, { "Open or close Tools while retaining the selected tab." } },
+          { 12, header.scene, { "Open the existing Scene browser for loading, creation and scene defaults." } },
+          { 13, header.scenes, { "Open the existing Scene browser for loading, creation and scene defaults." } },
+          { 14, header.layout, { "Switch Canvas and Editor layout while keeping scene, camera and editing state." } },
+          { 15, header.tools, { "Open or close Tools while retaining the selected tab." } },
+          { 16,
+            DiagnosticDetailsBounds( m_presentationRects.markerHistory ),
+            { "Open the detailed Profiler: marker hierarchy, timeline, workers and draw calls.", "Milliseconds",
+              "F5 focuses marker history" } },
+          { 17,
+            DiagnosticDetailsBounds( m_presentationRects.memoryWaterline ),
+            { "Open detailed Memory and replay retention controls.", "MiB", "F6 focuses memory waterline" } },
+          { 18,
+            m_presentationRects.replayDetails,
+            { solverLab ? "Show or fold comparison controls without changing the retained inspection."
+                        : "Show or fold Replay controls without changing playback or selection." } },
+          { 19, m_presentationRects.editorTab, { "Show the editing controls. This does not enable editor mode." } },
+          { 20, m_presentationRects.editorReplayTab, { "Show recording, prediction and replay controls." } },
+          { 21, m_presentationRects.leftFold, { "Fold or reopen the left pane while preserving its controls and state." } },
+          { 22,
+            m_presentationRects.rightFold,
+            { solverLab ? "Fold or reopen comparison differences while retaining the selected object."
+                        : "Fold or reopen Causes while retaining selected evidence." } },
+          { 23, m_presentationRects.leftResize, { "Drag to resize the left dock within the window." } },
+          { 24, m_presentationRects.rightResize, { "Drag to resize the right dock within the window." } },
+          { 26, header.workspace, { "Switch Scene and Solver Lab. Leaving Solver Lab pauses and retains its comparison." } },
+          { 25, header.camera, { "Choose a supported camera. Unavailable attached cameras are disabled for this scene." } },
+          { 34, m_editorTab.terrainAlignToggle.Bounds(), { "Align newly placed objects to the terrain surface." } },
+          { 30, m_editorTab.editorModeToggle.Bounds(), { "Enable or disable functional scene editing." } },
+          { 31,
+            m_editorTab.placementModeToggle.Bounds(),
+            { "Switch between placing objects and selecting existing objects.", "", "", "Enable Editor mode first." },
+            false,
+            false,
+            data.editor.editorModeEnabled },
+          { 32, m_editorTab.staticObjectToggle.Bounds(), { "Choose whether newly placed objects are static." } },
+          { 33, m_editorTab.objectCombo.Bounds(), { "Choose an object from the existing placement catalog." } } };
+    UITooltipTarget target;
+    for ( const auto& candidate : candidates )
+    {
+        const bool editorAvailable = m_presentationRects.editorControls.Contains( m_mouseX, m_mouseY ) ||
+                                     ( m_window.isVisible && !m_window.isMinimized && m_activeTab == InGameUITab::Editor &&
+                                       content.Contains( m_mouseX, m_mouseY ) );
+        const bool available = !HasOpenPopup() && !( solverLab && candidate.id == 25 ) &&
+                               ( candidate.id >= 30   ? editorAvailable
+                                 : candidate.id >= 11 ? m_presentationEnabled
+                                                      : sceneAvailable && content.Contains( m_mouseX, m_mouseY ) );
+        if ( available && candidate.bounds.Contains( m_mouseX, m_mouseY ) )
+        {
+            target = candidate;
+            target.hovered = true;
+            break;
+        }
+    }
+    if ( target.id == 0 && m_presentationEnabled && !solverLab && data.editor.editorModeEnabled && !HasOpenPopup() )
+    {
+        const EditorMiniPaletteLayout palette = PresentedEditorPalette();
+        const int entry = HitEditorMiniPaletteButton( palette, m_mouseX, m_mouseY );
+        if ( entry >= 0 )
+        {
+            target = { static_cast<uint32_t>( 100 + entry ),
+                       palette.buttons[entry],
+                       { EditorMiniPaletteEntryLabel( kEditorMiniPaletteEntries[entry] ), "",
+                         kEditorMiniPaletteEntries[entry].holdMode == EDITOR_MINI_HOLD_MODE_NONE
+                             ? "Click to select and enter placement"
+                             : "Hold, move to a variant, then release" } };
+            target.hovered = true;
+        }
+    }
+    if ( target.id == 0 && !HasOpenPopup() )
+    {
+        target = FindToolsTooltip( content );
+    }
+    if ( target.id == 0 && !HasOpenPopup() )
+    {
+        for ( const UITooltipTarget& candidate : data.workspaceTooltips )
+        {
+            if ( candidate.id != 0 && ( candidate.bounds.Contains( m_mouseX, m_mouseY ) || candidate.focused ) )
+            {
+                target = candidate;
+                target.hovered = candidate.bounds.Contains( m_mouseX, m_mouseY );
+                break;
+            }
+        }
+    }
+    // Why: hover feedback uses elapsed presentation time even while simulation
+    // playback is paused. The generic tooltip receives this explicit clock value.
+    const double hoverNow = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+    m_tooltip.Update( target, hoverNow, m_tooltipGestureActive );
+    const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
+    m_tooltip.Draw( draw,
+                    { 0.0f, 0.0f, static_cast<float>( data.surface.screenW ), static_cast<float>( data.surface.screenH ) },
+                    hoverNow );
+}
+
+void UIWindowInteractionOwner::DrawDiagnosticLinks( const InGameUIFrameData& data )
+{
+    if ( !m_presentationEnabled )
+    {
+        return;
+    }
+    const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
+    const UIRect panels[] = { m_presentationRects.markerHistory, m_presentationRects.memoryWaterline };
+    draw.BeginLayer();
+    for ( int index = 0; index < 2; ++index )
+    {
+        const UIRect details = DiagnosticDetailsBounds( panels[index] );
+        if ( details.w <= 0.0f )
+        {
+            continue;
+        }
+        if ( m_presentation.focusedDiagnostic == index + 1 )
+        {
+            draw.Outline( panels[index].x, panels[index].y, panels[index].w, panels[index].h, 0.65f, 0.67f, 0.70f, 1.0f );
+        }
+        const float shade = details.Contains( m_mouseX, m_mouseY ) ? 0.25f : 0.16f;
+        draw.RoundedRect( details.x, details.y, details.w, details.h, 3.0f, shade, shade, shade + 0.01f, 1.0f );
+        draw.Text( details.x + 10.0f, details.y + 5.0f, 10.0f, 0.87f, 0.88f, 0.90f, "Details" );
+    }
+}
 
 const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data )
 {
     m_frameDrawList.Clear();
+    DrawPresentationDocks( data );
+    DrawEditorDock( data );
     m_histogramDrawList.Clear();
     m_memoryOverlayDrawList.Clear();
     const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );
     const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( m_memoryOverlay );
     const auto finishDraw = [&]() -> const UIDrawList&
     {
+        DrawPresentedEditorPalette( data );
+        DrawDiagnosticLinks( data );
+        DrawPresentationHeader( data );
+        DrawTooltips( data );
         // Why: every exit path must publish capacity evidence. Hidden,
         // minimized, and cached frames are real retained-stream consumers too.
         PublishDrawStats( m_activeTab, m_frameDrawList, m_histogramDrawList, m_memoryOverlayDrawList );
+        // App submits this bounded popup/tooltip stream after the workspace
+        // presenters. Extraction copies text; neither stream borrows widgets.
+        m_frameDrawList.ExtractForeground( m_foregroundDrawList );
         return m_frameDrawList;
     };
 
@@ -1043,7 +1634,10 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
     {
         m_cache.Reset();
         UIDrawList& drawList = m_cache.MutableDrawList();
-        DrawMinimizedContent( data, drawList, screenW, screenH );
+        if ( !m_presentationEnabled )
+        {
+            DrawMinimizedContent( data, drawList, screenW, screenH );
+        }
         m_frameDrawList.Append( drawList );
         AppendStandaloneOverlays( m_profilerTab, m_memoryOverlay, data, m_frameDrawList, m_histogramDrawList,
                                   m_memoryOverlayDrawList, screenW, screenH, histogramEnabled, memoryOverlayEnabled );
@@ -1057,19 +1651,20 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
     const float y = windowBounds.y;
     const float w = windowBounds.w;
     const float h = windowBounds.h;
-    const float titleH = 44.0f;
-    const float tabH = 44.0f;
-    const float bottomH = 78.0f;
-    const float pad = 18.0f;
-    const float contentX = x + pad;
-    const float contentY = y + titleH + tabH + 12.0f;
-    const float contentW = w - pad * 2.0f - 8.0f;
-    const float contentH = (std::max)( 30.0f, h - titleH - tabH - bottomH - pad );
+    const ToolsChromeRects chrome = ComputeToolsChromeRects( windowBounds, m_presentationEnabled );
+    PrepareCompactToolsControls( chrome );
+    const float titleH = chrome.title.h;
+    const float tabH = chrome.tabs.h;
+    const float bottomH = chrome.footer.h;
+    const float contentX = chrome.content.x;
+    const float contentY = chrome.content.y;
+    const float contentW = chrome.content.w;
+    const float contentH = chrome.content.h;
     const float scrolledY = contentY - m_scrollY;
     char titleText[192] = {};
 
     BuildWindowTitle( data, titleText, sizeof( titleText ) );
-    const bool useTitleStats = w - 36.0f < 560.0f;
+    const bool useTitleStats = !chrome.compact && w - 36.0f < 560.0f;
     char titleStat[32] = {};
 
     float titleStatW = 0.0f;
@@ -1106,6 +1701,8 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
     openControls |= m_editorTab.objectCombo.IsOpen() ? UI_INTERACTION_EDITOR_OBJECT_OPEN : 0u;
     openControls |= m_renderTargetCombo.IsOpen() ? UI_INTERACTION_RENDER_TARGET_OPEN : 0u;
     openControls |= m_cameraModeCombo.IsOpen() ? UI_INTERACTION_CAMERA_MODE_OPEN : 0u;
+    openControls |= m_toolsTabCombo.IsOpen() ? ( 1u << 16 ) : 0u;
+    openControls |= m_toolsDisplayCombo.IsOpen() ? ( 1u << 17 ) : 0u;
     cacheKey.interactionSignature = BuildUIInteractionSignature(
         { { m_mouseX, m_mouseY }, windowBounds, openControls, m_selectedRenderTargetPreview, m_activeSlider } );
 
@@ -1142,25 +1739,45 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
                          m_blurPreviewEnabled );
     PROFILE_END( "Frame/UI/Blur" );
 
-    Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
+    if ( m_presentationEnabled )
+    {
+        DrawToolsDrawerChrome( draw, windowBounds );
+    }
+    else
+    {
+        Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
+    }
     const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( windowBounds );
-    Chrome::DrawTitleButtons( draw, titleButtons, m_window.isMaximized, m_mouseX, m_mouseY );
+    if ( !m_presentationEnabled )
+    {
+        Chrome::DrawTitleButtons( draw, titleButtons, m_window.isMaximized, m_mouseX, m_mouseY );
+    }
     const UIRect objectCounterAvoidBounds = TitleButtonGroupBounds( titleButtons );
     DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
-    static const char* kTabs[] = { "Prof",    "Scene", "Edit", "Phys", "Opt", "Render",
-                                   "Targets", "Ctrl",  "Sky",  "Cine", "Mem" };
-
     const int tabCount = static_cast<int>( InGameUITab::Count );
-    const float tabPad = 14.0f;
-    m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
-    m_tabBar.Draw( draw, kTabs, tabCount, static_cast<int>( m_activeTab ) );
+    static_assert( std::size( TOOL_NAMES ) == static_cast<size_t>( InGameUITab::Count ) );
+    m_tabBar.SetBounds( chrome.tabs.x, chrome.tabs.y, chrome.tabs.w, chrome.tabs.h );
+    if ( chrome.compact )
+    {
+        m_toolsTabCombo.Draw( draw, "", { std::span<const char* const>( TOOL_NAMES ), static_cast<int>( m_activeTab ) },
+                              { m_mouseX, m_mouseY } );
+    }
+    else
+    {
+        m_tabBar.Draw( draw, TOOL_NAMES, tabCount, static_cast<int>( m_activeTab ) );
+    }
 
     const Style::UIPalette& palette = Style::Palette();
-    draw.RoundedPanel( { contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f }, Style::Radii().window,
-                       palette.windowSubtle, palette.innerBorder );
+    const float inset = chrome.compact ? 2.0f : 10.0f;
+    draw.RoundedPanel( { contentX - inset, contentY - inset, contentW + inset * 2.0f, contentH + inset + 2.0f },
+                       Style::Radii().window, palette.windowSubtle, palette.innerBorder );
 
+    // Invariant: scrolling content cannot paint over the drawer footer. Popup
+    // commands are extracted into the foreground stream after this clipped pass.
+    draw.PushClip( { contentX, contentY, contentW, contentH } );
     DrawActiveTabContent( data, draw, drawList, { contentX, contentY, contentW, contentH }, scrolledY );
+    draw.PopClip();
 
     m_scrollBar.SetBounds( x + w - 14.0f, contentY, 4.0f, contentH );
     m_scrollBar.Draw( draw, static_cast<float>( ContentHeight() ), contentH, m_scrollY, m_scrollbarVisibleUntil,
