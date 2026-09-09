@@ -4,6 +4,31 @@ Date: 2026-09-09
 Branch: `codex/unified-ui`
 Status: Unified UI complete at 8/8; portfolio 146/154. Closure is committed on this branch.
 
+## Bottom scrubber auto-hide follow-up - 2026-09-09
+
+The shared Scene scrubber now fades in at the bottom transport edge and fades
+out when the pointer leaves, including while replay is paused. Existing router
+capture holds it visible during a scrub outside the strip. The full edge can
+reveal it, but clicking outside its controls does not start a scrub. The Details
+button shares the fade; an already-open Details pane remains drawn and usable.
+Canvas and Editor use this policy without changing their scene viewport geometry.
+
+`tools/validate_scrubber_autohide.py` is included in `validate_ui.bat`. Its native
+checks pass for both layouts, paused hide/reveal, cursor movement during capture,
+edge clicks, strip pixel changes and unchanged Details pixels. Screenshots and
+recorded owner state are under `TestOutput/skarness/scrubber-verified/`; inspected
+earlier matching captures are in `scrubber-after-2/`, with the original always-on
+state in `scrubber-before/`. The existing unified-shell regression passes.
+Automation builds warning-clean. Units pass 991 cases / 2,747,493 assertions;
+the required Physics commit gate passes. No golden baseline changed.
+
+All fast-preflight lanes pass, including 99 sources / 860 compiler contexts with
+zero findings. Both `validate_fast` and `validate_ui` stop at Profile linking
+because the user's paused Profile app still locks the executable (LNK1104).
+Neither complete invocation is claimed as passing. The unit gate, new native
+check and existing shell check were run independently; the paused user process
+remains preserved.
+
 ## Window move/resize crash follow-up - 2026-09-09
 
 The native window callback queue now keeps only the final client resize while

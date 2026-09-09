@@ -105,6 +105,10 @@ if errorlevel 1 exit /b 7
 "%PYTHON_EXE%" "%~dp0check_causal_tree_interaction.py" --repo "%REPO%" --executable "%REPO%\Automation\SKULLBONEZ_CORE.exe"
 if errorlevel 1 exit /b 7
 
+echo Checking native bottom-edge scrubber visibility...
+"%PYTHON_EXE%" "%~dp0validate_scrubber_autohide.py" --session "%REPO%\TestOutput\skarness\scrubber-autohide-%RANDOM%"
+if errorlevel 1 exit /b 7
+
 echo [8/8] Exporting shareable UI PNG artifact...
 "%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_dx12_profiler_timeline.bmp" "%REPO%\Profile\ui_dx12_profiler_timeline.png" --max-width 1080
 if errorlevel 1 exit /b 8

@@ -2344,6 +2344,7 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
 ReplayHudStatus ReplayRuntime::BuildHudStatus( bool includeMemoryStats ) const
 {
     ReplayHudStatus status;
+    status.scrubberAlpha = m_scrubberOwner.View().visibleAlpha;
     const ReplayMemoryPolicy& policy = m_timeline.MemoryPolicy();
     status.memoryPreset = static_cast<int>( policy.preset );
     status.requestedRetentionSeconds = policy.requestedRetentionSeconds;

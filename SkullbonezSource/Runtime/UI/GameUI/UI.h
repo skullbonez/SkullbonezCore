@@ -311,6 +311,7 @@ struct UISceneTabFrameView
 // below expose only the facts consumed by each tab.
 struct UIFrameSurfaceData
 {
+    float transportAlpha = 0.0f;
     int screenW = 1;
     int screenH = 1;
     const char* rendererName = "";

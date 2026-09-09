@@ -533,6 +533,7 @@ void Run::BuildOperatorGameUiData( UI::InGameUIFrameData& uiData, const Operator
                                                    editor.placeStaticObject,
                                                    editor.autoTerrainAlign,
                                                    editor.viewportLookActive };
+    uiData.surface.transportAlpha = projection.replayHud.scrubberAlpha;
     ProjectOperatorUiInteraction( uiData, interaction );
     ProjectOperatorUiPresentation( uiData, projection.scene, operatorEditorView );
     ProjectOperatorUiViewport( uiData, uiViewport.screenW, uiViewport.screenH );

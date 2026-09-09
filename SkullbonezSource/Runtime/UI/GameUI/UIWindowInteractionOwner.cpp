@@ -541,7 +541,9 @@ bool UIWindowInteractionOwner::HasOpenPopup() const
 
 bool UIWindowInteractionOwner::BlocksReplayMouse() const
 {
-    const bool replayRegion = m_presentationRects.transport.Contains( m_mouseX, m_mouseY ) ||
+    const UIRect revealBounds { 0.0f, m_presentationRects.transport.y, m_presentationRects.window.w,
+                                m_presentationRects.transport.h };
+    const bool replayRegion = revealBounds.Contains( m_mouseX, m_mouseY ) ||
                               m_presentationRects.replayControls.Contains( m_mouseX, m_mouseY );
     // Chrome still blocks world input. Only its Replay region is offered to
     // the existing Replay handler; a popup or captured UI gesture takes priority.

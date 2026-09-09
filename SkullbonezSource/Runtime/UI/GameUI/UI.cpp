@@ -1232,14 +1232,21 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
         draw.Rect( pane.x, pane.y, pane.w, pane.h, 0.075f, 0.08f, 0.09f, 1.0f );
         draw.Outline( pane.x, pane.y, pane.w, pane.h, 0.17f, 0.18f, 0.20f, 1.0f );
     }
-    if ( m_presentation.preferences.layout == LayoutMode::Editor )
+    const float transportAlpha = m_presentation.workspace == Workspace::SolverLab
+                                     ? 1.0f
+                                     : std::clamp( data.surface.transportAlpha, 0.0f, 1.0f );
+    if ( transportAlpha > 0.0f )
     {
-        draw.Rect( 0.0f, m_presentationRects.transport.y, m_presentationRects.window.w, m_presentationRects.transport.h,
-                   0.075f, 0.08f, 0.09f, 1.0f );
+        if ( m_presentation.preferences.layout == LayoutMode::Editor )
+        {
+            draw.Rect( 0.0f, m_presentationRects.transport.y, m_presentationRects.window.w, m_presentationRects.transport.h,
+                       0.075f, 0.08f, 0.09f, transportAlpha );
+        }
+        const UIRect& details = m_presentationRects.replayDetails;
+        draw.RoundedRect( details.x, details.y, details.w, details.h, 4.0f, 0.13f, 0.14f, 0.16f, transportAlpha );
+        draw.Text( details.x + 10.0f, details.y + 8.0f, 11.0f, 0.88f * transportAlpha, 0.89f * transportAlpha,
+                   0.91f * transportAlpha, "Details" );
     }
-    const UIRect& details = m_presentationRects.replayDetails;
-    draw.RoundedRect( details.x, details.y, details.w, details.h, 4.0f, 0.13f, 0.14f, 0.16f, 1.0f );
-    draw.Text( details.x + 10.0f, details.y + 8.0f, 11.0f, 0.88f, 0.89f, 0.91f, "Details" );
     const UIRect tabs[] = { m_presentationRects.detailsReplayTab, m_presentationRects.detailsCausesTab };
     for ( int index = 0; index < 2; ++index )
     {

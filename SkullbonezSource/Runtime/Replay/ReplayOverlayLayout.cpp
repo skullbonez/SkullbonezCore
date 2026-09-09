@@ -382,8 +382,10 @@ void PlaceScrubberInShell( const ReplayScrubberSurfaceInput& input, ReplayScrubb
         else if ( id == ReplayScrubberControl::Panel || id == ReplayScrubberControl::HotZone )
         {
             control.drawRect = transport;
-            control.hitRect = transport;
-            control.visible = id == ReplayScrubberControl::Panel;
+            control.hitRect = id == ReplayScrubberControl::HotZone
+                                  ? UI::UIRect { 0.0f, transport.y, static_cast<float>( input.screenW ), transport.h }
+                                  : transport;
+            control.visible = id == ReplayScrubberControl::Panel || input.hotZoneEnabled;
         }
         else
         {

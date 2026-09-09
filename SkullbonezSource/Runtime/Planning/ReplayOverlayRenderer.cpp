@@ -812,7 +812,13 @@ void ReplayScrubberComposer::Compose()
     BuildSurface( m_scenePhysicsEnabled );
     m_trackPosition = std::clamp( ReplayOverlayTrackPosition( m_scrubber, m_activeTrack ), 0.0f, 1.0f );
     m_futureTimelineVisible = !m_loadedPresentation && ReplayTimelineHasFuture( m_solverPresentT );
-    m_fade = m_viewport.transportBounds.w > 0.0f ? 1.0f : std::clamp( m_scrubber.visibleAlpha, 0.0f, 1.0f );
+    if ( m_viewport.transportBounds.w > 0.0f )
+    {
+        // The open Details pane remains usable when its bottom transport fades.
+        m_fade = 1.0f;
+        DrawShellControls();
+    }
+    m_fade = std::clamp( m_scrubber.visibleAlpha, 0.0f, 1.0f );
 
     if ( m_fade <= REPLAY_SCRUBBER_FADE_EPSILON )
     {
@@ -826,12 +832,11 @@ void ReplayScrubberComposer::Compose()
     {
         const UI::UIRect& transport = m_viewport.transportBounds;
         m_draw.PushClip( transport );
-        m_draw.Rect( transport.x, transport.y, transport.w, transport.h, 0.075f, 0.08f, 0.09f, 1.0f );
+        m_draw.Rect( transport.x, transport.y, transport.w, transport.h, 0.075f, 0.08f, 0.09f, m_fade );
         DrawText( transport.x + 10.0f, transport.y + 8.0f, 11.0f, m_live ? m_palette.accent : m_palette.warningAccent,
                   m_timeLabel );
         DrawTrack();
         m_draw.PopClip();
-        DrawShellControls();
         return;
     }
     DrawHeader();

@@ -2012,13 +2012,13 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     // A disabled front-most control still blocks fall-through to these rows.
     const bool scrubTrackStartTarget = isHotControl( ReplayScrubberControl::ScrubTrack ) ||
                                        isHotControl( ReplayScrubberControl::Panel ) ||
-                                       isHotControl( ReplayScrubberControl::HotZone ) ||
+                                       ( !sharedSurface && isHotControl( ReplayScrubberControl::HotZone ) ) ||
                                        ( !sharedSurface && scrubber.historicalSamplePaused && !surface.hasPointerControl );
 
     // Why: passive Scene/Demo cameras still reveal the replay bar at its hot
-    // zone, while UI-owned mouse regions do not. Active replay state pins the
-    // surface open without making empty screen space consume pointer input.
-    if ( sharedSurface || pointerRequestsReplayOverlay || replayStateKeepsScrubberVisible )
+    // zone, while UI-owned mouse regions do not. Only the legacy floating
+    // surface stays pinned by paused playback; shared chrome follows the edge.
+    if ( pointerRequestsReplayOverlay || ( !sharedSurface && replayStateKeepsScrubberVisible ) )
     {
         KeepVisible( frame.now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
         scrubber = View();
@@ -2667,8 +2667,17 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
         m_scrubberOwner.SetAllTrackPositions( solverPresentTrackPosition );
     }
 
-    const bool scrubberTargetVisible = scrubDragActive() || horizonDragActive() || scrubber.historicalSamplePaused ||
-                                       scrubber.liveAdvanceHeld || scrubber.visibleUntil >= input.now;
+    // Shared chrome follows the bottom edge, independent of paused playback.
+    // The router's existing scrub capture keeps it visible outside the strip.
+    const bool sharedSurface = input.transportBounds.w > 0.0f;
+    const UI::UIRect revealBounds { 0.0f, input.transportBounds.y, static_cast<float>( input.screenWidth ),
+                                    input.transportBounds.h };
+    const bool edgeHovered = !uiBlocksMouse && runtimePointer.hasClientPosition && revealBounds.Contains( mouse.x, mouse.y );
+    const bool scrubberTargetVisible = scrubDragActive() ||
+                                       ( sharedSurface
+                                             ? edgeHovered
+                                             : horizonDragActive() || scrubber.historicalSamplePaused ||
+                                                   scrubber.liveAdvanceHeld || scrubber.visibleUntil >= input.now );
 
     m_scrubberOwner.UpdateVisibilityFade( scrubberTargetVisible, input.now, REPLAY_SCRUBBER_FADE_IN_SECONDS,
                                           REPLAY_SCRUBBER_FADE_OUT_SECONDS, REPLAY_SCRUBBER_FADE_EPSILON );
