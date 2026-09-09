@@ -1,8 +1,28 @@
 # Session State
 
-Date: 2026-09-07
-Branch: `codex/solver-lab` (root checkout, from merged main)
-Status: Solver Lab library and loading optimization in final validation.
+Date: 2026-09-09
+Branch: `codex/unified-ui` (new branch from clean main)
+Status: Unified UI implemented; independent follow-up review and terminal gates remain open. UNIFIED_UI 0/8 provisional; portfolio 146/162.
+
+## Unified UI current handoff - 2026-09-09
+
+UNIFIED_UI is implemented and in terminal review/validation, 0/8 provisionally
+accepted; MASTER progress is 146/162. See TODO/unified-ui.md and its complete
+control inventory for current evidence. Earlier dated checkpoints below are
+historical and do not supersede this handoff.
+
+Final native checks pass for catalogs/dialogs/configuration, short Causes inner
+scrolling and later hierarchy selection, 320x240 Lab events/transport/popups,
+diagnostic retention and popup dismissal, and planning at four widths. The
+unchanged solar-system planner probe now passes eight assertions after actual
+physics advancement and prediction-bank identity repairs. Whole-diff source
+design and focused checks pass; all physics/replay/visual baselines are preserved.
+Independent integrated-review findings are repaired; follow-up review and
+terminal mapped gates remain open. No commit or push has been made.
+
+The ledger cannot start with unconfigured model pricing. Preserve its unrelated
+active task and do not invent token counts, timings or costs. Logs are under
+TestOutput, native streams/screenshots under TestOutput/skarness.
 
 ## Final causal layout and commit-all closure (2026-09-08)
 
@@ -328,20 +348,12 @@ passed on FP5. Fresh runs will be dispatched after the FP6 push.
 
 ## Current State
 
-Current objective: complete `TODO/ragdoll-physics-unification.md` FP5-FP9.
-Plan progress: 7/10; portfolio progress: 145/148. Next binding task: FP7,
-shared contact/joint iteration. The cleanup CI jobs
-34042905345, 34042907156 and 34042908720 were dispatched on `88d09e78f`.
-They have completed: Linux diagnostics passed; mandatory CPU preflight failed
-changed-source formatting; native Windows diagnostics failed because its
-formatter rejects the existing `BinPackLongBracedList` configuration key.
-The cleanup's trailing blank line in `UIInputCaptureIntent.h` is repaired on
-this child branch, and all 59 cleanup/FP5 source files pass local formatting.
-The hosted formatter-version mismatch remains unresolved.
-The pre-existing live ledger belongs to an unfinished GOV1 task; this run
-preserves it. A separate ledger initialization also fails because the helper
-lacks verified `gpt-6-astra` pricing. No usage counters or costs are fabricated;
-implementation continues with timestamped command evidence.
+Current objective: finish TODO/unified-ui.md on codex/unified-ui.
+Plan progress: 0/8 provisional; portfolio progress: 146/162.
+Next binding task: UU7 terminal review and mapped validation, then acceptance of
+the eight integrated phases. PHYSICS_AB AB1-AB6 and RAGDOLL_PHYSICS FP8-FP9 follow
+in MASTER order and are outside this UI goal. The live ledger limitation and
+current native evidence are recorded at the top of this file.
 
 The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish
 the plan without stopping. The bootstrap checkpoint repairs prediction
@@ -2127,3 +2139,228 @@ and checks that late worker output cannot restore cleared overlays. Screenshots
 and trace are under TestOutput/skarness/p-shortcut-ready. Preflight, the affected
 source-design checks and all 960 unit tests passed (2,731,442 assertions).
 The prior full UI and complete Skarness suites passed for the combined layout.
+
+Unified UI checkpoint: Causes is now docked and folded within the shared shell.
+Native evidence: TestOutput/skarness/unified-causes-details; source design:
+TestOutput/unified-ui-causes-design.log. InputRouter shell-click regression
+fixed and verified; native P behaviour also passes. Editor pane, camera/header,
+Solver Lab, preference persistence and complete mapped acceptance remain work
+in progress. Branch remains codex/unified-ui; plan remains 0/8 complete.
+
+Unified UI checkpoint: Editor and camera controls now use the shared shell.
+Native evidence: TestOutput/skarness/unified-editor-grid (37 catalog entries,
+24 quick buttons, 11 held variants, dock resizing/folding) and
+TestOutput/skarness/unified-camera-header (all seven modes in both layouts).
+Screenshots inspected; old floating palette overlap removed. Focused build,
+eight-file source design and 19 tests pass. Solver Lab integration is next;
+preferences and complete mapped acceptance remain outstanding. Plan 0/8,
+active branch codex/unified-ui; no commit/push performed.
+
+
+Unified UI continuation: Solver Lab is integrated into the shared shell and
+retains an independently owned comparison across background Scene loads. Native
+`unified-lab-controls` and `unified-lab-input-fix` pass the implemented control
+routes and retained camera/tick checks. Library replacement remains release-first;
+generic file/finding replacement remains transactional, as existing integrity
+checks require. The first archived-bundle integrity invocation failed a fixture
+sidecar expectation and remains recorded; do not count it as a gate pass.
+Per-user layout persistence is implemented; `unified-preferences-1` passes
+cross-launch layout/dock/fold/drawer/tab retention and invalid-file fallback.
+Tools always starts closed. All progress remains on `codex/unified-ui`, 0/8
+accepted groups; complete inventory, remaining native checks, terminal gates,
+independent review and commits are still required.
+
+Latest Unified UI checkpoint: `unified-lab-narrow-3` passes paired picking,
+F5/F6, popup/focus priority, 900x640 resizing and local scrolling, exact retained
+camera/tick restoration and actual Scene advancement with background Lab.
+`unified-lab-integrity-raw` passes the unchanged comparison integrity gate.
+`unified-scenes-native-routes` passes native creation, filtering, Demo, distinct
+reset operations and save in both layouts. Popup typing over header/diagnostics
+was repaired; temporary tracing is removed. No test-created authored scenes
+remain. Remaining work includes complete control/tooltips catalog and checks,
+detailed profiler/memory operations, more small-window/capture/error checks,
+remaining Replay/Causes/planning routes and terminal closure. Still 0/8 accepted.
+
+Unified UI Tools checkpoint: shared delayed help now covers Physics, Options,
+Memory, Profiler workers, all footer controls, Render parameters, Sky and
+Cinematic parameters/features, Targets and Keys. Static render help follows
+existing command enums; Sky reuses cinematic parameter descriptions. Native
+`TestOutput/skarness/unified-tools-clipped` passes worker toggle/restore,
+Profiler root folding and timeline retention across drawer/layout changes,
+Memory presets and budget adjustment against the replay owner, plus visible
+help in each Tools tab. A screenshot exposed Memory content painting into the
+footer; the shared Tools content clip fixes it while foreground popups remain
+independent. `unified-tools-clip-shell` passes all tabs and Scene popup routing.
+Focused checks: 23 tests / 487 assertions, three-file and five-file source-design
+checks pass. Logs: `unified-ui-tools-focused-tests.log`,
+`unified-ui-tools-tooltip-design.log`, `unified-ui-tools-observations-design.log`.
+No commit/push or baseline refresh. Complete mapped control acceptance, narrow
+windows, remaining replay/planning routes and terminal closure remain pending.
+
+Latest checkpoint: `unified-tools-profiler-help` passes native hierarchy/value
+hover targets along with the Tools operations above. The corresponding build
+and two-file source-design check pass. Status badges now use the computed
+`statusContent` rectangle below the header and clear of perimeter/Details panes;
+`unified-tools-status-bounds`, three-file source design and 20 focused tests /
+499 assertions pass. The initial status build had two non-constant local
+expressions declared constexpr; corrected to const, rebuilt successfully.
+
+Small-window baseline captured under `TestOutput/skarness/unified-small-before`
+at 640x480, 480x360 and 320x240. This is evidence of remaining defects, not a
+pass: the existing fixed 44/44/78-pixel Tools title/tab/footer geometry overlaps
+at 320x240 and leaves almost no Scene control area at 640x480. No minimum-window
+restriction was introduced and no compact layout fix has been applied yet.
+The next implementation should use one shared compact Tools geometry for input,
+drawing and tooltip clipping, retaining all tabs/footer actions through bounded
+menus or scrolling. Avoid changing layout/workspace automatically. The full
+control inventory and terminal gates remain outstanding; plan still 0/8.
+
+
+Compact Tools checkpoint (2026-09-09): title, tabs, content, footer and close
+bounds now come from `ComputeToolsChromeRects` for drawing, input and help.
+Small drawers replace the eleven-column tab strip with a scrollable selector
+and expose all footer actions through Display settings; wide and compact
+controls share `ApplyFooterAction`. Local scrolling uses twelve-pixel steps in
+compact content. Popup state participates in keyboard/world blocking and is
+cleared on focus loss or hiding the drawer. Reflection choices honor the
+existing disabled mask.
+
+Pinned F5/F6 retain their original data and charts with compact labels and
+bounded plot areas. The F5 marker popup can use adjacent dock width; its row
+count, scroll range and picking agree with available height. A native test
+exposed the observation hash treating Main (hash zero) like no selection; the
+observation now includes the existing frame-total identity. No runtime marker
+identity or sampling baseline changed.
+
+Evidence: `TestOutput/skarness/unified-compact-tools-final` passes native access
+to all eleven tabs at 640x480, 480x360 and 320x240 in Canvas and Editor, footer
+timeline/reflection routes, popup scrolling, focus loss and F5 selections
+without activating underlying Tools. Screenshots were inspected. Wide Tools
+worker/Profiler/Memory/help routes pass in `unified-wide-tools-after-compact`;
+Replay transport, identity, controls, layout/drawer retention and folding pass
+in `unified-replay-after-compact`. Automation builds and focused source-design
+checks pass; `unified-compact-final-tests.log` records 19 tests / 528 assertions.
+No baseline refresh, commit or push. Full mapped parity and terminal closure
+remain outstanding; this is progress within UU4/UU6, not plan acceptance.
+
+
+Scene timing checkpoint (2026-09-09): the existing Scene owner already accepted
+`toggleCrossScenePause` and `requestSingleStep`, but the Scene presenter emitted
+neither. The agreed Pause lock and Single step controls now use those commands,
+with disabled-state help and the owner-projected pause value. They occupy a
+locally scrollable final Scene row without moving the existing forecast/reveal
+controls. InputRouter still owns capture and one-turn stepping.
+
+`TestOutput/skarness/unified-scene-time-2` passes native pause/one-shot stepping
+(including a held click), reveal rate minimum/interior/maximum without advancing
+the paused scene, and private forecast start/progress/reset/stop in both layouts.
+The first run incorrectly kept Skarness' independent pause active while testing
+a Scene step; the corrected test releases the harness pause for that click.
+Screenshots were inspected. Automation build and eight-source design checks
+pass; `unified-scene-time-tests.log` records 21 tests / 539 assertions.
+
+`unified-scenes-saved-values-3` strengthens Save defaults by changing fluid
+height through Keys and verifying the saved authored value (200 in Canvas,
+-100 in Editor). Earlier checks clicked outside the window after Reset defaults
+closed Tools and only checked an existing file; that was insufficient evidence.
+The corrected test reopens Scenes and validates the existing version-5 writer
+format, active scene path and changed value. The writer intentionally does not
+retain the starter-only root name property. Creation, filtering, Demo, Reset and
+Reset defaults also pass. Only test-owned scene files were created and removed.
+`unified-preferences-after-compact` passes native restart and invalid-file checks.
+
+No baseline refresh, commit or push. Complete catalog/control parity, remaining
+planning and comparison routes, preference section folds and the terminal gates
+remain open. Plan acceptance remains 0/8.
+
+
+Filter and catalog checkpoint (2026-09-09): native cause text focus now blocks
+pre-UI world shortcuts while leaving device keys available to the native filter.
+Focused keyboard editing no longer depends on a pointer sample, and local Escape
+does not also open Tools. `unified-causes-typing-5` passes typed PFJI, Backspace,
+Escape/Return, selection/camera/prediction identity, evidence tabs and folding.
+Earlier failing runs exposed key stripping, a pointer-only early return and an
+unconsumed after-UI Escape; these are repaired, not accepted failures.
+
+Summary accordion preferences now use the existing versioned folded-section
+field. Selection/reset retain the presentation choice without retaining evidence.
+`unified-preferences-evidence-2` passes native section expansion, shutdown/restart,
+layout/dock/drawer/tab retention and invalid-file fallback. Four focused cause
+tests / 48 assertions pass. Filter automation anchors now reveal Causes and use
+the current shared bounds; the corrected Automation build passes.
+
+Read-only Skarness observations reuse the existing rendering parameter projection
+and sample Physics values from their actual owners. `unified-render-catalog-2`
+passes all 38 Render sliders in both layouts. `unified-cinematic-catalog-3` passes
+all 26 Sky and 64 Cinematic sliders plus all four/eight feature toggles in both
+layouts. Total: 768 endpoint/interior slider checks and 24 held-toggle checks,
+plus hidden-control isolation. The first midpoint test hit float rounding at an
+exact half step; interior checks now use a non-tie position. Feature rows are
+scrolled into view before clicking. No parameter range or runtime action changed.
+
+`unified-physics-ui-3` passes 13 toggles and 13 sliders in both layouts plus
+pipeline next/previous (106 recorded checks). The test preserves the existing
+tornado auto-visual coupling: disabling the field can disable its shell. This
+was an incorrect independent-toggle assumption in the first test, not a product
+regression. Native Editor Physics/Render screenshots were inspected and show
+bounded content above the retained F5/F6 docks.
+
+Automation builds and focused compiler-backed source design pass; latest checks
+are `unified-filter-summary-design.log`, `unified-catalog-anchor-design.log` and
+`unified-physics-design.log`. `unified-filter-catalog-tests.log` records 24 tests /
+584 assertions. The control inventory now includes explicit 128 render-parameter
+rows. A failed text-encoding write temporarily truncated that task-owned document;
+it was reconstructed from the inspected control sources and inventory, then
+written with explicit UTF-8. No source, user scene, baseline, commit or push was
+lost or changed by that documentation failure.
+
+The full plan remains incomplete. Remaining work includes Options/Keys and
+per-entry Editor routes, recording and Save/dialog/error outcomes, planning
+overlay placement and controls, comparison findings/persistence, final visual
+coverage and all terminal gates/review. No aggregate phase is accepted yet.
+
+
+File and catalog acceptance reconciliation (2026-09-09): the preceding session
+left passing native logs newer than its prose handoff. Inspected logs confirm
+`unified-options-keys-2` (54 checks), `unified-editor-both-catalog-1` (37 catalog
+choices, 24 quick buttons and 11 hold variants in each layout), `unified-files-2`
+(Open/Save finding/Load finding, picker cancellation, missing/invalid file errors
+and restored identity/settings), `unified-replay-files-3` (Save/Load recording,
+cancellation, missing file and recovery), and `unified-config-files-1` (Save CFG,
+Save Paths and Save Sky against isolated config copies, preserving comments and
+checking changed owner values). Original authored config hashes are preserved.
+The corresponding Automation builds and five-source `unified-files-design-2.log`
+passed. These are concrete route checks, not acceptance of untested controls.
+
+Planning placement is being completed against the shared scene viewport. The
+new layout orders intercept/trip/transfer panels in one bounded, locally
+scrollable column, wraps trip actions at narrow widths and shares the same
+geometry between input, drawing and delayed help. Focused initial build and
+13 tests / 434 assertions passed; eight-source design checks passed. Native
+planning acceptance and the terminal gates remain pending. The first native
+probe requested Plan before Prediction completed its required baseline; its
+abort is preserved in `unified-planning-1`. The probe now waits for completion
+and the UI is being updated to expose that precondition as disabled help.
+
+
+UI goal continuation, 2026-09-09: Planning now uses bounded scrollable shell
+content with explicit paused-versus-advancing semantics. Native planning and
+near-target Commit routes pass in both layouts; the ordinary solar fixture
+reports no solution, so its pre-existing convergence probe remains a terminal
+check. Fixed UI capacity now fits the complete 3,072-cell grid; native maximum
+3,177 commands, no overflow. Short Causes panes scroll their whole content.
+Focused tests: 14 / 425 pass; Automation build 10 passes. Targets entries pass;
+recording-catalog playback is being rerun after correcting its read-only popup
+row count. Details/evidence are in unified-ui.md. UNIFIED_UI remains 0/8 pending
+full diagnostics/visual coverage, final gates and independent closure review.
+
+### UI integrated-review checkpoint  -  2026-09-09
+
+UNIFIED_UI remains 0/8; MASTER remains 146/162. Target/recording native catalog
+checks and full Profiler/Memory controls now pass in both layouts. Retention UI
+matches Replay's 20-600 seconds; existing policy limits are unchanged. Whole-diff
+source design passed 91 sources / 783 contexts / zero findings. Final review is
+active. Remaining work includes the unchanged solar trip regression, narrow Lab
+event scroll and seek geometry findings, final visual inspection and mapped gates.
+See the owning plan's integrated-review checkpoint for exact artifacts and the
+unchanged live-ledger limitation. No UI completion commit or push exists yet.

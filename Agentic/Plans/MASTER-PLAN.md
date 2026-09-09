@@ -1,7 +1,7 @@
 # MASTER PLAN
 
 Date: 2026-09-07
-Status: 146/154 tasks complete; PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 8/10; bug ledger 126/126 fixed
+Status: 146/162 tasks complete; UNIFIED_UI active at 0/8; PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 8/10; bug ledger 126/126 fixed
 
 ## Owner Direction
 
@@ -381,6 +381,7 @@ hash comparisons, disclosures, and the deferred scrubber ruling are recorded in
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
+| Unified UI | `UNIFIED_UI` | 8 | 0 | UU0: control inventory and baseline | `TODO/unified-ui.md` |
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
 | Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 8 | FP8: speculative ragdoll contacts | `TODO/ragdoll-physics-unification.md` |
 
@@ -419,7 +420,8 @@ One detail in that table is recorded:
 
 ## Binding Order
 
-`PHYSICS_AB` AB1-AB6 is the next binding work by owner direction.
+`UNIFIED_UI` UU0-UU7 is the next binding work by owner direction on 2026-09-08.
+`PHYSICS_AB` AB1-AB6 follows this explicitly requested UI migration.
 `RAGDOLL_PHYSICS` FP8 then FP9 remain pending.
 `SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete.
 
