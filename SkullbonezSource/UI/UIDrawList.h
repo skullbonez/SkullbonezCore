@@ -46,6 +46,8 @@ enum class UIPanel : uint8_t
     AuxiliaryGrid,
     Header,
     Popup,
+    LowerLeft,
+    AttachedRight,
     Count
 };
 

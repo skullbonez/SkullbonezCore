@@ -1,4 +1,4 @@
-"""Verify Escape, Solver Lab entry and floating diagnostics through native input."""
+"""Verify Escape, Solver Lab entry and scene-contained diagnostics through native input."""
 from __future__ import annotations
 import argparse
 import json
@@ -22,7 +22,9 @@ def run(session: Path) -> None:
 
     def sample(label: str) -> dict:
         nonlocal offset
-        send("run.step_frames", count=3)
+        deadline = time.monotonic() + .2
+        while time.monotonic() < deadline:
+            send("run.step_frames", count=3)
         with (session / "runtime.skarness.ndjson").open(encoding="utf-8") as trace:
             trace.seek(offset)
             for line in trace:
@@ -84,42 +86,33 @@ def run(session: Path) -> None:
         ui = key(0x75, "canvas-both")
         assert ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
         fullscreen(ui)
-        hx, hy, hw, hh = ui["markerHistoryBounds"]
-        send("input.pointer_drag", button="left", x=int(hx+hw/2), y=int(hy+27), deltaX=120,
-             deltaY=60, moveClient=True)
-        ui = sample("floating-moved")
-        assert ui["markerHistoryBounds"][0] != hx, ui
-        floating = ui["markerHistoryBounds"]
-        capture("canvas-floating")
+        def within_scene(ui):
+            vx, vy, vw, vh = ui["viewport"]
+            for name in ("markerHistoryBounds", "memoryWaterlineBounds"):
+                x, y, w, h = ui[name]
+                assert w > 0 and h > 0 and x >= vx and y >= vy and x+w <= vx+vw and y+h <= vy+vh, (name, ui)
+                assert y+h <= ui["transportBounds"][1]+.1
+        within_scene(ui)
+        capture("canvas-diagnostics")
         for layout in ("Editor", "Canvas"):
-            if ui["layout"] != layout:
-                press("headerLayoutBounds")
+            if ui["layout"] != layout: press("headerLayoutBounds")
             ui = sample(layout + "-layout")
-            assert ui["layout"] == layout
-            viewport = ui["viewport"]
-            assert ui["markerHistoryBounds"] == floating
+            within_scene(ui)
             press("replayDetailsBounds")
             ui = sample(layout + "-menu")
-            assert ui["toolsVisible"] and ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
+            assert ui["toolsVisible"] and not ui["markerHistoryVisible"] and not ui["memoryWaterlineVisible"]
             menu_viewport = ui["viewport"]
             tools = ui["toolsContentBounds"]
-            ui = key(0x74, layout + "-f5-off")
-            assert not ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
+            key(0x74, layout + "-f5-on")
+            ui = key(0x75, layout + "-f6-on")
+            within_scene(ui)
             assert ui["viewport"] == menu_viewport and ui["toolsContentBounds"] == tools
-            ui = key(0x74, layout + "-f5-on")
-            assert ui["markerHistoryBounds"] == floating
-            hx, hy, hw, hh = ui["markerHistoryBounds"]
-            send("input.pointer_drag", button="left", x=int(hx+hw/2), y=int(hy+12), deltaX=30,
-                 deltaY=20, moveClient=True)
-            ui = sample(layout + "-menu-dragged")
-            assert ui["markerHistoryBounds"][0] == hx+30, ui
-            assert ui["viewport"] == menu_viewport and ui["toolsContentBounds"] == tools
-            floating = ui["markerHistoryBounds"]
-            capture(layout + "-menu-floating")
-            press("replayDetailsBounds")
+            capture(layout + "-diagnostics-above-tools")
+            x,y,w,h=ui["drawerBounds"]
+            click(x+w-25,y+22)
             ui = sample(layout + "-menu-closed")
-            assert ui["layout"] == "Editor" and ui["viewport"][3] == height - 70
-            assert ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
+            assert not ui["toolsVisible"] and ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
+            within_scene(ui)
         ui = key(0x1b, "escape-editor")
         fullscreen(ui)
         assert ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
@@ -200,7 +193,7 @@ def run(session: Path) -> None:
         fullscreen(ui)
         assert not ui["cameraPopupOpen"]
         capture("escape-fullscreen")
-        print("PASS: native Escape, first Solver Lab load, replacement, mouse exit, floating F5/F6 and worker controls", flush=True)
+        print("PASS: native Escape, first Solver Lab load, replacement, mouse exit, scene-contained F5/F6 and worker controls", flush=True)
     finally:
         try:
             send("session.stop")

@@ -405,7 +405,7 @@ struct SkarnessFrameState
         bool toolsVisible = false;
         int activeTool = 1;
         int theme = 0;
-        std::array<float, 13> panelVisibility {};
+        std::array<float, 15> panelVisibility {};
         bool panelsAnimating = false;
         bool panelDrawOverflow = false;
         bool markerHistoryVisible = false;
@@ -472,6 +472,9 @@ struct SkarnessFrameState
         std::array<float, 4> detailsCausesTabBounds = {};
         std::array<float, 4> editorControlsBounds = {};
         std::array<float, 4> editorReplayTabBounds = {};
+        std::array<float, 4> replayFoldBounds = {};
+        std::array<float, 4> replayResizeBounds = {};
+        std::array<float, 4> memoryWaterlineBounds = {};
         std::array<float, 4> editorTabBounds = {};
         std::array<float, 4> causeTabBounds = {};
         std::array<float, 4> leftFoldBounds = {};

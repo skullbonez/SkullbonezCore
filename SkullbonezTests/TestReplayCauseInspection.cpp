@@ -31,7 +31,7 @@ using namespace SkullbonezCore::Runtime;
 
 namespace
 {
-TEST_CASE( "Unified Causes folds evidence inside its assigned pane and rejects hidden input" )
+TEST_CASE( "Unified Causes opens an attached evidence drawer and rejects hidden input" )
 {
     RunReplayCauseTreeState tree;
     tree.x = 900;
@@ -51,12 +51,12 @@ TEST_CASE( "Unified Causes folds evidence inside its assigned pane and rejects h
     CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1784, 961 ) );
     CHECK( inspection.View().drawerOpen );
     const ReplayCauseInspectorLayout opened = BuildReplayCauseInspectorLayout( inspection.View(), tree, 1784, 961, 0.0f );
-    CHECK( opened.hierarchy.h == 38.0f );
-    CHECK( opened.visibleDrawer.x == bounds.x );
-    CHECK( opened.visibleDrawer.y == bounds.y + 38.0f );
+    CHECK( opened.hierarchy.h == bounds.h );
+    CHECK( opened.visibleDrawer.x + opened.visibleDrawer.w == bounds.x );
+    CHECK( opened.visibleDrawer.y == bounds.y );
     CHECK( opened.visibleDrawer.y + opened.visibleDrawer.h == bounds.y + bounds.h );
     CHECK( opened.tabs[2].x + opened.tabs[2].w <= bounds.x + bounds.w );
-    CHECK( opened.outlineToggles[0].w == 0.0f );
+    CHECK( opened.outlineToggles[0].w > 0.0f );
     inspection.SetShellPresentation( true, {} );
     CHECK_FALSE( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1784, 961 ) );
     CHECK( inspection.View().drawerOpen );

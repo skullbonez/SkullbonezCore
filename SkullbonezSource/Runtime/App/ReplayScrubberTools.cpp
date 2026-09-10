@@ -1020,7 +1020,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     Geometry::Terrain* terrain = world.Terrain().Get();
     const bool sharedSurface = input.transportBounds.w > 0.0f;
     const bool causeUiBlocksMouse = sharedSurface ? input.causeUiBlocksMouse : input.uiBlocksMouse;
-    m_planningOwner.CauseInspection().SetShellPresentation( sharedSurface, input.causeBounds );
+    m_planningOwner.CauseInspection().SetShellPresentation( sharedSurface, input.causeBounds, input.planningBounds );
     if ( sharedSurface && input.causeBounds.w > 0.0f )
     {
         const ReplayCauseInspectionView inspection = m_planningOwner.CauseInspectionView();
@@ -1225,8 +1225,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
     causeInput.filterReturnPressed = causeKeyPressed( VK_RETURN );
     causeInput.rowsReady = causeTreeRowsReady;
     causeInput.docked = sharedSurface;
-    causeInput.surfaceVisible = !sharedSurface || ( input.causeBounds.w > 0.0f &&
-                                                    !m_planningOwner.CauseInspectionView().Display().drawerOpen );
+    causeInput.surfaceVisible = !sharedSurface || input.causeBounds.w > 0.0f;
     causeInput.uiBlocksMouse = causeUiBlocksMouse || scrubberOwnsMouse || solverDetailOwnsMouse;
     causeInput.editorModeEnabled = input.editorModeEnabled;
     const auto appendCauseCharacter = [&]( char value )

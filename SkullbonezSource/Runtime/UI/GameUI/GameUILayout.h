@@ -44,7 +44,7 @@ enum class Workspace : uint8_t
 // simulation clock, comparison recording, or functional editor mode.
 struct PresentationPreferences
 {
-    static constexpr uint32_t VERSION = 2;
+    static constexpr uint32_t VERSION = 3;
     LayoutMode layout = LayoutMode::Canvas;
     Style::Theme theme = Style::Theme::Blue;
     float leftWidth = 280.0f;
@@ -55,6 +55,7 @@ struct PresentationPreferences
     uint32_t foldedSections = 7;
     int lastTool = 1;
     bool leftFolded = true;
+    bool replayFolded = true;
     bool rightFolded = true;
 };
 
@@ -63,11 +64,10 @@ struct PresentationState
     PresentationPreferences preferences;
     Workspace workspace = Workspace::Scene;
     bool toolsOpen = false;
-    bool markerHistoryOpen = true;
-    bool memoryWaterlineOpen = true;
+    bool markerHistoryOpen = false;
+    bool memoryWaterlineOpen = false;
     bool detailsOpen = false;
     bool detailsCauses = false;
-    bool editorReplay = false;
     bool editorInTools = false;
     int focusedDiagnostic = 0;
     float replayScroll = 0.0f;
@@ -82,11 +82,14 @@ struct PresentationRects
     UIRect statusContent;
     UIRect left;
     UIRect right;
+    UIRect editorPane;
+    UIRect replayPane;
     UIRect transport;
     UIRect drawer;
     UIRect markerHistory;
     UIRect memoryWaterline;
     UIRect leftResize;
+    UIRect replayResize;
     UIRect rightResize;
     UIRect drawerResize;
     UIRect replayControls;
@@ -99,6 +102,7 @@ struct PresentationRects
     UIRect causeTab;
     UIRect editorControls;
     UIRect leftFold;
+    UIRect replayFold;
     UIRect rightFold;
     float editorScroll = 0.0f;
     float replayScroll = 0.0f;

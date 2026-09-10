@@ -1465,6 +1465,12 @@ void Run::PublishSkarnessFrameState()
     state.presentation.editorTabBounds = { layout.editorTab.x, layout.editorTab.y, layout.editorTab.w, layout.editorTab.h };
     state.presentation.causeTabBounds = { layout.causeTab.x, layout.causeTab.y, layout.causeTab.w, layout.causeTab.h };
     state.presentation.leftFoldBounds = { layout.leftFold.x, layout.leftFold.y, layout.leftFold.w, layout.leftFold.h };
+    state.presentation.replayFoldBounds = { layout.replayFold.x, layout.replayFold.y, layout.replayFold.w,
+                                            layout.replayFold.h };
+    state.presentation.replayResizeBounds = { layout.replayResize.x, layout.replayResize.y, layout.replayResize.w,
+                                              layout.replayResize.h };
+    state.presentation.memoryWaterlineBounds = { layout.memoryWaterline.x, layout.memoryWaterline.y,
+                                                 layout.memoryWaterline.w, layout.memoryWaterline.h };
     const auto header = UI::GameLayout::ComputeHeaderRects( layout.header, m_operatorUi->PresentationWorkspace() );
     state.presentation.headerLayoutBounds = { header.layout.x, header.layout.y, header.layout.w, header.layout.h };
     state.presentation.headerWorkspaceBounds = { header.workspace.x, header.workspace.y, header.workspace.w,

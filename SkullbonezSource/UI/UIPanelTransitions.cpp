@@ -18,8 +18,47 @@ constexpr std::array<UIPoint, static_cast<size_t>( UIPanel::Count )> PANEL_DIREC
                                                                                             { 0, 12 },
                                                                                             { 0, 12 },
                                                                                             { 0, -12 },
-                                                                                            { 0, -6 } } };
+                                                                                            { 0, -6 },
+                                                                                            { -20, 0 },
+                                                                                            { 20, 0 } } };
+constexpr std::array<UIPanel, static_cast<size_t>( UIPanel::Count )> PANEL_ORDER = { UIPanel::None,
+                                                                                     UIPanel::Left,
+                                                                                     UIPanel::LowerLeft,
+                                                                                     UIPanel::Right,
+                                                                                     UIPanel::Transport,
+                                                                                     UIPanel::Drawer,
+                                                                                     UIPanel::DiagnosticPrimary,
+                                                                                     UIPanel::DiagnosticSecondary,
+                                                                                     UIPanel::QuickTools,
+                                                                                     UIPanel::AuxiliaryPrimary,
+                                                                                     UIPanel::AuxiliarySecondary,
+                                                                                     UIPanel::AuxiliaryGrid,
+                                                                                     UIPanel::AttachedRight,
+                                                                                     UIPanel::Header,
+                                                                                     UIPanel::Popup };
+
+UIPoint PanelTravel( const UIDrawList& draw, UIPanel id )
+{
+    UIPoint travel = PANEL_DIRECTIONS[static_cast<size_t>( id )];
+    if ( id != UIPanel::Left && id != UIPanel::Right && id != UIPanel::LowerLeft && id != UIPanel::AttachedRight )
+    {
+        return travel;
+    }
+    // Side drawers travel their width, so entry remains visible at wide sizes.
+    float width = 24;
+    for ( const auto& command : draw.Commands() )
+    {
+        if ( command.panel == id &&
+             ( command.type == UIDrawList::CommandType::Rect || command.type == UIDrawList::CommandType::RoundedRect ) )
+        {
+            width = (std::max)( width, command.w );
+        }
+    }
+    travel.x = ( id == UIPanel::Left || id == UIPanel::LowerLeft ) ? -width : width;
+    return travel;
 }
+
+} // namespace
 
 float UIPanelMotion::Evaluate( double now ) const
 {
@@ -52,6 +91,11 @@ void UIPanelTransitions::Finish( UIPanel panel, bool visible )
     }
 }
 
+void UIPanelTransitions::SetClip( UIPanel panel, const UIRect& bounds )
+{
+    m_panels[static_cast<size_t>( panel )].clip = bounds;
+}
+
 bool UIPanelTransitions::BlocksPointer( UIPoint point ) const
 {
     for ( size_t index = 1; index < m_panels.size(); ++index )
@@ -62,8 +106,8 @@ bool UIPanelTransitions::BlocksPointer( UIPoint point ) const
         {
             continue;
         }
-        const UIPoint displaced = { point.x - PANEL_DIRECTIONS[index].x * ( 1.0f - panel.motion.Value() ),
-                                    point.y - PANEL_DIRECTIONS[index].y * ( 1.0f - panel.motion.Value() ) };
+        const UIPoint displaced = { point.x - panel.travel.x * ( 1.0f - panel.motion.Value() ),
+                                    point.y - panel.travel.y * ( 1.0f - panel.motion.Value() ) };
         for ( const auto& command : panel.draw.Commands() )
         {
             if ( command.type != UIDrawList::CommandType::Rect && command.type != UIDrawList::CommandType::RoundedRect &&
@@ -117,15 +161,15 @@ const UIDrawList& UIPanelTransitions::Compose( double now )
     }
     m_lastTime = now;
     m_output.Clear();
-    for ( size_t index = 0; index < m_panels.size(); ++index )
+    for ( const UIPanel id : PANEL_ORDER )
     {
-        Panel& panel = m_panels[index];
-        const auto id = static_cast<UIPanel>( index );
+        Panel& panel = m_panels[static_cast<size_t>( id )];
         const bool visible = m_incoming.HasPanel( id );
         const float opacity = id == UIPanel::None ? 1.0f : panel.motion.Update( visible, now );
         if ( visible )
         {
             panel.draw.CopyPanel( m_incoming, id );
+            panel.travel = PanelTravel( panel.draw, id );
         }
         if ( ( !visible && id == UIPanel::None ) || opacity <= 0.0f )
         {
@@ -133,11 +177,17 @@ const UIDrawList& UIPanelTransitions::Compose( double now )
         }
         m_scratch.Clear();
         m_scratch.Append( panel.draw );
-        m_scratch.ApplyPresentation( { PANEL_DIRECTIONS[index].x * ( 1.0f - opacity ),
-                                       PANEL_DIRECTIONS[index].y * ( 1.0f - opacity ) },
-                                     opacity );
+        m_scratch.ApplyPresentation( { panel.travel.x * ( 1.0f - opacity ), panel.travel.y * ( 1.0f - opacity ) }, opacity );
         m_output.BeginLayer();
+        if ( panel.clip.w > 0 && panel.clip.h > 0 )
+        {
+            m_output.PushClip( panel.clip );
+        }
         m_output.Append( m_scratch );
+        if ( panel.clip.w > 0 && panel.clip.h > 0 )
+        {
+            m_output.PopClip();
+        }
     }
     return m_output;
 }

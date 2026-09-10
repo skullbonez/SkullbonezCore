@@ -114,8 +114,13 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
     const float drawerY = h - drawerHeight;
     const float contentBottom = drawerY - ( editor ? transportHeight : 0.0f );
     const float contentHeight = (std::max)( 0.0f, contentBottom - contentY );
-    const float leftWidth = editor ? (std::min)( preferences.leftFolded ? 24.0f : preferences.leftWidth, w * 0.25f ) : 0.0f;
-    const float rightWidth = editor ? (std::min)( preferences.rightFolded ? 24.0f : preferences.rightWidth, w * 0.3f )
+    const float leftWidth = editor ? (std::min)( ( preferences.leftFolded &&
+                                                   ( preferences.replayFolded || state.workspace == Workspace::SolverLab ) )
+                                                     ? 24.0f
+                                                     : preferences.leftWidth,
+                                                 w * 0.4f )
+                                   : 0.0f;
+    const float rightWidth = editor ? (std::min)( preferences.rightFolded ? 24.0f : preferences.rightWidth, w * 0.4f )
                                     : 0.0f;
 
     result.viewport = { leftWidth, contentY, w - leftWidth - rightWidth, contentHeight };
@@ -123,8 +128,8 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
     {
         result.left = { 0.0f, contentY, leftWidth, contentHeight };
         result.right = { w - rightWidth, contentY, rightWidth, contentHeight };
-        result.leftResize = { (std::max)( 0.0f, leftWidth - 3.0f ), contentY, (std::min)( 6.0f, w ), contentHeight };
-        result.rightResize = { (std::max)( 0.0f, w - rightWidth - 3.0f ), contentY, (std::min)( 6.0f, w ), contentHeight };
+
+        result.rightResize = { (std::max)( 0.0f, w - rightWidth - 5.0f ), contentY, (std::min)( 10.0f, w ), contentHeight };
         result.transport = { leftWidth, contentBottom, result.viewport.w, transportHeight };
     }
     else
@@ -144,48 +149,63 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
     // Canvas Details is an overlay, so only badge placement yields to its width.
     result.statusContent = { result.viewport.x, result.header.h, result.viewport.w - ( editor ? 0.0f : result.right.w ),
                              (std::max)( 0.0f, result.transport.y - result.header.h ) };
-    const UIRect replayPane = editor ? result.left : result.right;
-    if ( replayPane.w > 24.0f &&
-         ( editor ? ( state.editorReplay || state.workspace == Workspace::SolverLab ) : !state.detailsCauses ) )
-    {
-        result.replayControls = { replayPane.x, replayPane.y + 30.0f, replayPane.w,
-                                  (std::max)( 0.0f, replayPane.h - 30.0f ) };
-    }
-    if ( editor && result.right.w > 24.0f )
-    {
-        result.causeControls = { result.right.x, result.right.y + 30.0f, result.right.w,
-                                 (std::max)( 0.0f, result.right.h - 30.0f ) };
-    }
     if ( editor )
     {
-        result.leftFold = { result.left.x, result.left.y, (std::min)( 24.0f, result.left.w ), 28.0f };
-        result.rightFold = { result.right.x, result.right.y, (std::min)( 24.0f, result.right.w ), 28.0f };
-        if ( preferences.leftFolded )
+        // Each Scene section owns a fixed vertical slot and can slide independently.
+        const bool scene = state.workspace == Workspace::Scene;
+        const float sectionHeight = scene ? contentHeight * 0.5f : contentHeight;
+        result.editorPane = { 0, contentY, preferences.leftFolded ? (std::min)( 24.0f, leftWidth ) : leftWidth,
+                              sectionHeight };
+        result.replayPane = scene ? UIRect { 0, contentY + sectionHeight,
+                                             preferences.replayFolded ? (std::min)( 24.0f, leftWidth ) : leftWidth,
+                                             contentHeight - sectionHeight }
+                                  : UIRect {};
+        const UIRect panes[] = { result.editorPane, result.replayPane };
+        UIRect* headers[] = { &result.editorTab, &result.editorReplayTab };
+        UIRect* folds[] = { &result.leftFold, &result.replayFold };
+        UIRect* grips[] = { &result.leftResize, &result.replayResize };
+        for ( int index = 0; index < ( scene ? 2 : 1 ); ++index )
         {
-            const float tabHeight = (std::min)( 120.0f, (std::max)( 0.0f, contentHeight - 32.0f ) * 0.45f );
-            result.editorTab = { result.left.x + 2.0f, contentY + 30.0f, 20.0f, tabHeight };
-            if ( state.workspace == Workspace::Scene )
+            const auto& pane = panes[index];
+            const bool folded = pane.w <= 24.0f;
+            *folds[index] = { pane.x, pane.y, 24, (std::min)( 28.0f, pane.h ) };
+            *headers[index] = folded ? UIRect { pane.x + 2, pane.y + 30, 20,
+                                                (std::min)( 120.0f, (std::max)( 0.0f, pane.h - 34 ) ) }
+                                     : UIRect { pane.x + 24, pane.y + 2, (std::max)( 0.0f, pane.w - 30 ), 26 };
+            if ( !folded )
             {
-                result.editorReplayTab = { result.left.x + 2.0f, contentY + 30.0f + ( contentHeight - 32.0f ) * 0.5f, 20.0f,
-                                           tabHeight };
+                *grips[index] = { pane.x + pane.w - 5, pane.y, 10, pane.h };
             }
         }
+        if ( !preferences.leftFolded )
+        {
+            const auto& pane = result.editorPane;
+            if ( scene && !state.editorInTools )
+            {
+                result.editorControls = { pane.x + 10, pane.y + 32, (std::max)( 0.0f, pane.w - 20 ),
+                                          (std::max)( 0.0f, pane.h - 32 ) };
+            }
+            if ( !scene )
+            {
+                result.replayControls = { pane.x, pane.y + 30, pane.w, (std::max)( 0.0f, pane.h - 30 ) };
+            }
+        }
+        if ( scene && !preferences.replayFolded )
+        {
+            result.replayControls = { result.replayPane.x, result.replayPane.y + 30, result.replayPane.w,
+                                      (std::max)( 0.0f, result.replayPane.h - 30 ) };
+        }
+        result.rightFold = { result.right.x, result.right.y, 24, (std::min)( 28.0f, result.right.h ) };
         if ( preferences.rightFolded )
         {
-            result.causeTab = { result.right.x + 2.0f, contentY + 30.0f, 20.0f,
-                                (std::min)( 160.0f, (std::max)( 0.0f, contentHeight - 32.0f ) ) };
+            result.rightResize = {};
+            result.causeTab = { result.right.x + 2, contentY + 30, 20,
+                                (std::min)( 160.0f, (std::max)( 0.0f, contentHeight - 32 ) ) };
         }
-        if ( result.left.w > 24.0f && state.workspace == Workspace::Scene )
+        else
         {
-            const float tabWidth = ( result.left.w - 30.0f ) * 0.5f;
-            result.editorTab = { result.left.x + 24.0f, result.left.y + 4.0f, tabWidth, 24.0f };
-            result.editorReplayTab = { result.editorTab.x + tabWidth, result.editorTab.y, tabWidth, 24.0f };
-            if ( !state.editorReplay && !state.editorInTools )
-            {
-                result.editorControls = { result.left.x + 10.0f, result.left.y + 32.0f,
-                                          (std::max)( 0.0f, result.left.w - 20.0f ),
-                                          (std::max)( 0.0f, result.left.h - 32.0f ) };
-            }
+            result.causeControls = { result.right.x, result.right.y + 30, result.right.w,
+                                     (std::max)( 0.0f, result.right.h - 30 ) };
         }
     }
     else if ( !editor && result.right.w > 0.0f )
@@ -193,6 +213,11 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
         result.detailsReplayTab = { result.right.x + 6.0f, result.right.y + 4.0f, result.right.w * 0.5f - 9.0f, 24.0f };
         result.detailsCausesTab = { result.right.x + result.right.w * 0.5f + 3.0f, result.right.y + 4.0f,
                                     result.right.w * 0.5f - 9.0f, 24.0f };
+        if ( !state.detailsCauses )
+        {
+            result.replayControls = { result.right.x, result.right.y + 30, result.right.w,
+                                      (std::max)( 0.0f, result.right.h - 30 ) };
+        }
         if ( state.detailsCauses )
         {
             result.causeControls = { result.right.x, result.right.y + 30.0f, result.right.w,
@@ -202,6 +227,23 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
     const float detailsWidth = (std::min)( 96.0f, w * 0.25f );
     result.replayDetails = { w - detailsWidth, result.transport.y, detailsWidth, result.transport.h };
     result.transport.w = (std::min)( result.transport.w, result.replayDetails.x - result.transport.x );
+    // F5/F6 overlay only the scene viewport, including when Tools is open.
+    const int diagnosticCount = static_cast<int>( state.markerHistoryOpen ) + static_cast<int>( state.memoryWaterlineOpen );
+    if ( diagnosticCount > 0 )
+    {
+        const float panelHeight = (std::min)( preferences.diagnosticsHeight, result.viewport.h * 0.4f );
+        const float panelWidth = result.viewport.w / diagnosticCount;
+        const float panelY = (std::min)( result.transport.y, result.viewport.y + result.viewport.h ) - panelHeight;
+        if ( state.markerHistoryOpen )
+        {
+            result.markerHistory = { result.viewport.x, panelY, panelWidth, panelHeight };
+        }
+        if ( state.memoryWaterlineOpen )
+        {
+            result.memoryWaterline = { result.viewport.x + ( state.markerHistoryOpen ? panelWidth : 0 ), panelY, panelWidth,
+                                       panelHeight };
+        }
+    }
     result.replayScroll = std::clamp( state.replayScroll, 0.0f, 1.0f );
     result.editorScroll = std::clamp( state.editorScroll, 0.0f,
                                       (std::max)( 0.0f,

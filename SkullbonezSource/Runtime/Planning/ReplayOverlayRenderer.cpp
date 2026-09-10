@@ -599,10 +599,13 @@ static void RenderCauseOutlineControls( const UI::UIDrawContext& draw, const Rep
 void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UIDrawContext& draw,
                                          const ReplayOverlayCausalityView& causality, int screenW, int screenH )
 {
+    const UI::UIPanelScope panelScope( drawList,
+                                       causality.inspection.sharedShell ? UI::UIPanel::AttachedRight : UI::UIPanel::Right );
     PROFILE_SCOPED( "Frame/Replay/RenderCauseInspectorDrawer" );
     const ReplayCauseInspectionView& inspection = causality.inspection;
 
-    if ( !inspection.Display().detailVisible || causality.tree.rows.empty() )
+    if ( !inspection.Display().detailVisible || causality.tree.rows.empty() ||
+         ( inspection.sharedShell && !inspection.drawerOpen ) )
     {
         return;
     }
@@ -628,6 +631,11 @@ void RenderReplayCauseSolverDetailPanel( UI::UIDrawList& drawList, const UI::UID
     draw.RoundedPanel( layout.drawer, 6.0f, drawerFill, drawerBorder );
     draw.Rect( layout.drawer.x, layout.drawer.y, 3.0f, layout.drawer.h, CAUSE_RULE.r, CAUSE_RULE.g, CAUSE_RULE.b, 0.92f );
     const bool docked = inspection.Display().sharedShell;
+    if ( docked )
+    {
+        UI::Widgets::DrawTitleButton( draw, layout.drawerClose, UI::Widgets::TitleButtonIcon::Close,
+                                      layout.drawerClose.Contains( causality.tree.mouseX, causality.tree.mouseY ), false );
+    }
     headerDraw.Text( layout.drawerTitle.x + 12.0f, layout.drawerTitle.y + 9.0f, docked ? 12.0f : 14.0f,
                      palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, "SOLVER INSPECTOR" );
 
@@ -716,7 +724,7 @@ void RenderReplayCauseInspectorToggle( const UI::UIDrawContext& draw, const Repl
         const UI::Style::UIPalette& palette = UI::Style::Palette();
         draw.RoundedPanel( layout.drawerToggle, 4.0f, hovered ? CAUSE_SELECTED : CAUSE_NAVY_ALT, palette.innerBorder );
         draw.Text( layout.drawerToggle.x + 9.0f, layout.drawerToggle.y + 7.0f, 11.0f, palette.textPrimary.r,
-                   palette.textPrimary.g, palette.textPrimary.b, inspection.Display().drawerOpen ? "Back" : "Evidence" );
+                   palette.textPrimary.g, palette.textPrimary.b, inspection.Display().drawerOpen ? "Hide" : "Evidence" );
         return;
     }
     const float railAlpha = hovered ? 0.58f : 0.38f;
@@ -1292,7 +1300,7 @@ void ReplayScrubberComposer::DrawRecordingButtons()
 void ReplayScrubberComposer::DrawShellControls()
 {
     const UI::UIPanelScope panelScope( m_commands, m_viewport.controlsBounds.x < m_viewport.width * 0.5f
-                                                       ? UI::UIPanel::Left
+                                                       ? UI::UIPanel::LowerLeft
                                                        : UI::UIPanel::Right );
     if ( m_viewport.controlsBounds.w <= 0.0f || m_viewport.controlsBounds.h <= 0.0f )
     {
@@ -1661,7 +1669,10 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
             // scrubber. Compose it even when scrubber policy hides its surface.
             if ( replay.causality.inspection.sharedShell )
             {
-                m_drawList.PushClip( replay.causality.inspection.shellBounds );
+                const auto inspector = BuildReplayCauseInspectorLayout( replay.causality.inspection, replay.causality.tree,
+                                                                        viewport.width, viewport.height, 1 );
+                const auto& shell = replay.causality.inspection.shellBounds;
+                m_drawList.PushClip( { inspector.targetCompound.x, shell.y, inspector.targetCompound.w, shell.h } );
             }
             ComposeReplayCauseTreeOverlay( m_drawList, replay.causality, replay.timeline.selection, viewport.width,
                                            viewport.height );
@@ -2043,10 +2054,6 @@ static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const Repla
                    palette.textPrimary.b, "CAUSE HIERARCHY" );
     }
 
-    if ( causality.inspection.Display().sharedShell && causality.inspection.Display().drawerOpen )
-    {
-        return;
-    }
 
     if ( !causality.inspection.Display().sharedShell )
     {

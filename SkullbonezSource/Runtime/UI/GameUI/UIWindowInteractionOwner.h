@@ -144,6 +144,7 @@ class UIWindowInteractionOwner
     void DrawDiagnosticLinks( const InGameUIFrameData& data );
     GameLayout::PresentationState m_presentation;
     GameLayout::PresentationRects m_presentationRects;
+    bool m_presentationPressHandled = false;
     bool m_presentationEnabled = false;
     bool m_presentationHeaderHovered = false;
     bool m_presentationPointerBlocked = false;

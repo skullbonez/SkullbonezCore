@@ -27,7 +27,9 @@ def run(session: Path) -> None:
 
     def sample(label: str) -> dict:
         nonlocal offset
-        send('run.step_frames', count=3)
+        deadline = time.monotonic() + .2
+        while time.monotonic() < deadline:
+            send('run.step_frames', count=3)
         with (session / 'runtime.skarness.ndjson').open(encoding='utf-8') as stream:
             stream.seek(offset)
             for line in stream:
@@ -76,9 +78,9 @@ def run(session: Path) -> None:
         assert ui['editorControlsBounds'][2] == 0 and ui['replayControlsBounds'][2] == 0
         assert ui['causeControlsBounds'][2] == 0
         path = capture('scene-vertical-tabs')
-        vertical(path, ui['editorTabBounds'], (255, 117, 31))
-        vertical(path, ui['editorReplayTabBounds'], (26, 209, 122))
-        vertical(path, ui['causeTabBounds'], (0, 174, 239))
+        vertical(path, ui['editorTabBounds'], (176, 198, 214))
+        vertical(path, ui['editorReplayTabBounds'], (176, 198, 214))
+        vertical(path, ui['causeTabBounds'], (176, 198, 214))
         click(ui['editorTabBounds'])
         ui = sample('editor-open')
         assert ui['editorControlsBounds'][2] > 0 and ui['causeControlsBounds'][2] == 0
@@ -87,8 +89,9 @@ def run(session: Path) -> None:
         assert ui['editorControlsBounds'][2] > 0 and ui['causeControlsBounds'][2] > 0
         click(ui['editorReplayTabBounds'])
         ui = sample('replay-and-causes')
-        assert ui['replayControlsBounds'][2] > 0 and ui['editorControlsBounds'][2] == 0
+        assert ui['replayControlsBounds'][2] > 0 and ui['editorControlsBounds'][2] > 0
         click(ui['leftFoldBounds'])
+        click(ui['replayFoldBounds'])
         click(ui['rightFoldBounds'])
         ui = sample('folded-again')
         x, y, w, h = ui['replayDetailsBounds']
@@ -128,8 +131,8 @@ def run(session: Path) -> None:
         ui = sample('lab-folded')
         assert ui['workspace'] == 'Solver Lab' and ui['layout'] == 'Editor'
         path = capture('lab-vertical-tabs')
-        vertical(path, ui['editorTabBounds'], (255, 117, 31))
-        vertical(path, ui['causeTabBounds'], (0, 174, 239))
+        vertical(path, ui['editorTabBounds'], (176, 198, 214))
+        vertical(path, ui['causeTabBounds'], (176, 198, 214))
         click(ui['editorTabBounds'])
         ui = sample('lab-controls-open')
         assert ui['replayControlsBounds'][2] > 0

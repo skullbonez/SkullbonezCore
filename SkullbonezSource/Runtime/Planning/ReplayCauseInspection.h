@@ -229,8 +229,9 @@ struct ReplayCauseDisplayView
     bool detailVisible = false;
     bool drawerOpen = false;
     float drawerProgress = 0.0f;
-    // App copies Runtime/UI's computed pane; inspection owns no layout choice.
+    // App supplies the dock and available scene; Planning places the attached inspector.
     UI::UIRect shellBounds;
+    UI::UIRect shellViewport;
     float shellScroll = 0.0f;
     bool sharedShell = false;
 };
@@ -481,7 +482,8 @@ int ReplayCauseSummaryMaxScroll( const ReplayCauseInspectorLayout& layout, const
 ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSolverDetailView& solverDetail,
                                                             const RunReplayCauseTreeState& causeTree, int screenWidth,
                                                             int screenHeight, float drawerProgress,
-                                                            const UI::UIRect& shellBounds = {} ) noexcept;
+                                                            const UI::UIRect& shellBounds = {},
+                                                            const UI::UIRect& shellViewport = {} ) noexcept;
 inline constexpr float REPLAY_CAUSE_SHELL_MIN_CONTENT_HEIGHT = 340.0f;
 inline UI::UIRect ReplayCauseShellContentBounds( const ReplayCauseDisplayView& display ) noexcept
 {
@@ -502,7 +504,8 @@ inline ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayC
                                             inspection.Display().sharedShell
                                                 ? ( inspection.Display().drawerOpen ? 1.0f : 0.0f )
                                                 : drawerProgress,
-                                            ReplayCauseShellContentBounds( inspection.Display() ) );
+                                            ReplayCauseShellContentBounds( inspection.Display() ),
+                                            inspection.Display().shellViewport );
 }
 bool ReplayCauseInspectorContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
 bool ReplayCauseInspectorDrawerTitleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
@@ -545,7 +548,7 @@ class ReplayCauseInspection
     void RestoreInteractionRecordingBaseline( const ReplayCauseInspectionRecordingState& baseline,
                                               double nowSeconds ) noexcept;
     void SetDrawerOpen( bool open, double nowSeconds ) noexcept;
-    void SetShellPresentation( bool enabled, const UI::UIRect& bounds ) noexcept;
+    void SetShellPresentation( bool enabled, const UI::UIRect& bounds, const UI::UIRect& viewport = {} ) noexcept;
     void SetActiveTab( ReplayCauseInspectorTab tab ) noexcept;
     void SetSummaryExpandedSection( int section ) noexcept;
     bool CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept;

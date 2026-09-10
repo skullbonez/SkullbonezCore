@@ -56,11 +56,10 @@ GameLayout::PresentationPreferences ReadPreferences( const char* path )
                                  &preferences.drawerHeight, &preferences.diagnosticsHeight, &preferences.foldedSections,
                                  &preferences.lastTool, &leftFolded, &rightFolded, &consumed );
     // Version 1 predates themes. Preserve its layout and migrate to Blue.
-    if ( complete && fields == 10 && version == GameLayout::PresentationPreferences::VERSION )
+    if ( complete && fields == 10 && version >= 2 && version <= GameLayout::PresentationPreferences::VERSION )
     {
         int theme = 0, themeBytes = 0;
-        if ( sscanf_s( bytes + consumed, "theme %d %n", &theme, &themeBytes ) != 1 ||
-             consumed + themeBytes != static_cast<int>( count ) )
+        if ( sscanf_s( bytes + consumed, "theme %d %n", &theme, &themeBytes ) != 1 )
         {
             return {};
         }
@@ -69,8 +68,18 @@ GameLayout::PresentationPreferences ReadPreferences( const char* path )
                                 : Style::Theme::Blue;
         consumed += themeBytes;
     }
+    if ( version == 3 )
+    {
+        int folded = 1, readBytes = 0;
+        if ( sscanf_s( bytes + consumed, "replayFolded %d %n", &folded, &readBytes ) != 1 )
+        {
+            return {};
+        }
+        preferences.replayFolded = folded == 1;
+        consumed += readBytes;
+    }
     if ( !complete || fields != 10 || consumed != static_cast<int>( count ) ||
-         ( version != 1 && version != GameLayout::PresentationPreferences::VERSION ) )
+         ( version < 1 || version > GameLayout::PresentationPreferences::VERSION ) )
     {
         return {};
     }
@@ -123,12 +132,12 @@ void InGameUI::SavePresentationPreferences( SkullbonezCore::Core::SbDiagnosticSt
     char bytes[512] {};
     const int count = std::snprintf( bytes, sizeof( bytes ),
                                      "version %u\nlayout %d\nleft %.9g\nright %.9g\ndrawer %.9g\ndiagnostics %.9g\nfolded "
-                                     "%u\ntool %d\nleftFolded %d\nrightFolded %d\ntheme %d\n",
+                                     "%u\ntool %d\nleftFolded %d\nrightFolded %d\ntheme %d\nreplayFolded %d\n",
                                      GameLayout::PresentationPreferences::VERSION, static_cast<int>( preferences.layout ),
                                      preferences.leftWidth, preferences.rightWidth, preferences.drawerHeight,
                                      preferences.diagnosticsHeight, preferences.foldedSections, preferences.lastTool,
                                      preferences.leftFolded ? 1 : 0, preferences.rightFolded ? 1 : 0,
-                                     static_cast<int>( Style::CurrentTheme() ) );
+                                     static_cast<int>( Style::CurrentTheme() ), preferences.replayFolded ? 1 : 0 );
     if ( count <= 0 || count >= static_cast<int>( sizeof( bytes ) ) )
     {
         return;

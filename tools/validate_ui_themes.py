@@ -126,7 +126,7 @@ def run(root: Path) -> None:
             wait_for_exit(directory)
     session('live', 0, True)
     saved = prefs.read_text()
-    assert 'version 2\n' in saved and 'theme 2\n' in saved and 'drawer 480\n' in saved, saved
+    assert 'version 3\n' in saved and 'theme 2\n' in saved and 'drawer 480\n' in saved, saved
     session('reload', 2)
     prefs.write_text(saved.replace('theme 2','theme 999'))
     session('unknown-theme', 0)

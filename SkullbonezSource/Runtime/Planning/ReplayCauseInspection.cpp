@@ -646,20 +646,16 @@ namespace
 void PlaceCauseInspectorInShell( ReplayCauseInspectorLayout& layout, const UI::UIRect& bounds )
 {
     const bool expanded = layout.drawerProgress > 0.0f;
+    const float width = layout.targetDrawer.w;
     layout.hierarchy = bounds;
-    if ( expanded )
-    {
-        layout.hierarchy.h = (std::min)( 38.0f, bounds.h );
-    }
     layout.hierarchyTitle = { bounds.x, bounds.y, bounds.w, (std::min)( 38.0f, bounds.h ) };
-    layout.drawer = { bounds.x, bounds.y + 38.0f, bounds.w, (std::max)( 0.0f, bounds.h - 38.0f ) };
+    layout.drawer = { bounds.x - width, bounds.y, width, bounds.h };
     layout.targetDrawer = layout.drawer;
     layout.visibleDrawer = expanded ? layout.drawer : UI::UIRect {};
-    layout.drawerToggle = { bounds.x + (std::max)( 0.0f, bounds.w - 88.0f ), bounds.y + 6.0f, (std::min)( 80.0f, bounds.w ),
-                            26.0f };
-    layout.drawerClose = layout.drawerToggle;
-    layout.compound = bounds;
-    layout.targetCompound = bounds;
+    layout.drawerToggle = { bounds.x + (std::max)( 0.0f, bounds.w - 88 ), bounds.y + 6, (std::min)( 80.0f, bounds.w ), 26 };
+    layout.drawerClose = { layout.drawer.x + width - 32, bounds.y + 6, 26, 26 };
+    layout.compound = { expanded ? layout.drawer.x : bounds.x, bounds.y, bounds.w + ( expanded ? width : 0 ), bounds.h };
+    layout.targetCompound = { layout.drawer.x, bounds.y, bounds.w + width, bounds.h };
     layout.resize = {};
     layout.sharedSeam = {};
     layout.hierarchyScrollbar = { bounds.x + bounds.w - 9.0f, bounds.y + 48.0f, 5.0f,
@@ -670,7 +666,8 @@ void PlaceCauseInspectorInShell( ReplayCauseInspectorLayout& layout, const UI::U
 ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSolverDetailView& solverDetail,
                                                             const RunReplayCauseTreeState& causeTree, int screenWidth,
                                                             int screenHeight, float drawerProgress,
-                                                            const UI::UIRect& shellBounds ) noexcept
+                                                            const UI::UIRect& shellBounds,
+                                                            const UI::UIRect& shellViewport ) noexcept
 {
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelLayout" );
     (void)screenHeight;
@@ -689,7 +686,8 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
 
     const float
         targetDrawerWidth = shellBounds.w > 0.0f
-                                ? shellBounds.w
+                                ? (std::min)( (std::max)( 0.0f, shellBounds.x - shellViewport.x ),
+                                              (std::max)( 400.0f, shellBounds.w ) )
                                 : ReplayOverlay::ReplayCauseWindowAttachedWidth( causeTree, screenWidth,
                                                                                  REPLAY_CAUSE_INSPECTOR_DRAWER_WIDTH,
                                                                                  REPLAY_CAUSE_INSPECTOR_DRAWER_MIN_WIDTH );
@@ -744,10 +742,6 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
     // Visibility belongs to the hierarchy footer, independent of the open detail tab.
     for ( std::size_t index = 0; index < layout.outlineToggles.size(); ++index )
     {
-        if ( shellBounds.w > 0.0f && layout.drawerProgress > 0.0f )
-        {
-            continue;
-        }
         layout.outlineToggles[index] = { layout.hierarchy.x + 12.0f,
                                          layout.hierarchy.y + layout.hierarchy.h - 78.0f + index * 26.0f,
                                          layout.hierarchy.w - 24.0f, 24.0f };
@@ -1702,13 +1696,13 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
         return false;
     }
 
-    if ( m_state.sharedShell && !m_state.shellBounds.Contains( mouseX, mouseY ) )
-    {
-        return false;
-    }
     PROFILE_SCOPED( "Frame/Replay/CauseInspection/PanelInput" );
     const ReplayCauseInspectorLayout layout = BuildReplayCauseInspectorLayout( m_state, causeTree, screenWidth, screenHeight,
                                                                                m_state.drawerProgress );
+    if ( m_state.sharedShell && !layout.compound.Contains( mouseX, mouseY ) )
+    {
+        return false;
+    }
     // Why: evidence and hierarchy own wheel input inside their visible content.
     // The pane edges and chrome scroll the whole short surface to reach its controls.
     const bool innerContent = m_state.detailVisible
@@ -1723,7 +1717,8 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
         return true;
     }
 
-    if ( leftPressed && PointInside( layout.drawerToggle, mouseX, mouseY ) )
+    if ( leftPressed && ( PointInside( layout.drawerToggle, mouseX, mouseY ) ||
+                          ( m_state.drawerOpen && PointInside( layout.drawerClose, mouseX, mouseY ) ) ) )
     {
         SetDrawerTarget( !m_drawerTargetOpen, m_lastAdvanceSeconds );
         return true;
@@ -1856,12 +1851,14 @@ void ReplayCauseInspection::Reset() noexcept
     const bool greyVisible = m_state.greyOutlinesVisible;
     const int summarySection = m_state.summaryExpandedSection;
     const UI::UIRect shellBounds = m_state.shellBounds;
+    const UI::UIRect shellViewport = m_state.shellViewport;
     const bool sharedShell = m_state.sharedShell;
     m_state = ReplayCauseInspectionView {};
     m_state.blueOutlinesVisible = blueVisible;
     m_state.greyOutlinesVisible = greyVisible;
     m_state.summaryExpandedSection = summarySection;
     m_state.shellBounds = shellBounds;
+    m_state.shellViewport = shellViewport;
     m_state.sharedShell = sharedShell;
     m_contactFlashStartedAtSeconds = -1.0;
     m_startedAtSeconds = 0.0;
@@ -1879,10 +1876,12 @@ void ReplayCauseInspection::SetDrawerOpen( bool open, double nowSeconds ) noexce
     SetDrawerTarget( open, nowSeconds );
 }
 
-void ReplayCauseInspection::SetShellPresentation( bool enabled, const UI::UIRect& bounds ) noexcept
+void ReplayCauseInspection::SetShellPresentation( bool enabled, const UI::UIRect& bounds,
+                                                  const UI::UIRect& viewport ) noexcept
 {
     m_state.sharedShell = enabled;
     m_state.shellBounds = enabled ? bounds : UI::UIRect {};
+    m_state.shellViewport = enabled ? viewport : UI::UIRect {};
     m_state.shellScroll = enabled ? std::clamp( m_state.shellScroll, 0.0f,
                                                 (std::max)( 0.0f, REPLAY_CAUSE_SHELL_MIN_CONTENT_HEIGHT - bounds.h ) )
                                   : 0.0f;

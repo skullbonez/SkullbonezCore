@@ -212,9 +212,10 @@ void DrawDockFold( const UIDrawContext& draw, const UIRect& bounds, bool pointsR
     const auto& ink = hovered ? palette.accentStrong : palette.textSecondary;
     const float cx = bounds.x + bounds.w * 0.5f;
     const float cy = bounds.y + bounds.h * 0.5f;
+    // Preserve winding when mirroring: the UI triangle rasterizer culls back faces.
     const float direction = pointsRight ? 1.0f : -1.0f;
-    draw.Triangle( cx + direction * 3.0f, cy, cx - direction * 2.0f, cy - 4.0f, cx - direction * 2.0f, cy + 4.0f, ink.r,
-                   ink.g, ink.b, 1.0f );
+    draw.Triangle( cx + direction * 3.0f, cy, cx - direction * 2.0f, cy - direction * 4.0f, cx - direction * 2.0f,
+                   cy + direction * 4.0f, ink.r, ink.g, ink.b, 1.0f );
 }
 
 void PublishDrawStats( InGameUITab activeTab, const UIDrawList& frame, const UIDrawList& histogram,
@@ -808,8 +809,7 @@ void InGameUI::RevealReplayControls( int width, int height )
     m_windowInteraction.m_presentation.preferences.layout = LayoutMode::Editor;
     m_windowInteraction.m_presentation.detailsOpen = false;
     m_windowInteraction.m_presentation.detailsCauses = false;
-    m_windowInteraction.m_presentation.editorReplay = true;
-    m_windowInteraction.m_presentation.preferences.leftFolded = false;
+    m_windowInteraction.m_presentation.preferences.replayFolded = false;
     m_windowInteraction.m_presentation.replayScroll = 0.0f;
     m_windowInteraction.m_presentationRects = ComputePresentationRects( m_windowInteraction.m_presentation, width, height );
 }
@@ -1153,7 +1153,8 @@ InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& 
 {
     PROFILE_SCOPED( "Frame/UI/Input" );
     InputControl::UIInputSnapshot pointerInput = input;
-    if ( m_panelTransitions->BlocksPointer( { static_cast<float>( input.mouseX ), static_cast<float>( input.mouseY ) } ) )
+    if ( !m_windowInteraction.m_interaction.isResizing &&
+         m_panelTransitions->BlocksPointer( { static_cast<float>( input.mouseX ), static_cast<float>( input.mouseY ) } ) )
     {
         pointerInput.leftDown = pointerInput.leftPressed = pointerInput.leftReleased = false;
         pointerInput.rightDown = pointerInput.middleDown = false;
@@ -1230,8 +1231,10 @@ GameLayout::DiagnosticPresentation InGameUI::DiagnosticPresentation() const
     view.markerHistoryVisible = m_windowInteraction.IsPerformanceHistogramEnabled();
     view.memoryWaterlineVisible = m_windowInteraction.IsMemoryOverlayEnabled();
     const auto& profiler = m_windowInteraction.m_profilerTab;
-    view.markerBounds = view.markerHistoryVisible ? UIRect { profiler.histogramPanelX, profiler.histogramPanelY,
-                                                             profiler.histogramPanelW, profiler.histogramPanelH }
+    view.markerBounds = view.markerHistoryVisible ? ( profiler.histogramDockedBounds.h > 0
+                                                          ? profiler.histogramDockedBounds
+                                                          : UIRect { profiler.histogramPanelX, profiler.histogramPanelY,
+                                                                     profiler.histogramPanelW, profiler.histogramPanelH } )
                                                   : UIRect {};
     view.workerToggleBounds = profiler.workerToggle.Bounds();
     view.workerSliderBounds = profiler.workerThreadSlider.Bounds();
@@ -1279,13 +1282,20 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
         return;
     }
     const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
-    const UIRect panes[] = { m_presentationRects.left, m_presentationRects.right, m_presentationRects.markerHistory,
-                             m_presentationRects.memoryWaterline };
+    for ( const auto& slot : { m_presentationRects.editorPane, m_presentationRects.replayPane } )
+    {
+        if ( slot.h > 0 && slot.w <= 24 && m_presentationRects.left.w > 24 )
+        {
+            draw.Rect( slot.x, slot.y, m_presentationRects.left.w, slot.h, palette.window.r, palette.window.g,
+                       palette.window.b, 1 );
+        }
+    }
+    const UIRect panes[] = { m_presentationRects.editorPane, m_presentationRects.right, m_presentationRects.replayPane };
     for ( size_t index = 0; index < std::size( panes ); ++index )
 
     {
         const UIRect& pane = panes[index];
-        const UIPanel ids[] = { UIPanel::Left, UIPanel::Right, UIPanel::DiagnosticPrimary, UIPanel::DiagnosticSecondary };
+        const UIPanel ids[] = { UIPanel::Left, UIPanel::Right, UIPanel::LowerLeft };
         m_frameDrawList.SetPanel( pane.w > 24.0f ? ids[index] : UIPanel::None );
         if ( pane.w <= 0.0f || pane.h <= 0.0f )
         {
@@ -1306,18 +1316,14 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
             draw.Rect( 0.0f, m_presentationRects.transport.y, m_presentationRects.window.w, m_presentationRects.transport.h,
                        palette.window.r, palette.window.g, palette.window.b, transportAlpha );
         }
-        const UIRect& details = m_presentationRects.replayDetails;
-        const auto& fill = m_presentation.toolsOpen
-                               ? palette.selection
-                               : ( details.Contains( m_mouseX, m_mouseY ) ? palette.controlHover : palette.control );
-        draw.RoundedRect( details.x, details.y, details.w, details.h, 4.0f, fill.r, fill.g, fill.b, transportAlpha );
-        if ( m_presentation.toolsOpen )
+        if ( !m_presentation.toolsOpen )
         {
-            draw.Rect( details.x + 8.0f, details.y + details.h - 2.0f, details.w - 16.0f, 2.0f, palette.accent.r,
-                       palette.accent.g, palette.accent.b, transportAlpha );
+            const UIRect& details = m_presentationRects.replayDetails;
+            const auto& fill = details.Contains( m_mouseX, m_mouseY ) ? palette.controlHover : palette.control;
+            draw.RoundedRect( details.x, details.y, details.w, details.h, 4.0f, fill.r, fill.g, fill.b, transportAlpha );
+            draw.Text( details.x + 10.0f, details.y + 8.0f, 11.0f, palette.textPrimary.r * transportAlpha,
+                       palette.textPrimary.g * transportAlpha, palette.textPrimary.b * transportAlpha, "Tools" );
         }
-        draw.Text( details.x + 10.0f, details.y + 8.0f, 11.0f, palette.textPrimary.r * transportAlpha,
-                   palette.textPrimary.g * transportAlpha, palette.textPrimary.b * transportAlpha, "Tools" );
     }
     m_frameDrawList.SetPanel( UIPanel::Right );
     const UIRect tabs[] = { m_presentationRects.detailsReplayTab, m_presentationRects.detailsCausesTab };
@@ -1369,57 +1375,62 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
                            color, label );
         draw.PopClip();
     };
-    if ( m_presentation.preferences.leftFolded )
-    {
-        verticalTab( tabs[0], m_presentation.workspace == Workspace::SolverLab ? "CONTROLS" : "EDITOR",
-                     { 1.0f, 0.46f, 0.12f, 1.0f } );
-        verticalTab( tabs[1], "REPLAY", { 0.10f, 0.82f, 0.48f, 1.0f } );
-    }
-    verticalTab( m_presentationRects.causeTab, m_presentation.workspace == Workspace::SolverLab ? "DIFFERENCES" : "CAUSES",
-                 palette.accent );
+    const UIRect panes[] = { m_presentationRects.editorPane, m_presentationRects.replayPane };
+    const UIRect folds[] = { m_presentationRects.leftFold, m_presentationRects.replayFold };
+    const UIPanel ids[] = { UIPanel::Left, UIPanel::LowerLeft };
     for ( int index = 0; index < 2; ++index )
     {
-        if ( tabs[index].w > 0.0f && !m_presentation.preferences.leftFolded )
+        if ( panes[index].h <= 0 )
         {
-            m_frameDrawList.SetPanel( UIPanel::Left );
-            const bool selected = m_presentation.editorReplay == ( index == 1 );
-            const bool hovered = tabs[index].Contains( m_mouseX, m_mouseY );
-            const auto& fill = selected ? palette.selection : ( hovered ? palette.controlHover : palette.control );
-            const auto& ink = selected || hovered ? palette.textPrimary : palette.textSecondary;
-            draw.RoundedRect( tabs[index].x, tabs[index].y, tabs[index].w, tabs[index].h, 4.0f, fill.r, fill.g, fill.b,
-                              1.0f );
-            draw.PushClip( tabs[index] );
-            if ( selected )
-            {
-                draw.Rect( tabs[index].x + 6.0f, tabs[index].y + tabs[index].h - 2.0f, tabs[index].w - 12.0f, 2.0f,
-                           palette.accent.r, palette.accent.g, palette.accent.b, 1.0f );
-            }
-            const bool compact = tabs[index].w < 50.0f;
-            draw.Text( tabs[index].x + ( compact ? 4.0f : 10.0f ), tabs[index].y + 5.0f, 12.0f, ink.r, ink.g, ink.b,
-                       compact ? ( index == 0 ? "Ed" : "Re" ) : ( index == 0 ? "Editor" : "Replay" ) );
-            draw.PopClip();
+            continue;
         }
+        const bool folded = panes[index].w <= 24;
+        m_frameDrawList.SetPanel( folded ? UIPanel::None : ids[index] );
+        const char* label = index == 1 ? "Replay"
+                                       : ( m_presentation.workspace == Workspace::SolverLab ? "Controls" : "Editor" );
+        if ( folded )
+        {
+            verticalTab( tabs[index], label, palette.textSecondary );
+        }
+        else
+        {
+            const bool hovered = tabs[index].Contains( m_mouseX, m_mouseY );
+            const auto& fill = hovered ? palette.controlHover : palette.control;
+            draw.RoundedPanel( tabs[index], 3, fill, palette.border );
+            draw.Text( tabs[index].x + 8, tabs[index].y + 6, 12, palette.textPrimary.r, palette.textPrimary.g,
+                       palette.textPrimary.b, label );
+        }
+        DrawDockFold( draw, folds[index], folded, folds[index].Contains( m_mouseX, m_mouseY ) );
     }
-    const UIRect folds[] = { m_presentationRects.leftFold, m_presentationRects.rightFold };
-    for ( int index = 0; index < 2; ++index )
+    m_frameDrawList.SetPanel( m_presentation.preferences.rightFolded ? UIPanel::None : UIPanel::Right );
+    verticalTab( m_presentationRects.causeTab, m_presentation.workspace == Workspace::SolverLab ? "Differences" : "Causes",
+                 palette.textSecondary );
+    DrawDockFold( draw, m_presentationRects.rightFold, !m_presentation.preferences.rightFolded,
+                  m_presentationRects.rightFold.Contains( m_mouseX, m_mouseY ) );
+    if ( m_presentationRects.right.w > 24 )
     {
-        const bool folded = index == 0 ? m_presentation.preferences.leftFolded : m_presentation.preferences.rightFolded;
-        m_frameDrawList.SetPanel( folded ? UIPanel::None : ( index == 0 ? UIPanel::Left : UIPanel::Right ) );
-        DrawDockFold( draw, folds[index], folded == ( index == 0 ), folds[index].Contains( m_mouseX, m_mouseY ) );
-    }
-    if ( m_presentationRects.right.w > 24.0f )
-    {
-        m_frameDrawList.SetPanel( UIPanel::Right );
-        draw.Text( m_presentationRects.right.x + 30.0f, m_presentationRects.right.y + 8.0f, 11.0f, palette.textPrimary.r,
+        draw.Text( m_presentationRects.right.x + 30, m_presentationRects.right.y + 8, 11, palette.textPrimary.r,
                    palette.textPrimary.g, palette.textPrimary.b,
                    m_presentation.workspace == Workspace::SolverLab ? "Differences" : "Causes" );
     }
-    m_frameDrawList.SetPanel( UIPanel::Left );
-    if ( m_presentation.workspace == Workspace::SolverLab && m_presentationRects.left.w > 24.0f )
+    // A visible grip and larger hit area make both dock edges discoverable.
+    const UIRect grips[] = { m_presentationRects.leftResize, m_presentationRects.replayResize,
+                             m_presentationRects.rightResize };
+    const UIPanel gripPanels[] = { UIPanel::Left, UIPanel::LowerLeft, UIPanel::Right };
+    for ( int index = 0; index < 3; ++index )
     {
-        draw.Text( m_presentationRects.left.x + 30.0f, m_presentationRects.left.y + 8.0f, 11.0f, palette.textPrimary.r,
-                   palette.textPrimary.g, palette.textPrimary.b, "Controls" );
+        const auto& grip = grips[index];
+        if ( grip.w <= 0 )
+        {
+            continue;
+        }
+        m_frameDrawList.SetPanel( gripPanels[index] );
+        const bool active = grip.Contains( m_mouseX, m_mouseY ) ||
+                            ( m_interaction.isResizing && m_interaction.resizeRegion == ( index == 2 ? 3 : 2 ) );
+        const auto& ink = active ? palette.accent : palette.border;
+        draw.RoundedRect( grip.x + grip.w * 0.5f - 1, grip.y + grip.h * 0.5f - 20, 2, 40, 1, ink.r, ink.g, ink.b, 1 );
     }
+    m_frameDrawList.SetPanel( UIPanel::Left );
     const UIRect& bounds = m_presentationRects.editorControls;
     if ( bounds.w > 0.0f )
     {
@@ -1428,7 +1439,7 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
                          bounds.y - m_presentationRects.editorScroll, m_mouseX, m_mouseY );
         m_frameDrawList.PopClip();
     }
-    else if ( !m_presentation.editorReplay && m_presentation.editorInTools && m_presentationRects.left.w > 24.0f )
+    else if ( m_presentation.editorInTools && m_presentationRects.editorPane.w > 24.0f )
     {
         draw.Text( m_presentationRects.left.x + 12.0f, m_presentationRects.left.y + 52.0f, 11.0f, palette.textMuted.r,
                    palette.textMuted.g, palette.textMuted.b, "Editor controls are open in Tools." );
@@ -1437,7 +1448,7 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
 
 void UIWindowInteractionOwner::DrawPresentedEditorPalette( const InGameUIFrameData& data )
 {
-    const UIPanelScope panelScope( m_frameDrawList, UIPanel::QuickTools );
+    const UIPanelScope panelScope( m_frameDrawList, m_presentation.editorInTools ? UIPanel::Drawer : UIPanel::Left );
     if ( !m_presentationEnabled || m_presentation.workspace != Workspace::Scene || !data.editor.editorModeEnabled )
     {
         return;

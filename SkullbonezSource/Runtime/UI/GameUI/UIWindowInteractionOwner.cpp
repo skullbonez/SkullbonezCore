@@ -55,6 +55,7 @@ UIWindowInteractionOwner::UIWindowInteractionOwner() : m_activeTab( InGameUITab:
 void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIInputSnapshot& input, int width, int height,
                                                         bool enabled )
 {
+    m_presentationPressHandled = false;
     m_presentationEnabled = enabled;
     m_lastScreenW = (std::max)( 1, width );
     m_lastScreenH = (std::max)( 1, height );
@@ -70,8 +71,13 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
     }
 
     UpdateToolsVisibility();
+    m_presentation.markerHistoryOpen = m_profilerTab.performanceHistogramEnabled;
+    m_presentation.memoryWaterlineOpen = m_memoryOverlay.overlayEnabled;
     m_presentationRects = ComputePresentationRects( m_presentation, width, height );
-    if ( ProfilerTab::PerformanceHistogramContains( m_profilerTab, input.mouseX, input.mouseY ) )
+    m_profilerTab.histogramDockedBounds = m_presentationRects.markerHistory;
+    m_memoryOverlay.dockedBounds = m_presentationRects.memoryWaterline;
+    if ( !m_interaction.isResizing &&
+         ProfilerTab::PerformanceHistogramContains( m_profilerTab, input.mouseX, input.mouseY ) )
     {
         // Floating diagnostics receive their own pointer input before the dock
         // or Tools surface underneath them can select a control.
@@ -286,8 +292,8 @@ void UIWindowInteractionOwner::UpdateDockPresentationInput( const InputControl::
     if ( input.leftPressed && !HasOpenPopup() && !input.rightDown && !input.middleDown &&
          m_presentation.preferences.layout == LayoutMode::Editor )
     {
-        const bool left = !m_presentation.preferences.leftFolded &&
-                          m_presentationRects.leftResize.Contains( input.mouseX, input.mouseY );
+        const bool left = m_presentationRects.leftResize.Contains( input.mouseX, input.mouseY ) ||
+                          m_presentationRects.replayResize.Contains( input.mouseX, input.mouseY );
         const bool right = !m_presentation.preferences.rightFolded &&
                            m_presentationRects.rightResize.Contains( input.mouseX, input.mouseY );
         if ( left || right )
@@ -301,7 +307,7 @@ void UIWindowInteractionOwner::UpdateDockPresentationInput( const InputControl::
     if ( m_interaction.isResizing && m_interaction.resizeRegion >= 2 && input.leftDown )
     {
         const bool left = m_interaction.resizeRegion == 2;
-        const float maximum = m_presentationRects.window.w * ( left ? 0.25f : 0.3f );
+        const float maximum = m_presentationRects.window.w * 0.4f;
         const float width = static_cast<float>( m_interaction.resizeStartW +
                                                 ( left ? 1 : -1 ) * ( input.mouseX - m_interaction.resizeStartMouseX ) );
         const float bounded = std::clamp( width, (std::min)( 220.0f, maximum ), maximum );
@@ -318,30 +324,34 @@ void UIWindowInteractionOwner::UpdateDockPresentationInput( const InputControl::
     {
         if ( m_presentationRects.editorTab.Contains( input.mouseX, input.mouseY ) )
         {
-            m_presentation.preferences.leftFolded = !m_presentation.preferences.leftFolded && !m_presentation.editorReplay;
-            m_presentation.editorReplay = false;
+            m_presentation.preferences.leftFolded = !m_presentation.preferences.leftFolded;
             m_tooltip.Dismiss();
+            m_presentationPressHandled = true;
         }
-        else if ( m_presentationRects.editorReplayTab.Contains( input.mouseX, input.mouseY ) )
+        else if ( m_presentationRects.editorReplayTab.Contains( input.mouseX, input.mouseY ) ||
+                  m_presentationRects.replayFold.Contains( input.mouseX, input.mouseY ) )
         {
-            m_presentation.preferences.leftFolded = !m_presentation.preferences.leftFolded && m_presentation.editorReplay;
-            m_presentation.editorReplay = true;
+            m_presentation.preferences.replayFolded = !m_presentation.preferences.replayFolded;
             m_tooltip.Dismiss();
+            m_presentationPressHandled = true;
         }
         else if ( m_presentationRects.leftFold.Contains( input.mouseX, input.mouseY ) )
         {
             m_presentation.preferences.leftFolded = !m_presentation.preferences.leftFolded;
             m_tooltip.Dismiss();
+            m_presentationPressHandled = true;
         }
         else if ( m_presentationRects.rightFold.Contains( input.mouseX, input.mouseY ) )
         {
             m_presentation.preferences.rightFolded = !m_presentation.preferences.rightFolded;
             m_tooltip.Dismiss();
+            m_presentationPressHandled = true;
         }
         else if ( m_presentationRects.causeTab.Contains( input.mouseX, input.mouseY ) )
         {
             m_presentation.preferences.rightFolded = false;
             m_tooltip.Dismiss();
+            m_presentationPressHandled = true;
         }
     }
     if ( input.wheelDelta != 0 && !HasOpenPopup() &&
@@ -2207,11 +2217,19 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     const bool leftNow = input.leftDown;
     const bool popupWasOpen = HasOpenPopup();
 
+    // The newly revealed controls must not receive the press that opened their section.
+    if ( m_presentationPressHandled )
+    {
+        m_blocksCameraMouse = true;
+        result.unhandledWheelDelta = 0;
+        return result;
+    }
+
     // Concept: the standalone histogram remains interactive even when the main
     // diagnostics window is hidden, so it gets first chance at mouse input.
     const bool histogramWasInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
 
-    if ( ( !popupWasOpen || m_profilerTab.histogramSelectorOpen ) &&
+    if ( !m_interaction.isResizing && ( !popupWasOpen || m_profilerTab.histogramSelectorOpen ) &&
          ProfilerTab::HandlePerformanceHistogramInput( m_profilerTab, result, screenW, screenH, m_mouseX, m_mouseY, leftNow,
                                                        input.leftPressed, input.leftReleased, wheelDelta ) )
     {

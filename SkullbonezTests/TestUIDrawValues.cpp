@@ -716,8 +716,9 @@ TEST_CASE( "Unified Editor pane reuses editor commands and begins with functiona
     input.mouseX = static_cast<int>( replay.x + 10.0f );
     input.mouseY = static_cast<int>( replay.y + 10.0f );
     ui->UpdatePresentationInput( input, 1600, 900, true );
-    CHECK( ui->PresentationBounds().editorControls.w == 0.0f );
+    CHECK( ui->PresentationBounds().editorControls.w > 0.0f );
     CHECK( ui->PresentationBounds().replayControls.w > 0.0f );
+    CHECK( ui->PresentationBounds().replayControls.y > ui->PresentationBounds().editorControls.y );
 }
 
 TEST_CASE( "Revealing Replay opens its dock and reserves input without blocking its actions" )
@@ -836,14 +837,14 @@ TEST_CASE( "Opening Tools closes floating diagnostics and their shortcuts reopen
     CHECK( ui->DiagnosticPresentation().focusedPanel == 0 );
     CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
     CHECK_FALSE( ui->DiagnosticPresentation().memoryWaterlineVisible );
-    CHECK( ui->PresentationBounds().markerHistory.w == 0.0f );
+    CHECK( ui->PresentationBounds().markerHistory.w > 0.0f );
     CHECK( ui->PresentationBounds().drawer.h == toolsHeight );
     ui->ToggleMemoryOverlayEnabled();
     ui->UpdatePresentationInput( input, 1600, 900, true );
     CHECK( ui->DiagnosticPresentation().focusedPanel == 0 );
     CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
-    CHECK( ui->PresentationBounds().markerHistory.w == 0.0f );
-    CHECK( ui->PresentationBounds().memoryWaterline.w == 0.0f );
+    CHECK( ui->PresentationBounds().markerHistory.w > 0.0f );
+    CHECK( ui->PresentationBounds().memoryWaterline.w > 0.0f );
     ui->SetMinimized( true );
     ui->UpdatePresentationInput( input, 1600, 900, true );
     ui->SetMinimized( false );
@@ -1680,7 +1681,7 @@ TEST_CASE( "UI panel exits retain clipped labels and fade their alpha without da
         }
         ++labels;
         CHECK( std::string( draw.TextAt( command.textOffset ) ) == "retained label" );
-        CHECK( command.x0 == doctest::Approx( 7.5f ) );
+        CHECK( command.x0 == doctest::Approx( -15.0f ) );
         CHECK( command.a == doctest::Approx( 0.4375f ) );
         CHECK( command.r == doctest::Approx( 0.1f ) );
     }
@@ -1741,4 +1742,82 @@ TEST_CASE( "UI moving panels shield content and direct resizing finishes their m
     CHECK( transitions->BlocksPointer( { 200, 500 } ) );
     transitions->Compose( 1.2 );
     CHECK_FALSE( transitions->BlocksPointer( { 200, 500 } ) );
+}
+
+TEST_CASE( "Editor and Replay sections fold independently and expose separate resize edges" )
+{
+    using namespace SkullbonezCore::UI;
+    using namespace SkullbonezCore::UI::GameLayout;
+    auto ui = std::make_unique<InGameUI>();
+    ui->SetVisible( false );
+    InputControl::UIInputSnapshot input;
+    const auto click = [&]( const UIRect& bounds )
+    {
+        input.mouseX = static_cast<int>( bounds.x + bounds.w * 0.5f );
+        input.mouseY = static_cast<int>( bounds.y + bounds.h * 0.5f );
+        input.leftPressed = input.leftDown = true;
+        ui->UpdatePresentationInput( input, 1600, 900, true );
+        const auto opened = ui->UpdateInput( input, 1600, 900, 0, false, false, false, false, 0x7f );
+        CHECK_FALSE( opened.commands.editor.toggleEditorMode );
+        input.leftPressed = input.leftDown = false;
+        input.leftReleased = true;
+        ui->UpdateInput( input, 1600, 900, 0, false, false, false, false, 0x7f );
+        input.leftReleased = false;
+    };
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    click( ComputeHeaderRects( ui->PresentationBounds().header ).layout );
+    click( ui->PresentationBounds().editorTab );
+    const auto editor = ui->PresentationBounds().editorControls;
+    click( ui->PresentationBounds().editorReplayTab );
+    auto both = ui->PresentationBounds();
+    CHECK( both.editorControls.y == editor.y );
+    CHECK( both.editorControls.h == editor.h );
+    CHECK( both.replayControls.y >= editor.y + editor.h );
+    CHECK( both.leftResize.w >= 10 );
+    CHECK( both.replayResize.w >= 10 );
+    click( both.leftFold );
+    CHECK( ui->PresentationBounds().editorControls.w == 0 );
+    CHECK( ui->PresentationBounds().replayControls.w > 0 );
+    click( ui->PresentationBounds().replayFold );
+    CHECK( ui->PresentationBounds().replayControls.w == 0 );
+    CHECK( ui->PresentationBounds().left.w == 24 );
+    click( ui->PresentationBounds().editorReplayTab );
+    const auto grip = ui->PresentationBounds().replayResize;
+    input.mouseX = static_cast<int>( grip.x + 5 );
+    input.mouseY = static_cast<int>( grip.y + 50 );
+    input.leftPressed = input.leftDown = true;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    auto result = ui->UpdateInput( input, 1600, 900, 0, false, false, false, false, 0x7f );
+    CHECK( result.nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Acquire );
+    input.leftPressed = false;
+    input.mouseX += 180;
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->PresentationBounds().replayControls.w == 460 );
+    CHECK( ui->BlocksCauseMouse() );
+    input.leftDown = false;
+    input.leftReleased = true;
+    result = ui->UpdateInput( input, 1600, 900, 0, false, false, false, false, 0x7f );
+    CHECK( result.nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Release );
+}
+
+TEST_CASE( "Diagnostic overlays stay inside the scene and above Tools and transport" )
+{
+    using namespace SkullbonezCore::UI::GameLayout;
+    PresentationState state;
+    state.preferences.layout = LayoutMode::Editor;
+    state.preferences.leftFolded = state.preferences.rightFolded = false;
+    state.markerHistoryOpen = state.memoryWaterlineOpen = true;
+    for ( int sample = 0; sample < 6; ++sample )
+    {
+        state.toolsOpen = sample >= 3;
+        const int widths[] = { 320, 900, 1784 };
+        const auto layout = ComputePresentationRects( state, widths[sample % 3], 961 );
+        for ( const auto& diagnostic : { layout.markerHistory, layout.memoryWaterline } )
+        {
+            CHECK( diagnostic.x >= layout.viewport.x );
+            CHECK( diagnostic.x + diagnostic.w <= layout.viewport.x + layout.viewport.w );
+            CHECK( diagnostic.y >= layout.viewport.y );
+            CHECK( diagnostic.y + diagnostic.h <= layout.transport.y );
+        }
+    }
 }

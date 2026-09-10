@@ -43,6 +43,7 @@ class UIPanelTransitions
   public:
     void SetClockOverride( double seconds, bool enabled );
     void Finish( UIPanel panel, bool visible );
+    void SetClip( UIPanel panel, const UIRect& bounds );
     bool BlocksPointer( UIPoint point ) const;
     void BeginFrame();
     void Append( const UIDrawList& draw );
@@ -59,6 +60,8 @@ class UIPanelTransitions
     {
         UIDrawList draw;
         UIPanelMotion motion;
+        UIPoint travel;
+        UIRect clip;
     };
     std::array<Panel, static_cast<size_t>( UIPanel::Count )> m_panels;
     UIDrawList m_incoming;

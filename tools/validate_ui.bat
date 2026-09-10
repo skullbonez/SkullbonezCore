@@ -125,6 +125,10 @@ echo Checking theme switching, contrast screenshots and saved preferences...
 "%PYTHON_EXE%" "%~dp0validate_ui_themes.py" --session "%REPO%\TestOutput\skarness\ui-themes-%RANDOM%"
 if errorlevel 1 exit /b 7
 
+echo Checking independent side panels, attached evidence and diagnostic placement...
+"%PYTHON_EXE%" "%~dp0validate_ui_side_panels.py" --session "%REPO%\TestOutput\skarness\ui-side-panels-%RANDOM%"
+if errorlevel 1 exit /b 1
+
 echo Checking native panel easing, retained exits and Solver Lab transitions...
 "%PYTHON_EXE%" "%~dp0validate_ui_panel_transitions.py" --session "%REPO%\TestOutput\skarness\ui-panel-transitions-%RANDOM%"
 if errorlevel 1 exit /b 7
