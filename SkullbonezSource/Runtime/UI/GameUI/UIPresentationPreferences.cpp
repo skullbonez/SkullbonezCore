@@ -68,7 +68,7 @@ GameLayout::PresentationPreferences ReadPreferences( const char* path )
                                 : Style::Theme::Blue;
         consumed += themeBytes;
     }
-    if ( version == 3 )
+    if ( version >= 3 )
     {
         int folded = 1, readBytes = 0;
         if ( sscanf_s( bytes + consumed, "replayFolded %d %n", &folded, &readBytes ) != 1 )
@@ -83,6 +83,11 @@ GameLayout::PresentationPreferences ReadPreferences( const char* path )
     {
         return {};
     }
+    // Earlier versions used different summary defaults. Start all sections folded.
+    if ( version < 5 )
+    {
+        preferences.foldedSections = 7;
+    }
     preferences.layout = layout == 1 ? GameLayout::LayoutMode::Editor : GameLayout::LayoutMode::Canvas;
     preferences.leftFolded = leftFolded == 1;
     preferences.rightFolded = rightFolded == 1;
@@ -90,23 +95,14 @@ GameLayout::PresentationPreferences ReadPreferences( const char* path )
 }
 } // namespace
 
-int InGameUI::EvidenceSummarySectionPreference() const noexcept
+int InGameUI::EvidenceSummarySectionsPreference() const noexcept
 {
-    const uint32_t folded = m_windowInteraction.m_presentation.preferences.foldedSections;
-    for ( int section = 0; section < 3; ++section )
-    {
-        if ( ( folded & ( 1u << section ) ) == 0 )
-        {
-            return section;
-        }
-    }
-    return -1;
+    return static_cast<int>( 7u & ~m_windowInteraction.m_presentation.preferences.foldedSections );
 }
 
-void InGameUI::RememberEvidenceSummarySection( int section ) noexcept
+void InGameUI::RememberEvidenceSummarySections( int sections ) noexcept
 {
-    m_windowInteraction.m_presentation.preferences.foldedSections = section >= 0 && section < 3 ? 7u & ~( 1u << section )
-                                                                                                : 7u;
+    m_windowInteraction.m_presentation.preferences.foldedSections = 7u & ~static_cast<uint32_t>( sections );
 }
 
 void InGameUI::LoadPresentationPreferences()

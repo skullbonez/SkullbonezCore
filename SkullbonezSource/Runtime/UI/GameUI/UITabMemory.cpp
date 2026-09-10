@@ -1349,8 +1349,18 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
                                                  screenH - MEMORY_OVERLAY_PANEL_H - MEMORY_OVERLAY_MARGIN ) );
 
     const bool docked = state.dockedBounds.h > 0.0f;
-    const UIRect panel = docked ? state.dockedBounds
-                                : UIRect { panelX, panelY, MEMORY_OVERLAY_PANEL_W, MEMORY_OVERLAY_PANEL_H };
+    if ( state.floatingBounds.w == 0 )
+    {
+        state.floatingBounds = { panelX, panelY, MEMORY_OVERLAY_PANEL_W, MEMORY_OVERLAY_PANEL_H };
+    }
+    auto& floating = state.floatingBounds;
+    floating.w = (std::min)( floating.w, (std::max)( 80.0f, screenW - MEMORY_OVERLAY_MARGIN * 2 ) );
+    floating.h = (std::min)( floating.h, (std::max)( 80.0f, screenH - MEMORY_OVERLAY_MARGIN * 2 ) );
+    floating.x = std::clamp( floating.x, MEMORY_OVERLAY_MARGIN,
+                             (std::max)( MEMORY_OVERLAY_MARGIN, screenW - floating.w - MEMORY_OVERLAY_MARGIN ) );
+    floating.y = std::clamp( floating.y, MEMORY_OVERLAY_MARGIN,
+                             (std::max)( MEMORY_OVERLAY_MARGIN, screenH - floating.h - MEMORY_OVERLAY_MARGIN ) );
+    const UIRect panel = docked ? state.dockedBounds : floating;
 
     const bool shortPanel = docked && panel.h < 100.0f;
     const float gutter = shortPanel ? 10.0f : 52.0f;
@@ -1367,11 +1377,9 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     }
 
     const Style::UIPalette& palette = Style::Palette();
-    Style::UIColor fill = palette.windowSubtle;
-    fill.a = 0.92f;
     draw.RoundedRect( panel.x + 4.0f, panel.y + 5.0f, panel.w, panel.h, Style::Radii().window, 0.0f, 0.0f, 0.0f, 0.22f );
 
-    draw.RoundedPanel( panel, Style::Radii().window, fill, palette.border );
+    draw.RoundedPanel( panel, Style::Radii().window, palette.windowSubtle, palette.border );
 
     const SkullbonezCore::Core::MainMemoryStats& memory = data.mainMemory;
     const uint64_t totalBytes = CurrentTotalMemoryBytes( memory );
@@ -1385,13 +1393,7 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     FormatMemoryMiB( memory.trackedEngineBytes, trackedText, sizeof( trackedText ) );
 
     draw.Text( panel.x + 10.0f, panel.y + 8.0f, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
-               docked ? "F6 Memory" : "Memory" );
-
-    if ( !docked )
-    {
-        draw.Text( panel.x + 70.0f, panel.y + 9.0f, 9.0f, tablePalette.textMuted.r, tablePalette.textMuted.g,
-                   tablePalette.textMuted.b, "F6 waterline" );
-    }
+               "F6  Memory" );
     const bool narrowHeader = docked && panel.w < 260.0f;
     draw.Text( narrowHeader ? panel.x + 10.0f : panel.x + panel.w - ( docked ? 158.0f : 112.0f ),
                panel.y + ( narrowHeader ? 24.0f : 8.0f ), 10.0f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
@@ -1546,6 +1548,13 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     if ( docked )
     {
         draw.PopClip();
+    }
+    else
+    {
+        draw.Rect( panel.x + panel.w - 13, panel.y + panel.h - 4, 10, 1, palette.textMuted.r, palette.textMuted.g,
+                   palette.textMuted.b, 0.54f );
+        draw.Rect( panel.x + panel.w - 8, panel.y + panel.h - 9, 5, 1, palette.textMuted.r, palette.textMuted.g,
+                   palette.textMuted.b, 0.44f );
     }
 }
 

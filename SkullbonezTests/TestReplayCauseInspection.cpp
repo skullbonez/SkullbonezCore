@@ -2445,7 +2445,7 @@ TEST_CASE( "Cause summary: object facts follow publication identity and clear on
     CHECK_FALSE( inspection.View().objects[0].available );
 }
 
-TEST_CASE( "Cause summary: accordion uses visible hit rectangles and clamps scrolling" )
+TEST_CASE( "Cause summary: independent sections use visible hit rectangles and clamps scrolling" )
 {
     ReplayCauseInspection inspection;
     ReplayCauseInspectionRecordingState baseline;
@@ -2460,11 +2460,12 @@ TEST_CASE( "Cause summary: accordion uses visible hit rectangles and clamps scro
     tree.width = 430;
     tree.height = 520;
     const auto layout = BuildReplayCauseInspectorLayout( inspection.View().SolverDetail(), tree, 1920, 1080, 1.0f );
+    CHECK( inspection.View().summaryExpandedSections == 0 );
     const auto header = ReplayCauseSummarySectionRect( layout, inspection.View().Display(), 0 );
     const int x = static_cast<int>( header.x + 20 );
     const int y = static_cast<int>( header.y + 15 );
     CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1920, 1080 ) );
-    CHECK( inspection.View().summaryExpandedSection == 0 );
+    CHECK( inspection.View().summaryExpandedSections == 1 );
     CHECK( ReplayCauseSummarySectionRect( layout, inspection.View().Display(), 1 ).y ==
            doctest::Approx( header.y + 230.0f ) );
     CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, false, -12000, 1920, 1080 ) );
@@ -2472,7 +2473,7 @@ TEST_CASE( "Cause summary: accordion uses visible hit rectangles and clamps scro
     CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, false, 12000, 1920, 1080 ) );
     CHECK( inspection.View().summaryScrollOffset == 0 );
     CHECK( inspection.TickSolverDetailPanelInput( tree, x, y, true, false, true, 0, 1920, 1080 ) );
-    CHECK( inspection.View().summaryExpandedSection == -1 );
+    CHECK( inspection.View().summaryExpandedSections == 0 );
 }
 
 TEST_CASE( "Cause outline controls: default on, independent, and retained across selection" )
@@ -2520,18 +2521,18 @@ TEST_CASE( "Cause outline controls: default on, independent, and retained across
 TEST_CASE( "Cause summary section preference survives retargeting and reset without retaining evidence" )
 {
     ReplayCauseInspection inspection;
-    inspection.SetSummaryExpandedSection( 2 );
+    inspection.SetSummaryExpandedSections( 2 );
     ReplayCauseSeekResult seek;
     seek.availability = ReplayCauseSeekAvailability::Available;
     seek.frame = 10;
     REQUIRE( inspection.Select( 1, seek, 0, true, 1.0 ) );
-    CHECK( inspection.View().summaryExpandedSection == 2 );
+    CHECK( inspection.View().summaryExpandedSections == 2 );
     inspection.Reset();
-    CHECK( inspection.View().summaryExpandedSection == 2 );
+    CHECK( inspection.View().summaryExpandedSections == 2 );
     CHECK( inspection.View().mode == ReplayCauseInspectionMode::Inactive );
     CHECK_FALSE( inspection.View().detailVisible );
-    inspection.SetSummaryExpandedSection( 7 );
-    CHECK( inspection.View().summaryExpandedSection == -1 );
+    inspection.SetSummaryExpandedSections( 99 );
+    CHECK( inspection.View().summaryExpandedSections == 0 );
 }
 
 TEST_CASE( "Short Causes panes scroll every header and outline control inside the shell" )
@@ -2558,4 +2559,11 @@ TEST_CASE( "Short Causes panes scroll every header and outline control inside th
     CHECK( inspection.View().shellScroll == 0.0f );
     inspection.SetShellPresentation( true, { 224, 66, 96, 500 } );
     CHECK( inspection.View().shellScroll == 0.0f );
+    inspection.SetShellPresentation( true, { 224, 66, 96, 500 }, { 24, 42, 200, 524 } );
+    inspection.SetDrawerOpen( true, 1.0 );
+    layout = BuildReplayCauseInspectorLayout( inspection.View(), tree, 320, 640, 1.0f );
+    CHECK( layout.drawer.y == 42 );
+    CHECK( layout.drawer.h == 524 );
+    CHECK( layout.hierarchy.y == 66 );
+    CHECK( ReplayCauseInspectorContainsPoint( layout, 26, 50 ) );
 }

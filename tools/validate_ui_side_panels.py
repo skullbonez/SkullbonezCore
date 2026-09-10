@@ -1,4 +1,4 @@
-"""Check independent side drawers, native edge drags and scene-only diagnostics."""
+"""Check independent side drawers, native edge drags and floating diagnostics."""
 from __future__ import annotations
 import argparse
 import json
@@ -63,8 +63,7 @@ def run(directory: Path, theme: int) -> None:
         assert w > 0 and h > 0 and x >= rx and y >= ry and x+w <= rx+rw+.1 and y+h <= ry+rh+.1, (bounds, region)
     def diagnostics(ui):
         for name in ('markerHistoryBounds', 'memoryWaterlineBounds'):
-            contained(ui[name],ui['viewport'])
-            assert ui[name][1]+ui[name][3] <= ui['transportBounds'][1]+.1
+            contained(ui[name],[0,0,*ui['window']])
     try:
         commands=send('capabilities.get')['commands']
         assert {'ui.animation_clock','input.pointer_drag','replay.set_prediction_detail','comparison.state'} <= set(commands)
@@ -77,8 +76,9 @@ def run(directory: Path, theme: int) -> None:
         click(ui['editorReplayTabBounds']); ui=sample('replay-enter-start'); expect(ui,13,0)
         clock(.08); ui=sample('replay-enter-half'); expect(ui,13,.875); capture('replay-enter-half')
         ui=settled('both-open')
-        assert ui['editorControlsBounds']==editor
-        assert ui['replayControlsBounds'][1] >= editor[1]+editor[3]
+        assert ui['editorControlsBounds'][1]==editor[1]
+        assert ui['editorControlsBounds'][3]<editor[3]
+        assert ui['replayControlsBounds'][1] == ui['editorControlsBounds'][1]+ui['editorControlsBounds'][3]+30
         capture('stacked-sections')
         for name,dx in (('leftResizeBounds',120),('replayResizeBounds',80),('rightResizeBounds',-120)):
             if name=='rightResizeBounds':
@@ -93,10 +93,36 @@ def run(directory: Path, theme: int) -> None:
         click(ui['replayFoldBounds']); sample('replay-close'); ui=settled('both-closed')
         assert ui['editorControlsBounds'][2]==0 and ui['replayControlsBounds'][2]==0
         key(0x74); key(0x75); sample('diagnostics-start'); ui=settled('diagnostics-over-scene'); diagnostics(ui); capture('diagnostics-over-scene')
+        for name in ('markerHistoryBounds','memoryWaterlineBounds'):
+            original=ui[name]
+            assert original[2:]==[340,166],original
+            x,y,w,h=original
+            send('input.pointer_drag',button='left',x=int(x+75),y=int(y+12),deltaX=150,deltaY=45,moveClient=True)
+            ui=sample('move-'+name)
+            assert abs(ui[name][0]-x-150)<2 and abs(ui[name][1]-y-45)<2,(name,original,ui[name])
+            x,y,w,h=ui[name]
+            send('input.pointer_drag',button='left',x=int(x+w-3),y=int(y+h-3),deltaX=45,deltaY=30,moveClient=True)
+            ui=sample('resize-'+name)
+            assert abs(ui[name][2]-w-45)<2 and abs(ui[name][3]-h-30)<2,(name,ui[name])
+        capture('floating-diagnostics-moved')
+        x,y,w,h=ui['markerHistoryBounds']; memory=ui['memoryWaterlineBounds'][:]
+        dy=int(memory[1]-y)
+        send('input.pointer_drag',button='left',x=int(x+75),y=int(y+12),deltaX=0,deltaY=dy,moveClient=True)
+        ui=sample('histogram-drag-crosses-memory')
+        assert abs(ui['markerHistoryBounds'][1]-y-dy)<2 and ui['memoryWaterlineBounds']==memory
+        # Move F6 aside to expose F5 again; both overlays retain independent bounds.
+        send('input.pointer_drag',button='left',x=int(memory[0]+75),y=int(memory[1]+12),deltaX=420,deltaY=0,moveClient=True)
+        ui=sample('memory-drag-after-overlap')
+        assert abs(ui['memoryWaterlineBounds'][0]-memory[0]-420)<2
         click(ui['replayDetailsBounds']); ui=sample('tools-start')
         assert ui['toolsVisible'] and not ui['markerHistoryVisible'] and not ui['memoryWaterlineVisible']
         ui=settled('tools-open'); key(0x74); key(0x75); sample('diagnostics-over-tools-start')
         ui=settled('diagnostics-above-tools'); diagnostics(ui); capture('diagnostics-above-tools')
+        key(0x50); ui=settled('p-keeps-tools'); assert ui['toolsVisible']; capture('p-keeps-tools')
+        assert latest['replay.prediction.controls']['enabled']
+        assert ui['markerHistoryVisible'] and ui['memoryWaterlineVisible']
+        key(0x50); ui=settled('p-exit-keeps-tools'); assert ui['toolsVisible']
+        assert not latest['replay.prediction.controls']['enabled']
         x,y,w,h=ui['drawerBounds']; click([x+w-40,y+8,30,28]); ui=sample('tools-close'); assert not ui['toolsVisible']
         key(0x74); key(0x75); ui=settled('tools-closed')
         send('replay.set_prediction_detail',highDetail=True)
@@ -113,15 +139,16 @@ def run(directory: Path, theme: int) -> None:
         click([x+w-88,y+6,80,26]); ui=sample('evidence-start'); expect(ui,14,0)
         clock(.08); ui=sample('evidence-half'); expect(ui,14,.875); capture('evidence-half')
         ui=settled('evidence-open'); capture('evidence-open')
+        assert latest['replay.cause']['summaryExpandedSections']==0
         assert latest['replay.cause']['drawerOpen'] and latest['replay.cause']['window']==original_window
         assert latest['selection.state']['selectedCausePrimaryId']==selected
-        ew=min(x-ui['viewport'][0],max(400,w)); ex=x-ew
+        ew=min(x-ui['viewport'][0],max(400,w)); ex=x-ew; top=ui['viewport'][1]
         for tab in (1,2,0):
-            click([ex+12+(ew-24)*tab/3,y+88,(ew-24)/3,28]); sample('evidence-tab-'+str(tab))
+            click([ex+12+(ew-24)*tab/3,top+88,(ew-24)/3,28]); sample('evidence-tab-'+str(tab)); capture('evidence-tab-'+str(tab))
             assert latest['replay.cause']['activeTab']==tab
             assert latest['selection.state']['selectedCausePrimaryId']==selected
         # The inspector has its own close, while the hierarchy stays available.
-        click([x-32,y+6,26,26]); ui=sample('evidence-close'); assert not latest['replay.cause']['drawerOpen']
+        click([x-32,top+6,26,26]); ui=sample('evidence-close'); assert not latest['replay.cause']['drawerOpen']
         ui=settled('evidence-closed'); expect(ui,14,0)
         click(ui['rightFoldBounds']); sample('causes-close'); ui=settled('causes-closed'); expect(ui,2,0)
         click(ui['causeTabBounds']); ui=sample('cause-reenter'); expect(ui,2,0)
@@ -139,7 +166,7 @@ def run(directory: Path, theme: int) -> None:
         before=ui['leftResizeBounds']; click(before,60); ui=sample('lab-resize'); assert abs(ui['leftResizeBounds'][0]-before[0]-60)<2
         key(0x74); key(0x75); ui=settled('lab-diagnostics'); diagnostics(ui); capture('lab-diagnostics')
         send('window.resize',width=900,height=640); ui=settled('small-lab'); diagnostics(ui); capture('small-lab')
-        print('PASS: independent sections, edge drags, full-width easing, attached evidence, theme rails and scene-only F5/F6; theme',theme)
+        print('PASS: independent sections, edge drags, top-down easing, attached evidence, theme rails and floating, draggable F5/F6; theme',theme)
     finally:
         try: send('session.stop')
         finally: connection.close(); wait_for_exit(directory)

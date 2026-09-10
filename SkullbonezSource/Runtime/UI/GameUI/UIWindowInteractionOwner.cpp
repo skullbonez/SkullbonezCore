@@ -74,10 +74,13 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
     m_presentation.markerHistoryOpen = m_profilerTab.performanceHistogramEnabled;
     m_presentation.memoryWaterlineOpen = m_memoryOverlay.overlayEnabled;
     m_presentationRects = ComputePresentationRects( m_presentation, width, height );
-    m_profilerTab.histogramDockedBounds = m_presentationRects.markerHistory;
-    m_memoryOverlay.dockedBounds = m_presentationRects.memoryWaterline;
+    m_profilerTab.histogramDockedBounds = {};
+    m_memoryOverlay.dockedBounds = {};
     if ( !m_interaction.isResizing &&
-         ProfilerTab::PerformanceHistogramContains( m_profilerTab, input.mouseX, input.mouseY ) )
+         ( ProfilerTab::PerformanceHistogramContains( m_profilerTab, input.mouseX, input.mouseY ) ||
+           ( m_memoryOverlay.overlayEnabled &&
+             ( m_memoryOverlay.dragging || m_memoryOverlay.resizing ||
+               m_memoryOverlay.floatingBounds.Contains( input.mouseX, input.mouseY ) ) ) ) )
     {
         // Floating diagnostics receive their own pointer input before the dock
         // or Tools surface underneath them can select a control.
@@ -173,8 +176,8 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
     }
     UpdateDockPresentationInput( input );
     UpdateToolsDrawerBounds( input, width, height );
-    m_profilerTab.histogramDockedBounds = m_presentationRects.markerHistory;
-    m_memoryOverlay.dockedBounds = m_presentationRects.memoryWaterline;
+    m_profilerTab.histogramDockedBounds = {};
+    m_memoryOverlay.dockedBounds = {};
     const float popupBottom = m_presentationRects.markerHistory.h > 0.0f     ? m_presentationRects.markerHistory.y
                               : m_presentationRects.memoryWaterline.h > 0.0f ? m_presentationRects.memoryWaterline.y
                                                                              : static_cast<float>( height );
@@ -2191,6 +2194,57 @@ void UIWindowInteractionOwner::HandleWindowPress( const InputControl::UIInputSna
 }
 
 
+bool UIWindowInteractionOwner::HandleMemoryOverlayInput( const InputControl::UIInputSnapshot& input,
+                                                         InGameUIInputResult& result )
+{
+    auto& state = m_memoryOverlay;
+    if ( !state.overlayEnabled && ( state.dragging || state.resizing ) )
+    {
+        state.dragging = state.resizing = false;
+        result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
+        return true;
+    }
+    // A captured F5 gesture keeps ownership when it crosses the F6 window.
+    if ( !state.overlayEnabled || m_interaction.isResizing ||
+         ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab ) )
+    {
+        return false;
+    }
+    auto& bounds = state.floatingBounds;
+    const bool inside = bounds.Contains( input.mouseX, input.mouseY );
+    if ( input.leftPressed && inside && !input.rightDown && !input.middleDown )
+    {
+        state.resizing = input.mouseX >= bounds.x + bounds.w - 14 && input.mouseY >= bounds.y + bounds.h - 14;
+        state.dragging = !state.resizing && input.mouseY < bounds.y + 28;
+        if ( state.dragging || state.resizing )
+        {
+            state.pointerOffset = { input.mouseX - ( state.resizing ? bounds.w : bounds.x ),
+                                    input.mouseY - ( state.resizing ? bounds.h : bounds.y ) };
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
+        }
+    }
+    const bool active = state.dragging || state.resizing;
+    if ( active && input.leftDown )
+    {
+        if ( state.dragging )
+        {
+            bounds.x = input.mouseX - state.pointerOffset.x;
+            bounds.y = input.mouseY - state.pointerOffset.y;
+        }
+        else
+        {
+            bounds.w = (std::max)( 180.0f, input.mouseX - state.pointerOffset.x );
+            bounds.h = (std::max)( 120.0f, input.mouseY - state.pointerOffset.y );
+        }
+    }
+    if ( active && ( input.leftReleased || !input.leftDown ) )
+    {
+        state.dragging = state.resizing = false;
+        result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
+    }
+    return inside || active;
+}
+
 InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input,
                                                            const SceneNavigationModel& sceneNavigation, int screenWidth,
                                                            int screenHeight, double now, bool editorModeEnabled,
@@ -2225,8 +2279,15 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
         return result;
     }
 
-    // Concept: the standalone histogram remains interactive even when the main
-    // diagnostics window is hidden, so it gets first chance at mouse input.
+    if ( !popupWasOpen && HandleMemoryOverlayInput( input, result ) )
+    {
+        m_blocksCameraMouse = true;
+        result.unhandledWheelDelta = 0;
+        return result;
+    }
+
+    // The standalone histogram remains interactive while Tools is hidden and
+    // receives pointer input before the dock or scene beneath it.
     const bool histogramWasInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
 
     if ( !m_interaction.isResizing && ( !popupWasOpen || m_profilerTab.histogramSelectorOpen ) &&

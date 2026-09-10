@@ -126,11 +126,18 @@ def run(root: Path) -> None:
             wait_for_exit(directory)
     session('live', 0, True)
     saved = prefs.read_text()
-    assert 'version 3\n' in saved and 'theme 2\n' in saved and 'drawer 480\n' in saved, saved
+    assert 'folded 7\n' in saved, saved
+    assert 'version 5\n' in saved and 'theme 2\n' in saved and 'drawer 480\n' in saved, saved
     session('reload', 2)
+    prefs.write_text(saved.replace('version 5', 'version 4').replace('folded 7\n', 'folded 0\n'))
+    session('version-4-summary-defaults', 2)
+    assert 'version 5\n' in prefs.read_text() and 'folded 7\n' in prefs.read_text()
+    prefs.write_text(saved.replace('folded 7\n', 'folded 0\n'))
+    session('current-summary-choice', 2)
+    assert 'folded 0\n' in prefs.read_text()
     prefs.write_text(saved.replace('theme 2','theme 999'))
     session('unknown-theme', 0)
-    print('PASS: native Blue/Dark/Light switching and pixels, version 1 layout migration, restart persistence, invalid theme fallback')
+    print('PASS: native Blue/Dark/Light switching and pixels, version 1/4 migration, summary choices, restart persistence, invalid theme fallback')
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)

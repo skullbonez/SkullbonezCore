@@ -122,6 +122,8 @@ class UIWindowInteractionOwner
                                      uint32_t cameraModeEnabledMask );
 
   private:
+    bool HandleMemoryOverlayInput( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result );
+
     friend class InGameUI;
 #if defined( SKULLBONEZ_RENDER_FREE_TESTS )
     friend struct UIWindowInteractionOwnerTestAccess;

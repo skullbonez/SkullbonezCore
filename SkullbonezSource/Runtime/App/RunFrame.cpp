@@ -1469,8 +1469,8 @@ void Run::PublishSkarnessFrameState()
                                             layout.replayFold.h };
     state.presentation.replayResizeBounds = { layout.replayResize.x, layout.replayResize.y, layout.replayResize.w,
                                               layout.replayResize.h };
-    state.presentation.memoryWaterlineBounds = { layout.memoryWaterline.x, layout.memoryWaterline.y,
-                                                 layout.memoryWaterline.w, layout.memoryWaterline.h };
+    state.presentation.memoryWaterlineBounds = { diagnostics.memoryBounds.x, diagnostics.memoryBounds.y,
+                                                 diagnostics.memoryBounds.w, diagnostics.memoryBounds.h };
     const auto header = UI::GameLayout::ComputeHeaderRects( layout.header, m_operatorUi->PresentationWorkspace() );
     state.presentation.headerLayoutBounds = { header.layout.x, header.layout.y, header.layout.w, header.layout.h };
     state.presentation.headerWorkspaceBounds = { header.workspace.x, header.workspace.y, header.workspace.w,

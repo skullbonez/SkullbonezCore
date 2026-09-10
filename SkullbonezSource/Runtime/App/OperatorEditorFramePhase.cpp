@@ -612,15 +612,21 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
     panels.BeginFrame();
     const auto shell = ui.PresentationBounds();
     const UI::UIRect bodyClip { 0, shell.header.h, shell.window.w, shell.transport.y - shell.header.h };
-    for ( auto panel : { UI::UIPanel::Left, UI::UIPanel::Right, UI::UIPanel::LowerLeft } )
+    panels.SetClip( UI::UIPanel::Right, bodyClip );
+    // Retain the last expanded clip during exit, so folding cannot chop the animation.
+    if ( shell.leftResize.w > 0 )
     {
-        panels.SetClip( panel, bodyClip );
+        panels.SetClip( UI::UIPanel::Left, UI::IntersectRect( bodyClip, shell.editorPane ) );
+    }
+    if ( shell.replayResize.w > 0 )
+    {
+        panels.SetClip( UI::UIPanel::LowerLeft, UI::IntersectRect( bodyClip, shell.replayPane ) );
     }
     // The attached drawer emerges from under Causes without painting over its hierarchy.
     panels.SetClip( UI::UIPanel::AttachedRight,
                     { shell.viewport.x, bodyClip.y, shell.right.x - shell.viewport.x, bodyClip.h } );
-    panels.SetClip( UI::UIPanel::DiagnosticPrimary, shell.viewport );
-    panels.SetClip( UI::UIPanel::DiagnosticSecondary, shell.viewport );
+    panels.SetClip( UI::UIPanel::DiagnosticPrimary, shell.window );
+    panels.SetClip( UI::UIPanel::DiagnosticSecondary, shell.window );
     const UI::UIDrawList* comparisonDraw = nullptr;
     if ( ComparisonUiActive() )
     {

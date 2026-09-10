@@ -221,7 +221,7 @@ struct ReplayCauseDisplayView
     int solverDetailFirstRow = 0;
     int rawRecordFirstRow = 0;
     int iterationsFirstRow = 0;
-    int summaryExpandedSection = -1;
+    int summaryExpandedSections = 0;
     int summaryScrollOffset = 0;
     bool blueOutlinesVisible = true;
     bool greyOutlinesVisible = true;
@@ -338,7 +338,7 @@ inline constexpr float REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE = 22.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_EMPTY_HEIGHT = 44.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_BASE_ROW_HEIGHT = 82.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_ITERATION_LINE_HEIGHT = 12.0f;
-inline constexpr float REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT = 52.0f;
+inline constexpr float REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT = 30.0f;
 inline constexpr float REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT = 28.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_OPACITY = 0.97f;
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE = 4;
@@ -421,7 +421,7 @@ struct ReplayCauseIterationRow
 };
 
 inline constexpr std::size_t REPLAY_CAUSE_ITERATIONS_ROW_CAPACITY = 32u;
-inline constexpr float REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT = 84.0f;
+inline constexpr float REPLAY_CAUSE_ITERATIONS_ROW_HEIGHT = 48.0f;
 
 struct ReplayCauseIterationsProjection
 {
@@ -471,7 +471,7 @@ struct ReplayCauseInspectorLayout
     int iterationsVisibleRows = 0;
 };
 
-// Drawing and pointer routing share the same accordion geometry and scroll cap.
+// Drawing and pointer routing share the same section geometry and scroll cap.
 UI::UIRect ReplayCauseSummarySectionRect( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display,
                                           int section ) noexcept;
 int ReplayCauseSummaryMaxScroll( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display ) noexcept;
@@ -550,7 +550,7 @@ class ReplayCauseInspection
     void SetDrawerOpen( bool open, double nowSeconds ) noexcept;
     void SetShellPresentation( bool enabled, const UI::UIRect& bounds, const UI::UIRect& viewport = {} ) noexcept;
     void SetActiveTab( ReplayCauseInspectorTab tab ) noexcept;
-    void SetSummaryExpandedSection( int section ) noexcept;
+    void SetSummaryExpandedSections( int section ) noexcept;
     bool CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept;
     bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
                                      bool hasClientPosition, bool pointerBlocked, bool leftPressed, int wheelDelta,

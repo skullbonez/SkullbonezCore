@@ -88,7 +88,7 @@ PresentationPreferences SanitizePreferences( const PresentationPreferences& pref
     result.drawerHeight = FiniteDimension( result.drawerHeight, 360.0f );
     result.diagnosticsHeight = FiniteDimension( result.diagnosticsHeight, 140.0f );
     result.lastTool = std::clamp( result.lastTool, 0, 10 );
-    if ( result.foldedSections != 3 && result.foldedSections != 5 && result.foldedSections != 6 )
+    if ( result.foldedSections > 7 )
     {
         result.foldedSections = 7;
     }
@@ -151,15 +151,18 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
                              (std::max)( 0.0f, result.transport.y - result.header.h ) };
     if ( editor )
     {
-        // Each Scene section owns a fixed vertical slot and can slide independently.
+        // Expanded sections stack from the top. A folded sibling reserves only its header.
         const bool scene = state.workspace == Workspace::Scene;
-        const float sectionHeight = scene ? contentHeight * 0.5f : contentHeight;
-        result.editorPane = { 0, contentY, preferences.leftFolded ? (std::min)( 24.0f, leftWidth ) : leftWidth,
-                              sectionHeight };
-        result.replayPane = scene ? UIRect { 0, contentY + sectionHeight,
-                                             preferences.replayFolded ? (std::min)( 24.0f, leftWidth ) : leftWidth,
-                                             contentHeight - sectionHeight }
-                                  : UIRect {};
+        const float foldedHeight = (std::min)( leftWidth <= 24 ? 108.0f : 30.0f, contentHeight * 0.5f );
+        const float replayHeight = !scene                     ? 0.0f
+                                   : preferences.replayFolded ? foldedHeight
+                                   : preferences.leftFolded   ? contentHeight - foldedHeight
+                                                              : (std::min)( 400.0f, contentHeight * 0.38f + 40.0f );
+        const float editorHeight = !scene                   ? contentHeight
+                                   : preferences.leftFolded ? foldedHeight
+                                                            : contentHeight - replayHeight;
+        result.editorPane = { 0, contentY, leftWidth, editorHeight };
+        result.replayPane = scene ? UIRect { 0, contentY + editorHeight, leftWidth, replayHeight } : UIRect {};
         const UIRect panes[] = { result.editorPane, result.replayPane };
         UIRect* headers[] = { &result.editorTab, &result.editorReplayTab };
         UIRect* folds[] = { &result.leftFold, &result.replayFold };
@@ -172,7 +175,7 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
             *headers[index] = folded ? UIRect { pane.x + 2, pane.y + 30, 20,
                                                 (std::min)( 120.0f, (std::max)( 0.0f, pane.h - 34 ) ) }
                                      : UIRect { pane.x + 24, pane.y + 2, (std::max)( 0.0f, pane.w - 30 ), 26 };
-            if ( !folded )
+            if ( !( index == 0 ? preferences.leftFolded : preferences.replayFolded ) )
             {
                 *grips[index] = { pane.x + pane.w - 5, pane.y, 10, pane.h };
             }
@@ -227,23 +230,7 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
     const float detailsWidth = (std::min)( 96.0f, w * 0.25f );
     result.replayDetails = { w - detailsWidth, result.transport.y, detailsWidth, result.transport.h };
     result.transport.w = (std::min)( result.transport.w, result.replayDetails.x - result.transport.x );
-    // F5/F6 overlay only the scene viewport, including when Tools is open.
-    const int diagnosticCount = static_cast<int>( state.markerHistoryOpen ) + static_cast<int>( state.memoryWaterlineOpen );
-    if ( diagnosticCount > 0 )
-    {
-        const float panelHeight = (std::min)( preferences.diagnosticsHeight, result.viewport.h * 0.4f );
-        const float panelWidth = result.viewport.w / diagnosticCount;
-        const float panelY = (std::min)( result.transport.y, result.viewport.y + result.viewport.h ) - panelHeight;
-        if ( state.markerHistoryOpen )
-        {
-            result.markerHistory = { result.viewport.x, panelY, panelWidth, panelHeight };
-        }
-        if ( state.memoryWaterlineOpen )
-        {
-            result.memoryWaterline = { result.viewport.x + ( state.markerHistoryOpen ? panelWidth : 0 ), panelY, panelWidth,
-                                       panelHeight };
-        }
-    }
+    // Diagnostics own floating bounds and do not reserve layout space.
     result.replayScroll = std::clamp( state.replayScroll, 0.0f, 1.0f );
     result.editorScroll = std::clamp( state.editorScroll, 0.0f,
                                       (std::max)( 0.0f,
@@ -297,7 +284,7 @@ HeaderRects ComputeHeaderRects( const UIRect& header, Workspace workspace )
     {
         result.close = { header.x + header.w - pad - height, y, height, height };
     }
-    const float layoutWidth = header.w >= 600.0f ? 148.0f : 90.0f * unit;
+    const float layoutWidth = 76.0f * unit;
     result.layout = { header.x + header.w - pad - exitSpace - layoutWidth, y, layoutWidth, height };
     result.workspace = { result.layout.x - 102.0f * unit, y, 94.0f * unit, height };
     const float cameraWidth = header.w >= 600.0f ? 120.0f : 74.0f * unit;

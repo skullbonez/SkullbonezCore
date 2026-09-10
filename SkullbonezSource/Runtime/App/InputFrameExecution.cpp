@@ -822,8 +822,10 @@ bool Run::HandlePreUiReplayAction( const InputActionEvent& event, bool gameUiAct
         }
         else
         {
-            m_operatorUi->SetVisible( true, m_timers.SimulationTotalSeconds() );
-            m_operatorUi->SetMinimized( true, m_timers.SimulationTotalSeconds() );
+            if ( !m_operatorUi->IsVisible() )
+            {
+                m_operatorUi->SetVisible( true, m_timers.SimulationTotalSeconds() );
+            }
             m_replayRuntime.ApplyTransportCommand( ReplaySetRecordingEnabledCommand { true },
                                                    m_timers.SimulationTotalSeconds() );
             m_inputRouter.SetWorldInteractionOwner( WorldInteractionOwner::ReplayPrediction,

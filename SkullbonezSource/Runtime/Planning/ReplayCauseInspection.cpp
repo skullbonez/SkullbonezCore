@@ -643,19 +643,21 @@ bool ShouldBeginReplayCauseReturn( const ReplayCauseTransportView& transport, bo
 
 namespace
 {
-void PlaceCauseInspectorInShell( ReplayCauseInspectorLayout& layout, const UI::UIRect& bounds )
+void PlaceCauseInspectorInShell( ReplayCauseInspectorLayout& layout, const UI::UIRect& bounds, const UI::UIRect& viewport )
 {
     const bool expanded = layout.drawerProgress > 0.0f;
     const float width = layout.targetDrawer.w;
     layout.hierarchy = bounds;
     layout.hierarchyTitle = { bounds.x, bounds.y, bounds.w, (std::min)( 38.0f, bounds.h ) };
-    layout.drawer = { bounds.x - width, bounds.y, width, bounds.h };
+    const float top = viewport.h > 0 ? viewport.y : bounds.y;
+    layout.drawer = { bounds.x - width, top, width, bounds.y + bounds.h - top };
     layout.targetDrawer = layout.drawer;
     layout.visibleDrawer = expanded ? layout.drawer : UI::UIRect {};
     layout.drawerToggle = { bounds.x + (std::max)( 0.0f, bounds.w - 88 ), bounds.y + 6, (std::min)( 80.0f, bounds.w ), 26 };
-    layout.drawerClose = { layout.drawer.x + width - 32, bounds.y + 6, 26, 26 };
-    layout.compound = { expanded ? layout.drawer.x : bounds.x, bounds.y, bounds.w + ( expanded ? width : 0 ), bounds.h };
-    layout.targetCompound = { layout.drawer.x, bounds.y, bounds.w + width, bounds.h };
+    layout.drawerClose = { layout.drawer.x + width - 32, layout.drawer.y + 6, 26, 26 };
+    layout.compound = { expanded ? layout.drawer.x : bounds.x, expanded ? top : bounds.y,
+                        bounds.w + ( expanded ? width : 0 ), expanded ? layout.drawer.h : bounds.h };
+    layout.targetCompound = { layout.drawer.x, top, bounds.w + width, layout.drawer.h };
     layout.resize = {};
     layout.sharedSeam = {};
     layout.hierarchyScrollbar = { bounds.x + bounds.w - 9.0f, bounds.y + 48.0f, 5.0f,
@@ -718,7 +720,7 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
                               layout.hierarchy.h };
     if ( shellBounds.w > 0.0f )
     {
-        PlaceCauseInspectorInShell( layout, shellBounds );
+        PlaceCauseInspectorInShell( layout, shellBounds, shellViewport );
     }
     layout.drawerTitle = { layout.drawer.x, layout.drawer.y,
                            (std::max)( 0.0f, targetDrawerWidth - REPLAY_CAUSE_INSPECTOR_CLOSE_SIZE -
@@ -777,19 +779,23 @@ ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSol
 UI::UIRect ReplayCauseSummarySectionRect( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display,
                                           int section ) noexcept
 {
-    const float expandedHeight = display.summaryExpandedSection == 0 ? 196.0f : 140.0f;
-    const float preceding = display.summaryExpandedSection >= 0 && display.summaryExpandedSection < section ? expandedHeight
-                                                                                                            : 0.0f;
+    float preceding = 0;
+    for ( int index = 0; index < section; ++index )
+    {
+        if ( display.summaryExpandedSections & ( 1 << index ) )
+        {
+            preceding += index == 0 ? 196.0f : 140.0f;
+        }
+    }
     return { layout.content.x, layout.content.y + 254.0f + section * 34.0f + preceding - display.summaryScrollOffset,
              layout.content.w - 10.0f, 34.0f };
 }
 
 int ReplayCauseSummaryMaxScroll( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display ) noexcept
 {
-    const float expandedHeight = display.summaryExpandedSection < 0    ? 0.0f
-                                 : display.summaryExpandedSection == 0 ? 196.0f
-                                                                       : 140.0f;
-    return static_cast<int>( (std::max)( 0.0f, 356.0f + expandedHeight - layout.content.h ) );
+    const auto last = ReplayCauseSummarySectionRect( layout, display, 3 );
+    return static_cast<int>(
+        (std::max)( 0.0f, last.y + display.summaryScrollOffset - layout.content.y - layout.content.h ) );
 }
 
 bool ReplayCauseInspectorContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept
@@ -1778,7 +1784,7 @@ bool ReplayCauseInspection::TickSolverDetailPanelInput( const RunReplayCauseTree
             {
                 if ( PointInside( ReplayCauseSummarySectionRect( layout, m_state.Display(), section ), mouseX, mouseY ) )
                 {
-                    m_state.summaryExpandedSection = m_state.summaryExpandedSection == section ? -1 : section;
+                    m_state.summaryExpandedSections ^= 1 << section;
                     m_state.summaryScrollOffset = (std::min)( m_state.summaryScrollOffset,
                                                               ReplayCauseSummaryMaxScroll( layout, m_state.Display() ) );
                     return true;
@@ -1849,14 +1855,14 @@ void ReplayCauseInspection::Reset() noexcept
     // Display preferences survive leaving inspection and selecting another contact.
     const bool blueVisible = m_state.blueOutlinesVisible;
     const bool greyVisible = m_state.greyOutlinesVisible;
-    const int summarySection = m_state.summaryExpandedSection;
+    const int summarySection = m_state.summaryExpandedSections;
     const UI::UIRect shellBounds = m_state.shellBounds;
     const UI::UIRect shellViewport = m_state.shellViewport;
     const bool sharedShell = m_state.sharedShell;
     m_state = ReplayCauseInspectionView {};
     m_state.blueOutlinesVisible = blueVisible;
     m_state.greyOutlinesVisible = greyVisible;
-    m_state.summaryExpandedSection = summarySection;
+    m_state.summaryExpandedSections = summarySection;
     m_state.shellBounds = shellBounds;
     m_state.shellViewport = shellViewport;
     m_state.sharedShell = sharedShell;
@@ -1887,9 +1893,9 @@ void ReplayCauseInspection::SetShellPresentation( bool enabled, const UI::UIRect
                                   : 0.0f;
 }
 
-void ReplayCauseInspection::SetSummaryExpandedSection( int section ) noexcept
+void ReplayCauseInspection::SetSummaryExpandedSections( int section ) noexcept
 {
-    m_state.summaryExpandedSection = section >= 0 && section < 3 ? section : -1;
+    m_state.summaryExpandedSections = section >= 0 && section <= 7 ? section : 0;
     m_state.summaryScrollOffset = 0;
 }
 

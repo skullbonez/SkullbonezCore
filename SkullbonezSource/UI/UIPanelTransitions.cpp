@@ -27,14 +27,14 @@ constexpr std::array<UIPanel, static_cast<size_t>( UIPanel::Count )> PANEL_ORDER
                                                                                      UIPanel::Right,
                                                                                      UIPanel::Transport,
                                                                                      UIPanel::Drawer,
-                                                                                     UIPanel::DiagnosticPrimary,
-                                                                                     UIPanel::DiagnosticSecondary,
                                                                                      UIPanel::QuickTools,
                                                                                      UIPanel::AuxiliaryPrimary,
                                                                                      UIPanel::AuxiliarySecondary,
                                                                                      UIPanel::AuxiliaryGrid,
                                                                                      UIPanel::AttachedRight,
                                                                                      UIPanel::Header,
+                                                                                     UIPanel::DiagnosticPrimary,
+                                                                                     UIPanel::DiagnosticSecondary,
                                                                                      UIPanel::Popup };
 
 UIPoint PanelTravel( const UIDrawList& draw, UIPanel id )
@@ -44,17 +44,19 @@ UIPoint PanelTravel( const UIDrawList& draw, UIPanel id )
     {
         return travel;
     }
-    // Side drawers travel their width, so entry remains visible at wide sizes.
+    // Left sections unfold downward; right drawers emerge from their shared seam.
     float width = 24;
+    float height = 30;
     for ( const auto& command : draw.Commands() )
     {
         if ( command.panel == id &&
              ( command.type == UIDrawList::CommandType::Rect || command.type == UIDrawList::CommandType::RoundedRect ) )
         {
             width = (std::max)( width, command.w );
+            height = (std::max)( height, command.h );
         }
     }
-    travel.x = ( id == UIPanel::Left || id == UIPanel::LowerLeft ) ? -width : width;
+    travel = ( id == UIPanel::Left || id == UIPanel::LowerLeft ) ? UIPoint { 0, -height } : UIPoint { width, 0 };
     return travel;
 }
 

@@ -837,14 +837,14 @@ TEST_CASE( "Opening Tools closes floating diagnostics and their shortcuts reopen
     CHECK( ui->DiagnosticPresentation().focusedPanel == 0 );
     CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
     CHECK_FALSE( ui->DiagnosticPresentation().memoryWaterlineVisible );
-    CHECK( ui->PresentationBounds().markerHistory.w > 0.0f );
+    CHECK( ui->PresentationBounds().markerHistory.w == 0.0f );
     CHECK( ui->PresentationBounds().drawer.h == toolsHeight );
     ui->ToggleMemoryOverlayEnabled();
     ui->UpdatePresentationInput( input, 1600, 900, true );
     CHECK( ui->DiagnosticPresentation().focusedPanel == 0 );
     CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
-    CHECK( ui->PresentationBounds().markerHistory.w > 0.0f );
-    CHECK( ui->PresentationBounds().memoryWaterline.w > 0.0f );
+    CHECK( ui->PresentationBounds().markerHistory.w == 0.0f );
+    CHECK( ui->PresentationBounds().memoryWaterline.w == 0.0f );
     ui->SetMinimized( true );
     ui->UpdatePresentationInput( input, 1600, 900, true );
     ui->SetMinimized( false );
@@ -1681,7 +1681,8 @@ TEST_CASE( "UI panel exits retain clipped labels and fade their alpha without da
         }
         ++labels;
         CHECK( std::string( draw.TextAt( command.textOffset ) ) == "retained label" );
-        CHECK( command.x0 == doctest::Approx( -15.0f ) );
+        CHECK( command.x0 == doctest::Approx( 10.0f ) );
+        CHECK( command.y0 == doctest::Approx( 5.0f ) );
         CHECK( command.a == doctest::Approx( 0.4375f ) );
         CHECK( command.r == doctest::Approx( 0.1f ) );
     }
@@ -1771,8 +1772,9 @@ TEST_CASE( "Editor and Replay sections fold independently and expose separate re
     click( ui->PresentationBounds().editorReplayTab );
     auto both = ui->PresentationBounds();
     CHECK( both.editorControls.y == editor.y );
-    CHECK( both.editorControls.h == editor.h );
-    CHECK( both.replayControls.y >= editor.y + editor.h );
+    CHECK( both.editorControls.h < editor.h );
+    CHECK( both.editorPane.h > both.replayPane.h );
+    CHECK( both.replayPane.y == both.editorPane.y + both.editorPane.h );
     CHECK( both.leftResize.w >= 10 );
     CHECK( both.replayResize.w >= 10 );
     click( both.leftFold );
@@ -1781,6 +1783,7 @@ TEST_CASE( "Editor and Replay sections fold independently and expose separate re
     click( ui->PresentationBounds().replayFold );
     CHECK( ui->PresentationBounds().replayControls.w == 0 );
     CHECK( ui->PresentationBounds().left.w == 24 );
+    CHECK( ui->PresentationBounds().replayPane.y == ui->PresentationBounds().editorPane.y + 108 );
     click( ui->PresentationBounds().editorReplayTab );
     const auto grip = ui->PresentationBounds().replayResize;
     input.mouseX = static_cast<int>( grip.x + 5 );
@@ -1798,9 +1801,18 @@ TEST_CASE( "Editor and Replay sections fold independently and expose separate re
     input.leftReleased = true;
     result = ui->UpdateInput( input, 1600, 900, 0, false, false, false, false, 0x7f );
     CHECK( result.nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Release );
+    ui->SetVisible( true );
+    ui->SetActiveTab( InGameUITab::Editor );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    auto data = std::make_unique<InGameUIFrameData>();
+    data->surface.screenW = 1600;
+    data->surface.screenH = 900;
+    const auto& draw = ui->Draw( *data );
+    CHECK_FALSE( draw.HasPanel( UIPanel::Left ) );
+    CHECK( draw.HasPanel( UIPanel::LowerLeft ) );
 }
 
-TEST_CASE( "Diagnostic overlays stay inside the scene and above Tools and transport" )
+TEST_CASE( "Floating diagnostics reserve no dock space in either Tools state" )
 {
     using namespace SkullbonezCore::UI::GameLayout;
     PresentationState state;
@@ -1814,10 +1826,8 @@ TEST_CASE( "Diagnostic overlays stay inside the scene and above Tools and transp
         const auto layout = ComputePresentationRects( state, widths[sample % 3], 961 );
         for ( const auto& diagnostic : { layout.markerHistory, layout.memoryWaterline } )
         {
-            CHECK( diagnostic.x >= layout.viewport.x );
-            CHECK( diagnostic.x + diagnostic.w <= layout.viewport.x + layout.viewport.w );
-            CHECK( diagnostic.y >= layout.viewport.y );
-            CHECK( diagnostic.y + diagnostic.h <= layout.transport.y );
+            CHECK( diagnostic.w == 0 );
+            CHECK( diagnostic.h == 0 );
         }
     }
 }

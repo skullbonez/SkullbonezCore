@@ -4,6 +4,41 @@ Date: 2026-09-09
 Branch: `codex/unified-ui`
 Status: Unified UI complete at 8/8; portfolio 146/154. Closure is committed on this branch.
 
+## Floating diagnostics and inspector refinements - 2026-09-10
+
+Following `c75916ce2`, Editor and Replay now stack from the top, with independent
+fold headers and downward eased entry. Editor receives the larger share; Replay
+has another 40 pixels when both are open. P preserves Tools and reopened F5/F6.
+The compact header toggle reads Options / Exit.
+
+F5/F6 return to their historical top-left 340 by 166 floating layout. Both can
+move and resize independently through native pointer capture, including dragging
+F5 across F6 without transferring the gesture. Their panels use the active theme,
+matching headers and resize grips. They reserve no dock space and draw above the
+shell. Opening Tools still hides them once; either shortcut restores its window.
+
+The attached solver inspector reaches the workspace top. Summary sections fold
+independently and start collapsed; version 5 preferences migrate older defaults
+and preserve current choices. Raw rows are 30 pixels with centered values and
+compact label/unit blocks. Iteration rows are 48 pixels; impulses use J with
+lowered indices and a drawn delta symbol without changing the font atlas.
+
+Validation: `floating-fast.log` passes 1,002 cases / 2,746,048 assertions plus
+the separate 213-assertion case. Profile and Automation builds are warning-free.
+`floating-design-final.log` passes 3 files / 13 compiler contexts. Native Blue,
+Dark and Light sessions, Tools diagnostics, and version 1/4 preference migration
+and current choice persistence pass under `TestOutput/skarness/floating-*`.
+Final diagnostic, raw-record, summary, animation and Solver Lab captures were
+inspected. `floating-ui.log` reports zero DX12 validation errors, with the same
+two legacy containment and three intermittent profiler timeline failures seen
+in `panels-ui-gate-final.log`. No golden baseline was changed.
+
+`floating-replay-fidelity.log` completes its engine run and passes 18 negative
+controls / 82 assertions, but fails the existing shader provenance comparison
+(`f0ce4056...` expected, `589a9291...` actual) after the earlier animation shader
+change. It is not a green fidelity result. `floating-ready.log` builds Debug
+with zero warnings/errors. All owned native sessions were stopped.
+
 ## Shared panel transitions - 2026-09-10
 
 Theme work is committed as `eca29e3`. Panel presentation now uses

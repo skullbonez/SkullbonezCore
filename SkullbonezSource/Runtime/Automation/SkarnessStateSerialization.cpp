@@ -440,7 +440,7 @@ Json BuildCause( const ReplayAutomationView& replay, SkarnessStateDetail detail 
                      { "detailVisible", replay.causeInspection.detailVisible },
                      { "drawerOpen", replay.causeInspection.drawerOpen },
                      { "drawerProgress", replay.causeInspection.drawerProgress },
-                     { "summaryExpandedSection", replay.causeInspection.summaryExpandedSection },
+                     { "summaryExpandedSections", replay.causeInspection.summaryExpandedSections },
                      { "summaryScrollOffset", replay.causeInspection.summaryScrollOffset },
                      { "shellScroll", replay.causeInspection.shellScroll },
                      { "rawRecordFirstRow", replay.causeInspection.rawRecordFirstRow },

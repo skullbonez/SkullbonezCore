@@ -201,7 +201,7 @@ UISceneTabFrameView InGameUIFrameData::SceneTabFrame() const
 
 namespace
 {
-void DrawDockFold( const UIDrawContext& draw, const UIRect& bounds, bool pointsRight, bool hovered )
+void DrawDockFold( const UIDrawContext& draw, const UIRect& bounds, bool pointsRight, bool hovered, bool vertical = false )
 {
     const auto& palette = Style::Palette();
     if ( hovered )
@@ -214,6 +214,12 @@ void DrawDockFold( const UIDrawContext& draw, const UIRect& bounds, bool pointsR
     const float cy = bounds.y + bounds.h * 0.5f;
     // Preserve winding when mirroring: the UI triangle rasterizer culls back faces.
     const float direction = pointsRight ? 1.0f : -1.0f;
+    if ( vertical )
+    {
+        draw.Triangle( cx, cy + direction * 3, cx + direction * 4, cy - direction * 2, cx - direction * 4,
+                       cy - direction * 2, ink.r, ink.g, ink.b, 1 );
+        return;
+    }
     draw.Triangle( cx + direction * 3.0f, cy, cx - direction * 2.0f, cy - direction * 4.0f, cx - direction * 2.0f,
                    cy + direction * 4.0f, ink.r, ink.g, ink.b, 1.0f );
 }
@@ -1236,6 +1242,7 @@ GameLayout::DiagnosticPresentation InGameUI::DiagnosticPresentation() const
                                                           : UIRect { profiler.histogramPanelX, profiler.histogramPanelY,
                                                                      profiler.histogramPanelW, profiler.histogramPanelH } )
                                                   : UIRect {};
+    view.memoryBounds = view.memoryWaterlineVisible ? m_windowInteraction.m_memoryOverlay.floatingBounds : UIRect {};
     view.workerToggleBounds = profiler.workerToggle.Bounds();
     view.workerSliderBounds = profiler.workerThreadSlider.Bounds();
     view.markerSamples = m_windowInteraction.m_profilerTab.histogramCount;
@@ -1282,21 +1289,17 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
         return;
     }
     const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
-    for ( const auto& slot : { m_presentationRects.editorPane, m_presentationRects.replayPane } )
-    {
-        if ( slot.h > 0 && slot.w <= 24 && m_presentationRects.left.w > 24 )
-        {
-            draw.Rect( slot.x, slot.y, m_presentationRects.left.w, slot.h, palette.window.r, palette.window.g,
-                       palette.window.b, 1 );
-        }
-    }
+    const auto& left = m_presentationRects.left;
+    draw.Rect( left.x, left.y, left.w, left.h, palette.window.r, palette.window.g, palette.window.b, 1 );
     const UIRect panes[] = { m_presentationRects.editorPane, m_presentationRects.right, m_presentationRects.replayPane };
     for ( size_t index = 0; index < std::size( panes ); ++index )
 
     {
         const UIRect& pane = panes[index];
         const UIPanel ids[] = { UIPanel::Left, UIPanel::Right, UIPanel::LowerLeft };
-        m_frameDrawList.SetPanel( pane.w > 24.0f ? ids[index] : UIPanel::None );
+        const bool folded[] = { m_presentation.preferences.leftFolded, m_presentation.preferences.rightFolded,
+                                m_presentation.preferences.replayFolded };
+        m_frameDrawList.SetPanel( folded[index] ? UIPanel::None : ids[index] );
         if ( pane.w <= 0.0f || pane.h <= 0.0f )
         {
             continue;
@@ -1384,11 +1387,11 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
         {
             continue;
         }
-        const bool folded = panes[index].w <= 24;
+        const bool folded = index == 0 ? m_presentation.preferences.leftFolded : m_presentation.preferences.replayFolded;
         m_frameDrawList.SetPanel( folded ? UIPanel::None : ids[index] );
         const char* label = index == 1 ? "Replay"
                                        : ( m_presentation.workspace == Workspace::SolverLab ? "Controls" : "Editor" );
-        if ( folded )
+        if ( panes[index].w <= 24 )
         {
             verticalTab( tabs[index], label, palette.textSecondary );
         }
@@ -1400,7 +1403,7 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
             draw.Text( tabs[index].x + 8, tabs[index].y + 6, 12, palette.textPrimary.r, palette.textPrimary.g,
                        palette.textPrimary.b, label );
         }
-        DrawDockFold( draw, folds[index], folded, folds[index].Contains( m_mouseX, m_mouseY ) );
+        DrawDockFold( draw, folds[index], folded, folds[index].Contains( m_mouseX, m_mouseY ), true );
     }
     m_frameDrawList.SetPanel( m_presentation.preferences.rightFolded ? UIPanel::None : UIPanel::Right );
     verticalTab( m_presentationRects.causeTab, m_presentation.workspace == Workspace::SolverLab ? "Differences" : "Causes",
@@ -1439,7 +1442,7 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
                          bounds.y - m_presentationRects.editorScroll, m_mouseX, m_mouseY );
         m_frameDrawList.PopClip();
     }
-    else if ( m_presentation.editorInTools && m_presentationRects.editorPane.w > 24.0f )
+    else if ( m_presentation.editorInTools && !m_presentation.preferences.leftFolded )
     {
         draw.Text( m_presentationRects.left.x + 12.0f, m_presentationRects.left.y + 52.0f, 11.0f, palette.textMuted.r,
                    palette.textMuted.g, palette.textMuted.b, "Editor controls are open in Tools." );
@@ -1508,9 +1511,7 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
                    palette.textPrimary.g, palette.textPrimary.b, label );
         draw.PopClip();
     };
-    button( bounds.layout, m_presentation.preferences.layout == LayoutMode::Canvas
-                               ? ( bounds.layout.w < 100.0f ? "Docked" : "Docked Interface" )
-                               : ( bounds.layout.w < 100.0f ? "Full" : "Full Screen" ) );
+    button( bounds.layout, m_presentation.preferences.layout == LayoutMode::Canvas ? "Options" : "Exit" );
     if ( bounds.close.w > 0.0f )
     {
         DrawTitleButton( draw, bounds.close, TitleButtonIcon::Close, bounds.close.Contains( m_mouseX, m_mouseY ), false );
@@ -1601,7 +1602,7 @@ void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
           { 11, header.skull, { "Open or close Tools while retaining the selected tab." } },
           { 12, header.scene, { "Open the existing Scene browser for loading, creation and scene defaults." } },
           { 13, header.scenes, { "Open the existing Scene browser for loading, creation and scene defaults." } },
-          { 14, header.layout, { "Toggle full-screen game and the docked interface while retaining panel choices." } },
+          { 14, header.layout, { "Open Options or exit to the full-screen scene while retaining panel choices." } },
           { 15, header.tools, { "Open or close Tools while retaining the selected tab." } },
           { 16,
             DiagnosticDetailsBounds( m_presentationRects.markerHistory ),

@@ -553,8 +553,8 @@ class InGameUI
     // GPU resource release belongs exclusively to Runtime/Render.
     void ResetPresentationState();
     void LoadPresentationPreferences();
-    int EvidenceSummarySectionPreference() const noexcept;
-    void RememberEvidenceSummarySection( int section ) noexcept;
+    int EvidenceSummarySectionsPreference() const noexcept;
+    void RememberEvidenceSummarySections( int section ) noexcept;
     void SavePresentationPreferences( Core::SbDiagnosticStore& diagnostics ) const;
     SceneNavigationModel& SceneNavigation()
     {

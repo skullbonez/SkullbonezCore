@@ -76,6 +76,11 @@ struct UIMemoryOverlayState
     bool overlayEnabled = false;
     MemoryOverlaySample samples[MEMORY_OVERLAY_SAMPLE_COUNT] = {};
     UIRect dockedBounds;
+    // Placement survives F6 toggles; native capture is requested through the UI owner.
+    UIRect floatingBounds;
+    UIPoint pointerOffset;
+    bool dragging = false;
+    bool resizing = false;
     int sampleHead = 0;
     int sampleCount = 0;
     uint64_t axisMinBytes = 0;

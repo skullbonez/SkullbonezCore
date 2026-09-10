@@ -44,14 +44,14 @@ enum class Workspace : uint8_t
 // simulation clock, comparison recording, or functional editor mode.
 struct PresentationPreferences
 {
-    static constexpr uint32_t VERSION = 3;
+    static constexpr uint32_t VERSION = 5;
     LayoutMode layout = LayoutMode::Canvas;
     Style::Theme theme = Style::Theme::Blue;
     float leftWidth = 280.0f;
     float rightWidth = 360.0f;
     float drawerHeight = 360.0f;
     float diagnosticsHeight = 140.0f;
-    // Three evidence summary sections; their accordion permits one open row.
+    // Independent evidence sections; all start folded.
     uint32_t foldedSections = 7;
     int lastTool = 1;
     bool leftFolded = true;
@@ -135,6 +135,7 @@ struct DiagnosticPresentation
     uint32_t drawExpansionHash = 0;
     UIRect drawExpanderBounds;
     UIRect markerBounds;
+    UIRect memoryBounds;
     UIRect workerToggleBounds;
     UIRect workerSliderBounds;
 };

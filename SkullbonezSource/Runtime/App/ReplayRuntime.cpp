@@ -997,9 +997,9 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics, const SceneEntit
 }
 
 
-void ReplayRuntime::RestoreEvidenceSummarySection( int section ) noexcept
+void ReplayRuntime::RestoreEvidenceSummarySections( int section ) noexcept
 {
-    m_planningOwner.CauseInspection().SetSummaryExpandedSection( section );
+    m_planningOwner.CauseInspection().SetSummaryExpandedSections( section );
 }
 
 bool ReplayRuntime::CauseFilterHasKeyboardFocus() const noexcept
