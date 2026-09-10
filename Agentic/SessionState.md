@@ -1,10 +1,10 @@
 # Session State
 
-Date: 2026-09-10
+Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Ragdoll FP8 accepted at 9/10; FP9 closure next; portfolio 147/154. Unified UI remains complete at 8/8.
+Status: Ragdoll FP8/FP9 complete at 10/10; portfolio 138/144; sleep investigation next. Unified UI remains complete at 8/8.
 
-## Ragdoll FP8/FP9 implementation in progress - 2026-09-10
+## Ragdoll FP8/FP9 complete - 2026-09-11
 
 ### Latest verification status
 
@@ -24,10 +24,12 @@ predictionFullHorizonComplete assertion is false. The full script explicitly
 classifies this diagnostic as informational; it produced no usable spike
 measurement. This failure is retained and is not reported as a diagnostic pass.
 
-FP8 is accepted at 9/10; portfolio 147/154. The first commit contains the
+FP8 is committed in 69e5a609288af9a039084920a0a98a1c47b9863b, including the
 implementation, tests, exact governed baseline bundles and approved screenshots.
-FP9's following documentation commit closes and removes the completed plan.
-Then begin the user-requested playground sleep experiments with Skarness.
+FP9 closes the plan at 10/10 and removes it from the live inventory, leaving
+138/144. Push both commits, then begin the user-requested playground sleep
+experiments with Skarness. The FP8 commit hook passed its fresh-process
+0/repeat/1/4-worker Physics matrix against the unchanged 44,401-line golden.
 The 100-second prior pile observation ends at 10/46 asleep in both modes and
 is not evidence that reliable pile sleep is solved.
 
@@ -1019,11 +1021,11 @@ passed on FP5. Fresh runs will be dispatched after the FP6 push.
 
 ## Current State
 
-Current objective: commit the approved Ragdoll FP8/FP9 work on codex/unified-ui,
-then investigate ragdoll sleep with controlled playground experiments.
-Plan progress: RAGDOLL_PHYSICS 9/10; UNIFIED_UI 8/8 closed; portfolio 147/154.
-Next binding task: finish FP8/FP9 terminal validation and commits, followed by
-the owner's sleep investigation. PHYSICS_AB AB1-AB6 remains queued at 0/6.
+Current objective: FP8/FP9 are committed on codex/unified-ui; push them and
+investigate ragdoll sleep with controlled playground experiments.
+Plan progress: RAGDOLL_PHYSICS 10/10 closed; UNIFIED_UI 8/8 closed; portfolio 138/144.
+Next binding task: the owner's playground sleep investigation after pushing the
+completed FP8/FP9 commits. PHYSICS_AB AB1-AB6 remains queued at 0/6.
 The live ledger limitation and final evidence are recorded at the top of this file.
 
 The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish

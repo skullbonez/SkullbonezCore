@@ -16,7 +16,8 @@ predictionFullHorizonComplete assertion is false. The full script explicitly
 classifies this diagnostic as informational; it produced no usable spike
 measurement. This failure is retained and is not reported as a diagnostic pass.
 
-FP8 is accepted at 9/10; FP9 acceptance and plan deletion follow in the closure commit.
+FP8 and FP9 are accepted at 10/10. The completed plan is removed; its inventory
+and implementation remain in commit 69e5a609288af9a039084920a0a98a1c47b9863b.
 
 ## FP8 implementation and boundaries
 

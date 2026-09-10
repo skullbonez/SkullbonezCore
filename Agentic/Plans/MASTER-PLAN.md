@@ -1,7 +1,7 @@
 # MASTER PLAN
 
-Date: 2026-09-09
-Status: 147/154 tasks complete in the live inventory; UNIFIED_UI closed at 8/8; PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 9/10; bug ledger 126/126 fixed
+Date: 2026-09-11
+Status: 138/144 tasks complete in the live inventory; RAGDOLL_PHYSICS closed at 10/10; UNIFIED_UI closed at 8/8; PHYSICS_AB queued at 0/6; bug ledger 126/126 fixed
 
 ## Owner Direction
 
@@ -425,12 +425,44 @@ The live ledger could not start because the model has no configured verified
 pricing. Its unrelated active task is preserved; no usage/cost totals or
 completion-ledger artifacts are invented.
 
+## Ragdoll Physics Closure — 2026-09-11
+
+FP8 implementation and exact retained baseline bundles are committed in
+`69e5a609288af9a039084920a0a98a1c47b9863b`. FP9 closes the measured decision:
+retain predictive contacts for the demonstrated fast-limb collision benefit.
+Same-executable predictive overhead is 13.73-35.41% across the three measured
+workloads. Reliable pile sleep remains unresolved: both 100-second modes end
+with 10/46 bodies asleep and repeated wakes. The owner requested a separate
+playground sleep investigation immediately after these commits.
+
+Final required validation passes on 2026-09-11. Full05 exits 0 in 1317.204 s:
+unchanged Physics CSV, 134-source / 1188-context source design, all six CPU
+lanes, 1,027 Profile tests / 3,483,587 assertions, Automation in 438.419 s,
+and DX12 in 13.667 s against the accepted screenshots. Exclusive perf07 exits
+0 in 102.502 s on rebuilt Profile 2386e9e3, including relative and absolute
+budgets, native allocation checks and structural checks. Mapped replay passes
+in 370.488 s on Automation 6dbb35b9. The final 4ec3be56 relink changes only COFF
+and debug timestamps plus CodeView PDB age; every other executable byte matches.
+automation-relink-equivalence.json records that proof. terminal-validation.json
+binds the final logs, producers and performance artifacts.
+
+The optional frame-spike diagnostic exits 1 because its recorded
+predictionFullHorizonComplete assertion is false. The full script explicitly
+classifies this diagnostic as informational; it produced no usable spike
+measurement. This failure is retained and is not reported as a diagnostic pass.
+
+Accepting FP8 and FP9 moves 146/154 to 148/154. Removing the completed ten-phase
+plan leaves 138/144 in the live inventory. The plan and its recorder reserve
+inventory remain in the FP8 commit; exact transition bundles remain tracked.
+The approved screenshot exception is recorded in FP9/ui-baseline-review.
+The foreign work ledger remains untouched and no model/cost telemetry or
+completion-ledger artifacts are fabricated.
+
 ## Active Plans
 
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
-| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 9 | FP9: terminal acceptance | `TODO/ragdoll-physics-unification.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -468,8 +500,8 @@ One detail in that table is recorded:
 ## Binding Order
 
 `UNIFIED_UI` UU0-UU7 is complete at 8/8.
-The owner's latest direction puts `RAGDOLL_PHYSICS` FP8 then FP9 first,
-followed by the requested ragdoll-playground sleep investigation.
+`RAGDOLL_PHYSICS` is complete at 10/10. The owner's requested ragdoll-playground
+sleep investigation is next; it does not reactivate any parked plan.
 `PHYSICS_AB` AB1-AB6 remains queued at 0/6.
 `SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete.
 
@@ -480,7 +512,7 @@ complete on `codex/replay-capture-bugfixes`.
 re-review. `RECORDED_CURSOR` RIC0-RIC3 is complete, and the bug ledger has no
 unresolved row.
 
-`RAGDOLL_PHYSICS` is active at 9/10, while `RUNTIME_BOUNDARIES` and
+`RAGDOLL_PHYSICS` is complete at 10/10, while `RUNTIME_BOUNDARIES` and
 `GAME_UI_COMPONENTS` and `RECORDED_CURSOR` are complete.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
@@ -555,8 +587,8 @@ completed TODO plan is deleted under repository convention. Five serial
 read-only review passes closed nine matcher, scope, fixture, and metadata
 findings; the final pass is clean. No scanner, fixture, build, test, or
 validation command ran by explicit owner direction.
-FP8 is accepted and FP9 is the remaining Ragdoll Physics phase; current portfolio
-progress is 147/154, including the queued six-phase PHYSICS_AB plan.
+Ragdoll Physics is complete at 10/10 and its completed plan is removed. Current
+portfolio progress is 138/144, including the queued six-phase PHYSICS_AB plan.
 Previously completed phases remain represented in the historical count.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
@@ -567,8 +599,8 @@ Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
-Deterministic Collision Modes And Ragdoll Unification is active at 9/10;
-FP0-FP8 are complete and FP9 closes the plan. FP4 makes its direction-valid radius
+Deterministic Collision Modes And Ragdoll Unification is complete at 10/10;
+FP0-FP9 are accepted. FP4 makes its direction-valid radius
 policy the sole shipping path and retains the SkullScope policy timeline,
 same-executable A/B artifacts, and exact historical/current performance producers. FP2's archived automated transition
 retains the prior and new producers, its core/deep Physics gates pass, and its
