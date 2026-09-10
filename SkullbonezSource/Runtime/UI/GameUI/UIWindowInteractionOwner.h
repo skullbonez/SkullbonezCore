@@ -147,6 +147,9 @@ class UIWindowInteractionOwner
     bool m_presentationEnabled = false;
     bool m_presentationHeaderHovered = false;
     bool m_presentationPointerBlocked = false;
+    bool m_toolsTabPressed = false;
+    bool m_toolsTabWasOpen = false;
+    bool m_toolsTabDragged = false;
     void DrawMinimizedContent( const InGameUIFrameData& data, UIDrawList& drawList, int screenW, int screenH );
     void DrawRenderTabContent( const InGameUIFrameData& data, const UIDrawContext& draw, const UIRect& content,
                                float scrolledY );

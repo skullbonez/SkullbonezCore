@@ -528,6 +528,15 @@ TEST_CASE( "Unified presentation clamps extreme preferences without changing the
     CHECK( state.preferences.layout == LayoutMode::Editor );
 }
 
+TEST_CASE( "Header title brands the scene basename and truncates after twenty characters" )
+{
+    using SkullbonezCore::UI::GameLayout::HeaderTitle;
+    CHECK( std::string( HeaderTitle( nullptr ).data() ) == "Skullbonez Core - Generated demo" );
+    CHECK( std::string( HeaderTitle( "scenes/Wall.scene.json" ).data() ) == "Skullbonez Core - Wall" );
+    CHECK( std::string( HeaderTitle( "12345678901234567890" ).data() ) == "Skullbonez Core - 12345678901234567890" );
+    CHECK( std::string( HeaderTitle( "123456789012345678901" ).data() ) == "Skullbonez Core - 12345678901234567890..." );
+}
+
 TEST_CASE( "Unified header switches layout once without issuing runtime commands" )
 {
     using namespace SkullbonezCore::UI;
@@ -559,7 +568,7 @@ TEST_CASE( "Unified header switches layout once without issuing runtime commands
     CHECK( ui->PresentationBounds().viewport.w == 1600.0f );
 
     ui->SetActiveTab( InGameUITab::Physics );
-    input.mouseX = static_cast<int>( header.scenes.x + 8 );
+    input.mouseX = static_cast<int>( header.scene.x + 8 );
     ui->UpdatePresentationInput( input, 1600, 900, true );
     CHECK( ui->GetActiveTab() == InGameUITab::Scene );
     CHECK_FALSE( ui->IsMinimized() );
@@ -615,6 +624,38 @@ TEST_CASE( "Unified foreground extraction keeps popups above other presenters wi
     CHECK_FALSE( foreground->GetStats().commandOverflow );
 }
 
+TEST_CASE( "Vertical text retains orientation and owned bytes through foreground composition" )
+{
+    auto source = std::make_unique<UIDrawList>();
+    auto composed = std::make_unique<UIDrawList>();
+    auto foreground = std::make_unique<UIDrawList>();
+    source->AddText( { 10, 20 }, 13, { 1, 1, 1, 1 }, "CONTROLS" );
+    const auto horizontal = source->Fingerprint();
+    source->Clear();
+    source->AddText( { 10, 20 }, 13, { 1, 1, 1, 1 }, "CONTROLS", true );
+    CHECK( source->Fingerprint() != horizontal );
+    source->Clear();
+    source->BeginForeground();
+    source->AddText( { 10, 20 }, 13, { 1, 1, 1, 1 }, "CONTROLS", true );
+    source->EndForeground();
+    composed->Append( *source, 4, 6 );
+    source->Clear();
+    composed->ExtractForeground( *foreground );
+    composed->Clear();
+    bool found = false;
+    for ( const auto& command : foreground->Commands() )
+    {
+        if ( command.type == UIDrawList::CommandType::VerticalText )
+        {
+            CHECK( command.x0 == 14.0f );
+            CHECK( command.y0 == 26.0f );
+            CHECK( std::strcmp( foreground->TextAt( command.textOffset ), "CONTROLS" ) == 0 );
+            found = true;
+        }
+    }
+    CHECK( found );
+}
+
 TEST_CASE( "Unified scrollable popup keeps every catalog identity reachable inside the window" )
 {
     using namespace SkullbonezCore::UI;
@@ -653,6 +694,10 @@ TEST_CASE( "Unified Editor pane reuses editor commands and begins with functiona
     ui->UpdatePresentationInput( input, 1600, 900, true );
     auto result = ui->UpdateInput( input, 1600, 900, 0.1, false, false, false, false, 0x7f );
     CHECK_FALSE( result.commands.editor.toggleEditorMode );
+    const auto editorTab = ui->PresentationBounds().editorTab;
+    input.mouseX = static_cast<int>( editorTab.x + 8.0f );
+    input.mouseY = static_cast<int>( editorTab.y + 8.0f );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
     const auto bounds = ui->PresentationBounds().editorControls;
     REQUIRE( bounds.w > 0.0f );
     CHECK( ui->PresentationBounds().replayControls.w == 0.0f );
@@ -674,22 +719,18 @@ TEST_CASE( "Unified Editor pane reuses editor commands and begins with functiona
     CHECK( ui->PresentationBounds().replayControls.w > 0.0f );
 }
 
-TEST_CASE( "Unified Details folds presentation and reserves Replay input without blocking its actions" )
+TEST_CASE( "Revealing Replay opens its dock and reserves input without blocking its actions" )
 {
     using namespace SkullbonezCore::UI;
     auto ui = std::make_unique<InGameUI>();
     ui->SetVisible( false );
     InputControl::UIInputSnapshot input;
     ui->UpdatePresentationInput( input, 1600, 900, true );
-    auto layout = ui->PresentationBounds();
-    input.mouseX = static_cast<int>( layout.replayDetails.x + 10.0f );
-    input.mouseY = static_cast<int>( layout.replayDetails.y + 10.0f );
-    input.leftDown = true;
-    input.leftPressed = true;
-    ui->UpdatePresentationInput( input, 1600, 900, true );
-    layout = ui->PresentationBounds();
+    ui->RevealReplayControls( 1600, 900 );
+    const auto layout = ui->PresentationBounds();
     REQUIRE( layout.replayControls.w > 0.0f );
-    CHECK( layout.viewport.w == 1600.0f );
+    CHECK( ui->PresentationLayout() == GameLayout::LayoutMode::Editor );
+    CHECK( layout.viewport.w < 1600.0f );
     input.leftPressed = false;
     input.leftDown = false;
     input.mouseX = static_cast<int>( layout.replayControls.x + 20.0f );
@@ -706,51 +747,66 @@ TEST_CASE( "Unified Details folds presentation and reserves Replay input without
     CHECK( result.unhandledWheelDelta == 0 );
 }
 
-TEST_CASE( "Unified Tools drawer retains its tab and resolves captured resize before world input" )
+TEST_CASE( "Bottom Tools tab drags upward with captured input and retains its size and selected tool" )
 {
     using namespace SkullbonezCore::UI;
-    using namespace SkullbonezCore::UI::GameLayout;
     auto ui = std::make_unique<InGameUI>();
     InputControl::UIInputSnapshot input;
-    ui->UpdatePresentationInput( input, 1600, 900, true );
+    const auto frame = [&]()
+    {
+        ui->UpdatePresentationInput( input, 1600, 900, true );
+        return ui->UpdateInput( input, 1600, 900, 0.0, false, false, true, false, 0x7f );
+    };
+    frame();
     ui->SetActiveTab( InGameUITab::Memory );
-    const auto header = ComputeHeaderRects( ui->PresentationBounds().header );
-    input.mouseX = static_cast<int>( header.tools.x + 10 );
-    input.mouseY = 20;
+    const auto tab = ui->PresentationBounds().replayDetails;
+    input.mouseX = static_cast<int>( tab.x + tab.w * 0.5f );
+    input.mouseY = static_cast<int>( tab.y + tab.h * 0.5f );
     input.leftDown = true;
     input.leftPressed = true;
-    ui->UpdatePresentationInput( input, 1600, 900, true );
-    CHECK( ui->PresentationBounds().drawer.h == 360.0f );
-    CHECK( ui->PresentationBounds().viewport.h == 540.0f );
-    CHECK( ui->GetActiveTab() == InGameUITab::Memory );
-
-    input.mouseX = 800;
-    input.mouseY = 542;
-    ui->UpdatePresentationInput( input, 1600, 900, true );
-    auto result = ui->UpdateInput( input, 1600, 900, 0.0, false, false, true, false, 0x7f );
-    CHECK( result.nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Acquire );
-    CHECK_FALSE( result.commands.ui.userInteracted );
+    const auto pressed = frame();
+    CHECK( pressed.nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Acquire );
+    CHECK_FALSE( pressed.commands.ui.userInteracted );
+    CHECK( ui->PresentationBounds().drawer.h == 0.0f );
     input.leftPressed = false;
-    input.mouseY = 10;
-    ui->UpdatePresentationInput( input, 1600, 900, true );
-    CHECK( ui->PresentationBounds().drawer.h == 405.0f );
-    CHECK( ui->PresentationBounds().viewport.h == 495.0f );
+    input.mouseY -= 300;
+    frame();
+    CHECK( ui->PresentationBounds().drawer.h == 300.0f );
+    CHECK( ui->PresentationLayout() == GameLayout::LayoutMode::Editor );
+    CHECK( ui->PresentationBounds().viewport.h == 530.0f );
     input.leftDown = false;
     input.leftReleased = true;
-    result = ui->UpdateInput( input, 1600, 900, 0.1, false, false, true, false, 0x7f );
-    CHECK( result.nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Release );
-
+    CHECK( frame().nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Release );
     input.leftReleased = false;
     input.leftPressed = true;
     input.leftDown = true;
-    input.mouseX = static_cast<int>( header.tools.x + 10 );
-    input.mouseY = 20;
-    ui->UpdatePresentationInput( input, 1600, 900, true );
-    CHECK( ui->PresentationBounds().drawer.h == 0.0f );
-    CHECK( ui->PresentationBounds().viewport.h == 900.0f );
-    ui->UpdatePresentationInput( input, 1600, 900, true );
-    CHECK( ui->PresentationBounds().drawer.h == 405.0f );
-    CHECK( ui->GetActiveTab() == InGameUITab::Memory );
+    input.mouseX = 800;
+    input.mouseY = 602;
+    CHECK( frame().nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Acquire );
+    input.leftPressed = false;
+    input.mouseY = 10;
+    frame();
+    CHECK( ui->PresentationBounds().drawer.h == 720.0f );
+    CHECK( ui->PresentationBounds().viewport.h == 110.0f );
+    input.leftDown = false;
+    input.leftReleased = true;
+    CHECK( frame().nativeMouseCapture == InGameUIInputResult::NativeMouseCaptureRequest::Release );
+    for ( const bool open : { false, true } )
+    {
+        const auto currentTab = ui->PresentationBounds().replayDetails;
+        input.mouseX = static_cast<int>( currentTab.x + currentTab.w * 0.5f );
+        input.mouseY = static_cast<int>( currentTab.y + currentTab.h * 0.5f );
+        input.leftReleased = false;
+        input.leftDown = true;
+        input.leftPressed = true;
+        frame();
+        input.leftPressed = false;
+        input.leftDown = false;
+        input.leftReleased = true;
+        frame();
+        CHECK( ui->PresentationBounds().drawer.h == ( open ? 720.0f : 0.0f ) );
+        CHECK( ui->GetActiveTab() == InGameUITab::Memory );
+    }
 }
 
 TEST_CASE( "Floating diagnostics survive Tools and Escape without reserving dock space" )

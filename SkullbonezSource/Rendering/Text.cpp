@@ -930,6 +930,23 @@ void Text2d::Render2dTextColor( TextBatch& batch, float xPosition, float yPositi
 }
 
 
+void Text2d::RenderVerticalText( TextBatch& batch, const char* value, const std::array<float, 3>& color, float x, float y,
+                                 float size )
+{
+    const int firstVertex = batch.m_textVertexCount;
+    Render2dTextColor( batch, x, y - size, size, color[0], color[1], color[2], "%s", value );
+    // Rotate only this label's queued vertices. Frustum x/y share a physical
+    // scale, so the quarter-turn preserves glyph proportions at every aspect.
+    for ( int vertex = firstVertex; vertex < batch.m_textVertexCount; ++vertex )
+    {
+        float* point = &batch.m_textVertices[vertex * TEXT_BATCH_FLOATS_PER_VERT];
+        const float dx = point[0] - x;
+        const float dy = point[1] - y;
+        point[0] = x + dy;
+        point[1] = y - dx;
+    }
+}
+
 void Text2d::Render2dQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, float x0, float y0, float x1, float y1,
                            float r, float g, float b, float a )
 {

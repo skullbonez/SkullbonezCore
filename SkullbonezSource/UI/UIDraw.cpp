@@ -137,6 +137,11 @@ void UIDrawContext::Text( float x, float y, float pxSize, float r, float g, floa
 }
 
 
+void UIDrawContext::VerticalText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value ) const
+{
+    m_drawList->AddText( position, pxSize, color, value, true );
+}
+
 float UIDrawContext::TextX( float x ) const
 {
     return -m_hw + x * m_sx;

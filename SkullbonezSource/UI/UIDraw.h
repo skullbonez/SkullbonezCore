@@ -87,6 +87,8 @@ class UIDrawContext
     void EndForeground() const;
     void PopClip() const;
     void Text( float x, float y, float pxSize, float r, float g, float b, const char* value ) const;
+    // Clockwise quarter-turn; x/y identify the top-left of the vertical label.
+    void VerticalText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value ) const;
     float TextX( float x ) const;
     float TextY( float y ) const;
     float HalfW() const;

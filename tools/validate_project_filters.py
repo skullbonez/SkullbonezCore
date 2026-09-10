@@ -943,6 +943,9 @@ def expected_filter_for(item: ProjectItem, project_flat_area: str | None = None)
     lower = include.lower()
     suffix = PureWindowsPath(include).suffix.lower()
 
+    if item.item_type == "ResourceCompile" and suffix == ".rc":
+        return RESOURCE_FILTER
+
     if item.item_type == "ClCompile":
         area = source_area(include)
         if area is None:

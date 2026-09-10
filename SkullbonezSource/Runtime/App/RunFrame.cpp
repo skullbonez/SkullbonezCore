@@ -1451,6 +1451,15 @@ void Run::PublishSkarnessFrameState()
                                                 layout.editorControls.h };
     state.presentation.editorReplayTabBounds = { layout.editorReplayTab.x, layout.editorReplayTab.y,
                                                  layout.editorReplayTab.w, layout.editorReplayTab.h };
+    state.presentation.editorTabBounds = { layout.editorTab.x, layout.editorTab.y, layout.editorTab.w, layout.editorTab.h };
+    state.presentation.causeTabBounds = { layout.causeTab.x, layout.causeTab.y, layout.causeTab.w, layout.causeTab.h };
+    state.presentation.leftFoldBounds = { layout.leftFold.x, layout.leftFold.y, layout.leftFold.w, layout.leftFold.h };
+    const auto header = UI::GameLayout::ComputeHeaderRects( layout.header, m_operatorUi->PresentationWorkspace() );
+    state.presentation.headerLayoutBounds = { header.layout.x, header.layout.y, header.layout.w, header.layout.h };
+    state.presentation.headerWorkspaceBounds = { header.workspace.x, header.workspace.y, header.workspace.w,
+                                                 header.workspace.h };
+    state.presentation.headerCloseBounds = { header.close.x, header.close.y, header.close.w, header.close.h };
+    state.presentation.drawerBounds = { layout.drawer.x, layout.drawer.y, layout.drawer.w, layout.drawer.h };
     state.presentation.leftResizeBounds = { layout.leftResize.x, layout.leftResize.y, layout.leftResize.w,
                                             layout.leftResize.h };
     state.presentation.rightResizeBounds = { layout.rightResize.x, layout.rightResize.y, layout.rightResize.w,

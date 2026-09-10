@@ -1239,8 +1239,8 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
                                ( ReadInteger( arguments, "holdMilliseconds", drag.holdMilliseconds ) &&
                                  drag.holdMilliseconds >= 0 && drag.holdMilliseconds <= 2000 );
         const bool bounded = validHold && validClientMotion && drag.clientX >= 0 && drag.clientX <= 65535 &&
-                             drag.clientY >= 0 && drag.clientY <= 65535 && std::abs( drag.deltaX ) <= 150 &&
-                             std::abs( drag.deltaY ) <= 150;
+                             drag.clientY >= 0 && drag.clientY <= 65535 && std::abs( drag.deltaX ) <= 4096 &&
+                             std::abs( drag.deltaY ) <= 4096;
 
         if ( buttonName == "left" )
         {

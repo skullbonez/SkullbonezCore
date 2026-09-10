@@ -60,7 +60,8 @@ def run(session: Path) -> None:
         ui = sample('history')
         for layout in ('Canvas', 'Editor', 'Canvas'):
             if ui['layout'] != layout:
-                click(ui['window'][0] - 110, 20)
+                bx, by, bw, bh = ui['headerLayoutBounds']
+                click(bx + bw / 2, by + bh / 2)
                 ui = sample(layout + '-layout')
             width, height = ui['window']
             tx, ty, tw, th = ui['transportBounds']
@@ -73,11 +74,11 @@ def run(session: Path) -> None:
                 with Image.open(session / (layout + '-away.png')) as hidden, Image.open(session / (layout + '-revealed.png')) as shown:
                     strip = (int(tx), int(ty), int(tx + tw + 72), int(ty + th))
                     assert ImageChops.difference(hidden.convert('RGB').crop(strip), shown.convert('RGB').crop(strip)).getbbox() is not None
-            # The whole edge reveals, including the Details button and outside
+            # The whole edge reveals, including Tools and outside
             # the centered Canvas strip, without requiring a click.
             hover(width - 2, ty + th / 2, True, layout + '-edge')
             position = latest['replay.timeline']['scrubber']['position']
-            click(width - 2, ty + th / 2)
+            click(2, ty + th / 2)
             sample(layout + '-edge-click')
             assert latest['replay.timeline']['scrubber']['position'] == position
             hover(tx + tw + 30, ty + th / 2, True, layout + '-details-hover')
@@ -113,22 +114,15 @@ def run(session: Path) -> None:
                     pixel = image.convert('RGB').getpixel((round(knob_x), round(ty + th / 2)))
                     assert min(pixel) > 220, (label, 'handle did not follow the drag', knob_x, pixel)
             if layout == 'Canvas':
-                click(tx + tw + 30, ty + th / 2)
-                ui = sample('details-open')
-                assert ui['replayControlsBounds'][2] > 0, ui
-                ui = hover(away_x, away_y, False, 'details-open-hidden')
-                rx, ry, rw, rh = ui['replayControlsBounds']
-                assert rw > 0 and rh > 0
-                # The docked controls must remain drawn with transport hidden.
-                with Image.open(session / 'details-open-hidden.png') as image:
-                    pixel = image.convert('RGB').getpixel((int(rx + 12), int(ry + 10)))
-                    assert max(pixel) > 25, pixel
-                hover(tx + tw / 2, ty + th / 2, True, 'details-open-revealed')
-                with Image.open(session / 'details-open-hidden.png') as hidden, Image.open(session / 'details-open-revealed.png') as shown:
-                    crop = (int(rx), int(ry), int(rx + rw), int(ry + rh))
-                    assert ImageChops.difference(hidden.convert('RGB').crop(crop), shown.convert('RGB').crop(crop)).getbbox() is None
-                click(tx + tw + 30, ty + th / 2)
-                ui = sample('details-closed')
+                bx, by, bw, bh = ui['replayDetailsBounds']
+                click(bx + bw / 2, by + bh / 2)
+                ui = sample('tools-open')
+                assert ui['toolsVisible'] and ui['layout'] == 'Editor', ui
+                ui = hover(width / 2, 100, True, 'tools-pinned')
+                bx, by, bw, bh = ui['replayDetailsBounds']
+                click(bx + bw / 2, by + bh / 2)
+                ui = sample('tools-closed')
+                assert not ui['toolsVisible'] and ui['drawerBounds'][3] == 0
         print('PASS: Editor/Canvas visibility, layout transitions, paused replay, captured drags and rendered handle positions')
     finally:
         try:

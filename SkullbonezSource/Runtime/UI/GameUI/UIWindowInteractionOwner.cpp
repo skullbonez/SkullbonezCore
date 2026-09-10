@@ -93,8 +93,17 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
     {
         if ( header.layout.Contains( input.mouseX, input.mouseY ) )
         {
-            m_presentation.preferences.layout = m_presentation.preferences.layout == LayoutMode::Canvas ? LayoutMode::Editor
-                                                                                                        : LayoutMode::Canvas;
+            if ( m_presentation.preferences.layout == LayoutMode::Editor )
+            {
+                SetVisible( false, 0.0 );
+                m_presentation.detailsOpen = false;
+                m_presentation.toolsOpen = false;
+                m_presentation.preferences.layout = LayoutMode::Canvas;
+            }
+            else
+            {
+                m_presentation.preferences.layout = LayoutMode::Editor;
+            }
             m_tooltip.Dismiss();
         }
         else if ( header.workspace.Contains( input.mouseX, input.mouseY ) )
@@ -108,6 +117,7 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
         {
             SetActiveTab( InGameUITab::Scene );
             SetVisible( true, 0.0 );
+            m_presentation.preferences.layout = LayoutMode::Editor;
             m_window.animationActive = false;
         }
         else if ( header.skull.Contains( input.mouseX, input.mouseY ) ||
@@ -115,6 +125,10 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
         {
             SetMinimized( !m_window.isMinimized, 0.0 );
             m_window.isVisible = true;
+            if ( !m_window.isMinimized )
+            {
+                m_presentation.preferences.layout = LayoutMode::Editor;
+            }
             m_window.animationActive = false;
         }
     }
@@ -130,19 +144,6 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
             SetVisible( true, 0.0 );
             m_presentation.focusedDiagnostic = profiler ? 1 : 2;
         }
-    }
-    if ( input.leftPressed && !input.rightDown && !input.middleDown && !HasOpenPopup() &&
-         m_presentationRects.replayDetails.Contains( input.mouseX, input.mouseY ) )
-    {
-        if ( m_presentation.preferences.layout == LayoutMode::Canvas )
-        {
-            m_presentation.detailsOpen = !m_presentation.detailsOpen;
-        }
-        else
-        {
-            m_presentation.preferences.leftFolded = !m_presentation.preferences.leftFolded;
-        }
-        m_tooltip.Dismiss();
     }
     if ( m_presentation.workspace == Workspace::Scene && input.wheelDelta != 0 && !HasOpenPopup() &&
          m_presentationRects.replayControls.Contains( input.mouseX, input.mouseY ) )
@@ -188,6 +189,7 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
 
 void UIWindowInteractionOwner::ReturnToGame()
 {
+    m_toolsTabPressed = false;
     CancelInputCapture();
     SetVisible( false, 0.0 );
     m_presentation.preferences.layout = LayoutMode::Canvas;
@@ -205,6 +207,39 @@ void UIWindowInteractionOwner::UpdateToolsVisibility()
 void UIWindowInteractionOwner::UpdateToolsDrawerBounds( const InputControl::UIInputSnapshot& input, int width, int height )
 {
     UpdateToolsVisibility();
+    if ( input.leftPressed && !input.rightDown && !input.middleDown && !HasOpenPopup() &&
+         m_presentationRects.replayDetails.Contains( input.mouseX, input.mouseY ) )
+    {
+        m_toolsTabPressed = true;
+        m_toolsTabWasOpen = m_presentation.toolsOpen;
+        m_toolsTabDragged = false;
+        m_interaction.resizeStartMouseY = input.mouseY;
+        m_interaction.resizeStartH = m_toolsTabWasOpen ? static_cast<int>( m_presentationRects.drawer.h ) : 0;
+    }
+    if ( m_toolsTabPressed && !m_toolsTabDragged && input.leftDown &&
+         std::abs( input.mouseY - m_interaction.resizeStartMouseY ) > 4 )
+    {
+        // A tab drag begins with the closed drawer's zero height, so its top
+        // follows the pointer instead of jumping to the remembered open size.
+        m_toolsTabDragged = true;
+        m_interaction.isResizing = true;
+        m_interaction.resizeRegion = 1;
+        m_presentation.preferences.layout = LayoutMode::Editor;
+        SetVisible( true, 0.0 );
+        m_presentation.toolsOpen = true;
+    }
+    if ( m_toolsTabPressed && input.leftReleased )
+    {
+        if ( !m_toolsTabDragged )
+        {
+            SetVisible( !m_toolsTabWasOpen, 0.0 );
+            if ( !m_toolsTabWasOpen )
+            {
+                m_presentation.preferences.layout = LayoutMode::Editor;
+            }
+        }
+        UpdateToolsVisibility();
+    }
     if ( m_presentation.toolsOpen && input.leftPressed && !input.rightDown && !input.middleDown && !HasOpenPopup() )
     {
         if ( m_presentationRects.drawerResize.Contains( input.mouseX, input.mouseY ) )
@@ -212,8 +247,7 @@ void UIWindowInteractionOwner::UpdateToolsDrawerBounds( const InputControl::UIIn
             m_interaction.isResizing = true;
             m_interaction.resizeRegion = 1;
             m_interaction.resizeStartMouseY = input.mouseY;
-            m_interaction.resizeStartH = static_cast<int>(
-                (std::min)( m_presentation.preferences.drawerHeight, static_cast<float>( height ) * 0.45f ) );
+            m_interaction.resizeStartH = static_cast<int>( m_presentationRects.drawer.h );
         }
         else if ( ComputeToolsChromeRects( m_presentationRects.drawer, true ).close.Contains( input.mouseX, input.mouseY ) )
         {
@@ -228,8 +262,8 @@ void UIWindowInteractionOwner::UpdateToolsDrawerBounds( const InputControl::UIIn
         m_presentation.preferences.drawerHeight = std::clamp( static_cast<float>( m_interaction.resizeStartH +
                                                                                   m_interaction.resizeStartMouseY -
                                                                                   input.mouseY ),
-                                                              (std::min)( 250.0f, static_cast<float>( height ) * 0.45f ),
-                                                              static_cast<float>( height ) * 0.45f );
+                                                              (std::min)( 100.0f, static_cast<float>( height ) * 0.8f ),
+                                                              static_cast<float>( height ) * 0.8f );
     }
     m_presentation.editorInTools = m_presentation.toolsOpen && m_activeTab == InGameUITab::Editor;
     m_presentationRects = ComputePresentationRects( m_presentation, width, height );
@@ -284,11 +318,13 @@ void UIWindowInteractionOwner::UpdateDockPresentationInput( const InputControl::
     {
         if ( m_presentationRects.editorTab.Contains( input.mouseX, input.mouseY ) )
         {
+            m_presentation.preferences.leftFolded = !m_presentation.preferences.leftFolded && !m_presentation.editorReplay;
             m_presentation.editorReplay = false;
             m_tooltip.Dismiss();
         }
         else if ( m_presentationRects.editorReplayTab.Contains( input.mouseX, input.mouseY ) )
         {
+            m_presentation.preferences.leftFolded = !m_presentation.preferences.leftFolded && m_presentation.editorReplay;
             m_presentation.editorReplay = true;
             m_tooltip.Dismiss();
         }
@@ -300,6 +336,11 @@ void UIWindowInteractionOwner::UpdateDockPresentationInput( const InputControl::
         else if ( m_presentationRects.rightFold.Contains( input.mouseX, input.mouseY ) )
         {
             m_presentation.preferences.rightFolded = !m_presentation.preferences.rightFolded;
+            m_tooltip.Dismiss();
+        }
+        else if ( m_presentationRects.causeTab.Contains( input.mouseX, input.mouseY ) )
+        {
+            m_presentation.preferences.rightFolded = false;
             m_tooltip.Dismiss();
         }
     }
@@ -419,6 +460,10 @@ void UIWindowInteractionOwner::SetVisible( bool visible, double now )
 
 void UIWindowInteractionOwner::ToggleVisible( double now )
 {
+    if ( m_presentationEnabled && ( !m_window.isVisible || m_window.isMinimized ) )
+    {
+        m_presentation.preferences.layout = LayoutMode::Editor;
+    }
     if ( !m_window.isVisible )
     {
         SetVisible( true, now );
@@ -543,6 +588,7 @@ InGameUITab UIWindowInteractionOwner::GetActiveTab() const
 
 void UIWindowInteractionOwner::CancelInputCapture()
 {
+    m_toolsTabPressed = false;
     m_presentationHeaderHovered = false;
     m_tooltip.Dismiss();
     // Focus loss can skip UpdateInput for many rendered frames. Keep hover
@@ -2211,7 +2257,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
          ( m_presentationRects.replayControls.Contains( m_mouseX, m_mouseY ) ||
            m_presentationRects.right.Contains( m_mouseX, m_mouseY ) ||
            m_presentationRects.replayDetails.Contains( m_mouseX, m_mouseY ) ) &&
-         m_activeSlider == 0 && !m_interaction.isResizing )
+         m_activeSlider == 0 && !m_interaction.isResizing && !m_toolsTabPressed )
     {
         result.unhandledWheelDelta = 0;
         return result;
@@ -2226,7 +2272,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
         return result;
     }
 
-    if ( m_presentationEnabled && m_interaction.isResizing )
+    if ( m_presentationEnabled && ( m_interaction.isResizing || m_toolsTabPressed ) )
     {
         m_blocksCameraMouse = true;
         result.unhandledWheelDelta = 0;
@@ -2236,6 +2282,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
         }
         if ( input.leftReleased )
         {
+            m_toolsTabPressed = false;
             m_interaction.isResizing = false;
             result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
         }

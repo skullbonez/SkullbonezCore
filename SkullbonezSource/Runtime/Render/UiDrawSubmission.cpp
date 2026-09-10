@@ -113,6 +113,13 @@ class ImmediateUiSubmitter
                                          r, g, b, "%s", value );
     }
 
+    void VerticalText( const UI::UIDrawList::Command& command, const char* value, float offsetX, float offsetY )
+    {
+        Text::Text2d::RenderVerticalText( m_textBatch, value, { command.r, command.g, command.b },
+                                          PixelX( Snap( command.x0 + offsetX + command.pxSize ) ),
+                                          PixelY( Snap( command.y0 + offsetY ) ), command.pxSize * m_scaleY );
+    }
+
   private:
     static float Snap( float value )
     {
@@ -286,6 +293,7 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
 
             break;
         case UI::UIDrawList::CommandType::Text:
+        case UI::UIDrawList::CommandType::VerticalText:
             // Hazard: Text2d drops glyphs after its fixed batch fills. Drain both
             // queues before the next label so its background stays below it.
             if ( std::strlen( drawList.TextAt( command.textOffset ) ) >
@@ -294,8 +302,15 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
                 flushQueued();
             }
 
-            immediateDraw.Text( command.x0 + offsetX, command.y0 + offsetY, command.pxSize, command.r, command.g, command.b,
-                                drawList.TextAt( command.textOffset ) );
+            if ( command.type == UI::UIDrawList::CommandType::VerticalText )
+            {
+                immediateDraw.VerticalText( command, drawList.TextAt( command.textOffset ), offsetX, offsetY );
+            }
+            else
+            {
+                immediateDraw.Text( command.x0 + offsetX, command.y0 + offsetY, command.pxSize, command.r, command.g,
+                                    command.b, drawList.TextAt( command.textOffset ) );
+            }
 
             break;
         case UI::UIDrawList::CommandType::PushClip:

@@ -63,7 +63,8 @@ class UIDrawList
         PushClip,
         PopClip,
         PreviewImage,
-        LayerBreak
+        LayerBreak,
+        VerticalText
     };
 
     struct Stats
@@ -106,7 +107,7 @@ class UIDrawList
     void AddRect( const UIRect& bounds, const Style::UIColor& color );
     void AddRoundedRect( const UIRect& bounds, float radius, const Style::UIColor& color );
     void AddTriangle( const UITriangle& triangle, const Style::UIColor& color );
-    void AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value );
+    void AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value, bool vertical = false );
     void PushClip( const UIRect& bounds );
     void BeginLayer();
     // Foreground groups are independently clipped popup/tooltip drawing.

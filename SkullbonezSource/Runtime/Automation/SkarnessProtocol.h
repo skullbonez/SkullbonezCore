@@ -466,6 +466,13 @@ struct SkarnessFrameState
         std::array<float, 4> detailsCausesTabBounds = {};
         std::array<float, 4> editorControlsBounds = {};
         std::array<float, 4> editorReplayTabBounds = {};
+        std::array<float, 4> editorTabBounds = {};
+        std::array<float, 4> causeTabBounds = {};
+        std::array<float, 4> leftFoldBounds = {};
+        std::array<float, 4> headerLayoutBounds = {};
+        std::array<float, 4> headerWorkspaceBounds = {};
+        std::array<float, 4> headerCloseBounds = {};
+        std::array<float, 4> drawerBounds = {};
         std::array<float, 4> leftResizeBounds = {};
         std::array<float, 4> rightResizeBounds = {};
         std::array<float, 4> rightFoldBounds = {};

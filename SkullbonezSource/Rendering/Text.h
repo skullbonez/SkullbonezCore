@@ -88,6 +88,9 @@ class Text2d
 {
 
   public:
+    // Clockwise text in projection space, anchored at the label's upper-right.
+    static void RenderVerticalText( TextBatch& batch, const char* value, const std::array<float, 3>& color, float x, float y,
+                                    float size );
     struct SdfGdiOperationResults
     {
         bool bitmapSelected = true;

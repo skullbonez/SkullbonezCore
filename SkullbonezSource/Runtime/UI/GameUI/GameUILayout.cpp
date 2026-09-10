@@ -18,6 +18,8 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <string_view>
 
 namespace SkullbonezCore::UI::GameLayout
 {
@@ -28,6 +30,24 @@ float FiniteDimension( float value, float fallback )
     return std::isfinite( value ) ? std::clamp( value, 24.0f, 2048.0f ) : fallback;
 }
 } // namespace
+
+std::array<char, 64> HeaderTitle( const char* sceneName )
+{
+    std::string_view name = sceneName && sceneName[0] ? sceneName : "Generated demo";
+    if ( const auto slash = name.find_last_of( "/\\" ); slash != std::string_view::npos )
+    {
+        name.remove_prefix( slash + 1 );
+    }
+    if ( name.ends_with( ".scene.json" ) )
+    {
+        name.remove_suffix( 11 );
+    }
+    std::array<char, 64> title {};
+    const int count = static_cast<int>( (std::min)( name.size(), size_t { 20 } ) );
+    std::snprintf( title.data(), title.size(), "Skullbonez Core - %.*s%s", count, name.data(),
+                   name.size() > 20 ? "..." : "" );
+    return title;
+}
 
 ToolsChromeRects ComputeToolsChromeRects( const UIRect& bounds, bool sharedShell )
 {
@@ -82,9 +102,11 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
 
     const float transportHeight = (std::min)( 28.0f, h * 0.1f );
     // F5/F6 are independent floating overlays and reserve no dock space.
-    const float drawerHeight = state.toolsOpen ? (std::min)( preferences.drawerHeight, h * 0.45f ) : 0.0f;
-    const float drawerY = h - drawerHeight;
     const float contentY = editor || state.workspace == Workspace::SolverLab ? result.header.h : 0.0f;
+    // Even at the minimum client size, reserve scene space below the header.
+    const float maximumDrawer = (std::min)( h * 0.8f, h * 0.9f - contentY - ( editor ? transportHeight : 0.0f ) );
+    const float drawerHeight = state.toolsOpen ? (std::min)( preferences.drawerHeight, maximumDrawer ) : 0.0f;
+    const float drawerY = h - drawerHeight;
     const float contentBottom = drawerY - ( editor ? transportHeight : 0.0f );
     const float contentHeight = (std::max)( 0.0f, contentBottom - contentY );
     const float leftWidth = editor ? (std::min)( preferences.leftFolded ? 24.0f : preferences.leftWidth, w * 0.25f ) : 0.0f;
@@ -133,6 +155,21 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
     {
         result.leftFold = { result.left.x, result.left.y, (std::min)( 24.0f, result.left.w ), 28.0f };
         result.rightFold = { result.right.x, result.right.y, (std::min)( 24.0f, result.right.w ), 28.0f };
+        if ( preferences.leftFolded )
+        {
+            const float tabHeight = (std::min)( 120.0f, (std::max)( 0.0f, contentHeight - 32.0f ) * 0.45f );
+            result.editorTab = { result.left.x + 2.0f, contentY + 30.0f, 20.0f, tabHeight };
+            if ( state.workspace == Workspace::Scene )
+            {
+                result.editorReplayTab = { result.left.x + 2.0f, contentY + 30.0f + ( contentHeight - 32.0f ) * 0.5f, 20.0f,
+                                           tabHeight };
+            }
+        }
+        if ( preferences.rightFolded )
+        {
+            result.causeTab = { result.right.x + 2.0f, contentY + 30.0f, 20.0f,
+                                (std::min)( 160.0f, (std::max)( 0.0f, contentHeight - 32.0f ) ) };
+        }
         if ( result.left.w > 24.0f && state.workspace == Workspace::Scene )
         {
             const float tabWidth = ( result.left.w - 30.0f ) * 0.5f;
@@ -157,10 +194,9 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
                                      (std::max)( 0.0f, result.right.h - 30.0f ) };
         }
     }
-    const float detailsWidth = (std::min)( 72.0f, result.transport.w * 0.25f );
-    result.replayDetails = { result.transport.x + result.transport.w - detailsWidth, result.transport.y, detailsWidth,
-                             result.transport.h };
-    result.transport.w -= detailsWidth;
+    const float detailsWidth = (std::min)( 96.0f, w * 0.25f );
+    result.replayDetails = { w - detailsWidth, result.transport.y, detailsWidth, result.transport.h };
+    result.transport.w = (std::min)( result.transport.w, result.replayDetails.x - result.transport.x );
     result.replayScroll = std::clamp( state.replayScroll, 0.0f, 1.0f );
     result.editorScroll = std::clamp( state.editorScroll, 0.0f,
                                       (std::max)( 0.0f,
@@ -214,18 +250,13 @@ HeaderRects ComputeHeaderRects( const UIRect& header, Workspace workspace )
     {
         result.close = { header.x + header.w - pad - height, y, height, height };
     }
-    result.tools = { header.x + header.w - 62.0f * unit - exitSpace, y, 54.0f * unit, height };
-    result.layout = { result.tools.x - 90.0f * unit, y, 82.0f * unit, height };
-    if ( header.w >= 600.0f )
-    {
-        result.scenes = { result.layout.x - 74.0f, y, 66.0f, height };
-    }
-    const float right = result.scenes.w > 0.0f ? result.scenes.x : result.layout.x;
+    const float layoutWidth = header.w >= 600.0f ? 148.0f : 90.0f * unit;
+    result.layout = { header.x + header.w - pad - exitSpace - layoutWidth, y, layoutWidth, height };
+    result.workspace = { result.layout.x - 102.0f * unit, y, 94.0f * unit, height };
     const float cameraWidth = header.w >= 600.0f ? 120.0f : 74.0f * unit;
-    result.camera = { right - cameraWidth - pad, y, cameraWidth, height };
-    result.workspace = { result.camera.x - 90.0f * unit, y, 82.0f * unit, height };
+    result.camera = { result.workspace.x - cameraWidth - pad, y, cameraWidth, height };
     result.scene = { result.skull.x + result.skull.w + pad, y,
-                     (std::max)( 0.0f, result.workspace.x - result.skull.x - result.skull.w - pad * 2.0f ), height };
+                     (std::max)( 0.0f, result.camera.x - result.skull.x - result.skull.w - pad * 2.0f ), height };
     return result;
 }
 

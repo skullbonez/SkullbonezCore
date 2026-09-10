@@ -109,7 +109,7 @@ void UIDrawList::AddTriangle( const UITriangle& triangle, const Style::UIColor& 
 }
 
 
-void UIDrawList::AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value )
+void UIDrawList::AddText( UIPoint position, float pxSize, const Style::UIColor& color, const char* value, bool vertical )
 {
     Command* cmd = PushCommand();
 
@@ -118,7 +118,7 @@ void UIDrawList::AddText( UIPoint position, float pxSize, const Style::UIColor& 
         return;
     }
 
-    cmd->type = CommandType::Text;
+    cmd->type = vertical ? CommandType::VerticalText : CommandType::Text;
     cmd->x0 = position.x;
     cmd->y0 = position.y;
     cmd->pxSize = pxSize;
@@ -173,7 +173,8 @@ void UIDrawList::ExtractForeground( UIDrawList& destination )
         }
         *copy = command;
         copy->foreground = false;
-        if ( command.type == CommandType::Text || command.type == CommandType::PreviewImage )
+        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText ||
+             command.type == CommandType::PreviewImage )
         {
             copy->textOffset = destination.StoreText( TextAt( command.textOffset ) );
         }
@@ -298,8 +299,10 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
 
             break;
         case CommandType::Text:
+        case CommandType::VerticalText:
             AddText( { command.x0 + offsetX, command.y0 + offsetY }, command.pxSize,
-                     { command.r, command.g, command.b, command.a }, source.TextAt( command.textOffset ) );
+                     { command.r, command.g, command.b, command.a }, source.TextAt( command.textOffset ),
+                     command.type == CommandType::VerticalText );
 
             break;
         case CommandType::PushClip:
@@ -417,7 +420,8 @@ uint64_t UIDrawList::Fingerprint() const
         addUint32( command.preview.catalogIndex );
         addByte( command.preview.valid ? 1u : 0u );
 
-        if ( command.type == CommandType::Text || command.type == CommandType::PreviewImage )
+        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText ||
+             command.type == CommandType::PreviewImage )
         {
             addText( TextAt( command.textOffset ) );
         }

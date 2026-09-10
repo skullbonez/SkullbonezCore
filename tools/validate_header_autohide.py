@@ -45,12 +45,8 @@ def run(session: Path) -> None:
         send('capture.screenshot', path=str(path))
         with Image.open(path) as image:
             rgb = image.convert('RGB')
-            # Tools moves left to leave the rightmost button for Solver Lab exit.
-            unit = min(1, image.width / 440)
-            header_height = min(42, image.height * .15)
-            exit_space = header_height - 12 * unit + 8 * unit
-            inset = 35 * unit + (exit_space if ui['workspace'] == 'Solver Lab' else 0)
-            pixel = rgb.getpixel((int(image.width - inset), 10))
+            bx, by, bw, bh = ui['headerLayoutBounds']
+            pixel = rgb.getpixel((int(bx + bw / 2), int(by + 3)))
             matches = all(abs(a - b) <= 2 for a, b in zip(pixel, (32, 43, 54)))
             assert matches == shown, (label, pixel, shown)
             if shown:
@@ -60,6 +56,10 @@ def run(session: Path) -> None:
     def click(x: float, y: float) -> None:
         send('input.pointer_drag', button='left', x=int(x), y=int(y), deltaX=0, deltaY=0)
 
+    def press(name: str) -> None:
+        bx, by, bw, bh = latest['ui.presentation'][name]
+        click(bx + bw / 2, by + bh / 2)
+
     try:
         commands = send('capabilities.get')['commands']
         assert all(name in commands for name in ('input.pointer_position', 'input.pointer_drag', 'capture.screenshot'))
@@ -68,7 +68,7 @@ def run(session: Path) -> None:
         for layout in ('Canvas', 'Editor'):
             if ui['layout'] != layout:
                 hover(ui['window'][0] - 110, 2, True, layout + '-edge-switch')
-                click(ui['window'][0] - 110, 20)
+                press('headerLayoutBounds')
                 ui = sample(layout + '-layout')
             assert ui['layout'] == layout
             width, height = ui['window']
@@ -99,22 +99,22 @@ def run(session: Path) -> None:
             if layout == 'Editor':
                 with Image.open(session / (layout + '-revealed.png')) as image:
                     rgb = image.convert('RGB')
-                    assert rgb.getpixel((2, 100)) == (23, 32, 41)
-                    assert rgb.getpixel((130, 52)) == (22, 57, 88)
+                    assert rgb.getpixel((1, 120)) == (23, 32, 41)
         # Solver Lab stays visible through loading, Canvas, and playback.
-        click(x - 48, 20)
+        press('headerWorkspaceBounds')
         ui = sample('lab-open')
         assert ui['workspace'] == 'Solver Lab', ui
-        click(width - 23, 20)
+        press('headerCloseBounds')
         ui = sample('exit-initial-load')
         assert ui['workspace'] == 'Scene' and ui['viewport'] == [0, 0, width, height]
         assert not send('comparison.state')['result']['comparison']['loading']
-        click(width - 403, 20)
-        click(width - 148, 20)
+        press('headerWorkspaceBounds')
+        sample('workspace-switch')
+        press('headerLayoutBounds')
         hover(width / 2, height / 2, True, 'lab-editor-away')
         hover(width / 2, 1, True, 'lab-revealed')
         hover(width / 2, 100, True, 'lab-editor-left')
-        click(width - 148, 20)
+        press('headerLayoutBounds')
         ui = sample('lab-canvas')
         assert ui['layout'] == 'Canvas'
         hover(width / 2, height / 2, True, 'lab-canvas-away')
@@ -132,21 +132,23 @@ def run(session: Path) -> None:
         assert sample('lab-content')['viewport'][1] == 42
         for layout in ('Canvas', 'Editor'):
             if layout == 'Editor':
-                click(width - 403, 20)
-                click(width - 148, 20)
+                press('headerWorkspaceBounds')
+                sample('workspace-switch')
+                press('headerLayoutBounds')
             ui = hover(width / 2, height / 2, True, 'lab-exit-' + layout)
             assert ui['layout'] == layout and ui['workspace'] == 'Solver Lab'
-            click(width - 23, 20)
+            press('headerCloseBounds')
             ui = sample('closed-' + layout)
             assert ui['workspace'] == 'Scene' and ui['layout'] == 'Canvas'
             assert ui['viewport'] == [0, 0, width, height] and not ui['toolsVisible']
             retained = send('comparison.state')['result']['comparison']
             assert retained['active'] and retained['direction'] == 0
-        click(width - 403, 20)
+        press('headerWorkspaceBounds')
+        sample('workspace-switch')
         send('window.resize', width=320, height=240)
         ui = hover(160, 120, True, 'lab-compact-away')
         assert ui['viewport'][1] == 36
-        click(300, 18)
+        press('headerCloseBounds')
         ui = sample('closed-compact')
         assert ui['workspace'] == 'Scene' and ui['viewport'] == [0, 0, 320, 240]
         print('PASS: Scene header reveal, persistent Solver Lab loading/playback header, Canvas/Editor mouse exit and retained comparison')

@@ -4,6 +4,39 @@ Date: 2026-09-09
 Branch: `codex/unified-ui`
 Status: Unified UI complete at 8/8; portfolio 146/154. Closure is committed on this branch.
 
+## Vertical dock navigation and title - 2026-09-10
+
+The shared header now offers the camera selector, Solver Lab and a Full Screen /
+Docked Interface switch. Its title is `Skullbonez Core - <scene basename>`;
+names longer than 20 characters gain `...`. Collapsed Scene rails show rotated
+EDITOR, REPLAY and CAUSES labels. Solver Lab uses the same treatment for
+CONTROLS and DIFFERENCES. Tabs open independently, and panel choices survive
+switching to the full-screen game and back. Solver Lab retains its pinned
+header and top-right exit.
+
+The bottom-right Tools tab replaces Details. Dragging upward opens the drawer
+from zero height; its top edge supports further resizing. Clicking toggles the
+remembered size and selected tool. Native capture prevents the drag from
+becoming world input. Drawer geometry leaves positive scene space at tiny
+client sizes. Rotated labels use baked font advances and bounded draw storage.
+
+Validation: `validate_fast` passed for this task's diff from d659cdc96, including
+994 unit cases / 2,745,756 assertions and compiler-backed source checks. The
+earlier full-branch source scan also passed; its filter finding for the icon
+resource was repaired. Profile and Automation build cleanly. Native navigation,
+header, diagnostics and scrubber checks pass in `TestOutput/skarness/docked-title-final`,
+`docked-header-complete`, `docked-diagnostics-complete` and `docked-scrubber-complete`.
+Screenshots confirm full and compact Scene/Lab labels and the branded title.
+
+The isolated renderer gate reports zero DX12 validation errors, but its three
+committed references still show the old always-visible header and Details tab.
+Inspection and pixel comparison found no scene differences above 1/255 outside
+the top 100 and bottom 28 pixel UI bands. The isolated UI gate reaches the same
+two old floating-window containment failures documented below; all other image
+and timeline checks pass. No golden baselines were replaced. Evidence:
+`TestOutput/docked-final-gates.log`, `docked-renderer-region-review.log`,
+`docked-final-renderer-isolated.log` and `docked-final-ui-isolated.log`.
+
 ## Persistent Solver Lab header and exit - 2026-09-10
 
 Solver Lab now keeps its header visible in both Canvas and Editor, during

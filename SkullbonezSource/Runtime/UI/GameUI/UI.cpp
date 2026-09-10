@@ -780,7 +780,8 @@ void InGameUI::RevealReplayControls( int width, int height )
     {
         return;
     }
-    m_windowInteraction.m_presentation.detailsOpen = true;
+    m_windowInteraction.m_presentation.preferences.layout = LayoutMode::Editor;
+    m_windowInteraction.m_presentation.detailsOpen = false;
     m_windowInteraction.m_presentation.detailsCauses = false;
     m_windowInteraction.m_presentation.editorReplay = true;
     m_windowInteraction.m_presentation.preferences.leftFolded = false;
@@ -793,7 +794,8 @@ void InGameUI::RevealCauseControls( int width, int height )
     {
         return;
     }
-    m_windowInteraction.m_presentation.detailsOpen = true;
+    m_windowInteraction.m_presentation.preferences.layout = LayoutMode::Editor;
+    m_windowInteraction.m_presentation.detailsOpen = false;
     m_windowInteraction.m_presentation.detailsCauses = true;
     m_windowInteraction.m_presentation.preferences.rightFolded = false;
     m_windowInteraction.m_presentationRects = ComputePresentationRects( m_windowInteraction.m_presentation, width, height );
@@ -1266,7 +1268,7 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
         draw.RoundedRect( details.x, details.y, details.w, details.h, 4.0f, palette.control.r, palette.control.g,
                           palette.control.b, transportAlpha );
         draw.Text( details.x + 10.0f, details.y + 8.0f, 11.0f, palette.textPrimary.r * transportAlpha,
-                   palette.textPrimary.g * transportAlpha, palette.textPrimary.b * transportAlpha, "Details" );
+                   palette.textPrimary.g * transportAlpha, palette.textPrimary.b * transportAlpha, "Tools" );
     }
     const UIRect tabs[] = { m_presentationRects.detailsReplayTab, m_presentationRects.detailsCausesTab };
     for ( int index = 0; index < 2; ++index )
@@ -1301,9 +1303,32 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
     }
     const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
     const UIRect tabs[] = { m_presentationRects.editorTab, m_presentationRects.editorReplayTab };
+    const auto verticalTab = [&]( const UIRect& bounds, const char* label, const Style::UIColor& color )
+    {
+        if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
+        {
+            return;
+        }
+        const auto& fill = bounds.Contains( m_mouseX, m_mouseY ) ? palette.controlHover : palette.control;
+        draw.RoundedPanel( bounds, 3.0f, fill, color );
+        const float advance = (std::max)( 1.0f, UIFontMetrics::MeasureText( 1.0f, label ) );
+        const float font = (std::min)( 13.0f, (std::max)( 0.0f, bounds.h - 8.0f ) / advance );
+        draw.PushClip( bounds );
+        draw.VerticalText( { bounds.x + ( bounds.w - font ) * 0.5f, bounds.y + ( bounds.h - advance * font ) * 0.5f }, font,
+                           color, label );
+        draw.PopClip();
+    };
+    if ( m_presentation.preferences.leftFolded )
+    {
+        verticalTab( tabs[0], m_presentation.workspace == Workspace::SolverLab ? "CONTROLS" : "EDITOR",
+                     { 1.0f, 0.46f, 0.12f, 1.0f } );
+        verticalTab( tabs[1], "REPLAY", { 0.10f, 0.82f, 0.48f, 1.0f } );
+    }
+    verticalTab( m_presentationRects.causeTab, m_presentation.workspace == Workspace::SolverLab ? "DIFFERENCES" : "CAUSES",
+                 palette.accent );
     for ( int index = 0; index < 2; ++index )
     {
-        if ( tabs[index].w > 0.0f )
+        if ( tabs[index].w > 0.0f && !m_presentation.preferences.leftFolded )
         {
             const bool selected = m_presentation.editorReplay == ( index == 1 );
             draw.RoundedRect( tabs[index].x, tabs[index].y, tabs[index].w, tabs[index].h, 4.0f,
@@ -1338,7 +1363,7 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
     if ( m_presentation.workspace == Workspace::SolverLab && m_presentationRects.left.w > 24.0f )
     {
         draw.Text( m_presentationRects.left.x + 30.0f, m_presentationRects.left.y + 8.0f, 11.0f, 0.88f, 0.89f, 0.91f,
-                   "Solver Lab" );
+                   "Controls" );
     }
     const UIRect& bounds = m_presentationRects.editorControls;
     if ( bounds.w > 0.0f )
@@ -1411,39 +1436,21 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
                    palette.textPrimary.g, palette.textPrimary.b, label );
         draw.PopClip();
     };
-    button( bounds.scenes, "Scenes" );
-    button( bounds.layout, m_presentation.preferences.layout == LayoutMode::Canvas ? "Canvas" : "Editor" );
-    button( bounds.tools, "Tools" );
+    button( bounds.layout, m_presentation.preferences.layout == LayoutMode::Canvas
+                               ? ( bounds.layout.w < 100.0f ? "Docked" : "Docked Interface" )
+                               : ( bounds.layout.w < 100.0f ? "Full" : "Full Screen" ) );
     if ( bounds.close.w > 0.0f )
     {
         DrawTitleButton( draw, bounds.close, TitleButtonIcon::Close, bounds.close.Contains( m_mouseX, m_mouseY ), false );
     }
-    button( bounds.workspace, m_presentation.workspace == Workspace::SolverLab
-                                  ? ( bounds.workspace.w < 80.0f ? "Lab" : "Solver Lab" )
-                                  : "Scene" );
-    char scene[192] = {};
-    const char* sceneName = data.surface.sceneName && data.surface.sceneName[0] ? data.surface.sceneName : "Generated demo";
-    const char* slash = std::strrchr( sceneName, '/' );
-    const char* backslash = std::strrchr( sceneName, '\\' );
-    if ( slash )
-    {
-        sceneName = slash + 1;
-    }
-    if ( backslash && backslash >= sceneName )
-    {
-        sceneName = backslash + 1;
-    }
-    snprintf( scene, sizeof( scene ), "%s", sceneName );
-    if ( char* suffix = std::strstr( scene, ".scene.json" ); suffix && std::strcmp( suffix, ".scene.json" ) == 0 )
-    {
-        *suffix = '\0';
-    }
+    button( bounds.workspace, bounds.workspace.w < 80.0f ? "Lab" : "Solver Lab" );
+    auto scene = HeaderTitle( data.surface.sceneName );
     if ( bounds.scene.w > 16.0f )
     {
-        Chrome::FitTitleText( scene, sizeof( scene ), 14.0f, bounds.scene.w - 16.0f );
+        Chrome::FitTitleText( scene.data(), scene.size(), 14.0f, bounds.scene.w - 16.0f );
         draw.PushClip( bounds.scene );
         draw.Text( bounds.scene.x + 8.0f, bounds.scene.y + 6.0f, 14.0f, palette.textPrimary.r, palette.textPrimary.g,
-                   palette.textPrimary.b, scene );
+                   palette.textPrimary.b, scene.data() );
         draw.PopClip();
     }
     draw.PopClip();
@@ -1522,7 +1529,7 @@ void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
           { 11, header.skull, { "Open or close Tools while retaining the selected tab." } },
           { 12, header.scene, { "Open the existing Scene browser for loading, creation and scene defaults." } },
           { 13, header.scenes, { "Open the existing Scene browser for loading, creation and scene defaults." } },
-          { 14, header.layout, { "Switch Canvas and Editor layout while keeping scene, camera and editing state." } },
+          { 14, header.layout, { "Toggle full-screen game and the docked interface while retaining panel choices." } },
           { 15, header.tools, { "Open or close Tools while retaining the selected tab." } },
           { 16,
             DiagnosticDetailsBounds( m_presentationRects.markerHistory ),
@@ -1533,8 +1540,7 @@ void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
             { "Open detailed Memory and replay retention controls.", "MiB", "F6 focuses memory waterline" } },
           { 18,
             m_presentationRects.replayDetails,
-            { solverLab ? "Show or fold comparison controls without changing the retained inspection."
-                        : "Show or fold Replay controls without changing playback or selection." } },
+            { "Click to toggle Tools, or drag upward to open and resize the bottom drawer." } },
           { 19, m_presentationRects.editorTab, { "Show the editing controls. This does not enable editor mode." } },
           { 20, m_presentationRects.editorReplayTab, { "Show recording, prediction and replay controls." } },
           { 21, m_presentationRects.leftFold, { "Fold or reopen the left pane while preserving its controls and state." } },

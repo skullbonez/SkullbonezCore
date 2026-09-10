@@ -878,6 +878,13 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
              { "rightResizeBounds", state.presentation.rightResizeBounds },
              { "rightFoldBounds", state.presentation.rightFoldBounds },
              { "replayDetailsBounds", state.presentation.replayDetailsBounds },
+             { "editorTabBounds", state.presentation.editorTabBounds },
+             { "causeTabBounds", state.presentation.causeTabBounds },
+             { "leftFoldBounds", state.presentation.leftFoldBounds },
+             { "headerLayoutBounds", state.presentation.headerLayoutBounds },
+             { "headerWorkspaceBounds", state.presentation.headerWorkspaceBounds },
+             { "headerCloseBounds", state.presentation.headerCloseBounds },
+             { "drawerBounds", state.presentation.drawerBounds },
              { "replayScroll", state.presentation.replayScroll },
              { "pointerRayDirection", state.presentation.pointerRayDirection } } );
 }

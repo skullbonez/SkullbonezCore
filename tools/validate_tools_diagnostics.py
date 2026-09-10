@@ -37,6 +37,11 @@ def run(session: Path) -> None:
     def click(x: float, y: float) -> None:
         send("input.pointer_drag", button="left", x=int(x), y=int(y), deltaX=0, deltaY=0)
 
+    def press(name: str) -> None:
+        bx, by, bw, bh = latest["ui.presentation"][name]
+        click(bx + bw / 2, by + bh / 2)
+        sample("pressed-" + name)
+
     def key(code: int, label: str) -> dict:
         send("input.set_key", key=code, down=True)
         pressed = sample(label + "-held")
@@ -87,12 +92,13 @@ def run(session: Path) -> None:
         floating = ui["markerHistoryBounds"]
         capture("canvas-floating")
         for layout in ("Editor", "Canvas"):
-            click(width - 110, 20)
+            if ui["layout"] != layout:
+                press("headerLayoutBounds")
             ui = sample(layout + "-layout")
             assert ui["layout"] == layout
             viewport = ui["viewport"]
             assert ui["markerHistoryBounds"] == floating
-            click(width - 38, 20)
+            press("replayDetailsBounds")
             ui = sample(layout + "-menu")
             assert ui["toolsVisible"] and ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
             menu_viewport = ui["viewport"]
@@ -110,16 +116,16 @@ def run(session: Path) -> None:
             assert ui["viewport"] == menu_viewport and ui["toolsContentBounds"] == tools
             floating = ui["markerHistoryBounds"]
             capture(layout + "-menu-floating")
-            click(width - 38, 20)
+            press("replayDetailsBounds")
             ui = sample(layout + "-menu-closed")
-            assert ui["viewport"] == viewport and ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
-        click(width - 110, 20)
+            assert ui["layout"] == "Editor" and ui["viewport"][3] == height - 70
+            assert ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
         ui = key(0x1b, "escape-editor")
         fullscreen(ui)
         assert ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
         key(0x74, "hide-f5")
         ui = key(0x75, "hide-f6")
-        click(width - 38, 20)
+        press("replayDetailsBounds")
         ui = sample("profiler-menu")
         cx, cy, cw, ch = ui["toolsContentBounds"]
         click(cx+24, cy-34)
@@ -149,19 +155,21 @@ def run(session: Path) -> None:
         assert ui["workerThreads"] > 0, ui
         ui = key(0x1b, "escape-tools")
         fullscreen(ui)
-        rx, ry, rw, rh = ui["replayDetailsBounds"]
-        click(rx+rw/2, ry+rh/2)
-        ui = sample("canvas-details")
+        press("headerLayoutBounds")
+        press("editorReplayTabBounds")
+        ui = sample("replay-dock")
         assert ui["replayControlsBounds"][2] > 0
         ui = key(0x1b, "escape-details")
         fullscreen(ui)
-        click(width - 403, 20)
+        press("headerWorkspaceBounds")
         ui = loaded("first-lab", "ragdoll-wall/comparison.json")
         assert ui["workspace"] == "Solver Lab"
         capture("first-lab")
-        rx, ry, rw, rh = ui["replayDetailsBounds"]
-        click(rx+rw/2, ry+rh/2)
-        ui = sample("lab-details")
+        press("headerLayoutBounds")
+        ui = sample("lab-controls")
+        if ui["replayControlsBounds"][2] == 0:
+            press("editorTabBounds")
+            ui = sample("lab-controls-open")
         cx, cy, cw, ch = ui["replayControlsBounds"]
         assert cw > 0
         click(cx+30, cy+44)
@@ -176,15 +184,16 @@ def run(session: Path) -> None:
         ui = sample("mouse-exit-lab")
         fullscreen(ui)
         assert latest["comparison"]["active"]
-        click(width - 403, 20)
+        press("headerWorkspaceBounds")
         ui = loaded("retained-lab", "wall-only/comparison.json")
         ui = key(0x1b, "escape-lab")
         fullscreen(ui)
         # Escape has priority over a focused native popup on a docked surface.
-        click(width - 110, 20)
-        click(width - 38, 20)
+        press("headerLayoutBounds")
+        press("replayDetailsBounds")
         ui = sample("docked-tools")
-        click(width - 247, 20)
+        px, py, pw, ph = ui["cameraPopupBounds"]
+        click(px + pw / 2, 20)
         ui = sample("camera-popup")
         assert ui["cameraPopupOpen"], ui
         ui = key(0x1b, "escape-popup-and-docks")

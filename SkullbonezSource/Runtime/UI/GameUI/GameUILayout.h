@@ -21,9 +21,12 @@ Related:
 #include "../../../UI/UIDraw.h"
 
 #include <cstdint>
+#include <array>
 
 namespace SkullbonezCore::UI::GameLayout
 {
+std::array<char, 64> HeaderTitle( const char* sceneName );
+
 enum class LayoutMode : uint8_t
 {
     Canvas,
@@ -49,8 +52,8 @@ struct PresentationPreferences
     // Three evidence summary sections; their accordion permits one open row.
     uint32_t foldedSections = 7;
     int lastTool = 1;
-    bool leftFolded = false;
-    bool rightFolded = false;
+    bool leftFolded = true;
+    bool rightFolded = true;
 };
 
 struct PresentationState
@@ -91,6 +94,7 @@ struct PresentationRects
     UIRect detailsCausesTab;
     UIRect editorTab;
     UIRect editorReplayTab;
+    UIRect causeTab;
     UIRect editorControls;
     UIRect leftFold;
     UIRect rightFold;
