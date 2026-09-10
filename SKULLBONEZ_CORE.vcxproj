@@ -929,6 +929,10 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\styles\tron_grid.style.json" />
     <None Include="SkullbonezData\styles\_concept_base.style.json" />
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="SkullbonezSource\Runtime\Startup\Skullbonez.rc" />
+    <Image Include="SkullbonezData\branding\Skullbonez.ico" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets" Condition="Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" />

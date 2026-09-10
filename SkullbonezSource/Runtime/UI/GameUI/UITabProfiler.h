@@ -168,6 +168,7 @@ struct UIProfilerTabState
     float histogramPanelY = 16.0f;
     float histogramPanelW = 340.0f;
     float histogramPanelH = 166.0f;
+    int histogramScreenHeight = 1080;
     bool histogramDragging = false;
     bool histogramResizing = false;
     int histogramDragOffsetX = 0;
@@ -193,6 +194,7 @@ UIRect FirstDrawExpanderBounds( const UIProfilerTabState& state, const UIRect& c
 UITooltipTarget TooltipAt( const UIProfilerTabState& state, const UIRect& content, float scrollY, int mouseX, int mouseY );
 bool TimelineEnabled( const UIProfilerTabState& state );
 bool PerformanceHistogramEnabled( const UIProfilerTabState& state );
+bool PerformanceHistogramContains( const UIProfilerTabState& state, int mouseX, int mouseY );
 
 void SetFrameSnapshot( UIProfilerTabState& state, const FrameSnapshot& frame );
 void SetExpandAll( UIProfilerTabState& state, bool expandAll );

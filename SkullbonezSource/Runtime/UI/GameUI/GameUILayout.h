@@ -58,6 +58,8 @@ struct PresentationState
     PresentationPreferences preferences;
     Workspace workspace = Workspace::Scene;
     bool toolsOpen = false;
+    bool markerHistoryOpen = true;
+    bool memoryWaterlineOpen = true;
     bool detailsOpen = false;
     bool detailsCauses = false;
     bool editorReplay = false;
@@ -98,6 +100,7 @@ struct PresentationRects
 
 struct HeaderRects
 {
+    UIRect close;
     UIRect skull;
     UIRect scene;
     UIRect scenes;
@@ -121,6 +124,9 @@ struct DiagnosticPresentation
     uint32_t profilerExpansionHash = 0;
     uint32_t drawExpansionHash = 0;
     UIRect drawExpanderBounds;
+    UIRect markerBounds;
+    UIRect workerToggleBounds;
+    UIRect workerSliderBounds;
 };
 
 struct ComboPopupPresentation
@@ -149,7 +155,7 @@ ToolsChromeRects ComputeToolsChromeRects( const UIRect& bounds, bool sharedShell
 inline constexpr const char* TOOL_NAMES[] = { "Profiler", "Scene", "Editor", "Physics",   "Options", "Render",
                                               "Targets",  "Keys",  "Sky",    "Cinematic", "Memory" };
 
-HeaderRects ComputeHeaderRects( const UIRect& header );
+HeaderRects ComputeHeaderRects( const UIRect& header, Workspace workspace = Workspace::Scene );
 UIRect DiagnosticDetailsBounds( const UIRect& panel );
 
 // Invariant: all rectangles are window coordinates and computed before input

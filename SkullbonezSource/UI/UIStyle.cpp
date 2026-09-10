@@ -26,26 +26,34 @@ namespace Style
 {
 namespace
 {
+// The approved Canvas, Editor and Solver Lab mockups share blue-gray chrome.
+// Keep byte colors here so rendered samples can be compared with the references.
+constexpr UIColor Rgb( unsigned int rgb, float alpha = 1.0f )
+{
+    return { static_cast<float>( ( rgb >> 16 ) & 255 ) / 255.0f, static_cast<float>( ( rgb >> 8 ) & 255 ) / 255.0f,
+             static_cast<float>( rgb & 255 ) / 255.0f, alpha };
+}
 constexpr UIPalette kPalette = {
-    { 0.075f, 0.080f, 0.090f, 0.86f }, // window
-    { 0.130f, 0.140f, 0.160f, 0.92f }, // windowRaised
-    { 0.095f, 0.102f, 0.115f, 0.90f }, // windowSubtle
-    { 0.180f, 0.190f, 0.210f, 0.96f }, // control
-    { 0.240f, 0.250f, 0.275f, 0.98f }, // controlHover
-    { 0.920f, 0.930f, 0.945f, 1.00f }, // textPrimary
-    { 0.730f, 0.745f, 0.765f, 1.00f }, // textSecondary
-    { 0.550f, 0.570f, 0.600f, 1.00f }, // textMuted
-    { 1.000f, 1.000f, 1.000f, 0.12f }, // border
-    { 1.000f, 1.000f, 1.000f, 0.08f }, // innerBorder
-    { 1.000f, 1.000f, 1.000f, 0.10f }, // lineSoft
-    { 0.000f, 0.000f, 0.000f, 0.30f }, // shadow
-    { 0.604f, 0.647f, 0.561f, 1.00f }, // accent
-    { 0.843f, 0.863f, 0.812f, 1.00f }, // accentStrong
-    { 0.710f, 0.624f, 0.482f, 1.00f }  // warningAccent
+    Rgb( 0x172029, 0.96f ), // window
+    Rgb( 0x1F2A35, 0.98f ), // windowRaised
+    Rgb( 0x121A22, 0.94f ), // windowSubtle
+    Rgb( 0x202B36, 0.98f ), // control
+    Rgb( 0x2B3B4A ),        // controlHover
+    Rgb( 0x163958 ),        // selection
+    Rgb( 0xE8F0F8 ),        // textPrimary
+    Rgb( 0xAFC2D3 ),        // textSecondary
+    Rgb( 0x7D92A2 ),        // textMuted
+    Rgb( 0x58748A, 0.50f ), // border
+    Rgb( 0x58748A, 0.35f ), // innerBorder
+    Rgb( 0x58748A, 0.30f ), // lineSoft
+    Rgb( 0x000000, 0.30f ), // shadow
+    Rgb( 0x0091F5 ),        // accent
+    Rgb( 0x2AC8F0 ),        // accentStrong
+    Rgb( 0xF4A645 )         // warningAccent
 };
 constexpr UIRadii kRadii = { 5.0f, 4.0f, 4.0f, 999.0f };
 constexpr UIControlStyle kControl = { 6.0f, 30.0f, 16.0f };
-constexpr FooterToggleStyle kFooterToggle = { 10.5f, { 0.725f, 0.737f, 0.722f, 1.0f }, 30.0f, 16.0f, 10.0f, 10.0f };
+constexpr FooterToggleStyle kFooterToggle = { 10.5f, kPalette.textSecondary, 30.0f, 16.0f, 10.0f, 10.0f };
 } // namespace
 
 const UIPalette& Palette()

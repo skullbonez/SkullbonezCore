@@ -4,7 +4,177 @@ Date: 2026-09-09
 Branch: `codex/unified-ui`
 Status: Unified UI complete at 8/8; portfolio 146/154. Closure is committed on this branch.
 
+## Persistent Solver Lab header and exit - 2026-09-10
+
+Solver Lab now keeps its header visible in both Canvas and Editor, during
+loading and playback. A top-right cross exits to the full-screen Scene using
+the same return operation as Escape. The comparison viewport starts below the
+header so A/B badges remain visible. Compact labels and title clipping keep
+the exit usable at 320x240. Leaving during loading cancels the job; completing
+that cancellation no longer leaves a stale error that blocks the next visit.
+
+The revised native header assertion failed against the old executable and
+passes in `TestOutput/skarness/lab-header-complete`, including loading exit,
+re-entry, playback, both layouts and compact mouse exit. Screenshots were
+inspected. The broader Lab regression passes in `lab-header-lab-final`.
+Profile and Automation builds pass warning-clean; the focused UI/comparison
+units pass 49 cases / 875 assertions. Compiler-backed checks for all touched
+sources, dependency checks and formatting pass. No golden baseline changed.
+The full UI gate again reaches clean builds and DX12 diagnostics but stops at
+the same two old floating-menu containment assertions documented below; see
+`TestOutput/lab-header-ui-gate.log`.
+
+## Executable skull icon - 2026-09-10
+
+The executable resource and native window class now use the same skull shape
+and colours as the shared UI header. `tools/generate_app_icon.py` reproduces
+that 24-unit artwork as a transparent ICO with nine sizes from 16 to 256 pixels.
+The project embeds `SkullbonezData/branding/Skullbonez.ico` in all configurations.
+Profile and Automation builds pass warning-clean. Resource inspection confirms
+all nine embedded images exactly match the ICO in both executables; a native
+Skarness launch confirms the window class loads the icon and stops normally.
+The preview was inspected. Evidence: `TestOutput/skull-icon-verification-final.log`
+and `TestOutput/skullbonez-icon-preview.png`. The focused Window.cpp compiler
+check and dependency gate pass. No gameplay behavior or baseline changed.
+
+## Escape, floating diagnostics and Solver Lab follow-up - 2026-09-10
+
+This follow-up supersedes the diagnostic docking behavior described below.
+One Escape press closes docked Editor, Tools and Details surfaces and returns
+Solver Lab to the full-screen Scene. The input edge is consumed before popup
+and quit routing. F5/F6 stay floating in Canvas and Editor, including when
+Tools opens, and no longer reserve dock or viewport space. Floating F5 input
+takes priority over controls underneath it.
+
+Entering an empty Solver Lab automatically loads the first library comparison,
+Ragdoll Wall. Its Controls pane can replace it from the comparison picker and
+offers Exit Solver Lab; loading also has an Exit Lab button. Exit retains a
+loaded comparison for re-entry. The Lab header draws above the loading view.
+Profiler worker controls now follow the core chart in the scrollable content,
+leaving the marker table at the top.
+
+Profile and Automation builds pass with zero warnings. The complete unit gate
+passes 992 cases and 2,748,002 assertions. Compiler-backed checks pass for the
+12 touched translation units and the final two-file header adjustment;
+dependency, formatting and plain-language checks pass. The Profiler draw-stream
+fingerprint changed intentionally after screenshot inspection; physics and
+replay golden data did not change.
+
+Native acceptance passes in `TestOutput/skarness/escape-float-acceptance`,
+covering one-press Escape (including popup priority), first comparison identity
+and coverage, replacement, mouse exit, retained re-entry, floating diagnostics,
+menu/viewport stability, dragging and the worker controls. Header checks pass
+in `escape-float-header-final`; shell, compact-window, Solver Lab and scrubber
+regressions pass in `escape-float-shell-2`, `escape-float-compact`,
+`escape-float-lab` and `escape-float-scrubber`. Screenshots were inspected.
+
+The full UI gate builds both configurations and reports clean DX12 diagnostics,
+then fails the same two legacy screenshot containment checks documented below:
+`check_ui_blur.py` still assumes a floating menu at `(64,70,520,...)`, while
+the current shell uses the shared bottom drawer and a reduced scene viewport.
+See `TestOutput/escape-float-ui-gate-3.log`. The gate used the existing
+`SKULLBONEZ_UI_LAYOUT_FILE` override pointing into TestOutput to isolate test
+preferences. The native acceptance and header checks were run separately after
+that gate stopped. Owned Skarness sessions were stopped normally.
+
+## Tools space and F5 refresh follow-up - 2026-09-09
+
+Opening Tools now dismisses both diagnostic panels once. Their space extends
+the Tools drawer; F5 and F6 independently toggle them back while Tools remains
+open. A single restored panel spans the bottom row, and both share it when
+visible. Closing Tools leaves the chosen diagnostic visibility intact; reopening
+Tools dismisses both again. Compact tab controls remain available after the
+drawer gains height, and popup bounds respect either restored diagnostic.
+
+F5 used to draw completed 50 ms peak buckets, giving its graph visibly stepped
+updates. It now draws the live bucket and interpolates horizontal scrolling on
+every presentation frame. The existing bounded ring and peak capture remain.
+The focused test checks the first live sample, successive 240 Hz presentation
+times within one bucket, an immediate new spike, and retention of that peak.
+
+Automation and Profile builds succeed. UI units pass 40 cases / 836 assertions,
+and six-source compiler checks plus dependency and plain-language gates pass.
+The native Tools assertion fails against the old executable and passes after
+the fix; screenshots and state are in `TestOutput/skarness/tools-diagnostics-after`.
+The shared shell, compact-window and Solver Lab regressions also pass, under
+`tools-diagnostics-shell-final`, `tools-diagnostics-compact` and `tools-diagnostics-lab`.
+No golden baseline changed in this follow-up. The old Profile app is now closed,
+and the normal Profile executable has been rebuilt with all current UI fixes.
+The full UI gate now gets through both builds and clean DX12 diagnostics. Its
+legacy screenshot checker fails two containment comparisons because it still
+expects a floating window at `(64,70,520,...)`; inspected captures show the
+shared bottom drawer and its reduced scene viewport. That checker was left
+unchanged. See `TestOutput/tools-diagnostics-ui-isolated.log`. The run used
+`SKULLBONEZ_UI_LAYOUT_FILE=TestOutput/tools-diagnostics-ui.preferences` to keep
+test preferences writable and separate from the user's AppData preferences.
+The independent legacy causal probe also reports missing counterpart-body rows
+(`TestOutput/tools-diagnostics-cause-check.log`); its checker self-test passes.
+The current native unified Causes regression passes, as do the header and
+scrubber regressions. These legacy failures prevent claiming the complete UI
+suite as passing; no cause-production code or legacy assertion was changed.
+
+## Visual polish follow-up - 2026-09-09
+
+Reviewed fresh native Scene, Canvas and Solver Lab captures against the approved
+mockups from the unified UI design task. Header and dock labels are clearer,
+selected dock tabs have cyan underlines, and diagnostic Details buttons use the
+shared palette. Both transports have round handles. Lab controls have centered
+labels, consistent padding and hover feedback; split/stacked views identify A/B.
+Plot curves and tick cursors now stay below their titles. Narrow dropdown values
+are clipped before the arrow instead of bleeding across it or beyond the field.
+
+Native shell, Causes, Lab and scrubber gates pass. Inspected artifacts are under
+`TestOutput/skarness/visual-polish-shell-final`, `visual-polish-causes-after`,
+`visual-polish-lab-final` and `visual-polish-scrubber-final`. The eleven Tools
+surfaces also have a contact sheet at `TestOutput/visual-polish-tools-contact.png`.
+UI draw-stream fingerprints were intentionally updated for the new combo text
+clips after inspecting those surfaces. The UI unit selection passes 39 cases /
+813 assertions. Six-source compiler checks and dependency checks pass.
+Compact Tools and header gates pass down to 320x240, including popup clipping.
+The complete replay visual-fidelity gate and all negative controls pass
+(`TestOutput/visual-polish-replay-fidelity.log`), including 18 cases / 82 assertions.
+Formatting and the plain-language gate also pass.
+
+The complete UI gate passes formatting but again stops at the Profile link:
+the user's preserved process 29508 still holds `Profile/SKULLBONEZ_CORE.exe`.
+Automation builds and native validation use the new code. See
+`TestOutput/visual-polish-ui-gate.log`; the open Profile app still uses the old
+build. Physics and replay goldens have not been changed.
+
+## Scrubber handle motion correction - 2026-09-09
+
+Ordinary pointer rewind selected presentation history, while the drawing code
+always selected the solver track unless a recording was loaded. The handle
+therefore stayed at the end even though the replay cursor changed. Drawing now
+uses the same surface track choice as input, and the time label receives the
+selected and latest presentation samples for ordinary history too.
+
+The native scrubber gate now checks the actual white handle pixels at the
+dragged position and repeats left/right drags in Canvas and Editor. It fails
+against the previous build (`scrubber-motion-before`) and passes after the fix
+(`TestOutput/skarness/scrubber-motion-final-2`). Inspected images show the handle,
+time label and historical object poses changing together. Automation builds,
+two-source compiler checks, formatting and dependency checks pass. The running
+Profile app still holds its old executable open; it is preserved.
+The complete replay visual-fidelity gate and negative controls also pass,
+including 18 unit cases / 82 assertions; see
+`TestOutput/scrubber-motion-replay-fidelity.log`. No baseline changed.
+
 ## Bottom scrubber auto-hide follow-up - 2026-09-09
+
+Full UI correction (2026-09-09): Editor layout now keeps the top header and
+bottom transport strip visible away from the pointer. Canvas retains edge
+reveal. Native header and scrubber checks cover layout transitions, Scene/Lab
+headers, camera popup lifetime, paused replay and captured scrubbing. The new
+Editor header assertion fails against the previous Automation build and passes
+after the fix. Inspected screenshots and owner state are under
+`TestOutput/skarness/full-ui-header-after/` and `full-ui-transport-after/`.
+Automation builds warning-clean; the five-source compiler check and dependency
+gate pass. Replay visual fidelity and its negative controls pass, including
+18 focused unit cases / 82 assertions (`TestOutput/full-ui-replay-fidelity.log`).
+`validate_ui` passes formatting but stops at Profile linking because
+the user's running Profile executable remains locked; that app is preserved.
+The following earlier note describes the superseded Editor auto-hide policy.
 
 The shared Scene scrubber now fades in at the bottom transport edge and fades
 out when the pointer leaves, including while replay is paused. Existing router

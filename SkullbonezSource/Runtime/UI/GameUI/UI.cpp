@@ -1168,6 +1168,18 @@ LayoutMode InGameUI::PresentationLayout() const
     return m_windowInteraction.m_presentation.preferences.layout;
 }
 
+bool InGameUI::HasDockedSurface() const
+{
+    return m_windowInteraction.m_presentationEnabled &&
+           ( PresentationLayout() == LayoutMode::Editor || PresentationWorkspace() == Workspace::SolverLab ||
+             m_windowInteraction.m_presentation.detailsOpen || ( IsVisible() && !IsMinimized() ) );
+}
+
+void InGameUI::ReturnToGame()
+{
+    m_windowInteraction.ReturnToGame();
+}
+
 UITooltipTarget InGameUI::VisibleTooltip() const
 {
     const double now = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
@@ -1179,6 +1191,12 @@ GameLayout::DiagnosticPresentation InGameUI::DiagnosticPresentation() const
     GameLayout::DiagnosticPresentation view;
     view.markerHistoryVisible = m_windowInteraction.IsPerformanceHistogramEnabled();
     view.memoryWaterlineVisible = m_windowInteraction.IsMemoryOverlayEnabled();
+    const auto& profiler = m_windowInteraction.m_profilerTab;
+    view.markerBounds = view.markerHistoryVisible ? UIRect { profiler.histogramPanelX, profiler.histogramPanelY,
+                                                             profiler.histogramPanelW, profiler.histogramPanelH }
+                                                  : UIRect {};
+    view.workerToggleBounds = profiler.workerToggle.Bounds();
+    view.workerSliderBounds = profiler.workerThreadSlider.Bounds();
     view.markerSamples = m_windowInteraction.m_profilerTab.histogramCount;
     view.memorySamples = m_windowInteraction.m_memoryOverlay.sampleCount;
     view.focusedPanel = m_windowInteraction.m_presentation.focusedDiagnostic;
@@ -1216,6 +1234,7 @@ GameLayout::DiagnosticPresentation InGameUI::DiagnosticPresentation() const
 
 void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& data )
 {
+    const auto& palette = Style::Palette();
     if ( !m_presentationEnabled )
     {
         return;
@@ -1229,10 +1248,11 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
         {
             continue;
         }
-        draw.Rect( pane.x, pane.y, pane.w, pane.h, 0.075f, 0.08f, 0.09f, 1.0f );
-        draw.Outline( pane.x, pane.y, pane.w, pane.h, 0.17f, 0.18f, 0.20f, 1.0f );
+        draw.Rect( pane.x, pane.y, pane.w, pane.h, palette.window.r, palette.window.g, palette.window.b, 1.0f );
+        draw.Outline( pane.x, pane.y, pane.w, pane.h, palette.border.r, palette.border.g, palette.border.b, 1.0f );
     }
-    const float transportAlpha = m_presentation.workspace == Workspace::SolverLab
+    const float transportAlpha = m_presentation.workspace == Workspace::SolverLab ||
+                                         m_presentation.preferences.layout == LayoutMode::Editor
                                      ? 1.0f
                                      : std::clamp( data.surface.transportAlpha, 0.0f, 1.0f );
     if ( transportAlpha > 0.0f )
@@ -1240,12 +1260,13 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
         if ( m_presentation.preferences.layout == LayoutMode::Editor )
         {
             draw.Rect( 0.0f, m_presentationRects.transport.y, m_presentationRects.window.w, m_presentationRects.transport.h,
-                       0.075f, 0.08f, 0.09f, transportAlpha );
+                       palette.window.r, palette.window.g, palette.window.b, transportAlpha );
         }
         const UIRect& details = m_presentationRects.replayDetails;
-        draw.RoundedRect( details.x, details.y, details.w, details.h, 4.0f, 0.13f, 0.14f, 0.16f, transportAlpha );
-        draw.Text( details.x + 10.0f, details.y + 8.0f, 11.0f, 0.88f * transportAlpha, 0.89f * transportAlpha,
-                   0.91f * transportAlpha, "Details" );
+        draw.RoundedRect( details.x, details.y, details.w, details.h, 4.0f, palette.control.r, palette.control.g,
+                          palette.control.b, transportAlpha );
+        draw.Text( details.x + 10.0f, details.y + 8.0f, 11.0f, palette.textPrimary.r * transportAlpha,
+                   palette.textPrimary.g * transportAlpha, palette.textPrimary.b * transportAlpha, "Details" );
     }
     const UIRect tabs[] = { m_presentationRects.detailsReplayTab, m_presentationRects.detailsCausesTab };
     for ( int index = 0; index < 2; ++index )
@@ -1253,9 +1274,17 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
         if ( tabs[index].w > 0.0f )
         {
             const bool selected = m_presentation.detailsCauses == ( index == 1 );
-            draw.RoundedRect( tabs[index].x, tabs[index].y, tabs[index].w, tabs[index].h, 4.0f, selected ? 0.20f : 0.12f,
-                              selected ? 0.21f : 0.13f, selected ? 0.23f : 0.15f, 1.0f );
-            draw.Text( tabs[index].x + 10.0f, tabs[index].y + 6.0f, 11.0f, 0.88f, 0.89f, 0.91f,
+            draw.RoundedRect( tabs[index].x, tabs[index].y, tabs[index].w, tabs[index].h, 4.0f,
+                              selected ? palette.selection.r : palette.control.r,
+                              selected ? palette.selection.g : palette.control.g,
+                              selected ? palette.selection.b : palette.control.b, 1.0f );
+            if ( selected )
+            {
+                draw.Rect( tabs[index].x + 6.0f, tabs[index].y + tabs[index].h - 2.0f, tabs[index].w - 12.0f, 2.0f,
+                           palette.accent.r, palette.accent.g, palette.accent.b, 1.0f );
+            }
+            draw.Text( tabs[index].x + 10.0f, tabs[index].y + 5.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g,
+                       palette.textPrimary.b,
                        m_presentation.workspace == Workspace::SolverLab ? ( index == 0 ? "Controls" : "Differences" )
                                                                         : ( index == 0 ? "Replay" : "Causes" ) );
         }
@@ -1265,6 +1294,7 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
 
 void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
 {
+    const auto& palette = Style::Palette();
     if ( !m_presentationEnabled || m_presentation.preferences.layout != LayoutMode::Editor )
     {
         return;
@@ -1276,11 +1306,19 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
         if ( tabs[index].w > 0.0f )
         {
             const bool selected = m_presentation.editorReplay == ( index == 1 );
-            draw.RoundedRect( tabs[index].x, tabs[index].y, tabs[index].w, tabs[index].h, 4.0f, selected ? 0.20f : 0.12f,
-                              selected ? 0.21f : 0.13f, selected ? 0.23f : 0.15f, 1.0f );
+            draw.RoundedRect( tabs[index].x, tabs[index].y, tabs[index].w, tabs[index].h, 4.0f,
+                              selected ? palette.selection.r : palette.control.r,
+                              selected ? palette.selection.g : palette.control.g,
+                              selected ? palette.selection.b : palette.control.b, 1.0f );
             draw.PushClip( tabs[index] );
+            if ( selected )
+            {
+                draw.Rect( tabs[index].x + 6.0f, tabs[index].y + tabs[index].h - 2.0f, tabs[index].w - 12.0f, 2.0f,
+                           palette.accent.r, palette.accent.g, palette.accent.b, 1.0f );
+            }
             const bool compact = tabs[index].w < 50.0f;
-            draw.Text( tabs[index].x + ( compact ? 4.0f : 10.0f ), tabs[index].y + 6.0f, 11.0f, 0.88f, 0.89f, 0.91f,
+            draw.Text( tabs[index].x + ( compact ? 4.0f : 10.0f ), tabs[index].y + 5.0f, 12.0f, palette.textPrimary.r,
+                       palette.textPrimary.g, palette.textPrimary.b,
                        compact ? ( index == 0 ? "Ed" : "Re" ) : ( index == 0 ? "Editor" : "Replay" ) );
             draw.PopClip();
         }
@@ -1339,15 +1377,26 @@ void UIWindowInteractionOwner::DrawPresentedEditorPalette( const InGameUIFrameDa
 
 void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& data )
 {
-    if ( !m_presentationEnabled )
+    const auto& palette = Style::Palette();
+    // Solver Lab always exposes its exit. Only Scene Canvas uses edge reveal.
+    if ( !m_presentationEnabled ||
+         ( m_presentation.workspace == Workspace::Scene && m_presentation.preferences.layout == LayoutMode::Canvas &&
+           !m_presentationHeaderHovered && !m_cameraModeCombo.IsOpen() ) )
     {
         return;
     }
     const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
-    const HeaderRects bounds = ComputeHeaderRects( m_presentationRects.header );
+    const HeaderRects bounds = ComputeHeaderRects( m_presentationRects.header, m_presentation.workspace );
     draw.BeginLayer();
+    if ( m_presentation.workspace == Workspace::SolverLab )
+    {
+        // Loading and comparison overlays cover the Canvas viewport. Keep the
+        // workspace exit and Tools controls above those later submissions.
+        draw.BeginForeground();
+    }
     draw.PushClip( m_presentationRects.header );
-    draw.Rect( 0.0f, 0.0f, m_presentationRects.header.w, m_presentationRects.header.h, 0.075f, 0.08f, 0.09f, 1.0f );
+    draw.Rect( 0.0f, 0.0f, m_presentationRects.header.w, m_presentationRects.header.h, palette.window.r, palette.window.g,
+               palette.window.b, 1.0f );
     DrawSkullLogo( draw, bounds.skull );
     const auto button = [&]( const UIRect& rect, const char* label )
     {
@@ -1355,14 +1404,23 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
         {
             return;
         }
-        const float shade = rect.Contains( m_mouseX, m_mouseY ) ? 0.22f : 0.135f;
-        draw.RoundedRect( rect.x, rect.y, rect.w, rect.h, 4.0f, shade, shade, shade + 0.01f, 1.0f );
-        draw.Text( rect.x + 10.0f, rect.y + 8.0f, 11.0f, 0.88f, 0.89f, 0.91f, label );
+        const auto& fill = rect.Contains( m_mouseX, m_mouseY ) ? palette.controlHover : palette.control;
+        draw.RoundedRect( rect.x, rect.y, rect.w, rect.h, 4.0f, fill.r, fill.g, fill.b, 1.0f );
+        draw.PushClip( rect );
+        draw.Text( rect.x + ( rect.w < 50.0f ? 4.0f : 10.0f ), rect.y + 7.0f, 12.0f, palette.textPrimary.r,
+                   palette.textPrimary.g, palette.textPrimary.b, label );
+        draw.PopClip();
     };
     button( bounds.scenes, "Scenes" );
     button( bounds.layout, m_presentation.preferences.layout == LayoutMode::Canvas ? "Canvas" : "Editor" );
     button( bounds.tools, "Tools" );
-    button( bounds.workspace, m_presentation.workspace == Workspace::SolverLab ? "Solver Lab" : "Scene" );
+    if ( bounds.close.w > 0.0f )
+    {
+        DrawTitleButton( draw, bounds.close, TitleButtonIcon::Close, bounds.close.Contains( m_mouseX, m_mouseY ), false );
+    }
+    button( bounds.workspace, m_presentation.workspace == Workspace::SolverLab
+                                  ? ( bounds.workspace.w < 80.0f ? "Lab" : "Solver Lab" )
+                                  : "Scene" );
     char scene[192] = {};
     const char* sceneName = data.surface.sceneName && data.surface.sceneName[0] ? data.surface.sceneName : "Generated demo";
     const char* slash = std::strrchr( sceneName, '/' );
@@ -1380,8 +1438,14 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
     {
         *suffix = '\0';
     }
-    Chrome::FitTitleText( scene, sizeof( scene ), 12.0f, (std::max)( 0.0f, bounds.scene.w - 16.0f ) );
-    draw.Text( bounds.scene.x + 8.0f, bounds.scene.y + 7.0f, 12.0f, 0.88f, 0.89f, 0.91f, scene );
+    if ( bounds.scene.w > 16.0f )
+    {
+        Chrome::FitTitleText( scene, sizeof( scene ), 14.0f, bounds.scene.w - 16.0f );
+        draw.PushClip( bounds.scene );
+        draw.Text( bounds.scene.x + 8.0f, bounds.scene.y + 6.0f, 14.0f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, scene );
+        draw.PopClip();
+    }
     draw.PopClip();
     if ( m_presentation.workspace == Workspace::SolverLab )
     {
@@ -1389,6 +1453,7 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
         draw.Text( bounds.camera.x + 4.0f, bounds.camera.y + 8.0f, 11.0f, 0.65f, 0.67f, 0.70f,
                    bounds.camera.w < 80.0f ? "Pair" : "Paired view" );
         draw.PopClip();
+        draw.EndForeground();
         return;
     }
     m_cameraModeCombo.SetLabelVisible( false );
@@ -1403,16 +1468,17 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
 
 void UIWindowInteractionOwner::DrawToolsDrawerChrome( const UIDrawContext& draw, const UIRect& bounds )
 {
-    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, 0.075f, 0.08f, 0.09f, 1.0f );
-    draw.Rect( bounds.x, bounds.y, bounds.w, 1.0f, 0.25f, 0.26f, 0.28f, 1.0f );
+    const auto& palette = Style::Palette();
+    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, palette.window.r, palette.window.g, palette.window.b, 1.0f );
+    draw.Rect( bounds.x, bounds.y, bounds.w, 1.0f, palette.border.r, palette.border.g, palette.border.b, 0.5f );
     const ToolsChromeRects chrome = ComputeToolsChromeRects( bounds, true );
     const float logoY = bounds.y + ( chrome.compact ? 4.0f : 11.0f );
     DrawSkullLogo( draw, { bounds.x + 14.0f, logoY, 22.0f, 22.0f } );
     draw.Text( bounds.x + 46.0f, logoY + 5.0f, 12.0f, 0.9f, 0.91f, 0.93f, "Tools" );
     draw.RoundedRect( bounds.x + bounds.w * 0.5f - 24.0f, bounds.y + 3.0f, 48.0f, 2.0f, 1.0f, 0.40f, 0.41f, 0.44f, 1.0f );
     const UIRect close = chrome.close;
-    const float shade = close.Contains( m_mouseX, m_mouseY ) ? 0.28f : 0.16f;
-    draw.RoundedRect( close.x, close.y, close.w, close.h, 3.0f, shade, shade, shade, 1.0f );
+    const auto& fill = close.Contains( m_mouseX, m_mouseY ) ? palette.controlHover : palette.control;
+    draw.RoundedRect( close.x, close.y, close.w, close.h, 3.0f, fill.r, fill.g, fill.b, 1.0f );
     draw.Text( close.x + 8.0f, close.y + 5.0f, 12.0f, 0.9f, 0.91f, 0.93f, "x" );
 }
 
@@ -1430,7 +1496,7 @@ void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
 
     const UIRect window = Chrome::CurrentWindowRect( m_window, data.surface.now );
     const UIRect content = ComputeToolsChromeRects( window, m_presentationEnabled ).content;
-    const HeaderRects header = ComputeHeaderRects( m_presentationRects.header );
+    const HeaderRects header = ComputeHeaderRects( m_presentationRects.header, m_presentation.workspace );
     const bool solverLab = m_presentation.workspace == Workspace::SolverLab;
     const UITooltipTarget candidates[] =
         { { 1, m_sceneTab.resetSceneButton.Bounds(), { "Rebuild this scene while preserving live runtime controls." } },
@@ -1479,6 +1545,7 @@ void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
           { 23, m_presentationRects.leftResize, { "Drag to resize the left dock within the window." } },
           { 24, m_presentationRects.rightResize, { "Drag to resize the right dock within the window." } },
           { 26, header.workspace, { "Switch Scene and Solver Lab. Leaving Solver Lab pauses and retains its comparison." } },
+          { 27, header.close, { "Exit Solver Lab and return to the full-screen game.", "", "Esc" } },
           { 25, header.camera, { "Choose a supported camera. Unavailable attached cameras are disabled for this scene." } },
           { 34, m_editorTab.terrainAlignToggle.Bounds(), { "Align newly placed objects to the terrain surface." } },
           { 30, m_editorTab.editorModeToggle.Bounds(), { "Enable or disable functional scene editing." } },
@@ -1550,6 +1617,7 @@ void UIWindowInteractionOwner::DrawTooltips( const InGameUIFrameData& data )
 
 void UIWindowInteractionOwner::DrawDiagnosticLinks( const InGameUIFrameData& data )
 {
+    const auto& palette = Style::Palette();
     if ( !m_presentationEnabled )
     {
         return;
@@ -1566,11 +1634,13 @@ void UIWindowInteractionOwner::DrawDiagnosticLinks( const InGameUIFrameData& dat
         }
         if ( m_presentation.focusedDiagnostic == index + 1 )
         {
-            draw.Outline( panels[index].x, panels[index].y, panels[index].w, panels[index].h, 0.65f, 0.67f, 0.70f, 1.0f );
+            draw.Outline( panels[index].x, panels[index].y, panels[index].w, panels[index].h, palette.accent.r,
+                          palette.accent.g, palette.accent.b, 1.0f );
         }
-        const float shade = details.Contains( m_mouseX, m_mouseY ) ? 0.25f : 0.16f;
-        draw.RoundedRect( details.x, details.y, details.w, details.h, 3.0f, shade, shade, shade + 0.01f, 1.0f );
-        draw.Text( details.x + 10.0f, details.y + 5.0f, 10.0f, 0.87f, 0.88f, 0.90f, "Details" );
+        const auto& fill = details.Contains( m_mouseX, m_mouseY ) ? palette.controlHover : palette.control;
+        draw.RoundedRect( details.x, details.y, details.w, details.h, 3.0f, fill.r, fill.g, fill.b, 1.0f );
+        draw.Text( details.x + 10.0f, details.y + 5.0f, 11.0f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, "Details" );
     }
 }
 

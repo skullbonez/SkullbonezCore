@@ -570,7 +570,10 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
                                                     m_operatorUi->BlocksReplayMouse() || facts.externalUiCapture.mouse,
                                                     m_operatorUi->PresentationBounds().causeControls,
                                                     m_operatorUi->BlocksCauseMouse() || facts.externalUiCapture.mouse,
-                                                    m_operatorUi->PresentationBounds().statusContent },
+                                                    m_operatorUi->PresentationBounds().statusContent,
+                                                    m_operatorUi->SharedPresentationEnabled() &&
+                                                        m_operatorUi->PresentationLayout() ==
+                                                            UI::GameLayout::LayoutMode::Editor },
                         m_inputRouter, m_interaction, m_sceneController.Scene(), m_camera, m_attachedCamera,
                         m_runtimeTools.MousePickup(), result.replayWorkspace );
 

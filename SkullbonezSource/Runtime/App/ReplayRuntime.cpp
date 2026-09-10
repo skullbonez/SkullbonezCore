@@ -1319,9 +1319,10 @@ ReplayFrameSelection ReplayRuntime::BuildPresentationSelection() const
 
     ReplayFrameSelection selection;
     selection.replay.selectedPresentation = loadedPresentation ? LoadedPresentationSampleAtNormalized( trackPosition )
-                                                               : nullptr;
+                                                               : CurrentScrubSample();
 
-    selection.replay.latestPresentation = loadedPresentation ? LoadedPresentationLatestSample() : nullptr;
+    selection.replay.latestPresentation = loadedPresentation ? LoadedPresentationLatestSample()
+                                                             : m_timeline.Presentation().LatestSample();
     selection.replay.selectedSolver = ( loadedPresentation || futureSelected || selectedPrediction )
                                           ? nullptr
                                           : m_timeline.Solver().SampleAtNormalized(

@@ -56,8 +56,11 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
                                                         bool enabled )
 {
     m_presentationEnabled = enabled;
+    m_lastScreenW = (std::max)( 1, width );
+    m_lastScreenH = (std::max)( 1, height );
     m_editorTab.objectCombo.SetScrollable( enabled );
     m_presentationPointerBlocked = false;
+    m_presentationHeaderHovered = false;
     if ( !enabled )
     {
         m_profilerTab.histogramDockedBounds = {};
@@ -66,10 +69,24 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
         return;
     }
 
-    m_presentation.toolsOpen = m_window.isVisible && !m_window.isMinimized;
+    UpdateToolsVisibility();
     m_presentationRects = ComputePresentationRects( m_presentation, width, height );
-    const HeaderRects header = ComputeHeaderRects( m_presentationRects.header );
+    if ( ProfilerTab::PerformanceHistogramContains( m_profilerTab, input.mouseX, input.mouseY ) )
+    {
+        // Floating diagnostics receive their own pointer input before the dock
+        // or Tools surface underneath them can select a control.
+        m_presentationPointerBlocked = true;
+        return;
+    }
+    const HeaderRects header = ComputeHeaderRects( m_presentationRects.header, m_presentation.workspace );
     const bool headerHovered = m_presentationRects.header.Contains( input.mouseX, input.mouseY );
+    m_presentationHeaderHovered = headerHovered;
+    if ( input.leftPressed && !input.rightDown && !input.middleDown && header.close.Contains( input.mouseX, input.mouseY ) )
+    {
+        ReturnToGame();
+        m_presentationPointerBlocked = true;
+        return;
+    }
     // Invariant: a captured world/tool gesture may cross chrome without
     // becoming a shell click. Only the router's new press edge selects layout.
     if ( input.leftPressed && !input.rightDown && !input.middleDown && headerHovered && !HasOpenPopup() )
@@ -151,8 +168,9 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
     UpdateToolsDrawerBounds( input, width, height );
     m_profilerTab.histogramDockedBounds = m_presentationRects.markerHistory;
     m_memoryOverlay.dockedBounds = m_presentationRects.memoryWaterline;
-    const float popupBottom = m_presentationRects.markerHistory.h > 0.0f ? m_presentationRects.markerHistory.y
-                                                                         : static_cast<float>( height );
+    const float popupBottom = m_presentationRects.markerHistory.h > 0.0f     ? m_presentationRects.markerHistory.y
+                              : m_presentationRects.memoryWaterline.h > 0.0f ? m_presentationRects.memoryWaterline.y
+                                                                             : static_cast<float>( height );
     const UIRect popupViewport { 0.0f, m_presentationRects.header.h, static_cast<float>( width ),
                                  popupBottom - m_presentationRects.header.h };
     for ( UIComboBox* combo : { &m_sceneTab.combo, &m_sceneTab.recordingCombo, &m_sceneTab.solverLabCombo, &m_rendererCombo,
@@ -168,9 +186,25 @@ void UIWindowInteractionOwner::UpdatePresentationInput( const InputControl::UIIn
                                    m_presentationRects.replayDetails.Contains( input.mouseX, input.mouseY );
 }
 
-void UIWindowInteractionOwner::UpdateToolsDrawerBounds( const InputControl::UIInputSnapshot& input, int width, int height )
+void UIWindowInteractionOwner::ReturnToGame()
+{
+    CancelInputCapture();
+    SetVisible( false, 0.0 );
+    m_presentation.preferences.layout = LayoutMode::Canvas;
+    m_presentation.workspace = Workspace::Scene;
+    m_presentation.detailsOpen = false;
+    m_presentation.toolsOpen = false;
+    m_presentationRects = ComputePresentationRects( m_presentation, m_lastScreenW, m_lastScreenH );
+}
+
+void UIWindowInteractionOwner::UpdateToolsVisibility()
 {
     m_presentation.toolsOpen = m_window.isVisible && !m_window.isMinimized;
+}
+
+void UIWindowInteractionOwner::UpdateToolsDrawerBounds( const InputControl::UIInputSnapshot& input, int width, int height )
+{
+    UpdateToolsVisibility();
     if ( m_presentation.toolsOpen && input.leftPressed && !input.rightDown && !input.middleDown && !HasOpenPopup() )
     {
         if ( m_presentationRects.drawerResize.Contains( input.mouseX, input.mouseY ) )
@@ -178,7 +212,8 @@ void UIWindowInteractionOwner::UpdateToolsDrawerBounds( const InputControl::UIIn
             m_interaction.isResizing = true;
             m_interaction.resizeRegion = 1;
             m_interaction.resizeStartMouseY = input.mouseY;
-            m_interaction.resizeStartH = static_cast<int>( m_presentationRects.drawer.h );
+            m_interaction.resizeStartH = static_cast<int>(
+                (std::min)( m_presentation.preferences.drawerHeight, static_cast<float>( height ) * 0.45f ) );
         }
         else if ( ComputeToolsChromeRects( m_presentationRects.drawer, true ).close.Contains( input.mouseX, input.mouseY ) )
         {
@@ -508,6 +543,7 @@ InGameUITab UIWindowInteractionOwner::GetActiveTab() const
 
 void UIWindowInteractionOwner::CancelInputCapture()
 {
+    m_presentationHeaderHovered = false;
     m_tooltip.Dismiss();
     // Focus loss can skip UpdateInput for many rendered frames. Keep hover
     // feedback dismissed until the router supplies the next focused sample.
@@ -739,11 +775,6 @@ bool UIWindowInteractionOwner::IsPerformanceHistogramEnabled() const
 
 void UIWindowInteractionOwner::TogglePerformanceHistogramEnabled()
 {
-    if ( m_profilerTab.histogramDockedBounds.h > 0.0f )
-    {
-        m_presentation.focusedDiagnostic = 1;
-        return;
-    }
     SetPerformanceHistogramEnabled( !IsPerformanceHistogramEnabled() );
 }
 
@@ -763,11 +794,6 @@ bool UIWindowInteractionOwner::IsMemoryOverlayEnabled() const
 
 void UIWindowInteractionOwner::ToggleMemoryOverlayEnabled()
 {
-    if ( m_memoryOverlay.dockedBounds.h > 0.0f )
-    {
-        m_presentation.focusedDiagnostic = 2;
-        return;
-    }
     SetMemoryOverlayEnabled( !IsMemoryOverlayEnabled() );
 }
 
@@ -886,6 +912,11 @@ UIWindowInteractionOwner::HandleMinimizedCameraMode( const InputControl::UIInput
                                                      InGameUIInputResult& result )
 {
     MinimizedControlResult control;
+    if ( m_presentationEnabled && m_presentation.preferences.layout == LayoutMode::Canvas && !m_presentationHeaderHovered &&
+         !m_cameraModeCombo.IsOpen() )
+    {
+        return control;
+    }
     const UIRect bounds = m_presentationEnabled ? ComputeHeaderRects( m_presentationRects.header ).camera
                                                 : MinimizedCameraModeComboBounds( minimized );
     m_cameraModeCombo.SetLabelVisible( false );
@@ -2122,6 +2153,31 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
     const bool leftNow = input.leftDown;
     const bool popupWasOpen = HasOpenPopup();
 
+    // Concept: the standalone histogram remains interactive even when the main
+    // diagnostics window is hidden, so it gets first chance at mouse input.
+    const bool histogramWasInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
+
+    if ( ( !popupWasOpen || m_profilerTab.histogramSelectorOpen ) &&
+         ProfilerTab::HandlePerformanceHistogramInput( m_profilerTab, result, screenW, screenH, m_mouseX, m_mouseY, leftNow,
+                                                       input.leftPressed, input.leftReleased, wheelDelta ) )
+    {
+        const bool histogramIsInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
+
+        if ( input.leftPressed && histogramIsInteracting && !histogramWasInteracting )
+        {
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
+        }
+
+        if ( input.leftReleased && histogramWasInteracting )
+        {
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
+        }
+
+        m_blocksCameraMouse = true;
+        return result;
+    }
+
+
     if ( m_presentationEnabled && m_presentation.workspace == Workspace::Scene && !m_interaction.isResizing &&
          !m_editorMiniPalettePressActive &&
          ( m_cameraModeCombo.IsOpen() ||
@@ -2196,29 +2252,6 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
         return result;
     }
 
-    // Concept: the standalone histogram remains interactive even when the main
-    // diagnostics window is hidden, so it gets first chance at mouse input.
-    const bool histogramWasInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
-
-    if ( ( !popupWasOpen || m_profilerTab.histogramSelectorOpen ) &&
-         ProfilerTab::HandlePerformanceHistogramInput( m_profilerTab, result, screenW, screenH, m_mouseX, m_mouseY, leftNow,
-                                                       input.leftPressed, input.leftReleased, wheelDelta ) )
-    {
-        const bool histogramIsInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
-
-        if ( input.leftPressed && histogramIsInteracting && !histogramWasInteracting )
-        {
-            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-        }
-
-        if ( input.leftReleased && histogramWasInteracting )
-        {
-            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
-        }
-
-        m_blocksCameraMouse = true;
-        return result;
-    }
 
     if ( !m_window.isVisible )
     {

@@ -480,6 +480,8 @@ class InGameUI
     }
     bool IsVisible() const;
     bool IsMinimized() const;
+    bool HasDockedSurface() const;
+    void ReturnToGame();
     void SetVisible( bool visible, double now = 0.0 );
     void ToggleVisible( double now );
     void SetMinimized( bool minimized, double now = 0.0 );

@@ -2459,9 +2459,10 @@ void RuntimeRenderer::BeginFrameGraph()
 }
 
 
-void RuntimeRenderer::PrepareUiFrameTarget()
+void RuntimeRenderer::PrepareUiFrameTarget( bool clearFrameTargets )
 {
-    ExecuteBackbufferAcquireThroughRenderGraph( { m_resources.RenderGraph(), m_resources.RenderFrame(), false } );
+    ExecuteBackbufferAcquireThroughRenderGraph(
+        { m_resources.RenderGraph(), m_resources.RenderFrame(), clearFrameTargets } );
 }
 
 

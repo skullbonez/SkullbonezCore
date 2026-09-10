@@ -32,7 +32,7 @@ float FiniteDimension( float value, float fallback )
 ToolsChromeRects ComputeToolsChromeRects( const UIRect& bounds, bool sharedShell )
 {
     ToolsChromeRects result;
-    result.compact = sharedShell && ( bounds.h < 240.0f || bounds.w < 540.0f );
+    result.compact = sharedShell && ( bounds.h < 240.0f || bounds.w < 720.0f );
     const float title = result.compact ? 28.0f : 44.0f;
     const float tabs = result.compact ? 26.0f : 44.0f;
     const float footer = result.compact ? 28.0f : 78.0f;
@@ -81,11 +81,10 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
     result.header = { 0.0f, 0.0f, w, (std::min)( 42.0f, h * 0.15f ) };
 
     const float transportHeight = (std::min)( 28.0f, h * 0.1f );
-    const float diagnosticsHeight = editor ? (std::min)( preferences.diagnosticsHeight, h * 0.24f ) : 0.0f;
-    const float diagnosticsY = h - diagnosticsHeight;
+    // F5/F6 are independent floating overlays and reserve no dock space.
     const float drawerHeight = state.toolsOpen ? (std::min)( preferences.drawerHeight, h * 0.45f ) : 0.0f;
-    const float drawerY = diagnosticsY - drawerHeight;
-    const float contentY = editor ? result.header.h : 0.0f;
+    const float drawerY = h - drawerHeight;
+    const float contentY = editor || state.workspace == Workspace::SolverLab ? result.header.h : 0.0f;
     const float contentBottom = drawerY - ( editor ? transportHeight : 0.0f );
     const float contentHeight = (std::max)( 0.0f, contentBottom - contentY );
     const float leftWidth = editor ? (std::min)( preferences.leftFolded ? 24.0f : preferences.leftWidth, w * 0.25f ) : 0.0f;
@@ -99,8 +98,6 @@ PresentationRects ComputePresentationRects( const PresentationState& state, int 
         result.right = { w - rightWidth, contentY, rightWidth, contentHeight };
         result.leftResize = { (std::max)( 0.0f, leftWidth - 3.0f ), contentY, (std::min)( 6.0f, w ), contentHeight };
         result.rightResize = { (std::max)( 0.0f, w - rightWidth - 3.0f ), contentY, (std::min)( 6.0f, w ), contentHeight };
-        result.markerHistory = { 0.0f, diagnosticsY, w * 0.5f, diagnosticsHeight };
-        result.memoryWaterline = { w * 0.5f, diagnosticsY, w * 0.5f, diagnosticsHeight };
         result.transport = { leftWidth, contentBottom, result.viewport.w, transportHeight };
     }
     else
@@ -204,7 +201,7 @@ void DrawSkullLogo( const UIDrawContext& draw, const UIRect& bounds )
                    y + 18.0f * scale, 0.10f, 0.12f, 0.15f, 1.0f );
 }
 
-HeaderRects ComputeHeaderRects( const UIRect& header )
+HeaderRects ComputeHeaderRects( const UIRect& header, Workspace workspace )
 {
     HeaderRects result;
     const float unit = (std::min)( 1.0f, header.w / 440.0f );
@@ -212,7 +209,12 @@ HeaderRects ComputeHeaderRects( const UIRect& header )
     const float height = (std::max)( 0.0f, header.h - 12.0f * unit );
     const float y = header.y + 6.0f * unit;
     result.skull = { header.x + pad, y, 30.0f * unit, height };
-    result.tools = { header.x + header.w - 62.0f * unit, y, 54.0f * unit, height };
+    const float exitSpace = workspace == Workspace::SolverLab ? height + pad : 0.0f;
+    if ( workspace == Workspace::SolverLab )
+    {
+        result.close = { header.x + header.w - pad - height, y, height, height };
+    }
+    result.tools = { header.x + header.w - 62.0f * unit - exitSpace, y, 54.0f * unit, height };
     result.layout = { result.tools.x - 90.0f * unit, y, 82.0f * unit, height };
     if ( header.w >= 600.0f )
     {

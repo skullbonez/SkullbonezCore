@@ -53,16 +53,22 @@ def run(session: Path) -> None:
         ui = sample("loaded")
         assert ui["workspace"] == "Solver Lab" and ui["layout"] == "Editor"
         assert ui["editorControlsBounds"][2] == 0
-        assert ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
+        assert not ui["markerHistoryVisible"] and not ui["memoryWaterlineVisible"]
         assert latest["comparison"]["active"]
         capture("editor-lab")
         for key, diagnostic in ((0x74, 1), (0x75, 2)):
+            # F5/F6 float independently without changing the comparison viewport.
             send("input.set_key", key=key, down=True)
             ui = sample(f"diagnostic-shortcut-{diagnostic}")
-            assert ui["focusedDiagnostic"] == diagnostic
-            assert ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
+            field = "markerHistoryVisible" if diagnostic == 1 else "memoryWaterlineVisible"
+            assert ui[field]
             send("input.set_key", key=key, down=False)
             ui = sample(f"diagnostic-shortcut-release-{diagnostic}")
+            send("input.set_key", key=key, down=True)
+            ui = sample(f"diagnostic-shortcut-restored-{diagnostic}")
+            assert not ui[field] and ui["focusedDiagnostic"] == 0
+            send("input.set_key", key=key, down=False)
+            sample(f"diagnostic-shortcut-restored-release-{diagnostic}")
 
 
         send("comparison.seek", tick=1)
@@ -88,12 +94,12 @@ def run(session: Path) -> None:
         selected = latest["comparison"]["selected"]
         tick = latest["comparison"]["tick"]
         capture("selected-event-plots")
-        click(width - 38, 20)
+        click(width - 76, 20)
         ui = sample("tools-in-lab")
         assert ui["toolsVisible"] and ui["workspace"] == "Solver Lab"
         assert latest["comparison"]["selected"] == selected and latest["comparison"]["tick"] == tick
         capture("tools-in-lab")
-        click(width - 38, 20)
+        click(width - 76, 20)
         ui = sample("tools-closed")
         assert latest["comparison"]["selected"] == selected
 
@@ -169,7 +175,7 @@ def run(session: Path) -> None:
         send("input.pointer_position", x=0, y=0, enabled=False)
         send("comparison.seek", tick=500)
         send("comparison.play", direction=1)
-        click(width - 403, 20)
+        click(width - 441, 20)
         ui = sample("scene-retained-comparison")
         assert ui["workspace"] == "Scene"
         retained = dict(latest["comparison"])
@@ -193,7 +199,7 @@ def run(session: Path) -> None:
         assert restored["cameraEye"] == retained["cameraEye"] and restored["cameraView"] == retained["cameraView"]
         assert restored["mode"] == retained["mode"] and restored["stackedViews"] == retained["stackedViews"]
         capture("retained-lab-after-scene-load")
-        click(width - 110, 20)
+        click(width - 148, 20)
         ui = sample("canvas-lab")
         assert ui["layout"] == "Canvas" and ui["workspace"] == "Solver Lab"
         assert latest["comparison"]["tick"] == retained["tick"]
@@ -211,7 +217,7 @@ def run(session: Path) -> None:
         ui = sample("library-popup")
         assert latest["comparison"]["libraryPopupOpen"]
         capture("library-popup")
-        click(width - 110, 20)
+        click(width - 148, 20)
         ui = sample("popup-dismiss-no-layout-click-through")
         assert ui["layout"] == "Canvas" and not latest["comparison"]["libraryPopupOpen"]
         click(cx + 30, cy + 10 + 22 + 12)
@@ -244,11 +250,11 @@ def run(session: Path) -> None:
         ui = sample("narrow-canvas")
         assert ui["window"] == [900, 640] and ui["layout"] == "Canvas"
         assert latest["comparison"]["tick"] == before_resize_tick
-        click(900 - 110, 20)
+        click(900 - 148, 20)
         ui = sample("narrow-editor")
         assert ui["layout"] == "Editor"
         capture("narrow-editor")
-        click(900 - 38, 20)
+        click(900 - 76, 20)
         ui = sample("narrow-editor-tools")
         capture("narrow-editor-tools")
         lx, ly, lw, lh = ui["replayControlsBounds"]

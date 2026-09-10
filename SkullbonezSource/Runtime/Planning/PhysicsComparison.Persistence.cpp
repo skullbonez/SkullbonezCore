@@ -784,7 +784,7 @@ bool PhysicsComparisonLoadJob::Take( PhysicsComparison& destination, ReplayCamer
     }
     m_worker.join();
     m_pending = false;
-    if ( !m_success )
+    if ( !m_success || Cancelled() )
     {
         m_error = m_progress.cancelled.load() ? "Loading cancelled" : m_candidate.Error();
         if ( m_error.empty() )

@@ -406,6 +406,7 @@ class InputRouter
     bool IsQuickRepeat( RuntimeInputAction action, double nowSeconds, double intervalSeconds ) const;
     void RecordTap( RuntimeInputAction action, double nowSeconds );
     bool ConsumeRepeatingAction( RuntimeInputAction action, double nowSeconds, double repeatSeconds );
+    bool ConsumePressedAction( RuntimeInputAction action );
     bool UpdateTimelineDrag( bool pressHitsTimeline );
     bool TimelineDragActive() const noexcept
     {

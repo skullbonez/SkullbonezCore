@@ -1409,6 +1409,12 @@ void Run::PublishSkarnessFrameState()
     state.presentation.activeTool = static_cast<int>( m_operatorUi->GetActiveTab() );
     const auto diagnostics = m_operatorUi->DiagnosticPresentation();
     state.presentation.markerHistoryVisible = diagnostics.markerHistoryVisible;
+    state.presentation.markerHistoryBounds = { diagnostics.markerBounds.x, diagnostics.markerBounds.y,
+                                               diagnostics.markerBounds.w, diagnostics.markerBounds.h };
+    state.presentation.workerToggleBounds = { diagnostics.workerToggleBounds.x, diagnostics.workerToggleBounds.y,
+                                              diagnostics.workerToggleBounds.w, diagnostics.workerToggleBounds.h };
+    state.presentation.workerSliderBounds = { diagnostics.workerSliderBounds.x, diagnostics.workerSliderBounds.y,
+                                              diagnostics.workerSliderBounds.w, diagnostics.workerSliderBounds.h };
     state.presentation.memoryWaterlineVisible = diagnostics.memoryWaterlineVisible;
     state.presentation.markerSamples = diagnostics.markerSamples;
     state.presentation.memorySamples = diagnostics.memorySamples;

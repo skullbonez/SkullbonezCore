@@ -108,6 +108,7 @@ class UIWindowInteractionOwner
     void ResetPresentationResources();
     int ContentHeight() const;
     void UpdatePresentationInput( const InputControl::UIInputSnapshot& input, int width, int height, bool enabled );
+    void ReturnToGame();
 
     // Returns the optional deterministic pointer substitution as a detached
     // value; Runtime applies it while copying the sampled input snapshot.
@@ -138,11 +139,13 @@ class UIWindowInteractionOwner
     void UpdateDockPresentationInput( const InputControl::UIInputSnapshot& input );
     bool HandleEditorDockInput( const InputControl::UIInputSnapshot& input, InGameUIInputResult& result );
     void UpdateToolsDrawerBounds( const InputControl::UIInputSnapshot& input, int width, int height );
+    void UpdateToolsVisibility();
     void DrawToolsDrawerChrome( const UIDrawContext& draw, const UIRect& bounds );
     void DrawDiagnosticLinks( const InGameUIFrameData& data );
     GameLayout::PresentationState m_presentation;
     GameLayout::PresentationRects m_presentationRects;
     bool m_presentationEnabled = false;
+    bool m_presentationHeaderHovered = false;
     bool m_presentationPointerBlocked = false;
     void DrawMinimizedContent( const InGameUIFrameData& data, UIDrawList& drawList, int screenW, int screenH );
     void DrawRenderTabContent( const InGameUIFrameData& data, const UIDrawContext& draw, const UIRect& content,

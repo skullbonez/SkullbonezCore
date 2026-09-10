@@ -1,4 +1,4 @@
-"""Verify edge-only scrubber visibility, paused replay and persistent Details pixels."""
+"""Verify Canvas edge reveal, persistent Editor transport and paused replay."""
 from __future__ import annotations
 
 import argparse
@@ -58,7 +58,7 @@ def run(session: Path) -> None:
         # Build actual history so scrubbing must change the presented time.
         send('run.step', count=100)
         ui = sample('history')
-        for layout in ('Canvas', 'Editor'):
+        for layout in ('Canvas', 'Editor', 'Canvas'):
             if ui['layout'] != layout:
                 click(ui['window'][0] - 110, 20)
                 ui = sample(layout + '-layout')
@@ -66,11 +66,13 @@ def run(session: Path) -> None:
             tx, ty, tw, th = ui['transportBounds']
             vx, vy, vw, vh = ui['viewport']
             away_x, away_y = vx + vw / 2, vy + vh / 2
-            hover(away_x, away_y, False, layout + '-hidden')
+            pinned = layout == 'Editor'
+            hover(away_x, away_y, pinned, layout + '-away')
             hover(tx + tw / 2, ty + th / 2, True, layout + '-revealed')
-            with Image.open(session / (layout + '-hidden.png')) as hidden, Image.open(session / (layout + '-revealed.png')) as shown:
-                strip = (int(tx), int(ty), int(tx + tw + 72), int(ty + th))
-                assert ImageChops.difference(hidden.convert('RGB').crop(strip), shown.convert('RGB').crop(strip)).getbbox() is not None
+            if not pinned:
+                with Image.open(session / (layout + '-away.png')) as hidden, Image.open(session / (layout + '-revealed.png')) as shown:
+                    strip = (int(tx), int(ty), int(tx + tw + 72), int(ty + th))
+                    assert ImageChops.difference(hidden.convert('RGB').crop(strip), shown.convert('RGB').crop(strip)).getbbox() is not None
             # The whole edge reveals, including the Details button and outside
             # the centered Canvas strip, without requiring a click.
             hover(width - 2, ty + th / 2, True, layout + '-edge')
@@ -88,8 +90,28 @@ def run(session: Path) -> None:
             assert latest['replay.timeline']['scrubber']['visible'], 'scrub capture faded during the hold outside the strip'
             position = latest['replay.timeline']['scrubber']['position']
             assert position < 0.8 and abs(position - before_scrub) > 0.01, latest['replay.timeline']['scrubber']
-            hover(away_x, away_y, False, layout + '-paused-hidden')
+            hover(away_x, away_y, pinned, layout + '-paused-away')
             hover(tx + tw / 2, ty + th / 2, True, layout + '-paused-revealed')
+            # Bind the rendered handle to the timeline position changed by the
+            # drag. A state-only check misses a handle drawn from another track.
+            inset = min(72.0, tw * 0.22)
+            knob_x = tx + inset + (tw - inset - 12) * position
+            with Image.open(session / (layout + '-paused-revealed.png')) as image:
+                pixel = image.convert('RGB').getpixel((round(knob_x), round(ty + th / 2)))
+                assert min(pixel) > 220, (layout, 'handle is not at the dragged position', position, knob_x, pixel)
+            for distance in (-80, 100):
+                destination = (knob_x + distance - tx - inset) / (tw - inset - 12)
+                send('input.pointer_drag', button='left', x=round(knob_x), y=round(ty + th / 2),
+                     deltaX=distance, deltaY=0, moveClient=True)
+                label = layout + '-drag-' + str(distance)
+                ui = sample(label)
+                position = latest['replay.timeline']['scrubber']['position']
+                assert abs(position - destination) < 0.005, (label, position)
+                send('capture.screenshot', path=str(session / (label + '.png')))
+                knob_x = tx + inset + (tw - inset - 12) * position
+                with Image.open(session / (label + '.png')) as image:
+                    pixel = image.convert('RGB').getpixel((round(knob_x), round(ty + th / 2)))
+                    assert min(pixel) > 220, (label, 'handle did not follow the drag', knob_x, pixel)
             if layout == 'Canvas':
                 click(tx + tw + 30, ty + th / 2)
                 ui = sample('details-open')
@@ -107,7 +129,7 @@ def run(session: Path) -> None:
                     assert ImageChops.difference(hidden.convert('RGB').crop(crop), shown.convert('RGB').crop(crop)).getbbox() is None
                 click(tx + tw + 30, ty + th / 2)
                 ui = sample('details-closed')
-        print('PASS: Canvas/Editor edge reveal, hide while paused, scrub outside strip, and persistent Details pixels')
+        print('PASS: Editor/Canvas visibility, layout transitions, paused replay, captured drags and rendered handle positions')
     finally:
         try:
             send('session.stop')

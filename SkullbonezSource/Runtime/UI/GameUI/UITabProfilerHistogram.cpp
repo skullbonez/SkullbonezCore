@@ -135,6 +135,17 @@ void ClearHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
 int HistogramVisibleDropdownRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
     int available = HISTOGRAM_DROPDOWN_VISIBLE_ROWS;
+    if ( state.histogramDockedBounds.h <= 0.0f )
+    {
+        // A floating selector chooses the side with enough client space. Its
+        // visible row count also drives scrolling and picking on small windows.
+        const float selectorTop = state.histogramPanelY + 32.0f;
+        const float room = (std::max)( selectorTop - HISTOGRAM_PANEL_MARGIN - 4.0f,
+                                       static_cast<float>( state.histogramScreenHeight ) - HISTOGRAM_PANEL_MARGIN -
+                                           selectorTop - 28.0f );
+        available = std::clamp( static_cast<int>( ( room - 4.0f - HISTOGRAM_DROPDOWN_FOOTER_H ) / HISTOGRAM_DROPDOWN_ROW_H ),
+                                1, available );
+    }
     if ( state.histogramDockedBounds.h > 0.0f )
     {
         // The pinned chart opens upward. Reserve the popup footer and window
@@ -184,6 +195,7 @@ void ClampHistogramPanelToScreen( SkullbonezCore::UI::ProfilerTab::UIProfilerTab
     }
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
+    state.histogramScreenHeight = screenH;
 
     const float usableW = (std::max)( 80.0f, static_cast<float>( screenW ) - HISTOGRAM_PANEL_MARGIN * 2.0f );
     const float usableH = (std::max)( 80.0f, static_cast<float>( screenH ) - HISTOGRAM_PANEL_MARGIN * 2.0f );
@@ -661,6 +673,12 @@ bool PerformanceHistogramEnabled( const UIProfilerTabState& state )
     return state.performanceHistogramEnabled || state.histogramDockedBounds.h > 0.0f;
 }
 
+bool PerformanceHistogramContains( const UIProfilerTabState& state, int mouseX, int mouseY )
+{
+    return PerformanceHistogramEnabled( state ) &&
+           ( HistogramPanelBounds( state ).Contains( mouseX, mouseY ) || PerformanceHistogramIsInteracting( state ) );
+}
+
 void SetPerformanceHistogramEnabled( UIProfilerTabState& state, bool enabled )
 {
     state.performanceHistogramEnabled = enabled;
@@ -1114,13 +1132,19 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
         drawAxisLabel( budgetY - 5.0f, mainSelected ? HISTOGRAM_FRAME_CPU_BUDGET_MS : axisMs * 0.50f );
     }
 
-    if ( !dropdownOpen && !shortPanel && ( state.histogramCount <= 0 || !anySelection ) )
+    const int visibleCount = (std::min)( HISTOGRAM_SAMPLE_COUNT,
+                                         state.histogramCount + ( state.histogramBucketOpen ? 1 : 0 ) );
+    if ( !dropdownOpen && !shortPanel && ( visibleCount <= 0 || !anySelection ) )
     {
         draw.Text( plot.x + 10.0f, plot.y + plot.h * 0.5f - 6.0f, 10.5f, palette.textMuted.r, palette.textMuted.g,
                    palette.textMuted.b, anySelection ? "Waiting for samples" : "Select markers" );
     }
 
     const float step = plot.w / static_cast<float>( HISTOGRAM_SAMPLE_COUNT );
+    // Keep the six-second peak buckets, but expose the open bucket immediately
+    // and scroll between bucket boundaries at the presentation frame rate.
+    const float bucketProgress = static_cast<float>(
+        std::clamp( ( data.now - state.histogramBucketStartSeconds ) / HISTOGRAM_BUCKET_SECONDS, 0.0, 1.0 ) );
     constexpr float workerLineR = 0.42f;
     constexpr float workerLineG = 0.83f;
     constexpr float workerLineB = 1.00f;
@@ -1163,9 +1187,9 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
         seriesSpike.g = seriesG;
         seriesSpike.b = seriesB;
 
-        for ( int i = 0; i < state.histogramCount; ++i )
+        for ( int i = 0; i < visibleCount; ++i )
         {
-            const int sampleIndex = ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) %
+            const int sampleIndex = ( state.histogramHead - visibleCount + 1 + i + HISTOGRAM_SAMPLE_COUNT ) %
                                     HISTOGRAM_SAMPLE_COUNT;
 
             const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
@@ -1177,7 +1201,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
             }
 
             const float x = plot.x +
-                            ( static_cast<float>( HISTOGRAM_SAMPLE_COUNT - state.histogramCount + i ) + 0.5f ) * step;
+                            ( static_cast<float>( HISTOGRAM_SAMPLE_COUNT - visibleCount + i + 1 ) - bucketProgress ) * step;
 
             const float markerY = baseY - std::clamp( sample.markerMs[optionIndex] / axisMs, 0.0f, 1.0f ) * plot.h;
 
@@ -1211,9 +1235,9 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
         float previousWorkerY = 0.0f;
         bool previousWorkerValid = false;
 
-        for ( int i = 0; i < state.histogramCount; ++i )
+        for ( int i = 0; i < visibleCount; ++i )
         {
-            const int sampleIndex = ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) %
+            const int sampleIndex = ( state.histogramHead - visibleCount + 1 + i + HISTOGRAM_SAMPLE_COUNT ) %
                                     HISTOGRAM_SAMPLE_COUNT;
 
             const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
@@ -1225,7 +1249,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
             }
 
             const float x = plot.x +
-                            ( static_cast<float>( HISTOGRAM_SAMPLE_COUNT - state.histogramCount + i ) + 0.5f ) * step;
+                            ( static_cast<float>( HISTOGRAM_SAMPLE_COUNT - visibleCount + i + 1 ) - bucketProgress ) * step;
 
             const float workerY = baseY - std::clamp( sample.secondaryMs / axisMs, 0.0f, 1.0f ) * plot.h;
 

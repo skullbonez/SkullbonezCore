@@ -2017,7 +2017,7 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
 
     // Why: passive Scene/Demo cameras still reveal the replay bar at its hot
     // zone, while UI-owned mouse regions do not. Only the legacy floating
-    // surface stays pinned by paused playback; shared chrome follows the edge.
+    // surface extends its reveal timer for paused playback.
     if ( pointerRequestsReplayOverlay || ( !sharedSurface && replayStateKeepsScrubberVisible ) )
     {
         KeepVisible( frame.now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
@@ -2667,15 +2667,15 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( const ReplayWorks
         m_scrubberOwner.SetAllTrackPositions( solverPresentTrackPosition );
     }
 
-    // Shared chrome follows the bottom edge, independent of paused playback.
-    // The router's existing scrub capture keeps it visible outside the strip.
+    // The full UI pins its reserved strip; Canvas follows the bottom edge.
+    // The router's existing scrub capture also keeps it visible outside the strip.
     const bool sharedSurface = input.transportBounds.w > 0.0f;
     const UI::UIRect revealBounds { 0.0f, input.transportBounds.y, static_cast<float>( input.screenWidth ),
                                     input.transportBounds.h };
     const bool edgeHovered = !uiBlocksMouse && runtimePointer.hasClientPosition && revealBounds.Contains( mouse.x, mouse.y );
     const bool scrubberTargetVisible = scrubDragActive() ||
                                        ( sharedSurface
-                                             ? edgeHovered
+                                             ? input.transportPinned || edgeHovered
                                              : horizonDragActive() || scrubber.historicalSamplePaused ||
                                                    scrubber.liveAdvanceHeld || scrubber.visibleUntil >= input.now );
 

@@ -433,7 +433,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE instance, bool
 
     wndclass.hInstance = instance; // Assign application instance
 
-    wndclass.hIcon = LoadIcon( nullptr, IDI_WINLOGO ); // Default icon
+    wndclass.hIcon = LoadIcon( instance, TEXT( "SKULLBONEZ_ICON" ) );
 
     wndclass.hCursor = nullptr; // Engine/UI draws its own cursor when needed
 

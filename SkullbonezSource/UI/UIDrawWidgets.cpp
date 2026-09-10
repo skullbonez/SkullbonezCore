@@ -83,7 +83,7 @@ Style::UIColor ControlFill( UIVisualState state )
 
     if ( HasVisualState( state, UIVisualState::Selected ) )
     {
-        return palette.windowRaised;
+        return palette.selection;
     }
 
     return HasVisualState( state, UIVisualState::Hovered ) ? palette.controlHover : palette.control;
@@ -517,7 +517,7 @@ void DrawTab( const UIDrawContext& draw, const UIRect& bounds, const char* label
     }
     else if ( selected )
     {
-        fill = palette.windowRaised;
+        fill = palette.selection;
     }
     else if ( HasVisualState( state, UIVisualState::Hovered ) )
     {
@@ -686,8 +686,12 @@ void DrawComboField( const UIDrawContext& draw, const ComboLayout& layout, const
     if ( selectedText && selectedText[0] != '\0' )
     {
         const Style::UIColor selectedTextColor = selectedEnabled ? text : palette.textMuted;
+        // Long values stay inside the field and leave the dropdown arrow readable.
+        draw.PushClip( { layout.fieldBounds.x + 6.0f, layout.fieldBounds.y, (std::max)( 0.0f, layout.fieldBounds.w - 26.0f ),
+                         layout.fieldBounds.h } );
         draw.Text( layout.fieldBounds.x + 6.0f, layout.fieldBounds.y + 3.0f, 10.0f, selectedTextColor.r, selectedTextColor.g,
                    selectedTextColor.b, selectedText );
+        draw.PopClip();
     }
 
     const Style::UIColor chevronColor = established

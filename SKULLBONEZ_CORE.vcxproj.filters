@@ -2125,4 +2125,12 @@
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="SkullbonezSource\Runtime\Startup\Skullbonez.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <Image Include="SkullbonezData\branding\Skullbonez.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>

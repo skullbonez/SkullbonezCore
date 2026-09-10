@@ -682,6 +682,19 @@ bool InputRouter::ConsumeRepeatingAction( RuntimeInputAction action, double nowS
     return true;
 }
 
+bool InputRouter::ConsumePressedAction( RuntimeInputAction action )
+{
+    if ( !m_appFocused || !IsActionValid( action ) || m_frameEdges[ActionIndex( action )] != InputActionEdge::Pressed )
+    {
+        return false;
+    }
+    // Invariant: an escape used by the shell cannot also reach local controls
+    // or the after-UI quick-exit binding during the same turn.
+    m_frameEdges[ActionIndex( action )] = InputActionEdge::Held;
+    m_lastTapSeconds[ActionIndex( action )] = -1.0e30;
+    return true;
+}
+
 
 bool InputRouter::ContextsSatisfied( RuntimeInputContextMask requiredContexts, RuntimeInputContextMask activeContexts )
 {

@@ -1368,6 +1368,12 @@ SceneFrameProceedPolicy Run::RunInputPhase( const InteractionAutomationFrameResu
     const RuntimeInputKeyBindingView keyboardBindings = TakeInputKeyboardBindings();
     inputRouter.BeginFrame( deviceFrame, keyboardBindings, inputActions, externalUiCapture );
 
+    if ( ui.HasDockedSurface() && inputRouter.ConsumePressedAction( RuntimeInputAction::DismissOrExitUI ) )
+    {
+        ui.ReturnToGame();
+        m_comparisonPanel.CancelInput();
+    }
+
     // Invariant: the native cause filter needs the router's device keys, unlike
     // external UI capture which removes them. Project its retained focus after
     // sampling but before pre-UI bindings, so typing cannot execute world actions.

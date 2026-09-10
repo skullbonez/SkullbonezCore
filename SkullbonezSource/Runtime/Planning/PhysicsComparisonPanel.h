@@ -85,6 +85,7 @@ class PhysicsComparisonPanel
     void ComposeShellControls( const PhysicsComparison& comparison );
     void ComposeShellDetails( const PhysicsComparison& comparison );
     void ComposeShellTransport( const PhysicsComparison& comparison );
+    void ComposeViewLabels( const PhysicsComparison& comparison );
     std::size_t RetainGeometry( const Physics::ColliderRecord& collider );
     void RebindGeometry();
     void BuildModels( const PhysicsComparison& comparison );

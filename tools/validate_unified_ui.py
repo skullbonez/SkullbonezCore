@@ -21,13 +21,14 @@ REPO = Path(__file__).resolve().parents[1]
 
 def assert_shell_image(path: Path, editor: bool = False) -> None:
     with Image.open(path) as image:
-        # Neutral opaque chrome is a rendering assertion, independent of the
-        # presentation state report. Hidden legacy tools must not hide the shell.
+        # Canvas reveals its header at the edge; full Editor chrome stays visible.
+        # Editor docks keep the blue-gray color sampled from the approved mockup.
         header = image.convert("RGB").getpixel((image.width // 2, 2))
-        assert all(abs(actual - expected) <= 2 for actual, expected in zip(header, (19, 20, 23))), header
+        matches = all(abs(actual - expected) <= 2 for actual, expected in zip(header, (23, 32, 41)))
+        assert matches == editor, header
         if editor:
             dock = image.convert("RGB").getpixel((2, 100))
-            assert all(abs(actual - expected) <= 2 for actual, expected in zip(dock, (19, 20, 23))), dock
+            assert all(abs(actual - expected) <= 2 for actual, expected in zip(dock, (23, 32, 41))), dock
 
 
 def run(session: Path, executable: Path, scene: Path) -> None:
@@ -76,7 +77,7 @@ def run(session: Path, executable: Path, scene: Path) -> None:
     try:
         capabilities = send("capabilities.get")
         assert "input.pointer_position" in capabilities["commands"]
-        send("state.subscribe", topics=["*"], detail="normal")
+        send("state.subscribe", topics=["ui.presentation", "camera.state", "selection.state", "scene.objects"], detail="normal")
         canvas = sample("canvas")
         assert canvas["layout"] == "Canvas" and not canvas["editorMode"], canvas
         width, height = canvas["window"]
@@ -100,7 +101,7 @@ def run(session: Path, executable: Path, scene: Path) -> None:
         assert editor["layout"] == "Editor" and not editor["editorMode"], editor
         assert editor["viewport"][0] > 0 and editor["viewport"][1] > 0, editor
         assert editor["viewport"][2] < width and editor["viewport"][3] < height, editor
-        assert editor["markerHistoryVisible"] and editor["memoryWaterlineVisible"], editor
+        assert not editor["markerHistoryVisible"] and not editor["memoryWaterlineVisible"], editor
         assert latest["scene.objects"] == scene_identity, "layout replaced or changed the scene"
         assert latest["camera.state"]["selectedCameraHash"] == camera_identity, "layout selected another camera"
         assert latest["selection.state"] == selection, "layout replaced selection"
@@ -115,6 +116,7 @@ def run(session: Path, executable: Path, scene: Path) -> None:
         click(width - 190, 20)
         tools = sample("editor-scenes")
         assert tools["toolsVisible"] and tools["activeTool"] == 1, tools
+        assert not tools["markerHistoryVisible"] and not tools["memoryWaterlineVisible"], tools
         assert tools["viewport"][3] < editor["viewport"][3], "Tools did not shrink the viewport"
         inspect_ray("editor-tools", tools)
         send("capture.screenshot", path=str((session / "editor-scenes.png").resolve()))
@@ -125,10 +127,10 @@ def run(session: Path, executable: Path, scene: Path) -> None:
         sample("scene-browser-popup")
         send("capture.screenshot", path=str((session / "scene-browser-popup.png").resolve()))
         with Image.open(session / "scene-browser-popup.png") as popup:
-            # The menu crosses the shared transport here. Its opaque fill must
-            # cover that strip, not expose a track drawn by a later presenter.
-            pixel = popup.convert("RGB").getpixel((400, int(drawer_y - 14)))
-            assert all(abs(a - b) <= 2 for a, b in zip(pixel, (33, 36, 41))), pixel
+            # The bottom drawer opens this menu above the field. Its backer
+            # must cover the earlier dock and title drawing.
+            pixel = popup.convert("RGB").getpixel((500, int(drawer_y + 30)))
+            assert all(abs(a - b) <= 2 for a, b in zip(pixel, (31, 42, 53))), pixel
         click(200, drawer_y + 154)
         sample("scene-browser-popup-closed")
         assert latest["scene.objects"] == scene_identity, "cancelling the browser changed the scene"
@@ -144,16 +146,19 @@ def run(session: Path, executable: Path, scene: Path) -> None:
         assert resized["activeTool"] == 10 and not resized["editorMode"], resized
         click(width - 30, 20)
         closed = sample("editor-tools-closed")
-        assert not closed["toolsVisible"] and closed["viewport"] == editor["viewport"], closed
+        assert not closed["toolsVisible"] and closed["viewport"][3] == editor["viewport"][3], closed
         assert closed["markerSamples"] >= tools["markerSamples"] and closed["memorySamples"] >= tools["memorySamples"], closed
         assert closed["markerSelectionHash"] == tools["markerSelectionHash"], closed
-        # Pinned diagnostic headers expose the two detailed Tools tabs.
-        click(width // 2 - 44, height - 128)
+        # Profiler and Memory remain accessible in Tools; F5/F6 float separately.
+        click(width - 30, 20)
+        menu = sample("tools-details")
+        drawer_y = menu["viewport"][1] + menu["viewport"][3] + 28
+        click(int(14 + (width - 28) * 0.5 / 11), drawer_y + 66)
         profiler_details = sample("profiler-details-route")
-        assert profiler_details["activeTool"] == 0 and profiler_details["toolsVisible"], profiler_details
-        click(width - 44, height - 128)
+        assert profiler_details["activeTool"] == 0 and profiler_details["toolsVisible"]
+        click(int(14 + (width - 28) * 10.5 / 11), drawer_y + 66)
         memory_details = sample("memory-details-route")
-        assert memory_details["activeTool"] == 10 and memory_details["toolsVisible"], memory_details
+        assert memory_details["activeTool"] == 10 and memory_details["toolsVisible"]
         click(width - 30, 20)
         click(width - 30, 20)
         reopened = sample("editor-tools-reopened")

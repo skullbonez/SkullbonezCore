@@ -583,7 +583,11 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
                                         replayPathVisualizerHasTarget,
                                         ProjectUiCameraBadgeMode( m_camera.mode ) != UiCameraBadgeMode::Quiet };
 
-    renderer.PrepareUiFrameTarget();
+    // Hazard: an empty/loading Lab skips world drawing. Clear its previous
+    // backbuffer so hidden chrome and dismissed menus cannot remain as pixels.
+    const bool emptyComparisonFrame = ComparisonUiActive() && ( !m_comparison.Active() || m_comparisonLoad.Pending() ||
+                                                                !m_comparisonLoad.Error().empty() );
+    renderer.PrepareUiFrameTarget( emptyComparisonFrame );
 
     if ( !renderer.ResourceLifecycle().ShouldRenderUiText( visibility ) )
     {

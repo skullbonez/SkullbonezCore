@@ -74,6 +74,10 @@ void Run::SyncComparisonWorkspace()
         cameras.SetPrimaryPose( m_comparisonCamera.eye, m_comparisonCamera.view, m_comparisonCamera.up );
     }
     m_comparisonForeground = foreground;
+    if ( foreground && !m_comparison.Active() && !m_comparisonLoad.Pending() && m_comparisonLoad.Error().empty() )
+    {
+        LoadSolverLab( UI::UISolverLabChoice::RagdollWall );
+    }
 }
 
 void Run::CloseComparison()
@@ -202,6 +206,16 @@ void Run::PollComparisonLoad()
 #else
     (void)success;
 #endif
+    if ( m_comparisonLoad.Cancelled() )
+    {
+        // Exit cancels asynchronously. A later visit must not inherit that
+        // cancellation as a load error, even if it starts before the worker ends.
+        m_comparisonLoad.DismissError();
+        if ( ComparisonUiActive() && !m_comparison.Active() )
+        {
+            LoadSolverLab( UI::UISolverLabChoice::RagdollWall );
+        }
+    }
 }
 void Run::FocusComparison()
 {
@@ -371,6 +385,8 @@ bool Run::UpdateComparisonInput( bool textActive )
             {
                 m_comparisonLoad.DismissError();
             }
+            m_operatorUi->ReturnToGame();
+            SyncComparisonWorkspace();
         }
         return true;
     }
@@ -458,7 +474,8 @@ bool Run::UpdateComparisonInput( bool textActive )
     }
     else if ( action == ComparisonPanelAction::Close )
     {
-        CloseComparison();
+        m_operatorUi->ReturnToGame();
+        SyncComparisonWorkspace();
     }
     else if ( action == ComparisonPanelAction::RagdollWall || action == ComparisonPanelAction::WallOnly )
     {

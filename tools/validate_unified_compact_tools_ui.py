@@ -70,9 +70,8 @@ def run(session: Path) -> None:
                     ui = select(sample(prefix + '-menu-' + str(index)), index, prefix + '-tab-' + str(index))
                     assert ui['activeTool'] == index and not ui['toolsPopupOpen'], ui
                 send('capture.screenshot', path=str((session / (prefix + '-memory.png')).resolve()))
-                # Footer is above the pinned diagnostics in Editor. Derive the
-                # actual end from the next available perimeter strip.
-                bottom = height if layout == 'Canvas' else height - min(140, height * 0.24)
+                # Floating diagnostics reserve no footer space.
+                bottom = height
                 click(width / 2, bottom - 14)
                 ui = sample(prefix + '-display-menu')
                 assert ui['toolsPopupOptions'] == 7 and ui['toolsPopupOpen'], ui
@@ -93,21 +92,35 @@ def run(session: Path) -> None:
                 assert not ui['toolsPopupOpen'], ui
                 send('input.set_focus', focused=True)
                 if layout == 'Editor':
-                    selector_y = bottom + (24 if height * 0.24 < 100 else 32)
-                    click(40, selector_y + 10)
+                    send('input.set_key', key=0x74, down=True)
+                    sample(prefix + '-restore-f5')
+                    send('input.set_key', key=0x74, down=False)
+                    ui = sample(prefix + '-release-f5')
+                    assert ui['markerHistoryVisible'] and not ui['memoryWaterlineVisible']
+                    hx, hy, hw, hh = ui['markerHistoryBounds']
+                    selector_y = hy + 32
+                    click(int(hx+30), int(selector_y+10))
                     ui = sample(prefix + '-marker-menu')
                     send('capture.screenshot', path=str((session / (prefix + '-marker-menu.png')).resolve()))
-                    rows = min(8, max(1, int((selector_y - 34) / 22)))
-                    popup_y = selector_y - (4 + rows * 22 + 16) - 4
+                    room = max(selector_y-8-4, height-8-selector_y-28)
+                    rows = min(8, max(1, int((room-4-16)/22)))
+                    popup_h = 4 + rows*22 + 16
+                    popup_y = selector_y+28
+                    if popup_y+popup_h > height-8:
+                        popup_y = selector_y-popup_h-4
                     before = ui['markerSelectionHash']
                     active = ui['activeTool']
-                    click(30, popup_y + 13)
+                    click(int(hx+30), int(popup_y+13))
                     ui = sample(prefix + '-marker-selected')
                     assert ui['markerSelectionHash'] != before, ui
                     assert ui['activeTool'] == active and ui['toolsVisible'], ui
                     send('input.set_focus', focused=False)
                     sample(prefix + '-marker-dismissed')
                     send('input.set_focus', focused=True)
+                    send('input.set_key', key=0x74, down=True)
+                    sample(prefix + '-hide-f5')
+                    send('input.set_key', key=0x74, down=False)
+                    sample(prefix + '-hide-f5-release')
         print('PASS: all eleven native Tools tabs, clipped scrollable menus, footer timeline/reflection and focus loss in both small layouts')
     finally:
         try:

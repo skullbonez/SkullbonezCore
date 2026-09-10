@@ -418,9 +418,10 @@ void PhysicsComparisonPanel::ButtonAt( UI::UIRect bounds, const char* text, int 
         }
     }
     m_buttons[m_buttonCount++] = { hit, action };
+    const auto& palette = UI::Style::Palette();
     m_draw.AddRoundedRect( bounds, 5,
-                           active ? UI::Style::UIColor { 0.23f, 0.25f, 0.28f, 1 }
-                                  : UI::Style::UIColor { 0.13f, 0.14f, 0.16f, 1 } );
+                           active ? palette.selection
+                                  : ( hit.Contains( m_pointer.x, m_pointer.y ) ? palette.controlHover : palette.control ) );
     const char* label = text;
     if ( m_layout.shared && bounds.w < 100.0f )
     {
@@ -436,7 +437,7 @@ void PhysicsComparisonPanel::ButtonAt( UI::UIRect bounds, const char* text, int 
             label = "Load";
             break;
         case 5:
-            label = "Close";
+            label = "Exit Lab";
             break;
         case 6:
             label = "Sel.";
@@ -460,18 +461,22 @@ void PhysicsComparisonPanel::ButtonAt( UI::UIRect bounds, const char* text, int 
             break;
         }
     }
-    float fontSize = m_layout.shared ? 11.0f : 13.0f;
-    while ( fontSize > 8.5f && UI::UIFontMetrics::MeasureText( fontSize, label ) > bounds.w - 6.0f )
+    float fontSize = m_layout.shared ? 12.0f : 13.0f;
+    while ( fontSize > 8.5f && UI::UIFontMetrics::MeasureText( fontSize, label ) > bounds.w - 16.0f )
     {
         fontSize -= 0.5f;
     }
     m_draw.PushClip( bounds );
-    m_draw.AddText( { bounds.x + 3, bounds.y + ( bounds.h - fontSize ) * 0.5f - 1 }, fontSize, ink, label );
+    const float textX = action >= 1000 ? bounds.x + 8
+                                       : bounds.x + ( bounds.w - UI::UIFontMetrics::MeasureText( fontSize, label ) ) * 0.5f;
+    m_draw.AddText( { textX, bounds.y + ( bounds.h - fontSize ) * 0.5f - 1 }, fontSize, ink, label );
     m_draw.PopClip();
 }
 void PhysicsComparisonPanel::Plot( const PhysicsComparison& comparison, UI::UIRect bounds, bool velocity )
 {
-    m_draw.AddRect( bounds, { 0.025f, 0.04f, 0.065f, 1 } );
+    m_draw.AddRoundedRect( bounds, 4, UI::Style::Palette().windowSubtle );
+    // Keep curves and the tick cursor below the title, including at their extrema.
+    const UI::UIRect chart { bounds.x + 6, bounds.y + 24, bounds.w - 12, (std::max)( 1.0f, bounds.h - 30 ) };
     constexpr int count = 96;
     float low = ( std::numeric_limits<float>::max )(), high = std::numeric_limits<float>::lowest();
     for ( int side = 0; side < 2; ++side )
@@ -506,8 +511,8 @@ void PhysicsComparisonPanel::Plot( const PhysicsComparison& comparison, UI::UIRe
                 continue;
             }
             const float value = velocity ? body->linearVelocity.y : body->position.y;
-            UI::UIPoint point { bounds.x + bounds.w * i / ( count - 1 ),
-                                bounds.y + bounds.h - 8 - ( bounds.h - 22 ) * ( value - low ) / range };
+            UI::UIPoint point { chart.x + chart.w * i / ( count - 1 ),
+                                chart.y + chart.h - chart.h * ( value - low ) / range };
             if ( valid )
             {
                 Line( m_draw, previous, point, side ? coral : cyan );
@@ -519,9 +524,11 @@ void PhysicsComparisonPanel::Plot( const PhysicsComparison& comparison, UI::UIRe
     char label[100];
     std::snprintf( label, sizeof( label ), "%s  %.4g .. %.4g", velocity ? "Vertical velocity (m/s)" : "Height (m)", low,
                    high );
-    m_draw.AddText( { bounds.x + 5, bounds.y + 4 }, 11, muted, label );
-    const float x = bounds.x + bounds.w * comparison.Tick() / (std::max)( 1, comparison.LastTick() );
-    Line( m_draw, { x, bounds.y }, { x, bounds.y + bounds.h }, ink );
+    m_draw.PushClip( { bounds.x + 6, bounds.y + 4, bounds.w - 12, 16 } );
+    m_draw.AddText( { bounds.x + 6, bounds.y + 5 }, 11, muted, label );
+    m_draw.PopClip();
+    const float x = chart.x + chart.w * comparison.Tick() / (std::max)( 1, comparison.LastTick() );
+    Line( m_draw, { x, chart.y }, { x, chart.y + chart.h }, ink );
 }
 const UI::UIDrawList& PhysicsComparisonPanel::Compose( const PhysicsComparison& comparison, int width, int height )
 {
@@ -853,7 +860,7 @@ const UI::UIDrawList& PhysicsComparisonPanel::ComposeLoading( int width, int hei
     m_comparisonCombo.Close();
     m_comparisonCombo.SetBounds( 0, 0, 0, 0 );
     m_draw.PushClip( viewport );
-    m_draw.AddRect( viewport, { 0.075f, 0.08f, 0.09f, 1 } );
+    m_draw.AddRect( viewport, UI::Style::Palette().window );
     const float panelWidth = (std::min)( 560.0f, (std::max)( 100.0f, viewport.w - 32.0f ) );
     const float x = viewport.x + ( viewport.w - panelWidth ) * 0.5f;
     const float y = viewport.y + ( viewport.h - 150.0f ) * 0.5f;
@@ -896,6 +903,7 @@ const UI::UIDrawList& PhysicsComparisonPanel::ComposeShell( const PhysicsCompari
     }
     if ( comparison.Active() )
     {
+        ComposeViewLabels( comparison );
         ComposeShellTransport( comparison );
     }
     else
@@ -928,6 +936,33 @@ const UI::UIDrawList& PhysicsComparisonPanel::ComposeShell( const PhysicsCompari
     return m_draw;
 }
 
+void PhysicsComparisonPanel::ComposeViewLabels( const PhysicsComparison& comparison )
+{
+    if ( comparison.Settings().display != ComparisonDisplay::Split )
+    {
+        return;
+    }
+    const auto& viewport = m_layout.viewport;
+    for ( int side = 0; side < 2; ++side )
+    {
+        UI::UIRect view = viewport;
+        if ( comparison.Settings().stackedViews )
+        {
+            view.h *= 0.5f;
+            view.y += side * view.h;
+        }
+        else
+        {
+            view.w *= 0.5f;
+            view.x += side * view.w;
+        }
+        m_draw.PushClip( view );
+        m_draw.AddRoundedRect( { view.x + 12, view.y + 12, 32, 26 }, 5, UI::Style::Palette().window );
+        m_draw.AddText( { view.x + 23, view.y + 17 }, 14, side ? coral : cyan, side ? "B" : "A" );
+        m_draw.PopClip();
+    }
+}
+
 void PhysicsComparisonPanel::ComposeShellControls( const PhysicsComparison& comparison )
 {
     m_buttonClip = m_layout.controls;
@@ -943,7 +978,7 @@ void PhysicsComparisonPanel::ComposeShellControls( const PhysicsComparison& comp
     if ( comparison.Active() )
     {
         ButtonAt( { x, y + 90, half, 28 }, "Save finding", 3 );
-        ButtonAt( { x + half + 6, y + 90, half, 28 }, "Close comparison", 5 );
+        ButtonAt( { x + half + 6, y + 90, half, 28 }, "Exit Solver Lab", 5 );
         m_draw.AddText( { x, y + 132 }, 12, muted, "View" );
         const char* modes[] = { "Split", "Overlay", "Toggle", "Heatmap", "Pixels" };
         for ( int i = 0; i < 5; ++i )
@@ -1045,6 +1080,8 @@ void PhysicsComparisonPanel::ComposeShellTransport( const PhysicsComparison& com
     const float filled = m_timeline.w * comparison.Tick() / (std::max)( 1, comparison.LastTick() );
     m_draw.AddRoundedRect( { m_timeline.x, y + 12, m_timeline.w, 4 }, 2, { 0.22f, 0.24f, 0.27f, 1 } );
     m_draw.AddRoundedRect( { m_timeline.x, y + 12, filled, 4 }, 2, cyan );
+    m_draw.AddRoundedRect( { m_timeline.x + filled - 7, y + 7, 14, 14 }, 7, cyan );
+    m_draw.AddRoundedRect( { m_timeline.x + filled - 6, y + 8, 12, 12 }, 6, ink );
     if ( labelWidth > 0 )
     {
         char label[80];
@@ -1071,7 +1108,7 @@ UI::UITooltipText ComparisonActionTooltip( int action )
     case 4:
         return { "Load a saved finding and restore its comparison inspection state." };
     case 5:
-        return { "Close this comparison and release its recordings and geometry." };
+        return { "Return to the full-screen scene and retain this comparison for the next visit.", "", "Esc" };
     case 6:
         return { "Show recorded differences involving the selected object." };
     case 7:

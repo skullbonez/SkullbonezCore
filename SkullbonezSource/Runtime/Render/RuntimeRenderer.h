@@ -248,7 +248,7 @@ class RuntimeRenderer
         return m_resources.RenderDiagnostics();
     }
     const char* RendererName() const;
-    void PrepareUiFrameTarget();
+    void PrepareUiFrameTarget( bool clearFrameTargets = false );
 
     // Adds the sole declaration-only Present edge and validates the submitted
     // frame contract before the swap-chain owner presents.

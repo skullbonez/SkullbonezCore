@@ -459,9 +459,9 @@ TEST_CASE( "Unified presentation keeps docks and drawer outside the Editor viewp
     CHECK( layout.viewport.x + layout.viewport.w == layout.right.x );
     CHECK( layout.viewport.y + layout.viewport.h == layout.transport.y );
     CHECK( layout.transport.y + layout.transport.h == layout.drawer.y );
-    CHECK( layout.drawer.y + layout.drawer.h == layout.markerHistory.y );
-    CHECK( layout.markerHistory.y + layout.markerHistory.h == 900.0f );
-    CHECK( layout.memoryWaterline.x == layout.markerHistory.w );
+    CHECK( layout.drawer.y + layout.drawer.h == 900.0f );
+    CHECK( layout.markerHistory.h == 0.0f );
+    CHECK( layout.memoryWaterline.h == 0.0f );
 
     state.toolsOpen = false;
     const auto closed = ComputePresentationRects( state, 1600, 900 );
@@ -494,7 +494,8 @@ TEST_CASE( "Unified Canvas transport overlays the viewport and closed details ha
     state.workspace = Workspace::SolverLab;
     const auto lab = ComputePresentationRects( state, 1280, 720 );
     CHECK( lab.viewport.w == layout.viewport.w );
-    CHECK( lab.viewport.h == layout.viewport.h );
+    CHECK( lab.viewport.y == lab.header.h );
+    CHECK( lab.viewport.h + lab.header.h == layout.viewport.h );
     CHECK( state.preferences.layout == LayoutMode::Canvas );
 }
 
@@ -752,28 +753,95 @@ TEST_CASE( "Unified Tools drawer retains its tab and resolves captured resize be
     CHECK( ui->GetActiveTab() == InGameUITab::Memory );
 }
 
-TEST_CASE( "Unified diagnostic shortcuts focus pinned panels and preserve Canvas visibility" )
+TEST_CASE( "Floating diagnostics survive Tools and Escape without reserving dock space" )
 {
     using namespace SkullbonezCore::UI;
     using namespace SkullbonezCore::UI::GameLayout;
     auto ui = std::make_unique<InGameUI>();
     InputControl::UIInputSnapshot input;
     ui->UpdatePresentationInput( input, 1600, 900, true );
-    const auto canvas = ui->DiagnosticPresentation();
     const auto header = ComputeHeaderRects( ui->PresentationBounds().header );
     input.mouseX = static_cast<int>( header.layout.x + 8.0f );
     input.mouseY = 20;
     input.leftPressed = true;
     ui->UpdatePresentationInput( input, 1600, 900, true );
-    ui->TogglePerformanceHistogramEnabled();
-    CHECK( ui->DiagnosticPresentation().focusedPanel == 1 );
-    CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
-    ui->ToggleMemoryOverlayEnabled();
-    CHECK( ui->DiagnosticPresentation().focusedPanel == 2 );
-    CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    input.leftPressed = false;
+    const float sceneHeight = ui->PresentationBounds().viewport.h;
+    ui->SetVisible( true );
     ui->UpdatePresentationInput( input, 1600, 900, true );
-    CHECK( ui->DiagnosticPresentation().markerHistoryVisible == canvas.markerHistoryVisible );
-    CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible == canvas.memoryWaterlineVisible );
+    CHECK_FALSE( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK_FALSE( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    CHECK( ui->PresentationBounds().drawer.y + ui->PresentationBounds().drawer.h == 900.0f );
+    CHECK( ui->PresentationBounds().viewport.h == sceneHeight - 360.0f );
+    const float toolsHeight = ui->PresentationBounds().drawer.h;
+    ui->TogglePerformanceHistogramEnabled();
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->DiagnosticPresentation().focusedPanel == 0 );
+    CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK_FALSE( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    CHECK( ui->PresentationBounds().markerHistory.w == 0.0f );
+    CHECK( ui->PresentationBounds().drawer.h == toolsHeight );
+    ui->ToggleMemoryOverlayEnabled();
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->DiagnosticPresentation().focusedPanel == 0 );
+    CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    CHECK( ui->PresentationBounds().markerHistory.w == 0.0f );
+    CHECK( ui->PresentationBounds().memoryWaterline.w == 0.0f );
+    ui->SetMinimized( true );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    ui->SetMinimized( false );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    CHECK( ui->HasDockedSurface() );
+    ui->ReturnToGame();
+    CHECK_FALSE( ui->HasDockedSurface() );
+    CHECK( ui->PresentationBounds().viewport.w == 1600.0f );
+    CHECK( ui->PresentationBounds().viewport.h == 900.0f );
+    CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
+}
+
+TEST_CASE( "UI marker history draws live samples and moves between peak bucket boundaries" )
+{
+    using namespace SkullbonezCore::UI;
+    auto state = std::make_unique<ProfilerTab::UIProfilerTabState>();
+    state->histogramDockedBounds = { 0, 0, 800, 140 };
+    UIProfilerMarkerOption marker;
+    marker.name = marker.leafName = "Main";
+    marker.isFrameTotal = marker.sampleValid = true;
+    marker.cpuMs = 2.0f;
+    UIProfilerTabFrameView data;
+    data.markerOptions = &marker;
+    data.markerOptionCount = 1;
+    data.screenW = 800;
+    data.screenH = 600;
+    auto commands = std::make_unique<UIDrawList>();
+    const UIDrawContext draw( 800, 600, *commands );
+    ProfilerTab::PushPerformanceHistogramSample( *state, data );
+    ProfilerTab::DrawPerformanceHistogram( *state, draw, data );
+    CHECK( FindDrawTextIndex( *commands, "Waiting for samples" ) == -1 );
+    uint64_t previous = commands->Fingerprint();
+    for ( int frame = 1; frame < 6; ++frame )
+    {
+        data.now = frame / 240.0;
+        ProfilerTab::PushPerformanceHistogramSample( *state, data );
+        commands->Clear();
+        ProfilerTab::DrawPerformanceHistogram( *state, draw, data );
+        CHECK( state->histogramCount == 0 );
+        CHECK( commands->Fingerprint() != previous );
+        previous = commands->Fingerprint();
+    }
+    marker.cpuMs = 20.0f;
+    ProfilerTab::PushPerformanceHistogramSample( *state, data );
+    commands->Clear();
+    ProfilerTab::DrawPerformanceHistogram( *state, draw, data );
+    CHECK( commands->Fingerprint() != previous );
+    data.now = 0.051;
+    marker.cpuMs = 1.0f;
+    ProfilerTab::PushPerformanceHistogramSample( *state, data );
+    CHECK( state->histogramCount == 1 );
+    CHECK( state->histogramSamples[0].markerMs[0] == 20.0f );
 }
 
 TEST_CASE( "Unified bottom drawer popup uses the same visible rows for drawing and picking" )
@@ -1092,11 +1160,12 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         InGameUITab::Options,  InGameUITab::Render,    InGameUITab::Targets, InGameUITab::Keys,
         InGameUITab::Sky,      InGameUITab::Cinematic, InGameUITab::Memory,
     };
-    // Approved unified UI palette, clipping, controls, and foreground presentation.
+    // Blue-gray mockup palette with selected-value clips that reserve combo arrows.
+    // All eleven Tools surfaces were inspected natively after the clipping change.
     constexpr uint64_t expected[] = {
-        467619153340954297ull,   10343110556321617439ull, 11942614461932345086ull, 1242497593876030902ull,
-        10467592449100302771ull, 16793171871688543767ull, 15776164713615904022ull, 946251795110576963ull,
-        7803296216575120876ull,  12067689931868524436ull, 12728169421363323792ull,
+        12951241917103440499ull, 8999909969555097215ull,  16768119659391589123ull, 5029844691847507383ull,
+        2139391809763212955ull,  5478074610712965329ull,  6412084034923494129ull,  16903291462328685303ull,
+        17139239282114657199ull, 17717404666730030321ull, 7570436844653968720ull,
     };
     static_assert( std::size( tabs ) == std::size( expected ) );
 

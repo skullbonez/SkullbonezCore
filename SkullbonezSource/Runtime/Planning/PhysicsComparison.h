@@ -314,6 +314,10 @@ class PhysicsComparisonLoadJob
     {
         m_progress.cancelled.store( true, std::memory_order_relaxed );
     }
+    bool Cancelled() const noexcept
+    {
+        return m_progress.cancelled.load( std::memory_order_relaxed );
+    }
     bool Take( PhysicsComparison& destination, ReplayCameraSample& camera );
     bool Finding() const noexcept
     {

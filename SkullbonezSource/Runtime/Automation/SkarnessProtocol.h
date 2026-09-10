@@ -420,6 +420,9 @@ struct SkarnessFrameState
         int recordingVisibleOptions = 0;
         int recordingOptions = 0;
         std::array<float, 4> profilerDrawExpanderBounds {};
+        std::array<float, 4> markerHistoryBounds {};
+        std::array<float, 4> workerToggleBounds {};
+        std::array<float, 4> workerSliderBounds {};
         int profilerMarkerCount = 0;
         int profilerDrawNodeCount = 0;
         uint32_t profilerExpansionHash = 0;

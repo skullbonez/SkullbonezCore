@@ -67,8 +67,8 @@ namespace
 // Concept: the scientific inspector uses one deliberately restrained colour
 // system. Evidence families keep their colour across the hierarchy and drawer,
 // while navy surfaces preserve contrast over a bright simulation viewport.
-constexpr UI::Style::UIColor CAUSE_NAVY { 0.075f, 0.08f, 0.09f, 1.0f };
-constexpr UI::Style::UIColor CAUSE_NAVY_ALT { 0.095f, 0.102f, 0.115f, 1.0f };
+const UI::Style::UIColor& CAUSE_NAVY = UI::Style::Palette().window;
+const UI::Style::UIColor& CAUSE_NAVY_ALT = UI::Style::Palette().windowSubtle;
 constexpr UI::Style::UIColor CAUSE_SELECTED { 0.0f, 0.1922f, 0.3373f, 0.98f };
 constexpr UI::Style::UIColor CAUSE_RULE { 0.0f, 0.6431f, 0.9255f, 1.0f };
 constexpr UI::Style::UIColor CAUSE_PREDICTION { 0.6510f, 0.8078f, 0.4824f, 1.0f };
@@ -794,7 +794,6 @@ ReplayScrubberComposer::ReplayScrubberComposer( UI::UIDrawList& drawList, Replay
       m_solverReplayEnabled( m_presentation.solverStats.enabled ),
       m_solverToolsEnabled( m_solverReplayEnabled && m_presentation.solverStats.sampleCount >= 2 ),
       m_predictionToolsEnabled( m_solverReplayEnabled && scenePhysicsEnabled ), m_scenePhysicsEnabled( scenePhysicsEnabled ),
-      m_activeTrack( m_loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver ),
       m_solverPresentT( m_loadedPresentation ? 1.0f : m_presentation.selection.solverPresentTrackPosition ),
       m_draw( viewport.width, viewport.height, drawList ), m_palette( UI::Style::Palette() ), m_radii( UI::Style::Radii() )
 {
@@ -832,7 +831,8 @@ void ReplayScrubberComposer::Compose()
     {
         const UI::UIRect& transport = m_viewport.transportBounds;
         m_draw.PushClip( transport );
-        m_draw.Rect( transport.x, transport.y, transport.w, transport.h, 0.075f, 0.08f, 0.09f, m_fade );
+        m_draw.Rect( transport.x, transport.y, transport.w, transport.h, m_palette.window.r, m_palette.window.g,
+                     m_palette.window.b, m_fade );
         DrawText( transport.x + 10.0f, transport.y + 8.0f, 11.0f, m_live ? m_palette.accent : m_palette.warningAccent,
                   m_timeLabel );
         DrawTrack();
@@ -1028,6 +1028,10 @@ ReplayWorkspaceTooltips BuildReplayWorkspaceTooltips( const ReplayOverlayStateVi
 void ReplayScrubberComposer::BuildSurface( bool scenePhysicsEnabled )
 {
     ReplayScrubberSurfaceInput input = DescribePresentationSurface( m_presentation, m_viewport, scenePhysicsEnabled );
+
+    // Invariant: drawing and pointer input use the same timeline selection.
+    // Ordinary rewind uses presentation history even without a loaded recording.
+    m_activeTrack = input.track;
     input.gesture = m_gesture.scrubDrag ? ReplayToolGestureKind::ScrubDrag
                                         : ( m_gesture.predictionHorizonDrag ? ReplayToolGestureKind::PredictionHorizonDrag
                                                                             : ReplayToolGestureKind::None );
@@ -1081,7 +1085,7 @@ void ReplayScrubberComposer::BuildTimeLabel()
     const double latestSolverSeconds = latestSolver ? latestSolver->simulationSeconds : 0.0;
     double secondsBack = 0.0;
 
-    if ( m_loadedPresentation && latestPresentationSeconds >= selectedPresentationSeconds )
+    if ( m_activeTrack == RunReplayTrack::Presentation && latestPresentationSeconds >= selectedPresentationSeconds )
     {
         secondsBack = latestPresentationSeconds - selectedPresentationSeconds;
     }
@@ -1226,9 +1230,10 @@ void ReplayScrubberComposer::DrawTrack()
                      FadeA( inactive ? 0.40f : 0.72f ) );
     }
 
-    m_draw.RoundedRect( knobX - 6.0f, track.y - 5.0f, 12.0f, 18.0f, 5.0f, 0.98f, 0.98f, 1.0f, FadeA( 0.98f ) );
-    m_draw.Outline( knobX - 6.0f, track.y - 5.0f, 12.0f, 18.0f, m_palette.accentStrong.r, m_palette.accentStrong.g,
-                    m_palette.accentStrong.b, FadeA( 0.72f ) );
+    const float knobY = track.y + track.h * 0.5f;
+    m_draw.RoundedRect( knobX - 7.0f, knobY - 7.0f, 14.0f, 14.0f, 7.0f, m_palette.accentStrong.r, m_palette.accentStrong.g,
+                        m_palette.accentStrong.b, FadeA( 0.72f ) );
+    m_draw.RoundedRect( knobX - 6.0f, knobY - 6.0f, 12.0f, 12.0f, 6.0f, 0.98f, 0.98f, 1.0f, FadeA( 0.98f ) );
 
     if ( m_futureTimelineVisible )
     {

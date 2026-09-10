@@ -50,6 +50,7 @@ struct UIPalette
     UIColor windowSubtle;
     UIColor control;
     UIColor controlHover;
+    UIColor selection;
     UIColor textPrimary;
     UIColor textSecondary;
     UIColor textMuted;

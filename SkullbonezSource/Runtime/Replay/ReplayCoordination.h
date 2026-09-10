@@ -110,6 +110,7 @@ struct ReplayWorkspaceFrameInput
     UI::UIRect causeBounds;
     bool causeUiBlocksMouse = false;
     UI::UIRect planningBounds;
+    bool transportPinned = false; // The presenting UI keeps its reserved transport strip visible.
 };
 
 struct ReplayWorkspaceOutput
