@@ -119,7 +119,7 @@ def run(root: Path) -> None:
 
     session("first-launch", mutate=True)
     saved = preferences.read_text()
-    assert "version 1" in saved and "layout 1" in saved and "tool 3" in saved and "folded 6" in saved, saved
+    assert "version 2" in saved and "layout 1" in saved and "tool 3" in saved and "folded 6" in saved, saved
     session("restored-launch")
     preferences.write_text("version 999\nlayout 1\n")
     session("invalid-version", invalid=True)

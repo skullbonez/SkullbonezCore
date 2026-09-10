@@ -4,6 +4,33 @@ Date: 2026-09-09
 Branch: `codex/unified-ui`
 Status: Unified UI complete at 8/8; portfolio 146/154. Closure is committed on this branch.
 
+## Blue, Dark and Light themes - 2026-09-10
+
+Tools > Options > Appearance / Theme now selects Blue (default), neutral Dark,
+or Light immediately. `UI/UIStyle.cpp` owns the immutable named palette table;
+widgets consume colour roles and the UI-thread selection preserves borrowed
+role references. The Tools cache key includes the selection. No theme-specific
+widget trees, runtime allocations, scene changes or renderer contracts were added.
+
+The version 2 layout preferences append a theme ID. Version 1 files preserve
+all layout values and migrate to Blue; unknown theme IDs fall back to Blue.
+Skarness publishes the selected ID in `ui.presentation.theme`. The native
+`tools/validate_ui_themes.py` check covers physical selection, screenshot colours,
+all eleven Light Tools tabs, F5/F6, Solver Lab, restart persistence and migration.
+It is included in the UI validation entry point.
+
+Evidence: `TestOutput/skarness/ui-themes-verified` (screenshots inspected),
+`TestOutput/theme-unit-final.log` (39 UI cases / 839 assertions),
+`TestOutput/theme-source-design-final.log` plus the earlier full changed-file
+source-design run (all findings repaired), and `theme-dependencies-final.log` /
+`theme-language-final.log` (pass). Profile and Automation compile warning-free.
+The UI gate generated all 21 scenes with clean DX12 validation, but its screenshot
+checker failed the two existing floating-window containment assumptions and
+three profiler timeline overlap checks in this run (`theme-ui-gate.log`).
+No renderer/physics golden was refreshed. Only the intended Options, Profiler
+and Memory draw-stream hashes changed, reflecting the selector and shared table
+colours; all other production UI fingerprints remain unchanged.
+
 ## Vertical dock navigation and title - 2026-09-10
 
 The shared header now offers the camera selector, Solver Lab and a Full Screen /

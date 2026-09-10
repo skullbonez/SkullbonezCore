@@ -50,6 +50,7 @@ Related:
 
 namespace
 {
+const auto& tablePalette = SkullbonezCore::UI::Style::Palette();
 constexpr float MEMORY_SUMMARY_BLOCK_H = 310.0f;
 constexpr float MEMORY_REPLAY_POLICY_BLOCK_H = 154.0f;
 constexpr float MEMORY_PANEL_GAP = 14.0f;
@@ -565,7 +566,7 @@ void DrawOverlaySubsystemStack( const SkullbonezCore::UI::UIDrawContext& draw,
                             totalBytes, 0.70f, 0.90f, 0.54f );
 
     DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.replay.totalBytes, totalBytes,
-                            0.42f, 0.86f, 0.94f );
+                            tablePalette.accentStrong.r, tablePalette.accentStrong.g, tablePalette.accentStrong.b );
 
     DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.otherTrackedBytes, totalBytes,
                             0.95f, 0.76f, 0.34f );
@@ -580,12 +581,13 @@ void DrawOverlaySubsystemStack( const SkullbonezCore::UI::UIDrawContext& draw,
 }
 
 void DrawMemoryRow( const SkullbonezCore::UI::UIDrawContext& draw, float x, float y, float labelW, const char* label,
-                    uint64_t bytes, float r, float g, float b )
+                    uint64_t bytes )
 {
     char value[32] = {};
     FormatMemoryMiB( bytes, value, sizeof( value ) );
-    draw.Text( x, y, 9.6f, 0.68f, 0.78f, 0.82f, label );
-    draw.Text( x + labelW, y, 9.6f, r, g, b, value );
+    draw.Text( x, y, 9.6f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b, label );
+    draw.Text( x + labelW, y, 9.6f, tablePalette.textPrimary.r, tablePalette.textPrimary.g, tablePalette.textPrimary.b,
+               value );
 }
 
 uint64_t ReplayTrajectoryLaneCounter( const uint64_t* counters, SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
@@ -617,17 +619,18 @@ void DrawReplayPresetButton( const SkullbonezCore::UI::UIDrawContext& draw, cons
     const SkullbonezCore::UI::UIRect bounds = button.Bounds();
     const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
     const float fillA = active ? 0.78f : ( hovered ? 0.48f : 0.30f );
-    const float r = active ? palette.accentStrong.r : palette.window.r;
-    const float g = active ? palette.accentStrong.g : palette.window.g;
-    const float b = active ? palette.accentStrong.b : palette.window.b;
+    const float r = active ? palette.selection.r : palette.window.r;
+    const float g = active ? palette.selection.g : palette.window.g;
+    const float b = active ? palette.selection.b : palette.window.b;
     draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, SkullbonezCore::UI::Style::Radii().control, r, g, b, fillA );
 
     draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, active ? palette.accentStrong.r : palette.innerBorder.r,
                   active ? palette.accentStrong.g : palette.innerBorder.g,
                   active ? palette.accentStrong.b : palette.innerBorder.b, active ? 0.78f : 0.54f );
 
-    draw.Text( bounds.x + 9.0f, bounds.y + 6.0f, 8.8f, active ? 0.02f : palette.textSecondary.r,
-               active ? 0.04f : palette.textSecondary.g, active ? 0.05f : palette.textSecondary.b, label );
+    draw.Text( bounds.x + 9.0f, bounds.y + 6.0f, 8.8f, active ? palette.textPrimary.r : palette.textSecondary.r,
+               active ? palette.textPrimary.g : palette.textSecondary.g,
+               active ? palette.textPrimary.b : palette.textSecondary.b, label );
 }
 
 void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
@@ -643,9 +646,12 @@ void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     RefreshReplayPolicySnapshot( state, data );
 
     const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
-    draw.Rect( contentX, panelY, contentW, MEMORY_REPLAY_POLICY_BLOCK_H, 0.018f, 0.030f, 0.038f, 0.58f );
-    draw.Outline( contentX, panelY, contentW, MEMORY_REPLAY_POLICY_BLOCK_H, 0.18f, 0.30f, 0.34f, 0.62f );
-    draw.Rect( contentX, panelY + 27.0f, contentW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
+    draw.Rect( contentX, panelY, contentW, MEMORY_REPLAY_POLICY_BLOCK_H, tablePalette.windowSubtle.r,
+               tablePalette.windowSubtle.g, tablePalette.windowSubtle.b, 1.0f );
+    draw.Outline( contentX, panelY, contentW, MEMORY_REPLAY_POLICY_BLOCK_H, tablePalette.border.r, tablePalette.border.g,
+                  tablePalette.border.b, 0.62f );
+    draw.Rect( contentX, panelY + 27.0f, contentW, 1.0f, tablePalette.lineSoft.r, tablePalette.lineSoft.g,
+               tablePalette.lineSoft.b, 0.45f );
     draw.Text( contentX + 14.0f, panelY + 9.0f, 10.4f, palette.textSecondary.r, palette.textSecondary.g,
                palette.textSecondary.b, "Replay Policy" );
 
@@ -654,7 +660,8 @@ void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
               state.lastSolverRetentionSeconds, state.lastSolverWindowReduced ? "  solver trimmed" : "" );
 
     draw.Text( contentW < 390.0f ? contentX + 14.0f : contentX + contentW - 226.0f,
-               panelY + ( contentW < 390.0f ? 22.0f : 10.0f ), 8.4f, 0.54f, 0.66f, 0.70f, text );
+               panelY + ( contentW < 390.0f ? 22.0f : 10.0f ), 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+               tablePalette.textMuted.b, text );
 
     for ( int i = 0; i < SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT; ++i )
     {
@@ -684,7 +691,8 @@ void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
 
     if ( state.lastBudgetClamped && activeSlider == 0 )
     {
-        draw.Text( contentX + 14.0f, panelY + 136.0f, 8.0f, 0.90f, 0.66f, 0.34f, "budget clamp active" );
+        draw.Text( contentX + 14.0f, panelY + 136.0f, 8.0f, tablePalette.warningAccent.r, tablePalette.warningAccent.g,
+                   tablePalette.warningAccent.b, "budget clamp active" );
     }
 }
 
@@ -718,41 +726,49 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
 
     const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
 
-    draw.Rect( panelX, panelY, panelW, panelH, 0.018f, 0.030f, 0.038f, 0.58f );
-    draw.Outline( panelX, panelY, panelW, panelH, 0.18f, 0.30f, 0.34f, 0.62f );
-    draw.Rect( panelX, panelY + 27.0f, panelW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
+    draw.Rect( panelX, panelY, panelW, panelH, tablePalette.windowSubtle.r, tablePalette.windowSubtle.g,
+               tablePalette.windowSubtle.b, 1.0f );
+    draw.Outline( panelX, panelY, panelW, panelH, tablePalette.border.r, tablePalette.border.g, tablePalette.border.b,
+                  0.62f );
+    draw.Rect( panelX, panelY + 27.0f, panelW, 1.0f, tablePalette.lineSoft.r, tablePalette.lineSoft.g,
+               tablePalette.lineSoft.b, 0.45f );
     draw.Text( x, panelY + 9.0f, 10.4f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                "Main Memory" );
 
     snprintf( text, sizeof( text ), "%s", memory.process.taskManagerMetricName );
-    draw.Text( panelX + panelW - 118.0f, panelY + 9.0f, 9.2f, 0.54f, 0.66f, 0.70f, text );
+    draw.Text( panelX + panelW - 118.0f, panelY + 9.0f, 9.2f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+               tablePalette.textMuted.b, text );
 
     const float row0 = panelY + 36.0f;
 
     if ( memory.process.available )
     {
-        DrawMemoryRow( draw, x, row0, labelW, "TaskMgr", memory.process.taskManagerBytes, 0.90f, 0.96f, 0.98f );
+        DrawMemoryRow( draw, x, row0, labelW, "TaskMgr", memory.process.taskManagerBytes );
     }
     else
     {
-        draw.Text( x, row0, 9.6f, 0.68f, 0.78f, 0.82f, "TaskMgr" );
-        draw.Text( x + labelW, row0, 9.6f, 0.90f, 0.52f, 0.38f, "n/a" );
+        draw.Text( x, row0, 9.6f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b,
+                   "TaskMgr" );
+        draw.Text( x + labelW, row0, 9.6f, tablePalette.warningAccent.r, tablePalette.warningAccent.g,
+                   tablePalette.warningAccent.b, "n/a" );
     }
 
-    DrawMemoryRow( draw, x, row0 + 18.0f, labelW, "Replay", memory.replay.totalBytes, 0.42f, 0.86f, 0.94f );
+    DrawMemoryRow( draw, x, row0 + 18.0f, labelW, "Replay", memory.replay.totalBytes );
     FormatMemoryMiB( memory.replay.presentationBytes, a, sizeof( a ) );
     FormatMemoryMiB( memory.replay.solverBytes, b, sizeof( b ) );
     FormatMemoryMiB( memory.replay.predictionBytes, c, sizeof( c ) );
     snprintf( text, sizeof( text ), "P %s  S %s  Pred %s", a, b, c );
-    draw.Text( subX, row0 + 18.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
+    draw.Text( subX, row0 + 18.0f, 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b,
+               text );
 
     FormatMemoryMiB( memory.replay.pathAndCauseBytes, a, sizeof( a ) );
     FormatMemoryMiB( memory.replay.renderScratchBytes, b, sizeof( b ) );
     FormatMemoryMiB( memory.replay.trajectory.storeBytes, c, sizeof( c ) );
     snprintf( text, sizeof( text ), "Path %s  Scratch %s  Store %s", a, b, c );
-    draw.Text( subX, row0 + 32.0f, 8.1f, 0.44f, 0.56f, 0.60f, text );
+    draw.Text( subX, row0 + 32.0f, 8.1f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b,
+               text );
 
-    DrawMemoryRow( draw, x, row0 + 50.0f, labelW, "Objects", memory.gameObjects.totalBytes, 0.70f, 0.90f, 0.54f );
+    DrawMemoryRow( draw, x, row0 + 50.0f, labelW, "Objects", memory.gameObjects.totalBytes );
     const uint64_t gameObjectStoreBytes = memory.gameObjects.physicsStoreBytes + memory.gameObjects.colliderStoreBytes +
                                           memory.gameObjects.renderStoreBytes;
 
@@ -760,19 +776,22 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     FormatMemoryMiB( gameObjectStoreBytes, b, sizeof( b ) );
     FormatMemoryMiB( memory.gameObjects.physicsWorldBytes + memory.gameObjects.gameplayWorldBytes, c, sizeof( c ) );
     snprintf( text, sizeof( text ), "Models %s  Stores %s  Worlds %s", a, b, c );
-    draw.Text( subX, row0 + 50.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
+    draw.Text( subX, row0 + 50.0f, 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b,
+               text );
 
-    DrawMemoryRow( draw, x, row0 + 68.0f, labelW, "Unattrib", memory.unattributedProcessBytes, 0.82f, 0.74f, 0.55f );
+    DrawMemoryRow( draw, x, row0 + 68.0f, labelW, "Unattrib", memory.unattributedProcessBytes );
     FormatMemoryMiB( memory.trackedEngineBytes, a, sizeof( a ) );
     FormatMemoryMiB( memory.reconciledTotalBytes, b, sizeof( b ) );
     snprintf( text, sizeof( text ), "Tracked %s  Sum %s", a, b );
-    draw.Text( subX, row0 + 68.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
+    draw.Text( subX, row0 + 68.0f, 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b,
+               text );
 
     if ( memory.trackedOvershootBytes > 0 )
     {
         FormatMemoryMiB( memory.trackedOvershootBytes, a, sizeof( a ) );
         snprintf( text, sizeof( text ), "Tracked exceeds process by %s", a );
-        draw.Text( x, row0 + 92.0f, 9.2f, 0.95f, 0.58f, 0.38f, text );
+        draw.Text( x, row0 + 92.0f, 9.2f, tablePalette.warningAccent.r, tablePalette.warningAccent.g,
+                   tablePalette.warningAccent.b, text );
     }
     else
     {
@@ -820,7 +839,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
 
     snprintf( text, sizeof( text ), "traj seg e/d  %s  %s  %s  %s", pastPair, futurePair, childInPair, childOutPair );
-    draw.Text( x, row0 + 112.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+    draw.Text( x, row0 + 112.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
     char retainedPair[40] = {};
     char baselinePair[40] = {};
@@ -842,7 +861,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
 
     snprintf( text, sizeof( text ), "%s  %s  %s  %s", retainedPair, baselinePair, markerPair, auxiliaryPair );
-    draw.Text( x, row0 + 126.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+    draw.Text( x, row0 + 126.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
     snprintf( text, sizeof( text ), "traj store rec %llu  pts %llu/%llu  ver max %u churn %llu",
               static_cast<unsigned long long>( memory.replay.trajectory.recordCount ),
@@ -851,7 +870,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
               memory.replay.trajectory.maxRecordVersion,
               static_cast<unsigned long long>( memory.replay.trajectory.versionChurn ) );
 
-    draw.Text( x, row0 + 140.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+    draw.Text( x, row0 + 140.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
     snprintf( text, sizeof( text ), "budget begin %llu step %llu tree %llu retained %llu rebuild d/a %llu/%llu",
               static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
@@ -867,7 +886,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
               static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>(
                   SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )] ) );
 
-    draw.Text( x, row0 + 154.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
+    draw.Text( x, row0 + 154.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
     // Why: the category rows make memory-model tradeoffs visible during manual
     // replay repros without opening the full JSON dump.
@@ -888,7 +907,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                      d, sizeof( d ) );
 
     snprintf( text, sizeof( text ), "cat bodies p %s  s %s  pred %s  load %s", a, b, c, d );
-    draw.Text( x, row0 + 168.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+    draw.Text( x, row0 + 168.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
     FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
                                                   SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState ),
@@ -907,7 +926,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                      d, sizeof( d ) );
 
     snprintf( text, sizeof( text ), "cat state sw %s  pw %s  eng %s  tree %s", a, b, c, d );
-    draw.Text( x, row0 + 182.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+    draw.Text( x, row0 + 182.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
     const uint64_t recordBytes = ReplayMemoryCategoryCounter( memory.replay,
                                                               SkullbonezCore::Core::MainMemoryReplayByteCategory::
@@ -943,7 +962,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                      d, sizeof( d ) );
 
     snprintf( text, sizeof( text ), "cat records %s  check %s  scratch %s  events %s", a, b, c, d );
-    draw.Text( x, row0 + 196.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+    draw.Text( x, row0 + 196.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
     const uint64_t
         visualPathBytes = ReplayMemoryCategoryCounter( memory.replay,
@@ -969,7 +988,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
 
     FormatMemoryMiB( launcherVisualBytes, d, sizeof( d ) );
     snprintf( text, sizeof( text ), "cat visual path %s  cause %s  ghost %s  launch %s", a, b, c, d );
-    draw.Text( x, row0 + 210.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+    draw.Text( x, row0 + 210.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
     FormatMemoryMiB( memory.replay.predictionEvidence.currentCapacityBytes, a, sizeof( a ) );
     FormatMemoryMiB( memory.replay.predictionEvidence.lifetimePeakCapacityBytes, b, sizeof( b ) );
@@ -982,7 +1001,8 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     FormatMemoryMiB( buildEvidenceBytes, c, sizeof( c ) );
     FormatMemoryMiB( committedEvidenceBytes, d, sizeof( d ) );
     snprintf( text, sizeof( text ), "pred evidence current %s  peak %s  build %s  committed %s", a, b, c, d );
-    draw.Text( x, row0 + 224.0f, 8.0f, 0.58f, 0.72f, 0.68f, text );
+    draw.Text( x, row0 + 224.0f, 8.0f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, text );
 
     // Concept: upload rows separate the fixed arena waterline from the caller
     // category that consumed it, so a texture-load spike is not mistaken for a
@@ -995,7 +1015,8 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
               static_cast<unsigned long long>( render.uploadFlushCount ),
               static_cast<unsigned long long>( render.uploadDropCount ) );
 
-    draw.Text( x, row0 + 242.0f, 8.0f, 0.54f, 0.72f, 0.74f, text );
+    draw.Text( x, row0 + 242.0f, 8.0f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, text );
 
     FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
                          SkullbonezCore::UI::UIRenderUploadCategory::Constants )],
@@ -1010,7 +1031,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                      c, sizeof( c ) );
 
     snprintf( text, sizeof( text ), "upload peak const %s  dynamic %s  instance %s", a, b, c );
-    draw.Text( x, row0 + 256.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
+    draw.Text( x, row0 + 256.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 
     FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
                          SkullbonezCore::UI::UIRenderUploadCategory::TextureRows )],
@@ -1021,7 +1042,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                      b, sizeof( b ) );
 
     snprintf( text, sizeof( text ), "upload peak texture %s  debug/prediction %s", a, b );
-    draw.Text( x, row0 + 270.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
+    draw.Text( x, row0 + 270.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g, tablePalette.textMuted.b, text );
 }
 
 float CapacityTableHeight( const SkullbonezCore::UI::UIMemoryTabFrameView& data )
@@ -1084,7 +1105,8 @@ void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
     const float visibleTableTop = (std::max)( tableY, contentY );
     const float visibleTableBottom = (std::min)( tableY + tableH, contentY + contentH );
     FormatMemoryMiB( totalResidentBytes, totalResident, sizeof( totalResident ) );
-    draw.Rect( tableX, visibleTableTop, tableW, visibleTableBottom - visibleTableTop, 0.018f, 0.030f, 0.038f, 0.58f );
+    draw.Rect( tableX, visibleTableTop, tableW, visibleTableBottom - visibleTableTop, tablePalette.windowSubtle.r,
+               tablePalette.windowSubtle.g, tablePalette.windowSubtle.b, 1.0f );
 
     if ( tableY >= contentY && tableY + 28.0f <= contentY + contentH )
     {
@@ -1092,7 +1114,8 @@ void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
                    palette.textSecondary.b, "Store Capacity" );
 
         snprintf( text, sizeof( text ), "%d owners  %s resident", rowCount, totalResident );
-        draw.Text( tableX + tableW - 180.0f, tableY + 10.0f, 8.4f, 0.54f, 0.66f, 0.70f, text );
+        draw.Text( tableX + tableW - 180.0f, tableY + 10.0f, 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+                   tablePalette.textMuted.b, text );
     }
 
     const float ownerX = tableX + 14.0f;
@@ -1106,15 +1129,24 @@ void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
 
     if ( headerY >= contentY && headerY + 21.0f <= contentY + contentH )
     {
-        draw.Rect( tableX, headerY + 20.0f, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
-        draw.Text( ownerX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Owner" );
-        draw.Text( subsystemX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "System" );
-        draw.Text( elementX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Elem" );
-        draw.Text( capacityX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Cap" );
-        draw.Text( liveX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Live" );
-        draw.Text( peakX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Peak" );
-        draw.Text( utilisationX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Use" );
-        draw.Text( residentX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Resident" );
+        draw.Rect( tableX, headerY + 20.0f, tableW, 1.0f, tablePalette.lineSoft.r, tablePalette.lineSoft.g,
+                   tablePalette.lineSoft.b, 0.45f );
+        draw.Text( ownerX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Owner" );
+        draw.Text( subsystemX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "System" );
+        draw.Text( elementX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Elem" );
+        draw.Text( capacityX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Cap" );
+        draw.Text( liveX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Live" );
+        draw.Text( peakX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Peak" );
+        draw.Text( utilisationX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Use" );
+        draw.Text( residentX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Resident" );
     }
 
     for ( int index = 0; index < rowCount; ++index )
@@ -1145,16 +1177,25 @@ void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
 
         snprintf( utilisation, sizeof( utilisation ), "%.1f%%", peakUtilisation );
         FormatAllocationBytes( row.residentBytes, resident, sizeof( resident ) );
-        draw.Rect( tableX, rowY + MEMORY_CAPACITY_ROW_H - 1.0f, tableW, 1.0f, 0.16f, 0.26f, 0.30f, 0.30f );
-        draw.Text( ownerX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, owner );
-        draw.Text( subsystemX, rowY + 5.0f, 8.2f, 0.58f, 0.68f, 0.72f, row.subsystemName );
+        draw.Rect( tableX, rowY + MEMORY_CAPACITY_ROW_H - 1.0f, tableW, 1.0f, tablePalette.lineSoft.r,
+                   tablePalette.lineSoft.g, tablePalette.lineSoft.b, 0.30f );
+        draw.Text( ownerX, rowY + 5.0f, 8.2f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+                   tablePalette.textPrimary.b, owner );
+        draw.Text( subsystemX, rowY + 5.0f, 8.2f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, row.subsystemName );
 
-        draw.Text( elementX, rowY + 5.0f, 8.2f, 0.58f, 0.68f, 0.72f, element );
-        draw.Text( capacityX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, capacity );
-        draw.Text( liveX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, live );
-        draw.Text( peakX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, peak );
-        draw.Text( utilisationX, rowY + 5.0f, 8.2f, 0.42f, 0.86f, 0.94f, utilisation );
-        draw.Text( residentX, rowY + 5.0f, 8.2f, 0.58f, 0.68f, 0.72f, resident );
+        draw.Text( elementX, rowY + 5.0f, 8.2f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, element );
+        draw.Text( capacityX, rowY + 5.0f, 8.2f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+                   tablePalette.textPrimary.b, capacity );
+        draw.Text( liveX, rowY + 5.0f, 8.2f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+                   tablePalette.textPrimary.b, live );
+        draw.Text( peakX, rowY + 5.0f, 8.2f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+                   tablePalette.textPrimary.b, peak );
+        draw.Text( utilisationX, rowY + 5.0f, 8.2f, tablePalette.accentStrong.r, tablePalette.accentStrong.g,
+                   tablePalette.accentStrong.b, utilisation );
+        draw.Text( residentX, rowY + 5.0f, 8.2f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, resident );
     }
 }
 
@@ -1178,8 +1219,10 @@ void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
     const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
     char text[160] = {};
 
-    draw.Rect( tableX, tableY, tableW, tableH, 0.018f, 0.030f, 0.038f, 0.58f );
-    draw.Outline( tableX, tableY, tableW, tableH, 0.18f, 0.30f, 0.34f, 0.62f );
+    draw.Rect( tableX, tableY, tableW, tableH, tablePalette.windowSubtle.r, tablePalette.windowSubtle.g,
+               tablePalette.windowSubtle.b, 1.0f );
+    draw.Outline( tableX, tableY, tableW, tableH, tablePalette.border.r, tablePalette.border.g, tablePalette.border.b,
+                  0.62f );
     draw.Text( tableX + 14.0f, tableY + 9.0f, 10.4f, palette.textSecondary.r, palette.textSecondary.g,
                palette.textSecondary.b, "Reserve Growth" );
 
@@ -1187,19 +1230,26 @@ void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
               static_cast<unsigned long long>( data.reserveGrowthEventTotalCount ), eventCount,
               static_cast<unsigned long long>( data.reserveGrowthEventDroppedCount ) );
 
-    draw.Text( tableX + tableW - 196.0f, tableY + 10.0f, 8.4f, 0.54f, 0.66f, 0.70f, text );
+    draw.Text( tableX + tableW - 196.0f, tableY + 10.0f, 8.4f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+               tablePalette.textMuted.b, text );
 
     const float frameX = tableX + 14.0f;
     const float targetX = tableX + 74.0f;
     const float allocX = tableX + tableW * 0.52f;
     const float capX = tableX + tableW * 0.66f;
     const float statusX = tableX + tableW - 88.0f;
-    draw.Rect( tableX, headerY + 20.0f, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
-    draw.Text( frameX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Frame" );
-    draw.Text( targetX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Struct" );
-    draw.Text( allocX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Alloc" );
-    draw.Text( capX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Capacity" );
-    draw.Text( statusX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Status" );
+    draw.Rect( tableX, headerY + 20.0f, tableW, 1.0f, tablePalette.lineSoft.r, tablePalette.lineSoft.g,
+               tablePalette.lineSoft.b, 0.45f );
+    draw.Text( frameX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, "Frame" );
+    draw.Text( targetX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, "Struct" );
+    draw.Text( allocX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, "Alloc" );
+    draw.Text( capX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g, tablePalette.textSecondary.b,
+               "Capacity" );
+    draw.Text( statusX, headerY, 8.8f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, "Status" );
 
     for ( int i = 0; i < eventCount; ++i )
     {
@@ -1226,11 +1276,16 @@ void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
         const float statusR = event.granted ? 0.42f : 0.95f;
         const float statusG = event.granted ? 0.86f : 0.58f;
         const float statusB = event.granted ? 0.94f : 0.38f;
-        draw.Rect( tableX, rowY + MEMORY_EVENT_ROW_H - 1.0f, tableW, 1.0f, 0.16f, 0.26f, 0.30f, 0.30f );
-        draw.Text( frameX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, frame );
-        draw.Text( targetX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, target );
-        draw.Text( allocX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, bytes );
-        draw.Text( capX, rowY + 5.0f, 8.2f, 0.58f, 0.68f, 0.72f, capacity );
+        draw.Rect( tableX, rowY + MEMORY_EVENT_ROW_H - 1.0f, tableW, 1.0f, tablePalette.lineSoft.r, tablePalette.lineSoft.g,
+                   tablePalette.lineSoft.b, 0.30f );
+        draw.Text( frameX, rowY + 5.0f, 8.2f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+                   tablePalette.textPrimary.b, frame );
+        draw.Text( targetX, rowY + 5.0f, 8.2f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+                   tablePalette.textPrimary.b, target );
+        draw.Text( allocX, rowY + 5.0f, 8.2f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+                   tablePalette.textPrimary.b, bytes );
+        draw.Text( capX, rowY + 5.0f, 8.2f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, capacity );
         draw.Text( statusX, rowY + 5.0f, 8.2f, statusR, statusG, statusB, event.granted ? "OK" : "DENY" );
     }
 }
@@ -1334,11 +1389,13 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
 
     if ( !docked )
     {
-        draw.Text( panel.x + 70.0f, panel.y + 9.0f, 9.0f, 0.54f, 0.66f, 0.70f, "F6 waterline" );
+        draw.Text( panel.x + 70.0f, panel.y + 9.0f, 9.0f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+                   tablePalette.textMuted.b, "F6 waterline" );
     }
     const bool narrowHeader = docked && panel.w < 260.0f;
     draw.Text( narrowHeader ? panel.x + 10.0f : panel.x + panel.w - ( docked ? 158.0f : 112.0f ),
-               panel.y + ( narrowHeader ? 24.0f : 8.0f ), 10.0f, 0.82f, 0.96f, 0.92f, totalText );
+               panel.y + ( narrowHeader ? 24.0f : 8.0f ), 10.0f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+               tablePalette.textPrimary.b, totalText );
 
     draw.Rect( plot.x, plot.y, plot.w, plot.h, palette.window.r, palette.window.g, palette.window.b, 0.58f );
     draw.Rect( plot.x, plot.y, plot.w, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.20f );
@@ -1350,9 +1407,11 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     if ( !shortPanel )
     {
         FormatMemoryMiB( state.axisMaxBytes, axisText, sizeof( axisText ) );
-        draw.Text( panel.x + 9.0f, plot.y - 1.0f, 8.2f, 0.52f, 0.64f, 0.68f, axisText );
+        draw.Text( panel.x + 9.0f, plot.y - 1.0f, 8.2f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+                   tablePalette.textMuted.b, axisText );
         FormatMemoryMiB( state.axisMinBytes, axisText, sizeof( axisText ) );
-        draw.Text( panel.x + 9.0f, plot.y + plot.h - 9.0f, 8.2f, 0.52f, 0.64f, 0.68f, axisText );
+        draw.Text( panel.x + 9.0f, plot.y + plot.h - 9.0f, 8.2f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+                   tablePalette.textMuted.b, axisText );
     }
     const float totalY = MemoryOverlayYForBytes( state, plot, totalBytes );
     draw.Rect( plot.x, totalY, plot.w, plot.y + plot.h - totalY, 0.17f, 0.45f, 0.48f, 0.18f );
@@ -1380,24 +1439,27 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
 
         if ( previousValid )
         {
-            DrawMemoryOverlayLineSegment( draw, previousX, previousY, x, y, 2.0f, 0.42f, 0.88f, 0.84f, 0.88f );
+            DrawMemoryOverlayLineSegment( draw, previousX, previousY, x, y, 2.0f, tablePalette.accentStrong.r,
+                                          tablePalette.accentStrong.g, tablePalette.accentStrong.b, 0.88f );
         }
 
-        draw.Rect( x - 1.0f, y - 1.0f, 2.0f, 2.0f, 0.42f, 0.88f, 0.84f, 0.82f );
+        draw.Rect( x - 1.0f, y - 1.0f, 2.0f, 2.0f, tablePalette.accentStrong.r, tablePalette.accentStrong.g,
+                   tablePalette.accentStrong.b, 0.82f );
         previousX = x;
         previousY = y;
         previousValid = true;
     }
 
-    draw.RoundedRect( eventRail.x, eventRail.y, eventRail.w, eventRail.h, Style::Radii().control, 0.02f, 0.036f, 0.044f,
-                      0.70f );
+    draw.RoundedRect( eventRail.x, eventRail.y, eventRail.w, eventRail.h, Style::Radii().control,
+                      tablePalette.windowRaised.r, tablePalette.windowRaised.g, tablePalette.windowRaised.b, 0.70f );
 
     draw.Outline( eventRail.x, eventRail.y, eventRail.w, eventRail.h, palette.innerBorder.r, palette.innerBorder.g,
                   palette.innerBorder.b, 0.52f );
 
     if ( !shortPanel )
     {
-        draw.Text( eventRail.x + 6.0f, eventRail.y + 5.0f, 8.2f, 0.58f, 0.70f, 0.74f, "Events" );
+        draw.Text( eventRail.x + 6.0f, eventRail.y + 5.0f, 8.2f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Events" );
     }
     int retainedCount = 0;
 
@@ -1448,7 +1510,8 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
     snprintf( text, sizeof( text ), "tracked %s   pins %d/%llu", trackedText, retainedCount,
               static_cast<unsigned long long>( data.reserveGrowthEventTotalCount ) );
 
-    draw.Text( panel.x + 10.0f, panel.y + panel.h - 42.0f, 8.6f, 0.52f, 0.64f, 0.68f, text );
+    draw.Text( panel.x + 10.0f, panel.y + panel.h - 42.0f, 8.6f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+               tablePalette.textMuted.b, text );
 
     const MemoryOverlayPinnedEvent* newest = NewestPinnedEvent( state );
 
@@ -1461,14 +1524,15 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
         CopyShortLabel( newest->event.targetName, target, sizeof( target ) );
         FormatAllocationBytes( newest->event.bytes, bytes, sizeof( bytes ) );
         snprintf( text, sizeof( text ), "%s %s  %s", newest->event.granted ? "+" : "DENY", bytes, target );
-        const float r = newest->event.granted ? 0.42f : 0.96f;
-        const float g = newest->event.granted ? 0.86f : 0.32f;
-        const float b = newest->event.granted ? 0.94f : 0.24f;
+        const float r = newest->event.granted ? palette.accentStrong.r : palette.warningAccent.r;
+        const float g = newest->event.granted ? palette.accentStrong.g : palette.warningAccent.g;
+        const float b = newest->event.granted ? palette.accentStrong.b : palette.warningAccent.b;
         draw.Text( panel.x + 10.0f, panel.y + panel.h - 24.0f, 9.2f, r, g, b, text );
     }
     else
     {
-        draw.Text( panel.x + 10.0f, panel.y + panel.h - 24.0f, 9.2f, 0.46f, 0.58f, 0.62f, "no allocator growth events" );
+        draw.Text( panel.x + 10.0f, panel.y + panel.h - 24.0f, 9.2f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+                   tablePalette.textMuted.b, "no allocator growth events" );
     }
 
     if ( state.retainedOverflowEventCount > 0u )
@@ -1476,7 +1540,8 @@ void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const 
         snprintf( text, sizeof( text ), "+%llu coalesced",
                   static_cast<unsigned long long>( state.retainedOverflowEventCount ) );
 
-        draw.Text( panel.x + panel.w - 92.0f, panel.y + panel.h - 24.0f, 8.2f, 0.90f, 0.62f, 0.38f, text );
+        draw.Text( panel.x + panel.w - 92.0f, panel.y + panel.h - 24.0f, 8.2f, tablePalette.warningAccent.r,
+                   tablePalette.warningAccent.g, tablePalette.warningAccent.b, text );
     }
     if ( docked )
     {

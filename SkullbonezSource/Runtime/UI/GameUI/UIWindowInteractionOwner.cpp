@@ -1879,6 +1879,8 @@ bool UIWindowInteractionOwner::HandleDiagnosticTabPress( const InputControl::UII
             result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
         }
 
+        m_presentation.preferences.theme = Style::CurrentTheme();
+
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         CinematicTab::CloseCombo( m_cinematicTab );

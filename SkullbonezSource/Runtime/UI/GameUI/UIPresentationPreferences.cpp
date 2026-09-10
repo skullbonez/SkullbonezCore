@@ -55,8 +55,22 @@ GameLayout::PresentationPreferences ReadPreferences( const char* path )
                                  &version, &layout, &preferences.leftWidth, &preferences.rightWidth,
                                  &preferences.drawerHeight, &preferences.diagnosticsHeight, &preferences.foldedSections,
                                  &preferences.lastTool, &leftFolded, &rightFolded, &consumed );
+    // Version 1 predates themes. Preserve its layout and migrate to Blue.
+    if ( complete && fields == 10 && version == GameLayout::PresentationPreferences::VERSION )
+    {
+        int theme = 0, themeBytes = 0;
+        if ( sscanf_s( bytes + consumed, "theme %d %n", &theme, &themeBytes ) != 1 ||
+             consumed + themeBytes != static_cast<int>( count ) )
+        {
+            return {};
+        }
+        preferences.theme = theme >= 0 && theme < static_cast<int>( Style::Theme::Count )
+                                ? static_cast<Style::Theme>( theme )
+                                : Style::Theme::Blue;
+        consumed += themeBytes;
+    }
     if ( !complete || fields != 10 || consumed != static_cast<int>( count ) ||
-         version != GameLayout::PresentationPreferences::VERSION )
+         ( version != 1 && version != GameLayout::PresentationPreferences::VERSION ) )
     {
         return {};
     }
@@ -94,6 +108,7 @@ void InGameUI::LoadPresentationPreferences()
         return;
     }
     m_windowInteraction.m_presentation.preferences = ReadPreferences( m_layoutPreferencesPath );
+    Style::SelectTheme( m_windowInteraction.m_presentation.preferences.theme );
     SetActiveTab( static_cast<InGameUITab>( m_windowInteraction.m_presentation.preferences.lastTool ) );
     SetMinimized( true );
 }
@@ -108,11 +123,12 @@ void InGameUI::SavePresentationPreferences( SkullbonezCore::Core::SbDiagnosticSt
     char bytes[512] {};
     const int count = std::snprintf( bytes, sizeof( bytes ),
                                      "version %u\nlayout %d\nleft %.9g\nright %.9g\ndrawer %.9g\ndiagnostics %.9g\nfolded "
-                                     "%u\ntool %d\nleftFolded %d\nrightFolded %d\n",
+                                     "%u\ntool %d\nleftFolded %d\nrightFolded %d\ntheme %d\n",
                                      GameLayout::PresentationPreferences::VERSION, static_cast<int>( preferences.layout ),
                                      preferences.leftWidth, preferences.rightWidth, preferences.drawerHeight,
                                      preferences.diagnosticsHeight, preferences.foldedSections, preferences.lastTool,
-                                     preferences.leftFolded ? 1 : 0, preferences.rightFolded ? 1 : 0 );
+                                     preferences.leftFolded ? 1 : 0, preferences.rightFolded ? 1 : 0,
+                                     static_cast<int>( Style::CurrentTheme() ) );
     if ( count <= 0 || count >= static_cast<int>( sizeof( bytes ) ) )
     {
         return;

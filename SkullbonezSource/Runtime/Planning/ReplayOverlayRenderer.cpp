@@ -66,10 +66,10 @@ namespace
 {
 // Concept: the scientific inspector uses one deliberately restrained colour
 // system. Evidence families keep their colour across the hierarchy and drawer,
-// while navy surfaces preserve contrast over a bright simulation viewport.
+// while surfaces and selection follow the shared theme.
 const UI::Style::UIColor& CAUSE_NAVY = UI::Style::Palette().window;
 const UI::Style::UIColor& CAUSE_NAVY_ALT = UI::Style::Palette().windowSubtle;
-constexpr UI::Style::UIColor CAUSE_SELECTED { 0.0f, 0.1922f, 0.3373f, 0.98f };
+const UI::Style::UIColor& CAUSE_SELECTED = UI::Style::Palette().selection;
 constexpr UI::Style::UIColor CAUSE_RULE { 0.0f, 0.6431f, 0.9255f, 1.0f };
 constexpr UI::Style::UIColor CAUSE_PREDICTION { 0.6510f, 0.8078f, 0.4824f, 1.0f };
 constexpr UI::Style::UIColor CAUSE_MANIFOLD { 0.1294f, 0.6941f, 0.8275f, 1.0f };

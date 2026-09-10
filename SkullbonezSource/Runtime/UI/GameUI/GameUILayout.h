@@ -19,6 +19,7 @@ Related:
 #pragma once
 
 #include "../../../UI/UIDraw.h"
+#include "../../../UI/UIStyle.h"
 
 #include <cstdint>
 #include <array>
@@ -43,8 +44,9 @@ enum class Workspace : uint8_t
 // simulation clock, comparison recording, or functional editor mode.
 struct PresentationPreferences
 {
-    static constexpr uint32_t VERSION = 1;
+    static constexpr uint32_t VERSION = 2;
     LayoutMode layout = LayoutMode::Canvas;
+    Style::Theme theme = Style::Theme::Blue;
     float leftWidth = 280.0f;
     float rightWidth = 360.0f;
     float drawerHeight = 360.0f;

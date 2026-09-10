@@ -306,7 +306,7 @@ void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* la
                                                : WithAlpha( palette.windowSubtle, 0.58f );
         const Style::UIColor switchFill = enabled && checked ? accent : offFill;
         const Style::UIColor border = enabled ? palette.border : ControlBorder( state );
-        const Style::UIColor knob = enabled && checked ? palette.accentStrong : palette.textMuted;
+        const Style::UIColor knob = enabled && checked ? palette.toggleKnob : palette.textMuted;
 
         draw.Text( labelX, bounds.y + 4.0f, footer.labelTextSize, labelColor.r, labelColor.g, labelColor.b,
                    SafeText( label ) );
@@ -338,7 +338,7 @@ void DrawToggle( const UIDrawContext& draw, const UIRect& bounds, const char* la
     }
 
     const Style::UIColor knobFill = !IsEnabled( state ) ? palette.textMuted
-                                    : checked           ? palette.accentStrong
+                                    : checked           ? palette.toggleKnob
                                                         : palette.textMuted;
     const float knobSize = 10.0f;
     const float knobX = switchX + ( checked ? control.switchW - knobSize - 3.0f : 3.0f );

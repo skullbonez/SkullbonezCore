@@ -402,6 +402,7 @@ struct SkarnessFrameState
         bool editorPopupOpen = false;
         bool toolsVisible = false;
         int activeTool = 1;
+        int theme = 0;
         bool markerHistoryVisible = false;
         bool memoryWaterlineVisible = false;
         int markerSamples = 0;

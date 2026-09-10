@@ -15,8 +15,10 @@ using Math::Transformation::Matrix4;
 using Math::Vector::Vector3;
 namespace
 {
-constexpr UI::Style::UIColor ink { 0.88f, 0.93f, 1, 1 }, muted { 0.56f, 0.65f, 0.75f, 1 };
-constexpr UI::Style::UIColor cyan { 0.16f, 0.86f, 1, 1 }, coral { 1, 0.49f, 0.36f, 1 };
+const UI::Style::UIColor& ink = UI::Style::Palette().textPrimary;
+const UI::Style::UIColor& muted = UI::Style::Palette().textMuted;
+const UI::Style::UIColor& cyan = UI::Style::Palette().accentStrong;
+const UI::Style::UIColor& coral = UI::Style::Palette().warningAccent;
 constexpr const char* comparisonOptions[] = { "Ragdoll & Wall: FP6 vs FP7",
                                               "Wall Only - Post-Ragdoll Velocity: FP6 vs FP7" };
 int SelectedSolverLab( const PhysicsComparison& comparison )
@@ -538,7 +540,7 @@ const UI::UIDrawList& PhysicsComparisonPanel::Compose( const PhysicsComparison& 
     }
     m_draw.Clear();
     m_buttonCount = 0;
-    m_draw.AddRect( { 0, 0, static_cast<float>( width ), 82 }, { 0.035f, 0.055f, 0.08f, 1 } );
+    m_draw.AddRect( { 0, 0, static_cast<float>( width ), 82 }, UI::Style::Palette().window );
     m_draw.AddText( { 16, 12 }, 20, ink, "Solver Lab" );
     ButtonAt( { 172, 7, 72, 30 }, "Open", 1 );
     ButtonAt( { 252, 7, 80, 30 }, "Finding", 4 );
@@ -561,7 +563,7 @@ const UI::UIDrawList& PhysicsComparisonPanel::Compose( const PhysicsComparison& 
     m_sidebar = { static_cast<float>( (std::max)( 0, width - 390 ) ), 82, 390,
                   static_cast<float>( (std::max)( 1, height - 139 ) ) };
     const float x = m_sidebar.x + 12;
-    m_draw.AddRect( m_sidebar, { 0.045f, 0.065f, 0.09f, 1 } );
+    m_draw.AddRect( m_sidebar, UI::Style::Palette().window );
     ButtonAt( { x, 92, 170, 29 }, "Selected objects", 6, comparison.Settings().selectedOnly );
     ButtonAt( { x + 178, 92, 174, 29 }, "All differences", 7, !comparison.Settings().selectedOnly );
     ButtonAt( { x, 129, 120, 29 }, "Differences only", 8, comparison.Settings().differencesOnly );
@@ -622,7 +624,7 @@ const UI::UIDrawList& PhysicsComparisonPanel::Compose( const PhysicsComparison& 
                                                                                 : "not recorded" );
     m_draw.AddText( { 16, 111 }, 12, muted, text );
     const float bottom = static_cast<float>( height - 57 );
-    m_draw.AddRect( { 0, bottom, static_cast<float>( width ), 57 }, { 0.035f, 0.055f, 0.08f, 1 } );
+    m_draw.AddRect( { 0, bottom, static_cast<float>( width ), 57 }, UI::Style::Palette().window );
     ButtonAt( { 12, bottom + 12, 45, 29 }, "<", 30 );
     ButtonAt( { 63, bottom + 12, 68, 29 }, "Reverse", 31 );
     ButtonAt( { 137, bottom + 12, 62, 29 }, comparison.Direction() ? "Pause" : "Play", 32 );

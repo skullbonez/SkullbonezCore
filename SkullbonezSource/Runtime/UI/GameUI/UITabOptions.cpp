@@ -32,6 +32,13 @@ using namespace SkullbonezCore::UI::Widgets;
 namespace
 {
 
+SkullbonezCore::UI::UIRect ThemeBounds( float contentX, float rowBase, float contentW, int index )
+{
+    const float count = static_cast<float>( SkullbonezCore::UI::Style::Theme::Count );
+    const float width = ( (std::min)( contentW, 420.0f ) - ( count - 1.0f ) * 6.0f ) / count;
+    return { contentX + index * ( width + 6.0f ), rowBase + 258.0f, width, 28.0f };
+}
+
 void SetToggleBounds( SkullbonezCore::UI::OptionsTab::UIOptionsTabState& state, int index, int row, int column, float col1,
                       float col2, float rowBase, float colW )
 {
@@ -66,7 +73,7 @@ namespace OptionsTab
 
 int ContentHeight()
 {
-    return 286;
+    return 346;
 }
 
 
@@ -82,6 +89,15 @@ void ResetPreviewState( UIOptionsTabState& state )
 bool HandleContentClick( UIOptionsTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                          float contentX, float rowBase, float contentW, int modelCapacity )
 {
+    for ( int index = 0; index < static_cast<int>( Style::Theme::Count ); ++index )
+    {
+        if ( ThemeBounds( contentX, rowBase, contentW, index ).Contains( mouseX, mouseY ) )
+        {
+            Style::SelectTheme( static_cast<Style::Theme>( index ) );
+            return false;
+        }
+    }
+
     const int modelMax = (std::max)( UI_MODEL_COUNT_MIN, modelCapacity );
     SetContentBounds( state, contentX, rowBase, contentW );
 
@@ -121,8 +137,9 @@ bool HandleContentClick( UIOptionsTabState& state, InGameUIInputResult& result, 
     else if ( state.modelCountSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_MODEL_COUNT;
-        state.previewModelCount = static_cast<int>( state.modelCountSlider.ValueFromMouse( mouseX, static_cast<float>( UI_MODEL_COUNT_MIN ),
-                                                                                           static_cast<float>( modelMax ), 1.0f ) );
+        state.previewModelCount = static_cast<int>(
+            state.modelCountSlider.ValueFromMouse( mouseX, static_cast<float>( UI_MODEL_COUNT_MIN ),
+                                                   static_cast<float>( modelMax ), 1.0f ) );
 
         return true;
     }
@@ -148,8 +165,9 @@ bool UpdateActiveSlider( UIOptionsTabState& state, int activeSlider, int mouseX,
     if ( activeSlider == SLIDER_MODEL_COUNT )
     {
         const int modelMax = (std::max)( UI_MODEL_COUNT_MIN, modelCapacity );
-        state.previewModelCount = static_cast<int>( state.modelCountSlider.ValueFromMouse( mouseX, static_cast<float>( UI_MODEL_COUNT_MIN ),
-                                                                                           static_cast<float>( modelMax ), 1.0f ) );
+        state.previewModelCount = static_cast<int>(
+            state.modelCountSlider.ValueFromMouse( mouseX, static_cast<float>( UI_MODEL_COUNT_MIN ),
+                                                   static_cast<float>( modelMax ), 1.0f ) );
 
         return true;
     }
@@ -215,7 +233,8 @@ void Draw( UIOptionsTabState& state, const UIDrawContext& draw, const UIOptionsT
     snprintf( buf, sizeof( buf ), "%s alpha %.3f%s", data.presentationInterpolation ? "on" : "off", data.presentationAlpha,
               data.presentationPinned ? " (capture pin)" : "" );
 
-    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 138.0f, "Presentation", buf, 0.62f, 0.86f, 0.78f );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 138.0f, "Presentation", buf,
+                      Style::Palette().textSecondary.r, Style::Palette().textSecondary.g, Style::Palette().textSecondary.b );
 
     snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
     state.timeScaleSlider.SetBounds( contentX, scrolledY + 168.0f, contentW, 34.0f );
@@ -232,6 +251,21 @@ void Draw( UIOptionsTabState& state, const UIDrawContext& draw, const UIOptionsT
     {
         state.modelCountSlider.Draw( draw, "Model count", buf, static_cast<float>( displayModelCount ),
                                      static_cast<float>( UI_MODEL_COUNT_MIN ), static_cast<float>( modelMax ) );
+    }
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 270.0f, 16.0f, "Appearance / Theme" );
+    for ( int index = 0; index < static_cast<int>( Style::Theme::Count ); ++index )
+    {
+        const auto theme = static_cast<Style::Theme>( index );
+        const auto bounds = ThemeBounds( contentX, scrolledY + 42.0f, contentW, index );
+        if ( IsRowVisible( contentY, contentH, bounds.y, bounds.h ) )
+        {
+            auto visual = UIVisualState::Visible | UIVisualState::Enabled;
+            if ( theme == Style::CurrentTheme() )
+            {
+                visual = visual | UIVisualState::Selected;
+            }
+            DrawButton( draw, bounds, Style::ThemeName( theme ), visual );
+        }
     }
 }
 

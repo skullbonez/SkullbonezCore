@@ -1352,18 +1352,19 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
     for ( int index = 0; index < 2; ++index )
     {
         const bool folded = index == 0 ? m_presentation.preferences.leftFolded : m_presentation.preferences.rightFolded;
-        draw.Text( folds[index].x + 7.0f, folds[index].y + 8.0f, 12.0f, 0.88f, 0.89f, 0.91f,
-                   ( folded == ( index == 0 ) ) ? ">" : "<" );
+        draw.Text( folds[index].x + 7.0f, folds[index].y + 8.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g,
+                   palette.textPrimary.b, ( folded == ( index == 0 ) ) ? ">" : "<" );
     }
     if ( m_presentationRects.right.w > 24.0f )
     {
-        draw.Text( m_presentationRects.right.x + 30.0f, m_presentationRects.right.y + 8.0f, 11.0f, 0.88f, 0.89f, 0.91f,
+        draw.Text( m_presentationRects.right.x + 30.0f, m_presentationRects.right.y + 8.0f, 11.0f, palette.textPrimary.r,
+                   palette.textPrimary.g, palette.textPrimary.b,
                    m_presentation.workspace == Workspace::SolverLab ? "Differences" : "Causes" );
     }
     if ( m_presentation.workspace == Workspace::SolverLab && m_presentationRects.left.w > 24.0f )
     {
-        draw.Text( m_presentationRects.left.x + 30.0f, m_presentationRects.left.y + 8.0f, 11.0f, 0.88f, 0.89f, 0.91f,
-                   "Controls" );
+        draw.Text( m_presentationRects.left.x + 30.0f, m_presentationRects.left.y + 8.0f, 11.0f, palette.textPrimary.r,
+                   palette.textPrimary.g, palette.textPrimary.b, "Controls" );
     }
     const UIRect& bounds = m_presentationRects.editorControls;
     if ( bounds.w > 0.0f )
@@ -1375,8 +1376,8 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
     }
     else if ( !m_presentation.editorReplay && m_presentation.editorInTools && m_presentationRects.left.w > 24.0f )
     {
-        draw.Text( m_presentationRects.left.x + 12.0f, m_presentationRects.left.y + 52.0f, 11.0f, 0.64f, 0.66f, 0.69f,
-                   "Editor controls are open in Tools." );
+        draw.Text( m_presentationRects.left.x + 12.0f, m_presentationRects.left.y + 52.0f, 11.0f, palette.textMuted.r,
+                   palette.textMuted.g, palette.textMuted.b, "Editor controls are open in Tools." );
     }
 }
 
@@ -1393,7 +1394,8 @@ void UIWindowInteractionOwner::DrawPresentedEditorPalette( const InGameUIFrameDa
     }
     const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
     draw.PushClip( layout.clip );
-    draw.Text( layout.bounds.x, layout.bounds.y - 24.0f, 12.0f, 0.78f, 0.80f, 0.83f, "Quick objects" );
+    draw.Text( layout.bounds.x, layout.bounds.y - 24.0f, 12.0f, Style::Palette().textSecondary.r,
+               Style::Palette().textSecondary.g, Style::Palette().textSecondary.b, "Quick objects" );
     draw.PopClip();
     DrawEditorMiniPalette( draw, layout, data.editor.editorObjectType, data.editor.editorPlaceStatic, m_mouseX, m_mouseY,
                            m_editorMiniPalettePressedTreePlacement, m_editorMiniPalettePressedHoldMode,
@@ -1481,12 +1483,14 @@ void UIWindowInteractionOwner::DrawToolsDrawerChrome( const UIDrawContext& draw,
     const ToolsChromeRects chrome = ComputeToolsChromeRects( bounds, true );
     const float logoY = bounds.y + ( chrome.compact ? 4.0f : 11.0f );
     DrawSkullLogo( draw, { bounds.x + 14.0f, logoY, 22.0f, 22.0f } );
-    draw.Text( bounds.x + 46.0f, logoY + 5.0f, 12.0f, 0.9f, 0.91f, 0.93f, "Tools" );
+    draw.Text( bounds.x + 46.0f, logoY + 5.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
+               "Tools" );
     draw.RoundedRect( bounds.x + bounds.w * 0.5f - 24.0f, bounds.y + 3.0f, 48.0f, 2.0f, 1.0f, 0.40f, 0.41f, 0.44f, 1.0f );
     const UIRect close = chrome.close;
     const auto& fill = close.Contains( m_mouseX, m_mouseY ) ? palette.controlHover : palette.control;
     draw.RoundedRect( close.x, close.y, close.w, close.h, 3.0f, fill.r, fill.g, fill.b, 1.0f );
-    draw.Text( close.x + 8.0f, close.y + 5.0f, 12.0f, 0.9f, 0.91f, 0.93f, "x" );
+    draw.Text( close.x + 8.0f, close.y + 5.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
+               "x" );
 }
 
 
@@ -1774,7 +1778,9 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
     cacheKey.scrollY = m_scrollY;
     cacheKey.blurEnabled = m_blurPreviewEnabled;
     cacheKey.contentSignature = BuildUIContentSignature( data );
-    cacheKey.styleSignature = HashBool( HashBool( 2166136261u, m_blurPreviewEnabled ), m_hitboxOverlayEnabled );
+    cacheKey.styleSignature = HashBool( HashBool( 2166136261u + static_cast<uint32_t>( Style::CurrentTheme() ),
+                                                  m_blurPreviewEnabled ),
+                                        m_hitboxOverlayEnabled );
 
     uint32_t openControls = 0u;
     openControls |= m_rendererCombo.IsOpen() ? UI_INTERACTION_RENDERER_OPEN : 0u;

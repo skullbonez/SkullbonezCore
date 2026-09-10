@@ -46,6 +46,7 @@ Related:
 #include "../SkullbonezSource/UI/UIDrawWidgets.h"
 
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -1217,11 +1218,11 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         InGameUITab::Sky,      InGameUITab::Cinematic, InGameUITab::Memory,
     };
     // Blue-gray mockup palette with selected-value clips that reserve combo arrows.
-    // All eleven Tools surfaces were inspected natively after the clipping change.
+    // Options adds themes; Profiler/Memory share table roles. Native evidence: ui-themes-final/live.
     constexpr uint64_t expected[] = {
-        12951241917103440499ull, 8999909969555097215ull,  16768119659391589123ull, 5029844691847507383ull,
-        2139391809763212955ull,  5478074610712965329ull,  6412084034923494129ull,  16903291462328685303ull,
-        17139239282114657199ull, 17717404666730030321ull, 7570436844653968720ull,
+        2132093253974716310ull,  8999909969555097215ull,  16768119659391589123ull, 5029844691847507383ull,
+        10394370338941968616ull, 5478074610712965329ull,  6412084034923494129ull,  16903291462328685303ull,
+        17139239282114657199ull, 17717404666730030321ull, 2685391709597859732ull,
     };
     static_assert( std::size( tabs ) == std::size( expected ) );
 
@@ -1567,4 +1568,66 @@ TEST_CASE( "Scene pause and single-step controls emit owner commands only when a
     input.mouseX = static_cast<int>( chrome.content.x + 40 );
     result = ui->UpdateInput( input, 1600, 900, 1.3, false, false, false, false, 0x7f );
     CHECK( result.commands.scene.toggleCrossScenePause );
+}
+
+
+namespace
+{
+float ThemeLuminance( const SkullbonezCore::UI::Style::UIColor& color )
+{
+    const auto linear = []( float channel )
+    { return channel <= .04045f ? channel / 12.92f : std::pow( ( channel + .055f ) / 1.055f, 2.4f ); };
+    return .2126f * linear( color.r ) + .7152f * linear( color.g ) + .0722f * linear( color.b );
+}
+float ThemeContrast( const SkullbonezCore::UI::Style::UIColor& foreground,
+                     const SkullbonezCore::UI::Style::UIColor& background )
+{
+    const float a = ThemeLuminance( foreground ), b = ThemeLuminance( background );
+    return ( (std::max)( a, b ) + .05f ) / ( (std::min)( a, b ) + .05f );
+}
+} // namespace
+
+TEST_CASE( "UI themes preserve role references and readable primary and secondary text" )
+{
+    using namespace SkullbonezCore::UI::Style;
+    const Theme original = CurrentTheme();
+    const auto& retained = Palette().textPrimary;
+    for ( int index = 0; index < static_cast<int>( Theme::Count ); ++index )
+    {
+        const auto theme = static_cast<Theme>( index );
+        SelectTheme( theme );
+        CHECK( CurrentTheme() == theme );
+        CHECK( retained.r == Palette( theme ).textPrimary.r );
+        CHECK( FooterToggle().label.r == Palette().textSecondary.r );
+        const auto& palette = Palette();
+        for ( const auto& background : { palette.window, palette.windowSubtle, palette.control, palette.selection } )
+        {
+            CHECK( ThemeContrast( palette.textPrimary, background ) >= 4.5f );
+            CHECK( ThemeContrast( palette.textSecondary, background ) >= 4.5f );
+        }
+    }
+    SelectTheme( static_cast<Theme>( 255 ) );
+    CHECK( CurrentTheme() == Theme::Blue );
+    SelectTheme( original );
+}
+
+TEST_CASE( "UI theme selection changes a cached Tools frame without changing content" )
+{
+    using namespace SkullbonezCore::UI;
+    const auto original = Style::CurrentTheme();
+    auto ui = std::make_unique<InGameUI>();
+    auto data = std::make_unique<InGameUIFrameData>();
+    data->surface.screenW = 1280;
+    data->surface.screenH = 900;
+    ui->SetVisible( true );
+    ui->SetWindowBounds( 50, 70, 760, 600 );
+    ui->SetActiveTab( InGameUITab::Options );
+    ui->SetMouseOverride( true, 12, 12 );
+    Style::SelectTheme( Style::Theme::Blue );
+    const auto blue = ui->Draw( *data ).Fingerprint();
+    Style::SelectTheme( Style::Theme::Light );
+    CHECK( ui->Draw( *data ).Fingerprint() != blue );
+    Style::SelectTheme( Style::Theme::Blue );
+    CHECK( ui->Draw( *data ).Fingerprint() == blue );
+    Style::SelectTheme( original );
 }

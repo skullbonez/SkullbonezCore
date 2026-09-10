@@ -1360,6 +1360,7 @@ void Run::PublishSkarnessFrameState()
                                                    std::end( rendering.cinematicParameters ) );
     state.presentation.cinematicFeatures.assign( std::begin( rendering.cinematicFeatures ),
                                                  std::end( rendering.cinematicFeatures ) );
+    state.presentation.theme = static_cast<int>( UI::Style::CurrentTheme() );
     state.presentation.toolsScroll = m_operatorUi->ToolsScroll();
     const UI::UIRect toolsContent = m_operatorUi->ToolsContentBounds();
     state.presentation.toolsContentBounds = { toolsContent.x, toolsContent.y, toolsContent.w, toolsContent.h };

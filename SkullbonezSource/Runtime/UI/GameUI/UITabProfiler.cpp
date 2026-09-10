@@ -38,6 +38,7 @@ Related:
 
 namespace
 {
+const auto& tablePalette = SkullbonezCore::UI::Style::Palette();
 
 constexpr float PROFILER_UI_TIMELINE_BUDGET_MS = 16.67f;
 constexpr float PROFILER_WORKER_BLOCK_H = 96.0f;
@@ -794,10 +795,13 @@ void DrawWorkerCoreChart( const UIDrawContext& draw, const FrameSnapshot& frame,
         return;
     }
 
-    draw.Rect( bounds.x, coreChartY, bounds.w, coreChartH, 0.014f, 0.024f, 0.031f, 0.64f );
-    draw.Rect( bounds.x, coreChartY + coreChartH - 1.0f, bounds.w, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
+    draw.Rect( bounds.x, coreChartY, bounds.w, coreChartH, tablePalette.windowSubtle.r, tablePalette.windowSubtle.g,
+               tablePalette.windowSubtle.b, 1.0f );
+    draw.Rect( bounds.x, coreChartY + coreChartH - 1.0f, bounds.w, 1.0f, tablePalette.lineSoft.r, tablePalette.lineSoft.g,
+               tablePalette.lineSoft.b, 0.45f );
     snprintf( buf, sizeof( buf ), "CPU Core Work (%d columns, 0.5s avg ms/frame)", chartCoreCount );
-    draw.Text( bounds.x + 18.0f, coreChartY + 10.0f, 10.0f, 0.78f, 0.88f, 0.91f, buf );
+    draw.Text( bounds.x + 18.0f, coreChartY + 10.0f, 10.0f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+               tablePalette.textPrimary.b, buf );
 
     if ( hottestCore >= 0 )
     {
@@ -809,20 +813,22 @@ void DrawWorkerCoreChart( const UIDrawContext& draw, const FrameSnapshot& frame,
         snprintf( buf, sizeof( buf ), "Scale %.2f ms/frame   total %.2f", coreAxisMs, totalCoreAvgMs );
     }
 
-    draw.Text( bounds.x + bounds.w * 0.73f - 88.0f, coreChartY + 10.0f, 10.0f, 0.68f, 0.78f, 0.82f, buf );
+    draw.Text( bounds.x + bounds.w * 0.73f - 88.0f, coreChartY + 10.0f, 10.0f, tablePalette.textSecondary.r,
+               tablePalette.textSecondary.g, tablePalette.textSecondary.b, buf );
 
     const float plotX = bounds.x + 18.0f;
     const float plotY = coreChartY + 36.0f;
     const float plotW = (std::max)( 10.0f, bounds.w - 36.0f );
     const float plotH = 76.0f;
     const float baselineY = plotY + plotH;
-    draw.Rect( plotX, plotY, plotW, plotH, 0.025f, 0.040f, 0.048f, 0.88f );
-    draw.Outline( plotX, plotY, plotW, plotH, 0.18f, 0.30f, 0.34f, 0.62f );
+    draw.Rect( plotX, plotY, plotW, plotH, tablePalette.window.r, tablePalette.window.g, tablePalette.window.b, 1.0f );
+    draw.Outline( plotX, plotY, plotW, plotH, tablePalette.border.r, tablePalette.border.g, tablePalette.border.b, 0.62f );
     draw.Rect( plotX, baselineY - 1.0f, plotW, 1.0f, 0.52f, 0.62f, 0.64f, 0.72f );
     draw.Rect( plotX, baselineY - plotH * ( PROFILER_CORE_CHART_AXIS_MIN_MS / coreAxisMs ), plotW, 1.0f, 0.38f, 0.50f, 0.52f,
                0.38f );
 
-    draw.Text( plotX + 4.0f, plotY + 3.0f, 8.0f, 0.45f, 0.56f, 0.59f, "0.50 ms/frame" );
+    draw.Text( plotX + 4.0f, plotY + 3.0f, 8.0f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+               tablePalette.textMuted.b, "0.50 ms/frame" );
 
     if ( chartCoreCount <= 0 )
     {
@@ -832,8 +838,8 @@ void DrawWorkerCoreChart( const UIDrawContext& draw, const FrameSnapshot& frame,
     {
         if ( coreSampleCount <= 0 )
         {
-            draw.Text( plotX + 10.0f, plotY + 24.0f, 10.0f, 0.76f, 0.84f, 0.86f,
-                       "No worker jobs in this 0.5s window (idle, threshold, or config)" );
+            draw.Text( plotX + 10.0f, plotY + 24.0f, 10.0f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                       tablePalette.textSecondary.b, "No worker jobs in this 0.5s window (idle, threshold, or config)" );
         }
 
         const float pitch = plotW / static_cast<float>( chartCoreCount );
@@ -856,7 +862,8 @@ void DrawWorkerCoreChart( const UIDrawContext& draw, const FrameSnapshot& frame,
             if ( pitch >= 18.0f )
             {
                 snprintf( buf, sizeof( buf ), "%d", coreIndex );
-                draw.Text( x, baselineY + 6.0f, 7.5f, 0.48f, 0.58f, 0.60f, buf );
+                draw.Text( x, baselineY + 6.0f, 7.5f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+                           tablePalette.textMuted.b, buf );
             }
 
             if ( ms > 0.0f )
@@ -871,7 +878,8 @@ void DrawWorkerCoreChart( const UIDrawContext& draw, const FrameSnapshot& frame,
 
                 if ( pitch >= 28.0f || labelX > lastValueLabelRight + 2.0f || ms >= PROFILER_CORE_CHART_AXIS_MIN_MS )
                 {
-                    draw.Text( labelX, labelY, 7.5f, 0.94f, 0.98f, 0.99f, buf );
+                    draw.Text( labelX, labelY, 7.5f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+                               tablePalette.textPrimary.b, buf );
                     lastValueLabelRight = labelX + 26.0f;
                 }
             }
@@ -925,21 +933,31 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
         }
     }
 
-    draw.Rect( tableX, tableY, tableW, tableH + 2.0f, 0.018f, 0.030f, 0.038f, 0.58f );
-    draw.Outline( tableX, tableY, tableW, tableH + 2.0f, 0.18f, 0.30f, 0.34f, 0.62f );
-    draw.Rect( tableX, tableY + headerH, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
-    draw.Text( colMarker, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Marker" );
-    draw.Text( colCpu, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "CPU" );
-    draw.Text( colSelf, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Self" );
+    draw.Rect( tableX, tableY, tableW, tableH + 2.0f, tablePalette.windowSubtle.r, tablePalette.windowSubtle.g,
+               tablePalette.windowSubtle.b, 1.0f );
+    draw.Outline( tableX, tableY, tableW, tableH + 2.0f, tablePalette.border.r, tablePalette.border.g, tablePalette.border.b,
+                  0.62f );
+    draw.Rect( tableX, tableY + headerH, tableW, 1.0f, tablePalette.lineSoft.r, tablePalette.lineSoft.g,
+               tablePalette.lineSoft.b, 0.45f );
+    draw.Text( colMarker, tableY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, "Marker" );
+    draw.Text( colCpu, tableY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, "CPU" );
+    draw.Text( colSelf, tableY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, "Self" );
 
     // Why: Work shares the histogram's other-cores blue so the aggregate line
     // and this per-marker breakdown read as the same quantity.
-    draw.Text( colWork, tableY + 10.0f, 10.5f, 0.42f, 0.83f, 1.00f, "Work" );
-    draw.Text( colP50, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P50" );
-    draw.Text( colP99, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P99" );
-    draw.Text( barX, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, state.timelineEnabled ? "Span" : "0 ms" );
-    draw.Text( barX + barW - 44.0f, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f,
-               state.timelineEnabled ? "Frame" : "16.67 ms" );
+    draw.Text( colWork, tableY + 10.0f, 10.5f, tablePalette.accentStrong.r, tablePalette.accentStrong.g,
+               tablePalette.accentStrong.b, "Work" );
+    draw.Text( colP50, tableY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, "P50" );
+    draw.Text( colP99, tableY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, "P99" );
+    draw.Text( barX, tableY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, state.timelineEnabled ? "Span" : "0 ms" );
+    draw.Text( barX + barW - 44.0f, tableY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+               tablePalette.textSecondary.b, state.timelineEnabled ? "Frame" : "16.67 ms" );
 
     // Invariant: scrolled rows and charts cannot paint over the fixed column headers.
     draw.PushClip( { tableX, tableY + headerH, tableW, (std::max)( 0.0f, tableH - headerH ) } );
@@ -959,16 +977,17 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
             return;
         }
 
-        const float r = marker.colorR;
-        const float g = marker.colorG;
-        const float b = marker.colorB;
+        const float r = marker.colorR * tablePalette.dataInkScale;
+        const float g = marker.colorG * tablePalette.dataInkScale;
+        const float b = marker.colorB * tablePalette.dataInkScale;
         const float indent = static_cast<float>( (std::min)( marker.depth, 8 ) ) * 18.0f;
         const float nameX = colMarker + indent;
         const float cpuMs = ProfilerMarkerDisplayCpuMs( marker );
         const float selfMs = ProfilerMarkerDisplaySelfMs( marker );
         const float p50Ms = marker.p50Ms > 0.0f ? marker.p50Ms : cpuMs;
         const float p99Ms = marker.p99Ms > 0.0f ? marker.p99Ms : cpuMs;
-        draw.Rect( tableX, rowY + rowH - 1.0f, tableW, 1.0f, 0.16f, 0.26f, 0.30f, 0.38f );
+        draw.Rect( tableX, rowY + rowH - 1.0f, tableW, 1.0f, tablePalette.lineSoft.r, tablePalette.lineSoft.g,
+                   tablePalette.lineSoft.b, 0.38f );
 
         if ( hasChildren )
         {
@@ -981,7 +1000,8 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
             draw.Rect( nameX + 3.0f, rowY + 12.0f, 8.0f, 8.0f, r, g, b, 0.94f );
         }
 
-        draw.Text( nameX + 22.0f, rowY + 8.0f, 12.0f, 0.92f, 0.96f, 0.97f, marker.leafName );
+        draw.Text( nameX + 22.0f, rowY + 8.0f, 12.0f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+                   tablePalette.textPrimary.b, marker.leafName );
         snprintf( buf, sizeof( buf ), "%.2f", cpuMs );
         draw.Text( colCpu, rowY + 8.0f, 11.5f, r, g, b, buf );
         snprintf( buf, sizeof( buf ), "%.2f", selfMs );
@@ -991,17 +1011,21 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
         if ( workerMs > 0.0f )
         {
             snprintf( buf, sizeof( buf ), "%.2f", workerMs );
-            draw.Text( colWork, rowY + 8.0f, 11.5f, 0.42f, 0.83f, 1.00f, buf );
+            draw.Text( colWork, rowY + 8.0f, 11.5f, tablePalette.accentStrong.r, tablePalette.accentStrong.g,
+                       tablePalette.accentStrong.b, buf );
         }
         else
         {
-            draw.Text( colWork, rowY + 8.0f, 11.5f, 0.42f, 0.48f, 0.52f, "-" );
+            draw.Text( colWork, rowY + 8.0f, 11.5f, tablePalette.textMuted.r, tablePalette.textMuted.g,
+                       tablePalette.textMuted.b, "-" );
         }
 
         snprintf( buf, sizeof( buf ), "%.2f", p50Ms );
-        draw.Text( colP50, rowY + 8.0f, 11.5f, 0.78f, 0.84f, 0.86f, buf );
+        draw.Text( colP50, rowY + 8.0f, 11.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, buf );
         snprintf( buf, sizeof( buf ), "%.2f", p99Ms );
-        draw.Text( colP99, rowY + 8.0f, 11.5f, 0.78f, 0.84f, 0.86f, buf );
+        draw.Text( colP99, rowY + 8.0f, 11.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, buf );
         draw.Rect( barX, rowY + 16.0f, barW, 1.0f, 0.46f, 0.56f, 0.60f, 0.86f );
         const float fill = std::clamp( cpuMs / 16.67f, 0.0f, 1.0f );
 
@@ -1051,14 +1075,20 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
     if ( drawSectionY + drawSectionH >= tableY && drawSectionY <= tableY + tableH )
     {
         draw.Rect( tableX, drawSectionY, tableW, drawSectionH, 0.018f, 0.030f, 0.038f, 0.52f );
-        draw.Outline( tableX, drawSectionY, tableW, drawSectionH, 0.18f, 0.30f, 0.34f, 0.52f );
-        draw.Rect( tableX, drawSectionY + drawHeaderH, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
+        draw.Outline( tableX, drawSectionY, tableW, drawSectionH, tablePalette.border.r, tablePalette.border.g,
+                      tablePalette.border.b, 0.52f );
+        draw.Rect( tableX, drawSectionY + drawHeaderH, tableW, 1.0f, tablePalette.lineSoft.r, tablePalette.lineSoft.g,
+                   tablePalette.lineSoft.b, 0.45f );
         const int totalDraws = drawSnapshot.nodeCount > 0 ? drawSnapshot.nodes[0].drawCallCount : 0;
         snprintf( buf, sizeof( buf ), "Draw Calls (%d)", totalDraws );
-        draw.Text( colScope, drawSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, buf );
-        draw.Text( colDraws, drawSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Draws" );
-        draw.Text( colInstances, drawSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Instances" );
-        draw.Text( colVertices, drawSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Vertices" );
+        draw.Text( colScope, drawSectionY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, buf );
+        draw.Text( colDraws, drawSectionY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Draws" );
+        draw.Text( colInstances, drawSectionY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Instances" );
+        draw.Text( colVertices, drawSectionY + 10.0f, 10.5f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, "Vertices" );
 
         if ( drawSnapshot.nodeOverflowCount > 0 || drawSnapshot.eventOverflowCount > 0 ||
              drawSnapshot.scopeMismatchCount > 0 )
@@ -1095,7 +1125,8 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
         const ProfilerUiColor& color = ProfilerPaletteColor( static_cast<int>( node.hash % PROFILER_UI_PALETTE_SIZE ) );
         const float indent = static_cast<float>( (std::min)( node.depth, 8 ) ) * 18.0f;
         const float nameX = colScope + indent;
-        draw.Rect( tableX, rowY + drawRowH - 1.0f, tableW, 1.0f, 0.16f, 0.26f, 0.30f, 0.34f );
+        draw.Rect( tableX, rowY + drawRowH - 1.0f, tableW, 1.0f, tablePalette.lineSoft.r, tablePalette.lineSoft.g,
+                   tablePalette.lineSoft.b, 0.34f );
 
         if ( hasChildren )
         {
@@ -1108,13 +1139,16 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfile
             draw.Rect( nameX + 3.0f, rowY + 10.0f, 8.0f, 8.0f, color.r, color.g, color.b, 0.94f );
         }
 
-        draw.Text( nameX + 22.0f, rowY + 6.0f, 11.5f, 0.92f, 0.96f, 0.97f, node.leafName ? node.leafName : "-" );
+        draw.Text( nameX + 22.0f, rowY + 6.0f, 11.5f, tablePalette.textPrimary.r, tablePalette.textPrimary.g,
+                   tablePalette.textPrimary.b, node.leafName ? node.leafName : "-" );
         snprintf( buf, sizeof( buf ), "%d", node.drawCallCount );
         draw.Text( colDraws, rowY + 6.0f, 11.0f, color.r, color.g, color.b, buf );
         snprintf( buf, sizeof( buf ), "%d", node.instanceCount );
-        draw.Text( colInstances, rowY + 6.0f, 11.0f, 0.78f, 0.84f, 0.86f, buf );
+        draw.Text( colInstances, rowY + 6.0f, 11.0f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, buf );
         snprintf( buf, sizeof( buf ), "%d", node.vertexCount );
-        draw.Text( colVertices, rowY + 6.0f, 11.0f, 0.78f, 0.84f, 0.86f, buf );
+        draw.Text( colVertices, rowY + 6.0f, 11.0f, tablePalette.textSecondary.r, tablePalette.textSecondary.g,
+                   tablePalette.textSecondary.b, buf );
     };
 
     for ( int visibleRow = 0; visibleRow < visibleDrawRowCount; ++visibleRow )

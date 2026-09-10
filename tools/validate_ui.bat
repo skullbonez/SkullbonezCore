@@ -121,6 +121,10 @@ echo Checking vertical dock tabs and upward Tools drawer dragging...
 "%PYTHON_EXE%" "%~dp0validate_docked_navigation.py" --session "%REPO%\TestOutput\skarness\docked-navigation-%RANDOM%"
 if errorlevel 1 exit /b 7
 
+echo Checking theme switching, contrast screenshots and saved preferences...
+"%PYTHON_EXE%" "%~dp0validate_ui_themes.py" --session "%REPO%\TestOutput\skarness\ui-themes-%RANDOM%"
+if errorlevel 1 exit /b 7
+
 echo [8/8] Exporting shareable UI PNG artifact...
 "%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_dx12_profiler_timeline.bmp" "%REPO%\Profile\ui_dx12_profiler_timeline.png" --max-width 1080
 if errorlevel 1 exit /b 8

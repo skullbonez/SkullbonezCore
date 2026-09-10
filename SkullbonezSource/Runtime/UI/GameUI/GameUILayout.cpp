@@ -78,6 +78,11 @@ PresentationPreferences SanitizePreferences( const PresentationPreferences& pref
         result.layout = LayoutMode::Canvas;
     }
 
+    if ( result.theme >= Style::Theme::Count )
+    {
+        result.theme = Style::Theme::Blue;
+    }
+
     result.leftWidth = FiniteDimension( result.leftWidth, 280.0f );
     result.rightWidth = FiniteDimension( result.rightWidth, 360.0f );
     result.drawerHeight = FiniteDimension( result.drawerHeight, 360.0f );

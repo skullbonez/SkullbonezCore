@@ -858,6 +858,7 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
              { "cinematicParameters", state.presentation.cinematicParameters },
              { "cinematicFeatures", state.presentation.cinematicFeatures },
              { "toolsScroll", state.presentation.toolsScroll },
+             { "theme", state.presentation.theme },
              { "toolsContentBounds", state.presentation.toolsContentBounds },
              { "tooltipId", state.presentation.tooltipId },
              { "tooltipAction", state.presentation.tooltipAction },
