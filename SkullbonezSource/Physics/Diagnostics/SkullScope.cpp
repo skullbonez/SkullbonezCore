@@ -425,6 +425,45 @@ SkullScopeFrameSummary SkullScope::BuildAndEmitFrameSummary( const Physics::Phys
                  motionStats.evaluatedBodies, motionStats.discreteBodies, motionStats.promotedBodies,
                  motionStats.angularExpandedBodies, motionStats.promotionsThisStep, motionStats.demotionsThisStep );
 
+    const auto speculativeRows = std::count_if( persistentContacts.begin(), persistentContacts.end(),
+                                                []( const Physics::PersistentContact& row )
+                                                {
+                                                    return row.penetration < 0.0f && !row.allowsTangentFriction &&
+                                                           !row.supportsRestingPolicy;
+                                                } );
+    SkullbonezCore::Core::Log()
+        .Writef( m_physicsDiagnosticsPath,
+                 "{\"kind\":\"speculative_summary\",\"run\":\"%s\",\"frame\":%d,\"enabled\":%s,"
+                 "\"articulated_bodies\":%d,\"active_speculative_bodies\":%d,\"candidate_pairs\":%zu,\"admitted_rows\":%zu,"
+                 "\"eligibility_ns\":%llu,\"articulation_ns\":%llu}\n",
+                 m_physicsDiagnosticsRunId, frame, motionStats.speculativeEnabled ? "true" : "false",
+                 motionStats.articulatedBodies, motionStats.speculativeBodies, physicsDiagnostics.candidatePairs.size(),
+                 static_cast<std::size_t>( speculativeRows ),
+                 static_cast<unsigned long long>( motionStats.passDurationNanoseconds ),
+                 static_cast<unsigned long long>( motionStats.articulationDurationNanoseconds ) );
+
+    float maxJointAnchorErrorSq = 0.0f;
+    int visitedJoints = 0;
+
+    // The last block visit exposes pre-correction anchor error, not a promise
+    // about the pose after integration. Keep that distinction in the field name.
+    for ( const auto& sample : physicsDiagnostics.pointJointIterations )
+    {
+        if ( sample.iteration >= 0 )
+        {
+            const auto& error = sample.anchorErrorBeforeCorrection;
+            maxJointAnchorErrorSq = std::max( maxJointAnchorErrorSq,
+                                              error.x * error.x + error.y * error.y + error.z * error.z );
+            ++visitedJoints;
+        }
+    }
+
+    SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath,
+                                        "{\"kind\":\"joint_summary\",\"run\":\"%s\",\"frame\":%d,\"visited_joints\":%d,"
+                                        "\"max_anchor_error_before_correction\":%.9g}\n",
+                                        m_physicsDiagnosticsRunId, frame, visitedJoints,
+                                        std::sqrt( maxJointAnchorErrorSq ) );
+
     SkullbonezCore::Core::Log()
         .Writef( m_physicsDiagnosticsPath,
                  "{\"kind\":\"solver_stats\",\"run\":\"%s\",\"frame\":%d,\"row_count\":%d,\"cache_previous_rows\":%d,"

@@ -3,7 +3,7 @@ Purpose:
   Generates or verifies the deterministic 5,000-body sleeping scale fixture.
 
 Summary:
-  The fixture uses the current version-3 authored body schema. Four thousand
+  The fixture uses the current version-5 authored body schema. Four thousand
   rows begin asleep and 1,000 high-altitude rows remain in flight for the
   bounded performance run. Wide X/Z spacing avoids knife-edge contacts.
 
@@ -76,7 +76,7 @@ def _body(index: int) -> dict:
 def _scene() -> dict:
     return {
         "format": "skullbonez.scene.json",
-        "version": 3,
+        "version": 5,
         "cinematic": {},
         "simulation": {
             "seed": 3235774467,

@@ -208,6 +208,10 @@ class PhysicsEngine
                            const Math::Vector::Vector3& worldApplicationOffset );
     void SetSleepEnabled( bool enabled );
     bool IsSleepEnabled() const;
+    // Measurement control only: disabled still uses uniform articulation steps.
+    // It is intentionally absent from authored configuration and replay state.
+    void SetSpeculativeContactsEnabledForValidation( bool enabled );
+    bool SpeculativeContactsEnabledForValidation() const;
     void BeginCollisionVisualFrame( PhysicsBodyCount bodyCount );
     void EndCollisionVisualFrame();
 

@@ -23,6 +23,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "TerrainContactManifold.h"
+#include "ConvexMotionBounds.h"
 
 #include "../Core/Common.h"
 #include "../Core/FatalError.h"
@@ -33,6 +34,7 @@ Related:
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <type_traits>
 #include <variant>
 
@@ -506,7 +508,7 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                                      TerrainContactPoint& point = out.points[out.pointCount];
                                      point.point = worldVerts[v];
                                      point.rA = worldVerts[v] - position;
-                                     point.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
+                                     point.penetration = sweep.uniformStep ? penetration : (std::max)( penetration, 0.0f );
                                      point.featureId = static_cast<uint32_t>( v + 1 );
                                      ++out.pointCount;
                                  }
@@ -548,7 +550,7 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                                      TerrainContactPoint& point = out.points[out.pointCount];
                                      point.point = worldVerts[v];
                                      point.rA = worldVerts[v] - position;
-                                     point.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
+                                     point.penetration = sweep.uniformStep ? penetration : (std::max)( penetration, 0.0f );
                                      point.featureId = 0x6000u | static_cast<uint32_t>( v & 0x0fffu );
                                      ++out.pointCount;
                                  }
@@ -563,6 +565,44 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
     if ( out.pointCount == 0 )
     {
         return false;
+    }
+
+    if ( sweep.uniformStep )
+    {
+        uint8_t touchingCount = 0;
+        for ( uint8_t index = 0; index < out.pointCount; ++index )
+        {
+            if ( out.points[index].penetration >= 0.0f )
+            {
+                out.points[touchingCount++] = out.points[index];
+            }
+        }
+        if ( touchingCount == 0u )
+        {
+            const float reach = MaximumRotatedProjection( body.orientation, shape, body.angularVelocity, -planeNormal,
+                                                          availableTime );
+            Vector3 integratedVelocity = body.linearVelocity;
+            integratedVelocity.Simplify();
+            const float travel = Dot( integratedVelocity, planeNormal ) * availableTime;
+            const float gapBound = Dot( position, planeNormal ) - colPlane.m_distance - reach + (std::min)( 0.0f, travel );
+            const float rounding = 32.0f * std::numeric_limits<float>::epsilon() *
+                                   ( 1.0f + VectorMag( position ) + fabsf( colPlane.m_distance ) + fabsf( travel ) );
+            // A current vertex's linearized downward velocity can cross a
+            // plane that the shape's entire finite rotation stays above.
+            if ( gapBound > rounding )
+            {
+                out.pointCount = 0;
+                return false;
+            }
+            // Gap rows carry no load, friction, restitution or sleep support.
+            // Their signed penetration survives replay using the existing row.
+            out.supportsRestingPolicy = false;
+            out.allowsTangentFriction = false;
+            return true;
+        }
+        // Actual support uses only vertices that touch, not the nearby vertices
+        // admitted by the broad angular or translation envelope.
+        out.pointCount = touchingCount;
     }
 
     const float preVn = Dot( body.linearVelocity, planeNormal );

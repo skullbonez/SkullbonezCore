@@ -1735,7 +1735,16 @@ int main( int argc, char** argv )
 
     if ( argc == 3 && std::strcmp( argv[1], "--fatal-case" ) == 0 )
     {
-
+        // The expected DebugBreak must terminate this unattended child, rather
+        // than wait indefinitely for Windows crash-reporting interaction. Keep
+        // the exception exit nonzero so a returned invariant still fails.
+        SetErrorMode( SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX );
+        SetUnhandledExceptionFilter(
+            []( EXCEPTION_POINTERS* exception ) -> LONG
+            {
+                return exception->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT ? EXCEPTION_EXECUTE_HANDLER
+                                                                                         : EXCEPTION_CONTINUE_SEARCH;
+            } );
         // A normal return means the engine failed to enforce the fatal
         // invariant. The parent test requires this child to terminate nonzero.
         (void)RunFatalCase( argv[2] );

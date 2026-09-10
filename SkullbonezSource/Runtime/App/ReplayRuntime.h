@@ -461,6 +461,7 @@ struct ReplayInteractionRecordingCauseState
 #if defined( SKULLBONEZ_SKARNESS )
 struct ReplaySkarnessState
 {
+    std::array<ReplayOverlay::ReplayPositionGate, 2> positionGates {};
     int memoryPreset = 0;
     int memoryRetentionSeconds = 0;
     int memoryBudgetMiB = 0;
@@ -559,7 +560,11 @@ class ReplayRuntime
     const RunReplayCauseTreeState& CauseTree() const noexcept;
     ReplayCauseInspectionView CauseInspectionView() const noexcept;
 #if defined( SKULLBONEZ_SKARNESS )
-    ReplaySkarnessState BuildSkarnessState() const noexcept;
+    void BeginSkarnessFrame() noexcept
+    {
+        m_planningOwner.BeginOverlayFrame();
+    }
+    ReplaySkarnessState BuildSkarnessState() noexcept;
 #endif
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS ) || defined( SKULLBONEZ_SKARNESS )
     // Lifetime: returned references/spans are synchronous validation evidence;

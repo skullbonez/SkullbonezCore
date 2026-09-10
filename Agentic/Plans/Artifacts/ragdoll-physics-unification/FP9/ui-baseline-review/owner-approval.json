@@ -1,0 +1,23 @@
+{
+  "userInstruction": "screenshots accepted. get this all committed",
+  "scope": "The three previously reviewed replacements, including the requested exception for the unavailable exact original producer. Preserve old PNGs and exact producing executable.",
+  "priorProducerUnavailable": true,
+  "referenceCommit": "e9f02a92539f6a678e6729e4e14c060b51c6e4b3",
+  "goldens": [
+    {
+      "path": "TestOutput\\baselines\\baseline_dx12_water_ball_test.png",
+      "oldSha256": "c01d602116e8b68d05e0bd6a3df3a49ebb74424577da7e1d127e98087107369b",
+      "newSha256": "6edc849065f59da4672f06b77471236ce47ce1633f13411b5cc73557aa9f6cd5"
+    },
+    {
+      "path": "TestOutput\\baselines\\baseline_dx12_solver_smoke.png",
+      "oldSha256": "7780ef861cfbe9871ea02db780a6a714efebe2beadfaa28de2c263dbffe3dafb",
+      "newSha256": "6867abf4957d7e6dd338cd0df64f445c53833366d9dac2e42bd4f30a177f26c5"
+    },
+    {
+      "path": "TestOutput\\baselines\\baseline_dx12_space_three_body.png",
+      "oldSha256": "14414322d5354576f37293d7f226a3d1b7be0d5c2042525a7b6330053794b604",
+      "newSha256": "f977d074dc6182da93ae21a0419bd938757e888d28e1c560233af8a6425ba943"
+    }
+  ]
+}

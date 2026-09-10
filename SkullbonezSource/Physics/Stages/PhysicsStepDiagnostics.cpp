@@ -28,6 +28,8 @@ Related:
 #include "PhysicsStepDiagnostics.h"
 
 #include "../../Core/FatalError.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Profiler.h"
 #include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
@@ -255,6 +257,11 @@ void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed, co
 
     if ( !diagnosticsSuppressed )
     {
+        // Explicit file dumps are cold diagnostics work. Keep their serialization
+        // cost visible without granting the solver any allocation privilege.
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Diagnostics );
+        PROFILE_SCOPED( "Frame/Physics/DiagnosticsDump" );
         const bool regressionLogEnabled = m_sink.IsRegressionLogEnabled();
         const bool frameLogEnabled = m_sink.IsFrameLogEnabled();
 

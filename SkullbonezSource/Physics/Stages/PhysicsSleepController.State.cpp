@@ -186,6 +186,10 @@ void PhysicsSleepController::RestoreReplayState( const PhysicsSolverSnapshot& sn
     RestoreList( snapshot.sleepIslandCanSleep, m_sleepIslandCanSleep );
     m_nextSleepIslandVisualId = snapshot.nextSleepIslandVisualId;
     m_sleepEnabled = snapshot.sleepEnabled;
+    // Body pose restore invalidates dense topology before this solver snapshot
+    // is applied. Its validated counters and anchors now replace that history;
+    // the deferred topology reset must not erase them on the next replay tick.
+    m_resetDenseSleepHistoryForBodyTopologyChange = false;
     m_pendingConstraintWakeBodyCount = 0;
     m_awakeListNeedsRebuild = true;
     m_simulationIslands.Invalidate();

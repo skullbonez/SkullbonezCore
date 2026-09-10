@@ -1020,6 +1020,7 @@ constexpr ExpectedFixedRowGrowth EXPECTED_PHYSICS_GROWTH[] = {
     { "ExternalForceStage.fixedTreeReleaseWakeScratch", 2000 },
     { "ExternalForceStage.releaseWakeBodies", 2000 },
     { "PhysicsMotionEligibilityStage.state", 2000 },
+    { "PhysicsMotionEligibilityStage.collisionPathState", 2000 },
     { "PhysicsMotionEligibilityStage.linearTravelSquared", 2000 },
     { "PhysicsMotionEligibilityStage.linearDirectionalBoundary", 2000 },
     { "PhysicsMotionEligibilityStage.angularTravelSquared", 2000 },
@@ -1119,9 +1120,9 @@ void CheckPhysicsGrowthEventMetadata( const SkullbonezCore::Core::Allocation::Ru
     using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
     using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 
-    // The shared constraint solver adds seven growing stores; its candidate
-    // pair store is already at the capped capacity before this second reserve.
-    REQUIRE( eventCount == 113 );
+    // Articulation classification adds a body-sized collision-path store.
+    // The solver candidate-pair store is already capped before this reserve.
+    REQUIRE( eventCount == 114 );
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
     for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
@@ -1174,9 +1175,9 @@ void CheckPhysicsRegisteredOwners( int eventCount )
     using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 129 );
+    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 130 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 128 );
+    CHECK( eventCount + static_cast<int>( std::size( EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH ) ) == 129 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : EXPECTED_PHYSICS_REGISTERED_WITHOUT_GROWTH )

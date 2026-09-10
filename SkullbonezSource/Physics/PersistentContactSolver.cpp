@@ -22,6 +22,8 @@ Invariants:
     live warm start or replay capture can consume them.
 */
 #include "PersistentContactSolver.h"
+#include "SpeculativeContacts.h"
+#include "PhysicsMotionEligibility.h"
 
 #include "ContactSolverCommon.h"
 #include "ColliderStore.h"
@@ -321,6 +323,15 @@ void PrecomputeContactBias( PersistentContact& contact, std::span<const Collider
                             float inverseContactInterval )
 {
     contact.bias = 0.0f;
+    if ( contact.penetration < 0.0f && !contact.supportsRestingPolicy && !contact.allowsTangentFriction )
+    {
+        // CATTO REF: Continuous Collision, GDC 2013, speculative constraint.
+        // Units: negative penetration is the uninflated gap in metres. This
+        // lower velocity bound permits closing only as far as this tick's gap;
+        // the nonnegative impulse clamp can brake but cannot pull bodies back.
+        contact.bias = contact.penetration * inverseContactInterval;
+        return;
+    }
     if ( contact.isTerrain )
     {
         if ( contact.supportsRestingPolicy && fabsf( normalVelocity ) < stepPolicy.contactRestitutionThreshold )
@@ -766,6 +777,17 @@ void ConstraintSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stag
 
         float contactDistance = ConservativeContactRadius( colliderA ) + ConservativeContactRadius( colliderB ) +
                                 stepPolicy.contactEpsilon;
+        const bool articulated = UsesSpeculativeContacts( stepPolicy.collisionPathState, aIndex ) ||
+                                 UsesSpeculativeContacts( stepPolicy.collisionPathState, bIndex );
+        if ( articulated )
+        {
+            const SolverBodyState& solverA = Body( aIndex );
+            const SolverBodyState& solverB = Body( bIndex );
+            contactDistance += stepPolicy.stepDurationSeconds *
+                               ( Vector::VectorMag( solverB.linearVelocity - solverA.linearVelocity ) +
+                                 Vector::VectorMag( solverA.angularVelocity ) * colliderA.maximumCenterOfMassRadius +
+                                 Vector::VectorMag( solverB.angularVelocity ) * colliderB.maximumCenterOfMassRadius );
+        }
 
         if ( Vector::VectorMagSquared( centerDelta ) > contactDistance * contactDistance )
         {
@@ -779,8 +801,11 @@ void ConstraintSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stag
         bool manifoldBuilt = false;
         {
             PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
-            manifoldBuilt = BuildObjectContactManifold( profiler, bodyA, colliderA.shape, bodyB, colliderB.shape, aIndex,
-                                                        bIndex, stepPolicy.contactEpsilon, manifold );
+            manifoldBuilt = articulated
+                                ? BuildArticulatedContactManifold( bodyStore, colliderStore, stepPolicy.stepDurationSeconds,
+                                                                   stepPolicy.contactEpsilon, aIndex, bIndex, manifold )
+                                : BuildObjectContactManifold( profiler, bodyA, colliderA.shape, bodyB, colliderB.shape,
+                                                              aIndex, bIndex, stepPolicy.contactEpsilon, manifold );
         }
 
         if ( manifoldBuilt )
@@ -824,7 +849,8 @@ void ConstraintSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stag
             // policy; the sleep owner decides whether another logical contact
             // stabilizes that edge.
             const bool narrowBoxSupportPatch = IsNarrowBoxSupportPatch( manifold, shapeAIsBox, shapeBIsBox );
-            hasRestingFootprint = !hasConvexHull || hasSphere || manifold.pointCount >= 2;
+            const bool speculative = manifold.points[0].penetration < 0.0f;
+            hasRestingFootprint = !speculative && ( !hasConvexHull || hasSphere || manifold.pointCount >= 2 );
             uint8_t selectedPointIndices[4] = { 0, 1, 2, 3 };
             uint8_t selectedPointCount = manifold.pointCount;
 
@@ -867,8 +893,9 @@ void ConstraintSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stag
                 c.rB = point.rB;
                 c.penetration = point.penetration;
                 c.supportsRestingPolicy = hasRestingFootprint;
+                c.allowsTangentFriction = !speculative;
                 c.normalCoupledFriction = !hasRestingFootprint;
-                c.inhibitsSleep = narrowBoxSupportPatch;
+                c.inhibitsSleep = !speculative && narrowBoxSupportPatch;
                 c.manifoldPointCount = selectedPointCount;
                 stage.m_persistentContacts.push_back( c );
                 ++stage.m_persistentContactCounts[aIndex];
@@ -904,8 +931,11 @@ void ConstraintSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stag
             continue;
         }
 
-        stage.m_sideEffects.collisionVisualBodies.push_back( aIndex );
-        stage.m_sideEffects.collisionVisualBodies.push_back( bIndex );
+        if ( manifold.points[0].penetration >= 0.0f )
+        {
+            stage.m_sideEffects.collisionVisualBodies.push_back( aIndex );
+            stage.m_sideEffects.collisionVisualBodies.push_back( bIndex );
+        }
         appendSleepSupportEdge( aIndex, bIndex, contactNormal, hasRestingFootprint );
     }
 }
@@ -1828,8 +1858,10 @@ void ConstraintSolveTransaction::ApplyPointSupportInstability(
     {
         constexpr float supportNormalY = 0.25f;
 
-        if ( c.isTerrain || c.supportsRestingPolicy || c.manifoldPointCount != 1 || c.accN <= TOLERANCE ||
-             fabsf( c.normal.y ) <= supportNormalY )
+        // A separated braking row is not a support, even if its impulse and
+        // lever would otherwise qualify an unstable convex tip for a nudge.
+        if ( c.penetration < 0.0f || c.isTerrain || c.supportsRestingPolicy || c.manifoldPointCount != 1 ||
+             c.accN <= TOLERANCE || fabsf( c.normal.y ) <= supportNormalY )
         {
             continue;
         }
@@ -2331,7 +2363,7 @@ void ConstraintSolveTransaction::ReleaseFixedContacts( PhysicsContactSolverStage
 
     for ( const PersistentContact& c : stage.m_persistentContacts )
     {
-        if ( c.isTerrain || c.accN <= TOLERANCE )
+        if ( c.isTerrain || c.penetration < 0.0f || c.accN <= TOLERANCE )
         {
             continue;
         }

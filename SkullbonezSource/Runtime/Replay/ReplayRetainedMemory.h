@@ -89,7 +89,9 @@ inline constexpr const char* REPLAY_RECORDER_SAMPLE_RESERVE_OWNER = "replay_reco
 // recorder bytes, while the ordinary 300-body generated demo legitimately
 // exceeds 32 MiB before its first second of history is complete. Keep the
 // process-wide ceiling aligned with the largest supported replay memory budget; individual
-// vectors remain bounded by the scene/body and source-owner limits.
+// vectors remain bounded by the scene/body and source-owner limits. Fixed
+// launcher payloads (64 rays and 32 shots per solver slot) consume this same
+// owner budget when configured or reconfigured; they have no separate grant.
 inline constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES = REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB * 1024 * 1024;
 inline constexpr std::array<ReplayGrowthOwnerPolicy, 2> REPLAY_CORE_GROWTH_OWNER_POLICIES =
     { ReplayGrowthOwnerPolicy { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,

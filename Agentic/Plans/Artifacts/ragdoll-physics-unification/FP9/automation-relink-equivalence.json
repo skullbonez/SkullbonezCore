@@ -1,0 +1,48 @@
+{
+  "old": "TestOutput\\fp9-before-terminal-full-05\\SKULLBONEZ_CORE-Automation.exe",
+  "oldSha256": "6dbb35b9a4f2a1ff58983ca240f22864d536d272400c5c6ca60c6f18946263f0",
+  "current": "Automation\\SKULLBONEZ_CORE.exe",
+  "currentSha256": "4ec3be56e1894c37bff82d90f6614a1904afdc9c91aef11f91f45bd4d9bc3f46",
+  "bytes": 5177856,
+  "normalizedSha256": "9a9771edd80892081a42b33e4977de81c52d2c4fb1cc78e07d5fc137ae1b26f5",
+  "onlyChangedFields": [
+    {
+      "name": "COFF timestamp",
+      "offset": 280,
+      "bytes": 4,
+      "oldHex": "67b3a26a",
+      "newHex": "6e27a36a"
+    },
+    {
+      "name": "debug directory 0 timestamp",
+      "offset": 4716148,
+      "bytes": 4,
+      "oldHex": "67b3a26a",
+      "newHex": "6e27a36a"
+    },
+    {
+      "name": "CodeView PDB age",
+      "offset": 4721380,
+      "bytes": 4,
+      "oldHex": "7f010000",
+      "newHex": "80010000"
+    },
+    {
+      "name": "debug directory 1 timestamp",
+      "offset": 4716176,
+      "bytes": 4,
+      "oldHex": "67b3a26a",
+      "newHex": "6e27a36a"
+    },
+    {
+      "name": "debug directory 2 timestamp",
+      "offset": 4716204,
+      "bytes": 4,
+      "oldHex": "67b3a26a",
+      "newHex": "6e27a36a"
+    }
+  ],
+  "allOtherBytesEqual": true,
+  "buildEvidence": "TestOutput/fp9-terminal-full-05.log:1174; compiler outputs up-to-date, linker reran",
+  "validationDecision": "Replay02 remains applicable to identical runtime bytes. Full05 Automation and perf07 also passed after this metadata-only relink."
+}

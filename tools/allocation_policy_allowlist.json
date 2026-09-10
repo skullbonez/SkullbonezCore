@@ -317,12 +317,13 @@
     {
       "path": "SkullbonezSource/Runtime/App/ReplayPredictionDrawing.cpp",
       "patterns": [
-        "{\"symbol\":\"DrawReplayPredictionVisualizer\",\"before\":[\"{\",\"ReplayPredictionRetainedGeometry::ReplayPredictionRetainedGeometry()\"],\"statement\":\": m_records( std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY ) )\",\"after\":[\"{\",\"}\"]}"
+        "{\"symbol\":\"DrawReplayPredictionVisualizer\",\"before\":[\"{\",\"ReplayPredictionRetainedGeometry::ReplayPredictionRetainedGeometry()\"],\"statement\":\": m_records( std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY ) ),\",\"after\":[\"m_baseAlphas( std::make_unique<float[]>( PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY +\",\"PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY ) )\"]}",
+        "{\"symbol\":\"DrawReplayPredictionVisualizer\",\"before\":[\"ReplayPredictionRetainedGeometry::ReplayPredictionRetainedGeometry()\",\": m_records( std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY ) ),\"],\"statement\":\"m_baseAlphas( std::make_unique<float[]>( PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY +\",\"after\":[\"PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY ) )\",\"{\"]}"
       ],
       "owner": "ReplayPrediction retained ribbon record arena",
       "phase": "startup",
-      "reason": "ReplayRuntime constructs one process-lifetime fixed-capacity compact ribbon arena before steady gameplay; pointer ownership keeps the 513,000-float payload off the bounded launcher stack and exposes no capacity-changing API.",
-      "cap": "Exactly 513,000 floats (2,052,000 bytes) allocated once per ReplayPredictionPresentation owner from the compile-time ordinary and priority record capacities.",
+      "reason": "ReplayPredictionPresentation constructs its retained geometry during Run startup. The two fixed arrays retain ribbon records and their original alphas for appearance updates, remain behind this visual owner, and expose no capacity-changing API.",
+      "cap": "Exactly 513,000 record floats and 27,000 base-alpha floats (2,160,000 bytes total), allocated once at startup per ReplayPredictionPresentation owner; neither arena can grow.",
       "removal_or_wrapper_plan": "Move this fixed payload to a typed process-lifetime startup arena when one exists; do not replace it with a growing container or replay-phase reserve privilege.",
       "match_mode": "exact_finding"
     },
@@ -330,19 +331,20 @@
       "path": "SkullbonezSource/Physics/Stages/PhysicsMotionEligibilityStage.cpp",
       "patterns": [
         "{\"symbol\":\"PhysicsMotionEligibilityStage::CommitReplayRestoreState\",\"before\":[\"m_linearDirectionalBoundary.assign( m_state.size(), -1.0f );\",\"m_angularTravelSquared.assign( m_state.size(), 0.0f );\"],\"statement\":\"m_angularBroadphaseExpansion.assign( m_state.size(), 0.0f );\",\"after\":[\"m_stats = {};\",\"m_topologyInvalidated = !hasVersionedState;\"]}",
-        "{\"symbol\":\"PhysicsMotionEligibilityStage::CommitReplayRestoreState\",\"before\":[\"m_linearTravelSquared.assign( m_state.size(), 0.0f );\",\"m_linearDirectionalBoundary.assign( m_state.size(), -1.0f );\"],\"statement\":\"m_angularTravelSquared.assign( m_state.size(), 0.0f );\",\"after\":[\"m_angularBroadphaseExpansion.assign( m_state.size(), 0.0f );\",\"m_stats = {};\"]}",
-        "{\"symbol\":\"PhysicsMotionEligibilityStage::CommitReplayRestoreState\",\"before\":[\"void PhysicsMotionEligibilityStage::CommitReplayRestoreState( bool hasVersionedState )\",\"{\"],\"statement\":\"m_linearTravelSquared.assign( m_state.size(), 0.0f );\",\"after\":[\"m_linearDirectionalBoundary.assign( m_state.size(), -1.0f );\",\"m_angularTravelSquared.assign( m_state.size(), 0.0f );\"]}",
-        "{\"symbol\":\"PhysicsMotionEligibilityStage::CommitReplayRestoreState\",\"before\":[\"{\",\"m_linearTravelSquared.assign( m_state.size(), 0.0f );\"],\"statement\":\"m_linearDirectionalBoundary.assign( m_state.size(), -1.0f );\",\"after\":[\"m_angularTravelSquared.assign( m_state.size(), 0.0f );\",\"m_angularBroadphaseExpansion.assign( m_state.size(), 0.0f );\"]}",
+        "{\"symbol\":\"PhysicsMotionEligibilityStage::CommitReplayRestoreState\",\"before\":[\"m_collisionPathState.clear();\",\"m_linearDirectionalBoundary.assign( m_state.size(), -1.0f );\"],\"statement\":\"m_angularTravelSquared.assign( m_state.size(), 0.0f );\",\"after\":[\"m_angularBroadphaseExpansion.assign( m_state.size(), 0.0f );\",\"m_stats = {};\"]}",
+        "{\"symbol\":\"PhysicsMotionEligibilityStage::CommitReplayRestoreState\",\"before\":[\"void PhysicsMotionEligibilityStage::CommitReplayRestoreState( bool hasVersionedState )\",\"{\"],\"statement\":\"m_linearTravelSquared.assign( m_state.size(), 0.0f );\",\"after\":[\"m_collisionPathState.clear();\",\"m_linearDirectionalBoundary.assign( m_state.size(), -1.0f );\"]}",
+        "{\"symbol\":\"PhysicsMotionEligibilityStage::CommitReplayRestoreState\",\"before\":[\"m_linearTravelSquared.assign( m_state.size(), 0.0f );\",\"m_collisionPathState.clear();\"],\"statement\":\"m_linearDirectionalBoundary.assign( m_state.size(), -1.0f );\",\"after\":[\"m_angularTravelSquared.assign( m_state.size(), 0.0f );\",\"m_angularBroadphaseExpansion.assign( m_state.size(), 0.0f );\"]}",
         "{\"symbol\":\"PhysicsMotionEligibilityStage::Run\",\"before\":[\"if ( m_linearTravelSquared.size() != rowCount )\",\"{\"],\"statement\":\"m_linearTravelSquared.resize( rowCount );\",\"after\":[\"m_linearDirectionalBoundary.resize( rowCount );\",\"m_angularTravelSquared.resize( rowCount );\"]}",
         "{\"symbol\":\"PhysicsMotionEligibilityStage::Run\",\"before\":[\"if ( m_topologyInvalidated || m_state.size() != rowCount )\",\"{\"],\"statement\":\"m_state.assign( rowCount, 0u );\",\"after\":[\"m_topologyInvalidated = false;\",\"}\"]}",
-        "{\"symbol\":\"PhysicsMotionEligibilityStage::Run\",\"before\":[\"m_linearDirectionalBoundary.resize( rowCount );\",\"m_angularTravelSquared.resize( rowCount );\"],\"statement\":\"m_angularBroadphaseExpansion.resize( rowCount );\",\"after\":[\"}\",\"m_stats = {};\"]}",
+        "{\"symbol\":\"PhysicsMotionEligibilityStage::Run\",\"before\":[\"m_linearDirectionalBoundary.resize( rowCount );\",\"m_angularTravelSquared.resize( rowCount );\"],\"statement\":\"m_angularBroadphaseExpansion.resize( rowCount );\",\"after\":[\"}\",\"m_stats.policyVersion = PHYSICS_MOTION_ELIGIBILITY_POLICY_VERSION;\"]}",
         "{\"symbol\":\"PhysicsMotionEligibilityStage::Run\",\"before\":[\"m_linearTravelSquared.resize( rowCount );\",\"m_linearDirectionalBoundary.resize( rowCount );\"],\"statement\":\"m_angularTravelSquared.resize( rowCount );\",\"after\":[\"m_angularBroadphaseExpansion.resize( rowCount );\",\"}\"]}",
-        "{\"symbol\":\"PhysicsMotionEligibilityStage::Run\",\"before\":[\"{\",\"m_linearTravelSquared.resize( rowCount );\"],\"statement\":\"m_linearDirectionalBoundary.resize( rowCount );\",\"after\":[\"m_angularTravelSquared.resize( rowCount );\",\"m_angularBroadphaseExpansion.resize( rowCount );\"]}"
+        "{\"symbol\":\"PhysicsMotionEligibilityStage::Run\",\"before\":[\"{\",\"m_linearTravelSquared.resize( rowCount );\"],\"statement\":\"m_linearDirectionalBoundary.resize( rowCount );\",\"after\":[\"m_angularTravelSquared.resize( rowCount );\",\"m_angularBroadphaseExpansion.resize( rowCount );\"]}",
+        "{\"symbol\":\"PhysicsMotionEligibilityStage::Run\",\"before\":[\"const int modelCount = (std::min)( { bodyStore.Count(), colliderStore.Count(), static_cast<int>( sleepState.size() ) } );\",\"const std::size_t rowCount = static_cast<std::size_t>( (std::max)( 0, modelCount ) );\"],\"statement\":\"m_collisionPathState.assign( rowCount, 0u );\",\"after\":[\"for ( const PointJointConstraint& joint : joints )\",\"{\"]}"
       ],
       "owner": "PhysicsMotionEligibilityStage fixed-capacity body rows",
       "phase": "scene_load_replay_and_steady_gameplay_within_committed_capacity",
       "reason": "The apparent STL mutations target PhysicsFixedList rows whose backing is committed through ReserveBodyCapacity during SceneLoad. Replay restoration and topology changes adjust logical size only, while the fixed-step pass cannot grow beyond the committed scene-body capacity.",
-      "cap": "Four PhysicsBodyRowList instances, each capped by the PhysicsFixedList compile-time ceiling and the scene-load committed body capacity.",
+      "cap": "Eligibility state, derived articulation membership, linear travel, directional boundary, angular travel and angular broadphase expansion are stage-owned PhysicsBodyRowList stores. Each is capped by the PhysicsFixedList compile-time scene-body ceiling and its scene-load committed capacity; no gameplay growth.",
       "removal_or_wrapper_plan": "Teach the checker to distinguish PhysicsFixedList logical-size mutation from allocating STL growth, then delete this exact false-positive row; do not replace the fixed lists with dynamic STL storage.",
       "match_mode": "exact_finding"
     },
@@ -362,11 +364,12 @@
       "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
       "patterns": [
         "{\"symbol\":\"ReserveReplayRecorderDeltaVector\",\"before\":[\"1,\",\"allocationBytes };\"],\"statement\":\"CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,\",\"after\":[\"request );\",\"if ( !result.granted )\"]}",
-        "{\"symbol\":\"ReserveReplayRecorderSampleVector\",\"before\":[\"1,\",\"allocationBytes };\"],\"statement\":\"CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,\",\"after\":[\"request );\",\"if ( !result.granted )\"]}"
+        "{\"symbol\":\"ReserveReplayRecorderSampleVector\",\"before\":[\"1,\",\"allocationBytes };\"],\"statement\":\"CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,\",\"after\":[\"request );\",\"if ( !result.granted )\"]}",
+        "{\"symbol\":\"ReserveReplayLauncherRing\",\"before\":[\"1,\",\"allocationBytes };\"],\"statement\":\"CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,\",\"after\":[\"request );\",\"if ( !result.granted )\"]}"
       ],
       "owner": "Replay recorder sample payloads",
       "phase": "replay",
-      "reason": "Presentation and solver sample body vectors grow lazily under active scene size instead of startup game_model_capacity.",
+      "reason": "Presentation and solver body/delta payloads and fixed 64-ray/32-shot launcher rings consume exact registered Replay grants, including reconfiguration after gameplay. The launcher rings do not use body-vector minimum-capacity rounding.",
       "cap": "ReplayRetainedMemory registers replay_recorder_samples with a 512 MiB process-wide ceiling matching the largest supported replay-memory budget. ReplayTimeline sizes retained rings from the configured scene-body capacity and selected budget; the strict two-generation probe measured 16,223,044 bytes high-water, and denial remains fatal to prevent partial scrub state.",
       "removal_or_wrapper_plan": "Replace retained body vectors with a flat replay arena/body dictionary when replay memory tuning lands; keep recorder growth behind ReserveReplayRecorderSampleVector until then.",
       "match_mode": "exact_finding"
@@ -426,7 +429,7 @@
     {
       "path": "SkullbonezSource/Core/Log.h",
       "patterns": [
-        "{\"symbol\":\"EngineLog\",\"before\":[\"FILE* OpenLog( const char* fileName );\",\"std::mutex m_logMutex;\"],\"statement\":\"std::unordered_map<std::string, FILE*> m_logs;\",\"after\":[\"#endif\",\"};\"]}"
+        "{\"symbol\":\"operator\",\"before\":[\"FILE* OpenLog( const char* fileName );\",\"std::mutex m_logMutex;\"],\"statement\":\"std::unordered_map<std::string, FILE*, LogPathHash, std::equal_to<>> m_logs;\",\"after\":[\"#endif\",\"};\"]}"
       ],
       "owner": "Core infrastructure static STL surface",
       "phase": "startup_diagnostics_threading",
@@ -438,10 +441,10 @@
     {
       "path": "SkullbonezSource/Physics/Diagnostics/SkullScope.cpp",
       "patterns": [
-        "{\"symbol\":\"SkullScope::EmitFrame\",\"before\":[\"if ( !seen )\",\"{\"],\"statement\":\"contactPairs.emplace_back( a, b );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"SkullScope::EmitFrame\",\"before\":[\"if ( !seen )\",\"{\"],\"statement\":\"islandRoots.push_back( root );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"SkullScope::EmitFrame\",\"before\":[\"}\",\"std::vector<int> islandRoots;\"],\"statement\":\"islandRoots.reserve( modelCount );\",\"after\":[\"std::vector<int> bodyIslandIds( modelCount, 0 );\",\"std::vector<DiagnosticsIslandStats> islandStats( modelCount );\"]}",
-        "{\"symbol\":\"SkullScope::EmitFrame\",\"before\":[\"}\",\"std::vector<std::pair<int, int>> contactPairs;\"],\"statement\":\"contactPairs.reserve( persistentContacts.size() );\",\"after\":[\"for ( const auto& c : persistentContacts )\",\"{\"]}"
+        "{\"symbol\":\"SkullScope::EmitBroadphaseAndPenetration\",\"before\":[\"if ( !seen )\",\"{\"],\"statement\":\"contactPairs.emplace_back( a, b );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"SkullScope::BuildAndEmitFrameSummary\",\"before\":[\"if ( !seen )\",\"{\"],\"statement\":\"islandRoots.push_back( root );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"SkullScope::BuildAndEmitFrameSummary\",\"before\":[\"}\",\"std::vector<int> islandRoots;\"],\"statement\":\"islandRoots.reserve( modelCount );\",\"after\":[\"std::vector<int> bodyIslandIds( modelCount, 0 );\",\"std::vector<DiagnosticsIslandStats> islandStats( modelCount );\"]}",
+        "{\"symbol\":\"SkullScope::EmitBroadphaseAndPenetration\",\"before\":[\"}\",\"std::vector<std::pair<int, int>> contactPairs;\"],\"statement\":\"contactPairs.reserve( frameInput.world.persistentContacts.size() );\",\"after\":[\"for ( const auto& c : frameInput.world.persistentContacts )\",\"{\"]}"
       ],
       "owner": "Physics SkullScope diagnostics",
       "phase": "debug_diagnostics_emission",
@@ -564,10 +567,10 @@
         "{\"symbol\":\"PhysicsContactSolverStage::Solve\",\"before\":[\"m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );\",\"m_persistentContactCounts.assign( modelCount, 0 );\"],\"statement\":\"m_persistentRestingContactCounts.assign( modelCount, 0 );\",\"after\":[\"if ( modelCount <= 0 || ( candidatePairs.empty() && terrainContactManifolds.empty() && joints.empty() ) )\",\"{\"]}",
         "{\"symbol\":\"constexpr\",\"before\":[\"0.5f;\",\"record.scalarA = -normal.y;\"],\"statement\":\"stage.m_sideEffects.pipelineRecords.push_back( record );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"constexpr\",\"before\":[\"0.5f;\",\"record.scalarA = normal.y;\"],\"statement\":\"stage.m_sideEffects.pipelineRecords.push_back( record );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"constexpr\",\"before\":[\"c.inhibitsSleep = narrowBoxSupportPatch;\",\"c.manifoldPointCount = selectedPointCount;\"],\"statement\":\"stage.m_persistentContacts.push_back( c );\",\"after\":[\"++stage.m_persistentContactCounts[aIndex];\",\"++stage.m_persistentContactCounts[bIndex];\"]}",
+        "{\"symbol\":\"constexpr\",\"before\":[\"c.inhibitsSleep = !speculative && narrowBoxSupportPatch;\",\"c.manifoldPointCount = selectedPointCount;\"],\"statement\":\"stage.m_persistentContacts.push_back( c );\",\"after\":[\"++stage.m_persistentContactCounts[aIndex];\",\"++stage.m_persistentContactCounts[bIndex];\"]}",
         "{\"symbol\":\"constexpr\",\"before\":[\"c.terrainNormal = manifold.normal;\",\"c.terrainWarmStart = warmStartPerContact;\"],\"statement\":\"stage.m_persistentContacts.push_back( c );\",\"after\":[\"if ( observePipelineEvent() )\",\"{\"]}",
         "{\"symbol\":\"constexpr\",\"before\":[\"cached.accT1 = c.accT1;\",\"cached.accT2 = c.accT2;\"],\"statement\":\"stage.m_persistentContactCache.push_back( cached );\",\"after\":[\"if ( observePipelineEvent() )\",\"{\"]}",
-        "{\"symbol\":\"constexpr\",\"before\":[\"continue;\",\"}\"],\"statement\":\"stage.m_sideEffects.collisionVisualBodies.push_back( aIndex );\",\"after\":[\"stage.m_sideEffects.collisionVisualBodies.push_back( bIndex );\",\"appendSleepSupportEdge( aIndex, bIndex, contactNormal, hasRestingFootprint );\"]}",
+        "{\"symbol\":\"constexpr\",\"before\":[\"if ( manifold.points[0].penetration >= 0.0f )\",\"{\"],\"statement\":\"stage.m_sideEffects.collisionVisualBodies.push_back( aIndex );\",\"after\":[\"stage.m_sideEffects.collisionVisualBodies.push_back( bIndex );\",\"}\"]}",
         "{\"symbol\":\"constexpr\",\"before\":[\"manifoldRecord.scalarB = manifold.supportsRestingPolicy ? 1.0f : 0.0f;\",\"manifoldRecord.scalarC = manifold.timeOfImpact;\"],\"statement\":\"stage.m_sideEffects.pipelineRecords.push_back( manifoldRecord );\",\"after\":[\"}\",\"const float supportSeedScale = manifold.supportsRestingPolicy\"]}",
         "{\"symbol\":\"constexpr\",\"before\":[\"record.scalarA = Vector::VectorMag( Body( static_cast<std::size_t>( i ) ).linearVelocity );\",\"record.scalarB = Vector::VectorMag( Body( static_cast<std::size_t>( i ) ).angularVelocity );\"],\"statement\":\"stage.m_sideEffects.pipelineRecords.push_back( record );\",\"after\":[\"}\",\"const size_t bodyIndex = static_cast<size_t>( i );\"]}",
         "{\"symbol\":\"constexpr\",\"before\":[\"record.scalarB = c.accN;\",\"record.scalarC = c.frictionLimit;\"],\"statement\":\"stage.m_sideEffects.pipelineRecords.push_back( record );\",\"after\":[\"}\",\"if ( c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f )\"]}",
@@ -576,7 +579,7 @@
         "{\"symbol\":\"constexpr\",\"before\":[\"record.scalarB = c.penetration;\",\"record.scalarC = rowContactSlop;\"],\"statement\":\"stage.m_sideEffects.pipelineRecords.push_back( record );\",\"after\":[\"}\",\"m_bodies[bodyAIndex].positionCorrection -= correction * invMassA;\"]}",
         "{\"symbol\":\"constexpr\",\"before\":[\"record.scalarB = static_cast<float>( pointIndex );\",\"record.scalarC = static_cast<float>( selectedPointCount );\"],\"statement\":\"stage.m_sideEffects.pipelineRecords.push_back( record );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"constexpr\",\"before\":[\"rowRecord.scalarB = warmStartPerContact;\",\"rowRecord.scalarC = static_cast<float>( pointIndex );\"],\"statement\":\"stage.m_sideEffects.pipelineRecords.push_back( rowRecord );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"constexpr\",\"before\":[\"}\",\"stage.m_sideEffects.collisionVisualBodies.push_back( aIndex );\"],\"statement\":\"stage.m_sideEffects.collisionVisualBodies.push_back( bIndex );\",\"after\":[\"appendSleepSupportEdge( aIndex, bIndex, contactNormal, hasRestingFootprint );\",\"}\"]}"
+        "{\"symbol\":\"constexpr\",\"before\":[\"{\",\"stage.m_sideEffects.collisionVisualBodies.push_back( aIndex );\"],\"statement\":\"stage.m_sideEffects.collisionVisualBodies.push_back( bIndex );\",\"after\":[\"}\",\"appendSleepSupportEdge( aIndex, bIndex, contactNormal, hasRestingFootprint );\"]}"
       ],
       "owner": "Physics preallocated/replay static STL surface",
       "phase": "startup_preallocation_scene_load_replay",
@@ -1364,8 +1367,8 @@
     {
       "path": "SkullbonezSource/Runtime/Render/PhysicsDebugVisualizer.h",
       "patterns": [
-        "{\"symbol\":\"TrackedContact\",\"before\":[\"float m_contactLingerSeconds = 0.45f;\",\"std::vector<float> m_lineData;\"],\"statement\":\"std::vector<TrackedContact> m_trackedContacts;\",\"after\":[\"TrackedContact* FindTrackedContact( const Physics::PhysicsDebugContact& contact );\",\"float ContactFade( const TrackedContact& contact ) const;\"]}",
-        "{\"symbol\":\"TrackedContact\",\"before\":[\"int m_pipelineStageCursor = 0;\",\"float m_contactLingerSeconds = 0.45f;\"],\"statement\":\"std::vector<float> m_lineData;\",\"after\":[\"std::vector<TrackedContact> m_trackedContacts;\",\"TrackedContact* FindTrackedContact( const Physics::PhysicsDebugContact& contact );\"]}"
+        "{\"symbol\":\"TrackedContact\",\"before\":[\"float m_contactLingerSeconds = 0.45f;\",\"std::vector<float> m_lineData;\"],\"statement\":\"std::vector<TrackedContact> m_trackedContacts;\",\"after\":[\"std::array<float, CONTACT_STROKE_FLOAT_CAPACITY> m_contactStrokeVertices;\",\"TrackedContact* FindTrackedContact( const Physics::PhysicsDebugContact& contact );\"]}",
+        "{\"symbol\":\"TrackedContact\",\"before\":[\"int m_pipelineStageCursor = 0;\",\"float m_contactLingerSeconds = 0.45f;\"],\"statement\":\"std::vector<float> m_lineData;\",\"after\":[\"std::vector<TrackedContact> m_trackedContacts;\",\"std::array<float, CONTACT_STROKE_FLOAT_CAPACITY> m_contactStrokeVertices;\"]}"
       ],
       "owner": "Runtime debug/tool visualization storage",
       "phase": "diagnostics_editor_tooling",
@@ -1437,7 +1440,7 @@
         "{\"symbol\":\"EditorTracer::BuildReplayVisualPacket\",\"before\":[\"PROFILE_SCOPED( );\",\"m_renderLineData.insert( m_renderLineData.end(), m_lineData.begin(), m_lineData.end() );\"],\"statement\":\"m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );\",\"after\":[\"}\",\"{\"]}",
         "{\"symbol\":\"EditorTracer::BuildReplayVisualPacket\",\"before\":[\"{\",\"PROFILE_SCOPED( );\"],\"statement\":\"m_renderLineData.insert( m_renderLineData.end(), m_lineData.begin(), m_lineData.end() );\",\"after\":[\"m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );\",\"}\"]}",
         "{\"symbol\":\"EditorTracer::EditorTracer\",\"before\":[\": m_resultDiagnostics( resultDiagnostics )\",\"{\"],\"statement\":\"m_lineData.reserve( EDITOR_TRACER_LINE_FLOAT_CAPACITY );\",\"after\":[\"m_priorityLineData.reserve( EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );\",\"m_renderLineData.reserve( EDITOR_TRACER_LINE_FLOAT_CAPACITY + EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );\"]}",
-        "{\"symbol\":\"EditorTracer::EditorTracer\",\"before\":[\"m_cachedPriorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );\",\"m_replayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY );\"],\"statement\":\"m_priorityReplayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY );\",\"after\":[\"}\",\"bool EditorTracer::SetReplayTrajectoryAppearance( const Core::ReplayTrajectoryAppearanceConfig& appearance )\"]}",
+        "{\"symbol\":\"EditorTracer::EditorTracer\",\"before\":[\"m_cachedPriorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );\",\"m_replayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY );\"],\"statement\":\"m_priorityReplayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY );\",\"after\":[\"}\",\"bool EditorTracer::SetPredictionOutlineVisibility( bool blueVisible, bool greyVisible ) noexcept\"]}",
         "{\"symbol\":\"EditorTracer::EditorTracer\",\"before\":[\"m_cachedReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );\",\"m_cachedPriorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );\"],\"statement\":\"m_replayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY );\",\"after\":[\"m_priorityReplayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY );\",\"}\"]}",
         "{\"symbol\":\"EditorTracer::EditorTracer\",\"before\":[\"m_lineData.reserve( EDITOR_TRACER_LINE_FLOAT_CAPACITY );\",\"m_priorityLineData.reserve( EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );\"],\"statement\":\"m_renderLineData.reserve( EDITOR_TRACER_LINE_FLOAT_CAPACITY + EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );\",\"after\":[\"m_replayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );\",\"m_priorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );\"]}",
         "{\"symbol\":\"EditorTracer::EditorTracer\",\"before\":[\"m_priorityLineData.reserve( EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );\",\"m_renderLineData.reserve( EDITOR_TRACER_LINE_FLOAT_CAPACITY + EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );\"],\"statement\":\"m_replayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );\",\"after\":[\"m_priorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );\",\"m_cachedReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );\"]}",
@@ -1471,7 +1474,7 @@
       "path": "SkullbonezSource/Runtime/Tools/EditorTracer.h",
       "patterns": [
         "{\"symbol\":\"ReplayRibbonStyle\",\"before\":[\"SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;\",\"std::vector<float> m_lineData;\"],\"statement\":\"std::vector<float> m_priorityLineData;\",\"after\":[\"std::vector<float> m_renderLineData;\",\"std::vector<float> m_replayRibbonSegments;\"]}",
-        "{\"symbol\":\"ReplayRibbonStyle\",\"before\":[\"bool m_replayTrajectoryAppearanceInitialized = false;\",\"SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;\"],\"statement\":\"std::vector<float> m_lineData;\",\"after\":[\"std::vector<float> m_priorityLineData;\",\"std::vector<float> m_renderLineData;\"]}",
+        "{\"symbol\":\"ReplayRibbonStyle\",\"before\":[\"bool m_greyOutlinesVisible = true;\",\"SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;\"],\"statement\":\"std::vector<float> m_lineData;\",\"after\":[\"std::vector<float> m_priorityLineData;\",\"std::vector<float> m_renderLineData;\"]}",
         "{\"symbol\":\"ReplayRibbonStyle\",\"before\":[\"std::vector<float> m_cachedPriorityReplayRibbonSegments;\",\"std::vector<float> m_replayRibbonVertexData;\"],\"statement\":\"std::vector<float> m_priorityReplayRibbonVertexData;\",\"after\":[\"std::size_t m_expandedOrdinarySegmentCount = 0;\",\"std::size_t m_expandedPrioritySegmentCount = 0;\"]}",
         "{\"symbol\":\"ReplayRibbonStyle\",\"before\":[\"std::vector<float> m_cachedReplayRibbonSegments;\",\"std::vector<float> m_cachedPriorityReplayRibbonSegments;\"],\"statement\":\"std::vector<float> m_replayRibbonVertexData;\",\"after\":[\"std::vector<float> m_priorityReplayRibbonVertexData;\",\"std::size_t m_expandedOrdinarySegmentCount = 0;\"]}",
         "{\"symbol\":\"ReplayRibbonStyle\",\"before\":[\"std::vector<float> m_lineData;\",\"std::vector<float> m_priorityLineData;\"],\"statement\":\"std::vector<float> m_renderLineData;\",\"after\":[\"std::vector<float> m_replayRibbonSegments;\",\"std::vector<float> m_priorityReplayRibbonSegments;\"]}",
@@ -1587,14 +1590,13 @@
         "{\"symbol\":\"ReplaySolverRecorder::ResolveSolverSampleAtOffset\",\"before\":[\"}\",\"m_solverResolveStateScratch.resize( m_solverBodyMetadata.size() );\"],\"statement\":\"m_solverResolveActiveScratch.resize( m_solverBodyMetadata.size(), static_cast<uint8_t>( 0 ) );\",\"after\":[\"std::fill( m_solverResolveActiveScratch.begin(), m_solverResolveActiveScratch.end(), static_cast<uint8_t>( 0 ) );\",\"ClearSolverWorldSnapshotValues( outSample.worldSnapshot );\"]}",
         "{\"symbol\":\"ReplaySolverRecorder::StoreSolverFramePayload\",\"before\":[\"const std::size_t metadataIndex = FindOrAddSolverBodyMetadata( body, sample.frameIndex );\",\"const uint32_t packedMetadataIndex = CheckedSolverMetadataIndex( metadataIndex );\"],\"statement\":\"frame.bodyMetadataIndices.push_back( packedMetadataIndex );\",\"after\":[\"const ReplaySolverBodyState state = SolverStateFromBody( body );\",\"const bool previousActive = metadataIndex < m_solverCarryActive.size() && m_solverCarryActive[metadataIndex] != 0u;\"]}",
         "{\"symbol\":\"ReplaySolverRecorder::StoreSolverFramePayload\",\"before\":[\"delta.metadataIndex = packedMetadataIndex;\",\"delta.state = state;\"],\"statement\":\"frame.changedBodies.push_back( delta );\",\"after\":[\"}\",\"if ( updateCarry )\"]}",
-        "{\"symbol\":\"ReserveReplayLauncherVisualSample\",\"before\":[\"void ReserveReplayLauncherVisualSample( ReplayLauncherVisualSample& visual )\",\"{\"],\"statement\":\"visual.rayLines.reserve( REPLAY_LAUNCHER_RAY_LINE_CAPACITY );\",\"after\":[\"visual.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );\",\"}\"]}",
-        "{\"symbol\":\"ReserveReplayLauncherVisualSample\",\"before\":[\"{\",\"visual.rayLines.reserve( REPLAY_LAUNCHER_RAY_LINE_CAPACITY );\"],\"statement\":\"visual.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );\",\"after\":[\"}\",\"void ReserveReplaySolverFrameSample( ReplaySolverFrameSample& sample )\"]}",
         "{\"symbol\":\"ReserveReplayRecorderDeltaVector\",\"before\":[\"CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"values.reserve( reserveCapacity );\",\"after\":[\"if ( requestedCapacity > values.capacity() )\",\"{\"]}",
         "{\"symbol\":\"ReserveReplayRecorderSampleVector\",\"before\":[\"CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"values.reserve( reserveCapacity );\",\"after\":[\"if ( requestedCapacity > values.capacity() )\",\"{\"]}",
         "{\"symbol\":\"ReserveReplayRecorderScratch\",\"before\":[\"const std::size_t bodyCapacitySize = static_cast<std::size_t>( bodyCapacity );\",\"contactCountScratch.reserve( bodyCapacitySize );\"],\"statement\":\"maxPenetrationScratch.reserve( bodyCapacitySize );\",\"after\":[\"normalImpulseSumScratch.reserve( bodyCapacitySize );\",\"}\"]}",
         "{\"symbol\":\"ReserveReplayRecorderScratch\",\"before\":[\"contactCountScratch.reserve( bodyCapacitySize );\",\"maxPenetrationScratch.reserve( bodyCapacitySize );\"],\"statement\":\"normalImpulseSumScratch.reserve( bodyCapacitySize );\",\"after\":[\"}\",\"template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )\"]}",
         "{\"symbol\":\"ReserveReplayRecorderScratch\",\"before\":[\"{\",\"const std::size_t bodyCapacitySize = static_cast<std::size_t>( bodyCapacity );\"],\"statement\":\"contactCountScratch.reserve( bodyCapacitySize );\",\"after\":[\"maxPenetrationScratch.reserve( bodyCapacitySize );\",\"normalImpulseSumScratch.reserve( bodyCapacitySize );\"]}",
-        "{\"symbol\":\"StoreSolverVectorDelta\",\"before\":[\"changed.index = CheckedSolverMetadataIndex( i );\",\"changed.value = source[i];\"],\"statement\":\"delta.changedValues.push_back( changed );\",\"after\":[\"}\",\"}\"]}"
+        "{\"symbol\":\"StoreSolverVectorDelta\",\"before\":[\"changed.index = CheckedSolverMetadataIndex( i );\",\"changed.value = source[i];\"],\"statement\":\"delta.changedValues.push_back( changed );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"ReserveReplayLauncherRing\",\"before\":[\"CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"values.reserve( capacity );\",\"after\":[\"}\",\"void ReserveReplayLauncherVisualSample( ReplayLauncherVisualSample& visual )\"]}"
       ],
       "owner": "Replay recorder retained sample payloads",
       "phase": "replay",
@@ -1674,7 +1676,7 @@
       "path": "SkullbonezSource/Runtime/Replay/ReplayAuthoring.h",
       "patterns": [
         "{\"symbol\":\"AppendCauseTreeRow\",\"before\":[\"return false;\",\"}\"],\"statement\":\"m_causeTree.rows.push_back( row );\",\"after\":[\"return true;\",\"}\"]}",
-        "{\"symbol\":\"ReserveCauseTreeRows\",\"before\":[\"void ReserveCauseTreeRows( std::size_t capacity )\",\"{\"],\"statement\":\"m_causeTree.rows.reserve( capacity );\",\"after\":[\"}\",\"void BeginCauseTreeRowBuild() noexcept\"]}"
+        "{\"symbol\":\"ReserveCauseTreeRows\",\"before\":[\"void ReserveCauseTreeRows( std::size_t capacity )\",\"{\"],\"statement\":\"m_causeTree.rows.reserve( capacity );\",\"after\":[\"}\",\"bool CauseTreeRowsMatchSource( uint64_t sourceFingerprint ) noexcept\"]}"
       ],
       "owner": "ReplayAuthoring cause-tree rows",
       "phase": "startup_replay_and_capacity_bounded_interaction",
@@ -1717,8 +1719,9 @@
       "patterns": [
         "{\"symbol\":\"ReplayPredictionPresentation::AppendGhostDrawRequest\",\"before\":[\"if ( m_ghostDrawRequests.size() < m_ghostDrawRequests.capacity() )\",\"{\"],\"statement\":\"m_ghostDrawRequests.push_back( request );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"ReplayPredictionPresentation::BuildFocusModelMask\",\"before\":[\"return false;\",\"}\"],\"statement\":\"m_focusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );\",\"after\":[\"int markedCount = 0;\",\"const auto markBySceneObjectId = [&]( Physics::PhysicsSceneObjectId id, int preferredModelIndex )\"]}",
-        "{\"symbol\":\"ReplayPredictionPresentation::ReplayPredictionPresentation\",\"before\":[\": m_profiler( profiler ), m_retainedMarkerDrawList( resultDiagnostics )\",\"{\"],\"statement\":\"m_focusModelMask.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"after\":[\"m_renderPoseBodyMatched.fill( uint8_t { 0 } );\",\"}\"]}",
-        "{\"symbol\":\"ReplayPredictionPresentation::ReserveRecordingBuffers\",\"before\":[\"void ReplayPredictionPresentation::ReserveRecordingBuffers()\",\"{\"],\"statement\":\"m_ghostDrawRequests.reserve( REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY );\",\"after\":[\"}\",\"bool ReplayPredictionPresentation::BuildFocusModelMask( const RunReplayPathVisualizerState& path,\"]}"
+        "{\"symbol\":\"ReplayPredictionPresentation::ReplayPredictionPresentation\",\"before\":[\"m_retainedMarkerDrawList( resultDiagnostics )\",\"{\"],\"statement\":\"m_focusModelMask.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );\",\"after\":[\"m_renderPoseBodyMatched.fill( uint8_t { 0 } );\",\"}\"]}",
+        "{\"symbol\":\"ReplayPredictionPresentation::ReserveRecordingBuffers\",\"before\":[\"void ReplayPredictionPresentation::ReserveRecordingBuffers()\",\"{\"],\"statement\":\"m_ghostDrawRequests.reserve( REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY );\",\"after\":[\"}\",\"bool ReplayPredictionPresentation::BuildFocusModelMask( const RunReplayPathVisualizerState& path,\"]}",
+        "{\"symbol\":\"ReplayPredictionPresentation::BuildInspectionFocusModelMask\",\"before\":[\"return false;\",\"}\"],\"statement\":\"m_focusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );\",\"after\":[\"int markedCount = 0;\",\"const auto mark = [&]( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow )\"]}"
       ],
       "owner": "ReplayPredictionPresentation",
       "phase": "startup_replay_and_capacity_bounded_interaction",
@@ -1731,7 +1734,7 @@
       "path": "SkullbonezSource/Runtime/App/ReplayPredictionPresentation.h",
       "patterns": [
         "{\"symbol\":\"AppearanceInvalidationCount\",\"before\":[\"ReplayTrajectorySubmissionProbeStats m_trajectorySubmissionProbe;\",\"ReplayVisualPacket m_publishedVisualPacket;\"],\"statement\":\"std::vector<ReplayPredictionGhostDrawRequest> m_ghostDrawRequests;\",\"after\":[\"std::vector<uint8_t> m_focusModelMask;\",\"std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_renderPoseBodyMatched = {};\"]}",
-        "{\"symbol\":\"AppearanceInvalidationCount\",\"before\":[\"ReplayVisualPacket m_publishedVisualPacket;\",\"std::vector<ReplayPredictionGhostDrawRequest> m_ghostDrawRequests;\"],\"statement\":\"std::vector<uint8_t> m_focusModelMask;\",\"after\":[\"std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_renderPoseBodyMatched = {};\",\"ReplayOverlay::ReplayPredictionRetainedGeometry m_retainedGeometry;\"]}"
+        "{\"symbol\":\"AppearanceInvalidationCount\",\"before\":[\"ReplayVisualPacket m_publishedVisualPacket;\",\"std::vector<ReplayPredictionGhostDrawRequest> m_ghostDrawRequests;\"],\"statement\":\"std::vector<uint8_t> m_focusModelMask;\",\"after\":[\"std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_renderPoseBodyMatched = {};\",\"std::unique_ptr<ReplayPredictionPresentationRetainedState> m_retainedState;\"]}"
       ],
       "owner": "ReplayPredictionPresentation",
       "phase": "startup_replay_and_capacity_bounded_interaction",
@@ -1781,7 +1784,7 @@
       "path": "SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp",
       "patterns": [
         "{\"symbol\":\"AppendBytes\",\"before\":[\"void AppendBytes( std::vector<uint8_t>& out, SkullbonezCore::Core::ByteView bytes )\",\"{\"],\"statement\":\"out.insert( out.end(), bytes.begin(), bytes.end() );\",\"after\":[\"}\",\"template <typename T> void AppendBytes( std::vector<uint8_t>& out, const T& value )\"]}",
-        "{\"symbol\":\"AppendPod\",\"before\":[\"static_assert( std::is_trivially_copyable<T>::value, );\",\"const SkullbonezCore::Core::ByteView bytes = SkullbonezCore::Core::ObjectBytes( value );\"],\"statement\":\"out.insert( out.end(), bytes.begin(), bytes.end() );\",\"after\":[\"}\",\"template <typename T> bool ReadPod( ByteCursor& cursor, T& out )\"]}",
+        "{\"symbol\":\"AppendPod\",\"before\":[\"static_assert( std::is_trivially_copyable<T>::value, );\",\"const SkullbonezCore::Core::ByteView bytes = SkullbonezCore::Core::ObjectBytes( value );\"],\"statement\":\"out.insert( out.end(), bytes.begin(), bytes.end() );\",\"after\":[\"}\",\"bool RecordsFit( const ByteCursor& cursor, uint32_t count, std::size_t recordBytes )\"]}",
         "{\"symbol\":\"BuildBranchRecords\",\"before\":[\"record.firstRetainedFrame = sample.frameIndex;\",\"record.lastRetainedFrame = sample.frameIndex;\"],\"statement\":\"records.push_back( record );\",\"after\":[\"}\",\"return records;\"]}",
         "{\"symbol\":\"BuildChunks\",\"before\":[\"1u ) );\",\"outChunks.push_back( MakeChunk( , std::move( bodyBytes ), CheckedU32( dictionary.size() ) ) );\"],\"statement\":\"outChunks.push_back( MakeChunk( \\\"PRES\\\", std::move( presentationBytes ), CheckedU32( samples.size() ) ) );\",\"after\":[\"outChunks.push_back( MakeChunk( , BuildBranchChunk( branchRecords ), CheckedU32( branchRecords.size() ) ) );\",\"if ( eventSamples && !eventSamples->empty() )\"]}",
         "{\"symbol\":\"BuildChunks\",\"before\":[\"AppendPod( presentationBytes, CheckedU32( samples.size() ) );\",\"dictionary.reserve( samples.front().bodies.size() );\"],\"statement\":\"index.reserve( samples.size() );\",\"after\":[\"for ( const ReplayPresentationSample& sample : samples )\",\"{\"]}",
@@ -1827,11 +1830,10 @@
         "{\"symbol\":\"ParseIndex\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outFrames.reserve( frameCount );\",\"after\":[\"for ( uint32_t i = 0; i < frameCount; ++i )\",\"{\"]}",
         "{\"symbol\":\"ParseIndex\",\"before\":[\"}\",\"(void)reserved;\"],\"statement\":\"outFrames.push_back( frame );\",\"after\":[\"}\",\"return cursor.offset == cursor.size &&\"]}",
         "{\"symbol\":\"ParsePresentationSamples\",\"before\":[\"body.fixed = entry.fixed;\",\"std::memcpy( body.name, entry.name, sizeof( body.name ) );\"],\"statement\":\"sample.bodies.push_back( body );\",\"after\":[\"}\",\"const uint32_t bodyBytes = version >= REPLAY_PRESENTATION_VISUAL_VERSION ? REPLAY_V3_BODY_VISUAL_STATE_BYTES\"]}",
-        "{\"symbol\":\"ParsePresentationSamples\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outSamples.reserve( frameCount );\",\"after\":[\"for ( const IndexedFrame& indexed : indexedFrames )\",\"{\"]}",
-        "{\"symbol\":\"ParsePresentationSamples\",\"before\":[\"sample.checkpointBoundary = checkpointBoundary != 0;\",\"ApplyWorldFlags( worldFlags, sample.world );\"],\"statement\":\"sample.bodies.reserve( bodyCount );\",\"after\":[\"for ( uint32_t i = 0; i < bodyCount; ++i )\",\"{\"]}",
+        "{\"symbol\":\"ParsePresentationSamples\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outSamples.reserve( frameCount );\",\"after\":[\"uint64_t nextFrameOffset = sizeof( uint32_t );\",\"for ( const IndexedFrame& indexed : indexedFrames )\"]}",
+        "{\"symbol\":\"ParsePresentationSamples\",\"before\":[\"return false;\",\"}\"],\"statement\":\"sample.bodies.reserve( bodyCount );\",\"after\":[\"for ( uint32_t i = 0; i < bodyCount; ++i )\",\"{\"]}",
         "{\"symbol\":\"ParsePresentationSamples\",\"before\":[\"sample.stateHash = ReplayRecorderOperations::ComputePresentationStateHash( sample );\",\"}\"],\"statement\":\"outSamples.push_back( std::move( sample ) );\",\"after\":[\"}\",\"return true;\"]}",
-        "{\"symbol\":\"ParseSolverCheckpoints\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outCheckpoints.reserve( checkpointCount );\",\"after\":[\"for ( uint32_t i = 0; i < checkpointCount; ++i )\",\"{\"]}",
-        "{\"symbol\":\"ParseSolverCheckpoints\",\"before\":[\"sample.checkpointBoundary = checkpointBoundary != 0;\",\"ApplyWorldFlags( worldFlags, sample.world );\"],\"statement\":\"sample.bodies.resize( bodyCount );\",\"after\":[\"for ( ReplaySolverBodySample& body : sample.bodies )\",\"{\"]}",
+        "{\"symbol\":\"ParseSolverCheckpoints\",\"before\":[\"return false;\",\"}\"],\"statement\":\"sample.bodies.resize( bodyCount );\",\"after\":[\"for ( ReplaySolverBodySample& body : sample.bodies )\",\"{\"]}",
         "{\"symbol\":\"ParseSolverCheckpoints\",\"before\":[\"}\",\"}\"],\"statement\":\"outCheckpoints.push_back( std::move( sample ) );\",\"after\":[\"}\",\"return cursor.offset == cursor.size;\"]}",
         "{\"symbol\":\"ParseSolverHashRecords\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outHashes.reserve( hashCount );\",\"after\":[\"for ( uint32_t i = 0; i < hashCount; ++i )\",\"{\"]}",
         "{\"symbol\":\"ParseSolverHashRecords\",\"before\":[\"sample.sceneFrame = sceneFrame;\",\"sample.checkpointBoundary = checkpointBoundary != 0;\"],\"statement\":\"outHashes.push_back( sample );\",\"after\":[\"}\",\"return cursor.offset == cursor.size &&\"]}",
@@ -1843,7 +1845,6 @@
         "{\"symbol\":\"ReadCountedPairVector\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outValues.resize( count );\",\"after\":[\"for ( std::pair<int, int>& value : outValues )\",\"{\"]}",
         "{\"symbol\":\"ReadCountedPodVector\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outValues.resize( count );\",\"after\":[\"for ( T& value : outValues )\",\"{\"]}",
         "{\"symbol\":\"ReadSleepCounterVector\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outValues.resize( count );\",\"after\":[\"for ( uint32_t& value : outValues )\",\"{\"]}",
-        "{\"symbol\":\"ReadCountedStructVector\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outValues.resize( count );\",\"after\":[\"for ( T& value : outValues )\",\"{\"]}",
         "{\"symbol\":\"ReadLauncherVisual\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outLauncher.laserShots.resize( laserShotCount );\",\"after\":[\"for ( LauncherLaserShotSnapshot& shot : outLauncher.laserShots )\",\"{\"]}",
         "{\"symbol\":\"ReadLauncherVisual\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outLauncher.rayLines.resize( rayLineCount );\",\"after\":[\"for ( ReplayRayCastLineSample& line : outLauncher.rayLines )\",\"{\"]}",
         "{\"symbol\":\"ReadSolverSnapshot\",\"before\":[\"{\",\"const std::size_t legacyBodyCount = modelCount > 0 ? static_cast<std::size_t>( modelCount ) : 0u;\"],\"statement\":\"physics.sleepPoseAnchorPosition.assign( legacyBodyCount, SkullbonezCore::Math::Vector::ZERO_VECTOR );\",\"after\":[\"physics.sleepPoseAnchorOrientation.assign( legacyBodyCount, std::array<float, 4> { 0.0f, 0.0f, 0.0f, 1.0f } );\",\"physics.sleepPoseAnchorValid.assign( legacyBodyCount, 0u );\"]}",
@@ -1856,7 +1857,8 @@
         "{\"symbol\":\"ReplayArtifactSource::MaterializePresentation\",\"before\":[\"{\",\"outSamples.clear();\"],\"statement\":\"outSamples.reserve( recorder.m_sampleCount );\",\"after\":[\"if ( recorder.m_sampleCount == 0 || recorder.m_samples.empty() )\",\"{\"]}",
         "{\"symbol\":\"ReplayArtifactSource::MaterializeSolver\",\"before\":[\"if ( recorder.ResolveSolverSampleAtOffset( i, sample ) )\",\"{\"],\"statement\":\"outSamples.push_back( std::move( sample ) );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"ReplayArtifactSource::MaterializeSolver\",\"before\":[\"{\",\"outSamples.clear();\"],\"statement\":\"outSamples.reserve( recorder.m_sampleCount );\",\"after\":[\"if ( recorder.m_sampleCount == 0 || recorder.m_samples.empty() )\",\"{\"]}",
-        "{\"symbol\":\"ReplayV2Artifact::LoadVisualPredictionState\",\"before\":[\"const std::size_t begin = static_cast<std::size_t>( predictionChunk->offset );\",\"const std::size_t end = begin + static_cast<std::size_t>( predictionChunk->size );\"],\"statement\":\"outBytes.assign( fileBytes.begin() + static_cast<std::ptrdiff_t>( begin ),\",\"after\":[\"fileBytes.begin() + static_cast<std::ptrdiff_t>( end ) );\",\"return !outBytes.empty();\"]}"
+        "{\"symbol\":\"ReplayV2Artifact::LoadVisualPredictionState\",\"before\":[\"const std::size_t begin = static_cast<std::size_t>( predictionChunk->offset );\",\"const std::size_t end = begin + static_cast<std::size_t>( predictionChunk->size );\"],\"statement\":\"outBytes.assign( fileBytes.begin() + static_cast<std::ptrdiff_t>( begin ),\",\"after\":[\"fileBytes.begin() + static_cast<std::ptrdiff_t>( end ) );\",\"return !outBytes.empty();\"]}",
+        "{\"symbol\":\"ReadCountedStructVector\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outValues.push_back( std::move( value ) );\",\"after\":[\"}\",\"return true;\"]}"
       ],
       "owner": "Replay static STL storage/growth surface",
       "phase": "replay",
@@ -1870,8 +1872,9 @@
       "patterns": [
         "{\"symbol\":\"CaptureReplayPredictionBodyState\",\"before\":[\"return false;\",\"}\"],\"statement\":\"outBodies.resize( static_cast<std::size_t>( modelCount ) );\",\"after\":[\"const auto captureBody = [&]( int i )\",\"{\"]}",
         "{\"symbol\":\"CaptureReplayPredictionFrame\",\"before\":[\"return false;\",\"}\"],\"statement\":\"frame.bodies.resize( static_cast<std::size_t>( modelCount ) );\",\"after\":[\"const auto captureBody = [&]( int i )\",\"{\"]}",
-        "{\"symbol\":\"CaptureReplayPredictionFrame\",\"before\":[\"}\",\"}\"],\"statement\":\"frame.debugContacts.assign( debugContacts.begin(), debugContacts.end() );\",\"after\":[\"frame.contactsIncomplete = false;\",\"if ( !PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot ) )\"]}",
-        "{\"symbol\":\"ReplayPrediction::BeginFrameSimulation\",\"before\":[\"return false;\",\"}\"],\"statement\":\"prediction.build.buildFrames.resize( buildFrameCapacity );\",\"after\":[\"prediction.ResetBuildFramePublication();\",\"prediction.build.buildPresentationFrameCount = buildPresentationFrameCount;\"]}"
+        "{\"symbol\":\"ReplayPrediction::BeginFrameSimulation\",\"before\":[\"return false;\",\"}\"],\"statement\":\"prediction.build.buildFrames.resize( buildFrameCapacity );\",\"after\":[\"prediction.ResetBuildFramePublication();\",\"prediction.build.buildPresentationFrameCount = buildPresentationFrameCount;\"]}",
+        "{\"symbol\":\"CaptureReplayPredictionFrame\",\"before\":[\"break;\",\"}\"],\"statement\":\"frame.debugContacts.push_back( contact );\",\"after\":[\"const int activatedModel = bodyAActive ? contact.bodyB : contact.bodyA;\",\"prediction.build.causalContactActiveModels[static_cast<std::size_t>( activatedModel )] = 1u;\"]}",
+        "{\"symbol\":\"ReplayPrediction::BeginFrameSimulation\",\"before\":[\"return false;\",\"}\"],\"statement\":\"prediction.build.causalContactActiveModels.assign( static_cast<std::size_t>( modelCount ), uint8_t { 0u } );\",\"after\":[\"prediction.build.causalContactNodeCount = 0u;\",\"if ( prediction.simulation.targetModelRow.value >= 0 && prediction.simulation.targetModelRow.value < modelCount )\"]}"
       ],
       "owner": "Replay static STL storage/growth surface",
       "phase": "startup_preallocation_and_replay",
@@ -2304,8 +2307,6 @@
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"const auto restoredPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"RunReplayPredictionState& restoredPrediction = *restoredPredictionStorage;\"],\"statement\":\"const auto restoredEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\",\"after\":[\"ReplayPredictionArchiveDetailCapability restoredCapability = ReplayPredictionArchiveDetailCapability::Low;\",\"if ( !LoadReplayPredictionArchive( bytes, restoredPathVisualizer, restoredPrediction, *restoredEvidenceStorage,\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"prefixProbeSource->publishedPointCount = capturedPublishedPointCount;\",\"RunReplayPathVisualizerState prefixPathVisualizer;\"],\"statement\":\"const auto prefixPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"after\":[\"RunReplayPredictionState& prefixPrediction = *prefixPredictionStorage;\",\"const auto prefixEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"return false;\",\"}\"],\"statement\":\"mutation.assign( bytes.begin(), bytes.end() );\",\"after\":[\"WriteLittleEndianU32( mutation, ARCHIVE_SECTION_COUNT_OFFSET, 1u );\",\"if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,\"]}",
-        "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"return false;\",\"}\"],\"statement\":\"mutation.assign( bytes.begin(), bytes.end() );\",\"after\":[\"WriteLittleEndianU32( mutation, static_cast<std::size_t>( evidenceOffset ) + 4u, 1u );\",\"if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,\"]}",
-        "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"return false;\",\"}\"],\"statement\":\"mutation.assign( bytes.begin(), bytes.end() );\",\"after\":[\"WriteLittleEndianU32( mutation, static_cast<std::size_t>( evidenceOffset ) + 8u, 1 001u );\",\"if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"return false;\",\"}\"],\"statement\":\"mutation.assign( bytes.begin(), bytes.end() );\",\"after\":[\"WriteLittleEndianU64( mutation, ARCHIVE_SECOND_SECTION_OFFSET_FIELD,\",\"ReadLittleEndianU64( bytes, ARCHIVE_FIRST_SECTION_OFFSET_FIELD ) );\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"return false;\",\"}\"],\"statement\":\"mutation.assign( bytes.begin(), bytes.end() );\",\"after\":[\"WriteLittleEndianU64( mutation, ARCHIVE_SECOND_SECTION_SIZE_FIELD, ( std::numeric_limits<uint64_t>::max )() );\",\"if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"return false;\",\"}\"],\"statement\":\"mutation.assign( bytes.begin(), bytes.end() );\",\"after\":[\"WriteLittleEndianU64( mutation, ARCHIVE_TOTAL_BYTES_OFFSET, bytes.size() + 1u );\",\"if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,\"]}",
@@ -2313,7 +2314,9 @@
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"return false;\",\"}\"],\"statement\":\"mutation.assign( bytes.begin(), bytes.end() );\",\"after\":[\"mutation[ARCHIVE_PATH_POLICY_OFFSET] = mutation[ARCHIVE_PATH_POLICY_OFFSET] == 0u ? 1u : 0u;\",\"if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"return false;\",\"}\"],\"statement\":\"mutation.assign( bytes.begin(), bytes.end() - 1 );\",\"after\":[\"if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,\",\"*restoredEvidenceStorage, ReplayPredictionArchiveDetailCapability::Low,\"]}",
         "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"}\",\"RunReplayPathVisualizerState lowPathVisualizer;\"],\"statement\":\"const auto lowPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"after\":[\"RunReplayPredictionState& lowPrediction = *lowPredictionStorage;\",\"const auto lowEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\"]}",
-        "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"}\",\"RunReplayPathVisualizerState migratedPathVisualizer;\"],\"statement\":\"const auto migratedPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"after\":[\"RunReplayPredictionState& migratedPrediction = *migratedPredictionStorage;\",\"const auto migratedEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\"]}"
+        "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"}\",\"RunReplayPathVisualizerState migratedPathVisualizer;\"],\"statement\":\"const auto migratedPredictionStorage = std::make_unique<RunReplayPredictionState>();\",\"after\":[\"RunReplayPredictionState& migratedPrediction = *migratedPredictionStorage;\",\"const auto migratedEvidenceStorage = std::make_unique<ReplayPredictionSolverEvidenceBanks>();\"]}",
+        "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"return false;\",\"}\"],\"statement\":\"mutation.assign( bytes.begin(), bytes.end() );\",\"after\":[\"WriteLittleEndianU32( mutation, static_cast<std::size_t>( evidenceOffset ) + 12u, 1u );\",\"if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,\"]}",
+        "{\"symbol\":\"VerifyReplayPredictionArchiveRoundTrip\",\"before\":[\"return false;\",\"}\"],\"statement\":\"mutation.assign( bytes.begin(), bytes.end() );\",\"after\":[\"WriteLittleEndianU32( mutation, static_cast<std::size_t>( evidenceOffset ) + 20u, 1 001u );\",\"if ( !VerifyRejectedArchivePreservesState( mutation, rebuiltBytes, restoredPathVisualizer, restoredPrediction,\"]}"
       ],
       "owner": "replay_prediction_archive_verification",
       "phase": "Diagnostics",
@@ -2378,17 +2381,18 @@
         "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneAssetLibraryRef> m_assetLibraries;\",\"std::vector<SceneAssetInstanceRecord> m_assetInstances;\"],\"statement\":\"std::vector<SceneAssetPartRef> m_assetParts;\",\"after\":[\"uint32_t m_schemaVersion = 1;\",\"SceneOptions m_sceneOptions;\"]}",
         "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneBall> m_balls;\",\"std::vector<SceneBallState> m_ballStates;\"],\"statement\":\"std::vector<SceneBoxState> m_boxStates;\",\"after\":[\"std::vector<SceneBox> m_boxes;\",\"std::vector<SceneConvexHull> m_convexHulls;\"]}",
         "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneBallState> m_ballStates;\",\"std::vector<SceneBoxState> m_boxStates;\"],\"statement\":\"std::vector<SceneBox> m_boxes;\",\"after\":[\"std::vector<SceneConvexHull> m_convexHulls;\",\"std::vector<SceneConvexHullState> m_convexHullStates;\"]}",
-        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneBox> m_boxes;\",\"std::vector<SceneConvexHull> m_convexHulls;\"],\"statement\":\"std::vector<SceneConvexHullState> m_convexHullStates;\",\"after\":[\"std::vector<SceneRagdoll> m_ragdolls;\",\"std::vector<ScenePointJointConstraint> m_pointJointConstraints;\"]}",
-        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneBoxState> m_boxStates;\",\"std::vector<SceneBox> m_boxes;\"],\"statement\":\"std::vector<SceneConvexHull> m_convexHulls;\",\"after\":[\"std::vector<SceneConvexHullState> m_convexHullStates;\",\"std::vector<SceneRagdoll> m_ragdolls;\"]}",
+        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneBox> m_boxes;\",\"std::vector<SceneConvexHull> m_convexHulls;\"],\"statement\":\"std::vector<SceneConvexHullState> m_convexHullStates;\",\"after\":[\"std::vector<SceneSnapshotPrimitiveOrderEntry> m_snapshotPrimitiveOrder;\",\"std::vector<SceneRagdoll> m_ragdolls;\"]}",
+        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneBoxState> m_boxStates;\",\"std::vector<SceneBox> m_boxes;\"],\"statement\":\"std::vector<SceneConvexHull> m_convexHulls;\",\"after\":[\"std::vector<SceneConvexHullState> m_convexHullStates;\",\"std::vector<SceneSnapshotPrimitiveOrderEntry> m_snapshotPrimitiveOrder;\"]}",
         "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneCamera> m_cameras;\",\"std::vector<SceneBall> m_balls;\"],\"statement\":\"std::vector<SceneBallState> m_ballStates;\",\"after\":[\"std::vector<SceneBoxState> m_boxStates;\",\"std::vector<SceneBox> m_boxes;\"]}",
-        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneConvexHull> m_convexHulls;\",\"std::vector<SceneConvexHullState> m_convexHullStates;\"],\"statement\":\"std::vector<SceneRagdoll> m_ragdolls;\",\"after\":[\"std::vector<ScenePointJointConstraint> m_pointJointConstraints;\",\"std::vector<SceneObjectMaterialOverride> m_objectMaterials;\"]}",
-        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneConvexHullState> m_convexHullStates;\",\"std::vector<SceneRagdoll> m_ragdolls;\"],\"statement\":\"std::vector<ScenePointJointConstraint> m_pointJointConstraints;\",\"after\":[\"std::vector<SceneObjectMaterialOverride> m_objectMaterials;\",\"std::vector<SceneRequiredContact> m_requiredContacts;\"]}",
+        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneConvexHullState> m_convexHullStates;\",\"std::vector<SceneSnapshotPrimitiveOrderEntry> m_snapshotPrimitiveOrder;\"],\"statement\":\"std::vector<SceneRagdoll> m_ragdolls;\",\"after\":[\"std::vector<ScenePointJointConstraint> m_pointJointConstraints;\",\"std::vector<SceneObjectMaterialOverride> m_objectMaterials;\"]}",
+        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneSnapshotPrimitiveOrderEntry> m_snapshotPrimitiveOrder;\",\"std::vector<SceneRagdoll> m_ragdolls;\"],\"statement\":\"std::vector<ScenePointJointConstraint> m_pointJointConstraints;\",\"after\":[\"std::vector<SceneObjectMaterialOverride> m_objectMaterials;\",\"std::vector<SceneRequiredContact> m_requiredContacts;\"]}",
         "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneObjectMaterialOverride> m_objectMaterials;\",\"std::vector<SceneRequiredContact> m_requiredContacts;\"],\"statement\":\"std::vector<SceneRequiredSleepingDynamicBody> m_requiredSleepingDynamicBodies;\",\"after\":[\"std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;\",\"std::vector<SceneAssetLibraryRef> m_assetLibraries;\"]}",
         "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<ScenePointJointConstraint> m_pointJointConstraints;\",\"std::vector<SceneObjectMaterialOverride> m_objectMaterials;\"],\"statement\":\"std::vector<SceneRequiredContact> m_requiredContacts;\",\"after\":[\"std::vector<SceneRequiredSleepingDynamicBody> m_requiredSleepingDynamicBodies;\",\"std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;\"]}",
         "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneRagdoll> m_ragdolls;\",\"std::vector<ScenePointJointConstraint> m_pointJointConstraints;\"],\"statement\":\"std::vector<SceneObjectMaterialOverride> m_objectMaterials;\",\"after\":[\"std::vector<SceneRequiredContact> m_requiredContacts;\",\"std::vector<SceneRequiredSleepingDynamicBody> m_requiredSleepingDynamicBodies;\"]}",
         "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;\",\"std::vector<SceneAssetLibraryRef> m_assetLibraries;\"],\"statement\":\"std::vector<SceneAssetInstanceRecord> m_assetInstances;\",\"after\":[\"std::vector<SceneAssetPartRef> m_assetParts;\",\"uint32_t m_schemaVersion = 1;\"]}",
         "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneRequiredContact> m_requiredContacts;\",\"std::vector<SceneRequiredSleepingDynamicBody> m_requiredSleepingDynamicBodies;\"],\"statement\":\"std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;\",\"after\":[\"std::vector<SceneAssetLibraryRef> m_assetLibraries;\",\"std::vector<SceneAssetInstanceRecord> m_assetInstances;\"]}",
-        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneRequiredSleepingDynamicBody> m_requiredSleepingDynamicBodies;\",\"std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;\"],\"statement\":\"std::vector<SceneAssetLibraryRef> m_assetLibraries;\",\"after\":[\"std::vector<SceneAssetInstanceRecord> m_assetInstances;\",\"std::vector<SceneAssetPartRef> m_assetParts;\"]}"
+        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneRequiredSleepingDynamicBody> m_requiredSleepingDynamicBodies;\",\"std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;\"],\"statement\":\"std::vector<SceneAssetLibraryRef> m_assetLibraries;\",\"after\":[\"std::vector<SceneAssetInstanceRecord> m_assetInstances;\",\"std::vector<SceneAssetPartRef> m_assetParts;\"]}",
+        "{\"symbol\":\"AuthoredScene\",\"before\":[\"std::vector<SceneConvexHull> m_convexHulls;\",\"std::vector<SceneConvexHullState> m_convexHullStates;\"],\"statement\":\"std::vector<SceneSnapshotPrimitiveOrderEntry> m_snapshotPrimitiveOrder;\",\"after\":[\"std::vector<SceneRagdoll> m_ragdolls;\",\"std::vector<ScenePointJointConstraint> m_pointJointConstraints;\"]}"
       ],
       "owner": "AuthoredScene cold document model",
       "phase": "scene_and_style_file_load",
@@ -2444,9 +2448,9 @@
       "path": "SkullbonezSource/Scene/AuthoredSceneParserBodies.cpp",
       "patterns": [
         "{\"symbol\":\"AuthoredSceneParser::ApplyBall\",\"before\":[\"ball.hasInitOrient = true;\",\"}\"],\"statement\":\"m_scene.m_balls.push_back( ball );\",\"after\":[\"}\",\"void AuthoredSceneParser::ApplyBox( const Json& object, const std::string& path, bool isFixed )\"]}",
-        "{\"symbol\":\"AuthoredSceneParser::ApplyBallState\",\"before\":[\"state.isSleeping = ReadBool( *sleeping, path, );\",\"}\"],\"statement\":\"m_scene.m_ballStates.push_back( state );\",\"after\":[\"}\",\"void AuthoredSceneParser::ApplyBoxState( const Json& object, const std::string& path )\"]}",
+        "{\"symbol\":\"AuthoredSceneParser::ApplyBallState\",\"before\":[\"state.isSleeping = ReadBool( *sleeping, path, );\",\"}\"],\"statement\":\"m_scene.m_ballStates.push_back( state );\",\"after\":[\"m_scene.m_snapshotPrimitiveOrder.push_back(\",\"SceneSnapshotPrimitiveOrderEntry { sourceIndex, SceneAssetPartSource::BallState } );\"]}",
         "{\"symbol\":\"AuthoredSceneParser::ApplyBox\",\"before\":[\"box.hasInitVelocity = true;\",\"}\"],\"statement\":\"m_scene.m_boxes.push_back( box );\",\"after\":[\"}\",\"void AuthoredSceneParser::ApplyConvexHull( const Json& object, const std::string& path, bool isFixed,\"]}",
-        "{\"symbol\":\"AuthoredSceneParser::ApplyBoxState\",\"before\":[\"state.isSleeping = ReadBool( *sleeping, path, );\",\"}\"],\"statement\":\"m_scene.m_boxStates.push_back( state );\",\"after\":[\"}\",\"void AuthoredSceneParser::ApplyConvexHullState( const Json& object, const std::string& path )\"]}",
+        "{\"symbol\":\"AuthoredSceneParser::ApplyBoxState\",\"before\":[\"state.isSleeping = ReadBool( *sleeping, path, );\",\"}\"],\"statement\":\"m_scene.m_boxStates.push_back( state );\",\"after\":[\"m_scene.m_snapshotPrimitiveOrder.push_back(\",\"SceneSnapshotPrimitiveOrderEntry { sourceIndex, SceneAssetPartSource::BoxState } );\"]}",
         "{\"symbol\":\"AuthoredSceneParser::ApplyConvexHull\",\"before\":[\"hull.hasInitAngularVelocity = true;\",\"}\"],\"statement\":\"m_scene.m_convexHulls.push_back( hull );\",\"after\":[\"}\",\"void AuthoredSceneParser::ApplyBallState( const Json& object, const std::string& path )\"]}",
         "{\"symbol\":\"AuthoredSceneParser::ApplyConvexHullState\",\"before\":[\") );\",\"}\"],\"statement\":\"m_scene.m_convexHullStates.push_back( state );\",\"after\":[\"}\",\"void AuthoredSceneParser::ApplyRagdoll( const Json& object, const std::string& path )\"]}",
         "{\"symbol\":\"AuthoredSceneParser::ApplyObjectMaterial\",\"before\":[\"}\",\"}\"],\"statement\":\"m_scene.m_objectMaterials.push_back( material );\",\"after\":[\"}\",\"void AuthoredSceneParser::ApplyRequirements( const Json& requirements, const std::string& path )\"]}",
@@ -2454,7 +2458,9 @@
         "{\"symbol\":\"AuthoredSceneParser::ApplyRagdoll\",\"before\":[\"ragdoll.hasInitOrient = true;\",\"}\"],\"statement\":\"m_scene.m_ragdolls.push_back( ragdoll );\",\"after\":[\"}\",\"void AuthoredSceneParser::ApplyObject( const Json& object, const std::string& path )\"]}",
         "{\"symbol\":\"AuthoredSceneParser::ApplyRequirements\",\"before\":[\"(void)CopyCheckedStringField( body.name, name, path, );\",\"}\"],\"statement\":\"m_scene.m_requiredSleepingDynamicBodies.push_back( body );\",\"after\":[\"}\",\"}\"]}",
         "{\"symbol\":\"AuthoredSceneParser::ApplyRequirements\",\"before\":[\"ReadRequiredStringField( contact.nameA, contactJson, path, , );\",\"ReadRequiredStringField( contact.nameB, contactJson, path, , );\"],\"statement\":\"m_scene.m_requiredContacts.push_back( contact );\",\"after\":[\"}\",\"}\"]}",
-        "{\"symbol\":\"AuthoredSceneParser::ApplyRequirements\",\"before\":[\"cell.cellZ = ReadInt( RequireMember( cellJson, path, , ), path,\",\");\"],\"statement\":\"m_scene.m_requiredBroadphaseXCells.push_back( cell );\",\"after\":[\"}\",\"}\"]}"
+        "{\"symbol\":\"AuthoredSceneParser::ApplyRequirements\",\"before\":[\"cell.cellZ = ReadInt( RequireMember( cellJson, path, , ), path,\",\");\"],\"statement\":\"m_scene.m_requiredBroadphaseXCells.push_back( cell );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"AuthoredSceneParser::ApplyBallState\",\"before\":[\"}\",\"m_scene.m_ballStates.push_back( state );\"],\"statement\":\"m_scene.m_snapshotPrimitiveOrder.push_back(\",\"after\":[\"SceneSnapshotPrimitiveOrderEntry { sourceIndex, SceneAssetPartSource::BallState } );\",\"}\"]}",
+        "{\"symbol\":\"AuthoredSceneParser::ApplyBoxState\",\"before\":[\"}\",\"m_scene.m_boxStates.push_back( state );\"],\"statement\":\"m_scene.m_snapshotPrimitiveOrder.push_back(\",\"after\":[\"SceneSnapshotPrimitiveOrderEntry { sourceIndex, SceneAssetPartSource::BoxState } );\",\"}\"]}"
       ],
       "owner": "AuthoredSceneParser body and requirement assembly",
       "phase": "scene_file_load",
@@ -2732,6 +2738,293 @@
       "reason": "Canonical pair copying and release-body discovery append only into typed preallocated Physics lists. Their wrappers reject overflow without allocating.",
       "cap": "Candidate pairs use the existing scene pair ceiling; reactivated identities use one row per scene body. Capacity is reserved before gameplay.",
       "removal_or_wrapper_plan": "Already bounded by PhysicsCandidatePairList and PhysicsBodyRowList; retain these typed wrappers and reject any conversion to growing containers.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/App/ReplayPredictionPresentation.cpp",
+      "patterns": [
+        "{\"symbol\":\"ReplayPredictionPresentation::ReplayPredictionPresentation\",\"before\":[\"ReplayPredictionPresentation::ReplayPredictionPresentation( Core::SbDiagnosticStore& resultDiagnostics,\",\"Core::Profiler* profiler )\"],\"statement\":\": m_profiler( profiler ), m_retainedState( std::make_unique<ReplayPredictionPresentationRetainedState>() ),\",\"after\":[\"m_retainedMarkerDrawList( resultDiagnostics )\",\"{\"]}"
+      ],
+      "owner": "ReplayPredictionPresentation retained visual state",
+      "phase": "startup",
+      "reason": "The presentation constructor creates one private retained geometry/draw-list owner before steady frames; the existing geometry arrays and draw-list capacities remain unchanged.",
+      "cap": "One ReplayPredictionPresentationRetainedState allocation per process-lifetime presentation owner; its nested fixed geometry allocations have separate startup metadata.",
+      "removal_or_wrapper_plan": "Use typed startup arena storage if process-lifetime visual owners move to a common arena.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/UI/GameUI/UI.h",
+      "patterns": [
+        "{\"symbol\":\"PanelTransitions\",\"before\":[\"}\",\"private:\"],\"statement\":\"std::unique_ptr<UIPanelTransitions> m_panelTransitions = std::make_unique<UIPanelTransitions>();\",\"after\":[\"Core::Profiler* m_profiler = nullptr;\",\"SceneNavigationModel m_sceneNavigation;\"]}"
+      ],
+      "owner": "InGameUI panel transitions",
+      "phase": "startup",
+      "reason": "The InGameUI member initializer constructs one transition owner during CreateOperatorUiForStartup. Frame updates reuse its fixed panel state.",
+      "cap": "One sizeof(UIPanelTransitions) allocation per process-lifetime InGameUI owner.",
+      "removal_or_wrapper_plan": "Use typed startup arena storage if operator UI ownership adopts an arena.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/App/Run.h",
+      "patterns": [
+        "{\"symbol\":\"RequireRenderer\",\"before\":[\"PhysicsComparisonPanel m_comparisonPanel;\",\"PhysicsComparisonLoadJob m_comparisonLoad;\"],\"statement\":\"std::string m_comparisonLoadRequest;\",\"after\":[\"bool m_comparisonForeground = false;\",\"bool m_comparisonCameraValid = false;\"]}"
+      ],
+      "owner": "Skarness comparison load completion identity",
+      "phase": "Diagnostics",
+      "reason": "An accepted explicit comparison load retains only its request id under a Diagnostics scope; the asynchronous file loader has its own Capture scope. Completion clears the id.",
+      "cap": "One pending request id, bounded by the Skarness accepted input line; no per-tick append.",
+      "removal_or_wrapper_plan": "Replace with an interned transport request handle if Skarness adopts fixed request storage.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Automation/SkarnessHost.h",
+      "patterns": [
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::filesystem::path m_physicsTracePath;\",\"std::ofstream m_trace;\"],\"statement\":\"std::string m_pipeName;\",\"after\":[\"std::string m_sessionToken;\",\"std::string m_runId;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::ofstream m_trace;\",\"std::string m_pipeName;\"],\"statement\":\"std::string m_sessionToken;\",\"after\":[\"std::string m_runId;\",\"std::string m_physicsTracePathString;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_pipeName;\",\"std::string m_sessionToken;\"],\"statement\":\"std::string m_runId;\",\"after\":[\"std::string m_physicsTracePathString;\",\"std::string m_receiveBuffer;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_sessionToken;\",\"std::string m_runId;\"],\"statement\":\"std::string m_physicsTracePathString;\",\"after\":[\"std::string m_receiveBuffer;\",\"std::deque<SkarnessCommand> m_commands;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_runId;\",\"std::string m_physicsTracePathString;\"],\"statement\":\"std::string m_receiveBuffer;\",\"after\":[\"std::deque<SkarnessCommand> m_commands;\",\"std::deque<PendingCompletion> m_pendingCompletions;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_physicsTracePathString;\",\"std::string m_receiveBuffer;\"],\"statement\":\"std::deque<SkarnessCommand> m_commands;\",\"after\":[\"std::deque<PendingCompletion> m_pendingCompletions;\",\"std::deque<PendingCapture> m_pendingCaptures;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_receiveBuffer;\",\"std::deque<SkarnessCommand> m_commands;\"],\"statement\":\"std::deque<PendingCompletion> m_pendingCompletions;\",\"after\":[\"std::deque<PendingCapture> m_pendingCaptures;\",\"std::deque<std::string> m_recentRequestIds;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::deque<SkarnessCommand> m_commands;\",\"std::deque<PendingCompletion> m_pendingCompletions;\"],\"statement\":\"std::deque<PendingCapture> m_pendingCaptures;\",\"after\":[\"std::deque<std::string> m_recentRequestIds;\",\"std::deque<CompletedRequest> m_completedRequests;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::deque<PendingCompletion> m_pendingCompletions;\",\"std::deque<PendingCapture> m_pendingCaptures;\"],\"statement\":\"std::deque<std::string> m_recentRequestIds;\",\"after\":[\"std::deque<CompletedRequest> m_completedRequests;\",\"PendingSceneTransition m_pendingSceneTransition;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::deque<PendingCapture> m_pendingCaptures;\",\"std::deque<std::string> m_recentRequestIds;\"],\"statement\":\"std::deque<CompletedRequest> m_completedRequests;\",\"after\":[\"PendingSceneTransition m_pendingSceneTransition;\",\"PendingPointerDrag m_pendingPointerDrag;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::array<uint64_t, 4> m_keyboardWords {};\",\"bool m_appFocused = true;\"],\"statement\":\"std::string m_fileDialogPurpose;\",\"after\":[\"std::string m_fileDialogPath;\",\"bool m_fileDialogAccepted = false;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"bool m_appFocused = true;\",\"std::string m_fileDialogPurpose;\"],\"statement\":\"std::string m_fileDialogPath;\",\"after\":[\"bool m_fileDialogAccepted = false;\",\"uint64_t m_fileDialogResponsesConsumed = 0;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"uint32_t m_stepFramesRemaining = 0;\",\"uint32_t m_renderFramesRemaining = 0;\"],\"statement\":\"std::string m_stepRequestId;\",\"after\":[\"std::string m_renderStepRequestId;\",\"std::string m_untilRequestId;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"uint32_t m_renderFramesRemaining = 0;\",\"std::string m_stepRequestId;\"],\"statement\":\"std::string m_renderStepRequestId;\",\"after\":[\"std::string m_untilRequestId;\",\"std::string m_untilCondition;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_stepRequestId;\",\"std::string m_renderStepRequestId;\"],\"statement\":\"std::string m_untilRequestId;\",\"after\":[\"std::string m_untilCondition;\",\"std::string m_stopRequestId;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_renderStepRequestId;\",\"std::string m_untilRequestId;\"],\"statement\":\"std::string m_untilCondition;\",\"after\":[\"std::string m_stopRequestId;\",\"std::string m_subscriptionRequestId;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_untilRequestId;\",\"std::string m_untilCondition;\"],\"statement\":\"std::string m_stopRequestId;\",\"after\":[\"std::string m_subscriptionRequestId;\",\"bool m_stepCompletesAfterFrame = false;\"]}",
+        "{\"symbol\":\"ManualInputEnabled\",\"before\":[\"std::string m_untilCondition;\",\"std::string m_stopRequestId;\"],\"statement\":\"std::string m_subscriptionRequestId;\",\"after\":[\"bool m_stepCompletesAfterFrame = false;\",\"uint32_t m_untilLimit = 0;\"]}"
+      ],
+      "owner": "Skarness diagnostic transport",
+      "phase": "startup_and_Diagnostics",
+      "reason": "Automation-only transport strings, command/result queues and JSON projections execute during diagnostic polling/publication or locally scoped completion/capture bookkeeping. App applies gameplay commands outside those scopes.",
+      "cap": "Input buffer disconnects above 1 MiB after one at-most-4096-byte read; command queue admits 128 entries; request history retains at most 256 ids and evicts completed responses. Pending completions/captures correspond to admitted work. State arrays mirror bounded source snapshots and each publication emits at most one row per topic. Variable response bytes remain diagnostic storage, not a gameplay reserve.",
+      "removal_or_wrapper_plan": "Move to a fixed diagnostic transport arena if total protocol memory receives a byte-budget owner; keep gameplay application outside diagnostic allocation scopes.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Automation/SkarnessHost.cpp",
+      "patterns": [
+        "{\"symbol\":\"SkarnessHost::PollCommands\",\"before\":[\"return;\",\"}\"],\"statement\":\"m_receiveBuffer.append( chunk.data(), read );\",\"after\":[\"if ( m_receiveBuffer.size() > SKARNESS_RECEIVE_CAPACITY )\",\"{\"]}",
+        "{\"symbol\":\"SkarnessHost::RememberRequestId\",\"before\":[\"m_recentRequestIds.erase( evict );\",\"}\"],\"statement\":\"m_recentRequestIds.push_back( requestId );\",\"after\":[\"return RememberRequestResult::Inserted;\",\"}\"]}",
+        "{\"symbol\":\"SkarnessHost::ConsumeRequestLine\",\"before\":[\"return;\",\"}\"],\"statement\":\"m_commands.push_back( std::move( command ) );\",\"after\":[\"SendLifecycle( requestId, );\",\"}\"]}",
+        "{\"symbol\":\"SkarnessHost::CompleteCommand\",\"before\":[\"completion.reason = reason;\",\"}\"],\"statement\":\"m_pendingCompletions.push_back( std::move( completion ) );\",\"after\":[\"}\",\"void SkarnessHost::CompleteCommand( const std::string& requestId, bool applied, const SkarnessCommandResult& result,\"]}",
+        "{\"symbol\":\"SkarnessHost::CompleteCommand\",\"before\":[\"completion.reason = reason;\",\"}\"],\"statement\":\"m_pendingCompletions.push_back( std::move( completion ) );\",\"after\":[\"}\",\"bool SkarnessHost::BeginSceneTransition( const std::string& requestId, uint64_t sourceGeneration,\"]}",
+        "{\"symbol\":\"SkarnessHost::BeginCapture\",\"before\":[\"Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );\",\"const uint64_t token = m_nextCaptureToken++;\"],\"statement\":\"m_pendingCaptures.push_back( PendingCapture { token, requestId } );\",\"after\":[\"return token;\",\"}\"]}",
+        "{\"symbol\":\"SkarnessHost::StoreCompletedResponse\",\"before\":[\"else\",\"{\"],\"statement\":\"m_completedRequests.push_back( CompletedRequest { requestId, response } );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"SkarnessHost::SendLifecycle\",\"before\":[\"row[ ] = object.sleeping;\",\"}\"],\"statement\":\"objects.push_back( std::move( row ) );\",\"after\":[\"}\",\"values[ ] = std::move( objects );\"]}",
+        "{\"symbol\":\"SkarnessHost::SendCapabilities\",\"before\":[\"if ( available )\",\"{\"],\"statement\":\"commandNames.push_back( capability.name );\",\"after\":[\"}\",\"catalog.push_back( { { , capability.name },\"]}",
+        "{\"symbol\":\"SkarnessHost::SendCapabilities\",\"before\":[\"commandNames.push_back( capability.name );\",\"}\"],\"statement\":\"catalog.push_back( { { \\\"name\\\", capability.name },\",\"after\":[\"{ , capability.owner },\",\"{ , capability.arguments },\"]}",
+        "{\"symbol\":\"SkarnessHost::SendCapabilities\",\"before\":[\"for ( const SkarnessStateTopic& topic : SKARNESS_STATE_TOPICS )\",\"{\"],\"statement\":\"topics.push_back( { { \\\"name\\\", topic.name }, { \\\"owner\\\", topic.owner } } );\",\"after\":[\"}\",\"Json response = { { , SKARNESS_SCHEMA_VERSION },\"]}",
+        "{\"symbol\":\"SkarnessHost::PublishFrameState\",\"before\":[\"{ , topics[index].ownerVersion },\",\"{ , Json::parse( payload ) } };\"],\"statement\":\"traceLines.push_back( event.dump() );\",\"after\":[\"if ( m_stateSubscriptions[index] )\",\"{\"]}",
+        "{\"symbol\":\"SkarnessHost::PublishFrameState\",\"before\":[\"event[ ] = { { , true }, { , payload.size() }, { , payloadHash } };\",\"}\"],\"statement\":\"notificationLines.push_back( event.dump() );\",\"after\":[\"}\",\"};\"]}"
+      ],
+      "owner": "Skarness diagnostic transport",
+      "phase": "startup_and_Diagnostics",
+      "reason": "Automation-only transport strings, command/result queues and JSON projections execute during diagnostic polling/publication or locally scoped completion/capture bookkeeping. App applies gameplay commands outside those scopes.",
+      "cap": "Input buffer disconnects above 1 MiB after one at-most-4096-byte read; command queue admits 128 entries; request history retains at most 256 ids and evicts completed responses. Pending completions/captures correspond to admitted work. State arrays mirror bounded source snapshots and each publication emits at most one row per topic. Variable response bytes remain diagnostic storage, not a gameplay reserve.",
+      "removal_or_wrapper_plan": "Move to a fixed diagnostic transport arena if total protocol memory receives a byte-budget owner; keep gameplay application outside diagnostic allocation scopes.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Automation/SkarnessStateSerialization.cpp",
+      "patterns": [
+        "{\"symbol\":\"BuildTimeline\",\"before\":[\"for ( const ReplaySolverBodySample& body : sample.bodies )\",\"{\"],\"statement\":\"bodies.push_back( { { \\\"id\\\", body.id.value },\",\"after\":[\"{ , body.modelRow.value },\",\"{ , body.name },\"]}",
+        "{\"symbol\":\"BuildTimeline\",\"before\":[\"row[ ] = std::move( bodies );\",\"}\"],\"statement\":\"samples.push_back( std::move( row ) );\",\"after\":[\"} );\",\"payload[ ] = std::move( samples );\"]}",
+        "{\"symbol\":\"BuildPredictionFrames\",\"before\":[\"for ( const RunReplayPredictionBodySample& body : frame.bodies )\",\"{\"],\"statement\":\"bodies.push_back( { { \\\"id\\\", body.id.value },\",\"after\":[\"{ , body.modelRow.value },\",\"{ , Vec3( body.position ) },\"]}",
+        "{\"symbol\":\"BuildPredictionFrames\",\"before\":[\"row[ ] = std::move( bodies );\",\"}\"],\"statement\":\"rows.push_back( std::move( row ) );\",\"after\":[\"}\",\"return { { , replay.activePredictionFrames.size() }, { , std::move( rows ) } };\"]}",
+        "{\"symbol\":\"BuildPredictionEvidence\",\"before\":[\"if ( const auto* contact = evidence.Contact( frame->contacts, i ) )\",\"{\"],\"statement\":\"contacts.push_back( ContactRow( *contact ) );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"BuildPredictionEvidence\",\"before\":[\"if ( const auto* record = evidence.Pipeline( frame->pipeline, i ) )\",\"{\"],\"statement\":\"pipeline.push_back( PipelineRow( *record ) );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"BuildPredictionEvidence\",\"before\":[\"row[ ] = std::move( pipeline );\",\"}\"],\"statement\":\"frames.push_back( std::move( row ) );\",\"after\":[\"}\",\"return { { , evidence.Generation() },\"]}",
+        "{\"symbol\":\"BuildTopology\",\"before\":[\"for ( const RunReplayPathTraceNode& node : packet.futureNodes )\",\"{\"],\"statement\":\"nodes.push_back( { { \\\"id\\\", node.id.value },\",\"after\":[\"{ , node.parentId.value },\",\"{ , node.modelRow.value },\"]}",
+        "{\"symbol\":\"BuildTrajectories\",\"before\":[\"for ( std::size_t i = 0; i < count; ++i )\",\"{\"],\"statement\":\"points.push_back(\",\"after\":[\"{ { , record.points[i].frameIndex }, { , Vec3( record.points[i].position ) } } );\",\"}\"]}",
+        "{\"symbol\":\"BuildTrajectories\",\"before\":[\"row[ ] = std::move( points );\",\"}\"],\"statement\":\"records.push_back( std::move( row ) );\",\"after\":[\"}\",\"return { { , replay.visualPacket.header.topologyVersion },\"]}",
+        "{\"symbol\":\"BuildCause\",\"before\":[\"for ( const RunReplayCauseTreeRow& row : replay.causeTree.rows )\",\"{\"],\"statement\":\"rows.push_back( { { \\\"kind\\\", static_cast<int>( row.kind ) },\",\"after\":[\"{ , row.id.value },\",\"{ , row.parentId.value },\"]}",
+        "{\"symbol\":\"BuildPlanning\",\"before\":[\"for ( float value : replay.porkchop.deltaV )\",\"{\"],\"statement\":\"payload[\\\"porkchop\\\"][\\\"deltaV\\\"].push_back( value );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"AddFloatBuffer\",\"before\":[\"for ( float value : values )\",\"{\"],\"statement\":\"buffer[\\\"values\\\"].push_back( value );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"BuildVisualPacket\",\"before\":[\"for ( const ReplayPredictionRetainedMarker& marker : packet.retainedMarkers )\",\"{\"],\"statement\":\"markers.push_back( { { \\\"id\\\", marker.id.value },\",\"after\":[\"{ , marker.modelRow.value },\",\"{ , marker.hasEntryPose },\"]}",
+        "{\"symbol\":\"BuildVisualPacket\",\"before\":[\"for ( const ReplayPredictionGhostDrawRequest& ghost : packet.ghostRequests )\",\"{\"],\"statement\":\"ghosts.push_back( { { \\\"modelRow\\\", ghost.modelRow.value },\",\"after\":[\"{ , Vec3( ghost.position ) },\",\"{ , Quaternion( ghost.orientation ) },\"]}",
+        "{\"symbol\":\"BuildPositionGates\",\"before\":[\"for ( const auto& gate : gates )\",\"{\"],\"statement\":\"rows.push_back( { { \\\"sceneObjectId\\\", gate.sceneObjectId },\",\"after\":[\"{ , gate.frame },\",\"{ , gate.center },\"]}"
+      ],
+      "owner": "Skarness diagnostic snapshot serialization",
+      "phase": "Diagnostics",
+      "reason": "PublishSkarnessFrameState projects detached owner snapshots and serializes JSON inside its Diagnostics scope. These temporary JSON arrays do not belong to simulation, prediction execution or rendering submission.",
+      "cap": "One transient topic projection per frame; array counts follow the source replay, body, solver, render and planning snapshot capacities, with incremental cursors for retained streams. Position-gate projection is bounded to the two detached gate values.",
+      "removal_or_wrapper_plan": "Use a streaming JSON writer if diagnostic projection memory must be reduced.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/App/RunFrame.cpp",
+      "patterns": [
+        "{\"symbol\":\"Run::PublishSkarnessFrameState\",\"before\":[\"ProjectOperatorRenderingParameters( rendering, m_config.ordinaryRender,\",\"ActiveSceneCinematicConfig( m_sceneController.State(), m_config ) );\"],\"statement\":\"state.presentation.ordinaryRenderParameters.assign( std::begin( rendering.ordinaryParameters ),\",\"after\":[\"std::end( rendering.ordinaryParameters ) );\",\"state.presentation.cinematicParameters.assign( std::begin( rendering.cinematicParameters ),\"]}",
+        "{\"symbol\":\"Run::PublishSkarnessFrameState\",\"before\":[\"state.presentation.ordinaryRenderParameters.assign( std::begin( rendering.ordinaryParameters ),\",\"std::end( rendering.ordinaryParameters ) );\"],\"statement\":\"state.presentation.cinematicParameters.assign( std::begin( rendering.cinematicParameters ),\",\"after\":[\"std::end( rendering.cinematicParameters ) );\",\"state.presentation.cinematicFeatures.assign( std::begin( rendering.cinematicFeatures ),\"]}",
+        "{\"symbol\":\"Run::PublishSkarnessFrameState\",\"before\":[\"state.presentation.cinematicParameters.assign( std::begin( rendering.cinematicParameters ),\",\"std::end( rendering.cinematicParameters ) );\"],\"statement\":\"state.presentation.cinematicFeatures.assign( std::begin( rendering.cinematicFeatures ),\",\"after\":[\"std::end( rendering.cinematicFeatures ) );\",\"const auto& panels = m_operatorUi->PanelTransitions();\"]}"
+      ],
+      "owner": "Skarness render-parameter observation",
+      "phase": "Diagnostics",
+      "reason": "PublishSkarnessFrameState copies render-parameter values under its Diagnostics scope after rendering. This does not permit render submission or Physics work to allocate.",
+      "cap": "Three temporary arrays sized to the fixed ordinary, cinematic-parameter and cinematic-feature arrays in the detached render snapshot.",
+      "removal_or_wrapper_plan": "Use fixed arrays in the diagnostic packet if snapshot transport adopts fixed serialization buffers.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/App/InputFrame.cpp",
+      "patterns": [
+        "{\"symbol\":\"AppendSkarnessSceneObjectResult\",\"before\":[\"{\",\"Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );\"],\"statement\":\"result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex ) );\",\"after\":[\"}\",\"void SetSkarnessNumberResult( SkarnessCommandApplication& application, const char* name, double value )\"]}",
+        "{\"symbol\":\"Run::ApplySkarnessObjectLookupCommand\",\"before\":[\"{\",\"const SceneWorld& world = m_sceneController.Scene();\"],\"statement\":\"application.result.objects.reserve( static_cast<std::size_t>( world.SceneEntityCount() ) );\",\"after\":[\"for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )\",\"{\"]}",
+        "{\"symbol\":\"Run::ApplySkarnessObjectLookupCommand\",\"before\":[\"if ( object.sceneObjectId != 0u )\",\"{\"],\"statement\":\"application.result.objects.push_back( object );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"Run::ApplySkarnessObjectLookupCommand\",\"before\":[\"if ( application.applied )\",\"{\"],\"statement\":\"application.result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex, true ) );\",\"after\":[\"}\",\"return;\"]}"
+      ],
+      "owner": "Skarness object-query responses",
+      "phase": "Diagnostics",
+      "reason": "Read-only object queries and post-command response copies have local Diagnostics scopes. Selection and replay target mutation execute before response storage is allocated.",
+      "cap": "At most SceneEntityCount rows for the list command, bounded by MAX_SCENE_OBJECTS; resolve and successful selection/intercept replies contain one object.",
+      "removal_or_wrapper_plan": "Use a streaming diagnostic response writer if the transport stops retaining object arrays.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Planning/PhysicsComparison.Binary.cpp",
+      "patterns": [
+        "{\"symbol\":\"Prepare\",\"before\":[\"if ( frame )\",\"{\"],\"statement\":\"m_rows.reserve( frame->bodies.size() );\",\"after\":[\"for ( const auto& body : frame->bodies )\",\"{\"]}",
+        "{\"symbol\":\"Prepare\",\"before\":[\"for ( const auto& body : frame->bodies )\",\"{\"],\"statement\":\"m_rows.emplace_back( body.modelRow.value, body.id.value );\",\"after\":[\"}\",\"std::sort( m_rows.begin(), m_rows.end() );\"]}",
+        "{\"symbol\":\"ComparisonObservationBinary::ReadIndex\",\"before\":[\"m_sourceHash += hex[byte & 15];\",\"}\"],\"statement\":\"m_index.resize( count );\",\"after\":[\"uint64_t expectedSize = 44 + uint64_t { count } * 16;\",\"int previous = -2;\"]}",
+        "{\"symbol\":\"ComparisonObservationBinary::ReadFrame\",\"before\":[\"return false;\",\"}\"],\"statement\":\"words.resize( static_cast<std::size_t>( entry.Words() ) );\",\"after\":[\"if ( !words.empty() )\",\"{\"]}",
+        "{\"symbol\":\"ComparisonRecording::LoadBinaryObservations\",\"before\":[\"}\",\"residentBytes += charge;\"],\"statement\":\"observations.resize( static_cast<std::size_t>( ticks ) + 1 );\",\"after\":[\"std::vector<uint32_t> words;\",\"std::size_t maxWords = 0;\"]}",
+        "{\"symbol\":\"ComparisonRecording::LoadBinaryObservations\",\"before\":[\"maxWords = (std::max)( maxWords, static_cast<std::size_t>( entry.Words() ) );\",\"}\"],\"statement\":\"words.reserve( maxWords );\",\"after\":[\"ObservationBodyRows rows;\",\"if ( progress )\"]}",
+        "{\"symbol\":\"ComparisonRecording::LoadBinaryObservations\",\"before\":[\"observed.recorded = ( entry.flags & 1 ) != 0;\",\"observed.iterationsRecorded = ( entry.flags & 2 ) != 0;\"],\"statement\":\"observed.contacts.resize( entry.contacts );\",\"after\":[\"observed.iterations.resize( entry.iterations );\",\"rows.Prepare( Frame( tick ) );\"]}",
+        "{\"symbol\":\"ComparisonRecording::LoadBinaryObservations\",\"before\":[\"observed.iterationsRecorded = ( entry.flags & 2 ) != 0;\",\"observed.contacts.resize( entry.contacts );\"],\"statement\":\"observed.iterations.resize( entry.iterations );\",\"after\":[\"rows.Prepare( Frame( tick ) );\",\"for ( std::size_t i = 0; i < observed.contacts.size(); ++i )\"]}",
+        "{\"symbol\":\"ValidFrameIndex\",\"before\":[\"class ObservationBodyRows\",\"{\"],\"statement\":\"std::vector<std::pair<int, uint64_t>> m_rows;\",\"after\":[\"public:\",\"void Prepare( const ReplayPresentationSample* frame )\"]}"
+      ],
+      "owner": "PhysicsComparison cold artifact inspection",
+      "phase": "Capture_file_load_save",
+      "reason": "PhysicsComparison::Load/LoadFinding/SaveFinding and LoadJob::Start own explicit Capture scopes. Binary/text decode and event assembly occur during file loading; playback reads the completed immutable recordings and event list.",
+      "cap": "Existing 512 MiB MEMORY_BUDGET and load preflight account retained recordings, contact/iteration rows and events. Binary index count is at most 14,402, ticks at most 14,400, and per-frame decode scratch is validated against file words. Strings are metadata for the one accepted bundle or finding.",
+      "removal_or_wrapper_plan": "Keep all decode and event construction at explicit file boundaries; use a cold load arena if comparison storage needs stricter aggregate transient accounting.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Planning/PhysicsComparison.Binary.h",
+      "patterns": [
+        "{\"symbol\":\"ScratchBytes\",\"before\":[\"private:\",\"std::ifstream m_input;\"],\"statement\":\"std::vector<ComparisonObservationIndex> m_index;\",\"after\":[\"std::string m_sourceHash;\",\"uint64_t m_size = 0, m_contacts = 0, m_iterations = 0, m_maxWords = 0;\"]}",
+        "{\"symbol\":\"ScratchBytes\",\"before\":[\"std::ifstream m_input;\",\"std::vector<ComparisonObservationIndex> m_index;\"],\"statement\":\"std::string m_sourceHash;\",\"after\":[\"uint64_t m_size = 0, m_contacts = 0, m_iterations = 0, m_maxWords = 0;\",\"};\"]}"
+      ],
+      "owner": "PhysicsComparison cold artifact inspection",
+      "phase": "Capture_file_load_save",
+      "reason": "PhysicsComparison::Load/LoadFinding/SaveFinding and LoadJob::Start own explicit Capture scopes. Binary/text decode and event assembly occur during file loading; playback reads the completed immutable recordings and event list.",
+      "cap": "Existing 512 MiB MEMORY_BUDGET and load preflight account retained recordings, contact/iteration rows and events. Binary index count is at most 14,402, ticks at most 14,400, and per-frame decode scratch is validated against file words. Strings are metadata for the one accepted bundle or finding.",
+      "removal_or_wrapper_plan": "Keep all decode and event construction at explicit file boundaries; use a cold load arena if comparison storage needs stricter aggregate transient accounting.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Planning/PhysicsComparison.h",
+      "patterns": [
+        "{\"symbol\":\"FindingNote\",\"before\":[\"bool BuildObservedContactEvents( int tick );\",\"std::array<ComparisonRecording, 2> m_recordings;\"],\"statement\":\"std::vector<ComparisonEvent> m_events;\",\"after\":[\"ComparisonSettings m_settings;\",\"std::string m_error, m_scene, m_bundle, m_note;\"]}",
+        "{\"symbol\":\"FindingNote\",\"before\":[\"std::vector<ComparisonEvent> m_events;\",\"ComparisonSettings m_settings;\"],\"statement\":\"std::string m_error, m_scene, m_bundle, m_note;\",\"after\":[\"int m_tick = 0, m_lastTick = 0, m_direction = 0;\",\"int m_loopStart = 0, m_loopEnd = 0, m_selectedEvent = -1;\"]}",
+        "{\"symbol\":\"DismissError\",\"before\":[\"std::atomic<bool> m_ready { false };\",\"std::thread m_worker;\"],\"statement\":\"std::string m_error;\",\"after\":[\"bool m_pending = false, m_success = false, m_finding = false;\",\"};\"]}"
+      ],
+      "owner": "PhysicsComparison cold artifact inspection",
+      "phase": "Capture_file_load_save",
+      "reason": "PhysicsComparison::Load/LoadFinding/SaveFinding and LoadJob::Start own explicit Capture scopes. Binary/text decode and event assembly occur during file loading; playback reads the completed immutable recordings and event list.",
+      "cap": "Existing 512 MiB MEMORY_BUDGET and load preflight account retained recordings, contact/iteration rows and events. Binary index count is at most 14,402, ticks at most 14,400, and per-frame decode scratch is validated against file words. Strings are metadata for the one accepted bundle or finding.",
+      "removal_or_wrapper_plan": "Keep all decode and event construction at explicit file boundaries; use a cold load arena if comparison storage needs stricter aggregate transient accounting.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Planning/PhysicsComparison.Diagnostics.cpp",
+      "patterns": [
+        "{\"symbol\":\"ReserveObservationRows\",\"before\":[\"for ( std::size_t tick = 0; tick < counts.size(); ++tick )\",\"{\"],\"statement\":\"observations[tick].contacts.reserve( counts[tick][0] );\",\"after\":[\"observations[tick].iterations.reserve( counts[tick][1] );\",\"}\"]}",
+        "{\"symbol\":\"ReserveObservationRows\",\"before\":[\"{\",\"observations[tick].contacts.reserve( counts[tick][0] );\"],\"statement\":\"observations[tick].iterations.reserve( counts[tick][1] );\",\"after\":[\"}\",\"return input.Good() && input.Rewind();\"]}",
+        "{\"symbol\":\"ComparisonRecording::LoadObservations\",\"before\":[\"return input.Good();\",\"}\"],\"statement\":\"observations.resize( static_cast<std::size_t>( ticks ) + 1 );\",\"after\":[\"residentBytes += observations.capacity() * sizeof( Observations );\",\"if ( progress )\"]}",
+        "{\"symbol\":\"ComparisonRecording::LoadObservations\",\"before\":[\"return false;\",\"}\"],\"statement\":\"observed.contacts.push_back( summary );\",\"after\":[\"residentBytes += sizeof( ContactSummary );\",\"}\"]}",
+        "{\"symbol\":\"ComparisonRecording::LoadObservations\",\"before\":[\"return false;\",\"}\"],\"statement\":\"observed.iterations.push_back( summary );\",\"after\":[\"residentBytes += sizeof( IterationSummary );\",\"}\"]}",
+        "{\"symbol\":\"PhysicsComparison::BuildObservedContactEvents\",\"before\":[\"if ( !a || !b )\",\"{\"],\"statement\":\"m_events.push_back( { tick, 0, 0, 0, ComparisonFamily::Contact, ComparisonChange::NotRecorded, -1, -1, true } );\",\"after\":[\"return true;\",\"}\"]}",
+        "{\"symbol\":\"PhysicsComparison::BuildObservedContactEvents\",\"before\":[\": ComparisonChange::Changed;\",\"}\"],\"statement\":\"m_events.push_back( event );\",\"after\":[\"}\",\"for ( std::size_t j = 0; j < b->contacts.size(); ++j )\"]}",
+        "{\"symbol\":\"PhysicsComparison::BuildObservedContactEvents\",\"before\":[\"{\",\"const auto& contact = b->contacts[j];\"],\"statement\":\"m_events.push_back( { tick, contact.bodyA, contact.bodyB, contact.feature,\",\"after\":[\"contact.terrain ? ComparisonFamily::Terrain : ComparisonFamily::Contact,\",\"matched[j] == 2 ? ComparisonChange::Ambiguous : ComparisonChange::OnlyB, -1,\"]}",
+        "{\"symbol\":\"PhysicsComparison::BuildObservedContactEvents\",\"before\":[\"}\",\"}\"],\"statement\":\"m_events.push_back( { tick, 0, 0, static_cast<uint32_t>( i ), ComparisonFamily::SolverIteration, change,\",\"after\":[\"i < a->iterations.size() ? static_cast<int>( i ) : -1,\",\"i < b->iterations.size() ? static_cast<int>( i ) : -1, true } );\"]}"
+      ],
+      "owner": "PhysicsComparison cold artifact inspection",
+      "phase": "Capture_file_load_save",
+      "reason": "PhysicsComparison::Load/LoadFinding/SaveFinding and LoadJob::Start own explicit Capture scopes. Binary/text decode and event assembly occur during file loading; playback reads the completed immutable recordings and event list.",
+      "cap": "Existing 512 MiB MEMORY_BUDGET and load preflight account retained recordings, contact/iteration rows and events. Binary index count is at most 14,402, ticks at most 14,400, and per-frame decode scratch is validated against file words. Strings are metadata for the one accepted bundle or finding.",
+      "removal_or_wrapper_plan": "Keep all decode and event construction at explicit file boundaries; use a cold load arena if comparison storage needs stricter aggregate transient accounting.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Planning/PhysicsComparison.Evidence.cpp",
+      "patterns": [
+        "{\"symbol\":\"PhysicsComparison::BuildContactEvents\",\"before\":[\"if ( !observed && ( a || b ) )\",\"{\"],\"statement\":\"m_events.push_back( { tick, 0, 0, 0, ComparisonFamily::Contact, ComparisonChange::NotRecorded } );\",\"after\":[\"}\",\"return;\"]}",
+        "{\"symbol\":\"PhysicsComparison::BuildContactEvents\",\"before\":[\": ComparisonChange::Changed;\",\"}\"],\"statement\":\"m_events.push_back( event );\",\"after\":[\"}\",\"for ( std::size_t i = 0; i < contactsB.size(); ++i )\"]}",
+        "{\"symbol\":\"PhysicsComparison::BuildContactEvents\",\"before\":[\"const auto& contact = contactsB[i];\",\"const auto key = ContactKey( *b, contact );\"],\"statement\":\"m_events.push_back( { tick, std::get<0>( key ), std::get<1>( key ), contact.featureId,\",\"after\":[\"contact.isTerrain ? ComparisonFamily::Terrain : ComparisonFamily::Contact,\",\"ambiguous[i] ? ComparisonChange::Ambiguous : ComparisonChange::OnlyB, -1,\"]}",
+        "{\"symbol\":\"PhysicsComparison::BuildEvents\",\"before\":[\"if ( difference.change != ComparisonChange::Equal )\",\"{\"],\"statement\":\"m_events.push_back( { tick, body.id.value, 0, 0,\",\"after\":[\"difference.sleepChanged ? ComparisonFamily::Sleep : ComparisonFamily::Motion,\",\"difference.change } );\"]}",
+        "{\"symbol\":\"PhysicsComparison::BuildEvents\",\"before\":[\"if ( !Body( 0, body.id.value, tick ) )\",\"{\"],\"statement\":\"m_events.push_back( { tick, body.id.value, 0, 0, ComparisonFamily::Motion, ComparisonChange::OnlyB } );\",\"after\":[\"}\",\"}\"]}"
+      ],
+      "owner": "PhysicsComparison cold artifact inspection",
+      "phase": "Capture_file_load_save",
+      "reason": "PhysicsComparison::Load/LoadFinding/SaveFinding and LoadJob::Start own explicit Capture scopes. Binary/text decode and event assembly occur during file loading; playback reads the completed immutable recordings and event list.",
+      "cap": "Existing 512 MiB MEMORY_BUDGET and load preflight account retained recordings, contact/iteration rows and events. Binary index count is at most 14,402, ticks at most 14,400, and per-frame decode scratch is validated against file words. Strings are metadata for the one accepted bundle or finding.",
+      "removal_or_wrapper_plan": "Keep all decode and event construction at explicit file boundaries; use a cold load arena if comparison storage needs stricter aggregate transient accounting.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Planning/PhysicsComparison.Persistence.cpp",
+      "patterns": [
+        "{\"symbol\":\"ResolveDiagnosticFile\",\"before\":[\"return false;\",\"}\"],\"statement\":\"names.push_back( part.get<std::string>() );\",\"after\":[\"}\",\"std::error_code error;\"]}",
+        "{\"symbol\":\"PhysicsComparison::Load\",\"before\":[\"m_fraction = 0;\",\"m_memoryCharge = charge;\"],\"statement\":\"m_events.reserve( eventCapacity );\",\"after\":[\"admission.Begin( , 85, 14 );\",\"BuildEvents( progress );\"]}"
+      ],
+      "owner": "PhysicsComparison cold artifact inspection",
+      "phase": "Capture_file_load_save",
+      "reason": "PhysicsComparison::Load/LoadFinding/SaveFinding and LoadJob::Start own explicit Capture scopes. Binary/text decode and event assembly occur during file loading; playback reads the completed immutable recordings and event list.",
+      "cap": "Existing 512 MiB MEMORY_BUDGET and load preflight account retained recordings, contact/iteration rows and events. Binary index count is at most 14,402, ticks at most 14,400, and per-frame decode scratch is validated against file words. Strings are metadata for the one accepted bundle or finding.",
+      "removal_or_wrapper_plan": "Keep all decode and event construction at explicit file boundaries; use a cold load arena if comparison storage needs stricter aggregate transient accounting.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Planning/PhysicsComparison.DiagnosticLines.h",
+      "patterns": [
+        "{\"symbol\":\"Read\",\"before\":[\"return false;\",\"}\"],\"statement\":\"line.append( begin, count );\",\"after\":[\"const auto consumed = count + ( newline ? 1 : 0 );\",\"m_cursor += consumed;\"]}"
+      ],
+      "owner": "PhysicsComparison diagnostic file reader",
+      "phase": "Capture_file_load",
+      "reason": "The explicit comparison loader streams diagnostic text through one block buffer and rejects an oversized line before appending it.",
+      "cap": "One line of at most 65,536 bytes per reader, plus its fixed 65,536-byte input block.",
+      "removal_or_wrapper_plan": "Keep this storage private to cold diagnostic parsing.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Planning/PhysicsComparisonPanel.h",
+      "patterns": [
+        "{\"symbol\":\"TimelineContains\",\"before\":[\"void ButtonAt( UI::UIRect bounds, const char* text, int action, bool active = false );\",\"void Plot( const PhysicsComparison& comparison, UI::UIRect bounds, bool velocity );\"],\"statement\":\"std::vector<Shape> m_shapes;\",\"after\":[\"std::vector<Math::CollisionDetection::BoundingSphere> m_spheres;\",\"std::vector<Math::CollisionDetection::BoundingBox> m_boxes;\"]}",
+        "{\"symbol\":\"TimelineContains\",\"before\":[\"void Plot( const PhysicsComparison& comparison, UI::UIRect bounds, bool velocity );\",\"std::vector<Shape> m_shapes;\"],\"statement\":\"std::vector<Math::CollisionDetection::BoundingSphere> m_spheres;\",\"after\":[\"std::vector<Math::CollisionDetection::BoundingBox> m_boxes;\",\"std::vector<Math::CollisionDetection::ConvexHullShape> m_hulls;\"]}",
+        "{\"symbol\":\"TimelineContains\",\"before\":[\"std::vector<Shape> m_shapes;\",\"std::vector<Math::CollisionDetection::BoundingSphere> m_spheres;\"],\"statement\":\"std::vector<Math::CollisionDetection::BoundingBox> m_boxes;\",\"after\":[\"std::vector<Math::CollisionDetection::ConvexHullShape> m_hulls;\",\"std::array<std::vector<Rendering::ModelViewItem>, 2> m_models;\"]}",
+        "{\"symbol\":\"TimelineContains\",\"before\":[\"std::vector<Math::CollisionDetection::BoundingSphere> m_spheres;\",\"std::vector<Math::CollisionDetection::BoundingBox> m_boxes;\"],\"statement\":\"std::vector<Math::CollisionDetection::ConvexHullShape> m_hulls;\",\"after\":[\"std::array<std::vector<Rendering::ModelViewItem>, 2> m_models;\",\"UI::UIDrawList m_draw;\"]}",
+        "{\"symbol\":\"TimelineContains\",\"before\":[\"std::vector<Math::CollisionDetection::BoundingBox> m_boxes;\",\"std::vector<Math::CollisionDetection::ConvexHullShape> m_hulls;\"],\"statement\":\"std::array<std::vector<Rendering::ModelViewItem>, 2> m_models;\",\"after\":[\"UI::UIDrawList m_draw;\",\"UI::UIDrawList m_foreground;\"]}"
+      ],
+      "owner": "PhysicsComparisonPanel retained inspection geometry",
+      "phase": "Capture_preparation_and_capacity_bounded_render",
+      "reason": "Prepare copies scene geometry under a Capture scope, then rebinds shape references after growth. It reserves each of the two model lists to the retained shape count; BuildModels visits each shape once and cannot exceed that reserve.",
+      "cap": "At most one Shape and one geometry copy per source collider (shared hulls can reuse a copy), bounded by scene collider capacity; two model vectors are reserved to exactly that retained shape count before presentation.",
+      "removal_or_wrapper_plan": "Use a fixed scene-capacity inspection arena if comparison preparation adopts arena storage; steady BuildModels must remain within the prepared capacities.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Planning/PhysicsComparisonPanel.cpp",
+      "patterns": [
+        "{\"symbol\":\"PhysicsComparisonPanel::Prepare\",\"before\":[\"m_boxes.clear();\",\"m_hulls.clear();\"],\"statement\":\"m_shapes.reserve( colliders.Records().size() );\",\"after\":[\"for ( const auto& collider : colliders.Records() )\",\"{\"]}",
+        "{\"symbol\":\"PhysicsComparisonPanel::Prepare\",\"before\":[\"material.contactFlashAlpha = 0;\",\"material.baseColor[3] = 1;\"],\"statement\":\"m_shapes.push_back( { collider.sceneObjectId.value, collider, material, RetainGeometry( collider ) } );\",\"after\":[\"}\",\"RebindGeometry();\"]}",
+        "{\"symbol\":\"PhysicsComparisonPanel::Prepare\",\"before\":[\"for ( auto& models : m_models )\",\"{\"],\"statement\":\"models.reserve( m_shapes.size() );\",\"after\":[\"}\",\"}\"]}",
+        "{\"symbol\":\"PhysicsComparisonPanel::RetainGeometry\",\"before\":[\"if ( const auto* sphere = GetShapeIf<BoundingSphere>( &collider.shape ) )\",\"{\"],\"statement\":\"m_spheres.push_back( *sphere );\",\"after\":[\"return m_spheres.size() - 1;\",\"}\"]}",
+        "{\"symbol\":\"PhysicsComparisonPanel::RetainGeometry\",\"before\":[\"if ( const auto* box = GetShapeIf<BoundingBox>( &collider.shape ) )\",\"{\"],\"statement\":\"m_boxes.push_back( *box );\",\"after\":[\"return m_boxes.size() - 1;\",\"}\"]}",
+        "{\"symbol\":\"PhysicsComparisonPanel::RetainGeometry\",\"before\":[\"}\",\"}\"],\"statement\":\"m_hulls.push_back( *hull );\",\"after\":[\"return m_hulls.size() - 1;\",\"}\"]}",
+        "{\"symbol\":\"PhysicsComparisonPanel::BuildModels\",\"before\":[\"}\",\"}\"],\"statement\":\"models.push_back( item );\",\"after\":[\"}\",\"}\"]}"
+      ],
+      "owner": "PhysicsComparisonPanel retained inspection geometry",
+      "phase": "Capture_preparation_and_capacity_bounded_render",
+      "reason": "Prepare copies scene geometry under a Capture scope, then rebinds shape references after growth. It reserves each of the two model lists to the retained shape count; BuildModels visits each shape once and cannot exceed that reserve.",
+      "cap": "At most one Shape and one geometry copy per source collider (shared hulls can reuse a copy), bounded by scene collider capacity; two model vectors are reserved to exactly that retained shape count before presentation.",
+      "removal_or_wrapper_plan": "Use a fixed scene-capacity inspection arena if comparison preparation adopts arena storage; steady BuildModels must remain within the prepared capacities.",
       "match_mode": "exact_finding"
     }
   ]

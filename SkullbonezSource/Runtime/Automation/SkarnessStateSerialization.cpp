@@ -44,6 +44,20 @@ Json Vec3( const Math::Vector::Vector3& value )
     return Json::array( { value.x, value.y, value.z } );
 }
 
+Json BuildPositionGates( const std::array<SkarnessFrameState::PositionGate, 2>& gates )
+{
+    Json rows = Json::array();
+
+    for ( const auto& gate : gates )
+    {
+        rows.push_back( { { "sceneObjectId", gate.sceneObjectId },
+                          { "frame", gate.frame },
+                          { "center", gate.center },
+                          { "visible", gate.visible } } );
+    }
+    return rows;
+}
+
 Json Quaternion( const Math::Orientation::Quaternion& value )
 {
     float x = 0.0f;
@@ -793,6 +807,7 @@ void BuildSkarnessStateTopics( const SkarnessFrameState& state, const ReplayAuto
     Store( outTopics, LegacyReplay, BuildLegacyReplay( state, replay ), state.predictionGeneration );
     Store( outTopics, Presentation,
            { { "layout", state.presentation.editorLayout ? "Editor" : "Canvas" },
+             { "positionGates", BuildPositionGates( state.presentation.positionGates ) },
              { "workspace", state.presentation.solverLabWorkspace ? "Solver Lab" : "Scene" },
              { "editorMode", state.presentation.editorMode },
              { "editorPlacement", state.presentation.editorPlacement },

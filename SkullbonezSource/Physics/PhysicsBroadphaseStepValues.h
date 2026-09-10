@@ -88,6 +88,10 @@ class BroadphaseBodyActivityView
 
     bool IsLinearPromoted( int bodyIndex ) const noexcept
     {
+        if ( UsesArticulatedContacts( m_motionEligibilityState, bodyIndex ) )
+        {
+            return UsesSpeculativeContacts( m_motionEligibilityState, bodyIndex );
+        }
         // Conservative fallback preserves the former missing-row policy.
         return bodyIndex < 0 || bodyIndex >= m_bodyCount || m_motionEligibilityState.empty() ||
                ( m_motionEligibilityState[static_cast<std::size_t>( bodyIndex )] &

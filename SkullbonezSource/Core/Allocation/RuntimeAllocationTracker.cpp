@@ -357,6 +357,14 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
         outOwnerGeneration = RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
     }
 
+    // The callsite report only displays guarded steady phases. Keep cold and
+    // diagnostic traffic out of its fixed table so it cannot hide later
+    // gameplay violations; all phase and owner totals above still include it.
+    if ( !SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase( phase ) )
+    {
+        return true;
+    }
+
     uintptr_t stackFrames[8] = {};
 #if defined( _WIN32 )
     // Why: CaptureStackBackTrace reports opaque return addresses through its

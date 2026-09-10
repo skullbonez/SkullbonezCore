@@ -111,7 +111,7 @@ CoreAllocation::RuntimeReserveOwnerHandle ReplayRecorderSampleReserveOwner()
         { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER, CoreAllocation::RuntimeReserveSubsystem::Replay,
           CoreAllocation::RuntimeReservePhase::Replay, 0, REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
           REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT, true,
-          "replay recorder sample body vectors grow under the active scene size instead of startup capacity" } );
+          "replay recorder body and delta payloads plus fixed launcher rings share one retained-memory budget" } );
 
     return owner;
 }
@@ -325,13 +325,48 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t reque
     }
 }
 
+template <typename T> void ReserveReplayLauncherRing( std::vector<T>& values, std::size_t capacity, const char* targetName )
+{
+    if ( values.capacity() >= capacity )
+    {
+        return;
+    }
+
+    // Configuration can run again after gameplay starts. Fixed launcher rings
+    // share the recorder's aggregate Replay grant, without body-vector rounding
+    // that would inflate the 64-ray and 32-shot payloads in every retained slot.
+    const uint64_t oldBytes = ReplayRecorderVectorBytes<T>( values.capacity() );
+    const uint64_t requestedBytes = ReplayRecorderVectorBytes<T>( capacity );
+    const uint64_t allocationBytes = CoreAllocation::RuntimeReserveDefaultVectorAllocationUpperBound( requestedBytes );
+    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
+    const CoreAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+                                                                  targetName,
+                                                                  CoreAllocation::RuntimeReservePhase::Replay,
+                                                                  0,
+                                                                  static_cast<int>( oldBytes ),
+                                                                  static_cast<int>( allocationBytes ),
+                                                                  1,
+                                                                  allocationBytes };
+    CoreAllocation::RuntimeReserveGrowthResult result = CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner,
+                                                                                                                request );
+
+    if ( !result.granted )
+    {
+        ReportReplayRecorderReserveFailure( targetName, capacity, requestedBytes );
+    }
+
+    CoreAllocation::RuntimeReserveAllocationScope allocationScope( owner, CoreAllocation::RuntimeReservePhase::Replay,
+                                                                   result );
+    values.reserve( capacity );
+}
+
 void ReserveReplayLauncherVisualSample( ReplayLauncherVisualSample& visual )
 {
     // Runtime allocation policy: launcher rays and laser shots are fixed-size
     // visual rings in RuntimeTools/LauncherLaser, so replay reserves matching
     // payload capacity before capture starts.
-    visual.rayLines.reserve( REPLAY_LAUNCHER_RAY_LINE_CAPACITY );
-    visual.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
+    ReserveReplayLauncherRing( visual.rayLines, REPLAY_LAUNCHER_RAY_LINE_CAPACITY, "ReplayLauncherRayLines" );
+    ReserveReplayLauncherRing( visual.laserShots, REPLAY_LAUNCHER_LASER_SHOT_CAPACITY, "ReplayLauncherLaserShots" );
 }
 
 void ReserveReplaySolverFrameSample( ReplaySolverFrameSample& sample )

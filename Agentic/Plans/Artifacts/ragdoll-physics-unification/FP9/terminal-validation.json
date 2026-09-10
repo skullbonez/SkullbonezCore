@@ -1,0 +1,150 @@
+{
+  "full": {
+    "command": "tools\\agent_validate.bat --plan-completion",
+    "exitCode": 0,
+    "elapsedSeconds": 1317.20360790001,
+    "uiLayout": "C:\\SkullbonezCore\\TestOutput\\fp9-full05-ui.preferences"
+  },
+  "performance": {
+    "command": "tools\\validate_perf.bat",
+    "exitCode": 0,
+    "elapsedSeconds": 102.5023011000012,
+    "uiLayout": "C:\\SkullbonezCore\\TestOutput\\fp9-perf07-ui.preferences",
+    "producer": {
+      "path": "Profile\\SKULLBONEZ_CORE.exe",
+      "bytes": 4594688,
+      "sha256": "2386e9e3a6fdd775efc06c29bb8eb71727607a7aa2720c4a2e27fa7539274446"
+    },
+    "artifacts": [
+      {
+        "path": "TestOutput\\fp9-perf07-results\\dx12_perf.json",
+        "bytes": 22516,
+        "sha256": "39f78699cda3e9cf5d2c4c1e6a97e134d40b48e3155d5552ed800d85dc6e5c97"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\dx12_perf_log.csv",
+        "bytes": 1678489,
+        "sha256": "50846356aa81bbe9383e477d3983ca6fd7a8b5533a9314a205fa883f69c701d2"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\gate.log",
+        "bytes": 2391272,
+        "sha256": "1ba2bfbadd35ba2c0e765d77e208c0b5f448ca69210a30dd924fcc3cb3933522"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\perf_1000_log.csv",
+        "bytes": 300857,
+        "sha256": "a0b701b52c10120e8abfd8da35972759daf4da8900c2f22f0c1a9606f3eec340"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_bench_perf.json",
+        "bytes": 22084,
+        "sha256": "2ff1081843bf634d2b878019dd9d9ed9470cf0567e36563cb55a1c070d29186e"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_bench_perf_log.csv",
+        "bytes": 1997799,
+        "sha256": "ec02bda88396b95c156c21319824f41a504e328fd6122552b43a7634fc4cedfd"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_scale_1000_perf.json",
+        "bytes": 22043,
+        "sha256": "275d3cc41161b84b6cb8441a7d79b10fefcb83495f4f3314606095acc996b47b"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_scale_1000_perf_log.csv",
+        "bytes": 978141,
+        "sha256": "6fda0f060208db50dae97bc3aa2e7bc90464334fde3411dd2aa3b811d6ba2a02"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_scale_2000_perf.json",
+        "bytes": 22085,
+        "sha256": "8553165b26b359658f68ec5b23c40862485c5c72f20b677aa38b1491bcae5fae"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_scale_2000_perf_log.csv",
+        "bytes": 988849,
+        "sha256": "7d8cc925cde24adcb266b9ce069a9ea68e7bd1f1c177ffadc48f1df450bb4014"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_scale_200_perf.json",
+        "bytes": 20326,
+        "sha256": "3c86458fccadb28b8cab30efe0cc6cefa61706b802dd9f2bb9077473c8335e72"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_scale_200_perf_log.csv",
+        "bytes": 901179,
+        "sha256": "6f09791b8c8ce30366dcd677350ee3333dfe2d59484a205b210a5698273ac251"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_scale_520_perf.json",
+        "bytes": 22003,
+        "sha256": "207f6f185984ff9641ad536e885a61295d4bf5aacded869c4dfaccae9a38d46d"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_scale_520_perf_log.csv",
+        "bytes": 971063,
+        "sha256": "a2d4a763a72f3057efed1d56a9466751b6cf01cae5b329b903df18c15d32096f"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_scale_sleepy_5000_perf.json",
+        "bytes": 17118,
+        "sha256": "c02d27e9003ac94c8c440393d94325090e56a9f63dec65619d724c3fe4fb6aca"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\physics_scale_sleepy_5000_perf_log.csv",
+        "bytes": 770090,
+        "sha256": "bcc424356027b3114e1fa124268073a3a1f2ca98c034060833cc92a6ee9c8cd9"
+      },
+      {
+        "path": "TestOutput\\fp9-perf07-results\\ui_dx12_profiler_timeline_perf.csv",
+        "bytes": 18218,
+        "sha256": "71fef5c12c9e629d400ec180b08c10d013dc0d7b7936b3e203f364f8dd577080"
+      }
+    ]
+  },
+  "profileTests": {
+    "cases": 1027,
+    "assertions": 3483587
+  },
+  "sourceDesign": {
+    "sources": 134,
+    "contexts": 1188,
+    "findings": 0
+  },
+  "cpuSeconds": 146.33,
+  "automationSeconds": 438.419,
+  "dx12Seconds": 13.667,
+  "informationalDiagnostic": {
+    "exitCode": 1,
+    "failure": "predictionFullHorizonComplete expected=true actual=false",
+    "requiredGate": false
+  },
+  "files": [
+    {
+      "path": "TestOutput/fp9-terminal-full-05.log",
+      "bytes": 284357,
+      "sha256": "0965861d3603b7050da349c353e44eac9ffc2e3d7c05ca63e32342ae36834386"
+    },
+    {
+      "path": "TestOutput/fp9-terminal-perf-07.log",
+      "bytes": 2391272,
+      "sha256": "1ba2bfbadd35ba2c0e765d77e208c0b5f448ca69210a30dd924fcc3cb3933522"
+    },
+    {
+      "path": "Automation/SKULLBONEZ_CORE.exe",
+      "bytes": 5177856,
+      "sha256": "4ec3be56e1894c37bff82d90f6614a1904afdc9c91aef11f91f45bd4d9bc3f46"
+    },
+    {
+      "path": "Profile/SKULLBONEZ_CORE.exe",
+      "bytes": 4594688,
+      "sha256": "2386e9e3a6fdd775efc06c29bb8eb71727607a7aa2720c4a2e27fa7539274446"
+    },
+    {
+      "path": "TestOutput/diagnostics/replay_prediction_frame_spikes/run.log",
+      "bytes": 2879513,
+      "sha256": "863a9fb1bb85bdec49b2f2a6fd908bb1c094ec986563d05ec36861140d388da0"
+    }
+  ]
+}

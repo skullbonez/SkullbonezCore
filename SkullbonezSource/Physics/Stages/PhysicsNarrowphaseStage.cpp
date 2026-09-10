@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsNarrowphaseStage.h"
+#include "../SpeculativeContacts.h"
 #include "../PhysicsSpatialCellKey.h"
 #include "PhysicsSleepController.h"
 
@@ -208,6 +209,14 @@ bool ObjectPairNeedsSweptCcd( std::span<const uint8_t> motionEligibilityState, i
         return false;
     }
 
+    if ( UsesArticulatedContacts( motionEligibilityState, bodyAIndex ) ||
+         UsesArticulatedContacts( motionEligibilityState, bodyBIndex ) )
+    {
+        // A pair touching an articulation must not advance one limb to TOI.
+        // Its gap constraint and every connected joint share the full tick.
+        return false;
+    }
+
     if ( BodyRequiresSweptTranslation( motionEligibilityState, bodyAIndex ) ||
          BodyRequiresSweptTranslation( motionEligibilityState, bodyBIndex ) )
     {
@@ -328,8 +337,22 @@ void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphase
         }
     }
 
-    if ( wokeBySweptImpact || !HasPersistentWakeContact( step.profiler, hotFields, colliderRecords, awakeIndex,
-                                                         sleepingIndex, step.policy.contactEpsilon ) )
+    if ( wokeBySweptImpact )
+    {
+        return;
+    }
+    const bool physicalContact = HasPersistentWakeContact( step.profiler, hotFields, colliderRecords, awakeIndex,
+                                                           sleepingIndex, step.policy.contactEpsilon );
+    bool predictedContact = false;
+    if ( !physicalContact && ( UsesSpeculativeContacts( step.motionEligibilityState, awakeIndex ) ||
+                               UsesSpeculativeContacts( step.motionEligibilityState, sleepingIndex ) ) )
+    {
+        ObjectContactManifold predicted;
+        predictedContact = BuildArticulatedContactManifold( step.bodyStore, step.colliderStore,
+                                                            step.timeRemaining[awakeIndex], step.policy.contactEpsilon,
+                                                            awakeIndex, sleepingIndex, predicted );
+    }
+    if ( !physicalContact && !predictedContact )
     {
         return;
     }
@@ -356,8 +379,11 @@ void PhysicsNarrowphaseStage::ProcessSleepingObjectPair( const ObjectNarrowphase
         step.wakeAccess.WakeBody( sleepingIndex );
     }
 
-    MarkObjectVisualEvent( event, bodyA, bodyB );
-    WriteObjectCollisionCellEvent( event, hotFields, bodyA, bodyB, step.policy.invCellSize );
+    if ( physicalContact )
+    {
+        MarkObjectVisualEvent( event, bodyA, bodyB );
+        WriteObjectCollisionCellEvent( event, hotFields, bodyA, bodyB, step.policy.invCellSize );
+    }
 }
 
 template <bool RetainPipelineRecords>

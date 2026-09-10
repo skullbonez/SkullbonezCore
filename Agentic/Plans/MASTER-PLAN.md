@@ -1,9 +1,13 @@
 # MASTER PLAN
 
 Date: 2026-09-09
-Status: 146/154 live-inventory tasks complete; UNIFIED_UI closed at 8/8; PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 8/10; bug ledger 126/126 fixed
+Status: 147/154 tasks complete in the live inventory; UNIFIED_UI closed at 8/8; PHYSICS_AB active at 0/6; RAGDOLL_PHYSICS retained at 9/10; bug ledger 126/126 fixed
 
 ## Owner Direction
+
+- On 2026-09-10 the owner directed FP8 and FP9 implementation now on the
+  current `codex/unified-ui` branch, ahead of the remaining PHYSICS_AB work.
+  Preserve old executables and the governed evidence for changed baselines.
 
 - On 2026-09-07 the owner requested one PR containing both branches and the
   local A/B viewer, after replacing the README with the original skull and
@@ -426,7 +430,7 @@ completion-ledger artifacts are invented.
 | Plan | Code | Total | Complete | Next task | File |
 |---|---|---|---|---|---|
 | Physics A/B Comparison with Causal Differences | `PHYSICS_AB` | 6 | 0 | AB1: independent capture | `TODO/physics-ab-comparison.md` |
-| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 8 | FP8: speculative ragdoll contacts | `TODO/ragdoll-physics-unification.md` |
+| Deterministic Collision Modes And Ragdoll Unification | `RAGDOLL_PHYSICS` | 10 | 9 | FP9: terminal acceptance | `TODO/ragdoll-physics-unification.md` |
 
 The completed `RUNTIME_BOUNDARIES` and `GAME_UI_COMPONENTS` plan files were
 deleted under the repository convention above. Their closure evidence remains
@@ -464,8 +468,9 @@ One detail in that table is recorded:
 ## Binding Order
 
 `UNIFIED_UI` UU0-UU7 is complete at 8/8.
-`PHYSICS_AB` AB1-AB6 is the next binding work after this UI migration.
-`RAGDOLL_PHYSICS` FP8 then FP9 remain pending.
+The owner's latest direction puts `RAGDOLL_PHYSICS` FP8 then FP9 first,
+followed by the requested ragdoll-playground sleep investigation.
+`PHYSICS_AB` AB1-AB6 remains queued at 0/6.
 `SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete.
 
 `RESERVE_TRANSACTION` RAT0-RAT3 and `SOURCE_DESIGN_THROUGHPUT` SDT0-SDT4 are
@@ -475,7 +480,7 @@ complete on `codex/replay-capture-bugfixes`.
 re-review. `RECORDED_CURSOR` RIC0-RIC3 is complete, and the bug ledger has no
 unresolved row.
 
-`RAGDOLL_PHYSICS` is active at 5/10, while `RUNTIME_BOUNDARIES` and
+`RAGDOLL_PHYSICS` is active at 9/10, while `RUNTIME_BOUNDARIES` and
 `GAME_UI_COMPONENTS` and `RECORDED_CURSOR` are complete.
 
 `CAUSAL_INSPECT` no longer re-steps an old frame to regenerate solver detail, so
@@ -550,9 +555,9 @@ completed TODO plan is deleted under repository convention. Five serial
 read-only review passes closed nine matcher, scope, fixture, and metadata
 findings; the final pass is clean. No scanner, fixture, build, test, or
 validation command ran by explicit owner direction.
-The two unfinished Ragdoll Physics phases are active; current portfolio
-progress is 146/148, with the completed five phases already counted historically. The nine completed Ragdoll and Recorded Cursor phases remain part
-of the historical completed count.
+FP8 is accepted and FP9 is the remaining Ragdoll Physics phase; current portfolio
+progress is 147/154, including the queued six-phase PHYSICS_AB plan.
+Previously completed phases remain represented in the historical count.
 Causal C0-C8, Determinism T0-T8,
 Catto CD0-CD5, and Predicted Solver Cause Hierarchy PSD0-PSD7 are complete.
 Continuous Orbital Forecast OF0-OF6 and At-Rest Ball Stability RS0-RS7 are complete.
@@ -562,8 +567,8 @@ Replacement CT0-CT5 is complete. Full Validation Time And Value Audit VTA0-VTA5 
 Repository Hygiene Cleanup RC0-RC5 is complete.
 Core Engine Evidence-Driven Code Reduction CR0-CR5 is complete.
 Real-Time Physics Pacing SP0-SP2 is complete.
-Deterministic Collision Modes And Ragdoll Unification is active at 5/10;
-FP0-FP4 are complete and FP5-FP9 execute in order. FP4 makes its direction-valid radius
+Deterministic Collision Modes And Ragdoll Unification is active at 9/10;
+FP0-FP8 are complete and FP9 closes the plan. FP4 makes its direction-valid radius
 policy the sole shipping path and retains the SkullScope policy timeline,
 same-executable A/B artifacts, and exact historical/current performance producers. FP2's archived automated transition
 retains the prior and new producers, its core/deep Physics gates pass, and its

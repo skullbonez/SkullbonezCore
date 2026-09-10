@@ -105,6 +105,9 @@ class PhysicsWorld
     // Force-resolved velocities cross this owner exactly once before broadphase.
     // Hysteresis bits are solver state; motion bounds are current-tick scratch.
     PhysicsMotionEligibilityStage m_motionEligibility;
+    // Validation-only selector is host-owned, never authored or restored from
+    // replay. Both variants retain the same uniform-step contact/joint solver.
+    bool m_speculativeContactsEnabledForValidation = true;
 
     // Narrowphase owns bounded pair/island scratch. The sequencer commits typed
     // events in pair order because they target sleep and diagnostics owners.

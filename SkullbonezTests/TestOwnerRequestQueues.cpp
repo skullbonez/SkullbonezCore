@@ -79,6 +79,17 @@ SkullbonezCore::Core::SbDiagnosticStore diagnostics;
 
 using namespace SkullbonezCore::Runtime;
 
+namespace SkullbonezCore::Runtime::ReplayOverlay
+{
+struct ReplayOverlayDrawOwnerTestAccess
+{
+    static void SeedPositionGate( ReplayOverlayDrawOwner& owner, const ReplayPositionGate& gate )
+    {
+        owner.m_positionGates[0] = gate;
+    }
+};
+} // namespace SkullbonezCore::Runtime::ReplayOverlay
+
 namespace SkullbonezCore
 {
 namespace Runtime
@@ -2292,6 +2303,41 @@ TEST_CASE( "Planning fixes replay overlay composition order before generic rende
     CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[2] == ReplayOverlaySurfaceKind::Porkchop );
     CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[3] == ReplayOverlaySurfaceKind::CauseTree );
     CHECK( REPLAY_OVERLAY_COMPOSITION_ORDER[4] == ReplayOverlaySurfaceKind::Scrubber );
+}
+
+TEST_CASE( "Prediction position gates expire when a frame skips publication and the next skips composition" )
+{
+    using namespace SkullbonezCore::Runtime::ReplayOverlay;
+    ReplayOverlayDrawOwner owner;
+    ReplayPositionGate gate;
+    gate.id.value = 7;
+    gate.frame = 120;
+    gate.center = { 500.0f, 250.0f };
+    gate.visible = true;
+
+    owner.BeginFrame();
+    ReplayOverlayDrawOwnerTestAccess::SeedPositionGate( owner, gate );
+    const auto published = owner.TakePositionGates();
+    REQUIRE( published[0].visible );
+    CHECK( published[0].id.value == 7 );
+    CHECK( published[0].frame == 120 );
+    CHECK_FALSE( owner.TakePositionGates()[0].visible );
+
+    owner.BeginFrame();
+    ReplayOverlayDrawOwnerTestAccess::SeedPositionGate( owner, gate );
+    // A screenshot restart bypasses publication, then a hidden UI skips Compose.
+    owner.BeginFrame();
+    const auto skipped = owner.TakePositionGates();
+
+    for ( const auto& observed : skipped )
+    {
+        CHECK_FALSE( observed.visible );
+        CHECK( observed.id.value == 0 );
+        CHECK( observed.frame == 0 );
+    }
+
+    ReplayOverlayDrawOwnerTestAccess::SeedPositionGate( owner, gate );
+    CHECK( owner.TakePositionGates()[0].id.value == 7 );
 }
 
 TEST_CASE( "Prediction position gates follow displayed identity and frame without changing samples" )

@@ -32,9 +32,22 @@ def show_cause_surface(connection: SkarnessConnection, session: Path) -> None:
         assert result.get("status")=="applied",result
     state=ui()
     if state["causeControlsBounds"][2] == 0:
-        if state["detailsCausesTabBounds"][2] == 0:
-            click(state["replayDetailsBounds"])
-        click(ui()["detailsCausesTabBounds"])
+        # Causes lives on the Editor rail; Tools no longer contains its tab.
+        if state["layout"] == "Canvas":
+            click(state["headerLayoutBounds"])
+        click(ui()["causeTabBounds"])
+        # Switching clocks preserves animation phase; advance the pinned clock
+        # after that rebase to finish the rail before inspecting its pixels.
+        result = connection.wait(connection.send("ui.animation_clock", {"seconds": 1000.0, "enabled": True}))
+        assert result.get("status") == "applied", result
+        result = connection.wait(connection.send("run.step_frames", {"count": 2}))
+        assert result.get("status") == "applied", result
+        result = connection.wait(connection.send("ui.animation_clock", {"seconds": 1001.0, "enabled": True}))
+        assert result.get("status") == "applied", result
+        result = connection.wait(connection.send("run.step_frames", {"count": 2}))
+        assert result.get("status") == "applied", result
+        result = connection.wait(connection.send("ui.animation_clock", {"seconds": 0.0, "enabled": False}))
+        assert result.get("status") == "applied", result
     assert ui()["causeControlsBounds"][2]>0
 
 
@@ -88,15 +101,36 @@ def verify_causal_loading(connection: SkarnessConnection, session: Path) -> None
     assert result.get("status") == "applied", result
 
 
+def latest_gate_state(session: Path) -> dict:
+    latest = {}
+    with (session / "runtime.skarness.ndjson").open(encoding="utf-8") as trace:
+        for line in trace:
+            event = json.loads(line)
+            if event.get("topic") in ("ui.presentation", "replay.state"):
+                latest[event["topic"]] = event["payload"]
+    return latest
+
+
 def verify_position_gate(path: Path) -> None:
     """The followed primary object's projected center must carry the cyan diamond."""
+    latest = latest_gate_state(path.parent)
+    replay = latest["replay.state"]
+    gates = latest["ui.presentation"]["positionGates"]
+    selected_id = replay["selectedCausePrimaryId"]
+    matches = [gate for gate in gates if gate["sceneObjectId"] == selected_id]
+    assert selected_id > 0 and len(matches) == 1, (selected_id, gates)
+    gate = matches[0]
+    assert gate["visible"] and gate["frame"] == replay["causePresentedFrame"], (gate, replay["causePresentedFrame"])
+    center_x, center_y = (round(value) for value in gate["center"])
     with Image.open(path) as image:
-        center_x, center_y = image.width // 2, image.height // 2
+        assert 24 <= center_x < image.width - 24 and 24 <= center_y < image.height - 24, gate
         pixels = image.convert("RGB").crop((center_x - 24, center_y - 24, center_x + 24, center_y + 24))
         samples = (pixels.getpixel((x, y)) for y in range(pixels.height) for x in range(pixels.width))
         cyan_count = sum(1 for red, green, blue in samples
                          if red < 110 and green > 200 and blue > 230)
         assert cyan_count >= 35, f"selected-object position gate missing from {path}: {cyan_count} cyan pixels"
+    path.with_suffix(".position-gate.json").write_text(json.dumps({"gate": gate, "cyanPixels": cyan_count}, indent=2),
+                                                     encoding="utf-8")
 
 
 def verify_retained_geometry(session: Path) -> None:
@@ -237,11 +271,13 @@ def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> 
     assert {item["sceneObjectId"] for item in cause["objects"]} == {
         initial["selectedCausePrimaryId"], initial["selectedCauseCounterpartId"]}
     window_x, window_y, window_width, window_height = latest["ui.presentation"]["causeControlsBounds"]
-    inspector_x = int(window_x + window_width / 2)
+    viewport_x, viewport_y, _, _ = latest["ui.presentation"]["viewport"]
+    inspector_width = min(window_x - viewport_x, max(400, window_width))
+    inspector_x = int(window_x - inspector_width / 2)
     # Expand geometry so the larger summary needs scrolling.
-    send("input.pointer_drag", button="left", x=inspector_x, y=int(window_y + 168 + 254 + 17), deltaX=0, deltaY=0)
+    send("input.pointer_drag", button="left", x=inspector_x, y=int(viewport_y + 88 + 28 + 12 + 254 + 17), deltaX=0, deltaY=0)
     sample("expanded")
-    assert latest["replay.cause"]["summaryExpandedSection"] == 0
+    assert latest["replay.cause"]["summaryExpandedSections"] == 1
     eye = initial["cameraPrimaryEye"]
     for label, x, y in (("summary-wheel", inspector_x, window_y + 200),
                          ("hierarchy-wheel", window_x + window_width // 2, window_y + 200)):
@@ -255,7 +291,7 @@ def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> 
         if label == "summary-wheel":
             assert latest["replay.cause"]["summaryScrollOffset"] > 0
 
-    send("input.pointer_wheel", x=20, y=360, wheelDelta=120)
+    send("input.pointer_wheel", x=int(viewport_x + 100), y=int(viewport_y + 100), wheelDelta=120)
     zoomed = sample("world-wheel")
     assert vector_distance(eye, zoomed["cameraPrimaryEye"]) > 0.01, "world wheel no longer zooms"
     # The shell places outline controls in the hierarchy footer; expanded
@@ -394,6 +430,10 @@ def run(session: Path, executable: Path) -> None:
             offset = [a - b for a, b in zip(sample["cameraPrimaryEye"], sample["inspectionPivot"])]
             orbit_offset = [a - b for a, b in zip(orbit["cameraPrimaryEye"], orbit["inspectionPivot"])]
             assert vector_distance(offset, orbit_offset) < 0.01
+        send("replay.set_prediction_enabled", enabled=False)
+        send("run.step_frames", count=2)
+        hidden_gates = latest_gate_state(session)["ui.presentation"]["positionGates"]
+        assert all(not gate["visible"] and gate["sceneObjectId"] == 0 for gate in hidden_gates), hidden_gates
         print(f"PASS: causal arrows, release, both keys, zoom/orbit, retained futures, and exit time ({session})")
     finally:
         try:

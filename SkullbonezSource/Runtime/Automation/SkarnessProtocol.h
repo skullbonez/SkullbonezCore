@@ -56,6 +56,7 @@ enum class SkarnessCommandType : uint8_t
     CaptureScreenshot,
     WindowResize,
     UiAnimationClock,
+    PhysicsSpeculativeValidation,
     SceneLoad,
     SceneReset,
     SceneLoadDemo,
@@ -339,6 +340,7 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
     SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "ui.animation_clock", "UI", "{seconds:number,enabled:bool}" },
+    SkarnessCapability { "physics.speculative_validation", "Physics", "{enabled:bool}; paused validation sessions only" },
     SkarnessCapability { "input.pointer_position", "Input", "{x:int,y:int,enabled:bool}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.pointer_wheel", "Input", "{x:int,y:int,wheelDelta:int}",
@@ -379,8 +381,16 @@ struct SkarnessPointerInputFrame
 // cannot reach Replay, Scene, Prediction, or renderer owners.
 struct SkarnessFrameState
 {
+    struct PositionGate
+    {
+        uint64_t sceneObjectId = 0;
+        uint64_t frame = 0;
+        std::array<float, 2> center {};
+        bool visible = false;
+    };
     struct Presentation
     {
+        std::array<PositionGate, 2> positionGates {};
         bool editorLayout = false;
         bool solverLabWorkspace = false;
         bool editorMode = false;

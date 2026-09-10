@@ -24,6 +24,7 @@ Related:
 
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
+#include "../PointJointConstraint.h"
 
 #include <algorithm>
 #include <chrono>
@@ -180,6 +181,7 @@ bool ResolveDirectionalEligibility( bool wasEligible, float travelSquared, const
 void PhysicsMotionEligibilityStage::ReserveBodyCapacity( std::size_t bodyCapacity )
 {
     m_state.Reserve( bodyCapacity );
+    m_collisionPathState.Reserve( bodyCapacity );
     m_linearTravelSquared.Reserve( bodyCapacity );
     m_linearDirectionalBoundary.Reserve( bodyCapacity );
     m_angularTravelSquared.Reserve( bodyCapacity );
@@ -189,6 +191,7 @@ void PhysicsMotionEligibilityStage::ReserveBodyCapacity( std::size_t bodyCapacit
 void PhysicsMotionEligibilityStage::Clear()
 {
     m_state.clear();
+    m_collisionPathState.clear();
     m_linearTravelSquared.clear();
     m_linearDirectionalBoundary.clear();
     m_angularTravelSquared.clear();
@@ -209,6 +212,7 @@ void PhysicsMotionEligibilityStage::CommitReplayRestoreState( bool hasVersionedS
     // versioned owner explicitly makes those bytes authoritative. Legacy
     // snapshots remain cold and rebuild classification on their next step.
     m_linearTravelSquared.assign( m_state.size(), 0.0f );
+    m_collisionPathState.clear();
     m_linearDirectionalBoundary.assign( m_state.size(), -1.0f );
     m_angularTravelSquared.assign( m_state.size(), 0.0f );
     m_angularBroadphaseExpansion.assign( m_state.size(), 0.0f );
@@ -217,11 +221,29 @@ void PhysicsMotionEligibilityStage::CommitReplayRestoreState( bool hasVersionedS
 }
 
 void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                         std::span<const uint8_t> sleepState, float dt )
+                                         std::span<const uint8_t> sleepState, float dt,
+                                         std::span<const PointJointConstraint> joints, bool speculativeEnabled )
 {
     const auto begin = std::chrono::steady_clock::now();
+    m_stats = {};
+    m_stats.speculativeEnabled = speculativeEnabled;
     const int modelCount = (std::min)( { bodyStore.Count(), colliderStore.Count(), static_cast<int>( sleepState.size() ) } );
     const std::size_t rowCount = static_cast<std::size_t>( (std::max)( 0, modelCount ) );
+    m_collisionPathState.assign( rowCount, 0u );
+    for ( const PointJointConstraint& joint : joints )
+    {
+        const int a = joint.BodyAIndex( bodyStore );
+        const int b = joint.BodyBIndex( bodyStore );
+        if ( a >= 0 && b >= 0 && a != b && a < modelCount && b < modelCount )
+        {
+            const uint8_t path = PhysicsMotionEligibilityArticulated |
+                                 ( speculativeEnabled ? 0u : PhysicsMotionEligibilitySpeculativeDisabled );
+            m_collisionPathState[a] = path;
+            m_collisionPathState[b] = path;
+        }
+    }
+    m_stats.articulationDurationNanoseconds = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now() - begin ).count() );
 
     if ( m_topologyInvalidated || m_state.size() != rowCount )
     {
@@ -239,7 +261,6 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
         m_angularBroadphaseExpansion.resize( rowCount );
     }
 
-    m_stats = {};
     m_stats.policyVersion = PHYSICS_MOTION_ELIGIBILITY_POLICY_VERSION;
 
     const PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
@@ -250,6 +271,10 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
     {
         const std::size_t row = static_cast<std::size_t>( bodyIndex );
         const uint8_t previous = m_state[row];
+        if ( UsesArticulatedContacts( m_collisionPathState, bodyIndex ) )
+        {
+            ++m_stats.articulatedBodies;
+        }
         m_linearTravelSquared[row] = 0.0f;
 
         // SkullScope maps negative boundaries to -1 (unavailable). Fixed and
@@ -272,6 +297,10 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
         }
 
         ++m_stats.evaluatedBodies;
+        if ( UsesSpeculativeContacts( m_collisionPathState, bodyIndex ) )
+        {
+            ++m_stats.speculativeBodies;
+        }
         const ColliderRecord& collider = colliders[row];
         const Math::Vector::Vector3 linear = PhysicsBodyLinearVelocity( hot, row );
         const Math::Vector::Vector3 angular = PhysicsBodyAngularVelocity( hot, row );
@@ -329,14 +358,32 @@ void PhysicsMotionEligibilityStage::Run( const PhysicsBodyStore& bodyStore, cons
         }
 
         m_state[row] = resolved;
+        m_collisionPathState[row] |= resolved;
+        if ( ( m_collisionPathState[row] & PhysicsMotionEligibilityArticulated ) != 0u )
+        {
+            // Even a below-threshold angular arc can cross a nearby surface.
+            // Preserve its complete conservative reach for speculative pairs.
+            m_angularBroadphaseExpansion[row] = ( std::fabs( angular.x ) + std::fabs( angular.y ) +
+                                                  std::fabs( angular.z ) ) *
+                                                collider.maximumCenterOfMassRadius * dt;
+            if ( !speculativeEnabled )
+            {
+                m_angularBroadphaseExpansion[row] = 0.0f;
+            }
+        }
     }
 
-    m_stats.passDurationNanoseconds = static_cast<uint64_t>( std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now() - begin ).count() );
+    m_stats.passDurationNanoseconds = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now() - begin ).count() );
 }
 
 std::span<const uint8_t> PhysicsMotionEligibilityStage::State() const
 {
     return m_state;
+}
+std::span<const uint8_t> PhysicsMotionEligibilityStage::CollisionPathState() const
+{
+    return m_collisionPathState;
 }
 std::span<const float> PhysicsMotionEligibilityStage::LinearTravelSquared() const
 {
@@ -374,8 +421,8 @@ std::size_t PhysicsMotionEligibilityStage::StateCapacityForReplay() const noexce
 
 uint64_t PhysicsMotionEligibilityStage::CollectDynamicMemoryBytes() const
 {
-    return ListCapacityBytes( m_state ) + ListCapacityBytes( m_linearTravelSquared ) +
-           ListCapacityBytes( m_linearDirectionalBoundary ) + ListCapacityBytes( m_angularTravelSquared ) +
-           ListCapacityBytes( m_angularBroadphaseExpansion );
+    return ListCapacityBytes( m_state ) + ListCapacityBytes( m_collisionPathState ) +
+           ListCapacityBytes( m_linearTravelSquared ) + ListCapacityBytes( m_linearDirectionalBoundary ) +
+           ListCapacityBytes( m_angularTravelSquared ) + ListCapacityBytes( m_angularBroadphaseExpansion );
 }
 } // namespace SkullbonezCore::Physics

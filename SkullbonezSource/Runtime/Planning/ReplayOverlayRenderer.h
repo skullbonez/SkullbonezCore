@@ -157,17 +157,33 @@ ReplayPositionGateSelection( const ReplayOverlayCausalityView& causality, Physic
 class ReplayOverlayDrawOwner
 {
   public:
+    void BeginFrame() noexcept
+    {
+        // A capture can restart App's turn before diagnostic publication.
+        // Clear even when this frame will skip overlay composition entirely.
+        m_positionGates = {};
+    }
     UI::UIDrawList::Stats DrawStats() const noexcept
     {
         return m_drawList.GetStats();
+    }
+    std::array<ReplayPositionGate, 2> TakePositionGates() noexcept
+    {
+        const auto gates = m_positionGates;
+        // Each completed frame has at most one diagnostic consumer.
+        m_positionGates = {};
+        return gates;
     }
     const UI::UIDrawList& Compose( const ReplayOverlayStateView& replay, bool gameUiSurfaceActive, bool scenePhysicsEnabled,
                                    ReplayOverlayGestureView gesture, ReplayOverlayViewport viewport, double nowSeconds );
 
   private:
+    friend struct ReplayOverlayDrawOwnerTestAccess;
     // Lifetime: retained Planning scratch avoids placing the fixed-capacity UI
     // command storage on nested frame stacks. Render only borrows it during one
     // synchronous App-sequenced submission.
     UI::UIDrawList m_drawList;
+    // After-render diagnostics observe the exact cues authored into m_drawList.
+    std::array<ReplayPositionGate, 2> m_positionGates {};
 };
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

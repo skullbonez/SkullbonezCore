@@ -215,6 +215,8 @@ def launch(
     layout_file: Path | None = None,
     model_capacity: int | None = None,
     render_defaults_file: Path | None = None,
+    worker_threads: int | None = None,
+    allocation_guard: str | None = None,
 ) -> int:
     session.mkdir(parents=True, exist_ok=True)
     manifest = session / "session.json"
@@ -228,6 +230,14 @@ def launch(
         command.append("--automation-hidden-window")
     if fixed_step:
         command.append("--fixed-step")
+    if worker_threads is not None:
+        if not 0 <= worker_threads <= 64:
+            raise ValueError("worker_threads must be in 0..64")
+        command.extend(("--workers", str(worker_threads)))
+    if allocation_guard is not None:
+        if allocation_guard not in ("measure", "gameplay"):
+            raise ValueError("allocation_guard must be measure or gameplay")
+        command.extend(("--allocation-guard", allocation_guard))
     if model_capacity is not None:
         if model_capacity < 1:
             raise ValueError("model_capacity must be positive")
@@ -380,6 +390,8 @@ def build_parser() -> argparse.ArgumentParser:
     launch_parser.add_argument("--hidden", action="store_true")
     launch_parser.add_argument("--detail", choices=("summary", "normal", "full"))
     launch_parser.add_argument("--fixed-step", action="store_true", help="advance one fixed Physics tick per active frame")
+    launch_parser.add_argument("--workers", type=int, help="explicit native worker count for validation")
+    launch_parser.add_argument("--allocation-guard", choices=("measure", "gameplay"))
     launch_parser.add_argument("--manual", action="store_true",
                                help="trace a player-controlled run without replacing native input or frame pacing")
 
@@ -455,7 +467,8 @@ def main() -> int:
         if args.action == "capabilities":
             return run_command(args.session, "capabilities.get", {})
         if args.action == "launch":
-            return launch(args.session, args.exe, args.scene, args.hidden, args.manual, args.detail, args.fixed_step)
+            return launch(args.session, args.exe, args.scene, args.hidden, args.manual, args.detail, args.fixed_step,
+                          worker_threads=args.workers, allocation_guard=args.allocation_guard)
         if args.action in {"command", "send"}:
             return run_command(args.session, args.command, parse_arguments(args.arguments))
         if args.action == "load-scene":

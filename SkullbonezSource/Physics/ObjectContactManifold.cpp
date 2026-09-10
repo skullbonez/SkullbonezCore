@@ -433,6 +433,7 @@ void AddContactPoint( const ObjectContactBodyView& a, const ObjectContactBodyVie
     cp.rB = point - b.position;
     cp.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
     cp.featureId = featureId;
+    cp.signedSeparation = -penetration;
 }
 } // namespace
 

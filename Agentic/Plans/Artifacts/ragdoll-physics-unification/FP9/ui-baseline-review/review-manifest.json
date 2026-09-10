@@ -1,0 +1,38 @@
+{
+  "status": "candidate review only; no baseline approval or replacement",
+  "priorProducerVerified": false,
+  "referenceCommit": "e9f02a92539f6a678e6729e4e14c060b51c6e4b3",
+  "comparisons": [
+    {
+      "scene": "water_ball_test",
+      "averageDiff": 1.4305,
+      "baselineSha256": "c01d602116e8b68d05e0bd6a3df3a49ebb74424577da7e1d127e98087107369b",
+      "candidateSha256": "6edc849065f59da4672f06b77471236ce47ce1633f13411b5cc73557aa9f6cd5",
+      "outsideUiChangedPixels": 0,
+      "outsideUiMaxChannelDifference": 0,
+      "diagnosticMaskOnly": true
+    },
+    {
+      "scene": "solver_smoke",
+      "averageDiff": 1.6572,
+      "baselineSha256": "7780ef861cfbe9871ea02db780a6a714efebe2beadfaa28de2c263dbffe3dafb",
+      "candidateSha256": "6867abf4957d7e6dd338cd0df64f445c53833366d9dac2e42bd4f30a177f26c5",
+      "outsideUiChangedPixels": 11,
+      "outsideUiMaxChannelDifference": 1,
+      "diagnosticMaskOnly": true
+    },
+    {
+      "scene": "space_three_body",
+      "averageDiff": 1.2421,
+      "baselineSha256": "14414322d5354576f37293d7f226a3d1b7be0d5c2042525a7b6330053794b604",
+      "candidateSha256": "f977d074dc6182da93ae21a0419bd938757e888d28e1c560233af8a6425ba943",
+      "outsideUiChangedPixels": 0,
+      "outsideUiMaxChannelDifference": 0,
+      "diagnosticMaskOnly": true
+    }
+  ],
+  "currentProducer": {
+    "path": "Agentic\\Plans\\Artifacts\\ragdoll-physics-unification\\FP9\\ui-baseline-review\\SKULLBONEZ_CORE-Profile.exe",
+    "sha256": "8f40ec6ea98771486fcf0a30737fd0ed2a516689c5b9429816d528e10ca894fc"
+  }
+}

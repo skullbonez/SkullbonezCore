@@ -50,6 +50,7 @@ Related:
 #include "../Render/RuntimeRenderer.h"
 #include "../Render/RenderDefaultsStore.h"
 #include "../../Core/Profiler.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Interaction/OperatorCommandTransaction.h"
 #include "../Scene/SceneGeneratedControlTransaction.h"
@@ -882,6 +883,14 @@ SkarnessSceneObjectResult BuildSkarnessSceneObjectResult( const SceneWorld& worl
     return result;
 }
 
+void AppendSkarnessSceneObjectResult( const SceneWorld& world, SkarnessCommandResult& result, int modelIndex )
+{
+    // Keep both the object-name copy and response growth in diagnostic storage.
+    // The caller applies selection or replay commands before entering this boundary.
+    Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );
+    result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex ) );
+}
+
 void SetSkarnessNumberResult( SkarnessCommandApplication& application, const char* name, double value )
 {
     application.result.valueName = name;
@@ -1066,7 +1075,7 @@ void Run::ApplySkarnessReplayCommand( const SkarnessCommand& command, RuntimeUIF
             intent.interceptTargetId = body->sceneObjectId;
             intent.interceptTargetModelRow.value = modelIndex;
             (void)m_replayRuntime.ApplyFrameIntent( intent );
-            application.result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex ) );
+            AppendSkarnessSceneObjectResult( world, application.result, modelIndex );
         }
         return;
     }
@@ -1275,6 +1284,20 @@ void Run::ApplySkarnessSceneLifecycleCommand( const SkarnessCommand& command, Sk
         m_operatorUi->PanelTransitions().SetClockOverride( command.number, command.enabled );
         application.applied = true;
         return;
+    case SkarnessCommandType::PhysicsSpeculativeValidation:
+    {
+        if ( !m_skarness.Paused() )
+        {
+            application.applied = false;
+            application.reason = "pause the validation session before changing speculative contact mode";
+            return;
+        }
+        auto& physics = m_sceneController.Scene().Physics();
+        physics.SetSpeculativeContactsEnabledForValidation( command.enabled );
+        SetSkarnessIntegerResult( application, "enabled", physics.SpeculativeContactsEnabledForValidation() ? 1 : 0 );
+        application.applied = true;
+        return;
+    }
     case SkarnessCommandType::WindowResize:
         application.applied = m_window.RequestClientSize( command.integer, command.secondInteger );
         application.reason = application.applied ? nullptr : "native window rejected client resize";
@@ -1337,6 +1360,8 @@ void Run::ApplySkarnessSceneLifecycleCommand( const SkarnessCommand& command, Sk
 
 void Run::ApplySkarnessObjectLookupCommand( const SkarnessCommand& command, SkarnessCommandApplication& application )
 {
+    // Object queries copy diagnostic response values without applying gameplay commands.
+    Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );
     switch ( command.type )
     {
     case SkarnessCommandType::SceneObjectList:
@@ -1385,7 +1410,7 @@ void Run::ApplySkarnessSelectObjectCommand( const SkarnessCommand& command, Skar
             const char* ignoredReason = nullptr;
             if ( ResolveSkarnessSceneObject( world, command, modelIndex, ignoredReason ) )
             {
-                application.result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex ) );
+                AppendSkarnessSceneObjectResult( world, application.result, modelIndex );
             }
         }
         return;
@@ -1414,7 +1439,7 @@ void Run::ApplySkarnessSelectObjectCommand( const SkarnessCommand& command, Skar
         application.reason = application.applied ? nullptr : "editor selection owner rejected the scene object";
         if ( application.applied )
         {
-            application.result.objects.push_back( BuildSkarnessSceneObjectResult( world, modelIndex ) );
+            AppendSkarnessSceneObjectResult( world, application.result, modelIndex );
         }
     }
 }

@@ -66,18 +66,18 @@ using SkullbonezCore::UI::UIVisualState;
 namespace Style = SkullbonezCore::UI::Style;
 namespace Widgets = SkullbonezCore::UI::Widgets;
 
-// Approved Unified UI appearance: neutral chrome, rounded controls and opaque,
-// clipped foreground popups. Exact wrapper/stateless parity remains required.
-constexpr uint64_t kExpectedRestingComponentFingerprint = 13875932087700791586ull;
-constexpr uint64_t kExpectedEngagedComponentFingerprint = 5423888356771029687ull;
+// Blue theme, selection-role fills and clipped combo values from the committed
+// shared UI. Exact wrapper/stateless parity remains required.
+constexpr uint64_t kExpectedRestingComponentFingerprint = 4908219710994487364ull;
+constexpr uint64_t kExpectedEngagedComponentFingerprint = 4130441685798927310ull;
 constexpr std::array<uint64_t, 8> kExpectedStatelessStateFingerprints = {
-    13038061018592724847ull, 5009104184039438485ull,  15066562396268640861ull, 8394683556076108517ull,
-    14123923753461278030ull, 13047580132770480890ull, 7352780170727064552ull,  5558979605539197941ull,
+    3835357440160034502ull, 10417162068469908997ull, 18042229156607036512ull, 7645720698679422889ull,
+    6016504107255543878ull, 7907942725717573404ull,  4786324895670192480ull,  5558979605539197941ull,
 };
 
 // The fixture contains only production-reachable component operations,
 // including the compact panel and button adopted by Runtime owners.
-constexpr uint64_t kExpectedStatelessFixtureFingerprint = 6646648613973527720ull;
+constexpr uint64_t kExpectedStatelessFixtureFingerprint = 524536593056110224ull;
 
 bool NearlyEqual( float left, float right )
 {
@@ -409,7 +409,9 @@ bool CheckComponentEdgeContracts()
     Widgets::DrawComboField( draw, labelled, "Mode", "Beta", true, false, kEnabled, true, kEstablished );
     const uint64_t enabledChevronFingerprint = drawList->Fingerprint();
     const auto enabledComboCommands = drawList->Commands();
-    const bool enabledChevronCount = enabledComboCommands.size() == 10;
+    const bool enabledChevronCount = enabledComboCommands.size() == 12 &&
+                                     enabledComboCommands[3].type == UIDrawList::CommandType::PushClip &&
+                                     enabledComboCommands[5].type == UIDrawList::CommandType::PopClip;
 
     if ( enabledChevronCount )
     {
@@ -425,7 +427,9 @@ bool CheckComponentEdgeContracts()
     Widgets::DrawComboField( draw, labelled, "Mode", "Beta", true, false, kDisabled, false, kEstablished );
     const uint64_t disabledChevronFingerprint = drawList->Fingerprint();
     const auto disabledComboCommands = drawList->Commands();
-    const bool disabledChevronCount = disabledComboCommands.size() == 10;
+    const bool disabledChevronCount = disabledComboCommands.size() == 12 &&
+                                      disabledComboCommands[3].type == UIDrawList::CommandType::PushClip &&
+                                      disabledComboCommands[5].type == UIDrawList::CommandType::PopClip;
 
     if ( disabledChevronCount )
     {

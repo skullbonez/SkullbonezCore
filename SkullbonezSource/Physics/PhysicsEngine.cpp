@@ -1118,6 +1118,16 @@ bool PhysicsEngine::IsSleepEnabled() const
     return m_world->IsPhysicsSleepEnabled();
 }
 
+void PhysicsEngine::SetSpeculativeContactsEnabledForValidation( bool enabled )
+{
+    m_world->m_speculativeContactsEnabledForValidation = enabled;
+}
+
+bool PhysicsEngine::SpeculativeContactsEnabledForValidation() const
+{
+    return m_world->m_speculativeContactsEnabledForValidation;
+}
+
 
 void PhysicsEngine::BeginCollisionVisualFrame( PhysicsBodyCount bodyCount )
 {

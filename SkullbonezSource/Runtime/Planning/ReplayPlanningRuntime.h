@@ -95,6 +95,14 @@ class ReplayPlanningRuntime
     {
         return m_overlayDrawOwner.DrawStats();
     }
+    void BeginOverlayFrame() noexcept
+    {
+        m_overlayDrawOwner.BeginFrame();
+    }
+    std::array<ReplayOverlay::ReplayPositionGate, 2> TakePositionGates() noexcept
+    {
+        return m_overlayDrawOwner.TakePositionGates();
+    }
     float SurfaceScroll() const noexcept
     {
         return m_surfaceScroll;

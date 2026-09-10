@@ -150,7 +150,9 @@ static_assert( sizeof( PhysicsSleepScratchFlags ) == 1u, "Sleep scratch flags mu
 
 struct PhysicsSleepPoseAnchor
 {
-    Math::Vector::Vector3 position;
+    // Invalid anchors are captured too. Initialize their payload so replay
+    // cannot serialize uninitialized Release storage or Debug poison values.
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     std::array<float, 4> orientation { 0.0f, 0.0f, 0.0f, 1.0f };
     uint8_t flags = 0u;
 };

@@ -83,17 +83,18 @@ struct ObjectContactCandidateSelection
 //   solver later turns each point in the report into one rule it can enforce.
 struct ObjectContactPoint
 {
-    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;  // World-space representative contact point.
-    Math::Vector::Vector3 rA = Math::Vector::ZERO_VECTOR;     // Contact arm from body A center; Catto Equations 9-11.
-    Math::Vector::Vector3 rB = Math::Vector::ZERO_VECTOR;     // Contact arm from body B center; Catto Equations 9-11.
-    float penetration = 0.0f;                                 // Positive overlap depth used by Baumgarte bias.
-    uint32_t featureId = 0;                                   // Stable local feature key for temporal coherence.
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR; // World-space representative contact point.
+    Math::Vector::Vector3 rA = Math::Vector::ZERO_VECTOR;    // Contact arm from body A center; Catto Equations 9-11.
+    Math::Vector::Vector3 rB = Math::Vector::ZERO_VECTOR;    // Contact arm from body B center; Catto Equations 9-11.
+    float penetration = 0.0f;                                // Positive overlap depth used by Baumgarte bias.
+    uint32_t featureId = 0;                                  // Stable local feature key for temporal coherence.
+    float signedSeparation = 0.0f; // Unclamped geometry for predictive rows; positive means separated surfaces.
 };
 
 struct ObjectContactManifold
 {
-    int bodyA = -1;                                           // Solver index for body A; -1 means the row is not populated.
-    int bodyB = -1;                                           // Solver index for body B; object manifolds require two live bodies.
+    int bodyA = -1; // Solver index for body A; -1 means the row is not populated.
+    int bodyB = -1; // Solver index for body B; object manifolds require two live bodies.
     Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR; // Points from body A toward body B.
     ObjectContactPoint points[4];                             // Up to four face contacts, matching box face clipping.
     uint8_t pointCount = 0;
@@ -101,8 +102,8 @@ struct ObjectContactManifold
 
 struct ObjectContactSweepResult
 {
-    bool hit = false;                                         // Candidate object/object hit occurred in the tested substep.
-    float collisionTime = 0.0f;                               // Seconds from the start of the tested substep.
+    bool hit = false;           // Candidate object/object hit occurred in the tested substep.
+    float collisionTime = 0.0f; // Seconds from the start of the tested substep.
 };
 
 // Reduces transient clipped geometry to the solver's four-row budget. Returned

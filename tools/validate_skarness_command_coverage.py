@@ -33,9 +33,10 @@ EXPECTED_COMMANDS = {
     "replay.trip_plan", "replay.trip_commit", "replay.trip_cancel", "prediction.forecast_start",
     "prediction.forecast_reset", "prediction.forecast_stop", "prediction.select_target", "replay.set_path_target",
     "camera.orbit_inspection", "state.subscribe", "input.pointer_drag", "input.pointer_wheel", "input.set_arrows", "input.set_movement",
-    "input.set_prediction_key",
+    "input.set_prediction_key", "physics.speculative_validation",
     # UI migration routes are exercised by the native unified UI control suites.
     "input.file_dialog_response", "input.pointer_position", "window.resize", "input.set_focus", "input.set_key",
+    "ui.animation_clock",
     "comparison.setting", "comparison.step", "comparison.mode", "comparison.state", "comparison.seek",
     "comparison.select", "comparison.camera", "comparison.event", "comparison.focus", "comparison.finding.load",
     "comparison.loop", "comparison.next_difference", "comparison.finding.save", "comparison.close",
@@ -182,9 +183,12 @@ def main() -> int:
     try:
         validate_catalog(connection)
         validate_routes(connection, session)
-        require_applied(connection, "session.stop")
     finally:
-        connection.close()
+        # Failed assertions must also release the owned native session.
+        try:
+            require_applied(connection, "session.stop")
+        finally:
+            connection.close()
     print(f"PASS: Skarness command catalog and shared routes ({session})")
     return 0
 

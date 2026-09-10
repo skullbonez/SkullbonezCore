@@ -1579,12 +1579,14 @@ static void DrawReplayPositionGate( UI::UIDrawList& drawList, const ReplayPositi
     }
 }
 
-static void ComposeReplayPositionGates( UI::UIDrawList& drawList, const ReplayOverlayTimelineView& timeline,
-                                        const ReplayOverlayCausalityView& causality, const ReplayOverlayViewport& viewport )
+static std::array<ReplayPositionGate, 2> ComposeReplayPositionGates( UI::UIDrawList& drawList,
+                                                                     const ReplayOverlayTimelineView& timeline,
+                                                                     const ReplayOverlayCausalityView& causality,
+                                                                     const ReplayOverlayViewport& viewport )
 {
     if ( !timeline.prediction.controls.enabled || timeline.prediction.timeline.frames.empty() )
     {
-        return;
+        return {};
     }
 
     // Invariant: use the same immutable sample as the rendered bodies, never the
@@ -1595,17 +1597,22 @@ static void ComposeReplayPositionGates( UI::UIDrawList& drawList, const ReplayOv
     {
         // A live or historical pose need not match the prediction's source
         // frame. Hide the gate until an actual future sample is presented.
-        return;
+        return {};
     }
 
     drawList.PushClip( viewport.SceneBounds() );
 
-    for ( Physics::PhysicsSceneObjectId id : ReplayPositionGateSelection( causality, timeline.pathVisualizer.targetId ) )
+    std::array<ReplayPositionGate, 2> gates {};
+    const auto selection = ReplayPositionGateSelection( causality, timeline.pathVisualizer.targetId );
+
+    for ( std::size_t index = 0; index < gates.size(); ++index )
     {
-        DrawReplayPositionGate( drawList, BuildReplayPositionGate( *frame, id, viewport ) );
+        gates[index] = BuildReplayPositionGate( *frame, selection[index], viewport );
+        DrawReplayPositionGate( drawList, gates[index] );
     }
 
     drawList.PopClip();
+    return gates;
 }
 
 static void DrawReplayContactFlash( UI::UIDrawList& drawList, const ReplayOverlayViewport& viewport,
@@ -1666,6 +1673,7 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
                                                        ReplayOverlayViewport viewport, double nowSeconds )
 {
     m_drawList.Clear();
+    m_positionGates = {};
 
     if ( !ShouldComposeReplayOverlay( gameUiSurfaceActive ) )
     {
@@ -1673,7 +1681,7 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
     }
 
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
-    ComposeReplayPositionGates( m_drawList, replay.timeline, replay.causality, viewport );
+    m_positionGates = ComposeReplayPositionGates( m_drawList, replay.timeline, replay.causality, viewport );
     ComposeReplayContactFlash( m_drawList, replay.causality.inspection, viewport );
 
     const ReplayPlanningLayout planningLayout( viewport.PlanningBounds(), replay.planning.intercept.valid,

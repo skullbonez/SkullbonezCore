@@ -427,6 +427,56 @@ TEST_CASE( "Physics launcher collision path: generic and launcher names produce 
     CHECK( hot.linearVelocityX[launcherBodyRow] < 0.0f );
 }
 
+TEST_CASE( "Physics articulated collision: fast linked limbs meet thin walls on one fixed boundary" )
+{
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsExecution.parallel = false;
+    config.bodySimulation.velocityLimit = 1000.0f;
+    SkullbonezCore::Geometry::Terrain terrain( -100000.0f, 0.0f, 0.0f, config );
+    PhysicsEngine engine;
+    engine.ApplyRuntimeConfig( config );
+    engine.SetTerrainView( terrain.PhysicsView() );
+    engine.SetSleepEnabled( false );
+    engine.SetPipelineTraceFullRecordConsumerActive( true );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( 4u, 2u, 2u, 0u, 1u );
+        AddLauncherClassificationBody( engine, 15000u, 360.0f, 0.0f, "linked-limb-a" );
+        AddLauncherCollisionWall( engine, 15001u, 1.5f, 0.0f, "thin-wall-a" );
+        AddLauncherClassificationBody( engine, 15002u, 360.0f, 8.0f, "linked-limb-b" );
+        AddLauncherCollisionWall( engine, 15003u, 1.5f, 8.0f, "thin-wall-b" );
+        const auto records = PhysicsEngine::ReadBodies( engine ).Records();
+        PhysicsPointJointCreateDesc joint;
+        joint.bodyA = records[0].handle;
+        joint.bodyB = records[2].handle;
+        joint.localAnchorA = Vector3( 0, 0, 4 );
+        joint.localAnchorB = Vector3( 0, 0, -4 );
+        joint.slack = 0.0f;
+        REQUIRE( engine.CreatePointJoint( joint ).IsValid() );
+    }
+    SkullbonezCore::Threading::LockOrderValidator lockOrderValidator;
+    SkullbonezCore::Threading::WorkerPool workerPool( lockOrderValidator );
+    PhysicsWorldForces noForces;
+    noForces.angularDragMultiplier = 0.0f;
+    engine.Step( PHYSICS_FIXED_DT, noForces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+    const auto hot = PhysicsEngine::ReadBodies( engine ).HotFields();
+    CHECK( hot.positionX[0] == doctest::Approx( 0.6f ).epsilon( 0.0001f ) );
+    CHECK( hot.positionX[2] == hot.positionX[0] );
+    CHECK( hot.linearVelocityX[0] == doctest::Approx( 0.6f / PHYSICS_FIXED_DT ).epsilon( 0.0001f ) );
+    CHECK( hot.linearVelocityX[2] == hot.linearVelocityX[0] );
+    CHECK( hot.positionZ[2] - hot.positionZ[0] == 8.0f );
+    const auto trace = PhysicsEngine::ReadPipelineTrace( engine );
+    CHECK( std::none_of( trace.begin(), trace.end(), []( const auto& row )
+                         { return row.stage == SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit; } ) );
+    CHECK( std::count_if( trace.begin(), trace.end(),
+                          []( const auto& row )
+                          {
+                              return row.stage == SkullbonezCore::Physics::PhysicsPipelineStage::ManifoldRow &&
+                                     row.scalarA < 0.0f;
+                          } ) == 2 );
+}
+
 TEST_CASE( "Physics API frames: body-local shape offsets project into world queries" )
 {
     PhysicsEngine engine;
@@ -763,4 +813,187 @@ TEST_CASE( "Shared solver release wakes supported articulation within the same t
 {
     const auto quiet = RunReleasedArticulation( false );
     CHECK( RunReleasedArticulation( true ) == quiet );
+}
+
+namespace
+{
+void CheckRotatingArticulationWallCase( bool predictive, bool fixedWalls )
+{
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsExecution.parallel = false;
+    config.bodySimulation.velocityLimit = 1000.0f;
+    SkullbonezCore::Geometry::Terrain terrain( -100000.0f, 0.0f, 0.0f, config );
+    PhysicsEngine engine;
+    engine.ApplyRuntimeConfig( config );
+    engine.SetTerrainView( terrain.PhysicsView() );
+    engine.SetSleepEnabled( false );
+    engine.SetPipelineTraceFullRecordConsumerActive( true );
+    engine.SetSpeculativeContactsEnabledForValidation( predictive );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( 4u, 0u, 4u, 0u, 1u );
+        for ( uint32_t index = 0; index < 4u; ++index )
+        {
+            const bool wall = index % 2u != 0u;
+            const Vector3 extent = wall ? Vector3( 0.05f, 4, 4 ) : Vector3( 1, 1, 1 );
+            const float mass = wall ? 1000.0f : 2.0f;
+            const Vector3 inertia( mass * ( extent.y * extent.y + extent.z * extent.z ) / 3.0f,
+                                   mass * ( extent.x * extent.x + extent.z * extent.z ) / 3.0f,
+                                   mass * ( extent.x * extent.x + extent.y * extent.y ) / 3.0f );
+            const CollisionShape shape = BoundingBox( extent, ZERO_VECTOR );
+            const Vector3 position( wall ? 1.3f : 0.0f, 0, index >= 2u ? 10.0f : 0.0f );
+            auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 18000u + index ), shape, position,
+                                                   SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION, ZERO_VECTOR,
+                                                   wall ? ZERO_VECTOR : Vector3( 0, 0, -100 ), inertia, mass, 0.0f,
+                                                   wall && fixedWalls ? PhysicsBodyMotionKind::Fixed
+                                                                      : PhysicsBodyMotionKind::Dynamic );
+            body.angularVelocityLimit = 1000.0f;
+            auto collider = MakeColliderCreateDesc( shape, 0.0f, 0u );
+            collider.sceneObjectId = body.sceneObjectId;
+            REQUIRE( engine.RegisterAuthoredBody( body, collider ).IsValid() );
+        }
+        const auto records = PhysicsEngine::ReadBodies( engine ).Records();
+        PhysicsPointJointCreateDesc joint;
+        joint.bodyA = records[0].handle;
+        joint.bodyB = records[2].handle;
+        joint.localAnchorA = Vector3( 0, 0, 5 );
+        joint.localAnchorB = Vector3( 0, 0, -5 );
+        joint.slack = 0.0f;
+        REQUIRE( engine.CreatePointJoint( joint ).IsValid() );
+    }
+    SkullbonezCore::Threading::LockOrderValidator order;
+    SkullbonezCore::Threading::WorkerPool workers( order );
+    PhysicsWorldForces noForces;
+    noForces.angularDragMultiplier = 0.0f;
+    engine.Step( PHYSICS_FIXED_DT, noForces, workers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+    const auto hot = PhysicsEngine::ReadBodies( engine ).HotFields();
+    for ( const std::size_t limb : { 0u, 2u } )
+    {
+        const auto rotation = SkullbonezCore::Physics::PhysicsBodyOrientation( hot, limb ).GetOrientationMatrix();
+        const auto wallRotation = SkullbonezCore::Physics::PhysicsBodyOrientation( hot, limb + 1u ).GetOrientationMatrix();
+        const auto position = SkullbonezCore::Physics::PhysicsBodyPosition( hot, limb );
+        const auto wallPosition = SkullbonezCore::Physics::PhysicsBodyPosition( hot, limb + 1u );
+        CHECK( hot.positionX[limb] == doctest::Approx( hot.linearVelocityX[limb] * PHYSICS_FIXED_DT ) );
+        float maximumLocalX = -100.0f;
+        for ( unsigned cornerIndex = 0; cornerIndex < 8u; ++cornerIndex )
+        {
+            const Vector3 localCorner( cornerIndex & 1u ? 1.0f : -1.0f, cornerIndex & 2u ? 1.0f : -1.0f,
+                                       cornerIndex & 4u ? 1.0f : -1.0f );
+            const Vector3 corner = position + rotation * localCorner;
+            maximumLocalX = (std::max)( maximumLocalX, wallRotation.TransposeMultiply( corner - wallPosition ).x );
+        }
+        if ( predictive )
+        {
+            CHECK( maximumLocalX <= -0.049f );
+            CHECK( hot.angularVelocityZ[limb] > -100.0f );
+        }
+        else
+        {
+            // Negative control: identical uniform stepping without gap
+            // rows lets the tip cross the full thin wall in this tick.
+            CHECK( maximumLocalX > 0.05f );
+            CHECK( hot.angularVelocityZ[limb] == -100.0f );
+        }
+    }
+    CHECK( hot.positionZ[2] - hot.positionZ[0] == 10.0f );
+    const auto trace = PhysicsEngine::ReadPipelineTrace( engine );
+    CHECK( std::none_of( trace.begin(), trace.end(), []( const auto& row )
+                         { return row.stage == SkullbonezCore::Physics::PhysicsPipelineStage::SweptObjectHit; } ) );
+    CHECK( engine.GetDiagnosticsView().motionEligibilityStats.speculativeEnabled == predictive );
+}
+} // namespace
+
+TEST_CASE( "Physics articulated collision: fast rotating linked boxes stay before thin static and dynamic walls" )
+{
+    for ( const bool predictive : { false, true } )
+    {
+        for ( const bool fixedWalls : { true, false } )
+        {
+            CheckRotatingArticulationWallCase( predictive, fixedWalls );
+        }
+    }
+}
+
+namespace
+{
+void CheckPredictiveSleepingTarget( bool impact )
+{
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsExecution.parallel = false;
+    config.bodySimulation.velocityLimit = 2000.0f;
+    SkullbonezCore::Geometry::Terrain terrain( -100000.0f, 0.0f, 0.0f, config );
+    PhysicsEngine engine;
+    engine.ApplyRuntimeConfig( config );
+    engine.SetTerrainView( terrain.PhysicsView() );
+    engine.SetSleepEnabled( true );
+    engine.SetPipelineTraceFullRecordConsumerActive( true );
+    std::array<PhysicsAuthoredBodyRegistration, 3> registered {};
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( 3u, 3u, 0u, 0u, 1u );
+        const CollisionShape sphere = BoundingSphere( 1.0f, ZERO_VECTOR );
+        const std::array<Vector3, 3> positions = { Vector3( 0, 10, 0 ), Vector3( 0, 10, 8 ),
+                                                   impact ? Vector3( -2.25f, 10, 0 ) : Vector3( -4, 11.99f, 0.3f ) };
+        for ( std::size_t i = 0; i < registered.size(); ++i )
+        {
+            auto body = MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 19000u + static_cast<uint32_t>( i ) ), sphere,
+                                                   positions[i], SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                   ZERO_VECTOR, ZERO_VECTOR, Vector3( 0.8f, 0.8f, 0.8f ), 2.0f, 0.0f,
+                                                   PhysicsBodyMotionKind::Dynamic );
+            auto collider = MakeColliderCreateDesc( sphere, 0.0f, 0u, "predictive-wake" );
+            collider.sceneObjectId = body.sceneObjectId;
+            registered[i] = engine.RegisterAuthoredBody( body, collider );
+            REQUIRE( registered[i].IsValid() );
+        }
+        PhysicsPointJointCreateDesc joint;
+        joint.bodyA = registered[0].body;
+        joint.bodyB = registered[1].body;
+        joint.localAnchorA = Vector3( 0, 0, 4 );
+        joint.localAnchorB = Vector3( 0, 0, -4 );
+        joint.slack = 0.0f;
+        REQUIRE( engine.CreatePointJoint( joint ).IsValid() );
+    }
+    SkullbonezCore::Threading::LockOrderValidator order;
+    SkullbonezCore::Threading::WorkerPool workers( order );
+    PhysicsWorldForces forces;
+    forces.angularDragMultiplier = 0.0f;
+    engine.Step( PHYSICS_FIXED_DT, forces, workers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+    // Consume the topology wake before arranging the impact state.
+    engine.SeedBodyAsleep( registered[0].body );
+    engine.SeedBodyAsleep( registered[1].body );
+    REQUIRE( PhysicsEngine::ReadSleepStates( engine )[0] != 0u );
+    REQUIRE( PhysicsEngine::ReadSleepStates( engine )[1] != 0u );
+    const Vector3 velocity( impact ? 90.0f : 960.0f, 0, 0 );
+    REQUIRE( engine.SetBodyVelocity( registered[2].body, velocity, ZERO_VECTOR, true ) );
+    engine.Step( PHYSICS_FIXED_DT, forces, workers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+    const auto hot = PhysicsEngine::ReadBodies( engine ).HotFields();
+    const auto rows = engine.GetDiagnosticsView().persistentContacts;
+    const auto hit = std::find_if( rows.begin(), rows.end(),
+                                   []( const auto& row ) { return row.bodyA == 0 && row.bodyB == 2; } );
+    if ( impact )
+    {
+        REQUIRE( hit != rows.end() );
+        CHECK( hit->penetration < 0.0f );
+        CHECK( hit->accN > 0.0f );
+        CHECK( PhysicsEngine::ReadSleepStates( engine )[0] == 0u );
+        CHECK( PhysicsEngine::ReadSleepStates( engine )[1] == 0u );
+        CHECK( hot.linearVelocityX[0] > 0.0f );
+    }
+    else
+    {
+        CHECK( hit == rows.end() );
+        CHECK( PhysicsEngine::ReadSleepStates( engine )[0] != 0u );
+        CHECK( PhysicsEngine::ReadSleepStates( engine )[1] != 0u );
+        CHECK( hot.linearVelocityX[0] == 0.0f );
+        CHECK( hot.linearVelocityX[2] == velocity.x );
+    }
+}
+} // namespace
+
+TEST_CASE( "Physics articulated collision: predictive impact wakes sleeping targets while grazing leaves them asleep" )
+{
+    CheckPredictiveSleepingTarget( false );
+    CheckPredictiveSleepingTarget( true );
 }

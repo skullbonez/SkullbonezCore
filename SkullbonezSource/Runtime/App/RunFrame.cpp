@@ -360,6 +360,9 @@ bool Run::DrainNativeHostEvents( int& messageExitCode )
 
 double Run::BeginFrameTurn()
 {
+#if defined( SKULLBONEZ_SKARNESS )
+    m_replayRuntime.BeginSkarnessFrame();
+#endif
     double secondsPerFrame = std::clamp( m_timers.BeginFrame(), 0.0, 0.05 );
     PROFILE_FRAME_BEGIN( m_profiler );
     PROFILE_COUNTER( m_profiler, "Counter/Presentation/FrameIntervalMs", secondsPerFrame * 1000.0 );
@@ -1285,6 +1288,19 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
 
 #if defined( SKULLBONEZ_SKARNESS )
+static std::array<SkarnessFrameState::PositionGate, 2>
+BuildSkarnessPositionGates( const std::array<ReplayOverlay::ReplayPositionGate, 2>& gates )
+{
+    std::array<SkarnessFrameState::PositionGate, 2> result {};
+
+    for ( std::size_t index = 0; index < gates.size(); ++index )
+    {
+        const auto& gate = gates[index];
+        result[index] = { gate.id.value, gate.frame, { gate.center.x, gate.center.y }, gate.visible };
+    }
+    return result;
+}
+
 void Run::PublishSkarnessFrameState()
 {
     if ( !m_skarness.Enabled() )
@@ -1292,9 +1308,13 @@ void Run::PublishSkarnessFrameState()
         return;
     }
 
+    // Skarness constructs disposable observation packets; their vectors belong
+    // to diagnostics, including collection before the host serializes them.
+    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     const ReplaySkarnessState replay = m_replayRuntime.BuildSkarnessState();
     const SceneLifecyclePacket& lifecycle = m_sceneController.LifecyclePacket();
     SkarnessFrameState state;
+    state.presentation.positionGates = BuildSkarnessPositionGates( replay.positionGates );
     const OverlayDebugState overlayPresentation = m_overlayDiagnostics->PresentationSnapshot();
     const UI::UIPhysicsDebugStatus physicsUi = BuildDiagnosticsPhysicsUIStatus( overlayPresentation );
     const Gameplay::TornadoFieldConfig& tornado = m_sceneController.Scene().Tornado().GetFieldConfig();
@@ -1671,7 +1691,6 @@ void Run::PublishSkarnessFrameState()
         physics.SetPhysicsDiagnosticsRunId( m_skarness.RunId() );
     }
 
-    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     // Invariant: a Skarness command is not applied until both trace owners are
     // durable. Physics keeps buffered writes hot; App flushes that lower-layer
     // sidecar once at this after-render diagnostics boundary.

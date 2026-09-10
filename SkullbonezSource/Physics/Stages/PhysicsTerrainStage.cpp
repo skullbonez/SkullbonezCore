@@ -68,6 +68,7 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const BuoyancyB
     body.position = PhysicsBodyPosition( hotFields, bodyIndex );
     body.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
     body.linearVelocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
+    body.angularVelocity = PhysicsBodyAngularVelocity( hotFields, bodyIndex );
     body.terrain = terrain;
     body.boundingRadius = hotFields.boundingRadius[bodyIndex];
     body.contactEpsilon = buoyancyFacts[bodyIndex].contactEpsilon;
@@ -138,6 +139,21 @@ void PhysicsTerrainStage::DetectTerrainAt( std::span<const PhysicsBodyRecord> bo
                                   PhysicsMotionEligibilityLinearPromoted ) != 0u;
     const TerrainContactBodyView body = TerrainContactBodyViewForIndex( buoyancyFacts, hotFields, terrain, settings,
                                                                         bodyIndex );
+    if ( UsesArticulatedContacts( motionEligibilityState, bodyIndex ) )
+    {
+        // Conservative angular reach selects terrain candidates only. The
+        // manifold uses the real current pose and uninflated vertex gaps.
+        TerrainContactBodyView envelope = body;
+        const float angularSpeed = SkullbonezCore::Math::Vector::VectorMag(
+            PhysicsBodyAngularVelocity( hotFields, bodyIndex ) );
+        envelope.linearVelocity.y -= angularSpeed * colliderRecords[bodyIndex].maximumCenterOfMassRadius;
+        const float horizon = UsesSpeculativeContacts( motionEligibilityState, bodyIndex ) ? candidate.availableTime : 0.0f;
+        candidate.sweep = SweepTerrainContact( envelope, colliderRecords[bodyIndex].shape, horizon );
+        candidate.sweep.collisionTime = 0.0f;
+        candidate.sweep.uniformStep = true;
+        candidate.tested = 1;
+        return;
+    }
     const float detectionHorizon = linearPromoted ? candidate.availableTime : 0.0f;
     candidate.sweep = SweepTerrainContact( body, colliderRecords[static_cast<size_t>( bodyIndex )].shape, detectionHorizon );
 

@@ -522,6 +522,9 @@ void Run::ApplySkarnessComparisonCommand( const SkarnessCommand& command, Skarne
                                               command.type == SkarnessCommandType::ComparisonLoadFinding );
         if ( application.applied )
         {
+            // The asynchronous load already owns its Capture phase; only its reply id is retained here.
+            Core::Allocation::RuntimeAllocationScope diagnosticsScope(
+                Core::Allocation::RuntimeAllocationPhase::Diagnostics );
             m_comparisonLoadRequest = command.requestId;
             application.deferred = true;
             return;

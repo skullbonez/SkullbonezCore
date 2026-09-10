@@ -69,6 +69,15 @@
     <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp">
       <Filter>Source Files\Collision</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\ConvexMotionBounds.cpp">
+      <Filter>Source Files\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\ConvexDistance.cpp">
+      <Filter>Source Files\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\SpeculativeContacts.cpp">
+      <Filter>Source Files\Collision</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp">
       <Filter>Source Files\Collision</Filter>
     </ClCompile>
@@ -178,6 +187,15 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\DisjointSet.h">
       <Filter>Header Files\Solver</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\ConvexMotionBounds.h">
+      <Filter>Header Files\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\ConvexDistance.h">
+      <Filter>Header Files\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\SpeculativeContacts.h">
+      <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h">
       <Filter>Header Files\Collision</Filter>

@@ -24,6 +24,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 namespace SkullbonezCore::Physics
 {
@@ -36,10 +37,25 @@ enum PhysicsMotionEligibilityBit : uint8_t
     PhysicsMotionEligibilityNone = 0u,
     PhysicsMotionEligibilityLinearPromoted = 1u << 0,
     PhysicsMotionEligibilityAngularExpanded = 1u << 1,
+    // Transient collision-path bit, derived from valid point-joint membership
+    // each tick. It is deliberately excluded from the replay hysteresis mask.
+    PhysicsMotionEligibilityArticulated = 1u << 2,
+    PhysicsMotionEligibilitySpeculativeDisabled = 1u << 3, // Validation-only A/B; uniform joint stepping remains active.
 };
 
 inline constexpr uint8_t PHYSICS_MOTION_ELIGIBILITY_VALID_BITS = PhysicsMotionEligibilityLinearPromoted |
                                                                  PhysicsMotionEligibilityAngularExpanded;
+
+inline bool UsesArticulatedContacts( std::span<const uint8_t> paths, int body )
+{
+    return body >= 0 && body < static_cast<int>( paths.size() ) &&
+           ( paths[body] & PhysicsMotionEligibilityArticulated ) != 0u;
+}
+
+inline bool UsesSpeculativeContacts( std::span<const uint8_t> paths, int body )
+{
+    return UsesArticulatedContacts( paths, body ) && ( paths[body] & PhysicsMotionEligibilitySpeculativeDisabled ) == 0u;
+}
 
 struct PhysicsMotionEligibilityStats
 {
@@ -51,5 +67,9 @@ struct PhysicsMotionEligibilityStats
     int promotionsThisStep = 0;
     int demotionsThisStep = 0;
     uint64_t passDurationNanoseconds = 0u;
+    uint64_t articulationDurationNanoseconds = 0u;
+    int articulatedBodies = 0;
+    int speculativeBodies = 0;
+    bool speculativeEnabled = true;
 };
 } // namespace SkullbonezCore::Physics

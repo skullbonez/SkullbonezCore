@@ -1,8 +1,308 @@
 # Session State
 
-Date: 2026-09-09
+Date: 2026-09-10
 Branch: `codex/unified-ui`
-Status: Unified UI complete at 8/8; portfolio 146/154. Closure is committed on this branch.
+Status: Ragdoll FP8 accepted at 9/10; FP9 closure next; portfolio 147/154. Unified UI remains complete at 8/8.
+
+## Ragdoll FP8/FP9 implementation in progress - 2026-09-10
+
+### Latest verification status
+
+Final required validation passes on 2026-09-11. Full05 exits 0 in 1317.204 s:
+unchanged Physics CSV, 134-source / 1188-context source design, all six CPU
+lanes, 1,027 Profile tests / 3,483,587 assertions, Automation in 438.419 s,
+and DX12 in 13.667 s against the accepted screenshots. Exclusive perf07 exits
+0 in 102.502 s on rebuilt Profile 2386e9e3, including relative and absolute
+budgets, native allocation checks and structural checks. Mapped replay passes
+in 370.488 s on Automation 6dbb35b9. The final 4ec3be56 relink changes only COFF
+and debug timestamps plus CodeView PDB age; every other executable byte matches.
+automation-relink-equivalence.json records that proof. terminal-validation.json
+binds the final logs, producers and performance artifacts.
+
+The optional frame-spike diagnostic exits 1 because its recorded
+predictionFullHorizonComplete assertion is false. The full script explicitly
+classifies this diagnostic as informational; it produced no usable spike
+measurement. This failure is retained and is not reported as a diagnostic pass.
+
+FP8 is accepted at 9/10; portfolio 147/154. The first commit contains the
+implementation, tests, exact governed baseline bundles and approved screenshots.
+FP9's following documentation commit closes and removes the completed plan.
+Then begin the user-requested playground sleep experiments with Skarness.
+The 100-second prior pile observation ends at 10/46 asleep in both modes and
+is not evidence that reliable pile sleep is solved.
+
+The owner accepted the three screenshots and the disclosed missing-original-
+producer exception; do not ask again. Independent implementation and transition
+reviews are complete. The foreign live work ledger remains untouched;
+unsupported model/pricing telemetry prevents honest completion-ledger artifacts.
+
+Earlier detailed checkpoints follow; terminal-validation.json under FP9 is the
+current validation record. Native source has not changed after full05/perf07.
+
+Causal-playback attempt 12 passed all prior assertions in 17.266 s. The new
+position-gate observation copies the exact values passed to drawing, including
+object ID, frame and projected center. App consumes and clears the fixed array
+after rendering, preventing stale observations when the overlay is skipped.
+The native assertion binds the primary selected ID and presented frame before
+checking cyan pixels around that center. Attempt 12 proves ID 1, frame 100 and
+88 cyan pixels. A prediction-off clearing assertion was added afterward and
+passes in run 13. The eight Runtime files pass formatting and dependency
+checks. Three changed CPPs passed source design initially; extracting a helper
+from RunFrame resolves its function-size finding, with all three contexts clean.
+Old executables and source are in `fp9-before-position-gate-observation`.
+
+Exclusive performance attempt 02 remains a failed full gate (exit 9, 37.469 s).
+Its dense causal fixture selected a cause without opening the current Evidence
+surface. The repository-owned recording now pins window size, opens Editor,
+Causes, Evidence and Raw, then scrolls within Evidence. Existing contact,
+pipeline, frame, allocation and timing requirements are preserved. Focused run
+`TestOutput/fp9-causal-perf-route-05` passes: maximum phase 0.0384 ms,
+panel/overlay ratio 0.819, fixed storage 231552 bytes and zero steady allocations.
+The old recording and failed raw output remain under
+`TestOutput/fp9-causal-perf-failure-02/`. No complete performance verdict exists;
+the full gate must run exclusively after native/build work stops.
+Its prior fixed-path
+artifacts are preserved under `TestOutput/fp9-before-terminal-perf-01/`.
+Keep future performance runs exclusive of native captures, builds and CPU-heavy
+checks. Attempt 02 used the supported Visual Studio clang-format override and an isolated
+default UI preferences path; both overrides are recorded with its result.
+Attempt 01 exited 9 before timing after 27.079 s: the sleepy-scene generator
+still emitted version 3 while FP6 had already migrated its fixture to version 5.
+Every other generated value matched. The generator now emits version 5;
+`--check` passes without changing the scene or any baseline.
+
+Full attempt 03 is terminal: exit 1 after 919.531 s. All preflight lanes pass
+(682.943 s), as do all six CPU lanes (146.660 s), including Debug coverage and
+the Profile suite's 1,026 cases / 3,484,266 assertions. Runtime failures remain:
+
+- Shader freshness initially selected an inaccessible Python-package
+  clang-format. The supported `SKULLBONEZ_CLANG_FORMAT` override resolves it;
+  all 48 stages now pass freshness with Visual Studio LLVM 22.1.3.
+- Profile initially could not save personal UI preferences. The existing
+  `SKULLBONEZ_UI_LAYOUT_FILE` override isolates writable test preferences.
+  Copying personal Editor preferences explains a large screenshot mismatch;
+  fresh defaults reduce it to UI chrome. Run `20260910T124849Z` has zero DX12
+  errors but all three screenshot comparisons fail. Outside the exact UI
+  regions named by baseline commit e9f02a925, Water and Three Body match exactly;
+  Solver has seven differing pixels with maximum channel difference one.
+  `fp9-dx12-ui-only-difference.json` records this analysis. No DX12 golden changed.
+- The Skarness command catalog now expects `physics.speculative_validation`
+  and the already committed `ui.animation_clock`. Its native route check passes
+  inside `fp9-terminal-automation-07.log`. Cleanup now stops its owned session
+  even on an assertion failure. The failed earlier host 10184 was stopped
+  through its exact Skarness session, not process-name termination.
+- Causal playback still used the retired Details/Causes tab route. It now opens
+  the Editor rail and settles its animation through the existing clock command.
+  The old full-window-center assertion is now replaced by the identity-bound
+  draw observation described above. Complete Automation validation remains due.
+
+Attempt 01 failed from an overlapping native DLL lock. Attempt 02 failed only
+mixed line endings; the line-ending repair preserved all C++ text. Attempt 03
+confirms formatting passes 139 files. The position-gate diagnostic observation
+was added afterward and requires current terminal validation.
+
+`FP9/performance-disposition.md` records the provisional engineering decision:
+retain predictive contacts for the demonstrated fast-impact benefit, subject
+to both remaining gates. The measured added average is 0.0487 to 0.3280 ms/tick;
+the decision explicitly does not claim reliable pile sleep. This is a reversible
+decision under the orchestrator's autonomy rule, not a request to pause for an
+unspecified owner decision. Final acceptance and the detailed gate results must
+still be recorded before closing FP9.
+
+**Mapped Physics and replay:** `fp9-terminal-physics.log` passes all four
+0/repeat/1/4 worker variants against the unchanged 44,401-line accepted SHA
+`50bca7c0f2c420832c4fd99b1812f4db48d88cfadb4d475622a3d3bd3465a1c1`.
+The post-update replay gate passes in 384.578 s, including one native generation,
+18 packet tests / 82 assertions, exact visual/causal comparison, durable-artifact
+checks and all negative controls. Its final screenshot was inspected. Raw
+verified evidence is under `TestOutput/fp9-replay-visual-approved-01/`; the gate
+log is `TestOutput/fp9-terminal-replay-visual-approved-01.log`.
+
+**Replay transition:**
+`FP8/golden-transitions/predictive-contacts-2ac5f033/` under this plan's artifacts
+retains both first-party producers (5820 old, 2ac5 new), exact old/new goldens,
+dependency scans, guarded writer logs, a first-divergence proof and mapped gate
+results. The old 5820 run reproduces every approved visual tick, final value and
+causal node. Its separate shader-provenance failure comes from previously
+committed UI text/preview opacity changes; FP8 edits no shaders.
+
+The new wall cascade is explained by speculative contact with the ragdoll head.
+Two short Skarness captures start at source frame 61; each complete 62-frame
+BODY/PRES prefix is byte-identical to its corresponding full reveal recording.
+Striker poses/velocities match through prediction frame 13. Current first
+contact at frame 14 has stable IDs 1/204, a 0.596154 m gap, positive normal impulse,
+zero tangent impulses and no warm start. Old first contact at frame 15 has
+0.816796 m penetration. All 200 wall bricks remain affected; toppled changes
+185 to 192 and settled 194 to 200. The omitted causal node is fixed catcher wall
+202 at old frame 1857, not a ragdoll part. Both diagnostic sessions exit 0.
+Independent transition review found no material blocker. Solver contact fields
+use model rows: the early row-1 diagnostic summaries were corrected to row 0
+for the striker and explicitly preserved as superseded evidence.
+
+**Allocation and source review:** Static policy and self-tests pass: 681 source
+files, 63 direct heap sites, 157 dynamic members and 924 growth sites, with zero
+policy errors. All new allowances name exact startup, bounded prediction,
+diagnostic or cold-file owners; no replay byte cap or registered owner was added.
+Gameplay command application remains outside Diagnostics scopes. The recorder's
+64-ray/32-shot nested rings use its existing capped owner; the focused test proves
+fresh nested payloads inside a primed outer window, not arbitrary outer growth.
+All implementation and final allocation reviews are clean, including the five
+C++ ownership questions. The bounded independent follow-up found that screenshot restart could bypass
+publication. App now clears the observation at its unconditional frame boundary;
+review of this repair is clean. The new focused lifecycle regression passes with
+the existing gate tests (4 cases / 45 assertions). Profile build 05 and source
+design 03 pass; final Automation producer validation remains required.
+`FP9/position-gate-review.md` records the finding, repair and evidence.
+
+The archived 0350 producer fails the identity-bound object response/screenshot
+probe with 100 gameplay allocation violations and exit 9; 2ac5 passes with zero
+violations and exit 0 (`FP9/response-allocations-{old,current}.json`). The FP9
+capture driver now rejects bad allocation summaries or abnormal exits even when
+replay bytes match; focused negative controls pass.
+
+**Determinism and measured cost:** The archived b9df producer passes 360-tick
+0/repeat/1/4 native BODY/PRES/HASH/SCHK comparisons with zero gameplay violations
+and all exits 0 (`fp9-native-oracle-final-05`). Actual prediction cancellation,
+retargeting and reselection repeat all 28,630,460 published body/solver bytes at
+one paused source; selected/published/rendered identity agrees and the screenshot
+was inspected (`fp9-generations-final-02`). The unpaused selector is rejected
+without changing Physics; paused selection applies (`fp9-selector-phase-01`).
+
+Same-executable A/B/A/B runs (four workers, 1200 ticks, 240 warmup) are isolated,
+exact on A/A and B/B, and allocation-clean. Instrumented speculative Physics
+cost is +28.69% sleep island, +35.41% pile and +13.73% floating ragdolls. These
+measurements remain bound to b9df, whose Physics source matches the later 2ac5
+producer; they are not shipping Release measurements. Short land runs have more
+residual motion with prediction enabled; none sleeps by ten seconds. The first
+water capture overlapped a parser and remains excluded in favor of final-02.
+
+The 2ac5 100-second pile test ends with 10/46 bodies asleep in both modes, all
+46 supported, peaks 32 off / 43 on, and 1707 / 1670 sleeping-count decrease ticks.
+Neither ever sleeps the whole pile. Final-second linear RMS is 0.040508 / 0.038485
+m/s; angular RMS 0.068236 / 0.052858 rad/s. Both allocation guards and normal
+shutdown pass; screenshots were inspected. No timing claim applies to this
+long-rest pair because source checks ran concurrently. Detailed evidence remains
+in `Agentic/Plans/Artifacts/ragdoll-physics-unification/FP9/README.md`.
+
+Earlier terminal repairs include the Automation/Profile ABI build-isolation
+fix, UI boundary expectation migration and DX12 fatal-child test repair. Their
+old executables are preserved. The clean full Profile suite passed 1026 cases /
+3,483,256 assertions; subsequent Automation compilation leaves that Profile test
+executable byte-identical. The current full gate still must pass its complete
+CPU/coverage and runtime lanes.
+
+### Earlier implementation evidence
+
+The owner requested FP8 and FP9 on this branch, preserving old executables
+before approving changed Physics baselines. The initial checkout was clean.
+Old Debug/Profile/Automation executables and first-party DLLs, hashes and source
+commit are preserved under `TestOutput/fp8-prechange/`; no golden has changed.
+
+FP8 currently derives transient articulation membership from point joints,
+extends broadphase motion bounds, replaces limb TOI advancement with uniform
+step contact rows, and applies cold frictionless/restitution-free gap braking.
+Actual contact retains the existing manifold. Terrain carries signed gaps on
+the articulated path. Convex distance uses bounded stack storage and paired
+support witnesses. Profile and Automation build without warnings; focused
+geometry/solver/engine tests pass, including the two linked fast limbs fixture.
+
+Native four-ragdoll pile tests exposed numerical GJK cycling before the first
+tick. The failing traces are retained under `TestOutput/skarness/fp8-pile-02`
+through `fp8-pile-04`. Translated coordinates and double projection products
+fix the distant wall case; retaining discarded support identities addresses
+edge-face cycling. The next native run is `fp8-pile-05`. These changes remain
+unaccepted until the native run and expanded behavioral coverage pass. FP8 is
+still 8/10 overall; final acceptance, baseline review, terminal validation and
+independent review are still due.
+
+The GJK repair now passes 1,962 geometry assertions, including 720 rotated
+near-touching limb pairs. An angular regression exposed the insufficiency of
+one closest-point row; separated angular contacts now retain a small clipped
+patch with uninflated witness checks and per-point closing admission. Centered
+sphere spin does not widen its geometric sweep. Source-design checks pass
+ConvexDistance, SpeculativeContacts and ObjectContactManifold (3 sources / 9
+contexts). Project filters and dependency direction pass. Focused contact,
+friction, restitution, membership and engine fixtures pass. The full-engine
+rotational negative control also caught the default 5 rad/s configuration
+clamp: the corrected 1000-limit fixture proves speculative-off crosses the thin
+fixed/dynamic walls and on does not, with full-tick translation for each limb
+(`fp9-angular-control-final-test.log`, 2 cases / 68 assertions).
+
+Native `fp8-pile-06` completes 12,000 ticks and was stopped normally. Its final
+40 limbs remain supported and awake. Final-second linear/angular speed RMS is
+0.060889 m/s / 0.106402 rad/s, versus preserved old build `fp8-pile-old-03` at
+0.061252 / 0.110667. This does not demonstrate reliable pile sleeping. The
+earlier single-point run's larger apparent improvement is superseded by the
+angular-patch result. Screenshots were inspected. All owned processes have
+been stopped; failed archived-exe launches were stopped after exact PID/path
+verification. The old executable was staged without changing bytes as
+`Automation/SKULLBONEZ_CORE-FP8-old.exe` because Skarness resolves the repository
+working directory from the executable's parent.
+
+FP9 implementation has started with a validation-only PhysicsEngine selector,
+a transient disabled bit excluded from replay hysteresis, and Skarness
+`physics.speculative_validation` (paused sessions only). Off keeps articulated
+uniform stepping while omitting predictive broadphase expansion and gap rows.
+SkullScope emits `speculative_summary` counts and eligibility timing. This
+native command is not yet built/validated in Automation. Repeated 0/1/4-worker
+oracles, snapshot/topology/prediction tests, and same-executable alternating A/B
+capture/report tooling are the immediate next work. No baseline changes,
+commits, pushes or review have occurred yet.
+
+The new 512-body/128-joint worker fixture passes 734,526 assertions across
+0/1/4 workers, a saved-state rewind and continuation, joint removal and
+recreation, and the production Replay hash. It first exposed uninitialized
+`PhysicsSleepPoseAnchor.position` in invalid anchors; initializing that existing
+field to ZERO_VECTOR fixes the real snapshot mismatch. The diagnostic quiet-NaN
+sentinel comparison now checks float bits. Temporary mismatch instrumentation
+in TestReplaySolverHashWitness.cpp was removed after diagnosis. Passing log:
+`TestOutput/fp9-sleep-anchor-test.log`; failed logs remain for provenance.
+This initializer may intentionally change replay baseline bytes and still
+requires a governed exact producer-bound transition if the final gates differ.
+`tools/skarness.py launch --workers` was just added to pass the existing native
+worker override; native selector/counter validation and A/B tooling remain next.
+
+FP9 native evidence now exists. `fp9-native-oracle-02` records 360 ticks in
+separate 0/repeat/1/4-worker processes; BODY, PRES, HASH and SCHK chunks are
+byte-identical. The first attempt correctly rejected a truncated recording:
+enabling a perf CSV also activates the legacy two-second scene pass when the
+scene frame limit is unlimited. The capture now supplies a frame limit beyond
+the requested interval, and checks every recorded tick and diagnostic row.
+
+Same-executable A/B/A/B captures at 1200 ticks (240 warmup / 960 measured) pass
+exact repeat checks for sleep-island, dropped box-pile and water workloads.
+Physics time excluding the separately measured diagnostic dump averages
+0.9121/1.1827 ms, 0.9578/1.2640 ms and 0.3949/0.4388 ms off/on respectively.
+Predictive cost is 29.67%, 31.96% and 11.11%. The land scenes have higher
+final-second residual speeds with prediction on; no pile-sleep improvement is
+claimed. All 12 native runs report no Physics allocation row after explicit
+file serialization was attributed to Diagnostics. Global harness/render
+allocation failures remain visible; these captures do not pass that gate.
+Raw reports: `TestOutput/skarness/fp9-{sleep,pile,water}-ab-01/report.json`.
+The measured Automation producer is preserved at
+`TestOutput/fp9-measured-producer/SKULLBONEZ_CORE.exe`, SHA-256 d5f932bf...fc87.
+
+`fp9-generations-01` proves actual in-flight cancellation, retargeting, and
+reselection at one paused live source. Published body frames and solver
+evidence are exact across generations 1, 4 and 6 for target 6 (30,389,782 bytes;
+SHA-256 20025c6e...cf7a); target 16 publishes as generation 5. Selected,
+published and rendered identities agree. The final screenshot was inspected.
+All these owned native sessions stopped normally. The new capture helper now
+retains a Windows query handle so subsequent captures also record process exit
+codes, and logs command names/arguments with their responses; this last helper
+change still needs its native check.
+
+Terminal closure has started. Build-configuration consistency passes. Changed
+C++ files were formatted; compiler-backed source-design and
+`validate_full.bat --plan-completion` are running in logs
+`TestOutput/fp9-source-design.log` and `TestOutput/fp9-full.log`. No golden has
+changed, no independent review has run, and FP8/FP9 remain incomplete. The
+Codex config already contains enabled multi-agent V2 with 17 session slots.
+
+Work-ledger accounting could not start: a historical goal is unfinished and
+the active model has no verified pricing configured. No pricing or telemetry
+was invented. The earlier UI shader-provenance and containment gate failures
+remain recorded below and do not authorize unrelated baseline replacement.
 
 ## Floating diagnostics and inspector refinements - 2026-09-10
 
@@ -719,10 +1019,11 @@ passed on FP5. Fresh runs will be dispatched after the FP6 push.
 
 ## Current State
 
-Current objective: Unified UI goal complete on codex/unified-ui.
-Plan progress: UNIFIED_UI 8/8 closed; portfolio progress: 146/154.
-Next binding task: PHYSICS_AB AB1 (independent capture), then AB2-AB6 and
-RAGDOLL_PHYSICS FP8-FP9 in MASTER order. Those plans are outside this UI goal.
+Current objective: commit the approved Ragdoll FP8/FP9 work on codex/unified-ui,
+then investigate ragdoll sleep with controlled playground experiments.
+Plan progress: RAGDOLL_PHYSICS 9/10; UNIFIED_UI 8/8 closed; portfolio 147/154.
+Next binding task: finish FP8/FP9 terminal validation and commits, followed by
+the owner's sleep investigation. PHYSICS_AB AB1-AB6 remains queued at 0/6.
 The live ledger limitation and final evidence are recorded at the top of this file.
 
 The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish

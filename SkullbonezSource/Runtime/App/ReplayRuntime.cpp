@@ -1049,11 +1049,12 @@ ReplayCauseInspectionView ReplayRuntime::CauseInspectionView() const noexcept
 }
 
 #if defined( SKULLBONEZ_SKARNESS )
-ReplaySkarnessState ReplayRuntime::BuildSkarnessState() const noexcept
+ReplaySkarnessState ReplayRuntime::BuildSkarnessState() noexcept
 {
     const RunReplayPredictionState& prediction = m_predictionOwner.State();
     const ReplayVisualPacket& packet = m_predictionPresentation.PublishedVisualPacketView();
     ReplaySkarnessState state;
+    state.positionGates = m_planningOwner.TakePositionGates();
     state.predictionRevealRate = prediction.revealClock.secondsPerSecond;
     state.memoryPreset = static_cast<int>( m_timeline.MemoryPolicy().preset );
     state.memoryRetentionSeconds = m_timeline.MemoryPolicy().requestedRetentionSeconds;

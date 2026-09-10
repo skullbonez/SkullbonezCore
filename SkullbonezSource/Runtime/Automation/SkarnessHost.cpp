@@ -4,6 +4,7 @@
 #if defined( SKULLBONEZ_SKARNESS )
 
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -476,6 +477,12 @@ bool ReadSceneIdentity( const Json& arguments, SkarnessCommand& command )
 
 CommandParseStatus ParseValueCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
 {
+    if ( name == "physics.speculative_validation" )
+    {
+        command.type = SkarnessCommandType::PhysicsSpeculativeValidation;
+        return ReadBoolean( arguments, "enabled", command.enabled ) ? CommandParseStatus::Valid
+                                                                    : CommandParseStatus::Invalid;
+    }
     if ( name == "ui.animation_clock" )
     {
         command.type = SkarnessCommandType::UiAnimationClock;
@@ -1407,6 +1414,9 @@ bool SkarnessHost::PopCommand( SkarnessCommand& outCommand )
 
 void SkarnessHost::CompleteCommand( const std::string& requestId, bool applied, const char* reason )
 {
+    // Completion storage belongs to the diagnostic transport. The caller has
+    // already applied the command under its ordinary gameplay allocation phase.
+    Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );
     PendingCompletion completion;
     completion.requestId = requestId;
     completion.applied = applied;
@@ -1422,6 +1432,7 @@ void SkarnessHost::CompleteCommand( const std::string& requestId, bool applied, 
 void SkarnessHost::CompleteCommand( const std::string& requestId, bool applied, const SkarnessCommandResult& result,
                                     const char* reason )
 {
+    Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );
     PendingCompletion completion;
     completion.requestId = requestId;
     completion.result = result;
@@ -1439,6 +1450,8 @@ void SkarnessHost::CompleteCommand( const std::string& requestId, bool applied, 
 bool SkarnessHost::BeginSceneTransition( const std::string& requestId, uint64_t sourceGeneration,
                                          const char* expectedScenePath, bool expectDemo )
 {
+    // Retain only transport completion identity here; App owns the scene load.
+    Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );
     if ( !m_pendingSceneTransition.requestId.empty() )
     {
         return false;
@@ -1454,6 +1467,8 @@ bool SkarnessHost::BeginSceneTransition( const std::string& requestId, uint64_t 
 
 uint64_t SkarnessHost::BeginCapture( const std::string& requestId )
 {
+    // App queues the actual readback separately; this retains only completion identity.
+    Core::Allocation::RuntimeAllocationScope diagnosticsScope( Core::Allocation::RuntimeAllocationPhase::Diagnostics );
     const uint64_t token = m_nextCaptureToken++;
     m_pendingCaptures.push_back( PendingCapture { token, requestId } );
     return token;

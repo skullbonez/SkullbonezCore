@@ -1,14 +1,21 @@
 # Deterministic Collision Modes And Ragdoll Unification
 
 Date: 2026-08-22
-Status: Reactivated by owner direction on 2026-09-07. 8/10 phases complete; FP8 next
-on `codex/ragdoll-physics-unification`.
+Status: Reactivated by owner direction on 2026-09-07. 9/10 phases complete; FP9 closure next
+on `codex/unified-ui` by owner direction on 2026-09-10.
 Impact area: collider local-offset correctness, deterministic Discrete simulation, automatic Swept TOI promotion, linear and angular motion eligibility, ragdoll point joints, joint compliance, shared constraint iteration, late speculative ragdoll contacts, physics baselines, determinism tests, and A/B performance evidence
 Owner: Physics contact and joint solver
 Priority: Active. Execute FP5-FP9 in strict internal order.
 Commit name: `RAGDOLL_PHYSICS`
 
 ## Owner Direction
+
+On 2026-09-10 the owner requested FP8 and FP9 now on the current branch and
+reaffirmed retention of old executable producers for every approved baseline
+change. Final stability evidence will include a dropped ragdoll pile, residual
+motion, time to sleep, and subsequent wakes alongside the required long-rest
+and speculative-off/on comparisons. These phases remain incomplete until their
+mapped evidence and full-plan closure pass.
 
 On 2026-09-07 the owner reactivated the remaining phases on a child branch
 of cleanup commit `88d09e78f`, while its hosted validation runs independently.
@@ -1019,7 +1026,80 @@ predictive/speculative contacts.
 
 ---
 
+### FP8 acceptance — 2026-09-11
+
+Final required validation passes on 2026-09-11. Full05 exits 0 in 1317.204 s:
+unchanged Physics CSV, 134-source / 1188-context source design, all six CPU
+lanes, 1,027 Profile tests / 3,483,587 assertions, Automation in 438.419 s,
+and DX12 in 13.667 s against the accepted screenshots. Exclusive perf07 exits
+0 in 102.502 s on rebuilt Profile 2386e9e3, including relative and absolute
+budgets, native allocation checks and structural checks. Mapped replay passes
+in 370.488 s on Automation 6dbb35b9. The final 4ec3be56 relink changes only COFF
+and debug timestamps plus CodeView PDB age; every other executable byte matches.
+automation-relink-equivalence.json records that proof. terminal-validation.json
+binds the final logs, producers and performance artifacts.
+
+The optional frame-spike diagnostic exits 1 because its recorded
+predictionFullHorizonComplete assertion is false. The full script explicitly
+classifies this diagnostic as informational; it produced no usable spike
+measurement. This failure is retained and is not reported as a diagnostic pass.
+
+The FP8 source, tests, exact old/new baseline producers, and recorder reserve
+inventory land together. FP9 closes the final cost/stability decision next.
+
 ## FP9 — Predictive Determinism, Performance A/B & Plan Closure
+
+### Replay transition progress — 2026-09-10
+
+The old 5820 producer reproduces the approved visual ticks and causal topology.
+The current 2ac5 producer's different wall cascade follows its intended
+speculative head contact: the striker first receives an impulse at prediction
+tick 14 with a 0.596154 m gap and no friction or warm start; old first touching
+contact is tick 15 with 0.816796 m penetration. Separate Skarness source-frame-61
+captures bind those contacts to stable IDs 1/204 and byte-match the full reveal
+runs' complete 62-frame BODY/PRES prefixes. Both processes exit normally.
+
+The guarded visual/causal transition is retained under
+`Artifacts/ragdoll-physics-unification/FP8/golden-transitions/predictive-contacts-2ac5f033/`
+with both first-party producers, dependency scans, exact old/new goldens and the
+first-divergence proof. It retains all 200 affected wall bricks, changes toppled
+185 to 192 and settled 194 to 200, and omits the old late fixed-catcher-wall node
+202. No Physics CSV changes. The mapped replay gate passes in 384.578 seconds,
+including exact visual/causal comparison, durable-artifact checks and negative
+controls. Independent transition review found no material blocker. Full
+validation and exclusive performance remain required before either phase is
+accepted.
+
+### Static allocation closure progress — 2026-09-10
+
+The static checker and self-tests now pass after reviewing the remaining
+startup, bounded prediction, diagnostic and cold file-load sites. Exact policy
+contexts record their existing owners and capacities; no replay registration,
+growth cap or gameplay allocation privilege changed. New local Diagnostics
+scopes cover Skarness object-response copies, capture identity and deferred
+comparison-load reply identity after gameplay application. The preserved 0350
+producer reports 100 gameplay allocation violations in the identity-bound
+list/resolve/intercept/selection/screenshot probe; the 2ac5 producer completes
+the same probe with zero violations and exit 0. Automation compilation and
+3-file / 9-context source-design checks pass. The 100-second off/on pile
+observation ends with 10/46 bodies asleep in both variants, peaking at 32 off
+and 43 on; neither sleeps the whole pile and both retain repeated wakes. Both
+allocation guards and process exits pass. Final full validation and the
+performance/stability decision remain outstanding.
+
+### Recorder allocation repair inventory — 2026-09-10
+
+The strict native FP9 capture exposed unregistered launcher-payload allocations
+when changing replay retention. The deleted `replay-boundary-containment.md`
+inventory is available in `1fb376b45^`; this current owning plan records the
+added coverage against the live policy rather than its historical cap.
+
+| Owner | Added storage | Phase and cap | Counters and denial | Source and status |
+|---|---|---|---|---|
+| `replay_recorder_samples` | Solver-slot launcher rings: exactly 64 ray-line and 32 laser-shot elements | Exact approved Replay allocation; unchanged aggregate `REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES` from `ReplayRetainedMemory.h` | Existing owner active/high-water bytes, replay growth and failed-growth counters; denial is fatal before partial retained state can escape | `ReplayRecorder.cpp::ReserveReplayLauncherRing`; focused 13-case allocation/recorder run and b9df native worker/A-B captures pass; full closure remains pending |
+
+This extends the existing owner's coverage; it does not increase its byte cap,
+create a new registered owner, or permit unregistered gameplay allocation.
 
 ### What This Aims To Solve
 
@@ -1085,7 +1165,7 @@ solver changes.
 - [x] **FP6 — Explicit ragdoll softness.** Use principled frequency/damping or
   compliance across timestep and iteration variations.
 - [x] **FP7 — Shared contact/joint iteration.** Unify deterministic PGS sweeps.
-- [ ] **FP8 — Late predictive ragdoll contacts.** Add uniform-step speculative
+- [x] **FP8 — Late predictive ragdoll contacts.** Add uniform-step speculative
   contacts only after every prior proof is closed.
 - [ ] **FP9 — Predictive determinism, performance A/B, and closure.** Isolate the
   cost and prove byte-exact behavior.

@@ -47,6 +47,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -801,6 +802,110 @@ void SeedParallelDeterminismPointJoints( PhysicsEngine& engine )
     }
 }
 
+constexpr int kPredictiveGroupCount = 130;
+constexpr int kPredictiveBodyCount = kPredictiveGroupCount * 4;
+
+void SeedPredictiveBoundaryGroup( PhysicsEngine& engine, PhysicsTerrainView terrainView, const Vector3& origin, int group )
+{
+    const bool grazing = group == 129;
+    const CollisionShape sphere = BoundingSphere( 1.0f, Vector3( 0, 0, 0 ) );
+    for ( int part = 0; part < 4; ++part )
+    {
+        const bool fixed = part % 2 != 0;
+        const Vector3 offset = grazing ? ( fixed ? Vector3( 0, 0, 0 ) : Vector3( -4, 1.99f, 0.3f ) )
+                                       : Vector3( fixed ? 2.25f : 0.0f, 0, 0 );
+        const Vector3 velocity = fixed ? Vector3( 0, 0, 0 ) : Vector3( ( grazing ? 8.0f : 0.25f ) / PHYSICS_FIXED_DT, 0, 0 );
+        AddPromotionFixtureBody( engine, terrainView, static_cast<uint32_t>( 22000 + group * 4 + part ), sphere,
+                                 origin + offset + Vector3( 0, 0, part >= 2 ? 8.0f : 0.0f ), velocity,
+                                 Vector3( 0.8f, 0.8f, 0.8f ), 2.0f, 0.0f,
+                                 fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic,
+                                 grazing ? "predictive-grazing" : "predictive-threshold" );
+    }
+}
+
+void CheckPredictiveBoundaryContacts( const PhysicsEngine& engine, int tick )
+{
+    const auto rows = engine.GetDiagnosticsView().persistentContacts;
+    for ( int body : { 512, 514, 516, 518 } )
+    {
+        const auto row = std::find_if( rows.begin(), rows.end(), [body]( const auto& contact )
+                                       { return contact.bodyA == body && contact.bodyB == body + 1; } );
+        if ( tick == 0 || body >= 516 )
+        {
+            CHECK( row == rows.end() );
+        }
+        else
+        {
+            REQUIRE( row != rows.end() );
+            CHECK( row->penetration >= 0.0f );
+            CHECK( row->allowsTangentFriction );
+            CHECK( row->accN > 0.0f );
+        }
+    }
+}
+
+void SeedPredictiveJointRows( PhysicsEngine& engine )
+{
+    for ( int group = 0; group < kPredictiveGroupCount; ++group )
+    {
+        SkullbonezCore::Physics::PhysicsPointJointCreateDesc joint;
+        joint.bodyA = RequireBodyHandle( engine, group * 4 );
+        joint.bodyB = RequireBodyHandle( engine, group * 4 + 2 );
+        joint.localAnchorA = Vector3( 0, 0, 4 );
+        joint.localAnchorB = Vector3( 0, 0, -4 );
+        joint.slack = 0.0f;
+        REQUIRE( engine.CreatePointJoint( joint ).IsValid() );
+    }
+}
+
+void SeedPredictiveRotatingGroup( PhysicsEngine& engine, PhysicsTerrainView terrainView, const Vector3& origin, int group )
+{
+    for ( int part = 0; part < 4; ++part )
+    {
+        const bool wall = part % 2 != 0;
+        const CollisionShape shape = BoundingBox( wall ? Vector3( 0.05f, 4, 3 ) : Vector3( 1, 1, 1 ), Vector3( 0, 0, 0 ) );
+        const int body = group * 4 + part;
+        AddPromotionFixtureBody( engine, terrainView, static_cast<uint32_t>( 22000 + body ), shape,
+                                 origin + Vector3( wall ? 1.3f : 0.0f, 0, part >= 2 ? 8.0f : 0.0f ), Vector3( 0, 0, 0 ),
+                                 Vector3( 4.0f / 3.0f, 4.0f / 3.0f, 4.0f / 3.0f ), 2.0f, 0.0f,
+                                 wall ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic, "predictive-worker" );
+        if ( !wall )
+        {
+            REQUIRE( engine.SetBodyVelocity( RequireBodyHandle( engine, body ), Vector3( 0, 0, 0 ), Vector3( 0, 0, -100 ),
+                                             true ) );
+        }
+    }
+}
+
+void SeedPredictiveWorkerWorld( PhysicsEngine& engine, PhysicsTerrainView terrainView )
+{
+    EngineConfig config = MakeDeterministicConfig();
+    config.physicsExecution.parallel = true;
+    config.physicsExecution.parallelApplyForces = true;
+    config.physicsExecution.parallelNarrowphase = true;
+    config.physicsExecution.parallelTerrainDetect = true;
+    config.physicsExecution.parallelIntegrate = true;
+    config.broadphase.cellSize = 8.0f;
+    config.bodySimulation.velocityLimit = 2000.0f;
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( true );
+    engine.SetPipelineTraceFullRecordConsumerActive( true );
+    ReserveTestPhysicsCapacity( engine, kPredictiveBodyCount, kPredictiveGroupCount );
+    for ( int group = 0; group < kPredictiveGroupCount; ++group )
+    {
+        const Vector3 origin( static_cast<float>( group % 16 ) * 20.0f, 10.0f, static_cast<float>( group / 16 ) * 20.0f );
+        if ( group >= 128 )
+        {
+            SeedPredictiveBoundaryGroup( engine, terrainView, origin, group );
+            continue;
+        }
+        SeedPredictiveRotatingGroup( engine, terrainView, origin, group );
+    }
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    SeedPredictiveJointRows( engine );
+}
+
 float VectorMagnitudeSquared( const Vector3& value )
 {
     return value.x * value.x + value.y * value.y + value.z * value.z;
@@ -1065,6 +1170,23 @@ void CheckContactIdentityOrderEqual( const PhysicsEngine& lhs, const PhysicsEngi
         CHECK( left[index].bodyB == right[index].bodyB );
         CHECK( left[index].featureId == right[index].featureId );
         CHECK( left[index].key == right[index].key );
+        const auto& a = left[index];
+        const auto& b = right[index];
+        CheckVectorBytesEqual( a.normal, b.normal );
+        CheckVectorBytesEqual( a.tangent1, b.tangent1 );
+        CheckVectorBytesEqual( a.tangent2, b.tangent2 );
+        CheckVectorBytesEqual( a.rA, b.rA );
+        CheckVectorBytesEqual( a.rB, b.rB );
+        const std::array leftScalars { a.penetration, a.normalMass,     a.tangentMass1, a.tangentMass2,
+                                       a.bias,        a.separationBias, a.accN,         a.accT1,
+                                       a.accT2,       a.accRollingT1,   a.accRollingT2, a.accSpin };
+        const std::array rightScalars { b.penetration, b.normalMass,     b.tangentMass1, b.tangentMass2,
+                                        b.bias,        b.separationBias, b.accN,         b.accT1,
+                                        b.accT2,       b.accRollingT1,   b.accRollingT2, b.accSpin };
+        CHECK( std::memcmp( leftScalars.data(), rightScalars.data(), sizeof( leftScalars ) ) == 0 );
+        CHECK( a.warmStarted == b.warmStarted );
+        CHECK( a.supportsRestingPolicy == b.supportsRestingPolicy );
+        CHECK( a.allowsTangentFriction == b.allowsTangentFriction );
     }
 }
 
@@ -1131,43 +1253,54 @@ void CheckPointJointOrderEqual( const PhysicsEngine& lhs, const PhysicsEngine& r
     }
 }
 
+template <typename LeftRows, typename RightRows>
+void CheckDeterministicRowsEqual( const LeftRows& left, const RightRows& right )
+{
+    REQUIRE( left.size() == right.size() );
+
+    for ( std::size_t index = 0; index < left.size(); ++index )
+    {
+        using Value = std::remove_cvref_t<decltype( left[index] )>;
+        if constexpr ( std::is_floating_point_v<Value> )
+        {
+            // Some diagnostic boundaries use a quiet NaN for unavailable.
+            // Compare its bits too; arithmetic NaN equality is always false.
+            CHECK( std::memcmp( &left[index], &right[index], sizeof( Value ) ) == 0 );
+        }
+        else
+        {
+            CHECK( left[index] == right[index] );
+        }
+    }
+}
+
 void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
 {
     CheckEngineKinematicsEqual( lhs, rhs );
 
-    const auto checkRowsEqual = []( const auto& left, const auto& right )
-    {
-        REQUIRE( left.size() == right.size() );
-
-        for ( std::size_t index = 0; index < left.size(); ++index )
-        {
-            CHECK( left[index] == right[index] );
-        }
-    };
-
     // Invariant: multithreaded determinism includes cold sleep ownership and
     // diagnostics, not only visible poses. A schedule-dependent transition can
     // leave kinematics equal for one tick while changing future awake work.
-    checkRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( lhs ),
-                    SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( rhs ) );
+    CheckDeterministicRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( lhs ),
+                                 SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( rhs ) );
 
-    checkRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( lhs ),
-                    SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( rhs ) );
+    CheckDeterministicRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( lhs ),
+                                 SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( rhs ) );
 
-    checkRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( lhs ),
-                    SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( rhs ) );
+    CheckDeterministicRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( lhs ),
+                                 SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( rhs ) );
 
-    checkRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( lhs ),
-                    SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( rhs ) );
+    CheckDeterministicRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( lhs ),
+                                 SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( rhs ) );
 
     const auto leftDiagnostics = lhs.GetDiagnosticsView();
     const auto rightDiagnostics = rhs.GetDiagnosticsView();
-    checkRowsEqual( leftDiagnostics.candidatePairs, rightDiagnostics.candidatePairs );
-    checkRowsEqual( leftDiagnostics.collisionCellKeys, rightDiagnostics.collisionCellKeys );
-    checkRowsEqual( leftDiagnostics.motionEligibilityState, rightDiagnostics.motionEligibilityState );
-    checkRowsEqual( leftDiagnostics.linearTravelSquared, rightDiagnostics.linearTravelSquared );
-    checkRowsEqual( leftDiagnostics.linearDirectionalBoundary, rightDiagnostics.linearDirectionalBoundary );
-    checkRowsEqual( leftDiagnostics.angularTravelSquared, rightDiagnostics.angularTravelSquared );
+    CheckDeterministicRowsEqual( leftDiagnostics.candidatePairs, rightDiagnostics.candidatePairs );
+    CheckDeterministicRowsEqual( leftDiagnostics.collisionCellKeys, rightDiagnostics.collisionCellKeys );
+    CheckDeterministicRowsEqual( leftDiagnostics.motionEligibilityState, rightDiagnostics.motionEligibilityState );
+    CheckDeterministicRowsEqual( leftDiagnostics.linearTravelSquared, rightDiagnostics.linearTravelSquared );
+    CheckDeterministicRowsEqual( leftDiagnostics.linearDirectionalBoundary, rightDiagnostics.linearDirectionalBoundary );
+    CheckDeterministicRowsEqual( leftDiagnostics.angularTravelSquared, rightDiagnostics.angularTravelSquared );
     CHECK( leftDiagnostics.motionEligibilityStats.policyVersion == rightDiagnostics.motionEligibilityStats.policyVersion );
     CHECK( leftDiagnostics.motionEligibilityStats.evaluatedBodies ==
            rightDiagnostics.motionEligibilityStats.evaluatedBodies );
@@ -1175,6 +1308,12 @@ void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const P
     CHECK( leftDiagnostics.motionEligibilityStats.promotedBodies == rightDiagnostics.motionEligibilityStats.promotedBodies );
     CHECK( leftDiagnostics.motionEligibilityStats.angularExpandedBodies ==
            rightDiagnostics.motionEligibilityStats.angularExpandedBodies );
+    CHECK( leftDiagnostics.motionEligibilityStats.speculativeEnabled ==
+           rightDiagnostics.motionEligibilityStats.speculativeEnabled );
+    CHECK( leftDiagnostics.motionEligibilityStats.articulatedBodies ==
+           rightDiagnostics.motionEligibilityStats.articulatedBodies );
+    CHECK( leftDiagnostics.motionEligibilityStats.speculativeBodies ==
+           rightDiagnostics.motionEligibilityStats.speculativeBodies );
 
     // Invariant: worker equality owns ordered collision work and the complete
     // replay-restorable solver record, not only poses and summary counters.
@@ -1873,6 +2012,99 @@ TEST_CASE( "Physics motion promotion: collision-promoted target uses Swept TOI a
     CheckVectorBytesEqual( wallBeforeSecondTick.position, wallAfterSecondTick.position );
 }
 
+
+namespace
+{
+void CheckPredictiveParallelWork( const PhysicsEngine& engine )
+{
+    const auto diagnostics = engine.GetDiagnosticsView();
+    // Exercise the actual parallel pair threshold and separated rows;
+    // equality through a serial fallback or contact-only path is insufficient.
+    CHECK( diagnostics.candidatePairs.size() >= 256u );
+    CHECK( diagnostics.motionEligibilityStats.speculativeBodies == kPredictiveGroupCount * 2 );
+    CHECK( std::count_if( diagnostics.persistentContacts.begin(), diagnostics.persistentContacts.end(),
+                          []( const auto& row ) { return row.penetration < 0.0f && row.accN > 0.0f; } ) >= 256 );
+}
+} // namespace
+
+TEST_CASE( "Predictive articulation is byte-exact across workers restore and joint topology changes" )
+{
+    DeterminismTerrainFixture serialFixture( kDeepSpaceTerrainBaseY );
+    DeterminismTerrainFixture oneFixture( kDeepSpaceTerrainBaseY );
+    DeterminismTerrainFixture fourFixture( kDeepSpaceTerrainBaseY );
+    auto& serial = serialFixture.Engine();
+    auto& one = oneFixture.Engine();
+    auto& four = fourFixture.Engine();
+    SeedPredictiveWorkerWorld( serial, serialFixture.TerrainView() );
+    SeedPredictiveWorkerWorld( one, oneFixture.TerrainView() );
+    SeedPredictiveWorkerWorld( four, fourFixture.TerrainView() );
+    const auto forces = NoGravityForces();
+    std::vector<BodyReplayState> restoredBodies;
+    PhysicsSolverSnapshot snapshot;
+    for ( int tick = 0; tick < 12; ++tick )
+    {
+        CAPTURE( tick );
+        StepMicroWorldWith( serial, 1, forces, 0 );
+        StepMicroWorldWith( one, 1, forces, 1 );
+        StepMicroWorldWith( four, 1, forces, 4 );
+        CheckEngineWorkerDeterministicStateEqual( serial, one );
+        CheckEngineWorkerDeterministicStateEqual( serial, four );
+        if ( tick <= 1 )
+        {
+            CheckPredictiveBoundaryContacts( serial, tick );
+            CheckPredictiveBoundaryContacts( one, tick );
+            CheckPredictiveBoundaryContacts( four, tick );
+        }
+        if ( tick == 0 )
+        {
+            CheckPredictiveParallelWork( serial );
+        }
+        if ( tick == 2 )
+        {
+            four.CaptureReplaySolverSnapshot( snapshot, MakePhysicsBodyCountFromNonNegativeInt( kPredictiveBodyCount ) );
+            for ( int index = 0; index < kPredictiveBodyCount; ++index )
+            {
+                restoredBodies.push_back(
+                    CaptureBodyReplayState( RequireBodyRecord( four, index ), RequireBodyHotState( four, index ) ) );
+            }
+        }
+    }
+    for ( const auto& state : restoredBodies )
+    {
+        REQUIRE( four.RestoreReplayBodyState(
+            PhysicsBodyRestoreState { state.handle, state.sceneObjectId, state.fixed, state.position, state.orientation,
+                                      state.linearVelocity, state.angularVelocity, state.mass, state.inverseMass,
+                                      state.rotationalInertia, state.inverseRotationalInertia } ) );
+    }
+    REQUIRE( four.RestoreReplaySolverSnapshot( snapshot, MakePhysicsBodyCountFromNonNegativeInt( kPredictiveBodyCount ) ) );
+    StepMicroWorldWith( four, 9, forces, 4 );
+    CheckEngineWorkerDeterministicStateEqual( serial, four );
+
+    for ( auto* engine : { &serial, &one, &four } )
+    {
+        engine->ClearPointJointConstraints();
+    }
+    StepMicroWorldWith( serial, 1, forces, 0 );
+    StepMicroWorldWith( one, 1, forces, 1 );
+    StepMicroWorldWith( four, 1, forces, 4 );
+    CheckEngineWorkerDeterministicStateEqual( serial, one );
+    CheckEngineWorkerDeterministicStateEqual( serial, four );
+    CHECK( serial.GetDiagnosticsView().motionEligibilityStats.articulatedBodies == 0 );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope loading(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        for ( auto* engine : { &serial, &one, &four } )
+        {
+            SeedPredictiveJointRows( *engine );
+        }
+    }
+    StepMicroWorldWith( serial, 1, forces, 0 );
+    StepMicroWorldWith( one, 1, forces, 1 );
+    StepMicroWorldWith( four, 1, forces, 4 );
+    CheckEngineWorkerDeterministicStateEqual( serial, one );
+    CheckEngineWorkerDeterministicStateEqual( serial, four );
+    CHECK( serial.GetDiagnosticsView().motionEligibilityStats.articulatedBodies == kPredictiveGroupCount * 2 );
+}
 
 TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
 {

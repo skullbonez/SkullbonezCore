@@ -233,6 +233,9 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.Execution.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\ConvexMotionBounds.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\ConvexDistance.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\SpeculativeContacts.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PointJointBlock.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ConstraintIslandSchedule.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp" />
@@ -253,6 +256,9 @@
     <ClInclude Include="SkullbonezSource\Physics\ConvexHullShape.h" />
     <ClInclude Include="SkullbonezSource\Physics\DisjointSet.h" />
     <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h" />
+    <ClInclude Include="SkullbonezSource\Physics\ConvexMotionBounds.h" />
+    <ClInclude Include="SkullbonezSource\Physics\ConvexDistance.h" />
+    <ClInclude Include="SkullbonezSource\Physics\SpeculativeContacts.h" />
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
