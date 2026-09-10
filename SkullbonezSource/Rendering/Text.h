@@ -58,7 +58,7 @@ class TextBatch
 {
   public:
     static constexpr int TEXT_MAX_CHARS = 4096;
-    static constexpr int TEXT_FLOATS_PER_VERTEX = 7;
+    static constexpr int TEXT_FLOATS_PER_VERTEX = 8;
     static constexpr int TEXT_VERTICES_PER_CHAR = 6;
     static constexpr int QUAD_MAX_QUADS = 8192;
     static constexpr int QUAD_FLOATS_PER_VERTEX = 6;
@@ -90,7 +90,9 @@ class Text2d
   public:
     // Clockwise text in projection space, anchored at the label's upper-right.
     static void RenderVerticalText( TextBatch& batch, const char* value, const std::array<float, 3>& color, float x, float y,
-                                    float size );
+                                    float size, float opacity = 1.0f );
+    static void RenderTextColor( TextBatch& batch, float x, float y, float size, const std::array<float, 4>& color,
+                                 const char* value );
     struct SdfGdiOperationResults
     {
         bool bitmapSelected = true;
@@ -113,7 +115,7 @@ class Text2d
 
     inline static uint32_t fontTexture = 0;
     inline static uint32_t dynamicVB = 0;   // solid-quad VB: [x,y,u,v] — used by Render2dQuad (immediate, one draw per call)
-    inline static uint32_t textBatchVB = 0; // batch text VB: [x,y,u,v,r,g,b], one draw per flushed segment
+    inline static uint32_t textBatchVB = 0; // batch text VB: [x,y,u,v,r,g,b,a], one draw per flushed segment
     inline static uint32_t quadBatchVB = 0; // batch quad VB: [x,y,r,g,b,a], one draw per flushed segment
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
     // The CPU unit-test lane intentionally omits backend object code. These
@@ -222,7 +224,7 @@ class Text2d
 
   private:
     static void RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float size, float colR, float colG,
-                                    float colB, const char* formatted );
+                                    float colB, const char* formatted, float opacity = 1.0f );
 };
 } // namespace Text
 } // namespace SkullbonezCore

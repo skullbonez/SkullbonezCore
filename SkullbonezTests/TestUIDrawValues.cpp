@@ -810,7 +810,7 @@ TEST_CASE( "Bottom Tools tab drags upward with captured input and retains its si
     }
 }
 
-TEST_CASE( "Floating diagnostics survive Tools and Escape without reserving dock space" )
+TEST_CASE( "Opening Tools closes floating diagnostics and their shortcuts reopen them" )
 {
     using namespace SkullbonezCore::UI;
     using namespace SkullbonezCore::UI::GameLayout;
@@ -847,6 +847,11 @@ TEST_CASE( "Floating diagnostics survive Tools and Escape without reserving dock
     ui->SetMinimized( true );
     ui->UpdatePresentationInput( input, 1600, 900, true );
     ui->SetMinimized( false );
+    ui->UpdatePresentationInput( input, 1600, 900, true );
+    CHECK_FALSE( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK_FALSE( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    ui->TogglePerformanceHistogramEnabled();
+    ui->ToggleMemoryOverlayEnabled();
     ui->UpdatePresentationInput( input, 1600, 900, true );
     CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
     CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
@@ -1630,4 +1635,110 @@ TEST_CASE( "UI theme selection changes a cached Tools frame without changing con
     Style::SelectTheme( Style::Theme::Blue );
     CHECK( ui->Draw( *data ).Fingerprint() == blue );
     Style::SelectTheme( original );
+}
+
+TEST_CASE( "UI panel motion eases in and out in 160 milliseconds and reverses continuously" )
+{
+    using namespace SkullbonezCore::UI;
+    UIPanelMotion motion;
+    CHECK( motion.Update( true, 10.0 ) == 0.0f );
+    CHECK( motion.Update( true, 10.08 ) == doctest::Approx( 0.875f ) );
+    CHECK( motion.Update( true, 10.16 ) == doctest::Approx( 1.0f ) );
+    CHECK( motion.Update( false, 11.0 ) == 1.0f );
+    CHECK( motion.Update( false, 11.08 ) == doctest::Approx( 0.875f ) );
+    CHECK( motion.Update( true, 11.08 ) == doctest::Approx( 0.875f ) );
+    CHECK( motion.Update( true, 11.10 ) == doctest::Approx( 1.0f ) );
+    CHECK( motion.Update( false, 12.0 ) == 1.0f );
+    CHECK( motion.Update( false, 12.2 ) == 0.0f );
+    CHECK_FALSE( motion.Active() );
+}
+
+TEST_CASE( "UI panel exits retain clipped labels and fade their alpha without darkening ink" )
+{
+    using namespace SkullbonezCore::UI;
+    auto transitions = std::make_unique<UIPanelTransitions>();
+    auto source = std::make_unique<UIDrawList>();
+    source->PushClip( { 0, 0, 500, 500 } );
+    source->SetPanel( UIPanel::Left );
+    source->AddRect( { 0, 20, 200, 200 }, { 0.8f, 0.8f, 0.8f, 1 } );
+    source->AddText( { 10, 30 }, 12, { 0.1f, 0.2f, 0.3f, 0.5f }, "retained label" );
+    source->PopClip();
+    transitions->BeginFrame();
+    transitions->Append( *source );
+    transitions->Compose( 0 );
+    transitions->Compose( 1 );
+    transitions->BeginFrame();
+    transitions->Compose( 2 );
+    const auto& draw = transitions->Compose( 2.08 );
+    CHECK_FALSE( draw.GetStats().clipOverflow );
+    int labels = 0;
+    for ( const auto& command : draw.Commands() )
+    {
+        if ( command.type != UIDrawList::CommandType::Text )
+        {
+            continue;
+        }
+        ++labels;
+        CHECK( std::string( draw.TextAt( command.textOffset ) ) == "retained label" );
+        CHECK( command.x0 == doctest::Approx( 7.5f ) );
+        CHECK( command.a == doctest::Approx( 0.4375f ) );
+        CHECK( command.r == doctest::Approx( 0.1f ) );
+    }
+    CHECK( labels == 1 );
+    CHECK( transitions->Compose( 2.2 ).Empty() );
+    CHECK_FALSE( transitions->Active() );
+}
+
+TEST_CASE( "UI panel metadata survives cached foreground extraction and clock pinning" )
+{
+    using namespace SkullbonezCore::UI;
+    auto transitions = std::make_unique<UIPanelTransitions>();
+    auto source = std::make_unique<UIDrawList>();
+    auto foreground = std::make_unique<UIDrawList>();
+    source->SetPanel( UIPanel::Header );
+    source->BeginForeground();
+    source->PushClip( { 0, 0, 500, 500 } );
+    source->AddText( { 10, 20 }, 12, { 1, 1, 1, 1 }, "popup" );
+    source->PopClip();
+    source->EndForeground();
+    source->ExtractForeground( *foreground );
+    CHECK( foreground->HasPanel( UIPanel::Popup ) );
+    transitions->SetClockOverride( 0, true );
+    transitions->BeginFrame();
+    transitions->Append( *foreground );
+    transitions->Compose( 100 );
+    transitions->SetClockOverride( .08, true );
+    transitions->Compose( 101 );
+    CHECK( transitions->Visibility( UIPanel::Popup ) == doctest::Approx( .875f ) );
+    transitions->Compose( 102 );
+    CHECK( transitions->Visibility( UIPanel::Popup ) == doctest::Approx( .875f ) );
+    transitions->SetClockOverride( 0, false );
+    transitions->Compose( 200 );
+    CHECK( transitions->Visibility( UIPanel::Popup ) == doctest::Approx( .875f ) );
+    transitions->Compose( 201 );
+    CHECK( transitions->Visibility( UIPanel::Popup ) == 1.0f );
+}
+
+TEST_CASE( "UI moving panels shield content and direct resizing finishes their motion" )
+{
+    using namespace SkullbonezCore::UI;
+    auto transitions = std::make_unique<UIPanelTransitions>();
+    auto draw = std::make_unique<UIDrawList>();
+    draw->SetPanel( UIPanel::Drawer );
+    draw->AddRect( { 0, 400, 1000, 200 }, { 0, 0, 0, 1 } );
+    transitions->BeginFrame();
+    transitions->Append( *draw );
+    transitions->Compose( 0 );
+    CHECK( transitions->BlocksPointer( { 200, 500 } ) );
+    CHECK( transitions->BlocksPointer( { 200, 610 } ) );
+    CHECK_FALSE( transitions->BlocksPointer( { 200, 200 } ) );
+    transitions->Finish( UIPanel::Drawer, true );
+    transitions->Compose( .02 );
+    CHECK( transitions->Visibility( UIPanel::Drawer ) == 1 );
+    CHECK_FALSE( transitions->BlocksPointer( { 200, 500 } ) );
+    transitions->BeginFrame();
+    transitions->Compose( 1 );
+    CHECK( transitions->BlocksPointer( { 200, 500 } ) );
+    transitions->Compose( 1.2 );
+    CHECK_FALSE( transitions->BlocksPointer( { 200, 500 } ) );
 }

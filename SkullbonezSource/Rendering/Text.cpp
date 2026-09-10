@@ -50,7 +50,7 @@ static const int SDF_SCALE = 6;      // hi-res render factor: final × SDF_SCALE
 static const int SDF_SPREAD_HI = 36; // max encoded signed distance (hi-res px) = 6 final-atlas px
 
 // Text batch accumulation buffers:
-// Layout per vertex: [x, y, u, v, r, g, b] (7 floats)
+// Layout per vertex: [x, y, u, v, r, g, b, a] (7 floats)
 // Batching all Render2dText* calls into one UploadAndDrawDynamicVB per frame
 // eliminates ~20 individual draw calls, shader binds, and state save/restores.
 static constexpr int TEXT_BATCH_MAX_CHARS = TextBatch::TEXT_MAX_CHARS;
@@ -622,9 +622,9 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
         fprintf( stderr, "[Text2d] SDF atlas saved to %s\n", atlasPath.c_str() );
     }
 
-    // Create the text batch VB: [x, y, u, v, r, g, b] per vertex. Render2dText*
+    // Create the text batch VB: [x, y, u, v, r, g, b, a] per vertex. Render2dText*
     // calls accumulate until a capacity or submission boundary flushes one segment.
-    int batchAttribs[] = { 2, 2, 3 };
+    int batchAttribs[] = { 2, 2, 4 };
     Text2d::textBatchVB = renderGeometry.CreateDynamicVB( batchAttribs, 3,
                                                           TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR );
 
@@ -779,7 +779,7 @@ void Text2d::DeleteFont( TextBatch& batch, Dx12TextureOwner* renderTextures, Dx1
 
 
 void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float size, float colR, float colG,
-                                 float colB, const char* formatted )
+                                 float colB, const char* formatted, float opacity )
 {
     const int len = static_cast<int>( strlen( formatted ) );
 
@@ -835,54 +835,14 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
         float y0 = penY - descH; // below yPosition — descender region
         float y1 = penY + size;  // above yPosition — cap-height region
 
-        // 7 floats per vertex: [x, y, u, v, r, g, b]
-        float* v = &batch.m_textVertices[batch.m_textVertexCount * TEXT_BATCH_FLOATS_PER_VERT];
-
-        // Triangle 1
-        v[0] = x0;
-        v[1] = y0;
-        v[2] = u0;
-        v[3] = v1;
-        v[4] = colR;
-        v[5] = colG;
-        v[6] = colB;
-        v[7] = x1;
-        v[8] = y0;
-        v[9] = u1;
-        v[10] = v1;
-        v[11] = colR;
-        v[12] = colG;
-        v[13] = colB;
-        v[14] = x1;
-        v[15] = y1;
-        v[16] = u1;
-        v[17] = v0;
-        v[18] = colR;
-        v[19] = colG;
-        v[20] = colB;
-
-        // Triangle 2
-        v[21] = x0;
-        v[22] = y0;
-        v[23] = u0;
-        v[24] = v1;
-        v[25] = colR;
-        v[26] = colG;
-        v[27] = colB;
-        v[28] = x1;
-        v[29] = y1;
-        v[30] = u1;
-        v[31] = v0;
-        v[32] = colR;
-        v[33] = colG;
-        v[34] = colB;
-        v[35] = x0;
-        v[36] = y1;
-        v[37] = u0;
-        v[38] = v0;
-        v[39] = colR;
-        v[40] = colG;
-        v[41] = colB;
+        // Invariant: RGBA matches the text shader's float4 TEXCOORD1.
+        const float vertices[] = {
+            x0, y0, u0, v1, colR, colG, colB, opacity, x1, y0, u1, v1, colR, colG, colB, opacity,
+            x1, y1, u1, v0, colR, colG, colB, opacity, x0, y0, u0, v1, colR, colG, colB, opacity,
+            x1, y1, u1, v0, colR, colG, colB, opacity, x0, y1, u0, v0, colR, colG, colB, opacity,
+        };
+        std::copy( std::begin( vertices ), std::end( vertices ),
+                   &batch.m_textVertices[batch.m_textVertexCount * TEXT_BATCH_FLOATS_PER_VERT] );
 
         batch.m_textVertexCount += TEXT_BATCH_VERTS_PER_CHAR;
         penX += charW;
@@ -930,11 +890,20 @@ void Text2d::Render2dTextColor( TextBatch& batch, float xPosition, float yPositi
 }
 
 
+void Text2d::RenderTextColor( TextBatch& batch, float x, float y, float size, const std::array<float, 4>& color,
+                              const char* value )
+{
+    if ( value && Text2d::pTextShader )
+    {
+        RenderTextInternal( batch, x, y, size, color[0], color[1], color[2], value, std::clamp( color[3], 0.0f, 1.0f ) );
+    }
+}
+
 void Text2d::RenderVerticalText( TextBatch& batch, const char* value, const std::array<float, 3>& color, float x, float y,
-                                 float size )
+                                 float size, float opacity )
 {
     const int firstVertex = batch.m_textVertexCount;
-    Render2dTextColor( batch, x, y - size, size, color[0], color[1], color[2], "%s", value );
+    RenderTextColor( batch, x, y - size, size, { color[0], color[1], color[2], opacity }, value );
     // Rotate only this label's queued vertices. Frustum x/y share a physical
     // scale, so the quarter-turn preserves glyph proportions at every aspect.
     for ( int vertex = firstVertex; vertex < batch.m_textVertexCount; ++vertex )

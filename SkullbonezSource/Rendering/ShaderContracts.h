@@ -150,7 +150,7 @@ inline const auto& ShippingShaderVertexInputContracts()
         { "soft_additive_ribbon", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE" },
         { "solid_color", "POSITION0:xy:NONE" },
         { "solid_color_batch", "POSITION0:xy:NONE,TEXCOORD0:xyzw:NONE" },
-        { "text", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE,TEXCOORD1:xyz:NONE" },
+        { "text", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE,TEXCOORD1:xyzw:NONE" },
         { "transient_colored_triangles", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE" },
         { "retained_ribbon",
           "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xy:NONE,TEXCOORD3:xyz:NONE,"

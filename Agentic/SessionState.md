@@ -4,6 +4,53 @@ Date: 2026-09-09
 Branch: `codex/unified-ui`
 Status: Unified UI complete at 8/8; portfolio 146/154. Closure is committed on this branch.
 
+## Shared panel transitions - 2026-09-10
+
+Theme work is committed as `eca29e3`. Panel presentation now uses
+`UI/UIPanelTransitions`: one 160 ms cubic ease-out entry / ease-in exit policy,
+short edge-directed travel, and a bounded cache for outgoing draw commands.
+Scene, Solver Lab, Tools, F5/F6, header, transport, quick objects, planning panels
+and foreground popups share the same compositor. Reversals preserve position;
+direct drawer resizing finishes the transition and follows the pointer.
+Animating content blocks pointer actions and exiting panels block world picks.
+
+UIDrawList carries non-visual panel identities; settled fingerprints do not hash
+that metadata. App composes all presenters once, preserving clips and foreground
+ordering. Text vertices now carry RGBA through the canonical text shader;
+render-target previews enable alpha blending and share their panel opacity.
+The shader manifest/reflection and shipping binaries were regenerated normally.
+Opening Tools closes both diagnostics once; F5/F6 can reopen them while Tools
+stays open. The previous diagnostic-survival unit assertion was updated to the
+user's requested behavior and still checks shortcut reopening and Escape.
+
+Skarness `ui.animation_clock {seconds, enabled}` pins only presentation time.
+`ui.presentation` publishes panel visibility, activity and draw overflow. The
+native `tools/validate_ui_panel_transitions.py` drives actual pointer/key routes
+and checks easing samples, reversal, outgoing content, diagnostic replacement,
+preview fades and Solver Lab. It is included in `validate_ui.bat`.
+
+Validation: `SKORE_SIZE_DIFF_BASE=eca29e3 tools/validate_fast.bat` passes, including
+1,000 unit cases / 2,745,699 assertions plus the separate 213-assertion case.
+The earlier whole-branch source/retained-policy scan also passed; the first full
+unit run found the text signature's RGB CPU table, which was corrected to RGBA
+before the passing rerun. The focused UI/shader run passes 63 cases / 1,068
+assertions. Profile and Automation compile without warnings.
+
+Native evidence is under `TestOutput/skarness/panel-transitions-blue-final`,
+`panel-transitions-dark-final`, `panel-transitions-light-final` and
+`panel-themes-final`. All pass; Scene, Solver Lab, menu and preview screenshots
+were inspected. `animation-design-final.log` and the final fast log cover the
+last source edits. The one-minute graphics stress run remained alive through
+60.16 seconds with stable memory; its timeout wrapper closed/stopped the owned
+PID after 70.33 seconds and returned 0 (`animation-stress.log`).
+
+`animation-ui-gate.log` reports zero DX12 errors and only the two previously
+recorded floating-window containment assumptions. Its profiler overlap checks
+pass in this run. `animation-renderer-gate.log` also reports zero DX12 errors;
+all three screenshot comparisons differ from the older header/layout baselines.
+The comparison montage was inspected. No physics or renderer golden was changed,
+and settled production UI draw fingerprints remain unchanged.
+
 ## Blue, Dark and Light themes - 2026-09-10
 
 Tools > Options > Appearance / Theme now selects Blue (default), neutral Dark,

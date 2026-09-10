@@ -436,6 +436,10 @@ void UIWindowInteractionOwner::SetVisible( bool visible, double now )
 
     if ( visible )
     {
+        // Opening Tools releases diagnostic space once. F5/F6 can reopen it
+        // while Tools remains open, without being hidden on every frame.
+        SetPerformanceHistogramEnabled( false );
+        SetMemoryOverlayEnabled( false );
         m_window.isMinimized = false;
         m_scrollbarVisibleUntil = now + 1.2;
         CancelEditorMiniPaletteInteraction();
@@ -533,6 +537,8 @@ void UIWindowInteractionOwner::SetMinimized( bool minimized, double now )
     }
     else
     {
+        SetPerformanceHistogramEnabled( false );
+        SetMemoryOverlayEnabled( false );
         m_window.isMinimized = false;
         m_cameraModeCombo.Close();
         Chrome::BeginWindowAnimation( m_window, minimizedBounds, Chrome::WindowRect( m_window ), now, false );

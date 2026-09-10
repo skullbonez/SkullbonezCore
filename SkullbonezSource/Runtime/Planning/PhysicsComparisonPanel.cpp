@@ -921,6 +921,7 @@ const UI::UIDrawList& PhysicsComparisonPanel::ComposeShell( const PhysicsCompari
     // previous comparison surface. Hidden panes never keep an active popup.
     if ( m_layout.controls.w > 0 )
     {
+        const UI::UIPanelScope panelScope( m_draw, UI::UIPanel::Left );
         const UI::UIDrawContext draw( width, height, m_draw );
         draw.PushClip( m_layout.controls );
         const int selected = SelectedSolverLab( comparison );
@@ -967,6 +968,7 @@ void PhysicsComparisonPanel::ComposeViewLabels( const PhysicsComparison& compari
 
 void PhysicsComparisonPanel::ComposeShellControls( const PhysicsComparison& comparison )
 {
+    const UI::UIPanelScope panelScope( m_draw, UI::UIPanel::Left );
     m_buttonClip = m_layout.controls;
     m_draw.PushClip( m_buttonClip );
     m_controlsScroll = std::clamp( m_controlsScroll, 0.0f, (std::max)( 0.0f, 460.0f - m_buttonClip.h ) );
@@ -1016,6 +1018,7 @@ void PhysicsComparisonPanel::ComposeShellControls( const PhysicsComparison& comp
 
 void PhysicsComparisonPanel::ComposeShellDetails( const PhysicsComparison& comparison )
 {
+    const UI::UIPanelScope panelScope( m_draw, UI::UIPanel::Right );
     m_buttonClip = m_layout.details;
     m_draw.PushClip( m_buttonClip );
     m_detailsScroll = std::clamp( m_detailsScroll, 0.0f, (std::max)( 0.0f, 450.0f - m_buttonClip.h ) );
@@ -1067,6 +1070,7 @@ void PhysicsComparisonPanel::ComposeShellDetails( const PhysicsComparison& compa
 
 void PhysicsComparisonPanel::ComposeShellTransport( const PhysicsComparison& comparison )
 {
+    const UI::UIPanelScope panelScope( m_draw, UI::UIPanel::Transport );
     m_buttonClip = m_layout.transport;
     m_draw.PushClip( m_buttonClip );
     const float x = m_buttonClip.x, y = m_buttonClip.y;

@@ -399,8 +399,11 @@ bool Run::UpdateComparisonInput( bool textActive )
         const double elapsed = m_comparisonPanel.Advance( m_comparison, now );
         const auto ui = BuildUIInputSnapshot( device, m_inputRouter.UiSnapshot().mouse, m_operatorUi->InputOverride() );
         const bool dragging = m_inputRouter.UpdateTimelineDrag( m_comparisonPanel.TimelineContains( ui.mouseX, ui.mouseY ) );
-        const auto panelAction = m_operatorUi->HasOpenPopup() ? ComparisonPanelAction::None
-                                                              : m_comparisonPanel.Input( m_comparison, ui, dragging );
+        const bool panelMoving = m_operatorUi->PanelTransitions().BlocksPointer(
+            { static_cast<float>( ui.mouseX ), static_cast<float>( ui.mouseY ) } );
+        const auto panelAction = m_operatorUi->HasOpenPopup() || panelMoving
+                                     ? ComparisonPanelAction::None
+                                     : m_comparisonPanel.Input( m_comparison, ui, dragging );
         if ( panelAction != ComparisonPanelAction::None )
         {
             action = panelAction;

@@ -476,6 +476,13 @@ bool ReadSceneIdentity( const Json& arguments, SkarnessCommand& command )
 
 CommandParseStatus ParseValueCommand( const std::string& name, const Json& arguments, SkarnessCommand& command )
 {
+    if ( name == "ui.animation_clock" )
+    {
+        command.type = SkarnessCommandType::UiAnimationClock;
+        const bool valid = ReadNumber( arguments, "seconds", command.number ) && command.number >= 0 &&
+                           ReadBoolean( arguments, "enabled", command.enabled );
+        return valid ? CommandParseStatus::Valid : CommandParseStatus::Invalid;
+    }
     if ( name == "window.resize" )
     {
         command.type = SkarnessCommandType::WindowResize;

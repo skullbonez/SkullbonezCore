@@ -21,7 +21,7 @@ Related:
 cbuffer Uniforms : register(b0)
 {
     float4x4 uProjection;
-    float4   uPreviewParams; // x: mode 0=color 1=HDR color 2=depth, y: exposure, z: gamma, w: unused
+    float4   uPreviewParams; // x: mode 0=color 1=HDR color 2=depth, y: exposure, z: gamma, w: opacity
 };
 
 // Invariant: b1 carries stable indices into the directly indexed shader-visible
@@ -77,13 +77,13 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     {
         float depth = saturate(sampleValue.r);
         float contrast = 1.0f - saturate((1.0f - depth) * 36.0f);
-        return float4(contrast.xxx, 1.0f);
+        return float4(contrast.xxx, saturate(uPreviewParams.w));
     }
 
     if (mode == 1)
     {
-        return float4(TonemapPreview(sampleValue.rgb), 1.0f);
+        return float4(TonemapPreview(sampleValue.rgb), saturate(uPreviewParams.w));
     }
 
-    return float4(saturate(sampleValue.rgb), 1.0f);
+    return float4(saturate(sampleValue.rgb), saturate(uPreviewParams.w));
 }

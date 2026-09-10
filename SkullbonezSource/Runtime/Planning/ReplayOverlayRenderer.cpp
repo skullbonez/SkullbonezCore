@@ -774,6 +774,7 @@ class ReplayScrubberComposer
     bool m_scenePhysicsEnabled = false;
     RunReplayTrack m_activeTrack = RunReplayTrack::Solver;
     float m_solverPresentT = 1.0f;
+    UI::UIDrawList& m_commands;
     UI::UIDrawContext m_draw;
     const UI::Style::UIPalette& m_palette;
     const UI::Style::UIRadii& m_radii;
@@ -795,13 +796,15 @@ ReplayScrubberComposer::ReplayScrubberComposer( UI::UIDrawList& drawList, Replay
       m_solverToolsEnabled( m_solverReplayEnabled && m_presentation.solverStats.sampleCount >= 2 ),
       m_predictionToolsEnabled( m_solverReplayEnabled && scenePhysicsEnabled ), m_scenePhysicsEnabled( scenePhysicsEnabled ),
       m_solverPresentT( m_loadedPresentation ? 1.0f : m_presentation.selection.solverPresentTrackPosition ),
-      m_draw( viewport.width, viewport.height, drawList ), m_palette( UI::Style::Palette() ), m_radii( UI::Style::Radii() )
+      m_commands( drawList ), m_draw( viewport.width, viewport.height, drawList ), m_palette( UI::Style::Palette() ),
+      m_radii( UI::Style::Radii() )
 {
 }
 
 
 void ReplayScrubberComposer::Compose()
 {
+    const UI::UIPanelScope panelScope( m_commands, UI::UIPanel::Transport );
     if ( !m_presentation.shouldRender || m_viewport.width <= 0 || m_viewport.height <= 0 ||
          ( !m_loadedPresentation && !m_solverReplayEnabled ) )
     {
@@ -1288,6 +1291,9 @@ void ReplayScrubberComposer::DrawRecordingButtons()
 
 void ReplayScrubberComposer::DrawShellControls()
 {
+    const UI::UIPanelScope panelScope( m_commands, m_viewport.controlsBounds.x < m_viewport.width * 0.5f
+                                                       ? UI::UIPanel::Left
+                                                       : UI::UIPanel::Right );
     if ( m_viewport.controlsBounds.w <= 0.0f || m_viewport.controlsBounds.h <= 0.0f )
     {
         return;
@@ -1630,18 +1636,21 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
         switch ( surface )
         {
         case ReplayOverlaySurfaceKind::Intercept:
+            m_drawList.SetPanel( UI::UIPanel::AuxiliaryPrimary );
             m_drawList.PushClip( planningLayout.Clip() );
             ComposeReplayInterceptOverlay( m_drawList, replay.planning.intercept, planningLayout.Intercept(), viewport.width,
                                            viewport.height );
             m_drawList.PopClip();
             break;
         case ReplayOverlaySurfaceKind::TripPlanner:
+            m_drawList.SetPanel( UI::UIPanel::AuxiliarySecondary );
             m_drawList.PushClip( planningLayout.Clip() );
             ComposeReplayTripPlannerOverlay( m_drawList, replay.planning.tripPlanner, planningLayout.Trip(), viewport.width,
                                              viewport.height, ReplayTripBaselineReady( replay.timeline.prediction ) );
             m_drawList.PopClip();
             break;
         case ReplayOverlaySurfaceKind::Porkchop:
+            m_drawList.SetPanel( UI::UIPanel::AuxiliaryGrid );
             m_drawList.PushClip( planningLayout.Clip() );
             ComposeReplayPorkchopOverlay( m_drawList, replay.planning.porkchop, planningLayout.Porkchop(), viewport.width,
                                           viewport.height );
@@ -1666,6 +1675,7 @@ const UI::UIDrawList& ReplayOverlayDrawOwner::Compose( const ReplayOverlayStateV
         }
     }
 
+    m_drawList.SetPanel( UI::UIPanel::None );
     ReplayScrubberComposer( m_drawList, replay.timeline.ScrubberPresentation(), scenePhysicsEnabled, gesture, viewport,
                             nowSeconds )
         .Compose();
@@ -1955,6 +1965,7 @@ static void DrawReplayCauseLoading( const UI::UIDrawContext& draw, const UI::UIR
 static void ComposeReplayCauseTreeOverlay( UI::UIDrawList& drawList, const ReplayOverlayCausalityView& causality,
                                            const ReplayPresentationSelection& selection, int screenW, int screenH )
 {
+    const UI::UIPanelScope panelScope( drawList, UI::UIPanel::Right );
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
     const bool predictionRows = causality.loading.active ||
                                 ( !causality.tree.rows.empty() && causality.tree.rows.front().prediction );

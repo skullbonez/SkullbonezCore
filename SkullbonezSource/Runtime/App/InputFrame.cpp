@@ -1271,6 +1271,10 @@ void Run::ApplySkarnessSceneLifecycleCommand( const SkarnessCommand& command, Sk
 
     switch ( command.type )
     {
+    case SkarnessCommandType::UiAnimationClock:
+        m_operatorUi->PanelTransitions().SetClockOverride( command.number, command.enabled );
+        application.applied = true;
+        return;
     case SkarnessCommandType::WindowResize:
         application.applied = m_window.RequestClientSize( command.integer, command.secondInteger );
         application.reason = application.applied ? nullptr : "native window rejected client resize";

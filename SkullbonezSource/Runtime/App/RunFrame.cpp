@@ -1360,6 +1360,16 @@ void Run::PublishSkarnessFrameState()
                                                    std::end( rendering.cinematicParameters ) );
     state.presentation.cinematicFeatures.assign( std::begin( rendering.cinematicFeatures ),
                                                  std::end( rendering.cinematicFeatures ) );
+    const auto& panels = m_operatorUi->PanelTransitions();
+    static_assert( std::tuple_size_v<decltype( state.presentation.panelVisibility )> ==
+                   static_cast<size_t>( UI::UIPanel::Count ) );
+    for ( size_t index = 0; index < state.presentation.panelVisibility.size(); ++index )
+    {
+        state.presentation.panelVisibility[index] = panels.Visibility( static_cast<UI::UIPanel>( index ) );
+    }
+    state.presentation.panelsAnimating = panels.Active();
+    const auto panelStats = panels.DrawStats();
+    state.presentation.panelDrawOverflow = panelStats.commandOverflow || panelStats.textOverflow || panelStats.clipOverflow;
     state.presentation.theme = static_cast<int>( UI::Style::CurrentTheme() );
     state.presentation.toolsScroll = m_operatorUi->ToolsScroll();
     const UI::UIRect toolsContent = m_operatorUi->ToolsContentBounds();

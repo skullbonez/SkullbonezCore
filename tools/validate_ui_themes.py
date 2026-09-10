@@ -47,7 +47,10 @@ def run(root: Path) -> None:
             return result
         def sample(name: str) -> dict:
             nonlocal offset
-            send('run.step_frames', count=3)
+            # Pointer checks target settled controls; transitions have their own clock-pinned gate.
+            deadline = time.monotonic() + .2
+            while time.monotonic() < deadline:
+                send('run.step_frames', count=3)
             with (directory/'runtime.skarness.ndjson').open() as stream:
                 stream.seek(offset)
                 for line in stream:

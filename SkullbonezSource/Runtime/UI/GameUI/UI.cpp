@@ -235,6 +235,7 @@ void AppendStandaloneOverlays( ProfilerTab::UIProfilerTabState& profiler, Memory
     if ( histogramEnabled )
     {
         histogram.Clear();
+        histogram.SetPanel( UIPanel::DiagnosticPrimary );
         const UIDrawContext draw( screenW, screenH, histogram );
         ProfilerTab::DrawPerformanceHistogram( profiler, draw, data.ProfilerTabFrame() );
         frame.Append( histogram );
@@ -245,6 +246,7 @@ void AppendStandaloneOverlays( ProfilerTab::UIProfilerTabState& profiler, Memory
         // Why: allocator events are retained by memory level, not by sample
         // index. Place this overlay under the histogram when both are visible.
         memory.Clear();
+        memory.SetPanel( UIPanel::DiagnosticSecondary );
         const UIDrawContext draw( screenW, screenH, memory );
         const float x = histogramEnabled ? profiler.histogramPanelX : 16.0f;
         const float y = histogramEnabled ? profiler.histogramPanelY + profiler.histogramPanelH + 8.0f : 16.0f;
@@ -259,6 +261,7 @@ void UIWindowInteractionOwner::DrawMinimizedContent( const InGameUIFrameData& da
                                                      int screenH )
 {
     drawList.Clear();
+    drawList.SetPanel( UIPanel::Drawer );
     const UIDrawContext draw( screenW, screenH, drawList );
 
     if ( m_window.animationActive && m_window.animationToMinimized )
@@ -756,17 +759,23 @@ void InGameUI::CancelInputCapture()
 }
 bool InGameUI::BlocksCameraMouse() const
 {
-    return m_windowInteraction.BlocksCameraMouse();
+    return m_windowInteraction.BlocksCameraMouse() ||
+           m_panelTransitions->BlocksPointer(
+               { static_cast<float>( m_windowInteraction.m_mouseX ), static_cast<float>( m_windowInteraction.m_mouseY ) } );
 }
 
 bool InGameUI::BlocksReplayMouse() const
 {
-    return m_windowInteraction.BlocksReplayMouse();
+    return m_windowInteraction.BlocksReplayMouse() ||
+           m_panelTransitions->BlocksPointer(
+               { static_cast<float>( m_windowInteraction.m_mouseX ), static_cast<float>( m_windowInteraction.m_mouseY ) } );
 }
 
 bool InGameUI::BlocksCauseMouse() const
 {
-    return m_windowInteraction.BlocksCauseMouse();
+    return m_windowInteraction.BlocksCauseMouse() ||
+           m_panelTransitions->BlocksPointer(
+               { static_cast<float>( m_windowInteraction.m_mouseX ), static_cast<float>( m_windowInteraction.m_mouseY ) } );
 }
 
 bool InGameUI::SharedPresentationEnabled() const
@@ -926,7 +935,7 @@ void InGameUI::ToggleMemoryOverlayEnabled()
 }
 bool InGameUI::NeedsUiTextPass() const
 {
-    return m_windowInteraction.NeedsUiTextPass();
+    return m_windowInteraction.NeedsUiTextPass() || m_panelTransitions->Active();
 }
 void InGameUI::SetHitboxOverlayEnabled( bool enabled )
 {
@@ -1127,8 +1136,15 @@ InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& 
                                            bool placeStaticObject, bool autoTerrainAlign, uint32_t cameraModeEnabledMask )
 {
     PROFILE_SCOPED( "Frame/UI/Input" );
-    return m_windowInteraction.UpdateInput( input, m_sceneNavigation, screenWidth, screenHeight, now, editorModeEnabled,
-                                            placementModeEnabled, placeStaticObject, autoTerrainAlign,
+    InputControl::UIInputSnapshot pointerInput = input;
+    if ( m_panelTransitions->BlocksPointer( { static_cast<float>( input.mouseX ), static_cast<float>( input.mouseY ) } ) )
+    {
+        pointerInput.leftDown = pointerInput.leftPressed = pointerInput.leftReleased = false;
+        pointerInput.rightDown = pointerInput.middleDown = false;
+        pointerInput.wheelDelta = 0;
+    }
+    return m_windowInteraction.UpdateInput( pointerInput, m_sceneNavigation, screenWidth, screenHeight, now,
+                                            editorModeEnabled, placementModeEnabled, placeStaticObject, autoTerrainAlign,
                                             cameraModeEnabledMask );
 }
 const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
@@ -1144,6 +1160,10 @@ const UIDrawList& InGameUI::ForegroundDraw() const
 void InGameUI::UpdatePresentationInput( const InputControl::UIInputSnapshot& input, int width, int height, bool enabled )
 {
     m_windowInteraction.UpdatePresentationInput( input, width, height, enabled );
+    if ( m_windowInteraction.m_interaction.isResizing && m_windowInteraction.m_interaction.resizeRegion == 1 )
+    {
+        m_panelTransitions->Finish( UIPanel::Drawer, true );
+    }
 }
 
 PresentationRects InGameUI::PresentationBounds() const
@@ -1236,6 +1256,7 @@ GameLayout::DiagnosticPresentation InGameUI::DiagnosticPresentation() const
 
 void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& data )
 {
+    const UIPanelScope panelScope( m_frameDrawList, UIPanel::None );
     const auto& palette = Style::Palette();
     if ( !m_presentationEnabled )
     {
@@ -1244,8 +1265,12 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
     const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
     const UIRect panes[] = { m_presentationRects.left, m_presentationRects.right, m_presentationRects.markerHistory,
                              m_presentationRects.memoryWaterline };
-    for ( const UIRect& pane : panes )
+    for ( size_t index = 0; index < std::size( panes ); ++index )
+
     {
+        const UIRect& pane = panes[index];
+        const UIPanel ids[] = { UIPanel::Left, UIPanel::Right, UIPanel::DiagnosticPrimary, UIPanel::DiagnosticSecondary };
+        m_frameDrawList.SetPanel( pane.w > 24.0f ? ids[index] : UIPanel::None );
         if ( pane.w <= 0.0f || pane.h <= 0.0f )
         {
             continue;
@@ -1253,6 +1278,7 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
         draw.Rect( pane.x, pane.y, pane.w, pane.h, palette.window.r, palette.window.g, palette.window.b, 1.0f );
         draw.Outline( pane.x, pane.y, pane.w, pane.h, palette.border.r, palette.border.g, palette.border.b, 1.0f );
     }
+    m_frameDrawList.SetPanel( UIPanel::Transport );
     const float transportAlpha = m_presentation.workspace == Workspace::SolverLab ||
                                          m_presentation.preferences.layout == LayoutMode::Editor
                                      ? 1.0f
@@ -1270,6 +1296,7 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
         draw.Text( details.x + 10.0f, details.y + 8.0f, 11.0f, palette.textPrimary.r * transportAlpha,
                    palette.textPrimary.g * transportAlpha, palette.textPrimary.b * transportAlpha, "Tools" );
     }
+    m_frameDrawList.SetPanel( UIPanel::Right );
     const UIRect tabs[] = { m_presentationRects.detailsReplayTab, m_presentationRects.detailsCausesTab };
     for ( int index = 0; index < 2; ++index )
     {
@@ -1296,6 +1323,7 @@ void UIWindowInteractionOwner::DrawPresentationDocks( const InGameUIFrameData& d
 
 void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
 {
+    const UIPanelScope panelScope( m_frameDrawList, UIPanel::None );
     const auto& palette = Style::Palette();
     if ( !m_presentationEnabled || m_presentation.preferences.layout != LayoutMode::Editor )
     {
@@ -1330,6 +1358,7 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
     {
         if ( tabs[index].w > 0.0f && !m_presentation.preferences.leftFolded )
         {
+            m_frameDrawList.SetPanel( UIPanel::Left );
             const bool selected = m_presentation.editorReplay == ( index == 1 );
             draw.RoundedRect( tabs[index].x, tabs[index].y, tabs[index].w, tabs[index].h, 4.0f,
                               selected ? palette.selection.r : palette.control.r,
@@ -1352,15 +1381,18 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
     for ( int index = 0; index < 2; ++index )
     {
         const bool folded = index == 0 ? m_presentation.preferences.leftFolded : m_presentation.preferences.rightFolded;
+        m_frameDrawList.SetPanel( folded ? UIPanel::None : ( index == 0 ? UIPanel::Left : UIPanel::Right ) );
         draw.Text( folds[index].x + 7.0f, folds[index].y + 8.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g,
                    palette.textPrimary.b, ( folded == ( index == 0 ) ) ? ">" : "<" );
     }
     if ( m_presentationRects.right.w > 24.0f )
     {
+        m_frameDrawList.SetPanel( UIPanel::Right );
         draw.Text( m_presentationRects.right.x + 30.0f, m_presentationRects.right.y + 8.0f, 11.0f, palette.textPrimary.r,
                    palette.textPrimary.g, palette.textPrimary.b,
                    m_presentation.workspace == Workspace::SolverLab ? "Differences" : "Causes" );
     }
+    m_frameDrawList.SetPanel( UIPanel::Left );
     if ( m_presentation.workspace == Workspace::SolverLab && m_presentationRects.left.w > 24.0f )
     {
         draw.Text( m_presentationRects.left.x + 30.0f, m_presentationRects.left.y + 8.0f, 11.0f, palette.textPrimary.r,
@@ -1383,6 +1415,7 @@ void UIWindowInteractionOwner::DrawEditorDock( const InGameUIFrameData& data )
 
 void UIWindowInteractionOwner::DrawPresentedEditorPalette( const InGameUIFrameData& data )
 {
+    const UIPanelScope panelScope( m_frameDrawList, UIPanel::QuickTools );
     if ( !m_presentationEnabled || m_presentation.workspace != Workspace::Scene || !data.editor.editorModeEnabled )
     {
         return;
@@ -1404,6 +1437,7 @@ void UIWindowInteractionOwner::DrawPresentedEditorPalette( const InGameUIFrameDa
 
 void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& data )
 {
+    const UIPanelScope panelScope( m_frameDrawList, UIPanel::Header );
     const auto& palette = Style::Palette();
     // Solver Lab always exposes its exit. Only Scene Canvas uses edge reveal.
     if ( !m_presentationEnabled ||
@@ -1415,12 +1449,7 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
     const UIDrawContext draw( data.surface.screenW, data.surface.screenH, m_frameDrawList );
     const HeaderRects bounds = ComputeHeaderRects( m_presentationRects.header, m_presentation.workspace );
     draw.BeginLayer();
-    if ( m_presentation.workspace == Workspace::SolverLab )
-    {
-        // Loading and comparison overlays cover the Canvas viewport. Keep the
-        // workspace exit and Tools controls above those later submissions.
-        draw.BeginForeground();
-    }
+    // The shared compositor places Header above every workspace panel.
     draw.PushClip( m_presentationRects.header );
     draw.Rect( 0.0f, 0.0f, m_presentationRects.header.w, m_presentationRects.header.h, palette.window.r, palette.window.g,
                palette.window.b, 1.0f );
@@ -1462,7 +1491,6 @@ void UIWindowInteractionOwner::DrawPresentationHeader( const InGameUIFrameData& 
         draw.Text( bounds.camera.x + 4.0f, bounds.camera.y + 8.0f, 11.0f, 0.65f, 0.67f, 0.70f,
                    bounds.camera.w < 80.0f ? "Pair" : "Paired view" );
         draw.PopClip();
-        draw.EndForeground();
         return;
     }
     m_cameraModeCombo.SetLabelVisible( false );
@@ -1819,6 +1847,7 @@ const UIDrawList& UIWindowInteractionOwner::Draw( const InGameUIFrameData& data 
 
     UIDrawList& drawList = m_cache.MutableDrawList();
     drawList.Clear();
+    drawList.SetPanel( UIPanel::Drawer );
     const UIDrawContext draw( screenW, screenH, drawList );
     PROFILE_BEGIN( "Frame/UI/DrawBuild" );
 

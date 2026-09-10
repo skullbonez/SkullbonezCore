@@ -18,6 +18,7 @@
     <ClCompile Include="SkullbonezSource\UI\UIComboBox.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIPanelTransitions.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIDrawWidgets.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIIconButton.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -38,6 +39,7 @@
     <ClInclude Include="SkullbonezSource\UI\UIComboBox.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDrawList.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIPanelTransitions.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIFontMetrics.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIIconButton.h"><Filter>Header Files</Filter></ClInclude>

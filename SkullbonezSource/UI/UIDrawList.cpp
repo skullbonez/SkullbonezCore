@@ -38,6 +38,7 @@ void UIDrawList::Clear()
     m_suppressedClipDepth = 0;
     m_maxClipDepth = 0;
     m_foregroundDepth = 0;
+    m_panel = UIPanel::None;
 
     m_text[0] = '\0';
 }
@@ -125,7 +126,7 @@ void UIDrawList::AddText( UIPoint position, float pxSize, const Style::UIColor& 
     cmd->r = color.r;
     cmd->g = color.g;
     cmd->b = color.b;
-    cmd->a = 1.0f;
+    cmd->a = color.a;
     cmd->textOffset = StoreText( value );
 }
 
@@ -277,6 +278,7 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
 {
     for ( const Command& command : source.Commands() )
     {
+        const UIPanelScope panel( *this, m_panel == UIPanel::None ? command.panel : m_panel );
         const int enclosingForegroundDepth = m_foregroundDepth;
         m_foregroundDepth += command.foreground ? 1 : 0;
         switch ( command.type )
@@ -442,6 +444,7 @@ UIDrawList::Command* UIDrawList::PushCommand()
     Command& command = m_commands[m_commandCount++];
     command = {};
     command.foreground = m_foregroundDepth > 0;
+    command.panel = command.foreground ? UIPanel::Popup : m_panel;
 
     return &command;
 }
@@ -485,3 +488,77 @@ int UIDrawList::StoreText( const char* value )
 
 } // namespace UI
 } // namespace SkullbonezCore
+
+namespace SkullbonezCore::UI
+{
+UIPanel UIDrawList::SetPanel( UIPanel panel )
+{
+    const UIPanel previous = m_panel;
+    m_panel = panel;
+    return previous;
+}
+
+bool UIDrawList::HasPanel( UIPanel panel ) const
+{
+    for ( const Command& command : Commands() )
+    {
+        if ( command.panel == panel && command.type != CommandType::PushClip && command.type != CommandType::PopClip &&
+             command.type != CommandType::LayerBreak )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void UIDrawList::CopyPanel( const UIDrawList& source, UIPanel panel )
+{
+    Clear();
+    // Invariant: retain all clip boundaries, including parents authored outside
+    // this panel. Filtering geometry must never leave a cached exit unclipped.
+    for ( const Command& command : source.Commands() )
+    {
+        if ( command.panel != panel && command.type != CommandType::PushClip && command.type != CommandType::PopClip &&
+             command.type != CommandType::LayerBreak )
+        {
+            continue;
+        }
+        Command* copy = PushCommand();
+        if ( !copy )
+        {
+            break;
+        }
+        *copy = command;
+        if ( command.type == CommandType::Text || command.type == CommandType::VerticalText ||
+             command.type == CommandType::PreviewImage )
+        {
+            copy->textOffset = StoreText( source.TextAt( command.textOffset ) );
+        }
+    }
+    m_commandOverflow = m_commandOverflow || source.m_commandOverflow;
+    m_textOverflow = m_textOverflow || source.m_textOverflow;
+    m_clipOverflow = source.GetStats().clipOverflow;
+    m_maxClipDepth = source.m_maxClipDepth;
+}
+
+void UIDrawList::ApplyPresentation( UIPoint offset, float opacity )
+{
+    for ( Command& command : std::span( m_commands, m_commandCount ) )
+    {
+        if ( command.type == CommandType::PopClip || command.type == CommandType::LayerBreak )
+        {
+            continue;
+        }
+        command.x0 += offset.x;
+        command.y0 += offset.y;
+        if ( command.type == CommandType::Triangle )
+        {
+            command.x1 += offset.x;
+            command.y1 += offset.y;
+            command.x2 += offset.x;
+            command.y2 += offset.y;
+        }
+        command.a *= std::clamp( opacity, 0.0f, 1.0f );
+    }
+}
+} // namespace SkullbonezCore::UI

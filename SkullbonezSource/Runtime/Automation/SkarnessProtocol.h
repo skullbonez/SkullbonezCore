@@ -55,6 +55,7 @@ enum class SkarnessCommandType : uint8_t
 {
     CaptureScreenshot,
     WindowResize,
+    UiAnimationClock,
     SceneLoad,
     SceneReset,
     SceneLoadDemo,
@@ -337,6 +338,7 @@ inline constexpr std::array SKARNESS_CAPABILITIES = {
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.set_arrows", "Input", "{left:bool,right:bool}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
+    SkarnessCapability { "ui.animation_clock", "UI", "{seconds:number,enabled:bool}" },
     SkarnessCapability { "input.pointer_position", "Input", "{x:int,y:int,enabled:bool}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly },
     SkarnessCapability { "input.pointer_wheel", "Input", "{x:int,y:int,wheelDelta:int}",
@@ -403,6 +405,9 @@ struct SkarnessFrameState
         bool toolsVisible = false;
         int activeTool = 1;
         int theme = 0;
+        std::array<float, 13> panelVisibility {};
+        bool panelsAnimating = false;
+        bool panelDrawOverflow = false;
         bool markerHistoryVisible = false;
         bool memoryWaterlineVisible = false;
         int markerSamples = 0;

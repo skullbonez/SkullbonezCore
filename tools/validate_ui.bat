@@ -125,6 +125,10 @@ echo Checking theme switching, contrast screenshots and saved preferences...
 "%PYTHON_EXE%" "%~dp0validate_ui_themes.py" --session "%REPO%\TestOutput\skarness\ui-themes-%RANDOM%"
 if errorlevel 1 exit /b 7
 
+echo Checking native panel easing, retained exits and Solver Lab transitions...
+"%PYTHON_EXE%" "%~dp0validate_ui_panel_transitions.py" --session "%REPO%\TestOutput\skarness\ui-panel-transitions-%RANDOM%"
+if errorlevel 1 exit /b 7
+
 echo [8/8] Exporting shareable UI PNG artifact...
 "%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_dx12_profiler_timeline.bmp" "%REPO%\Profile\ui_dx12_profiler_timeline.png" --max-width 1080
 if errorlevel 1 exit /b 8

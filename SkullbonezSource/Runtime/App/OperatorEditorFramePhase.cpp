@@ -26,6 +26,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 
+#include <chrono>
 #include "Run.h"
 #include "../UI/OperatorUiProjection.h"
 #include "../Planning/ReplayOverlayRenderer.h"
@@ -607,6 +608,8 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
     PROFILE_BEGIN( "Frame/UI" );
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
     const int drawCallStart = renderer.BeginUiTextFrame( viewport );
+    auto& panels = ui.PanelTransitions();
+    panels.BeginFrame();
     const UI::UIDrawList* comparisonDraw = nullptr;
     if ( ComparisonUiActive() )
     {
@@ -685,7 +688,7 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
         uiData.workspaceTooltips = ComparisonUiActive() ? std::span<const UI::UITooltipTarget>( comparisonTooltips )
                                                         : std::span<const UI::UITooltipTarget>( replayTooltips );
         const UI::UIDrawList& drawList = ui.Draw( uiData );
-        renderer.SubmitOperatorUiDrawList( drawList, renderTargetPreviews, m_assets, viewport );
+        panels.Append( drawList );
     }
 
     if ( submission.submitOverlay )
@@ -719,18 +722,22 @@ int Run::RenderOperatorUiTextPass( OperatorUiPhaseOwner& operatorUiPhase, const 
                                                           ? m_operatorUi->PresentationBounds().statusContent
                                                           : UI::UIRect {} },
                                                     metrics.simulationTotalSeconds );
-        renderer.SubmitUiDrawList( drawList, viewport );
+        panels.Append( drawList );
     }
 
     if ( comparisonDraw )
     {
-        renderer.SubmitUiDrawList( *comparisonDraw, viewport );
+        panels.Append( *comparisonDraw );
     }
 
     if ( submission.composeGameUi && !ui.ForegroundDraw().Empty() )
     {
-        renderer.SubmitUiDrawList( ui.ForegroundDraw(), viewport );
+        panels.Append( ui.ForegroundDraw() );
     }
+
+    const double animationTime = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() )
+                                     .count();
+    renderer.SubmitOperatorUiDrawList( panels.Compose( animationTime ), renderTargetPreviews, m_assets, viewport );
 
     if ( submission.finalizeOverlay )
     {

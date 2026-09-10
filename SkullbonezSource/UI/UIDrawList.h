@@ -30,6 +30,25 @@ namespace SkullbonezCore
 namespace UI
 {
 
+// Stable presentation groups let independent presenters share one transition clock.
+enum class UIPanel : uint8_t
+{
+    None,
+    Left,
+    Right,
+    Transport,
+    Drawer,
+    DiagnosticPrimary,
+    DiagnosticSecondary,
+    QuickTools,
+    AuxiliaryPrimary,
+    AuxiliarySecondary,
+    AuxiliaryGrid,
+    Header,
+    Popup,
+    Count
+};
+
 class UIDrawList
 {
   public:
@@ -100,6 +119,7 @@ class UIDrawList
         int textOffset;
         PreviewTargetId preview;
         bool foreground;
+        UIPanel panel;
     };
     static_assert( std::is_trivially_copyable_v<Command>, "UI draw commands must remain plain inspectable values." );
 
@@ -127,6 +147,11 @@ class UIDrawList
     // the source list nor its cache must outlive the composed frame.
     void Append( const UIDrawList& source, float offsetX = 0.0f, float offsetY = 0.0f );
 
+    // Panel metadata affects composition, not the settled visual fingerprint.
+    UIPanel SetPanel( UIPanel panel );
+    void CopyPanel( const UIDrawList& source, UIPanel panel );
+    void ApplyPresentation( UIPoint offset, float opacity );
+    bool HasPanel( UIPanel panel ) const;
     bool Empty() const;
     Stats GetStats() const;
     std::span<const Command> Commands() const;
@@ -151,6 +176,25 @@ class UIDrawList
     int m_suppressedClipDepth = 0;
     int m_maxClipDepth = 0;
     int m_foregroundDepth = 0;
+    UIPanel m_panel = UIPanel::None;
+};
+
+class UIPanelScope
+{
+  public:
+    UIPanelScope( UIDrawList& draw, UIPanel panel ) : m_draw( draw ), m_previous( draw.SetPanel( panel ) )
+    {
+    }
+    ~UIPanelScope()
+    {
+        m_draw.SetPanel( m_previous );
+    }
+    UIPanelScope( const UIPanelScope& ) = delete;
+    UIPanelScope& operator=( const UIPanelScope& ) = delete;
+
+  private:
+    UIDrawList& m_draw;
+    UIPanel m_previous;
 };
 
 } // namespace UI

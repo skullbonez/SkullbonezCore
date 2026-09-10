@@ -55,6 +55,8 @@ Related:
 #include "UITabProfiler.h"
 #include "UIWindowInteractionOwner.h"
 #include <cstdint>
+#include "../../../UI/UIPanelTransitions.h"
+#include <memory>
 
 namespace SkullbonezCore
 {
@@ -574,10 +576,19 @@ class InGameUI
     // returned view remains valid until the next Draw call on this owner.
     const UIDrawList& Draw( const InGameUIFrameData& data );
     const UIDrawList& ForegroundDraw() const;
+    UIPanelTransitions& PanelTransitions()
+    {
+        return *m_panelTransitions;
+    }
+    const UIPanelTransitions& PanelTransitions() const
+    {
+        return *m_panelTransitions;
+    }
 
   private:
     // Lifetime: Init owns this profiler beyond the cohesive UI owner; input and
     // draw paths borrow it without resolving process-global diagnostics state.
+    std::unique_ptr<UIPanelTransitions> m_panelTransitions = std::make_unique<UIPanelTransitions>();
     Core::Profiler* m_profiler = nullptr;
     SceneNavigationModel m_sceneNavigation;
     OperatorEditorLookLabView m_lookLabView;

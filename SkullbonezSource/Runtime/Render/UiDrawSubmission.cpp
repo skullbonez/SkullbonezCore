@@ -48,8 +48,9 @@ namespace SkullbonezCore::Runtime
 {
 namespace
 {
-constexpr Rendering::PassRasterStateBucket PREVIEW_RASTER_STATE = Rendering::MakePassRasterStateBucket( 0, { false, false,
-                                                                                                             false } );
+constexpr Rendering::PassRasterStateBucket
+    PREVIEW_RASTER_STATE = Rendering::MakePassRasterStateBucket( 0, { false, false, true, Rendering::BlendFactor::SrcAlpha,
+                                                                      Rendering::BlendFactor::OneMinusSrcAlpha } );
 
 // Concept: UI authors pixels while Text2d submits in projection-space units.
 // This translator exists only for one replay call and cannot become retained
@@ -107,17 +108,17 @@ class ImmediateUiSubmitter
         RoundedRectFill( x, y, w, h, radius, r, g, b, a );
     }
 
-    void Text( float x, float y, float pxSize, float r, float g, float b, const char* value )
+    void Text( float x, float y, float pxSize, float r, float g, float b, const char* value, float opacity = 1.0f )
     {
-        Text::Text2d::Render2dTextColor( m_textBatch, PixelX( Snap( x ) ), PixelY( Snap( y ) + pxSize ), pxSize * m_scaleY,
-                                         r, g, b, "%s", value );
+        Text::Text2d::RenderTextColor( m_textBatch, PixelX( Snap( x ) ), PixelY( Snap( y ) + pxSize ), pxSize * m_scaleY,
+                                       { r, g, b, opacity }, value );
     }
 
     void VerticalText( const UI::UIDrawList::Command& command, const char* value, float offsetX, float offsetY )
     {
         Text::Text2d::RenderVerticalText( m_textBatch, value, { command.r, command.g, command.b },
                                           PixelX( Snap( command.x0 + offsetX + command.pxSize ) ),
-                                          PixelY( Snap( command.y0 + offsetY ) ), command.pxSize * m_scaleY );
+                                          PixelY( Snap( command.y0 + offsetY ) ), command.pxSize * m_scaleY, command.a );
     }
 
   private:
@@ -309,7 +310,7 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
             else
             {
                 immediateDraw.Text( command.x0 + offsetX, command.y0 + offsetY, command.pxSize, command.r, command.g,
-                                    command.b, drawList.TextAt( command.textOffset ) );
+                                    command.b, drawList.TextAt( command.textOffset ), command.a );
             }
 
             break;
@@ -361,7 +362,7 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
             {
                 immediateDraw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, command.r, command.g, command.b, command.a );
                 immediateDraw.Text( bounds.x + 12.0f, bounds.y + 12.0f, 12.0f, 0.68f, 0.72f, 0.78f,
-                                    drawList.TextAt( command.textOffset ) );
+                                    drawList.TextAt( command.textOffset ), command.a );
                 break;
             }
 
@@ -410,7 +411,7 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
             m_previewShader->Use();
             m_previewShader->SetMat4( "uProjection", projection );
             m_previewShader->SetInt( "uTexture", 0 );
-            m_previewShader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
+            m_previewShader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, command.a );
             renderTextures.BindTexture( resource->textureHandle, 0 );
             {
                 DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "RenderTargetPreview" );
