@@ -501,7 +501,9 @@ One detail in that table is recorded:
 
 `UNIFIED_UI` UU0-UU7 is complete at 8/8.
 `RAGDOLL_PHYSICS` is complete at 10/10. The owner's requested ragdoll-playground
-sleep investigation is next; it does not reactivate any parked plan.
+sleep investigation is complete, with results in SessionState and
+`TestOutput/skarness/ragdoll-sleep-experiments-01/README.md`. No parked plan was
+reactivated. Normal push remains pending explicit remote approval.
 `PHYSICS_AB` AB1-AB6 remains queued at 0/6.
 `SKARNESS` SK0-SK6 and `SIGNATURE_COHESION` SC0-SC7 are complete.
 

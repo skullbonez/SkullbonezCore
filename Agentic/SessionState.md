@@ -2,7 +2,51 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Ragdoll FP8/FP9 complete at 10/10; portfolio 138/144; sleep investigation next. Unified UI remains complete at 8/8.
+Status: Ragdoll FP8/FP9 committed at 10/10; sleep investigation complete; push approval pending; portfolio 138/144. Unified UI remains complete at 8/8.
+
+## Ragdoll sleep investigation — 2026-09-11
+
+Requested FP8/FP9 work is committed in `69e5a6092` and `02a7396dc`. Automatic
+approval review rejected `git push origin codex/unified-ui` because it requires
+explicit approval to send the changes to github.com/skullbonez/SkullbonezCore.
+An asynchronous approval question is pending. Do not retry or bypass that
+rejection without new authorization. The worktree was clean before this
+investigation handoff update.
+
+The requested investigation has produced 14 completed isolated 60-second runs
+plus the original 60-second baseline, all through Skarness at 120 Hz/four workers.
+All completed native captures exit 0; failed setup/floor attempts are retained.
+No shipping settings, source, scenes or baselines changed. Original engine.cfg
+and the isolated runtime config are byte-exactly restored. All owned native
+sessions stopped; there is no live experiment to resume.
+
+Main findings:
+- Original playground: neither ragdoll sleeps during 60 seconds. Removing the
+  ball yields identical sampled ragdoll states and the same result.
+- 48 solver iterations: both ragdolls sleep by 41.642 s and stay asleep.
+- Combined 24 iterations, object/terrain slop 0.02 m and bias 0.1: both sleep
+  by 30.350 s and stay asleep. Repeated sampled body states are exact.
+- A bounded fixed-box floor with original solver settings sleeps both by
+  4.758 s. This points to terrain-contact response/support for further work.
+- Mixed pile: defaults, combined tuning and 48 iterations all end with 0/46
+  dynamic bodies asleep. Ragdoll-part wake transitions after the first tick
+  are 6290 / 2690 / 5040. Combined tuning increases residual motion; do not
+  apply it globally. Further pile work should identify wake sources rather
+  than only raise sleep thresholds.
+
+Detailed report, exact configuration snapshots, new test scenes, commands,
+summary JSON, trace sizes and query accounting:
+`TestOutput/skarness/ragdoll-sleep-experiments-01/README.md`.
+Formal SkullScope queries read 7088 output bytes, none truncated; the original
+baseline trace is 430517825 bytes and SQLite cache is 279650304 bytes.
+The large box-floor failed SpatialGrid.entries reservation (1201/1200); its
+smaller 70-by-60-metre replacement passed. The failed broad floor is not a sleep
+measurement. External wake recovery, gameplay-wide acceptance and isolated
+performance of the candidate settings remain unmeasured; no global fix is claimed.
+
+The user-requested investigation is ready to hand off. Only the blocked normal
+push remains in the plan workflow; approval is pending. Do not start PHYSICS_AB
+or parked plans under this goal. MASTER and this file remain at 138/144.
 
 ## Ragdoll FP8/FP9 complete - 2026-09-11
 
@@ -1021,11 +1065,11 @@ passed on FP5. Fresh runs will be dispatched after the FP6 push.
 
 ## Current State
 
-Current objective: FP8/FP9 are committed on codex/unified-ui; push them and
-investigate ragdoll sleep with controlled playground experiments.
+Current objective: FP8/FP9 are committed and the requested sleep investigation
+is complete; normal push awaits explicit remote approval.
 Plan progress: RAGDOLL_PHYSICS 10/10 closed; UNIFIED_UI 8/8 closed; portfolio 138/144.
-Next binding task: the owner's playground sleep investigation after pushing the
-completed FP8/FP9 commits. PHYSICS_AB AB1-AB6 remains queued at 0/6.
+Next binding task: resolve the pending push approval and hand off the sleep
+results. PHYSICS_AB AB1-AB6 remains queued at 0/6 outside this goal.
 The live ledger limitation and final evidence are recorded at the top of this file.
 
 The owner activated `SKARNESS` SK0-SK6 and directed the Night Runner to finish
