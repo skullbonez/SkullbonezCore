@@ -35,8 +35,11 @@ inline constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_predictio
 // total 653,016,512 bytes. The 960 MiB cap preserves 1.542x headroom over that
 // coexistence peak. Velocity divergence retains a second complete Prediction
 // owner under this same cap; both owners' frames, engines, trajectories, and
-// evidence are counted together. A denied red rebuild preserves the blue owner
-// for acceptance. The cap and Replay-only growth privilege do not expand.
+// evidence are counted together. Creating an additional owner reclaims only
+// the original's spare evidence bank. Each additional-owner generation releases
+// its superseded diagnostics and reserves both path banks before optional
+// evidence capture. Original committed evidence stays intact; neither the cap
+// nor the Replay-only growth privilege expands.
 inline constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 960 * 1024 * 1024;
 
 inline constexpr ReplayGrowthOwnerPolicy REPLAY_PREDICTION_GROWTH_OWNER_POLICY { REPLAY_PREDICTION_RESERVE_OWNER,

@@ -303,9 +303,9 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionSolverEvidenceStore.cpp",
       "patterns": [
-        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsureContactSegments\",\"before\":[\"Core::Allocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"m_contactSegments[m_contactSegmentCount] = std::make_unique<ContactSegment>();\",\"after\":[\"++m_contactSegmentCount;\",\"RefreshLifetimePeak();\"]}",
-        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsureFrameSegments\",\"before\":[\"Core::Allocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"m_frameSegments[m_frameSegmentCount] = std::make_unique<FrameSegment>();\",\"after\":[\"++m_frameSegmentCount;\",\"RefreshLifetimePeak();\"]}",
-        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsurePipelineSegments\",\"before\":[\"Core::Allocation::RuntimeReservePhase::Replay,\",\"result );\"],\"statement\":\"m_pipelineSegments[m_pipelineSegmentCount] = std::make_unique<PipelineSegment>();\",\"after\":[\"++m_pipelineSegmentCount;\",\"RefreshLifetimePeak();\"]}"
+        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsureContactSegments\",\"before\":[\"const Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();\",\"Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"m_contactSegments[m_contactSegmentCount] = std::make_unique<ContactSegment>();\",\"after\":[\"++m_contactSegmentCount;\",\"RefreshLifetimePeak();\"]}",
+        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsureFrameSegments\",\"before\":[\"const Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();\",\"Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"m_frameSegments[m_frameSegmentCount] = std::make_unique<FrameSegment>();\",\"after\":[\"++m_frameSegmentCount;\",\"RefreshLifetimePeak();\"]}",
+        "{\"symbol\":\"ReplayPredictionSolverEvidenceStore::EnsurePipelineSegments\",\"before\":[\"const Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();\",\"Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"m_pipelineSegments[m_pipelineSegmentCount] = std::make_unique<PipelineSegment>();\",\"after\":[\"++m_pipelineSegmentCount;\",\"RefreshLifetimePeak();\"]}"
       ],
       "owner": "ReplayPrediction exact solver-evidence banks",
       "phase": "replay",
@@ -1925,8 +1925,8 @@
       "path": "SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp",
       "patterns": [
         "{\"symbol\":\"ReplayTrajectoryStore::BeginReplaceRecord\",\"before\":[\"return nullptr;\",\"}\"],\"statement\":\"records.emplace_back();\",\"after\":[\"record = &records.back();\",\"++activeRecordCount;\"]}",
-        "{\"symbol\":\"ReplayTrajectoryStore::ReserveRecordPoints\",\"before\":[\"SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope\",\"allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"record.points.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= record.points.capacity();\",\"}\"]}",
-        "{\"symbol\":\"ReplayTrajectoryStore::ReserveRecords\",\"before\":[\"SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope\",\"allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"records.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= records.capacity();\",\"}\"]}",
+        "{\"symbol\":\"ReplayTrajectoryStore::ReserveRecordPoints\",\"before\":[\"const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();\",\"SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"record.points.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= record.points.capacity();\",\"}\"]}",
+        "{\"symbol\":\"ReplayTrajectoryStore::ReserveRecords\",\"before\":[\"const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();\",\"SkullbonezCore::Core::Allocation::RuntimeReserveAllocationScope allocationScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );\"],\"statement\":\"records.reserve( requestedCapacity );\",\"after\":[\"return requestedCapacity <= records.capacity();\",\"}\"]}",
         "{\"symbol\":\"ReplayTrajectoryStore::TryAppendPoint\",\"before\":[\"return false;\",\"}\"],\"statement\":\"record.points.push_back( point );\",\"after\":[\"return true;\",\"}\"]}"
       ],
       "owner": "Replay static STL storage/growth surface",
@@ -3044,7 +3044,7 @@
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp",
       "patterns": [
-        "{\"symbol\":\"ReplayPrediction::CreateAdditionalOwner\",\"before\":[\"}\",\"RuntimeReserveAllocationScope allocation( ReplayPredictionReserveOwner(), RuntimeReservePhase::Replay, result );\"],\"statement\":\"return std::make_unique<ReplayPrediction>( diagnostics, m_profiler );\",\"after\":[\"}\",\"bool ReplayPrediction::PrepareVelocityMutationBaseline() noexcept\"]}"
+        "{\"symbol\":\"ReplayPrediction::CreateAdditionalOwner\",\"before\":[\"}\",\"RuntimeReserveAllocationScope allocation( ReplayPredictionReserveOwner(), RuntimeReservePhase::Replay, result );\"],\"statement\":\"auto additional = std::make_unique<ReplayPrediction>( diagnostics, m_profiler );\",\"after\":[\"additional->m_sharesWorkingSetBudget = true;\",\"return additional;\"]}"
       ],
       "owner": "replay_prediction_working_set",
       "phase": "Replay",
@@ -3094,6 +3094,18 @@
       "reason": "Open in Solver Lab copies published blue and red motion into the existing comparison owner in Capture phase. Playback and scrubbing read the retained samples without growth.",
       "cap": "512 MiB preflight including both sample banks and worst-case one difference event per body per frame; frame, body and event vectors are reserved once during import.",
       "removal_or_wrapper_plan": "Retain this cold import alongside file-based comparison loading; move both to a shared capped arena if ComparisonRecording adopts arena storage.",
+      "match_mode": "exact_finding"
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp",
+      "patterns": [
+        "{\"symbol\":\"ReplayTrajectoryStore::ReservePointCapacity\",\"before\":[\"return false;\",\"}\"],\"statement\":\"records.resize( recordCount );\",\"after\":[\"for ( ReplayTrajectoryRecord& record : records )\",\"{\"]}"
+      ],
+      "owner": "replay_prediction_working_set",
+      "phase": "Replay",
+      "reason": "Modify Velocity reserves the additional owner's path banks before optional solver evidence. ReserveRecords succeeds before resizing this already-reserved outer vector; nested points use the existing ReserveRecordPoints registered growth scope. Dormant slots do not change the visible publication. Unit tests verify the reserve and no-growth append sequence.",
+      "cap": "Existing 960 MiB shared owner limit; horizon-bounded point count and six records per visible body plus root/past slots. No new allocation phase or registration.",
+      "removal_or_wrapper_plan": "Retain the capacity-checked trajectory store operation; no general gameplay growth permission.",
       "match_mode": "exact_finding"
     }
   ]

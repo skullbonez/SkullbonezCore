@@ -163,6 +163,7 @@ struct ReplayVelocityDivergenceView
     bool redReady = false;
     bool angular = false;
     bool playing = false;
+    bool resumePredictionAfterDrag = false;
     double playbackTime = 0.0;
 };
 

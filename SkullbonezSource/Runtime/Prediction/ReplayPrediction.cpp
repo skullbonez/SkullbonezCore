@@ -791,6 +791,15 @@ ReplayPredictionSourcePreparation ReplayPrediction::BeginFrameSource( PhysicsEng
     // that bank because its publication root belongs to the previous request.
     predictionOwner.CancelJob( clearSamplesOnCancel, preserveCommittedFuture );
 
+    if ( m_sharesWorkingSetBudget )
+    {
+        // A new generation supersedes this owner's exact solver evidence.
+        // Keep its visible paths until replacement, but release diagnostic
+        // banks before reserving the next simulation. The separate original
+        // owner's committed evidence remains untouched.
+        m_solverEvidence.ReleaseCapacity();
+    }
+
     if ( clearSamplesOnCancel )
     {
         predictionOwner.ClearFutureNodeCache();
@@ -962,7 +971,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine,
         return false;
     }
 
-    if ( !PrepareReplayPredictionTrajectoryBuild( prediction, prediction.simulation.targetId, buildFrameCapacity, static_cast<std::size_t>( modelCount ), pathPresentation ) )
+    if ( !PrepareReplayPredictionTrajectoryBuild( prediction, prediction.simulation.targetId, buildFrameCapacity, static_cast<std::size_t>( modelCount ), pathPresentation, m_sharesWorkingSetBudget ) )
     {
         predictionOwner.CancelJob( clearSamplesOnCancel, !clearSamplesOnCancel );
         prediction.build.dirty = true;
@@ -1906,8 +1915,15 @@ void ReplayPrediction::SetRevealRatePreservingCursor( double revealRate ) noexce
     m_state.revealClock.secondsPerSecond = normalizedRevealRate;
 }
 
-std::unique_ptr<ReplayPrediction> ReplayPrediction::CreateAdditionalOwner( Core::SbDiagnosticStore& diagnostics ) const
+std::unique_ptr<ReplayPrediction> ReplayPrediction::CreateAdditionalOwner( Core::SbDiagnosticStore& diagnostics )
 {
+    if ( !ReadyForDeterministicReveal() )
+    {
+        return {};
+    }
+    // Keep the complete original evidence and paths. Only its unused scratch
+    // bank is reclaimed before both owners compete for the shared hard cap.
+    m_solverEvidence.ReleaseBuildCapacity();
     using namespace SkullbonezCore::Core::Allocation;
     // The state and evidence constructors use the same reserves as archive
     // candidates, including TornadoGameplay's body/debug storage and allocator
@@ -1919,7 +1935,9 @@ std::unique_ptr<ReplayPrediction> ReplayPrediction::CreateAdditionalOwner( Core:
         return {};
     }
     RuntimeReserveAllocationScope allocation( ReplayPredictionReserveOwner(), RuntimeReservePhase::Replay, result );
-    return std::make_unique<ReplayPrediction>( diagnostics, m_profiler );
+    auto additional = std::make_unique<ReplayPrediction>( diagnostics, m_profiler );
+    additional->m_sharesWorkingSetBudget = true;
+    return additional;
 }
 
 bool ReplayPrediction::PrepareVelocityMutationBaseline() noexcept

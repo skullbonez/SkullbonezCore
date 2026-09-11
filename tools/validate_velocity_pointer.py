@@ -151,10 +151,11 @@ def run(session: Path) -> None:
         generation = state()['predictionGeneration']
         send('input.pointer_drag', button='left', x=x, y=y, deltaX=0, deltaY=0, moveClient=True, holdMilliseconds=180)
         assert state()['predictionGeneration'] == generation, 'stationary click scheduled a prediction'
-        # Resume the cancelled comparison by changing the same handle once more.
-        (x, y), (dx, dy) = handle(True, 2)
-        send('input.pointer_drag', button='left', x=x, y=y, deltaX=-dx, deltaY=-dy, moveClient=True)
-        ready(lambda row: row['divergence']['redReady'])
+        stationary = ready(lambda row: row['divergence']['redReady'])
+        assert stationary['predictionComplete'] and not stationary['predictionDirty']
+        assert stationary['predictionGenerationPermitted']
+        assert stationary['predictionGeneration'] == generation
+        save('stationary-click-still-ready', stationary)
         send('replay.scrub', normalized=1.0)
         compared = state()
         blue = {row['id']: row for row in compared['divergence']['blueBodies']}
@@ -214,6 +215,24 @@ def run(session: Path) -> None:
         restarted = ready(lambda row: row['divergence']['redReady'])
         assert restarted['predictionGeneration'] == building['predictionGeneration'] + 1
         save('restarted-build', restarted)
+        # A press without movement must resume the interrupted generation too.
+        (x, y), (dx, dy) = handle(False, 0)
+        send('input.pointer_drag', button='left', x=x, y=y, deltaX=dx, deltaY=dy, moveClient=True)
+        building = state()
+        assert building['predictionBuilding']
+        before_stationary = body_state()['linearVelocity']
+        (x, y), _ = handle(False, 0)
+        request = connection.send('input.pointer_drag', dict(button='left', x=x, y=y,
+                                  deltaX=0, deltaY=0, moveClient=True, holdMilliseconds=1000))
+        time.sleep(.25)
+        interrupted = state()
+        assert not interrupted['predictionBuilding'] and not interrupted['predictionGenerationPermitted']
+        assert interrupted['predictionGeneration'] == building['predictionGeneration']
+        assert connection.wait(request)['status'] == 'applied'
+        restarted = ready(lambda row: row['divergence']['redReady'])
+        assert restarted['predictionGeneration'] == building['predictionGeneration'] + 1
+        assert body_state()['linearVelocity'] == before_stationary
+        save('stationary-release-resumes-build', restarted)
         vx, vy, vw, vh = ui_state()['viewport']
         send('input.pointer_drag', button='left', x=round(vx+vw*.85), y=round(vy+vh*.2), deltaX=0, deltaY=0, moveClient=True)
         assert not state()['divergence']['active']

@@ -2,7 +2,51 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Velocity XYZ editing, Original/Modified Solver Lab comparison and viewport picking/startup follow-up complete for PR #169. Owner authorized commit/push/PR update. Prior release fix is 83955e37e; approved provenance metadata is 5e9975e27. Portfolio 138/144 unchanged.
+Status: Dense Modified prediction completion fixed and validated for PR #169; Profile relink awaits closing the user-owned running game. Owner authorized commit/push/PR update. Prior release fix is 83955e37e; approved provenance metadata is 5e9975e27. Portfolio 138/144 unchanged.
+
+## Dense velocity prediction completion - 2026-09-11
+
+The 200-box `prediction_ragdoll_wall_200.scene.json` reproduced a completed
+2,401-frame modified simulation whose final path allocation was denied under
+the shared 960 MiB prediction budget. Its publication remained pending; the
+operator saw 99% or Modified not ready. Repeated edits could also exhaust the
+next frame bank while retaining superseded diagnostics.
+
+Creating the additional Prediction owner now releases only the original's
+unused evidence bank. The additional owner discards its superseded diagnostic
+banks after joining the worker at generation start and reserves dormant point
+storage for both trajectory banks before optional evidence capture. Original
+committed evidence and blue paths remain intact. Registration, hard cap,
+Replay-only growth and lazy second-owner allocation are unchanged.
+
+A stationary gizmo click no longer cancels a completed result. An interrupted
+worker resumes after a stationary release; initial unedited entry still starts
+no prediction. Planning retains that release decision; InputRouter remains the
+only input/capture owner.
+
+The focused acceptance session is `TestOutput/skarness/velocity-dense-final2/`:
+three 20-second edits, complete cause hierarchy, synchronized 212-object
+Original/Modified poses, stationary click, native Open in Solver Lab, tick-1200
+differences and native Accept Modified all pass. `tools/validate_velocity_dense_scene.py`
+reproduces this flow. `velocity-pointer-readiness-final/` passes native linear
+and angular XYZ drags, re-grab cancellation, one generation per changed release,
+stationary readiness, paired Solver Lab and scene cancellation. Before-fix
+artifacts are `velocity-ready-before/` and `velocity-ready-diagnostic2/`.
+Closure: Automation and the physics gate's Debug build passed. All 1,040 unit
+cases passed (3,484,301 assertions; one existing skip). The unchanged 200-box
+visual/causal/durable-artifact oracle and its negative controls passed. The staged
+physics worker matrix passed against the unchanged golden (fingerprint
+`f3aaf294b129`). The extended pointer session `velocity-pointer-stationary-final/`
+also proves stationary release resumes an interrupted worker with unchanged
+velocity. Compiler, dependency, proof and plain-language checks pass. Allocation
+self-tests pass; the optional full audit retains 80 pre-existing issues after
+six context refreshes and one capacity-checked path-reserve entry.
+
+Profile C++ compilation succeeded, but link could not replace the user-owned
+running `Profile/SKULLBONEZ_CORE.exe` (PID 29180). Permission to close it remains
+pending; it was not terminated. Automation and Debug contain the fix. Local
+review notes: `TestOutput/velocity-ready-review.md`; all closure logs use
+`TestOutput/velocity-ready-*`. No golden, scene fixture, or allocation cap changed.
 
 ## Velocity XYZ editing and Solver Lab - 2026-09-11
 

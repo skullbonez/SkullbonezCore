@@ -836,7 +836,7 @@ class ReplayPrediction
         (void)resultDiagnostics;
     }
     ~ReplayPrediction();
-    std::unique_ptr<ReplayPrediction> CreateAdditionalOwner( Core::SbDiagnosticStore& diagnostics ) const;
+    std::unique_ptr<ReplayPrediction> CreateAdditionalOwner( Core::SbDiagnosticStore& diagnostics );
 
     const RunReplayPredictionState& State() const noexcept
     {
@@ -1105,6 +1105,7 @@ class ReplayPrediction
     RunReplayPredictionState m_state;
     ReplayPredictionSolverEvidenceBanks m_solverEvidence;
     ReplayPredictionSolverEvidenceCaptureStats m_solverEvidenceCaptureStats;
+    bool m_sharesWorkingSetBudget = false;
     ReplayPredictionDetailMode m_detailMode = ReplayPredictionDetailMode::High;
 
     // Captured archive capability describes the loaded source, not retained

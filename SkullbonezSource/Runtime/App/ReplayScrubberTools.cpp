@@ -1408,12 +1408,30 @@ bool ReplayRuntime::TickVelocityEditing( const ReplayWorkspaceFrameInput& input,
                                                                    velocityInspectionCameraAction );
         if ( velocityResult.interaction.BeginGestureKind() == ReplayToolGestureKind::VelocityDrag )
         {
-            // A grab cancels even an unfinished worker slice before the next edit.
-            Prediction().CancelJob( false, true );
+            // Lifetime: retain a completed result across a stationary click.
+            // An unfinished generation is joined here and resumed on release,
+            // even when the user releases without changing the vector.
+            m_planningOwner.VelocityDivergence().resumePredictionAfterDrag = Prediction().GenerationPermitted();
+            if ( Prediction().State().build.building )
+            {
+                Prediction().CancelJob( false, true );
+            }
             Prediction().SetGenerationPermitted( false );
             m_planningOwner.VelocityDivergence().redReady = false;
             m_planningOwner.VelocityDivergence().playing = false;
             m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, SolverPresentTrackPosition() );
+        }
+        if ( velocityInput.gesture.kind == ReplayToolGestureKind::VelocityDrag && velocityResult.interaction.EndsGesture() )
+        {
+            if ( m_planningOwner.VelocityDivergence().resumePredictionAfterDrag )
+            {
+                Prediction().SetGenerationPermitted( true );
+                if ( !Prediction().ReadyForDeterministicReveal() )
+                {
+                    Prediction().MarkDirty();
+                }
+            }
+            m_planningOwner.VelocityDivergence().resumePredictionAfterDrag = false;
         }
         if ( velocityResult.cancelExperiment && AcceptVelocityDivergence( physics, false ) )
         {
