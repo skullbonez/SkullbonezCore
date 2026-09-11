@@ -77,6 +77,8 @@ bool ReplayRuntime::BeginVelocityDivergence( Physics::PhysicsEngine& physics )
     modified.ApplyDetailModeCommand( { settings.diagnostics.detailMode } );
     modified.SetHorizonSeconds( settings.controls.horizonSeconds );
     modified.SetRevealRatePreservingCursor( settings.controls.revealSecondsPerSecond );
+    // Allocation is approved on entry; simulation waits for an edited release.
+    modified.SetGenerationPermitted( false );
     modified.SetEnabled( true );
     m_bluePrediction = std::move( m_prediction );
     m_prediction = std::move( replacement );
@@ -182,6 +184,12 @@ void ReplayRuntime::TickVelocityDivergencePlayback( RuntimeInteractionController
 
 void ReplayRuntime::ClearVelocityDivergence()
 {
+    if ( m_bluePrediction )
+    {
+        // Scene replacement also ends an edit that has never been released.
+        // Restore the stock production policy before reusing the red owner.
+        Prediction().SetGenerationPermitted( m_bluePrediction->GenerationPermitted() );
+    }
     m_bluePrediction.reset();
     m_planningOwner.VelocityDivergence() = {};
 }

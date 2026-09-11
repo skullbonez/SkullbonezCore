@@ -427,6 +427,17 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SkullbonezCore::Core::SbDiagno
             return terrainResult;
         }
 
+        if ( renderFrame )
+        {
+            // TryCreateFromHeightMap records the initial mesh upload. Preparing
+            // editing replaces that mesh, so drain its references first.
+            const auto flushResult = renderFrame->FlushGPU();
+            if ( !flushResult.Ok() )
+            {
+                return flushResult;
+            }
+        }
+
         terrain->PrepareEditing();
         sceneWorld.ReplaceTerrain( std::move( terrain ), false );
     }

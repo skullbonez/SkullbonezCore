@@ -2,7 +2,54 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Four UI fixes committed in f8b3ef948; Modify Velocity divergence committed in 2bd78ef29; terrain editor committed in 098274d1e. Branch-wide adversarial review and corrective validation complete; review-fix commit prepared. Existing formatter work remains user-owned. Portfolio 138/144 unchanged.
+Status: Modify Velocity mouse editing repaired and closure checks complete; commit and PR #169 update prepared. Replay oracle provenance approval remains pending. Branch review is committed in be5e7a7a5 and formatting in 6e94df4e0. Portfolio 138/144 unchanged.
+
+## Modify Velocity mouse release fix - 2026-09-11
+
+The reported failure reproduced: merely enabling Modify Velocity completed a
+same-value red generation and the comparison draw path omitted velocity handles.
+App now renders those handles for both ordinary and comparison paths. The second
+owner remains allocated only on Modify Velocity, with generation forbidden until
+an edited release. Held linear/angular changes update the vector without starting
+prediction; a stationary press/release does nothing. Scene replacement restores
+the original generation policy even when an edit has never been released.
+
+The new native regression uses actual linear and angular handles, verifies held
+body velocities and unchanged generation, checks the highlighted arrow's pixels,
+and requires exactly one generation on release plus identity-matched divergent
+futures. Skarness now supports a bounded holdAfterMoveMilliseconds value so this
+state can be observed before the release frame. Both this regression and the
+existing complete divergence check run in validate_ui. The latter also verifies
+prediction resumes after replacing an unresolved, unedited comparison.
+
+PR #169's existing hosted Physics failure was a source-hash mismatch during UI
+shader initialization. text.hlsl and ui_render_target_preview.hlsl had been baked
+from local CRLF bytes, while Git stores/checks out LF. Rebaking from Git-equivalent
+LF changes only source/input hashes in the manifest; DXIL bytes and reflection
+are unchanged. All shader source/dependency hashes now match Git's exact bytes.
+No baseline or Physics setting is changed.
+
+The persistent scene matrix also exposed a terrain-load lifetime defect: RAW
+construction records an upload, then PrepareEditing replaces that vertex buffer
+before its command list is closed. UseDefaultTerrain now drains the initial
+upload before preparing editing. The native pointer regression also switches
+from flat terrain to at_rest and proves prediction resumes after that load.
+The original failed matrix process was stopped after a non-invasive stack and
+DX12 message capture identified OBJECT_DELETED_WHILE_STILL_IN_USE; the full
+matrix is rerun on the repaired build.
+
+Local evidence: TestOutput/velocity-pointer-final.log and its Skarness session,
+velocity-divergence-release.log, velocity-causal-release.log,
+velocity-scene-matrix.log, velocity-mouse-fast.log and velocity-shader-bake-final.log.
+Both the complete branch fast gate (184 sources / 1,589 contexts) and the final
+follow-up fast gate pass, with 1,036 unit tests. All 15 scene-matrix cases, native
+velocity/causal checks, the complete UI gate, the staged Physics matrix, DX12
+renderer and timed graphics stress pass. Replay has a provenance-only mismatch after the shader manifest fix;
+all 2,401 ticks, causal data and artifact checks match the unchanged oracle. A
+local two-hash candidate passes the comparator and all negative controls. Owner
+approval was requested under AGENTS.md before applying it. The candidate and
+old/new hash evidence are in TestOutput/velocity-provenance-candidate/changes.json.
+Terminal results are in TestOutput/velocity-release-validation.json.
 
 ## Branch adversarial review - 2026-09-11
 

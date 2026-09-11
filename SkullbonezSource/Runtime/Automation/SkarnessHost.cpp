@@ -1161,8 +1161,10 @@ void SkarnessHost::ConsumeRequestLine( const std::string& line )
         const bool validClientMotion = !arguments.contains( "moveClient" ) || ReadBoolean( arguments, "moveClient", drag.moveClient );
         const bool validHold = !arguments.contains( "holdMilliseconds" ) ||
                                ( ReadInteger( arguments, "holdMilliseconds", drag.holdMilliseconds ) && drag.holdMilliseconds >= 0 && drag.holdMilliseconds <= 2000 );
-        const bool bounded = validHold && validClientMotion && drag.clientX >= 0 && drag.clientX <= 65535 && drag.clientY >= 0 && drag.clientY <= 65535 && std::abs( drag.deltaX ) <= 4096 &&
-                             std::abs( drag.deltaY ) <= 4096;
+        const bool validMovedHold = !arguments.contains( "holdAfterMoveMilliseconds" ) || ( ReadInteger( arguments, "holdAfterMoveMilliseconds", drag.holdAfterMoveMilliseconds ) &&
+                                                                                            drag.holdAfterMoveMilliseconds >= 0 && drag.holdAfterMoveMilliseconds <= 2000 );
+        const bool bounded = validHold && validMovedHold && validClientMotion && drag.clientX >= 0 && drag.clientX <= 65535 && drag.clientY >= 0 && drag.clientY <= 65535 &&
+                             std::abs( drag.deltaX ) <= 4096 && std::abs( drag.deltaY ) <= 4096;
 
         if ( buttonName == "left" )
         {
@@ -1455,6 +1457,14 @@ bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
         outFrame.clientY += m_pendingPointerDrag.deltaY;
     }
 
+    // Observe the edited position while the button remains down, before the
+    // release edge. Existing holdMilliseconds still holds before movement.
+    if ( m_pendingPointerDrag.phase == 2 && pointerNow < m_pendingPointerDrag.holdUntil )
+    {
+        outFrame.buttonDown = true;
+        return true;
+    }
+
     if ( m_pendingPointerDrag.phase == 0 )
     {
         m_pendingPointerDrag.holdUntil = pointerNow + static_cast<double>( m_pendingPointerDrag.holdMilliseconds ) / 1000.0;
@@ -1468,6 +1478,7 @@ bool SkarnessHost::TakePointerInputFrame( SkarnessPointerInputFrame& outFrame )
         outFrame.buttonDown = true;
         outFrame.rawMouseX = m_pendingPointerDrag.deltaX;
         outFrame.rawMouseY = m_pendingPointerDrag.deltaY;
+        m_pendingPointerDrag.holdUntil = pointerNow + static_cast<double>( m_pendingPointerDrag.holdAfterMoveMilliseconds ) / 1000.0;
         ++m_pendingPointerDrag.phase;
     }
     else

@@ -342,7 +342,7 @@ inline constexpr std::array SKARNESS_CAPABILITIES = { SkarnessCapability { "edit
                                                       SkarnessCapability { "input.pointer_wheel", "Input", "{x:int,y:int,wheelDelta:int}", SkarnessCapabilityAvailability::AutomatedInputOnly },
                                                       SkarnessCapability { "input.pointer_drag",
                          "Input",
-                         "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int,moveClient?:bool,holdMilliseconds?:" "int}",
+                         "{button:left|right|middle,x:int,y:int,deltaX:int,deltaY:int,moveClient?:bool,holdMilliseconds?:" "int,holdAfterMoveMilliseconds?:int}",
                          SkarnessCapabilityAvailability::AutomatedInputOnly }, };
 
 struct SkarnessProceedPolicy

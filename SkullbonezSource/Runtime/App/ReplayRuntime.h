@@ -919,6 +919,7 @@ class ReplayRuntime
 
     // Appends replay-owned records after RuntimeTools has rebuilt the shared
     // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.
+    void AppendVelocityGizmo( Physics::PhysicsEngine& physics, EditorTracer& tracer, const ReplayOverlayBuildInput& input );
     void AppendOverlayTrace( Physics::PhysicsEngine& physics,
                              const SceneEntityStore& entities,
                              EditorTracer& tracer,

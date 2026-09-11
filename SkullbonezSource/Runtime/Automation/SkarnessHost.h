@@ -122,6 +122,7 @@ class SkarnessHost
         std::string requestId;
         bool moveClient = false;
         int holdMilliseconds = 0;
+        int holdAfterMoveMilliseconds = 0;
         double holdUntil = 0.0;
         int wheelDelta = 0;
         int clientX = 0;

@@ -891,6 +891,26 @@ void ReplayRuntime::PublishRestoreDiagnostic( const ReplayRestoreTransaction& tr
 #endif
 
 
+void ReplayRuntime::AppendVelocityGizmo( PhysicsEngine& physics, EditorTracer& tracer, const ReplayOverlayBuildInput& input )
+{
+    const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
+    ReplayVelocityOverlayCommand velocityOverlay;
+
+    if ( m_authoring.BuildVelocityOverlayCommand( path.targetId, path.targetModelRow, physics, input.editorModeEnabled, input.gesture, velocityOverlay ) )
+    {
+        tracer.AddReplayVelocityGizmo( velocityOverlay.origin,
+                                       velocityOverlay.orientation,
+                                       velocityOverlay.shape,
+                                       velocityOverlay.radius,
+                                       velocityOverlay.linearVelocity,
+                                       velocityOverlay.angularVelocity,
+                                       velocityOverlay.hotLinearAxis,
+                                       velocityOverlay.hotAngularAxis,
+                                       velocityOverlay.activeAxis,
+                                       velocityOverlay.activeAngular );
+    }
+}
+
 void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
                                         const SceneEntityStore& entities,
                                         EditorTracer& tracer,
@@ -918,22 +938,7 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
         m_predictionPresentation.RenderCauseFocusOverlay( m_visualPresentation.CameraView(), m_authoring.CauseTree(), prediction, currentSolverSample, bodyStore, colliderStore, entities, tracer );
     }
 
-    const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
-    ReplayVelocityOverlayCommand velocityOverlay;
-
-    if ( m_authoring.BuildVelocityOverlayCommand( path.targetId, path.targetModelRow, physics, input.editorModeEnabled, input.gesture, velocityOverlay ) )
-    {
-        tracer.AddReplayVelocityGizmo( velocityOverlay.origin,
-                                       velocityOverlay.orientation,
-                                       velocityOverlay.shape,
-                                       velocityOverlay.radius,
-                                       velocityOverlay.linearVelocity,
-                                       velocityOverlay.angularVelocity,
-                                       velocityOverlay.hotLinearAxis,
-                                       velocityOverlay.hotAngularAxis,
-                                       velocityOverlay.activeAxis,
-                                       velocityOverlay.activeAngular );
-    }
+    AppendVelocityGizmo( physics, tracer, input );
 
     const ReplayInterceptView intercept = m_planningOwner.InterceptView();
 
@@ -1404,6 +1409,8 @@ void ReplayRuntime::PrepareRenderOverlay( PhysicsEngine& physics,
     {
         const auto blue = m_bluePrediction->PresentationView();
         m_predictionPresentation.PrepareDivergenceGeometry( prediction, blue, trajectoryAppearance );
+        // Comparison paths do not replace the authoring handles.
+        AppendVelocityGizmo( physics, tracer, { editorModeEnabled, ProjectReplayToolGesture( gesture ), sceneFrame } );
         if ( m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ) < SolverPresentTrackPosition() )
         {
             // Both futures begin at the edit seed. A historical cursor has no
@@ -1535,8 +1542,15 @@ void ReplayRuntime::ApplyAuthoringPredictionRequest()
     if ( m_planningOwner.VelocityDivergence().active )
     {
         request.prepareVelocityMutationBaseline = false;
+        if ( request.updateVelocityPreview )
+        {
+            Prediction().SetGenerationPermitted( false );
+        }
         if ( request.finishVelocityPreview )
         {
+            // Only a completed edit releases the replacement producer. Enabling
+            // Modify Velocity or pressing a handle is not an edited seed.
+            Prediction().SetGenerationPermitted( true );
             request.enablePrediction = true;
         }
         if ( request.updateVelocityPreview || request.refreshPrediction )
@@ -2390,7 +2404,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     // Concept: the composition root samples owner values, then prediction
     // advances without a ReplayRuntime reach-back. Its value-only result is
     // applied after the worker/publication transition returns.
-    if ( m_planningOwner.VelocityDivergence().active && m_authoring.VelocityEdit().dragChanged )
+    if ( m_planningOwner.VelocityDivergence().active && ( !Prediction().GenerationPermitted() || m_authoring.VelocityEdit().dragChanged ) )
     {
         // A held vector is provisional; publish the complete red simulation
         // after release rather than an intermediate velocity sample.

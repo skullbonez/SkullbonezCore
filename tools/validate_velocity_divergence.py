@@ -190,6 +190,13 @@ def run(session: Path, executable: Path) -> None:
         cleared = state()
         assert cleared["divergence"]["allocatedOwnerBytes"] == 0
         snapshot("scene-reset", cleared)
+        send("replay.set_prediction_horizon", seconds=3)
+        send("prediction.select_target", name="path_striker")
+        send("replay.set_prediction_enabled", enabled=True)
+        resumed = ready(lambda row: row["predictionComplete"])
+        assert resumed["predictionGenerationPermitted"]
+        assert resumed["publishedPredictionTargetId"] == 6
+        snapshot("prediction-after-unedited-reset", resumed)
     finally:
         try:
             send("session.stop")
