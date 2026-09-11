@@ -133,7 +133,7 @@ def run(output: Path, executable: Path) -> None:
     if exit_result["exitCode"] != 0:
         raise ValueError(f"Prediction capture did not shut down cleanly: {exit_result}")
     # A passing artifact is published only after the owned producer has stopped
-    # and its identity is checked; failed shutdown must not leave a false pass.
+    # and its identity is checked; a shutdown failure must not publish a passing report.
     report["processExit"] = exit_result
     write_json(output / "report.json", report)
 

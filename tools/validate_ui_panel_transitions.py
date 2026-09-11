@@ -115,7 +115,7 @@ def run(directory: Path, theme: int = 0) -> None:
         clock(start+.2)
         ui=sample('tools-closed')
         expect(ui,4,0)
-        # Both diagnostics use the same easing, and Tools retires both at once.
+        # Diagnostic visibility remains independent while the Tools drawer opens.
         start=now+1
         clock(start)
         key(0x74)
@@ -131,26 +131,24 @@ def run(directory: Path, theme: int = 0) -> None:
         clock(now+1)
         start=now
         click(ui['replayDetailsBounds'])
-        sample('tools-retires-diagnostics')
+        sample('tools-keeps-diagnostics')
         clock(start+.08)
-        ui=sample('diagnostics-retiring')
-        expect(ui,5,.875)
-        expect(ui,6,.875)
+        ui=sample('diagnostics-retained')
+        expect(ui,5,1)
+        expect(ui,6,1)
         expect(ui,4,.875)
         capture('tools-and-diagnostics')
         clock(start+.2)
-        ui=sample('tools-replaced-diagnostics')
-        expect(ui,5,0)
-        expect(ui,6,0)
+        ui=sample('tools-beside-diagnostics')
+        expect(ui,5,1)
+        expect(ui,6,1)
         # Texture previews must blend with the same opacity as their frame and labels.
         click([14+(ui['window'][0]-28)*6/11, ui['drawerBounds'][1]+54,
                (ui['window'][0]-28)/11, 24])
         ui=sample('targets-open')
         assert ui['activeTool']==6
         capture('targets-open')
-        key(0x74)
-        key(0x75)
-        ui=sample('diagnostics-reopened-over-tools')
+        ui=sample('diagnostics-retained-over-tools')
         assert ui['markerHistoryVisible'] and ui['memoryWaterlineVisible']
         clock(now+1)
         sample('diagnostics-restored-settled')

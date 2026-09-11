@@ -123,21 +123,16 @@ struct ReplayCauseSolverDetailResult
 // Builds an allocation-free borrowed view over one stamped diagnostics frame.
 // The source spans must outlive use of the returned value and are never retained
 // by ReplayCauseInspection.
-ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCauseTreeRow& row,
-                                                               const ReplayCauseSeekResult& seek,
-                                                               const ReplayCauseSolverDetailSource& source ) noexcept;
+ReplayCauseSolverDetailResult EvaluateReplayCauseSolverDetail( const RunReplayCauseTreeRow& row, const ReplayCauseSeekResult& seek, const ReplayCauseSolverDetailSource& source ) noexcept;
 
 // Projects exact-frame solver values into an owned, feature-neutral Rendering
 // packet. Patches above the generic Rendering capacity publish the bounded
 // prefix with `truncated`; an empty packet means frame/body evidence could not
 // be proven without reconstructing discarded source evidence.
-Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail,
-                                                                            const ReplaySolverFrameSample& sample ) noexcept;
-Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail,
-                                                                            const RunReplayPredictionFrame& frame ) noexcept;
+Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail, const ReplaySolverFrameSample& sample ) noexcept;
+Rendering::ContactManifoldPresentation BuildReplayCauseContactPresentation( const ReplayCauseSolverDetailResult& detail, const RunReplayPredictionFrame& frame ) noexcept;
 
-ReplayCauseSeekResult EvaluateReplayCauseSeek( const RunReplayCauseTreeRow& row, const ReplayRecorderStats& solverStats,
-                                               std::span<const RunReplayPredictionFrame> predictionFrames ) noexcept;
+ReplayCauseSeekResult EvaluateReplayCauseSeek( const RunReplayCauseTreeRow& row, const ReplayRecorderStats& solverStats, std::span<const RunReplayPredictionFrame> predictionFrames ) noexcept;
 
 enum class ReplayCauseInspectionMode : uint8_t
 {
@@ -203,8 +198,7 @@ struct ReplayCauseObjectDetails
 
 struct ReplayCauseSolverDetailView
 {
-    ReplayCauseSolverDetailAvailability
-        solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
+    ReplayCauseSolverDetailAvailability solverDetailAvailability = ReplayCauseSolverDetailAvailability::SolverDetailNotAvailable;
     std::size_t solverDetailContactRowCount = 0;
     std::size_t solverDetailPipelineRecordCount = 0;
     std::span<const Physics::PhysicsSolverPersistentContactSample> solverDetailContacts;
@@ -236,15 +230,11 @@ struct ReplayCauseDisplayView
     bool sharedShell = false;
 };
 
-struct ReplayCauseInspectionView : ReplayCauseTransportView,
-                                   ReplayCauseSelectionView,
-                                   ReplayCauseSolverDetailView,
-                                   ReplayCauseDisplayView
+struct ReplayCauseInspectionView : ReplayCauseTransportView, ReplayCauseSelectionView, ReplayCauseSolverDetailView, ReplayCauseDisplayView
 {
     bool HasVisibleContactGeometry() const noexcept
     {
-        return ( mode == ReplayCauseInspectionMode::Transporting || mode == ReplayCauseInspectionMode::DetailPaused ||
-                 mode == ReplayCauseInspectionMode::AftermathFollow ) &&
+        return ( mode == ReplayCauseInspectionMode::Transporting || mode == ReplayCauseInspectionMode::DetailPaused || mode == ReplayCauseInspectionMode::AftermathFollow ) &&
                contactPresentation.HasGeometry();
     }
 
@@ -312,8 +302,7 @@ struct ReplayCauseInspectionRecordingState
 // These host-decision seams keep keyboard and pointer mapping testable while
 // ReplayCauseInspection remains the sole retained transition owner.
 bool ShouldBeginReplayCauseAftermath( const ReplayCauseTransportView& transport, bool spaceDown ) noexcept;
-bool ShouldBeginReplayCauseReturn( const ReplayCauseTransportView& transport, bool nonSelectionClick,
-                                   bool scrubExit ) noexcept;
+bool ShouldBeginReplayCauseReturn( const ReplayCauseTransportView& transport, bool nonSelectionClick, bool scrubExit ) noexcept;
 constexpr bool ReplayCauseInspectionOwnsCamera( ReplayCauseInspectionMode mode ) noexcept
 {
     return mode != ReplayCauseInspectionMode::Inactive;
@@ -342,13 +331,10 @@ inline constexpr float REPLAY_CAUSE_RAW_RECORD_ROW_HEIGHT = 30.0f;
 inline constexpr float REPLAY_CAUSE_RAW_RECORD_COPY_HEIGHT = 28.0f;
 inline constexpr float REPLAY_CAUSE_SOLVER_PANEL_OPACITY = 0.97f;
 inline constexpr int REPLAY_CAUSE_SOLVER_PANEL_ITERATIONS_PER_LINE = 4;
-inline constexpr const char*
-    REPLAY_CAUSE_SOLVER_PANEL_UNITS = "UNITS: vectors/penetration/correction = scene units; bias/linear writeback = u/s;";
-inline constexpr const char*
-    REPLAY_CAUSE_SOLVER_PANEL_UNITS_MORE = "angular = rad/s; impulses = mass*u/s; effective masses = mass.";
+inline constexpr const char* REPLAY_CAUSE_SOLVER_PANEL_UNITS = "UNITS: vectors/penetration/correction = scene units; bias/linear writeback = u/s;";
+inline constexpr const char* REPLAY_CAUSE_SOLVER_PANEL_UNITS_MORE = "angular = rad/s; impulses = mass*u/s; effective masses = mass.";
 inline constexpr const char* REPLAY_CAUSE_SOLVER_PANEL_SIGNS = "SIGNS: +penetration = overlap; normal/t1/t2 = world-space;";
-inline constexpr const char*
-    REPLAY_CAUSE_SOLVER_PANEL_SIGNS_MORE = "signed accT1/accT2 follow t1/t2; CLAMP = frictionLimit reached.";
+inline constexpr const char* REPLAY_CAUSE_SOLVER_PANEL_SIGNS_MORE = "signed accT1/accT2 follow t1/t2; CLAMP = frictionLimit reached.";
 
 struct ReplayCauseSolverPanelRowText
 {
@@ -472,18 +458,21 @@ struct ReplayCauseInspectorLayout
 };
 
 // Drawing and pointer routing share the same section geometry and scroll cap.
-UI::UIRect ReplayCauseSummarySectionRect( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display,
-                                          int section ) noexcept;
+UI::UIRect ReplayCauseSummarySectionRect( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display, int section ) noexcept;
 int ReplayCauseSummaryMaxScroll( const ReplayCauseInspectorLayout& layout, const ReplayCauseDisplayView& display ) noexcept;
 
 // Concept: one projection describes both retained Replay placement and the
 // Planning-owned attached drawer. `drawerProgress` is already eased; CHUI3's
 // lifecycle supplies it without adding a second placement owner.
-ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseSolverDetailView& solverDetail,
-                                                            const RunReplayCauseTreeState& causeTree, int screenWidth,
-                                                            int screenHeight, float drawerProgress,
-                                                            const UI::UIRect& shellBounds = {},
-                                                            const UI::UIRect& shellViewport = {} ) noexcept;
+ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout(
+    const ReplayCauseSolverDetailView& solverDetail,
+    const RunReplayCauseTreeState& causeTree,
+    int screenWidth,
+    int screenHeight,
+    float drawerProgress,
+    const UI::UIRect& shellBounds = {},
+    const UI::UIRect& shellViewport = {}
+) noexcept;
 inline constexpr float REPLAY_CAUSE_SHELL_MIN_CONTENT_HEIGHT = 340.0f;
 inline UI::UIRect ReplayCauseShellContentBounds( const ReplayCauseDisplayView& display ) noexcept
 {
@@ -496,32 +485,28 @@ inline UI::UIRect ReplayCauseShellContentBounds( const ReplayCauseDisplayView& d
     return bounds;
 }
 
-inline ReplayCauseInspectorLayout BuildReplayCauseInspectorLayout( const ReplayCauseInspectionView& inspection,
-                                                                   const RunReplayCauseTreeState& causeTree, int screenWidth,
-                                                                   int screenHeight, float drawerProgress ) noexcept
+inline ReplayCauseInspectorLayout
+BuildReplayCauseInspectorLayout( const ReplayCauseInspectionView& inspection, const RunReplayCauseTreeState& causeTree, int screenWidth, int screenHeight, float drawerProgress ) noexcept
 {
-    return BuildReplayCauseInspectorLayout( inspection.SolverDetail(), causeTree, screenWidth, screenHeight,
-                                            inspection.Display().sharedShell
-                                                ? ( inspection.Display().drawerOpen ? 1.0f : 0.0f )
-                                                : drawerProgress,
-                                            ReplayCauseShellContentBounds( inspection.Display() ),
-                                            inspection.Display().shellViewport );
+    return BuildReplayCauseInspectorLayout(
+        inspection.SolverDetail(),
+        causeTree,
+        screenWidth,
+        screenHeight,
+        inspection.Display().sharedShell ? ( inspection.Display().drawerOpen ? 1.0f : 0.0f ) : drawerProgress,
+        ReplayCauseShellContentBounds( inspection.Display() ),
+        inspection.Display().shellViewport
+    );
 }
 bool ReplayCauseInspectorContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
 bool ReplayCauseInspectorDrawerTitleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
 bool ReplayCauseInspectorToggleContainsPoint( const ReplayCauseInspectorLayout& layout, int x, int y ) noexcept;
-int ReplayCauseSolverDetailIterationCount( const ReplayCauseSolverDetailView& solverDetail,
-                                           std::size_t contactRow ) noexcept;
-ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseSolverDetailView& solverDetail,
-                                                                  int rowIndex ) noexcept;
+int ReplayCauseSolverDetailIterationCount( const ReplayCauseSolverDetailView& solverDetail, std::size_t contactRow ) noexcept;
+ReplayCauseSolverPanelRowText BuildReplayCauseSolverPanelRowText( const ReplayCauseSolverDetailView& solverDetail, int rowIndex ) noexcept;
 ReplayCauseSummaryText BuildReplayCauseSummaryText( const ReplayCauseSolverDetailView& solverDetail, int rowIndex ) noexcept;
-ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const ReplayCauseSolverDetailView& solverDetail,
-                                                                    const ReplayCauseTransportView& transport,
-                                                                    int rowIndex ) noexcept;
-ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const ReplayCauseSolverDetailView& solverDetail,
-                                                                      int rowIndex ) noexcept;
-bool SerializeReplayCauseRawRecord( const ReplayCauseRawRecordProjection& projection, char* destination,
-                                    std::size_t destinationCapacity ) noexcept;
+ReplayCauseRawRecordProjection BuildReplayCauseRawRecordProjection( const ReplayCauseSolverDetailView& solverDetail, const ReplayCauseTransportView& transport, int rowIndex ) noexcept;
+ReplayCauseIterationsProjection BuildReplayCauseIterationsProjection( const ReplayCauseSolverDetailView& solverDetail, int rowIndex ) noexcept;
+bool SerializeReplayCauseRawRecord( const ReplayCauseRawRecordProjection& projection, char* destination, std::size_t destinationCapacity ) noexcept;
 
 struct ReplayCauseExitAction
 {
@@ -532,30 +517,39 @@ struct ReplayCauseExitAction
 class ReplayCauseInspection
 {
   public:
-    bool Select( int rowIndex, const ReplayCauseSeekResult& seek, ReplayFrameIndex presentedFrame,
-                 bool simulationAlreadyPaused, double nowSeconds ) noexcept;
+    bool Select( int rowIndex, const ReplayCauseSeekResult& seek, ReplayFrameIndex presentedFrame, bool simulationAlreadyPaused, double nowSeconds ) noexcept;
     void Advance( double nowSeconds ) noexcept;
-    void AdvancePredictionPlayback( std::span<const RunReplayPredictionFrame> frames, int direction,
-                                    double nowSeconds ) noexcept;
+    bool SeekPredictionPlayback( std::span<const RunReplayPredictionFrame> frames, float normalized, double nowSeconds ) noexcept;
+    void AdvancePredictionPlayback( std::span<const RunReplayPredictionFrame> frames, int direction, double nowSeconds ) noexcept;
     bool TakeTransportRequest( ReplayCauseTransportRequest& outRequest ) noexcept;
-    void PublishSolverDetail( uint64_t generation, const ReplayCauseSolverDetailResult& detail,
-                              const Rendering::ContactManifoldPresentation& contactPresentation = {},
-                              const std::array<ReplayCauseObjectDetails, 2>& objects = {} ) noexcept;
+    void PublishSolverDetail(
+        uint64_t generation,
+        const ReplayCauseSolverDetailResult& detail,
+        const Rendering::ContactManifoldPresentation& contactPresentation = {},
+        const std::array<ReplayCauseObjectDetails, 2>& objects = {}
+    ) noexcept;
     void CompleteTransport( uint64_t generation, bool succeeded ) noexcept;
     bool BeginAftermath( bool& outReleasePause ) noexcept;
     ReplayCauseExitAction BeginReturn() noexcept;
     void CompleteReturn() noexcept;
-    void RestoreInteractionRecordingBaseline( const ReplayCauseInspectionRecordingState& baseline,
-                                              double nowSeconds ) noexcept;
+    void RestoreInteractionRecordingBaseline( const ReplayCauseInspectionRecordingState& baseline, double nowSeconds ) noexcept;
     void SetDrawerOpen( bool open, double nowSeconds ) noexcept;
     void SetShellPresentation( bool enabled, const UI::UIRect& bounds, const UI::UIRect& viewport = {} ) noexcept;
     void SetActiveTab( ReplayCauseInspectorTab tab ) noexcept;
     void SetSummaryExpandedSections( int section ) noexcept;
     bool CopySelectedRecord( char* destination, std::size_t destinationCapacity ) const noexcept;
-    bool TickSolverDetailPanelInput( const RunReplayCauseTreeState& causeTree, int mouseX, int mouseY,
-                                     bool hasClientPosition, bool pointerBlocked, bool leftPressed, int wheelDelta,
-                                     int screenWidth, int screenHeight,
-                                     ReplayCauseInspectorCommand* outCommand = nullptr ) noexcept;
+    bool TickSolverDetailPanelInput(
+        const RunReplayCauseTreeState& causeTree,
+        int mouseX,
+        int mouseY,
+        bool hasClientPosition,
+        bool pointerBlocked,
+        bool leftPressed,
+        int wheelDelta,
+        int screenWidth,
+        int screenHeight,
+        ReplayCauseInspectorCommand* outCommand = nullptr
+    ) noexcept;
     void Reset() noexcept;
     ReplayCauseInspectionView View() const noexcept;
 
@@ -570,8 +564,7 @@ class ReplayCauseInspection
     // Lifetime: these fixed arrays detach exact-frame evidence before Replay
     // restore can retire its ring. They never grow and their spans remain valid
     // until the next selection or reset.
-    std::array<Physics::PhysicsSolverPersistentContactSample, Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY>
-        m_solverDetailContacts {};
+    std::array<Physics::PhysicsSolverPersistentContactSample, Rendering::CONTACT_MANIFOLD_PRESENTATION_POINT_CAPACITY> m_solverDetailContacts {};
     std::array<Physics::PhysicsPipelineRecord, Physics::PHYSICS_MAX_PIPELINE_TRACE_RECORDS> m_solverDetailPipelineRecords {};
     double m_startedAtSeconds = 0.0;
     double m_lastAdvanceSeconds = 0.0;
@@ -589,6 +582,5 @@ class ReplayCauseInspection
 
 // Pure transition helpers keep cadence and integer rounding independently testable.
 float EvaluateReplayCauseTransitionProgress( double elapsedSeconds ) noexcept;
-ReplayFrameIndex EvaluateReplayCauseTransitionFrame( ReplayFrameIndex sourceFrame, ReplayFrameIndex targetFrame,
-                                                     float easedProgress ) noexcept;
+ReplayFrameIndex EvaluateReplayCauseTransitionFrame( ReplayFrameIndex sourceFrame, ReplayFrameIndex targetFrame, float easedProgress ) noexcept;
 } // namespace SkullbonezCore::Runtime

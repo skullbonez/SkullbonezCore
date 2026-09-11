@@ -161,9 +161,10 @@ struct UIProfilerTabState
     bool histogramBucketOpen = false;
     float histogramAxisMs = 33.3f;                       // Default F5 frame-total CPU scale: 0..33.3ms.
     double histogramAverageTextLastUpdateSeconds = -1.0; // Runtime seconds; -1 = footer average not latched yet.
-    float histogramAverageCpuMs = 0.0f;    // Latched selected-marker footer average refreshed on a 0.5s cadence.
-    float histogramAverageWorkerMs = 0.0f; // Latched worker-core footer average for Frame Total.
+    float histogramAverageCpuMs = 0.0f;                  // Latched selected-marker footer average refreshed on a 0.5s cadence.
+    float histogramAverageWorkerMs = 0.0f;               // Latched worker-core footer average for Frame Total.
     bool histogramPanelInitialized = false;
+    UIRect histogramViewport;
     float histogramPanelX = 16.0f;
     float histogramPanelY = 16.0f;
     float histogramPanelW = 340.0f;
@@ -208,21 +209,38 @@ void ApplyDefaultExpansion( UIProfilerTabState& state );
 void ApplyExpandAll( UIProfilerTabState& state );
 
 int ContentHeight( const UIProfilerTabState& state );
-bool HandleContentClick( UIProfilerTabState& state, InGameUIInputResult& result, int& activeSlider, int contentX,
-                         int contentY, float contentW, float scrollY, int mouseX, int mouseY, int currentWorkerThreads,
-                         int maxWorkerThreads );
-bool UpdateActiveSlider( UIProfilerTabState& state, int activeSlider, int mouseX, int maxWorkerThreads,
-                         InGameUIInputResult& result );
+bool HandleContentClick(
+    UIProfilerTabState& state,
+    InGameUIInputResult& result,
+    int& activeSlider,
+    int contentX,
+    int contentY,
+    float contentW,
+    float scrollY,
+    int mouseX,
+    int mouseY,
+    int currentWorkerThreads,
+    int maxWorkerThreads
+);
+bool UpdateActiveSlider( UIProfilerTabState& state, int activeSlider, int mouseX, int maxWorkerThreads, InGameUIInputResult& result );
 bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIInputResult& result );
 
-bool HandlePerformanceHistogramInput( UIProfilerTabState& state, InGameUIInputResult& result, int screenW, int screenH,
-                                      int mouseX, int mouseY, bool leftDown, bool leftPressed, bool leftReleased,
-                                      int wheelDelta );
+bool HandlePerformanceHistogramInput(
+    UIProfilerTabState& state,
+    InGameUIInputResult& result,
+    int screenW,
+    int screenH,
+    int mouseX,
+    int mouseY,
+    bool leftDown,
+    bool leftPressed,
+    bool leftReleased,
+    int wheelDelta
+);
 void PushPerformanceHistogramSample( UIProfilerTabState& state, const UIProfilerTabFrameView& data );
 void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data );
 
-void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data, float contentX,
-           float contentY, float contentW, float contentH, float scrollY, int activeSlider );
+void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const UIProfilerTabFrameView& data, float contentX, float contentY, float contentW, float contentH, float scrollY, int activeSlider );
 
 } // namespace ProfilerTab
 } // namespace UI

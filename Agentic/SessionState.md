@@ -2,7 +2,37 @@
 
 Date: 2026-09-11
 Branch: `codex/unified-ui`
-Status: Ragdoll FP8/FP9 committed at 10/10; sleep investigation complete; push approval pending; portfolio 138/144. Unified UI remains complete at 8/8.
+Status: Four requested UI fixes implemented and validated; local changes await commit. Existing formatter work remains user-owned. Portfolio 138/144 unchanged.
+
+## Four UI fixes - 2026-09-11
+
+Implemented viewport-constrained, independent F5/F6 windows that remain visible
+when Tools opens; causal timeline click/drag updates presentation while retaining
+the selected event, evidence and inspection camera; held causal arrows run at
+0.3x instead of 0.1x while taps remain one tick; sleeping bodies show only purple
+sleep markers rather than also displaying green support rings.
+
+Validation: 1,029 tests / 3,484,356 assertions pass; 15-source / 114-context
+compiler checks have zero findings; fast preflight passes; full 2,401-tick replay
+fidelity and negative controls pass. Native floating-window, causal click/drag,
+Tools, independent side-panel and animation checks pass. The sleep-only capture
+binds all 20 ragdoll bodies asleep at tick 720; the body-region screenshot has
+5,244 purple pixels and zero green pixels. The fixed floor retains its separate
+support ring. This changes indicators, not Physics sleeping behavior.
+
+The UI suite reaches its screenshot checker but fails two existing legacy
+window guards (controls_bottom and min_size). Both failures reproduce using the
+saved pre-change Profile executable 2386e9e3 in isolated output directories.
+No visual or Physics baseline was changed. Full results, native sessions,
+producer hashes and prior-build comparison are in
+`TestOutput/ui-four-fixes/validation.json`.
+
+Task changes are uncommitted. Do not stage the concurrent user-owned formatter
+changes (.clang-format, formatting scripts/hooks, style guide and tools README).
+A one-line comment wording correction in validate_ragdoll_prediction_generations.py
+repairs an existing plain-language gate failure. The earlier push status below
+is historical; this task did not push or commit anything.
+
 
 ## Ragdoll sleep investigation — 2026-09-11
 

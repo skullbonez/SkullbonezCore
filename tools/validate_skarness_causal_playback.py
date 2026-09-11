@@ -331,6 +331,28 @@ def verify_inspector_controls(connection: SkarnessConnection, session: Path) -> 
     send("capture.screenshot", path=str((session / "inspector-controls.png").resolve()))
 
 
+def verify_timeline_drag(send, state, session: Path) -> None:
+    """A captured timeline gesture changes time without replacing causal selection."""
+    before = state("timeline-before")
+    latest = latest_gate_state(session)
+    x, y, width, height = latest["ui.presentation"]["transportBounds"]
+    inset = min(72, width * 0.22)
+    track_x, track_width = x + inset, max(1, width - inset - 12)
+    send("input.pointer_drag", button="left", x=int(track_x + track_width * 0.45), y=int(y + height / 2),
+         deltaX=int(track_width * 0.25), deltaY=0, moveClient=True)
+    after = state("timeline-after")
+    assert after["causePresentedFrame"] != before["causePresentedFrame"], (before, after)
+    for key in ("causeInspectionMode", "selectedCauseRow", "causeTargetFrame", "selectedCausePrimaryId", "inspectionCameraFocusKind", "predictionGeneration"):
+        assert after[key] == before[key], (key, before[key], after[key])
+    send("input.pointer_drag", button="left", x=int(track_x + track_width * 0.25), y=int(y + height / 2),
+         deltaX=0, deltaY=0)
+    clicked = state("timeline-clicked")
+    assert clicked["causePresentedFrame"] < after["causePresentedFrame"]
+    for key in ("causeInspectionMode", "selectedCauseRow", "causeTargetFrame", "selectedCausePrimaryId", "inspectionCameraFocusKind", "predictionGeneration"):
+        assert clicked[key] == before[key], (key, before[key], clicked[key])
+    send("capture.screenshot", path=str((session / "timeline-drag.png").resolve()))
+
+
 def run(session: Path, executable: Path) -> None:
     scene = REPO / "SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json"
     if launch(session, executable, scene, hidden=True) != 0:
@@ -378,6 +400,9 @@ def run(session: Path, executable: Path) -> None:
         before = state("selected")
         assert before["inspectionCameraFocusKind"] == 2
         assert before["selectedCausePrimaryId"] == 1
+        verify_timeline_drag(send, state, session)
+        send("replay.select_cause_row", row=2)
+        send("run.until", condition="camera.inspection_settled", maxFrames=1000)
         verify_manifold_flash(connection, session)
         # Restore the chosen event before checking the established camera path.
         send("replay.select_cause_row", row=2)

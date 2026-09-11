@@ -115,8 +115,8 @@ def run(directory: Path, theme: int) -> None:
         ui=sample('memory-drag-after-overlap')
         assert abs(ui['memoryWaterlineBounds'][0]-memory[0]-420)<2
         click(ui['replayDetailsBounds']); ui=sample('tools-start')
-        assert ui['toolsVisible'] and not ui['markerHistoryVisible'] and not ui['memoryWaterlineVisible']
-        ui=settled('tools-open'); key(0x74); key(0x75); sample('diagnostics-over-tools-start')
+        assert ui['toolsVisible'] and ui['markerHistoryVisible'] and ui['memoryWaterlineVisible']
+        ui=settled('tools-open'); sample('diagnostics-over-tools-start')
         ui=settled('diagnostics-above-tools'); diagnostics(ui); capture('diagnostics-above-tools')
         key(0x50); ui=settled('p-keeps-tools'); assert ui['toolsVisible']; capture('p-keeps-tools')
         assert latest['replay.prediction.controls']['enabled']

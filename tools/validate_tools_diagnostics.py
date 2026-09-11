@@ -100,11 +100,9 @@ def run(session: Path) -> None:
             within_window(ui)
             press("replayDetailsBounds")
             ui = sample(layout + "-menu")
-            assert ui["toolsVisible"] and not ui["markerHistoryVisible"] and not ui["memoryWaterlineVisible"]
+            assert ui["toolsVisible"] and ui["markerHistoryVisible"] and ui["memoryWaterlineVisible"]
             menu_viewport = ui["viewport"]
             tools = ui["toolsContentBounds"]
-            key(0x74, layout + "-f5-on")
-            ui = key(0x75, layout + "-f6-on")
             within_window(ui)
             assert ui["viewport"] == menu_viewport and ui["toolsContentBounds"] == tools
             capture(layout + "-diagnostics-above-tools")

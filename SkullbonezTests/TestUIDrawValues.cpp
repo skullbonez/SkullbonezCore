@@ -34,6 +34,8 @@ Related:
 #include "../SkullbonezSource/UI/UIFontMetrics.h"
 #include "../SkullbonezSource/UI/UICache.h"
 #include "../SkullbonezSource/UI/UILayout.h"
+
+
 #include "../SkullbonezSource/UI/UIWindowChrome.h"
 #include "../SkullbonezSource/Runtime/Render/UIProfilerOverlayPresenter.h"
 #include "../SkullbonezSource/UI/UIStyle.h"
@@ -85,8 +87,7 @@ struct UIWindowInteractionOwnerTestAccess
 
     static bool MemoryPreviewDiscarded( const UIWindowInteractionOwner& owner )
     {
-        return owner.m_activeSlider == 0 && owner.m_memoryOverlay.previewRetentionSeconds == -1 &&
-               owner.m_memoryOverlay.previewBudgetMiB == -1;
+        return owner.m_activeSlider == 0 && owner.m_memoryOverlay.previewRetentionSeconds == -1 && owner.m_memoryOverlay.previewBudgetMiB == -1;
     }
 
     static double ScrollbarVisibleUntil( const UIWindowInteractionOwner& owner )
@@ -150,8 +151,7 @@ int FindDrawTextIndex( const UIDrawList& list, const char* expected )
 
     for ( int index = 0; index < static_cast<int>( commands.size() ); ++index )
     {
-        if ( commands[static_cast<std::size_t>( index )].type == UIDrawList::CommandType::Text &&
-             std::strcmp( list.TextAt( commands[static_cast<std::size_t>( index )].textOffset ), expected ) == 0 )
+        if ( commands[static_cast<std::size_t>( index )].type == UIDrawList::CommandType::Text && std::strcmp( list.TextAt( commands[static_cast<std::size_t>( index )].textOffset ), expected ) == 0 )
         {
             return index;
         }
@@ -161,6 +161,22 @@ int FindDrawTextIndex( const UIDrawList& list, const char* expected )
 }
 } // namespace
 
+TEST_CASE( "Floating windows stay inside the available scene area as chrome changes" )
+{
+    using namespace SkullbonezCore::UI;
+    UIRect bounds { 10, 10, 340, 166 };
+    for ( const UIRect viewport : { UIRect { 260, 42, 900, 600 }, UIRect { 320, 42, 420, 180 }, UIRect { 128, 42, 64, 36 } } )
+    {
+        bounds = Layout::ClampFloatingRect( bounds, viewport, 260, 132 );
+        CHECK( bounds.x >= viewport.x );
+        CHECK( bounds.y >= viewport.y );
+        CHECK( bounds.x + bounds.w <= viewport.x + viewport.w );
+        CHECK( bounds.y + bounds.h <= viewport.y + viewport.h );
+    }
+    const UIRect edge = Layout::ClampFloatingRect( { 1000, 900, 300, 140 }, { 260, 42, 500, 400 }, 260, 132 );
+    CHECK( edge.x == 460 );
+    CHECK( edge.y == 302 );
+}
 TEST_CASE( "UI window close hides the panel instead of minimizing it" )
 {
     using SkullbonezCore::UI::UIWindowInteractionOwner;
@@ -184,8 +200,7 @@ TEST_CASE( "UI window close hides the panel instead of minimizing it" )
     const bool placementModeEnabled = false;
     const bool placeStaticObject = false;
     const bool autoTerrainAlign = false;
-    owner.UpdateInput( input, sceneNavigation, 1920, 1080, 1.0, editorModeEnabled, placementModeEnabled, placeStaticObject,
-                       autoTerrainAlign, 0xffffffffu );
+    owner.UpdateInput( input, sceneNavigation, 1920, 1080, 1.0, editorModeEnabled, placementModeEnabled, placeStaticObject, autoTerrainAlign, 0xffffffffu );
 
     CHECK_FALSE( owner.IsVisible() );
     CHECK( owner.IsMinimized() );
@@ -295,8 +310,7 @@ TEST_CASE( "UI narrow clients replace ordinary window minima with reachable boun
     const bool placementModeEnabled = false;
     const bool placeStaticObject = false;
     const bool autoTerrainAlign = false;
-    owner.UpdateInput( resizeInput, sceneNavigation, 320, 180, 1.0, editorModeEnabled, placementModeEnabled,
-                       placeStaticObject, autoTerrainAlign, 0xffffffffu );
+    owner.UpdateInput( resizeInput, sceneNavigation, 320, 180, 1.0, editorModeEnabled, placementModeEnabled, placeStaticObject, autoTerrainAlign, 0xffffffffu );
     CHECK( UIWindowInteractionOwnerTestAccess::WindowWidth( owner ) <= 300 );
     CHECK( UIWindowInteractionOwnerTestAccess::WindowHeight( owner ) <= 160 );
 
@@ -431,8 +445,7 @@ TEST_CASE( "Unified tooltip shows the unavailable reason through a bounded draw 
     bool foundReason = false;
     for ( const auto& command : list->Commands() )
     {
-        if ( command.type == UIDrawList::CommandType::Text &&
-             std::strcmp( list->TextAt( command.textOffset ), "No scene loaded" ) == 0 )
+        if ( command.type == UIDrawList::CommandType::Text && std::strcmp( list->TextAt( command.textOffset ), "No scene loaded" ) == 0 )
         {
             foundReason = true;
         }
@@ -513,8 +526,7 @@ TEST_CASE( "Unified presentation clamps extreme preferences without changing the
     for ( const int dimension : { 1, 32, 240, 640, 3840 } )
     {
         const auto layout = ComputePresentationRects( state, dimension, dimension );
-        for ( const auto& rect : { layout.header, layout.viewport, layout.left, layout.right, layout.transport,
-                                   layout.drawer, layout.markerHistory, layout.memoryWaterline, layout.statusContent } )
+        for ( const auto& rect : { layout.header, layout.viewport, layout.left, layout.right, layout.transport, layout.drawer, layout.markerHistory, layout.memoryWaterline, layout.statusContent } )
         {
             CHECK( rect.x >= 0.0f );
             CHECK( rect.y >= 0.0f );
@@ -811,7 +823,7 @@ TEST_CASE( "Bottom Tools tab drags upward with captured input and retains its si
     }
 }
 
-TEST_CASE( "Opening Tools closes floating diagnostics and their shortcuts reopen them" )
+TEST_CASE( "Opening and minimizing Tools preserves independent floating diagnostics" )
 {
     using namespace SkullbonezCore::UI;
     using namespace SkullbonezCore::UI::GameLayout;
@@ -849,10 +861,9 @@ TEST_CASE( "Opening Tools closes floating diagnostics and their shortcuts reopen
     ui->UpdatePresentationInput( input, 1600, 900, true );
     ui->SetMinimized( false );
     ui->UpdatePresentationInput( input, 1600, 900, true );
-    CHECK_FALSE( ui->DiagnosticPresentation().markerHistoryVisible );
-    CHECK_FALSE( ui->DiagnosticPresentation().memoryWaterlineVisible );
-    ui->TogglePerformanceHistogramEnabled();
-    ui->ToggleMemoryOverlayEnabled();
+    CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
+    CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
+    ui->SetVisible( true );
     ui->UpdatePresentationInput( input, 1600, 900, true );
     CHECK( ui->DiagnosticPresentation().markerHistoryVisible );
     CHECK( ui->DiagnosticPresentation().memoryWaterlineVisible );
@@ -1017,9 +1028,8 @@ TEST_CASE( "UI rolling prediction checkbox publishes forecast toggle intent" )
     const bool placementModeEnabled = false;
     const bool placeStaticObject = true;
     const bool autoTerrainAlign = false;
-    const InGameUIInputResult result = ui->UpdateInput( input, data->surface.screenW, data->surface.screenH, 1.0,
-                                                        editorModeEnabled, placementModeEnabled, placeStaticObject,
-                                                        autoTerrainAlign, 0xffffffffu );
+    const InGameUIInputResult
+        result = ui->UpdateInput( input, data->surface.screenW, data->surface.screenH, 1.0, editorModeEnabled, placementModeEnabled, placeStaticObject, autoTerrainAlign, 0xffffffffu );
 
     CHECK( result.commands.forecast.type == UIForecastCommandType::ToggleContinuous );
     CHECK( result.commands.ui.userInteracted );
@@ -1041,9 +1051,7 @@ TEST_CASE( "Scene recording combo publishes the newest-first catalog index" )
 
     const SkullbonezCore::UI::UIRect dropdown = state.recordingCombo.DropdownBounds( 3 );
     InGameUIInputResult result;
-    REQUIRE( HandleOpenRecordingComboClick( state, result, 3, static_cast<int>( dropdown.x + 5.0f ),
-                                            static_cast<int>( dropdown.y + dropdown.h - 5.0f ), contentX, rowBase,
-                                            contentW ) );
+    REQUIRE( HandleOpenRecordingComboClick( state, result, 3, static_cast<int>( dropdown.x + 5.0f ), static_cast<int>( dropdown.y + dropdown.h - 5.0f ), contentX, rowBase, contentW ) );
     CHECK( result.commands.scene.requestedInteractionRecordingIndex == 2 );
     CHECK( result.commands.ui.userInteracted );
     CHECK_FALSE( state.recordingCombo.IsOpen() );
@@ -1219,16 +1227,32 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
     data->renderTargets.previews[0] = { "Scene HDR", 1920, 1080, false, false, true };
 
     constexpr InGameUITab tabs[] = {
-        InGameUITab::Profiler, InGameUITab::Scene,     InGameUITab::Editor,  InGameUITab::Physics,
-        InGameUITab::Options,  InGameUITab::Render,    InGameUITab::Targets, InGameUITab::Keys,
-        InGameUITab::Sky,      InGameUITab::Cinematic, InGameUITab::Memory,
+        InGameUITab::Profiler,
+        InGameUITab::Scene,
+        InGameUITab::Editor,
+        InGameUITab::Physics,
+        InGameUITab::Options,
+        InGameUITab::Render,
+        InGameUITab::Targets,
+        InGameUITab::Keys,
+        InGameUITab::Sky,
+        InGameUITab::Cinematic,
+        InGameUITab::Memory,
     };
     // Blue-gray mockup palette with selected-value clips that reserve combo arrows.
     // Options adds themes; Profiler/Memory share table roles. Native evidence: ui-themes-final/live.
     constexpr uint64_t expected[] = {
-        2132093253974716310ull,  8999909969555097215ull,  16768119659391589123ull, 5029844691847507383ull,
-        10394370338941968616ull, 5478074610712965329ull,  6412084034923494129ull,  16903291462328685303ull,
-        17139239282114657199ull, 17717404666730030321ull, 2685391709597859732ull,
+        2132093253974716310ull,
+        8999909969555097215ull,
+        16768119659391589123ull,
+        5029844691847507383ull,
+        10394370338941968616ull,
+        5478074610712965329ull,
+        6412084034923494129ull,
+        16903291462328685303ull,
+        17139239282114657199ull,
+        17717404666730030321ull,
+        2685391709597859732ull,
     };
     static_assert( std::size( tabs ) == std::size( expected ) );
 
@@ -1323,14 +1347,12 @@ TEST_CASE( "GameUI gravity slider endpoints emit signed world acceleration from 
     const SkullbonezCore::UI::UIRect track = Widgets::SliderTrackBounds( state.worldGravitySlider.Bounds() );
 
     SkullbonezCore::UI::InGameUIInputResult minimumResult;
-    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x ),
-                                             minimumResult ) );
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x ), minimumResult ) );
     CHECK( minimumResult.commands.water.requestWorldGravity );
     CHECK( minimumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MIN ) );
 
     SkullbonezCore::UI::InGameUIInputResult maximumResult;
-    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x + track.w ),
-                                             maximumResult ) );
+    REQUIRE( PhysicsTab::UpdateActiveSlider( state, PhysicsTab::SLIDER_WORLD_GRAVITY, static_cast<int>( track.x + track.w ), maximumResult ) );
     CHECK( maximumResult.commands.water.requestWorldGravity );
     CHECK( maximumResult.commands.water.requestedWorldGravity == doctest::Approx( -Policy::UI_WORLD_GRAVITY_MAX ) );
 }
@@ -1371,17 +1393,13 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
     UIDrawContext measuredDraw( 1920, 1080, measuredList );
     UIMemoryOverlayState measuredState;
     SkullbonezCore::Core::Allocation::ResetRuntimeAllocationCounters();
-    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope renderScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render );
-        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, memoryFrame, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f,
-                                             0, 0, 0 );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope renderScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render );
+        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, memoryFrame, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0, 0 );
     }
     const uint64_t memoryDrawAllocationViolations = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
-    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
 
     CHECK( memoryDrawAllocationViolations == 0u );
     const int colliderRow = FindDrawTextIndex( measuredList, "ColliderStore.colliders" );
@@ -1581,12 +1599,10 @@ namespace
 {
 float ThemeLuminance( const SkullbonezCore::UI::Style::UIColor& color )
 {
-    const auto linear = []( float channel )
-    { return channel <= .04045f ? channel / 12.92f : std::pow( ( channel + .055f ) / 1.055f, 2.4f ); };
+    const auto linear = []( float channel ) { return channel <= .04045f ? channel / 12.92f : std::pow( ( channel + .055f ) / 1.055f, 2.4f ); };
     return .2126f * linear( color.r ) + .7152f * linear( color.g ) + .0722f * linear( color.b );
 }
-float ThemeContrast( const SkullbonezCore::UI::Style::UIColor& foreground,
-                     const SkullbonezCore::UI::Style::UIColor& background )
+float ThemeContrast( const SkullbonezCore::UI::Style::UIColor& foreground, const SkullbonezCore::UI::Style::UIColor& background )
 {
     const float a = ThemeLuminance( foreground ), b = ThemeLuminance( background );
     return ( (std::max)( a, b ) + .05f ) / ( (std::min)( a, b ) + .05f );
